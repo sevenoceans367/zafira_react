@@ -1,0 +1,134 @@
+.page {
+  padding: 8px 24px 32px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid var(--color-border, #e5e7eb);
+  margin-bottom: 16px;
+}
+
+.panelHeader {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: #f8fafc;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-highlight, 14px);
+  font-weight: 600;
+  color: #274670;
+}
+
+.panelBody {
+  padding: 16px;
+}
+
+.headerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px 16px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #1f2937;
+  background: #fff;
+}
+
+.field input:read-only {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.metric {
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #edf0f2;
+}
+
+.metricLabel {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.metricValue {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #274670;
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.portTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.portTable th,
+.portTable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf0f2;
+  text-align: left;
+}
+
+.portTable th {
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.hint,
+.error,
+.loading {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.error {
+  color: #b91c1c;
+}

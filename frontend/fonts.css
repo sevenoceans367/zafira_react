@@ -1,0 +1,39 @@
+/* Inter — body, tables, sidebar, labels */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Open Sauce One — headings, page titles, highlights (via Fontsource CDN) */
+@font-face {
+  font-family: 'Open Sauce One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/fontsource/fonts/open-sauce-one@5.2.5/latin-400-normal.woff2')
+    format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sauce One';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/fontsource/fonts/open-sauce-one@5.2.5/latin-500-normal.woff2')
+    format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sauce One';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/fontsource/fonts/open-sauce-one@5.2.5/latin-600-normal.woff2')
+    format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sauce One';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/fontsource/fonts/open-sauce-one@5.2.5/latin-700-normal.woff2')
+    format('woff2');
+}

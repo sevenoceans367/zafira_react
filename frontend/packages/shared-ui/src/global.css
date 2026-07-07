@@ -1,0 +1,160 @@
+@import './fonts.css';
+
+:root {
+  /* Typography families */
+  --font-family-heading: 'Open Sauce One', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+  --font-family-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  /* Legacy alias — body font */
+  --font-family: var(--font-family-body);
+
+  /* Open Sauce One sizes */
+  --font-size-display: 32px;
+  --font-size-title: 28px;
+  --font-size-subtitle: 18px;
+  --font-size-highlight: 14px;
+
+  /* Inter sizes */
+  --font-size-body: 12px;
+  --font-size-small: 11px;
+  --font-size-badge: 10px;
+
+  --color-primary: #274670;
+  --color-primary-hover: #367fa9;
+  --color-link: #f18154;
+  --color-link-hover: #f4652c;
+  --color-info: #00c0ef;
+  --color-success: #00a65a;
+  --color-danger: #dd4b39;
+  --color-text-dark: #000;
+  --color-text-light: #777;
+  --color-background: #ecf0f5;
+  --color-surface: #ffffff;
+  --color-accent: #f4652c;
+  --color-sidebar-bg: #274670;
+  --sidebar-link-color: rgba(0, 0, 0, 0.65);
+  --sidebar-link-color-active: #274670;
+  --sidebar-link-bg-hover: #e6e6e6;
+  --sidebar-link-radius: 8px;
+  --color-border: #e5e7eb;
+  --color-border-light: #f3f4f6;
+
+  --border-radius-sm: 6px;
+  --border-radius-md: 10px;
+  --border-radius-lg: 16px;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-default: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Bootstrap — load global.css after bootstrap.min.css so these win */
+  --bs-font-sans-serif: var(--font-family-body);
+  --bs-body-font-family: var(--font-family-body);
+  --bs-body-font-size: var(--font-size-body);
+}
+
+html {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-body);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-background);
+}
+
+#root {
+  font-family: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Heading scale — Open Sauce One */
+h1,
+.h1,
+.typography-display {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-display);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+h2,
+.h2,
+.typography-title {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+h3,
+.h3,
+.typography-subtitle {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-subtitle);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.typography-highlight {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-highlight);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.typography-body {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-body);
+}
+
+.typography-small {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-small);
+}
+
+.typography-badge {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-badge);
+}
+
+/* Brand destructive CTA — replaces legacy Bootstrap red buttons */
+.btn-danger,
+.global-btn-danger {
+  background-color: rgba(249, 147, 102, 0.6) !important;
+  border: 1px solid #f4652c !important;
+  border-color: #f4652c !important;
+  color: #f4652c !important;
+  border-radius: 10px;
+}
+
+.btn-danger:hover:not(:disabled),
+.btn-danger:focus:not(:disabled),
+.global-btn-danger:hover:not(:disabled),
+.global-btn-danger:focus:not(:disabled) {
+  background-color: #ff986a !important;
+  border-color: #f18154 !important;
+  color: #fff !important;
+}
+
+.btn-link.text-danger,
+button.btn-link .text-danger {
+  color: #f4652c !important;
+}
+
+.btn-link.text-danger:hover,
+button.btn-link:hover .text-danger {
+  color: #f18154 !important;
+}

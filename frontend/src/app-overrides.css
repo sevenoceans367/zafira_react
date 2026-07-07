@@ -1,0 +1,5 @@
+/* App-level overrides on top of @bainbridge/shared-ui/global.css */
+
+.internal-user-shell .sectionTitle {
+  display: none;
+}

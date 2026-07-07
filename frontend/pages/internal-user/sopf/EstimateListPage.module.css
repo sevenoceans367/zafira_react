@@ -1,0 +1,169 @@
+.filterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.hint {
+  margin: 0;
+  padding: 1.5rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: var(--font-size-body, 12px);
+  background: #f8fafc;
+  border: 1px dashed var(--color-border, #e5e7eb);
+  border-radius: 0;
+}
+
+.subLabel {
+  display: block;
+  font-size: 10px;
+  font-style: italic;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.truncatedText {
+  cursor: help;
+}
+
+.benchmarkRow {
+  background: #fff8eb !important;
+}
+
+.benchmarkRow:hover {
+  background: #fff3d6 !important;
+}
+
+.selectCell {
+  text-align: center;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.replicateCell {
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.replicateActions {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 116px;
+}
+
+.replicateActionBtn {
+  width: 100%;
+  min-height: 30px;
+  box-sizing: border-box;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 2rem !important;
+  color: #6b7280;
+}
+
+.actions {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.rowActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.rowActionBtn {
+  min-width: 32px;
+  min-height: 30px;
+  padding: 0 8px;
+  justify-content: center;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  width: min(95vw, 1200px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: var(--border-radius-md, 10px);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.modalHeader,
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.modalFooter {
+  justify-content: flex-end;
+  border-bottom: 0;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+.modalHeader h4 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-highlight, 14px);
+  font-weight: 600;
+}
+
+.modalBody {
+  padding: 1rem 1.25rem;
+  overflow: auto;
+}
+
+.modalLoading {
+  margin: 2rem 0;
+  text-align: center;
+  font-size: 1.1rem;
+  color: #4b5563;
+}

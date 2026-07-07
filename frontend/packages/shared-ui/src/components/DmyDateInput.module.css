@@ -1,0 +1,7 @@
+.input {
+  cursor: pointer;
+}
+
+.input:disabled {
+  cursor: not-allowed;
+}

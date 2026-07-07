@@ -1,0 +1,21 @@
+{
+  "name": "@bainbridge/shared-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./global.css": "./src/global.css"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "react-router-dom": "^6.0.0 || ^7.0.0"
+  },
+  "dependencies": {
+    "@bainbridge/shared-auth": "*",
+    "@bainbridge/shared-routing": "*",
+    "flatpickr": "^4.6.13"
+  }
+}

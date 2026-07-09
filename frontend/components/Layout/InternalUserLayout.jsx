@@ -4,6 +4,7 @@ import { AppShell } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { logout } from '@bainbridge/shared-auth';
 import InternalUserSidebar from '../InternalUserSidebar.jsx';
+import ModuleSwitcherRail from '../ModuleSwitcherRail.jsx';
 import InternalUserPageHeader from '../../pages/internal-user/InternalUserPageHeader.jsx';
 import { PageHeaderProvider } from '../../pages/internal-user/PageHeaderContext.jsx';
 import styles from './InternalUserLayout.module.css';
@@ -20,7 +21,12 @@ export default function InternalUserLayout() {
     <PageHeaderProvider>
       <AppShell
         companyName="Internal User"
-        sidebar={({ isOpen }) => <InternalUserSidebar isOpen={isOpen} />}
+        sidebar={({ isOpen }) => (
+          <div className={styles.navCluster}>
+            <ModuleSwitcherRail />
+            <InternalUserSidebar isOpen={isOpen} />
+          </div>
+        )}
         profileHref={appPath('/profile')}
         onSignOut={handleSignOut}
       >

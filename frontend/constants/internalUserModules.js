@@ -41,3 +41,10 @@ export function getVisibleModules(user) {
     module.visibleFor ? module.visibleFor({ user }) : true,
   );
 }
+
+export function getActiveModuleId(pathname) {
+  if (pathname.startsWith('/internal-user/sopf')) return 'sopf';
+  if (pathname.startsWith('/internal-user/vc')) return 'vc';
+  if (pathname.startsWith('/internal-user/tc')) return 'tc';
+  return null;
+}

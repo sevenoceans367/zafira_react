@@ -3,3 +3,10 @@
   flex-direction: column;
   min-height: 100%;
 }
+
+.navCluster {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  flex-shrink: 0;
+}

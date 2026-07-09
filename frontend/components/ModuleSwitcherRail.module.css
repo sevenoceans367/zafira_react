@@ -1,0 +1,137 @@
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100vh;
+  flex-shrink: 0;
+  width: 60px;
+  min-width: 60px;
+  background: linear-gradient(180deg, #1f3f5c 0%, #274670 48%, #1b3350 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 4px 0 16px rgba(15, 35, 58, 0.18);
+  transition: width 0.25s ease, min-width 0.25s ease;
+  z-index: 1001;
+  padding: 12px 8px;
+  box-sizing: border-box;
+}
+
+.rail:hover,
+.rail:focus-within {
+  width: 132px;
+  min-width: 132px;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 6px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    padding 0.2s ease,
+    gap 0.2s ease;
+  box-sizing: border-box;
+}
+
+.rail:hover .item,
+.rail:focus-within .item {
+  justify-content: flex-start;
+  padding: 0 10px;
+  gap: 8px;
+}
+
+.item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.itemActive,
+.item:focus-visible {
+  background: rgba(148, 172, 202, 0.5);
+  border-color: #5d799d;
+  color: #fff;
+  box-shadow: none;
+}
+
+.itemActive:hover,
+.item:focus-visible:hover {
+  background: rgba(148, 172, 202, 0.5);
+  border-color: #5d799d;
+}
+
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  font-size: 1.15rem;
+}
+
+.label {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 0;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+  transition: width 0.25s ease, opacity 0.2s ease;
+}
+
+.rail:hover .label,
+.rail:focus-within .label {
+  width: 72px;
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .rail:hover,
+  .rail:focus-within {
+    width: 60px;
+    min-width: 60px;
+  }
+
+  .rail:hover .label,
+  .rail:focus-within .label {
+    width: 0;
+    opacity: 0;
+  }
+
+  .rail:hover .item,
+  .rail:focus-within .item {
+    justify-content: center;
+    padding: 0 6px;
+    gap: 0;
+  }
+}

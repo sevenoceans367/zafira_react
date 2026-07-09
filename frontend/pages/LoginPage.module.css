@@ -1,0 +1,84 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(39, 70, 112, 0.12), transparent 42%),
+    var(--color-background);
+}
+
+.panel {
+  width: min(100%, 420px);
+  padding: 32px 28px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.brandMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: var(--font-size-title, 28px);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-subtitle, 18px);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  color: var(--color-text-light);
+  font-size: var(--font-size-body, 12px);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field label {
+  margin-bottom: 6px;
+  color: var(--color-text-dark);
+  font-weight: 600;
+}
+
+.field input {
+  border-color: var(--color-border);
+  border-radius: var(--border-radius-sm);
+}
+
+.field input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.2rem rgba(39, 70, 112, 0.15);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-body, 12px);
+}
+
+.submit {
+  width: 100%;
+  margin-top: 4px;
+}

@@ -1,0 +1,211 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  width: min(98vw, 1500px);
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: var(--border-radius-md, 10px);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.header h4 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-highlight, 14px);
+  font-weight: 600;
+}
+
+.body {
+  padding: 1rem 1.25rem;
+  overflow: auto;
+}
+
+.loading {
+  margin: 2rem 0;
+  text-align: center;
+  font-size: 1.1rem;
+  color: #4b5563;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.printArea {
+  overflow: auto;
+}
+
+.table,
+.updateTable {
+  min-width: 900px;
+  margin-bottom: 0;
+}
+
+.updateTable {
+  margin-top: 0;
+}
+
+.titleRow {
+  text-align: center;
+  background: #fff;
+  border: none;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.metricCol,
+.metricCell {
+  width: 15%;
+  min-width: 160px;
+  font-weight: 600;
+  vertical-align: middle;
+  background: #f8fafc;
+}
+
+.headerCell,
+.inputCell,
+.resultCell,
+.updateCell {
+  text-align: center;
+  vertical-align: middle;
+  min-width: 150px;
+}
+
+.headerCell,
+.resultCell {
+  background: #3c8dbc;
+  color: #fff;
+  font-weight: 600;
+}
+
+.inputCell {
+  background: #3c8dbc;
+  color: #fff;
+}
+
+.sectionRow td {
+  background: #eef2f7;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-highlight, 14px);
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.inputStack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.inputStack:last-child {
+  margin-bottom: 0;
+}
+
+.inputStack label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.subLabel {
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.input {
+  width: 100%;
+  min-width: 90px;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f2937;
+  font-size: 12px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.divider {
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.45);
+  margin: 6px 0;
+}
+
+.resultValue {
+  color: #fff;
+  font-weight: 600;
+}
+
+.updateCell {
+  padding: 0.75rem;
+  text-align: center;
+}
+
+@media print {
+  .backdrop {
+    position: static;
+    display: block;
+    padding: 0;
+    background: #fff;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .header,
+  .toolbar,
+  .updateTable {
+    display: none !important;
+  }
+
+  .body {
+    padding: 0;
+    overflow: visible;
+  }
+
+  .input {
+    border: none;
+    background: transparent;
+    color: #fff;
+    padding: 0;
+  }
+}

@@ -1,16 +1,26 @@
 import React from 'react';
 import { DmyDateInput } from '@bainbridge/shared-ui';
 import { FIXTURE_TYPE_OPTIONS, getFixtureTypeLabel } from './estimateDetail.constants.js';
+import VesselSearchSelect from './VesselSearchSelect.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
 export default function EstimateDetailSections({
   detail,
   form,
   readOnly = false,
+  isAdd = false,
   onFieldChange,
+  onVesselSelect,
 }) {
   const updateField = (key, value) => {
     onFieldChange?.(key, value);
+  };
+
+  const handleVoyageNoChange = (value) => {
+    updateField('voyageNo', value);
+    if (isAdd) {
+      updateField('voyageName', value);
+    }
   };
 
   return (
@@ -41,7 +51,15 @@ export default function EstimateDetailSections({
 
             <div className={styles.field}>
               <label htmlFor="vesselName">Vessel</label>
-              <input id="vesselName" value={form.vesselName} readOnly />
+              {isAdd ? (
+                <VesselSearchSelect
+                  value={form.vesselImoId}
+                  label={form.vesselName}
+                  onSelect={onVesselSelect}
+                />
+              ) : (
+                <input id="vesselName" value={form.vesselName} readOnly />
+              )}
             </div>
 
             <div className={styles.field}>
@@ -74,7 +92,12 @@ export default function EstimateDetailSections({
 
             <div className={styles.field}>
               <label htmlFor="voyageNo">Voyage No.</label>
-              <input id="voyageNo" value={form.voyageNo} readOnly />
+              <input
+                id="voyageNo"
+                value={form.voyageNo}
+                readOnly={!isAdd}
+                onChange={(event) => handleVoyageNoChange(event.target.value)}
+              />
             </div>
 
             <div className={styles.field}>

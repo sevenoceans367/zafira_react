@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
+  ActionButtonStack,
   Button,
   LoadingOverlay,
+  SecondaryActionButton,
+  SendToOpsButton,
   SummaryCard,
   SummaryCardGrid,
   useConfirm,
@@ -12,11 +15,14 @@ import {
   fetchBusinessTypes,
   fetchDecisionChart,
   fetchEstimateList,
+  fetchSensitivityAnalysis,
   replicateEstimate,
+  sendEstimateToOps,
   submitDecisionChart,
 } from '../../../services/estimateList.js';
 import EstimateListHeaderActions from './EstimateListHeaderActions.jsx';
 import EstimateListTableToolbar from './EstimateListTableToolbar.jsx';
+import SensitivityAnalysisModal from './SensitivityAnalysisModal.jsx';
 import {
   buildEstimateListEmailUrl,
   buildEstimateListPdfUrl,
@@ -41,9 +47,14 @@ function formatOpenTrade(value) {
 
 const STAT_CARDS = [
   { key: 'openTrade', label: 'Open Trade', variant: 'gradient', formatValue: formatOpenTrade },
-  { key: 'draft', label: 'Available', variant: 'plain' },
-  { key: 'benchmark', label: 'Benchmark', variant: 'gradient' },
-  { key: 'sentToChart', label: 'In Decision Chart', variant: 'plain' },
+  { key: 'vesselsInSubs', label: 'Vessels in Subs', variant: 'plain' },
+  {
+    key: 'tradesInOperations',
+    label: 'Trades in Operations',
+    variant: 'gradient',
+    formatValue: formatOpenTrade,
+  },
+  { key: 'vesselsOnWater', label: 'Vessels on Water', variant: 'plain' },
 ];
 
 /** Gas=1, Tanker=2, Dry Cargo=3 — legacy PHP default is Tanker */
@@ -65,13 +76,21 @@ export default function EstimateListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
   const [rows, setRows] = useState([]);
-  const [stats, setStats] = useState({ openTrade: 0, total: 0, draft: 0, benchmark: 0, sentToChart: 0 });
+  const [stats, setStats] = useState({
+    openTrade: 0,
+    vesselsInSubs: 0,
+    tradesInOperations: 0,
+    vesselsOnWater: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [fixtures, setFixtures] = useState([]);
   const [chartSelection, setChartSelection] = useState({ id: '', remarks: '' });
+  const [saModalOpen, setSaModalOpen] = useState(false);
+  const [saModalLoading, setSaModalLoading] = useState(false);
+  const [saData, setSaData] = useState({ columns: [], sections: [] });
   const [search, setSearch] = useState('');
 
   const selBTypeInUrl = searchParams.get('selBType');
@@ -83,22 +102,34 @@ export default function EstimateListPage() {
   );
   const flashMsg = searchParams.get('msg');
   const flash = flashMsg != null ? MSG_COPY[Number(flashMsg)] : null;
+  const periodFrom = searchParams.get('periodFrom') ?? '';
+  const periodTo = searchParams.get('periodTo') ?? '';
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [types, list] = await Promise.all([
         fetchBusinessTypes(businessType),
-        fetchEstimateList({ estimateType, businessType }),
+        fetchEstimateList({
+          estimateType,
+          businessType,
+          periodFrom,
+          periodTo,
+        }),
       ]);
       setBusinessTypes(types);
       setRows(list.rows);
-      setStats(list.stats ?? { openTrade: 0, total: 0, draft: 0, benchmark: 0, sentToChart: 0 });
+      setStats(list.stats ?? {
+        openTrade: 0,
+        vesselsInSubs: 0,
+        tradesInOperations: 0,
+        vesselsOnWater: 0,
+      });
       setSelectedIds([]);
     } finally {
       setLoading(false);
     }
-  }, [estimateType, businessType]);
+  }, [estimateType, businessType, periodFrom, periodTo]);
 
   const openDecisionChart = useCallback(async (ids) => {
     if (!ids.length) {
@@ -154,11 +185,25 @@ export default function EstimateListPage() {
     setSearchParams(next, { replace: true });
   };
 
-  const handleSendToOps = (id) => {
-    openDecisionChart([id]);
+  const handleSendToOps = async (id, sheetName) => {
+    const ok = await confirm({
+      title: 'Send to Operations',
+      message: `Are you sure you want to send "${sheetName || 'this estimate'}" to Operations?`,
+      confirmLabel: 'Send to Ops',
+      cancelLabel: 'Cancel',
+      confirmVariant: 'accent',
+    });
+    if (!ok) return;
+
+    try {
+      await sendEstimateToOps(id);
+      updateParams({ msg: 3 });
+      await loadData();
+    } catch (error) {
+      window.alert(error?.message || 'Unable to send this estimate to Operations.');
+    }
   };
 
-  const selectableRows = rows.filter((row) => row.selectable);
   const filteredRows = rows.filter((row) => {
     const query = search.trim().toLowerCase();
     if (!query) return true;
@@ -166,17 +211,17 @@ export default function EstimateListPage() {
     return [
       row.vesselDisplay,
       row.sheetName,
-      row.businessType,
       row.charteringPic,
       row.lpDp,
     ].some((value) => String(value ?? '').toLowerCase().includes(query));
   });
   const allSelected =
-    selectableRows.length > 0 && selectedIds.length === selectableRows.length;
+    filteredRows.length > 0
+    && filteredRows.every((row) => selectedIds.includes(row.id));
 
   const toggleAll = () => {
     setSelectedIds(
-      allSelected ? [] : selectableRows.map((row) => row.id),
+      allSelected ? [] : filteredRows.map((row) => row.id),
     );
   };
 
@@ -242,8 +287,24 @@ export default function EstimateListPage() {
     window.open(buildEstimateListEmailUrl({ estimateType, businessType }), '_blank');
   };
 
-  const handleSensitivityAnalysis = () => {
-    window.alert('Sensitivity Analysis — connect this to your analysis screen when ready.');
+  const handleSensitivityAnalysis = async () => {
+    if (!selectedIds.length) {
+      window.alert('Please select at least one checkbox');
+      return;
+    }
+
+    setSaModalOpen(true);
+    setSaModalLoading(true);
+    setSaData({ columns: [], sections: [] });
+    try {
+      const data = await fetchSensitivityAnalysis(selectedIds, businessType);
+      setSaData(data);
+    } catch (error) {
+      window.alert(error.message || 'Failed to load sensitivity analysis.');
+      setSaModalOpen(false);
+    } finally {
+      setSaModalLoading(false);
+    }
   };
 
   return (
@@ -254,6 +315,9 @@ export default function EstimateListPage() {
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => updateParams({ selBType: value })}
+        periodFrom={periodFrom}
+        periodTo={periodTo}
+        onPeriodChange={({ from, to }) => updateParams({ periodFrom: from || null, periodTo: to || null })}
       />
 
       <div className="zafira-page">
@@ -287,8 +351,9 @@ export default function EstimateListPage() {
         <div className="zafira-card">
           <div className="zafira-card-body">
             <EstimateListTableToolbar
-                  addHref={`/internal-user/sopf/addestimate?estimatetype=${estimateType}`}
+                  addHref={`/internal-user/sopf/addestimate?estimatetype=${estimateType}&selBType=${businessType}`}
                   onSensitivityAnalysis={handleSensitivityAnalysis}
+                  sensitivityDisabled={selectedIds.length === 0}
                   onDownloadCsv={handleDownloadCsv}
                   onDownloadPdf={handleDownloadPdf}
                   onEmailAttachment={handleEmailAttachment}
@@ -297,46 +362,51 @@ export default function EstimateListPage() {
                 <table className="zafira-data-table" id="fce_list">
                   <thead>
                     <tr>
-                      <th>#</th>
+                      <th className={styles.itemColumn}>Item</th>
                       <th>Vessel Name/Type</th>
-                      <th>Business Type</th>
                       <th>CP Date</th>
                       <th>DWT</th>
                       <th>LP/DP</th>
                       <th>Duration</th>
-                      <th>Cargo Quantity</th>
-                      <th>TCE</th>
-                      <th>P/L</th>
-                      <th>
-                        Compare
+                      <th className={styles.cargoQtyColumn}>
+                        Cargo
                         <br />
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          onChange={toggleAll}
-                          aria-label="Select all"
-                        />
+                        Quantity
                       </th>
-                      <th>Replicate</th>
+                      <th className={styles.tceColumn}>TCE</th>
+                      <th>P/L</th>
+                      <th className={styles.actionColumn}>Replicate</th>
+                      <th className={styles.compareColumn}>
+                        <div className={styles.compareHeader}>
+                          <span>Compare</span>
+                          <input
+                            type="checkbox"
+                            className={styles.compareCheckbox}
+                            checked={allSelected}
+                            onChange={toggleAll}
+                            aria-label="Select all"
+                          />
+                        </div>
+                      </th>
                       <th>Details</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan={13} className={styles.emptyState}>
+                        <td colSpan={12} className={styles.emptyState}>
                           Loading estimates...
                         </td>
                       </tr>
                     ) : rows.length === 0 ? (
                       <tr>
-                        <td colSpan={13} className={styles.emptyState}>
+                        <td colSpan={12} className={styles.emptyState}>
                           No estimates found for the selected business type.
                         </td>
                       </tr>
                     ) : filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={13} className={styles.emptyState}>
+                        <td colSpan={12} className={styles.emptyState}>
                           No estimates match your search.
                         </td>
                       </tr>
@@ -348,14 +418,28 @@ export default function EstimateListPage() {
                         >
                           <td>{row.rowNum}.</td>
                           <td>{row.vesselDisplay}</td>
-                          <td>{row.businessType}</td>
                           <td>{row.cpDate}</td>
                           <td>{row.dwt}</td>
                           <td><TruncatedText text={row.lpDp} /></td>
                           <td>{row.duration}</td>
-                          <td>{row.cargoQuantity}</td>
-                          <td>{row.tce}</td>
+                          <td className={styles.cargoQtyColumn}>{row.cargoQuantity}</td>
+                          <td className={styles.tceColumn}>{row.tce}</td>
                           <td>{row.profitLoss}</td>
+                          <td className={styles.actionCell}>
+                            <ActionButtonStack>
+                              <SecondaryActionButton
+                                onClick={() => handleReplicate(row.id)}
+                                ariaLabel={`Replicate ${row.sheetName}`}
+                              />
+                              {row.selectable ? (
+                                <SendToOpsButton
+                                  type="button"
+                                  onClick={() => handleSendToOps(row.id, row.sheetName)}
+                                  ariaLabel={`Send to Ops ${row.sheetName}`}
+                                />
+                              ) : null}
+                            </ActionButtonStack>
+                          </td>
                           <td className={styles.selectCell}>
                             <input
                               type="checkbox"
@@ -364,44 +448,37 @@ export default function EstimateListPage() {
                               aria-label={`Select ${row.sheetName}`}
                             />
                           </td>
-                          <td className={styles.replicateCell}>
-                            <div className={styles.replicateActions}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                label="Replicate"
-                                className={styles.replicateActionBtn}
-                                onClick={() => handleReplicate(row.id)}
-                                ariaLabel={`Replicate ${row.sheetName}`}
-                              />
-                              <Button
-                                variant="outlineAccent"
-                                size="sm"
-                                label="Send to Ops"
-                                className={styles.replicateActionBtn}
-                                onClick={() => handleSendToOps(row.id)}
-                                ariaLabel={`Send to Ops ${row.sheetName}`}
-                              />
-                            </div>
-                          </td>
                           <td className={styles.actions}>
                             <div className={styles.rowActions}>
-                              <Button
-                                variant="outlineAccent"
-                                size="sm"
-                                icon="pencil"
-                                className={styles.rowActionBtn}
-                                href={`/internal-user/sopf/updateestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}`}
-                                ariaLabel={`Edit ${row.sheetName}`}
-                              />
-                              <Button
-                                variant="outlineAccent"
-                                size="sm"
-                                icon="trash"
-                                className={styles.rowActionBtn}
-                                onClick={() => handleDelete(row.id)}
-                                ariaLabel={`Delete ${row.sheetName}`}
-                              />
+                              {row.selectable ? (
+                                <>
+                                  <Button
+                                    variant="outlineAccent"
+                                    size="sm"
+                                    icon="pencil"
+                                    className={styles.rowActionBtn}
+                                    href={`/internal-user/sopf/updateestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}`}
+                                    ariaLabel={`Edit ${row.sheetName}`}
+                                  />
+                                  <Button
+                                    variant="outlineAccent"
+                                    size="sm"
+                                    icon="trash"
+                                    className={styles.rowActionBtn}
+                                    onClick={() => handleDelete(row.id)}
+                                    ariaLabel={`Delete ${row.sheetName}`}
+                                  />
+                                </>
+                              ) : (
+                                <Button
+                                  variant="outlineAccent"
+                                  size="sm"
+                                  icon="file-earmark"
+                                  className={styles.rowActionBtn}
+                                  href={`/internal-user/sopf/viewestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}&rttype=1`}
+                                  ariaLabel={`View ${row.sheetName}`}
+                                />
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -521,7 +598,15 @@ export default function EstimateListPage() {
         </div>
       ) : null}
 
-      <LoadingOverlay show={loading && !modalOpen} label="Loading estimates..." />
+      <SensitivityAnalysisModal
+        open={saModalOpen}
+        loading={saModalLoading}
+        data={saData}
+        businessType={businessType}
+        onClose={() => setSaModalOpen(false)}
+      />
+
+      <LoadingOverlay show={loading && !modalOpen && !saModalOpen} label="Loading estimates..." />
     </>
   );
 }

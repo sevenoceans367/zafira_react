@@ -55,32 +55,69 @@
   background: #fff3d6 !important;
 }
 
+.itemColumn {
+  text-align: center;
+  width: 1%;
+  white-space: nowrap;
+}
+
+th.itemColumn {
+  color: rgba(60, 60, 67, 0.8) !important;
+}
+
 .selectCell {
   text-align: center;
   white-space: nowrap;
   font-size: 11px;
+  width: 1%;
 }
 
-.replicateCell {
+.compareColumn {
+  text-align: center;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.compareHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.compareCheckbox {
+  display: block;
+  margin: 0 auto;
+}
+
+.actionColumn {
+  text-align: center;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.cargoQtyColumn,
+.tceColumn {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.cargoQtyColumn {
+  max-width: 72px;
+}
+
+.tceColumn {
+  max-width: 64px;
+}
+
+.actionCell {
   text-align: center;
   white-space: nowrap;
   vertical-align: middle;
-}
-
-.replicateActions {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  min-width: 116px;
-}
-
-.replicateActionBtn {
-  width: 100%;
-  min-height: 30px;
-  box-sizing: border-box;
-  justify-content: center;
-  border-radius: 10px;
+  width: 1%;
 }
 
 .emptyState {

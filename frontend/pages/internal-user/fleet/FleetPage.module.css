@@ -1,0 +1,170 @@
+.page {
+  position: relative;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.flashSuccess,
+.flashError,
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  font-size: var(--font-size-body, 12px);
+}
+
+.flashSuccess {
+  border: 1px solid #badbcc;
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.flashError,
+.error {
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-body, 12px);
+}
+
+.table th,
+.table td {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #d9dee8);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table thead th {
+  background: #f4f6f9;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.emptyCell {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-light, #6b7280);
+}
+
+.actionCell {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.actionIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-primary, #175c84);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.actionIcon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.actionDivider {
+  margin: 0 6px;
+  color: #9ca3af;
+}
+
+.sectionRow td {
+  background: #eef2f7;
+  font-weight: 700;
+  text-align: center;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  position: relative;
+  width: min(95vw, 1200px);
+  max-height: 90vh;
+  overflow: hidden;
+  border-radius: var(--border-radius-md, 8px);
+  background: #fff;
+  box-shadow: var(--shadow-default, 0 8px 24px rgba(0, 0, 0, 0.15));
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--color-border, #d9dee8);
+}
+
+.modalHeader h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primary, #175c84);
+}
+
+.modalClose {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modalBody {
+  position: relative;
+  max-height: calc(90vh - 58px);
+  overflow: auto;
+  padding: 16px 18px 20px;
+}
+
+@media (max-width: 960px) {
+  .toolbarActions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+}

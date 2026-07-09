@@ -22,6 +22,16 @@
   cursor: not-allowed;
 }
 
+.button:focus,
+.button:active {
+  outline: none;
+}
+
+.button:focus-visible {
+  outline: 2px solid #376eb8;
+  outline-offset: 2px;
+}
+
 .md {
   min-height: 36px;
   padding: 0 16px;

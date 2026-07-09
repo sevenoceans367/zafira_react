@@ -23,6 +23,27 @@
   cursor: not-allowed;
 }
 
+.sensitivity:disabled {
+  opacity: 1;
+  background: #d9d9d9;
+  border-color: #b3b3b3;
+  color: #b3b3b3;
+}
+
+.sensitivity:disabled .icon {
+  color: #b3b3b3;
+}
+
+.button:focus,
+.button:active {
+  outline: none;
+}
+
+.button:focus-visible {
+  outline: 2px solid #376eb8;
+  outline-offset: 2px;
+}
+
 .md {
   min-height: 36px;
   padding: 0 16px;

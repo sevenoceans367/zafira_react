@@ -1,13 +1,26 @@
 import { matchPath } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
+import { SOPF_ENTRY_ROUTE } from './sopfSidebarMenu.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
+const SOPF = { label: 'SOPF', href: appPath(SOPF_ENTRY_ROUTE) };
+const SPOT_BUSINESS = 'Spot Business';
 
 export const SOPF_PAGE_HEADERS = {
   estimate_list: {
-    title: 'VC Out Estimates',
-    currentPage: 'VC Out Estimates : Estimate',
-    breadcrumbs: [HOME, { label: 'VC Out Estimates : Estimate' }],
+    title: SPOT_BUSINESS,
+    currentPage: 'Spot Business : Estimate',
+    breadcrumbs: [HOME, SOPF, { label: SPOT_BUSINESS }],
+  },
+  vessel_position: {
+    title: 'Vessel Positions',
+    currentPage: 'Vessel Positions',
+    breadcrumbs: [HOME, SOPF, { label: 'Vessel Positions' }],
+  },
+  support_ticket: {
+    title: 'Help Desk',
+    currentPage: 'Help Desk',
+    breadcrumbs: [HOME, SOPF, { label: 'Help Desk' }],
   },
 };
 
@@ -16,13 +29,27 @@ const SOPF_ROUTE_PATTERNS = Object.keys(SOPF_PAGE_HEADERS).map(
 );
 
 export function resolveSopfHeader(pathname) {
+  if (pathname.includes('/addestimate')) {
+    return {
+      title: SPOT_BUSINESS,
+      currentPage: 'Add Estimate',
+      breadcrumbs: [
+        HOME,
+        SOPF,
+        { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
+        { label: 'Add Estimate' },
+      ],
+    };
+  }
+
   if (pathname.includes('/viewestimate')) {
     return {
-      title: 'VC Out Estimates',
+      title: SPOT_BUSINESS,
       currentPage: 'View Estimate',
       breadcrumbs: [
         HOME,
-        { label: 'VC Out Estimates : Estimate', href: appPath('/internal-user/sopf/estimate_list') },
+        SOPF,
+        { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
         { label: 'View Estimate' },
       ],
     };
@@ -30,11 +57,12 @@ export function resolveSopfHeader(pathname) {
 
   if (pathname.includes('/updateestimate')) {
     return {
-      title: 'VC Out Estimates',
+      title: SPOT_BUSINESS,
       currentPage: 'Update Estimate',
       breadcrumbs: [
         HOME,
-        { label: 'VC Out Estimates : Estimate', href: appPath('/internal-user/sopf/estimate_list') },
+        SOPF,
+        { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
         { label: 'Update Estimate' },
       ],
     };
@@ -50,6 +78,6 @@ export function resolveSopfHeader(pathname) {
   return {
     title: 'SOPF',
     currentPage: 'SOPF',
-    breadcrumbs: [HOME, { label: 'SOPF' }],
+    breadcrumbs: [HOME, SOPF],
   };
 }

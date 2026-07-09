@@ -38,6 +38,19 @@
   border-color: #9ca3af;
 }
 
+.menuTrigger:focus,
+.menuTrigger:active,
+.menuItem:focus,
+.menuItem:active {
+  outline: none;
+}
+
+.menuTrigger:focus-visible,
+.menuItem:focus-visible {
+  outline: 2px solid #376eb8;
+  outline-offset: 2px;
+}
+
 .menuTrigger i {
   font-size: 18px;
   line-height: 1;

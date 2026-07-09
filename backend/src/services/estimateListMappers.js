@@ -1,13 +1,13 @@
 export const BUSINESS_TYPES = [
+  { id: '3', name: 'Dry' },
+  { id: '2', name: 'Tankers' },
   { id: '1', name: 'Gas' },
-  { id: '2', name: 'Tanker' },
-  { id: '3', name: 'Dry Cargo' },
 ];
 
 export const ESTIMATE_TYPE_LABELS = {
   1: 'Gas',
-  2: 'Tanker',
-  3: 'Dry Cargo',
+  2: 'Tankers',
+  3: 'Dry',
 };
 
 export function formatDateDMY(value) {
@@ -25,6 +25,35 @@ export function formatDateDMY(value) {
   const [y, m, d] = str.split(/[-/]/);
   if (y && m && d) return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
   return str;
+}
+
+/** Parse dd-mm-yyyy or yyyy-mm-dd into yyyy-mm-dd for SQL comparisons. */
+export function parsePeriodDate(value) {
+  if (!value) return null;
+  const str = String(value).trim();
+  const dmy = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmy) {
+    const [, day, month, year] = dmy;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  const ymd = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (ymd) {
+    const [, year, month, day] = ymd;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  return null;
+}
+
+export function isDateWithinPeriod(value, periodFrom, periodTo) {
+  const from = parsePeriodDate(periodFrom);
+  const to = parsePeriodDate(periodTo);
+  if (!from && !to) return true;
+
+  const date = parsePeriodDate(formatDateDMY(value));
+  if (!date) return false;
+  if (from && date < from) return false;
+  if (to && date > to) return false;
+  return true;
 }
 
 export function getCargoQuantity(row) {
@@ -65,6 +94,26 @@ export function resolvePorts(fcaId, portLegs = {}) {
   };
 }
 
+export function getTce(row) {
+  const dailyEarning = Number(row.dailyEarning);
+  if (Number.isFinite(dailyEarning) && dailyEarning !== 0) {
+    return dailyEarning;
+  }
+
+  const netDailyEarning = Number(row.netDailyEarning);
+  if (Number.isFinite(netDailyEarning) && netDailyEarning !== 0) {
+    return netDailyEarning;
+  }
+
+  const profitLoss = Number(row.profitLoss);
+  const totalDays = Number(row.totalDays);
+  if (totalDays > 0 && Number.isFinite(profitLoss)) {
+    return Number((profitLoss / totalDays).toFixed(2));
+  }
+
+  return '';
+}
+
 export function mapListRow(row, index, portLegs = {}) {
   const ports = resolvePorts(row.fcaId, portLegs);
   const sentToDecisionChart = Boolean(row.comid);
@@ -85,12 +134,13 @@ export function mapListRow(row, index, portLegs = {}) {
     lpDp: ports.lpDp,
     duration: row.totalDays,
     cargoQuantity: getCargoQuantity(row),
-    tce: row.dailyEarning,
+    tce: getTce(row),
     dailyTimeCharter: row.dailyVesselOperationExp,
     profitLoss: row.profitLoss,
     charteringPic: row.charteringPicName,
     selectable: !sentToDecisionChart,
     sentToDecisionChart,
+    sentToOps: sentToDecisionChart,
     isBenchmark: row.ifBenchmark === 1,
     comid: row.comid || null,
   };

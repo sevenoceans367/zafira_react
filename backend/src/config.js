@@ -20,7 +20,13 @@ export const appContext = {
   moduleId: process.env.MODULE_ID || '1',
   companyId: process.env.COMPANY_ID || '1',
   userId: process.env.USER_ID || '1',
+  userName: process.env.USER_NAME || 'Internal User',
+  userType: process.env.USER_TYPE || 'user',
 };
+
+export function isMgmtUser() {
+  return appContext.userType === 'mgmt_user';
+}
 
 export function isDbConfigured() {
   return Boolean(dbConfig.host && dbConfig.database && dbConfig.user);

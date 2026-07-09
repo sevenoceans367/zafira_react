@@ -1,7 +1,7 @@
-/* Inter — body, tables, sidebar, labels */
+/* Inter — body copy, tables, forms, sidebar, labels (12 / 11 / 10) */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* Open Sauce One — headings, page titles, highlights (via Fontsource CDN) */
+/* Open Sauce One — headers, page titles, highlights, KPI figures (32 / 28 / 18 / 14) */
 @font-face {
   font-family: 'Open Sauce One';
   font-style: normal;

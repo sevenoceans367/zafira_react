@@ -20,18 +20,20 @@ export const theme = {
     sidebarBg: '#274670',
   },
   fontSizes: {
+    /** Open Sauce One */
     display: '32px',
     title: '28px',
     subtitle: '18px',
     highlight: '14px',
+    /** Inter */
     body: '12px',
     small: '11px',
     badge: '10px',
   },
   iconSizes: {
     small: '10px',
-    default: '13px',
-    large: '25px',
+    default: '12px',
+    large: '18px',
   },
   borderRadius: {
     small: '6px',

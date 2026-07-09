@@ -106,7 +106,7 @@
   border-radius: var(--sidebar-link-radius);
   text-decoration: none;
   color: var(--sidebar-link-color);
-  font-size: var(--sidebar-font-size, 14px);
+  font-size: var(--sidebar-font-size, 12px);
   font-weight: normal;
   background-color: transparent;
   white-space: nowrap;
@@ -273,7 +273,7 @@
   border-radius: var(--sidebar-link-radius);
   text-decoration: none;
   color: var(--sidebar-link-color);
-  font-size: var(--sidebar-font-size, 14px);
+  font-size: var(--sidebar-font-size, 12px);
   font-weight: normal;
   background-color: transparent;
   white-space: nowrap;

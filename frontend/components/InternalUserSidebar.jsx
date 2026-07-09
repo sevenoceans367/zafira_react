@@ -1,74 +1,107 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AppSidebar } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
+import { fleetAppPath } from '../constants/fleetModule.js';
 import { SOPF_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
 
-function isActivePath(currentPath, href) {
-  return currentPath === href || currentPath.startsWith(`${href}/`);
+function isSidebarItemActive(pathname, item) {
+  if (typeof item.isActive === 'function') {
+    return item.isActive(pathname);
+  }
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
+
+function SidebarLink({ to, icon, label, active }) {
+  return (
+    <li>
+      <Link to={to} className={active ? 'active' : ''}>
+        <i className={`bi ${icon} icon`} aria-hidden />
+        <span>{label}</span>
+      </Link>
+    </li>
+  );
+}
+
+function SidebarSection({ label }) {
+  return (
+    <li className="sidebar-section" aria-hidden>
+      {label}
+    </li>
+  );
+}
+
+const FLEET_LINK = {
+  icon: 'bi-anchor',
+  label: 'Fleet',
+};
 
 export default function InternalUserSidebar({ isOpen }) {
   const { pathname: currentPath } = useLocation();
-  const sopfActive = currentPath.startsWith('/internal-user/sopf');
-  const [sopfOpen, setSopfOpen] = useState(false);
-
-  useEffect(() => {
-    setSopfOpen(false);
-  }, [currentPath]);
+  const inSopf = currentPath.startsWith('/internal-user/sopf');
+  const inVc = currentPath.startsWith('/internal-user/vc');
+  const inTc = currentPath.startsWith('/internal-user/tc');
 
   return (
     <AppSidebar isOpen={isOpen}>
       <ul className="sidebar-menu">
-        <li>
-          <Link
-            to={appPath('/')}
-            className={currentPath === '/' ? 'active' : ''}
-          >
-            <i className="bi bi-house icon" aria-hidden />
-            <span>Dashboard</span>
-          </Link>
-        </li>
+        <SidebarLink
+          to={appPath('/')}
+          icon="bi-house"
+          label="Home"
+          active={currentPath === '/'}
+        />
 
-        <li>
-          <Link
-            to={appPath('/reports')}
-            className={currentPath === '/reports' ? 'active' : ''}
-          >
-            <i className="bi bi-table icon" aria-hidden />
-            <span>Reports</span>
-          </Link>
-        </li>
-
-        <li className={`treeview${sopfOpen ? ' open' : ''}`}>
-          <a
-            href="#sopf"
-            className={sopfOpen || sopfActive ? 'expanded' : ''}
-            aria-expanded={sopfOpen || sopfActive}
-            onClick={(event) => {
-              event.preventDefault();
-              setSopfOpen((open) => !open);
-            }}
-          >
-            <i className="bi bi-folder2-open icon" aria-hidden />
-            <span>SOPF</span>
-            <i className="bi bi-chevron-right master-chevron" aria-hidden />
-          </a>
-          <ul className="treeview-menu sidebar-flyout">
+        {inSopf ? (
+          <>
+            <SidebarSection label="SOPF" />
             {SOPF_SIDEBAR_ITEMS.map((item) => (
-              <li key={item.href}>
-                <Link
-                  to={appPath(item.href)}
-                  className={isActivePath(currentPath, item.href) ? 'active' : ''}
-                  onClick={() => setSopfOpen(false)}
-                >
-                  <i className={`bi ${item.icon} icon`} aria-hidden />
-                  <span>{item.label}</span>
-                </Link>
-              </li>
+              <SidebarLink
+                key={item.id}
+                to={item.href.startsWith('/') ? appPath(item.href) : item.href}
+                icon={item.icon}
+                label={item.label}
+                active={isSidebarItemActive(currentPath, item)}
+              />
             ))}
-          </ul>
-        </li>
+          </>
+        ) : null}
+
+        {inVc ? (
+          <>
+            <SidebarSection label="VC" />
+            <SidebarLink
+              to={appPath('/internal-user/vc')}
+              icon="bi-speedometer2"
+              label="Dashboard"
+              active={currentPath === '/internal-user/vc'}
+            />
+            <SidebarLink
+              to={fleetAppPath('vc')}
+              icon={FLEET_LINK.icon}
+              label={FLEET_LINK.label}
+              active={currentPath.startsWith('/internal-user/vc/fleet')}
+            />
+          </>
+        ) : null}
+
+        {inTc ? (
+          <>
+            <SidebarSection label="TC" />
+            <SidebarLink
+              to={appPath('/internal-user/tc')}
+              icon="bi-clock-history"
+              label="Time Charter"
+              active={currentPath === '/internal-user/tc'}
+            />
+            <SidebarLink
+              to={fleetAppPath('tc')}
+              icon={FLEET_LINK.icon}
+              label={FLEET_LINK.label}
+              active={currentPath.startsWith('/internal-user/tc/fleet')}
+            />
+          </>
+        ) : null}
       </ul>
     </AppSidebar>
   );

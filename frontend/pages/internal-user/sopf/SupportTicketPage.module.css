@@ -1,0 +1,194 @@
+.page {
+  padding-top: 8px;
+}
+
+.formTitle {
+  margin: 0 0 16px;
+  text-align: center;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-subtitle, 18px);
+  font-weight: 700;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 16px 0 24px;
+}
+
+.fileHint {
+  display: block;
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: var(--font-size-small, 11px);
+}
+
+.messageCell {
+  max-width: 320px;
+  white-space: pre-wrap;
+}
+
+.attachmentList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attachmentList a,
+.ticketChatAttachments a {
+  color: #275e9b;
+  text-decoration: none;
+}
+
+.attachmentList a:hover,
+.ticketChatAttachments a:hover {
+  text-decoration: underline;
+}
+
+.emptyState {
+  text-align: center;
+  color: #6b7280;
+  padding: 24px;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modalDialog {
+  background: #fff;
+  border-radius: 8px;
+  width: min(95%, 1100px);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.modalTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modalTitleWrap h5 {
+  margin: 0;
+}
+
+.modalBody {
+  padding: 20px 24px 24px;
+}
+
+.ticketChatDialog {
+  width: min(95%, 640px);
+  max-height: min(90vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ticketChatMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.ticketChatAttachments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ticketChatThread {
+  flex: 1;
+  min-height: 240px;
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+
+.ticketChatEmpty {
+  margin: auto;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.ticketChatBubble {
+  max-width: 82%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ticketChatBubbleUser {
+  align-self: flex-end;
+  background: #dce8f8;
+  border: 1px solid #b8cfe8;
+  color: #1f3f66;
+}
+
+.ticketChatBubbleSupport {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  color: #1f2937;
+}
+
+.ticketChatBubbleMeta {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.ticketChatComposer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.ticketChatActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.reopenHint {
+  margin: 10px 0 0;
+  color: #92400e;
+  font-size: 12px;
+}

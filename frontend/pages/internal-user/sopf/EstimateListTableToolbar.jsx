@@ -11,6 +11,7 @@ const DOWNLOAD_OPTIONS = [
 export default function EstimateListTableToolbar({
   addHref,
   onSensitivityAnalysis,
+  sensitivityDisabled = false,
   onDownloadCsv,
   onDownloadPdf,
   onEmailAttachment,
@@ -56,6 +57,7 @@ export default function EstimateListTableToolbar({
           variant="sensitivity"
           label="Sensitivity Analysis"
           icon="graph-up"
+          disabled={sensitivityDisabled}
           onClick={onSensitivityAnalysis}
         />
         <div className={styles.menuWrap} ref={menuRef}>

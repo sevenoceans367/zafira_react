@@ -1,9 +1,14 @@
 import { Router } from 'express';
+import authRoutes from './auth.js';
 import sopfRoutes from './sopf.js';
+import vcRoutes from './vc.js';
+import fleetRoutes from './fleet.js';
 import { pingDb } from '../db.js';
 import { isDbConfigured } from '../config.js';
 
 const router = Router();
+
+router.use('/auth', authRoutes);
 
 router.get('/health', async (_req, res) => {
   const payload = { status: 'ok', database: { configured: isDbConfigured() } };
@@ -40,5 +45,7 @@ router.get('/alerts', (_req, res) => {
 });
 
 router.use('/internal-user/sopf', sopfRoutes);
+router.use('/internal-user/vc', vcRoutes);
+router.use('/internal-user/fleet', fleetRoutes);
 
 export default router;

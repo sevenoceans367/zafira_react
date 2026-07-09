@@ -105,6 +105,73 @@ export async function dbGetEstimateDetail(id) {
   return mapEstimateDetail(rows[0], legs);
 }
 
+export async function dbSearchVessels(query) {
+  const term = String(query || '').trim();
+  if (term.length < 2) return [];
+
+  const pool = getPool();
+  const like = `%${term}%`;
+  const [rows] = await pool.query(
+    `SELECT VESSEL_IMO_ID, VESSEL_NAME, IMO_NO, DWT, VESSEL_TYPE, FLAG, LOA, GRT_NRT
+     FROM vessel_imo_master
+     WHERE VESSEL_NAME LIKE ? OR IMO_NO LIKE ?
+     ORDER BY VESSEL_NAME
+     LIMIT 25`,
+    [like, like],
+  );
+
+  return rows.map((row) => ({
+    id: String(row.VESSEL_IMO_ID),
+    name: `${row.VESSEL_NAME}${row.IMO_NO ? ` (${row.IMO_NO})` : ''}`,
+    vesselName: row.VESSEL_NAME ?? '',
+    imoNo: row.IMO_NO ?? '',
+    dwt: row.DWT ?? '',
+    vesselType: row.VESSEL_TYPE ?? '',
+    flag: row.FLAG ?? '',
+    loa: row.LOA ?? '',
+    gnrt: row.GRT_NRT ?? '',
+  }));
+}
+
+export async function dbCreateEstimateDetail(payload) {
+  const pool = getPool();
+  const transDate = toDbDate(payload.transDate) || new Date().toISOString().slice(0, 10);
+  const estimateType = Number(payload.estimateType) || 2;
+  const now = new Date();
+
+  const [result] = await pool.query(
+    `INSERT INTO freight_cost_estimete_master (
+      FIXTURETYPEID, TRANS_DATE, MODULEID, MCOMPANYID, ADDED_BY, ADD_ON_DATE,
+      VESSEL_IMO_ID, VESSEL_TYPE, FLAG, VOYAGE_NO, VOYAGE_NAME,
+      DWT_SUMMER, GNRT, LOA, TPC, ESTIMATE_TYPE, FIXED, CP_DATE,
+      GROSS_BREAKDOWN, BREAKDOWN_MT, SEL_BUSI_TYPE, PERIODID
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0', ?, 0, 0, ?, ?)`,
+    [
+      payload.fixtureTypeId,
+      transDate,
+      appContext.moduleId,
+      appContext.companyId,
+      appContext.userId,
+      now,
+      payload.vesselImoId,
+      payload.vesselType || null,
+      payload.flag || null,
+      payload.voyageNo || null,
+      payload.voyageName || null,
+      payload.dwtSummer || null,
+      payload.gnrt || null,
+      payload.loa || null,
+      payload.tpc || null,
+      estimateType,
+      transDate,
+      estimateType,
+      payload.periodId || null,
+    ],
+  );
+
+  return { msg: 0, id: String(result.insertId) };
+}
+
 export async function dbUpdateEstimateDetail(id, payload) {
   const pool = getPool();
   const sets = [];

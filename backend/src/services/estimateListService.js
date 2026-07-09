@@ -4,12 +4,15 @@ import {
   dbGetCompareEstimates,
   dbGetEstimateList,
   dbReplicateEstimate,
+  dbSendEstimateToOps,
   dbSubmitDecisionChart,
 } from './estimateListDb.js';
 import {
   BUSINESS_TYPES,
   mapCompareRow,
   mapListRow,
+  parsePeriodDate,
+  isDateWithinPeriod,
 } from './estimateListMappers.js';
 
 /** In-memory fallback when DB is not configured in backend/.env */
@@ -55,9 +58,9 @@ export function getBusinessTypes(selectedId = '') {
   }));
 }
 
-export async function getEstimateList({ selBType } = {}) {
+export async function getEstimateList({ selBType, periodFrom, periodTo } = {}) {
   if (isDbConfigured()) {
-    return dbGetEstimateList({ selBType });
+    return dbGetEstimateList({ selBType, periodFrom, periodTo });
   }
 
   if (!selBType) {
@@ -65,28 +68,33 @@ export async function getEstimateList({ selBType } = {}) {
       estimateType: null,
       businessType: '',
       rows: [],
-      stats: { total: 0, draft: 0, benchmark: 0, sentToChart: 0, openTrade: 0 },
+      stats: {
+        openTrade: 0,
+        vesselsInSubs: 0,
+        tradesInOperations: 0,
+        vesselsOnWater: 0,
+      },
     };
   }
 
   const type = Number(selBType);
-  const available = estimates.filter((row) => row.estimateType === type && !row.comid);
-  const sentToChart = estimates.filter((row) => row.estimateType === type && row.comid).length;
-  const totalProfitLoss = available.reduce(
-    (sum, row) => sum + Number(row.profitLoss || 0),
-    0,
-  );
+  const scoped = estimates
+    .filter((row) => row.estimateType === type)
+    .filter((row) => isDateWithinPeriod(row.transDate, periodFrom, periodTo));
+  const inSubs = scoped.filter((row) => !row.comid);
+  const inOps = scoped.filter((row) => row.comid);
+  const openTradePl = inSubs.reduce((sum, row) => sum + Number(row.profitLoss || 0), 0);
+  const opsPl = inOps.reduce((sum, row) => sum + Number(row.profitLoss || 0), 0);
 
   return {
     estimateType: type,
     businessType: selBType,
-    rows: available.map((row, index) => mapListRow(row, index, portLegs)),
+    rows: scoped.map((row, index) => mapListRow(row, index, portLegs)),
     stats: {
-      openTrade: totalProfitLoss / 1000,
-      total: available.length,
-      draft: available.length,
-      benchmark: available.filter((row) => row.ifBenchmark === 1).length,
-      sentToChart,
+      openTrade: openTradePl / 1000,
+      vesselsInSubs: inSubs.length,
+      tradesInOperations: opsPl / 1000,
+      vesselsOnWater: scoped.length,
     },
   };
 }
@@ -138,6 +146,25 @@ export async function getCompareEstimates(ids) {
     count: selected.length,
     fixtures: selected.map((row, index) => mapCompareRow(row, index, portLegs)),
   };
+}
+
+export async function sendEstimateToOps(id) {
+  if (isDbConfigured()) {
+    return dbSendEstimateToOps(id);
+  }
+
+  const row = estimates.find((entry) => entry.fcaId === String(id));
+  if (!row) return null;
+  if (row.comid) {
+    throw new Error('This estimate has already been sent to Operations.');
+  }
+
+  return submitDecisionChart({
+    selection: {
+      id: String(id),
+      remarks: 'Sent to Operations',
+    },
+  });
 }
 
 export async function submitDecisionChart({ selection }) {

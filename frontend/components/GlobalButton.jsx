@@ -16,9 +16,44 @@ const DANGER_STYLE = {
 };
 
 const DANGER_HOVER_CLASS = 'global-btn-danger';
+const SECONDARY_CLASS = 'global-btn-secondary';
+const ACCENT_CLASS = 'global-btn-accent';
+
+/** @deprecated use `secondary` */
+const OUTLINE_CLASS = SECONDARY_CLASS;
+
+const ACCENT_STYLE = {
+  backgroundColor: 'rgba(249, 147, 102, 0.6)',
+  border: '1px solid #f4652c',
+  borderRadius: '10px',
+  color: '#f4652c',
+  boxShadow: 'none',
+};
+
+const SECONDARY_STYLE = {
+  backgroundColor: 'transparent',
+  border: '1px solid #376eb8',
+  borderRadius: '10px',
+  color: '#376eb8',
+  boxShadow: 'none',
+};
+
+/** @deprecated use SECONDARY_STYLE */
+const OUTLINE_STYLE = SECONDARY_STYLE;
+
+function resolveVariantClass(variant) {
+  if (variant === 'danger') return DANGER_HOVER_CLASS;
+  if (variant === 'accent') return ACCENT_CLASS;
+  if (variant === 'secondary' || variant === 'outline') return SECONDARY_CLASS;
+  return `btn-${variant}`;
+}
+
+const SQUARE_VARIANTS = new Set(['secondary', 'outline', 'accent']);
 
 /**
  * Shared pill button used across admin, internal-user, and other apps.
+ * - `secondary`: hollow #376EB8 border/text, 10px radius, hover fill #BCCADB
+ * - `accent`: #F99366 60% fill, #F4652C stroke; hover #FF986A / #F18154, 10px radius
  * Use `to` for React Router navigation, or `href` for path-based navigation.
  */
 const GlobalButton = ({
@@ -36,14 +71,15 @@ const GlobalButton = ({
   ariaLabel,
 }) => {
   const sizeClass = size === 'sm' ? 'btn-sm' : '';
-  const pillClass = pill ? 'rounded-pill' : '';
+  const pillClass = SQUARE_VARIANTS.has(variant) ? '' : (pill ? 'rounded-pill' : '');
   const paddingClass = size === 'sm' ? 'px-3' : 'px-4';
+  const shadowClass = SQUARE_VARIANTS.has(variant) ? '' : 'shadow-sm';
   const baseClass = [
     'btn',
-    variant === 'danger' ? DANGER_HOVER_CLASS : `btn-${variant}`,
+    resolveVariantClass(variant),
     pillClass,
     paddingClass,
-    'shadow-sm',
+    shadowClass,
     'd-inline-flex',
     'align-items-center',
     'justify-content-center',
@@ -56,6 +92,12 @@ const GlobalButton = ({
   const customStyle = { fontWeight: '500' };
   if (variant === 'danger') {
     Object.assign(customStyle, DANGER_STYLE);
+  }
+  if (variant === 'secondary' || variant === 'outline') {
+    Object.assign(customStyle, SECONDARY_STYLE);
+  }
+  if (variant === 'accent') {
+    Object.assign(customStyle, ACCENT_STYLE);
   }
   const themedColor = THEMED_VARIANTS[variant];
   if (themedColor) {

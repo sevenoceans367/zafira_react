@@ -1,19 +1,39 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfirmProvider } from '@bainbridge/shared-ui';
 import {
   installBasePathGlobals,
   installLinkInterceptor,
 } from '@bainbridge/shared-routing';
+import RequireAuth from '../components/RequireAuth.jsx';
 import InternalUserLayout from '../components/Layout/InternalUserLayout.jsx';
-import DashboardPage from '../pages/internal-user/DashboardPage.jsx';
+import LoginPage from '../pages/LoginPage.jsx';
+import ModuleHomePage from '../pages/internal-user/ModuleHomePage.jsx';
 import ReportsPage from '../pages/internal-user/ReportsPage.jsx';
+import VcDashboardPage from '../pages/internal-user/vc/VcDashboardPage.jsx';
+import FleetPage from '../pages/internal-user/fleet/FleetPage.jsx';
+import FleetPlaceholderPage from '../pages/internal-user/fleet/FleetPlaceholderPage.jsx';
+import UpdateVesselPage from '../pages/internal-user/fleet/UpdateVesselPage.jsx';
+import ViewVesselTankersPage from '../pages/internal-user/fleet/ViewVesselTankersPage.jsx';
+import UpdateVesselTankersPage from '../pages/internal-user/fleet/UpdateVesselTankersPage.jsx';
+import CommercialParametersPage from '../pages/internal-user/fleet/CommercialParametersPage.jsx';
+import TcModulePage from '../pages/internal-user/tc/TcModulePage.jsx';
 import EstimateListPage from '../pages/internal-user/sopf/EstimateListPage.jsx';
 import UpdateEstimatePage from '../pages/internal-user/sopf/UpdateEstimatePage.jsx';
+import AddEstimatePage from '../pages/internal-user/sopf/AddEstimatePage.jsx';
 import ViewEstimatePage from '../pages/internal-user/sopf/ViewEstimatePage.jsx';
+import VesselPositionPage from '../pages/internal-user/sopf/VesselPositionPage.jsx';
+import SupportTicketPage from '../pages/internal-user/sopf/SupportTicketPage.jsx';
 
 installBasePathGlobals();
 installLinkInterceptor();
+
+const fleetPlaceholder = (
+  <FleetPlaceholderPage
+    title="Add Vessel"
+    description="Add vessel is not available yet."
+  />
+);
 
 export default function App() {
   const base = import.meta.env.VITE_APP_BASE || undefined;
@@ -22,13 +42,38 @@ export default function App() {
     <ConfirmProvider>
       <BrowserRouter basename={base}>
         <Routes>
-          <Route element={<InternalUserLayout />}>
-            <Route path="/" element={<DashboardPage />} />
+          <Route path="/login" element={<LoginPage />} />
+
+          <Route
+            element={(
+              <RequireAuth>
+                <InternalUserLayout />
+              </RequireAuth>
+            )}
+          >
+            <Route path="/" element={<ModuleHomePage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/internal-user/vc" element={<VcDashboardPage />} />
+            <Route path="/internal-user/tc" element={<TcModulePage />} />
+
+            <Route path="/internal-user/:module/fleet" element={<FleetPage />} />
+            <Route path="/internal-user/:module/fleet/add" element={fleetPlaceholder} />
+            <Route path="/internal-user/:module/fleet/vessel/:id/primary" element={<UpdateVesselPage />} />
+            <Route path="/internal-user/:module/fleet/vessel/:id/particulars" element={<ViewVesselTankersPage />} />
+            <Route path="/internal-user/:module/fleet/vessel/:id/particulars-tanker" element={<ViewVesselTankersPage />} />
+            <Route path="/internal-user/:module/fleet/vessel/:id/particulars-tanker/edit" element={<UpdateVesselTankersPage />} />
+            <Route path="/internal-user/:module/fleet/vessel/:id/particulars/edit" element={<UpdateVesselTankersPage />} />
+            <Route path="/internal-user/:module/fleet/vessel/:id/commercial" element={<CommercialParametersPage />} />
+
             <Route path="/internal-user/sopf/estimate_list" element={<EstimateListPage />} />
+            <Route path="/internal-user/sopf/addestimate" element={<AddEstimatePage />} />
             <Route path="/internal-user/sopf/updateestimate" element={<UpdateEstimatePage />} />
             <Route path="/internal-user/sopf/viewestimate" element={<ViewEstimatePage />} />
+            <Route path="/internal-user/sopf/vessel_position" element={<VesselPositionPage />} />
+            <Route path="/internal-user/sopf/support_ticket" element={<SupportTicketPage />} />
           </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </ConfirmProvider>

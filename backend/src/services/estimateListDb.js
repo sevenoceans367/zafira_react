@@ -7,6 +7,7 @@ import {
   getFreightLabel,
   mapCompareRow,
   mapListRow,
+  parsePeriodDate,
 } from './estimateListMappers.js';
 
 const SLAVE_TABLES = [
@@ -145,6 +146,7 @@ function normalizeMasterRow(row) {
     quantity: Number(row.QUANTITY || 0),
     qtyTypeRadio: Number(row.QTY_TYPE_RADIO || 1),
     dailyEarning: row.DAILY_EARNING,
+    netDailyEarning: row.NET_DAILY_EARNING,
     dailyVesselOperationExp: row.DAILY_VESSEL_OPERATION_EXP,
     profitLoss: row.PROFIT_LOSS,
     charteringPicName: row.CHARTERING_PIC_NAME || '',
@@ -164,22 +166,41 @@ function normalizeMasterRow(row) {
   };
 }
 
-async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = false } = {}) {
+function buildPeriodFilter(periodFrom, periodTo) {
+  const from = parsePeriodDate(periodFrom);
+  const to = parsePeriodDate(periodTo);
+  if (!from && !to) {
+    return { sql: '', params: [] };
+  }
+  if (from && to) {
+    return {
+      sql: ' AND DATE(m.TRANS_DATE) >= ? AND DATE(m.TRANS_DATE) <= ?',
+      params: [from, to],
+    };
+  }
+  if (from) {
+    return { sql: ' AND DATE(m.TRANS_DATE) >= ?', params: [from] };
+  }
+  return { sql: ' AND DATE(m.TRANS_DATE) <= ?', params: [to] };
+}
+
+async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = false, periodFrom, periodTo } = {}) {
   const pool = getPool();
   const params = [appContext.moduleId, appContext.companyId, selBType];
   let idFilter = '';
   const comidFilter = excludeSentToChart
     ? ` AND (m.COMID IS NULL OR m.COMID = '' OR m.COMID = 0)`
     : '';
+  const periodFilter = buildPeriodFilter(periodFrom, periodTo);
 
   if (fcaIds?.length) {
     idFilter = ` AND m.FCAID IN (${fcaIds.map(() => '?').join(',')})`;
-    params.push(...fcaIds);
   }
 
   const [rows] = await pool.query(
     `SELECT m.FCAID, m.VESSEL_IMO_ID, m.VOYAGE_NAME, m.VESSEL_TYPE, m.FREIGHT_GROSS,
-            m.TOTAL_DAYS, m.QUANTITY, m.DAILY_EARNING, m.DAILY_VESSEL_OPERATION_EXP,
+            m.TOTAL_DAYS, m.QUANTITY, m.DAILY_EARNING, m.NET_DAILY_EARNING,
+            m.DAILY_VESSEL_OPERATION_EXP,
             m.PROFIT_LOSS, m.TRANS_DATE, m.QTY_TYPE_RADIO, m.ESTIMATE_TYPE,
             m.GAS_QUANTITY, m.TANK_QUANTITY, m.IF_BENCHMARK, m.COMID,
             m.GAS_MARKET, m.GAS_BASE_RATE, m.GAS_LUMSUM, m.TANKER_RADIO_SINGLE_DIS,
@@ -199,67 +220,74 @@ async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = f
        AND m.COAID IS NULL
        AND m.FIXED = 0
        ${comidFilter}
+       ${periodFilter.sql}
        ${idFilter}
      ORDER BY m.FCAID DESC`,
-    params,
+    [...params, ...periodFilter.params, ...(fcaIds ?? [])],
   );
 
   return enrichDryCargoQuantity(rows);
 }
 
-async function countSentToChart(selBType) {
+async function fetchEstimateStats(selBType, { periodFrom, periodTo } = {}) {
   const pool = getPool();
+  const periodFilter = buildPeriodFilter(periodFrom, periodTo);
   const [rows] = await pool.query(
-    `SELECT COUNT(*) AS c
+    `SELECT
+       COUNT(*) AS vesselsOnWater,
+       SUM(CASE WHEN (m.COMID IS NULL OR m.COMID = '' OR m.COMID = 0) THEN 1 ELSE 0 END) AS vesselsInSubs,
+       SUM(CASE WHEN (m.COMID IS NULL OR m.COMID = '' OR m.COMID = 0) THEN COALESCE(m.PROFIT_LOSS, 0) ELSE 0 END) AS openTradePl,
+       SUM(CASE WHEN (m.COMID IS NOT NULL AND m.COMID != '' AND m.COMID != 0) THEN COALESCE(m.PROFIT_LOSS, 0) ELSE 0 END) AS tradesInOperationsPl
      FROM freight_cost_estimete_master m
      WHERE m.MODULEID = ?
        AND m.MCOMPANYID = ?
        AND m.ESTIMATE_TYPE = ?
        AND m.COAID IS NULL
        AND m.FIXED = 0
-       AND m.COMID IS NOT NULL
-       AND m.COMID != ''
-       AND m.COMID != 0`,
-    [appContext.moduleId, appContext.companyId, selBType],
+       ${periodFilter.sql}`,
+    [appContext.moduleId, appContext.companyId, selBType, ...periodFilter.params],
   );
-  return Number(rows[0]?.c ?? 0);
+
+  const row = rows[0] ?? {};
+  return {
+    openTrade: Number(row.openTradePl ?? 0) / 1000,
+    vesselsInSubs: Number(row.vesselsInSubs ?? 0),
+    tradesInOperations: Number(row.tradesInOperationsPl ?? 0) / 1000,
+    vesselsOnWater: Number(row.vesselsOnWater ?? 0),
+  };
 }
 
-export async function dbGetEstimateList({ selBType }) {
+export async function dbGetEstimateList({ selBType, periodFrom, periodTo }) {
   if (!selBType) {
     return {
       estimateType: null,
       businessType: '',
       rows: [],
-      stats: { total: 0, draft: 0, benchmark: 0, sentToChart: 0, openTrade: 0 },
+      stats: {
+        openTrade: 0,
+        vesselsInSubs: 0,
+        tradesInOperations: 0,
+        vesselsOnWater: 0,
+      },
     };
   }
 
-  const [masterRows, sentToChart] = await Promise.all([
-    fetchMasterRows(selBType, null, { excludeSentToChart: true }),
-    countSentToChart(selBType),
+  const periodOptions = { periodFrom, periodTo };
+  const [masterRows, stats] = await Promise.all([
+    fetchMasterRows(selBType, null, periodOptions),
+    fetchEstimateStats(selBType, periodOptions),
   ]);
   const fcaIds = masterRows.map((row) => row.FCAID);
   const portLegs = await loadPortLegs(fcaIds);
 
   const normalized = masterRows.map(normalizeMasterRow);
   const rows = normalized.map((row, index) => mapListRow(row, index, portLegs));
-  const totalProfitLoss = normalized.reduce(
-    (sum, row) => sum + Number(row.profitLoss || 0),
-    0,
-  );
 
   return {
     estimateType: Number(selBType),
     businessType: selBType,
     rows,
-    stats: {
-      openTrade: totalProfitLoss / 1000,
-      total: normalized.length,
-      draft: normalized.length,
-      benchmark: normalized.filter((row) => row.ifBenchmark === 1).length,
-      sentToChart,
-    },
+    stats,
   };
 }
 
@@ -380,6 +408,32 @@ export async function dbGetCompareEstimates(ids) {
     count: normalized.length,
     fixtures: normalized.map((row, index) => mapCompareRow(row, index, portLegs)),
   };
+}
+
+export async function dbSendEstimateToOps(id) {
+  const pool = getPool();
+  const [rows] = await pool.query(
+    `SELECT FCAID, COMID
+     FROM freight_cost_estimete_master
+     WHERE FCAID = ?
+       AND MODULEID = ?
+       AND MCOMPANYID = ?`,
+    [id, appContext.moduleId, appContext.companyId],
+  );
+
+  if (!rows.length) return null;
+
+  const comid = rows[0].COMID;
+  if (comid != null && comid !== '' && Number(comid) !== 0) {
+    throw new Error('This estimate has already been sent to Operations.');
+  }
+
+  return dbSubmitDecisionChart({
+    selection: {
+      id: String(id),
+      remarks: 'Sent to Operations',
+    },
+  });
 }
 
 export async function dbSubmitDecisionChart({ selection }) {

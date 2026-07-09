@@ -1,5 +1,10 @@
 import { isDbConfigured } from '../config.js';
-import { dbGetEstimateDetail, dbUpdateEstimateDetail } from './estimateDetailDb.js';
+import {
+  dbCreateEstimateDetail,
+  dbGetEstimateDetail,
+  dbSearchVessels,
+  dbUpdateEstimateDetail,
+} from './estimateDetailDb.js';
 
 export async function getEstimateDetail(id) {
   if (isDbConfigured()) {
@@ -38,4 +43,46 @@ export async function updateEstimateDetail(id, payload) {
     return dbUpdateEstimateDetail(id, payload);
   }
   return { msg: 0 };
+}
+
+export async function searchVessels(query) {
+  if (isDbConfigured()) {
+    return dbSearchVessels(query);
+  }
+
+  const term = String(query || '').trim().toLowerCase();
+  const mock = [
+    {
+      id: '1',
+      name: 'Atlantic Star (9123456)',
+      vesselName: 'Atlantic Star',
+      imoNo: '9123456',
+      dwt: '85000',
+      vesselType: '5',
+      flag: '251',
+      loa: '228',
+      gnrt: '45000',
+    },
+  ];
+  return mock.filter(
+    (row) => row.name.toLowerCase().includes(term) || row.imoNo.includes(term),
+  );
+}
+
+export async function createEstimateDetail(payload) {
+  if (!payload.fixtureTypeId) {
+    throw new Error('Business type is required.');
+  }
+  if (!payload.vesselImoId) {
+    throw new Error('Vessel is required.');
+  }
+  if (!payload.voyageNo?.trim()) {
+    throw new Error('Voyage No. is required.');
+  }
+
+  if (isDbConfigured()) {
+    return dbCreateEstimateDetail(payload);
+  }
+
+  return { msg: 0, id: '999' };
 }

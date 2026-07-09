@@ -32,7 +32,7 @@
 }
 
 .summaryCardGradient {
-  background: linear-gradient(180deg, rgba(232, 83, 28, 0.8) 21%, rgba(255, 138, 80, 0.8) 100%);
+  background: var(--gradient-accent);
 }
 
 .summaryCardPlain {

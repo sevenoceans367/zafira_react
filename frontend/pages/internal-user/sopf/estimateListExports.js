@@ -1,7 +1,6 @@
 const CSV_COLUMNS = [
-  { key: 'rowNum', label: '#' },
+  { key: 'rowNum', label: 'Item' },
   { key: 'vesselDisplay', label: 'Vessel Name/Type' },
-  { key: 'businessType', label: 'Business Type' },
   { key: 'cpDate', label: 'CP Date' },
   { key: 'dwt', label: 'DWT' },
   { key: 'lpDp', label: 'LP/DP' },

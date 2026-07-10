@@ -1,0 +1,28 @@
+.page {
+  position: relative;
+}
+
+.title {
+  margin: 0 0 16px;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.lead {
+  margin: 0 0 12px;
+  font-size: var(--font-size-body, 12px);
+  color: var(--color-text-light, #6b7280);
+}
+
+.meta {
+  margin: 0;
+  font-size: var(--font-size-body, 12px);
+  color: var(--color-text-light, #6b7280);
+}
+
+.meta code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f3f4f6;
+}

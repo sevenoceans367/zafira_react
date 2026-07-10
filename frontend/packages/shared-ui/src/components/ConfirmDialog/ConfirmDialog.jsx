@@ -25,6 +25,7 @@ const ConfirmDialog = ({
   confirmLabel,
   cancelLabel,
   confirmVariant = 'primary',
+  mode = 'confirm',
   validation,
   children,
   error,
@@ -33,6 +34,8 @@ const ConfirmDialog = ({
   onCancel,
 }) => {
   if (!open) return null;
+
+  const isAlert = mode === 'alert';
 
   return (
     <div
@@ -60,14 +63,16 @@ const ConfirmDialog = ({
         {error ? <p className={styles.error}>{error}</p> : null}
 
         <div className={styles.actions}>
-          <Button
-            type="button"
-            label={cancelLabel}
-            variant="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={onCancel}
-          />
+          {isAlert ? null : (
+            <Button
+              type="button"
+              label={cancelLabel}
+              variant="secondary"
+              size="sm"
+              disabled={busy}
+              onClick={onCancel}
+            />
+          )}
           <Button
             type="button"
             label={confirmLabel}

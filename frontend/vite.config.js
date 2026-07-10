@@ -13,6 +13,10 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
+      '/attachment': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
     },
   },
   resolve: {

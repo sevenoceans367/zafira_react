@@ -21,6 +21,7 @@ export {
   StatusBadge,
   ConfirmProvider,
   useConfirm,
+  useAlert,
   ConfirmDialog,
   resolveTicketStatusVariant,
   resolveWorkflowStatusVariant,

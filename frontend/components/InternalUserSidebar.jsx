@@ -3,7 +3,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { AppSidebar } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fleetAppPath } from '../constants/fleetModule.js';
+import { periodContractAppPath } from '../constants/periodContractModule.js';
+import { todoListAppPath } from '../constants/todoListPageHeaders.js';
 import { SOPF_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
+import MastersSidebarTree from './masters/MastersSidebarTree.jsx';
 
 function isSidebarItemActive(pathname, item) {
   if (typeof item.isActive === 'function') {
@@ -36,6 +39,16 @@ const FLEET_LINK = {
   label: 'Fleet',
 };
 
+const PERIOD_CONTRACT_LINK = {
+  icon: 'bi-journal-text',
+  label: 'Period Contract',
+};
+
+const TODO_LIST_LINK = {
+  icon: 'bi-check2-square',
+  label: 'To - Do List',
+};
+
 export default function InternalUserSidebar({ isOpen }) {
   const { pathname: currentPath } = useLocation();
   const inSopf = currentPath.startsWith('/internal-user/sopf');
@@ -64,6 +77,7 @@ export default function InternalUserSidebar({ isOpen }) {
                 active={isSidebarItemActive(currentPath, item)}
               />
             ))}
+            <MastersSidebarTree isOpen={isOpen} />
           </>
         ) : null}
 
@@ -82,6 +96,19 @@ export default function InternalUserSidebar({ isOpen }) {
               label={FLEET_LINK.label}
               active={currentPath.startsWith('/internal-user/vc/fleet')}
             />
+            <SidebarLink
+              to={periodContractAppPath('vc')}
+              icon={PERIOD_CONTRACT_LINK.icon}
+              label={PERIOD_CONTRACT_LINK.label}
+              active={currentPath.startsWith('/internal-user/vc/period-contracts')}
+            />
+            <SidebarLink
+              to={todoListAppPath('vc')}
+              icon={TODO_LIST_LINK.icon}
+              label={TODO_LIST_LINK.label}
+              active={currentPath.startsWith('/internal-user/vc/todo-list')}
+            />
+            <MastersSidebarTree isOpen={isOpen} />
           </>
         ) : null}
 
@@ -100,6 +127,13 @@ export default function InternalUserSidebar({ isOpen }) {
               label={FLEET_LINK.label}
               active={currentPath.startsWith('/internal-user/tc/fleet')}
             />
+            <SidebarLink
+              to={periodContractAppPath('tc')}
+              icon={PERIOD_CONTRACT_LINK.icon}
+              label={PERIOD_CONTRACT_LINK.label}
+              active={currentPath.startsWith('/internal-user/tc/period-contracts')}
+            />
+            <MastersSidebarTree isOpen={isOpen} />
           </>
         ) : null}
       </ul>

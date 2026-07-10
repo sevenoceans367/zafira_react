@@ -12,11 +12,15 @@ import ModuleHomePage from '../pages/internal-user/ModuleHomePage.jsx';
 import ReportsPage from '../pages/internal-user/ReportsPage.jsx';
 import VcDashboardPage from '../pages/internal-user/vc/VcDashboardPage.jsx';
 import FleetPage from '../pages/internal-user/fleet/FleetPage.jsx';
-import FleetPlaceholderPage from '../pages/internal-user/fleet/FleetPlaceholderPage.jsx';
+import AddVesselPage from '../pages/internal-user/fleet/AddVesselPage.jsx';
 import UpdateVesselPage from '../pages/internal-user/fleet/UpdateVesselPage.jsx';
 import ViewVesselTankersPage from '../pages/internal-user/fleet/ViewVesselTankersPage.jsx';
 import UpdateVesselTankersPage from '../pages/internal-user/fleet/UpdateVesselTankersPage.jsx';
 import CommercialParametersPage from '../pages/internal-user/fleet/CommercialParametersPage.jsx';
+import PeriodContractListPage from '../pages/internal-user/period-contract/PeriodContractListPage.jsx';
+import AddPeriodContractPage from '../pages/internal-user/period-contract/AddPeriodContractPage.jsx';
+import ToDoListPage from '../pages/internal-user/todo-list/ToDoListPage.jsx';
+import MasterModulePage from '../pages/internal-user/masters/MasterModulePage.jsx';
 import TcModulePage from '../pages/internal-user/tc/TcModulePage.jsx';
 import EstimateListPage from '../pages/internal-user/sopf/EstimateListPage.jsx';
 import UpdateEstimatePage from '../pages/internal-user/sopf/UpdateEstimatePage.jsx';
@@ -27,13 +31,6 @@ import SupportTicketPage from '../pages/internal-user/sopf/SupportTicketPage.jsx
 
 installBasePathGlobals();
 installLinkInterceptor();
-
-const fleetPlaceholder = (
-  <FleetPlaceholderPage
-    title="Add Vessel"
-    description="Add vessel is not available yet."
-  />
-);
 
 export default function App() {
   const base = import.meta.env.VITE_APP_BASE || undefined;
@@ -57,13 +54,17 @@ export default function App() {
             <Route path="/internal-user/tc" element={<TcModulePage />} />
 
             <Route path="/internal-user/:module/fleet" element={<FleetPage />} />
-            <Route path="/internal-user/:module/fleet/add" element={fleetPlaceholder} />
+            <Route path="/internal-user/:module/fleet/add" element={<AddVesselPage />} />
             <Route path="/internal-user/:module/fleet/vessel/:id/primary" element={<UpdateVesselPage />} />
             <Route path="/internal-user/:module/fleet/vessel/:id/particulars" element={<ViewVesselTankersPage />} />
             <Route path="/internal-user/:module/fleet/vessel/:id/particulars-tanker" element={<ViewVesselTankersPage />} />
             <Route path="/internal-user/:module/fleet/vessel/:id/particulars-tanker/edit" element={<UpdateVesselTankersPage />} />
             <Route path="/internal-user/:module/fleet/vessel/:id/particulars/edit" element={<UpdateVesselTankersPage />} />
             <Route path="/internal-user/:module/fleet/vessel/:id/commercial" element={<CommercialParametersPage />} />
+            <Route path="/internal-user/:module/period-contracts/add" element={<AddPeriodContractPage />} />
+            <Route path="/internal-user/:module/period-contracts" element={<PeriodContractListPage />} />
+            <Route path="/internal-user/:module/todo-list" element={<ToDoListPage />} />
+            <Route path="/internal-user/:module/masters/:masterId" element={<MasterModulePage />} />
 
             <Route path="/internal-user/sopf/estimate_list" element={<EstimateListPage />} />
             <Route path="/internal-user/sopf/addestimate" element={<AddEstimatePage />} />

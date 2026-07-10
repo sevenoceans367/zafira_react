@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { compareVessels, getFleetList } from '../services/fleetService.js';
 import {
+  createVesselPrimary,
   getVesselPrimary,
   getVesselPrimaryLookups,
   updateVesselPrimary,
@@ -44,6 +45,66 @@ router.post('/compare', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message || 'Failed to compare vessels.' });
+  }
+});
+
+router.get('/vessel/new', async (_req, res) => {
+  try {
+    const lookups = await getVesselPrimaryLookups();
+    res.json({ lookups });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to load vessel form.' });
+  }
+});
+
+router.post('/vessel', vesselUpload, async (req, res) => {
+  try {
+    const { attachment, attachmentName } = mergeVesselAttachments([], [], req.files);
+    const vessel = await createVesselPrimary({
+      businessTypeId: req.body.businessTypeId,
+      vesselTypeId: req.body.vesselTypeId,
+      imoNo: req.body.imoNo,
+      vesselName: req.body.vesselName,
+      vesselCode: req.body.vesselCode,
+      yearBuilt: req.body.yearBuilt,
+      flagId: req.body.flagId,
+      dwt: req.body.dwt,
+      draftM: req.body.draftM,
+      loa: req.body.loa,
+      extBreadth: req.body.extBreadth,
+      grtNrt: req.body.grtNrt,
+      nrt: req.body.nrt,
+      grain: req.body.grain,
+      bale: req.body.bale,
+      noh: req.body.noh,
+      noha: req.body.noha,
+      hatchSize: req.body.hatchSize,
+      cargoGear: req.body.cargoGear,
+      craneSize: req.body.craneSize,
+      grabSize: req.body.grabSize,
+      gasCargoTanks: req.body.gasCargoTanks,
+      gasTankCapacity: req.body.gasTankCapacity,
+      gasCargoPumps: req.body.gasCargoPumps,
+      gasMainCargoPumps: req.body.gasMainCargoPumps,
+      sizeOfManifolds: req.body.sizeOfManifolds,
+      gasSbtCapacity: req.body.gasSbtCapacity,
+      tankerCapacity: req.body.tankerCapacity,
+      noOfGrade: req.body.noOfGrade,
+      tankerCargoPump: req.body.tankerCargoPump,
+      tankerSbtCapacity: req.body.tankerSbtCapacity,
+      tankerPumpMainCap: req.body.tankerPumpMainCap,
+      piVendorId: req.body.piVendorId,
+      classSocId: req.body.classSocId,
+      ownerVendorId: req.body.ownerVendorId,
+      remarks: req.body.remarks,
+      attachment,
+      attachmentName,
+    });
+    res.status(201).json({ vessel, msg: 0 });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message || 'Failed to create vessel.', msg: 1 });
   }
 });
 

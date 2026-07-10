@@ -1,6 +1,9 @@
 import { appPath } from '@bainbridge/shared-routing';
 import { resolveSopfHeader } from './sopfPageHeaders.jsx';
 import { resolveFleetHeader } from './fleetPageHeaders.js';
+import { resolvePeriodContractHeader } from './periodContractPageHeaders.js';
+import { resolveTodoListHeader } from './todoListPageHeaders.js';
+import { resolveMastersHeader } from './mastersPageHeaders.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
 
@@ -33,10 +36,25 @@ export function resolveInternalUserHeader(pathname) {
   }
 
   if (pathname.startsWith('/internal-user/sopf')) {
+    const mastersHeader = resolveMastersHeader(pathname);
+    if (mastersHeader) return mastersHeader;
+    const todoListHeader = resolveTodoListHeader(pathname);
+    if (todoListHeader) return todoListHeader;
+    const periodContractHeader = resolvePeriodContractHeader(pathname);
+    if (periodContractHeader) return periodContractHeader;
     const fleetHeader = resolveFleetHeader(pathname);
     if (fleetHeader) return fleetHeader;
     return resolveSopfHeader(pathname);
   }
+
+  const mastersHeader = resolveMastersHeader(pathname);
+  if (mastersHeader) return mastersHeader;
+
+  const todoListHeader = resolveTodoListHeader(pathname);
+  if (todoListHeader) return todoListHeader;
+
+  const periodContractHeader = resolvePeriodContractHeader(pathname);
+  if (periodContractHeader) return periodContractHeader;
 
   const fleetHeader = resolveFleetHeader(pathname);
   if (fleetHeader) return fleetHeader;

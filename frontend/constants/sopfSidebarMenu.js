@@ -2,6 +2,7 @@
  * SOPF module sidebar — keep in sync with App.jsx routes and sopfPageHeaders.jsx.
  */
 import { fleetAppPath } from './fleetModule.js';
+import { periodContractAppPath } from './periodContractModule.js';
 
 export const SOPF_SIDEBAR_ITEMS = [
   {
@@ -21,6 +22,13 @@ export const SOPF_SIDEBAR_ITEMS = [
     label: 'Fleet',
     icon: 'bi-anchor',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/fleet'),
+  },
+  {
+    id: 'period_contracts',
+    href: periodContractAppPath('sopf'),
+    label: 'Period Contract',
+    icon: 'bi-journal-text',
+    isActive: (pathname) => pathname.includes('/internal-user/sopf/period-contracts'),
   },
   {
     id: 'vessel_position',

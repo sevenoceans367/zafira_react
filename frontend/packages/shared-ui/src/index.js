@@ -22,7 +22,7 @@ export { default as PeriodCardPicker } from './components/PeriodCardPicker/Perio
 export { default as CardSelect } from './components/CardSelect/CardSelect.jsx';
 export { default as HeaderFilterControls } from './components/HeaderFilterControls/HeaderFilterControls.jsx';
 export { default as StatusBadge } from './components/StatusBadge/StatusBadge.jsx';
-export { ConfirmProvider, useConfirm } from './components/ConfirmDialog/ConfirmContext.jsx';
+export { ConfirmProvider, useConfirm, useAlert } from './components/ConfirmDialog/ConfirmContext.jsx';
 export { default as ConfirmDialog } from './components/ConfirmDialog/ConfirmDialog.jsx';
 export {
   resolveTicketStatusVariant,

@@ -223,3 +223,134 @@ export async function dbUpdateVesselPrimary(vesselId, payload) {
 
   return dbGetVesselPrimary(vesselId);
 }
+
+export async function dbCreateVesselPrimary(payload) {
+  const pool = getPool();
+  const {
+    businessTypeId,
+    vesselTypeId,
+    imoNo,
+    vesselName,
+    vesselCode,
+    yearBuilt,
+    flagId,
+    dwt,
+    draftM,
+    loa,
+    extBreadth,
+    grtNrt,
+    nrt,
+    grain,
+    bale,
+    noh,
+    noha,
+    hatchSize,
+    cargoGear,
+    craneSize,
+    grabSize,
+    gasCargoTanks,
+    gasTankCapacity,
+    gasCargoPumps,
+    gasMainCargoPumps,
+    sizeOfManifolds,
+    gasSbtCapacity,
+    tankerCapacity,
+    noOfGrade,
+    tankerCargoPump,
+    tankerSbtCapacity,
+    tankerPumpMainCap,
+    piVendorId,
+    classSocId,
+    ownerVendorId,
+    remarks,
+    attachment,
+    attachmentName,
+  } = payload;
+
+  if (!vesselName?.trim()) throw new Error('Vessel Name is required.');
+  if (!vesselTypeId) throw new Error('Vessel Type is required.');
+  if (!imoNo?.trim()) throw new Error('IMO number is required.');
+  if (!vesselCode?.trim()) throw new Error('Vessel Code is required.');
+  if (!dwt) throw new Error('Summer DWT is required.');
+  if (!yearBuilt) throw new Error('Year Built is required.');
+  if (!businessTypeId) throw new Error('Business Type is required.');
+  if (!flagId) throw new Error('Flag is required.');
+
+  const [[imoExists]] = await pool.query(
+    `SELECT VESSEL_IMO_ID FROM vessel_imo_master
+     WHERE IMO_NO = ? AND MCOMPANYID = ? LIMIT 1`,
+    [imoNo.trim(), appContext.companyId],
+  );
+  if (imoExists) throw new Error('IMO number already exists.');
+
+  const [[nameExists]] = await pool.query(
+    `SELECT VESSEL_IMO_ID FROM vessel_imo_master
+     WHERE VESSEL_NAME = ? AND MCOMPANYID = ? LIMIT 1`,
+    [vesselName.trim(), appContext.companyId],
+  );
+  if (nameExists) throw new Error('Vessel Name already exists.');
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [result] = await pool.query(
+    `INSERT INTO vessel_imo_master (
+      VESSEL_NAME, VESSEL_TYPE, BUILDER, HULL_TYPE, DWT, YEARBUILT, ALLOCATE_STATUS,
+      OWNER, COATING, TRANS_DATE, BUSINESSTYPEID, MCOMPANYID, DRAFTM, CRANESIZE, GRABSIZE,
+      IMO_NO, FLAG, LOA, EXT_BREADTH, GRT_NRT, GRAIN, BALE, NOH, NOHA, HATCH_SIZE, CARGO_GEAR,
+      P_I, CLA_SOC_ID, REMARKS, ATTACHMENT, ATTACHMENT_NAME, GAS_CARGO_TANKS, GAS_TANK_CAPACITY,
+      GAS_CARGO_PUMPS, GAS_MAIN_CARGO_PUMPS, SIZE_OF_MONIFOLDS, SBT_CAPACITY, TANKER_CAPACITY,
+      NO_OF_GRADE, TANKER_CARGO_PUMP, TANKER_SBT_CAPACITY, TANKER_PUMP_MAINCAP, NRT, VESSEL_CODE
+    ) VALUES (
+      ?, ?, 0, 0, ?, ?, 0,
+      ?, '', ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?
+    )`,
+    [
+      vesselName.trim(),
+      vesselTypeId,
+      dwt ?? '',
+      yearBuilt ?? '',
+      ownerVendorId || null,
+      today,
+      businessTypeId,
+      appContext.companyId,
+      draftM ?? '',
+      craneSize ?? '',
+      grabSize ?? '',
+      imoNo.trim(),
+      flagId,
+      loa ?? '',
+      extBreadth ?? '',
+      grtNrt ?? '',
+      grain ?? '',
+      bale ?? '',
+      noh ?? '',
+      noha ?? '',
+      hatchSize ?? '',
+      cargoGear ?? '',
+      piVendorId || null,
+      classSocId || null,
+      remarks ?? '',
+      attachment ?? '',
+      attachmentName ?? '',
+      gasCargoTanks ?? '',
+      gasTankCapacity ?? '',
+      gasCargoPumps ?? '',
+      gasMainCargoPumps ?? '',
+      sizeOfManifolds ?? '',
+      gasSbtCapacity ?? '',
+      tankerCapacity ?? '',
+      noOfGrade ?? '',
+      tankerCargoPump ?? '',
+      tankerSbtCapacity ?? '',
+      tankerPumpMainCap ?? '',
+      nrt ?? '',
+      vesselCode.trim(),
+    ],
+  );
+
+  return dbGetVesselPrimary(result.insertId);
+}

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useFleetModule } from '../../../hooks/useFleetModule.js';
 import { fetchFleetCompare, fetchFleetList } from '../../../services/fleet.js';
@@ -101,6 +101,7 @@ function ActionIcon({ icon, title, to }) {
 
 export default function FleetPage() {
   const { fleetPath, vesselPath } = useFleetModule();
+  const alert = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
   const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '3');
@@ -176,7 +177,11 @@ export default function FleetPage() {
 
   const handleCompare = async () => {
     if (!selectedIds.length) {
-      window.alert('Please select at least one checkbox');
+      await alert({
+        title: 'Alert',
+        message: 'Please select at least one checkbox',
+        confirmLabel: 'OK',
+      });
       return;
     }
 
@@ -226,8 +231,8 @@ export default function FleetPage() {
           <Button variant="outline" label="Compare Vessels" onClick={handleCompare} />
           <Button
             variant="add"
-            label="Add New"
-            to={`${fleetPath}/add`}
+            label="Add"
+            to={`${fleetPath}/add?selBType=${encodeURIComponent(businessType)}`}
           />
         </div>
       </div>
@@ -237,16 +242,40 @@ export default function FleetPage() {
           <thead>
             <tr>
               <th>#</th>
-              <th>Vessel Type</th>
+              <th>
+                Vessel
+                <span className={styles.headerLine2}>Type</span>
+              </th>
               <th>Vessel</th>
-              <th>Business Type</th>
-              <th>IMO No.</th>
-              <th>Summer DWT(MT)</th>
+              <th>
+                Business
+                <span className={styles.headerLine2}>Type</span>
+              </th>
+              <th>
+                IMO
+                <span className={styles.headerLine2}>No.</span>
+              </th>
+              <th>
+                Summer
+                <span className={styles.headerLine2}>DWT(MT)</span>
+              </th>
               <th>Built</th>
-              <th>Primary Details</th>
-              <th>Vessel Particulars</th>
-              <th>Commercial Parameters</th>
-              <th>Select to Compare</th>
+              <th>
+                Primary
+                <span className={styles.headerLine2}>Details</span>
+              </th>
+              <th>
+                Vessel
+                <span className={styles.headerLine2}>Particulars</span>
+              </th>
+              <th>
+                Commercial
+                <span className={styles.headerLine2}>Parameters</span>
+              </th>
+              <th>
+                Select to
+                <span className={styles.headerLine2}>Compare</span>
+              </th>
             </tr>
           </thead>
           <tbody>

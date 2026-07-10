@@ -1,5 +1,6 @@
 import { isDbConfigured } from '../config.js';
 import {
+  dbCreateVesselPrimary,
   dbGetVesselPrimary,
   dbGetVesselPrimaryLookups,
   dbUpdateVesselPrimary,
@@ -71,4 +72,16 @@ export async function getVesselPrimary(vesselId) {
 export async function updateVesselPrimary(vesselId, payload) {
   if (!isDbConfigured()) return { ...MOCK_VESSEL, ...payload, vesselImoId: Number(vesselId) };
   return dbUpdateVesselPrimary(vesselId, payload);
+}
+
+export async function createVesselPrimary(payload) {
+  if (!isDbConfigured()) {
+    return {
+      ...MOCK_VESSEL,
+      ...payload,
+      vesselImoId: 9999,
+      attachments: [],
+    };
+  }
+  return dbCreateVesselPrimary(payload);
 }

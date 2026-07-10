@@ -1,0 +1,168 @@
+.page {
+  position: relative;
+}
+
+.title {
+  margin: 0 0 16px;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text, #1f2937);
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-border, #d9dee8);
+}
+
+.tab,
+.tabActive {
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  font-size: var(--font-size-body, 12px);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-text-light, #6b7280);
+}
+
+.tabActive {
+  color: var(--color-primary, #1b77a6);
+  border-color: var(--color-border, #d9dee8);
+  border-bottom: 1px solid #fff;
+  margin-bottom: -1px;
+  background: #fff;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flashSuccess,
+.flashError,
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  font-size: var(--font-size-body, 12px);
+}
+
+.flashSuccess {
+  border: 1px solid #badbcc;
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.flashError,
+.error {
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--font-size-body, 12px);
+  line-height: 1.5;
+}
+
+.table th,
+.table td {
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid var(--color-border-light, #f3f4f6);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table thead th {
+  background: #f8fafc;
+  font-size: var(--font-size-small, 11px);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #4b5563;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  white-space: nowrap;
+}
+
+.table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.table tbody tr:hover {
+  background: #f0f7ff;
+}
+
+.emptyCell {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-light, #6b7280);
+}
+
+.actionCell {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.actionIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-primary, #1b77a6);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.actionIcon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.statusOpen,
+.statusClosed {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.statusOpen {
+  background: #d9edf7;
+  color: #31708f;
+}
+
+.statusClosed {
+  background: #dff0d8;
+  color: #3c763d;
+}
+
+.multiline {
+  white-space: pre-line;
+}

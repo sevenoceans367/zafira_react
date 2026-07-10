@@ -53,3 +53,20 @@ export async function updateVesselPrimary(vesselId, formData) {
   }
   return data;
 }
+
+export async function fetchVesselPrimaryLookups() {
+  const response = await fetch(`${BASE}/vessel/new`);
+  return parseJson(response, 'Failed to load vessel form.');
+}
+
+export async function createVesselPrimary(formData) {
+  const response = await fetch(`${BASE}/vessel`, {
+    method: 'POST',
+    body: formData,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to create vessel.');
+  }
+  return data;
+}

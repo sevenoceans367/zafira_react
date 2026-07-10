@@ -5,6 +5,7 @@ const ConfirmContext = createContext(null);
 
 const EMPTY_STATE = {
   open: false,
+  mode: 'confirm',
   title: 'Confirmation',
   message: '',
   confirmLabel: 'Confirm',
@@ -18,7 +19,7 @@ const EMPTY_STATE = {
   resolve: null,
 };
 
-function normalizeConfirmInput(messageOrOptions, maybeOptions = {}) {
+function normalizeDialogInput(messageOrOptions, maybeOptions = {}) {
   if (messageOrOptions && typeof messageOrOptions === 'object' && !Array.isArray(messageOrOptions)) {
     return messageOrOptions;
   }
@@ -31,14 +32,17 @@ function normalizeConfirmInput(messageOrOptions, maybeOptions = {}) {
 export function ConfirmProvider({ children }) {
   const [state, setState] = useState(EMPTY_STATE);
 
-  const confirm = useCallback((messageOrOptions, maybeOptions = {}) => {
-    const options = normalizeConfirmInput(messageOrOptions, maybeOptions);
+  const openDialog = useCallback((mode, messageOrOptions, maybeOptions = {}) => {
+    const options = normalizeDialogInput(messageOrOptions, maybeOptions);
+    const isAlert = mode === 'alert';
+
     return new Promise((resolve) => {
       setState({
         open: true,
-        title: options.title || 'Confirmation',
+        mode,
+        title: options.title || (isAlert ? 'Alert' : 'Confirmation'),
         message: options.message || '',
-        confirmLabel: options.confirmLabel || 'Confirm',
+        confirmLabel: options.confirmLabel || (isAlert ? 'OK' : 'Confirm'),
         cancelLabel: options.cancelLabel || 'Cancel',
         confirmVariant: options.confirmVariant || 'primary',
         validation: options.validation ?? null,
@@ -51,6 +55,16 @@ export function ConfirmProvider({ children }) {
     });
   }, []);
 
+  const confirm = useCallback(
+    (messageOrOptions, maybeOptions = {}) => openDialog('confirm', messageOrOptions, maybeOptions),
+    [openDialog],
+  );
+
+  const alert = useCallback(
+    (messageOrOptions, maybeOptions = {}) => openDialog('alert', messageOrOptions, maybeOptions),
+    [openDialog],
+  );
+
   const close = (result) => {
     state.resolve?.(result);
     setState(EMPTY_STATE);
@@ -58,7 +72,7 @@ export function ConfirmProvider({ children }) {
 
   const handleCancel = () => {
     if (state.busy) return;
-    close(false);
+    close(state.mode === 'alert' ? true : false);
   };
 
   const handleConfirm = () => {
@@ -74,10 +88,11 @@ export function ConfirmProvider({ children }) {
   };
 
   return (
-    <ConfirmContext.Provider value={{ confirm }}>
+    <ConfirmContext.Provider value={{ confirm, alert }}>
       {children}
       <ConfirmDialog
         open={state.open}
+        mode={state.mode}
         title={state.title}
         message={state.message}
         confirmLabel={state.confirmLabel}
@@ -101,4 +116,12 @@ export function useConfirm() {
     throw new Error('useConfirm must be used within ConfirmProvider');
   }
   return ctx.confirm;
+}
+
+export function useAlert() {
+  const ctx = useContext(ConfirmContext);
+  if (!ctx) {
+    throw new Error('useAlert must be used within ConfirmProvider');
+  }
+  return ctx.alert;
 }

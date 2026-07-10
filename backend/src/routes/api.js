@@ -3,6 +3,9 @@ import authRoutes from './auth.js';
 import sopfRoutes from './sopf.js';
 import vcRoutes from './vc.js';
 import fleetRoutes from './fleet.js';
+import periodContractRoutes from './periodContract.js';
+import todoListRoutes from './todoList.js';
+import mastersRoutes from './masters.js';
 import { pingDb } from '../db.js';
 import { isDbConfigured } from '../config.js';
 
@@ -47,5 +50,8 @@ router.get('/alerts', (_req, res) => {
 router.use('/internal-user/sopf', sopfRoutes);
 router.use('/internal-user/vc', vcRoutes);
 router.use('/internal-user/fleet', fleetRoutes);
+router.use('/internal-user/period-contracts', periodContractRoutes);
+router.use('/internal-user/todo-list', todoListRoutes);
+router.use('/internal-user/masters', mastersRoutes);
 
 export default router;

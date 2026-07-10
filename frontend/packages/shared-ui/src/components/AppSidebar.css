@@ -126,11 +126,13 @@
 
 .sidebar-wrapper.closed .sidebar-menu span,
 .sidebar-wrapper.closed .sidebar-user-panel .info,
-.sidebar-wrapper.closed .treeview > a > i[class*="bi-chevron-"] {
+.sidebar-wrapper.closed .treeview > a > i[class*="bi-chevron-"],
+.sidebar-wrapper.closed .treeview > button > i[class*="bi-chevron-"] {
   display: none !important;
 }
 
-.sidebar-wrapper.closed .sidebar-menu > li > a {
+.sidebar-wrapper.closed .sidebar-menu > li > a,
+.sidebar-wrapper.closed .sidebar-menu > li.treeview > button {
   justify-content: center;
   margin: 0 8px;
   padding: 12px 0 !important;
@@ -147,10 +149,41 @@
   outline: none;
 }
 
+.sidebar-menu > li.treeview > a,
+.sidebar-menu > li.treeview > button {
+  display: flex;
+  align-items: center;
+  width: calc(100% - 20px);
+  margin: 0 10px;
+  padding: 8px 10px 8px 12px;
+  border: none;
+  border-radius: var(--sidebar-link-radius);
+  text-decoration: none;
+  color: var(--sidebar-link-color);
+  font-size: var(--sidebar-font-size, 12px);
+  font-weight: normal;
+  background-color: transparent;
+  white-space: nowrap;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-menu > li.treeview > button .icon,
+.sidebar-menu > li.treeview > button i {
+  color: inherit;
+}
+
 .sidebar-menu > li.treeview > a.expanded:hover,
 .sidebar-menu > li.treeview > a.expanded:focus,
 .sidebar-menu > li.treeview > a.expanded:focus-visible,
-.sidebar-menu > li.treeview > a.expanded.active {
+.sidebar-menu > li.treeview > a.expanded.active,
+.sidebar-menu > li.treeview > button.expanded:hover,
+.sidebar-menu > li.treeview > button.expanded:focus,
+.sidebar-menu > li.treeview > button.expanded:focus-visible,
+.sidebar-menu > li.treeview > button:hover,
+.sidebar-menu > li.treeview > button:focus,
+.sidebar-menu > li.treeview > button:focus-visible {
   color: var(--sidebar-link-color-active);
   font-weight: bold;
   background-color: #e6e6e6;
@@ -158,9 +191,14 @@
   outline: none;
 }
 
-.sidebar-menu > li.treeview > a.expanded {
+.sidebar-menu > li.treeview > a.expanded,
+.sidebar-menu > li.treeview > button.expanded {
   color: var(--sidebar-link-color);
   font-weight: normal;
+}
+
+.sidebar-menu > li.treeview > button > span {
+  flex: 1;
 }
 
 .sidebar-menu .icon {
@@ -194,8 +232,8 @@
   top: 0;
   z-index: 1100;
   list-style-type: none;
-  min-width: 240px;
-  max-width: 300px;
+  min-width: 260px;
+  max-width: 340px;
   max-height: min(72vh, 520px);
   overflow-x: hidden;
   overflow-y: auto;
@@ -212,11 +250,14 @@
   min-width: 260px;
 }
 
-.treeview-menu > li > a {
+.treeview-menu > li > a,
+.treeview-menu > li > button {
   display: flex;
   align-items: flex-start;
+  width: 100%;
   margin: 0;
   padding: 8px 12px;
+  border: none;
   border-radius: var(--sidebar-link-radius);
   text-decoration: none;
   color: var(--sidebar-link-color);
@@ -226,16 +267,23 @@
   line-height: 1.35;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .treeview-menu > li > a .icon,
 .treeview-menu > li > a i,
-.treeview-menu > li > a svg {
+.treeview-menu > li > a svg,
+.treeview-menu > li > button .icon,
+.treeview-menu > li > button i,
+.treeview-menu > li > button svg {
   color: inherit;
 }
 
-.treeview-menu > li > a .icon {
+.treeview-menu > li > a .icon,
+.treeview-menu > li > button .icon {
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -243,7 +291,11 @@
 .treeview-menu > li > a:hover,
 .treeview-menu > li > a:focus,
 .treeview-menu > li > a:focus-visible,
-.treeview-menu > li > a.active {
+.treeview-menu > li > a.active,
+.treeview-menu > li > button:hover,
+.treeview-menu > li > button:focus,
+.treeview-menu > li > button:focus-visible,
+.treeview-menu > li > button.active {
   color: var(--sidebar-link-color-active);
   font-weight: bold;
   background-color: #e6e6e6;

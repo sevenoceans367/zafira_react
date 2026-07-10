@@ -1,0 +1,250 @@
+.page {
+  position: relative;
+  padding: 0 0 32px;
+}
+
+.title {
+  margin: 0 0 20px;
+  padding: 0 24px;
+  font-family: var(--font-family-heading);
+  font-size: 20px;
+  color: #274670;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 0 24px;
+}
+
+.section {
+  background: #fff;
+  border: 1px solid var(--color-border, #e5e7eb);
+}
+
+.sectionTitle {
+  margin: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: #f8fafc;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-highlight, 14px);
+  font-weight: 600;
+  color: #274670;
+}
+
+.sectionBody {
+  padding: 16px;
+}
+
+.sectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.required {
+  color: #dc2626;
+  margin-left: 4px;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  font-size: var(--font-size-body, 12px);
+  color: #1f2937;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.field input:read-only,
+.field textarea:read-only {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+
+.tableWrap {
+  overflow: auto;
+  width: 100%;
+}
+
+/* Keep Spot table look; only override form-cell controls */
+.table {
+  width: 100%;
+}
+
+.table th,
+.table td {
+  border: none;
+  border-bottom: 1px solid var(--color-border-light, #f3f4f6);
+  vertical-align: top;
+}
+
+.table thead th,
+.table th {
+  background: #f8fafc;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  font-size: var(--font-size-small, 11px);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+.table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.table tbody tr:hover {
+  background: #f0f7ff;
+}
+
+.table input,
+.table select,
+.table textarea {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  font-size: var(--font-size-body, 12px);
+  color: #1f2937;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.table input:read-only,
+.table textarea:read-only {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.table textarea {
+  resize: vertical;
+  min-height: 56px;
+}
+
+.removeBtn {
+  border: 0;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 11px;
+  white-space: nowrap;
+  padding: 0;
+}
+
+.tableFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.tableTotal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.tableTotalLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.tableTotalInput {
+  width: 120px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  background: #f3f4f6;
+  font-size: var(--font-size-body, 12px);
+  text-align: right;
+  box-sizing: border-box;
+}
+
+.offHireBlock {
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--color-border-light, #f3f4f6);
+}
+
+.offHireBlock:first-of-type {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: 0;
+}
+
+.offHireHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.attachmentsField input[type='file'] {
+  font-size: var(--font-size-body, 12px);
+}
+
+.error {
+  margin: 0 24px 16px;
+  padding: 12px 14px;
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+  font-size: var(--font-size-body, 12px);
+}
+
+@media (max-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

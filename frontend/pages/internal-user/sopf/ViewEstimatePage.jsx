@@ -4,6 +4,7 @@ import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchEstimateDetail, fetchEstimateLookups } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
+import { applyEstimateCalculations } from './estimateCalculations.js';
 import { toFormState } from './estimateDetail.constants.js';
 import styles from './UpdateEstimatePage.module.css';
 
@@ -17,7 +18,14 @@ export default function ViewEstimatePage() {
   const [error, setError] = useState('');
   const [detail, setDetail] = useState(null);
   const [form, setForm] = useState(toFormState({}));
-  const [lookups, setLookups] = useState({ cargos: [], bunkerGrades: [] });
+  const [lookups, setLookups] = useState({
+    cargos: [],
+    bunkerGrades: [],
+    ownerCosts: [],
+    owners: [],
+    complianceFactors: {},
+    complianceYear: new Date().getFullYear(),
+  });
 
   const listHref = appPath(
     `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
@@ -37,12 +45,17 @@ export default function ViewEstimatePage() {
         fetchEstimateDetail(estimateId),
         fetchEstimateLookups(estimateType),
       ]);
-      setDetail(data);
-      setForm(toFormState(data));
-      setLookups({
+      const nextLookups = {
         cargos: lookupData.cargos ?? [],
         bunkerGrades: lookupData.bunkerGrades ?? [],
-      });
+        ownerCosts: lookupData.ownerCosts ?? [],
+        owners: lookupData.owners ?? [],
+        complianceFactors: lookupData.complianceFactors ?? {},
+        complianceYear: lookupData.complianceYear || new Date().getFullYear(),
+      };
+      setDetail(data);
+      setLookups(nextLookups);
+      setForm(applyEstimateCalculations(toFormState(data), nextLookups));
     } catch (err) {
       setError(err.message || 'Failed to load estimate.');
     } finally {

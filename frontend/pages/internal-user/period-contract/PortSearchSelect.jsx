@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { searchPeriodContractPorts } from '../../../services/periodContracts.js';
 import styles from './PortSearchSelect.module.css';
 
@@ -13,19 +14,54 @@ export default function PortSearchSelect({
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [menuStyle, setMenuStyle] = useState(null);
   const wrapRef = useRef(null);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     setQuery(label || '');
   }, [label, value]);
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuStyle(null);
+      return undefined;
+    }
+
+    const updatePosition = () => {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.max(rect.width, 220);
+      const maxHeight = 220;
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const openUp = spaceBelow < 120 && rect.top > spaceBelow;
+      setMenuStyle({
+        position: 'fixed',
+        top: openUp ? undefined : rect.bottom + 4,
+        bottom: openUp ? window.innerHeight - rect.top + 4 : undefined,
+        left: Math.min(rect.left, window.innerWidth - width - 8),
+        width,
+        maxHeight,
+        zIndex: 10050,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open, results, loading]);
+
   useEffect(() => {
     if (!open) return undefined;
 
     const handleClickOutside = (event) => {
-      if (wrapRef.current && !wrapRef.current.contains(event.target)) {
-        setOpen(false);
-      }
+      const inWrap = wrapRef.current?.contains(event.target);
+      const inMenu = menuRef.current?.contains(event.target);
+      if (!inWrap && !inMenu) setOpen(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -39,27 +75,36 @@ export default function PortSearchSelect({
       return undefined;
     }
 
+    // Don't re-query while the field still shows the already-selected port.
+    if (value && label && term === String(label).trim()) {
+      return undefined;
+    }
+
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
         const rows = await searchPeriodContractPorts(term);
-        setResults(rows);
+        setResults(Array.isArray(rows) ? rows : []);
         setOpen(true);
       } catch {
         setResults([]);
+        setOpen(true);
       } finally {
         setLoading(false);
       }
-    }, 300);
+    }, 250);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, value, label]);
 
   const handleSelect = (port) => {
-    onChange(port.id, port.name);
+    onChange?.(port.id, port.name);
     setQuery(port.name);
+    setResults([]);
     setOpen(false);
   };
+
+  const showMenu = open && menuStyle && (loading || results.length > 0 || query.trim().length > 0);
 
   return (
     <div className={styles.wrap} ref={wrapRef}>
@@ -69,26 +114,40 @@ export default function PortSearchSelect({
         value={query}
         required={required}
         placeholder={placeholder}
+        autoComplete="off"
         onChange={(event) => {
           setQuery(event.target.value);
-          if (!event.target.value) onChange('', '');
+          if (!event.target.value) onChange?.('', '');
         }}
         onFocus={() => {
-          if (results.length) setOpen(true);
+          if (results.length || query.trim().length >= 1) setOpen(true);
         }}
       />
-      {loading ? <span className={styles.hint}>Searching…</span> : null}
-      {open && results.length > 0 ? (
-        <ul className={styles.dropdown}>
-          {results.map((port) => (
-            <li key={port.id}>
-              <button type="button" onClick={() => handleSelect(port)}>
-                {port.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {showMenu
+        ? createPortal(
+          <ul
+            ref={menuRef}
+            className={styles.dropdownFixed}
+            style={menuStyle}
+            role="listbox"
+          >
+            {loading ? <li className={styles.hintItem}>Searching…</li> : null}
+            {!loading && results.length === 0 ? (
+              <li className={styles.hintItem}>No ports found</li>
+            ) : null}
+            {!loading
+              ? results.map((port) => (
+                <li key={port.id}>
+                  <button type="button" onClick={() => handleSelect(port)}>
+                    {port.name}
+                  </button>
+                </li>
+              ))
+              : null}
+          </ul>,
+          document.body,
+        )
+        : null}
     </div>
   );
 }

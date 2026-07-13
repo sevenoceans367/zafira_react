@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchEstimateDetail, fetchEstimateLookups, updateEstimateDetail } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
+import { applyEstimateCalculations } from './estimateCalculations.js';
+import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { toFormState } from './estimateDetail.constants.js';
 import styles from './UpdateEstimatePage.module.css';
 
@@ -11,6 +13,7 @@ const EMPTY_FORM = toFormState({});
 
 export default function UpdateEstimatePage() {
   const navigate = useNavigate();
+  const alert = useAlert();
   const [searchParams] = useSearchParams();
   const estimateId = searchParams.get('id');
   const estimateType = searchParams.get('estimatetype') || '2';
@@ -21,7 +24,14 @@ export default function UpdateEstimatePage() {
   const [error, setError] = useState('');
   const [detail, setDetail] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [lookups, setLookups] = useState({ cargos: [], bunkerGrades: [] });
+  const [lookups, setLookups] = useState({
+    cargos: [],
+    bunkerGrades: [],
+    ownerCosts: [],
+    owners: [],
+    complianceFactors: {},
+    complianceYear: new Date().getFullYear(),
+  });
 
   const listHref = appPath(
     `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
@@ -42,11 +52,16 @@ export default function UpdateEstimatePage() {
         fetchEstimateLookups(estimateType),
       ]);
       setDetail(data);
-      setForm(toFormState(data));
-      setLookups({
+      const nextLookups = {
         cargos: lookupData.cargos ?? [],
         bunkerGrades: lookupData.bunkerGrades ?? [],
-      });
+        ownerCosts: lookupData.ownerCosts ?? [],
+        owners: lookupData.owners ?? [],
+        complianceFactors: lookupData.complianceFactors ?? {},
+        complianceYear: lookupData.complianceYear || new Date().getFullYear(),
+      };
+      setLookups(nextLookups);
+      setForm(applyEstimateCalculations(toFormState(data), nextLookups));
     } catch (err) {
       setError(err.message || 'Failed to load estimate.');
     } finally {
@@ -58,9 +73,22 @@ export default function UpdateEstimatePage() {
     loadDetail();
   }, [loadDetail]);
 
-  const updateField = (key, value) => {
+  const updateField = useCallback((key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
-  };
+  }, []);
+
+  const handleRecalc = useCallback((key, value) => {
+    setForm((current) => {
+      const next = key && value !== undefined && !Array.isArray(value) && typeof value !== 'object'
+        ? { ...current, [key]: value }
+        : key && Array.isArray(value)
+          ? { ...current, [key]: value }
+          : key && typeof value === 'boolean'
+            ? { ...current, [key]: value }
+            : { ...current };
+      return applyEstimateCalculations(next, lookups);
+    });
+  }, [lookups]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -69,19 +97,28 @@ export default function UpdateEstimatePage() {
     setSaving(true);
     setError('');
     try {
-      await updateEstimateDetail(estimateId, {
-        fixtureTypeId: form.fixtureTypeId ? Number(form.fixtureTypeId) : null,
-        vesselType: form.vesselType,
-        flag: form.flag,
-        transDate: form.transDate,
-        voyageNo: form.voyageNo,
-        voyageName: form.voyageName,
-        dwtSummer: form.dwtSummer,
-        gnrt: form.gnrt,
+      const computed = applyEstimateCalculations(form, lookups);
+      setForm(computed);
+      const files = computed.attachmentFiles || [];
+      await updateEstimateDetail(
+        estimateId,
+        buildEstimateSubmitPayload(computed, estimateType),
+        files,
+      );
+      await alert({
+        title: 'Success',
+        message: 'Congratulations! Estimate updated successfully.',
+        confirmLabel: 'OK',
       });
       navigate(`${listHref}&msg=0`, { replace: true });
     } catch (err) {
-      setError(err.message || 'Failed to save estimate.');
+      const message = err.message || 'Failed to save estimate.';
+      setError(message);
+      await alert({
+        title: 'Error',
+        message,
+        confirmLabel: 'OK',
+      });
     } finally {
       setSaving(false);
     }
@@ -108,6 +145,7 @@ export default function UpdateEstimatePage() {
             form={form}
             lookups={lookups}
             onFieldChange={updateField}
+            onRecalc={handleRecalc}
           />
           <div className={styles.actions}>
             <Button type="submit" variant="primary" label="Submit" disabled={saving} />

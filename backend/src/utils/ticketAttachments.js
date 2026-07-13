@@ -17,6 +17,7 @@ const storage = multer.diskStorage({
 });
 
 export const ticketUpload = multer({ storage }).array('mul_file', 10);
+export const estimateUpload = multer({ storage }).array('attach_file', 10);
 
 export function mapUploadedFiles(files = []) {
   const stored = [];

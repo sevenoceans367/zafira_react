@@ -25,7 +25,7 @@ import {
   sendTicketMessage,
   updateSupportTicket,
 } from '../services/supportTicketService.js';
-import { mapUploadedFiles, ticketUpload } from '../utils/ticketAttachments.js';
+import { mapUploadedFiles, ticketUpload, estimateUpload } from '../utils/ticketAttachments.js';
 
 const router = Router();
 
@@ -81,9 +81,14 @@ router.get('/estimates/period-prefill/:periodId', async (req, res) => {
   }
 });
 
-router.post('/estimates', async (req, res) => {
+router.post('/estimates', estimateUpload, async (req, res) => {
   try {
-    const result = await createEstimateDetail(req.body);
+    let payload = req.body || {};
+    if (typeof payload.payload === 'string') {
+      payload = JSON.parse(payload.payload);
+    }
+    const upload = mapUploadedFiles(req.files || []);
+    const result = await createEstimateDetail(payload, upload);
     res.status(201).json(result);
   } catch (error) {
     console.error(error);
@@ -104,9 +109,14 @@ router.get('/estimates/:id', async (req, res) => {
   }
 });
 
-router.put('/estimates/:id', async (req, res) => {
+router.put('/estimates/:id', estimateUpload, async (req, res) => {
   try {
-    const result = await updateEstimateDetail(req.params.id, req.body);
+    let payload = req.body || {};
+    if (typeof payload.payload === 'string') {
+      payload = JSON.parse(payload.payload);
+    }
+    const upload = mapUploadedFiles(req.files || []);
+    const result = await updateEstimateDetail(req.params.id, payload, upload);
     if (!result) {
       return res.status(404).json({ message: 'Estimate not found.', msg: 1 });
     }

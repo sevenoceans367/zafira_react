@@ -37,11 +37,15 @@ export async function searchVessels(query) {
   return data.rows ?? [];
 }
 
-export async function createEstimateDetail(payload) {
+export async function createEstimateDetail(payload, files = []) {
+  const body = new FormData();
+  body.append('payload', JSON.stringify(payload));
+  for (const file of files) {
+    body.append('attach_file', file);
+  }
   const response = await fetch(`${BASE}/estimates`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body,
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -50,14 +54,19 @@ export async function createEstimateDetail(payload) {
   return data;
 }
 
-export async function updateEstimateDetail(id, payload) {
+export async function updateEstimateDetail(id, payload, files = []) {
+  const body = new FormData();
+  body.append('payload', JSON.stringify(payload));
+  for (const file of files) {
+    body.append('attach_file', file);
+  }
   const response = await fetch(`${BASE}/estimates/${encodeURIComponent(id)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body,
   });
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error('Failed to update estimate.');
+    throw new Error(data.message || 'Failed to update estimate.');
   }
-  return response.json();
+  return data;
 }

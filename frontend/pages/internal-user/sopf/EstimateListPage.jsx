@@ -181,7 +181,10 @@ export default function EstimateListPage() {
     if (updates.selBType !== undefined) {
       next.set('estimatetype', String(updates.selBType));
     }
-    next.delete('msg');
+    // Keep intentional flash messages; clear only when filters/pagination change.
+    if (!Object.prototype.hasOwnProperty.call(updates, 'msg')) {
+      next.delete('msg');
+    }
     setSearchParams(next, { replace: true });
   };
 
@@ -322,14 +325,19 @@ export default function EstimateListPage() {
 
       <div className="zafira-page">
         {flash ? (
-          <div className={`alert alert-${flash.type} alert-dismissible`} role="alert">
+          <div
+            className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}
+            role="alert"
+          >
             <strong>{flash.type === 'success' ? 'Success!' : 'Error!'}</strong> {flash.text}
             <button
               type="button"
-              className="btn-close"
+              className={styles.flashClose}
               aria-label="Close"
               onClick={() => updateParams({ msg: null })}
-            />
+            >
+              ×
+            </button>
           </div>
         ) : null}
 

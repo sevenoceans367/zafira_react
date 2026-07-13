@@ -50,6 +50,8 @@ export async function getEstimateLookups(estimateType) {
   return {
     cargos: [{ id: '1', name: 'Crude Oil' }],
     bunkerGrades: [{ id: '1', name: 'VLSFO', bunkerType: 'IFO' }],
+    ownerCosts: [{ id: '1', name: 'Agency Fee' }],
+    owners: [{ id: '1', name: 'Demo Owner ( OWN )' }],
   };
 }
 
@@ -66,9 +68,9 @@ export async function getPeriodPrefill(periodId) {
   };
 }
 
-export async function updateEstimateDetail(id, payload) {
+export async function updateEstimateDetail(id, payload, upload = {}) {
   if (isDbConfigured()) {
-    return dbUpdateEstimateDetail(id, payload);
+    return dbUpdateEstimateDetail(id, payload, upload);
   }
   return { msg: 0 };
 }
@@ -97,7 +99,7 @@ export async function searchVessels(query) {
   );
 }
 
-export async function createEstimateDetail(payload) {
+export async function createEstimateDetail(payload, upload = {}) {
   if (!payload.fixtureTypeId) {
     throw new Error('Business type is required.');
   }
@@ -109,7 +111,7 @@ export async function createEstimateDetail(payload) {
   }
 
   if (isDbConfigured()) {
-    return dbCreateEstimateDetail(payload);
+    return dbCreateEstimateDetail(payload, upload);
   }
 
   return { msg: 0, id: '999' };

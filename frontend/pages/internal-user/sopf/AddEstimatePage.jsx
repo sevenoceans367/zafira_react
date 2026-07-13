@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import {
   createEstimateDetail,
@@ -9,11 +9,13 @@ import {
 } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
+import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { createEmptyDetail, toFormState } from './estimateDetail.constants.js';
 import styles from './UpdateEstimatePage.module.css';
 
 export default function AddEstimatePage() {
   const navigate = useNavigate();
+  const alert = useAlert();
   const [searchParams] = useSearchParams();
   const estimateType = searchParams.get('estimatetype') || searchParams.get('selBType') || '2';
   const businessType = searchParams.get('selBType') || estimateType;
@@ -21,7 +23,14 @@ export default function AddEstimatePage() {
 
   const detail = useMemo(() => createEmptyDetail(estimateType), [estimateType]);
   const [form, setForm] = useState(() => toFormState({}));
-  const [lookups, setLookups] = useState({ cargos: [], bunkerGrades: [] });
+  const [lookups, setLookups] = useState({
+    cargos: [],
+    bunkerGrades: [],
+    ownerCosts: [],
+    owners: [],
+    complianceFactors: {},
+    complianceYear: new Date().getFullYear(),
+  });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -46,6 +55,10 @@ export default function AddEstimatePage() {
         setLookups({
           cargos: lookupData.cargos ?? [],
           bunkerGrades: lookupData.bunkerGrades ?? [],
+          ownerCosts: lookupData.ownerCosts ?? [],
+          owners: lookupData.owners ?? [],
+          complianceFactors: lookupData.complianceFactors ?? {},
+          complianceYear: lookupData.complianceYear || new Date().getFullYear(),
         });
 
         setForm((current) => {
@@ -58,7 +71,10 @@ export default function AddEstimatePage() {
               hireRate: periodData.hireRate || next.hireRate,
             };
           }
-          return applyEstimateCalculations(next);
+          return applyEstimateCalculations(next, {
+            bunkerGrades: lookupData.bunkerGrades ?? [],
+            complianceFactors: lookupData.complianceFactors ?? {},
+          });
         });
       } catch (err) {
         if (!cancelled) setError(err.message || 'Failed to load estimate form.');
@@ -83,10 +99,12 @@ export default function AddEstimatePage() {
         ? { ...current, [key]: value }
         : key && Array.isArray(value)
           ? { ...current, [key]: value }
-          : { ...current };
-      return applyEstimateCalculations(next);
+          : key && typeof value === 'boolean'
+            ? { ...current, [key]: value }
+            : { ...current };
+      return applyEstimateCalculations(next, lookups);
     });
-  }, []);
+  }, [lookups]);
 
   const handleVesselSelect = (vessel) => {
     if (!vessel) {
@@ -100,7 +118,7 @@ export default function AddEstimatePage() {
         gnrt: '',
         loa: '',
         tpc: '',
-      }));
+      }, lookups));
       return;
     }
 
@@ -114,7 +132,7 @@ export default function AddEstimatePage() {
       gnrt: vessel.gnrt ? String(vessel.gnrt) : '',
       loa: vessel.loa ? String(vessel.loa) : '',
       tpc: current.tpc || '',
-    }));
+    }, lookups));
   };
 
   const handleSubmit = async (event) => {
@@ -123,49 +141,27 @@ export default function AddEstimatePage() {
     setError('');
 
     try {
-      const computed = applyEstimateCalculations(form);
+      const computed = applyEstimateCalculations(form, lookups);
       setForm(computed);
-
-      await createEstimateDetail({
-        fixtureTypeId: computed.fixtureTypeId ? Number(computed.fixtureTypeId) : null,
-        vesselImoId: computed.vesselImoId ? Number(computed.vesselImoId) : null,
-        estimateType: Number(estimateType),
-        periodId: periodId || null,
-        vesselType: computed.vesselType,
-        flag: computed.flag,
-        transDate: computed.transDate,
-        voyageNo: computed.voyageNo,
-        voyageName: computed.voyageName || computed.voyageNo,
-        dwtSummer: computed.dwtSummer,
-        dwtTropical: computed.dwtTropical,
-        gnrt: computed.gnrt,
-        loa: computed.loa,
-        tpc: computed.tpc,
-        cargoQuantity: computed.cargoQuantity,
-        totalDays: computed.totalDays,
-        totalDistance: computed.totalDistance,
-        dailyEarning: computed.dailyEarning,
-        profitLoss: computed.profitLoss,
-        freightGross: computed.freightGross,
-        brokeragePercent: computed.brokeragePercent,
-        brokerageAmt: computed.brokerageAmt,
-        hireRate: computed.hireRate,
-        hireAmt: computed.hireAmt,
-        cveAmt: computed.cveAmt,
-        ballastBonus: computed.ballastBonus,
-        lumpsum: computed.lumpsum,
-        lumpsumQty: computed.lumpsumQty,
-        marketRate: computed.marketRate,
-        addCommPercent: computed.addCommPercent,
-        bFullSpeed: computed.bFullSpeed,
-        lFullSpeed: computed.lFullSpeed,
-        portLegs: (computed.portLegs || []).filter((leg) => leg.fromPortId || leg.toPortId),
-        cargoRows: (computed.cargoRows || []).filter((row) => row.cargoId || row.cargoMt),
-        bunkerRows: (computed.bunkerRows || []).filter((row) => row.bunkerGradeId || row.qty),
+      const files = computed.attachmentFiles || [];
+      await createEstimateDetail(
+        buildEstimateSubmitPayload(computed, estimateType, periodId),
+        files,
+      );
+      await alert({
+        title: 'Success',
+        message: 'Congratulations! Estimate added successfully.',
+        confirmLabel: 'OK',
       });
       navigate(`${listHref}&msg=0`, { replace: true });
     } catch (err) {
-      setError(err.message || 'Failed to create estimate.');
+      const message = err.message || 'Failed to create estimate.';
+      setError(message);
+      await alert({
+        title: 'Error',
+        message,
+        confirmLabel: 'OK',
+      });
     } finally {
       setSaving(false);
     }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AppShell } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { logout } from '@bainbridge/shared-auth';
@@ -9,8 +9,18 @@ import InternalUserPageHeader from '../../pages/internal-user/InternalUserPageHe
 import { PageHeaderProvider } from '../../pages/internal-user/PageHeaderContext.jsx';
 import styles from './InternalUserLayout.module.css';
 
+const COLLAPSE_SIDEBAR_PATHS = [
+  '/internal-user/sopf/addestimate',
+  '/internal-user/sopf/updateestimate',
+  '/internal-user/sopf/viewestimate',
+];
+
 export default function InternalUserLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const collapseSidebar = COLLAPSE_SIDEBAR_PATHS.some((path) => (
+    location.pathname === path || location.pathname.startsWith(`${path}/`)
+  ));
 
   const handleSignOut = async () => {
     await logout();
@@ -21,6 +31,7 @@ export default function InternalUserLayout() {
     <PageHeaderProvider>
       <AppShell
         companyName="Internal User"
+        collapseSidebar={collapseSidebar}
         sidebar={({ isOpen }) => (
           <div className={styles.navCluster}>
             <ModuleSwitcherRail />

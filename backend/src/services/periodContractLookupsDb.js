@@ -51,14 +51,20 @@ export async function dbSearchPorts(query, limit = 25) {
   const term = String(query || '').trim();
   if (!term) return [];
 
-  const like = `${term}%`;
+  const like = `%${term}%`;
   const [rows] = await pool.query(
     `SELECT PortId AS id, PortName, PortCode, COUNTRY_KEY
      FROM port_master
-     WHERE PortName LIKE ? OR PortCode LIKE ?
-     ORDER BY PortName
+     WHERE PortName LIKE ? OR PortCode LIKE ? OR CAST(PortId AS CHAR) = ?
+     ORDER BY
+       CASE
+         WHEN PortName LIKE ? THEN 0
+         WHEN PortCode LIKE ? THEN 1
+         ELSE 2
+       END,
+       PortName
      LIMIT ?`,
-    [like, like, limit],
+    [like, like, term, `${term}%`, `${term}%`, limit],
   );
 
   return rows.map((row) => ({

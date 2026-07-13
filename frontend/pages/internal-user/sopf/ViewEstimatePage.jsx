@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
-import { fetchEstimateDetail } from '../../../services/estimateDetail.js';
+import { fetchEstimateDetail, fetchEstimateLookups } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
 import { toFormState } from './estimateDetail.constants.js';
 import styles from './UpdateEstimatePage.module.css';
@@ -17,6 +17,7 @@ export default function ViewEstimatePage() {
   const [error, setError] = useState('');
   const [detail, setDetail] = useState(null);
   const [form, setForm] = useState(toFormState({}));
+  const [lookups, setLookups] = useState({ cargos: [], bunkerGrades: [] });
 
   const listHref = appPath(
     `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
@@ -32,15 +33,22 @@ export default function ViewEstimatePage() {
     setLoading(true);
     setError('');
     try {
-      const data = await fetchEstimateDetail(estimateId);
+      const [data, lookupData] = await Promise.all([
+        fetchEstimateDetail(estimateId),
+        fetchEstimateLookups(estimateType),
+      ]);
       setDetail(data);
       setForm(toFormState(data));
+      setLookups({
+        cargos: lookupData.cargos ?? [],
+        bunkerGrades: lookupData.bunkerGrades ?? [],
+      });
     } catch (err) {
       setError(err.message || 'Failed to load estimate.');
     } finally {
       setLoading(false);
     }
-  }, [estimateId]);
+  }, [estimateId, estimateType]);
 
   useEffect(() => {
     loadDetail();
@@ -62,7 +70,7 @@ export default function ViewEstimatePage() {
 
       {!loading && detail ? (
         <div>
-          <EstimateDetailSections detail={detail} form={form} readOnly />
+          <EstimateDetailSections detail={detail} form={form} readOnly lookups={lookups} />
           <div className={styles.actions}>
             <Button variant="outline" label="Back to List" href={listHref} />
           </div>

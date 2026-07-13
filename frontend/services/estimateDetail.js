@@ -8,6 +8,25 @@ export async function fetchEstimateDetail(id) {
   return response.json();
 }
 
+export async function fetchEstimateLookups(estimateType) {
+  const params = new URLSearchParams({ estimateType: String(estimateType || 2) });
+  const response = await fetch(`${BASE}/estimates/lookups?${params}`);
+  if (!response.ok) {
+    throw new Error('Failed to load estimate lookups.');
+  }
+  return response.json();
+}
+
+export async function fetchPeriodPrefill(periodId) {
+  if (!periodId) return null;
+  const response = await fetch(`${BASE}/estimates/period-prefill/${encodeURIComponent(periodId)}`);
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error('Failed to load period contract prefill.');
+  }
+  return response.json();
+}
+
 export async function searchVessels(query) {
   const params = new URLSearchParams({ q: query });
   const response = await fetch(`${BASE}/vessels/search?${params}`);

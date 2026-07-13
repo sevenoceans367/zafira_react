@@ -11,6 +11,8 @@ import {
 import {
   createEstimateDetail,
   getEstimateDetail,
+  getEstimateLookups,
+  getPeriodPrefill,
   searchVessels,
   updateEstimateDetail,
 } from '../services/estimateDetailService.js';
@@ -52,6 +54,30 @@ router.get('/vessels/search', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message || 'Failed to search vessels.' });
+  }
+});
+
+router.get('/estimates/lookups', async (req, res) => {
+  try {
+    const data = await getEstimateLookups(req.query.estimateType || req.query.estimatetype);
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to load estimate lookups.' });
+  }
+});
+
+router.get('/estimates/period-prefill/:periodId', async (req, res) => {
+  try {
+    const data = await getPeriodPrefill(req.params.periodId);
+    if (!data) {
+      res.status(404).json({ message: 'Period contract not found.' });
+      return;
+    }
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to load period prefill.' });
   }
 });
 

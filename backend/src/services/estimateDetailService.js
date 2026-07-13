@@ -2,6 +2,8 @@ import { isDbConfigured } from '../config.js';
 import {
   dbCreateEstimateDetail,
   dbGetEstimateDetail,
+  dbGetEstimateLookups,
+  dbGetPeriodPrefill,
   dbSearchVessels,
   dbUpdateEstimateDetail,
 } from './estimateDetailDb.js';
@@ -34,7 +36,33 @@ export async function getEstimateDetail(id) {
     dailyEarning: 48500,
     dailyVesselOperationExp: 41200,
     profitLoss: 306600,
+    freightGross: '325000',
     portLegs: [],
+    cargoRows: [],
+    bunkerRows: [],
+  };
+}
+
+export async function getEstimateLookups(estimateType) {
+  if (isDbConfigured()) {
+    return dbGetEstimateLookups(estimateType);
+  }
+  return {
+    cargos: [{ id: '1', name: 'Crude Oil' }],
+    bunkerGrades: [{ id: '1', name: 'VLSFO', bunkerType: 'IFO' }],
+  };
+}
+
+export async function getPeriodPrefill(periodId) {
+  if (!periodId) return null;
+  if (isDbConfigured()) {
+    return dbGetPeriodPrefill(periodId);
+  }
+  return {
+    periodId: String(periodId),
+    brokeragePercent: '1.25',
+    addCommPercent: '2.5',
+    hireRate: '15000',
   };
 }
 

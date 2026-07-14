@@ -4,8 +4,9 @@ export const FLEET_MODULE_IDS = ['sopf', 'vc', 'tc'];
 
 export const FLEET_MODULE_LABELS = {
   sopf: 'SOPF',
-  vc: 'VC',
-  tc: 'TC',
+  vc: 'SOC',
+  tc: 'SOC',
+  soc: 'SOC',
 };
 
 export const FLEET_NAV_ITEM = {

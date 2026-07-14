@@ -83,7 +83,7 @@ export default function InternalUserSidebar({ isOpen }) {
 
         {inVc ? (
           <>
-            <SidebarSection label="VC" />
+            <SidebarSection label="SOC" />
             <SidebarLink
               to={appPath('/internal-user/vc')}
               icon="bi-speedometer2"
@@ -114,7 +114,7 @@ export default function InternalUserSidebar({ isOpen }) {
 
         {inTc ? (
           <>
-            <SidebarSection label="TC" />
+            <SidebarSection label="SOC" />
             <SidebarLink
               to={appPath('/internal-user/tc')}
               icon="bi-clock-history"

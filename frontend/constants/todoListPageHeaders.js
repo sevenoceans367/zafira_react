@@ -11,9 +11,9 @@ export function resolveTodoListHeader(pathname) {
 
   const moduleMatch = pathname.match(/\/internal-user\/(sopf|vc|tc)\//);
   const module = moduleMatch?.[1] ?? 'vc';
-  const moduleLabel = module === 'sopf' ? 'SOPF' : module === 'tc' ? 'TC' : 'VC';
+  const moduleLabel = module === 'sopf' ? 'SOPF' : 'SOC';
   const moduleHref = appPath(
-    module === 'sopf' ? '/internal-user/sopf/estimate_list' : `/internal-user/${module}`,
+    module === 'sopf' ? '/internal-user/sopf/estimate_list' : '/internal-user/vc',
   );
 
   return {

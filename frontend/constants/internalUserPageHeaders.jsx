@@ -21,12 +21,12 @@ const STATIC_HEADERS = {
   '/internal-user/vc': {
     title: 'Dashboard',
     currentPage: 'Dashboard',
-    breadcrumbs: [HOME, { label: 'VC', href: appPath('/internal-user/vc') }, { label: 'Dashboard' }],
+    breadcrumbs: [HOME, { label: 'SOC', href: appPath('/internal-user/vc') }, { label: 'Dashboard' }],
   },
   '/internal-user/tc': {
-    title: 'TC',
+    title: 'Time Charter',
     currentPage: 'Time Charter',
-    breadcrumbs: [HOME, { label: 'TC' }],
+    breadcrumbs: [HOME, { label: 'SOC', href: appPath('/internal-user/vc') }, { label: 'Time Charter' }],
   },
 };
 

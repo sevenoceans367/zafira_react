@@ -15,7 +15,15 @@ export default function ModuleHomePage() {
       <div className={styles.grid}>
         {modules.map((module) => (
           <article key={module.id} className={styles.card}>
-            <i className={`bi ${module.icon} ${styles.icon}`} aria-hidden />
+            {module.iconSrc ? (
+              <img
+                src={module.iconSrc}
+                alt={module.iconAlt || module.subtitle || ''}
+                className={styles.iconImg}
+              />
+            ) : (
+              <i className={`bi ${module.icon} ${styles.icon}`} aria-hidden />
+            )}
             <p className={styles.label}>{module.title}</p>
             <h2 className={styles.subtitle}>{module.subtitle}</h2>
             <p className={styles.description}>{module.description}</p>

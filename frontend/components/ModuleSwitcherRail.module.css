@@ -93,6 +93,15 @@
   font-size: 1.15rem;
 }
 
+.iconImg {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  /* SVG strokes are dark; invert for the navy rail */
+  filter: brightness(0) invert(1);
+  opacity: 0.92;
+}
+
 .label {
   flex: 0 0 auto;
   font-size: 0.72rem;

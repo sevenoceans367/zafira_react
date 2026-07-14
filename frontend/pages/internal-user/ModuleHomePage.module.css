@@ -42,6 +42,16 @@
   opacity: 0.85;
 }
 
+.iconImg {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  opacity: 0.9;
+}
+
 .label {
   margin: 0 0 8px;
   padding-right: 36px;

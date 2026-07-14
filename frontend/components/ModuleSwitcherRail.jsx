@@ -11,6 +11,8 @@ import styles from './ModuleSwitcherRail.module.css';
 function ModuleRailButton({
   to,
   icon,
+  iconSrc,
+  iconAlt,
   label,
   shortLabel,
   active,
@@ -24,7 +26,11 @@ function ModuleRailButton({
       aria-current={active ? 'page' : undefined}
     >
       <span className={styles.iconWrap}>
-        <i className={`bi ${icon}`} aria-hidden />
+        {iconSrc ? (
+          <img src={iconSrc} alt="" className={styles.iconImg} aria-hidden />
+        ) : (
+          <i className={`bi ${icon}`} aria-hidden />
+        )}
       </span>
       <span className={styles.label}>{shortLabel || label}</span>
     </Link>
@@ -57,6 +63,8 @@ export default function ModuleSwitcherRail() {
             key={module.id}
             to={appPath(module.href)}
             icon={module.icon}
+            iconSrc={module.iconSrc}
+            iconAlt={module.iconAlt}
             label={module.title}
             shortLabel={module.subtitle}
             active={activeModuleId === module.id}

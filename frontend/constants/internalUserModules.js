@@ -1,6 +1,9 @@
+import sopfIcon from '../assets/icons/sopf-icon.svg';
+import socIcon from '../assets/icons/soc-icon.svg';
+
 /**
- * Internal-user home module launcher cards.
- * Mirrors php/index.php module tiles with Zafira global styling.
+ * Internal-user home module launcher cards / module switcher rail.
+ * SOPF + SOC (Seven Ocean Commercial) — VC/TC are one commercial module.
  */
 export const INTERNAL_USER_MODULES = [
   {
@@ -9,32 +12,25 @@ export const INTERNAL_USER_MODULES = [
     subtitle: 'SOPF',
     description: 'Spot business estimates, fleet, and help desk.',
     href: '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2',
-    icon: 'bi-folder2-open',
+    iconSrc: sopfIcon,
+    iconAlt: 'SOPF',
     visibleFor: ({ user }) => user?.sopfUser !== false,
   },
   {
-    id: 'vc',
-    title: "Seven Oceans' Commercials",
-    subtitle: 'VC Out',
-    description: 'VC/TC dashboard, COAs, periods, and commercial planning.',
+    id: 'soc',
+    title: 'Seven Ocean Commercial',
+    subtitle: 'SOC',
+    description: 'VC/TC dashboard, COAs, periods, fleet, and commercial planning.',
     href: '/internal-user/vc',
-    icon: 'bi-compass',
-    visibleFor: ({ user }) =>
-      ['internal_user', 'mgmt_user'].includes(user?.userType),
-  },
-  {
-    id: 'tc',
-    title: "Seven Oceans' Commercials",
-    subtitle: 'TC Out',
-    description: 'Time charter estimates, fixtures, and hire management.',
-    href: '/internal-user/tc',
-    icon: 'bi-clock-history',
+    iconSrc: socIcon,
+    iconAlt: 'SOC',
     visibleFor: ({ user }) =>
       ['internal_user', 'mgmt_user'].includes(user?.userType),
   },
 ];
 
 export const SOPF_DEFAULT_ROUTE = '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2';
+export const SOC_DEFAULT_ROUTE = '/internal-user/vc';
 
 export function getVisibleModules(user) {
   return INTERNAL_USER_MODULES.filter((module) =>
@@ -44,7 +40,9 @@ export function getVisibleModules(user) {
 
 export function getActiveModuleId(pathname) {
   if (pathname.startsWith('/internal-user/sopf')) return 'sopf';
-  if (pathname.startsWith('/internal-user/vc')) return 'vc';
-  if (pathname.startsWith('/internal-user/tc')) return 'tc';
+  // VC and TC live under one SOC commercial module
+  if (pathname.startsWith('/internal-user/vc') || pathname.startsWith('/internal-user/tc')) {
+    return 'soc';
+  }
   return null;
 }

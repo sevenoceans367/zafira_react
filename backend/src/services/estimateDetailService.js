@@ -4,6 +4,7 @@ import {
   dbGetEstimateDetail,
   dbGetEstimateLookups,
   dbGetPeriodPrefill,
+  dbGetVesselEstimatePrefill,
   dbSearchVessels,
   dbUpdateEstimateDetail,
 } from './estimateDetailDb.js';
@@ -97,6 +98,47 @@ export async function searchVessels(query) {
   return mock.filter(
     (row) => row.name.toLowerCase().includes(term) || row.imoNo.includes(term),
   );
+}
+
+export async function getVesselEstimatePrefill(vesselId) {
+  if (isDbConfigured()) {
+    return dbGetVesselEstimatePrefill(vesselId);
+  }
+
+  return {
+    vesselImoId: String(vesselId || '1'),
+    vesselName: 'Atlantic Star',
+    imoNo: '9123456',
+    vesselType: 'LR1 PRODUCT',
+    flag: 'MH',
+    dwtSummer: '85000',
+    dwtTropical: '',
+    gnrt: '45000',
+    loa: '228',
+    beam: '32',
+    gear: '',
+    builtYear: '2015',
+    tpc: '65',
+    grainCap: '',
+    baleCap: '',
+    loadable: '85000',
+    hasCommercialParameters: true,
+    bFullSpeed: '14.5',
+    bEcoSpeed1: '12.5',
+    bEcoSpeed2: '11',
+    lFullSpeed: '13.5',
+    lEcoSpeed1: '12',
+    lEcoSpeed2: '10.5',
+    bFoFullSpeed: '28',
+    lFoFullSpeed: '30',
+    bDoFullSpeed: '2.5',
+    lDoFullSpeed: '2.5',
+    pIfoFullSpeed: '3',
+    pWfoFullSpeed: '5',
+    pIdoFullSpeed: '1',
+    pWdoFullSpeed: '1.5',
+    consumptionRows: [],
+  };
 }
 
 export async function createEstimateDetail(payload, upload = {}) {

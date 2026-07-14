@@ -13,6 +13,43 @@ function toDbDate(value) {
   return str;
 }
 
+function toDbDateTime(value) {
+  if (!value) return null;
+  const str = String(value).trim();
+  if (!str || str.startsWith('0000-00-00')) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const datePart = str.slice(0, 10);
+    const timeMatch = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (timeMatch) {
+      const [, h, mi, s = '00'] = timeMatch;
+      return `${datePart} ${h.padStart(2, '0')}:${mi}:${String(s).padStart(2, '0')}`;
+    }
+    return `${datePart} 00:00:00`;
+  }
+  const m = str.match(
+    /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/,
+  );
+  if (m) {
+    const [, d, mo, y, h = '00', mi = '00', s = '00'] = m;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')} ${String(h).padStart(2, '0')}:${mi}:${String(s).padStart(2, '0')}`;
+  }
+  return str;
+}
+
+function formatDateTimeDMY(value) {
+  if (!value) return '';
+  const str = String(value).trim();
+  if (!str || str.startsWith('0000-00-00')) return '';
+  const dt = value instanceof Date ? value : new Date(str.includes('T') ? str : str.replace(' ', 'T'));
+  if (Number.isNaN(dt.getTime())) return str;
+  const d = String(dt.getDate()).padStart(2, '0');
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const y = dt.getFullYear();
+  const hh = String(dt.getHours()).padStart(2, '0');
+  const mm = String(dt.getMinutes()).padStart(2, '0');
+  return `${d}-${m}-${y} ${hh}:${mm}`;
+}
+
 function numOrNull(value) {
   if (value === null || value === undefined || value === '') return null;
   const n = Number(String(value).replace(/,/g, ''));
@@ -36,17 +73,67 @@ function mapPortLeg(row, index) {
     dischargeQty: row.DISC_PORT_QTY,
     distance: row.DISTANCE ?? '',
     seaDays: row.TOTAL_VOYAGE_DAYS ?? row.SEA_DAYS ?? '',
+    seaMargin: row.MARGIN_DISTANCE ?? '5',
+    fromArrival: row.FROMARRIVAL ? formatDateTimeDMY(row.FROMARRIVAL) : '',
+    fromDeparture: row.FROMDEPARTURE ? formatDateTimeDMY(row.FROMDEPARTURE) : '',
+    toArrival: row.TOARRIVAL ? formatDateTimeDMY(row.TOARRIVAL) : '',
+    toDeparture: row.TODEPARTURE ? formatDateTimeDMY(row.TODEPARTURE) : '',
     loadPortCost: row.LOAD_PORT_COST ?? '',
     discPortCost: row.DISC_PORT_COST ?? '',
     loadPortRate: row.LOAD_PORT_RATE ?? '',
     discPortRate: row.DISC_PORT_RATE ?? '',
+    loadPortTerms: row.LOAD_PORT_TERMS != null ? String(row.LOAD_PORT_TERMS) : '1',
+    discPortTerms: row.DISC_PORT_TERMS != null ? String(row.DISC_PORT_TERMS) : '1',
+    loadPortWorkDays: row.LOAD_PORT_WORK_DAYS ?? '',
+    discPortWorkDays: row.DISC_PORT_WORK_DAYS ?? '',
+    loadPortIdleDays: row.LOAD_PORT_IDEAL_DAYS ?? '',
+    discPortIdleDays: row.DISC_PORT_IDEAL_DATE ?? '',
+    transitIdleDays: row.TRANSIT_PORT_IDLE_DAYS ?? '',
     secaDistance: row.SECA_DISTANCE ?? '',
+    nonSecaDistance: row.NON_SECA_DISTANCE ?? '',
     secaDays: row.SECA_DAYS ?? '',
     transitPortCost: row.TRANSIT_PORT_COST ?? '',
     ddcLpEst: row.DDCLP_ESTCOST ?? '',
     ddcDpEst: row.DDCDP_ESTCOST ?? '',
+    ddcLpReal: row.DDCLP_REALCOST ?? '',
+    ddcDpReal: row.DDCDP_REALCOST ?? '',
+    ddcLpNett: row.DDCLP_NETCOST ?? '',
+    ddcDpNett: row.DDCDP_NETCOST ?? '',
+    demmDaysLp: row.DEMMDAYSLP ?? '',
+    demmRateLp: row.DEMMRATELP ?? '',
+    demmDaysDp: row.DEMMDAYSDP ?? '',
+    demmRateDp: row.DEMMRATEDP ?? '',
     chkLpSeca: Number(row.CHK_LP_SECA) === 1,
     chkDpSeca: Number(row.CHK_DP_SECA) === 1,
+  };
+}
+
+function mapProfitSharingRow(row, index) {
+  return {
+    id: row.RANDOMID ?? `ps-${row.FCAID}-${index}`,
+    vendorId: row.VENDORID != null ? String(row.VENDORID) : '',
+    percentage: row.PERCENTAGE != null ? String(row.PERCENTAGE) : '',
+  };
+}
+
+function mapBrokerRow(row, index) {
+  return {
+    id: row.RANDOMID ?? `brk-${row.FCAID}-${index}`,
+    percent: row.BROKAGE_PERCENT ?? '',
+    amount: row.BROKAGE_AMT ?? '',
+    vendorId: row.VENDORID != null ? String(row.VENDORID) : '',
+    demmPercent: '',
+  };
+}
+
+function mapBunkerActivityRow(row, index) {
+  return {
+    id: row.RANDOMID ?? `bact-${row.FCAID}-${index}`,
+    activity: row.ACTIVITY ?? 'Cold Wash',
+    bunkerGrade: row.BUNKERGRADE ?? 'VLSFO',
+    qty: row.QUANTITY ?? '',
+    price: row.PRICE ?? '',
+    amount: row.AMOUNT ?? '',
   };
 }
 
@@ -264,7 +351,7 @@ function mapEstimateDetail(
   portLegs = [],
   cargoRows = [],
   bunkerRows = [],
-  brokerage = null,
+  brokerageRows = [],
   orcRows = [],
   otherIncomeRows = [],
   hireRows = [],
@@ -279,11 +366,20 @@ function mapEstimateDetail(
   redeliveryBunkerRows = [],
   disponentRows = [],
   voyageEventRows = [],
+  bunkerActivityRows = [],
+  profitSharingRows = [],
 ) {
   const estimateType = Number(master.ESTIMATE_TYPE);
   const mappedCargos = cargoRows.map((row, index) => mapCargoRow(row, index));
+  const brokerRows = (Array.isArray(brokerageRows) ? brokerageRows : (brokerageRows ? [brokerageRows] : []))
+    .map((row, index) => mapBrokerRow(row, index));
+  const firstBroker = brokerRows[0] || null;
+  const etsFlags = (voyageEventRows || []).find(
+    (row) => row.EUETSADDTOF != null || row.FUELEUADDTOF != null,
+  ) || {};
   return {
     id: String(master.FCAID),
+    periodId: master.PERIODID != null ? String(master.PERIODID) : '',
     fixtureTypeId: Number(master.FIXTURETYPEID) || null,
     estimateType,
     estimateTypeLabel: ESTIMATE_TYPE_LABELS[estimateType] ?? '',
@@ -310,8 +406,10 @@ function mapEstimateDetail(
     baleCap: master.BALE_CAP ?? '',
     bFullSpeed: master.BFULLSPEED ?? '',
     bEcoSpeed1: master.BECOSPEED1 ?? '',
+    bEcoSpeed2: master.BECOSPEED2 ?? '',
     lFullSpeed: master.LFULLSPEED ?? '',
     lEcoSpeed1: master.LECOSPEED1 ?? '',
+    lEcoSpeed2: master.LECOSPEED2 ?? '',
     bFoFullSpeed: master.BFOFULLSPEED ?? '',
     lFoFullSpeed: master.LFOFULLSPEED ?? '',
     bDoFullSpeed: master.BDOFULLSPEED ?? '',
@@ -325,6 +423,7 @@ function mapEstimateDetail(
     cargoQuantity: master.QUANTITY ?? master.TANK_QUANTITY ?? master.GAS_QUANTITY ?? '',
     dailyEarning: master.DAILY_EARNING ?? '',
     dailyVesselOperationExp: master.DAILY_VESSEL_OPERATION_EXP ?? '',
+    vesselDailyOps: master.DAILY_VESSEL_OPERATION_EXP ?? master.VESSELDAILYOPS ?? '',
     profitLoss: master.PROFIT_LOSS ?? '',
     freightGross: master.FREIGHT_GROSS ?? '',
     revenue: master.REVENUES_FREIGHT ?? master.REVENUE ?? master.FREIGHT_GROSS ?? '',
@@ -333,14 +432,31 @@ function mapEstimateDetail(
     totalPortCost: master.PORT_EXPENSES ?? master.TOTAL_PORT_COST ?? '',
     hireRate: master.HIRE_RATE ?? '',
     hireAmt: master.HIREAGE_AMT ?? master.HIRE_AMT ?? '',
-    brokeragePercent: brokerage?.BROKAGE_PERCENT ?? master.BROKERAGE_PER ?? master.BROKERAGE_PERCENT ?? '',
-    brokerageAmt: brokerage?.BROKAGE_AMT ?? master.BROKERAGE_AMT ?? '',
-    cveAmt: master.CVE_TOTALAMT ?? master.CVE_AMT ?? '',
+    brokeragePercent: firstBroker?.percent
+      ?? master.BROKERAGE_PER ?? master.BROKERAGE_PERCENT ?? '',
+    brokerageAmt: firstBroker?.amount ?? master.BROKERAGE_AMT ?? '',
+    brokerRows,
+    cvePerMonth: master.CVE_AMT ?? '',
+    cveAmt: master.CVE_TOTALAMT ?? '',
     ballastBonus: master.BALLAST_BONUS ?? '',
     lumpsum: master.LUMPSUMAMT ?? master.LUMSUM ?? master.LUMPSUM ?? '',
     lumpsumQty: master.WS_QTY ?? master.LUMPSUM_QTY ?? '',
-    marketRate: master.MARKET_RATE ?? master.FREIGHT_GROSS ?? '',
+    marketRate: master.CARGO_RATE ?? master.MARKET_RATE ?? '',
+    tankerFreightRate: master.CARGO_RATE ?? master.MARKET_RATE ?? '',
+    tankType: master.TANKER_RADIO_SINGLE_DIS != null
+      ? String(master.TANKER_RADIO_SINGLE_DIS)
+      : '1',
     addCommPercent: master.ADDRESS_COMMISSION_PER ?? master.ADD_COMM ?? '',
+    addressCommAmt: master.ADDRESS_COMMISSION_AMT ?? '',
+    co2Price: master.CO2PRICE ?? '',
+    euaPrice: master.EUAPRICE ?? '',
+    sdrToUsd: master.SDR_TO_USD ?? '',
+    scnt: '',
+    timeAllowed: master.TIMEALLOWED ?? master.WORKING_DAYS ?? '',
+    laycanStart: master.LAYCAN_START_DATE ? formatDateTimeDMY(master.LAYCAN_START_DATE) : '',
+    laycanEnd: master.LAYCAN_FINISH_DATE ? formatDateTimeDMY(master.LAYCAN_FINISH_DATE) : '',
+    euEtsAddToFreight: Number(etsFlags.EUETSADDTOF) === 1,
+    fuelEuAddToFreight: Number(etsFlags.FUELEUADDTOF) === 1,
     gasBaltic: master.GAS_BALTIC ?? '',
     gasBaseRate: master.GAS_BASE_RATE ?? '',
     addnlPremium: master.ADDNL_PRENIUM ?? '',
@@ -360,7 +476,9 @@ function mapEstimateDetail(
     ownerId: master.OWNER != null ? String(master.OWNER) : '',
     disponentOwner: master.DISPONENT_OWNER ?? '',
     attachments: parseAttachments(master.ATTACHMENT, master.ATTACHMENT_NAME),
-    charteringPic: master.CHARTERING_PIC_NAME ?? '',
+    charteringTeam: '7',
+    charteringPic: master.CHARTERING_PIC != null ? String(master.CHARTERING_PIC) : '',
+    charteringPicName: master.CHARTERING_PIC_NAME ?? '',
     comid: master.COMID || null,
     fixed: Number(master.FIXED) === 1,
     portLegs: portLegs.map((row, index) => mapPortLeg(row, index)),
@@ -368,6 +486,7 @@ function mapEstimateDetail(
     overageCargoRows: mappedCargos.filter((row) => Number(row.status) === 2),
     deadfreightCargoRows: mappedCargos.filter((row) => Number(row.status) === 3),
     bunkerRows: bunkerRows.map((row, index) => mapBunkerRow(row, index)),
+    bunkerActivityRows: bunkerActivityRows.map((row, index) => mapBunkerActivityRow(row, index)),
     orcRows: orcRows.map((row, index) => mapOrcRow(row, index)),
     otherIncomeRows: otherIncomeRows.map((row, index) => mapOtherIncomeRow(row, index)),
     hireRows: hireRows.map((row, index) => mapHireRow(row, index)),
@@ -385,7 +504,10 @@ function mapEstimateDetail(
       : (master.DISPONENT_OWNER
         ? [{ id: 'disp-master', name: master.DISPONENT_OWNER }]
         : []),
-    voyageEventRows: voyageEventRows.map((row, index) => mapVoyageEventRow(row, index)),
+    voyageEventRows: voyageEventRows
+      .filter((row) => row.EVENT_DETAILS || row.EVENT_DATE)
+      .map((row, index) => mapVoyageEventRow(row, index)),
+    profitSharingRows: profitSharingRows.map((row, index) => mapProfitSharingRow(row, index)),
   };
 }
 
@@ -452,6 +574,36 @@ export async function dbGetEstimateLookups(estimateType = 2) {
     [appContext.companyId],
   );
 
+  const [ownBusiness] = await pool.query(
+    `SELECT VENDORID AS id, NAME, CODE
+     FROM vendor_master
+     WHERE STATUS = 1
+       AND VENDOR_TYPEID = 11
+       AND MCOMPANYID = ?
+     ORDER BY NAME
+     LIMIT 500`,
+    [appContext.companyId],
+  );
+
+  const [charteringPics] = await pool.query(
+    `SELECT LOGINID AS id, CONTACT_PERSON AS name
+     FROM login
+     WHERE STATUS = 1
+       AND USER_TYPE IN ('internal_user', 'mgmt_user')
+       AND LOGINID != 126
+     ORDER BY CONTACT_PERSON`,
+  );
+
+  const [periodContracts] = await pool.query(
+    `SELECT PERIODID AS id, CONTRACT_ID, CONTRACT_NO
+     FROM period_contract_master
+     WHERE MODULEID = ?
+       AND MCOMPANYID = ?
+     ORDER BY CONTRACT_DATE DESC
+     LIMIT 500`,
+    [appContext.moduleId, appContext.companyId],
+  );
+
   const year = new Date().getFullYear();
   const intensityKey = `INTENSITY_${year}`;
   const ghgKey = `GHG_${year}`;
@@ -474,6 +626,11 @@ export async function dbGetEstimateLookups(estimateType = 2) {
     };
   }
 
+  const mapVendor = (row) => ({
+    id: String(row.id),
+    name: `${row.NAME ?? ''} ( ${row.CODE ?? ''} )`,
+  });
+
   return {
     cargos: cargoRows.map((row) => ({ id: String(row.id), name: row.name ?? '' })),
     bunkerGrades: bunkerGrades.map((row) => ({
@@ -482,12 +639,30 @@ export async function dbGetEstimateLookups(estimateType = 2) {
       bunkerType: row.BUNKERTYPE ?? '',
     })),
     ownerCosts: ownerCosts.map((row) => ({ id: String(row.id), name: row.name ?? '' })),
-    owners: owners.map((row) => ({
+    owners: owners.map(mapVendor),
+    ownBusiness: (ownBusiness.length ? ownBusiness : owners).map(mapVendor),
+    charteringTeams: [{ id: '7', name: 'Zafira' }],
+    charteringPics: charteringPics.map((row) => ({
       id: String(row.id),
-      name: `${row.NAME ?? ''} ( ${row.CODE ?? ''} )`,
+      name: row.name ?? '',
+    })),
+    periodContracts: periodContracts.map((row) => ({
+      id: String(row.id),
+      label: `${row.CONTRACT_ID || ''}${row.CONTRACT_NO ? ` (${row.CONTRACT_NO})` : ''}`.trim(),
     })),
     complianceFactors,
     complianceYear: year,
+    marketPrices: {
+      vlsfo: process.env.OIL_PRICE_VLSFO || '',
+      marineGasOil: process.env.OIL_PRICE_MGO || '',
+      euaPrice: (() => {
+        const euCarbon = Number(process.env.EUA_CARBON_EUR) || 0;
+        const euToUsd = Number(process.env.EUA_TO_USD) || Number(process.env.EUR_USD) || 0;
+        if (euCarbon && euToUsd) return String(Math.round(euCarbon * euToUsd * 100) / 100);
+        return process.env.EUA_PRICE_USD || '';
+      })(),
+      sdrToUsd: process.env.SDR_TO_USD || '1.35',
+    },
   };
 }
 
@@ -497,7 +672,7 @@ export async function dbGetPeriodPrefill(periodId) {
   if (!id) return null;
 
   const [[period]] = await pool.query(
-    `SELECT BROKERAGE, ADD_COMM
+    `SELECT PERIODID, BROKERAGE, ADD_COMM, VESSEL_IMO_ID, HIRE
      FROM period_contract_master
      WHERE PERIODID = ?
      LIMIT 1`,
@@ -505,21 +680,120 @@ export async function dbGetPeriodPrefill(periodId) {
   );
   if (!period) return null;
 
-  const [[hire]] = await pool.query(
-    `SELECT HIRE_RATE
+  let vesselName = '';
+  if (period.VESSEL_IMO_ID) {
+    const [[vessel]] = await pool.query(
+      `SELECT VESSEL_NAME FROM vessel_imo_master WHERE VESSEL_IMO_ID = ? LIMIT 1`,
+      [period.VESSEL_IMO_ID],
+    );
+    vesselName = vessel?.VESSEL_NAME || '';
+  }
+
+  const [hireRows] = await pool.query(
+    `SELECT HIRE_FROM, HIRE_TO, HIRE_RATE, HIRE_DAYS
      FROM period_contract_master_slave4
      WHERE PERIODID = ?
-     ORDER BY PERIOD_SLAVEID ASC
-     LIMIT 1`,
+     ORDER BY PERIOD_SLAVEID ASC`,
     [id],
   );
 
+  const [bunkerRows] = await pool.query(
+    `SELECT BUNKERGRADEID, BUNKER_DATE, BUNKER_QTY, BUNKER_AMT, BUNKER_PRICE, IDENTITY
+     FROM period_contract_master_slave1
+     WHERE PERIODID = ?
+     ORDER BY PERIOD_SLAVEID ASC`,
+    [id],
+  );
+
+  const [offHireRows] = await pool.query(
+    `SELECT PERIOD_SLAVEID, OFF_HIRE_REASON, OFF_HIRE_FROM, OFF_HIRE_TO,
+            OFF_HIRE_DAYS, OFF_HIRE_RATE, OFF_HIRE_AMT
+     FROM period_contract_master_slave2
+     WHERE PERIODID = ?
+     ORDER BY PERIOD_SLAVEID ASC`,
+    [id],
+  );
+
+  const offHireDetails = [];
+  for (const row of offHireRows) {
+    const [bunkers] = await pool.query(
+      `SELECT BUNKERGRADEID, BUNKER_QTY, BUNKER_PRICE, BUNKER_AMT, CHK_OWNER_ACCOUNT
+       FROM period_contract_master_slave21
+       WHERE PERIODID = ? AND PERIOD_SLAVEID = ?`,
+      [id, row.PERIOD_SLAVEID],
+    );
+    offHireDetails.push({
+      reason: row.OFF_HIRE_REASON || '',
+      from: formatPeriodDateTime(row.OFF_HIRE_FROM),
+      to: formatPeriodDateTime(row.OFF_HIRE_TO),
+      days: row.OFF_HIRE_DAYS != null ? String(row.OFF_HIRE_DAYS) : '',
+      rate: row.OFF_HIRE_RATE != null ? String(row.OFF_HIRE_RATE) : '',
+      amount: row.OFF_HIRE_AMT != null ? String(row.OFF_HIRE_AMT) : '',
+      bunkers: bunkers.map((b) => ({
+        bunkerGradeId: b.BUNKERGRADEID != null ? String(b.BUNKERGRADEID) : '',
+        qty: b.BUNKER_QTY != null ? String(b.BUNKER_QTY) : '',
+        price: b.BUNKER_PRICE != null ? String(b.BUNKER_PRICE) : '',
+        amount: b.BUNKER_AMT != null ? String(b.BUNKER_AMT) : '',
+        calc: String(b.CHK_OWNER_ACCOUNT) === '1',
+      })),
+    });
+  }
+
+  const firstHire = hireRows[0];
   return {
     periodId: id,
+    vesselImoId: period.VESSEL_IMO_ID != null ? String(period.VESSEL_IMO_ID) : '',
+    vesselName,
     brokeragePercent: period.BROKERAGE != null ? String(period.BROKERAGE) : '',
     addCommPercent: period.ADD_COMM != null ? String(period.ADD_COMM) : '',
-    hireRate: hire?.HIRE_RATE != null ? String(hire.HIRE_RATE) : '',
+    hireRate: firstHire?.HIRE_RATE != null
+      ? String(firstHire.HIRE_RATE)
+      : (period.HIRE != null ? String(period.HIRE) : ''),
+    hireRows: hireRows.map((row) => ({
+      hireFrom: formatPeriodDateTime(row.HIRE_FROM),
+      hireTo: formatPeriodDateTime(row.HIRE_TO),
+      hireDays: row.HIRE_DAYS != null ? String(row.HIRE_DAYS) : '',
+      hireRate: row.HIRE_RATE != null ? String(row.HIRE_RATE) : '',
+      hireAmt: '',
+    })),
+    deliveryBunkerRows: bunkerRows
+      .filter((row) => String(row.IDENTITY || '').toUpperCase() === 'DEL')
+      .map((row) => ({
+        bunkerGradeId: row.BUNKERGRADEID != null ? String(row.BUNKERGRADEID) : '',
+        bunkerDate: formatPeriodDate(row.BUNKER_DATE),
+        qty: row.BUNKER_QTY != null ? String(row.BUNKER_QTY) : '',
+        price: row.BUNKER_PRICE != null ? String(row.BUNKER_PRICE) : '',
+        amount: row.BUNKER_AMT != null ? String(row.BUNKER_AMT) : '',
+        identity: 'DEL',
+      })),
+    redeliveryBunkerRows: bunkerRows
+      .filter((row) => String(row.IDENTITY || '').toUpperCase() === 'REDEL')
+      .map((row) => ({
+        bunkerGradeId: row.BUNKERGRADEID != null ? String(row.BUNKERGRADEID) : '',
+        bunkerDate: formatPeriodDate(row.BUNKER_DATE),
+        qty: row.BUNKER_QTY != null ? String(row.BUNKER_QTY) : '',
+        price: row.BUNKER_PRICE != null ? String(row.BUNKER_PRICE) : '',
+        amount: row.BUNKER_AMT != null ? String(row.BUNKER_AMT) : '',
+        identity: 'REDEL',
+      })),
+    offHireRows: offHireDetails,
   };
+}
+
+function formatPeriodDateTime(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime()) || d.getFullYear() < 1972) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatPeriodDate(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime()) || d.getFullYear() < 1972) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
 }
 
 export async function dbGetEstimateDetail(id) {
@@ -564,11 +838,10 @@ export async function dbGetEstimateDetail(id) {
     [id],
   );
 
-  const [[brokerage]] = await pool.query(
-    `SELECT BROKAGE_PERCENT, BROKAGE_AMT
+  const [brokerageRows] = await pool.query(
+    `SELECT BROKAGE_PERCENT, BROKAGE_AMT, VENDORID, RANDOMID, FCAID
      FROM freight_cost_estimete_slave4
-     WHERE FCAID = ?
-     LIMIT 1`,
+     WHERE FCAID = ?`,
     [id],
   );
 
@@ -657,12 +930,34 @@ export async function dbGetEstimateDetail(id) {
     [id],
   );
 
+  let bunkerActivityRows = [];
+  try {
+    const [activityRows] = await pool.query(
+      `SELECT * FROM freight_cost_estimete_slave19 WHERE FCAID = ?`,
+      [id],
+    );
+    bunkerActivityRows = activityRows;
+  } catch {
+    bunkerActivityRows = [];
+  }
+
+  let profitSharingRows = [];
+  try {
+    const [psRows] = await pool.query(
+      `SELECT * FROM freight_cost_estimete_slave20 WHERE FCAID = ?`,
+      [id],
+    );
+    profitSharingRows = psRows;
+  } catch {
+    profitSharingRows = [];
+  }
+
   return mapEstimateDetail(
     rows[0],
     legs,
     cargos,
     bunkers,
-    brokerage || null,
+    brokerageRows,
     orcRows,
     otherIncomeRows,
     hireRows,
@@ -677,6 +972,8 @@ export async function dbGetEstimateDetail(id) {
     redeliveryBunkerRows,
     disponentRows,
     voyageEventRows,
+    bunkerActivityRows,
+    profitSharingRows,
   );
 }
 
@@ -706,6 +1003,269 @@ export async function dbSearchVessels(query) {
     loa: row.LOA ?? '',
     gnrt: row.GRT_NRT ?? '',
   }));
+}
+
+function strOrEmpty(value) {
+  if (value === null || value === undefined) return '';
+  return String(value);
+}
+
+/**
+ * Prefill estimate header / speed / consumption from fleet vessel + commercial parameters.
+ * Mirrors PHP options.php?id=42 used by addestimate.php getData().
+ */
+export async function dbGetVesselEstimatePrefill(vesselId) {
+  const pool = getPool();
+  const id = String(vesselId || '').trim();
+  if (!id) return null;
+
+  const [vesselRows] = await pool.query(
+    `SELECT vim.VESSEL_IMO_ID, vim.VESSEL_NAME, vim.IMO_NO, vim.DWT, vim.VESSEL_TYPE,
+            vim.BUSINESSTYPEID, vim.FLAG, vim.SHIP_FLAG, vim.LOA, vim.EXT_BREADTH,
+            vim.GRT_NRT, vim.NRT, vim.YEARBUILT, vim.CARGO_GEAR, vim.GRAIN, vim.BALE,
+            vim.DRAFTM, vt.VesselType AS vesselTypeName, cm.COUNTRY_NAME AS flagName
+     FROM vessel_imo_master vim
+     LEFT JOIN vessel_type_master vt ON vt.VesselTypeId = vim.VESSEL_TYPE
+     LEFT JOIN country_master cm ON cm.COUNTRYID = vim.FLAG
+     WHERE vim.VESSEL_IMO_ID = ?
+     LIMIT 1`,
+    [id],
+  );
+  const vessel = vesselRows[0];
+  if (!vessel) return null;
+
+  const businessTypeId = Number(vessel.BUSINESSTYPEID) || 2;
+
+  let tpc = '';
+  let dwtTropical = '';
+  if (businessTypeId === 3) {
+    const [dryRows] = await pool.query(
+      `SELECT TPC_MT, TROPICAL_1, SUMMER_3
+       FROM vessel_master_1
+       WHERE VESSEL_IMO_ID = ?
+       LIMIT 1`,
+      [id],
+    );
+    tpc = strOrEmpty(dryRows[0]?.TPC_MT || dryRows[0]?.SUMMER_3);
+    dwtTropical = strOrEmpty(dryRows[0]?.TROPICAL_1);
+  } else {
+    const [tankerRows] = await pool.query(
+      `SELECT TPC_SUMMER
+       FROM vessel_master_tankers
+       WHERE VESSEL_IMO_ID = ?
+       LIMIT 1`,
+      [id],
+    );
+    tpc = strOrEmpty(tankerRows[0]?.TPC_SUMMER);
+  }
+
+  const [paramRows] = await pool.query(
+    `SELECT *
+     FROM vessel_commercial_parameters
+     WHERE VESSEL_IMO_ID = ? AND MODULEID = ?
+     LIMIT 1`,
+    [id, appContext.moduleId],
+  );
+  const param = paramRows[0] || null;
+  const commercialParameterId = param?.COMMERCIAL_PARAMETERID || null;
+
+  let atSea = [];
+  let inPort = [];
+  let various = [];
+  if (commercialParameterId) {
+    const [slaveRows] = await pool.query(
+      `SELECT *
+       FROM vessel_commercial_parameters_slave1
+       WHERE COMMERCIAL_PARAMETERID = ?
+       ORDER BY BUNKERID, FO_TYPE, ZONE`,
+      [commercialParameterId],
+    );
+    atSea = slaveRows.filter((row) => row.FO_TYPE === 'AT SEA');
+    inPort = slaveRows.filter((row) => row.FO_TYPE === 'IN PORT');
+    various = slaveRows.filter((row) => row.FO_TYPE === 'VARIOUS');
+  }
+
+  const variousBunkerIds = [...new Set(various.map((row) => row.BUNKERID).filter(Boolean))];
+  let bunkerNameById = {};
+  if (variousBunkerIds.length) {
+    const [gradeRows] = await pool.query(
+      `SELECT BUNKERGRADEID, NAME FROM bunker_grade_master WHERE BUNKERGRADEID IN (?)`,
+      [variousBunkerIds],
+    );
+    bunkerNameById = Object.fromEntries(
+      gradeRows.map((row) => [String(row.BUNKERGRADEID), row.NAME || '']),
+    );
+  }
+
+  const pickVarious = (row, secaField, nonSecaField) => {
+    const isSeca = String(row.ZONE || '').toLowerCase() === 'seca';
+    return strOrEmpty(isSeca ? row[secaField] : row[nonSecaField]);
+  };
+
+  const variousBunkerRates = various.map((row) => ({
+    bunkerId: row.BUNKERID != null ? String(row.BUNKERID) : '',
+    bunkerName: bunkerNameById[String(row.BUNKERID)] || '',
+    zone: row.ZONE || 'Non Seca',
+    coldWash: pickVarious(row, 'FO_OTHER_SECA_CONSP_TK', 'FO_OTHER_NONSECA_CONSP_TK'),
+    hotWash: pickVarious(row, 'FO_OTHER_SECA_CONSP_INERT', 'FO_OTHER_NONSECA_CONSP_INERT'),
+    inertGasFree: pickVarious(row, 'FO_OTHER_SECA_CONSP_GF', 'FO_OTHER_NONSECA_CONSP_GF'),
+    purgeGasFree: pickVarious(row, 'FO_OTHER_SECA_CONSP_HEAT', 'FO_OTHER_NONSECA_CONSP_HEAT'),
+    heatingMaintain: strOrEmpty(row.FO_OTHER_SECA_CONSP_HEAT_1),
+    heatingRaise: strOrEmpty(row.FO_OTHER_NONSECA_CONSP_HEAT_1),
+  }));
+
+  // Merge Non-Seca + Seca AT SEA / IN PORT by bunker+identify (PHP laden_balast_consp + working_idle_consp).
+  const bunkerKeys = new Map();
+  for (const row of [...atSea, ...inPort]) {
+    const key = `${row.BUNKERID || ''}|${row.IDENTIFY || 'FO'}`;
+    if (!bunkerKeys.has(key)) {
+      bunkerKeys.set(key, {
+        bunkerGradeId: row.BUNKERID != null ? String(row.BUNKERID) : '',
+        identify: row.IDENTIFY || 'FO',
+        balSecaFs: '',
+        ladSecaFs: '',
+        balNonSecaFs: '',
+        ladNonSecaFs: '',
+        balSecaSs: '',
+        ladSecaSs: '',
+        balNonSecaSs: '',
+        ladNonSecaSs: '',
+        inPortSecaWorking: '',
+        inPortNonSecaWorking: '',
+        inPortSecaIdle: '',
+        inPortNonSecaIdle: '',
+      });
+    }
+    const target = bunkerKeys.get(key);
+    const isSeca = String(row.ZONE || '').toLowerCase() === 'seca';
+    if (row.FO_TYPE === 'AT SEA') {
+      if (isSeca) {
+        target.balSecaFs = strOrEmpty(row.FO_BALAST_ATSEA_SECA_CONSP_FS);
+        target.ladSecaFs = strOrEmpty(row.FO_LADEN_ATSEA_SECA_CONSP_FS);
+        target.balSecaSs = strOrEmpty(row.FO_BALAST_ATSEA_SECA_CONSP_SS);
+        target.ladSecaSs = strOrEmpty(row.FO_LADEN_ATSEA_SECA_CONSP_SS);
+      } else {
+        target.balNonSecaFs = strOrEmpty(row.FO_BALAST_ATSEA_NONSECA_CONSP_FS);
+        target.ladNonSecaFs = strOrEmpty(row.FO_LADEN_ATSEA_NONSECA_CONSP_FS);
+        target.balNonSecaSs = strOrEmpty(row.FO_BALAST_ATSEA_NONSECA_CONSP_SS);
+        target.ladNonSecaSs = strOrEmpty(row.FO_LADEN_ATSEA_NONSECA_CONSP_SS);
+      }
+    }
+    if (row.FO_TYPE === 'IN PORT') {
+      if (isSeca) {
+        target.inPortSecaWorking = strOrEmpty(
+          row.FO_INPORT_SECA_CONSP_WORKING_LP || row.FO_INPORT_SECA_CONSP_WORKING,
+        );
+        target.inPortSecaIdle = strOrEmpty(
+          row.FO_INPORT_SECA_CONSP_IDLE_BALLAST || row.FO_INPORT_SECA_CONSP_IDLE,
+        );
+      } else {
+        target.inPortNonSecaWorking = strOrEmpty(
+          row.FO_INPORT_NONSECA_CONSP_WORKING_LP || row.FO_INPORT_NONSECA_CONSP_WORKING,
+        );
+        target.inPortNonSecaIdle = strOrEmpty(
+          row.FO_INPORT_NONSECA_CONSP_IDLE_BALLAST || row.FO_INPORT_NONSECA_CONSP_IDLE,
+        );
+      }
+    }
+  }
+
+  const consumptionRows = [...bunkerKeys.values()].map((row, index) => ({
+    id: `cons-prefill-${index}`,
+    ...row,
+  }));
+
+  const foRow = consumptionRows.find((row) => row.identify === 'FO') || consumptionRows[0] || null;
+  const doRow = consumptionRows.find((row) => row.identify === 'DO') || null;
+
+  let gnrt = strOrEmpty(vessel.GRT_NRT);
+  let nrt = strOrEmpty(vessel.NRT);
+  if (!nrt && gnrt.includes('/')) {
+    const parts = gnrt.split('/');
+    gnrt = strOrEmpty(parts[0]);
+    nrt = strOrEmpty(parts[1]);
+  } else if (!nrt && gnrt) {
+    const g = Number(String(gnrt).replace(/,/g, ''));
+    if (Number.isFinite(g) && g > 0) nrt = String(Math.round(g * 0.7 * 100) / 100);
+  }
+
+  const flag = strOrEmpty(vessel.flagName || vessel.SHIP_FLAG || vessel.FLAG);
+
+  // Last estimate To-Port → seed From Port of first leg (PHP options.php?id=42)
+  const [lastLegRows] = await pool.query(
+    `SELECT a.TO_PORT AS toPort,
+            CONCAT(COALESCE(c.PortName, ''), ' (', COALESCE(c.COUNTRY_KEY, ''), ')') AS toPortName,
+            a.TODEPARTURE AS lastDepartureDate
+     FROM freight_cost_estimete_slave1 a
+     INNER JOIN freight_cost_estimete_master b ON b.FCAID = a.FCAID
+     LEFT JOIN port_master c ON c.PortId = a.TO_PORT
+     WHERE b.VESSEL_IMO_ID = ?
+       AND b.SHEET_NO IS NOT NULL
+       AND a.TO_PORT IS NOT NULL
+       AND a.TO_PORT <> ''
+     ORDER BY a.FCA_SLAVEID DESC
+     LIMIT 1`,
+    [id],
+  );
+  const lastLeg = lastLegRows[0] || null;
+  let lastDepartureDate = '';
+  if (lastLeg?.lastDepartureDate) {
+    const d = new Date(lastLeg.lastDepartureDate);
+    if (!Number.isNaN(d.getTime()) && d.getFullYear() > 1971) {
+      const pad = (n) => String(n).padStart(2, '0');
+      lastDepartureDate = `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+  }
+
+  return {
+    vesselImoId: String(vessel.VESSEL_IMO_ID),
+    vesselName: strOrEmpty(vessel.VESSEL_NAME),
+    imoNo: strOrEmpty(vessel.IMO_NO),
+    vesselType: strOrEmpty(vessel.vesselTypeName)
+      || (vessel.VESSEL_TYPE && Number(vessel.VESSEL_TYPE) !== 0 ? String(vessel.VESSEL_TYPE) : ''),
+    vesselTypeId: strOrEmpty(vessel.VESSEL_TYPE),
+    businessTypeId,
+    flag,
+    dwtSummer: strOrEmpty(vessel.DWT),
+    dwtTropical,
+    gnrt,
+    nrt,
+    loa: strOrEmpty(vessel.LOA),
+    beam: strOrEmpty(vessel.EXT_BREADTH),
+    gear: strOrEmpty(vessel.CARGO_GEAR),
+    builtYear: strOrEmpty(vessel.YEARBUILT),
+    tpc,
+    grainCap: strOrEmpty(vessel.GRAIN),
+    baleCap: strOrEmpty(vessel.BALE),
+    loadable: strOrEmpty(vessel.DWT),
+    hasCommercialParameters: Boolean(param),
+    toPort: lastLeg?.toPort != null ? String(lastLeg.toPort) : '',
+    toPortName: lastLeg?.toPortName && lastLeg.toPortName !== ' ()' ? String(lastLeg.toPortName) : '',
+    lastDepartureDate,
+
+    // Speeds from vessel_commercial_parameters (PHP bfs/bes1/lfs/les1)
+    bFullSpeed: strOrEmpty(param?.B_FULL_SPEED),
+    bEcoSpeed1: strOrEmpty(param?.B_ECO_SPEED1),
+    bEcoSpeed2: strOrEmpty(param?.B_ECO_SPEED2),
+    lFullSpeed: strOrEmpty(param?.L_FULL_SPEED),
+    lEcoSpeed1: strOrEmpty(param?.L_ECO_SPEED1),
+    lEcoSpeed2: strOrEmpty(param?.L_ECO_SPEED2),
+
+    // Simplified Speed/Consumption scalars (Non-SECA full-speed FO/DO + in-port)
+    bFoFullSpeed: strOrEmpty(foRow?.balNonSecaFs),
+    lFoFullSpeed: strOrEmpty(foRow?.ladNonSecaFs),
+    bDoFullSpeed: strOrEmpty(doRow?.balNonSecaFs),
+    lDoFullSpeed: strOrEmpty(doRow?.ladNonSecaFs),
+    pIfoFullSpeed: strOrEmpty(foRow?.inPortNonSecaIdle),
+    pWfoFullSpeed: strOrEmpty(foRow?.inPortNonSecaWorking),
+    pIdoFullSpeed: strOrEmpty(doRow?.inPortNonSecaIdle),
+    pWdoFullSpeed: strOrEmpty(doRow?.inPortNonSecaWorking),
+
+    consumptionRows,
+
+    // Bunkers Various rates (Cold/Hot Wash etc.) from commercial parameters
+    variousBunkerRates,
+  };
 }
 
 export async function dbCreateEstimateDetail(payload, upload = {}) {
@@ -823,11 +1383,17 @@ const ESTIMATE_SLAVE_DELETE_ORDER = [
   'freight_cost_estimete_slave16',
   'freight_cost_estimete_slave17',
   'freight_cost_estimete_slave18',
+  'freight_cost_estimete_slave19',
+  'freight_cost_estimete_slave20',
 ];
 
 async function deleteEstimateSlaves(connection, fcaId) {
   for (const table of ESTIMATE_SLAVE_DELETE_ORDER) {
-    await connection.query(`DELETE FROM ${table} WHERE FCAID = ?`, [fcaId]);
+    try {
+      await connection.query(`DELETE FROM ${table} WHERE FCAID = ?`, [fcaId]);
+    } catch {
+      // Some slave tables (e.g. slave19) may not exist on older schemas.
+    }
   }
 }
 
@@ -854,8 +1420,10 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     'BALE_CAP = ?',
     'BFULLSPEED = ?',
     'BECOSPEED1 = ?',
+    'BECOSPEED2 = ?',
     'LFULLSPEED = ?',
     'LECOSPEED1 = ?',
+    'LECOSPEED2 = ?',
     'BFOFULLSPEED = ?',
     'LFOFULLSPEED = ?',
     'BDOFULLSPEED = ?',
@@ -877,12 +1445,22 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     'PORT_EXPENSES = ?',
     'REVENUES_FREIGHT = ?',
     'VOYAGE_EARNING = ?',
+    'CVE_AMT = ?',
     'CVE_TOTALAMT = ?',
     'BALLAST_BONUS = ?',
     'HIREAGE_AMT = ?',
     'BROKERAGE_PER = ?',
     'BROKERAGE_AMT = ?',
     'ADDRESS_COMMISSION_PER = ?',
+    'ADDRESS_COMMISSION_AMT = ?',
+    'CARGO_RATE = ?',
+    'DAILY_VESSEL_OPERATION_EXP = ?',
+    'LAYCAN_START_DATE = ?',
+    'LAYCAN_FINISH_DATE = ?',
+    'WORKING_DAYS = ?',
+    'PERIODID = ?',
+    'CHARTERING_PIC = ?',
+    'TANKER_RADIO_SINGLE_DIS = ?',
     'REMARKS = ?',
     'OWNER = ?',
     'DISPONENT_OWNER = ?',
@@ -925,8 +1503,10 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     payload.baleCap || null,
     numOrNull(payload.bFullSpeed),
     numOrNull(payload.bEcoSpeed1),
+    numOrNull(payload.bEcoSpeed2),
     numOrNull(payload.lFullSpeed),
     numOrNull(payload.lEcoSpeed1),
+    numOrNull(payload.lEcoSpeed2),
     numOrNull(payload.bFoFullSpeed),
     numOrNull(payload.lFoFullSpeed),
     numOrNull(payload.bDoFullSpeed),
@@ -948,12 +1528,22 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     numOrNull(payload.totalPortCost),
     numOrNull(payload.revenue),
     numOrNull(payload.voyageEarnings),
+    numOrNull(payload.cvePerMonth),
     numOrNull(payload.cveAmt),
     numOrNull(payload.ballastBonus),
     numOrNull(payload.hireAmt),
     numOrNull(payload.brokeragePercent),
     numOrNull(payload.brokerageAmt),
     numOrNull(payload.addCommPercent),
+    numOrNull(payload.addressCommAmt),
+    numOrNull(payload.tankerFreightRate || payload.marketRate),
+    numOrNull(payload.vesselDailyOps),
+    toDbDateTime(payload.laycanStart),
+    toDbDateTime(payload.laycanEnd),
+    numOrNull(payload.timeAllowed),
+    payload.periodId || null,
+    payload.charteringPic || null,
+    payload.tankType != null && payload.tankType !== '' ? Number(payload.tankType) : 1,
     payload.notes || null,
     payload.ownerId || null,
     payload.disponentOwner
@@ -997,11 +1587,16 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
     await connection.query(
       `INSERT INTO freight_cost_estimete_slave1 (
         FCAID, FROM_PORT, TO_PORT, PASSAGE_TYPE, SPEED_TYPE, DISTANCE,
+        MARGIN_DISTANCE, FROMARRIVAL, FROMDEPARTURE, TOARRIVAL, TODEPARTURE,
         LOAD_PORT_QTY, DISC_PORT_QTY, LOAD_PORT_COST, DISC_PORT_COST,
-        LOAD_PORT_RATE, DISC_PORT_RATE, TOTAL_VOYAGE_DAYS, RANDOMID,
+        LOAD_PORT_RATE, DISC_PORT_RATE, LOAD_PORT_TERMS, DISC_PORT_TERMS,
+        LOAD_PORT_WORK_DAYS, DISC_PORT_WORK_DAYS, LOAD_PORT_IDEAL_DAYS, DISC_PORT_IDEAL_DATE,
+        TRANSIT_PORT_IDLE_DAYS, TOTAL_VOYAGE_DAYS, RANDOMID,
         SECA_DISTANCE, SECA_DAYS, TRANSIT_PORT_COST, DDCLP_ESTCOST, DDCDP_ESTCOST,
+        DDCLP_REALCOST, DDCDP_REALCOST, DDCLP_NETCOST, DDCDP_NETCOST,
+        DEMMDAYSLP, DEMMRATELP, DEMMDAYSDP, DEMMRATEDP,
         CHK_LP_SECA, CHK_DP_SECA
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         fcaId,
         leg.fromPortId || null,
@@ -1009,12 +1604,24 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         leg.passageType || null,
         leg.speedType || null,
         numOrNull(leg.distance),
+        numOrNull(leg.seaMargin != null && leg.seaMargin !== '' ? leg.seaMargin : 5),
+        toDbDateTime(leg.fromArrival),
+        toDbDateTime(leg.fromDeparture),
+        toDbDateTime(leg.toArrival),
+        toDbDateTime(leg.toDeparture),
         numOrNull(leg.loadQty),
         numOrNull(leg.dischargeQty),
         numOrNull(leg.loadPortCost),
         numOrNull(leg.discPortCost),
         numOrNull(leg.loadPortRate),
         numOrNull(leg.discPortRate),
+        numOrNull(leg.loadPortTerms),
+        numOrNull(leg.discPortTerms),
+        numOrNull(leg.loadPortWorkDays),
+        numOrNull(leg.discPortWorkDays),
+        numOrNull(leg.loadPortIdleDays),
+        numOrNull(leg.discPortIdleDays),
+        numOrNull(leg.transitIdleDays),
         numOrNull(leg.seaDays),
         randomId(),
         numOrNull(leg.secaDistance),
@@ -1022,6 +1629,14 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         numOrNull(leg.transitPortCost),
         numOrNull(leg.ddcLpEst),
         numOrNull(leg.ddcDpEst),
+        numOrNull(leg.ddcLpReal != null && leg.ddcLpReal !== '' ? leg.ddcLpReal : leg.ddcLpEst),
+        numOrNull(leg.ddcDpReal != null && leg.ddcDpReal !== '' ? leg.ddcDpReal : leg.ddcDpEst),
+        numOrNull(leg.ddcLpNett),
+        numOrNull(leg.ddcDpNett),
+        numOrNull(leg.demmDaysLp),
+        numOrNull(leg.demmRateLp),
+        numOrNull(leg.demmDaysDp),
+        numOrNull(leg.demmRateDp),
         leg.chkLpSeca ? 1 : 0,
         leg.chkDpSeca ? 1 : 0,
       ],
@@ -1074,15 +1689,61 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
     );
   }
 
-  if (payload.brokeragePercent || payload.brokerageAmt) {
+  for (const row of payload.bunkerActivityRows || []) {
+    if (!row.qty && !row.amount && !row.activity) continue;
+    try {
+      await connection.query(
+        `INSERT INTO freight_cost_estimete_slave19 (
+          FCAID, ACTIVITY, BUNKERGRADE, QUANTITY, PRICE, AMOUNT
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          fcaId,
+          row.activity || null,
+          row.bunkerGrade || null,
+          numOrNull(row.qty),
+          numOrNull(row.price),
+          numOrNull(row.amount),
+        ],
+      );
+    } catch {
+      // slave19 may be absent on older schemas
+    }
+  }
+
+  for (const row of payload.profitSharingRows || []) {
+    if (!row.vendorId && !row.percentage) continue;
+    try {
+      await connection.query(
+        `INSERT INTO freight_cost_estimete_slave20 (
+          FCAID, VENDORID, PERCENTAGE
+        ) VALUES (?, ?, ?)`,
+        [
+          fcaId,
+          row.vendorId || null,
+          numOrNull(row.percentage),
+        ],
+      );
+    } catch {
+      // slave20 may be absent on older schemas
+    }
+  }
+
+  const brokerRows = (payload.brokerRows && payload.brokerRows.length)
+    ? payload.brokerRows
+    : ((payload.brokeragePercent || payload.brokerageAmt)
+      ? [{ percent: payload.brokeragePercent, amount: payload.brokerageAmt, vendorId: '' }]
+      : []);
+  for (const broker of brokerRows) {
+    if (!broker.percent && !broker.amount) continue;
     await connection.query(
       `INSERT INTO freight_cost_estimete_slave4 (
-        FCAID, BROKAGE_PERCENT, BROKAGE_AMT
-      ) VALUES (?, ?, ?)`,
+        FCAID, BROKAGE_PERCENT, BROKAGE_AMT, VENDORID
+      ) VALUES (?, ?, ?, ?)`,
       [
         fcaId,
-        numOrNull(payload.brokeragePercent),
-        numOrNull(payload.brokerageAmt),
+        numOrNull(broker.percent),
+        numOrNull(broker.amount),
+        broker.vendorId || null,
       ],
     );
   }
@@ -1359,6 +2020,38 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
        VALUES (?, ?, ?)`,
       [fcaId, row.details || null, toDbDate(row.eventDate) || '1970-01-01'],
     );
+  }
+
+  try {
+    const [[existingEvent]] = await connection.query(
+      `SELECT FCAID FROM freight_cost_estimete_slave18 WHERE FCAID = ? LIMIT 1`,
+      [fcaId],
+    );
+    if (existingEvent) {
+      await connection.query(
+        `UPDATE freight_cost_estimete_slave18
+         SET EUETSADDTOF = ?, FUELEUADDTOF = ?
+         WHERE FCAID = ?`,
+        [
+          payload.euEtsAddToFreight ? 1 : 0,
+          payload.fuelEuAddToFreight ? 1 : 0,
+          fcaId,
+        ],
+      );
+    } else if (payload.euEtsAddToFreight || payload.fuelEuAddToFreight) {
+      await connection.query(
+        `INSERT INTO freight_cost_estimete_slave18 (
+          FCAID, EVENT_DETAILS, EVENT_DATE, EUETSADDTOF, FUELEUADDTOF
+        ) VALUES (?, NULL, '1970-01-01', ?, ?)`,
+        [
+          fcaId,
+          payload.euEtsAddToFreight ? 1 : 0,
+          payload.fuelEuAddToFreight ? 1 : 0,
+        ],
+      );
+    }
+  } catch {
+    // Optional EU ETS / FuelEU columns may be absent on older schemas.
   }
 }
 

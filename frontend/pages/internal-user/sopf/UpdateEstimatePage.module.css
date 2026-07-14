@@ -267,6 +267,22 @@
   padding: 0 4px;
 }
 
+.fetchBtn {
+  border: 1px solid #b42318;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fetchBtn:hover {
+  background: #b91c1c;
+}
+
 .addRowBtn {
   border: 1px solid var(--color-border, #d1d5db);
   background: #fff;

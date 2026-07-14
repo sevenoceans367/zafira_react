@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
-import { fetchEstimateDetail, fetchEstimateLookups, updateEstimateDetail } from '../../../services/estimateDetail.js';
+import { fetchEstimateDetail, fetchEstimateLookups, fetchPeriodPrefill, fetchVesselEstimatePrefill, updateEstimateDetail } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { toFormState } from './estimateDetail.constants.js';
+import { applyPeriodPrefillToForm, applyVesselPrefillToForm } from './estimatePrefill.js';
 import styles from './UpdateEstimatePage.module.css';
 
 const EMPTY_FORM = toFormState({});
@@ -57,8 +58,13 @@ export default function UpdateEstimatePage() {
         bunkerGrades: lookupData.bunkerGrades ?? [],
         ownerCosts: lookupData.ownerCosts ?? [],
         owners: lookupData.owners ?? [],
+        ownBusiness: lookupData.ownBusiness ?? [],
+        charteringTeams: lookupData.charteringTeams ?? [],
+        charteringPics: lookupData.charteringPics ?? [],
+        periodContracts: lookupData.periodContracts ?? [],
         complianceFactors: lookupData.complianceFactors ?? {},
         complianceYear: lookupData.complianceYear || new Date().getFullYear(),
+        marketPrices: lookupData.marketPrices ?? {},
       };
       setLookups(nextLookups);
       setForm(applyEstimateCalculations(toFormState(data), nextLookups));
@@ -89,6 +95,38 @@ export default function UpdateEstimatePage() {
       return applyEstimateCalculations(next, lookups);
     });
   }, [lookups]);
+
+  const handleApplyPatch = useCallback((patch) => {
+    setForm((current) => applyEstimateCalculations({ ...current, ...patch }, lookups));
+  }, [lookups]);
+
+  const handlePeriodContractChange = async (nextPeriodId) => {
+    if (!nextPeriodId) {
+      setForm((current) => applyEstimateCalculations({ ...current, periodId: '' }, lookups));
+      return;
+    }
+    try {
+      const periodData = await fetchPeriodPrefill(nextPeriodId);
+      let vesselPrefill = null;
+      if (periodData?.vesselImoId) {
+        vesselPrefill = await fetchVesselEstimatePrefill(periodData.vesselImoId);
+      }
+      setForm((current) => {
+        let next = { ...current, periodId: nextPeriodId };
+        if (periodData) next = applyPeriodPrefillToForm(next, periodData);
+        if (vesselPrefill) {
+          next = applyVesselPrefillToForm(next, vesselPrefill, lookups);
+        }
+        return applyEstimateCalculations(next, lookups);
+      });
+    } catch (err) {
+      await alert({
+        title: 'Error',
+        message: err.message || 'Failed to load period contract.',
+        confirmLabel: 'OK',
+      });
+    }
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -145,7 +183,9 @@ export default function UpdateEstimatePage() {
             form={form}
             lookups={lookups}
             onFieldChange={updateField}
+            onPeriodContractChange={handlePeriodContractChange}
             onRecalc={handleRecalc}
+            onApplyPatch={handleApplyPatch}
           />
           <div className={styles.actions}>
             <Button type="submit" variant="primary" label="Submit" disabled={saving} />

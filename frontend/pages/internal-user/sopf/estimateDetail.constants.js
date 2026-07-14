@@ -20,10 +20,55 @@ export const SPEED_TYPE_OPTIONS = [
   { value: '2', label: 'Eco' },
 ];
 
+export const LAYTIME_TERM_OPTIONS = [
+  { value: '', label: '---Select---' },
+  { value: '1', label: 'SHINC' },
+  { value: '2', label: 'SSHEX' },
+  { value: '3', label: 'FSHEX' },
+  { value: '5', label: 'FHINC' },
+  { value: '4', label: 'D.A.P.' },
+];
+
 export const BUNKER_IDENTIFY_OPTIONS = [
   { value: 'SUPPLY', label: 'Supply' },
   { value: 'CONSUMPTION', label: 'Consumption' },
 ];
+
+/** PHP bunkerVariousType() — option value is stored; label is UI text (slave19). */
+export const BUNKER_ACTIVITY_OPTIONS = [
+  { value: 'Cold Wash', label: 'Tank Cleaning (Cold Wash)' },
+  { value: 'Hot Wash', label: 'Tank Cleaning (Hot Wash)' },
+  { value: 'Inert from Gas Free', label: 'Inert from Gas Free' },
+  { value: 'Purge/Gas Free', label: 'Purge/Gas Free' },
+  { value: 'Heating (Maintain)', label: 'Heating (Maintain)' },
+  { value: 'Heating (Raise 3 Deg)', label: 'Heating (Raise 3 Deg)' },
+];
+
+/** Activity → various-rate field; order matches PHP addBunkerVariousItems(). */
+export const BUNKER_ACTIVITY_SEED_FIELDS = [
+  { activity: 'Cold Wash', field: 'coldWash' },
+  { activity: 'Hot Wash', field: 'hotWash' },
+  { activity: 'Inert from Gas Free', field: 'inertGasFree' },
+  { activity: 'Purge/Gas Free', field: 'purgeGasFree' },
+  { activity: 'Heating (Maintain)', field: 'heatingMaintain' },
+  { activity: 'Heating (Raise 3 Deg)', field: 'heatingRaise' },
+];
+
+export const BUNKER_ACTIVITY_GRADE_OPTIONS = [
+  { value: 'VLSFO', label: 'VLSFO' },
+  { value: 'LSMGO', label: 'LSMGO' },
+  { value: 'HSFO+SCRUBBER', label: 'HSFO+SCRUBBER' },
+];
+
+/** Map activity → vessel commercial "Bunkers Various" rate field. */
+export const BUNKER_ACTIVITY_RATE_FIELD = {
+  'Cold Wash': 'coldWash',
+  'Hot Wash': 'hotWash',
+  'Inert from Gas Free': 'inertGasFree',
+  'Purge/Gas Free': 'purgeGasFree',
+  'Heating (Maintain)': 'heatingMaintain',
+  'Heating (Raise 3 Deg)': 'heatingRaise',
+};
 
 export const CURRENCY_OPTIONS = [
   { value: 'USD', label: 'United States Dollar (USD)' },
@@ -88,19 +133,61 @@ export function createEmptyPortLeg() {
     speedType: '1',
     distance: '',
     seaDays: '',
+    seaMargin: '5',
+    fromArrival: '',
+    fromDeparture: '',
+    toArrival: '',
+    toDeparture: '',
     loadQty: '',
     dischargeQty: '',
     loadPortCost: '',
     discPortCost: '',
     loadPortRate: '',
     discPortRate: '',
+    loadPortTerms: '1',
+    discPortTerms: '1',
+    loadPortWorkDays: '',
+    discPortWorkDays: '',
+    loadPortIdleDays: '',
+    discPortIdleDays: '',
+    transitIdleDays: '',
+    portStayDays: '',
+    portIdleDays: '',
     secaDistance: '',
+    nonSecaDistance: '',
+    navMethod: '',
     secaDays: '',
     transitPortCost: '',
     ddcLpEst: '',
     ddcDpEst: '',
+    ddcLpReal: '',
+    ddcDpReal: '',
+    ddcLpNett: '',
+    ddcDpNett: '',
+    demmDaysLp: '',
+    demmRateLp: '',
+    demmDaysDp: '',
+    demmRateDp: '',
     chkLpSeca: false,
     chkDpSeca: false,
+  };
+}
+
+export function createEmptyProfitSharingRow() {
+  return {
+    id: newRowId('ps'),
+    vendorId: '',
+    percentage: '',
+  };
+}
+
+export function createEmptyBrokerRow() {
+  return {
+    id: newRowId('brk'),
+    percent: '',
+    amount: '',
+    vendorId: '',
+    demmPercent: '',
   };
 }
 
@@ -115,6 +202,17 @@ export function createEmptyBunkerRow(identify = 'CONSUMPTION') {
   };
 }
 
+export function createEmptyBunkerActivityRow(defaults = {}) {
+  return {
+    id: newRowId('bact'),
+    activity: defaults.activity || 'Cold Wash',
+    bunkerGrade: defaults.bunkerGrade || 'VLSFO',
+    qty: defaults.qty || '',
+    price: defaults.price || '',
+    amount: defaults.amount || '',
+  };
+}
+
 export function createEmptyOrcRow() {
   return {
     id: newRowId('orc'),
@@ -123,6 +221,7 @@ export function createEmptyOrcRow() {
     amount: '',
     amountMt: '',
     vendorId: '',
+    portFlag: '',
   };
 }
 
@@ -361,17 +460,41 @@ export function toFormState(detail = {}) {
       speedType: row.speedType != null ? String(row.speedType) : '1',
       distance: row.distance != null ? String(row.distance) : '',
       seaDays: row.seaDays != null ? String(row.seaDays) : '',
+      seaMargin: row.seaMargin != null ? String(row.seaMargin) : '5',
+      fromArrival: row.fromArrival ?? '',
+      fromDeparture: row.fromDeparture ?? '',
+      toArrival: row.toArrival ?? '',
+      toDeparture: row.toDeparture ?? '',
       loadQty: row.loadQty != null ? String(row.loadQty) : '',
       dischargeQty: row.dischargeQty != null ? String(row.dischargeQty) : '',
       loadPortCost: row.loadPortCost != null ? String(row.loadPortCost) : '',
       discPortCost: row.discPortCost != null ? String(row.discPortCost) : '',
       loadPortRate: row.loadPortRate != null ? String(row.loadPortRate) : '',
       discPortRate: row.discPortRate != null ? String(row.discPortRate) : '',
+      loadPortTerms: row.loadPortTerms != null ? String(row.loadPortTerms) : '1',
+      discPortTerms: row.discPortTerms != null ? String(row.discPortTerms) : '1',
+      loadPortWorkDays: row.loadPortWorkDays != null ? String(row.loadPortWorkDays) : '',
+      discPortWorkDays: row.discPortWorkDays != null ? String(row.discPortWorkDays) : '',
+      loadPortIdleDays: row.loadPortIdleDays != null ? String(row.loadPortIdleDays) : '',
+      discPortIdleDays: row.discPortIdleDays != null ? String(row.discPortIdleDays) : '',
+      transitIdleDays: row.transitIdleDays != null ? String(row.transitIdleDays) : '',
+      portStayDays: row.portStayDays != null ? String(row.portStayDays) : '',
+      portIdleDays: row.portIdleDays != null ? String(row.portIdleDays) : '',
       secaDistance: row.secaDistance != null ? String(row.secaDistance) : '',
+      nonSecaDistance: row.nonSecaDistance != null ? String(row.nonSecaDistance) : '',
+      navMethod: row.navMethod != null ? String(row.navMethod) : '',
       secaDays: row.secaDays != null ? String(row.secaDays) : '',
       transitPortCost: row.transitPortCost != null ? String(row.transitPortCost) : '',
       ddcLpEst: row.ddcLpEst != null ? String(row.ddcLpEst) : '',
       ddcDpEst: row.ddcDpEst != null ? String(row.ddcDpEst) : '',
+      ddcLpReal: row.ddcLpReal != null ? String(row.ddcLpReal) : '',
+      ddcDpReal: row.ddcDpReal != null ? String(row.ddcDpReal) : '',
+      ddcLpNett: row.ddcLpNett != null ? String(row.ddcLpNett) : '',
+      ddcDpNett: row.ddcDpNett != null ? String(row.ddcDpNett) : '',
+      demmDaysLp: row.demmDaysLp != null ? String(row.demmDaysLp) : '',
+      demmRateLp: row.demmRateLp != null ? String(row.demmRateLp) : '',
+      demmDaysDp: row.demmDaysDp != null ? String(row.demmDaysDp) : '',
+      demmRateDp: row.demmRateDp != null ? String(row.demmRateDp) : '',
       chkLpSeca: !!row.chkLpSeca,
       chkDpSeca: !!row.chkDpSeca,
     }))
@@ -388,6 +511,17 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyBunkerRow('CONSUMPTION'), createEmptyBunkerRow('SUPPLY')];
 
+  const bunkerActivityRows = Array.isArray(detail.bunkerActivityRows) && detail.bunkerActivityRows.length
+    ? detail.bunkerActivityRows.map((row) => ({
+      id: row.id || newRowId('bact'),
+      activity: row.activity || 'Cold Wash',
+      bunkerGrade: row.bunkerGrade || 'VLSFO',
+      qty: row.qty != null ? String(row.qty) : '',
+      price: row.price != null ? String(row.price) : '',
+      amount: row.amount != null ? String(row.amount) : '',
+    }))
+    : [createEmptyBunkerActivityRow()];
+
   const orcRows = Array.isArray(detail.orcRows) && detail.orcRows.length
     ? detail.orcRows.map((row) => ({
       id: row.id || newRowId('orc'),
@@ -396,6 +530,7 @@ export function toFormState(detail = {}) {
       amount: row.amount != null ? String(row.amount) : '',
       amountMt: row.amountMt != null ? String(row.amountMt) : '',
       vendorId: row.vendorId != null ? String(row.vendorId) : '',
+      portFlag: row.portFlag != null ? String(row.portFlag) : '',
     }))
     : [createEmptyOrcRow()];
 
@@ -409,6 +544,24 @@ export function toFormState(detail = {}) {
       vendorId: row.vendorId != null ? String(row.vendorId) : '',
     }))
     : [createEmptyOtherIncomeRow()];
+
+  const brokerRows = Array.isArray(detail.brokerRows) && detail.brokerRows.length
+    ? detail.brokerRows.map((row) => ({
+      id: row.id || newRowId('brk'),
+      percent: row.percent != null ? String(row.percent) : '',
+      amount: row.amount != null ? String(row.amount) : '',
+      vendorId: row.vendorId != null ? String(row.vendorId) : '',
+      demmPercent: row.demmPercent != null ? String(row.demmPercent) : '',
+    }))
+    : (detail.brokeragePercent || detail.brokerageAmt
+      ? [{
+        id: newRowId('brk'),
+        percent: detail.brokeragePercent != null ? String(detail.brokeragePercent) : '',
+        amount: detail.brokerageAmt != null ? String(detail.brokerageAmt) : '',
+        vendorId: '',
+        demmPercent: '',
+      }]
+      : [createEmptyBrokerRow()]);
 
   const hireRows = Array.isArray(detail.hireRows) && detail.hireRows.length
     ? detail.hireRows.map((row) => ({
@@ -589,7 +742,16 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyVoyageEventRow()];
 
+  const profitSharingRows = Array.isArray(detail.profitSharingRows) && detail.profitSharingRows.length
+    ? detail.profitSharingRows.map((row) => ({
+      id: row.id || newRowId('ps'),
+      vendorId: row.vendorId != null ? String(row.vendorId) : '',
+      percentage: row.percentage != null ? String(row.percentage) : '',
+    }))
+    : [createEmptyProfitSharingRow()];
+
   return {
+    periodId: detail.periodId != null ? String(detail.periodId) : '',
     fixtureTypeId: detail.fixtureTypeId ? String(detail.fixtureTypeId) : '',
     vesselImoId: detail.vesselImoId ? String(detail.vesselImoId) : '',
     vesselName: detail.vesselName ?? '',
@@ -601,8 +763,10 @@ export function toFormState(detail = {}) {
     dwtSummer: detail.dwtSummer != null ? String(detail.dwtSummer) : '',
     dwtTropical: detail.dwtTropical != null ? String(detail.dwtTropical) : '',
     gnrt: detail.gnrt != null ? String(detail.gnrt) : '',
+    nrt: detail.nrt != null ? String(detail.nrt) : '',
     loa: detail.loa != null ? String(detail.loa) : '',
     tpc: detail.tpc != null ? String(detail.tpc) : '',
+    scnt: detail.scnt != null ? String(detail.scnt) : '',
     gear: detail.gear != null ? String(detail.gear) : '',
     builtYear: detail.builtYear != null ? String(detail.builtYear) : '',
     beam: detail.beam != null ? String(detail.beam) : '',
@@ -613,8 +777,10 @@ export function toFormState(detail = {}) {
 
     bFullSpeed: detail.bFullSpeed != null ? String(detail.bFullSpeed) : '',
     bEcoSpeed1: detail.bEcoSpeed1 != null ? String(detail.bEcoSpeed1) : '',
+    bEcoSpeed2: detail.bEcoSpeed2 != null ? String(detail.bEcoSpeed2) : '',
     lFullSpeed: detail.lFullSpeed != null ? String(detail.lFullSpeed) : '',
     lEcoSpeed1: detail.lEcoSpeed1 != null ? String(detail.lEcoSpeed1) : '',
+    lEcoSpeed2: detail.lEcoSpeed2 != null ? String(detail.lEcoSpeed2) : '',
     bFoFullSpeed: detail.bFoFullSpeed != null ? String(detail.bFoFullSpeed) : '',
     lFoFullSpeed: detail.lFoFullSpeed != null ? String(detail.lFoFullSpeed) : '',
     bDoFullSpeed: detail.bDoFullSpeed != null ? String(detail.bDoFullSpeed) : '',
@@ -629,9 +795,11 @@ export function toFormState(detail = {}) {
     deadfreightCargoRows,
     portLegs,
     bunkerRows,
+    bunkerActivityRows,
     orcRows,
     otherIncomeRows,
     hireRows,
+    brokerRows,
     secaBunkerRows,
     freightQtyRows,
     tankerWsRows,
@@ -643,29 +811,45 @@ export function toFormState(detail = {}) {
     redeliveryBunkerRows,
     disponentRows,
     voyageEventRows,
+    profitSharingRows,
 
     notes: detail.notes ?? '',
     ownerId: detail.ownerId != null ? String(detail.ownerId) : '',
     disponentOwner: detail.disponentOwner ?? '',
     attachments: detail.attachments ?? [],
+    charteringTeam: detail.charteringTeam != null ? String(detail.charteringTeam) : '7',
+    charteringPic: detail.charteringPic != null ? String(detail.charteringPic) : '',
 
     lumpsumQty: detail.lumpsumQty != null ? String(detail.lumpsumQty) : '',
     lumpsum: detail.lumpsum != null ? String(detail.lumpsum) : '',
     marketRate: detail.marketRate != null ? String(detail.marketRate) : '',
+    tankerFreightRate: detail.tankerFreightRate != null
+      ? String(detail.tankerFreightRate)
+      : (detail.marketRate != null ? String(detail.marketRate) : ''),
+    tankType: detail.tankType != null ? String(detail.tankType) : '1',
     freightGross: detail.freightGross != null ? String(detail.freightGross) : '',
     brokeragePercent: detail.brokeragePercent != null ? String(detail.brokeragePercent) : '',
     brokerageAmt: detail.brokerageAmt != null ? String(detail.brokerageAmt) : '',
     hireRate: detail.hireRate != null ? String(detail.hireRate) : '',
     hireAmt: detail.hireAmt != null ? String(detail.hireAmt) : '',
+    cvePerMonth: detail.cvePerMonth != null ? String(detail.cvePerMonth) : '',
     cveAmt: detail.cveAmt != null ? String(detail.cveAmt) : '',
     ballastBonus: detail.ballastBonus != null ? String(detail.ballastBonus) : '',
     addCommPercent: detail.addCommPercent != null ? String(detail.addCommPercent) : '',
+    addressCommAmt: detail.addressCommAmt != null ? String(detail.addressCommAmt) : '',
     gasBaltic: detail.gasBaltic != null ? String(detail.gasBaltic) : '',
     gasBaseRate: detail.gasBaseRate != null ? String(detail.gasBaseRate) : '',
     addnlPremium: detail.addnlPremium != null ? String(detail.addnlPremium) : '',
     co2Price: detail.co2Price != null ? String(detail.co2Price) : '',
     euaPrice: detail.euaPrice != null ? String(detail.euaPrice) : '',
+    sdrToUsd: detail.sdrToUsd != null ? String(detail.sdrToUsd) : '',
     vesselDailyOps: detail.vesselDailyOps != null ? String(detail.vesselDailyOps) : '',
+    timeAllowed: detail.timeAllowed != null ? String(detail.timeAllowed) : '',
+    laycanStart: detail.laycanStart ?? '',
+    laycanEnd: detail.laycanEnd ?? '',
+    demurrageBrokerPercent: detail.demurrageBrokerPercent != null
+      ? String(detail.demurrageBrokerPercent)
+      : '',
     euEtsAddToFreight: !!detail.euEtsAddToFreight,
     fuelEuAddToFreight: !!detail.fuelEuAddToFreight,
     baseRateFloat: detail.baseRateFloat != null ? String(detail.baseRateFloat) : '',

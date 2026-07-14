@@ -37,6 +37,55 @@ export async function searchVessels(query) {
   return data.rows ?? [];
 }
 
+export async function fetchVesselEstimatePrefill(vesselId) {
+  if (!vesselId) return null;
+  const response = await fetch(
+    `${BASE}/vessels/${encodeURIComponent(vesselId)}/estimate-prefill`,
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error('Failed to load vessel details.');
+  }
+  return response.json();
+}
+
+export async function fetchPortDistance(payload) {
+  const response = await fetch(`${BASE}/port-distance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to fetch port distance.');
+  }
+  return data;
+}
+
+/** Seametrix-backed port search (PHP getportapi.php). */
+export async function searchEstimatePorts(query) {
+  const params = new URLSearchParams({ q: query || '' });
+  const response = await fetch(`${BASE}/ports/search?${params}`);
+  if (!response.ok) {
+    throw new Error('Failed to search ports.');
+  }
+  const data = await response.json();
+  return Array.isArray(data) ? data : (data.rows ?? []);
+}
+
+export async function fetchCanalOrcRates(payload) {
+  const response = await fetch(`${BASE}/canal-orc-rates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to load canal ORC rates.');
+  }
+  return data;
+}
+
 export async function createEstimateDetail(payload, files = []) {
   const body = new FormData();
   body.append('payload', JSON.stringify(payload));

@@ -7,12 +7,37 @@ function round2(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-/** Sea days from distance (nm) and speed (kn). */
-export function calcSeaDays(distance, speed) {
+/** Sea days from distance (nm), speed (kn), optional weather margin %. */
+export function calcSeaDays(distance, speed, marginPercent = 0) {
   const d = num(distance);
   const s = num(speed);
   if (!d || !s) return 0;
-  return round2(d / (s * 24));
+  const base = d / (s * 24);
+  const margin = num(marginPercent);
+  return round2(base + ((base * margin) / 100));
+}
+
+/** PHP getLPTermsList factors for MT/Day laytime. */
+export const LAYTIME_TERM_FACTORS = {
+  1: 1,
+  2: 1.555555,
+  3: 1.405,
+  4: null,
+  5: 1,
+  6: 1.272727,
+  7: 1.333333,
+};
+
+export function calcLaytimeWorkingDays(qty, rateMtDay, termsId) {
+  const q = num(qty);
+  const r = num(rateMtDay);
+  const factor = LAYTIME_TERM_FACTORS[String(termsId)];
+  if (factor == null || !q || !r) return 0;
+  return round2((q / r) * factor);
+}
+
+export function calcDemurrageEst(days, rate) {
+  return round2(num(days) * num(rate));
 }
 
 export function calcBunkerCost(qty, price) {
@@ -29,6 +54,7 @@ export function calcCargoAmount(mt, rate) {
 export function computeEstimateTotals(form) {
   const portLegs = form.portLegs || [];
   const bunkerRows = form.bunkerRows || [];
+  const bunkerActivityRows = form.bunkerActivityRows || [];
   const orcRows = form.orcRows || [];
   const otherIncomeRows = form.otherIncomeRows || [];
   const hireRows = form.hireRows || [];
@@ -43,19 +69,57 @@ export function computeEstimateTotals(form) {
     portLegs.reduce((sum, leg) => sum + num(leg.distance), 0),
   );
 
-  const ballastSpeed = num(form.bFullSpeed) || num(form.bEcoSpeed1) || 12;
-  const ladenSpeed = num(form.lFullSpeed) || num(form.lEcoSpeed1) || ballastSpeed || 12;
+  const ballastFull = num(form.bFullSpeed) || 12;
+  const ballastEco = num(form.bEcoSpeed1) || ballastFull;
+  const ladenFull = num(form.lFullSpeed) || ballastFull;
+  const ladenEco = num(form.lEcoSpeed1) || ladenFull;
 
   let seaDays = 0;
   const legsWithDays = portLegs.map((leg) => {
-    const speed = String(leg.passageType) === '2' ? ladenSpeed : ballastSpeed;
-    const days = num(leg.seaDays) || calcSeaDays(leg.distance, speed);
+    const isLaden = String(leg.passageType) === '2';
+    const isEco = String(leg.speedType) === '2';
+    const speed = isLaden
+      ? (isEco ? ladenEco : ladenFull)
+      : (isEco ? ballastEco : ballastFull);
+    const margin = leg.seaMargin != null && leg.seaMargin !== '' ? leg.seaMargin : 5;
+    const days = num(leg.seaDays) || calcSeaDays(leg.distance, speed, margin);
+
+    const loadWork = String(leg.loadPortTerms) === '4'
+      ? num(leg.loadPortWorkDays)
+      : (num(leg.loadPortWorkDays)
+        || calcLaytimeWorkingDays(leg.loadQty, leg.loadPortRate, leg.loadPortTerms));
+    const discWork = String(leg.discPortTerms) === '4'
+      ? num(leg.discPortWorkDays)
+      : (num(leg.discPortWorkDays)
+        || calcLaytimeWorkingDays(leg.dischargeQty, leg.discPortRate, leg.discPortTerms));
+    const loadIdle = num(leg.loadPortIdleDays);
+    const discIdle = num(leg.discPortIdleDays);
+    const transitIdle = num(leg.transitIdleDays);
+    const portStayDays = round2(loadWork + discWork + loadIdle + discIdle + transitIdle);
+    const portIdleDays = round2(loadIdle + discIdle + transitIdle);
+    const ddcLpEst = num(leg.ddcLpEst) || calcDemurrageEst(leg.demmDaysLp, leg.demmRateLp);
+    const ddcDpEst = num(leg.ddcDpEst) || calcDemurrageEst(leg.demmDaysDp, leg.demmRateDp);
+    const nonSecaDistance = Math.max(0, num(leg.distance) - num(leg.secaDistance));
+    const secaDays = num(leg.secaDays) || calcSeaDays(leg.secaDistance, speed, margin);
+
     seaDays += days;
-    return { ...leg, seaDays: days ? String(round2(days)) : leg.seaDays };
+    return {
+      ...leg,
+      seaDays: days ? String(round2(days)) : leg.seaDays,
+      seaMargin: String(margin),
+      loadPortWorkDays: loadWork ? String(loadWork) : (leg.loadPortWorkDays || ''),
+      discPortWorkDays: discWork ? String(discWork) : (leg.discPortWorkDays || ''),
+      portStayDays: portStayDays ? String(portStayDays) : '',
+      portIdleDays: portIdleDays ? String(portIdleDays) : '',
+      nonSecaDistance: String(round2(nonSecaDistance)),
+      secaDays: secaDays ? String(secaDays) : (leg.secaDays || ''),
+      ddcLpEst: ddcLpEst ? String(ddcLpEst) : (leg.ddcLpEst || ''),
+      ddcDpEst: ddcDpEst ? String(ddcDpEst) : (leg.ddcDpEst || ''),
+    };
   });
 
   const totalPortCost = round2(
-    portLegs.reduce(
+    legsWithDays.reduce(
       (sum, leg) => sum + num(leg.loadPortCost) + num(leg.discPortCost) + num(leg.transitPortCost)
         + num(leg.ddcLpEst) + num(leg.ddcDpEst),
       0,
@@ -66,7 +130,16 @@ export function computeEstimateTotals(form) {
     const cost = calcBunkerCost(row.qty, row.price);
     return { ...row, cost: cost ? String(cost) : row.cost };
   });
-  const totalBunkerCost = round2(bunkers.reduce((sum, row) => sum + num(row.cost), 0));
+  const bunkerActivities = bunkerActivityRows.map((row) => {
+    const amount = calcBunkerCost(row.qty, row.price);
+    return { ...row, amount: amount ? String(amount) : (row.amount || '') };
+  });
+  const totalBunkerActivityCost = round2(
+    bunkerActivities.reduce((sum, row) => sum + num(row.amount), 0),
+  );
+  const totalBunkerCost = round2(
+    bunkers.reduce((sum, row) => sum + num(row.cost), 0) + totalBunkerActivityCost,
+  );
 
   const secaBunkers = secaBunkerRows.map((row) => {
     const cost = calcBunkerCost(row.qty, row.price);
@@ -186,26 +259,56 @@ export function computeEstimateTotals(form) {
 
   const freightFromCargo = round2(allCargos.reduce((sum, row) => sum + num(row.amountUsd), 0));
   const lumpsum = num(form.lumpsum);
+  const cargoQtyTotal = round2(
+    allCargos.reduce((sum, row) => sum + num(row.cargoMt), 0)
+    || num(form.cargoQuantity),
+  );
+  const tankType = String(form.tankType || '1');
+  const tankerFreightRate = num(form.tankerFreightRate || form.marketRate);
+  const singleFreight = tankType === '1' && tankerFreightRate > 0
+    ? round2(tankerFreightRate * cargoQtyTotal)
+    : 0;
   const freightGross = round2(
-    num(form.freightGross)
+    (tankType === '1' && singleFreight > 0 ? singleFreight : 0)
+    || (tankType === '2' ? (totalTankerWs || totalFreightQty) : 0)
+    || num(form.freightGross)
     || totalFreightQty
     || totalTankerWs
     || freightFromCargo
     || lumpsum,
   );
 
-  const brokeragePercent = num(form.brokeragePercent);
+  const brokerRows = form.brokerRows || [];
+  const brokers = (brokerRows.length
+    ? brokerRows
+    : [{ percent: form.brokeragePercent, amount: form.brokerageAmt }]
+  ).map((row) => {
+    const percent = num(row.percent ?? row.brokeragePercent);
+    const amount = num(row.amount ?? row.brokerageAmt) || round2((freightGross * percent) / 100);
+    return {
+      ...row,
+      percent: percent ? String(percent) : (row.percent ?? ''),
+      amount: amount ? String(amount) : (row.amount ?? ''),
+    };
+  });
+  const brokeragePercent = round2(
+    brokers.reduce((sum, row) => sum + num(row.percent), 0),
+  ) || num(form.brokeragePercent);
   const brokerageAmt = round2(
-    num(form.brokerageAmt) || (freightGross * brokeragePercent) / 100,
+    brokers.reduce((sum, row) => sum + num(row.amount), 0)
+    || num(form.brokerageAmt)
+    || (freightGross * brokeragePercent) / 100,
   );
+  const addCommPercent = num(form.addCommPercent);
+  const addressCommAmt = round2((freightGross * addCommPercent) / 100);
 
   const hireRate = num(form.hireRate);
-  const hireDays = seaDays || num(form.totalDays);
+  const portIdleDays = round2(legsWithDays.reduce((sum, leg) => sum + num(leg.portIdleDays), 0));
+  const portStayDays = round2(legsWithDays.reduce((sum, leg) => sum + num(leg.portStayDays), 0));
+  const hireDays = seaDays + portStayDays || num(form.totalDays);
   const hireAmt = round2(
     totalHireFromRows || num(form.hireAmt) || hireRate * hireDays,
   );
-  const cveAmt = num(form.cveAmt);
-  const ballastBonus = num(form.ballastBonus);
 
   let ladenDist = 0;
   let ballastDist = 0;
@@ -213,7 +316,7 @@ export function computeEstimateTotals(form) {
   let ballastDays = 0;
   for (const leg of legsWithDays) {
     const dist = num(leg.distance);
-    const days = num(leg.seaDays) || calcSeaDays(leg.distance, String(leg.passageType) === '2' ? ladenSpeed : ballastSpeed);
+    const days = num(leg.seaDays);
     if (String(leg.passageType) === '2') {
       ladenDist += dist;
       ladenDays += days;
@@ -227,20 +330,55 @@ export function computeEstimateTotals(form) {
   ladenDays = round2(ladenDays);
   ballastDays = round2(ballastDays);
   const totalSeaDays = round2(ladenDays + ballastDays);
-  const portIdleDays = round2(portLegs.reduce((sum, leg) => sum + num(leg.portIdleDays), 0));
-  const portStayDays = round2(portLegs.reduce((sum, leg) => sum + num(leg.portStayDays), 0));
+  const totalDays = round2(totalSeaDays + portIdleDays + portStayDays || num(form.totalDays) || 0);
+
+  // PHP: CVE ($) = (CVE/Month × 12 / 365) × total voyage days
+  const cvePerMonth = num(form.cvePerMonth);
+  const cveAmt = cvePerMonth > 0
+    ? round2(((cvePerMonth * 12) / 365) * (totalDays || 0))
+    : num(form.cveAmt);
+  const ballastBonus = num(form.ballastBonus);
+
+  const demurrageBrokerPercent = num(form.demurrageBrokerPercent)
+    || round2(brokeragePercent + addCommPercent);
+  const legsWithDemurrage = legsWithDays.map((leg) => {
+    const ddcLpEst = num(leg.ddcLpEst) || calcDemurrageEst(leg.demmDaysLp, leg.demmRateLp);
+    const ddcDpEst = num(leg.ddcDpEst) || calcDemurrageEst(leg.demmDaysDp, leg.demmRateDp);
+    const ddcLpReal = num(leg.ddcLpReal) || ddcLpEst;
+    const ddcDpReal = num(leg.ddcDpReal) || ddcDpEst;
+    const ddcLpNett = round2(ddcLpReal - (ddcLpReal * demurrageBrokerPercent) / 100);
+    const ddcDpNett = round2(ddcDpReal - (ddcDpReal * demurrageBrokerPercent) / 100);
+    return {
+      ...leg,
+      ddcLpEst: ddcLpEst ? String(ddcLpEst) : (leg.ddcLpEst || ''),
+      ddcDpEst: ddcDpEst ? String(ddcDpEst) : (leg.ddcDpEst || ''),
+      ddcLpReal: ddcLpReal ? String(ddcLpReal) : (leg.ddcLpReal || ''),
+      ddcDpReal: ddcDpReal ? String(ddcDpReal) : (leg.ddcDpReal || ''),
+      ddcLpNett: ddcLpNett ? String(ddcLpNett) : '',
+      ddcDpNett: ddcDpNett ? String(ddcDpNett) : '',
+    };
+  });
 
   const demurrageRevenue = round2(
-    portLegs.reduce((sum, leg) => sum + num(leg.ddcLpEst) + num(leg.ddcDpEst), 0)
+    legsWithDemurrage.reduce((sum, leg) => sum + num(leg.ddcLpReal) + num(leg.ddcDpReal), 0)
     + allCargos.reduce((sum, row) => sum + num(row.demAmt), 0),
   );
+  const demurrageBrokerAmt = round2((demurrageRevenue * demurrageBrokerPercent) / 100);
+  const demurrageNett = round2(demurrageRevenue - demurrageBrokerAmt);
+  const brokersWithDemm = brokers.map((row) => {
+    const pct = num(row.percent);
+    const demmAmt = round2((demurrageRevenue * pct) / 100);
+    return {
+      ...row,
+      demmPercent: demmAmt ? String(demmAmt) : (row.demmPercent || ''),
+    };
+  });
 
   const deliveryTotal = round2(deliveryBunkers.reduce((sum, row) => sum + num(row.amount), 0));
   const redeliveryTotal = round2(redeliveryBunkers.reduce((sum, row) => sum + num(row.amount), 0));
   const netHireage = round2(hireAmt + deliveryTotal + cveAmt - redeliveryTotal - totalOffHireAmt);
 
   const vesselDailyOps = num(form.vesselDailyOps);
-  const totalDays = round2(totalSeaDays + portIdleDays + portStayDays || num(form.totalDays) || 0);
   const vesselDailyOpsAmt = round2(vesselDailyOps * (totalDays || 0));
 
   const gradeById = {};
@@ -312,7 +450,7 @@ export function computeEstimateTotals(form) {
 
   const totalCarbonCost = round2(euaCo2Usd + hsfoPenal + vlsfoPenal + lsmgoPenal);
 
-  let operationalExpenses = round2(totalOrcCost + brokerageAmt + vesselDailyOpsAmt);
+  let operationalExpenses = round2(totalOrcCost + brokerageAmt + addressCommAmt + vesselDailyOpsAmt);
   if (form.euEtsAddToFreight) operationalExpenses = round2(operationalExpenses + euaCo2Usd);
   if (form.fuelEuAddToFreight) {
     operationalExpenses = round2(operationalExpenses + hsfoPenal + vlsfoPenal + lsmgoPenal);
@@ -321,19 +459,21 @@ export function computeEstimateTotals(form) {
   const bunkerExpenseTotal = round2(totalBunkerCost + totalSecaBunkerCost);
   const revenue = round2(freightGross + lumpsum + totalOtherIncome);
   const totalExpenses = round2(operationalExpenses + totalPortCost + bunkerExpenseTotal);
-  const voyageEarnings = round2(revenue - totalExpenses - cveAmt + demurrageRevenue);
+  const voyageEarnings = round2(revenue - totalExpenses - cveAmt + demurrageNett);
   const gTotalVoyageEarnings = round2(revenue - totalExpenses - netHireage);
   const daysForTce = totalDays > 0 ? totalDays : 1;
-  const nettDailyTce = round2((gTotalVoyageEarnings + demurrageRevenue) / daysForTce);
-  const profitLoss = round2(gTotalVoyageEarnings + demurrageRevenue);
+  const nettDailyTce = round2((gTotalVoyageEarnings + demurrageNett) / daysForTce);
+  const profitLoss = round2(gTotalVoyageEarnings + demurrageNett);
   const dailyEarning = nettDailyTce;
 
   return {
-    portLegs: legsWithDays,
+    portLegs: legsWithDemurrage,
+    brokerRows: brokersWithDemm,
     cargoRows,
     overageCargoRows,
     deadfreightCargoRows,
     bunkerRows: bunkers,
+    bunkerActivityRows: bunkerActivities,
     orcRows: orcs,
     otherIncomeRows: otherIncomes,
     hireRows: hires,
@@ -362,9 +502,16 @@ export function computeEstimateTotals(form) {
     totalFreightQty: String(totalFreightQty || ''),
     cargoQuantity: String(cargoQuantity || ''),
     freightGross: String(freightGross || ''),
+    brokeragePercent: String(brokeragePercent || ''),
     brokerageAmt: String(brokerageAmt || ''),
+    addressCommAmt: String(addressCommAmt || ''),
     hireAmt: String(hireAmt || ''),
+    cvePerMonth: form.cvePerMonth != null ? String(form.cvePerMonth) : '',
+    cveAmt: String(cveAmt || ''),
     demurrageRevenue: String(demurrageRevenue || ''),
+    demurrageBrokerPercent: String(demurrageBrokerPercent || ''),
+    demurrageBrokerAmt: String(demurrageBrokerAmt || ''),
+    demurrageNett: String(demurrageNett || ''),
     operationalExpenses: String(operationalExpenses || ''),
     netHireage: String(netHireage || ''),
     vesselDailyOpsAmt: String(vesselDailyOpsAmt || ''),

@@ -29,12 +29,24 @@ export default function EstimateAdvancedSections({
   lookups = { cargos: [], bunkerGrades: [], owners: [] },
   onFieldChange,
   onRecalc,
+  onApplyPatch,
 }) {
   const editable = !readOnly;
   const isTanker = Number(estimateType) === 2;
 
   const updateField = (key, value) => {
     onFieldChange?.(key, value);
+  };
+
+  const applyPatch = (patch) => {
+    if (onApplyPatch) {
+      onApplyPatch(patch);
+      return;
+    }
+    Object.entries(patch || {}).forEach(([key, value]) => {
+      if (onRecalc) onRecalc(key, value);
+      else updateField(key, value);
+    });
   };
 
   const updateRow = (collection, id, patch) => {
@@ -534,6 +546,54 @@ export default function EstimateAdvancedSections({
       </section>
 
       {isTanker ? (
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <span>Tanker Freight Mode</span>
+          </div>
+          <div className={styles.panelBody}>
+            <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  type="radio"
+                  name="tankType"
+                  value="1"
+                  checked={String(form.tankType || '1') === '1'}
+                  disabled={readOnly}
+                  onChange={() => applyPatch({ tankType: '1' })}
+                />
+                <strong>Single</strong>
+              </label>
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  type="radio"
+                  name="tankType"
+                  value="2"
+                  checked={String(form.tankType || '1') === '2'}
+                  disabled={readOnly}
+                  onChange={() => applyPatch({ tankType: '2' })}
+                />
+                <strong>Distributed</strong>
+              </label>
+              {String(form.tankType || '1') === '1' ? (
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  Freight Rate
+                  <input
+                    value={form.tankerFreightRate || ''}
+                    readOnly={readOnly}
+                    placeholder="0.00"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      applyPatch({ tankerFreightRate: value, marketRate: value });
+                    }}
+                  />
+                </label>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {isTanker && String(form.tankType || '1') === '2' ? (
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
             <span>Tanker WS Freight Specs</span>

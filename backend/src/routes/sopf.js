@@ -13,9 +13,12 @@ import {
   getEstimateDetail,
   getEstimateLookups,
   getPeriodPrefill,
+  getVesselEstimatePrefill,
   searchVessels,
   updateEstimateDetail,
 } from '../services/estimateDetailService.js';
+import { fetchPortToPortDistance, searchEstimatePorts } from '../services/portDistanceService.js';
+import { getCanalOrcRates, getDefaultMarketPrices } from '../services/canalOrcService.js';
 import { getSensitivityAnalysis, updateSensitivityEstimate } from '../services/sensitivityAnalysisService.js';
 import { fetchVesselsWithinRange as queryVesselsWithinRange } from '../services/vesselPositionService.js';
 import {
@@ -55,6 +58,81 @@ router.get('/vessels/search', async (req, res) => {
     console.error(error);
     res.status(500).json({ message: error.message || 'Failed to search vessels.' });
   }
+});
+
+router.get('/vessels/:vesselId/estimate-prefill', async (req, res) => {
+  try {
+    const data = await getVesselEstimatePrefill(req.params.vesselId);
+    if (!data) {
+      res.status(404).json({ message: 'Vessel not found.' });
+      return;
+    }
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to load vessel prefill.' });
+  }
+});
+
+router.post('/port-distance', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const data = await fetchPortToPortDistance({
+      startPortId: body.startPortId || body.StartPortID,
+      endPortId: body.endPortId || body.EndPortID,
+      startLon: body.startLon ?? body.StartLon,
+      startLat: body.startLat ?? body.StartLat,
+      endLon: body.endLon ?? body.EndLon,
+      endLat: body.endLat ?? body.EndLat,
+      greatCircleInterval: body.greatCircleInterval ?? body.GreatCircleInterval,
+      secaAvoidance: body.secaAvoidance ?? body.SecaAvoidance,
+      aslCompliance: body.aslCompliance ?? body.AslCompliance,
+      allowedAreas: body.allowedAreas ?? body.AllowedAreas,
+    });
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(error.status || 500).json({
+      message: error.message || 'Failed to fetch port distance.',
+    });
+  }
+});
+
+router.get('/ports/search', async (req, res) => {
+  try {
+    const rows = await searchEstimatePorts(req.query.q, Number(req.query.limit) || 25);
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(error.status || 500).json({
+      message: error.message || 'Failed to search ports.',
+    });
+  }
+});
+
+router.post('/canal-orc-rates', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const data = await getCanalOrcRates({
+      turkish: Boolean(body.turkish),
+      suez: Boolean(body.suez),
+      panama: Boolean(body.panama),
+      businessType: body.businessType || body.estimateType || 2,
+      nrt: body.nrt,
+      dwt: body.dwt,
+      passageType: body.passageType,
+      vesselType: body.vesselType,
+      sdrToUsd: body.sdrToUsd,
+    });
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to load canal rates.' });
+  }
+});
+
+router.get('/market-prices', (_req, res) => {
+  res.json(getDefaultMarketPrices());
 });
 
 router.get('/estimates/lookups', async (req, res) => {

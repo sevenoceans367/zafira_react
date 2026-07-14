@@ -9,6 +9,8 @@ export default function PortSearchSelect({
   onChange,
   required = false,
   placeholder = 'Search port…',
+  /** Optional async (query) => [{ id, name }] — defaults to period-contract local search */
+  searchPorts,
 }) {
   const [query, setQuery] = useState(label || '');
   const [results, setResults] = useState([]);
@@ -17,6 +19,7 @@ export default function PortSearchSelect({
   const [menuStyle, setMenuStyle] = useState(null);
   const wrapRef = useRef(null);
   const menuRef = useRef(null);
+  const searchFn = searchPorts || searchPeriodContractPorts;
 
   useEffect(() => {
     setQuery(label || '');
@@ -83,7 +86,7 @@ export default function PortSearchSelect({
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const rows = await searchPeriodContractPorts(term);
+        const rows = await searchFn(term);
         setResults(Array.isArray(rows) ? rows : []);
         setOpen(true);
       } catch {
@@ -95,7 +98,7 @@ export default function PortSearchSelect({
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [query, value, label]);
+  }, [query, value, label, searchFn]);
 
   const handleSelect = (port) => {
     onChange?.(port.id, port.name);

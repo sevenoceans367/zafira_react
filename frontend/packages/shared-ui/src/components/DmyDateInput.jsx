@@ -4,33 +4,44 @@ import 'flatpickr/dist/flatpickr.min.css';
 import styles from './DmyDateInput.module.css';
 
 /**
- * Date input with calendar popup — legacy dryout format dd-mm-yyyy.
+ * Date input with calendar popup — legacy dryout format dd-mm-yyyy
+ * (or dd-mm-yyyy HH:MM when enableTime is true).
+ * Calendar is appended to document.body so overflow:hidden parents (AppShell)
+ * do not clip it.
  */
 const DmyDateInput = ({
   value = '',
   onChange,
   id,
   className = 'form-control',
-  placeholder = 'dd-mm-yyyy',
+  placeholder,
   disabled = false,
   required = false,
   size,
+  enableTime = false,
 }) => {
   const inputRef = useRef(null);
   const fpRef = useRef(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
+  const resolvedPlaceholder = placeholder
+    || (enableTime ? 'dd-mm-yyyy HH:MM' : 'dd-mm-yyyy');
+  const dateFormat = enableTime ? 'd-m-Y H:i' : 'd-m-Y';
+
   useEffect(() => {
     if (!inputRef.current) return undefined;
 
     fpRef.current = flatpickr(inputRef.current, {
-      dateFormat: 'd-m-Y',
+      dateFormat,
+      enableTime,
+      time_24hr: true,
       allowInput: true,
-      disableMobile: false,
+      disableMobile: true,
+      appendTo: typeof document !== 'undefined' ? document.body : undefined,
       clickOpens: !disabled,
       onChange: (_selectedDates, dateStr) => {
-        onChangeRef.current(dateStr);
+        onChangeRef.current?.(dateStr);
       },
     });
 
@@ -38,15 +49,23 @@ const DmyDateInput = ({
       fpRef.current?.destroy();
       fpRef.current = null;
     };
-  }, []);
+    // Recreate only when time mode changes (format is tied to enableTime).
+  }, [enableTime, dateFormat]);
 
   useEffect(() => {
     const fp = fpRef.current;
-    const input = inputRef.current;
-    if (!fp || !input) return;
+    if (!fp) return;
     const next = value || '';
-    if (fp.input.value !== next) {
-      fp.setDate(next, false);
+    try {
+      if (!next) {
+        if (fp.input.value) fp.clear(false);
+        return;
+      }
+      if (fp.input.value !== next) {
+        fp.setDate(next, false);
+      }
+    } catch {
+      // Ignore unparseable values; keep the text input usable.
     }
   }, [value]);
 
@@ -67,7 +86,7 @@ const DmyDateInput = ({
       type="text"
       id={id}
       className={`${className} ${sizeClass} ${styles.input}`.trim()}
-      placeholder={placeholder}
+      placeholder={resolvedPlaceholder}
       disabled={disabled}
       required={required}
       autoComplete="off"

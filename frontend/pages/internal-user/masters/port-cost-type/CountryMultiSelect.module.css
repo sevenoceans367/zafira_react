@@ -1,0 +1,127 @@
+.root {
+  position: relative;
+}
+
+.control {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.control:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.chips {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.placeholder {
+  color: #9ca3af;
+  font-size: var(--font-size-body, 12px);
+  line-height: 24px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8f1f7;
+  color: #1b77a6;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.chipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chipRemove:hover {
+  background: rgba(27, 119, 166, 0.15);
+}
+
+.chevron {
+  margin-top: 4px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.dropdown {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.search {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: none;
+  border-bottom: 1px solid var(--color-border-light, #f3f4f6);
+  font-size: var(--font-size-body, 12px);
+  outline: none;
+}
+
+.options {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  overflow: auto;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: var(--font-size-body, 12px);
+  cursor: pointer;
+}
+
+.option:hover {
+  background: #f3f6f9;
+}
+
+.option input {
+  margin-top: 2px;
+}
+
+.empty {
+  padding: 12px 10px;
+  color: #6b7280;
+  font-size: 12px;
+}

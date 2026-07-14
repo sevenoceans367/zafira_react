@@ -1,5 +1,5 @@
 /**
- * Master data modules shown under the Masters sidebar tree.
+ * Master data modules shown under the Masters sidebar tree (SOC only: VC / TC).
  * PHP file names are placeholders until legacy pages are ported.
  */
 export const MASTERS_MODULES = [
@@ -20,13 +20,24 @@ export const MASTERS_MODULES = [
   { id: 'material-safety-data-sheets', label: 'Material Safety Data Sheets', legacyPhp: 'material_safety_data_list.php' },
   { id: 'necessary-approval', label: 'Necessary Approval', legacyPhp: 'necessary_approval.php' },
   { id: 'owner-related-cost', label: 'Owner Related Cost', legacyPhp: 'owner_related_cost.php' },
-  { id: 'other-miscellaneous-cost', label: 'Other Miscellaneous Cost', legacyPhp: 'other_miscellaneous_cost.php' },
-  { id: 'other-shipping-cost', label: 'Other Shipping Cost', legacyPhp: 'other_shipping_cost.php' },
-  { id: 'panama-canal-capacity-tariff', label: 'Panama Canal Capacity Tariff Fee', legacyPhp: 'panama_canal_capacity.php' },
-  { id: 'panama-canal-fixed-transit', label: 'Panama Canal Fixed Transit Fee', legacyPhp: 'panama_canal_fixed.php' },
-  { id: 'port-cost-type', label: 'Port Cost Type', legacyPhp: 'port_cost_type.php' },
+  { id: 'other-miscellaneous-cost', label: 'Other Miscellaneous Cost', legacyPhp: 'other_miscellaneous_cost_master.php' },
+  { id: 'other-shipping-cost', label: 'Other Shipping Cost', legacyPhp: 'other_shipping_cost_master.php' },
+  { id: 'panama-canal-capacity-tariff', label: 'Panama Canal Capacity Tariff Fee', legacyPhp: 'pcctf_list.php' },
+  { id: 'panama-canal-fixed-transit', label: 'Panama Canal Fixed Transit Fee', legacyPhp: 'pcftf_list.php' },
+  { id: 'port-cost-type', label: 'Port Cost Type', legacyPhp: 'port_cost_type_list.php' },
   { id: 'port-data', label: 'Port Data', legacyPhp: 'port_data.php' },
   { id: 'port-information', label: 'Port Information', legacyPhp: 'port_information.php' },
+  { id: 'rate-net-ton', label: 'Rate Net Ton', legacyPhp: 'rate_net_ton.php' },
+  { id: 'scnt', label: 'SCNT as a % of DWT', legacyPhp: 'scnt.php' },
+  { id: 'sdr-rates', label: 'SDR Rates', legacyPhp: 'sdr_rates.php' },
+  { id: 'tc-deductions', label: 'TC Deductions', legacyPhp: 'tc_deductions.php' },
+  { id: 'terminal', label: 'Terminal', legacyPhp: 'terminal_list.php' },
+  { id: 'vendor', label: 'Vendor', legacyPhp: 'vendor_list.php' },
+  { id: 'vc-deductions', label: 'VC Deductions', legacyPhp: 'vc_deductions.php' },
+  { id: 'vessel-type', label: 'Vessel Type', legacyPhp: 'vesseltype.php' },
+  { id: 'vessel-category', label: 'Vessel Category Master', legacyPhp: 'vessel_cat_master_list.php' },
+  { id: 'accounting-group', label: 'Accounting Group', legacyPhp: 'accountinggroup.php' },
+  { id: 'accounting-ledger', label: 'Accounting Ledger', legacyPhp: 'accountledger.php' },
 ];
 
 export function getMasterModule(id) {

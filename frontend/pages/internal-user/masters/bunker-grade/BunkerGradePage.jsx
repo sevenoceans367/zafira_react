@@ -338,13 +338,6 @@ export default function BunkerGradePage() {
               label={saving ? 'Saving…' : 'Submit'}
               disabled={saving}
             />
-            <Button
-              type="button"
-              variant="outline"
-              label="Back"
-              onClick={backToList}
-              disabled={saving}
-            />
           </div>
         </form>
       </div>

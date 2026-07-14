@@ -1,9 +1,16 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
+import {
+  isMastersHostModule,
+  masterAppPath,
+} from '../../../constants/mastersModule.js';
 import { resolveMasterPage } from './mastersPageRegistry.js';
 
 export default function MasterModulePage() {
-  const { masterId } = useParams();
+  const { module, masterId } = useParams();
+  if (!isMastersHostModule(module)) {
+    return <Navigate to={masterAppPath('vc', masterId)} replace />;
+  }
   const Page = resolveMasterPage(masterId);
   return <Page />;
 }

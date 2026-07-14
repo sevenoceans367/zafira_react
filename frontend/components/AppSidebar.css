@@ -124,9 +124,12 @@
   width: 60px !important;
 }
 
-.sidebar-wrapper.closed .sidebar-menu span,
+/* Hide top-level labels only — keep flyout submenu text visible on hover. */
+.sidebar-wrapper.closed .sidebar-menu > li > a > span,
+.sidebar-wrapper.closed .sidebar-menu > li.treeview > button > span,
 .sidebar-wrapper.closed .sidebar-user-panel .info,
-.sidebar-wrapper.closed .treeview > a > i[class*="bi-chevron-"] {
+.sidebar-wrapper.closed .treeview > a > i[class*="bi-chevron-"],
+.sidebar-wrapper.closed .treeview > button > i[class*="bi-chevron-"] {
   display: none !important;
 }
 
@@ -165,12 +168,20 @@
 
 .sidebar-menu .icon {
   width: 20px;
+  height: 20px;
   text-align: center;
   margin-right: 5px;
   flex-shrink: 0;
 }
 
-.sidebar-wrapper.closed .sidebar-menu .icon {
+.sidebar-menu img.icon {
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.sidebar-wrapper.closed .sidebar-menu > li > a > .icon,
+.sidebar-wrapper.closed .sidebar-menu > li.treeview > button > .icon {
   margin-right: 0 !important;
 }
 

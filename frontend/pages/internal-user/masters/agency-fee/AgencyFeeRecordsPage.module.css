@@ -129,6 +129,12 @@
   transform: translateX(22px);
 }
 
+.formHeader {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
 .form {
   display: grid;
   gap: 14px;

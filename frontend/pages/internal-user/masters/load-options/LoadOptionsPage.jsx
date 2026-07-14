@@ -148,6 +148,9 @@ export default function LoadOptionsPage() {
     return (
       <div className={`zafira-page ${styles.page}`}>
         {loading ? <LoadingOverlay active label="Loading…" /> : null}
+        <div className={styles.formHeader}>
+          <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
+        </div>
         <h3 className={styles.title}>
           {editId ? 'Edit Load Options' : 'Add Load Options'}
         </h3>
@@ -177,13 +180,6 @@ export default function LoadOptionsPage() {
               type="submit"
               variant="primary"
               label={saving ? 'Saving…' : 'Submit'}
-              disabled={saving}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              label="Back"
-              onClick={backToList}
               disabled={saving}
             />
           </div>

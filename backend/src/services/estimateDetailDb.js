@@ -839,7 +839,7 @@ export async function dbGetEstimateDetail(id) {
   );
 
   const [brokerageRows] = await pool.query(
-    `SELECT BROKAGE_PERCENT, BROKAGE_AMT, VENDORID, RANDOMID, FCAID
+    `SELECT BROKAGE_PERCENT, BROKAGE_AMT, VENDORID, FCAID
      FROM freight_cost_estimete_slave4
      WHERE FCAID = ?`,
     [id],
@@ -1791,8 +1791,8 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         fcaId,
-        toDbDate(hire.hireFrom) || '1970-01-01',
-        toDbDate(hire.hireTo) || '1970-01-01',
+        toDbDateTime(hire.hireFrom) || '1970-01-01 00:00:00',
+        toDbDateTime(hire.hireTo) || '1970-01-01 00:00:00',
         numOrNull(hire.hireDays),
         numOrNull(hire.hireRate),
         numOrNull(hire.hireAmt),

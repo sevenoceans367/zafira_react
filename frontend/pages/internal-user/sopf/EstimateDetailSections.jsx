@@ -323,16 +323,28 @@ export default function EstimateDetailSections({
               <input id="scnt" value={form.scnt || ''} readOnly placeholder="0.00" />
             </Field>
             <Field id="laycanStart" label="Laycan Start">
-              <input
-                {...inputProps('laycanStart')}
-                placeholder="dd-mm-yyyy HH:MM"
-              />
+              {readOnly ? (
+                <input id="laycanStart" value={form.laycanStart || ''} readOnly />
+              ) : (
+                <DmyDateInput
+                  id="laycanStart"
+                  enableTime
+                  value={form.laycanStart || ''}
+                  onChange={(value) => updateField('laycanStart', value)}
+                />
+              )}
             </Field>
             <Field id="laycanEnd" label="Laycan End">
-              <input
-                {...inputProps('laycanEnd')}
-                placeholder="dd-mm-yyyy HH:MM"
-              />
+              {readOnly ? (
+                <input id="laycanEnd" value={form.laycanEnd || ''} readOnly />
+              ) : (
+                <DmyDateInput
+                  id="laycanEnd"
+                  enableTime
+                  value={form.laycanEnd || ''}
+                  onChange={(value) => updateField('laycanEnd', value)}
+                />
+              )}
             </Field>
             <Field id="periodId" label="Period Contract">
               <select
@@ -569,36 +581,56 @@ export default function EstimateDetailSections({
                     />
                   </td>
                   <td>
-                    <input
-                      value={leg.fromArrival || ''}
-                      readOnly={readOnly}
-                      placeholder="dd-mm-yyyy HH:MM"
-                      onChange={(e) => updateRow('portLegs', leg.id, { fromArrival: e.target.value })}
-                    />
+                    {readOnly ? (
+                      <input value={leg.fromArrival || ''} readOnly />
+                    ) : (
+                      <DmyDateInput
+                        id={`fromArrival_${leg.id}`}
+                        enableTime
+                        className=""
+                        value={leg.fromArrival || ''}
+                        onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
+                      />
+                    )}
                   </td>
                   <td>
-                    <input
-                      value={leg.fromDeparture || ''}
-                      readOnly={readOnly}
-                      placeholder="dd-mm-yyyy HH:MM"
-                      onChange={(e) => updateRow('portLegs', leg.id, { fromDeparture: e.target.value })}
-                    />
+                    {readOnly ? (
+                      <input value={leg.fromDeparture || ''} readOnly />
+                    ) : (
+                      <DmyDateInput
+                        id={`fromDeparture_${leg.id}`}
+                        enableTime
+                        className=""
+                        value={leg.fromDeparture || ''}
+                        onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
+                      />
+                    )}
                   </td>
                   <td>
-                    <input
-                      value={leg.toArrival || ''}
-                      readOnly={readOnly}
-                      placeholder="dd-mm-yyyy HH:MM"
-                      onChange={(e) => updateRow('portLegs', leg.id, { toArrival: e.target.value })}
-                    />
+                    {readOnly ? (
+                      <input value={leg.toArrival || ''} readOnly />
+                    ) : (
+                      <DmyDateInput
+                        id={`toArrival_${leg.id}`}
+                        enableTime
+                        className=""
+                        value={leg.toArrival || ''}
+                        onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
+                      />
+                    )}
                   </td>
                   <td>
-                    <input
-                      value={leg.toDeparture || ''}
-                      readOnly={readOnly}
-                      placeholder="dd-mm-yyyy HH:MM"
-                      onChange={(e) => updateRow('portLegs', leg.id, { toDeparture: e.target.value })}
-                    />
+                    {readOnly ? (
+                      <input value={leg.toDeparture || ''} readOnly />
+                    ) : (
+                      <DmyDateInput
+                        id={`toDeparture_${leg.id}`}
+                        enableTime
+                        className=""
+                        value={leg.toDeparture || ''}
+                        onChange={(value) => updateRow('portLegs', leg.id, { toDeparture: value })}
+                      />
+                    )}
                   </td>
                   <td>
                     <input
@@ -1702,20 +1734,30 @@ export default function EstimateDetailSections({
               {(form.hireRows || []).map((row) => (
                 <tr key={row.id}>
                   <td>
-                    <input
-                      value={row.hireFrom}
-                      readOnly={readOnly}
-                      placeholder="dd-mm-yyyy"
-                      onChange={(e) => updateRow('hireRows', row.id, { hireFrom: e.target.value })}
-                    />
+                    {readOnly ? (
+                      <input value={row.hireFrom || ''} readOnly />
+                    ) : (
+                      <DmyDateInput
+                        id={`hireFrom_${row.id}`}
+                        enableTime
+                        className=""
+                        value={row.hireFrom || ''}
+                        onChange={(value) => updateRow('hireRows', row.id, { hireFrom: value })}
+                      />
+                    )}
                   </td>
                   <td>
-                    <input
-                      value={row.hireTo}
-                      readOnly={readOnly}
-                      placeholder="dd-mm-yyyy"
-                      onChange={(e) => updateRow('hireRows', row.id, { hireTo: e.target.value })}
-                    />
+                    {readOnly ? (
+                      <input value={row.hireTo || ''} readOnly />
+                    ) : (
+                      <DmyDateInput
+                        id={`hireTo_${row.id}`}
+                        enableTime
+                        className=""
+                        value={row.hireTo || ''}
+                        onChange={(value) => updateRow('hireRows', row.id, { hireTo: value })}
+                      />
+                    )}
                   </td>
                   <td>
                     <input

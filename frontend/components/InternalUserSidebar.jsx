@@ -15,11 +15,15 @@ function isSidebarItemActive(pathname, item) {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-function SidebarLink({ to, icon, label, active }) {
+function SidebarLink({ to, icon, iconSrc, iconAlt, label, active }) {
   return (
     <li>
       <Link to={to} className={active ? 'active' : ''}>
-        <i className={`bi ${icon} icon`} aria-hidden />
+        {iconSrc ? (
+          <img src={iconSrc} alt={iconAlt || ''} className="icon" aria-hidden={!iconAlt} />
+        ) : (
+          <i className={`bi ${icon} icon`} aria-hidden />
+        )}
         <span>{label}</span>
       </Link>
     </li>
@@ -73,11 +77,12 @@ export default function InternalUserSidebar({ isOpen }) {
                 key={item.id}
                 to={item.href.startsWith('/') ? appPath(item.href) : item.href}
                 icon={item.icon}
+                iconSrc={item.iconSrc}
+                iconAlt={item.iconAlt}
                 label={item.label}
                 active={isSidebarItemActive(currentPath, item)}
               />
             ))}
-            <MastersSidebarTree isOpen={isOpen} />
           </>
         ) : null}
 

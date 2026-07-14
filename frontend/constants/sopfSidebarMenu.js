@@ -3,13 +3,15 @@
  */
 import { fleetAppPath } from './fleetModule.js';
 import { periodContractAppPath } from './periodContractModule.js';
+import spotIcon from '../assets/icons/spot-icon.svg';
 
 export const SOPF_SIDEBAR_ITEMS = [
   {
     id: 'estimate_list',
     href: '/internal-user/sopf/estimate_list',
     label: 'SPOT',
-    icon: 'bi-leaf',
+    iconSrc: spotIcon,
+    iconAlt: 'SPOT',
     isActive: (pathname) =>
       pathname.includes('/internal-user/sopf/estimate_list')
       || pathname.includes('/internal-user/sopf/updateestimate')

@@ -1,4 +1,5 @@
 import React from 'react';
+import { DmyDateInput } from '@bainbridge/shared-ui';
 import {
   BUNKER_TYPE_OPTIONS,
   CURRENCY_OPTIONS,
@@ -897,12 +898,16 @@ export default function EstimateAdvancedSections({
                       </select>
                     </td>
                     <td>
-                      <input
-                        value={row.bunkerDate}
-                        readOnly={readOnly}
-                        placeholder="dd-mm-yyyy"
-                        onChange={(e) => updateRow('deliveryBunkerRows', row.id, { bunkerDate: e.target.value })}
-                      />
+                      {readOnly ? (
+                        <input value={row.bunkerDate || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          id={`delBunDate_${row.id}`}
+                          className=""
+                          value={row.bunkerDate || ''}
+                          onChange={(value) => updateRow('deliveryBunkerRows', row.id, { bunkerDate: value })}
+                        />
+                      )}
                     </td>
                     <td>
                       <input
@@ -981,12 +986,16 @@ export default function EstimateAdvancedSections({
                       </select>
                     </td>
                     <td>
-                      <input
-                        value={row.bunkerDate}
-                        readOnly={readOnly}
-                        placeholder="dd-mm-yyyy"
-                        onChange={(e) => updateRow('redeliveryBunkerRows', row.id, { bunkerDate: e.target.value })}
-                      />
+                      {readOnly ? (
+                        <input value={row.bunkerDate || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          id={`reDelBunDate_${row.id}`}
+                          className=""
+                          value={row.bunkerDate || ''}
+                          onChange={(value) => updateRow('redeliveryBunkerRows', row.id, { bunkerDate: value })}
+                        />
+                      )}
                     </td>
                     <td>
                       <input
@@ -1161,12 +1170,16 @@ export default function EstimateAdvancedSections({
                       />
                     </td>
                     <td>
-                      <input
-                        value={row.eventDate}
-                        readOnly={readOnly}
-                        placeholder="dd-mm-yyyy"
-                        onChange={(e) => updateRow('voyageEventRows', row.id, { eventDate: e.target.value })}
-                      />
+                      {readOnly ? (
+                        <input value={row.eventDate || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          id={`voyageEventDate_${row.id}`}
+                          className=""
+                          value={row.eventDate || ''}
+                          onChange={(value) => updateRow('voyageEventRows', row.id, { eventDate: value })}
+                        />
+                      )}
                     </td>
                     {editable ? (
                       <td>

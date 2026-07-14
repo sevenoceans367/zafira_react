@@ -148,6 +148,9 @@ export default function LawArbitrationPage() {
     return (
       <div className={`zafira-page ${styles.page}`}>
         {loading ? <LoadingOverlay active label="Loading…" /> : null}
+        <div className={styles.formHeader}>
+          <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
+        </div>
         <h3 className={styles.title}>
           {editId ? 'Edit Law/Arbitration' : 'Add Law/Arbitration'}
         </h3>
@@ -177,13 +180,6 @@ export default function LawArbitrationPage() {
               type="submit"
               variant="primary"
               label={saving ? 'Saving…' : 'Submit'}
-              disabled={saving}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              label="Back"
-              onClick={backToList}
               disabled={saving}
             />
           </div>

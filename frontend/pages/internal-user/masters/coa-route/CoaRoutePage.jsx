@@ -146,6 +146,9 @@ export default function CoaRoutePage() {
     return (
       <div className={`zafira-page ${styles.page}`}>
         {loading ? <LoadingOverlay active label="Loading…" /> : null}
+        <div className={styles.formHeader}>
+          <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
+        </div>
         <h3 className={styles.title}>
           {editId ? 'Edit COA Route' : 'Add COA Route'}
         </h3>
@@ -184,13 +187,6 @@ export default function CoaRoutePage() {
               type="submit"
               variant="primary"
               label={saving ? 'Saving…' : 'Save'}
-              disabled={saving}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              label="Back"
-              onClick={backToList}
               disabled={saving}
             />
           </div>

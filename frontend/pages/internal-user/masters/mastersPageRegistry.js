@@ -12,6 +12,7 @@ import LawArbitrationPage from './law-arbitration/LawArbitrationPage.jsx';
 import LoadOptionsPage from './load-options/LoadOptionsPage.jsx';
 import MaterialPage from './material/MaterialPage.jsx';
 import MsdsPage from './msds/MsdsPage.jsx';
+import NecessaryApprovalPage from './necessary-approval/NecessaryApprovalPage.jsx';
 import EstimatedRatioPage from './pc-ums-dwt-ratio/EstimatedRatioPage.jsx';
 import MasterPlaceholderPage from './MasterPlaceholderPage.jsx';
 
@@ -30,6 +31,7 @@ export const MASTER_PAGES = {
   'elibrary-category': ElibraryCategoryPage,
   'elibrary-reference-type': ElibraryReferenceTypePage,
   'invoice-status-list': InvoiceStatusPage,
+  'necessary-approval': NecessaryApprovalPage,
   'pc-ums-dwt-ratio': EstimatedRatioPage,
   'law-arbitration-list': LawArbitrationPage,
   'load-options': LoadOptionsPage,

@@ -51,6 +51,13 @@ import {
   updateExpenseTypeStatus,
 } from '../services/expenseTypeService.js';
 import {
+  createNecessaryApproval,
+  getNecessaryApproval,
+  listNecessaryApprovals,
+  updateNecessaryApproval,
+  updateNecessaryApprovalStatus,
+} from '../services/necessaryApprovalService.js';
+import {
   createElibraryCategory,
   getElibraryCategory,
   listElibraryCategories,
@@ -450,6 +457,60 @@ router.put('/contract-types/:id', async (req, res) => {
 router.post('/contract-types/:id/status', async (req, res) => {
   try {
     const result = await updateContractTypeStatus(req.params.id, req.body.status);
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message || 'Failed to update status.', msg: 1 });
+  }
+});
+
+router.get('/necessary-approvals', async (_req, res) => {
+  try {
+    const data = await listNecessaryApprovals();
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to load necessary approval list.' });
+  }
+});
+
+router.get('/necessary-approvals/:id', async (req, res) => {
+  try {
+    const record = await getNecessaryApproval(req.params.id);
+    if (!record) {
+      res.status(404).json({ message: 'Necessary approval not found.' });
+      return;
+    }
+    res.json(record);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to load necessary approval.' });
+  }
+});
+
+router.post('/necessary-approvals', async (req, res) => {
+  try {
+    const result = await createNecessaryApproval(req.body);
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message || 'Failed to create necessary approval.', msg: 1 });
+  }
+});
+
+router.put('/necessary-approvals/:id', async (req, res) => {
+  try {
+    const result = await updateNecessaryApproval(req.params.id, req.body);
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message || 'Failed to update necessary approval.', msg: 1 });
+  }
+});
+
+router.post('/necessary-approvals/:id/status', async (req, res) => {
+  try {
+    const result = await updateNecessaryApprovalStatus(req.params.id, req.body.status);
     res.json(result);
   } catch (error) {
     console.error(error);

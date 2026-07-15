@@ -78,7 +78,7 @@ async function getTurkishRate(businessType) {
   return Number(fallback[0]?.RATE) || 0;
 }
 
-async function getSuezScnt({ businessType, dwt, passageType, vesselType }) {
+export async function getSuezScnt({ businessType, dwt, passageType, vesselType }) {
   if (!isDbConfigured()) return 0;
   const pool = getPool();
   const type = Number(businessType) || 2;

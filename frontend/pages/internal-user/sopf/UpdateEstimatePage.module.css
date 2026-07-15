@@ -42,6 +42,11 @@
   padding: 6px 8px;
 }
 
+/* Keep closed panel fields in DOM so validation can focus/highlight them. */
+.panelBodyHidden {
+  display: none;
+}
+
 .estimateAside .resultsGrid {
   grid-template-columns: 1fr;
   gap: 2px 0;
@@ -466,4 +471,125 @@
 
 .error {
   color: #b91c1c;
+}
+
+.speedDataBar {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 160px) repeat(2, minmax(120px, 1fr));
+  gap: 8px 12px;
+  align-items: end;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #edf0f2;
+}
+
+.speedDataLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #dc631e;
+  padding-bottom: 4px;
+}
+
+.speedDataBar select {
+  min-height: 24px;
+  font-size: 10px;
+  color: #175c84;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 3px;
+  padding: 2px 5px;
+}
+
+.consBlock {
+  margin-top: 10px;
+}
+
+.consTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #dc631e;
+  margin-bottom: 4px;
+}
+
+.consBlock .addRowBtn {
+  margin-top: 4px;
+}
+
+/* PHP-style validation highlight (jQuery validate .error) */
+:global(.estimate-field-error),
+:global(.estimate-field-error input),
+:global(.estimate-field-error select),
+:global(input.estimate-field-error),
+:global(select.estimate-field-error) {
+  border-color: #dc2626 !important;
+  outline: 1px solid #fecaca;
+  box-shadow: 0 0 0 1px #dc2626;
+}
+
+.tankerWsPortRow td {
+  background: #faf8f5;
+  padding: 8px 10px;
+}
+
+.wsPortCombo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 20px;
+}
+
+.wsPortComboLabel {
+  font-weight: 700;
+  color: #175c84;
+  min-width: 120px;
+}
+
+.wsPortComboField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+  flex: 1 1 220px;
+}
+
+.wsPortComboField > span {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.wsPortMulti {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wsPortChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wsPortChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8f1f8;
+  color: #175c84;
+  font-size: 11px;
+}
+
+.wsPortChipRemove {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+
+.wsPortReadonly {
+  width: 100%;
 }

@@ -41,7 +41,13 @@ export default function CollapsiblePanel({
           </div>
         ) : null}
       </div>
-      {open ? <div className={styles.panelBody}>{children}</div> : null}
+      {open ? (
+        <div className={styles.panelBody}>{children}</div>
+      ) : (
+        <div className={styles.panelBodyHidden} hidden aria-hidden="true">
+          {children}
+        </div>
+      )}
     </section>
   );
 }

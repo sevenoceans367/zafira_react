@@ -4,6 +4,12 @@ export const FIXTURE_TYPE_OPTIONS = [
   { value: '3', label: 'VCOUT' },
 ];
 
+/** PHP getCOASpotList() — show COA number row when value is 2. */
+export const COA_SPOT_OPTIONS = [
+  { value: '1', label: 'SPOT' },
+  { value: '2', label: 'COA' },
+];
+
 export const ESTIMATE_TYPE_LABELS = {
   1: 'Gas',
   2: 'Tanker',
@@ -15,9 +21,11 @@ export const PASSAGE_TYPE_OPTIONS = [
   { value: '2', label: 'Laden' },
 ];
 
+/** PHP getSelectSpeedList: 1=Full, 2=Service Speed, 3=Most Eco Spec. */
 export const SPEED_TYPE_OPTIONS = [
   { value: '1', label: 'Full' },
-  { value: '2', label: 'Eco' },
+  { value: '2', label: 'Service Speed' },
+  { value: '3', label: 'Most Eco Spec' },
 ];
 
 export const LAYTIME_TERM_OPTIONS = [
@@ -58,6 +66,16 @@ export const BUNKER_ACTIVITY_GRADE_OPTIONS = [
   { value: 'VLSFO', label: 'VLSFO' },
   { value: 'LSMGO', label: 'LSMGO' },
   { value: 'HSFO+SCRUBBER', label: 'HSFO+SCRUBBER' },
+  { value: 'HSFO', label: 'HSFO' },
+];
+
+/** Per-port bunker grade multi-select (PHP selLPBG / selDPBG / selTPBG). */
+export const PORT_BUNKER_GRADE_OPTIONS = BUNKER_ACTIVITY_GRADE_OPTIONS;
+
+export const PORT_FUNCTION_OPTIONS = [
+  { value: '', label: '— Select —' },
+  { value: 'TP', label: 'Transit Port' },
+  { value: 'BP', label: 'Bunkering Port' },
 ];
 
 /** Map activity → vessel commercial "Bunkers Various" rate field. */
@@ -133,7 +151,7 @@ export function createEmptyPortLeg() {
     speedType: '1',
     distance: '',
     seaDays: '',
-    seaMargin: '5',
+    seaMargin: '0',
     fromArrival: '',
     fromDeparture: '',
     toArrival: '',
@@ -170,6 +188,14 @@ export function createEmptyPortLeg() {
     demmRateDp: '',
     chkLpSeca: false,
     chkDpSeca: false,
+    chkTpSeca: false,
+    lpBunkerGrades: ['VLSFO'],
+    dpBunkerGrades: ['VLSFO'],
+    tpBunkerGrades: ['VLSFO'],
+    bgNonSeca: 'VLSFO',
+    bgSeca: 'LSMGO',
+    chartererAccountDays: '',
+    portFunction: '',
   };
 }
 
@@ -348,12 +374,79 @@ export function createEmptyConsumptionRow(identify = 'FO') {
     ladSecaSs: '',
     balNonSecaSs: '',
     ladNonSecaSs: '',
+    balSecaMes: '',
+    ladSecaMes: '',
+    balNonSecaMes: '',
+    ladNonSecaMes: '',
     inPortSecaWorking: '',
     inPortNonSecaWorking: '',
+    inPortSecaWorkingDp: '',
+    inPortNonSecaWorkingDp: '',
     inPortSecaIdle: '',
     inPortNonSecaIdle: '',
+    otherSecaTk: '',
+    otherNonSecaTk: '',
+    otherSecaInert: '',
+    otherNonSecaInert: '',
+    otherSecaGf: '',
+    otherNonSecaGf: '',
+    otherSecaHeat: '',
+    otherNonSecaHeat: '',
+    otherSecaHeat1: '',
+    otherNonSecaHeat1: '',
   };
 }
+
+export const SPEED_DATA_OPTIONS = [
+  { value: 'full', label: 'Full Speed' },
+  { value: 'service', label: 'Service Speed' },
+  { value: 'eco', label: 'Most Eco Speed' },
+];
+
+/** PHP FO/DO At Sea column groups — visibility toggled by speedDataType. */
+export const CONSUMPTION_SPEED_COLUMNS = {
+  full: [
+    { key: 'balNonSecaFs', label: 'FS (B) (NS)' },
+    { key: 'balSecaFs', label: 'FS (B) (S)' },
+    { key: 'ladNonSecaFs', label: 'FS (L) (NS)' },
+    { key: 'ladSecaFs', label: 'FS (L) (S)' },
+  ],
+  service: [
+    { key: 'balNonSecaSs', label: 'SS (B) (NS)' },
+    { key: 'balSecaSs', label: 'SS (B) (S)' },
+    { key: 'ladNonSecaSs', label: 'SS (L) (NS)' },
+    { key: 'ladSecaSs', label: 'SS (L) (S)' },
+  ],
+  eco: [
+    { key: 'balNonSecaMes', label: 'MES (B) (NS)' },
+    { key: 'balSecaMes', label: 'MES (B) (S)' },
+    { key: 'ladNonSecaMes', label: 'MES (L) (NS)' },
+    { key: 'ladSecaMes', label: 'MES (L) (S)' },
+  ],
+};
+
+export const CONSUMPTION_PORT_COLUMNS = [
+  { key: 'inPortNonSecaWorking', label: 'Working LP (NS)' },
+  { key: 'inPortSecaWorking', label: 'Working LP (S)' },
+  { key: 'inPortNonSecaWorkingDp', label: 'Working DP (NS)' },
+  { key: 'inPortSecaWorkingDp', label: 'Working DP (S)' },
+  { key: 'inPortNonSecaIdle', label: 'Idle (NS)' },
+  { key: 'inPortSecaIdle', label: 'Idle (S)' },
+];
+
+/** PHP FO/DO Consp/day - Others (tank cleaning, inert, gas free, heating). */
+export const CONSUMPTION_OTHERS_COLUMNS = [
+  { key: 'otherSecaTk', label: 'Tank Cln (S)' },
+  { key: 'otherNonSecaTk', label: 'Tank Cln (NS)' },
+  { key: 'otherSecaInert', label: 'Inert (S)' },
+  { key: 'otherNonSecaInert', label: 'Inert (NS)' },
+  { key: 'otherSecaGf', label: 'Gas Free (S)' },
+  { key: 'otherNonSecaGf', label: 'Gas Free (NS)' },
+  { key: 'otherSecaHeat', label: 'Heat Maint (S)' },
+  { key: 'otherNonSecaHeat', label: 'Heat Maint (NS)' },
+  { key: 'otherSecaHeat1', label: 'Heat Raise (S)' },
+  { key: 'otherNonSecaHeat1', label: 'Heat Raise (NS)' },
+];
 
 export function createEmptyInvoiceRow() {
   return {
@@ -460,7 +553,7 @@ export function toFormState(detail = {}) {
       speedType: row.speedType != null ? String(row.speedType) : '1',
       distance: row.distance != null ? String(row.distance) : '',
       seaDays: row.seaDays != null ? String(row.seaDays) : '',
-      seaMargin: row.seaMargin != null ? String(row.seaMargin) : '5',
+      seaMargin: row.seaMargin != null ? String(row.seaMargin) : '0',
       fromArrival: row.fromArrival ?? '',
       fromDeparture: row.fromDeparture ?? '',
       toArrival: row.toArrival ?? '',
@@ -497,6 +590,20 @@ export function toFormState(detail = {}) {
       demmRateDp: row.demmRateDp != null ? String(row.demmRateDp) : '',
       chkLpSeca: !!row.chkLpSeca,
       chkDpSeca: !!row.chkDpSeca,
+      chkTpSeca: !!row.chkTpSeca,
+      lpBunkerGrades: Array.isArray(row.lpBunkerGrades) && row.lpBunkerGrades.length
+        ? row.lpBunkerGrades
+        : ['VLSFO'],
+      dpBunkerGrades: Array.isArray(row.dpBunkerGrades) && row.dpBunkerGrades.length
+        ? row.dpBunkerGrades
+        : ['VLSFO'],
+      tpBunkerGrades: Array.isArray(row.tpBunkerGrades) && row.tpBunkerGrades.length
+        ? row.tpBunkerGrades
+        : ['VLSFO'],
+      bgNonSeca: row.bgNonSeca || 'VLSFO',
+      bgSeca: row.bgSeca || 'LSMGO',
+      chartererAccountDays: row.chartererAccountDays != null ? String(row.chartererAccountDays) : '',
+      portFunction: row.portFunction != null ? String(row.portFunction) : '',
     }))
     : [createEmptyPortLeg()];
 
@@ -608,8 +715,11 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyFreightQtyRow()];
 
+  const tankWsFrom = detail.tankWsFrom != null ? String(detail.tankWsFrom) : '';
+  const tankWsTo = detail.tankWsTo != null ? String(detail.tankWsTo) : '';
+
   const tankerWsRows = Array.isArray(detail.tankerWsRows) && detail.tankerWsRows.length
-    ? detail.tankerWsRows.map((row) => ({
+    ? detail.tankerWsRows.map((row, index) => ({
       id: row.id || newRowId('ws'),
       freightSpecs: row.freightSpecs ?? '',
       customerId: row.customerId != null ? String(row.customerId) : '',
@@ -627,9 +737,13 @@ export function toFormState(detail = {}) {
       oveAmount: row.oveAmount != null ? String(row.oveAmount) : '',
       totalQty: row.totalQty != null ? String(row.totalQty) : '',
       totalAmount: row.totalAmount != null ? String(row.totalAmount) : '',
-      wsFromPortId: row.wsFromPortId != null ? String(row.wsFromPortId) : '',
+      wsFromPortId: row.wsFromPortId != null
+        ? String(row.wsFromPortId)
+        : (index === 0 ? tankWsFrom : ''),
       wsFromPortName: row.wsFromPortName ?? '',
-      wsToPortId: row.wsToPortId != null ? String(row.wsToPortId) : '',
+      wsToPortId: row.wsToPortId != null
+        ? String(row.wsToPortId)
+        : (index === 0 ? tankWsTo : ''),
       wsToPortName: row.wsToPortName ?? '',
     }))
     : [createEmptyTankerWsRow()];
@@ -687,10 +801,26 @@ export function toFormState(detail = {}) {
       ladSecaSs: row.ladSecaSs != null ? String(row.ladSecaSs) : '',
       balNonSecaSs: row.balNonSecaSs != null ? String(row.balNonSecaSs) : '',
       ladNonSecaSs: row.ladNonSecaSs != null ? String(row.ladNonSecaSs) : '',
+      balSecaMes: row.balSecaMes != null ? String(row.balSecaMes) : '',
+      ladSecaMes: row.ladSecaMes != null ? String(row.ladSecaMes) : '',
+      balNonSecaMes: row.balNonSecaMes != null ? String(row.balNonSecaMes) : '',
+      ladNonSecaMes: row.ladNonSecaMes != null ? String(row.ladNonSecaMes) : '',
       inPortSecaWorking: row.inPortSecaWorking != null ? String(row.inPortSecaWorking) : '',
       inPortNonSecaWorking: row.inPortNonSecaWorking != null ? String(row.inPortNonSecaWorking) : '',
+      inPortSecaWorkingDp: row.inPortSecaWorkingDp != null ? String(row.inPortSecaWorkingDp) : '',
+      inPortNonSecaWorkingDp: row.inPortNonSecaWorkingDp != null ? String(row.inPortNonSecaWorkingDp) : '',
       inPortSecaIdle: row.inPortSecaIdle != null ? String(row.inPortSecaIdle) : '',
       inPortNonSecaIdle: row.inPortNonSecaIdle != null ? String(row.inPortNonSecaIdle) : '',
+      otherSecaTk: row.otherSecaTk != null ? String(row.otherSecaTk) : '',
+      otherNonSecaTk: row.otherNonSecaTk != null ? String(row.otherNonSecaTk) : '',
+      otherSecaInert: row.otherSecaInert != null ? String(row.otherSecaInert) : '',
+      otherNonSecaInert: row.otherNonSecaInert != null ? String(row.otherNonSecaInert) : '',
+      otherSecaGf: row.otherSecaGf != null ? String(row.otherSecaGf) : '',
+      otherNonSecaGf: row.otherNonSecaGf != null ? String(row.otherNonSecaGf) : '',
+      otherSecaHeat: row.otherSecaHeat != null ? String(row.otherSecaHeat) : '',
+      otherNonSecaHeat: row.otherNonSecaHeat != null ? String(row.otherNonSecaHeat) : '',
+      otherSecaHeat1: row.otherSecaHeat1 != null ? String(row.otherSecaHeat1) : '',
+      otherNonSecaHeat1: row.otherNonSecaHeat1 != null ? String(row.otherNonSecaHeat1) : '',
     }))
     : [createEmptyConsumptionRow('FO'), createEmptyConsumptionRow('DO')];
 
@@ -752,7 +882,9 @@ export function toFormState(detail = {}) {
 
   return {
     periodId: detail.periodId != null ? String(detail.periodId) : '',
-    fixtureTypeId: detail.fixtureTypeId ? String(detail.fixtureTypeId) : '',
+    fixtureTypeId: detail.fixtureTypeId != null && String(detail.fixtureTypeId).trim() !== ''
+      ? String(detail.fixtureTypeId).trim()
+      : '',
     vesselImoId: detail.vesselImoId ? String(detail.vesselImoId) : '',
     vesselName: detail.vesselName ?? '',
     vesselType: detail.vesselType ?? '',
@@ -767,6 +899,8 @@ export function toFormState(detail = {}) {
     loa: detail.loa != null ? String(detail.loa) : '',
     tpc: detail.tpc != null ? String(detail.tpc) : '',
     scnt: detail.scnt != null ? String(detail.scnt) : '',
+    tankWsFrom,
+    tankWsTo,
     gear: detail.gear != null ? String(detail.gear) : '',
     builtYear: detail.builtYear != null ? String(detail.builtYear) : '',
     beam: detail.beam != null ? String(detail.beam) : '',
@@ -781,6 +915,7 @@ export function toFormState(detail = {}) {
     lFullSpeed: detail.lFullSpeed != null ? String(detail.lFullSpeed) : '',
     lEcoSpeed1: detail.lEcoSpeed1 != null ? String(detail.lEcoSpeed1) : '',
     lEcoSpeed2: detail.lEcoSpeed2 != null ? String(detail.lEcoSpeed2) : '',
+    speedDataType: detail.speedDataType || 'full',
     bFoFullSpeed: detail.bFoFullSpeed != null ? String(detail.bFoFullSpeed) : '',
     lFoFullSpeed: detail.lFoFullSpeed != null ? String(detail.lFoFullSpeed) : '',
     bDoFullSpeed: detail.bDoFullSpeed != null ? String(detail.bDoFullSpeed) : '',
@@ -814,6 +949,17 @@ export function toFormState(detail = {}) {
     profitSharingRows,
 
     notes: detail.notes ?? '',
+    openPort: detail.openPort != null ? String(detail.openPort) : '',
+    openPortName: detail.openPortName ?? '',
+    zoneOpen: detail.zoneOpen != null ? String(detail.zoneOpen) : '',
+    fixtureBroker: detail.fixtureBroker != null ? String(detail.fixtureBroker) : '',
+    coaSpot: detail.coaSpot != null ? String(detail.coaSpot) : '',
+    coaNumber: detail.coaNumber != null ? String(detail.coaNumber) : '',
+    coaNumberLabel: detail.coaNumberLabel ?? '',
+    coaNumberLift: detail.coaNumberLift != null ? String(detail.coaNumberLift) : '',
+    noOfShipment: detail.noOfShipment != null ? String(detail.noOfShipment) : '',
+    cpDate: detail.cpDate || (!detail.id ? formatTodayDmy() : ''),
+    etaDate: detail.etaDate || (!detail.id ? formatTodayDmy() : ''),
     ownerId: detail.ownerId != null ? String(detail.ownerId) : '',
     disponentOwner: detail.disponentOwner ?? '',
     attachments: detail.attachments ?? [],
@@ -834,6 +980,9 @@ export function toFormState(detail = {}) {
     hireAmt: detail.hireAmt != null ? String(detail.hireAmt) : '',
     cvePerMonth: detail.cvePerMonth != null ? String(detail.cvePerMonth) : '',
     cveAmt: detail.cveAmt != null ? String(detail.cveAmt) : '',
+    offHireCve: detail.offHireCve != null ? String(detail.offHireCve) : '',
+    offHireCveAmt: detail.offHireCveAmt != null ? String(detail.offHireCveAmt) : '',
+    lessOffHire: detail.lessOffHire != null ? String(detail.lessOffHire) : '',
     ballastBonus: detail.ballastBonus != null ? String(detail.ballastBonus) : '',
     addCommPercent: detail.addCommPercent != null ? String(detail.addCommPercent) : '',
     addressCommAmt: detail.addressCommAmt != null ? String(detail.addressCommAmt) : '',
@@ -879,5 +1028,33 @@ export function toFormState(detail = {}) {
     voyageEarnings: detail.voyageEarnings != null ? String(detail.voyageEarnings) : '',
     dailyEarning: detail.dailyEarning != null ? String(detail.dailyEarning) : '',
     profitLoss: detail.profitLoss != null ? String(detail.profitLoss) : '',
+    // PHP slave18 bunker / compliance (seed before recalc)
+    hsfoMt: detail.hsfoMt != null ? String(detail.hsfoMt) : '',
+    etsHsfoMt: detail.etsHsfoMt != null ? String(detail.etsHsfoMt) : '',
+    vlsfoMt: detail.vlsfoMt != null ? String(detail.vlsfoMt) : '',
+    etsVlsfoMt: detail.etsVlsfoMt != null ? String(detail.etsVlsfoMt) : '',
+    lsmgoMt: detail.lsmgoMt != null ? String(detail.lsmgoMt) : '',
+    etsLsmgoMt: detail.etsLsmgoMt != null ? String(detail.etsLsmgoMt) : '',
+    bunkerResultsCost: detail.bunkerResultsCost != null ? String(detail.bunkerResultsCost) : '',
+    eeoi: detail.eeoi != null ? String(detail.eeoi) : '',
+    cii: detail.cii != null ? String(detail.cii) : '',
+    eeoiCo2: detail.eeoiCo2 != null ? String(detail.eeoiCo2) : '',
+    co2mt: detail.co2mt != null ? String(detail.co2mt) : '',
+    co2Cost: detail.co2Cost != null ? String(detail.co2Cost) : '',
+    euaCo2mt: detail.euaCo2mt != null ? String(detail.euaCo2mt) : '',
+    euaCo2Usd: detail.euaCo2Usd != null ? String(detail.euaCo2Usd) : '',
+    hsfoIntensity: detail.hsfoIntensity != null ? String(detail.hsfoIntensity) : '',
+    hsfoTarget: detail.hsfoTarget != null ? String(detail.hsfoTarget) : '',
+    vlsfoIntensity: detail.vlsfoIntensity != null ? String(detail.vlsfoIntensity) : '',
+    vlsfoTarget: detail.vlsfoTarget != null ? String(detail.vlsfoTarget) : '',
+    lsmgoIntensity: detail.lsmgoIntensity != null ? String(detail.lsmgoIntensity) : '',
+    lsmgoTarget: detail.lsmgoTarget != null ? String(detail.lsmgoTarget) : '',
+    hsfoPenalty: detail.hsfoPenalty != null ? String(detail.hsfoPenalty) : '',
+    hsfoPenaltyPerMt: detail.hsfoPenaltyPerMt != null ? String(detail.hsfoPenaltyPerMt) : '',
+    vlsfoPenalty: detail.vlsfoPenalty != null ? String(detail.vlsfoPenalty) : '',
+    vlsfoPenaltyPerMt: detail.vlsfoPenaltyPerMt != null ? String(detail.vlsfoPenaltyPerMt) : '',
+    lsmgoPenalty: detail.lsmgoPenalty != null ? String(detail.lsmgoPenalty) : '',
+    lsmgoPenaltyPerMt: detail.lsmgoPenaltyPerMt != null ? String(detail.lsmgoPenaltyPerMt) : '',
+    totalCarbonCost: detail.totalCarbonCost != null ? String(detail.totalCarbonCost) : '',
   };
 }

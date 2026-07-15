@@ -120,6 +120,20 @@ export async function createEstimateDetail(payload, files = []) {
   return data;
 }
 
+/** PHP options.php?id=149 — returns true when voyage/TC number already exists. */
+export async function checkVoyageNoExists(voyageNo, { excludeId } = {}) {
+  const params = new URLSearchParams({ vno: String(voyageNo || '') });
+  if (excludeId != null && excludeId !== '') {
+    params.set('excludeId', String(excludeId));
+  }
+  const response = await fetch(`${BASE}/estimates/voyage-exists?${params}`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to check voyage number.');
+  }
+  return Boolean(data.exists);
+}
+
 export async function updateEstimateDetail(id, payload, files = []) {
   const body = new FormData();
   body.append('payload', JSON.stringify(payload));

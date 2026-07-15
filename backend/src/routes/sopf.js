@@ -9,6 +9,7 @@ import {
   submitDecisionChart,
 } from '../services/estimateListService.js';
 import {
+  checkVoyageNoExists,
   createEstimateDetail,
   getEstimateDetail,
   getEstimateLookups,
@@ -142,6 +143,19 @@ router.get('/estimates/lookups', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message || 'Failed to load estimate lookups.' });
+  }
+});
+
+/** PHP options.php?id=149 — voyage / TC number uniqueness check. */
+router.get('/estimates/voyage-exists', async (req, res) => {
+  try {
+    const voyageNo = req.query.vno || req.query.Vno || req.query.voyageNo || '';
+    const excludeId = req.query.excludeId || req.query.excludeFcaId || null;
+    const exists = await checkVoyageNoExists(voyageNo, { excludeFcaId: excludeId });
+    res.json({ exists: Boolean(exists) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to check voyage number.' });
   }
 });
 

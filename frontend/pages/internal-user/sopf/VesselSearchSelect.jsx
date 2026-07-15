@@ -135,7 +135,7 @@ export default function VesselSearchSelect({ value, label, onSelect }) {
   const showMenu = open && menuStyle && (loading || error || results.length > 0 || query.trim().length >= 2);
 
   return (
-    <div className={styles.wrap} ref={wrapRef}>
+    <div className={styles.wrap} ref={wrapRef} data-estimate-field-wrap="vesselName">
       <input
         id="vesselName"
         type="text"

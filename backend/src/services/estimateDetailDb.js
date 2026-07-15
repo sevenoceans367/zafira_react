@@ -5,6 +5,7 @@ import {
   ensureCommercialParametersFromNavApi,
   loadCommercialParameterRow,
 } from './commercialParametersNavApiSeed.js';
+import { CANAL_ORC_IDS, getSuezScnt } from './canalOrcService.js';
 
 function toDbDate(value) {
   if (!value) return null;
@@ -64,11 +65,111 @@ function randomId() {
   return `${Date.now()}${Math.floor(Math.random() * 10000)}`;
 }
 
+function resolveTankWsPorts(payload) {
+  const firstRow = (payload.tankerWsRows || [])[0];
+  const from = payload.tankWsFrom || firstRow?.wsFromPortId || null;
+  const to = payload.tankWsTo || firstRow?.wsToPortId || null;
+  return { from: from || null, to: to || null };
+}
+
+function portNamesFromIds(raw, nameById) {
+  return String(raw || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((id) => nameById[id] || id)
+    .join(', ');
+}
+
+async function enrichTankerWsPortNames(pool, detail) {
+  const ids = new Set();
+  const collect = (raw) => {
+    String(raw || '').split(',').forEach((part) => {
+      const id = part.trim();
+      if (id) ids.add(id);
+    });
+  };
+
+  collect(detail.tankWsFrom);
+  collect(detail.tankWsTo);
+  for (const row of detail.tankerWsRows || []) {
+    collect(row.wsFromPortId);
+    collect(row.wsToPortId);
+  }
+  if (!ids.size) return detail;
+
+  const [portRows] = await pool.query(
+    `SELECT PortId, PortName FROM port_master WHERE PortId IN (?)`,
+    [[...ids]],
+  );
+  const nameById = Object.fromEntries(
+    portRows.map((row) => [String(row.PortId), row.PortName || '']),
+  );
+
+  const tankerWsRows = (detail.tankerWsRows || []).map((row, index) => {
+    const fromIds = row.wsFromPortId || (index === 0 ? detail.tankWsFrom : '');
+    const toIds = row.wsToPortId || (index === 0 ? detail.tankWsTo : '');
+    return {
+      ...row,
+      wsFromPortName: row.wsFromPortName || portNamesFromIds(fromIds, nameById),
+      wsToPortName: row.wsToPortName || portNamesFromIds(toIds, nameById),
+    };
+  });
+
+  return { ...detail, tankerWsRows };
+}
+
+function applyMasterTankWsPorts(detail, master) {
+  const tankWsFrom = master.TANK_WS_FROM != null ? String(master.TANK_WS_FROM) : '';
+  const tankWsTo = master.TANK_WS_TO != null ? String(master.TANK_WS_TO) : '';
+  if (!tankWsFrom && !tankWsTo) return detail;
+
+  const tankerWsRows = [...(detail.tankerWsRows || [])];
+  if (tankerWsRows.length) {
+    tankerWsRows[0] = {
+      ...tankerWsRows[0],
+      wsFromPortId: tankerWsRows[0].wsFromPortId || tankWsFrom,
+      wsToPortId: tankerWsRows[0].wsToPortId || tankWsTo,
+    };
+  }
+
+  return {
+    ...detail,
+    tankWsFrom,
+    tankWsTo,
+    tankerWsRows,
+  };
+}
+
+async function resolveScntForDetail(detail) {
+  const suezOrc = (detail.orcRows || []).find(
+    (row) => String(row.costId) === CANAL_ORC_IDS.suez,
+  );
+  if (!suezOrc) return detail;
+
+  try {
+    const ladenLeg = (detail.portLegs || []).some((leg) => String(leg.passageType) === '2');
+    const scnt = await getSuezScnt({
+      businessType: detail.estimateType,
+      dwt: detail.dwtSummer || detail.loadable || 0,
+      passageType: ladenLeg ? '2' : '1',
+      vesselType: detail.vesselType,
+    });
+    return {
+      ...detail,
+      scnt: String(Math.round(scnt * 100) / 100),
+    };
+  } catch {
+    return detail;
+  }
+}
+
 function mapPortLeg(row, index) {
   return {
     id: row.RANDOMID ?? row.FCA_SLAVEID ?? row.FCA_SLVID ?? `${row.FCAID}-${index}`,
     fromPortId: row.FROM_PORT,
     toPortId: row.TO_PORT,
+    navMethod: row.DIS_TYPE != null && row.DIS_TYPE !== '' ? String(row.DIS_TYPE) : '',
     fromPortName: row.FROM_PORT_NAME ?? '',
     toPortName: row.TO_PORT_NAME ?? '',
     passageType: row.PASSAGE_TYPE,
@@ -77,7 +178,7 @@ function mapPortLeg(row, index) {
     dischargeQty: row.DISC_PORT_QTY,
     distance: row.DISTANCE ?? '',
     seaDays: row.TOTAL_VOYAGE_DAYS ?? row.SEA_DAYS ?? '',
-    seaMargin: row.MARGIN_DISTANCE ?? '5',
+    seaMargin: row.MARGIN_DISTANCE ?? '0',
     fromArrival: row.FROMARRIVAL ? formatDateTimeDMY(row.FROMARRIVAL) : '',
     fromDeparture: row.FROMDEPARTURE ? formatDateTimeDMY(row.FROMDEPARTURE) : '',
     toArrival: row.TOARRIVAL ? formatDateTimeDMY(row.TOARRIVAL) : '',
@@ -109,6 +210,21 @@ function mapPortLeg(row, index) {
     demmRateDp: row.DEMMRATEDP ?? '',
     chkLpSeca: Number(row.CHK_LP_SECA) === 1,
     chkDpSeca: Number(row.CHK_DP_SECA) === 1,
+    chkTpSeca: Number(row.CHK_TP_SECA) === 1,
+    // PHP selNSBG / selSBG
+    bgNonSeca: row.BG_NON_SECA || 'VLSFO',
+    bgSeca: row.BG_SECA || 'LSMGO',
+    lpBunkerGrades: (row.BUNKER_GRADE_LP || row.LOAD_PORT_BUNKER_GRADE)
+      ? String(row.BUNKER_GRADE_LP || row.LOAD_PORT_BUNKER_GRADE).split(',').map((s) => s.trim()).filter(Boolean)
+      : ['VLSFO'],
+    dpBunkerGrades: (row.BUNKER_GRADE_DP || row.DISC_PORT_BUNKER_GRADE)
+      ? String(row.BUNKER_GRADE_DP || row.DISC_PORT_BUNKER_GRADE).split(',').map((s) => s.trim()).filter(Boolean)
+      : ['VLSFO'],
+    tpBunkerGrades: (row.BUNKER_GRADE_TP || row.TRANSIT_PORT_BUNKER_GRADE)
+      ? String(row.BUNKER_GRADE_TP || row.TRANSIT_PORT_BUNKER_GRADE).split(',').map((s) => s.trim()).filter(Boolean)
+      : ['VLSFO'],
+    chartererAccountDays: row.CHARTERERACCOUNT ?? row.CHARTERER_ACCOUNT_DAYS ?? row.CA_DAYS ?? '',
+    portFunction: row.PORT_FUNCTION ?? row.PORT_FUN ?? '',
   };
 }
 
@@ -251,6 +367,10 @@ function mapTankerWsRow(row, index) {
     oveAmount: row.OVE_AMOUNT ?? '',
     totalQty: row.TOTAL_QTY ?? '',
     totalAmount: row.TOTAL_AMOUNT ?? '',
+    wsFromPortId: '',
+    wsFromPortName: '',
+    wsToPortId: '',
+    wsToPortName: '',
   };
 }
 
@@ -259,8 +379,8 @@ function mapOffHireRow(row, bunkers = [], index = 0) {
     id: row.RANDOMID ?? `off-${row.FCAID}-${index}`,
     slave14Id: row.FCA_SLAVE14ID,
     reason: row.OFF_REASON ?? '',
-    from: row.OFF_FROM ? formatDateDMY(row.OFF_FROM) : '',
-    to: row.OFF_TO ? formatDateDMY(row.OFF_TO) : '',
+    from: row.OFF_FROM ? formatDateTimeDMY(row.OFF_FROM) : '',
+    to: row.OFF_TO ? formatDateTimeDMY(row.OFF_TO) : '',
     days: row.OFF_DAYS ?? '',
     rate: row.HIRE_RATE ?? '',
     amount: row.OFF_HIRE ?? '',
@@ -299,10 +419,26 @@ function mapConsumptionRow(row, index) {
     ladSecaSs: row.FO_LADEN_ATSEA_SECA_CONSP_SS ?? '',
     balNonSecaSs: row.FO_BALAST_ATSEA_NONSECA_CONSP_SS ?? '',
     ladNonSecaSs: row.FO_LADEN_ATSEA_NONSECA_CONSP_SS ?? '',
-    inPortSecaWorking: row.FO_INPORT_SECA_CONSP_WORKING ?? '',
-    inPortNonSecaWorking: row.FO_INPORT_NONSECA_CONSP_WORKING ?? '',
+    balSecaMes: row.FO_BALAST_ATSEA_SECA_CONSP_MES ?? '',
+    ladSecaMes: row.FO_LADEN_ATSEA_SECA_CONSP_MES ?? '',
+    balNonSecaMes: row.FO_BALAST_ATSEA_NONSECA_CONSP_MES ?? '',
+    ladNonSecaMes: row.FO_LADEN_ATSEA_NONSECA_CONSP_MES ?? '',
+    inPortSecaWorking: row.FO_INPORT_SECA_CONSP_WORKING ?? row.FO_INPORT_SECA_CONSP_WORKING_LP ?? '',
+    inPortNonSecaWorking: row.FO_INPORT_NONSECA_CONSP_WORKING ?? row.FO_INPORT_NONSECA_CONSP_WORKING_LP ?? '',
+    inPortSecaWorkingDp: row.FO_INPORT_SECA_CONSP_WORKING_DP ?? row.FO_INPORT_SECA_CONSP_OTHER ?? '',
+    inPortNonSecaWorkingDp: row.FO_INPORT_NONSECA_CONSP_WORKING_DP ?? row.FO_INPORT_NONSECA_CONSP_OTHER ?? '',
     inPortSecaIdle: row.FO_INPORT_SECA_CONSP_IDLE ?? '',
     inPortNonSecaIdle: row.FO_INPORT_NONSECA_CONSP_IDLE ?? '',
+    otherSecaTk: row.FO_OTHER_SECA_CONSP_TK ?? '',
+    otherNonSecaTk: row.FO_OTHER_NONSECA_CONSP_TK ?? '',
+    otherSecaInert: row.FO_OTHER_SECA_CONSP_INERT ?? '',
+    otherNonSecaInert: row.FO_OTHER_NONSECA_CONSP_INERT ?? '',
+    otherSecaGf: row.FO_OTHER_SECA_CONSP_GF ?? '',
+    otherNonSecaGf: row.FO_OTHER_NONSECA_CONSP_GF ?? '',
+    otherSecaHeat: row.FO_OTHER_SECA_CONSP_HEAT ?? '',
+    otherNonSecaHeat: row.FO_OTHER_NONSECA_CONSP_HEAT ?? '',
+    otherSecaHeat1: row.FO_OTHER_SECA_CONSP_HEAT_1 ?? '',
+    otherNonSecaHeat1: row.FO_OTHER_NONSECA_CONSP_HEAT_1 ?? '',
   };
 }
 
@@ -379,12 +515,15 @@ function mapEstimateDetail(
     .map((row, index) => mapBrokerRow(row, index));
   const firstBroker = brokerRows[0] || null;
   const etsFlags = (voyageEventRows || []).find(
-    (row) => row.EUETSADDTOF != null || row.FUELEUADDTOF != null,
+    (row) => row.EUETSADDTOF != null || row.FUELEUADDTOF != null
+      || row.HSFO != null || row.VLSFOMT != null || row.LSMGO != null,
   ) || {};
   return {
     id: String(master.FCAID),
     periodId: master.PERIODID != null ? String(master.PERIODID) : '',
-    fixtureTypeId: Number(master.FIXTURETYPEID) || null,
+    fixtureTypeId: master.FIXTURETYPEID != null && String(master.FIXTURETYPEID).trim() !== ''
+      ? String(master.FIXTURETYPEID).trim()
+      : null,
     estimateType,
     estimateTypeLabel: ESTIMATE_TYPE_LABELS[estimateType] ?? '',
     vesselImoId: master.VESSEL_IMO_ID,
@@ -442,6 +581,9 @@ function mapEstimateDetail(
     brokerRows,
     cvePerMonth: master.CVE_AMT ?? '',
     cveAmt: master.CVE_TOTALAMT ?? '',
+    offHireCve: master.OFF_HIRE_CVE ?? '',
+    offHireCveAmt: master.OFF_HIRE_CVE_AMOUNT ?? '',
+    lessOffHire: master.LESS_OFF_HIRE ?? '',
     ballastBonus: master.BALLAST_BONUS ?? '',
     lumpsum: master.LUMPSUMAMT ?? master.LUMSUM ?? master.LUMPSUM ?? '',
     lumpsumQty: master.WS_QTY ?? master.LUMPSUM_QTY ?? '',
@@ -456,11 +598,48 @@ function mapEstimateDetail(
     euaPrice: master.EUAPRICE ?? '',
     sdrToUsd: master.SDR_TO_USD ?? '',
     scnt: '',
+    tankWsFrom: master.TANK_WS_FROM != null ? String(master.TANK_WS_FROM) : '',
+    tankWsTo: master.TANK_WS_TO != null ? String(master.TANK_WS_TO) : '',
     timeAllowed: master.TIMEALLOWED ?? master.WORKING_DAYS ?? '',
     laycanStart: master.LAYCAN_START_DATE ? formatDateTimeDMY(master.LAYCAN_START_DATE) : '',
     laycanEnd: master.LAYCAN_FINISH_DATE ? formatDateTimeDMY(master.LAYCAN_FINISH_DATE) : '',
     euEtsAddToFreight: Number(etsFlags.EUETSADDTOF) === 1,
     fuelEuAddToFreight: Number(etsFlags.FUELEUADDTOF) === 1,
+    // PHP freight_cost_estimete_slave18 bunker / compliance results
+    hsfoMt: etsFlags.HSFO != null ? String(etsFlags.HSFO) : '',
+    etsHsfoMt: etsFlags.ETSFUELHSFO != null ? String(etsFlags.ETSFUELHSFO) : '',
+    vlsfoMt: etsFlags.VLSFOMT != null ? String(etsFlags.VLSFOMT) : '',
+    etsVlsfoMt: etsFlags.FUELVLSFO != null ? String(etsFlags.FUELVLSFO) : '',
+    lsmgoMt: etsFlags.LSMGO != null ? String(etsFlags.LSMGO) : '',
+    etsLsmgoMt: etsFlags.EUETSLSMGO != null ? String(etsFlags.EUETSLSMGO) : '',
+    bunkerResultsCost: etsFlags.BROKTTLCOSTUSD != null ? String(etsFlags.BROKTTLCOSTUSD) : '',
+    eeoi: etsFlags.EEOI != null ? String(etsFlags.EEOI) : '',
+    cii: etsFlags.CIIGCO != null ? String(etsFlags.CIIGCO) : '',
+    eeoiCo2: etsFlags.EEOICO != null ? String(etsFlags.EEOICO) : '',
+    co2mt: etsFlags.CO2MT != null ? String(etsFlags.CO2MT) : '',
+    co2Cost: etsFlags.CO2COST != null ? String(etsFlags.CO2COST) : '',
+    euaCo2mt: etsFlags.EUACO2MT != null ? String(etsFlags.EUACO2MT) : '',
+    euaCo2Usd: etsFlags.EUACO2USD != null ? String(etsFlags.EUACO2USD) : '',
+    hsfoIntensity: etsFlags.HSFOGHGIN != null ? String(etsFlags.HSFOGHGIN) : '',
+    hsfoTarget: etsFlags.TARGET2025 != null ? String(etsFlags.TARGET2025) : '',
+    vlsfoIntensity: etsFlags.VLSFOGHGIN != null ? String(etsFlags.VLSFOGHGIN) : '',
+    vlsfoTarget: etsFlags.TARGET2025VLSFO != null ? String(etsFlags.TARGET2025VLSFO) : '',
+    lsmgoIntensity: etsFlags.LSMGOGHGIN != null ? String(etsFlags.LSMGOGHGIN) : '',
+    lsmgoTarget: etsFlags.TARGET2025LGMGO != null ? String(etsFlags.TARGET2025LGMGO) : '',
+    hsfoPenalty: etsFlags.HSFOPENAL != null ? String(etsFlags.HSFOPENAL) : '',
+    hsfoPenaltyPerMt: etsFlags.DOLLARPERMT != null ? String(etsFlags.DOLLARPERMT) : '',
+    vlsfoPenalty: etsFlags.VLSFOPENAL != null ? String(etsFlags.VLSFOPENAL) : '',
+    vlsfoPenaltyPerMt: etsFlags.DOLLARPERMTVLSFO != null ? String(etsFlags.DOLLARPERMTVLSFO) : '',
+    lsmgoPenalty: etsFlags.LSMGOPENAL != null ? String(etsFlags.LSMGOPENAL) : '',
+    lsmgoPenaltyPerMt: etsFlags.DOLLARPERMTLSMGO != null ? String(etsFlags.DOLLARPERMTLSMGO) : '',
+    totalCarbonCost: (() => {
+      const eua = Number(etsFlags.EUACO2USD) || 0;
+      const h = Number(etsFlags.HSFOPENAL) || 0;
+      const v = Number(etsFlags.VLSFOPENAL) || 0;
+      const l = Number(etsFlags.LSMGOPENAL) || 0;
+      const sum = eua + h + v + l;
+      return sum ? String(Math.round(sum * 100) / 100) : '';
+    })(),
     gasBaltic: master.GAS_BALTIC ?? '',
     gasBaseRate: master.GAS_BASE_RATE ?? '',
     addnlPremium: master.ADDNL_PRENIUM ?? '',
@@ -477,6 +656,18 @@ function mapEstimateDetail(
     tceFixed: master.TCEEARNING_FIXED ?? '',
     tceAverage: master.TCEEARNING_AVERAGE ?? '',
     notes: master.REMARKS ?? '',
+    openPort: master.OPEN_PORT != null ? String(master.OPEN_PORT) : '',
+    openPortName: master.OPEN_PORT_NAME ?? '',
+    zoneOpen: master.ZONE_OPEN != null ? String(master.ZONE_OPEN) : '',
+    fixtureBroker: master.BROKER != null ? String(master.BROKER) : '',
+    coaSpot: master.COA_SPOT != null ? String(master.COA_SPOT) : '',
+    coaNumber: master.COA_NUMBER != null ? String(master.COA_NUMBER) : '',
+    coaNumberLabel: master.COA_NUMBER_LABEL ?? '',
+    coaNumberLift: master.COA_NUMBER_LIFT ?? '',
+    noOfShipment: master.NO_OF_SHIPMENT
+      || (master.COA_TOTAL_SHIPMENTS != null ? String(master.COA_TOTAL_SHIPMENTS) : ''),
+    cpDate: master.CP_DATE ? formatDateDMY(master.CP_DATE) : '',
+    etaDate: master.ETA_DATE ? formatDateDMY(master.ETA_DATE) : '',
     ownerId: master.OWNER != null ? String(master.OWNER) : '',
     disponentOwner: master.DISPONENT_OWNER ?? '',
     attachments: parseAttachments(master.ATTACHMENT, master.ATTACHMENT_NAME),
@@ -608,6 +799,41 @@ export async function dbGetEstimateLookups(estimateType = 2) {
     [appContext.moduleId, appContext.companyId],
   );
 
+  const [zones] = await pool.query(
+    `SELECT ZoneId AS id, ZoneName AS name
+     FROM ZONE_MASTER
+     WHERE STATUS = 1
+     ORDER BY ZoneName`,
+  );
+
+  const [fixtureBrokers] = await pool.query(
+    `SELECT CODE AS id, NAME, CODE
+     FROM vendor_master
+     WHERE STATUS = 1
+       AND VENDOR_TYPEID = 12
+       AND MCOMPANYID = ?
+     ORDER BY NAME
+     LIMIT 500`,
+    [appContext.companyId],
+  );
+
+  const [coaRows] = await pool.query(
+    `SELECT c.COAID AS id, c.COA_NO AS name, c.TOTAL_SHIPMENTS AS noOfShipment,
+            c.OWNER AS owner, c.BROKER AS broker,
+            (SELECT COUNT(*)
+             FROM open_vessel_entry_master o
+             WHERE o.COA_NO = c.COAID
+               AND o.MODULEID = c.MODULEID
+               AND o.MCOMPANYID = c.MCOMPANYID
+               AND o.STATUS = 1) AS performedCount
+     FROM coa_master c
+     WHERE c.MODULEID = ?
+       AND c.MCOMPANYID = ?
+     ORDER BY c.COA_DATE DESC
+     LIMIT 500`,
+    [appContext.moduleId, appContext.companyId],
+  );
+
   const year = new Date().getFullYear();
   const intensityKey = `INTENSITY_${year}`;
   const ghgKey = `GHG_${year}`;
@@ -615,9 +841,13 @@ export async function dbGetEstimateLookups(estimateType = 2) {
 
   const complianceFactors = { HSFO: null, VLSFO: null, LSMGO: null };
   for (const row of bunkerGrades) {
-    const name = String(row.name || '').toUpperCase();
+    const name = String(row.name || '').trim().toUpperCase();
+    // PHP getBunkerGradeData keys by exact NAME (HSFO / VLSFO / LSMGO)
     let key = null;
-    if (name.includes('HSFO')) key = 'HSFO';
+    if (name === 'HSFO') key = 'HSFO';
+    else if (name === 'VLSFO' || name === 'VLFO') key = 'VLSFO';
+    else if (name === 'LSMGO') key = 'LSMGO';
+    else if (name.includes('HSFO') && !name.includes('SCRUBBER')) key = 'HSFO';
     else if (name.includes('VLSFO') || name.includes('VLFO')) key = 'VLSFO';
     else if (name.includes('LSMGO') || name === 'MGO' || name.includes('MGO')) key = 'LSMGO';
     if (!key || complianceFactors[key]) continue;
@@ -654,6 +884,24 @@ export async function dbGetEstimateLookups(estimateType = 2) {
       id: String(row.id),
       label: `${row.CONTRACT_ID || ''}${row.CONTRACT_NO ? ` (${row.CONTRACT_NO})` : ''}`.trim(),
     })),
+    zones: zones.map((row) => ({ id: String(row.id), name: row.name ?? '' })),
+    fixtureBrokers: fixtureBrokers.map((row) => ({
+      id: String(row.id),
+      name: `${row.NAME ?? ''} ( ${row.CODE ?? ''} )`,
+    })),
+    coaContracts: coaRows
+      .filter((row) => {
+        const performed = Number(row.performedCount) || 0;
+        const total = Number(row.noOfShipment) || 0;
+        return total === 0 || performed < total;
+      })
+      .map((row) => ({
+        id: String(row.id),
+        name: row.name ?? '',
+        noOfShipment: row.noOfShipment != null ? String(row.noOfShipment) : '',
+        owner: row.owner != null ? String(row.owner) : '',
+        broker: row.broker != null ? String(row.broker) : '',
+      })),
     complianceFactors,
     complianceYear: year,
     marketPrices: {
@@ -804,10 +1052,15 @@ export async function dbGetEstimateDetail(id) {
   const pool = getPool();
   const [rows] = await pool.query(
     `SELECT m.*, v.VESSEL_NAME, v.IMO_NO, v.DWT AS VESSEL_DWT,
-            l.CONTACT_PERSON AS CHARTERING_PIC_NAME
+            l.CONTACT_PERSON AS CHARTERING_PIC_NAME,
+            op.PortName AS OPEN_PORT_NAME,
+            cm.COA_NO AS COA_NUMBER_LABEL,
+            cm.TOTAL_SHIPMENTS AS COA_TOTAL_SHIPMENTS
      FROM freight_cost_estimete_master m
      LEFT JOIN vessel_imo_master v ON v.VESSEL_IMO_ID = m.VESSEL_IMO_ID
      LEFT JOIN login l ON l.LOGINID = m.CHARTERING_PIC
+     LEFT JOIN port_master op ON op.PortId = m.OPEN_PORT
+     LEFT JOIN coa_master cm ON cm.COAID = m.COA_NUMBER
      WHERE m.FCAID = ?
        AND m.MODULEID = ?
        AND m.MCOMPANYID = ?`,
@@ -818,8 +1071,8 @@ export async function dbGetEstimateDetail(id) {
 
   const [legs] = await pool.query(
     `SELECT s.*,
-            fp.PortName AS FROM_PORT_NAME,
-            tp.PortName AS TO_PORT_NAME
+            CONCAT(COALESCE(fp.PortName, ''), ' (', COALESCE(fp.COUNTRY_KEY, ''), ')') AS FROM_PORT_NAME,
+            CONCAT(COALESCE(tp.PortName, ''), ' (', COALESCE(tp.COUNTRY_KEY, ''), ')') AS TO_PORT_NAME
      FROM freight_cost_estimete_slave1 s
      LEFT JOIN port_master fp ON fp.PortId = s.FROM_PORT
      LEFT JOIN port_master tp ON tp.PortId = s.TO_PORT
@@ -956,7 +1209,7 @@ export async function dbGetEstimateDetail(id) {
     profitSharingRows = [];
   }
 
-  return mapEstimateDetail(
+  let detail = mapEstimateDetail(
     rows[0],
     legs,
     cargos,
@@ -979,9 +1232,14 @@ export async function dbGetEstimateDetail(id) {
     bunkerActivityRows,
     profitSharingRows,
   );
+
+  detail = applyMasterTankWsPorts(detail, rows[0]);
+  detail = await enrichTankerWsPortNames(pool, detail);
+  detail = await resolveScntForDetail(detail);
+  return detail;
 }
 
-/** Vessel-type bands used when inserting API ships — mirrors PHP getVesselByImo.php */
+/** Vessel-type bands used when inserting API ships ? mirrors PHP getVesselByImo.php */
 const API_VESSEL_TYPE_BANDS = [
   { vesselTypeId: 2, businessType: 2, dwtFrom: 80000, dwtTo: 120000 },
   { vesselTypeId: 3, businessType: 2, dwtFrom: 25000, dwtTo: 40000 },
@@ -1051,7 +1309,7 @@ function mapDbVesselSearchRow(row, status = 'From DB') {
 }
 
 /**
- * Fallback when DB has no match — mirrors PHP getVesselByImo.php (NavAPI ShipDetails).
+ * Fallback when DB has no match ? mirrors PHP getVesselByImo.php (NavAPI ShipDetails).
  * Upserts into vessel_imo_master so the selected vessel has a VESSEL_IMO_ID.
  */
 async function searchVesselsFromNavApi(term) {
@@ -1170,7 +1428,7 @@ async function searchVesselsFromNavApi(term) {
 }
 
 /**
- * Vessel search for Add Estimate — mirrors PHP getVesselByImo.php:
+ * Vessel search for Add Estimate ? mirrors PHP getVesselByImo.php:
  * 1) Search vessel_imo_master
  * 2) If empty, query NavAPI ShipDetails and upsert into DB
  */
@@ -1347,8 +1605,14 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
         ladSecaSs: '',
         balNonSecaSs: '',
         ladNonSecaSs: '',
+        balSecaMes: '',
+        ladSecaMes: '',
+        balNonSecaMes: '',
+        ladNonSecaMes: '',
         inPortSecaWorking: '',
         inPortNonSecaWorking: '',
+        inPortSecaWorkingDp: '',
+        inPortNonSecaWorkingDp: '',
         inPortSecaIdle: '',
         inPortNonSecaIdle: '',
       });
@@ -1361,11 +1625,15 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
         target.ladSecaFs = strOrEmpty(row.FO_LADEN_ATSEA_SECA_CONSP_FS);
         target.balSecaSs = strOrEmpty(row.FO_BALAST_ATSEA_SECA_CONSP_SS);
         target.ladSecaSs = strOrEmpty(row.FO_LADEN_ATSEA_SECA_CONSP_SS);
+        target.balSecaMes = strOrEmpty(row.FO_BALAST_ATSEA_SECA_CONSP_MES);
+        target.ladSecaMes = strOrEmpty(row.FO_LADEN_ATSEA_SECA_CONSP_MES);
       } else {
         target.balNonSecaFs = strOrEmpty(row.FO_BALAST_ATSEA_NONSECA_CONSP_FS);
         target.ladNonSecaFs = strOrEmpty(row.FO_LADEN_ATSEA_NONSECA_CONSP_FS);
         target.balNonSecaSs = strOrEmpty(row.FO_BALAST_ATSEA_NONSECA_CONSP_SS);
         target.ladNonSecaSs = strOrEmpty(row.FO_LADEN_ATSEA_NONSECA_CONSP_SS);
+        target.balNonSecaMes = strOrEmpty(row.FO_BALAST_ATSEA_NONSECA_CONSP_MES);
+        target.ladNonSecaMes = strOrEmpty(row.FO_LADEN_ATSEA_NONSECA_CONSP_MES);
       }
     }
     if (row.FO_TYPE === 'IN PORT') {
@@ -1373,12 +1641,18 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
         target.inPortSecaWorking = strOrEmpty(
           row.FO_INPORT_SECA_CONSP_WORKING_LP || row.FO_INPORT_SECA_CONSP_WORKING,
         );
+        target.inPortSecaWorkingDp = strOrEmpty(
+          row.FO_INPORT_SECA_CONSP_WORKING_DP || row.FO_INPORT_SECA_CONSP_OTHER,
+        );
         target.inPortSecaIdle = strOrEmpty(
           row.FO_INPORT_SECA_CONSP_IDLE_BALLAST || row.FO_INPORT_SECA_CONSP_IDLE,
         );
       } else {
         target.inPortNonSecaWorking = strOrEmpty(
           row.FO_INPORT_NONSECA_CONSP_WORKING_LP || row.FO_INPORT_NONSECA_CONSP_WORKING,
+        );
+        target.inPortNonSecaWorkingDp = strOrEmpty(
+          row.FO_INPORT_NONSECA_CONSP_WORKING_DP || row.FO_INPORT_NONSECA_CONSP_OTHER,
         );
         target.inPortNonSecaIdle = strOrEmpty(
           row.FO_INPORT_NONSECA_CONSP_IDLE_BALLAST || row.FO_INPORT_NONSECA_CONSP_IDLE,
@@ -1408,7 +1682,7 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
 
   const flag = strOrEmpty(vessel.flagName || vessel.SHIP_FLAG || vessel.FLAG);
 
-  // Last estimate To-Port → seed From Port of first leg (PHP options.php?id=42)
+  // Last estimate To-Port ? seed From Port of first leg (PHP options.php?id=42)
   const [lastLegRows] = await pool.query(
     `SELECT a.TO_PORT AS toPort,
             CONCAT(COALESCE(c.PortName, ''), ' (', COALESCE(c.COUNTRY_KEY, ''), ')') AS toPortName,
@@ -1532,7 +1806,7 @@ export async function dbCreateEstimateDetail(payload, upload = {}) {
         payload.loa || null,
         payload.tpc || null,
         estimateType,
-        transDate,
+        toDbDate(payload.cpDate) || transDate,
         estimateType,
         payload.periodId || null,
         quantity,
@@ -1696,10 +1970,28 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     'TCEEARNING_FLOAT = ?',
     'TCEEARNING_FIXED = ?',
     'TCEEARNING_AVERAGE = ?',
+    'TANK_WS_FROM = ?',
+    'TANK_WS_TO = ?',
+    'SDR_TO_USD = ?',
+    'OFF_HIRE_CVE = ?',
+    'OFF_HIRE_CVE_AMOUNT = ?',
+    'LESS_OFF_HIRE = ?',
+    'OPEN_PORT = ?',
+    'ZONE_OPEN = ?',
+    'BROKER = ?',
+    'COA_SPOT = ?',
+    'COA_NUMBER = ?',
+    'COA_NUMBER_LIFT = ?',
+    'NO_OF_SHIPMENT = ?',
+    'CP_DATE = ?',
+    'ETA_DATE = ?',
   ];
 
+  const tankWs = resolveTankWsPorts(payload);
   const values = [
-    payload.fixtureTypeId || null,
+    payload.fixtureTypeId != null && payload.fixtureTypeId !== ''
+      ? Number(payload.fixtureTypeId)
+      : null,
     toDbDate(payload.transDate),
     payload.vesselImoId || null,
     payload.vesselType || null,
@@ -1781,6 +2073,21 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     numOrNull(payload.tceFloat),
     numOrNull(payload.tceFixed),
     numOrNull(payload.tceAverage),
+    tankWs.from,
+    tankWs.to,
+    numOrNull(payload.sdrToUsd),
+    numOrNull(payload.offHireCve),
+    numOrNull(payload.offHireCveAmt),
+    numOrNull(payload.lessOffHire),
+    payload.openPort || null,
+    payload.zoneOpen || null,
+    payload.fixtureBroker || null,
+    payload.coaSpot || null,
+    payload.coaNumber || null,
+    payload.coaNumberLift || null,
+    payload.noOfShipment || null,
+    toDbDate(payload.cpDate),
+    toDbDate(payload.etaDate),
   ];
 
   if (opts.includeAttachment) {
@@ -1803,7 +2110,7 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
     if (!leg.fromPortId && !leg.toPortId) continue;
     await connection.query(
       `INSERT INTO freight_cost_estimete_slave1 (
-        FCAID, FROM_PORT, TO_PORT, PASSAGE_TYPE, SPEED_TYPE, DISTANCE,
+        FCAID, FROM_PORT, TO_PORT, DIS_TYPE, PASSAGE_TYPE, SPEED_TYPE, DISTANCE,
         MARGIN_DISTANCE, FROMARRIVAL, FROMDEPARTURE, TOARRIVAL, TODEPARTURE,
         LOAD_PORT_QTY, DISC_PORT_QTY, LOAD_PORT_COST, DISC_PORT_COST,
         LOAD_PORT_RATE, DISC_PORT_RATE, LOAD_PORT_TERMS, DISC_PORT_TERMS,
@@ -1812,16 +2119,19 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         SECA_DISTANCE, SECA_DAYS, TRANSIT_PORT_COST, DDCLP_ESTCOST, DDCDP_ESTCOST,
         DDCLP_REALCOST, DDCDP_REALCOST, DDCLP_NETCOST, DDCDP_NETCOST,
         DEMMDAYSLP, DEMMRATELP, DEMMDAYSDP, DEMMRATEDP,
-        CHK_LP_SECA, CHK_DP_SECA
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        CHK_LP_SECA, CHK_DP_SECA, CHK_TP_SECA,
+        BG_NON_SECA, BG_SECA, BUNKER_GRADE_LP, BUNKER_GRADE_DP, BUNKER_GRADE_TP,
+        CHARTERERACCOUNT
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         fcaId,
         leg.fromPortId || null,
         leg.toPortId || null,
+        leg.navMethod || null,
         leg.passageType || null,
         leg.speedType || null,
         numOrNull(leg.distance),
-        numOrNull(leg.seaMargin != null && leg.seaMargin !== '' ? leg.seaMargin : 5),
+        numOrNull(leg.seaMargin != null && leg.seaMargin !== '' ? leg.seaMargin : 0),
         toDbDateTime(leg.fromArrival),
         toDbDateTime(leg.fromDeparture),
         toDbDateTime(leg.toArrival),
@@ -1856,6 +2166,13 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         numOrNull(leg.demmRateDp),
         leg.chkLpSeca ? 1 : 0,
         leg.chkDpSeca ? 1 : 0,
+        leg.chkTpSeca ? 1 : 0,
+        leg.bgNonSeca || 'VLSFO',
+        leg.bgSeca || 'LSMGO',
+        Array.isArray(leg.lpBunkerGrades) ? leg.lpBunkerGrades.join(',') : (leg.lpBunkerGrades || 'VLSFO'),
+        Array.isArray(leg.dpBunkerGrades) ? leg.dpBunkerGrades.join(',') : (leg.dpBunkerGrades || 'VLSFO'),
+        Array.isArray(leg.tpBunkerGrades) ? leg.tpBunkerGrades.join(',') : (leg.tpBunkerGrades || 'VLSFO'),
+        numOrNull(leg.chartererAccountDays),
       ],
     );
   }
@@ -2038,7 +2355,7 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
   }
 
   for (const row of payload.consumptionRows || []) {
-    if (!row.bunkerGradeId && !row.balSecaFs && !row.ladSecaFs) continue;
+    if (!row.bunkerGradeId && !row.balSecaFs && !row.ladSecaFs && !row.balNonSecaFs) continue;
     await connection.query(
       `INSERT INTO freight_cost_estimete_slave16 (
         FCAID, BUNKERID, IDENTIFY,
@@ -2046,9 +2363,17 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         FO_BALAST_ATSEA_NONSECA_CONSP_FS, FO_LADEN_ATSEA_NONSECA_CONSP_FS,
         FO_BALAST_ATSEA_SECA_CONSP_SS, FO_LADEN_ATSEA_SECA_CONSP_SS,
         FO_BALAST_ATSEA_NONSECA_CONSP_SS, FO_LADEN_ATSEA_NONSECA_CONSP_SS,
+        FO_BALAST_ATSEA_SECA_CONSP_MES, FO_LADEN_ATSEA_SECA_CONSP_MES,
+        FO_BALAST_ATSEA_NONSECA_CONSP_MES, FO_LADEN_ATSEA_NONSECA_CONSP_MES,
         FO_INPORT_SECA_CONSP_WORKING, FO_INPORT_NONSECA_CONSP_WORKING,
-        FO_INPORT_SECA_CONSP_IDLE, FO_INPORT_NONSECA_CONSP_IDLE
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        FO_INPORT_SECA_CONSP_IDLE, FO_INPORT_NONSECA_CONSP_IDLE,
+        FO_INPORT_SECA_CONSP_OTHER, FO_INPORT_NONSECA_CONSP_OTHER,
+        FO_OTHER_SECA_CONSP_TK, FO_OTHER_NONSECA_CONSP_TK,
+        FO_OTHER_SECA_CONSP_INERT, FO_OTHER_NONSECA_CONSP_INERT,
+        FO_OTHER_SECA_CONSP_GF, FO_OTHER_NONSECA_CONSP_GF,
+        FO_OTHER_SECA_CONSP_HEAT, FO_OTHER_NONSECA_CONSP_HEAT,
+        FO_OTHER_SECA_CONSP_HEAT_1, FO_OTHER_NONSECA_CONSP_HEAT_1
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         fcaId,
         row.bunkerGradeId || null,
@@ -2061,10 +2386,26 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         numOrNull(row.ladSecaSs),
         numOrNull(row.balNonSecaSs),
         numOrNull(row.ladNonSecaSs),
+        numOrNull(row.balSecaMes),
+        numOrNull(row.ladSecaMes),
+        numOrNull(row.balNonSecaMes),
+        numOrNull(row.ladNonSecaMes),
         numOrNull(row.inPortSecaWorking),
         numOrNull(row.inPortNonSecaWorking),
         numOrNull(row.inPortSecaIdle),
         numOrNull(row.inPortNonSecaIdle),
+        numOrNull(row.inPortSecaWorkingDp),
+        numOrNull(row.inPortNonSecaWorkingDp),
+        numOrNull(row.otherSecaTk),
+        numOrNull(row.otherNonSecaTk),
+        numOrNull(row.otherSecaInert),
+        numOrNull(row.otherNonSecaInert),
+        numOrNull(row.otherSecaGf),
+        numOrNull(row.otherNonSecaGf),
+        numOrNull(row.otherSecaHeat),
+        numOrNull(row.otherNonSecaHeat),
+        numOrNull(row.otherSecaHeat1),
+        numOrNull(row.otherNonSecaHeat1),
       ],
     );
   }
@@ -2160,8 +2501,8 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
       [
         fcaId,
         off.reason || null,
-        toDbDate(off.from) || '1970-01-01',
-        toDbDate(off.to) || '1970-01-01',
+        toDbDateTime(off.from) || '1970-01-01 00:00:00',
+        toDbDateTime(off.to) || '1970-01-01 00:00:00',
         numOrNull(off.days),
         numOrNull(off.rate),
         numOrNull(off.amount),
@@ -2247,23 +2588,89 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
     if (existingEvent) {
       await connection.query(
         `UPDATE freight_cost_estimete_slave18
-         SET EUETSADDTOF = ?, FUELEUADDTOF = ?
+         SET EUETSADDTOF = ?, FUELEUADDTOF = ?,
+             HSFO = ?, ETSFUELHSFO = ?, VLSFOMT = ?, FUELVLSFO = ?,
+             LSMGO = ?, EUETSLSMGO = ?, BROKTTLCOSTUSD = ?,
+             EEOI = ?, CIIGCO = ?, EEOICO = ?, CO2MT = ?, CO2COST = ?,
+             EUACO2MT = ?, EUACO2USD = ?,
+             HSFOGHGIN = ?, TARGET2025 = ?, VLSFOGHGIN = ?, TARGET2025VLSFO = ?,
+             LSMGOGHGIN = ?, TARGET2025LGMGO = ?,
+             HSFOPENAL = ?, DOLLARPERMT = ?, VLSFOPENAL = ?, DOLLARPERMTVLSFO = ?,
+             LSMGOPENAL = ?, DOLLARPERMTLSMGO = ?
          WHERE FCAID = ?`,
         [
           payload.euEtsAddToFreight ? 1 : 0,
           payload.fuelEuAddToFreight ? 1 : 0,
+          numOrNull(payload.hsfoMt),
+          numOrNull(payload.etsHsfoMt),
+          numOrNull(payload.vlsfoMt),
+          numOrNull(payload.etsVlsfoMt),
+          numOrNull(payload.lsmgoMt),
+          numOrNull(payload.etsLsmgoMt),
+          numOrNull(payload.bunkerResultsCost || payload.totalBunkerCost),
+          numOrNull(payload.eeoi),
+          numOrNull(payload.cii),
+          numOrNull(payload.eeoiCo2),
+          numOrNull(payload.co2mt),
+          numOrNull(payload.co2Cost),
+          numOrNull(payload.euaCo2mt),
+          numOrNull(payload.euaCo2Usd),
+          numOrNull(payload.hsfoIntensity),
+          numOrNull(payload.hsfoTarget),
+          numOrNull(payload.vlsfoIntensity),
+          numOrNull(payload.vlsfoTarget),
+          numOrNull(payload.lsmgoIntensity),
+          numOrNull(payload.lsmgoTarget),
+          numOrNull(payload.hsfoPenalty),
+          numOrNull(payload.hsfoPenaltyPerMt),
+          numOrNull(payload.vlsfoPenalty),
+          numOrNull(payload.vlsfoPenaltyPerMt),
+          numOrNull(payload.lsmgoPenalty),
+          numOrNull(payload.lsmgoPenaltyPerMt),
           fcaId,
         ],
       );
-    } else if (payload.euEtsAddToFreight || payload.fuelEuAddToFreight) {
+    } else {
       await connection.query(
         `INSERT INTO freight_cost_estimete_slave18 (
-          FCAID, EVENT_DETAILS, EVENT_DATE, EUETSADDTOF, FUELEUADDTOF
-        ) VALUES (?, NULL, '1970-01-01', ?, ?)`,
+          FCAID, EVENT_DETAILS, EVENT_DATE, EUETSADDTOF, FUELEUADDTOF,
+          HSFO, ETSFUELHSFO, VLSFOMT, FUELVLSFO, LSMGO, EUETSLSMGO, BROKTTLCOSTUSD,
+          EEOI, CIIGCO, EEOICO, CO2MT, CO2COST, EUACO2MT, EUACO2USD,
+          HSFOGHGIN, TARGET2025, VLSFOGHGIN, TARGET2025VLSFO,
+          LSMGOGHGIN, TARGET2025LGMGO,
+          HSFOPENAL, DOLLARPERMT, VLSFOPENAL, DOLLARPERMTVLSFO,
+          LSMGOPENAL, DOLLARPERMTLSMGO
+        ) VALUES (?, NULL, '1970-01-01', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           fcaId,
           payload.euEtsAddToFreight ? 1 : 0,
           payload.fuelEuAddToFreight ? 1 : 0,
+          numOrNull(payload.hsfoMt),
+          numOrNull(payload.etsHsfoMt),
+          numOrNull(payload.vlsfoMt),
+          numOrNull(payload.etsVlsfoMt),
+          numOrNull(payload.lsmgoMt),
+          numOrNull(payload.etsLsmgoMt),
+          numOrNull(payload.bunkerResultsCost || payload.totalBunkerCost),
+          numOrNull(payload.eeoi),
+          numOrNull(payload.cii),
+          numOrNull(payload.eeoiCo2),
+          numOrNull(payload.co2mt),
+          numOrNull(payload.co2Cost),
+          numOrNull(payload.euaCo2mt),
+          numOrNull(payload.euaCo2Usd),
+          numOrNull(payload.hsfoIntensity),
+          numOrNull(payload.hsfoTarget),
+          numOrNull(payload.vlsfoIntensity),
+          numOrNull(payload.vlsfoTarget),
+          numOrNull(payload.lsmgoIntensity),
+          numOrNull(payload.lsmgoTarget),
+          numOrNull(payload.hsfoPenalty),
+          numOrNull(payload.hsfoPenaltyPerMt),
+          numOrNull(payload.vlsfoPenalty),
+          numOrNull(payload.vlsfoPenaltyPerMt),
+          numOrNull(payload.lsmgoPenalty),
+          numOrNull(payload.lsmgoPenaltyPerMt),
         ],
       );
     }
@@ -2320,4 +2727,28 @@ export async function dbUpdateEstimateDetail(id, payload, upload = {}) {
   } finally {
     connection.release();
   }
+}
+
+/** PHP options.php id=149 checkVoyageno() ? voyage/TC number uniqueness. */
+export async function dbCheckVoyageNoExists(voyageNo, { excludeFcaId = null } = {}) {
+  const value = String(voyageNo || '').trim();
+  if (!value) return false;
+
+  const pool = getPool();
+  const params = [value];
+  let voyageSql = `SELECT FCAID FROM freight_cost_estimete_master WHERE VOYAGE_NO = ?`;
+  if (excludeFcaId != null && excludeFcaId !== '') {
+    voyageSql += ' AND FCAID <> ?';
+    params.push(Number(excludeFcaId));
+  }
+  voyageSql += ' LIMIT 1';
+
+  const [voyageRows] = await pool.query(voyageSql, params);
+  if (voyageRows.length > 0) return true;
+
+  const [tcRows] = await pool.query(
+    `SELECT 1 AS ok FROM chartering_estimate_tc_master WHERE TC_NO = ? LIMIT 1`,
+    [value],
+  );
+  return tcRows.length > 0;
 }

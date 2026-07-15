@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import {
+  checkVoyageNoExists,
   createEstimateDetail,
   fetchEstimateLookups,
   fetchPeriodPrefill,
@@ -13,11 +14,13 @@ import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { createEmptyDetail, createEmptyPortLeg, toFormState } from './estimateDetail.constants.js';
 import { applyPeriodPrefillToForm, applyVesselPrefillToForm } from './estimatePrefill.js';
+import { validateEstimateForm, focusEstimateValidationField } from './estimateValidation.js';
 import styles from './UpdateEstimatePage.module.css';
 
 export default function AddEstimatePage() {
   const navigate = useNavigate();
   const alert = useAlert();
+  const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const estimateType = searchParams.get('estimatetype') || searchParams.get('selBType') || '2';
   const businessType = searchParams.get('selBType') || estimateType;
@@ -63,6 +66,9 @@ export default function AddEstimatePage() {
           charteringTeams: lookupData.charteringTeams ?? [],
           charteringPics: lookupData.charteringPics ?? [],
           periodContracts: lookupData.periodContracts ?? [],
+          zones: lookupData.zones ?? [],
+          fixtureBrokers: lookupData.fixtureBrokers ?? [],
+          coaContracts: lookupData.coaContracts ?? [],
           complianceFactors: lookupData.complianceFactors ?? {},
           complianceYear: lookupData.complianceYear || new Date().getFullYear(),
           marketPrices: lookupData.marketPrices ?? {},
@@ -236,9 +242,43 @@ export default function AddEstimatePage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setSaving(true);
     setError('');
 
+    const validationError = validateEstimateForm(form);
+    if (validationError) {
+      await alert({ title: 'Alert', message: validationError.message, confirmLabel: 'OK' });
+      focusEstimateValidationField(validationError.fieldId);
+      return;
+    }
+
+    try {
+      const voyageExists = await checkVoyageNoExists(form.voyageNo);
+      if (voyageExists) {
+        await alert({
+          title: 'Alert',
+          message: 'Voyage number already exists',
+          confirmLabel: 'OK',
+        });
+        return;
+      }
+    } catch (err) {
+      await alert({
+        title: 'Error',
+        message: err.message || 'Failed to check voyage number.',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: 'Confirmation',
+      message: 'Are you sure you have checked each entry ?',
+      confirmLabel: 'OK',
+      cancelLabel: 'Cancel',
+    });
+    if (!confirmed) return;
+
+    setSaving(true);
     try {
       const computed = applyEstimateCalculations(form, lookups);
       setForm(computed);

@@ -7,6 +7,11 @@ function round2(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+/** PHP getVoyageTime uses .toFixed(3) for sea / SECA days. */
+function round3(value) {
+  return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}
+
 /** Sea days from distance (nm), speed (kn), optional weather margin %. */
 export function calcSeaDays(distance, speed, marginPercent = 0) {
   const d = num(distance);
@@ -14,7 +19,24 @@ export function calcSeaDays(distance, speed, marginPercent = 0) {
   if (!d || !s) return 0;
   const base = d / (s * 24);
   const margin = num(marginPercent);
-  return round2(base + ((base * margin) / 100));
+  return round3(base + ((base * margin) / 100));
+}
+
+/** PHP getVoyageTime: SECA and non-SECA legs calculated separately, then summed. */
+export function calcSeaDaysWithSeca(distance, secaDistance, speed, marginPercent = 0) {
+  const total = num(distance);
+  const s = num(speed);
+  if (!total || !s) return 0;
+  const seca = Math.min(num(secaDistance), total);
+  const nonSeca = Math.max(0, total - seca);
+  const margin = num(marginPercent);
+  const partDays = (dist) => {
+    if (!dist) return 0;
+    const base = dist / (s * 24);
+    const withMargin = base + ((base * margin) / 100);
+    return round3(withMargin);
+  };
+  return round3(partDays(nonSeca) + partDays(seca));
 }
 
 /** PHP getLPTermsList factors for MT/Day laytime. */
@@ -48,6 +70,46 @@ export function calcCargoAmount(mt, rate) {
   return round2(num(mt) * num(rate));
 }
 
+/** PHP: 1=Full (txtB/LFullSpeed), 2=Service (EcoSpeed1), 3=Most Eco (EcoSpeed2). */
+export function pickPassageSpeedKnots(form, passageType, speedType) {
+  const st = String(speedType || '1');
+  const laden = String(passageType) === '2';
+  if (laden) {
+    if (st === '2') return num(form.lEcoSpeed1) || num(form.lFullSpeed) || 11;
+    if (st === '3') return num(form.lEcoSpeed2) || num(form.lEcoSpeed1) || num(form.lFullSpeed) || 11;
+    return num(form.lFullSpeed) || num(form.lEcoSpeed1) || 12;
+  }
+  if (st === '2') return num(form.bEcoSpeed1) || num(form.bFullSpeed) || 12;
+  if (st === '3') return num(form.bEcoSpeed2) || num(form.bEcoSpeed1) || num(form.bFullSpeed) || 12;
+  return num(form.bFullSpeed) || num(form.bEcoSpeed1) || 12;
+}
+
+/** PHP euCountries + calculateSeaLegPercentage. */
+const EU_COUNTRIES = new Set([
+  'AUT', 'BEL', 'BGR', 'HRV', 'CYP', 'CZE',
+  'DNK', 'EST', 'FIN', 'FRA', 'DEU', 'GRC',
+  'HUN', 'IRL', 'ITA', 'LVA', 'LTU', 'LUX',
+  'MLT', 'NLD', 'POL', 'PRT', 'ROU', 'SVK',
+  'SVN', 'ESP', 'SWE', 'ISL', 'LIE', 'NOR',
+]);
+
+export function extractCountryCode(portName) {
+  const match = String(portName || '').match(/\(([^)]+)\)\s*$/);
+  return match ? match[1].trim().toUpperCase() : '';
+}
+
+export function calculateSeaLegPercentage(fromCountry, toCountry) {
+  const fromEU = EU_COUNTRIES.has(String(fromCountry || '').toUpperCase());
+  const toEU = EU_COUNTRIES.has(String(toCountry || '').toUpperCase());
+  if (fromEU && toEU) return 1;
+  if ((!fromEU && toEU) || (fromEU && !toEU)) return 0.5;
+  return 0;
+}
+
+export function calculatePortLegPercentage(country) {
+  return EU_COUNTRIES.has(String(country || '').toUpperCase()) ? 1 : 0;
+}
+
 /**
  * Core voyage roll-up (simplified from PHP getVoyageTime / getFinalCalculation).
  */
@@ -69,20 +131,13 @@ export function computeEstimateTotals(form) {
     portLegs.reduce((sum, leg) => sum + num(leg.distance), 0),
   );
 
-  const ballastFull = num(form.bFullSpeed) || 12;
-  const ballastEco = num(form.bEcoSpeed1) || ballastFull;
-  const ladenFull = num(form.lFullSpeed) || ballastFull;
-  const ladenEco = num(form.lEcoSpeed1) || ladenFull;
-
   let seaDays = 0;
   const legsWithDays = portLegs.map((leg) => {
-    const isLaden = String(leg.passageType) === '2';
-    const isEco = String(leg.speedType) === '2';
-    const speed = isLaden
-      ? (isEco ? ladenEco : ladenFull)
-      : (isEco ? ballastEco : ballastFull);
-    const margin = leg.seaMargin != null && leg.seaMargin !== '' ? leg.seaMargin : 5;
-    const days = num(leg.seaDays) || calcSeaDays(leg.distance, speed, margin);
+    const speed = pickPassageSpeedKnots(form, leg.passageType, leg.speedType);
+    // PHP: empty margin = 0 (not 5)
+    const margin = leg.seaMargin != null && leg.seaMargin !== '' ? leg.seaMargin : 0;
+    const days = calcSeaDaysWithSeca(leg.distance, leg.secaDistance, speed, margin);
+    const secaDays = calcSeaDays(leg.secaDistance, speed, margin);
 
     const loadWork = String(leg.loadPortTerms) === '4'
       ? num(leg.loadPortWorkDays)
@@ -100,19 +155,18 @@ export function computeEstimateTotals(form) {
     const ddcLpEst = num(leg.ddcLpEst) || calcDemurrageEst(leg.demmDaysLp, leg.demmRateLp);
     const ddcDpEst = num(leg.ddcDpEst) || calcDemurrageEst(leg.demmDaysDp, leg.demmRateDp);
     const nonSecaDistance = Math.max(0, num(leg.distance) - num(leg.secaDistance));
-    const secaDays = num(leg.secaDays) || calcSeaDays(leg.secaDistance, speed, margin);
 
     seaDays += days;
     return {
       ...leg,
-      seaDays: days ? String(round2(days)) : leg.seaDays,
+      seaDays: days ? String(days) : '',
       seaMargin: String(margin),
       loadPortWorkDays: loadWork ? String(loadWork) : (leg.loadPortWorkDays || ''),
       discPortWorkDays: discWork ? String(discWork) : (leg.discPortWorkDays || ''),
       portStayDays: portStayDays ? String(portStayDays) : '',
       portIdleDays: portIdleDays ? String(portIdleDays) : '',
       nonSecaDistance: String(round2(nonSecaDistance)),
-      secaDays: secaDays ? String(secaDays) : (leg.secaDays || ''),
+      secaDays: secaDays ? String(secaDays) : '',
       ddcLpEst: ddcLpEst ? String(ddcLpEst) : (leg.ddcLpEst || ''),
       ddcDpEst: ddcDpEst ? String(ddcDpEst) : (leg.ddcDpEst || ''),
     };
@@ -120,18 +174,17 @@ export function computeEstimateTotals(form) {
 
   const totalPortCost = round2(
     legsWithDays.reduce(
-      (sum, leg) => sum + num(leg.loadPortCost) + num(leg.discPortCost) + num(leg.transitPortCost)
-        + num(leg.ddcLpEst) + num(leg.ddcDpEst),
+      (sum, leg) => sum + num(leg.loadPortCost) + num(leg.discPortCost) + num(leg.transitPortCost),
       0,
     ),
   );
 
   const bunkers = bunkerRows.map((row) => {
-    const cost = calcBunkerCost(row.qty, row.price);
+    const cost = num(row.cost) || calcBunkerCost(row.qty, row.price);
     return { ...row, cost: cost ? String(cost) : row.cost };
   });
   const bunkerActivities = bunkerActivityRows.map((row) => {
-    const amount = calcBunkerCost(row.qty, row.price);
+    const amount = num(row.amount) || calcBunkerCost(row.qty, row.price);
     return { ...row, amount: amount ? String(amount) : (row.amount || '') };
   });
   const totalBunkerActivityCost = round2(
@@ -141,13 +194,11 @@ export function computeEstimateTotals(form) {
     bunkers.reduce((sum, row) => sum + num(row.cost), 0) + totalBunkerActivityCost,
   );
 
+  // PHP getBunkerCalculation: always sum SECA + NON-SECA amounts (calc flag only gates price edit / FO-DO mt)
   const secaBunkers = secaBunkerRows.map((row) => {
-    const cost = calcBunkerCost(row.qty, row.price);
+    const cost = num(row.cost) || calcBunkerCost(row.qty, row.price);
     return { ...row, cost: cost ? String(cost) : row.cost };
   });
-  const totalSecaBunkerCost = round2(
-    secaBunkers.reduce((sum, row) => (row.calc === false ? sum : sum + num(row.cost)), 0),
-  );
 
   const mapAmount = (rows) => (rows || []).map((row) => {
     const amount = num(row.amountUsd) || calcCargoAmount(row.cargoMt, row.rateUsdMt);
@@ -263,20 +314,31 @@ export function computeEstimateTotals(form) {
     allCargos.reduce((sum, row) => sum + num(row.cargoMt), 0)
     || num(form.cargoQuantity),
   );
+  // PHP: tankType 1 = Single → lumpsum OR WS (qty×flat×WS/100); tankType 2 = Distributed → cargo MT×rate
   const tankType = String(form.tankType || '1');
   const tankerFreightRate = num(form.tankerFreightRate || form.marketRate);
-  const singleFreight = tankType === '1' && tankerFreightRate > 0
+  const rateTimesQty = tankerFreightRate > 0 && cargoQtyTotal > 0
     ? round2(tankerFreightRate * cargoQtyTotal)
     : 0;
-  const freightGross = round2(
-    (tankType === '1' && singleFreight > 0 ? singleFreight : 0)
-    || (tankType === '2' ? (totalTankerWs || totalFreightQty) : 0)
-    || num(form.freightGross)
-    || totalFreightQty
-    || totalTankerWs
-    || freightFromCargo
-    || lumpsum,
-  );
+  let freightGross = 0;
+  if (tankType === '1') {
+    freightGross = round2(
+      lumpsum
+      || totalTankerWs
+      || num(form.freightGross)
+      || rateTimesQty
+      || freightFromCargo
+      || totalFreightQty,
+    );
+  } else {
+    freightGross = round2(
+      freightFromCargo
+      || totalFreightQty
+      || num(form.freightGross)
+      || totalTankerWs
+      || lumpsum,
+    );
+  }
 
   const brokerRows = form.brokerRows || [];
   const brokers = (brokerRows.length
@@ -385,39 +447,280 @@ export function computeEstimateTotals(form) {
   for (const g of (form._bunkerGrades || [])) {
     gradeById[String(g.id)] = g;
   }
-  const classify = (gradeId) => {
-    const name = String(gradeById[String(gradeId)]?.name || '').toUpperCase();
+  const classify = (gradeIdOrName) => {
+    const fromId = gradeById[String(gradeIdOrName)]?.name;
+    const name = String(fromId || gradeIdOrName || '').toUpperCase();
+    if (name.includes('SCRUBBER')) return 'HSFO+SCRUBBER';
     if (name.includes('HSFO')) return 'HSFO';
     if (name.includes('VLSFO') || name.includes('VLFO')) return 'VLSFO';
     if (name.includes('LSMGO') || name.includes('MGO') || name.includes('MDO')) return 'LSMGO';
     return null;
   };
+  const gradeMatches = (legGrade, key, gradeName) => {
+    const legKey = classify(legGrade);
+    if (legKey && key && legKey === key) return true;
+    return String(legGrade || '').toUpperCase() === String(gradeName || '').toUpperCase();
+  };
+  const pickAtSeaRate = (cons, passageType, speedType, seca) => {
+    const laden = String(passageType) === '2';
+    const speed = String(speedType || '1');
+    const side = laden ? 'lad' : 'bal';
+    const zone = seca ? 'Seca' : 'NonSeca';
+    const mode = speed === '2' ? 'Ss' : speed === '3' ? 'Mes' : 'Fs';
+    return num(cons[`${side}${zone}${mode}`]);
+  };
+  const isNonSecaIdentify = (identify) => {
+    const id = String(identify || '').toUpperCase().replace(/\s+/g, '_');
+    return id === 'NON_SECA' || id === 'NONSECA' || id === '2';
+  };
+  const isSecaIdentify = (identify) => {
+    const id = String(identify || '').toUpperCase().replace(/\s+/g, '_');
+    return id === 'SECA' || id === '1';
+  };
+
+  /**
+   * PHP getVoyageTime bunker MT + getEuConsp ETS MT.
+   * FO total (NSBG match): nonSecaDays×NS rate + secaDays×S rate
+   * DO total (SBG match): secaDays×S rate + (totalDays−secaDays)×NS rate
+   * ETS FO VLSFO: nonSecaDays×NS rate × EU% (overwrites SECA FO ETS)
+   * ETS DO LSMGO: secaDays × NS DO rate × EU% (NON-SECA DO ETS path is commented out in PHP)
+   */
+  const computeFromConsumption = () => {
+    const rows = (form.consumptionRows || []).filter((r) => r.bunkerGradeId);
+    if (!rows.length || !legsWithDemurrage.length) return null;
+    const totals = { HSFO: 0, VLSFO: 0, LSMGO: 0, 'HSFO+SCRUBBER': 0 };
+    const ets = { HSFO: 0, VLSFO: 0, LSMGO: 0, 'HSFO+SCRUBBER': 0 };
+    let any = false;
+
+    for (const cons of rows) {
+      const gradeName = gradeById[String(cons.bunkerGradeId)]?.name || '';
+      const key = classify(cons.bunkerGradeId);
+      if (!key) continue;
+      const identify = String(cons.identify || 'FO').toUpperCase();
+      let total = 0;
+      let etsQty = 0;
+
+      for (const leg of legsWithDemurrage) {
+        const seaDays = num(leg.seaDays);
+        const secaDays = num(leg.secaDays);
+        const nonSecaDays = Math.max(0, seaDays - secaDays);
+        const nsGrade = leg.bgNonSeca || 'VLSFO';
+        const sGrade = leg.bgSeca || 'LSMGO';
+        const secaRate = pickAtSeaRate(cons, leg.passageType, leg.speedType, true);
+        const nonSecaRate = pickAtSeaRate(cons, leg.passageType, leg.speedType, false);
+        const euPct = calculateSeaLegPercentage(
+          extractCountryCode(leg.fromPortName),
+          extractCountryCode(leg.toPortName),
+        );
+
+        if (identify === 'FO') {
+          // PHP NON-SECA FO qty when selNSBG matches bunker name
+          if (gradeMatches(nsGrade, key, gradeName)) {
+            total += (nonSecaDays * nonSecaRate) + (secaDays * secaRate);
+            // getEuConsp NON-SECA FO: nonSecaDays × NS rate × EU%
+            etsQty += nonSecaDays * nonSecaRate * euPct;
+            any = true;
+          }
+        } else if (gradeMatches(sGrade, key, gradeName)) {
+          // PHP NON-SECA DO qty when selSBG matches
+          total += (secaDays * secaRate) + (nonSecaDays * nonSecaRate);
+          // getEuConsp SECA DO: secaDays × DO NON-SECA rate × EU%
+          etsQty += secaDays * nonSecaRate * euPct;
+          any = true;
+        }
+
+        // In-port (working / idle) — gated by port bunker grade + SECA checkbox
+        const lpOk = (leg.lpBunkerGrades || []).some((g) => gradeMatches(g, key, gradeName));
+        const dpOk = (leg.dpBunkerGrades || []).some((g) => gradeMatches(g, key, gradeName));
+        const lw = num(leg.loadPortWorkDays);
+        const li = num(leg.loadPortIdleDays);
+        const dw = num(leg.discPortWorkDays);
+        const di = num(leg.discPortIdleDays);
+        const lpEu = calculatePortLegPercentage(extractCountryCode(leg.fromPortName));
+        const dpEu = calculatePortLegPercentage(extractCountryCode(leg.toPortName));
+
+        if (lpOk) {
+          if (leg.chkLpSeca) {
+            const w = num(cons.inPortSecaWorking);
+            const idle = num(cons.inPortSecaIdle);
+            total += lw * w + li * idle;
+            etsQty += (lw * w + li * idle) * lpEu;
+            any = true;
+          } else {
+            const w = num(cons.inPortNonSecaWorking);
+            const idle = num(cons.inPortNonSecaIdle);
+            total += lw * w + li * idle;
+            // PHP getEuConsp NON-SECA in-port is included via totalconspfo2 for FO grades
+            if (identify === 'FO') etsQty += (lw * w + li * idle) * lpEu;
+            any = true;
+          }
+        }
+        if (dpOk) {
+          if (leg.chkDpSeca) {
+            const w = num(cons.inPortSecaWorkingDp || cons.inPortSecaWorking);
+            const idle = num(cons.inPortSecaIdle);
+            total += dw * w + di * idle;
+            etsQty += (dw * w + di * idle) * dpEu;
+            any = true;
+          } else {
+            const w = num(cons.inPortNonSecaWorkingDp || cons.inPortNonSecaWorking);
+            const idle = num(cons.inPortNonSecaIdle);
+            total += dw * w + di * idle;
+            if (identify === 'FO') etsQty += (dw * w + di * idle) * dpEu;
+            any = true;
+          }
+        }
+      }
+
+      totals[key] = (totals[key] || 0) + total;
+      ets[key] = (ets[key] || 0) + etsQty;
+    }
+
+    if (!any) return null;
+    const bunkerMt = { HSFO: 0, VLSFO: 0, LSMGO: 0 };
+    const etsMt = { HSFO: 0, VLSFO: 0, LSMGO: 0 };
+    // Fold scrubber into HSFO bunker results display (PHP has separate fields for scrubber in some UIs)
+    bunkerMt.HSFO = round2((totals.HSFO || 0) + (totals['HSFO+SCRUBBER'] || 0));
+    bunkerMt.VLSFO = round2(totals.VLSFO || 0);
+    bunkerMt.LSMGO = round2(totals.LSMGO || 0);
+    etsMt.HSFO = round2((ets.HSFO || 0) + (ets['HSFO+SCRUBBER'] || 0));
+    etsMt.VLSFO = round2(ets.VLSFO || 0);
+    etsMt.LSMGO = round2(ets.LSMGO || 0);
+    return { bunkerMt: bunkerMt, etsMt, rawTotals: totals };
+  };
+
+  const fromConsumption = computeFromConsumption();
+
+  const storedTotals = {
+    HSFO: num(form.hsfoMt),
+    VLSFO: num(form.vlsfoMt),
+    LSMGO: num(form.lsmgoMt),
+  };
+  const storedEts = {
+    HSFO: num(form.etsHsfoMt),
+    VLSFO: num(form.etsVlsfoMt),
+    LSMGO: num(form.etsLsmgoMt),
+  };
+  const storedSum = storedTotals.HSFO + storedTotals.VLSFO + storedTotals.LSMGO;
+  const storedEtsSum = storedEts.HSFO + storedEts.VLSFO + storedEts.LSMGO;
 
   const bunkerMt = { HSFO: 0, VLSFO: 0, LSMGO: 0 };
   const etsMt = { HSFO: 0, VLSFO: 0, LSMGO: 0 };
+  if (fromConsumption) {
+    Object.assign(bunkerMt, fromConsumption.bunkerMt);
+    Object.assign(etsMt, fromConsumption.etsMt);
+  } else if (storedSum > 0 || storedEtsSum > 0) {
+    Object.assign(bunkerMt, storedTotals);
+    Object.assign(etsMt, storedEts);
+  } else {
+    for (const row of bunkers) {
+      if (String(row.identify).toUpperCase() === 'SUPPLY') continue;
+      const key = classify(row.bunkerGradeId);
+      if (key === 'HSFO' || key === 'HSFO+SCRUBBER') bunkerMt.HSFO += num(row.qty);
+      else if (key === 'VLSFO') bunkerMt.VLSFO += num(row.qty);
+      else if (key === 'LSMGO') bunkerMt.LSMGO += num(row.qty);
+    }
+    for (const row of secaBunkers) {
+      const rawKey = classify(row.bunkerGradeId)
+        || (String(row.bunkerType).toUpperCase() === 'DO' ? 'LSMGO' : 'VLSFO');
+      const key = rawKey === 'HSFO+SCRUBBER' ? 'HSFO' : rawKey;
+      const qty = num(row.qty);
+      const id = String(row.identify || '').toUpperCase();
+      if (id === 'SECA' || id === '1') {
+        etsMt[key] = (etsMt[key] || 0) + qty;
+      } else {
+        bunkerMt[key] = (bunkerMt[key] || 0) + qty;
+      }
+    }
+    for (const k of Object.keys(bunkerMt)) bunkerMt[k] = round2(bunkerMt[k]);
+    for (const k of Object.keys(etsMt)) etsMt[k] = round2(etsMt[k]);
+  }
+
+  // PHP stores $/MT on SECA row (txtSECABunkerPrice); NON_SECA row often has empty EST_PRICE
+  const priceByGrade = {};
+  const rememberPrice = (gradeKey, price, prefer) => {
+    if (!gradeKey || !(price > 0)) return;
+    const key = gradeKey === 'HSFO+SCRUBBER' ? 'HSFO' : gradeKey;
+    if (prefer || !priceByGrade[key]) priceByGrade[key] = price;
+  };
+  // Capture DB amounts before sync (SECA EST_COST often holds the full $ amount)
+  const storedSecaExpense = round2(
+    secaBunkers.reduce((sum, row) => sum + num(row.cost), 0),
+  );
+  for (const row of secaBunkers) {
+    const key = classify(row.bunkerGradeId);
+    // Prefer SECA-row price — that is the visible Price column in PHP Bunkers table
+    rememberPrice(key, num(row.price), isSecaIdentify(row.identify));
+  }
   for (const row of bunkers) {
     if (String(row.identify).toUpperCase() === 'SUPPLY') continue;
-    const key = classify(row.bunkerGradeId);
-    if (key) bunkerMt[key] += num(row.qty);
+    rememberPrice(classify(row.bunkerGradeId), num(row.price), false);
   }
-  for (const row of secaBunkers) {
-    const key = classify(row.bunkerGradeId) || (String(row.bunkerType).toUpperCase() === 'DO' ? 'LSMGO' : 'VLSFO');
-    bunkerMt[key] = (bunkerMt[key] || 0) + num(row.qty);
-    if (String(row.identify) === 'SECA') {
-      etsMt[key] = (etsMt[key] || 0) + num(row.qty);
-    } else {
-      etsMt[key] = (etsMt[key] || 0) + num(row.qty);
+
+  // Sync bunker estimate qty/cost from live consumption (PHP: amount = qty × SECA price)
+  let secaBunkersSynced = secaBunkers;
+  if (fromConsumption) {
+    const mtByKey = {
+      HSFO: bunkerMt.HSFO,
+      VLSFO: bunkerMt.VLSFO,
+      LSMGO: bunkerMt.LSMGO,
+      ...(fromConsumption.rawTotals || {}),
+    };
+    const rowsByKey = {};
+    for (const row of secaBunkers) {
+      const key = classify(row.bunkerGradeId);
+      if (!key) continue;
+      if (!rowsByKey[key]) rowsByKey[key] = [];
+      rowsByKey[key].push(row);
     }
+    secaBunkersSynced = secaBunkers.map((row) => {
+      const key = classify(row.bunkerGradeId);
+      if (!key) return row;
+      const displayKey = key === 'HSFO+SCRUBBER' ? 'HSFO' : key;
+      const siblings = rowsByKey[key] || [];
+      const hasNonSeca = siblings.some((r) => isNonSecaIdentify(r.identify));
+      const siblingPrice = siblings.reduce((p, r) => (num(r.price) > 0 ? num(r.price) : p), 0);
+      let qtyVal = 0;
+      if (mtByKey[key] != null || mtByKey[displayKey] != null) {
+        const mt = mtByKey[key] != null ? mtByKey[key] : mtByKey[displayKey];
+        if (hasNonSeca) {
+          // PHP: qty lives on NON_SECA; SECA qty field is hidden/0
+          qtyVal = isNonSecaIdentify(row.identify) ? mt : 0;
+        } else {
+          qtyVal = mt;
+        }
+      }
+      const qty = round2(qtyVal);
+      const price = num(row.price) || siblingPrice || priceByGrade[displayKey] || 0;
+      if (price > 0) rememberPrice(displayKey, price, true);
+      const cost = calcBunkerCost(qty, price);
+      return {
+        ...row,
+        qty: String(qty || 0),
+        price: price ? String(price) : (row.price || ''),
+        cost: cost ? String(cost) : '0',
+      };
+    });
   }
-  for (const k of Object.keys(bunkerMt)) bunkerMt[k] = round2(bunkerMt[k]);
-  for (const k of Object.keys(etsMt)) etsMt[k] = round2(etsMt[k]);
+
+  // PHP Bunker Expenses = Σ (NONSECA qty × price) with price from Bunkers table
+  const expenseFromMtPrices = round2(
+    (bunkerMt.HSFO * (priceByGrade.HSFO || 0))
+    + (bunkerMt.VLSFO * (priceByGrade.VLSFO || 0))
+    + (bunkerMt.LSMGO * (priceByGrade.LSMGO || 0)),
+  );
+  const totalSecaBunkerCostSynced = round2(
+    secaBunkersSynced.reduce((sum, row) => sum + num(row.cost), 0),
+  );
 
   const factors = form._complianceFactors || {};
   const fac = (key) => factors[key] || { co2Fac: 0, penalty: 0, intensity: 0, ghgRate: 0, euaCo2Rate: 0 };
+  // PHP Fuel EU penalties use TOTAL bunker MT (txtHsfo / txtVlfoMT / txtLsmgo)
   const hsfoPenal = round2(bunkerMt.HSFO * fac('HSFO').penalty);
   const vlsfoPenal = round2(bunkerMt.VLSFO * fac('VLSFO').penalty);
   const lsmgoPenal = round2(bunkerMt.LSMGO * fac('LSMGO').penalty);
 
+  // PHP Total CO2 uses totals
   const co2mt = round2(
     bunkerMt.HSFO * fac('HSFO').co2Fac
     + bunkerMt.VLSFO * fac('VLSFO').co2Fac
@@ -425,39 +728,57 @@ export function computeEstimateTotals(form) {
   );
   const co2Price = num(form.co2Price);
   const co2Cost = round2(co2mt * co2Price);
+  // PHP EEOI CO2 / EUA use ETS fields (txtEtsFuelHsfo / txtFuelVlsfo / txtEuEtslsmgo)
   const eeoiCo2 = round2(
     etsMt.HSFO * fac('HSFO').co2Fac
     + etsMt.VLSFO * fac('VLSFO').co2Fac
     + etsMt.LSMGO * fac('LSMGO').co2Fac,
   );
-  const euaCo2mt = round2(
+  const euaCo2mtRaw =
     etsMt.HSFO * fac('HSFO').co2Fac * (fac('HSFO').euaCo2Rate / 100)
     + etsMt.VLSFO * fac('VLSFO').co2Fac * (fac('VLSFO').euaCo2Rate / 100)
-    + etsMt.LSMGO * fac('LSMGO').co2Fac * (fac('LSMGO').euaCo2Rate / 100),
-  );
+    + etsMt.LSMGO * fac('LSMGO').co2Fac * (fac('LSMGO').euaCo2Rate / 100);
+  // PHP: txtEuaCo2mt shows toFixed(2), but txteuaCo2Usd uses unrounded euaco2 × price
+  const euaCo2mt = round2(euaCo2mtRaw);
   const euaPrice = num(form.euaPrice);
-  const euaCo2Usd = euaCo2mt > 0 && euaPrice > 0 ? Math.ceil(euaCo2mt * euaPrice) : 0;
+  const euaCo2Usd = euaCo2mtRaw > 0 && euaPrice > 0 ? Math.ceil(euaCo2mtRaw * euaPrice) : 0;
   const sailedDist = totalDistance;
   const dwtQty = num(form.dwtSummer);
   let eeoi = 0;
   let cii = 0;
-  if (eeoiCo2 > 0 && cargoQuantity > 0 && sailedDist > 0) {
-    eeoi = round2((eeoiCo2 * 1e6) / (cargoQuantity * sailedDist));
+  // PHP EEOI/CII formulas use TOTAL fuel MT (txtHsfo/Vlfo/Lsmgo), gated on ETS > 0
+  const hasEts = etsMt.HSFO > 0 || etsMt.VLSFO > 0 || etsMt.LSMGO > 0;
+  if (hasEts && co2mt > 0 && cargoQtyTotal > 0 && sailedDist > 0) {
+    eeoi = round2((co2mt * 1e6) / (cargoQtyTotal * sailedDist));
   }
-  if (eeoiCo2 > 0 && dwtQty > 0 && sailedDist > 0) {
-    cii = round2((eeoiCo2 * 1e6) / (dwtQty * sailedDist));
+  if (hasEts && co2mt > 0 && dwtQty > 0 && sailedDist > 0) {
+    cii = round2((co2mt * 1e6) / (dwtQty * sailedDist));
   }
 
   const totalCarbonCost = round2(euaCo2Usd + hsfoPenal + vlsfoPenal + lsmgoPenal);
 
-  let operationalExpenses = round2(totalOrcCost + brokerageAmt + addressCommAmt + vesselDailyOpsAmt);
+  // PHP ops = ORC + brokerage + vessel daily ops + demurrage commission (address comm is NOT in ops)
+  let operationalExpenses = round2(
+    totalOrcCost + brokerageAmt + vesselDailyOpsAmt + demurrageBrokerAmt,
+  );
   if (form.euEtsAddToFreight) operationalExpenses = round2(operationalExpenses + euaCo2Usd);
   if (form.fuelEuAddToFreight) {
     operationalExpenses = round2(operationalExpenses + hsfoPenal + vlsfoPenal + lsmgoPenal);
   }
 
-  const bunkerExpenseTotal = round2(totalBunkerCost + totalSecaBunkerCost);
-  const revenue = round2(freightGross + lumpsum + totalOtherIncome);
+  // PHP txtTotalBunkerCost = sum of Bunkers table amounts (not supply/activity rows)
+  const bunkerExpenseComputed = expenseFromMtPrices > 0
+    ? expenseFromMtPrices
+    : (totalSecaBunkerCostSynced > 0 ? totalSecaBunkerCostSynced : 0);
+  const bunkerExpenseSaved = num(form.bunkerResultsCost) || num(form.totalBunkerCost);
+  // Live MT×price → synced row costs → DB EST_COST sum → PHP-saved total
+  const bunkerExpenseTotal = bunkerExpenseComputed > 0
+    ? bunkerExpenseComputed
+    : (storedSecaExpense > 0
+      ? storedSecaExpense
+      : (bunkerExpenseSaved > 0 ? round2(bunkerExpenseSaved) : 0));
+  // PHP: revenue = freight − address commission + other income (lumpsum already in freight when used)
+  const revenue = round2(Math.max(0, freightGross - addressCommAmt) + totalOtherIncome);
   const totalExpenses = round2(operationalExpenses + totalPortCost + bunkerExpenseTotal);
   const voyageEarnings = round2(revenue - totalExpenses - cveAmt + demurrageNett);
   const gTotalVoyageEarnings = round2(revenue - totalExpenses - netHireage);
@@ -477,7 +798,7 @@ export function computeEstimateTotals(form) {
     orcRows: orcs,
     otherIncomeRows: otherIncomes,
     hireRows: hires,
-    secaBunkerRows: secaBunkers,
+    secaBunkerRows: secaBunkersSynced,
     freightQtyRows: freightQtys,
     tankerWsRows: tankerWs,
     offHireRows: offHires.map(({ bunkerTotal, ...row }) => row),
@@ -494,7 +815,7 @@ export function computeEstimateTotals(form) {
     totalDays: String(totalDays || ''),
     totalPortCost: String(totalPortCost || ''),
     totalBunkerCost: String(bunkerExpenseTotal || ''),
-    totalSecaBunkerCost: String(totalSecaBunkerCost || ''),
+    totalSecaBunkerCost: String(totalSecaBunkerCostSynced || ''),
     totalOrcCost: String(totalOrcCost || ''),
     totalOtherIncome: String(totalOtherIncome || ''),
     totalHireAmt: String(hireAmt || ''),

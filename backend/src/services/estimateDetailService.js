@@ -1,5 +1,6 @@
 import { isDbConfigured } from '../config.js';
 import {
+  dbCheckVoyageNoExists,
   dbCreateEstimateDetail,
   dbGetEstimateDetail,
   dbGetEstimateLookups,
@@ -70,7 +71,13 @@ export async function getPeriodPrefill(periodId) {
 }
 
 export async function updateEstimateDetail(id, payload, upload = {}) {
+  assertEstimateRequiredFields(payload);
+
   if (isDbConfigured()) {
+    const exists = await dbCheckVoyageNoExists(payload.voyageNo, { excludeFcaId: id });
+    if (exists) {
+      throw new Error('Voyage number already exists');
+    }
     return dbUpdateEstimateDetail(id, payload, upload);
   }
   return { msg: 0 };
@@ -141,18 +148,61 @@ export async function getVesselEstimatePrefill(vesselId) {
   };
 }
 
-export async function createEstimateDetail(payload, upload = {}) {
+function assertEstimateRequiredFields(payload) {
   if (!payload.fixtureTypeId) {
-    throw new Error('Business type is required.');
+    throw new Error('Please select Business Type');
   }
   if (!payload.vesselImoId) {
-    throw new Error('Vessel is required.');
+    throw new Error('Please select Vessel');
   }
-  if (!payload.voyageNo?.trim()) {
-    throw new Error('Voyage No. is required.');
+  if (!String(payload.voyageNo || '').trim()) {
+    throw new Error('Please fill Voyage No.');
   }
 
+  const firstLeg = (payload.portLegs || [])[0] || {};
+  if (!String(firstLeg.fromPortId || '').trim()) {
+    throw new Error('Please select From Port');
+  }
+  if (!String(firstLeg.toPortId || '').trim()) {
+    throw new Error('Please select To Port');
+  }
+  if (!String(firstLeg.passageType || '').trim()) {
+    throw new Error('Please select Laden/Ballast');
+  }
+  if (!String(firstLeg.speedType || '').trim()) {
+    throw new Error('Please select Speed Type');
+  }
+  if (!String(firstLeg.distance ?? '').trim()) {
+    throw new Error('Please fill Total Dist.');
+  }
+
+  const hasCargo = (payload.cargoRows || []).some((row) => String(row.cargoId || '').trim());
+  if (!hasCargo) {
+    throw new Error('Please fill Cargo Name');
+  }
+  if (!String(payload.charteringTeam || '').trim()) {
+    throw new Error('Please select Chartering Team');
+  }
+  if (!String(payload.charteringPic || '').trim()) {
+    throw new Error('Please select Chartering PIC');
+  }
+}
+
+export async function checkVoyageNoExists(voyageNo, options = {}) {
+  if (!isDbConfigured()) {
+    return false;
+  }
+  return dbCheckVoyageNoExists(voyageNo, options);
+}
+
+export async function createEstimateDetail(payload, upload = {}) {
+  assertEstimateRequiredFields(payload);
+
   if (isDbConfigured()) {
+    const exists = await dbCheckVoyageNoExists(payload.voyageNo);
+    if (exists) {
+      throw new Error('Voyage number already exists');
+    }
     return dbCreateEstimateDetail(payload, upload);
   }
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, DmyDateInput } from '@bainbridge/shared-ui';
+import { Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
 import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
 import VesselSearchSelect from './VesselSearchSelect.jsx';
 import {
@@ -8,13 +8,20 @@ import {
   BUNKER_ACTIVITY_RATE_FIELD,
   BUNKER_IDENTIFY_OPTIONS,
   FIXTURE_TYPE_OPTIONS,
+  COA_SPOT_OPTIONS,
   LAYTIME_TERM_OPTIONS,
   PASSAGE_TYPE_OPTIONS,
+  SPEED_DATA_OPTIONS,
   SPEED_TYPE_OPTIONS,
+  CONSUMPTION_PORT_COLUMNS,
+  CONSUMPTION_SPEED_COLUMNS,
+  PORT_BUNKER_GRADE_OPTIONS,
+  PORT_FUNCTION_OPTIONS,
   createEmptyBrokerRow,
   createEmptyBunkerActivityRow,
   createEmptyBunkerRow,
   createEmptyCargoRow,
+  createEmptyConsumptionRow,
   createEmptyHireRow,
   createEmptyOrcRow,
   createEmptyOtherIncomeRow,
@@ -22,13 +29,15 @@ import {
   createEmptyProfitSharingRow,
   getFixtureTypeLabel,
 } from './estimateDetail.constants.js';
-import { calcDemurrageEst, calcLaytimeWorkingDays, calcSeaDays } from './estimateCalculations.js';
+import { calcDemurrageEst, calcLaytimeWorkingDays, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots } from './estimateCalculations.js';
+import { NAVIGATION_METHOD_OPTIONS } from './distanceFetch.constants.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import DistanceFetchModal from './DistanceFetchModal.jsx';
 import EstimateAdvancedSections from './EstimateAdvancedSections.jsx';
 import EstimateResultsPanels from './EstimateResultsPanels.jsx';
 import VesselItineraryModal from './VesselItineraryModal.jsx';
 import { fetchCanalOrcRates, searchEstimatePorts } from '../../../services/estimateDetail.js';
+import { getAddRowBlockMessage } from './estimateValidation.js';
 import styles from './UpdateEstimatePage.module.css';
 
 function Field({ id, label, children }) {
@@ -55,6 +64,7 @@ export default function EstimateDetailSections({
   const estimateType = Number(detail?.estimateType) || 2;
   const showLumpsum = estimateType !== 3;
   const editable = !readOnly;
+  const alert = useAlert();
   const [distanceLegId, setDistanceLegId] = useState(null);
   const [itineraryOpen, setItineraryOpen] = useState(false);
 
@@ -98,16 +108,8 @@ export default function EstimateDetailSections({
     const leg = (form.portLegs || []).find((row) => row.id === legId);
     if (!leg) return;
 
-    const isLaden = String(leg.passageType) === '2';
-    const isEco = String(leg.speedType) === '2';
-    const ballastFull = form.bFullSpeed || form.bEcoSpeed1 || 12;
-    const ballastEco = form.bEcoSpeed1 || ballastFull;
-    const ladenFull = form.lFullSpeed || form.lEcoSpeed1 || ballastFull;
-    const ladenEco = form.lEcoSpeed1 || ladenFull;
-    const speed = isLaden
-      ? (isEco ? ladenEco : ladenFull)
-      : (isEco ? ballastEco : ballastFull);
-    const seaDays = calcSeaDays(patch.distance, speed, leg.seaMargin);
+    const speed = pickPassageSpeedKnots(form, leg.passageType, leg.speedType);
+    const seaDays = calcSeaDaysWithSeca(patch.distance, patch.secaDistance, speed, leg.seaMargin);
     const totalDistance = Number(patch.distance) || 0;
     const secaDistance = Number(patch.secaDistance) || 0;
     const nonSecaDistance = Math.max(0, totalDistance - secaDistance);
@@ -204,7 +206,13 @@ export default function EstimateDetailSections({
     }
   };
 
-  const addRow = (collection, factory) => {
+  const addRow = async (collection, factory, opts = {}) => {
+    const blockMessage = getAddRowBlockMessage(collection, form[collection] || [], opts);
+    if (blockMessage) {
+      await alert({ title: 'Alert', message: blockMessage, confirmLabel: 'OK' });
+      return;
+    }
+
     if (collection === 'portLegs') {
       const prev = (form.portLegs || [])[(form.portLegs || []).length - 1];
       const next = factory();
@@ -237,6 +245,42 @@ export default function EstimateDetailSections({
     if (isAdd) updateField('voyageName', value);
   };
 
+  const showCoaFields = String(form.coaSpot) === '2';
+
+  const coaOptions = (() => {
+    const list = [...(lookups.coaContracts || [])];
+    if (form.coaNumber && !list.some((row) => String(row.id) === String(form.coaNumber))) {
+      list.unshift({
+        id: String(form.coaNumber),
+        name: form.coaNumberLabel || form.coaNumber,
+      });
+    }
+    return list;
+  })();
+
+  const handleCoaSpotChange = (value) => {
+    const patch = { coaSpot: value };
+    if (value !== '2') {
+      patch.coaNumber = '';
+      patch.coaNumberLabel = '';
+      patch.coaNumberLift = '';
+      patch.noOfShipment = '';
+    }
+    applyPatch(patch);
+  };
+
+  const handleCoaNumberChange = (coaId) => {
+    const coa = coaOptions.find((row) => String(row.id) === String(coaId));
+    const patch = {
+      coaNumber: coaId,
+      coaNumberLabel: coa?.name || '',
+      noOfShipment: coa?.noOfShipment != null ? String(coa.noOfShipment) : '',
+    };
+    if (coa?.owner) patch.ownerId = String(coa.owner);
+    if (coa?.broker) patch.fixtureBroker = String(coa.broker);
+    applyPatch(patch);
+  };
+
   const inputProps = (key, opts = {}) => ({
     id: key,
     value: form[key] ?? '',
@@ -262,7 +306,7 @@ export default function EstimateDetailSections({
               ) : (
                 <select
                   id="fixtureTypeId"
-                  value={form.fixtureTypeId}
+                  value={String(form.fixtureTypeId ?? '')}
                   onChange={(e) => updateField('fixtureTypeId', e.target.value)}
                 >
                   <option value="">Select from list</option>
@@ -274,14 +318,14 @@ export default function EstimateDetailSections({
             </Field>
 
             <Field id="vesselName" label="Vessel">
-              {isAdd ? (
+              {readOnly ? (
+                <input id="vesselName" value={form.vesselName} readOnly />
+              ) : (
                 <VesselSearchSelect
                   value={form.vesselImoId}
                   label={form.vesselName}
                   onSelect={onVesselSelect}
                 />
-              ) : (
-                <input id="vesselName" value={form.vesselName} readOnly />
               )}
             </Field>
 
@@ -395,7 +439,7 @@ export default function EstimateDetailSections({
 <CollapsiblePanel title="Vessel Particulars" defaultOpen>
           <div className={styles.headerGrid}>
             <Field id="dwtSummer" label="DWT (Summer)">
-              <input {...inputProps('dwtSummer', { readOnly: readOnly || !isAdd })} />
+              <input {...inputProps('dwtSummer')} />
             </Field>
             <Field id="dwtTropical" label="DWT (Tropical)">
               <input {...inputProps('dwtTropical')} />
@@ -411,7 +455,7 @@ export default function EstimateDetailSections({
               />
             </Field>
             <Field id="loa" label="LOA">
-              <input {...inputProps('loa', { readOnly: readOnly || !isAdd })} />
+              <input {...inputProps('loa')} />
             </Field>
             <Field id="tpc" label="TPC">
               <input {...inputProps('tpc')} />
@@ -470,6 +514,7 @@ export default function EstimateDetailSections({
                 <th>To</th>
                 <th>Passage</th>
                 <th>Speed</th>
+                <th>Navigation</th>
                 {editable ? <th>Fetch</th> : null}
                 <th>Distance</th>
                 <th>Wx %</th>
@@ -490,13 +535,14 @@ export default function EstimateDetailSections({
               </tr>
             </thead>
             <tbody>
-              {(form.portLegs || []).map((leg) => (
+              {(form.portLegs || []).map((leg, legIndex) => (
                 <tr key={leg.id}>
                   <td>
                     {readOnly ? (
                       leg.fromPortName || leg.fromPortId || '—'
                     ) : (
                       <PortSearchSelect
+                        id={legIndex === 0 ? 'portFrom_0' : `portFrom_${legIndex}`}
                         value={leg.fromPortId}
                         label={leg.fromPortName}
                         searchPorts={searchEstimatePorts}
@@ -514,6 +560,7 @@ export default function EstimateDetailSections({
                       leg.toPortName || leg.toPortId || '—'
                     ) : (
                       <PortSearchSelect
+                        id={legIndex === 0 ? 'portTo_0' : `portTo_${legIndex}`}
                         value={leg.toPortId}
                         label={leg.toPortName}
                         searchPorts={searchEstimatePorts}
@@ -528,6 +575,7 @@ export default function EstimateDetailSections({
                   </td>
                   <td>
                     <select
+                      id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
                       value={leg.passageType}
                       disabled={readOnly}
                       onChange={(e) => updateRow('portLegs', leg.id, { passageType: e.target.value })}
@@ -539,12 +587,25 @@ export default function EstimateDetailSections({
                   </td>
                   <td>
                     <select
+                      id={legIndex === 0 ? 'portSpeed_0' : `portSpeed_${legIndex}`}
                       value={leg.speedType}
                       disabled={readOnly}
                       onChange={(e) => updateRow('portLegs', leg.id, { speedType: e.target.value })}
                     >
                       {SPEED_TYPE_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      id={legIndex === 0 ? 'portNav_0' : `portNav_${legIndex}`}
+                      value={leg.navMethod || ''}
+                      disabled={readOnly}
+                      onChange={(e) => updateRow('portLegs', leg.id, { navMethod: e.target.value })}
+                    >
+                      {NAVIGATION_METHOD_OPTIONS.map((o) => (
+                        <option key={o.value || 'none'} value={o.value}>{o.label}</option>
                       ))}
                     </select>
                   </td>
@@ -561,6 +622,7 @@ export default function EstimateDetailSections({
                   ) : null}
                   <td>
                     <input
+                      id={legIndex === 0 ? 'portDistance_0' : `portDistance_${legIndex}`}
                       value={leg.distance}
                       readOnly={readOnly}
                       onChange={(e) => updateRow('portLegs', leg.id, { distance: e.target.value })}
@@ -568,7 +630,7 @@ export default function EstimateDetailSections({
                   </td>
                   <td>
                     <input
-                      value={leg.seaMargin ?? '5'}
+                      value={leg.seaMargin ?? '0'}
                       readOnly={readOnly}
                       onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
                     />
@@ -841,56 +903,275 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
-<CollapsiblePanel title="Speed / Consumption">
-          <div className={styles.headerGrid}>
-            <Field id="bFullSpeed" label="Ballast Full Speed">
-              <input {...inputProps('bFullSpeed', { recalc: true })} />
-            </Field>
-            <Field id="bEcoSpeed1" label="Ballast Eco Speed">
-              <input {...inputProps('bEcoSpeed1', { recalc: true })} />
-            </Field>
-            <Field id="bEcoSpeed2" label="Ballast Eco Speed 2">
-              <input {...inputProps('bEcoSpeed2', { recalc: true })} />
-            </Field>
-            <Field id="lFullSpeed" label="Laden Full Speed">
-              <input {...inputProps('lFullSpeed', { recalc: true })} />
-            </Field>
-            <Field id="lEcoSpeed1" label="Laden Eco Speed">
-              <input {...inputProps('lEcoSpeed1', { recalc: true })} />
-            </Field>
-            <Field id="lEcoSpeed2" label="Laden Eco Speed 2">
-              <input {...inputProps('lEcoSpeed2', { recalc: true })} />
-            </Field>
-            <Field id="bFoFullSpeed" label="Ballast FO Cons (Full)">
-              <input {...inputProps('bFoFullSpeed')} />
-            </Field>
-            <Field id="lFoFullSpeed" label="Laden FO Cons (Full)">
-              <input {...inputProps('lFoFullSpeed')} />
-            </Field>
-            <Field id="bDoFullSpeed" label="Ballast DO Cons (Full)">
-              <input {...inputProps('bDoFullSpeed')} />
-            </Field>
-            <Field id="lDoFullSpeed" label="Laden DO Cons (Full)">
-              <input {...inputProps('lDoFullSpeed')} />
-            </Field>
-            <Field id="pIfoFullSpeed" label="In-Port Idle FO">
-              <input {...inputProps('pIfoFullSpeed')} />
-            </Field>
-            <Field id="pWfoFullSpeed" label="In-Port Working FO">
-              <input {...inputProps('pWfoFullSpeed')} />
-            </Field>
-            <Field id="pIdoFullSpeed" label="In-Port Idle DO">
-              <input {...inputProps('pIdoFullSpeed')} />
-            </Field>
-            <Field id="pWdoFullSpeed" label="In-Port Working DO">
-              <input {...inputProps('pWdoFullSpeed')} />
-            </Field>
-          </div>
+      <CollapsiblePanel title="Port Bunker Grades & Transit" defaultOpen={false}>
+        <div className={styles.tableWrap}>
+          <table className={styles.portTable}>
+            <thead>
+              <tr>
+                <th>Leg</th>
+                <th>NSECA BG</th>
+                <th>SECA BG</th>
+                <th>LP Bunker Grades</th>
+                <th>DP Bunker Grades</th>
+                <th>TP Bunker Grades</th>
+                <th>CA Days</th>
+                <th>TP SECA</th>
+                <th>Port Function</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(form.portLegs || []).map((leg, index) => (
+                <tr key={`pbg-${leg.id}`}>
+                  <td>
+                    {leg.fromPortName || 'From'}
+                    {' → '}
+                    {leg.toPortName || 'To'}
+                    {index === 0 ? ' #1' : ` #${index + 1}`}
+                  </td>
+                  <td>
+                    <select
+                      disabled={readOnly}
+                      value={leg.bgNonSeca || 'VLSFO'}
+                      onChange={(e) => updateRow('portLegs', leg.id, { bgNonSeca: e.target.value })}
+                    >
+                      {PORT_BUNKER_GRADE_OPTIONS.map((o) => (
+                        <option key={`nsbg-${o.value}`} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      disabled={readOnly}
+                      value={leg.bgSeca || 'LSMGO'}
+                      onChange={(e) => updateRow('portLegs', leg.id, { bgSeca: e.target.value })}
+                    >
+                      {PORT_BUNKER_GRADE_OPTIONS.map((o) => (
+                        <option key={`sbg-${o.value}`} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      multiple
+                      size={3}
+                      disabled={readOnly}
+                      value={leg.lpBunkerGrades || ['VLSFO']}
+                      onChange={(e) => {
+                        const lpBunkerGrades = [...e.target.selectedOptions].map((o) => o.value);
+                        updateRow('portLegs', leg.id, { lpBunkerGrades });
+                      }}
+                    >
+                      {PORT_BUNKER_GRADE_OPTIONS.map((o) => (
+                        <option key={`lp-${o.value}`} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      multiple
+                      size={3}
+                      disabled={readOnly}
+                      value={leg.dpBunkerGrades || ['VLSFO']}
+                      onChange={(e) => {
+                        const dpBunkerGrades = [...e.target.selectedOptions].map((o) => o.value);
+                        updateRow('portLegs', leg.id, { dpBunkerGrades });
+                      }}
+                    >
+                      {PORT_BUNKER_GRADE_OPTIONS.map((o) => (
+                        <option key={`dp-${o.value}`} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      multiple
+                      size={3}
+                      disabled={readOnly}
+                      value={leg.tpBunkerGrades || ['VLSFO']}
+                      onChange={(e) => {
+                        const tpBunkerGrades = [...e.target.selectedOptions].map((o) => o.value);
+                        updateRow('portLegs', leg.id, { tpBunkerGrades });
+                      }}
+                    >
+                      {PORT_BUNKER_GRADE_OPTIONS.map((o) => (
+                        <option key={`tp-${o.value}`} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      value={leg.chartererAccountDays || ''}
+                      readOnly={readOnly}
+                      placeholder="0.00"
+                      onChange={(e) => updateRow('portLegs', leg.id, {
+                        chartererAccountDays: e.target.value,
+                      })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={!!leg.chkTpSeca}
+                      disabled={readOnly}
+                      onChange={(e) => updateRow('portLegs', leg.id, { chkTpSeca: e.target.checked })}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={leg.portFunction || ''}
+                      disabled={readOnly}
+                      onChange={(e) => updateRow('portLegs', leg.id, { portFunction: e.target.value })}
+                    >
+                      {PORT_FUNCTION_OPTIONS.map((o) => (
+                        <option key={o.value || 'pf-none'} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CollapsiblePanel>
+
+<CollapsiblePanel title="Speed / Consumption" defaultOpen={false}>
+        {(() => {
+          const speedDataType = form.speedDataType || 'full';
+          const speedCols = CONSUMPTION_SPEED_COLUMNS[speedDataType] || CONSUMPTION_SPEED_COLUMNS.full;
+          const ballastKey = speedDataType === 'service'
+            ? 'bEcoSpeed1'
+            : speedDataType === 'eco'
+              ? 'bEcoSpeed2'
+              : 'bFullSpeed';
+          const ladenKey = speedDataType === 'service'
+            ? 'lEcoSpeed1'
+            : speedDataType === 'eco'
+              ? 'lEcoSpeed2'
+              : 'lFullSpeed';
+          const foRows = (form.consumptionRows || []).filter((row) => row.identify === 'FO');
+          const doRows = (form.consumptionRows || []).filter((row) => row.identify === 'DO');
+          const gradeName = (id) => (
+            (lookups.bunkerGrades || []).find((g) => String(g.id) === String(id))?.name || id || '—'
+          );
+
+          const renderConsTable = (title, rows, identify) => {
+            const dataCols = [...speedCols, ...CONSUMPTION_PORT_COLUMNS];
+            return (
+            <div className={styles.consBlock}>
+              <div className={styles.consTitle}>{title}</div>
+              <div className={styles.tableWrap}>
+                <table className={styles.portTable}>
+                  <thead>
+                    <tr>
+                      <th>Bunker</th>
+                      {dataCols.map((col) => (
+                        <th key={col.key}>{col.label}</th>
+                      ))}
+                      {editable ? <th /> : null}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(rows.length ? rows : []).map((row) => (
+                      <tr key={`${title}-${row.id}`}>
+                        <td>
+                          {readOnly ? (
+                            gradeName(row.bunkerGradeId)
+                          ) : (
+                            <select
+                              value={row.bunkerGradeId || ''}
+                              onChange={(e) => updateRow('consumptionRows', row.id, {
+                                bunkerGradeId: e.target.value,
+                                identify,
+                              })}
+                            >
+                              <option value="">Select</option>
+                              {(lookups.bunkerGrades || []).map((g) => (
+                                <option key={g.id} value={g.id}>{g.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </td>
+                        {dataCols.map((col) => (
+                          <td key={col.key}>
+                            <input
+                              value={row[col.key] ?? ''}
+                              readOnly={readOnly}
+                              placeholder="0.00"
+                              onChange={(e) => updateRow('consumptionRows', row.id, {
+                                [col.key]: e.target.value,
+                                identify,
+                              })}
+                            />
+                          </td>
+                        ))}
+                        {editable ? (
+                          <td>
+                            <button
+                              type="button"
+                              className={styles.rowRemove}
+                              title="Remove"
+                              onClick={() => removeRow('consumptionRows', row.id)}
+                            >
+                              ×
+                            </button>
+                          </td>
+                        ) : null}
+                      </tr>
+                    ))}
+                    {!rows.length ? (
+                      <tr>
+                        <td colSpan={1 + dataCols.length + (editable ? 1 : 0)}>
+                          No {identify} rows
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+              {editable ? (
+                <button
+                  type="button"
+                  className={styles.addRowBtn}
+                  onClick={() => addRow('consumptionRows', () => createEmptyConsumptionRow(identify), { identify })}
+                >
+                  + Add {identify}
+                </button>
+              ) : null}
+            </div>
+          );
+          };
+
+          return (
+            <>
+              <div className={styles.speedDataBar}>
+                <span className={styles.speedDataLabel}>Speed Data</span>
+                <select
+                  id="speedDataType"
+                  value={speedDataType}
+                  disabled={readOnly}
+                  onChange={(e) => updateField('speedDataType', e.target.value)}
+                >
+                  {SPEED_DATA_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <Field id={ballastKey} label="Ballast Speed (Knots)">
+                  <input {...inputProps(ballastKey, { recalc: true })} placeholder="0.00" />
+                </Field>
+                <Field id={ladenKey} label="Laden Speed (Knots)">
+                  <input {...inputProps(ladenKey, { recalc: true })} placeholder="0.00" />
+                </Field>
+              </div>
+              {renderConsTable('FO Consp/day(MT) - At Sea', foRows, 'FO')}
+              {renderConsTable('DO Consp/day(MT) - At Sea', doRows, 'DO')}
+            </>
+          );
+        })()}
       </CollapsiblePanel>
 
 <CollapsiblePanel
         title="Cargo"
-        defaultOpen
+        defaultOpen={false}
         actions={editable ? (
             <Button
               type="button"
@@ -914,13 +1195,14 @@ export default function EstimateDetailSections({
               </tr>
             </thead>
             <tbody>
-              {(form.cargoRows || []).map((row) => (
+              {(form.cargoRows || []).map((row, cargoIndex) => (
                 <tr key={row.id}>
                   <td>
                     {readOnly ? (
                       row.cargoName || row.cargoId || '—'
                     ) : (
                       <select
+                        id={cargoIndex === 0 ? 'cargoId_0' : `cargoId_${cargoIndex}`}
                         value={row.cargoId}
                         onChange={(e) => {
                           const cargo = lookups.cargos.find((c) => String(c.id) === e.target.value);
@@ -1151,7 +1433,7 @@ export default function EstimateDetailSections({
       </CollapsiblePanel>
 
 
-      <CollapsiblePanel title="Demurrage Dispatch" defaultOpen>
+      <CollapsiblePanel title="Demurrage Dispatch" defaultOpen={false}>
         <div className={styles.headerGrid} style={{ marginBottom: 8 }}>
           <Field id="timeAllowed" label="Time Allowed (Days)">
             <input
@@ -1358,7 +1640,7 @@ export default function EstimateDetailSections({
       {estimateType === 1 || estimateType === 2 ? (
         <CollapsiblePanel
           title="Bunker Activity"
-          defaultOpen
+          defaultOpen={false}
           actions={editable ? (
             <Button
               type="button"
@@ -1494,7 +1776,7 @@ export default function EstimateDetailSections({
 
 <CollapsiblePanel
         title="Bunkers"
-        defaultOpen
+        defaultOpen={false}
         actions={editable ? (
             <Button
               type="button"
@@ -1584,7 +1866,7 @@ export default function EstimateDetailSections({
       </CollapsiblePanel>
 
 
-      <CollapsiblePanel title="Hire / Vessel Daily Ops" defaultOpen>
+      <CollapsiblePanel title="Hire / Vessel Daily Ops" defaultOpen={false}>
         <div className={styles.headerGrid}>
           <Field id="hireRate" label="Hire / Day ($)">
             <input
@@ -1612,6 +1894,15 @@ export default function EstimateDetailSections({
           <Field id="cveAmt" label="CVE ($)">
             <input id="cveAmt" value={form.cveAmt || ''} readOnly placeholder="0.00" />
           </Field>
+          <Field id="offHireCve" label="CVE Off Hire (/Month)">
+            <input {...inputProps('offHireCve', { recalc: true })} placeholder="0.00" />
+          </Field>
+          <Field id="offHireCveAmt" label="CVE Off Hire Amt">
+            <input id="offHireCveAmt" value={form.offHireCveAmt || ''} readOnly placeholder="0.00" />
+          </Field>
+          <Field id="lessOffHire" label="Less Off Hire">
+            <input id="lessOffHire" value={form.lessOffHire || form.totalOffHireAmt || ''} readOnly placeholder="0.00" />
+          </Field>
           <Field id="vesselDailyOps" label="Vessel Daily Ops ($)">
             <input {...inputProps('vesselDailyOps', { recalc: true })} />
           </Field>
@@ -1620,7 +1911,7 @@ export default function EstimateDetailSections({
 
       <CollapsiblePanel
         title="Brokerage Commission"
-        defaultOpen
+        defaultOpen={false}
         actions={editable ? (
           <Button
             type="button"
@@ -1933,7 +2224,7 @@ export default function EstimateDetailSections({
         </CollapsiblePanel>
       ) : null}
 
-      <CollapsiblePanel title="Freight / Commissions" defaultOpen>
+      <CollapsiblePanel title="Freight / Commissions" defaultOpen={false}>
           <div className={styles.headerGrid}>
             {showLumpsum ? (
               <>
@@ -1962,7 +2253,7 @@ export default function EstimateDetailSections({
 
       <CollapsiblePanel
         title="Profit Sharing"
-        defaultOpen
+        defaultOpen={false}
         actions={editable ? (
           <Button
             type="button"
@@ -2023,25 +2314,157 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
-<CollapsiblePanel title="Notes / Owner / Attachment" defaultOpen>
+<CollapsiblePanel title="COA / Spot Fixture" defaultOpen={false}>
           <div className={styles.headerGrid}>
-            <Field id="notes" label="Remarks">
-              <textarea
-                id="notes"
-                className={styles.textarea}
-                value={form.notes || ''}
-                readOnly={readOnly}
-                rows={3}
-                placeholder="Remarks ..."
-                onChange={(e) => updateField('notes', e.target.value)}
-              />
+            <Field id="openPort" label="Port Open">
+              {readOnly ? (
+                <input id="openPort" value={form.openPortName || form.openPort || '—'} readOnly />
+              ) : (
+                <PortSearchSelect
+                  id="openPort"
+                  value={form.openPort}
+                  label={form.openPortName}
+                  searchPorts={searchEstimatePorts}
+                  onChange={(portId, portName) => {
+                    applyPatch({ openPort: portId, openPortName: portName });
+                  }}
+                />
+              )}
+            </Field>
+            <Field id="zoneOpen" label="Zone Open">
+              {readOnly ? (
+                <input
+                  id="zoneOpen"
+                  value={
+                    (lookups.zones || []).find((z) => String(z.id) === String(form.zoneOpen))?.name
+                    || form.zoneOpen
+                    || '—'
+                  }
+                  readOnly
+                />
+              ) : (
+                <select
+                  id="zoneOpen"
+                  value={form.zoneOpen || ''}
+                  onChange={(e) => updateField('zoneOpen', e.target.value)}
+                >
+                  <option value="">Select from list</option>
+                  {(lookups.zones || []).map((zone) => (
+                    <option key={zone.id} value={zone.id}>{zone.name}</option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            <Field id="fixtureBroker" label="Broker">
+              {readOnly ? (
+                <input
+                  id="fixtureBroker"
+                  value={
+                    (lookups.fixtureBrokers || []).find(
+                      (b) => String(b.id) === String(form.fixtureBroker),
+                    )?.name
+                    || form.fixtureBroker
+                    || '—'
+                  }
+                  readOnly
+                />
+              ) : (
+                <select
+                  id="fixtureBroker"
+                  value={form.fixtureBroker || ''}
+                  onChange={(e) => updateField('fixtureBroker', e.target.value)}
+                >
+                  <option value="">Select from list</option>
+                  {(lookups.fixtureBrokers || []).map((broker) => (
+                    <option key={broker.id} value={broker.id}>{broker.name}</option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            <Field id="coaSpot" label="COA / Spot">
+              {readOnly ? (
+                <input
+                  id="coaSpot"
+                  value={
+                    COA_SPOT_OPTIONS.find((o) => o.value === String(form.coaSpot))?.label
+                    || form.coaSpot
+                    || '—'
+                  }
+                  readOnly
+                />
+              ) : (
+                <select
+                  id="coaSpot"
+                  value={form.coaSpot || ''}
+                  onChange={(e) => handleCoaSpotChange(e.target.value)}
+                >
+                  <option value="">Select from list</option>
+                  {COA_SPOT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            {showCoaFields ? (
+              <>
+                <Field id="coaNumber" label="COA Number">
+                  {readOnly ? (
+                    <input
+                      id="coaNumber"
+                      value={form.coaNumberLabel || form.coaNumber || '—'}
+                      readOnly
+                    />
+                  ) : (
+                    <select
+                      id="coaNumber"
+                      value={form.coaNumber || ''}
+                      onChange={(e) => handleCoaNumberChange(e.target.value)}
+                    >
+                      <option value="">Select from list</option>
+                      {coaOptions.map((coa) => (
+                        <option key={coa.id} value={coa.id}>{coa.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+                <Field id="coaNumberLift" label="Number of Lift">
+                  <input {...inputProps('coaNumberLift')} placeholder="Number of Lift" />
+                </Field>
+                <Field id="noOfShipment" label="Total No. of Shipments">
+                  <input id="noOfShipment" value={form.noOfShipment || ''} readOnly />
+                </Field>
+              </>
+            ) : null}
+            <Field id="cpDate" label="Fixture CP Date">
+              {readOnly ? (
+                <input id="cpDate" value={form.cpDate || ''} readOnly />
+              ) : (
+                <DmyDateInput
+                  id="cpDate"
+                  value={form.cpDate || ''}
+                  onChange={(value) => updateField('cpDate', value)}
+                />
+              )}
+            </Field>
+            <Field id="etaDate" label="ETA During Fixture">
+              {readOnly ? (
+                <input id="etaDate" value={form.etaDate || ''} readOnly />
+              ) : (
+                <DmyDateInput
+                  id="etaDate"
+                  value={form.etaDate || ''}
+                  onChange={(value) => updateField('etaDate', value)}
+                />
+              )}
             </Field>
             <Field id="ownerId" label="Owner">
               {readOnly ? (
                 <input
                   id="ownerId"
                   value={
-                    (lookups.owners || []).find((o) => String(o.id) === String(form.ownerId))?.name
+                    (lookups.ownBusiness || lookups.owners || []).find(
+                      (o) => String(o.id) === String(form.ownerId),
+                    )?.name
                     || form.ownerId
                     || '—'
                   }
@@ -2054,11 +2477,27 @@ export default function EstimateDetailSections({
                   onChange={(e) => updateField('ownerId', e.target.value)}
                 >
                   <option value="">Select owner</option>
-                  {(lookups.owners || []).map((o) => (
+                  {(lookups.ownBusiness || lookups.owners || []).map((o) => (
                     <option key={o.id} value={o.id}>{o.name}</option>
                   ))}
                 </select>
               )}
+            </Field>
+          </div>
+      </CollapsiblePanel>
+
+<CollapsiblePanel title="Notes / Attachment" defaultOpen={false}>
+          <div className={styles.headerGrid}>
+            <Field id="notes" label="Remarks">
+              <textarea
+                id="notes"
+                className={styles.textarea}
+                value={form.notes || ''}
+                readOnly={readOnly}
+                rows={3}
+                placeholder="Remarks ..."
+                onChange={(e) => updateField('notes', e.target.value)}
+              />
             </Field>
             <Field id="disponentOwner" label="Disponent Owner">
               <input {...inputProps('disponentOwner')} />

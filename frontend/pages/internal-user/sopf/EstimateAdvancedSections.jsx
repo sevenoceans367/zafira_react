@@ -1,12 +1,13 @@
 import React from 'react';
-import { DmyDateInput } from '@bainbridge/shared-ui';
+import { DmyDateInput, useAlert } from '@bainbridge/shared-ui';
+import { searchEstimatePorts } from '../../../services/estimateDetail.js';
+import WsPortMultiSelect from './WsPortMultiSelect.jsx';
 import {
   BUNKER_TYPE_OPTIONS,
   CURRENCY_OPTIONS,
   PASSAGE_TYPE_OPTIONS,
   SECA_IDENTIFY_OPTIONS,
   SPEED_TYPE_OPTIONS,
-  createEmptyConsumptionRow,
   createEmptyDeliveryBunkerRow,
   createEmptyFreightQtyRow,
   createEmptyInvoiceRow,
@@ -17,6 +18,7 @@ import {
   createEmptyDisponentRow,
   createEmptyVoyageEventRow,
 } from './estimateDetail.constants.js';
+import { getAddRowBlockMessage } from './estimateValidation.js';
 import styles from './UpdateEstimatePage.module.css';
 
 function newBunkerId() {
@@ -34,6 +36,7 @@ export default function EstimateAdvancedSections({
 }) {
   const editable = !readOnly;
   const isTanker = Number(estimateType) === 2;
+  const alert = useAlert();
 
   const updateField = (key, value) => {
     onFieldChange?.(key, value);
@@ -58,15 +61,74 @@ export default function EstimateAdvancedSections({
     else updateField(collection, rows);
   };
 
-  const addRow = (collection, factory) => {
+  const addRow = async (collection, factory, opts = {}) => {
+    const blockMessage = getAddRowBlockMessage(collection, form[collection] || [], opts);
+    if (blockMessage) {
+      await alert({ title: 'Alert', message: blockMessage, confirmLabel: 'OK' });
+      return;
+    }
     updateField(collection, [...(form[collection] || []), factory()]);
   };
 
   const removeRow = (collection, id) => {
     const rows = (form[collection] || []).filter((row) => row.id !== id);
     if (!rows.length) return;
-    if (onRecalc) onRecalc(collection, rows);
-    else updateField(collection, rows);
+    if (onRecalc) {
+      onRecalc(collection, rows);
+    } else {
+      updateField(collection, rows);
+    }
+  };
+
+  const updateTankerWsRow = (id, patch) => {
+    const rows = (form.tankerWsRows || []).map((row) => (
+      row.id === id ? { ...row, ...patch } : row
+    ));
+    const masterPatch = {};
+    const first = rows[0];
+    if (
+      first?.id === id
+      && ('wsFromPortId' in patch || 'wsToPortId' in patch)
+    ) {
+      masterPatch.tankWsFrom = first.wsFromPortId || '';
+      masterPatch.tankWsTo = first.wsToPortId || '';
+    }
+    if (onRecalc) {
+      onRecalc('tankerWsRows', rows);
+      if ('tankWsFrom' in masterPatch) onRecalc('tankWsFrom', masterPatch.tankWsFrom);
+      if ('tankWsTo' in masterPatch) onRecalc('tankWsTo', masterPatch.tankWsTo);
+      return;
+    }
+    applyPatch({ tankerWsRows: rows, ...masterPatch });
+  };
+
+  const handleTankerWsFieldChange = (row, key, value) => {
+    const patch = { [key]: value };
+    if (key === 'minFlatRate' && value) {
+      const half = Number(String(value).replace(/,/g, ''));
+      if (Number.isFinite(half)) patch.oveFlatRate = String(Math.round((half / 2) * 100) / 100);
+    }
+    if (key === 'minWs' && value) {
+      patch.oveWs = value;
+    }
+    updateTankerWsRow(row.id, patch);
+  };
+
+  const addTankerWsRow = async () => {
+    const blockMessage = getAddRowBlockMessage('tankerWsRows', form.tankerWsRows || []);
+    if (blockMessage) {
+      await alert({ title: 'Alert', message: blockMessage, confirmLabel: 'OK' });
+      return;
+    }
+    const row = createEmptyTankerWsRow();
+    const distance = form.totalDistance != null ? String(form.totalDistance) : '';
+    if (distance) {
+      row.minDistance = distance;
+      row.oveDistance = distance;
+    }
+    const rows = [...(form.tankerWsRows || []), row];
+    if (onRecalc) onRecalc('tankerWsRows', rows);
+    else updateField('tankerWsRows', rows);
   };
 
   const updateOffHireBunker = (offId, bunkerId, patch) => {
@@ -83,7 +145,14 @@ export default function EstimateAdvancedSections({
     else updateField('offHireRows', rows);
   };
 
-  const addOffHireBunker = (offId) => {
+  const addOffHireBunker = async (offId) => {
+    const offRow = (form.offHireRows || []).find((row) => row.id === offId);
+    const bunkers = offRow?.bunkers || [];
+    const last = bunkers[bunkers.length - 1];
+    if (last && (!String(last.bunkerGradeId || '').trim() || !String(last.qty || '').trim())) {
+      await alert({ title: 'Alert', message: 'Please fill previous data', confirmLabel: 'OK' });
+      return;
+    }
     const rows = (form.offHireRows || []).map((row) => {
       if (row.id !== offId) return row;
       return {
@@ -220,95 +289,6 @@ export default function EstimateAdvancedSections({
                           type="button"
                           className={styles.rowRemove}
                           onClick={() => removeRow('secaBunkerRows', row.id)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <span>FO / DO Consumption Matrix</span>
-          {editable ? (
-            <button
-              type="button"
-              className={styles.addRowBtn}
-              onClick={() => addRow('consumptionRows', () => createEmptyConsumptionRow('FO'))}
-            >
-              + Add
-            </button>
-          ) : null}
-        </div>
-        <div className={styles.panelBody}>
-          <div className={styles.tableWrap}>
-            <table className={styles.portTable}>
-              <thead>
-                <tr>
-                  <th>FO/DO</th>
-                  <th>Grade</th>
-                  <th>Bal SECA FS</th>
-                  <th>Lad SECA FS</th>
-                  <th>Bal Non FS</th>
-                  <th>Lad Non FS</th>
-                  <th>Bal SECA SS</th>
-                  <th>Lad SECA SS</th>
-                  <th>Inport SECA W</th>
-                  <th>Inport Non W</th>
-                  {editable ? <th /> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {(form.consumptionRows || []).map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <select
-                        value={row.identify}
-                        disabled={readOnly}
-                        onChange={(e) => updateRow('consumptionRows', row.id, { identify: e.target.value })}
-                      >
-                        {BUNKER_TYPE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <select
-                        value={row.bunkerGradeId}
-                        disabled={readOnly}
-                        onChange={(e) => updateRow('consumptionRows', row.id, { bunkerGradeId: e.target.value })}
-                      >
-                        <option value="">Select</option>
-                        {(lookups.bunkerGrades || []).map((g) => (
-                          <option key={g.id} value={g.id}>{g.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    {[
-                      'balSecaFs', 'ladSecaFs', 'balNonSecaFs', 'ladNonSecaFs',
-                      'balSecaSs', 'ladSecaSs', 'inPortSecaWorking', 'inPortNonSecaWorking',
-                    ].map((key) => (
-                      <td key={key}>
-                        <input
-                          value={row[key]}
-                          readOnly={readOnly}
-                          onChange={(e) => updateRow('consumptionRows', row.id, { [key]: e.target.value })}
-                        />
-                      </td>
-                    ))}
-                    {editable ? (
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowRemove}
-                          onClick={() => removeRow('consumptionRows', row.id)}
                           title="Remove"
                         >
                           ×
@@ -594,7 +574,7 @@ export default function EstimateAdvancedSections({
         </section>
       ) : null}
 
-      {isTanker && String(form.tankType || '1') === '2' ? (
+      {isTanker && String(form.tankType || '1') === '1' ? (
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
             <span>Tanker WS Freight Specs</span>
@@ -602,7 +582,7 @@ export default function EstimateAdvancedSections({
               <button
                 type="button"
                 className={styles.addRowBtn}
-                onClick={() => addRow('tankerWsRows', createEmptyTankerWsRow)}
+                onClick={addTankerWsRow}
               >
                 + Add
               </button>
@@ -621,8 +601,10 @@ export default function EstimateAdvancedSections({
                     <th>Ove Flat</th>
                     <th>Min WS</th>
                     <th>Ove WS</th>
-                    <th>Min Dist</th>
-                    <th>Ove Dist</th>
+                    <th>Min Dis Leg</th>
+                    <th>Ove Dis Leg</th>
+                    <th>Min Total Dist</th>
+                    <th>Ove Total Dist</th>
                     <th>Min Amt</th>
                     <th>Ove Amt</th>
                     <th>Total Qty</th>
@@ -631,56 +613,97 @@ export default function EstimateAdvancedSections({
                   </tr>
                 </thead>
                 <tbody>
-                  {(form.tankerWsRows || []).map((row) => (
-                    <tr key={row.id}>
-                      <td>
-                        <input
-                          value={row.freightSpecs}
-                          readOnly={readOnly}
-                          onChange={(e) => updateRow('tankerWsRows', row.id, { freightSpecs: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <select
-                          value={row.customerId}
-                          disabled={readOnly}
-                          onChange={(e) => updateRow('tankerWsRows', row.id, { customerId: e.target.value })}
-                        >
-                          <option value="">Select</option>
-                          {(lookups.owners || []).map((v) => (
-                            <option key={v.id} value={v.id}>{v.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      {[
-                        'minCargoQty', 'oveCargoQty', 'minFlatRate', 'oveFlatRate',
-                        'minWs', 'oveWs', 'minDistance', 'oveDistance',
-                      ].map((key) => (
-                        <td key={key}>
+                  {(form.tankerWsRows || []).map((row, rowIndex) => (
+                    <React.Fragment key={row.id}>
+                      <tr className={styles.tankerWsPortRow}>
+                        <td colSpan={editable ? 17 : 16}>
+                          <div className={styles.wsPortCombo}>
+                            <span className={styles.wsPortComboLabel}>WS Port(s) Combo</span>
+                            <div className={styles.wsPortComboField}>
+                              <span>From</span>
+                              <WsPortMultiSelect
+                                id={`wsFromPort_${rowIndex}`}
+                                value={row.wsFromPortId}
+                                label={row.wsFromPortName}
+                                readOnly={readOnly}
+                                searchPorts={searchEstimatePorts}
+                                onChange={(portIds, portNames) => {
+                                  updateTankerWsRow(row.id, {
+                                    wsFromPortId: portIds,
+                                    wsFromPortName: portNames,
+                                  });
+                                }}
+                              />
+                            </div>
+                            <div className={styles.wsPortComboField}>
+                              <span>To</span>
+                              <WsPortMultiSelect
+                                id={`wsToPort_${rowIndex}`}
+                                value={row.wsToPortId}
+                                label={row.wsToPortName}
+                                readOnly={readOnly}
+                                searchPorts={searchEstimatePorts}
+                                onChange={(portIds, portNames) => {
+                                  updateTankerWsRow(row.id, {
+                                    wsToPortId: portIds,
+                                    wsToPortName: portNames,
+                                  });
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>
                           <input
-                            value={row[key]}
+                            value={row.freightSpecs}
                             readOnly={readOnly}
-                            onChange={(e) => updateRow('tankerWsRows', row.id, { [key]: e.target.value })}
+                            onChange={(e) => handleTankerWsFieldChange(row, 'freightSpecs', e.target.value)}
                           />
                         </td>
-                      ))}
-                      <td><input value={row.minAmount} readOnly /></td>
-                      <td><input value={row.oveAmount} readOnly /></td>
-                      <td><input value={row.totalQty} readOnly /></td>
-                      <td><input value={row.totalAmount} readOnly /></td>
-                      {editable ? (
                         <td>
-                          <button
-                            type="button"
-                            className={styles.rowRemove}
-                            onClick={() => removeRow('tankerWsRows', row.id)}
-                            title="Remove"
+                          <select
+                            value={row.customerId}
+                            disabled={readOnly}
+                            onChange={(e) => handleTankerWsFieldChange(row, 'customerId', e.target.value)}
                           >
-                            ×
-                          </button>
+                            <option value="">Select</option>
+                            {(lookups.owners || []).map((v) => (
+                              <option key={v.id} value={v.id}>{v.name}</option>
+                            ))}
+                          </select>
                         </td>
-                      ) : null}
-                    </tr>
+                        {[
+                          'minCargoQty', 'oveCargoQty', 'minFlatRate', 'oveFlatRate',
+                          'minWs', 'oveWs', 'minDisLeg', 'oveDisLeg', 'minDistance', 'oveDistance',
+                        ].map((key) => (
+                          <td key={key}>
+                            <input
+                              value={row[key]}
+                              readOnly={readOnly}
+                              onChange={(e) => handleTankerWsFieldChange(row, key, e.target.value)}
+                            />
+                          </td>
+                        ))}
+                        <td><input value={row.minAmount} readOnly /></td>
+                        <td><input value={row.oveAmount} readOnly /></td>
+                        <td><input value={row.totalQty} readOnly /></td>
+                        <td><input value={row.totalAmount} readOnly /></td>
+                        {editable ? (
+                          <td>
+                            <button
+                              type="button"
+                              className={styles.rowRemove}
+                              onClick={() => removeRow('tankerWsRows', row.id)}
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          </td>
+                        ) : null}
+                      </tr>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -728,18 +751,30 @@ export default function EstimateAdvancedSections({
                         />
                       </td>
                       <td>
-                        <input
-                          value={row.from}
-                          readOnly={readOnly}
-                          onChange={(e) => updateRow('offHireRows', row.id, { from: e.target.value })}
-                        />
+                        {readOnly ? (
+                          <input value={row.from || ''} readOnly />
+                        ) : (
+                          <DmyDateInput
+                            id={`offHireFrom_${row.id}`}
+                            enableTime
+                            className=""
+                            value={row.from || ''}
+                            onChange={(value) => updateRow('offHireRows', row.id, { from: value })}
+                          />
+                        )}
                       </td>
                       <td>
-                        <input
-                          value={row.to}
-                          readOnly={readOnly}
-                          onChange={(e) => updateRow('offHireRows', row.id, { to: e.target.value })}
-                        />
+                        {readOnly ? (
+                          <input value={row.to || ''} readOnly />
+                        ) : (
+                          <DmyDateInput
+                            id={`offHireTo_${row.id}`}
+                            enableTime
+                            className=""
+                            value={row.to || ''}
+                            onChange={(value) => updateRow('offHireRows', row.id, { to: value })}
+                          />
+                        )}
                       </td>
                       <td>
                         <input

@@ -9,6 +9,7 @@ export default function PortSearchSelect({
   onChange,
   required = false,
   placeholder = 'Search port…',
+  id,
   /** Optional async (query) => [{ id, name }] — defaults to period-contract local search */
   searchPorts,
 }) {
@@ -110,8 +111,9 @@ export default function PortSearchSelect({
   const showMenu = open && menuStyle && (loading || results.length > 0 || query.trim().length > 0);
 
   return (
-    <div className={styles.wrap} ref={wrapRef}>
+    <div className={styles.wrap} ref={wrapRef} data-estimate-field-wrap={id || undefined}>
       <input
+        id={id}
         type="text"
         className={styles.input}
         value={query}

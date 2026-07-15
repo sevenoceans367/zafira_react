@@ -3,6 +3,22 @@ import { createPortal } from 'react-dom';
 import { searchVessels } from '../../../services/estimateDetail.js';
 import styles from './VesselSearchSelect.module.css';
 
+/** Strip Select2-style display labels: "NAME(COUNTRY-TYPE-IMO)" → search name or IMO. */
+function normalizeSearchTerm(raw) {
+  const term = String(raw || '').trim();
+  if (!term) return '';
+
+  const withMeta = term.match(/^(.*?)\(([^)]*)\)\s*$/);
+  if (withMeta) {
+    const baseName = withMeta[1].trim();
+    const meta = withMeta[2];
+    const imo = meta.split('-').pop()?.trim();
+    if (imo && /^\d{6,}$/.test(imo)) return imo;
+    if (baseName) return baseName;
+  }
+  return term;
+}
+
 export default function VesselSearchSelect({ value, label, onSelect }) {
   const [query, setQuery] = useState(label || '');
   const [results, setResults] = useState([]);
@@ -12,6 +28,7 @@ export default function VesselSearchSelect({ value, label, onSelect }) {
   const [menuStyle, setMenuStyle] = useState(null);
   const wrapRef = useRef(null);
   const menuRef = useRef(null);
+  const skipSearchRef = useRef(false);
 
   useEffect(() => {
     setQuery(label || '');
@@ -72,7 +89,18 @@ export default function VesselSearchSelect({ value, label, onSelect }) {
     }
 
     // Don't re-query while the field still shows the already-selected vessel.
-    if (value && label && term === String(label).trim()) {
+    const labelText = String(label || '').trim();
+    if (value && labelText && (term === labelText || term.startsWith(`${labelText}(`))) {
+      return undefined;
+    }
+    if (skipSearchRef.current) {
+      skipSearchRef.current = false;
+      return undefined;
+    }
+
+    const searchTerm = normalizeSearchTerm(term);
+    if (searchTerm.length < 2) {
+      setResults([]);
       return undefined;
     }
 
@@ -80,7 +108,7 @@ export default function VesselSearchSelect({ value, label, onSelect }) {
       setLoading(true);
       setError('');
       try {
-        const rows = await searchVessels(term);
+        const rows = await searchVessels(searchTerm);
         setResults(Array.isArray(rows) ? rows : []);
         setOpen(true);
       } catch (err) {
@@ -90,13 +118,15 @@ export default function VesselSearchSelect({ value, label, onSelect }) {
       } finally {
         setLoading(false);
       }
-    }, 300);
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [query, value, label]);
 
   const handlePick = (vessel) => {
-    setQuery(vessel.name || vessel.vesselName || '');
+    const display = vessel.vesselName || vessel.name || '';
+    skipSearchRef.current = true;
+    setQuery(display);
     setResults([]);
     setOpen(false);
     onSelect?.(vessel);

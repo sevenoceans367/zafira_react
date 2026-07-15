@@ -50,16 +50,33 @@ export async function fetchVesselEstimatePrefill(vesselId) {
 }
 
 export async function fetchPortDistance(payload) {
-  const response = await fetch(`${BASE}/port-distance`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to fetch port distance.');
+  const maxAttempts = 3;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(`${BASE}/port-distance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch port distance.');
+      }
+      return data;
+    } catch (err) {
+      lastError = err;
+      // Vite proxy ECONNRESET / Failed to fetch usually means backend was
+      // restarting (node --watch) or briefly unavailable — retry once or twice.
+      const msg = String(err?.message || err || '');
+      const transient = /failed to fetch|networkerror|econnreset|econnrefused|load failed/i.test(msg);
+      if (!transient || attempt === maxAttempts) break;
+      await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+    }
   }
-  return data;
+
+  throw lastError || new Error('Failed to fetch port distance.');
 }
 
 /** Seametrix-backed port search (PHP getportapi.php). */

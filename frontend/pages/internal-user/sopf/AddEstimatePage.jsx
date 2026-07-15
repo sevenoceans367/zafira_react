@@ -175,7 +175,7 @@ export default function AddEstimatePage() {
         setForm((current) => applyEstimateCalculations({
           ...current,
           vesselImoId: vessel.id,
-          vesselName: vessel.vesselName,
+          vesselName: vessel.vesselName || vessel.name || '',
           vesselType: String(vessel.vesselType ?? ''),
           flag: String(vessel.flag ?? ''),
           dwtSummer: vessel.dwt ? String(vessel.dwt) : '',

@@ -1,6 +1,10 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 import { ESTIMATE_TYPE_LABELS, formatDateDMY } from './estimateListMappers.js';
+import {
+  ensureCommercialParametersFromNavApi,
+  loadCommercialParameterRow,
+} from './commercialParametersNavApiSeed.js';
 
 function toDbDate(value) {
   if (!value) return null;
@@ -977,14 +981,222 @@ export async function dbGetEstimateDetail(id) {
   );
 }
 
+/** Vessel-type bands used when inserting API ships — mirrors PHP getVesselByImo.php */
+const API_VESSEL_TYPE_BANDS = [
+  { vesselTypeId: 2, businessType: 2, dwtFrom: 80000, dwtTo: 120000 },
+  { vesselTypeId: 3, businessType: 2, dwtFrom: 25000, dwtTo: 40000 },
+  { vesselTypeId: 4, businessType: 2, dwtFrom: 55000, dwtTo: 80000 },
+  { vesselTypeId: 5, businessType: 2, dwtFrom: 40000, dwtTo: 60000 },
+  { vesselTypeId: 10, businessType: 2, dwtFrom: 120000, dwtTo: 200000 },
+  { vesselTypeId: 22, businessType: 2, dwtFrom: 200000, dwtTo: 320000 },
+  { vesselTypeId: 23, businessType: 2, dwtFrom: 40000, dwtTo: 60000 },
+  { vesselTypeId: 24, businessType: 2, dwtFrom: 0, dwtTo: 25000 },
+  { vesselTypeId: 1, businessType: 3, dwtFrom: 80000, dwtTo: 85000 },
+  { vesselTypeId: 8, businessType: 3, dwtFrom: 50000, dwtTo: 60000 },
+  { vesselTypeId: 12, businessType: 3, dwtFrom: 60000, dwtTo: 65000 },
+  { vesselTypeId: 16, businessType: 3, dwtFrom: 200000, dwtTo: 300000 },
+  { vesselTypeId: 18, businessType: 3, dwtFrom: 60000, dwtTo: 80000 },
+  { vesselTypeId: 19, businessType: 3, dwtFrom: 120000, dwtTo: 200000 },
+  { vesselTypeId: 20, businessType: 3, dwtFrom: 10000, dwtTo: 35000 },
+  { vesselTypeId: 21, businessType: 3, dwtFrom: 35000, dwtTo: 50000 },
+];
+
+const TANKER_SHIP_TYPES = new Set([
+  'crude oil tanker',
+  'product tanker',
+  'chemical tanker',
+  'oil/chemical tanker',
+  'oil and chemical tanker',
+  'vegetable oil / edible oil tanker',
+  'bitumen / asphalt tanker',
+  'other tanker',
+]);
+
+function businessTypeFromShipType(shipType) {
+  const key = String(shipType || '').trim().toLowerCase();
+  if (key === 'bulk carrier') return 3;
+  if (TANKER_SHIP_TYPES.has(key)) return 2;
+  return 1;
+}
+
+function vesselTypeIdFromDwt(businessTypeId, dwt) {
+  const n = Number(dwt) || 0;
+  const match = API_VESSEL_TYPE_BANDS.find(
+    (band) => band.businessType === businessTypeId && band.dwtFrom <= n && band.dwtTo >= n,
+  );
+  return match?.vesselTypeId || 0;
+}
+
+function formatVesselSearchName(vesselName, countryCode, shipType, imoNo) {
+  const name = String(vesselName || '').trim();
+  const meta = [countryCode, shipType, imoNo].filter(Boolean).join('-');
+  return meta ? `${name}(${meta})` : name;
+}
+
+function mapDbVesselSearchRow(row, status = 'From DB') {
+  const shipType = row.VESSEL_TYPE_API || '';
+  return {
+    id: String(row.VESSEL_IMO_ID),
+    name: formatVesselSearchName(row.VESSEL_NAME, row.COUNTRY_CODE, shipType, row.IMO_NO),
+    vesselName: row.VESSEL_NAME ?? '',
+    imoNo: row.IMO_NO ?? '',
+    dwt: row.DWT != null ? String(row.DWT) : '',
+    vesselType: row.VESSEL_TYPE != null ? String(row.VESSEL_TYPE) : '',
+    shipType,
+    flag: row.FLAG != null ? String(row.FLAG) : '',
+    loa: row.LOA ?? '',
+    gnrt: row.GRT_NRT ?? '',
+    status,
+  };
+}
+
+/**
+ * Fallback when DB has no match — mirrors PHP getVesselByImo.php (NavAPI ShipDetails).
+ * Upserts into vessel_imo_master so the selected vessel has a VESSEL_IMO_ID.
+ */
+async function searchVesselsFromNavApi(term) {
+  const apiUrl = process.env.NAVAPI_SHIP_DETAILS_URL || 'https://v1.navapi.pro/data/base/ShipDetails';
+  const token = process.env.NAVAPI_SHIP_DETAILS_TOKEN
+    || '06a7fcf47f827decf942ee99fb05f8a21718038108684';
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ Q: term }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Vessel API returned ${response.status}`);
+  }
+
+  const payload = await response.json();
+  if (payload?.Metadata?.ResultMessage !== 'Success' || !Array.isArray(payload?.ApiResults)) {
+    return [];
+  }
+
+  const pool = getPool();
+  const results = [];
+
+  for (const ship of payload.ApiResults) {
+    const shipName = String(ship.ShipName || '').trim();
+    const imoNo = String(ship.ImoNumber || '').trim();
+    if (!shipName && !imoNo) continue;
+
+    const shipType = String(ship.ShipType || '').trim();
+    const countryCode = String(ship.CountryCode || '').trim();
+    const dwt = ship.DeadWeight ?? '';
+    const businessTypeId = businessTypeFromShipType(shipType);
+    const vesselTypeId = vesselTypeIdFromDwt(businessTypeId, dwt) || null;
+    const grossTon = ship.GrossTonnage ?? '';
+
+    const [existing] = await pool.query(
+      `SELECT VESSEL_IMO_ID, VESSEL_NAME, IMO_NO, DWT, VESSEL_TYPE, VESSEL_TYPE_API,
+              COUNTRY_CODE, FLAG, LOA, GRT_NRT
+       FROM vessel_imo_master
+       WHERE IMO_NO = ?
+       LIMIT 1`,
+      [imoNo],
+    );
+
+    if (!existing.length) {
+      const [insertResult] = await pool.query(
+        `INSERT INTO vessel_imo_master (
+          VESSEL_NAME, VESSEL_TYPE_API, COUNTRY_CODE, SHIP_FLAG, DWT, YEARBUILT,
+          CALL_SIGN, GROSS_TON, MMSI_NO, SHIP_MANAGER, SHIP_OWNER, OPERATION_STAT,
+          IMO_NO, BUSINESSTYPEID, MCOMPANYID, GRT_NRT, VESSEL_TYPE
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          shipName,
+          shipType,
+          countryCode,
+          ship.ShipFlag ?? '',
+          dwt,
+          ship.YearOfBuilt ?? '',
+          ship.CallSign ?? '',
+          grossTon,
+          ship.MmsiNumber ?? '',
+          typeof ship.ShipManager === 'string' ? ship.ShipManager : JSON.stringify(ship.ShipManager ?? ''),
+          typeof ship.ShipOwner === 'string' ? ship.ShipOwner : JSON.stringify(ship.ShipOwner ?? ''),
+          ship.OperationStatus ?? '',
+          imoNo,
+          businessTypeId,
+          appContext.companyId,
+          grossTon,
+          vesselTypeId,
+        ],
+      );
+      const newId = insertResult.insertId;
+      results.push({
+        id: String(newId),
+        name: formatVesselSearchName(shipName, countryCode, shipType, imoNo),
+        vesselName: shipName,
+        imoNo,
+        dwt: dwt !== '' && dwt != null ? String(dwt) : '',
+        vesselType: vesselTypeId != null ? String(vesselTypeId) : '',
+        shipType,
+        flag: '',
+        loa: '',
+        gnrt: grossTon !== '' && grossTon != null ? String(grossTon) : '',
+        status: 'From API',
+      });
+    } else {
+      const row = existing[0];
+      await pool.query(
+        `UPDATE vessel_imo_master
+         SET VESSEL_TYPE_API = ?, DWT = ?, GRT_NRT = ?
+         WHERE VESSEL_IMO_ID = ?`,
+        [shipType, dwt, grossTon, row.VESSEL_IMO_ID],
+      );
+      results.push({
+        id: String(row.VESSEL_IMO_ID),
+        name: formatVesselSearchName(row.VESSEL_NAME || shipName, countryCode, shipType, imoNo),
+        vesselName: row.VESSEL_NAME || shipName,
+        imoNo: row.IMO_NO || imoNo,
+        dwt: dwt !== '' && dwt != null ? String(dwt) : String(row.DWT ?? ''),
+        vesselType: row.VESSEL_TYPE != null ? String(row.VESSEL_TYPE) : '',
+        shipType,
+        flag: row.FLAG != null ? String(row.FLAG) : '',
+        loa: row.LOA ?? '',
+        gnrt: grossTon !== '' && grossTon != null ? String(grossTon) : String(row.GRT_NRT ?? ''),
+        status: 'From API',
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Vessel search for Add Estimate — mirrors PHP getVesselByImo.php:
+ * 1) Search vessel_imo_master
+ * 2) If empty, query NavAPI ShipDetails and upsert into DB
+ */
+/** Normalize UI display labels like "NAME(COUNTRY-TYPE-IMO)" before DB/API search. */
+function normalizeVesselSearchTerm(raw) {
+  const term = String(raw || '').trim();
+  if (!term) return '';
+  const withMeta = term.match(/^(.*?)\(([^)]*)\)\s*$/);
+  if (withMeta) {
+    const baseName = withMeta[1].trim();
+    const imo = withMeta[2].split('-').pop()?.trim();
+    if (imo && /^\d{6,}$/.test(imo)) return imo;
+    if (baseName) return baseName;
+  }
+  return term;
+}
+
 export async function dbSearchVessels(query) {
-  const term = String(query || '').trim();
+  const term = normalizeVesselSearchTerm(query);
   if (term.length < 2) return [];
 
   const pool = getPool();
   const like = `%${term}%`;
   const [rows] = await pool.query(
-    `SELECT VESSEL_IMO_ID, VESSEL_NAME, IMO_NO, DWT, VESSEL_TYPE, FLAG, LOA, GRT_NRT
+    `SELECT VESSEL_IMO_ID, VESSEL_NAME, IMO_NO, DWT, VESSEL_TYPE, VESSEL_TYPE_API,
+            COUNTRY_CODE, FLAG, LOA, GRT_NRT
      FROM vessel_imo_master
      WHERE VESSEL_NAME LIKE ? OR IMO_NO LIKE ?
      ORDER BY VESSEL_NAME
@@ -992,17 +1204,19 @@ export async function dbSearchVessels(query) {
     [like, like],
   );
 
-  return rows.map((row) => ({
-    id: String(row.VESSEL_IMO_ID),
-    name: `${row.VESSEL_NAME ?? ''} (${row.IMO_NO ?? ''})`.trim(),
-    vesselName: row.VESSEL_NAME ?? '',
-    imoNo: row.IMO_NO ?? '',
-    dwt: row.DWT ?? '',
-    vesselType: row.VESSEL_TYPE ?? '',
-    flag: row.FLAG ?? '',
-    loa: row.LOA ?? '',
-    gnrt: row.GRT_NRT ?? '',
-  }));
+  if (rows.length) {
+    return rows.map((row) => mapDbVesselSearchRow(row, 'From DB'));
+  }
+
+  // PHP transport waits until 3+ chars before calling the external API
+  if (term.length < 3) return [];
+
+  try {
+    return await searchVesselsFromNavApi(term);
+  } catch (err) {
+    console.error('NavAPI ShipDetails vessel search failed:', err.message || err);
+    return [];
+  }
 }
 
 function strOrEmpty(value) {
@@ -1021,7 +1235,7 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
 
   const [vesselRows] = await pool.query(
     `SELECT vim.VESSEL_IMO_ID, vim.VESSEL_NAME, vim.IMO_NO, vim.DWT, vim.VESSEL_TYPE,
-            vim.BUSINESSTYPEID, vim.FLAG, vim.SHIP_FLAG, vim.LOA, vim.EXT_BREADTH,
+            vim.VESSEL_TYPE_API, vim.BUSINESSTYPEID, vim.FLAG, vim.SHIP_FLAG, vim.LOA, vim.EXT_BREADTH,
             vim.GRT_NRT, vim.NRT, vim.YEARBUILT, vim.CARGO_GEAR, vim.GRAIN, vim.BALE,
             vim.DRAFTM, vt.VesselType AS vesselTypeName, cm.COUNTRY_NAME AS flagName
      FROM vessel_imo_master vim
@@ -1035,6 +1249,9 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
   if (!vessel) return null;
 
   const businessTypeId = Number(vessel.BUSINESSTYPEID) || 2;
+
+  // PHP getVesselDetails() auto-seeds vessel_commercial_parameters from NavAPI ShipProfile.
+  await ensureCommercialParametersFromNavApi(pool, id, vessel);
 
   let tpc = '';
   let dwtTropical = '';
@@ -1059,15 +1276,15 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
     tpc = strOrEmpty(tankerRows[0]?.TPC_SUMMER);
   }
 
-  const [paramRows] = await pool.query(
-    `SELECT *
-     FROM vessel_commercial_parameters
-     WHERE VESSEL_IMO_ID = ? AND MODULEID = ?
-     LIMIT 1`,
-    [id, appContext.moduleId],
-  );
-  const param = paramRows[0] || null;
+  const param = await loadCommercialParameterRow(pool, id, appContext.moduleId);
   const commercialParameterId = param?.COMMERCIAL_PARAMETERID || null;
+
+  const [anyParamRows] = await pool.query(
+    `SELECT COMMERCIAL_PARAMETERID FROM vessel_commercial_parameters
+     WHERE VESSEL_IMO_ID = ?
+     LIMIT 1`,
+    [id],
+  );
 
   let atSea = [];
   let inPort = [];
@@ -1238,7 +1455,7 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
     grainCap: strOrEmpty(vessel.GRAIN),
     baleCap: strOrEmpty(vessel.BALE),
     loadable: strOrEmpty(vessel.DWT),
-    hasCommercialParameters: Boolean(param),
+    hasCommercialParameters: anyParamRows.length > 0,
     toPort: lastLeg?.toPort != null ? String(lastLeg.toPort) : '',
     toPortName: lastLeg?.toPortName && lastLeg.toPortName !== ' ()' ? String(lastLeg.toPortName) : '',
     lastDepartureDate,

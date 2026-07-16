@@ -542,6 +542,7 @@ export function computeEstimateTotals(form) {
     const ddcLpEst = num(leg.ddcLpEst) || calcDemurrageEst(leg.demmDaysLp, leg.demmRateLp);
     const ddcDpEst = num(leg.ddcDpEst) || calcDemurrageEst(leg.demmDaysDp, leg.demmRateDp);
     const nonSecaDistance = Math.max(0, num(leg.distance) - num(leg.secaDistance));
+    const nonSecaDays = Math.max(0, round3(days - secaDays));
 
     seaDays += days;
     return {
@@ -554,6 +555,7 @@ export function computeEstimateTotals(form) {
       portIdleDays: portIdleDays ? String(portIdleDays) : '',
       nonSecaDistance: String(round2(nonSecaDistance)),
       secaDays: secaDays ? String(secaDays) : '',
+      nonSecaDays: nonSecaDays ? String(nonSecaDays) : '',
       ddcLpEst: ddcLpEst ? String(ddcLpEst) : (leg.ddcLpEst || ''),
       ddcDpEst: ddcDpEst ? String(ddcDpEst) : (leg.ddcDpEst || ''),
     };

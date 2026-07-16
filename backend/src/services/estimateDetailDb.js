@@ -264,6 +264,13 @@ function mapPortLeg(row, index) {
     // PHP selNSBG / selSBG
     bgNonSeca: row.BG_NON_SECA || 'VLSFO',
     bgSeca: row.BG_SECA || 'LSMGO',
+    // PHP targetSelectLp_ / targetSelectDp_ → SEL_CARGO_LP / SEL_CARGO_DP
+    lpCargoId: row.SEL_CARGO_LP != null && String(row.SEL_CARGO_LP).trim() !== ''
+      ? String(row.SEL_CARGO_LP).trim()
+      : '',
+    dpCargoId: row.SEL_CARGO_DP != null && String(row.SEL_CARGO_DP).trim() !== ''
+      ? String(row.SEL_CARGO_DP).trim()
+      : '',
     lpBunkerGrades: (row.BUNKER_GRADE_LP || row.LOAD_PORT_BUNKER_GRADE)
       ? String(row.BUNKER_GRADE_LP || row.LOAD_PORT_BUNKER_GRADE).split(',').map((s) => s.trim()).filter(Boolean)
       : ['VLSFO'],
@@ -610,9 +617,34 @@ function mapEstimateDetail(
   // PHP stores selected cargo names on master.CARGO_ID; slave rows sometimes lack CARGOID.
   const cargosWithIds = mappedCargos.map((row, index) => {
     if (row.cargoId) return row;
-    const fallbackId = masterCargoIds[index] || masterCargoIds[0] || '';
-    return fallbackId ? { ...row, cargoId: fallbackId } : row;
+    const fallbackId = masterCargoIds[index] || '';
+    return fallbackId ? { ...row, cargoId: fallbackId, cargoName: row.cargoName || '' } : row;
   });
+
+  // If master has cargo ids but no matching slave rows, still expose them for the multi-select.
+  const mainCargoRows = cargosWithIds.filter((row) => Number(row.status) === 1 || !row.status);
+  const ensuredMainCargos = masterCargoIds.length
+    ? masterCargoIds.map((cargoId, index) => {
+      const existing = mainCargoRows.find((row) => String(row.cargoId) === String(cargoId))
+        || mainCargoRows[index];
+      if (existing) {
+        return { ...existing, cargoId: String(cargoId) };
+      }
+      return {
+        id: `cargo-master-${cargoId}`,
+        cargoId: String(cargoId),
+        cargoName: '',
+        cargoCbm: '',
+        cargoMt: '',
+        rateUsdMt: '',
+        amountUsd: '',
+        charterer: '',
+        demAmt: '',
+        vendorId: '',
+        status: 1,
+      };
+    })
+    : mainCargoRows;
   const brokerRows = (Array.isArray(brokerageRows) ? brokerageRows : (brokerageRows ? [brokerageRows] : []))
     .map((row, index) => mapBrokerRow(row, index));
   const firstBroker = brokerRows[0] || null;
@@ -791,7 +823,7 @@ function mapEstimateDetail(
     fixed: Number(master.FIXED) === 1,
     portLegs: portLegs.map((row, index) => mapPortLeg(row, index)),
     cargoIds: masterCargoIds,
-    cargoRows: cargosWithIds.filter((row) => Number(row.status) === 1 || !row.status),
+    cargoRows: ensuredMainCargos,
     overageCargoRows: cargosWithIds.filter((row) => Number(row.status) === 2),
     deadfreightCargoRows: cargosWithIds.filter((row) => Number(row.status) === 3),
     bunkerRows: bunkerRows.map((row, index) => mapBunkerRow(row, index)),
@@ -835,13 +867,13 @@ export async function dbGetEstimateLookups(estimateType = 2) {
   const pool = getPool();
   const type = Number(estimateType) || 2;
 
+  // PHP getCargoNameListForMultiple: MATERIAL_TYPEID = estimate type (1 Gas / 2 Tanker / 3 Dry)
   const [cargos] = await pool.query(
     `SELECT MATERIALID AS id, MATERIAL_CODE_DESC AS name
      FROM cargo_master
-     WHERE (MATERIAL_TYPEID = ? OR MATERIAL_TYPEID IS NULL OR MATERIAL_TYPEID = '')
-     ORDER BY MATERIAL_CODE_DESC
-     LIMIT 500`,
-    [type],
+     WHERE CAST(MATERIAL_TYPEID AS CHAR) = ?
+     ORDER BY MATERIAL_CODE_DESC`,
+    [String(type)],
   );
 
   let cargoRows = cargos;
@@ -850,10 +882,17 @@ export async function dbGetEstimateLookups(estimateType = 2) {
       `SELECT MATERIALID AS id, MATERIAL_CODE_DESC AS name
        FROM cargo_master
        ORDER BY MATERIAL_CODE_DESC
-       LIMIT 500`,
+       LIMIT 1000`,
     );
     cargoRows = allCargos;
   }
+
+  const mapCargoOption = (row) => ({
+    id: String(row.id ?? row.MATERIALID ?? row.materialid ?? ''),
+    name: String(row.name ?? row.MATERIAL_CODE_DESC ?? row.material_code_desc ?? '').trim()
+      || String(row.id ?? row.MATERIALID ?? row.materialid ?? ''),
+  });
+
 
   const [bunkerGrades] = await pool.query(
     `SELECT BUNKERGRADEID AS id, NAME AS name, BUNKERTYPE,
@@ -979,7 +1018,7 @@ export async function dbGetEstimateLookups(estimateType = 2) {
   });
 
   return {
-    cargos: cargoRows.map((row) => ({ id: String(row.id), name: row.name ?? '' })),
+    cargos: cargoRows.map(mapCargoOption).filter((row) => row.id),
     bunkerGrades: bunkerGrades.map((row) => ({
       id: String(row.id),
       name: row.name ?? '',
@@ -2270,8 +2309,8 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         DEMMDAYSLP, DEMMRATELP, DEMMDAYSDP, DEMMRATEDP,
         CHK_LP_SECA, CHK_DP_SECA, CHK_TP_SECA,
         BG_NON_SECA, BG_SECA, BUNKER_GRADE_LP, BUNKER_GRADE_DP, BUNKER_GRADE_TP,
-        CHARTERERACCOUNT, CHK_MAND
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        CHARTERERACCOUNT, CHK_MAND, SEL_CARGO_LP, SEL_CARGO_DP
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         fcaId,
         leg.fromPortId || null,
@@ -2323,6 +2362,8 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         Array.isArray(leg.tpBunkerGrades) ? leg.tpBunkerGrades.join(',') : (leg.tpBunkerGrades || 'VLSFO'),
         numOrNull(leg.chartererAccountDays),
         leg.portFunction || null,
+        leg.lpCargoId || null,
+        leg.dpCargoId || null,
       ],
     );
   }

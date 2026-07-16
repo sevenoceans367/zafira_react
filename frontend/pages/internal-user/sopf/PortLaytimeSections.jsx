@@ -20,17 +20,49 @@ function shortPortName(name) {
   return part || name;
 }
 
-function buildCargoOptions(cargoRows = [], cargos = []) {
-  const cargoName = (id) => (
-    cargos.find((item) => String(item.id) === String(id))?.name || id || 'Cargo'
+function buildCargoOptions(cargoRows = [], cargos = [], extraIds = []) {
+  const cargoName = (id, fallback = '') => (
+    cargos.find((item) => String(item.id) === String(id))?.name
+    || fallback
+    || id
+    || 'Cargo'
   );
-  return cargoRows
-    .filter((row) => row.cargoId)
-    .map((row) => ({
-      id: row.id,
-      cargoId: row.cargoId,
-      label: cargoName(row.cargoId),
+
+  // PHP targetSelectLp/Dp: options = cargos chosen in Cargo Name (selCName)
+  const seen = new Set();
+  const fromSelected = [];
+  for (const row of cargoRows || []) {
+    const cargoId = String(row.cargoId || '').trim();
+    if (!cargoId || cargoId === '0' || seen.has(cargoId)) continue;
+    seen.add(cargoId);
+    fromSelected.push({
+      id: cargoId,
+      label: cargoName(cargoId, row.cargoName),
       mt: row.cargoMt || '',
+    });
+  }
+
+  // Keep persisted LP/DP selections visible even if not in current Cargo Name list
+  for (const rawId of extraIds || []) {
+    const cargoId = String(rawId || '').trim();
+    if (!cargoId || cargoId === '0' || seen.has(cargoId)) continue;
+    seen.add(cargoId);
+    fromSelected.push({
+      id: cargoId,
+      label: cargoName(cargoId),
+      mt: '',
+    });
+  }
+
+  if (fromSelected.length) return fromSelected;
+
+  // Fallback: full lookup list so the dropdown is never empty before Cargo Name is set
+  return (cargos || [])
+    .filter((item) => item.id)
+    .map((item) => ({
+      id: String(item.id),
+      label: item.name || String(item.id),
+      mt: '',
     }));
 }
 
@@ -48,11 +80,12 @@ function displayWorkDays(leg, side) {
 function BunkerGradeSelect({ value, disabled, onChange }) {
   return (
     <CountryMultiSelect
+      compact
       options={BUNKER_GRADE_LOOKUP}
       value={Array.isArray(value) ? value : []}
       onChange={onChange}
       placeholder="Grades…"
-      searchPlaceholder="Search grade…"
+      searchPlaceholder="Search…"
       disabled={disabled}
     />
   );
@@ -65,10 +98,10 @@ export default function PortLaytimeSections({
   updateRow,
 }) {
   const legs = form.portLegs || [];
-  const cargoOptions = useMemo(
-    () => buildCargoOptions(form.cargoRows, lookups.cargos),
-    [form.cargoRows, lookups.cargos],
-  );
+  const cargoOptions = useMemo(() => {
+    const persistedIds = (form.portLegs || []).flatMap((leg) => [leg.lpCargoId, leg.dpCargoId]);
+    return buildCargoOptions(form.cargoRows, lookups.cargos, persistedIds);
+  }, [form.cargoRows, form.portLegs, lookups.cargos]);
 
   if (!legs.length) {
     return (
@@ -82,10 +115,25 @@ export default function PortLaytimeSections({
     updateRow('portLegs', legId, patch);
   };
 
-  const applyCargoToQty = (legId, cargoRowId, side) => {
-    const cargo = cargoOptions.find((item) => item.id === cargoRowId);
-    if (!cargo?.mt) return;
-    patchLeg(legId, side === 'load' ? { loadQty: cargo.mt } : { dischargeQty: cargo.mt });
+  const selectPortCargo = (legId, cargoId, side) => {
+    const fromOptions = cargoOptions.find((item) => String(item.id) === String(cargoId));
+    const cargoRow = (form.cargoRows || []).find(
+      (row) => String(row.cargoId) === String(cargoId),
+    );
+    const mt = cargoId
+      ? (cargoRow?.cargoMt || fromOptions?.mt || '')
+      : '';
+    if (side === 'load') {
+      patchLeg(legId, {
+        lpCargoId: cargoId || '',
+        ...(mt ? { loadQty: mt } : {}),
+      });
+      return;
+    }
+    patchLeg(legId, {
+      dpCargoId: cargoId || '',
+      ...(mt ? { dischargeQty: mt } : {}),
+    });
   };
 
   return (
@@ -102,17 +150,17 @@ export default function PortLaytimeSections({
                   <th>Cargo</th>
                   <th>Cost ($)</th>
                   <th>Qty (MT)</th>
-                  <th>Rate (MT/Day)</th>
+                  <th className={styles.thStack}><span>Rate</span><span>(MT/Day)</span></th>
                   <th>Terms</th>
-                  <th>Total Portstay Days</th>
-                  <th>Idle Days</th>
+                  <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
+                  <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
                   <th>SECA?</th>
                 </tr>
               </thead>
               <tbody>
                 {legs.map((leg) => (
                   <tr key={`lp-${leg.id}`}>
-                    <td>
+                    <td className={styles.bunkerGradeCell}>
                       <BunkerGradeSelect
                         value={leg.lpBunkerGrades}
                         disabled={readOnly}
@@ -120,15 +168,16 @@ export default function PortLaytimeSections({
                       />
                     </td>
                     <td className={styles.portNameCell}>{shortPortName(leg.fromPortName || leg.fromPortId)}</td>
-                    <td>
+                    <td className={styles.cargoSelectCell}>
                       <select
-                        value=""
+                        value={leg.lpCargoId || ''}
                         disabled={readOnly || !cargoOptions.length}
-                        onChange={(e) => applyCargoToQty(leg.id, e.target.value, 'load')}
+                        onChange={(e) => selectPortCargo(leg.id, e.target.value, 'load')}
+                        title={cargoOptions.find((item) => String(item.id) === String(leg.lpCargoId))?.label || ''}
                       >
-                        <option value="">— Select cargo —</option>
+                        <option value="">— Select —</option>
                         {cargoOptions.map((item) => (
-                          <option key={item.id} value={item.id}>{item.label}</option>
+                          <option key={`lp-${leg.id}-${item.id}`} value={item.id}>{item.label}</option>
                         ))}
                       </select>
                     </td>
@@ -208,17 +257,17 @@ export default function PortLaytimeSections({
                   <th>Cargo</th>
                   <th>Cost ($)</th>
                   <th>Qty (MT)</th>
-                  <th>Rate (MT/Day)</th>
+                  <th className={styles.thStack}><span>Rate</span><span>(MT/Day)</span></th>
                   <th>Terms</th>
-                  <th>Total Portstay Days</th>
-                  <th>Idle Days</th>
+                  <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
+                  <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
                   <th>SECA?</th>
                 </tr>
               </thead>
               <tbody>
                 {legs.map((leg) => (
                   <tr key={`dp-${leg.id}`}>
-                    <td>
+                    <td className={styles.bunkerGradeCell}>
                       <BunkerGradeSelect
                         value={leg.dpBunkerGrades}
                         disabled={readOnly}
@@ -226,15 +275,16 @@ export default function PortLaytimeSections({
                       />
                     </td>
                     <td className={styles.portNameCell}>{shortPortName(leg.toPortName || leg.toPortId)}</td>
-                    <td>
+                    <td className={styles.cargoSelectCell}>
                       <select
-                        value=""
+                        value={leg.dpCargoId || ''}
                         disabled={readOnly || !cargoOptions.length}
-                        onChange={(e) => applyCargoToQty(leg.id, e.target.value, 'disc')}
+                        onChange={(e) => selectPortCargo(leg.id, e.target.value, 'disc')}
+                        title={cargoOptions.find((item) => String(item.id) === String(leg.dpCargoId))?.label || ''}
                       >
-                        <option value="">— Select cargo —</option>
+                        <option value="">— Select —</option>
                         {cargoOptions.map((item) => (
-                          <option key={item.id} value={item.id}>{item.label}</option>
+                          <option key={`dp-${leg.id}-${item.id}`} value={item.id}>{item.label}</option>
                         ))}
                       </select>
                     </td>
@@ -321,7 +371,7 @@ export default function PortLaytimeSections({
               <tbody>
                 {legs.map((leg) => (
                   <tr key={`tp-${leg.id}`}>
-                    <td>
+                    <td className={styles.bunkerGradeCell}>
                       <BunkerGradeSelect
                         value={leg.tpBunkerGrades}
                         disabled={readOnly}

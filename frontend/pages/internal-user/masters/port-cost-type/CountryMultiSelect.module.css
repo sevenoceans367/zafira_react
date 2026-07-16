@@ -4,7 +4,7 @@
 
 .control {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   width: 100%;
   min-height: 38px;
@@ -25,14 +25,15 @@
   display: flex;
   flex: 1;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
+  align-items: center;
 }
 
 .placeholder {
   color: #9ca3af;
   font-size: var(--font-size-body, 12px);
-  line-height: 24px;
+  line-height: 20px;
 }
 
 .chip {
@@ -40,18 +41,27 @@
   align-items: center;
   gap: 4px;
   max-width: 100%;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #e8f1f7;
-  color: #1b77a6;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-accent, #f4652c) 16%, #fff);
+  color: var(--color-accent, #f4652c);
+  border: 1px solid color-mix(in srgb, var(--color-accent, #f4652c) 35%, #fff);
   font-size: 11px;
-  line-height: 1.4;
+  line-height: 1.35;
+}
+
+.chipLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
 }
 
 .chipRemove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -61,13 +71,13 @@
 }
 
 .chipRemove:hover {
-  background: rgba(27, 119, 166, 0.15);
+  background: color-mix(in srgb, var(--color-accent, #f4652c) 20%, transparent);
 }
 
 .chevron {
-  margin-top: 4px;
   color: #6b7280;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .dropdown {
@@ -76,6 +86,7 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
+  min-width: 160px;
   display: flex;
   flex-direction: column;
   max-height: 260px;
@@ -84,6 +95,49 @@
   background: #fff;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
   overflow: hidden;
+}
+
+.dropdownPortal {
+  position: fixed;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+}
+
+.compactDropdown {
+  max-height: 200px;
+  min-width: 180px;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+}
+
+.compactDropdown .search {
+  min-height: 26px;
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
+.compactDropdown .option {
+  padding: 5px 8px;
+  font-size: 10px;
+  align-items: center;
+  gap: 8px;
+}
+
+.compactDropdown .optionCheck {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.compactDropdown .optionLabel {
+  line-height: 13px;
+}
+
+.compactDropdown .empty {
+  padding: 8px;
+  font-size: 10px;
 }
 
 .search {
@@ -105,23 +159,88 @@
 
 .option {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   font-size: var(--font-size-body, 12px);
   cursor: pointer;
+  line-height: 1.2;
 }
 
 .option:hover {
   background: #f3f6f9;
 }
 
-.option input {
-  margin-top: 2px;
+.optionCheck {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+  accent-color: var(--color-accent, #f4652c);
+}
+
+.optionLabel {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 .empty {
   padding: 12px 10px;
   color: #6b7280;
   font-size: 12px;
+}
+
+/* Compact mode for dense estimate forms / table cells */
+.compact {
+  max-width: 100%;
+  width: 100%;
+}
+
+.compact .control {
+  min-height: 24px;
+  padding: 1px 6px;
+  align-items: center;
+  border-radius: 3px;
+}
+
+.compact .chips {
+  gap: 3px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.compact .placeholder {
+  font-size: 10px;
+  line-height: 18px;
+  color: #9ca3af;
+}
+
+.compact .chip {
+  padding: 0 5px;
+  font-size: 10px;
+  line-height: 16px;
+  max-width: 100%;
+}
+
+.compact .chipLabel {
+  max-width: 90px;
+}
+
+.compact .chipRemove {
+  width: 12px;
+  height: 12px;
+  font-size: 11px;
+}
+
+.compact .chevron {
+  font-size: 10px;
+}
+
+.compact .empty {
+  padding: 8px;
+  font-size: 10px;
 }

@@ -8,7 +8,9 @@ import {
   BUNKER_ACTIVITY_OPTIONS,
   BUNKER_ACTIVITY_RATE_FIELD,
   FIXTURE_TYPE_OPTIONS,
+  NSBG_OPTIONS,
   PASSAGE_TYPE_OPTIONS,
+  SBG_OPTIONS,
   SPEED_DATA_OPTIONS,
   SPEED_TYPE_OPTIONS,
   CONSUMPTION_PORT_COLUMNS,
@@ -97,9 +99,11 @@ export default function EstimateDetailSections({
 
     const speed = pickPassageSpeedKnots(form, leg.passageType, leg.speedType);
     const seaDays = calcSeaDaysWithSeca(patch.distance, patch.secaDistance, speed, leg.seaMargin);
+    const secaDays = calcSeaDays(patch.secaDistance, speed, leg.seaMargin);
     const totalDistance = Number(patch.distance) || 0;
     const secaDistance = Number(patch.secaDistance) || 0;
     const nonSecaDistance = Math.max(0, totalDistance - secaDistance);
+    const nonSecaDays = Math.max(0, Number((seaDays - secaDays).toFixed(3)));
 
     const nextLegs = (form.portLegs || []).map((row) => (
       row.id === legId
@@ -110,6 +114,8 @@ export default function EstimateDetailSections({
           nonSecaDistance: String(Number(nonSecaDistance.toFixed(3))),
           navMethod: patch.navMethod || row.navMethod || '',
           seaDays: seaDays ? String(seaDays) : '',
+          secaDays: secaDays ? String(secaDays) : '',
+          nonSecaDays: nonSecaDays ? String(nonSecaDays) : '',
         }
         : row
     ));
@@ -453,222 +459,295 @@ export default function EstimateDetailSections({
               label="Itinerary"
               onClick={() => setItineraryOpen(true)}
             />
-            {editable ? (
-              <Button
-                type="button"
-                variant="outline"
-                label="Add Leg"
-                onClick={() => addRow('portLegs', createEmptyPortLeg)}
-              />
-            ) : null}
           </div>
         )}
       >
-        <div className={styles.tableWrap}>
-          <table className={styles.portTable}>
-            <thead>
-              <tr>
-                <th>From</th>
-                <th>To</th>
-                <th>Passage</th>
-                <th>Speed</th>
-                <th>Navigation</th>
-                {editable ? <th>Fetch</th> : null}
-                <th>Distance</th>
-                <th>Wx %</th>
-                <th>Sea Days</th>
-                <th>From Arr</th>
-                <th>From Dep</th>
-                <th>To Arr</th>
-                <th>To Dep</th>
-                <th>SECA Dist</th>
-                {editable ? <th /> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {(form.portLegs || []).map((leg, legIndex) => (
-                <tr key={leg.id}>
-                  <td>
-                    {readOnly ? (
-                      leg.fromPortName || leg.fromPortId || '—'
-                    ) : (
-                      <PortSearchSelect
-                        id={legIndex === 0 ? 'portFrom_0' : `portFrom_${legIndex}`}
-                        value={leg.fromPortId}
-                        label={leg.fromPortName}
-                        searchPorts={searchEstimatePorts}
-                        onChange={(portId, portName) => {
-                          updateRow('portLegs', leg.id, {
-                            fromPortId: portId,
-                            fromPortName: portName,
-                          });
-                        }}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      leg.toPortName || leg.toPortId || '—'
-                    ) : (
-                      <PortSearchSelect
-                        id={legIndex === 0 ? 'portTo_0' : `portTo_${legIndex}`}
-                        value={leg.toPortId}
-                        label={leg.toPortName}
-                        searchPorts={searchEstimatePorts}
-                        onChange={(portId, portName) => {
-                          updateRow('portLegs', leg.id, {
-                            toPortId: portId,
-                            toPortName: portName,
-                          });
-                        }}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    <select
-                      id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
-                      value={leg.passageType}
-                      disabled={readOnly}
-                      onChange={(e) => updateRow('portLegs', leg.id, { passageType: e.target.value })}
-                    >
-                      {PASSAGE_TYPE_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      id={legIndex === 0 ? 'portSpeed_0' : `portSpeed_${legIndex}`}
-                      value={leg.speedType}
-                      disabled={readOnly}
-                      onChange={(e) => updateRow('portLegs', leg.id, { speedType: e.target.value })}
-                    >
-                      {SPEED_TYPE_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      id={legIndex === 0 ? 'portNav_0' : `portNav_${legIndex}`}
-                      value={leg.navMethod || ''}
-                      disabled={readOnly}
-                      onChange={(e) => updateRow('portLegs', leg.id, { navMethod: e.target.value })}
-                    >
-                      {NAVIGATION_METHOD_OPTIONS.map((o) => (
-                        <option key={o.value || 'none'} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  {editable ? (
-                    <td>
-                      <button
-                        type="button"
-                        className={styles.fetchBtn}
-                        onClick={() => openDistanceFetch(leg)}
-                      >
-                        Fetch
-                      </button>
-                    </td>
-                  ) : null}
-                  <td>
-                    <input
-                      id={legIndex === 0 ? 'portDistance_0' : `portDistance_${legIndex}`}
-                      value={leg.distance}
-                      readOnly={readOnly}
-                      onChange={(e) => updateRow('portLegs', leg.id, { distance: e.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={leg.seaMargin ?? '0'}
-                      readOnly={readOnly}
-                      onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={leg.seaDays}
-                      readOnly={readOnly}
-                      onChange={(e) => updateRow('portLegs', leg.id, { seaDays: e.target.value })}
-                    />
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      <input value={leg.fromArrival || ''} readOnly />
-                    ) : (
-                      <DmyDateInput
-                        id={`fromArrival_${leg.id}`}
-                        enableTime
-                        className=""
-                        value={leg.fromArrival || ''}
-                        onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      <input value={leg.fromDeparture || ''} readOnly />
-                    ) : (
-                      <DmyDateInput
-                        id={`fromDeparture_${leg.id}`}
-                        enableTime
-                        className=""
-                        value={leg.fromDeparture || ''}
-                        onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      <input value={leg.toArrival || ''} readOnly />
-                    ) : (
-                      <DmyDateInput
-                        id={`toArrival_${leg.id}`}
-                        enableTime
-                        className=""
-                        value={leg.toArrival || ''}
-                        onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      <input value={leg.toDeparture || ''} readOnly />
-                    ) : (
-                      <DmyDateInput
-                        id={`toDeparture_${leg.id}`}
-                        enableTime
-                        className=""
-                        value={leg.toDeparture || ''}
-                        onChange={(value) => updateRow('portLegs', leg.id, { toDeparture: value })}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    <input
-                      value={leg.secaDistance || ''}
-                      readOnly={readOnly}
-                      onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
-                    />
-                  </td>
-                  {editable ? (
-                    <td>
-                      <button
-                        type="button"
-                        className={styles.rowRemove}
-                        onClick={() => removeRow('portLegs', leg.id)}
-                        title="Remove"
-                      >
-                        ×
-                      </button>
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className={styles.portLegsStack}>
+          {(form.portLegs || []).map((leg, legIndex) => (
+            <div key={leg.id} className={styles.portLegCard}>
+              <div className={styles.portLegGrid}>
+                <div className={styles.portLegPorts}>
+                  <table className={styles.portTable}>
+                    <thead>
+                      <tr>
+                        <th className={styles.portIdxCol}>#</th>
+                        <th>From Port</th>
+                        <th>Arrival</th>
+                        <th>Departure</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className={styles.portIdxCol}>
+                          {editable && (form.portLegs || []).length > 1 ? (
+                            <button
+                              type="button"
+                              className={styles.rowRemove}
+                              onClick={() => removeRow('portLegs', leg.id)}
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          ) : (
+                            <span>{legIndex + 1}</span>
+                          )}
+                        </td>
+                        <td>
+                          {readOnly ? (
+                            leg.fromPortName || leg.fromPortId || '—'
+                          ) : (
+                            <PortSearchSelect
+                              id={legIndex === 0 ? 'portFrom_0' : `portFrom_${legIndex}`}
+                              value={leg.fromPortId}
+                              label={leg.fromPortName}
+                              searchPorts={searchEstimatePorts}
+                              onChange={(portId, portName) => {
+                                updateRow('portLegs', leg.id, {
+                                  fromPortId: portId,
+                                  fromPortName: portName,
+                                });
+                              }}
+                            />
+                          )}
+                        </td>
+                        <td>
+                          {readOnly ? (
+                            <input value={leg.fromArrival || ''} readOnly />
+                          ) : (
+                            <DmyDateInput
+                              id={`fromArrival_${leg.id}`}
+                              enableTime
+                              className=""
+                              value={leg.fromArrival || ''}
+                              onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
+                            />
+                          )}
+                        </td>
+                        <td>
+                          {readOnly ? (
+                            <input value={leg.fromDeparture || ''} readOnly />
+                          ) : (
+                            <DmyDateInput
+                              id={`fromDeparture_${leg.id}`}
+                              enableTime
+                              className=""
+                              value={leg.fromDeparture || ''}
+                              onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                    <thead>
+                      <tr>
+                        <th />
+                        <th>To Port</th>
+                        <th>Arrival</th>
+                        <th>Departure</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td />
+                        <td>
+                          {readOnly ? (
+                            leg.toPortName || leg.toPortId || '—'
+                          ) : (
+                            <PortSearchSelect
+                              id={legIndex === 0 ? 'portTo_0' : `portTo_${legIndex}`}
+                              value={leg.toPortId}
+                              label={leg.toPortName}
+                              searchPorts={searchEstimatePorts}
+                              onChange={(portId, portName) => {
+                                updateRow('portLegs', leg.id, {
+                                  toPortId: portId,
+                                  toPortName: portName,
+                                });
+                              }}
+                            />
+                          )}
+                        </td>
+                        <td>
+                          {readOnly ? (
+                            <input value={leg.toArrival || ''} readOnly />
+                          ) : (
+                            <DmyDateInput
+                              id={`toArrival_${leg.id}`}
+                              enableTime
+                              className=""
+                              value={leg.toArrival || ''}
+                              onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
+                            />
+                          )}
+                        </td>
+                        <td>
+                          {readOnly ? (
+                            <input value={leg.toDeparture || ''} readOnly />
+                          ) : (
+                            <DmyDateInput
+                              id={`toDeparture_${leg.id}`}
+                              enableTime
+                              className=""
+                              value={leg.toDeparture || ''}
+                              onChange={(value) => updateRow('portLegs', leg.id, { toDeparture: value })}
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className={styles.portLegMeta}>
+                  <table className={styles.portTable}>
+                    <thead>
+                      <tr>
+                        <th>Wx(%)</th>
+                        <th>L/B</th>
+                        <th>Speed Type</th>
+                        {editable ? <th>Fetch</th> : null}
+                        <th>Total Dist</th>
+                        <th>Total Days</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <input
+                            value={leg.seaMargin ?? '0'}
+                            readOnly={readOnly}
+                            onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
+                          />
+                        </td>
+                        <td>
+                          <select
+                            id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
+                            value={leg.passageType}
+                            disabled={readOnly}
+                            onChange={(e) => updateRow('portLegs', leg.id, { passageType: e.target.value })}
+                          >
+                            {PASSAGE_TYPE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <select
+                            id={legIndex === 0 ? 'portSpeed_0' : `portSpeed_${legIndex}`}
+                            value={leg.speedType}
+                            disabled={readOnly}
+                            onChange={(e) => updateRow('portLegs', leg.id, { speedType: e.target.value })}
+                          >
+                            {SPEED_TYPE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </td>
+                        {editable ? (
+                          <td>
+                            <button
+                              type="button"
+                              className={styles.fetchBtn}
+                              onClick={() => openDistanceFetch(leg)}
+                            >
+                              Fetch
+                            </button>
+                          </td>
+                        ) : null}
+                        <td>
+                          <input
+                            id={legIndex === 0 ? 'portDistance_0' : `portDistance_${legIndex}`}
+                            value={leg.distance}
+                            readOnly={readOnly}
+                            onChange={(e) => updateRow('portLegs', leg.id, { distance: e.target.value })}
+                          />
+                        </td>
+                        <td>
+                          <input value={leg.seaDays || ''} readOnly />
+                        </td>
+                      </tr>
+                    </tbody>
+                    <thead>
+                      <tr>
+                        <th>BG</th>
+                        <th>NSECA Dist</th>
+                        <th>NSECA Days</th>
+                        <th>BG</th>
+                        <th>SECA Dist</th>
+                        <th>SECA Days</th>
+                        <th>Navigation</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <select
+                            value={leg.bgNonSeca || 'VLSFO'}
+                            disabled={readOnly}
+                            onChange={(e) => updateRow('portLegs', leg.id, { bgNonSeca: e.target.value })}
+                          >
+                            {NSBG_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <input value={leg.nonSecaDistance || ''} readOnly />
+                        </td>
+                        <td>
+                          <input value={leg.nonSecaDays || ''} readOnly />
+                        </td>
+                        <td>
+                          <select
+                            value={leg.bgSeca || 'LSMGO'}
+                            disabled={readOnly}
+                            onChange={(e) => updateRow('portLegs', leg.id, { bgSeca: e.target.value })}
+                          >
+                            {SBG_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            value={leg.secaDistance || ''}
+                            readOnly={readOnly}
+                            onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
+                          />
+                        </td>
+                        <td>
+                          <input value={leg.secaDays || ''} readOnly />
+                        </td>
+                        <td>
+                          <select
+                            id={legIndex === 0 ? 'portNav_0' : `portNav_${legIndex}`}
+                            value={leg.navMethod || ''}
+                            disabled={readOnly}
+                            onChange={(e) => updateRow('portLegs', leg.id, { navMethod: e.target.value })}
+                          >
+                            {NAVIGATION_METHOD_OPTIONS.map((o) => (
+                              <option key={o.value || 'none'} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
+        {editable ? (
+          <div className={styles.portAddRow}>
+            <Button
+              type="button"
+              variant="outline"
+              label="Add"
+              onClick={() => addRow('portLegs', createEmptyPortLeg)}
+            />
+          </div>
+        ) : null}
       </CollapsiblePanel>
 
       <CollapsiblePanel title="Speed / Consumption" defaultOpen={false}>
@@ -818,23 +897,46 @@ export default function EstimateDetailSections({
         <div className={styles.headerGrid}>
           {!(isTanker && String(form.tankType || '1') === '2') ? (
           <Field id="cargoId_0" label="Cargo Name">
-            <div id="cargoId_0">
+            <div id="cargoId_0" className={styles.compactSelectWrap}>
+              {(() => {
+                const cargoLookup = (lookups.cargos || [])
+                  .map((c) => ({
+                    id: String(c.id ?? c.MATERIALID ?? ''),
+                    name: String(c.name ?? c.MATERIAL_CODE_DESC ?? '').trim(),
+                  }))
+                  .filter((c) => c.id);
+
+                const selectedCargoIds = (
+                  (form.cargoIds || []).length
+                    ? form.cargoIds
+                    : (form.cargoRows || []).map((row) => row.cargoId)
+                )
+                  .map((id) => String(id || '').trim())
+                  .filter((id) => id && id !== '0');
+
+                const optionMap = new Map(
+                  cargoLookup.map((c) => [c.id, { id: c.id, name: c.name || c.id }]),
+                );
+                for (const row of form.cargoRows || []) {
+                  const id = String(row.cargoId || '').trim();
+                  if (!id || id === '0') continue;
+                  if (!optionMap.has(id)) {
+                    optionMap.set(id, {
+                      id,
+                      name: row.cargoName || cargoLookup.find((c) => c.id === id)?.name || id,
+                    });
+                  } else if (!optionMap.get(id).name && row.cargoName) {
+                    optionMap.set(id, { id, name: row.cargoName });
+                  }
+                }
+
+                return (
               <CountryMultiSelect
-                options={[
-                  ...(lookups.cargos || []),
-                  ...(form.cargoRows || [])
-                    .filter((row) => {
-                      const id = String(row.cargoId || '');
-                      return id && !(lookups.cargos || []).some((c) => String(c.id) === id);
-                    })
-                    .map((row) => ({
-                      id: row.cargoId,
-                      name: row.cargoName || row.cargoId,
-                    })),
-                ]}
-                value={(form.cargoRows || []).map((row) => row.cargoId).filter(Boolean)}
+                compact
+                options={[...optionMap.values()]}
+                value={selectedCargoIds}
                 disabled={readOnly}
-                placeholder="Choose cargo name…"
+                placeholder="Choose cargo…"
                 searchPlaceholder="Search cargo…"
                 onChange={(selected) => {
                   const existingById = new Map(
@@ -843,28 +945,31 @@ export default function EstimateDetailSections({
                   const nextRows = selected.length
                     ? selected.map((cargoId) => {
                       const existing = existingById.get(String(cargoId));
-                      const cargo = (lookups.cargos || []).find((c) => String(c.id) === String(cargoId));
+                      const cargo = optionMap.get(String(cargoId))
+                        || cargoLookup.find((c) => String(c.id) === String(cargoId));
                       if (existing) {
                         return {
                           ...existing,
-                          cargoId,
+                          cargoId: String(cargoId),
                           cargoName: cargo?.name || existing.cargoName || '',
                           status: 1,
                         };
                       }
                       return {
                         ...createEmptyCargoRow(1),
-                        cargoId,
+                        cargoId: String(cargoId),
                         cargoName: cargo?.name || '',
                       };
                     })
                     : [createEmptyCargoRow(1)];
                   applyPatch({
                     cargoRows: nextRows,
-                    cargoIds: selected,
+                    cargoIds: selected.map(String),
                   });
                 }}
               />
+                );
+              })()}
             </div>
           </Field>
           ) : null}

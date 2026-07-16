@@ -21,11 +21,22 @@ export const PASSAGE_TYPE_OPTIONS = [
   { value: '2', label: 'Laden' },
 ];
 
-/** PHP getSelectSpeedList: 1=Full, 2=Service Speed, 3=Most Eco Spec. */
+/** PHP getSelectSpeedList: 1=Full, 2=Service Speed, 3=Most Eco Speed. */
 export const SPEED_TYPE_OPTIONS = [
   { value: '1', label: 'Full' },
   { value: '2', label: 'Service Speed' },
-  { value: '3', label: 'Most Eco Spec' },
+  { value: '3', label: 'Most Eco Speed' },
+];
+
+/** PHP selNSBG — typically VLSFO for non-SECA at-sea. */
+export const NSBG_OPTIONS = [
+  { value: 'VLSFO', label: 'VLSFO' },
+];
+
+/** PHP selSBG — LSMGO / HSFO+scrubber for SECA at-sea. */
+export const SBG_OPTIONS = [
+  { value: 'LSMGO', label: 'LSMGO' },
+  { value: 'HSFO+SCRUBBER', label: 'HSFO+SCRUBBER' },
 ];
 
 export const LAYTIME_TERM_OPTIONS = [
@@ -163,7 +174,7 @@ export function createEmptyPortLeg() {
     speedType: '1',
     distance: '',
     seaDays: '',
-    seaMargin: '0',
+    seaMargin: '5',
     fromArrival: '',
     fromDeparture: '',
     toArrival: '',
@@ -187,6 +198,7 @@ export function createEmptyPortLeg() {
     nonSecaDistance: '',
     navMethod: '',
     secaDays: '',
+    nonSecaDays: '',
     transitPortCost: '',
     ddcLpEst: '',
     ddcDpEst: '',
@@ -201,6 +213,8 @@ export function createEmptyPortLeg() {
     chkLpSeca: false,
     chkDpSeca: false,
     chkTpSeca: false,
+    lpCargoId: '',
+    dpCargoId: '',
     lpBunkerGrades: ['VLSFO'],
     dpBunkerGrades: ['VLSFO'],
     tpBunkerGrades: ['VLSFO'],
@@ -546,24 +560,55 @@ export function toFormState(detail = {}) {
     };
   };
 
-  const cargoRows = Array.isArray(detail.cargoRows) && detail.cargoRows.length
+  const mappedCargoRows = Array.isArray(detail.cargoRows) && detail.cargoRows.length
     ? detail.cargoRows.map(mapCargo)
-    : [createEmptyCargoRow(1)];
+    : [];
 
   const masterCargoIds = Array.isArray(detail.cargoIds)
-    ? detail.cargoIds.map(String).filter(Boolean)
+    ? detail.cargoIds.map(String).filter((part) => part && part !== '0')
     : String(detail.cargoId || detail.CARGO_ID || '')
       .split(',')
       .map((part) => part.trim())
       .filter((part) => part && part !== '0');
 
   // Backfill row cargoId from master CARGO_ID when slave row is missing it.
-  cargoRows.forEach((row, index) => {
+  mappedCargoRows.forEach((row, index) => {
     if (!row.cargoId) {
-      const fallback = masterCargoIds[index] || masterCargoIds[0] || '';
+      const fallback = masterCargoIds[index] || '';
       if (fallback) row.cargoId = fallback;
     }
   });
+
+  // PHP selCName is driven by master.CARGO_ID — ensure every saved id becomes a selected row.
+  let cargoRows;
+  if (masterCargoIds.length) {
+    cargoRows = masterCargoIds.map((cargoId, index) => {
+      const existing = mappedCargoRows.find((row) => String(row.cargoId) === String(cargoId))
+        || mappedCargoRows[index];
+      if (existing) {
+        return {
+          ...existing,
+          cargoId: String(cargoId),
+          cargoName: existing.cargoName || '',
+          status: existing.status ?? 1,
+        };
+      }
+      return {
+        ...createEmptyCargoRow(1),
+        cargoId: String(cargoId),
+      };
+    });
+    // Keep any extra slave rows that already have a cargoId not listed on master.
+    for (const row of mappedCargoRows) {
+      if (!row.cargoId) continue;
+      if (masterCargoIds.some((id) => String(id) === String(row.cargoId))) continue;
+      cargoRows.push(row);
+    }
+  } else if (mappedCargoRows.length) {
+    cargoRows = mappedCargoRows;
+  } else {
+    cargoRows = [createEmptyCargoRow(1)];
+  }
 
   const overageCargoRows = Array.isArray(detail.overageCargoRows) && detail.overageCargoRows.length
     ? detail.overageCargoRows.map(mapCargo)
@@ -609,6 +654,7 @@ export function toFormState(detail = {}) {
       nonSecaDistance: row.nonSecaDistance != null ? String(row.nonSecaDistance) : '',
       navMethod: row.navMethod != null ? String(row.navMethod) : '',
       secaDays: row.secaDays != null ? String(row.secaDays) : '',
+      nonSecaDays: row.nonSecaDays != null ? String(row.nonSecaDays) : '',
       transitPortCost: row.transitPortCost != null ? String(row.transitPortCost) : '',
       ddcLpEst: row.ddcLpEst != null ? String(row.ddcLpEst) : '',
       ddcDpEst: row.ddcDpEst != null ? String(row.ddcDpEst) : '',
@@ -623,6 +669,8 @@ export function toFormState(detail = {}) {
       chkLpSeca: !!row.chkLpSeca,
       chkDpSeca: !!row.chkDpSeca,
       chkTpSeca: !!row.chkTpSeca,
+      lpCargoId: row.lpCargoId != null ? String(row.lpCargoId) : '',
+      dpCargoId: row.dpCargoId != null ? String(row.dpCargoId) : '',
       lpBunkerGrades: Array.isArray(row.lpBunkerGrades) && row.lpBunkerGrades.length
         ? row.lpBunkerGrades
         : ['VLSFO'],

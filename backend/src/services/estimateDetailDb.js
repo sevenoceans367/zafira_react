@@ -7,6 +7,19 @@ import {
 } from './commercialParametersNavApiSeed.js';
 import { CANAL_ORC_IDS, getSuezScnt } from './canalOrcService.js';
 
+/** PHP often stores INT_MAX as a placeholder RANDOMID for new/unsaved rows. */
+const PLACEHOLDER_RANDOM_ID = '2147483647';
+
+function pickRowId(...candidates) {
+  for (const candidate of candidates) {
+    if (candidate == null || candidate === '') continue;
+    const value = String(candidate);
+    if (value === PLACEHOLDER_RANDOM_ID) continue;
+    return value;
+  }
+  return null;
+}
+
 function toDbDate(value) {
   if (!value) return null;
   const str = String(value).trim();
@@ -41,18 +54,55 @@ function toDbDateTime(value) {
   return str;
 }
 
+/**
+ * Format DB datetime as PHP date('d-m-Y H:i') — wall-clock, no timezone shift.
+ * mysql2 may return Date objects or 'YYYY-MM-DD HH:mm:ss' strings.
+ */
 function formatDateTimeDMY(value) {
   if (!value) return '';
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return '';
+    // mysql2 maps DATETIME to a local Date with the same wall-clock parts.
+    const d = String(value.getDate()).padStart(2, '0');
+    const mo = String(value.getMonth() + 1).padStart(2, '0');
+    const y = value.getFullYear();
+    const hh = String(value.getHours()).padStart(2, '0');
+    const mi = String(value.getMinutes()).padStart(2, '0');
+    if (y < 1971) return '';
+    return `${d}-${mo}-${y} ${hh}:${mi}`;
+  }
+
   const str = String(value).trim();
-  if (!str || str.startsWith('0000-00-00')) return '';
-  const dt = value instanceof Date ? value : new Date(str.includes('T') ? str : str.replace(' ', 'T'));
-  if (Number.isNaN(dt.getTime())) return str;
-  const d = String(dt.getDate()).padStart(2, '0');
-  const m = String(dt.getMonth() + 1).padStart(2, '0');
-  const y = dt.getFullYear();
-  const hh = String(dt.getHours()).padStart(2, '0');
-  const mm = String(dt.getMinutes()).padStart(2, '0');
-  return `${d}-${m}-${y} ${hh}:${mm}`;
+  if (!str || str.startsWith('0000-00-00') || str.startsWith('1970-01-01')) return '';
+
+  // MySQL DATETIME / ISO without relying on Date() timezone conversion.
+  const wall = str.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/,
+  );
+  if (wall) {
+    const [, y, mo, d, h, mi] = wall;
+    return `${d}-${mo}-${y} ${String(h).padStart(2, '0')}:${mi}`;
+  }
+
+  const dmy = str.match(
+    /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{2}))?/,
+  );
+  if (dmy) {
+    const [, d, mo, y, h = '00', mi = '00'] = dmy;
+    return `${d.padStart(2, '0')}-${mo.padStart(2, '0')}-${y} ${String(h).padStart(2, '0')}:${mi}`;
+  }
+
+  return str;
+}
+
+/** Prefer header laycan columns (LAYCANSTART/END); fall back to legacy DATE columns. */
+function pickLaycanDateTime(...candidates) {
+  for (const candidate of candidates) {
+    const formatted = formatDateTimeDMY(candidate);
+    if (formatted) return formatted;
+  }
+  return '';
 }
 
 function numOrNull(value) {
@@ -166,7 +216,7 @@ async function resolveScntForDetail(detail) {
 
 function mapPortLeg(row, index) {
   return {
-    id: row.RANDOMID ?? row.FCA_SLAVEID ?? row.FCA_SLVID ?? `${row.FCAID}-${index}`,
+    id: pickRowId(row.RANDOMID, row.FCA_SLAVEID, row.FCA_SLVID) || `${row.FCAID}-${index}`,
     fromPortId: row.FROM_PORT,
     toPortId: row.TO_PORT,
     navMethod: row.DIS_TYPE != null && row.DIS_TYPE !== '' ? String(row.DIS_TYPE) : '',
@@ -224,13 +274,13 @@ function mapPortLeg(row, index) {
       ? String(row.BUNKER_GRADE_TP || row.TRANSIT_PORT_BUNKER_GRADE).split(',').map((s) => s.trim()).filter(Boolean)
       : ['VLSFO'],
     chartererAccountDays: row.CHARTERERACCOUNT ?? row.CHARTERER_ACCOUNT_DAYS ?? row.CA_DAYS ?? '',
-    portFunction: row.PORT_FUNCTION ?? row.PORT_FUN ?? '',
+    portFunction: row.PORT_FUNCTION ?? row.PORT_FUN ?? row.CHK_MAND ?? '',
   };
 }
 
 function mapProfitSharingRow(row, index) {
   return {
-    id: row.RANDOMID ?? `ps-${row.FCAID}-${index}`,
+    id: pickRowId(row.RANDOMID) || `ps-${row.FCAID}-${index}`,
     vendorId: row.VENDORID != null ? String(row.VENDORID) : '',
     percentage: row.PERCENTAGE != null ? String(row.PERCENTAGE) : '',
   };
@@ -238,7 +288,7 @@ function mapProfitSharingRow(row, index) {
 
 function mapBrokerRow(row, index) {
   return {
-    id: row.RANDOMID ?? `brk-${row.FCAID}-${index}`,
+    id: pickRowId(row.RANDOMID) || `brk-${row.FCAID}-${index}`,
     percent: row.BROKAGE_PERCENT ?? '',
     amount: row.BROKAGE_AMT ?? '',
     vendorId: row.VENDORID != null ? String(row.VENDORID) : '',
@@ -248,7 +298,7 @@ function mapBrokerRow(row, index) {
 
 function mapBunkerActivityRow(row, index) {
   return {
-    id: row.RANDOMID ?? `bact-${row.FCAID}-${index}`,
+    id: pickRowId(row.RANDOMID) || `bact-${row.FCAID}-${index}`,
     activity: row.ACTIVITY ?? 'Cold Wash',
     bunkerGrade: row.BUNKERGRADE ?? 'VLSFO',
     qty: row.QUANTITY ?? '',
@@ -258,9 +308,10 @@ function mapBunkerActivityRow(row, index) {
 }
 
 function mapCargoRow(row, index) {
+  const rawCargoId = row.CARGOID != null ? String(row.CARGOID).trim() : '';
   return {
-    id: row.RANDOMID ?? `cargo-${row.FCAID}-${index}`,
-    cargoId: row.CARGOID != null ? String(row.CARGOID) : '',
+    id: pickRowId(row.RANDOMID) || `cargo-${row.FCAID}-${index}`,
+    cargoId: rawCargoId && rawCargoId !== '0' ? rawCargoId : '',
     cargoName: row.CARGO_NAME ?? '',
     cargoCbm: row.CARGO_CBM ?? '',
     cargoMt: row.CARGO_MT ?? '',
@@ -271,6 +322,14 @@ function mapCargoRow(row, index) {
     vendorId: row.VENDORID != null ? String(row.VENDORID) : '',
     status: row.STATUS ?? 1,
   };
+}
+
+function parseCargoIds(value) {
+  if (value == null || value === '') return [];
+  return String(value)
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part && part !== '0');
 }
 
 function mapBunkerRow(row, index) {
@@ -286,7 +345,7 @@ function mapBunkerRow(row, index) {
 
 function mapOrcRow(row, index) {
   return {
-    id: row.RANDOMID ?? `orc-${row.FCAID}-${index}`,
+    id: pickRowId(row.RANDOMID) || `orc-${row.FCAID}-${index}`,
     costId: row.IDENTY_ID != null ? String(row.IDENTY_ID) : '',
     costName: row.COST_NAME ?? '',
     amount: row.RAW_AMOUNT ?? '',
@@ -297,7 +356,7 @@ function mapOrcRow(row, index) {
 
 function mapOtherIncomeRow(row, index) {
   return {
-    id: row.RANDOMID ?? `oi-${row.FCAID}-${index}`,
+    id: pickRowId(row.RANDOMID) || `oi-${row.FCAID}-${index}`,
     description: row.IDENTY_ID ?? '',
     amount: row.COST ?? '',
     addComm: row.ADDCOMM ?? '',
@@ -308,7 +367,7 @@ function mapOtherIncomeRow(row, index) {
 
 function mapHireRow(row, index) {
   return {
-    id: row.RANDOMID ?? `hire-${row.FCAID}-${index}`,
+    id: pickRowId(row.RANDOMID) || `hire-${row.FCAID}-${index}`,
     hireFrom: row.HIRE_FROM ? formatDateDMY(row.HIRE_FROM) : '',
     hireTo: row.HIRE_TO ? formatDateDMY(row.HIRE_TO) : '',
     hireDays: row.HIRE_DAYS ?? '',
@@ -332,7 +391,7 @@ function mapSecaBunkerRow(row, index) {
 
 function mapFreightQtyRow(row, index) {
   return {
-    id: row.RANDOMID ?? `fq-${row.FCAID}-${index}`,
+    id: pickRowId(row.RANDOMID) || `fq-${row.FCAID}-${index}`,
     vendorId: row.QTY_VENDORID != null ? String(row.QTY_VENDORID) : '',
     agreedGrossFreight: row.AGREED_GROSS_FREIGHT ?? '',
     quantity: row.QUANTITY ?? '',
@@ -376,7 +435,7 @@ function mapTankerWsRow(row, index) {
 
 function mapOffHireRow(row, bunkers = [], index = 0) {
   return {
-    id: row.RANDOMID ?? `off-${row.FCAID}-${index}`,
+    id: pickRowId(row.RANDOMID, row.FCA_SLAVE14ID) || `off-${row.FCAID}-${index}`,
     slave14Id: row.FCA_SLAVE14ID,
     reason: row.OFF_REASON ?? '',
     from: row.OFF_FROM ? formatDateTimeDMY(row.OFF_FROM) : '',
@@ -407,6 +466,12 @@ function mapPassageLocationRow(row, index) {
 }
 
 function mapConsumptionRow(row, index) {
+  // PHP addestimate At Sea form field names are mismatched on save:
+  //   Working DP (NS) → txtFOInPortSECAConspIdle_  → FO_INPORT_SECA_CONSP_IDLE
+  //   Working DP (S)  → txtFOInPortSECAConspIdle1_ → FO_INPORT_SECA_CONSP_OTHER
+  //   Idle (NS)       → txtFOInPortNONSECAConspIdle_ → FO_INPORT_NONSECA_CONSP_IDLE
+  //   Idle (S)        → txtFOInPortNONSECAConspIdle1_ → FO_INPORT_NONSECA_CONSP_OTHER
+  // Dedicated WORKING_LP / WORKING_DP columns are often left as 0.
   return {
     id: `cons-${row.FCAID}-${index}`,
     identify: row.IDENTIFY || 'FO',
@@ -423,12 +488,31 @@ function mapConsumptionRow(row, index) {
     ladSecaMes: row.FO_LADEN_ATSEA_SECA_CONSP_MES ?? '',
     balNonSecaMes: row.FO_BALAST_ATSEA_NONSECA_CONSP_MES ?? '',
     ladNonSecaMes: row.FO_LADEN_ATSEA_NONSECA_CONSP_MES ?? '',
-    inPortSecaWorking: row.FO_INPORT_SECA_CONSP_WORKING ?? row.FO_INPORT_SECA_CONSP_WORKING_LP ?? '',
-    inPortNonSecaWorking: row.FO_INPORT_NONSECA_CONSP_WORKING ?? row.FO_INPORT_NONSECA_CONSP_WORKING_LP ?? '',
-    inPortSecaWorkingDp: row.FO_INPORT_SECA_CONSP_WORKING_DP ?? row.FO_INPORT_SECA_CONSP_OTHER ?? '',
-    inPortNonSecaWorkingDp: row.FO_INPORT_NONSECA_CONSP_WORKING_DP ?? row.FO_INPORT_NONSECA_CONSP_OTHER ?? '',
-    inPortSecaIdle: row.FO_INPORT_SECA_CONSP_IDLE ?? '',
-    inPortNonSecaIdle: row.FO_INPORT_NONSECA_CONSP_IDLE ?? '',
+    inPortSecaWorking: pickConsRate(
+      row.FO_INPORT_SECA_CONSP_WORKING_LP,
+      row.FO_INPORT_SECA_CONSP_WORKING,
+    ),
+    inPortNonSecaWorking: pickConsRate(
+      row.FO_INPORT_NONSECA_CONSP_WORKING_LP,
+      row.FO_INPORT_NONSECA_CONSP_WORKING,
+    ),
+    inPortSecaWorkingDp: pickConsRate(
+      row.FO_INPORT_SECA_CONSP_WORKING_DP,
+      row.FO_INPORT_SECA_CONSP_OTHER,
+    ),
+    inPortNonSecaWorkingDp: pickConsRate(
+      row.FO_INPORT_NONSECA_CONSP_WORKING_DP,
+      row.FO_INPORT_SECA_CONSP_IDLE,
+      row.FO_INPORT_NONSECA_CONSP_OTHER,
+    ),
+    inPortSecaIdle: pickConsRate(
+      row.FO_INPORT_SECA_CONSP_IDLE_BALLAST,
+      row.FO_INPORT_NONSECA_CONSP_OTHER,
+    ),
+    inPortNonSecaIdle: pickConsRate(
+      row.FO_INPORT_NONSECA_CONSP_IDLE_BALLAST,
+      row.FO_INPORT_NONSECA_CONSP_IDLE,
+    ),
     otherSecaTk: row.FO_OTHER_SECA_CONSP_TK ?? '',
     otherNonSecaTk: row.FO_OTHER_NONSECA_CONSP_TK ?? '',
     otherSecaInert: row.FO_OTHER_SECA_CONSP_INERT ?? '',
@@ -486,6 +570,17 @@ function parseAttachments(upload, uploadName) {
   }));
 }
 
+function resolveFixtureTypeId(...candidates) {
+  for (const candidate of candidates) {
+    if (candidate == null || candidate === '') continue;
+    const value = String(candidate).trim();
+    // PHP getCheckNullValue() stores empty as 0 — treat as missing.
+    if (!value || value === '0') continue;
+    if (value === '1' || value === '2' || value === '3') return value;
+  }
+  return null;
+}
+
 function mapEstimateDetail(
   master,
   portLegs = [],
@@ -511,6 +606,13 @@ function mapEstimateDetail(
 ) {
   const estimateType = Number(master.ESTIMATE_TYPE);
   const mappedCargos = cargoRows.map((row, index) => mapCargoRow(row, index));
+  const masterCargoIds = parseCargoIds(master.CARGO_ID);
+  // PHP stores selected cargo names on master.CARGO_ID; slave rows sometimes lack CARGOID.
+  const cargosWithIds = mappedCargos.map((row, index) => {
+    if (row.cargoId) return row;
+    const fallbackId = masterCargoIds[index] || masterCargoIds[0] || '';
+    return fallbackId ? { ...row, cargoId: fallbackId } : row;
+  });
   const brokerRows = (Array.isArray(brokerageRows) ? brokerageRows : (brokerageRows ? [brokerageRows] : []))
     .map((row, index) => mapBrokerRow(row, index));
   const firstBroker = brokerRows[0] || null;
@@ -518,12 +620,15 @@ function mapEstimateDetail(
     (row) => row.EUETSADDTOF != null || row.FUELEUADDTOF != null
       || row.HSFO != null || row.VLSFOMT != null || row.LSMGO != null,
   ) || {};
+
+  // PHP stores Business Type (TCIN/VCIN/VCOUT) in FIXTURETYPEID and also SEL_BUSI_TYPE.
+  // Older/partial rows often have FIXTURETYPEID=0 with the real value only in SEL_BUSI_TYPE.
+  const fixtureTypeId = resolveFixtureTypeId(master.FIXTURETYPEID, master.SEL_BUSI_TYPE);
+
   return {
     id: String(master.FCAID),
     periodId: master.PERIODID != null ? String(master.PERIODID) : '',
-    fixtureTypeId: master.FIXTURETYPEID != null && String(master.FIXTURETYPEID).trim() !== ''
-      ? String(master.FIXTURETYPEID).trim()
-      : null,
+    fixtureTypeId,
     estimateType,
     estimateTypeLabel: ESTIMATE_TYPE_LABELS[estimateType] ?? '',
     vesselImoId: master.VESSEL_IMO_ID,
@@ -587,6 +692,10 @@ function mapEstimateDetail(
     ballastBonus: master.BALLAST_BONUS ?? '',
     lumpsum: master.LUMPSUMAMT ?? master.LUMSUM ?? master.LUMPSUM ?? '',
     lumpsumQty: master.WS_QTY ?? master.LUMPSUM_QTY ?? '',
+    chkLumpsum: Number(master.CHK_LUMPSUM) === 1
+      || !!(master.LUMPSUMAMT ?? master.LUMSUM ?? master.LUMPSUM)
+      || !!(master.WS_QTY ?? master.LUMPSUM_QTY),
+    lumpsumVendor: master.LUMP_VENDOR != null ? String(master.LUMP_VENDOR) : '',
     marketRate: master.CARGO_RATE ?? master.MARKET_RATE ?? '',
     tankerFreightRate: master.CARGO_RATE ?? master.MARKET_RATE ?? '',
     tankType: master.TANKER_RADIO_SINGLE_DIS != null
@@ -601,8 +710,8 @@ function mapEstimateDetail(
     tankWsFrom: master.TANK_WS_FROM != null ? String(master.TANK_WS_FROM) : '',
     tankWsTo: master.TANK_WS_TO != null ? String(master.TANK_WS_TO) : '',
     timeAllowed: master.TIMEALLOWED ?? master.WORKING_DAYS ?? '',
-    laycanStart: master.LAYCAN_START_DATE ? formatDateTimeDMY(master.LAYCAN_START_DATE) : '',
-    laycanEnd: master.LAYCAN_FINISH_DATE ? formatDateTimeDMY(master.LAYCAN_FINISH_DATE) : '',
+    laycanStart: pickLaycanDateTime(master.LAYCANSTART, master.LAYCAN_START_DATE),
+    laycanEnd: pickLaycanDateTime(master.LAYCANEND, master.LAYCAN_FINISH_DATE),
     euEtsAddToFreight: Number(etsFlags.EUETSADDTOF) === 1,
     fuelEuAddToFreight: Number(etsFlags.FUELEUADDTOF) === 1,
     // PHP freight_cost_estimete_slave18 bunker / compliance results
@@ -671,15 +780,20 @@ function mapEstimateDetail(
     ownerId: master.OWNER != null ? String(master.OWNER) : '',
     disponentOwner: master.DISPONENT_OWNER ?? '',
     attachments: parseAttachments(master.ATTACHMENT, master.ATTACHMENT_NAME),
-    charteringTeam: '7',
-    charteringPic: master.CHARTERING_PIC != null ? String(master.CHARTERING_PIC) : '',
+    charteringTeam: master.CHARTERING_PIC != null && String(master.CHARTERING_PIC).trim() !== '' && String(master.CHARTERING_PIC) !== '0'
+      ? String(master.CHARTERING_PIC)
+      : '7',
+    charteringPic: master.CHARTERING_PIC_1 != null && String(master.CHARTERING_PIC_1).trim() !== '' && String(master.CHARTERING_PIC_1) !== '0'
+      ? String(master.CHARTERING_PIC_1)
+      : '',
     charteringPicName: master.CHARTERING_PIC_NAME ?? '',
     comid: master.COMID || null,
     fixed: Number(master.FIXED) === 1,
     portLegs: portLegs.map((row, index) => mapPortLeg(row, index)),
-    cargoRows: mappedCargos.filter((row) => Number(row.status) === 1 || !row.status),
-    overageCargoRows: mappedCargos.filter((row) => Number(row.status) === 2),
-    deadfreightCargoRows: mappedCargos.filter((row) => Number(row.status) === 3),
+    cargoIds: masterCargoIds,
+    cargoRows: cargosWithIds.filter((row) => Number(row.status) === 1 || !row.status),
+    overageCargoRows: cargosWithIds.filter((row) => Number(row.status) === 2),
+    deadfreightCargoRows: cargosWithIds.filter((row) => Number(row.status) === 3),
     bunkerRows: bunkerRows.map((row, index) => mapBunkerRow(row, index)),
     bunkerActivityRows: bunkerActivityRows.map((row, index) => mapBunkerActivityRow(row, index)),
     orcRows: orcRows.map((row, index) => mapOrcRow(row, index)),
@@ -724,8 +838,7 @@ export async function dbGetEstimateLookups(estimateType = 2) {
   const [cargos] = await pool.query(
     `SELECT MATERIALID AS id, MATERIAL_CODE_DESC AS name
      FROM cargo_master
-     WHERE STATUS = 1
-       AND (MATERIAL_TYPEID = ? OR MATERIAL_TYPEID IS NULL OR MATERIAL_TYPEID = '')
+     WHERE (MATERIAL_TYPEID = ? OR MATERIAL_TYPEID IS NULL OR MATERIAL_TYPEID = '')
      ORDER BY MATERIAL_CODE_DESC
      LIMIT 500`,
     [type],
@@ -736,7 +849,6 @@ export async function dbGetEstimateLookups(estimateType = 2) {
     const [allCargos] = await pool.query(
       `SELECT MATERIALID AS id, MATERIAL_CODE_DESC AS name
        FROM cargo_master
-       WHERE STATUS = 1
        ORDER BY MATERIAL_CODE_DESC
        LIMIT 500`,
     );
@@ -862,6 +974,7 @@ export async function dbGetEstimateLookups(estimateType = 2) {
 
   const mapVendor = (row) => ({
     id: String(row.id),
+    code: row.CODE ?? '',
     name: `${row.NAME ?? ''} ( ${row.CODE ?? ''} )`,
   });
 
@@ -1058,7 +1171,7 @@ export async function dbGetEstimateDetail(id) {
             cm.TOTAL_SHIPMENTS AS COA_TOTAL_SHIPMENTS
      FROM freight_cost_estimete_master m
      LEFT JOIN vessel_imo_master v ON v.VESSEL_IMO_ID = m.VESSEL_IMO_ID
-     LEFT JOIN login l ON l.LOGINID = m.CHARTERING_PIC
+     LEFT JOIN login l ON l.LOGINID = m.CHARTERING_PIC_1
      LEFT JOIN port_master op ON op.PortId = m.OPEN_PORT
      LEFT JOIN coa_master cm ON cm.COAID = m.COA_NUMBER
      WHERE m.FCAID = ?
@@ -1483,6 +1596,21 @@ function strOrEmpty(value) {
 }
 
 /**
+ * Pick first meaningful consumption rate.
+ * Treats null/''/0 like PHP's truthy checks so legacy 0 placeholders
+ * fall through to WORKING_LP / WORKING_DP / IDLE_BALLAST columns.
+ */
+function pickConsRate(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined || value === '') continue;
+    const n = Number(String(value).replace(/,/g, ''));
+    if (Number.isFinite(n) && n === 0) continue;
+    return String(value);
+  }
+  return '';
+}
+
+/**
  * Prefill estimate header / speed / consumption from fleet vessel + commercial parameters.
  * Mirrors PHP options.php?id=42 used by addestimate.php getData().
  */
@@ -1638,24 +1766,30 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
     }
     if (row.FO_TYPE === 'IN PORT') {
       if (isSeca) {
-        target.inPortSecaWorking = strOrEmpty(
-          row.FO_INPORT_SECA_CONSP_WORKING_LP || row.FO_INPORT_SECA_CONSP_WORKING,
+        target.inPortSecaWorking = pickConsRate(
+          row.FO_INPORT_SECA_CONSP_WORKING_LP,
+          row.FO_INPORT_SECA_CONSP_WORKING,
         );
-        target.inPortSecaWorkingDp = strOrEmpty(
-          row.FO_INPORT_SECA_CONSP_WORKING_DP || row.FO_INPORT_SECA_CONSP_OTHER,
+        target.inPortSecaWorkingDp = pickConsRate(
+          row.FO_INPORT_SECA_CONSP_WORKING_DP,
+          row.FO_INPORT_SECA_CONSP_OTHER,
         );
-        target.inPortSecaIdle = strOrEmpty(
-          row.FO_INPORT_SECA_CONSP_IDLE_BALLAST || row.FO_INPORT_SECA_CONSP_IDLE,
+        target.inPortSecaIdle = pickConsRate(
+          row.FO_INPORT_SECA_CONSP_IDLE_BALLAST,
+          row.FO_INPORT_SECA_CONSP_IDLE,
         );
       } else {
-        target.inPortNonSecaWorking = strOrEmpty(
-          row.FO_INPORT_NONSECA_CONSP_WORKING_LP || row.FO_INPORT_NONSECA_CONSP_WORKING,
+        target.inPortNonSecaWorking = pickConsRate(
+          row.FO_INPORT_NONSECA_CONSP_WORKING_LP,
+          row.FO_INPORT_NONSECA_CONSP_WORKING,
         );
-        target.inPortNonSecaWorkingDp = strOrEmpty(
-          row.FO_INPORT_NONSECA_CONSP_WORKING_DP || row.FO_INPORT_NONSECA_CONSP_OTHER,
+        target.inPortNonSecaWorkingDp = pickConsRate(
+          row.FO_INPORT_NONSECA_CONSP_WORKING_DP,
+          row.FO_INPORT_NONSECA_CONSP_OTHER,
         );
-        target.inPortNonSecaIdle = strOrEmpty(
-          row.FO_INPORT_NONSECA_CONSP_IDLE_BALLAST || row.FO_INPORT_NONSECA_CONSP_IDLE,
+        target.inPortNonSecaIdle = pickConsRate(
+          row.FO_INPORT_NONSECA_CONSP_IDLE_BALLAST,
+          row.FO_INPORT_NONSECA_CONSP_IDLE,
         );
       }
     }
@@ -1807,7 +1941,9 @@ export async function dbCreateEstimateDetail(payload, upload = {}) {
         payload.tpc || null,
         estimateType,
         toDbDate(payload.cpDate) || transDate,
-        estimateType,
+        payload.fixtureTypeId != null && payload.fixtureTypeId !== ''
+          ? Number(payload.fixtureTypeId)
+          : null,
         payload.periodId || null,
         quantity,
         numOrNull(payload.totalDays),
@@ -1891,6 +2027,7 @@ async function deleteEstimateSlaves(connection, fcaId) {
 async function updateMasterEstimateFields(connection, fcaId, payload, opts = {}) {
   const sets = [
     'FIXTURETYPEID = ?',
+    'SEL_BUSI_TYPE = ?',
     'TRANS_DATE = ?',
     'VESSEL_IMO_ID = ?',
     'VESSEL_TYPE = ?',
@@ -1945,13 +2082,17 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     'ADDRESS_COMMISSION_PER = ?',
     'ADDRESS_COMMISSION_AMT = ?',
     'CARGO_RATE = ?',
+    'CARGO_ID = ?',
     'DAILY_VESSEL_OPERATION_EXP = ?',
-    'LAYCAN_START_DATE = ?',
-    'LAYCAN_FINISH_DATE = ?',
+    'LAYCANSTART = ?',
+    'LAYCANEND = ?',
     'WORKING_DAYS = ?',
     'PERIODID = ?',
     'CHARTERING_PIC = ?',
+    'CHARTERING_PIC_1 = ?',
     'TANKER_RADIO_SINGLE_DIS = ?',
+    'CHK_LUMPSUM = ?',
+    'LUMP_VENDOR = ?',
     'REMARKS = ?',
     'OWNER = ?',
     'DISPONENT_OWNER = ?',
@@ -1988,10 +2129,12 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
   ];
 
   const tankWs = resolveTankWsPorts(payload);
+  const fixtureTypeId = payload.fixtureTypeId != null && payload.fixtureTypeId !== ''
+    ? Number(payload.fixtureTypeId)
+    : null;
   const values = [
-    payload.fixtureTypeId != null && payload.fixtureTypeId !== ''
-      ? Number(payload.fixtureTypeId)
-      : null,
+    fixtureTypeId,
+    fixtureTypeId,
     toDbDate(payload.transDate),
     payload.vesselImoId || null,
     payload.vesselType || null,
@@ -2046,13 +2189,19 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     numOrNull(payload.addCommPercent),
     numOrNull(payload.addressCommAmt),
     numOrNull(payload.tankerFreightRate || payload.marketRate),
+    Array.isArray(payload.cargoIds) && payload.cargoIds.length
+      ? payload.cargoIds.join(',')
+      : (payload.cargoIds || null),
     numOrNull(payload.vesselDailyOps),
     toDbDateTime(payload.laycanStart),
     toDbDateTime(payload.laycanEnd),
     numOrNull(payload.timeAllowed),
     payload.periodId || null,
+    payload.charteringTeam || '7',
     payload.charteringPic || null,
     payload.tankType != null && payload.tankType !== '' ? Number(payload.tankType) : 1,
+    payload.chkLumpsum ? 1 : 0,
+    payload.lumpsumVendor || null,
     payload.notes || null,
     payload.ownerId || null,
     payload.disponentOwner
@@ -2121,8 +2270,8 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         DEMMDAYSLP, DEMMRATELP, DEMMDAYSDP, DEMMRATEDP,
         CHK_LP_SECA, CHK_DP_SECA, CHK_TP_SECA,
         BG_NON_SECA, BG_SECA, BUNKER_GRADE_LP, BUNKER_GRADE_DP, BUNKER_GRADE_TP,
-        CHARTERERACCOUNT
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        CHARTERERACCOUNT, CHK_MAND
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         fcaId,
         leg.fromPortId || null,
@@ -2173,6 +2322,7 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         Array.isArray(leg.dpBunkerGrades) ? leg.dpBunkerGrades.join(',') : (leg.dpBunkerGrades || 'VLSFO'),
         Array.isArray(leg.tpBunkerGrades) ? leg.tpBunkerGrades.join(',') : (leg.tpBunkerGrades || 'VLSFO'),
         numOrNull(leg.chartererAccountDays),
+        leg.portFunction || null,
       ],
     );
   }
@@ -2356,6 +2506,15 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
 
   for (const row of payload.consumptionRows || []) {
     if (!row.bunkerGradeId && !row.balSecaFs && !row.ladSecaFs && !row.balNonSecaFs) continue;
+    // Mirror PHP slave16 insert column layout from functions_internal_user_sopf.inc.php.
+    // Also write the At Sea form's misnamed IDLE/OTHER slots so PHP edit pages
+    // that read those fields still see Working DP / Idle correctly.
+    const workingLpS = numOrNull(row.inPortSecaWorking);
+    const workingLpNs = numOrNull(row.inPortNonSecaWorking);
+    const workingDpS = numOrNull(row.inPortSecaWorkingDp);
+    const workingDpNs = numOrNull(row.inPortNonSecaWorkingDp);
+    const idleS = numOrNull(row.inPortSecaIdle);
+    const idleNs = numOrNull(row.inPortNonSecaIdle);
     await connection.query(
       `INSERT INTO freight_cost_estimete_slave16 (
         FCAID, BUNKERID, IDENTIFY,
@@ -2368,12 +2527,16 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         FO_INPORT_SECA_CONSP_WORKING, FO_INPORT_NONSECA_CONSP_WORKING,
         FO_INPORT_SECA_CONSP_IDLE, FO_INPORT_NONSECA_CONSP_IDLE,
         FO_INPORT_SECA_CONSP_OTHER, FO_INPORT_NONSECA_CONSP_OTHER,
+        FO_INPORT_SECA_CONSP_IDLE_BALLAST, FO_INPORT_NONSECA_CONSP_IDLE_BALLAST,
+        FO_INPORT_SECA_CONSP_IDLE_LADEN, FO_INPORT_NONSECA_CONSP_IDLE_LADEN,
+        FO_INPORT_SECA_CONSP_WORKING_LP, FO_INPORT_NONSECA_CONSP_WORKING_LP,
+        FO_INPORT_SECA_CONSP_WORKING_DP, FO_INPORT_NONSECA_CONSP_WORKING_DP,
         FO_OTHER_SECA_CONSP_TK, FO_OTHER_NONSECA_CONSP_TK,
         FO_OTHER_SECA_CONSP_INERT, FO_OTHER_NONSECA_CONSP_INERT,
         FO_OTHER_SECA_CONSP_GF, FO_OTHER_NONSECA_CONSP_GF,
         FO_OTHER_SECA_CONSP_HEAT, FO_OTHER_NONSECA_CONSP_HEAT,
         FO_OTHER_SECA_CONSP_HEAT_1, FO_OTHER_NONSECA_CONSP_HEAT_1
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         fcaId,
         row.bunkerGradeId || null,
@@ -2390,12 +2553,22 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         numOrNull(row.ladSecaMes),
         numOrNull(row.balNonSecaMes),
         numOrNull(row.ladNonSecaMes),
-        numOrNull(row.inPortSecaWorking),
-        numOrNull(row.inPortNonSecaWorking),
-        numOrNull(row.inPortSecaIdle),
-        numOrNull(row.inPortNonSecaIdle),
-        numOrNull(row.inPortSecaWorkingDp),
-        numOrNull(row.inPortNonSecaWorkingDp),
+        workingLpS,
+        workingLpNs,
+        // PHP At Sea form stores Working DP NS in SECA_IDLE
+        workingDpNs,
+        idleNs,
+        // PHP At Sea form stores Working DP S in SECA_OTHER, Idle S in NONSECA_OTHER
+        workingDpS,
+        idleS,
+        idleS,
+        idleNs,
+        idleS,
+        idleNs,
+        workingLpS,
+        workingLpNs,
+        workingDpS,
+        workingDpNs,
         numOrNull(row.otherSecaTk),
         numOrNull(row.otherNonSecaTk),
         numOrNull(row.otherSecaInert),

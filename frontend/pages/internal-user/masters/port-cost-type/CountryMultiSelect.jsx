@@ -6,6 +6,7 @@ export default function CountryMultiSelect({
   value = [],
   onChange,
   placeholder = 'Choose countries…',
+  searchPlaceholder = 'Search…',
   disabled = false,
 }) {
   const rootRef = useRef(null);
@@ -96,14 +97,14 @@ export default function CountryMultiSelect({
             className={styles.search}
             type="search"
             value={query}
-            placeholder="Search countries…"
+            placeholder={searchPlaceholder}
             autoFocus
             onChange={(event) => setQuery(event.target.value)}
             onClick={(event) => event.stopPropagation()}
           />
           <ul className={styles.options}>
             {filtered.length === 0 ? (
-              <li className={styles.empty}>No countries found.</li>
+              <li className={styles.empty}>No matches found.</li>
             ) : (
               filtered.map((item) => {
                 const id = String(item.id);

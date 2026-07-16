@@ -88,13 +88,6 @@
   }
 }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-bottom: 10px;
-}
-
 .panel {
   background: #fff;
   border: 1px solid var(--color-border, #e5e7eb);
@@ -301,6 +294,49 @@
 
 .addRowBtn:hover {
   background: #f8fafc;
+}
+
+.portLaytimeStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.portLaytimeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.portLaytimeTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.portNameCell {
+  text-align: center;
+  white-space: nowrap;
+  font-weight: 500;
+  color: #374151;
+}
+
+.hintText {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.summaryLabelCell {
+  font-weight: 600;
+  color: #274670;
+  white-space: nowrap;
+}
+
+.summaryEmptyCell {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
 }
 
 .nestedBlock {
@@ -530,11 +566,34 @@
   padding: 8px 10px;
 }
 
+.tankerWsBlock {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e8e4df;
+}
+
+.tankerWsBlock:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.tankerWsRowLabel {
+  text-align: left;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
 .wsPortCombo {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 12px 20px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: #faf8f5;
+  border-radius: 4px;
 }
 
 .wsPortComboLabel {
@@ -551,6 +610,7 @@
   flex: 1 1 220px;
 }
 
+.wsPortComboField > label,
 .wsPortComboField > span {
   font-size: 11px;
   font-weight: 600;

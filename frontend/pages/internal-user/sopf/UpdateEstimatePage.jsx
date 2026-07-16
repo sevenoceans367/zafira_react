@@ -11,6 +11,7 @@ import {
   updateEstimateDetail,
 } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
+import EstimateDetailHeaderActions from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { toFormState } from './estimateDetail.constants.js';
@@ -61,22 +62,26 @@ export default function UpdateEstimatePage() {
         fetchEstimateDetail(estimateId),
         fetchEstimateLookups(estimateType),
       ]);
+      const resolvedType = data?.estimateType || estimateType;
+      const lookupsForType = String(resolvedType) === String(estimateType)
+        ? lookupData
+        : await fetchEstimateLookups(resolvedType);
       setDetail(data);
       const nextLookups = {
-        cargos: lookupData.cargos ?? [],
-        bunkerGrades: lookupData.bunkerGrades ?? [],
-        ownerCosts: lookupData.ownerCosts ?? [],
-        owners: lookupData.owners ?? [],
-        ownBusiness: lookupData.ownBusiness ?? [],
-        charteringTeams: lookupData.charteringTeams ?? [],
-        charteringPics: lookupData.charteringPics ?? [],
-        periodContracts: lookupData.periodContracts ?? [],
-        zones: lookupData.zones ?? [],
-        fixtureBrokers: lookupData.fixtureBrokers ?? [],
-        coaContracts: lookupData.coaContracts ?? [],
-        complianceFactors: lookupData.complianceFactors ?? {},
-        complianceYear: lookupData.complianceYear || new Date().getFullYear(),
-        marketPrices: lookupData.marketPrices ?? {},
+        cargos: lookupsForType.cargos ?? [],
+        bunkerGrades: lookupsForType.bunkerGrades ?? [],
+        ownerCosts: lookupsForType.ownerCosts ?? [],
+        owners: lookupsForType.owners ?? [],
+        ownBusiness: lookupsForType.ownBusiness ?? [],
+        charteringTeams: lookupsForType.charteringTeams ?? [],
+        charteringPics: lookupsForType.charteringPics ?? [],
+        periodContracts: lookupsForType.periodContracts ?? [],
+        zones: lookupsForType.zones ?? [],
+        fixtureBrokers: lookupsForType.fixtureBrokers ?? [],
+        coaContracts: lookupsForType.coaContracts ?? [],
+        complianceFactors: lookupsForType.complianceFactors ?? {},
+        complianceYear: lookupsForType.complianceYear || new Date().getFullYear(),
+        marketPrices: lookupsForType.marketPrices ?? {},
       };
       setLookups(nextLookups);
       setForm(applyEstimateCalculations(toFormState(data), nextLookups));
@@ -288,10 +293,7 @@ export default function UpdateEstimatePage() {
   return (
     <div className={`zafira-page ${styles.page}`}>
       <LoadingOverlay show={loading || saving} />
-
-      <div className={styles.toolbar}>
-        <Button variant="outline" label="Back" href={listHref} />
-      </div>
+      <EstimateDetailHeaderActions listHref={listHref} disabled={saving} />
 
       {error ? <p className={styles.error}>{error}</p> : null}
 

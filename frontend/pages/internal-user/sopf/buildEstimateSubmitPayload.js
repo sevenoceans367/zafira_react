@@ -28,6 +28,18 @@ export function buildEstimateSubmitPayload(form, estimateType, periodId = null) 
     grainCap: form.grainCap,
     baleCap: form.baleCap,
     cargoQuantity: form.cargoQuantity,
+    cargoIds: [
+      ...new Set(
+        [
+          ...(form.cargoIds || []),
+          ...(form.cargoRows || []).map((row) => row.cargoId),
+          ...(form.overageCargoRows || []).map((row) => row.cargoId),
+          ...(form.deadfreightCargoRows || []).map((row) => row.cargoId),
+        ]
+          .map((id) => String(id || '').trim())
+          .filter((id) => id && id !== '0'),
+      ),
+    ],
     totalDays: form.totalDays,
     totalDistance: form.totalDistance,
     dailyEarning: form.dailyEarning,
@@ -46,6 +58,8 @@ export function buildEstimateSubmitPayload(form, estimateType, periodId = null) 
     ballastBonus: form.ballastBonus,
     lumpsum: form.lumpsum,
     lumpsumQty: form.lumpsumQty,
+    chkLumpsum: !!form.chkLumpsum,
+    lumpsumVendor: form.lumpsumVendor || '',
     marketRate: form.tankerFreightRate || form.marketRate,
     tankerFreightRate: form.tankerFreightRate || form.marketRate,
     tankType: form.tankType || '1',

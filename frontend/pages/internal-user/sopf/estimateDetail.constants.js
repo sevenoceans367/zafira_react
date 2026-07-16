@@ -124,6 +124,18 @@ function newRowId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** PHP INT_MAX placeholder RANDOMID — treat as missing so rows stay unique in React. */
+const PLACEHOLDER_ROW_ID = '2147483647';
+
+function resolveUniqueRowId(rawId, prefix, seen) {
+  let id = rawId != null && String(rawId) !== '' ? String(rawId) : '';
+  if (!id || id === PLACEHOLDER_ROW_ID || seen.has(id)) {
+    id = newRowId(prefix);
+  }
+  seen.add(id);
+  return id;
+}
+
 export function createEmptyCargoRow(status = 1) {
   return {
     id: newRowId('cargo'),
@@ -516,23 +528,42 @@ export function createEmptyDetail(estimateType = 2) {
 }
 
 export function toFormState(detail = {}) {
-  const mapCargo = (row) => ({
-    id: row.id || newRowId('cargo'),
-    cargoId: row.cargoId != null ? String(row.cargoId) : '',
-    cargoName: row.cargoName ?? '',
-    cargoCbm: row.cargoCbm != null ? String(row.cargoCbm) : '',
-    cargoMt: row.cargoMt != null ? String(row.cargoMt) : '',
-    rateUsdMt: row.rateUsdMt != null ? String(row.rateUsdMt) : '',
-    amountUsd: row.amountUsd != null ? String(row.amountUsd) : '',
-    charterer: row.charterer ?? '',
-    demAmt: row.demAmt != null ? String(row.demAmt) : '',
-    vendorId: row.vendorId != null ? String(row.vendorId) : '',
-    status: row.status ?? 1,
-  });
+  const cargoSeen = new Set();
+  const mapCargo = (row) => {
+    const rawId = row.cargoId != null ? String(row.cargoId).trim() : '';
+    return {
+      id: resolveUniqueRowId(row.id, 'cargo', cargoSeen),
+      cargoId: rawId && rawId !== '0' ? rawId : '',
+      cargoName: row.cargoName ?? '',
+      cargoCbm: row.cargoCbm != null ? String(row.cargoCbm) : '',
+      cargoMt: row.cargoMt != null ? String(row.cargoMt) : '',
+      rateUsdMt: row.rateUsdMt != null ? String(row.rateUsdMt) : '',
+      amountUsd: row.amountUsd != null ? String(row.amountUsd) : '',
+      charterer: row.charterer ?? '',
+      demAmt: row.demAmt != null ? String(row.demAmt) : '',
+      vendorId: row.vendorId != null ? String(row.vendorId) : '',
+      status: row.status ?? 1,
+    };
+  };
 
   const cargoRows = Array.isArray(detail.cargoRows) && detail.cargoRows.length
     ? detail.cargoRows.map(mapCargo)
     : [createEmptyCargoRow(1)];
+
+  const masterCargoIds = Array.isArray(detail.cargoIds)
+    ? detail.cargoIds.map(String).filter(Boolean)
+    : String(detail.cargoId || detail.CARGO_ID || '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter((part) => part && part !== '0');
+
+  // Backfill row cargoId from master CARGO_ID when slave row is missing it.
+  cargoRows.forEach((row, index) => {
+    if (!row.cargoId) {
+      const fallback = masterCargoIds[index] || masterCargoIds[0] || '';
+      if (fallback) row.cargoId = fallback;
+    }
+  });
 
   const overageCargoRows = Array.isArray(detail.overageCargoRows) && detail.overageCargoRows.length
     ? detail.overageCargoRows.map(mapCargo)
@@ -542,9 +573,10 @@ export function toFormState(detail = {}) {
     ? detail.deadfreightCargoRows.map(mapCargo)
     : [createEmptyCargoRow(3)];
 
+  const legSeen = new Set();
   const portLegs = Array.isArray(detail.portLegs) && detail.portLegs.length
     ? detail.portLegs.map((row) => ({
-      id: row.id || newRowId('leg'),
+      id: resolveUniqueRowId(row.id, 'leg', legSeen),
       fromPortId: row.fromPortId != null ? String(row.fromPortId) : '',
       fromPortName: row.fromPortName ?? '',
       toPortId: row.toPortId != null ? String(row.toPortId) : '',
@@ -607,9 +639,10 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyPortLeg()];
 
+  const bunkerSeen = new Set();
   const bunkerRows = Array.isArray(detail.bunkerRows) && detail.bunkerRows.length
     ? detail.bunkerRows.map((row) => ({
-      id: row.id || newRowId('bunker'),
+      id: resolveUniqueRowId(row.id, 'bunker', bunkerSeen),
       bunkerGradeId: row.bunkerGradeId != null ? String(row.bunkerGradeId) : '',
       qty: row.qty != null ? String(row.qty) : '',
       price: row.price != null ? String(row.price) : '',
@@ -618,9 +651,10 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyBunkerRow('CONSUMPTION'), createEmptyBunkerRow('SUPPLY')];
 
+  const bactSeen = new Set();
   const bunkerActivityRows = Array.isArray(detail.bunkerActivityRows) && detail.bunkerActivityRows.length
     ? detail.bunkerActivityRows.map((row) => ({
-      id: row.id || newRowId('bact'),
+      id: resolveUniqueRowId(row.id, 'bact', bactSeen),
       activity: row.activity || 'Cold Wash',
       bunkerGrade: row.bunkerGrade || 'VLSFO',
       qty: row.qty != null ? String(row.qty) : '',
@@ -629,9 +663,10 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyBunkerActivityRow()];
 
+  const orcSeen = new Set();
   const orcRows = Array.isArray(detail.orcRows) && detail.orcRows.length
     ? detail.orcRows.map((row) => ({
-      id: row.id || newRowId('orc'),
+      id: resolveUniqueRowId(row.id, 'orc', orcSeen),
       costId: row.costId != null ? String(row.costId) : '',
       costName: row.costName ?? '',
       amount: row.amount != null ? String(row.amount) : '',
@@ -641,9 +676,10 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyOrcRow()];
 
+  const oiSeen = new Set();
   const otherIncomeRows = Array.isArray(detail.otherIncomeRows) && detail.otherIncomeRows.length
     ? detail.otherIncomeRows.map((row) => ({
-      id: row.id || newRowId('oi'),
+      id: resolveUniqueRowId(row.id, 'oi', oiSeen),
       description: row.description ?? '',
       amount: row.amount != null ? String(row.amount) : '',
       addComm: row.addComm != null ? String(row.addComm) : '',
@@ -652,9 +688,10 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyOtherIncomeRow()];
 
+  const brkSeen = new Set();
   const brokerRows = Array.isArray(detail.brokerRows) && detail.brokerRows.length
     ? detail.brokerRows.map((row) => ({
-      id: row.id || newRowId('brk'),
+      id: resolveUniqueRowId(row.id, 'brk', brkSeen),
       percent: row.percent != null ? String(row.percent) : '',
       amount: row.amount != null ? String(row.amount) : '',
       vendorId: row.vendorId != null ? String(row.vendorId) : '',
@@ -670,9 +707,10 @@ export function toFormState(detail = {}) {
       }]
       : [createEmptyBrokerRow()]);
 
+  const hireSeen = new Set();
   const hireRows = Array.isArray(detail.hireRows) && detail.hireRows.length
     ? detail.hireRows.map((row) => ({
-      id: row.id || newRowId('hire'),
+      id: resolveUniqueRowId(row.id, 'hire', hireSeen),
       hireFrom: row.hireFrom ?? '',
       hireTo: row.hireTo ?? '',
       hireDays: row.hireDays != null ? String(row.hireDays) : '',
@@ -681,9 +719,10 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyHireRow()];
 
+  const secaSeen = new Set();
   const secaBunkerRows = Array.isArray(detail.secaBunkerRows) && detail.secaBunkerRows.length
     ? detail.secaBunkerRows.map((row) => ({
-      id: row.id || newRowId('seca'),
+      id: resolveUniqueRowId(row.id, 'seca', secaSeen),
       bunkerGradeId: row.bunkerGradeId != null ? String(row.bunkerGradeId) : '',
       qty: row.qty != null ? String(row.qty) : '',
       price: row.price != null ? String(row.price) : '',
@@ -697,9 +736,10 @@ export function toFormState(detail = {}) {
       createEmptySecaBunkerRow('NON_SECA', 'FO'),
     ];
 
+  const fqSeen = new Set();
   const freightQtyRows = Array.isArray(detail.freightQtyRows) && detail.freightQtyRows.length
     ? detail.freightQtyRows.map((row) => ({
-      id: row.id || newRowId('fq'),
+      id: resolveUniqueRowId(row.id, 'fq', fqSeen),
       vendorId: row.vendorId != null ? String(row.vendorId) : '',
       agreedGrossFreight: row.agreedGrossFreight != null ? String(row.agreedGrossFreight) : '',
       quantity: row.quantity != null ? String(row.quantity) : '',
@@ -718,9 +758,10 @@ export function toFormState(detail = {}) {
   const tankWsFrom = detail.tankWsFrom != null ? String(detail.tankWsFrom) : '';
   const tankWsTo = detail.tankWsTo != null ? String(detail.tankWsTo) : '';
 
+  const wsSeen = new Set();
   const tankerWsRows = Array.isArray(detail.tankerWsRows) && detail.tankerWsRows.length
     ? detail.tankerWsRows.map((row, index) => ({
-      id: row.id || newRowId('ws'),
+      id: resolveUniqueRowId(row.id, 'ws', wsSeen),
       freightSpecs: row.freightSpecs ?? '',
       customerId: row.customerId != null ? String(row.customerId) : '',
       minCargoQty: row.minCargoQty != null ? String(row.minCargoQty) : '',
@@ -748,9 +789,11 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyTankerWsRow()];
 
+  const offSeen = new Set();
+  const offbSeen = new Set();
   const offHireRows = Array.isArray(detail.offHireRows) && detail.offHireRows.length
     ? detail.offHireRows.map((row) => ({
-      id: row.id || newRowId('off'),
+      id: resolveUniqueRowId(row.id, 'off', offSeen),
       reason: row.reason ?? '',
       from: row.from ?? '',
       to: row.to ?? '',
@@ -759,7 +802,7 @@ export function toFormState(detail = {}) {
       amount: row.amount != null ? String(row.amount) : '',
       bunkers: Array.isArray(row.bunkers) && row.bunkers.length
         ? row.bunkers.map((b) => ({
-          id: b.id || newRowId('offb'),
+          id: resolveUniqueRowId(b.id, 'offb', offbSeen),
           bunkerGradeId: b.bunkerGradeId != null ? String(b.bunkerGradeId) : '',
           qty: b.qty != null ? String(b.qty) : '',
           price: b.price != null ? String(b.price) : '',
@@ -767,7 +810,7 @@ export function toFormState(detail = {}) {
           calc: b.calc !== false,
         }))
         : [{
-          id: newRowId('offb'),
+          id: resolveUniqueRowId(null, 'offb', offbSeen),
           bunkerGradeId: '',
           qty: '',
           price: '',
@@ -777,9 +820,10 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyOffHireRow()];
 
+  const locSeen = new Set();
   const passageLocations = Array.isArray(detail.passageLocations) && detail.passageLocations.length
     ? detail.passageLocations.map((row) => ({
-      id: row.id || newRowId('loc'),
+      id: resolveUniqueRowId(row.id, 'loc', locSeen),
       fromLocation: row.fromLocation ?? '',
       toLocation: row.toLocation ?? '',
       passageType: row.passageType != null ? String(row.passageType) : '1',
@@ -788,9 +832,10 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyPassageLocationRow()];
 
+  const consSeen = new Set();
   const consumptionRows = Array.isArray(detail.consumptionRows) && detail.consumptionRows.length
     ? detail.consumptionRows.map((row) => ({
-      id: row.id || newRowId('cons'),
+      id: resolveUniqueRowId(row.id, 'cons', consSeen),
       identify: row.identify || 'FO',
       bunkerGradeId: row.bunkerGradeId != null ? String(row.bunkerGradeId) : '',
       balSecaFs: row.balSecaFs != null ? String(row.balSecaFs) : '',
@@ -824,16 +869,18 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyConsumptionRow('FO'), createEmptyConsumptionRow('DO')];
 
+  const invSeen = new Set();
   const invoiceRows = Array.isArray(detail.invoiceRows) && detail.invoiceRows.length
     ? detail.invoiceRows.map((row) => ({
-      id: row.id || newRowId('inv'),
+      id: resolveUniqueRowId(row.id, 'inv', invSeen),
       invoiceId: row.invoiceId != null ? String(row.invoiceId) : '',
     }))
     : [createEmptyInvoiceRow()];
 
+  const delSeen = new Set();
   const deliveryBunkerRows = Array.isArray(detail.deliveryBunkerRows) && detail.deliveryBunkerRows.length
     ? detail.deliveryBunkerRows.map((row) => ({
-      id: row.id || newRowId('delb'),
+      id: resolveUniqueRowId(row.id, 'delb', delSeen),
       bunkerGradeId: row.bunkerGradeId != null ? String(row.bunkerGradeId) : '',
       qty: row.qty != null ? String(row.qty) : '',
       price: row.price != null ? String(row.price) : '',
@@ -843,9 +890,10 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyDeliveryBunkerRow('DEL')];
 
+  const redelSeen = new Set();
   const redeliveryBunkerRows = Array.isArray(detail.redeliveryBunkerRows) && detail.redeliveryBunkerRows.length
     ? detail.redeliveryBunkerRows.map((row) => ({
-      id: row.id || newRowId('delb'),
+      id: resolveUniqueRowId(row.id, 'delb', redelSeen),
       bunkerGradeId: row.bunkerGradeId != null ? String(row.bunkerGradeId) : '',
       qty: row.qty != null ? String(row.qty) : '',
       price: row.price != null ? String(row.price) : '',
@@ -855,36 +903,42 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyDeliveryBunkerRow('REDEL')];
 
+  const dispSeen = new Set();
   const disponentRows = Array.isArray(detail.disponentRows) && detail.disponentRows.length
     ? detail.disponentRows.map((row) => ({
-      id: row.id || newRowId('disp'),
+      id: resolveUniqueRowId(row.id, 'disp', dispSeen),
       name: row.name ?? '',
     }))
     : detail.disponentOwner
-      ? [{ id: newRowId('disp'), name: detail.disponentOwner }]
+      ? [{ id: resolveUniqueRowId(null, 'disp', dispSeen), name: detail.disponentOwner }]
       : [createEmptyDisponentRow()];
 
+  const evtSeen = new Set();
   const voyageEventRows = Array.isArray(detail.voyageEventRows) && detail.voyageEventRows.length
     ? detail.voyageEventRows.map((row) => ({
-      id: row.id || newRowId('evt'),
+      id: resolveUniqueRowId(row.id, 'evt', evtSeen),
       details: row.details ?? '',
       eventDate: row.eventDate ?? '',
     }))
     : [createEmptyVoyageEventRow()];
 
+  const psSeen = new Set();
   const profitSharingRows = Array.isArray(detail.profitSharingRows) && detail.profitSharingRows.length
     ? detail.profitSharingRows.map((row) => ({
-      id: row.id || newRowId('ps'),
+      id: resolveUniqueRowId(row.id, 'ps', psSeen),
       vendorId: row.vendorId != null ? String(row.vendorId) : '',
       percentage: row.percentage != null ? String(row.percentage) : '',
     }))
     : [createEmptyProfitSharingRow()];
 
   return {
+    estimateType: Number(detail.estimateType) || 2,
     periodId: detail.periodId != null ? String(detail.periodId) : '',
-    fixtureTypeId: detail.fixtureTypeId != null && String(detail.fixtureTypeId).trim() !== ''
-      ? String(detail.fixtureTypeId).trim()
-      : '',
+    fixtureTypeId: (() => {
+      const raw = detail.fixtureTypeId;
+      if (raw == null || String(raw).trim() === '' || String(raw).trim() === '0') return '';
+      return String(raw).trim();
+    })(),
     vesselImoId: detail.vesselImoId ? String(detail.vesselImoId) : '',
     vesselName: detail.vesselName ?? '',
     vesselType: detail.vesselType ?? '',
@@ -928,6 +982,7 @@ export function toFormState(detail = {}) {
     cargoRows,
     overageCargoRows,
     deadfreightCargoRows,
+    cargoIds: masterCargoIds,
     portLegs,
     bunkerRows,
     bunkerActivityRows,
@@ -965,9 +1020,12 @@ export function toFormState(detail = {}) {
     attachments: detail.attachments ?? [],
     charteringTeam: detail.charteringTeam != null ? String(detail.charteringTeam) : '7',
     charteringPic: detail.charteringPic != null ? String(detail.charteringPic) : '',
+    charteringPicName: detail.charteringPicName ?? '',
 
     lumpsumQty: detail.lumpsumQty != null ? String(detail.lumpsumQty) : '',
     lumpsum: detail.lumpsum != null ? String(detail.lumpsum) : '',
+    chkLumpsum: !!detail.chkLumpsum,
+    lumpsumVendor: detail.lumpsumVendor != null ? String(detail.lumpsumVendor) : '',
     marketRate: detail.marketRate != null ? String(detail.marketRate) : '',
     tankerFreightRate: detail.tankerFreightRate != null
       ? String(detail.tankerFreightRate)

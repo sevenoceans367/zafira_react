@@ -1,7 +1,6 @@
 import React from 'react';
-import { DmyDateInput, useAlert } from '@bainbridge/shared-ui';
-import { searchEstimatePorts } from '../../../services/estimateDetail.js';
-import WsPortMultiSelect from './WsPortMultiSelect.jsx';
+import { Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
+import CollapsiblePanel from './CollapsiblePanel.jsx';
 import {
   BUNKER_TYPE_OPTIONS,
   CURRENCY_OPTIONS,
@@ -14,7 +13,6 @@ import {
   createEmptyOffHireRow,
   createEmptyPassageLocationRow,
   createEmptySecaBunkerRow,
-  createEmptyTankerWsRow,
   createEmptyDisponentRow,
   createEmptyVoyageEventRow,
 } from './estimateDetail.constants.js';
@@ -35,7 +33,6 @@ export default function EstimateAdvancedSections({
   onApplyPatch,
 }) {
   const editable = !readOnly;
-  const isTanker = Number(estimateType) === 2;
   const alert = useAlert();
 
   const updateField = (key, value) => {
@@ -78,57 +75,6 @@ export default function EstimateAdvancedSections({
     } else {
       updateField(collection, rows);
     }
-  };
-
-  const updateTankerWsRow = (id, patch) => {
-    const rows = (form.tankerWsRows || []).map((row) => (
-      row.id === id ? { ...row, ...patch } : row
-    ));
-    const masterPatch = {};
-    const first = rows[0];
-    if (
-      first?.id === id
-      && ('wsFromPortId' in patch || 'wsToPortId' in patch)
-    ) {
-      masterPatch.tankWsFrom = first.wsFromPortId || '';
-      masterPatch.tankWsTo = first.wsToPortId || '';
-    }
-    if (onRecalc) {
-      onRecalc('tankerWsRows', rows);
-      if ('tankWsFrom' in masterPatch) onRecalc('tankWsFrom', masterPatch.tankWsFrom);
-      if ('tankWsTo' in masterPatch) onRecalc('tankWsTo', masterPatch.tankWsTo);
-      return;
-    }
-    applyPatch({ tankerWsRows: rows, ...masterPatch });
-  };
-
-  const handleTankerWsFieldChange = (row, key, value) => {
-    const patch = { [key]: value };
-    if (key === 'minFlatRate' && value) {
-      const half = Number(String(value).replace(/,/g, ''));
-      if (Number.isFinite(half)) patch.oveFlatRate = String(Math.round((half / 2) * 100) / 100);
-    }
-    if (key === 'minWs' && value) {
-      patch.oveWs = value;
-    }
-    updateTankerWsRow(row.id, patch);
-  };
-
-  const addTankerWsRow = async () => {
-    const blockMessage = getAddRowBlockMessage('tankerWsRows', form.tankerWsRows || []);
-    if (blockMessage) {
-      await alert({ title: 'Alert', message: blockMessage, confirmLabel: 'OK' });
-      return;
-    }
-    const row = createEmptyTankerWsRow();
-    const distance = form.totalDistance != null ? String(form.totalDistance) : '';
-    if (distance) {
-      row.minDistance = distance;
-      row.oveDistance = distance;
-    }
-    const rows = [...(form.tankerWsRows || []), row];
-    if (onRecalc) onRecalc('tankerWsRows', rows);
-    else updateField('tankerWsRows', rows);
   };
 
   const updateOffHireBunker = (offId, bunkerId, patch) => {
@@ -195,21 +141,8 @@ export default function EstimateAdvancedSections({
 
   return (
     <>
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <span>SECA / NON-SECA Bunker Estimate</span>
-          {editable ? (
-            <button
-              type="button"
-              className={styles.addRowBtn}
-              onClick={() => addRow('secaBunkerRows', () => createEmptySecaBunkerRow('SECA', 'FO'))}
-            >
-              + Add
-            </button>
-          ) : null}
-        </div>
-        <div className={styles.panelBody}>
-          <div className={styles.tableWrap}>
+      <CollapsiblePanel title="SECA / NON-SECA Bunker Estimate" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('secaBunkerRows', () => createEmptySecaBunkerRow('SECA', 'FO'))} />) : null}>
+<div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
@@ -300,24 +233,10 @@ export default function EstimateAdvancedSections({
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+</CollapsiblePanel>
 
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <span>Passage Locations</span>
-          {editable ? (
-            <button
-              type="button"
-              className={styles.addRowBtn}
-              onClick={() => addRow('passageLocations', createEmptyPassageLocationRow)}
-            >
-              + Add
-            </button>
-          ) : null}
-        </div>
-        <div className={styles.panelBody}>
-          <div className={styles.tableWrap}>
+      <CollapsiblePanel title="Passage Locations" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('passageLocations', createEmptyPassageLocationRow)} />) : null}>
+<div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
@@ -392,24 +311,10 @@ export default function EstimateAdvancedSections({
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+</CollapsiblePanel>
 
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <span>Freight Quantity / Vendors</span>
-          {editable ? (
-            <button
-              type="button"
-              className={styles.addRowBtn}
-              onClick={() => addRow('freightQtyRows', createEmptyFreightQtyRow)}
-            >
-              + Add
-            </button>
-          ) : null}
-        </div>
-        <div className={styles.panelBody}>
-          <div className={styles.tableWrap}>
+      <CollapsiblePanel title="Freight Quantity / Vendors" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('freightQtyRows', createEmptyFreightQtyRow)} />) : null}>
+<div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
@@ -523,210 +428,10 @@ export default function EstimateAdvancedSections({
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+</CollapsiblePanel>
 
-      {isTanker ? (
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <span>Tanker Freight Mode</span>
-          </div>
-          <div className={styles.panelBody}>
-            <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input
-                  type="radio"
-                  name="tankType"
-                  value="1"
-                  checked={String(form.tankType || '1') === '1'}
-                  disabled={readOnly}
-                  onChange={() => applyPatch({ tankType: '1' })}
-                />
-                <strong>Single</strong>
-              </label>
-              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input
-                  type="radio"
-                  name="tankType"
-                  value="2"
-                  checked={String(form.tankType || '1') === '2'}
-                  disabled={readOnly}
-                  onChange={() => applyPatch({ tankType: '2' })}
-                />
-                <strong>Distributed</strong>
-              </label>
-              {String(form.tankType || '1') === '1' ? (
-                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  Freight Rate
-                  <input
-                    value={form.tankerFreightRate || ''}
-                    readOnly={readOnly}
-                    placeholder="0.00"
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      applyPatch({ tankerFreightRate: value, marketRate: value });
-                    }}
-                  />
-                </label>
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {isTanker && String(form.tankType || '1') === '1' ? (
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <span>Tanker WS Freight Specs</span>
-            {editable ? (
-              <button
-                type="button"
-                className={styles.addRowBtn}
-                onClick={addTankerWsRow}
-              >
-                + Add
-              </button>
-            ) : null}
-          </div>
-          <div className={styles.panelBody}>
-            <div className={styles.tableWrap}>
-              <table className={styles.portTable}>
-                <thead>
-                  <tr>
-                    <th>Freight Specs</th>
-                    <th>Customer</th>
-                    <th>Min Qty</th>
-                    <th>Ove Qty</th>
-                    <th>Min Flat</th>
-                    <th>Ove Flat</th>
-                    <th>Min WS</th>
-                    <th>Ove WS</th>
-                    <th>Min Dis Leg</th>
-                    <th>Ove Dis Leg</th>
-                    <th>Min Total Dist</th>
-                    <th>Ove Total Dist</th>
-                    <th>Min Amt</th>
-                    <th>Ove Amt</th>
-                    <th>Total Qty</th>
-                    <th>Total Amt</th>
-                    {editable ? <th /> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(form.tankerWsRows || []).map((row, rowIndex) => (
-                    <React.Fragment key={row.id}>
-                      <tr className={styles.tankerWsPortRow}>
-                        <td colSpan={editable ? 17 : 16}>
-                          <div className={styles.wsPortCombo}>
-                            <span className={styles.wsPortComboLabel}>WS Port(s) Combo</span>
-                            <div className={styles.wsPortComboField}>
-                              <span>From</span>
-                              <WsPortMultiSelect
-                                id={`wsFromPort_${rowIndex}`}
-                                value={row.wsFromPortId}
-                                label={row.wsFromPortName}
-                                readOnly={readOnly}
-                                searchPorts={searchEstimatePorts}
-                                onChange={(portIds, portNames) => {
-                                  updateTankerWsRow(row.id, {
-                                    wsFromPortId: portIds,
-                                    wsFromPortName: portNames,
-                                  });
-                                }}
-                              />
-                            </div>
-                            <div className={styles.wsPortComboField}>
-                              <span>To</span>
-                              <WsPortMultiSelect
-                                id={`wsToPort_${rowIndex}`}
-                                value={row.wsToPortId}
-                                label={row.wsToPortName}
-                                readOnly={readOnly}
-                                searchPorts={searchEstimatePorts}
-                                onChange={(portIds, portNames) => {
-                                  updateTankerWsRow(row.id, {
-                                    wsToPortId: portIds,
-                                    wsToPortName: portNames,
-                                  });
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                          <input
-                            value={row.freightSpecs}
-                            readOnly={readOnly}
-                            onChange={(e) => handleTankerWsFieldChange(row, 'freightSpecs', e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <select
-                            value={row.customerId}
-                            disabled={readOnly}
-                            onChange={(e) => handleTankerWsFieldChange(row, 'customerId', e.target.value)}
-                          >
-                            <option value="">Select</option>
-                            {(lookups.owners || []).map((v) => (
-                              <option key={v.id} value={v.id}>{v.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                        {[
-                          'minCargoQty', 'oveCargoQty', 'minFlatRate', 'oveFlatRate',
-                          'minWs', 'oveWs', 'minDisLeg', 'oveDisLeg', 'minDistance', 'oveDistance',
-                        ].map((key) => (
-                          <td key={key}>
-                            <input
-                              value={row[key]}
-                              readOnly={readOnly}
-                              onChange={(e) => handleTankerWsFieldChange(row, key, e.target.value)}
-                            />
-                          </td>
-                        ))}
-                        <td><input value={row.minAmount} readOnly /></td>
-                        <td><input value={row.oveAmount} readOnly /></td>
-                        <td><input value={row.totalQty} readOnly /></td>
-                        <td><input value={row.totalAmount} readOnly /></td>
-                        {editable ? (
-                          <td>
-                            <button
-                              type="button"
-                              className={styles.rowRemove}
-                              onClick={() => removeRow('tankerWsRows', row.id)}
-                              title="Remove"
-                            >
-                              ×
-                            </button>
-                          </td>
-                        ) : null}
-                      </tr>
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <span>Off-Hire</span>
-          {editable ? (
-            <button
-              type="button"
-              className={styles.addRowBtn}
-              onClick={() => addRow('offHireRows', createEmptyOffHireRow)}
-            >
-              + Add
-            </button>
-          ) : null}
-        </div>
-        <div className={styles.panelBody}>
-          {(form.offHireRows || []).map((row) => (
+      <CollapsiblePanel title="Off-Hire" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('offHireRows', createEmptyOffHireRow)} />) : null}>
+{(form.offHireRows || []).map((row) => (
             <div key={row.id} className={styles.nestedBlock}>
               <div className={styles.tableWrap}>
                 <table className={styles.portTable}>
@@ -888,24 +593,10 @@ export default function EstimateAdvancedSections({
               </div>
             </div>
           ))}
-        </div>
-      </section>
+</CollapsiblePanel>
 
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <span>Delivery Bunkers</span>
-          {editable ? (
-            <button
-              type="button"
-              className={styles.addRowBtn}
-              onClick={() => addRow('deliveryBunkerRows', () => createEmptyDeliveryBunkerRow('DEL'))}
-            >
-              + Add
-            </button>
-          ) : null}
-        </div>
-        <div className={styles.panelBody}>
-          <div className={styles.tableWrap}>
+      <CollapsiblePanel title="Delivery Bunkers" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('deliveryBunkerRows', () => createEmptyDeliveryBunkerRow('DEL'))} />) : null}>
+<div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
@@ -976,24 +667,10 @@ export default function EstimateAdvancedSections({
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+</CollapsiblePanel>
 
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <span>Redelivery Bunkers</span>
-          {editable ? (
-            <button
-              type="button"
-              className={styles.addRowBtn}
-              onClick={() => addRow('redeliveryBunkerRows', () => createEmptyDeliveryBunkerRow('REDEL'))}
-            >
-              + Add
-            </button>
-          ) : null}
-        </div>
-        <div className={styles.panelBody}>
-          <div className={styles.tableWrap}>
+      <CollapsiblePanel title="Redelivery Bunkers" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('redeliveryBunkerRows', () => createEmptyDeliveryBunkerRow('REDEL'))} />) : null}>
+<div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
@@ -1064,24 +741,10 @@ export default function EstimateAdvancedSections({
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+</CollapsiblePanel>
 
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <span>Linked Invoices</span>
-          {editable ? (
-            <button
-              type="button"
-              className={styles.addRowBtn}
-              onClick={() => addRow('invoiceRows', createEmptyInvoiceRow)}
-            >
-              + Add
-            </button>
-          ) : null}
-        </div>
-        <div className={styles.panelBody}>
-          <div className={styles.tableWrap}>
+      <CollapsiblePanel title="Linked Invoices" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('invoiceRows', createEmptyInvoiceRow)} />) : null}>
+<div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
@@ -1116,24 +779,10 @@ export default function EstimateAdvancedSections({
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+</CollapsiblePanel>
 
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <span>Disponent Owners</span>
-          {editable ? (
-            <button
-              type="button"
-              className={styles.addRowBtn}
-              onClick={() => addRow('disponentRows', createEmptyDisponentRow)}
-            >
-              + Add
-            </button>
-          ) : null}
-        </div>
-        <div className={styles.panelBody}>
-          <div className={styles.tableWrap}>
+      <CollapsiblePanel title="Disponent Owners" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('disponentRows', createEmptyDisponentRow)} />) : null}>
+<div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
@@ -1168,24 +817,10 @@ export default function EstimateAdvancedSections({
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+</CollapsiblePanel>
 
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <span>Voyage Events</span>
-          {editable ? (
-            <button
-              type="button"
-              className={styles.addRowBtn}
-              onClick={() => addRow('voyageEventRows', createEmptyVoyageEventRow)}
-            >
-              + Add
-            </button>
-          ) : null}
-        </div>
-        <div className={styles.panelBody}>
-          <div className={styles.tableWrap}>
+      <CollapsiblePanel title="Voyage Events" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('voyageEventRows', createEmptyVoyageEventRow)} />) : null}>
+<div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
@@ -1233,8 +868,7 @@ export default function EstimateAdvancedSections({
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+</CollapsiblePanel>
     </>
   );
 }

@@ -1,3 +1,9 @@
+/**
+ * Single source of truth for SOPF estimate calculations.
+ * Port dates / laycan / demurrage schedule logic ported from php/common.js.
+ * Voyage roll-ups ported from php/addestimate.php (getVoyageTime / getFinalCalculation).
+ */
+
 function num(value) {
   const n = Number(String(value ?? '').replace(/,/g, ''));
   return Number.isFinite(n) ? n : 0;
@@ -10,6 +16,307 @@ function round2(value) {
 /** PHP getVoyageTime uses .toFixed(3) for sea / SECA days. */
 function round3(value) {
   return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}
+
+// ---------------------------------------------------------------------------
+// Port schedule / laycan / demurrage (php/common.js)
+// Date format: "dd-mm-yyyy HH:MM"
+// ---------------------------------------------------------------------------
+
+/** PHP parseDateTime — parse "dd-mm-yyyy HH:MM" as local wall-clock. */
+export function parseDateTime(str) {
+  const raw = String(str || '').trim();
+  if (!raw) return null;
+  const parts = raw.split(/\s+/);
+  if (parts.length < 2) return null;
+  const date = parts[0].split(/[-/]/);
+  const time = parts[1].split(':');
+  if (date.length < 3 || time.length < 2) return null;
+  const day = parseInt(date[0], 10);
+  const month = parseInt(date[1], 10) - 1;
+  const year = parseInt(date[2], 10);
+  const hour = parseInt(time[0], 10);
+  const minute = parseInt(time[1], 10);
+  if (![day, month, year, hour, minute].every((n) => Number.isFinite(n))) return null;
+  const dt = new Date(year, month, day, hour, minute);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+/** Format Date → "dd-mm-yyyy HH:MM". */
+export function formatDateTime(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${dd}-${mm}-${yyyy} ${hh}:${min}`;
+}
+
+/** PHP addDecimalDays — add fractional days to "dd-mm-yyyy HH:MM". */
+export function addDecimalDays(dateStr, days) {
+  const dt = parseDateTime(dateStr);
+  if (!dt) return dateStr || '';
+  const add = num(days);
+  if (!add) return formatDateTime(dt);
+  return formatDateTime(new Date(dt.getTime() + add * 24 * 60 * 60 * 1000));
+}
+
+/** PHP minusDecimalDays — subtract fractional days (uses minutes for DST safety). */
+export function minusDecimalDays(dateStr, days) {
+  const dt = parseDateTime(dateStr);
+  if (!dt) return dateStr || '';
+  const sub = num(days);
+  if (!sub) return formatDateTime(dt);
+  const next = new Date(dt.getTime());
+  next.setMinutes(next.getMinutes() - sub * 24 * 60);
+  return formatDateTime(next);
+}
+
+/** Difference in days (date2 - date1), fractional. */
+export function diffDays(dateStr1, dateStr2) {
+  const d1 = parseDateTime(dateStr1);
+  const d2 = parseDateTime(dateStr2);
+  if (!d1 || !d2) return 0;
+  return (d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24);
+}
+
+/**
+ * PHP getIdleDaysByLaycan:
+ * If Laycan Start > first laden (passageType=2) from-arrival,
+ * set that leg's loadPortIdleDays to the positive day difference.
+ */
+export function applyIdleDaysByLaycan(portLegs, laycanStart) {
+  const legs = (portLegs || []).map((leg) => ({ ...leg }));
+  if (!laycanStart) return legs;
+
+  const ladenIndex = legs.findIndex((leg) => String(leg.passageType) === '2');
+  if (ladenIndex < 0) return legs;
+
+  const arrival = legs[ladenIndex].fromArrival;
+  if (!arrival) return legs;
+
+  const d1 = parseDateTime(laycanStart);
+  const d2 = parseDateTime(arrival);
+  if (!d1 || !d2) return legs;
+
+  if (d1 > d2) {
+    const days = (d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24);
+    legs[ladenIndex] = {
+      ...legs[ladenIndex],
+      loadPortIdleDays: days.toFixed(2),
+    };
+  } else {
+    legs[ladenIndex] = {
+      ...legs[ladenIndex],
+      loadPortIdleDays: '',
+    };
+  }
+  return legs;
+}
+
+/**
+ * Cascade one leg's schedule from its fromArrival (PHP calculatePortDates core).
+ * PHP currently uses idleDays = 0 when deriving departure from arrival.
+ */
+function cascadeLegFromArrival(leg) {
+  const next = { ...leg };
+  const fromArrival = next.fromArrival || '';
+  const loadWork = num(next.loadPortWorkDays);
+  // PHP hardcodes idleDays = 0 in calculatePortDates departure math
+  const fromStay = loadWork;
+
+  if (fromArrival && fromStay) {
+    next.fromDeparture = addDecimalDays(fromArrival, fromStay);
+  } else {
+    next.fromDeparture = fromArrival;
+  }
+
+  const seaDays = num(next.seaDays);
+  if (next.fromDeparture && seaDays) {
+    next.toArrival = addDecimalDays(next.fromDeparture, seaDays);
+  } else {
+    next.toArrival = next.fromDeparture || '';
+  }
+
+  const discQty = num(next.dischargeQty);
+  const passageType = String(next.passageType || '1');
+  let toStay = 0;
+  if (passageType === '1' || discQty === 0) {
+    toStay = num(next.transitIdleDays);
+  } else {
+    toStay = num(next.discPortWorkDays);
+  }
+
+  if (next.toArrival && toStay) {
+    next.toDeparture = addDecimalDays(next.toArrival, toStay);
+  } else {
+    next.toDeparture = next.toArrival || '';
+  }
+
+  return next;
+}
+
+/**
+ * PHP calculatePortDates — cascade dates forward from startIndex.
+ * @param {object[]} portLegs
+ * @param {{ startIndex?: number }} options
+ */
+export function applyPortDateCascade(portLegs, options = {}) {
+  const startIndex = Math.max(0, Number(options.startIndex) || 0);
+  const legs = (portLegs || []).map((leg) => ({ ...leg }));
+  if (!legs.length) return legs;
+
+  for (let i = startIndex; i < legs.length; i += 1) {
+    if (i > 0) {
+      legs[i] = {
+        ...legs[i],
+        fromArrival: legs[i - 1].toDeparture || legs[i].fromArrival || '',
+      };
+    }
+    legs[i] = cascadeLegFromArrival(legs[i]);
+  }
+  return legs;
+}
+
+/** Keep edited fromDeparture; recompute toArrival / toDeparture and cascade later legs. */
+export function cascadeFromDeparture(portLegs, legIndex) {
+  const legs = (portLegs || []).map((leg) => ({ ...leg }));
+  const i = Number(legIndex);
+  if (!legs[i]) return legs;
+
+  const leg = { ...legs[i] };
+  const seaDays = num(leg.seaDays);
+  if (leg.fromDeparture && seaDays) {
+    leg.toArrival = addDecimalDays(leg.fromDeparture, seaDays);
+  } else {
+    leg.toArrival = leg.fromDeparture || '';
+  }
+
+  const discQty = num(leg.dischargeQty);
+  const passageType = String(leg.passageType || '1');
+  let toStay = 0;
+  if (passageType === '1' || discQty === 0) {
+    toStay = num(leg.transitIdleDays);
+  } else {
+    toStay = num(leg.discPortWorkDays);
+  }
+  if (leg.toArrival && toStay) {
+    leg.toDeparture = addDecimalDays(leg.toArrival, toStay);
+  } else {
+    leg.toDeparture = leg.toArrival || '';
+  }
+  legs[i] = leg;
+
+  return applyPortDateCascade(legs, { startIndex: i + 1 });
+}
+
+/** Cascade from toArrival → toDeparture, then later legs. */
+export function cascadeFromToArrival(portLegs, legIndex) {
+  const legs = (portLegs || []).map((leg) => ({ ...leg }));
+  const i = Number(legIndex);
+  if (!legs[i]) return legs;
+
+  const leg = { ...legs[i] };
+  const discQty = num(leg.dischargeQty);
+  const passageType = String(leg.passageType || '1');
+  let toStay = 0;
+  if (passageType === '1' || discQty === 0) {
+    toStay = num(leg.transitIdleDays);
+  } else {
+    toStay = num(leg.discPortWorkDays);
+  }
+  if (leg.toArrival && toStay) {
+    leg.toDeparture = addDecimalDays(leg.toArrival, toStay);
+  } else {
+    leg.toDeparture = leg.toArrival || '';
+  }
+  legs[i] = leg;
+  return applyPortDateCascade(legs, { startIndex: i + 1 });
+}
+
+/** PHP calculateDemurrageCost — days × rate. */
+export function calculateDemurrageCost(days, rate) {
+  return round2(num(days) * num(rate));
+}
+
+/**
+ * PHP putDaysToDemurrageDispatch:
+ * Sum (LP working − idle) + (DP CA + working − idle), subtract timeAllowed (hrs → days),
+ * put remainder on last DP demm days.
+ */
+export function applyDemurrageDaysFromLaytime(portLegs, timeAllowedHrs) {
+  const legs = (portLegs || []).map((leg) => ({ ...leg }));
+  if (!legs.length) return legs;
+
+  let demmDaysTotal = 0;
+  for (const leg of legs) {
+    demmDaysTotal += num(leg.loadPortWorkDays) - num(leg.loadPortIdleDays);
+    demmDaysTotal += num(leg.chartererAccountDays)
+      + num(leg.discPortWorkDays)
+      - num(leg.discPortIdleDays);
+  }
+
+  const timeAllowedDays = Number((num(timeAllowedHrs) / 24).toFixed(2));
+  const remaining = Number((demmDaysTotal - timeAllowedDays).toFixed(2));
+  const lastIndex = legs.length - 1;
+  const est = calculateDemurrageCost(remaining, legs[lastIndex].demmRateDp);
+
+  legs[lastIndex] = {
+    ...legs[lastIndex],
+    demmDaysDp: remaining ? remaining.toFixed(2) : '0.00',
+    ddcDpEst: est ? String(est) : '0.00',
+    ddcDpReal: est ? String(est) : '0.00',
+  };
+
+  return legs;
+}
+
+/**
+ * Orchestrate PHP common.js schedule side-effects after sea/laytime days are known.
+ *
+ * form._portScheduleMode (optional):
+ *   - 'fromArrival' (default) — cascade from arrival + work/sea days
+ *   - 'fromDeparture' — keep edited departure, cascade toArrival onward
+ *   - 'toArrival' — keep edited toArrival, cascade toDeparture onward
+ *   - 'toDeparture' — keep edited toDeparture, cascade later legs only
+ *   - 'laycanOnly' — idle-by-laycan + demurrage only (no date rewrite)
+ */
+export function applyPortScheduleCalculations(form) {
+  let portLegs = (form.portLegs || []).map((leg) => ({ ...leg }));
+  const mode = form._portScheduleMode || 'fromArrival';
+  const legId = form._portScheduleLegId;
+  const legIndex = legId != null
+    ? portLegs.findIndex((leg) => String(leg.id) === String(legId))
+    : -1;
+
+  portLegs = applyIdleDaysByLaycan(portLegs, form.laycanStart);
+
+  if (mode !== 'laycanOnly') {
+    if (mode === 'fromDeparture' && legIndex >= 0) {
+      portLegs = cascadeFromDeparture(portLegs, legIndex);
+    } else if (mode === 'toArrival' && legIndex >= 0) {
+      portLegs = cascadeFromToArrival(portLegs, legIndex);
+    } else if (mode === 'toDeparture' && legIndex >= 0) {
+      portLegs = applyPortDateCascade(portLegs, { startIndex: legIndex + 1 });
+    } else {
+      const startIndex = legIndex >= 0 && mode === 'fromArrival'
+        ? legIndex
+        : portLegs.findIndex((leg) => leg.fromArrival);
+      if (startIndex >= 0) {
+        portLegs = applyPortDateCascade(portLegs, { startIndex });
+      }
+    }
+  }
+
+  portLegs = applyDemurrageDaysFromLaytime(portLegs, form.timeAllowed);
+
+  return {
+    ...form,
+    portLegs,
+    _portScheduleMode: undefined,
+    _portScheduleLegId: undefined,
+  };
 }
 
 /** Sea days from distance (nm), speed (kn), optional weather margin %. */
@@ -59,7 +366,7 @@ export function calcLaytimeWorkingDays(qty, rateMtDay, termsId) {
 }
 
 export function calcDemurrageEst(days, rate) {
-  return round2(num(days) * num(rate));
+  return calculateDemurrageCost(days, rate);
 }
 
 export function calcBunkerCost(qty, price) {
@@ -68,6 +375,86 @@ export function calcBunkerCost(qty, price) {
 
 export function calcCargoAmount(mt, rate) {
   return round2(num(mt) * num(rate));
+}
+
+/** PHP: use NRT if set; else GNRT "gross/nrt" second part; else GNRT × 0.7. */
+export function resolveNrtFromGnrt(nrt, gnrt) {
+  const explicit = num(nrt);
+  if (explicit > 0) return explicit;
+  const raw = String(gnrt || '');
+  if (raw.includes('/')) {
+    const part = num(raw.split('/')[1]);
+    if (part > 0) return part;
+  }
+  const g = num(raw.replace(/,/g, ''));
+  if (g > 0) return round2(g * 0.7);
+  return 0;
+}
+
+export function classifyBunkerGradeName(gradeName) {
+  const name = String(gradeName || '').toUpperCase();
+  if (name.includes('SCRUBBER') || name.includes('HSFO')) return 'HSFO';
+  if (name.includes('LSMGO') || name.includes('MGO')) return 'LSMGO';
+  if (name.includes('VLSFO')) return 'VLSFO';
+  return '';
+}
+
+/**
+ * PHP Bunkers summary: qty from consumption MT, price from SECA row (slave2 EST_PRICE).
+ * @param {object} form
+ * @param {(gradeId: string) => string} resolveGradeName
+ */
+export function buildBunkerSummaryRows(form, resolveGradeName) {
+  const classify = (gradeId) => classifyBunkerGradeName(resolveGradeName(gradeId));
+
+  return ['VLSFO', 'LSMGO', 'HSFO'].map((grade) => {
+    const pickPrice = (rows, preferSeca = false) => (rows || []).reduce((acc, row) => {
+      const value = num(row.price);
+      if (!(value > 0)) return acc;
+      const id = String(row.identify || '').toUpperCase();
+      if (preferSeca && (id === 'SECA' || id === '1')) return value;
+      return acc > 0 ? acc : value;
+    }, 0);
+
+    const secaMatches = (form.secaBunkerRows || []).filter(
+      (row) => classify(row.bunkerGradeId) === grade,
+    );
+    const entryMatches = (form.bunkerRows || []).filter((row) => (
+      String(row.identify || '').toUpperCase() !== 'SUPPLY'
+      && classify(row.bunkerGradeId) === grade
+    ));
+
+    const price = pickPrice(secaMatches, true)
+      || pickPrice(secaMatches, false)
+      || pickPrice(entryMatches, false);
+
+    const qty = num(
+      grade === 'HSFO' ? form.hsfoMt : grade === 'LSMGO' ? form.lsmgoMt : form.vlsfoMt,
+    );
+    const amount = round2(qty * price);
+    return {
+      grade,
+      qty: qty ? qty.toFixed(2) : '',
+      price: price ? price.toFixed(2) : '',
+      amount: amount ? amount.toFixed(2) : '',
+    };
+  }).filter((row) => row.qty || row.price || row.amount);
+}
+
+/** Demurrage address + broker commission display totals. */
+export function calcDemurrageCommissionDisplay(form) {
+  const demurrageRevenue = num(form.demurrageRevenue);
+  const addCommPercent = num(form.addCommPercent);
+  const addressDemmComm = round2((demurrageRevenue * addCommPercent) / 100);
+  const brokerDemmCommTotal = (form.brokerRows || []).reduce(
+    (sum, row) => sum + num(row.demmPercent),
+    0,
+  );
+  return {
+    addressDemmComm,
+    brokerDemmCommTotal,
+    totalDemmComm: round2(addressDemmComm + brokerDemmCommTotal),
+  };
 }
 
 /** PHP: 1=Full (txtB/LFullSpeed), 2=Service (EcoSpeed1), 3=Most Eco (EcoSpeed2). */
@@ -132,7 +519,7 @@ export function computeEstimateTotals(form) {
   );
 
   let seaDays = 0;
-  const legsWithDays = portLegs.map((leg) => {
+  let legsWithDays = portLegs.map((leg) => {
     const speed = pickPassageSpeedKnots(form, leg.passageType, leg.speedType);
     // PHP: empty margin = 0 (not 5)
     const margin = leg.seaMargin != null && leg.seaMargin !== '' ? leg.seaMargin : 0;
@@ -169,6 +556,26 @@ export function computeEstimateTotals(form) {
       secaDays: secaDays ? String(secaDays) : '',
       ddcLpEst: ddcLpEst ? String(ddcLpEst) : (leg.ddcLpEst || ''),
       ddcDpEst: ddcDpEst ? String(ddcDpEst) : (leg.ddcDpEst || ''),
+    };
+  });
+
+  // PHP common.js: idle-by-laycan → port date cascade → demurrage days
+  const scheduled = applyPortScheduleCalculations({
+    ...form,
+    portLegs: legsWithDays,
+  });
+  legsWithDays = (scheduled.portLegs || []).map((leg) => {
+    const loadIdle = num(leg.loadPortIdleDays);
+    const discIdle = num(leg.discPortIdleDays);
+    const transitIdle = num(leg.transitIdleDays);
+    const loadWork = num(leg.loadPortWorkDays);
+    const discWork = num(leg.discPortWorkDays);
+    const portStayDays = round2(loadWork + discWork + loadIdle + discIdle + transitIdle);
+    const portIdleDays = round2(loadIdle + discIdle + transitIdle);
+    return {
+      ...leg,
+      portStayDays: portStayDays ? String(portStayDays) : '',
+      portIdleDays: portIdleDays ? String(portIdleDays) : '',
     };
   });
 
@@ -309,7 +716,10 @@ export function computeEstimateTotals(form) {
   });
 
   const freightFromCargo = round2(allCargos.reduce((sum, row) => sum + num(row.amountUsd), 0));
-  const lumpsum = num(form.lumpsum);
+  const isTanker = Number(form.estimateType) === 2;
+  const lumpsum = isTanker
+    ? (form.chkLumpsum ? num(form.lumpsum) : 0)
+    : num(form.lumpsum);
   const cargoQtyTotal = round2(
     allCargos.reduce((sum, row) => sum + num(row.cargoMt), 0)
     || num(form.cargoQuantity),
@@ -882,5 +1292,8 @@ export function applyEstimateCalculations(form, lookups = null) {
   return {
     ...next,
     ...totals,
+    // ephemeral schedule hints — do not persist in form state
+    _portScheduleMode: undefined,
+    _portScheduleLegId: undefined,
   };
 }

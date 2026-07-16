@@ -28,31 +28,6 @@ export default function EstimateResultsPanels({
 
   return (
     <>
-      <CollapsiblePanel title="CO₂ / EUA Prices" defaultOpen>
-        <div className={styles.headerGrid}>
-          <div className={styles.field}>
-            <label htmlFor="co2Price">CO2 Price ($/MT)</label>
-            <input
-              id="co2Price"
-              value={form.co2Price || ''}
-              readOnly={readOnly}
-              placeholder="0.00"
-              onChange={(e) => setField('co2Price', e.target.value)}
-            />
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="euaPrice">EUA Price ($/MT)</label>
-            <input
-              id="euaPrice"
-              value={form.euaPrice || ''}
-              readOnly={readOnly}
-              placeholder="0.00"
-              onChange={(e) => setField('euaPrice', e.target.value)}
-            />
-          </div>
-        </div>
-      </CollapsiblePanel>
-
       <CollapsiblePanel title="Results" defaultOpen>
         <div className={styles.resultsGrid}>
           <Row label="Demurrage Revenue" value={form.demurrageRevenue} />
@@ -79,7 +54,7 @@ export default function EstimateResultsPanels({
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Bunker Results">
+      <CollapsiblePanel title="Bunker Results" defaultOpen={false}>
         <div className={styles.resultsGrid}>
           <Row label="Total HSFO (MT)" value={form.hsfoMt} />
           <Row label="EU ETS/Fuel EU HSFO (MT)" value={form.etsHsfoMt} />
@@ -91,7 +66,37 @@ export default function EstimateResultsPanels({
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Compliance Results">
+      <CollapsiblePanel title="Compliance Results" defaultOpen={false}>
+        {editable ? (
+          <div className={styles.headerGrid} style={{ marginBottom: 12 }}>
+            <div className={styles.field}>
+              <label htmlFor="co2Price">CO2 Price ($/MT)</label>
+              <input
+                id="co2Price"
+                value={form.co2Price || ''}
+                readOnly={readOnly}
+                placeholder="0.00"
+                onChange={(e) => setField('co2Price', e.target.value)}
+              />
+            </div>
+            <div className={styles.field}>
+              <label htmlFor="euaPrice">EUA Price ($/MT)</label>
+              <input
+                id="euaPrice"
+                value={form.euaPrice || ''}
+                readOnly={readOnly}
+                placeholder="0.00"
+                onChange={(e) => setField('euaPrice', e.target.value)}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className={styles.distGrid} style={{ marginBottom: 12 }}>
+            <div><span>CO2 Price</span><strong>{form.co2Price || '0.00'}</strong></div>
+            <div><span>EUA Price</span><strong>{form.euaPrice || '0.00'}</strong></div>
+          </div>
+        )}
+
         <h4 className={styles.subHeading}>EU ETS</h4>
         <div className={styles.resultsGrid}>
           <Row label="EEOI (gCO2 / tnm)" value={form.eeoi} />

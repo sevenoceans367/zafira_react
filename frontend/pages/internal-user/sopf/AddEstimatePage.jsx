@@ -10,6 +10,7 @@ import {
   fetchVesselEstimatePrefill,
 } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
+import EstimateDetailHeaderActions from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { createEmptyDetail, createEmptyPortLeg, toFormState } from './estimateDetail.constants.js';
@@ -309,10 +310,7 @@ export default function AddEstimatePage() {
   return (
     <div className={`zafira-page ${styles.page}`}>
       <LoadingOverlay show={saving || loading} />
-
-      <div className={styles.toolbar}>
-        <Button variant="outline" label="Back" href={listHref} />
-      </div>
+      <EstimateDetailHeaderActions listHref={listHref} disabled={saving} />
 
       {error ? <p className={styles.error}>{error}</p> : null}
 

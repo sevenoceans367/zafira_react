@@ -4,6 +4,7 @@ import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchEstimateDetail, fetchEstimateLookups } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
+import EstimateDetailHeaderActions from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { toFormState } from './estimateDetail.constants.js';
 import styles from './UpdateEstimatePage.module.css';
@@ -45,13 +46,19 @@ export default function ViewEstimatePage() {
         fetchEstimateDetail(estimateId),
         fetchEstimateLookups(estimateType),
       ]);
+      const resolvedType = data?.estimateType || estimateType;
+      const lookupsForType = String(resolvedType) === String(estimateType)
+        ? lookupData
+        : await fetchEstimateLookups(resolvedType);
       const nextLookups = {
-        cargos: lookupData.cargos ?? [],
-        bunkerGrades: lookupData.bunkerGrades ?? [],
-        ownerCosts: lookupData.ownerCosts ?? [],
-        owners: lookupData.owners ?? [],
-        complianceFactors: lookupData.complianceFactors ?? {},
-        complianceYear: lookupData.complianceYear || new Date().getFullYear(),
+        cargos: lookupsForType.cargos ?? [],
+        bunkerGrades: lookupsForType.bunkerGrades ?? [],
+        ownerCosts: lookupsForType.ownerCosts ?? [],
+        owners: lookupsForType.owners ?? [],
+        charteringTeams: lookupsForType.charteringTeams ?? [],
+        charteringPics: lookupsForType.charteringPics ?? [],
+        complianceFactors: lookupsForType.complianceFactors ?? {},
+        complianceYear: lookupsForType.complianceYear || new Date().getFullYear(),
       };
       setDetail(data);
       setLookups(nextLookups);
@@ -74,10 +81,7 @@ export default function ViewEstimatePage() {
   return (
     <div className={`zafira-page ${styles.page}`}>
       <LoadingOverlay show={loading} />
-
-      <div className={styles.toolbar}>
-        <Button variant="outline" label="Back" href={listHref} />
-      </div>
+      <EstimateDetailHeaderActions listHref={listHref} />
 
       {error ? <p className={styles.error}>{error}</p> : null}
 

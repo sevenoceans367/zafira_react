@@ -2,6 +2,8 @@ import { Router } from 'express';
 import authRoutes from './auth.js';
 import sopfRoutes from './sopf.js';
 import vcRoutes from './vc.js';
+import coaRoutes from './coa.js';
+import tcEstimateRoutes from './tcEstimates.js';
 import fleetRoutes from './fleet.js';
 import periodContractRoutes from './periodContract.js';
 import todoListRoutes from './todoList.js';
@@ -49,6 +51,8 @@ router.get('/alerts', (_req, res) => {
 
 router.use('/internal-user/sopf', sopfRoutes);
 router.use('/internal-user/vc', vcRoutes);
+router.use('/internal-user/coa', coaRoutes);
+router.use('/internal-user/tc-estimates', tcEstimateRoutes);
 router.use('/internal-user/fleet', fleetRoutes);
 router.use('/internal-user/period-contracts', periodContractRoutes);
 router.use('/internal-user/todo-list', todoListRoutes);

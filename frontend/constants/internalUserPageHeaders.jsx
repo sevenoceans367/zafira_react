@@ -4,6 +4,8 @@ import { resolveFleetHeader } from './fleetPageHeaders.js';
 import { resolvePeriodContractHeader } from './periodContractPageHeaders.js';
 import { resolveTodoListHeader } from './todoListPageHeaders.js';
 import { resolveMastersHeader } from './mastersPageHeaders.js';
+import { resolveCoaHeader } from './coaPageHeaders.js';
+import { resolveTcHeader } from './tcPageHeaders.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
 
@@ -58,6 +60,12 @@ export function resolveInternalUserHeader(pathname) {
 
   const fleetHeader = resolveFleetHeader(pathname);
   if (fleetHeader) return fleetHeader;
+
+  const coaHeader = resolveCoaHeader(pathname);
+  if (coaHeader) return coaHeader;
+
+  const tcHeader = resolveTcHeader(pathname);
+  if (tcHeader) return tcHeader;
 
   if (pathname.startsWith('/internal-user/vc')) {
     return STATIC_HEADERS['/internal-user/vc'];

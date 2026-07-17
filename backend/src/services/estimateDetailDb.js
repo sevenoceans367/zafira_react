@@ -2020,6 +2020,7 @@ export async function dbCreateEstimateDetail(payload, upload = {}) {
       includeAttachment: Boolean(attachment),
     });
     await insertEstimateSlaves(connection, fcaId, payload);
+    await finalizeCoaEstimateCompare(connection, fcaId, payload);
 
     await connection.commit();
     return { msg: 0, id: String(fcaId) };
@@ -2029,6 +2030,54 @@ export async function dbCreateEstimateDetail(payload, upload = {}) {
   } finally {
     connection.release();
   }
+}
+
+/**
+ * Legacy COA nomination: when COA Spot = COA and a COA number is supplied,
+ * create freight_cost_estimate_compare with COAAID and mark the voyage fixed/In Ops.
+ */
+async function finalizeCoaEstimateCompare(connection, fcaId, payload) {
+  const coaSpot = String(payload.coaSpot ?? '');
+  const coaId = payload.coaNumber != null && String(payload.coaNumber).trim() !== ''
+    ? String(payload.coaNumber).trim()
+    : '';
+  if (coaSpot !== '2' || !coaId) return;
+
+  const year = new Date().getFullYear();
+  const [maxRows] = await connection.query(
+    `SELECT (MAX(MESSAGE_NO) + 1) AS MESSAGE_NO
+     FROM freight_cost_estimate_compare
+     WHERE YEAR(ADD_ON_DATE) = ? AND MCOMPANYID = ? AND COAAID IS NOT NULL`,
+    [year, appContext.companyId],
+  );
+  let messageNo = maxRows[0]?.MESSAGE_NO;
+  if (!messageNo) messageNo = 1;
+  const padded = String(messageNo).padStart(3, '0');
+  const message = `${String(year).slice(-2)}-${padded}`;
+
+  const [compareResult] = await connection.query(
+    `INSERT INTO freight_cost_estimate_compare
+      (FCAID, FINAL_ID, MESSAGE_NO, USERID, ADD_ON_DATE, MESSAGE, MODULEID, MCOMPANYID, COAAID, OPERATOR, STATUS)
+     VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, 1)`,
+    [
+      fcaId,
+      fcaId,
+      padded,
+      appContext.userId,
+      message,
+      appContext.moduleId,
+      appContext.companyId,
+      coaId,
+      payload.operatorId || null,
+    ],
+  );
+
+  await connection.query(
+    `UPDATE freight_cost_estimete_master
+     SET COMID = ?, FIXED = 1, FINAL_DATETIME = NOW(), FINAL_STATUS = 1
+     WHERE FCAID = ?`,
+    [compareResult.insertId, fcaId],
+  );
 }
 
 const ESTIMATE_SLAVE_DELETE_ORDER = [

@@ -4,18 +4,36 @@ import { dbAuthenticateUser, isAuthDbAvailable } from './authDb.js';
 
 const sessions = new Map();
 
+/** Idle session lifetime — 30 minutes (matches frontend). */
+const SESSION_TTL_MS = 30 * 60 * 1000;
+
 function createToken(user) {
   const token = crypto.randomBytes(32).toString('hex');
+  const now = Date.now();
   sessions.set(token, {
     user,
-    createdAt: Date.now(),
+    createdAt: now,
+    lastActiveAt: now,
   });
   return token;
 }
 
+function isSessionExpired(session) {
+  if (!session) return true;
+  const lastActive = session.lastActiveAt ?? session.createdAt ?? 0;
+  return Date.now() - lastActive >= SESSION_TTL_MS;
+}
+
 export function getSessionUser(token) {
   if (!token) return null;
-  return sessions.get(token)?.user ?? null;
+  const session = sessions.get(token);
+  if (!session) return null;
+  if (isSessionExpired(session)) {
+    sessions.delete(token);
+    return null;
+  }
+  session.lastActiveAt = Date.now();
+  return session.user;
 }
 
 export async function loginUser(username, password) {
@@ -48,7 +66,11 @@ export async function loginUser(username, password) {
   }
 
   const token = createToken(user);
-  return { token, user };
+  return {
+    token,
+    user,
+    expiresInMs: SESSION_TTL_MS,
+  };
 }
 
 export function logoutUser(token) {

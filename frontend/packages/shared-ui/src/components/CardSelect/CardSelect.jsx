@@ -22,7 +22,13 @@ export default function CardSelect({
     name: option.name ?? option.label ?? '',
   }));
 
-  const selected = normalizedOptions.find((option) => option.id === String(value));
+  const valueId = value == null || value === '' ? '' : String(value);
+  let selected = normalizedOptions.find((option) => option.id === valueId);
+  // Keep edit selection visible even if lookup list is missing that id (inactive / filtered).
+  if (!selected && valueId) {
+    selected = { id: valueId, name: valueId };
+    normalizedOptions.unshift(selected);
+  }
   const selectedLabel = selected?.name || placeholder;
 
   useEffect(() => {

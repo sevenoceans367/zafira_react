@@ -449,10 +449,22 @@ export async function dbSubmitDecisionChart({ selection }) {
   try {
     await connection.beginTransaction();
 
+    const [[master]] = await connection.query(
+      `SELECT COA_SPOT, COA_NUMBER FROM freight_cost_estimete_master WHERE FCAID = ? LIMIT 1`,
+      [id],
+    );
+    const coaId = master
+      && String(master.COA_SPOT) === '2'
+      && master.COA_NUMBER != null
+      && String(master.COA_NUMBER).trim() !== ''
+      ? String(master.COA_NUMBER).trim()
+      : null;
+    const coaFilter = coaId ? 'COAAID IS NOT NULL' : 'COAAID IS NULL';
+
     const [maxRows] = await connection.query(
       `SELECT (MAX(MESSAGE_NO) + 1) AS MESSAGE_NO
        FROM freight_cost_estimate_compare
-       WHERE YEAR(ADD_ON_DATE) = ? AND MCOMPANYID = ? AND COAAID IS NULL`,
+       WHERE YEAR(ADD_ON_DATE) = ? AND MCOMPANYID = ? AND ${coaFilter}`,
       [year, appContext.companyId],
     );
 
@@ -466,9 +478,9 @@ export async function dbSubmitDecisionChart({ selection }) {
 
     const [compareResult] = await connection.query(
       `INSERT INTO freight_cost_estimate_compare
-        (FCAID, FINAL_ID, MESSAGE_NO, USERID, REMARKS, ADD_ON_DATE, MESSAGE, MODULEID, MCOMPANYID)
-       VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?)`,
-      [id, id, padded, appContext.userId, remarks, message, appContext.moduleId, appContext.companyId],
+        (FCAID, FINAL_ID, MESSAGE_NO, USERID, REMARKS, ADD_ON_DATE, MESSAGE, MODULEID, MCOMPANYID, COAAID, STATUS)
+       VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, 1)`,
+      [id, id, padded, appContext.userId, remarks, message, appContext.moduleId, appContext.companyId, coaId],
     );
 
     await connection.query(

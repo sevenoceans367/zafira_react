@@ -1,0 +1,304 @@
+.page {
+  position: relative;
+}
+
+.title {
+  margin: 0 0 16px;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text, #1f2937);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.periodFilter {
+  min-width: auto;
+  height: 36px;
+  justify-content: center;
+}
+
+.filterField label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.filterField input,
+.filterField select {
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flashSuccess,
+.flashError,
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+.flashSuccess {
+  border: 1px solid #badbcc;
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.flashError,
+.error {
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+
+.table th,
+.table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table thead th {
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+.table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.table tbody tr:hover {
+  background: #f0f7ff;
+}
+
+.emptyCell {
+  padding: 24px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.actionCell {
+  white-space: nowrap;
+}
+
+.actionIcon {
+  border: none;
+  background: transparent;
+  color: #1b77a6;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 15px;
+}
+
+.actionIcon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.actionDanger {
+  color: #b42318;
+}
+
+.statusActive,
+.statusCancelled,
+.statusOps {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.statusActive {
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.statusCancelled {
+  background: #f8d7da;
+  color: #842029;
+}
+
+.statusOps {
+  background: #cff4fc;
+  color: #055160;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 12px;
+  margin-bottom: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.field label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.field input,
+.field select,
+.field textarea {
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.cardSelect {
+  width: 100%;
+}
+
+.cardSelect > div {
+  display: flex;
+  width: 100%;
+}
+
+.cardSelect > div > button:first-child {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+}
+
+.filterField .cardSelect {
+  min-width: 160px;
+}
+
+.field textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.sectionTitle {
+  margin: 18px 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #274670;
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.nestedTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.nestedTable th,
+.nestedTable td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal {
+  width: min(960px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modalHeader h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.splitPanels {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 980px) {
+  .splitPanels {
+    grid-template-columns: 1fr 1fr;
+  }
+}

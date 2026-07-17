@@ -11,6 +11,12 @@ import LoginPage from '../pages/LoginPage.jsx';
 import ModuleHomePage from '../pages/internal-user/ModuleHomePage.jsx';
 import ReportsPage from '../pages/internal-user/ReportsPage.jsx';
 import VcDashboardPage from '../pages/internal-user/vc/VcDashboardPage.jsx';
+import RunningCoasListPage from '../pages/internal-user/coa/RunningCoasListPage.jsx';
+import CoaFormPage from '../pages/internal-user/coa/CoaFormPage.jsx';
+import CargoReletListPage from '../pages/internal-user/coa/CargoReletListPage.jsx';
+import CargoReletFormPage from '../pages/internal-user/coa/CargoReletFormPage.jsx';
+import CoaInOpsPage from '../pages/internal-user/coa/CoaInOpsPage.jsx';
+import CoaPostOpsPage from '../pages/internal-user/coa/CoaPostOpsPage.jsx';
 import FleetPage from '../pages/internal-user/fleet/FleetPage.jsx';
 import AddVesselPage from '../pages/internal-user/fleet/AddVesselPage.jsx';
 import UpdateVesselPage from '../pages/internal-user/fleet/UpdateVesselPage.jsx';
@@ -22,6 +28,11 @@ import AddPeriodContractPage from '../pages/internal-user/period-contract/AddPer
 import ToDoListPage from '../pages/internal-user/todo-list/ToDoListPage.jsx';
 import MasterModulePage from '../pages/internal-user/masters/MasterModulePage.jsx';
 import TcModulePage from '../pages/internal-user/tc/TcModulePage.jsx';
+import TcOutEstimatesListPage from '../pages/internal-user/tc/TcOutEstimatesListPage.jsx';
+import TcFixtureFormPage from '../pages/internal-user/tc/TcFixtureFormPage.jsx';
+import TcCalculatePage from '../pages/internal-user/tc/TcCalculatePage.jsx';
+import TcViewPage from '../pages/internal-user/tc/TcViewPage.jsx';
+import TcDecisionChartsListPage from '../pages/internal-user/tc/TcDecisionChartsListPage.jsx';
 import EstimateListPage from '../pages/internal-user/sopf/EstimateListPage.jsx';
 import UpdateEstimatePage from '../pages/internal-user/sopf/UpdateEstimatePage.jsx';
 import AddEstimatePage from '../pages/internal-user/sopf/AddEstimatePage.jsx';
@@ -51,6 +62,20 @@ export default function App() {
             <Route path="/" element={<ModuleHomePage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/internal-user/vc" element={<VcDashboardPage />} />
+            <Route path="/internal-user/vc/coas/running" element={<RunningCoasListPage />} />
+            <Route path="/internal-user/vc/coas/running/add" element={<CoaFormPage mode="add" />} />
+            <Route path="/internal-user/vc/coas/running/:coaId" element={<CoaFormPage mode="edit" />} />
+            <Route path="/internal-user/vc/coas/cargo-relet" element={<CargoReletListPage />} />
+            <Route path="/internal-user/vc/coas/cargo-relet/add" element={<CargoReletFormPage mode="add" />} />
+            <Route path="/internal-user/vc/coas/cargo-relet/:fcaId" element={<CargoReletFormPage mode="edit" />} />
+            <Route path="/internal-user/vc/coas/in-ops" element={<CoaInOpsPage />} />
+            <Route path="/internal-user/vc/coas/post-ops" element={<CoaPostOpsPage />} />
+            <Route path="/internal-user/vc/tc" element={<TcOutEstimatesListPage />} />
+            <Route path="/internal-user/vc/tc/add" element={<TcFixtureFormPage mode="add" />} />
+            <Route path="/internal-user/vc/tc/decision-charts" element={<TcDecisionChartsListPage />} />
+            <Route path="/internal-user/vc/tc/:tcOutId/edit" element={<TcFixtureFormPage mode="edit" />} />
+            <Route path="/internal-user/vc/tc/:tcOutId/calculate" element={<TcCalculatePage />} />
+            <Route path="/internal-user/vc/tc/:tcOutId/view" element={<TcViewPage />} />
             <Route path="/internal-user/tc" element={<TcModulePage />} />
 
             <Route path="/internal-user/:module/fleet" element={<FleetPage />} />

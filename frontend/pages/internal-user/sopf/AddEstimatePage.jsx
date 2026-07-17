@@ -26,6 +26,7 @@ export default function AddEstimatePage() {
   const estimateType = searchParams.get('estimatetype') || searchParams.get('selBType') || '2';
   const businessType = searchParams.get('selBType') || estimateType;
   const periodId = searchParams.get('periodid') || '';
+  const coaId = searchParams.get('coaid') || searchParams.get('coaId') || '';
 
   const detail = useMemo(() => createEmptyDetail(estimateType), [estimateType]);
   const [form, setForm] = useState(() => toFormState({}));
@@ -86,6 +87,20 @@ export default function AddEstimatePage() {
             periodId: periodId || current.periodId || '',
             portLegs: (current.portLegs || []).length ? current.portLegs : [createEmptyPortLeg()],
           };
+          if (coaId) {
+            const coaMatch = (lookupData.coaContracts || []).find(
+              (item) => String(item.id) === String(coaId),
+            );
+            next = {
+              ...next,
+              coaSpot: '2',
+              coaNumber: String(coaId),
+              coaNumberLabel: coaMatch?.name || next.coaNumberLabel || '',
+              coaNumberLift: coaMatch?.noOfShipment != null
+                ? String(coaMatch.noOfShipment)
+                : next.coaNumberLift || '',
+            };
+          }
           if (periodData) {
             next = applyPeriodPrefillToForm(next, periodData);
             next = { ...next, periodId: periodData.periodId || periodId || next.periodId };
@@ -117,7 +132,7 @@ export default function AddEstimatePage() {
     return () => {
       cancelled = true;
     };
-  }, [estimateType, periodId]);
+  }, [coaId, estimateType, periodId]);
 
   const updateField = useCallback((key, value) => {
     setForm((current) => ({ ...current, [key]: value }));

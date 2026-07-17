@@ -6,6 +6,7 @@ import { fleetAppPath } from '../constants/fleetModule.js';
 import { periodContractAppPath } from '../constants/periodContractModule.js';
 import { todoListAppPath } from '../constants/todoListPageHeaders.js';
 import { SOPF_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
+import CoasSidebarTree from './coa/CoasSidebarTree.jsx';
 import MastersSidebarTree from './masters/MastersSidebarTree.jsx';
 
 function isSidebarItemActive(pathname, item) {
@@ -113,6 +114,13 @@ export default function InternalUserSidebar({ isOpen }) {
               label={TODO_LIST_LINK.label}
               active={currentPath.startsWith('/internal-user/vc/todo-list')}
             />
+            <SidebarLink
+              to={appPath('/internal-user/vc/tc')}
+              icon="bi-file-earmark-text"
+              label="TC Out Estimates"
+              active={currentPath.startsWith('/internal-user/vc/tc')}
+            />
+            <CoasSidebarTree isOpen={isOpen} />
             <MastersSidebarTree isOpen={isOpen} />
           </>
         ) : null}

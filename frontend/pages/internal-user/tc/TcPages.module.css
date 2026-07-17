@@ -1,0 +1,511 @@
+.page {
+  position: relative;
+}
+
+.title {
+  margin: 0 0 16px;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text, #1f2937);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flashSuccess,
+.flashError,
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+.flashSuccess {
+  border: 1px solid #badbcc;
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.flashError,
+.error {
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+
+.table th,
+.table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table th {
+  font-weight: 700;
+  color: #374151;
+  background: #f9fafb;
+}
+
+.table th.center,
+.table td.center {
+  text-align: center;
+}
+
+.muted {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  color: #0d6efd;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+}
+
+.linkBtnDanger {
+  color: #dc3545;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.section {
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.sectionTitle {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.subsectionTitle {
+  margin: 18px 0 10px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.field input,
+.field select,
+.field textarea {
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.field textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.fieldRead {
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #f9fafb;
+  font-size: 12px;
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+.headerBar {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.headerItem {
+  font-size: 12px;
+  padding-bottom: 8px;
+}
+
+.fixtureLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.fixtureLeft,
+.fixtureRight {
+  min-width: 0;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.inputReadonly,
+.field input.inputReadonly,
+.field textarea.inputReadonly {
+  background: #e1e1e1;
+  color: #333;
+}
+
+.vesselSearch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vesselSearch label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.vesselResults {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+}
+
+.vesselResults button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.vesselResults button:hover {
+  background: #f3f4f6;
+}
+
+.bunkerBlock {
+  margin-bottom: 16px;
+}
+
+.bunkerBlock strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.bunkerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+@media (max-width: 1100px) {
+  .fixtureLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rowTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.rowTable th,
+.rowTable td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.rowTable input,
+.rowTable select,
+.rowTable textarea {
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.revGrid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.1fr) minmax(170px, 1fr);
+  gap: 10px 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+
+.revGrid > label {
+  color: #4b5563;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.revGrid input,
+.revGrid select,
+.itinRow input,
+.itinRow select,
+.itinRow textarea {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.revGrid input:not([readonly]):focus,
+.itinRow input:focus,
+.itinRow textarea:focus {
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
+}
+
+.revGrid input[readonly] {
+  border-color: #e5e7eb;
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.pairFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pairFields input {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.field :global(.form-control),
+.rowTable :global(.form-control),
+.itinRow :global(.form-control) {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.calculationLayout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.itinRow {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.9fr) minmax(150px, 0.85fr) minmax(180px, 1.25fr);
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.itinRow textarea {
+  min-height: 32px;
+  resize: vertical;
+}
+
+@media (max-width: 1300px) {
+  .calculationLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .revGrid,
+  .itinRow {
+    grid-template-columns: 1fr;
+  }
+
+  .revGrid {
+    gap: 5px;
+  }
+
+  .revGrid > label:not(:first-child) {
+    margin-top: 6px;
+  }
+}
+
+.totalsBox {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.totalItem {
+  padding: 10px;
+  border-radius: 6px;
+  background: #f3f4f6;
+}
+
+.totalItem strong {
+  display: block;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal {
+  width: min(1100px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.tcInModal {
+  width: min(1200px, 96vw);
+}
+
+.tcInHireBlock {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.tcInHireToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.tcInButtonRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+@media (max-width: 768px) {
+  .table th,
+  .table td {
+    padding: 8px 10px;
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { MASTERS_MODULES } from '../../constants/mastersModules.js';
 import { masterAppPath, parseMastersModuleFromPath } from '../../constants/mastersModule.js';
@@ -7,17 +7,35 @@ export default function MastersSidebarTree({ isOpen }) {
   const { pathname } = useLocation();
   const module = parseMastersModuleFromPath(pathname);
   const [expanded, setExpanded] = useState(false);
+  const rootRef = useRef(null);
 
-  const toggleExpanded = () => {
-    setExpanded((value) => !value);
-  };
+  useEffect(() => {
+    if (!expanded) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setExpanded(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [expanded]);
 
   return (
-    <li className={`treeview ${expanded ? 'open' : ''}`}>
+    <li ref={rootRef} className={`treeview ${expanded ? 'open' : ''}`}>
       <button
         type="button"
         className={expanded ? 'expanded' : ''}
-        onClick={toggleExpanded}
+        onClick={() => setExpanded((value) => !value)}
         aria-expanded={expanded}
         aria-haspopup="true"
       >

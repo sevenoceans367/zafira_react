@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Button, CardSelect, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, CardSelect, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import {
   createTcEstimate,
@@ -9,10 +9,8 @@ import {
   fetchTcLookups,
   updateTcEstimate,
 } from '../../../services/tcEstimates.js';
-import {
-  fetchVesselEstimatePrefill,
-  searchVessels,
-} from '../../../services/estimateDetail.js';
+import { fetchVesselEstimatePrefill } from '../../../services/estimateDetail.js';
+import VesselSearchSelect from '../sopf/VesselSearchSelect.jsx';
 import TcFormHeaderActions from './TcFormHeaderActions.jsx';
 import styles from './TcPages.module.css';
 
@@ -156,6 +154,18 @@ function TextInput({
   );
 }
 
+function DateField({ label, value, onChange, enableTime = false, className = '' }) {
+  return (
+    <Field label={label} className={className}>
+      <DmyDateInput
+        value={value || ''}
+        onChange={onChange}
+        enableTime={enableTime}
+      />
+    </Field>
+  );
+}
+
 function bunkerAmount(qty, price) {
   const q = Number(qty);
   const p = Number(price);
@@ -200,9 +210,6 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
   const [searchParams] = useSearchParams();
   const [lookups, setLookups] = useState(null);
   const [form, setForm] = useState(() => emptyForm(searchParams.get('selBType') || '3'));
-  const [vesselQuery, setVesselQuery] = useState('');
-  const [vesselResults, setVesselResults] = useState([]);
-  const [vesselSearching, setVesselSearching] = useState(false);
   const [loading, setLoading] = useState(mode !== 'add');
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -246,7 +253,6 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
           deliveryBunkers: detail.deliveryBunkers?.length ? detail.deliveryBunkers : [{ ...EMPTY_BUNKER }],
           redeliveryBunkers: detail.redeliveryBunkers?.length ? detail.redeliveryBunkers : [{ ...EMPTY_BUNKER }],
         });
-        setVesselQuery(detail.vesselName || '');
       } catch (err) {
         if (!cancelled) setError(err.message || 'Failed to load fixture note.');
       } finally {
@@ -255,30 +261,6 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
     })();
     return () => { cancelled = true; };
   }, [mode, tcOutId]);
-
-  useEffect(() => {
-    const q = vesselQuery.trim();
-    if (q.length < 3 || (form.vesselName && q === form.vesselName)) {
-      setVesselResults([]);
-      return undefined;
-    }
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      setVesselSearching(true);
-      try {
-        const rows = await searchVessels(q);
-        if (!cancelled) setVesselResults(rows || []);
-      } catch {
-        if (!cancelled) setVesselResults([]);
-      } finally {
-        if (!cancelled) setVesselSearching(false);
-      }
-    }, 400);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [form.vesselName, vesselQuery]);
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -307,8 +289,16 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
   };
 
   const handleSelectVessel = async (vessel) => {
-    setVesselQuery(vessel.name || vessel.vesselName || '');
-    setVesselResults([]);
+    if (!vessel) {
+      setForm((prev) => ({
+        ...prev,
+        vesselImoId: '',
+        vesselName: '',
+        vesselType: '',
+        flag: '',
+      }));
+      return;
+    }
     setForm((prev) => applyVesselPrefill(prev, null, {
       id: vessel.id || vessel.vesselImoId,
       name: vessel.name || vessel.vesselName,
@@ -408,7 +398,10 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
                 <input value={row.qty || ''} onChange={(e) => updateBunker(kind, index, 'qty', e.target.value)} placeholder="0.00" />
               </td>
               <td>
-                <input value={row.bunkerDate || ''} onChange={(e) => updateBunker(kind, index, 'bunkerDate', e.target.value)} placeholder="DD-MM-YYYY" />
+                <DmyDateInput
+                  value={row.bunkerDate || ''}
+                  onChange={(value) => updateBunker(kind, index, 'bunkerDate', value)}
+                />
               </td>
               <td>
                 <input value={row.price || ''} onChange={(e) => updateBunker(kind, index, 'price', e.target.value)} placeholder="0.00" />
@@ -454,32 +447,16 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
               ariaLabel="Period contract"
             />
           </Field>
-          <div className={styles.vesselSearch}>
-            <label>Vessel</label>
-            <input
-              value={vesselQuery}
-              onChange={(e) => {
-                setVesselQuery(e.target.value);
-                if (form.vesselImoId) setForm((prev) => ({ ...prev, vesselImoId: '', vesselName: '' }));
-              }}
-              placeholder="Search vessel (min 3 chars)"
+          <Field label="Vessel">
+            <VesselSearchSelect
+              value={form.vesselImoId}
+              label={form.vesselName}
+              onSelect={handleSelectVessel}
             />
-            {vesselSearching ? <div className={styles.muted}>Searching…</div> : null}
-            {vesselResults.length ? (
-              <ul className={styles.vesselResults}>
-                {vesselResults.map((row) => (
-                  <li key={row.id || row.vesselImoId}>
-                    <button type="button" onClick={() => handleSelectVessel(row)}>
-                      {row.name || row.vesselName}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
+          </Field>
           <TextInput label="Vessel Type" value={form.vesselType} readOnly />
           <TextInput label="Flag" value={form.flag} readOnly />
-          <TextInput label="Date" value={form.tcDate} onChange={(v) => setField('tcDate', v)} placeholder="dd-mm-yyyy" />
+          <DateField label="Date" value={form.tcDate} onChange={(v) => setField('tcDate', v)} />
           <TextInput label="TC No." value={form.tcNo} onChange={(v) => setField('tcNo', v)} readOnly={mode === 'edit'} />
         </div>
 
@@ -488,7 +465,7 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
             <div className={styles.section}>
               <h4 className={styles.sectionTitle}>CP / Parties</h4>
               <div className={styles.formGrid}>
-                <TextInput label="CP Date" value={form.cpDate} onChange={(v) => setField('cpDate', v)} placeholder="dd-mm-yyyy" />
+                <DateField label="CP Date" value={form.cpDate} onChange={(v) => setField('cpDate', v)} />
                 <Field label="CP Type">
                   <CardSelect
                     options={lookups?.cpTypes || []}
@@ -616,12 +593,12 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
                 <TextInput label="Trip TC" value={form.tripTc} onChange={(v) => setField('tripTc', v)} />
                 <TextInput label="Period" value={form.period} onChange={(v) => setField('period', v)} />
                 <TextInput label="No. of Trips" value={form.noOfTrip} onChange={(v) => setField('noOfTrip', v)} />
-                <TextInput label="Delivery Date" value={form.delDate} onChange={(v) => setField('delDate', v)} placeholder="dd-mm-yyyy hh:mm" />
-                <TextInput label="Redelivery Date" value={form.reDelDate} onChange={(v) => setField('reDelDate', v)} placeholder="dd-mm-yyyy hh:mm" />
+                <DateField label="Delivery Date" value={form.delDate} onChange={(v) => setField('delDate', v)} enableTime />
+                <DateField label="Redelivery Date" value={form.reDelDate} onChange={(v) => setField('reDelDate', v)} enableTime />
                 <TextInput label="Duration Optional Period" value={form.durOptPer} onChange={(v) => setField('durOptPer', v)} />
                 <TextInput label="Commencement Optional Period" value={form.commOptPer} onChange={(v) => setField('commOptPer', v)} />
-                <TextInput label="Laycan From" value={form.laycanFrom} onChange={(v) => setField('laycanFrom', v)} />
-                <TextInput label="Laycan To" value={form.laycanTo} onChange={(v) => setField('laycanTo', v)} />
+                <DateField label="Laycan From" value={form.laycanFrom} onChange={(v) => setField('laycanFrom', v)} enableTime />
+                <DateField label="Laycan To" value={form.laycanTo} onChange={(v) => setField('laycanTo', v)} enableTime />
                 <TextInput label="Laycan Narrowing" value={form.laycanNarr} onChange={(v) => setField('laycanNarr', v)} />
                 <TextInput label="Redelivery Range" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
                 <Field label="Hire PDPR Currency">
@@ -694,7 +671,7 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
                     ariaLabel="Baltic route"
                   />
                 </Field>
-                <TextInput label="Baltic Route Date" value={form.balticDate} onChange={(v) => setField('balticDate', v)} placeholder="dd-mm-yyyy" />
+                <DateField label="Baltic Route Date" value={form.balticDate} onChange={(v) => setField('balticDate', v)} />
                 <TextInput label="Baltic Route Value" value={form.balticRate} onChange={(v) => setField('balticRate', v)} />
               </div>
             </div>

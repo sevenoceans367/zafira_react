@@ -25,6 +25,15 @@ const STATIC_HEADERS = {
     currentPage: 'Dashboard',
     breadcrumbs: [HOME, { label: 'SOC', href: appPath('/internal-user/vc') }, { label: 'Dashboard' }],
   },
+  '/internal-user/vc/decision-chart-tc': {
+    title: 'TC Estimates',
+    currentPage: 'Decision Chart',
+    breadcrumbs: [
+      HOME,
+      { label: 'SOC', href: appPath('/internal-user/vc') },
+      { label: 'Decision Chart' },
+    ],
+  },
   '/internal-user/tc': {
     title: 'Time Charter',
     currentPage: 'Time Charter',

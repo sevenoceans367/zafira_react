@@ -1233,7 +1233,7 @@ export async function dbGetTcCompareEstimates(ids = []) {
              WHERE chartering_tc_estimate_slave1.TCOUTID = chartering_estimate_tc_master.TCOUTID) AS TC_DAYS_EST,
             (SELECT SUM(TOTAL_REV_EST) FROM chartering_tc_estimate_slave1
              WHERE chartering_tc_estimate_slave1.TCOUTID = chartering_estimate_tc_master.TCOUTID) AS TOTAL_REV_EST,
-            TC_NO, CP_DATE1, DWT_SUMMER_CP, DEL_RANGE_PORT, RE_DEL_RANGE, HIRE_FIX_PER, COMID
+            TC_NO, CP_DATE1, DWT_SUMMER_CP, DEL_RANGE_PORT, RE_DEL_RANGE, HIRE_FIX_PER, COMID, FIXED
      FROM chartering_estimate_tc_master
      INNER JOIN vessel_imo_master
        ON vessel_imo_master.VESSEL_IMO_ID = chartering_estimate_tc_master.VESSEL_IMO_ID
@@ -1247,8 +1247,42 @@ export async function dbGetTcCompareEstimates(ids = []) {
     count: rows.length,
     fixtures: rows.map((row, index) => ({
       ...mapTcListRow(row, index),
+      status: Number(row.FIXED) === 1 ? 'Finalised' : 'Not Fixed',
       remarks: '',
     })),
+  };
+}
+
+export async function dbGetTcDecisionChartDetails(message) {
+  const chartMessage = String(message || '').trim();
+  if (!chartMessage) {
+    const error = new Error('Decision chart is required.');
+    error.status = 400;
+    throw error;
+  }
+
+  const pool = getPool();
+  const [compareRows] = await pool.query(
+    `SELECT TCOUTID, FINAL_ID, REMARKS
+     FROM chartering_estimate_tc_compare
+     WHERE MODULEID = ? AND MCOMPANYID = ? AND MESSAGE = ?
+     ORDER BY COMID`,
+    [MODULE_ID, COMPANY_ID, chartMessage],
+  );
+  if (!compareRows.length) return null;
+
+  const details = await dbGetTcCompareEstimates(compareRows.map((row) => row.TCOUTID));
+  const compareById = new Map(compareRows.map((row) => [String(row.TCOUTID), row]));
+  return {
+    message: chartMessage,
+    fixtures: details.fixtures.map((fixture) => {
+      const comparison = compareById.get(String(fixture.tcOutId)) || {};
+      return {
+        ...fixture,
+        remarks: comparison.REMARKS ?? '',
+        isFinal: String(comparison.FINAL_ID || '') === String(fixture.tcOutId),
+      };
+    }),
   };
 }
 
@@ -1333,13 +1367,48 @@ export async function dbListTcDecisionCharts({ page = 1, pageSize = 10, search =
   const params = [MODULE_ID, COMPANY_ID];
   let where = `MODULEID = ? AND MCOMPANYID = ? AND FINAL_ID != ''`;
   if (search) {
-    where += ' AND (MESSAGE LIKE ? OR MESSAGE_NO LIKE ?)';
+    where += ` AND (
+      MESSAGE LIKE ?
+      OR MESSAGE_NO LIKE ?
+      OR TC_NO LIKE ?
+      OR VESSEL_NAME LIKE ?
+      OR CONTACT_PERSON LIKE ?
+      OR DEL_RANGE_PORT LIKE ?
+      OR ADD_ON_DATE LIKE ?
+    )`;
     const like = `%${search}%`;
-    params.push(like, like);
+    params.push(like, like, like, like, like, like, like);
   }
 
+  const baseFrom = `
+    FROM (
+      SELECT
+        c.COMID,
+        c.MESSAGE,
+        c.MESSAGE_NO,
+        c.USERID,
+        c.ADD_ON_DATE,
+        c.TCOUTID AS TCOUTIDD,
+        c.MCOMPANYID,
+        c.MODULEID,
+        c.FINAL_ID,
+        (SELECT CONTACT_PERSON FROM login WHERE login.LOGINID = c.USERID LIMIT 1) AS CONTACT_PERSON,
+        (SELECT CONCAT(IFNULL(m.DEL_RANGE_PORT, ''), ' / ', IFNULL(m.RE_DEL_RANGE, ''))
+         FROM chartering_estimate_tc_master m
+         WHERE m.TCOUTID = c.TCOUTID
+         LIMIT 1) AS DEL_RANGE_PORT,
+        (SELECT m.TC_NO FROM chartering_estimate_tc_master m WHERE m.TCOUTID = c.TCOUTID LIMIT 1) AS TC_NO,
+        (SELECT v.VESSEL_NAME
+         FROM vessel_imo_master v
+         INNER JOIN chartering_estimate_tc_master m ON m.VESSEL_IMO_ID = v.VESSEL_IMO_ID
+         WHERE m.TCOUTID = c.TCOUTID
+         LIMIT 1) AS VESSEL_NAME
+      FROM chartering_estimate_tc_compare c
+    ) AS chartList
+  `;
+
   const [[countRow]] = await pool.query(
-    `SELECT COUNT(*) AS total FROM chartering_estimate_tc_compare WHERE ${where}`,
+    `SELECT COUNT(*) AS total ${baseFrom} WHERE ${where}`,
     params,
   );
   const recordsTotal = Number(countRow?.total || 0);
@@ -1348,48 +1417,27 @@ export async function dbListTcDecisionCharts({ page = 1, pageSize = 10, search =
   const offset = (safePage - 1) * safeSize;
 
   const [rows] = await pool.query(
-    `SELECT MESSAGE, MESSAGE_NO, ADD_ON_DATE, FINAL_ID, USERID
-     FROM chartering_estimate_tc_compare
+    `SELECT MESSAGE, MESSAGE_NO, ADD_ON_DATE, FINAL_ID, TCOUTIDD, TC_NO, VESSEL_NAME,
+            DEL_RANGE_PORT, CONTACT_PERSON
+     ${baseFrom}
      WHERE ${where}
-     ORDER BY ADD_ON_DATE DESC
+     ORDER BY ADD_ON_DATE DESC, COMID DESC
      LIMIT ? OFFSET ?`,
     [...params, safeSize, offset],
   );
 
-  const records = [];
-  for (let i = 0; i < rows.length; i += 1) {
-    const row = rows[i];
-    const [masters] = await pool.query(
-      `SELECT TCOUTID, TC_NO, DEL_RANGE_PORT, RE_DEL_RANGE,
-              (SELECT VESSEL_NAME FROM vessel_imo_master
-               WHERE vessel_imo_master.VESSEL_IMO_ID = chartering_estimate_tc_master.VESSEL_IMO_ID) AS VESSEL_NAME
-       FROM chartering_estimate_tc_master WHERE TCOUTID = ? LIMIT 1`,
-      [row.FINAL_ID],
-    );
-    const master = masters[0] || {};
-    let addedBy = '';
-    try {
-      const [[user]] = await pool.query(
-        `SELECT CONTACT_PERSON FROM user_master WHERE USERID = ? LIMIT 1`,
-        [row.USERID],
-      );
-      addedBy = user?.CONTACT_PERSON || '';
-    } catch {
-      addedBy = String(row.USERID || '');
-    }
-    records.push({
-      index: offset + i + 1,
-      message: row.MESSAGE ?? '',
-      messageNo: row.MESSAGE_NO != null ? String(row.MESSAGE_NO) : '',
-      tcOutId: master.TCOUTID ?? row.FINAL_ID,
-      tcNo: master.TC_NO ?? '',
-      vesselName: master.VESSEL_NAME ?? '',
-      ports: `${master.DEL_RANGE_PORT || ''}/${master.RE_DEL_RANGE || ''}`,
-      addOnDate: formatDateDMY(row.ADD_ON_DATE),
-      addedBy,
-      finalId: row.FINAL_ID,
-    });
-  }
+  const records = rows.map((row, index) => ({
+    index: offset + index + 1,
+    message: row.MESSAGE ?? '',
+    messageNo: row.MESSAGE_NO != null ? String(row.MESSAGE_NO) : '',
+    tcOutId: row.TCOUTIDD ?? row.FINAL_ID,
+    tcNo: row.TC_NO ?? '',
+    vesselName: row.VESSEL_NAME ?? '',
+    ports: row.DEL_RANGE_PORT ?? '/',
+    addOnDate: formatDateDMY(row.ADD_ON_DATE),
+    addedBy: row.CONTACT_PERSON || '',
+    finalId: row.FINAL_ID,
+  }));
 
   return { records, recordsTotal, page: safePage, pageSize: safeSize };
 }

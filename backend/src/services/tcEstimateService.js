@@ -4,6 +4,7 @@ import {
   dbDeleteTcEstimate,
   dbGetPeriodTcInDetails,
   dbGetTcCompareEstimates,
+  dbGetTcDecisionChartDetails,
   dbGetTcEstimate,
   dbGetTcLookups,
   dbListTcDecisionCharts,
@@ -642,6 +643,23 @@ export async function getTcCompareEstimates(ids) {
   };
 }
 
+export async function getTcDecisionChartDetails(message) {
+  if (isDbConfigured()) return dbGetTcDecisionChartDetails(message);
+  const chart = mockDecisionCharts.find((row) => String(row.message) === String(message));
+  if (!chart) return null;
+  const details = await getTcCompareEstimates(chart.candidates.map((candidate) => candidate.tcOutId));
+  const candidates = new Map(chart.candidates.map((candidate) => [String(candidate.tcOutId), candidate]));
+  return {
+    message: chart.message,
+    fixtures: details.fixtures.map((fixture) => ({
+      ...fixture,
+      status: fixture.sentToDecisionChart ? 'Finalised' : 'Not Fixed',
+      remarks: candidates.get(String(fixture.tcOutId))?.remarks || '',
+      isFinal: String(fixture.tcOutId) === String(chart.finalId),
+    })),
+  };
+}
+
 export async function submitTcDecisionChart(payload = {}) {
   if (isDbConfigured()) return dbSubmitTcDecisionChart(payload);
   const finalId = payload.finalId;
@@ -686,10 +704,15 @@ export async function listTcDecisionCharts(params = {}) {
   const search = String(params.search || '').toLowerCase();
   let rows = [...mockDecisionCharts];
   if (search) {
-    rows = rows.filter((row) => String(row.message).toLowerCase().includes(search)
-      || String(row.messageNo).toLowerCase().includes(search)
-      || String(row.tcNo).toLowerCase().includes(search)
-      || String(row.vesselName).toLowerCase().includes(search));
+    rows = rows.filter((row) => [
+      row.message,
+      row.messageNo,
+      row.tcNo,
+      row.vesselName,
+      row.ports,
+      row.addOnDate,
+      row.addedBy,
+    ].some((value) => String(value || '').toLowerCase().includes(search)));
   }
   const page = Math.max(1, Number(params.page) || 1);
   const pageSize = Math.max(1, Math.min(100, Number(params.pageSize) || 10));

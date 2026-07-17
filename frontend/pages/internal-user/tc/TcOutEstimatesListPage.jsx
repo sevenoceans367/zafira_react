@@ -150,7 +150,7 @@ export default function TcOutEstimatesListPage() {
           <Button
             variant="outline"
             label="Decision Chart List"
-            onClick={() => navigate(appPath('/internal-user/vc/tc/decision-charts'))}
+            onClick={() => navigate(appPath('/internal-user/vc/decision-chart-tc'))}
           />
         </div>
       </div>
@@ -261,7 +261,7 @@ export default function TcOutEstimatesListPage() {
         onSubmitted={() => {
           setCompareOpen(false);
           updateQuery({ msg: 3 });
-          navigate(appPath('/internal-user/vc/tc/decision-charts?msg=3'));
+          navigate(appPath('/internal-user/vc/decision-chart-tc?msg=3'));
         }}
       />
     </div>

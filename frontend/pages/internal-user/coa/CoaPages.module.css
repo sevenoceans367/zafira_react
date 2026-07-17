@@ -183,6 +183,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .fieldWide {
@@ -198,12 +199,20 @@
 
 .field input,
 .field select,
-.field textarea {
+.field textarea,
+.field :global(.form-control),
+.nestedTable input,
+.nestedTable select,
+.nestedTable textarea,
+.nestedTable :global(.form-control) {
+  width: 100%;
   min-height: 30px;
   padding: 5px 8px;
   border: 1px solid var(--color-border, #d9dee8);
   border-radius: 4px;
   font-size: 12px;
+  font-family: inherit;
+  box-sizing: border-box;
 }
 
 .cardSelect {
@@ -219,6 +228,14 @@
   width: 100%;
   min-width: 0;
   flex: 1;
+  height: 30px;
+  min-height: 30px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border, #d9dee8);
+  box-shadow: none;
+  font-weight: 500;
+  color: var(--color-text, #1f2937);
 }
 
 .filterField .cardSelect {

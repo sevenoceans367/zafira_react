@@ -218,48 +218,18 @@
   color: #333;
 }
 
-.vesselSearch {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.vesselSearch label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: #6b7280;
-}
-
-.vesselResults {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 20;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  max-height: 220px;
-  overflow: auto;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
-}
-
-.vesselResults button {
+.field [data-estimate-field-wrap='vesselName'] {
   width: 100%;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  padding: 8px 10px;
-  font-size: 12px;
-  cursor: pointer;
 }
 
-.vesselResults button:hover {
-  background: #f3f4f6;
+.field [data-estimate-field-wrap='vesselName'] input {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  font-size: 12px;
+  box-sizing: border-box;
 }
 
 .bunkerBlock {
@@ -461,6 +431,15 @@
   border-radius: 10px;
   padding: 16px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modalWide {
+  width: min(1500px, 98vw);
+}
+
+.table td.wrapCell {
+  min-width: 180px;
+  white-space: normal;
 }
 
 .tcInModal {

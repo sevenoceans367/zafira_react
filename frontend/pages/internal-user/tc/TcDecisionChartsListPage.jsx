@@ -1,16 +1,21 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay, PageHeaderSearch, HeaderFilterControls } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
-import { fetchTcDecisionCharts } from '../../../services/tcEstimates.js';
+import {
+  downloadTcDecisionChartsPdf,
+  fetchTcDecisionCharts,
+} from '../../../services/tcEstimates.js';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import TcDecisionChartDetailsModal from './TcDecisionChartDetailsModal.jsx';
 import styles from './TcPages.module.css';
 
 const PAGE_SIZE = 10;
 
 const FLASH = {
+  1: { type: 'success', text: 'Decision Chart added successfully.' },
   3: { type: 'success', text: 'Final TC Out Estimate sent to Decision Chart successfully.' },
 };
 
@@ -21,6 +26,8 @@ export default function TcDecisionChartsListPage() {
   const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState('');
   const [error, setError] = useState('');
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flash = FLASH[Number(searchParams.get('msg'))];
@@ -46,11 +53,29 @@ export default function TcDecisionChartsListPage() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [debouncedSearch]);
 
+  const handleGeneratePdf = async (message = '') => {
+    setPdfLoading(true);
+    setError('');
+    try {
+      await downloadTcDecisionChartsPdf(message);
+    } catch (err) {
+      setError(err.message || 'Failed to generate decision chart PDF.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   return (
     <div className={`zafira-page ${styles.page}`}>
       <PageHeaderActions deps={[searchInput]}>
         <HeaderFilterControls>
           <PageHeaderSearch value={searchInput} onChange={setSearchInput} placeholder="Search charts" />
+          <Button
+            variant="outline"
+            label={pdfLoading ? 'Generating…' : 'Generate PDF'}
+            onClick={() => handleGeneratePdf()}
+            disabled={pdfLoading}
+          />
           <Button variant="outline" label="Back" href={appPath('/internal-user/vc/tc')} />
         </HeaderFilterControls>
       </PageHeaderActions>
@@ -59,7 +84,7 @@ export default function TcDecisionChartsListPage() {
       {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <h3 className={styles.title}>TC Decision Charts</h3>
+      <h3 className={styles.title}>Decision Chart List</h3>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -88,7 +113,15 @@ export default function TcDecisionChartsListPage() {
                 <td>{row.addOnDate}</td>
                 <td>{row.addedBy}</td>
                 <td className={styles.center}>
-                  <Link to={appPath(`/internal-user/vc/tc/${row.tcOutId}/view`)}>View</Link>
+                  <button
+                    type="button"
+                    className={styles.linkBtn}
+                    title="View Details"
+                    onClick={() => setSelectedMessage(row.message)}
+                  >
+                    <i className="bi bi-file-earmark-text" aria-hidden />
+                    <span className="visually-hidden">View details</span>
+                  </button>
                 </td>
               </tr>
             ))}
@@ -102,6 +135,12 @@ export default function TcDecisionChartsListPage() {
       </div>
 
       <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+      <TcDecisionChartDetailsModal
+        message={selectedMessage}
+        onClose={() => setSelectedMessage('')}
+        onGeneratePdf={handleGeneratePdf}
+        pdfLoading={pdfLoading}
+      />
     </div>
   );
 }

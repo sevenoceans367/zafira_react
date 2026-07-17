@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
@@ -173,8 +173,12 @@ export default function CoaFormPage({ mode = 'edit' }) {
           <Field id="coaNo" label="COA No.">
             <input id="coaNo" value={form.coaNo} onChange={(e) => patch('coaNo', e.target.value)} />
           </Field>
-          <Field id="coaDate" label="COA Date (dd-mm-yyyy)">
-            <input id="coaDate" value={form.coaDate} onChange={(e) => patch('coaDate', e.target.value)} placeholder="dd-mm-yyyy" />
+          <Field id="coaDate" label="COA Date">
+            <DmyDateInput
+              id="coaDate"
+              value={form.coaDate || ''}
+              onChange={(value) => patch('coaDate', value)}
+            />
           </Field>
           <Field id="businessTypeId" label="Business Type">
             <CoaCardSelect
@@ -254,10 +258,18 @@ export default function CoaFormPage({ mode = 'edit' }) {
             <input id="duration" value={form.duration} onChange={(e) => patch('duration', e.target.value)} />
           </Field>
           <Field id="startDate" label="Start Date">
-            <input id="startDate" value={form.startDate} onChange={(e) => patch('startDate', e.target.value)} placeholder="dd-mm-yyyy" />
+            <DmyDateInput
+              id="startDate"
+              value={form.startDate || ''}
+              onChange={(value) => patch('startDate', value)}
+            />
           </Field>
           <Field id="endDate" label="End Date">
-            <input id="endDate" value={form.endDate} onChange={(e) => patch('endDate', e.target.value)} placeholder="dd-mm-yyyy" />
+            <DmyDateInput
+              id="endDate"
+              value={form.endDate || ''}
+              onChange={(value) => patch('endDate', value)}
+            />
           </Field>
           <Field id="coaNotice" label="COA Notice Days">
             <input id="coaNotice" value={form.coaNotice} onChange={(e) => patch('coaNotice', e.target.value)} />
@@ -371,12 +383,11 @@ export default function CoaFormPage({ mode = 'edit' }) {
             {(form.monthlyRemarks || []).map((row, index) => (
               <tr key={`mr-${index}`}>
                 <td>
-                  <input
-                    value={row.remarkDate}
-                    placeholder="dd-mm-yyyy"
-                    onChange={(e) => {
+                  <DmyDateInput
+                    value={row.remarkDate || ''}
+                    onChange={(value) => {
                       const next = [...form.monthlyRemarks];
-                      next[index] = { ...next[index], remarkDate: e.target.value };
+                      next[index] = { ...next[index], remarkDate: value };
                       patch('monthlyRemarks', next);
                     }}
                   />

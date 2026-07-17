@@ -46,6 +46,10 @@ export default function TcDecisionChartModal({
       setError('Please select one final estimate.');
       return;
     }
+    if (!String(remarks[finalId] || '').trim()) {
+      setError('Please select one Fixture and fill remarks.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {

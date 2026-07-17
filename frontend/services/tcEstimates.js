@@ -111,6 +111,34 @@ export async function fetchTcDecisionCharts(params = {}) {
   return parseJson(response, 'Failed to load decision charts.');
 }
 
+export async function fetchTcDecisionChartDetails(message) {
+  const response = await fetch(`${BASE}/decision-charts/${encodeURIComponent(message)}`);
+  return parseJson(response, 'Failed to load decision chart details.');
+}
+
+export async function downloadTcDecisionChartsPdf(message = '') {
+  const path = message
+    ? `/decision-charts/${encodeURIComponent(message)}/pdf`
+    : '/decision-charts/pdf';
+  const response = await fetch(`${BASE}${path}`);
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || 'Failed to generate decision chart PDF.');
+  }
+  const blob = await response.blob();
+  const disposition = response.headers.get('Content-Disposition') || '';
+  const filename = disposition.match(/filename="?([^"]+)"?/i)?.[1]
+    || (message ? `TC-Decision-Chart-${message}.pdf` : 'TC-Decision-Charts.pdf');
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** Period-contract TC In seed (PHP loadPeriodDetails / options.php?id=103). */
 export async function fetchPeriodTcInDetails(periodId) {
   if (!periodId) return null;

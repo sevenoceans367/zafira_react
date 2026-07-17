@@ -118,7 +118,14 @@ export default function InternalUserSidebar({ isOpen }) {
               to={appPath('/internal-user/vc/tc')}
               icon="bi-file-earmark-text"
               label="TC Out Estimates"
-              active={currentPath.startsWith('/internal-user/vc/tc')}
+              active={currentPath === '/internal-user/vc/tc'
+                || currentPath.startsWith('/internal-user/vc/tc/')}
+            />
+            <SidebarLink
+              to={appPath('/internal-user/vc/decision-chart-tc')}
+              icon="bi-bar-chart-line"
+              label="TC Decision Charts"
+              active={currentPath === '/internal-user/vc/decision-chart-tc'}
             />
             <CoasSidebarTree isOpen={isOpen} />
             <MastersSidebarTree isOpen={isOpen} />

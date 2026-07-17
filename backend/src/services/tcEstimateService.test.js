@@ -5,6 +5,7 @@ import {
   createTcEstimate,
   deleteTcEstimate,
   getTcCompareEstimates,
+  getTcDecisionChartDetails,
   getTcEstimate,
   getTcLookups,
   listTcDecisionCharts,
@@ -124,6 +125,18 @@ describe('tcEstimateService mock lifecycle', () => {
     const charts = await listTcDecisionCharts({ page: 1, pageSize: 10 });
     assert.ok(charts.recordsTotal >= 1);
     assert.equal(String(charts.records[0].tcOutId), String(created.tcOutId));
+
+    const chartDetails = await getTcDecisionChartDetails(submitted.message);
+    assert.equal(chartDetails.message, submitted.message);
+    assert.ok(chartDetails.fixtures.length >= 1);
+    assert.equal(
+      String(chartDetails.fixtures.find((fixture) => fixture.isFinal)?.tcOutId),
+      String(created.tcOutId),
+    );
+    assert.equal(
+      chartDetails.fixtures.find((fixture) => String(fixture.tcOutId) === String(created.tcOutId))?.remarks,
+      'Preferred',
+    );
 
     const deleted = await deleteTcEstimate(created.tcOutId);
     assert.equal(deleted.msg, 2);

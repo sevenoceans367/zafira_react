@@ -70,9 +70,13 @@ export default function App() {
             <Route path="/internal-user/vc/coas/cargo-relet/:fcaId" element={<CargoReletFormPage mode="edit" />} />
             <Route path="/internal-user/vc/coas/in-ops" element={<CoaInOpsPage />} />
             <Route path="/internal-user/vc/coas/post-ops" element={<CoaPostOpsPage />} />
+            <Route path="/internal-user/vc/decision-chart-tc" element={<TcDecisionChartsListPage />} />
             <Route path="/internal-user/vc/tc" element={<TcOutEstimatesListPage />} />
             <Route path="/internal-user/vc/tc/add" element={<TcFixtureFormPage mode="add" />} />
-            <Route path="/internal-user/vc/tc/decision-charts" element={<TcDecisionChartsListPage />} />
+            <Route
+              path="/internal-user/vc/tc/decision-charts"
+              element={<Navigate to="/internal-user/vc/decision-chart-tc" replace />}
+            />
             <Route path="/internal-user/vc/tc/:tcOutId/edit" element={<TcFixtureFormPage mode="edit" />} />
             <Route path="/internal-user/vc/tc/:tcOutId/calculate" element={<TcCalculatePage />} />
             <Route path="/internal-user/vc/tc/:tcOutId/view" element={<TcViewPage />} />

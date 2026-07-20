@@ -97,7 +97,6 @@ function emptyForm(businessTypeId = '3') {
     ownersBankDet: '',
     docCreatBy: '',
     additInform: '',
-    dwtSummerCp: '',
     windForce: '',
     speedLaden: '',
     speedBallast: '',
@@ -118,9 +117,43 @@ function emptyForm(businessTypeId = '3') {
     balticDate: '',
     balticRate: '',
     periodId: '',
+    dwtSummerCp: '',
+    dwtTropicalCp: '',
+    grainCapCp: '',
+    baleCapCp: '',
+    sfCp: '',
+    loadableCp: '',
+    grtNrtCp: '',
+    loaCp: '',
+    gearCp: '',
+    builtYearCp: '',
+    beamCp: '',
+    tpcCp: '',
+    bFullSpeedCp: '',
+    bEcoSpeed1Cp: '',
+    bEcoSpeed2Cp: '',
+    lFullSpeedCp: '',
+    lEcoSpeed1Cp: '',
+    lEcoSpeed2Cp: '',
+    foConsumptions: [],
+    doConsumptions: [],
     deliveryBunkers: [{ ...EMPTY_BUNKER }],
     redeliveryBunkers: [{ ...EMPTY_BUNKER }],
   };
+}
+
+const FIXTURE_TABS = [
+  { id: 'fixture', label: 'TC Fixture Note' },
+  { id: 'commercial', label: 'Commercial Parameters' },
+  { id: 'tcpTerms', label: 'TC/CP Terms' },
+];
+
+function ConsCell({ value }) {
+  return (
+    <td>
+      <input value={value || ''} readOnly className={styles.inputReadonly} />
+    </td>
+  );
 }
 
 function Field({ label, children, className = '' }) {
@@ -203,10 +236,16 @@ function applyVesselPrefill(prev, prefill, vesselMeta = {}) {
   };
 }
 
-/** Mirrors php/updatetcestimate.php — TC Fixture Note update/edit form. */
-export default function TcFixtureFormPage({ mode = 'add' }) {
+/** Mirrors php/updatetcestimate.php — TC Fixture Note update/edit form.
+ *  mode=view mirrors php/viewtcfixturenote.php (Ops read-only). */
+export default function TcFixtureFormPage({
+  mode = 'add',
+  overrideTcOutId,
+  backHref,
+}) {
   const navigate = useNavigate();
-  const { tcOutId } = useParams();
+  const { tcOutId: paramTcOutId } = useParams();
+  const tcOutId = overrideTcOutId || paramTcOutId;
   const [searchParams] = useSearchParams();
   const [lookups, setLookups] = useState(null);
   const [form, setForm] = useState(() => emptyForm(searchParams.get('selBType') || '3'));
@@ -214,9 +253,17 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('fixture');
 
-  const listHref = appPath('/internal-user/vc/tc');
+  const readOnly = mode === 'view';
+  const listHref = backHref || appPath('/internal-user/vc/tc');
   const isDry = String(form.businessTypeId) === '3';
+
+  const title = mode === 'add'
+    ? 'Add TC Fixture Note'
+    : mode === 'view'
+      ? 'View TC Fixture Note'
+      : 'Update TC Fixture Note';
 
   const dailyHireUsd = useMemo(() => {
     const hire = Number(form.hireFixPer) || 0;
@@ -252,6 +299,8 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
           fixtureType: detail.fixtureType || '1',
           deliveryBunkers: detail.deliveryBunkers?.length ? detail.deliveryBunkers : [{ ...EMPTY_BUNKER }],
           redeliveryBunkers: detail.redeliveryBunkers?.length ? detail.redeliveryBunkers : [{ ...EMPTY_BUNKER }],
+          foConsumptions: detail.foConsumptions || [],
+          doConsumptions: detail.doConsumptions || [],
         });
       } catch (err) {
         if (!cancelled) setError(err.message || 'Failed to load fixture note.');
@@ -262,9 +311,13 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
     return () => { cancelled = true; };
   }, [mode, tcOutId]);
 
-  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key, value) => {
+    if (readOnly) return;
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
 
   const updateBunker = (kind, index, key, value) => {
+    if (readOnly) return;
     setForm((prev) => {
       const rows = [...(prev[kind] || [])];
       const next = { ...rows[index], [key]: value };
@@ -277,10 +330,12 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
   };
 
   const addBunker = (kind) => {
+    if (readOnly) return;
     setForm((prev) => ({ ...prev, [kind]: [...(prev[kind] || []), { ...EMPTY_BUNKER }] }));
   };
 
   const removeBunker = (kind, index) => {
+    if (readOnly) return;
     setForm((prev) => {
       const rows = [...(prev[kind] || [])];
       rows.splice(index, 1);
@@ -289,6 +344,7 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
   };
 
   const handleSelectVessel = async (vessel) => {
+    if (readOnly) return;
     if (!vessel) {
       setForm((prev) => ({
         ...prev,
@@ -319,6 +375,7 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (readOnly) return;
     if (!form.vesselImoId) {
       setError('Vessel is required.');
       return;
@@ -372,14 +429,19 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
           {(form[kind] || []).map((row, index) => (
             <tr key={`${kind}-${index}`}>
               <td>
-                <button type="button" className={`${styles.linkBtn} ${styles.linkBtnDanger}`} onClick={() => removeBunker(kind, index)}>
-                  ×
-                </button>
+                {!readOnly ? (
+                  <button type="button" className={`${styles.linkBtn} ${styles.linkBtnDanger}`} onClick={() => removeBunker(kind, index)}>
+                    ×
+                  </button>
+                ) : (
+                  index + 1
+                )}
               </td>
               <td>
                 <select
                   value={row.bunkerId != null ? String(row.bunkerId) : ''}
                   onChange={(e) => updateBunker(kind, index, 'bunkerId', e.target.value)}
+                  disabled={readOnly}
                 >
                   <option value="">Select</option>
                   {(lookups?.bunkers || []).map((opt) => (
@@ -395,16 +457,29 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
                 </select>
               </td>
               <td>
-                <input value={row.qty || ''} onChange={(e) => updateBunker(kind, index, 'qty', e.target.value)} placeholder="0.00" />
+                <input
+                  value={row.qty || ''}
+                  onChange={(e) => updateBunker(kind, index, 'qty', e.target.value)}
+                  placeholder="0.00"
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
               </td>
               <td>
                 <DmyDateInput
                   value={row.bunkerDate || ''}
                   onChange={(value) => updateBunker(kind, index, 'bunkerDate', value)}
+                  disabled={readOnly}
                 />
               </td>
               <td>
-                <input value={row.price || ''} onChange={(e) => updateBunker(kind, index, 'price', e.target.value)} placeholder="0.00" />
+                <input
+                  value={row.price || ''}
+                  onChange={(e) => updateBunker(kind, index, 'price', e.target.value)}
+                  placeholder="0.00"
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
               </td>
               <td>
                 <input value={row.amount || ''} readOnly className={styles.inputReadonly} placeholder="0.00" />
@@ -414,8 +489,106 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
         </tbody>
       </table>
       <div className={styles.bunkerFooter}>
-        <Button variant="outline" label="Add" onClick={() => addBunker(kind)} />
+        {!readOnly ? <Button variant="outline" label="Add" onClick={() => addBunker(kind)} /> : null}
         <span className={styles.muted}>Total: {sumBunkerAmounts(form[kind])}</span>
+      </div>
+    </div>
+  );
+
+  const renderAtSeaTable = (rows, title) => (
+    <div className={styles.consBlock}>
+      <h4 className={styles.consTitle}>{title}</h4>
+      <div className={styles.consTableWrap}>
+        <table className={styles.consTable}>
+          <thead>
+            <tr>
+              <th rowSpan={2}>Bunker</th>
+              <th colSpan={4}>Full Speed</th>
+              <th colSpan={4}>Service Speed</th>
+              <th colSpan={4}>Most Eco Speed</th>
+            </tr>
+            <tr>
+              <th>SECA (Ballast)</th>
+              <th>SECA (Laden)</th>
+              <th>NON-SECA (Ballast)</th>
+              <th>NON-SECA (Laden)</th>
+              <th>SECA (Ballast)</th>
+              <th>SECA (Laden)</th>
+              <th>NON-SECA (Ballast)</th>
+              <th>NON-SECA (Laden)</th>
+              <th>SECA (Ballast)</th>
+              <th>SECA (Laden)</th>
+              <th>NON-SECA (Ballast)</th>
+              <th>NON-SECA (Laden)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(rows || []).length ? (rows || []).map((row, index) => (
+              <tr key={`${title}-${row.bunkerId || index}`}>
+                <td>{row.bunkerName || `Grade #${row.bunkerId || '—'}`}</td>
+                <ConsCell value={row.balSecaFs} />
+                <ConsCell value={row.ladSecaFs} />
+                <ConsCell value={row.balNonSecaFs} />
+                <ConsCell value={row.ladNonSecaFs} />
+                <ConsCell value={row.balSecaSs} />
+                <ConsCell value={row.ladSecaSs} />
+                <ConsCell value={row.balNonSecaSs} />
+                <ConsCell value={row.ladNonSecaSs} />
+                <ConsCell value={row.balSecaMes} />
+                <ConsCell value={row.ladSecaMes} />
+                <ConsCell value={row.balNonSecaMes} />
+                <ConsCell value={row.ladNonSecaMes} />
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan={13} className={styles.center}>No records</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderInPortTable = (rows, title) => (
+    <div className={styles.consBlock}>
+      <h4 className={styles.consTitle}>{title}</h4>
+      <div className={styles.consTableWrap}>
+        <table className={styles.consTable}>
+          <thead>
+            <tr>
+              <th rowSpan={2}>Bunker</th>
+              <th colSpan={2}>Working</th>
+              <th colSpan={2}>Idle</th>
+              <th colSpan={2}>Others</th>
+            </tr>
+            <tr>
+              <th>SECA</th>
+              <th>NON-SECA</th>
+              <th>SECA</th>
+              <th>NON-SECA</th>
+              <th>SECA</th>
+              <th>NON-SECA</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(rows || []).length ? (rows || []).map((row, index) => (
+              <tr key={`${title}-${row.bunkerId || index}`}>
+                <td>{row.bunkerName || `Grade #${row.bunkerId || '—'}`}</td>
+                <ConsCell value={row.inPortSecaWorking} />
+                <ConsCell value={row.inPortNonSecaWorking} />
+                <ConsCell value={row.inPortSecaIdle} />
+                <ConsCell value={row.inPortNonSecaIdle} />
+                <ConsCell value={row.inPortSecaOther} />
+                <ConsCell value={row.inPortNonSecaOther} />
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan={7} className={styles.center}>No records</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -425,14 +598,15 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
       <TcFormHeaderActions
         listHref={listHref}
         disabled={saving || loading}
-        onGeneratePdf={mode === 'edit' ? handleGeneratePdf : undefined}
+        onGeneratePdf={mode !== 'add' ? handleGeneratePdf : undefined}
         pdfLoading={pdfLoading}
       />
       {loading ? <LoadingOverlay active label="Loading fixture note…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
-      <h3 className={styles.title}>{mode === 'add' ? 'Add TC Fixture Note' : 'Update TC Fixture Note'}</h3>
+      <h3 className={styles.title}>{title}</h3>
 
       <form onSubmit={handleSubmit}>
+        <fieldset disabled={readOnly} className={styles.viewFieldset}>
         <div className={styles.headerBar}>
           <div className={styles.headerItem}>
             <strong>Fixture Type:</strong> TC Out
@@ -448,18 +622,44 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
             />
           </Field>
           <Field label="Vessel">
-            <VesselSearchSelect
-              value={form.vesselImoId}
-              label={form.vesselName}
-              onSelect={handleSelectVessel}
-            />
+            {readOnly ? (
+              <input
+                value={form.vesselName || ''}
+                readOnly
+                className={styles.inputReadonly}
+              />
+            ) : (
+              <VesselSearchSelect
+                value={form.vesselImoId}
+                label={form.vesselName}
+                onSelect={handleSelectVessel}
+              />
+            )}
           </Field>
           <TextInput label="Vessel Type" value={form.vesselType} readOnly />
           <TextInput label="Flag" value={form.flag} readOnly />
           <DateField label="Date" value={form.tcDate} onChange={(v) => setField('tcDate', v)} />
-          <TextInput label="TC No." value={form.tcNo} onChange={(v) => setField('tcNo', v)} readOnly={mode === 'edit'} />
+          <TextInput label="TC No." value={form.tcNo} onChange={(v) => setField('tcNo', v)} readOnly={mode === 'edit' || readOnly} />
+        </div>
+        </fieldset>
+
+        <div className={styles.tabs} role="tablist" aria-label="Fixture note tabs">
+          {FIXTURE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={activeTab === tab.id ? styles.tabActive : styles.tab}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
+        <fieldset disabled={readOnly} className={styles.viewFieldset}>
+        {activeTab === 'fixture' ? (
         <div className={styles.fixtureLayout}>
           <div className={styles.fixtureLeft}>
             <div className={styles.section}>
@@ -677,7 +877,66 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
             </div>
           </div>
         </div>
+        ) : null}
 
+        {activeTab === 'commercial' ? (
+          <div className={styles.tabPanel}>
+            <div className={styles.section}>
+              <div className={styles.formGrid}>
+                <TextInput label="DWT (Summer)" value={form.dwtSummerCp} readOnly />
+                <TextInput label="DWT (Tropical)" value={form.dwtTropicalCp} readOnly />
+                <TextInput label="Grain Cap (CBM)" value={form.grainCapCp} readOnly />
+                <TextInput label="Bale Cap (CBM)" value={form.baleCapCp} readOnly />
+                <TextInput label="SF (ft3/lt)" value={form.sfCp} readOnly />
+                <TextInput label="Loadable (MT)" value={form.loadableCp} readOnly />
+                <TextInput label="GRT/NRT" value={form.grtNrtCp} readOnly />
+                <TextInput label="LOA" value={form.loaCp} readOnly />
+                <TextInput label="Gear" value={form.gearCp} readOnly />
+                <TextInput label="Built Year" value={form.builtYearCp} readOnly />
+                <TextInput label="B.E.A.M. (m)" value={form.beamCp} readOnly />
+                <TextInput label="TPC" value={form.tpcCp} readOnly />
+              </div>
+            </div>
+
+            <div className={styles.section}>
+              <h4 className={styles.sectionTitle}>Speed Data</h4>
+              <div className={styles.consTableWrap}>
+                <table className={styles.consTable}>
+                  <thead>
+                    <tr>
+                      <th>Speed Data</th>
+                      <th>Full Speed</th>
+                      <th>Service Speed</th>
+                      <th>Most Eco Speed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Ballast Speed (Knots)</td>
+                      <ConsCell value={form.bFullSpeedCp} />
+                      <ConsCell value={form.bEcoSpeed1Cp} />
+                      <ConsCell value={form.bEcoSpeed2Cp} />
+                    </tr>
+                    <tr>
+                      <td>Laden Speed (Knots)</td>
+                      <ConsCell value={form.lFullSpeedCp} />
+                      <ConsCell value={form.lEcoSpeed1Cp} />
+                      <ConsCell value={form.lEcoSpeed2Cp} />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {renderAtSeaTable(form.foConsumptions, 'FO Consp/day(MT) - At Sea')}
+            {renderAtSeaTable(form.doConsumptions, 'DO Consp/day(MT) - At Sea')}
+            {renderInPortTable(form.foConsumptions, 'FO Consp/day(MT)- In Port')}
+            {renderInPortTable(form.doConsumptions, 'DO Consp/day(MT)- In Port')}
+          </div>
+        ) : null}
+
+        {activeTab === 'tcpTerms' ? (
+        <div className={styles.tabPanel}>
         <div className={styles.section}>
           <h4 className={styles.sectionTitle}>TC/CP Terms : Sea Passage</h4>
           <div className={styles.formGrid}>
@@ -702,9 +961,14 @@ export default function TcFixtureFormPage({ mode = 'add' }) {
             <TextInput label="Disch Rate (MT/Day)" value={form.dischRate} onChange={(v) => setField('dischRate', v)} />
           </div>
         </div>
+        </div>
+        ) : null}
+        </fieldset>
 
         <div className={styles.formActions}>
-          <Button type="submit" label={saving ? 'Saving…' : 'Submit'} disabled={saving} />
+          {!readOnly ? (
+            <Button type="submit" label={saving ? 'Saving…' : 'Submit'} disabled={saving} />
+          ) : null}
           {mode === 'edit' ? (
             <Button
               variant="outline"

@@ -123,6 +123,7 @@ export default function TcInExpensesModal({
   lookups,
   onClose,
   onApply,
+  readOnly = false,
 }) {
   const [draft, setDraft] = useState(value);
 
@@ -190,10 +191,11 @@ export default function TcInExpensesModal({
     <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
       <div className={`${styles.modal} ${styles.tcInModal}`}>
         <div className={styles.modalHeader}>
-          <h3>TC Hire Details</h3>
+          <h3>{readOnly ? 'View TC Hire Details' : 'TC Hire Details'}</h3>
           <Button variant="outline" label="Close" onClick={onClose} />
         </div>
 
+        <div className={readOnly ? styles.viewModeLock : undefined}>
         <div className={styles.formGrid}>
           <div className={styles.field}>
             <label>Vessel</label>
@@ -455,9 +457,10 @@ export default function TcInExpensesModal({
             />
           </div>
         </div>
+        </div>
 
         <div className={styles.formActions}>
-          <Button label="Apply" onClick={handleApply} />
+          {!readOnly ? <Button label="Apply" onClick={handleApply} /> : null}
           <Button variant="outline" label="Close" onClick={onClose} />
         </div>
       </div>

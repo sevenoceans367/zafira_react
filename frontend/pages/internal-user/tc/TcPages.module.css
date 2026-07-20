@@ -218,6 +218,98 @@
   color: #333;
 }
 
+.viewFieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  margin: 12px 0 16px;
+  border-bottom: 1px solid var(--color-border, #d9dee8);
+}
+
+.tab,
+.tabActive {
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  font-size: var(--font-size-body, 12px);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-text-light, #6b7280);
+}
+
+.tabActive {
+  color: var(--color-primary, #1b77a6);
+  border-color: var(--color-border, #d9dee8);
+  border-bottom: 1px solid #fff;
+  margin-bottom: -1px;
+  background: #fff;
+}
+
+.tabPanel {
+  min-width: 0;
+}
+
+.consBlock {
+  margin-bottom: 16px;
+}
+
+.consTitle {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #dc631e;
+}
+
+.consTableWrap {
+  overflow-x: auto;
+}
+
+.consTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.consTable th,
+.consTable td {
+  border: 1px solid var(--color-border, #d9dee8);
+  padding: 4px 6px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.consTable th {
+  background: #f3f6fa;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.consTable td:first-child,
+.consTable th:first-child {
+  text-align: left;
+  white-space: nowrap;
+}
+
+.consTable .center {
+  text-align: center;
+  color: var(--color-text-light, #6b7280);
+}
+
+.consTable input {
+  width: 72px;
+  max-width: 100%;
+  padding: 3px 4px;
+  border: 1px solid var(--color-border, #d9dee8);
+  text-align: right;
+}
+
 .field [data-estimate-field-wrap='vesselName'] {
   width: 100%;
 }
@@ -468,6 +560,15 @@
   align-items: center;
   gap: 12px;
   margin: 16px 0;
+}
+
+.viewModeLock {
+  pointer-events: none;
+  user-select: text;
+}
+
+.viewModeLock .viewModeAllow {
+  pointer-events: auto;
 }
 
 .modalHeader {

@@ -185,6 +185,61 @@ async function loadMasterBunkers(pool, tcOutId) {
   };
 }
 
+function strCons(value) {
+  return value != null && String(value).trim() !== '' ? String(value) : '';
+}
+
+function mapTcSlave6Row(row) {
+  return {
+    bunkerId: row.BUNKERID != null ? String(row.BUNKERID) : '',
+    bunkerName: row.BUNKER_NAME || '',
+    balSecaFs: strCons(row.FO_BALAST_ATSEA_SECA_CONSP_FS),
+    ladSecaFs: strCons(row.FO_LADEN_ATSEA_SECA_CONSP_FS),
+    balNonSecaFs: strCons(row.FO_BALAST_ATSEA_NONSECA_CONSP_FS),
+    ladNonSecaFs: strCons(row.FO_LADEN_ATSEA_NONSECA_CONSP_FS),
+    balSecaSs: strCons(row.FO_BALAST_ATSEA_SECA_CONSP_SS),
+    ladSecaSs: strCons(row.FO_LADEN_ATSEA_SECA_CONSP_SS),
+    balNonSecaSs: strCons(row.FO_BALAST_ATSEA_NONSECA_CONSP_SS),
+    ladNonSecaSs: strCons(row.FO_LADEN_ATSEA_NONSECA_CONSP_SS),
+    balSecaMes: strCons(row.FO_BALAST_ATSEA_SECA_CONSP_MES),
+    ladSecaMes: strCons(row.FO_LADEN_ATSEA_SECA_CONSP_MES),
+    balNonSecaMes: strCons(row.FO_BALAST_ATSEA_NONSECA_CONSP_MES),
+    ladNonSecaMes: strCons(row.FO_LADEN_ATSEA_NONSECA_CONSP_MES),
+    inPortSecaWorking: strCons(row.FO_INPORT_SECA_CONSP_WORKING),
+    inPortNonSecaWorking: strCons(row.FO_INPORT_NONSECA_CONSP_WORKING),
+    inPortSecaIdle: strCons(row.FO_INPORT_SECA_CONSP_IDLE),
+    inPortNonSecaIdle: strCons(row.FO_INPORT_NONSECA_CONSP_IDLE),
+    inPortSecaOther: strCons(row.FO_INPORT_SECA_CONSP_OTHER),
+    inPortNonSecaOther: strCons(row.FO_INPORT_NONSECA_CONSP_OTHER),
+  };
+}
+
+/** PHP chartering_estimate_tc_slave6 — FO/DO commercial consumption for fixture note tab 2. */
+async function loadTcSlave6Consumptions(pool, tcOutId) {
+  try {
+    const [rows] = await pool.query(
+      `SELECT s6.*, bg.NAME AS BUNKER_NAME
+       FROM chartering_estimate_tc_slave6 s6
+       LEFT JOIN bunker_grade_master bg ON bg.BUNKERGRADEID = s6.BUNKERID
+       WHERE s6.TCOUTID = ?`,
+      [tcOutId],
+    );
+    const mapped = rows.map(mapTcSlave6Row);
+    return {
+      foConsumptions: rows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => String(row.IDENTIFY || '').toUpperCase() === 'FO')
+        .map(({ index }) => mapped[index]),
+      doConsumptions: rows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => String(row.IDENTIFY || '').toUpperCase() === 'DO')
+        .map(({ index }) => mapped[index]),
+    };
+  } catch {
+    return { foConsumptions: [], doConsumptions: [] };
+  }
+}
+
 async function loadCalcExtras(pool, slave1Id) {
   if (!slave1Id) {
     return {
@@ -646,6 +701,7 @@ export async function dbGetTcEstimate(tcOutId) {
   }
 
   const bunkers = await loadMasterBunkers(pool, tcOutId);
+  const consumptions = await loadTcSlave6Consumptions(pool, tcOutId);
   const [calcRows] = await pool.query(
     `SELECT * FROM chartering_tc_estimate_slave1 WHERE TCOUTID = ? ORDER BY TC_SLAVE1ID DESC LIMIT 1`,
     [tcOutId],
@@ -657,6 +713,8 @@ export async function dbGetTcEstimate(tcOutId) {
     vesselName,
     deliveryBunkers: bunkers.deliveryBunkers,
     redeliveryBunkers: bunkers.redeliveryBunkers,
+    foConsumptions: consumptions.foConsumptions,
+    doConsumptions: consumptions.doConsumptions,
     calc: {
       ...calc,
       deliveryBunkers: extras.calcBunkersDel,

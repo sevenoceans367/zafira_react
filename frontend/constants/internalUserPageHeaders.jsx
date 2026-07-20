@@ -3,8 +3,11 @@ import { resolveSopfHeader } from './sopfPageHeaders.jsx';
 import { resolveFleetHeader } from './fleetPageHeaders.js';
 import { resolvePeriodContractHeader } from './periodContractPageHeaders.js';
 import { resolveTodoListHeader } from './todoListPageHeaders.js';
+import { resolveCombinedSoaPayableHeader } from './combinedSoaPayablePageHeaders.js';
 import { resolveMastersHeader } from './mastersPageHeaders.js';
 import { resolveCoaHeader } from './coaPageHeaders.js';
+import { resolveOpsVcHeader } from './opsVcPageHeaders.js';
+import { resolveOpsTcHeader } from './opsTcPageHeaders.js';
 import { resolveTcHeader } from './tcPageHeaders.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
@@ -64,6 +67,9 @@ export function resolveInternalUserHeader(pathname) {
   const todoListHeader = resolveTodoListHeader(pathname);
   if (todoListHeader) return todoListHeader;
 
+  const combinedSoaPayableHeader = resolveCombinedSoaPayableHeader(pathname);
+  if (combinedSoaPayableHeader) return combinedSoaPayableHeader;
+
   const periodContractHeader = resolvePeriodContractHeader(pathname);
   if (periodContractHeader) return periodContractHeader;
 
@@ -72,6 +78,12 @@ export function resolveInternalUserHeader(pathname) {
 
   const coaHeader = resolveCoaHeader(pathname);
   if (coaHeader) return coaHeader;
+
+  const opsVcHeader = resolveOpsVcHeader(pathname);
+  if (opsVcHeader) return opsVcHeader;
+
+  const opsTcHeader = resolveOpsTcHeader(pathname);
+  if (opsTcHeader) return opsTcHeader;
 
   const tcHeader = resolveTcHeader(pathname);
   if (tcHeader) return tcHeader;

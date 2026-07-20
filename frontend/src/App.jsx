@@ -17,6 +17,24 @@ import CargoReletListPage from '../pages/internal-user/coa/CargoReletListPage.js
 import CargoReletFormPage from '../pages/internal-user/coa/CargoReletFormPage.jsx';
 import CoaInOpsPage from '../pages/internal-user/coa/CoaInOpsPage.jsx';
 import CoaPostOpsPage from '../pages/internal-user/coa/CoaPostOpsPage.jsx';
+import OpsVcInOpsGlancePage from '../pages/internal-user/ops/OpsVcInOpsGlancePage.jsx';
+import OpsVcPostOpsPage from '../pages/internal-user/ops/OpsVcPostOpsPage.jsx';
+import OpsVcHistoryPage from '../pages/internal-user/ops/OpsVcHistoryPage.jsx';
+import OpsVcYearUpdationPage from '../pages/internal-user/ops/OpsVcYearUpdationPage.jsx';
+import OpsVcVoyageReportPage from '../pages/internal-user/ops/OpsVcVoyageReportPage.jsx';
+import OpsVcAgencyLetterPage from '../pages/internal-user/ops/OpsVcAgencyLetterPage.jsx';
+import OpsTcFinalisedFixturesPage from '../pages/internal-user/ops/OpsTcFinalisedFixturesPage.jsx';
+import OpsTcInOpsGlancePage from '../pages/internal-user/ops/OpsTcInOpsGlancePage.jsx';
+import OpsTcChecklistPage from '../pages/internal-user/ops/OpsTcChecklistPage.jsx';
+import OpsTcFixtureNotePage from '../pages/internal-user/ops/OpsTcFixtureNotePage.jsx';
+import OpsTcCostSheetPage from '../pages/internal-user/ops/OpsTcCostSheetPage.jsx';
+import OpsTcAgencyLetterPage from '../pages/internal-user/ops/OpsTcAgencyLetterPage.jsx';
+import OpsTcPaymentGridPage from '../pages/internal-user/ops/OpsTcPaymentGridPage.jsx';
+import OpsTcPostOpsPage from '../pages/internal-user/ops/OpsTcPostOpsPage.jsx';
+import OpsTcHistoryPage from '../pages/internal-user/ops/OpsTcHistoryPage.jsx';
+import OpsTcYearUpdationPage from '../pages/internal-user/ops/OpsTcYearUpdationPage.jsx';
+import CombinedSoaPayablePage from '../pages/internal-user/combined-soa-payable/CombinedSoaPayablePage.jsx';
+import CombinedSoaPayableTcPage from '../pages/internal-user/combined-soa-payable/CombinedSoaPayableTcPage.jsx';
 import FleetPage from '../pages/internal-user/fleet/FleetPage.jsx';
 import AddVesselPage from '../pages/internal-user/fleet/AddVesselPage.jsx';
 import UpdateVesselPage from '../pages/internal-user/fleet/UpdateVesselPage.jsx';
@@ -70,6 +88,60 @@ export default function App() {
             <Route path="/internal-user/vc/coas/cargo-relet/:fcaId" element={<CargoReletFormPage mode="edit" />} />
             <Route path="/internal-user/vc/coas/in-ops" element={<CoaInOpsPage />} />
             <Route path="/internal-user/vc/coas/post-ops" element={<CoaPostOpsPage />} />
+            <Route path="/internal-user/vc/ops/in-ops-glance" element={<OpsVcInOpsGlancePage />} />
+            <Route path="/internal-user/vc/ops/voyage-report" element={<OpsVcVoyageReportPage />} />
+            <Route path="/internal-user/vc/ops/agency-letter" element={<OpsVcAgencyLetterPage />} />
+            <Route path="/internal-user/vc/ops/post-ops" element={<OpsVcPostOpsPage />} />
+            <Route path="/internal-user/vc/ops/history" element={<OpsVcHistoryPage />} />
+            <Route path="/internal-user/vc/ops/year-updation" element={<OpsVcYearUpdationPage />} />
+            <Route
+              path="/internal-user/vc/ops-tc/finalised-fixtures"
+              element={<OpsTcFinalisedFixturesPage />}
+            />
+            <Route
+              path="/internal-user/vc/ops-tc/in-ops-glance"
+              element={<OpsTcInOpsGlancePage />}
+            />
+            <Route
+              path="/internal-user/vc/ops-tc/checklist"
+              element={<OpsTcChecklistPage />}
+            />
+            <Route
+              path="/internal-user/vc/ops-tc/fixture-note"
+              element={<OpsTcFixtureNotePage />}
+            />
+            <Route
+              path="/internal-user/vc/ops-tc/cost-sheet"
+              element={<OpsTcCostSheetPage />}
+            />
+            <Route
+              path="/internal-user/vc/ops-tc/agency-letter"
+              element={<OpsTcAgencyLetterPage />}
+            />
+            <Route
+              path="/internal-user/vc/ops-tc/payment-grid"
+              element={<OpsTcPaymentGridPage />}
+            />
+            <Route
+              path="/internal-user/vc/ops-tc/post-ops"
+              element={<OpsTcPostOpsPage />}
+            />
+            <Route
+              path="/internal-user/vc/ops-tc/history"
+              element={<OpsTcHistoryPage />}
+            />
+            <Route
+              path="/internal-user/vc/ops-tc/year-updation"
+              element={<OpsTcYearUpdationPage />}
+            />
+            <Route
+              path="/internal-user/vc/combined-soa-payable"
+              element={<CombinedSoaPayablePage />}
+            />
+            <Route
+              path="/internal-user/vc/combined-soa-payable-tc"
+              element={<CombinedSoaPayableTcPage />}
+            />
             <Route path="/internal-user/vc/decision-chart-tc" element={<TcDecisionChartsListPage />} />
             <Route path="/internal-user/vc/tc" element={<TcOutEstimatesListPage />} />
             <Route path="/internal-user/vc/tc/add" element={<TcFixtureFormPage mode="add" />} />

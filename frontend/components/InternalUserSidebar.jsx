@@ -5,8 +5,11 @@ import { appPath } from '@bainbridge/shared-routing';
 import { fleetAppPath } from '../constants/fleetModule.js';
 import { periodContractAppPath } from '../constants/periodContractModule.js';
 import { todoListAppPath } from '../constants/todoListPageHeaders.js';
+import { combinedSoaPayableAppPath, combinedSoaPayableTcAppPath } from '../constants/combinedSoaPayablePageHeaders.js';
 import { SOPF_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
 import CoasSidebarTree from './coa/CoasSidebarTree.jsx';
+import OpsVcSidebarTree from './ops/OpsVcSidebarTree.jsx';
+import OpsTcSidebarTree from './ops/OpsTcSidebarTree.jsx';
 import MastersSidebarTree from './masters/MastersSidebarTree.jsx';
 
 function isSidebarItemActive(pathname, item) {
@@ -115,6 +118,19 @@ export default function InternalUserSidebar({ isOpen }) {
               active={currentPath.startsWith('/internal-user/vc/todo-list')}
             />
             <SidebarLink
+              to={combinedSoaPayableAppPath()}
+              icon="bi-currency-dollar"
+              label="Combined SOA Payable"
+              active={currentPath === '/internal-user/vc/combined-soa-payable'
+                || currentPath.startsWith('/internal-user/vc/combined-soa-payable/')}
+            />
+            <SidebarLink
+              to={combinedSoaPayableTcAppPath()}
+              icon="bi-cash-coin"
+              label="Combined SOA Payable TC"
+              active={currentPath.startsWith('/internal-user/vc/combined-soa-payable-tc')}
+            />
+            <SidebarLink
               to={appPath('/internal-user/vc/tc')}
               icon="bi-file-earmark-text"
               label="TC Out Estimates"
@@ -128,6 +144,8 @@ export default function InternalUserSidebar({ isOpen }) {
               active={currentPath === '/internal-user/vc/decision-chart-tc'}
             />
             <CoasSidebarTree isOpen={isOpen} />
+            <OpsVcSidebarTree isOpen={isOpen} />
+            <OpsTcSidebarTree isOpen={isOpen} />
             <MastersSidebarTree isOpen={isOpen} />
           </>
         ) : null}

@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "test": "node --test src/services/coaService.test.js src/services/tcEstimateMappers.test.js src/services/tcEstimateService.test.js"
+    "test": "node --test src/services/coaService.test.js src/services/tcEstimateMappers.test.js src/services/tcEstimateService.test.js src/services/opsVcService.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

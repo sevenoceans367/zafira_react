@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { appContext } from '../config.js';
+import { appContext, isMgmtUser } from '../config.js';
 import { dbAuthenticateUser, isAuthDbAvailable } from './authDb.js';
 
 const sessions = new Map();
@@ -76,4 +76,26 @@ export async function loginUser(username, password) {
 export function logoutUser(token) {
   if (token) sessions.delete(token);
   return { ok: true };
+}
+
+/** Resolve Bearer token from an Express request. */
+export function getRequestToken(req) {
+  const header = req?.headers?.authorization || '';
+  if (header.startsWith('Bearer ')) return header.slice(7).trim();
+  return '';
+}
+
+/** Logged-in user for the request, or null. */
+export function getRequestUser(req) {
+  return getSessionUser(getRequestToken(req));
+}
+
+/**
+ * PHP: $_SESSION['iutype'] == 'mgmt_user'
+ * Prefer the session user from the Authorization token; fall back to env USER_TYPE.
+ */
+export function resolveRequestIsMgmtUser(req) {
+  const user = getRequestUser(req);
+  if (user?.userType) return user.userType === 'mgmt_user';
+  return isMgmtUser();
 }

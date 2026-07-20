@@ -7,6 +7,7 @@ import tcEstimateRoutes from './tcEstimates.js';
 import fleetRoutes from './fleet.js';
 import periodContractRoutes from './periodContract.js';
 import todoListRoutes from './todoList.js';
+import combinedSoaPayableRoutes from './combinedSoaPayable.js';
 import mastersRoutes from './masters.js';
 import { pingDb } from '../db.js';
 import { isDbConfigured } from '../config.js';
@@ -56,6 +57,7 @@ router.use('/internal-user/tc-estimates', tcEstimateRoutes);
 router.use('/internal-user/fleet', fleetRoutes);
 router.use('/internal-user/period-contracts', periodContractRoutes);
 router.use('/internal-user/todo-list', todoListRoutes);
+router.use('/internal-user/combined-soa-payable', combinedSoaPayableRoutes);
 router.use('/internal-user/masters', mastersRoutes);
 
 export default router;

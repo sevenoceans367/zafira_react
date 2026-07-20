@@ -28,6 +28,14 @@ export function isMgmtUser() {
   return appContext.userType === 'mgmt_user';
 }
 
+/** PHP $_SESSION['COM_SH'] — company compare-sheets feature flag. */
+export function compareSheetsEnabled() {
+  const flag = process.env.COM_SH;
+  if (flag === '0' || flag === 'false') return false;
+  if (flag === '1' || flag === 'true') return true;
+  return true;
+}
+
 export function isDbConfigured() {
   return Boolean(dbConfig.host && dbConfig.database && dbConfig.user);
 }

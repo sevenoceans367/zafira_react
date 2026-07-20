@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import {
@@ -210,10 +210,24 @@ function updateRow(list, index, patch) {
   return next;
 }
 
-export default function TcCalculatePage() {
+export default function TcCalculatePage({
+  initialDetail = null,
+  overrideTcOutId = null,
+  readOnly: readOnlyProp = null,
+  listHref: listHrefProp = null,
+  pageTitle = null,
+  onSave = null,
+  hideEditFixture = false,
+  saveLabel = 'Save Calculation',
+} = {}) {
   const navigate = useNavigate();
-  const { tcOutId } = useParams();
-  const [detail, setDetail] = useState(null);
+  const { tcOutId: paramTcOutId } = useParams();
+  const [searchParams] = useSearchParams();
+  const tcOutId = overrideTcOutId || paramTcOutId;
+  const readOnly = readOnlyProp != null
+    ? Boolean(readOnlyProp)
+    : searchParams.get('mode') === 'view';
+  const [detail, setDetail] = useState(initialDetail);
   const [lookups, setLookups] = useState(null);
   const [form, setForm] = useState(null);
   const [tcInOpen, setTcInOpen] = useState(false);
@@ -221,7 +235,10 @@ export default function TcCalculatePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const listHref = appPath('/internal-user/vc/tc');
+  const listHref = listHrefProp
+    || (searchParams.get('from') === 'ops-tc'
+      ? appPath('/internal-user/vc/ops-tc/finalised-fixtures')
+      : appPath('/internal-user/vc/tc'));
 
   useEffect(() => {
     let cancelled = false;
@@ -229,13 +246,19 @@ export default function TcCalculatePage() {
       setLoading(true);
       setError('');
       try {
-        const [estimate, lookupData] = await Promise.all([
-          fetchTcEstimate(tcOutId),
-          fetchTcLookups(),
-        ]);
+        const lookupData = await fetchTcLookups();
+        if (cancelled) return;
+        setLookups(lookupData);
+
+        let estimate = initialDetail;
+        if (!estimate) {
+          if (!tcOutId) {
+            throw new Error('Estimate id is required.');
+          }
+          estimate = await fetchTcEstimate(tcOutId);
+        }
         if (cancelled) return;
         setDetail(estimate);
-        setLookups(lookupData);
         let nextForm = initFromDetail(estimate);
         // PHP loadPeriodDetails(): when PERIODID set and no saved TC In rows, seed from period contract.
         if (estimate?.periodId && !hasSavedTcInHires(estimate.tcInExpenses)) {
@@ -259,6 +282,8 @@ export default function TcCalculatePage() {
       }
     })();
     return () => { cancelled = true; };
+    // initialDetail is provided by Ops cost-sheet wrapper; remount via key when sheet changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid reloading on new object identity
   }, [tcOutId]);
 
   const incomeTotal = useMemo(
@@ -352,45 +377,72 @@ export default function TcCalculatePage() {
     });
   };
 
+  const buildSavePayload = () => {
+    const first = form.hirePeriods[0] || {};
+    return {
+      calc: {
+        ...form.calc,
+        ...totals,
+        delDate: first.delDate || '',
+        reDelDate: first.reDelDate || '',
+        otherIncome: String(incomeTotal),
+        totalExp: String(totalExpenses),
+        deliveryBunkers: form.deliveryBunkers,
+        redeliveryBunkers: form.redeliveryBunkers,
+        hirePeriods: totals.hirePeriods || form.hirePeriods,
+        tcCpDate: form.tcInExpenses?.cpDate || '',
+        tcCpNumber: form.tcInExpenses?.contractRef || form.calc.tcCpNumber || '',
+        tcDeliveryPort: form.tcInExpenses?.deliveryPort || form.calc.tcDeliveryPort || '',
+        tcRedeliveryPort: form.tcInExpenses?.redeliveryPort || form.calc.tcRedeliveryPort || '',
+        tcFinalHireage: String(tcInFinalHireage.toFixed(2)),
+        tcFinalVendor: form.tcInExpenses?.finalVendor || '',
+        tcOffHireCveMonth: form.tcInExpenses?.offHireCveMonth || '',
+        tcOffHireCveAmt: form.tcInExpenses?.offHireCveAmt || '',
+        tcBunkerOnOwner: form.tcInExpenses?.bunkerOnOwner || '',
+        tcLessOffHire: form.tcInExpenses?.lessOffHire || '',
+        tcIlohc: form.tcInExpenses?.ilohc || '',
+        awrpCost: form.tcInExpenses?.awrpCost || '',
+      },
+      hirePeriods: totals.hirePeriods || form.hirePeriods,
+      otherIncome: form.otherIncome,
+      otherExpenses: form.otherExpenses,
+      offHires: form.offHires,
+      itinerary: form.itinerary,
+      itineraryExpenses: form.itineraryExpenses,
+      tcInExpenses: form.tcInExpenses,
+      deliveryBunkers: form.deliveryBunkers,
+      redeliveryBunkers: form.redeliveryBunkers,
+      totals,
+      incomeTotal,
+      totalExpenses,
+      tcInFinalHireage,
+      form,
+      detail,
+    };
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
+    if (readOnly) return;
     setSaving(true);
     setError('');
     try {
-      const first = form.hirePeriods[0] || {};
-      await saveTcCalculation(tcOutId, {
-        calc: {
-          ...form.calc,
-          ...totals,
-          delDate: first.delDate || '',
-          reDelDate: first.reDelDate || '',
-          otherIncome: String(incomeTotal),
-          totalExp: String(totalExpenses),
-          deliveryBunkers: form.deliveryBunkers,
-          redeliveryBunkers: form.redeliveryBunkers,
-          hirePeriods: totals.hirePeriods || form.hirePeriods,
-          tcCpDate: form.tcInExpenses?.cpDate || '',
-          tcCpNumber: form.tcInExpenses?.contractRef || form.calc.tcCpNumber || '',
-          tcDeliveryPort: form.tcInExpenses?.deliveryPort || form.calc.tcDeliveryPort || '',
-          tcRedeliveryPort: form.tcInExpenses?.redeliveryPort || form.calc.tcRedeliveryPort || '',
-          tcFinalHireage: String(tcInFinalHireage.toFixed(2)),
-          tcFinalVendor: form.tcInExpenses?.finalVendor || '',
-          tcOffHireCveMonth: form.tcInExpenses?.offHireCveMonth || '',
-          tcOffHireCveAmt: form.tcInExpenses?.offHireCveAmt || '',
-          tcBunkerOnOwner: form.tcInExpenses?.bunkerOnOwner || '',
-          tcLessOffHire: form.tcInExpenses?.lessOffHire || '',
-          tcIlohc: form.tcInExpenses?.ilohc || '',
-          awrpCost: form.tcInExpenses?.awrpCost || '',
-        },
-        hirePeriods: totals.hirePeriods || form.hirePeriods,
-        otherIncome: form.otherIncome,
-        otherExpenses: form.otherExpenses,
-        offHires: form.offHires,
-        itinerary: form.itinerary,
-        itineraryExpenses: form.itineraryExpenses,
-        tcInExpenses: form.tcInExpenses,
-      });
-      navigate(appPath('/internal-user/vc/tc?msg=0'));
+      const payload = buildSavePayload();
+      if (onSave) {
+        await onSave(payload);
+      } else {
+        await saveTcCalculation(tcOutId, {
+          calc: payload.calc,
+          hirePeriods: payload.hirePeriods,
+          otherIncome: payload.otherIncome,
+          otherExpenses: payload.otherExpenses,
+          offHires: payload.offHires,
+          itinerary: payload.itinerary,
+          itineraryExpenses: payload.itineraryExpenses,
+          tcInExpenses: payload.tcInExpenses,
+        });
+        navigate(appPath('/internal-user/vc/tc?msg=0'));
+      }
     } catch (err) {
       setError(err.message || 'Failed to save calculation.');
     } finally {
@@ -414,17 +466,18 @@ export default function TcCalculatePage() {
     );
   }
 
+  const titleText = pageTitle
+    || `${readOnly ? 'View Estimate' : 'Edit Estimate'}${detail?.tcNo ? ` — ${detail.tcNo}` : ''}`;
+
   return (
     <div className={`zafira-page ${styles.page}`}>
       <TcFormHeaderActions listHref={listHref} disabled={saving} />
       {loading ? <LoadingOverlay active label="Loading calculation…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
-      <h3 className={styles.title}>
-        Edit Estimate
-        {detail?.tcNo ? ` — ${detail.tcNo}` : ''}
-      </h3>
+      <h3 className={styles.title}>{titleText}</h3>
 
       <form onSubmit={handleSave}>
+        <div className={readOnly ? styles.viewModeLock : undefined}>
         <div className={styles.headerBar}>
           <div className={styles.field}>
             <label>Fixture Type</label>
@@ -989,11 +1042,11 @@ export default function TcCalculatePage() {
               }))}
             />
 
-            <div className={styles.tcInButtonRow}>
+            <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
               <strong>TC In Expenses</strong>
               <Button
                 variant="outline"
-                label="TC In Expenses"
+                label={readOnly ? 'View TC In Expenses' : 'TC In Expenses'}
                 onClick={() => setTcInOpen(true)}
               />
               {tcInFinalHireage ? (
@@ -1017,11 +1070,18 @@ export default function TcCalculatePage() {
             </div>
           </div>
         </div>
+        </div>
 
         <div className={styles.formActions}>
-          <Button type="submit" label={saving ? 'Saving…' : 'Save Calculation'} disabled={saving} />
-          <Button variant="outline" label="Edit Fixture" href={appPath(`/internal-user/vc/tc/${tcOutId}/edit`)} disabled={saving} />
-          <Button variant="outline" label="Cancel" href={listHref} disabled={saving} />
+          {!readOnly ? (
+            <>
+              <Button type="submit" label={saving ? 'Saving…' : saveLabel} disabled={saving} />
+              {!hideEditFixture && tcOutId ? (
+                <Button variant="outline" label="Edit Fixture" href={appPath(`/internal-user/vc/tc/${tcOutId}/edit`)} disabled={saving} />
+              ) : null}
+            </>
+          ) : null}
+          <Button variant="outline" label={readOnly ? 'Back' : 'Cancel'} href={listHref} disabled={saving} />
         </div>
       </form>
 
@@ -1030,8 +1090,10 @@ export default function TcCalculatePage() {
         value={form.tcInExpenses}
         detail={detail}
         lookups={lookups}
+        readOnly={readOnly}
         onClose={() => setTcInOpen(false)}
         onApply={(next) => {
+          if (readOnly) return;
           setForm((prev) => ({ ...prev, tcInExpenses: next }));
           setTcInOpen(false);
         }}

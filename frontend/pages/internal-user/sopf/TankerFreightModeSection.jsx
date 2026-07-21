@@ -41,7 +41,7 @@ function CargoDetailsTable({
   addRow,
   removeRow,
   createRow,
-  addLabel = '+ Add',
+  addLabel = '+',
 }) {
   const totals = sumCargoRows(rows);
 
@@ -55,6 +55,7 @@ function CargoDetailsTable({
             variant="outline"
             size="sm"
             label={addLabel}
+            ariaLabel="Add"
             onClick={() => addRow(collection, createRow)}
           />
         ) : null}
@@ -352,7 +353,7 @@ export default function TankerFreightModeSection({
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <strong>Freight Adjustment</strong>
                 {editable ? (
-                  <Button type="button" variant="outline" size="sm" label="+ Add" onClick={addTankerWsRow} />
+                  <Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={addTankerWsRow} />
                 ) : null}
               </div>
               {(form.tankerWsRows || []).map((row, rowIndex) => (
@@ -579,7 +580,7 @@ export default function TankerFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(2)}
-            addLabel="+ Add Overage"
+            addLabel="+"
           />
           <CargoDetailsTable
             title="Dead-freight"
@@ -592,7 +593,7 @@ export default function TankerFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(3)}
-            addLabel="+ Add Dead-freight"
+            addLabel="+"
           />
         </>
       ) : null}

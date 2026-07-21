@@ -7,6 +7,7 @@ import { periodContractAppPath } from '../constants/periodContractModule.js';
 import { todoListAppPath } from '../constants/todoListPageHeaders.js';
 import { combinedSoaPayableAppPath, combinedSoaPayableTcAppPath } from '../constants/combinedSoaPayablePageHeaders.js';
 import { SOPF_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
+import helpIcon from '../assets/help-icon.svg';
 import CoasSidebarTree from './coa/CoasSidebarTree.jsx';
 import OpsVcSidebarTree from './ops/OpsVcSidebarTree.jsx';
 import OpsTcSidebarTree from './ops/OpsTcSidebarTree.jsx';
@@ -57,6 +58,8 @@ const TODO_LIST_LINK = {
   label: 'To - Do List',
 };
 
+const HELP_DESK_HREF = '/internal-user/sopf/support_ticket';
+
 export default function InternalUserSidebar({ isOpen }) {
   const { pathname: currentPath } = useLocation();
   const inSopf = currentPath.startsWith('/internal-user/sopf');
@@ -71,6 +74,13 @@ export default function InternalUserSidebar({ isOpen }) {
           icon="bi-house"
           label="Home"
           active={currentPath === '/'}
+        />
+        <SidebarLink
+          to={appPath(HELP_DESK_HREF)}
+          iconSrc={helpIcon}
+          iconAlt="Help Desk"
+          label="Help Desk"
+          active={currentPath.includes(HELP_DESK_HREF)}
         />
 
         {inSopf ? (

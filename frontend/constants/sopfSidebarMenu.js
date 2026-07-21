@@ -39,13 +39,6 @@ export const SOPF_SIDEBAR_ITEMS = [
     icon: 'bi-geo-alt',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/vessel_position'),
   },
-  {
-    id: 'support_ticket',
-    href: '/internal-user/sopf/support_ticket',
-    label: 'Help Desk',
-    icon: 'bi-life-preserver',
-    isActive: (pathname) => pathname.includes('/internal-user/sopf/support_ticket'),
-  },
 ];
 
 export const SOPF_ENTRY_ROUTE = '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2';

@@ -458,15 +458,17 @@ export default function EstimateDetailSections({
                 type="button"
                 variant="outline"
                 size="sm"
-                label="+ Add"
+                label="+"
+                ariaLabel="Add"
                 onClick={() => addRow('portLegs', createEmptyPortLeg)}
               />
             ) : null}
             <Button
               type="button"
               variant="outline"
-              size="sm"
               label="Itinerary"
+              ariaLabel="Itinerary"
+              className={styles.panelActionEnd}
               onClick={() => setItineraryOpen(true)}
             />
           </>
@@ -821,9 +823,10 @@ export default function EstimateDetailSections({
                 <button
                   type="button"
                   className={styles.addRowBtn}
+                  aria-label={`Add ${identify}`}
                   onClick={() => addRow('consumptionRows', () => createEmptyConsumptionRow(identify), { identify })}
                 >
-                  {`+ Add ${identify}`}
+                  +
                 </button>
               ) : null}
             </div>
@@ -1051,7 +1054,7 @@ export default function EstimateDetailSections({
                       type="button"
                       variant="outline"
                       size="sm"
-                      label="+ Add"
+                      label="+" ariaLabel="Add"
                       onClick={() => addRow('brokerRows', createEmptyBrokerRow)}
                     />
                   ) : null}
@@ -1092,7 +1095,7 @@ export default function EstimateDetailSections({
               type="button"
               variant="outline"
               size="sm"
-              label="+ Add"
+              label="+" ariaLabel="Add"
               onClick={() => addRow('bunkerActivityRows', () => createEmptyBunkerActivityRow({
                 price: lookups.marketPrices?.vlsfo || '',
               }))}
@@ -1359,7 +1362,7 @@ export default function EstimateDetailSections({
               type="button"
               variant="outline"
               size="sm"
-              label="+ Add"
+              label="+" ariaLabel="Add"
               onClick={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)}
             />
           ) : null}
@@ -1593,7 +1596,7 @@ export default function EstimateDetailSections({
                 type="button"
                 variant="outline"
                 size="sm"
-                label="+ Add"
+                label="+" ariaLabel="Add"
                 onClick={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
               />
             ) : null}

@@ -75,7 +75,7 @@
 }
 
 .chevron {
-  color: #6b7280;
+  color: var(--multiselect-chevron, #6b7280);
   flex-shrink: 0;
   line-height: 1;
 }

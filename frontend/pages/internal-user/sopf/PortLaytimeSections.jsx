@@ -345,7 +345,7 @@ export default function PortLaytimeSections({
                   <th>TP/BP</th>
                   <th>Cost</th>
                   <th>Idle Days</th>
-                  <th>Charterer&apos;s Account (Days)</th>
+                  <th className={styles.thStack}><span>Charterer&apos;s Account</span><span>(Days)</span></th>
                   <th>Region</th>
                 </tr>
               </thead>

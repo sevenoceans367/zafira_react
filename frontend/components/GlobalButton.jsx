@@ -40,12 +40,12 @@ const SECONDARY_STYLE = {
 };
 
 const CLOSE_STYLE = {
-  backgroundColor: '#eeeeee',
-  border: '1.5px solid #888888',
+  backgroundColor: '#fff',
+  border: '1px solid #9cc0fb',
   borderRadius: '999px',
-  color: '#888888',
+  color: '#3b82f6',
   boxShadow: 'none',
-  fontWeight: '500',
+  fontWeight: '600',
 };
 
 /** @deprecated use SECONDARY_STYLE */

@@ -167,17 +167,17 @@
 }
 
 .close {
-  background: #eeeeee;
-  border: 1.5px solid #888888;
+  background: #fff;
+  border: 1px solid #9cc0fb;
   border-radius: 999px;
-  color: #888888;
-  font-weight: 500;
+  color: #3b82f6;
+  font-weight: 600;
 }
 
 .close:hover:not(:disabled) {
-  background: #e0e0e0;
-  border-color: #6b6b6b;
-  color: #6b6b6b;
+  background: #eaf1fe;
+  border-color: #9cc0fb;
+  color: #3b82f6;
 }
 
 .add {

@@ -1,19 +1,26 @@
 export const PASSAGE_AREA_OPTIONS = [
-  { id: 1, label: 'Bahamas Canal' },
-  { id: 2, label: 'Magellan Strait' },
-  { id: 3, label: 'Kiel Canal' },
-  { id: 4, label: 'Oresund strait' },
-  { id: 5, label: 'Panama Canal' },
-  { id: 6, label: 'Corinth Canal' },
-  { id: 7, label: 'Suez Canal' },
-  { id: 8, label: 'Bonifacio Strait' },
-  { id: 9, label: 'Providence Channel' },
-  { id: 10, label: 'Messina Strait' },
-  { id: 11, label: 'Spratly Passage' },
-  { id: 12, label: 'Kanmon Strait' },
-  { id: 13, label: 'La Perouse Strait' },
-  { id: 14, label: 'Unimak Pass' },
-  { id: 15, label: 'Hainan Strait' },
+  { id: 1, label: 'Bahamas Canal', region: 'Americas' },
+  { id: 2, label: 'Magellan Strait', region: 'Americas' },
+  { id: 3, label: 'Kiel Canal', region: 'Europe' },
+  { id: 4, label: 'Oresund strait', region: 'Europe' },
+  { id: 5, label: 'Panama Canal', region: 'Americas' },
+  { id: 6, label: 'Corinth Canal', region: 'Europe' },
+  { id: 7, label: 'Suez Canal', region: 'Middle East / Africa' },
+  { id: 8, label: 'Bonifacio Strait', region: 'Europe' },
+  { id: 9, label: 'Providence Channel', region: 'Americas' },
+  { id: 10, label: 'Messina Strait', region: 'Europe' },
+  { id: 11, label: 'Spratly Passage', region: 'Asia-Pacific' },
+  { id: 12, label: 'Kanmon Strait', region: 'Asia-Pacific' },
+  { id: 13, label: 'La Perouse Strait', region: 'Asia-Pacific' },
+  { id: 14, label: 'Unimak Pass', region: 'Asia-Pacific' },
+  { id: 15, label: 'Hainan Strait', region: 'Asia-Pacific' },
+];
+
+export const PASSAGE_REGION_ORDER = [
+  'Asia-Pacific',
+  'Europe',
+  'Americas',
+  'Middle East / Africa',
 ];
 
 export const PIRACY_ZONE_OPTIONS = [
@@ -25,11 +32,24 @@ export const PIRACY_ZONE_OPTIONS = [
 ];
 
 export const NAVIGATION_METHOD_OPTIONS = [
-  { value: '', label: '---Select From List---' },
+  { value: '', label: '— Select from list —' },
   { value: '1', label: 'Great-Circle' },
   { value: '2', label: 'Rhumb-Line' },
 ];
 
 export function defaultAllowedPassages() {
   return PASSAGE_AREA_OPTIONS.map((p) => p.id);
+}
+
+export function groupPassagesByRegion(passages = PASSAGE_AREA_OPTIONS) {
+  const byRegion = new Map();
+  for (const region of PASSAGE_REGION_ORDER) {
+    byRegion.set(region, []);
+  }
+  for (const passage of passages) {
+    const region = passage.region || 'Other';
+    if (!byRegion.has(region)) byRegion.set(region, []);
+    byRegion.get(region).push(passage);
+  }
+  return [...byRegion.entries()].filter(([, items]) => items.length > 0);
 }

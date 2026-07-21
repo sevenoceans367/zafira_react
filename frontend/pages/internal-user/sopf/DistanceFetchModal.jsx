@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -9,6 +9,7 @@ import {
   PASSAGE_AREA_OPTIONS,
   PIRACY_ZONE_OPTIONS,
   defaultAllowedPassages,
+  groupPassagesByRegion,
 } from './distanceFetch.constants.js';
 import styles from './DistanceFetchModal.module.css';
 
@@ -20,8 +21,40 @@ function rangeOptions(max, suffix = '') {
   return opts;
 }
 
+function splitPortDisplay(name, fallbackId) {
+  const raw = String(name || '').trim();
+  if (!raw) {
+    return { primary: fallbackId || '—', secondary: '' };
+  }
+  const [primary, ...rest] = raw.split(' / ');
+  return {
+    primary: primary.trim() || raw,
+    secondary: rest.join(' / ').trim(),
+  };
+}
+
 const INTERVAL_OPTIONS = rangeOptions(500, ' n.m.');
-const PERCENT_OPTIONS = rangeOptions(100, ' %');
+const PERCENT_OPTIONS = rangeOptions(100, '%');
+
+function TitlePinIcon() {
+  return (
+    <svg
+      className={styles.titleIcon}
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M10 1.5c-3.5 0-6.2 2.7-6.2 6.1 0 4.6 6.2 10.9 6.2 10.9s6.2-6.3 6.2-10.9c0-3.4-2.7-6.1-6.2-6.1z"
+        stroke="#274670"
+        strokeWidth="1.4"
+      />
+      <circle cx="10" cy="7.6" r="2.1" stroke="#F4652C" strokeWidth="1.4" />
+    </svg>
+  );
+}
 
 export default function DistanceFetchModal({
   open,
@@ -39,6 +72,7 @@ export default function DistanceFetchModal({
   const [aslCompliance, setAslCompliance] = useState('0');
   const [piracyZone, setPiracyZone] = useState('');
   const [allowedPassages, setAllowedPassages] = useState(defaultAllowedPassages);
+  const [passageQuery, setPassageQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -51,6 +85,7 @@ export default function DistanceFetchModal({
     setAslCompliance('0');
     setPiracyZone('');
     setAllowedPassages(defaultAllowedPassages());
+    setPassageQuery('');
     setLoading(false);
     setError('');
     setResult(null);
@@ -143,11 +178,25 @@ export default function DistanceFetchModal({
       return [wp.lat, lon];
     });
 
-    const layer = L.polyline(points, { color: '#c62828', weight: 3 }).addTo(map);
+    const layer = L.polyline(points, { color: '#F4652C', weight: 3 }).addTo(map);
     layerRef.current = layer;
     map.fitBounds(layer.getBounds(), { padding: [24, 24] });
     map.invalidateSize();
   }, [result]);
+
+  const filteredPassages = useMemo(() => {
+    const q = passageQuery.trim().toLowerCase();
+    if (!q) return PASSAGE_AREA_OPTIONS;
+    return PASSAGE_AREA_OPTIONS.filter((p) => p.label.toLowerCase().includes(q));
+  }, [passageQuery]);
+
+  const passageGroups = useMemo(
+    () => groupPassagesByRegion(filteredPassages),
+    [filteredPassages],
+  );
+
+  const fromPort = splitPortDisplay(leg?.fromPortName, leg?.fromPortId);
+  const toPort = splitPortDisplay(leg?.toPortName, leg?.toPortId);
 
   const togglePassage = (id) => {
     setAllowedPassages((current) => (
@@ -155,6 +204,10 @@ export default function DistanceFetchModal({
         ? current.filter((x) => x !== id)
         : [...current, id]
     ));
+  };
+
+  const clearAllPassages = () => {
+    setAllowedPassages([]);
   };
 
   const handleGetDistance = async () => {
@@ -215,107 +268,187 @@ export default function DistanceFetchModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className={styles.header}>
-          <h4 id="distance-fetch-title">Port to Port Distance</h4>
+          <h4 id="distance-fetch-title" className={styles.title}>
+            <TitlePinIcon />
+            Port to Port Distance
+          </h4>
           <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
-            ×
+            ✕
           </button>
         </div>
 
         <div className={styles.body}>
-          <div className={styles.optionsGrid}>
-            <div>
-              <div className={styles.label}>From Port</div>
-              <div className={styles.value}>{leg.fromPortName || leg.fromPortId || '—'}</div>
-            </div>
-            <div>
-              <div className={styles.label}>To Port</div>
-              <div className={styles.value}>{leg.toPortName || leg.toPortId || '—'}</div>
-            </div>
-            <div>
-              <div className={styles.label}>Navigation Method</div>
-              <select value={navMethod} onChange={(e) => setNavMethod(e.target.value)}>
-                {NAVIGATION_METHOD_OPTIONS.map((o) => (
-                  <option key={o.value || 'none'} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            {navMethod === '1' ? (
+          <div className={styles.section}>
+            <p className={styles.sectionLabel}>Route</p>
+            <div className={styles.formGrid}>
               <div>
-                <div className={styles.label}>Great Circle Interval (n.m.)</div>
-                <select
-                  value={greatCircleInterval}
-                  onChange={(e) => setGreatCircleInterval(e.target.value)}
-                >
-                  {INTERVAL_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                <div className={styles.fieldLabel}>From Port</div>
+                <div className={styles.portBox}>
+                  <div className={styles.portPrimary}>{fromPort.primary}</div>
+                  {fromPort.secondary ? (
+                    <div className={styles.portSecondary}>{fromPort.secondary}</div>
+                  ) : null}
+                </div>
               </div>
-            ) : null}
-            <div>
-              <div className={styles.label}>SECA Area Avoidance (%)</div>
-              <select value={secaAvoidance} onChange={(e) => setSecaAvoidance(e.target.value)}>
-                {PERCENT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <div className={styles.label}>ASL Compliance (%)</div>
-              <select value={aslCompliance} onChange={(e) => setAslCompliance(e.target.value)}>
-                {PERCENT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.span2}>
-              <div className={styles.label}>Piracy Avoidance Settings</div>
-              <select value={piracyZone} onChange={(e) => setPiracyZone(e.target.value)}>
-                {PIRACY_ZONE_OPTIONS.map((o) => (
-                  <option key={o.value || 'z1'} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+              <div>
+                <div className={styles.fieldLabel}>To Port</div>
+                <div className={styles.portBox}>
+                  <div className={styles.portPrimary}>{toPort.primary}</div>
+                  {toPort.secondary ? (
+                    <div className={styles.portSecondary}>{toPort.secondary}</div>
+                  ) : null}
+                </div>
+              </div>
+              <div>
+                <div className={styles.fieldLabel}>Navigation Method</div>
+                <div className={styles.selectWrap}>
+                  <select
+                    className={styles.field}
+                    value={navMethod}
+                    onChange={(e) => setNavMethod(e.target.value)}
+                  >
+                    {NAVIGATION_METHOD_OPTIONS.map((o) => (
+                      <option key={o.value || 'none'} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {navMethod === '1' ? (
+                <div>
+                  <div className={styles.fieldLabel}>Great Circle Interval (n.m.)</div>
+                  <div className={styles.selectWrap}>
+                    <select
+                      className={styles.field}
+                      value={greatCircleInterval}
+                      onChange={(e) => setGreatCircleInterval(e.target.value)}
+                    >
+                      {INTERVAL_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
 
-          <div className={styles.mapRow}>
-            <div className={styles.mapWrap}>
+          <div className={styles.section}>
+            <p className={styles.sectionLabel}>Avoidance Settings</p>
+            <div className={styles.formGrid}>
+              <div>
+                <div className={styles.fieldLabel}>SECA Area Avoidance (%)</div>
+                <div className={styles.selectWrap}>
+                  <select
+                    className={styles.field}
+                    value={secaAvoidance}
+                    onChange={(e) => setSecaAvoidance(e.target.value)}
+                  >
+                    {PERCENT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div className={styles.fieldLabel}>ASL Compliance (%)</div>
+                <div className={styles.selectWrap}>
+                  <select
+                    className={styles.field}
+                    value={aslCompliance}
+                    onChange={(e) => setAslCompliance(e.target.value)}
+                  >
+                    {PERCENT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div className={styles.fieldLabel}>Piracy Avoidance Settings</div>
+                <div className={styles.selectWrap}>
+                  <select
+                    className={styles.field}
+                    value={piracyZone}
+                    onChange={(e) => setPiracyZone(e.target.value)}
+                  >
+                    {PIRACY_ZONE_OPTIONS.map((o) => (
+                      <option key={o.value || 'z1'} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.workRow}>
+            <div className={styles.mapCard}>
               {loading ? (
                 <div className={styles.mapLoading}>Fetching route…</div>
               ) : null}
               <div ref={mapRef} className={styles.map} />
             </div>
-            <div className={styles.passages}>
-              <div className={styles.label}>Passage Names</div>
+
+            <div className={styles.passageCard}>
+              <div className={styles.passageHead}>
+                <div className={styles.passageHeadRow}>
+                  <span className={styles.passageTitle}>Passage Names</span>
+                  <button
+                    type="button"
+                    className={styles.clearAll}
+                    onClick={clearAllPassages}
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <div className={styles.passageSearch}>
+                  <input
+                    className={styles.passageSearchInput}
+                    type="search"
+                    placeholder="Search passages"
+                    value={passageQuery}
+                    onChange={(e) => setPassageQuery(e.target.value)}
+                    aria-label="Search passages"
+                  />
+                </div>
+              </div>
               <ul className={styles.passageList}>
-                {PASSAGE_AREA_OPTIONS.map((p) => (
-                  <li key={p.id}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={allowedPassages.includes(p.id)}
-                        onChange={() => togglePassage(p.id)}
-                      />
-                      <span>{p.label}</span>
-                    </label>
-                  </li>
-                ))}
+                {passageGroups.length === 0 ? (
+                  <li className={styles.passageEmpty}>No passages match</li>
+                ) : (
+                  passageGroups.map(([region, passages]) => (
+                    <React.Fragment key={region}>
+                      <li className={styles.passageGroup}>{region}</li>
+                      {passages.map((p) => (
+                        <li key={p.id}>
+                          <label className={styles.passageItem}>
+                            <input
+                              type="checkbox"
+                              checked={allowedPassages.includes(p.id)}
+                              onChange={() => togglePassage(p.id)}
+                            />
+                            <span>{p.label}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </React.Fragment>
+                  ))
+                )}
               </ul>
             </div>
           </div>
 
           {error ? <div className={styles.error}>{error}</div> : null}
 
-          <div className={styles.totals}>
-            <div>
-              <div className={styles.label}>Total Distance</div>
-              <div className={styles.totalValue}>
+          <div className={styles.resultsRow}>
+            <div className={`${styles.statCard} ${styles.statCardPrimary}`}>
+              <div className={styles.statLabel}>Total Distance</div>
+              <div className={styles.statValue}>
                 {result ? Number(result.totalDistance).toFixed(2) : '0.00'}
               </div>
             </div>
-            <div>
-              <div className={styles.label}>Total SECA Distance</div>
-              <div className={styles.totalValue}>
+            <div className={`${styles.statCard} ${styles.statCardSecondary}`}>
+              <div className={styles.statLabel}>Total SECA Distance</div>
+              <div className={styles.statValue}>
                 {result ? Number(result.secaDistance).toFixed(2) : '0.00'}
               </div>
             </div>
@@ -323,21 +456,23 @@ export default function DistanceFetchModal({
         </div>
 
         <div className={styles.footer}>
-          <Button
-            type="button"
-            variant="primary"
-            label={loading ? 'Getting Distance…' : 'Get Distance'}
-            onClick={handleGetDistance}
-            disabled={loading}
-          />
-          <Button
-            type="button"
-            variant="danger"
-            label="Confirm Route"
-            onClick={handleConfirm}
-            disabled={!result || loading}
-          />
           <Button type="button" variant="close" label="Close" onClick={onClose} />
+          <div className={styles.footerActions}>
+            <Button
+              type="button"
+              variant="danger"
+              label={loading ? 'Calculating…' : 'Calculate'}
+              onClick={handleGetDistance}
+              disabled={loading}
+            />
+            <Button
+              type="button"
+              variant="primary"
+              label="Confirm Route"
+              onClick={handleConfirm}
+              disabled={!result || loading}
+            />
+          </div>
         </div>
       </div>
     </div>,

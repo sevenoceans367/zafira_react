@@ -22,47 +22,6 @@
   text-align: center;
 }
 
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: end;
-}
-
-.filterField {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 160px;
-}
-
-.filterField label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: #6b7280;
-}
-
-.filterField input,
-.filterField select,
-.table select {
-  min-height: 30px;
-  padding: 5px 8px;
-  border: 1px solid var(--color-border, #d9dee8);
-  border-radius: 4px;
-  font-size: 12px;
-  box-sizing: border-box;
-}
-
 .toolbarActions {
   display: flex;
   gap: 8px;
@@ -234,35 +193,6 @@
   margin-bottom: 16px;
 }
 
-.formField {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.formField label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: #6b7280;
-}
-
-.input,
-.textarea {
-  width: 100%;
-  min-height: 30px;
-  padding: 5px 8px;
-  border: 1px solid var(--color-border, #d9dee8);
-  border-radius: 4px;
-  font-size: 12px;
-  box-sizing: border-box;
-}
-
-.textarea {
-  min-height: 56px;
-  resize: vertical;
-}
-
 .sectionTitle {
   margin: 18px 0 10px;
   font-size: 13px;
@@ -401,14 +331,6 @@
   color: #6b7280;
 }
 
-.field select {
-  min-height: 30px;
-  padding: 5px 8px;
-  border: 1px solid var(--color-border, #d9dee8);
-  border-radius: 4px;
-  font-size: 12px;
-}
-
 .fieldRead {
   min-height: 30px;
   padding: 6px 8px;
@@ -439,18 +361,6 @@
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
-}
-
-.inputReadonly {
-  width: 100%;
-  min-height: 30px;
-  padding: 5px 8px;
-  border: 1px solid var(--color-border, #d9dee8);
-  border-radius: 4px;
-  font-size: 12px;
-  box-sizing: border-box;
-  background: #eaeaea;
-  color: #333;
 }
 
 .nestedTable {

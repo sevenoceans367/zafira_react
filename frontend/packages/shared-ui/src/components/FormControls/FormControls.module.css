@@ -1,0 +1,130 @@
+/* Shared form chrome — change once here to update all pages using the form kit. */
+
+.control {
+  display: block;
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: var(--border-radius-sm, 6px);
+  background: var(--color-surface, #fff);
+  color: var(--color-text-dark, #000);
+  font-family: var(--font-family-body, inherit);
+  font-size: var(--font-size-body, 12px);
+  line-height: 1.35;
+  box-sizing: border-box;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.control::placeholder {
+  color: var(--color-text-light, #777);
+}
+
+.control:hover:not(:disabled):not([readonly]) {
+  border-color: #c5cdd9;
+}
+
+.control:focus {
+  outline: none;
+  border-color: var(--color-primary, #274670);
+  box-shadow: 0 0 0 2px rgba(39, 70, 112, 0.15);
+}
+
+.control:disabled,
+.control[readonly] {
+  background: #f8fafc;
+  color: #4b5563;
+  cursor: not-allowed;
+}
+
+.control[readonly] {
+  cursor: default;
+}
+
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+.select:disabled {
+  cursor: not-allowed;
+}
+
+.textarea {
+  min-height: 72px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.sm {
+  min-height: 28px;
+  padding: 3px 6px;
+  font-size: var(--font-size-small, 11px);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fieldLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #6b7280;
+}
+
+.hint {
+  font-size: var(--font-size-small, 11px);
+  color: var(--color-text-light, #777);
+}
+
+.fieldError {
+  font-size: var(--font-size-small, 11px);
+  color: var(--color-danger, #dd4b39);
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.filterField .fieldLabel {
+  margin: 0;
+}
+
+.filterActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}

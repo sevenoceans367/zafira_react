@@ -135,7 +135,7 @@ export default function VesselItineraryModal({
           </div>
         </div>
         <div className={styles.footer}>
-          <Button type="button" variant="outline" label="Close" onClick={onClose} />
+          <Button type="button" variant="close" label="Close" onClick={onClose} />
           <Button type="button" variant="primary" label="Copy Itinerary" onClick={handleCopy} />
         </div>
       </div>

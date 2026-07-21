@@ -21,6 +21,14 @@ export { default as DmyDateInput } from './components/DmyDateInput.jsx';
 export { default as PeriodCardPicker } from './components/PeriodCardPicker/PeriodCardPicker.jsx';
 export { default as CardSelect } from './components/CardSelect/CardSelect.jsx';
 export { default as HeaderFilterControls } from './components/HeaderFilterControls/HeaderFilterControls.jsx';
+export {
+  TextInput,
+  Select,
+  Textarea,
+  Field,
+  FilterBar,
+  FilterField,
+} from './components/FormControls/index.js';
 export { default as StatusBadge } from './components/StatusBadge/StatusBadge.jsx';
 export { ConfirmProvider, useConfirm, useAlert } from './components/ConfirmDialog/ConfirmContext.jsx';
 export { default as ConfirmDialog } from './components/ConfirmDialog/ConfirmDialog.jsx';
@@ -33,6 +41,8 @@ export {
 } from './components/StatusBadge/statusBadgeUtils.js';
 export {
   formatDmyDate,
+  isoToDmy,
+  dmyToIso,
   defaultDashboardFromDate,
   defaultDashboardToDate,
 } from './utils/dateUtils.js';

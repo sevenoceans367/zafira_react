@@ -10,13 +10,6 @@
   color: var(--color-text, #1f2937);
 }
 
-.toolbar {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
 .tableWrap {
   overflow: auto;
   border: 1px solid var(--color-border, #d9dee8);
@@ -78,29 +71,6 @@
   border-radius: 6px;
   background: #fef3f2;
   color: #b42318;
-}
-
-.statusBadge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: 700;
-  font-size: 11px;
-}
-
-.statusDanger {
-  background: #fee4e2;
-  color: #b42318;
-}
-
-.statusWarning {
-  background: #fef0c7;
-  color: #b54708;
-}
-
-.statusSuccess {
-  background: #d1fadf;
-  color: #067647;
 }
 
 .link {

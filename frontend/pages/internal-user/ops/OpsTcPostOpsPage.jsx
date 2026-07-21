@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import {
+  Button,
+  FilterBar,
+  FilterField,
+  LoadingOverlay,
+  Select,
+  TextInput,
+  useConfirm,
+} from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { getUser } from '@bainbridge/shared-auth';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
@@ -179,39 +187,34 @@ export default function OpsTcPostOpsPage() {
 
         <h3 className={styles.title}>Vessels In Post Ops - TC</h3>
 
-        <div className={styles.toolbar}>
-          <div className={styles.filters}>
-            <div className={styles.filterField}>
-              <label>Business Type</label>
-              <CoaCardSelect
-                label="Business Type"
-                value={businessType}
-                options={businessTypes}
-                includeEmpty={false}
-                onChange={(value) => {
-                  setBusinessType(value);
-                  updateQuery({ selBType: value, msg: '' });
-                }}
-              />
-            </div>
-            <div className={styles.filterField}>
-              <label>Year</label>
-              <CoaCardSelect
-                label="Year"
-                value={year}
-                options={years}
-                includeEmpty={false}
-                onChange={(value) => {
-                  setYear(value);
-                  updateQuery({ selYear: value, msg: '' });
-                }}
-              />
-            </div>
-          </div>
-          <div className={styles.toolbarActions}>
-            <Button variant="primary" label="Load" onClick={load} disabled={loading} />
-          </div>
-        </div>
+        <FilterBar
+          actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
+        >
+          <FilterField label="Business Type">
+            <CoaCardSelect
+              label="Business Type"
+              value={businessType}
+              options={businessTypes}
+              includeEmpty={false}
+              onChange={(value) => {
+                setBusinessType(value);
+                updateQuery({ selBType: value, msg: '' });
+              }}
+            />
+          </FilterField>
+          <FilterField label="Year">
+            <CoaCardSelect
+              label="Year"
+              value={year}
+              options={years}
+              includeEmpty={false}
+              onChange={(value) => {
+                setYear(value);
+                updateQuery({ selYear: value, msg: '' });
+              }}
+            />
+          </FilterField>
+        </FilterBar>
 
         <div className={styles.tableWrap}>
           <table className={styles.table}>
@@ -340,7 +343,7 @@ export default function OpsTcPostOpsPage() {
                   </td>
                   <td>
                     {canEditOperator ? (
-                      <select
+                      <Select
                         value={row.operatorId || ''}
                         onChange={(e) => handleOperatorChange(row, e.target.value)}
                       >
@@ -348,7 +351,7 @@ export default function OpsTcPostOpsPage() {
                         {operators.map((opt) => (
                           <option key={opt.id} value={opt.id}>{opt.name}</option>
                         ))}
-                      </select>
+                      </Select>
                     ) : (row.operatorName || '—')}
                   </td>
                   <td>{row.reDelDate || '—'}</td>
@@ -383,15 +386,14 @@ export default function OpsTcPostOpsPage() {
               <p className={styles.muted}>
                 In the Ops side, enter any desired TC Sheet Name. This is then also possible after every Submit to Close.
               </p>
-              <div className={styles.filterField}>
-                <label htmlFor="ops-tc-post-sheet-name">TC Sheet Name</label>
-                <input
+              <FilterField id="ops-tc-post-sheet-name" label="TC Sheet Name">
+                <TextInput
                   id="ops-tc-post-sheet-name"
                   value={sheetModal.sheetName}
                   onChange={(e) => setSheetModal((prev) => ({ ...prev, sheetName: e.target.value }))}
                   placeholder="TC Sheet Name"
                 />
-              </div>
+              </FilterField>
               <div className={styles.toolbarActions} style={{ marginTop: 12 }}>
                 <Button label={savingSheet ? 'Submitting…' : 'Submit'} onClick={handleCreateSheet} disabled={savingSheet} />
                 <Button

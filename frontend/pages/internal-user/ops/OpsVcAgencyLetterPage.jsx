@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, DmyDateInput, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import {
+  Button,
+  DmyDateInput,
+  Field,
+  FilterBar,
+  LoadingOverlay,
+  Select,
+  Textarea,
+  TextInput,
+  useConfirm,
+} from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import {
   deleteAgencyLetter,
@@ -48,15 +58,6 @@ function draftFromPort(port, form) {
     entities: (port.entities?.length ? port.entities : [emptyEntity()]).map((row) => ({ ...row })),
     bunkers: (port.bunkers?.length ? port.bunkers : [emptyBunker()]).map((row) => ({ ...row })),
   };
-}
-
-function Field({ label, children }) {
-  return (
-    <div className={styles.formField}>
-      <label>{label}</label>
-      {children}
-    </div>
-  );
 }
 
 export default function OpsVcAgencyLetterPage() {
@@ -258,15 +259,14 @@ export default function OpsVcAgencyLetterPage() {
       ) : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.toolbar}>
+      <FilterBar
+        actions={<Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />}
+      >
         <div className={styles.muted}>
           {form?.nomId ? `Nom ID ${form.nomId}` : null}
           {form?.vesselName ? ` · ${form.vesselName}` : null}
         </div>
-        <div className={styles.toolbarActions}>
-          <Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />
-        </div>
-      </div>
+      </FilterBar>
 
       <h3 className={styles.title}>GENERATE PORT RELATED LETTERS</h3>
 
@@ -298,35 +298,38 @@ export default function OpsVcAgencyLetterPage() {
           {activePort && draft ? (
             <div className={styles.letterPanel}>
               <div className={styles.formGrid}>
-                <Field label="Date">
-                  <DmyDateInput value={draft.date} onChange={(v) => patchDraft({ date: v })} disabled={activePort.locked} />
+                <Field id="vc-agency-date" label="Date">
+                  <DmyDateInput
+                    id="vc-agency-date"
+                    value={draft.date}
+                    onChange={(v) => patchDraft({ date: v })}
+                    disabled={activePort.locked}
+                  />
                 </Field>
-                <Field label="Vessel">
-                  <input className={styles.input} value={form.vesselName || ''} readOnly />
+                <Field id="vc-agency-vessel" label="Vessel">
+                  <TextInput id="vc-agency-vessel" value={form.vesselName || ''} readOnly />
                 </Field>
-                <Field label="Agent Name">
-                  <input className={styles.input} value={activePort.agentName || ''} readOnly />
+                <Field id="vc-agency-agent" label="Agent Name">
+                  <TextInput id="vc-agency-agent" value={activePort.agentName || ''} readOnly />
                 </Field>
-                <Field label="Cargo Qty (MT)">
-                  <input
-                    className={styles.input}
+                <Field id="vc-agency-qty" label="Cargo Qty (MT)">
+                  <TextInput
+                    id="vc-agency-qty"
                     value={draft.qty}
                     onChange={(e) => patchDraft({ qty: e.target.value })}
                     disabled={activePort.locked}
                   />
                 </Field>
-                <Field label="Port Country">
+                <Field id="vc-agency-country" label="Port Country">
                   {activePort.letter?.countryId ? (
-                    <>
-                      <input
-                        className={styles.input}
-                        value={lookups.countries.find((c) => c.id === draft.countryId)?.name || draft.countryId}
-                        readOnly
-                      />
-                    </>
+                    <TextInput
+                      id="vc-agency-country"
+                      value={lookups.countries.find((c) => c.id === draft.countryId)?.name || draft.countryId}
+                      readOnly
+                    />
                   ) : (
-                    <select
-                      className={styles.input}
+                    <Select
+                      id="vc-agency-country"
                       value={draft.countryId}
                       onChange={(e) => patchDraft({ countryId: e.target.value })}
                       disabled={activePort.locked}
@@ -335,56 +338,57 @@ export default function OpsVcAgencyLetterPage() {
                       {lookups.countries.map((row) => (
                         <option key={row.id} value={row.id}>{row.name}</option>
                       ))}
-                    </select>
+                    </Select>
                   )}
                 </Field>
-                <Field label="Username">
-                  <input className={styles.input} value={draft.username} readOnly />
+                <Field id="vc-agency-username" label="Username">
+                  <TextInput id="vc-agency-username" value={draft.username} readOnly />
                 </Field>
-                <Field label="Password">
-                  <input
-                    className={styles.input}
+                <Field id="vc-agency-password" label="Password">
+                  <TextInput
+                    id="vc-agency-password"
                     value={draft.password}
                     onChange={(e) => patchDraft({ password: e.target.value })}
                     disabled={activePort.locked}
                     autoComplete="off"
                   />
                 </Field>
-                <Field label="ETA Date">
+                <Field id="vc-agency-eta-date" label="ETA Date">
                   <DmyDateInput
+                    id="vc-agency-eta-date"
                     enableTime
                     value={draft.etaDate1}
                     onChange={(v) => patchDraft({ etaDate1: v })}
                     disabled={activePort.locked}
                   />
                 </Field>
-                <Field label="Master's Name">
-                  <input
-                    className={styles.input}
+                <Field id="vc-agency-master-name" label="Master's Name">
+                  <TextInput
+                    id="vc-agency-master-name"
                     value={draft.masterName}
                     onChange={(e) => patchDraft({ masterName: e.target.value })}
                     disabled={activePort.locked}
                   />
                 </Field>
-                <Field label="Cargo Details">
-                  <input
-                    className={styles.input}
+                <Field id="vc-agency-cargo-details" label="Cargo Details">
+                  <TextInput
+                    id="vc-agency-cargo-details"
                     value={draft.cargoDetails}
                     onChange={(e) => patchDraft({ cargoDetails: e.target.value })}
                     disabled={activePort.locked}
                   />
                 </Field>
-                <Field label="Tolerance/Terms">
-                  <input
-                    className={styles.input}
+                <Field id="vc-agency-tolerance" label="Tolerance/Terms">
+                  <TextInput
+                    id="vc-agency-tolerance"
                     value={draft.tolerance}
                     onChange={(e) => patchDraft({ tolerance: e.target.value })}
                     disabled={activePort.locked}
                   />
                 </Field>
-                <Field label="Ship Owner">
-                  <select
-                    className={styles.input}
+                <Field id="vc-agency-ship-owner" label="Ship Owner">
+                  <Select
+                    id="vc-agency-ship-owner"
                     value={draft.shipOwner}
                     onChange={(e) => patchDraft({ shipOwner: e.target.value })}
                     disabled={activePort.locked}
@@ -393,7 +397,7 @@ export default function OpsVcAgencyLetterPage() {
                     {lookups.shipOwners.map((row) => (
                       <option key={row.id} value={row.id}>{row.name}</option>
                     ))}
-                  </select>
+                  </Select>
                 </Field>
               </div>
 
@@ -427,8 +431,7 @@ export default function OpsVcAgencyLetterPage() {
                           ) : '—'}
                         </td>
                         <td>
-                          <select
-                            className={styles.input}
+                          <Select
                             value={row.entity}
                             onChange={(e) => patchEntity(index, { entity: e.target.value })}
                             disabled={activePort.locked}
@@ -437,19 +440,17 @@ export default function OpsVcAgencyLetterPage() {
                             {lookups.entityTypes.map((item) => (
                               <option key={item.id} value={item.id}>{item.name}</option>
                             ))}
-                          </select>
+                          </Select>
                         </td>
                         <td>
-                          <input
-                            className={styles.input}
+                          <TextInput
                             value={row.name}
                             onChange={(e) => patchEntity(index, { name: e.target.value })}
                             disabled={activePort.locked}
                           />
                         </td>
                         <td>
-                          <input
-                            className={styles.input}
+                          <TextInput
                             value={row.email}
                             onChange={(e) => patchEntity(index, { email: e.target.value })}
                             disabled={activePort.locked}
@@ -468,25 +469,26 @@ export default function OpsVcAgencyLetterPage() {
 
               <h4 className={styles.sectionTitle}>BUNKERS STEMMED - LETTERS TO MASTER AND AGENTS</h4>
               <div className={styles.formGrid}>
-                <Field label="ETA (LT)">
+                <Field id="vc-agency-bunker-eta" label="ETA (LT)">
                   <DmyDateInput
+                    id="vc-agency-bunker-eta"
                     enableTime
                     value={draft.etaDate}
                     onChange={(v) => patchDraft({ etaDate: v })}
                     disabled={activePort.locked}
                   />
                 </Field>
-                <Field label="Bunker Surveyor (Name)">
-                  <input
-                    className={styles.input}
+                <Field id="vc-agency-bunker-surveyor" label="Bunker Surveyor (Name)">
+                  <TextInput
+                    id="vc-agency-bunker-surveyor"
                     value={draft.bunkerSurveyor}
                     onChange={(e) => patchDraft({ bunkerSurveyor: e.target.value })}
                     disabled={activePort.locked}
                   />
                 </Field>
-                <Field label="Bunker Surveyor (Company and Contact)">
-                  <textarea
-                    className={styles.textarea}
+                <Field id="vc-agency-bunker-surveyor-com" label="Bunker Surveyor (Company and Contact)">
+                  <Textarea
+                    id="vc-agency-bunker-surveyor-com"
                     value={draft.bunkerSurveyorCom}
                     onChange={(e) => patchDraft({ bunkerSurveyorCom: e.target.value })}
                     disabled={activePort.locked}
@@ -526,8 +528,7 @@ export default function OpsVcAgencyLetterPage() {
                           ) : '—'}
                         </td>
                         <td>
-                          <select
-                            className={styles.input}
+                          <Select
                             value={row.bunkerPort}
                             onChange={(e) => patchBunker(index, { bunkerPort: e.target.value })}
                             disabled={activePort.locked}
@@ -536,35 +537,31 @@ export default function OpsVcAgencyLetterPage() {
                             {lookups.ports.map((item) => (
                               <option key={item.id} value={item.id}>{item.name}</option>
                             ))}
-                          </select>
+                          </Select>
                         </td>
                         <td>
-                          <input
-                            className={styles.input}
+                          <TextInput
                             value={row.grade}
                             onChange={(e) => patchBunker(index, { grade: e.target.value })}
                             disabled={activePort.locked}
                           />
                         </td>
                         <td>
-                          <input
-                            className={styles.input}
+                          <TextInput
                             value={row.supplier}
                             onChange={(e) => patchBunker(index, { supplier: e.target.value })}
                             disabled={activePort.locked}
                           />
                         </td>
                         <td>
-                          <input
-                            className={styles.input}
+                          <TextInput
                             value={row.physical}
                             onChange={(e) => patchBunker(index, { physical: e.target.value })}
                             disabled={activePort.locked}
                           />
                         </td>
                         <td>
-                          <input
-                            className={styles.input}
+                          <TextInput
                             value={row.quantity}
                             onChange={(e) => patchBunker(index, { quantity: e.target.value })}
                             disabled={activePort.locked}

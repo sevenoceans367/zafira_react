@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { Button, DmyDateInput, isoToDmy, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
 import {
   createAgencyFeeRecord,
@@ -103,7 +103,7 @@ export default function AgencyFeeRecordsPage() {
       const record = await fetchAgencyFeeRecord(id);
       setEditId(id);
       setForm({
-        date: record.dateValue || '',
+        date: isoToDmy(record.dateValue || ''),
         vendorTypeId: record.vendorTypeId || '',
         agentId: record.agentId || '',
         portId: record.portId || '',
@@ -202,12 +202,11 @@ export default function AgencyFeeRecordsPage() {
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.field}>
             <span className={styles.label}>Date</span>
-            <input
+            <DmyDateInput
               className={styles.input}
-              type="date"
               value={form.date}
               required
-              onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
+              onChange={(date) => setForm((prev) => ({ ...prev, date }))}
             />
           </label>
 

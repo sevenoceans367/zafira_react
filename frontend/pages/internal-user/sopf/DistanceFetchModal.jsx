@@ -337,7 +337,7 @@ export default function DistanceFetchModal({
             onClick={handleConfirm}
             disabled={!result || loading}
           />
-          <Button type="button" variant="outline" label="Close" onClick={onClose} />
+          <Button type="button" variant="close" label="Close" onClick={onClose} />
         </div>
       </div>
     </div>,

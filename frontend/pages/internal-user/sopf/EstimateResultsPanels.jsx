@@ -28,33 +28,37 @@ export default function EstimateResultsPanels({
 
   return (
     <>
-      <CollapsiblePanel title="Results" defaultOpen>
+      <CollapsiblePanel title="Freight Results" defaultOpen className={styles.panelInverse}>
         <div className={styles.resultsGrid}>
           <Row label="Demurrage Revenue" value={form.demurrageRevenue} />
-          <Row label="Revenue (Final Nett Freight)" value={form.revenue} />
+          <Row label="Revenue (Final Net Freight)" value={form.revenue} />
           <Row label="Operational Expenses" value={form.operationalExpenses} />
           <Row label="Port Expenses" value={form.totalPortCost} />
           <Row label="Bunker Expenses" value={form.totalBunkerCost} />
-          <Row label="Nett Daily TCE" value={form.nettDailyTce} accent />
+          <Row label="Net Daily TCE" value={form.nettDailyTce} accent />
           <Row label="Voyage Earnings" value={form.voyageEarnings} />
           <Row label="Net Hireage" value={form.netHireage} />
           <Row label="P/L" value={form.profitLoss} />
         </div>
 
-        <div className={styles.distGrid}>
-          <div><span>Laden Dist</span><strong>{form.ladenDist || '0'}</strong></div>
-          <div><span>Ballast Dist</span><strong>{form.ballastDist || '0'}</strong></div>
-          <div><span>Total Dist</span><strong>{form.totalDistance || '0'}</strong></div>
-          <div><span>Laden Days</span><strong>{form.ladenDays || '0.000'}</strong></div>
-          <div><span>Ballast Days</span><strong>{form.ballastDays || '0.000'}</strong></div>
-          <div><span>Total Sea Days</span><strong>{form.totalSeaDays || '0.000'}</strong></div>
-          <div><span>Ttl Port Idle Days</span><strong>{form.portIdleDays || '0'}</strong></div>
-          <div><span>Ttl Portstay Days</span><strong>{form.portStayDays || '0'}</strong></div>
-          <div><span>Total Days</span><strong>{form.totalDays || '0.00'}</strong></div>
+        <div className={styles.distDaysGrid}>
+          <div className={styles.distDaysCol}>
+            <div><span>Total Dist</span><strong>{form.totalDistance || '0'}</strong></div>
+            <div><span>Ballast Dist</span><strong>{form.ballastDist || '0'}</strong></div>
+            <div><span>Laden Dist</span><strong>{form.ladenDist || '0'}</strong></div>
+          </div>
+          <div className={styles.distDaysCol}>
+            <div><span>Total Days</span><strong>{form.totalDays || '0.00'}</strong></div>
+            <div><span>Total Sea Days</span><strong>{form.totalSeaDays || '0.000'}</strong></div>
+            <div><span>Ballast Days</span><strong>{form.ballastDays || '0.000'}</strong></div>
+            <div><span>Laden Days</span><strong>{form.ladenDays || '0.000'}</strong></div>
+            <div><span>Total Portstay Days</span><strong>{form.portStayDays || '0'}</strong></div>
+            <div><span>Total Port Idle Days</span><strong>{form.portIdleDays || '0'}</strong></div>
+          </div>
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Bunker Results" defaultOpen={false}>
+      <CollapsiblePanel title="Bunker Results" defaultOpen={false} className={styles.panelInverse}>
         <div className={styles.resultsGrid}>
           <Row label="Total HSFO (MT)" value={form.hsfoMt} />
           <Row label="EU ETS/Fuel EU HSFO (MT)" value={form.etsHsfoMt} />
@@ -62,15 +66,15 @@ export default function EstimateResultsPanels({
           <Row label="EU ETS/Fuel EU VLSFO (MT)" value={form.etsVlsfoMt} />
           <Row label="Total LSMGO (MT)" value={form.lsmgoMt} />
           <Row label="EU ETS/Fuel EU LSMGO (MT)" value={form.etsLsmgoMt} />
-          <Row label="Total Cost (USD)" value={form.bunkerResultsCost} accent />
+          <Row label="Total Cost" value={form.bunkerResultsCost} accent />
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Compliance Results" defaultOpen={false}>
+      <CollapsiblePanel title="Compliance Results" defaultOpen={false} className={styles.panelInverse}>
         {editable ? (
           <div className={styles.headerGrid} style={{ marginBottom: 12 }}>
             <div className={styles.field}>
-              <label htmlFor="co2Price">CO2 Price ($/MT)</label>
+              <label htmlFor="co2Price">CO2 Price / MT</label>
               <input
                 id="co2Price"
                 value={form.co2Price || ''}
@@ -80,7 +84,7 @@ export default function EstimateResultsPanels({
               />
             </div>
             <div className={styles.field}>
-              <label htmlFor="euaPrice">EUA Price ($/MT)</label>
+              <label htmlFor="euaPrice">EUA Price / MT</label>
               <input
                 id="euaPrice"
                 value={form.euaPrice || ''}
@@ -103,18 +107,18 @@ export default function EstimateResultsPanels({
           <Row label="CII (gCO2 / dwtnm)" value={form.cii} />
           <Row label="EEOI CO2(MT)" value={form.eeoiCo2} />
           <Row label="Total CO2(MT)" value={form.co2mt} />
-          <Row label="Total CO2 Cost(USD)" value={form.co2Cost} />
+          <Row label="Total CO2 Cost" value={form.co2Cost} />
           <Row label={`EUA CO2 ${complianceYear}(MT)`} value={form.euaCo2mt} />
-          <Row label={`EUA CO2 ${complianceYear} Cost(USD)`} value={form.euaCo2Usd} />
+          <Row label={`EUA CO2 ${complianceYear} Cost`} value={form.euaCo2Usd} />
         </div>
         {editable ? (
           <label className={styles.checkRow}>
+            Add to freight cost
             <input
               type="checkbox"
               checked={!!form.euEtsAddToFreight}
               onChange={(e) => setField('euEtsAddToFreight', e.target.checked)}
             />
-            Add to freight cost
           </label>
         ) : null}
 
@@ -126,28 +130,28 @@ export default function EstimateResultsPanels({
           <Row label={`Target ${complianceYear}`} value={form.vlsfoTarget} />
           <Row label={`LSMGO GHG Intensity ${complianceYear}(gCO2eq/MJ)`} value={form.lsmgoIntensity} />
           <Row label={`Target ${complianceYear}`} value={form.lsmgoTarget} />
-          <Row label="HSFO Penalty ($)" value={form.hsfoPenalty} />
-          <Row label="$/MT" value={form.hsfoPenaltyPerMt} />
-          <Row label="VLSFO Penalty ($)" value={form.vlsfoPenalty} />
-          <Row label="$/MT" value={form.vlsfoPenaltyPerMt} />
-          <Row label="LSMGO Penalty ($)" value={form.lsmgoPenalty} />
-          <Row label="$/MT" value={form.lsmgoPenaltyPerMt} />
+          <Row label="HSFO Penalty" value={form.hsfoPenalty} />
+          <Row label="Per MT" value={form.hsfoPenaltyPerMt} />
+          <Row label="VLSFO Penalty" value={form.vlsfoPenalty} />
+          <Row label="Per MT" value={form.vlsfoPenaltyPerMt} />
+          <Row label="LSMGO Penalty" value={form.lsmgoPenalty} />
+          <Row label="Per MT" value={form.lsmgoPenaltyPerMt} />
           <Row label="Total Carbon cost" value={form.totalCarbonCost} accent />
         </div>
         {editable ? (
           <label className={styles.checkRow}>
+            Add to freight cost
             <input
               type="checkbox"
               checked={!!form.fuelEuAddToFreight}
               onChange={(e) => setField('fuelEuAddToFreight', e.target.checked)}
             />
-            Add to freight cost
           </label>
         ) : null}
 
         {editable ? (
           <div className={styles.recalcBar}>
-            <Button type="button" variant="outline" label="Recalculate" onClick={() => onRecalc?.()} />
+            <Button type="button" variant="sensitivity" size="sm" label="Run" onClick={() => onRecalc?.()} />
           </div>
         ) : null}
       </CollapsiblePanel>

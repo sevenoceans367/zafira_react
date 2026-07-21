@@ -200,6 +200,23 @@ a:focus-visible,
   border-radius: 10px;
 }
 
+/* Global Close — light grey fill, medium grey stroke/text, pill */
+.global-btn-close {
+  background-color: #eeeeee !important;
+  border: 1.5px solid #888888 !important;
+  border-color: #888888 !important;
+  color: #888888 !important;
+  border-radius: 999px !important;
+  font-weight: 500;
+}
+
+.global-btn-close:hover:not(:disabled),
+.global-btn-close:focus:not(:disabled) {
+  background-color: #e0e0e0 !important;
+  border-color: #6b6b6b !important;
+  color: #6b6b6b !important;
+}
+
 .global-btn-secondary:hover:not(:disabled),
 .global-btn-secondary:focus:not(:disabled),
 .global-btn-outline:hover:not(:disabled),

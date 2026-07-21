@@ -609,9 +609,10 @@ export function computeEstimateTotals(form) {
     return { ...row, cost: cost ? String(cost) : row.cost };
   });
 
+  // PHP getFinalCalculation: Amount(USD) = Cargo(MT) × Rate USD/MT (always recompute)
   const mapAmount = (rows) => (rows || []).map((row) => {
-    const amount = num(row.amountUsd) || calcCargoAmount(row.cargoMt, row.rateUsdMt);
-    return { ...row, amountUsd: amount ? String(amount) : row.amountUsd };
+    const amount = calcCargoAmount(row.cargoMt, row.rateUsdMt);
+    return { ...row, amountUsd: String(amount) };
   });
   const cargoRows = mapAmount(form.cargoRows);
   const overageCargoRows = mapAmount(form.overageCargoRows);
@@ -666,21 +667,23 @@ export function computeEstimateTotals(form) {
     freightQtys.reduce((sum, row) => sum + num(row.netFreight), 0),
   );
 
+  // PHP getFinalCalculation (addestimate.php): always recompute amounts / totals
+  // Amount = Qty × Flat Rate × WS / 100; Total Qty = Min + Overage.
   const tankerWs = tankerWsRows.map((row) => {
-    const minAmount = num(row.minAmount) || round2(
+    const minAmount = round2(
       num(row.minCargoQty) * num(row.minFlatRate) * (num(row.minWs) / 100),
     );
-    const oveAmount = num(row.oveAmount) || round2(
+    const oveAmount = round2(
       num(row.oveCargoQty) * num(row.oveFlatRate) * (num(row.oveWs) / 100),
     );
-    const totalQty = num(row.totalQty) || round2(num(row.minCargoQty) + num(row.oveCargoQty));
-    const totalAmount = num(row.totalAmount) || round2(minAmount + oveAmount);
+    const totalQty = round2(num(row.minCargoQty) + num(row.oveCargoQty));
+    const totalAmount = round2(minAmount + oveAmount);
     return {
       ...row,
-      minAmount: minAmount ? String(minAmount) : row.minAmount,
-      oveAmount: oveAmount ? String(oveAmount) : row.oveAmount,
-      totalQty: totalQty ? String(totalQty) : row.totalQty,
-      totalAmount: totalAmount ? String(totalAmount) : row.totalAmount,
+      minAmount: String(minAmount),
+      oveAmount: String(oveAmount),
+      totalQty: String(totalQty),
+      totalAmount: String(totalAmount),
     };
   });
   const totalTankerWs = round2(
@@ -753,25 +756,24 @@ export function computeEstimateTotals(form) {
   }
 
   const brokerRows = form.brokerRows || [];
+  // PHP: brokerage_comm_usd = rev × percent / 100 (always recompute; same base as address commission)
   const brokers = (brokerRows.length
     ? brokerRows
     : [{ percent: form.brokeragePercent, amount: form.brokerageAmt }]
   ).map((row) => {
     const percent = num(row.percent ?? row.brokeragePercent);
-    const amount = num(row.amount ?? row.brokerageAmt) || round2((freightGross * percent) / 100);
+    const amount = round2((freightGross * percent) / 100);
     return {
       ...row,
       percent: percent ? String(percent) : (row.percent ?? ''),
-      amount: amount ? String(amount) : (row.amount ?? ''),
+      amount: amount.toFixed(2),
     };
   });
   const brokeragePercent = round2(
     brokers.reduce((sum, row) => sum + num(row.percent), 0),
   ) || num(form.brokeragePercent);
   const brokerageAmt = round2(
-    brokers.reduce((sum, row) => sum + num(row.amount), 0)
-    || num(form.brokerageAmt)
-    || (freightGross * brokeragePercent) / 100,
+    brokers.reduce((sum, row) => sum + num(row.amount), 0),
   );
   const addCommPercent = num(form.addCommPercent);
   const addressCommAmt = round2((freightGross * addCommPercent) / 100);
@@ -844,7 +846,7 @@ export function computeEstimateTotals(form) {
     const demmAmt = round2((demurrageRevenue * pct) / 100);
     return {
       ...row,
-      demmPercent: demmAmt ? String(demmAmt) : (row.demmPercent || ''),
+      demmPercent: demmAmt.toFixed(2),
     };
   });
 
@@ -1236,8 +1238,8 @@ export function computeEstimateTotals(form) {
     cargoQuantity: String(cargoQuantity || ''),
     freightGross: String(freightGross || ''),
     brokeragePercent: String(brokeragePercent || ''),
-    brokerageAmt: String(brokerageAmt || ''),
-    addressCommAmt: String(addressCommAmt || ''),
+    brokerageAmt: brokerageAmt ? brokerageAmt.toFixed(2) : '',
+    addressCommAmt: addressCommAmt ? addressCommAmt.toFixed(2) : '',
     hireAmt: String(hireAmt || ''),
     cvePerMonth: form.cvePerMonth != null ? String(form.cvePerMonth) : '',
     cveAmt: String(cveAmt || ''),

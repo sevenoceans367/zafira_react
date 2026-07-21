@@ -71,8 +71,8 @@ export default function TcViewPage() {
               <ReadField label="TC Days" value={calc.tcDays} />
               <ReadField label="Utilisation Days" value={calc.utilisationDays} />
               <ReadField label="Daily Gross Hire" value={calc.dailyGrossHire} />
-              <ReadField label="Nett Hire" value={calc.nettHire} />
-              <ReadField label="Nett Revenue" value={calc.nettRev} />
+              <ReadField label="Net Hire" value={calc.nettHire} />
+              <ReadField label="Net Revenue" value={calc.nettRev} />
               <ReadField label="Less Off Hire" value={calc.lessOffHire} />
               <ReadField label="CVE" value={calc.cve} />
               <ReadField label="Other Income" value={calc.otherIncome} />

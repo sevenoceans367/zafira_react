@@ -171,7 +171,7 @@ export default function OpsTcCompareSheetsModal({ open, comId, onClose }) {
         ) : null}
 
         <div className={styles.toolbarActions} style={{ marginTop: 12 }}>
-          <Button variant="outline" label="Close" onClick={onClose} />
+          <Button variant="close" label="Close" onClick={onClose} />
         </div>
       </div>
     </div>,

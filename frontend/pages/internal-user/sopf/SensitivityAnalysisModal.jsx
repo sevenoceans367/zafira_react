@@ -328,7 +328,7 @@ export default function SensitivityAnalysisModal({
                     ) : (
                       <>
                         <tr className={styles.inputRow}>
-                          <td className={styles.metricCell}>Freight ($/MT)</td>
+                          <td className={styles.metricCell}>Freight / MT</td>
                           {columns.map((column) => (
                             <td key={`${column.id}-freight`} className={styles.inputCell}>
                               {!column.chkLumpSum ? (
@@ -466,7 +466,7 @@ export default function SensitivityAnalysisModal({
                     ))}
 
                     <tr className={styles.inputRow}>
-                      <td className={styles.metricCell}>Hire / Day ($)</td>
+                      <td className={styles.metricCell}>Hire / Day</td>
                       {columns.map((column) => (
                         <td key={`${column.id}-hire`} className={styles.inputCell}>
                           <InputCell
@@ -615,7 +615,7 @@ export default function SensitivityAnalysisModal({
                       ))}
                     </tr>
                     <tr>
-                      <td className={styles.metricCell}><strong>Nett Daily Profit (TCE)</strong></td>
+                      <td className={styles.metricCell}><strong>Net Daily Profit (TCE)</strong></td>
                       {columns.map((column) => (
                         <td key={`${column.id}-daily`} className={styles.resultCell}>
                           <ResultCell value={metricsById[column.id]?.nettDailyProfit} />

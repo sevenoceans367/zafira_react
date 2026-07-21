@@ -18,6 +18,7 @@ const DANGER_STYLE = {
 const DANGER_HOVER_CLASS = 'global-btn-danger';
 const SECONDARY_CLASS = 'global-btn-secondary';
 const ACCENT_CLASS = 'global-btn-accent';
+const CLOSE_CLASS = 'global-btn-close';
 
 /** @deprecated use `secondary` */
 const OUTLINE_CLASS = SECONDARY_CLASS;
@@ -38,22 +39,33 @@ const SECONDARY_STYLE = {
   boxShadow: 'none',
 };
 
+const CLOSE_STYLE = {
+  backgroundColor: '#eeeeee',
+  border: '1.5px solid #888888',
+  borderRadius: '999px',
+  color: '#888888',
+  boxShadow: 'none',
+  fontWeight: '500',
+};
+
 /** @deprecated use SECONDARY_STYLE */
 const OUTLINE_STYLE = SECONDARY_STYLE;
 
 function resolveVariantClass(variant) {
   if (variant === 'danger') return DANGER_HOVER_CLASS;
   if (variant === 'accent') return ACCENT_CLASS;
+  if (variant === 'close') return CLOSE_CLASS;
   if (variant === 'secondary' || variant === 'outline') return SECONDARY_CLASS;
   return `btn-${variant}`;
 }
 
-const SQUARE_VARIANTS = new Set(['secondary', 'outline', 'accent']);
+const SQUARE_VARIANTS = new Set(['secondary', 'outline', 'accent', 'close']);
 
 /**
  * Shared pill button used across admin, internal-user, and other apps.
  * - `secondary`: hollow #376EB8 border/text, 10px radius, hover fill #BCCADB
  * - `accent`: #F99366 60% fill, #F4652C stroke; hover #FF986A / #F18154, 10px radius
+ * - `close`: light grey fill, medium grey stroke/text, pill radius
  * Use `to` for React Router navigation, or `href` for path-based navigation.
  */
 const GlobalButton = ({
@@ -95,6 +107,9 @@ const GlobalButton = ({
   }
   if (variant === 'secondary' || variant === 'outline') {
     Object.assign(customStyle, SECONDARY_STYLE);
+  }
+  if (variant === 'close') {
+    Object.assign(customStyle, CLOSE_STYLE);
   }
   if (variant === 'accent') {
     Object.assign(customStyle, ACCENT_STYLE);

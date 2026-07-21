@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { Button, DmyDateInput, dmyToIso, isoToDmy, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import {
   createRateNetTon,
   fetchRateNetTon,
@@ -24,18 +24,6 @@ const EMPTY_FORM = {
   rate: '',
   businessTypeId: '',
 };
-
-function toDateInputValue(value) {
-  if (!value) return '';
-  const str = String(value).trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
-  const parsed = new Date(str);
-  if (Number.isNaN(parsed.getTime())) return '';
-  const y = parsed.getUTCFullYear();
-  const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(parsed.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
 
 function StatusToggle({ checked, onChange }) {
   return (
@@ -111,8 +99,8 @@ export default function RateNetTonPage() {
       const record = await fetchRateNetTon(id);
       setEditId(id);
       setForm({
-        fromPeriod: toDateInputValue(record.fromPeriod),
-        toPeriod: toDateInputValue(record.toPeriod),
+        fromPeriod: isoToDmy(record.fromPeriod),
+        toPeriod: isoToDmy(record.toPeriod),
         rate: record.rate || '',
         businessTypeId: record.businessTypeId || '',
       });
@@ -154,17 +142,25 @@ export default function RateNetTonPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (form.toPeriod && form.fromPeriod && form.toPeriod < form.fromPeriod) {
+    const fromIso = dmyToIso(form.fromPeriod);
+    const toIso = dmyToIso(form.toPeriod);
+    if (toIso && fromIso && toIso < fromIso) {
       setError('To Period must be on or after From Period.');
       return;
     }
     setSaving(true);
     setError('');
     setFlash(null);
+    const payload = {
+      fromPeriod: fromIso,
+      toPeriod: toIso,
+      rate: form.rate,
+      businessTypeId: form.businessTypeId,
+    };
     try {
       const result = editId
-        ? await updateRateNetTon(editId, form)
-        : await createRateNetTon(form);
+        ? await updateRateNetTon(editId, payload)
+        : await createRateNetTon(payload);
       setFlash(FLASH_MESSAGES[result.msg ?? 0]);
       setView('list');
       setEditId(null);
@@ -199,31 +195,31 @@ export default function RateNetTonPage() {
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.field}>
             <span className={styles.label}>From Period</span>
-            <input
+            <DmyDateInput
               className={styles.input}
-              type="date"
               value={form.fromPeriod}
               required
-              onChange={(e) => {
-                const fromPeriod = e.target.value;
-                setForm((prev) => ({
-                  ...prev,
-                  fromPeriod,
-                  toPeriod: prev.toPeriod && prev.toPeriod < fromPeriod ? '' : prev.toPeriod,
-                }));
+              onChange={(fromPeriod) => {
+                setForm((prev) => {
+                  const toIso = dmyToIso(prev.toPeriod);
+                  const fromIso = dmyToIso(fromPeriod);
+                  return {
+                    ...prev,
+                    fromPeriod,
+                    toPeriod: toIso && fromIso && toIso < fromIso ? '' : prev.toPeriod,
+                  };
+                });
               }}
             />
           </label>
 
           <label className={styles.field}>
             <span className={styles.label}>To Period</span>
-            <input
+            <DmyDateInput
               className={styles.input}
-              type="date"
               value={form.toPeriod}
-              min={form.fromPeriod || undefined}
               required
-              onChange={(e) => setForm((prev) => ({ ...prev, toPeriod: e.target.value }))}
+              onChange={(toPeriod) => setForm((prev) => ({ ...prev, toPeriod }))}
             />
           </label>
 

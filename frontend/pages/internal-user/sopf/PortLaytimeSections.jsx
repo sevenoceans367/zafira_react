@@ -105,7 +105,7 @@ export default function PortLaytimeSections({
 
   if (!legs.length) {
     return (
-      <CollapsiblePanel title="Port Laytime & Bunker Grades" defaultOpen>
+      <CollapsiblePanel title="Port Details" defaultOpen>
         <p className={styles.hintText}>Add a passage leg to configure load, discharge, and transit port details.</p>
       </CollapsiblePanel>
     );
@@ -137,9 +137,9 @@ export default function PortLaytimeSections({
   };
 
   return (
-    <CollapsiblePanel title="Port Laytime & Bunker Grades" defaultOpen>
+    <CollapsiblePanel title="Port Details" defaultOpen>
       <div className={styles.portLaytimeStack}>
-        <div className={styles.portLaytimeBlock}>
+        <div className={`${styles.portLaytimeBlock} ${styles.portLaytimeLp}`}>
           <div className={styles.portLaytimeTitle}>Load Port (LP)</div>
           <div className={styles.tableWrap}>
             <table className={styles.portTable}>
@@ -148,13 +148,12 @@ export default function PortLaytimeSections({
                   <th>Bunker Grade</th>
                   <th>LP</th>
                   <th>Cargo</th>
-                  <th>Cost ($)</th>
+                  <th>Cost</th>
                   <th>Qty (MT)</th>
                   <th className={styles.thStack}><span>Rate</span><span>(MT/Day)</span></th>
                   <th>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
                   <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
-                  <th>SECA?</th>
                 </tr>
               </thead>
               <tbody>
@@ -231,14 +230,6 @@ export default function PortLaytimeSections({
                         onChange={(e) => patchLeg(leg.id, { loadPortIdleDays: e.target.value })}
                       />
                     </td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={!!leg.chkLpSeca}
-                        disabled={readOnly}
-                        onChange={(e) => patchLeg(leg.id, { chkLpSeca: e.target.checked })}
-                      />
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -246,7 +237,7 @@ export default function PortLaytimeSections({
           </div>
         </div>
 
-        <div className={styles.portLaytimeBlock}>
+        <div className={`${styles.portLaytimeBlock} ${styles.portLaytimeDp}`}>
           <div className={styles.portLaytimeTitle}>Discharge Port (DP)</div>
           <div className={styles.tableWrap}>
             <table className={styles.portTable}>
@@ -255,13 +246,12 @@ export default function PortLaytimeSections({
                   <th>Bunker Grade</th>
                   <th>DP</th>
                   <th>Cargo</th>
-                  <th>Cost ($)</th>
+                  <th>Cost</th>
                   <th>Qty (MT)</th>
                   <th className={styles.thStack}><span>Rate</span><span>(MT/Day)</span></th>
                   <th>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
                   <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
-                  <th>SECA?</th>
                 </tr>
               </thead>
               <tbody>
@@ -338,14 +328,6 @@ export default function PortLaytimeSections({
                         onChange={(e) => patchLeg(leg.id, { discPortIdleDays: e.target.value })}
                       />
                     </td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={!!leg.chkDpSeca}
-                        disabled={readOnly}
-                        onChange={(e) => patchLeg(leg.id, { chkDpSeca: e.target.checked })}
-                      />
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -353,7 +335,7 @@ export default function PortLaytimeSections({
           </div>
         </div>
 
-        <div className={styles.portLaytimeBlock}>
+        <div className={`${styles.portLaytimeBlock} ${styles.portLaytimeTp}`}>
           <div className={styles.portLaytimeTitle}>Transit / Bunkering Port (TP/BP)</div>
           <div className={styles.tableWrap}>
             <table className={styles.portTable}>
@@ -361,11 +343,10 @@ export default function PortLaytimeSections({
                 <tr>
                   <th>Bunker Grade</th>
                   <th>TP/BP</th>
-                  <th>Cost ($)</th>
+                  <th>Cost</th>
                   <th>Idle Days</th>
                   <th>Charterer&apos;s Account (Days)</th>
-                  <th>SECA?</th>
-                  <th>Port Function</th>
+                  <th>Region</th>
                 </tr>
               </thead>
               <tbody>
@@ -401,14 +382,6 @@ export default function PortLaytimeSections({
                         readOnly={readOnly}
                         placeholder="0.00"
                         onChange={(e) => patchLeg(leg.id, { chartererAccountDays: e.target.value })}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={!!leg.chkTpSeca}
-                        disabled={readOnly}
-                        onChange={(e) => patchLeg(leg.id, { chkTpSeca: e.target.checked })}
                       />
                     </td>
                     <td>

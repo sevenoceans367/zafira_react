@@ -74,7 +74,7 @@ export default function TcDecisionChartModal({
         {loading ? <LoadingOverlay active label="Loading compare candidates…" /> : null}
         <div className={styles.modalHeader}>
           <h3>Decision Chart — Select Final TC Estimate</h3>
-          <Button variant="outline" label="Close" onClick={onClose} disabled={saving} />
+          <Button variant="close" label="Close" onClick={onClose} disabled={saving} />
         </div>
         {error ? <div className={styles.error}>{error}</div> : null}
         <div className={styles.tableWrap}>

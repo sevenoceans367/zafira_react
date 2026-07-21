@@ -67,7 +67,7 @@ const ConfirmDialog = ({
             <Button
               type="button"
               label={cancelLabel}
-              variant="secondary"
+              variant="close"
               size="sm"
               disabled={busy}
               onClick={onCancel}

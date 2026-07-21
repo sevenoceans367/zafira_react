@@ -729,11 +729,11 @@ export default function TcCalculatePage({
                 </div>
               </div>
               <div className={styles.field}>
-                <label>Nett Hire (USD)</label>
+                <label>Net Hire (USD)</label>
                 <input className={styles.inputReadonly} readOnly value={totals.nettHire || ''} />
               </div>
               <div className={styles.field}>
-                <label>Nett Rev (USD)</label>
+                <label>Net Rev (USD)</label>
                 <input className={styles.inputReadonly} readOnly value={totals.nettRev || ''} />
               </div>
               <div className={styles.field}>
@@ -756,7 +756,7 @@ export default function TcCalculatePage({
                 <input className={styles.inputReadonly} readOnly value={totals.bunkerDiffAmt || ''} />
               </div>
               <div className={styles.field}>
-                <label>Nett Hire to invoice (USD)</label>
+                <label>Net Hire to invoice (USD)</label>
                 <input className={styles.inputReadonly} readOnly value={totals.nettHireInvoice || ''} />
               </div>
             </div>

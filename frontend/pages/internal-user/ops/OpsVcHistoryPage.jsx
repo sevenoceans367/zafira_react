@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import {
+  Button,
+  FilterBar,
+  FilterField,
+  LoadingOverlay,
+  TextInput,
+} from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
@@ -72,35 +78,30 @@ export default function OpsVcHistoryPage() {
 
       <h3 className={styles.title}>Vessels in History - VC</h3>
 
-      <div className={styles.toolbar}>
-        <div className={styles.filters}>
-          <div className={styles.filterField}>
-            <label>Business Type</label>
-            <CoaCardSelect
-              label="Business Type"
-              value={businessType}
-              options={businessTypes}
-              includeEmpty={false}
-              onChange={(value) => {
-                setBusinessType(value);
-                updateQuery({ selBType: value, msg: '' });
-              }}
-            />
-          </div>
-          <div className={styles.filterField}>
-            <label htmlFor="ops-vc-history-search">Search</label>
-            <input
-              id="ops-vc-history-search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Nom ID, voyage, vessel…"
-            />
-          </div>
-        </div>
-        <div className={styles.toolbarActions}>
-          <Button variant="primary" label="Load" onClick={load} disabled={loading} />
-        </div>
-      </div>
+      <FilterBar
+        actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
+      >
+        <FilterField label="Business Type">
+          <CoaCardSelect
+            label="Business Type"
+            value={businessType}
+            options={businessTypes}
+            includeEmpty={false}
+            onChange={(value) => {
+              setBusinessType(value);
+              updateQuery({ selBType: value, msg: '' });
+            }}
+          />
+        </FilterField>
+        <FilterField id="ops-vc-history-search" label="Search">
+          <TextInput
+            id="ops-vc-history-search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Nom ID, voyage, vessel…"
+          />
+        </FilterField>
+      </FilterBar>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>

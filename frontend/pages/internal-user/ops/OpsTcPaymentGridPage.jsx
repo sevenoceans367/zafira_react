@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, FilterBar, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchPaymentGridTc } from '../../../services/opsTc.js';
 import styles from './OpsPages.module.css';
@@ -85,14 +85,13 @@ export default function OpsTcPaymentGridPage() {
       {loading ? <LoadingOverlay /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.toolbar}>
+      <FilterBar
+        actions={<Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />}
+      >
         <div className={styles.muted}>
           {data?.tcNo ? `TC No. ${data.tcNo}` : null}
         </div>
-        <div className={styles.toolbarActions}>
-          <Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />
-        </div>
-      </div>
+      </FilterBar>
 
       <h3 className={styles.title}>
         Payment / Invoice Grid

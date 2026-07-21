@@ -202,15 +202,17 @@
 
 .compact .control {
   min-height: 24px;
+  height: auto;
   padding: 1px 6px;
-  align-items: center;
+  align-items: flex-start;
   border-radius: 3px;
 }
 
 .compact .chips {
   gap: 3px;
-  flex-wrap: nowrap;
-  overflow: hidden;
+  flex-wrap: wrap;
+  overflow: visible;
+  padding: 1px 0;
 }
 
 .compact .placeholder {
@@ -227,7 +229,7 @@
 }
 
 .compact .chipLabel {
-  max-width: 90px;
+  max-width: 140px;
 }
 
 .compact .chipRemove {

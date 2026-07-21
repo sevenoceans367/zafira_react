@@ -47,7 +47,7 @@ export default function TcDecisionChartDetailsModal({
               onClick={() => onGeneratePdf?.(message)}
               disabled={pdfLoading || loading || !fixtures.length}
             />
-            <Button variant="outline" label="Close" onClick={onClose} disabled={pdfLoading} />
+            <Button variant="close" label="Close" onClick={onClose} disabled={pdfLoading} />
           </div>
         </div>
         {error ? <div className={styles.error}>{error}</div> : null}

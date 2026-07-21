@@ -10,6 +10,7 @@ const VARIANT_CLASS = {
   primary: styles.primary,
   accent: styles.accent,
   add: styles.add,
+  close: styles.close,
   danger: styles.danger,
   info: styles.info,
   success: styles.success,
@@ -23,6 +24,7 @@ const VARIANT_CLASS = {
  * - `primary`: solid brand blue fill
  * - `accent`: orange fill/stroke (brand CTA)
  * - `add`: blue #549AE7 fill for add/create actions
+ * - `close`: light grey fill, medium grey border/text, pill radius — modal dismiss
  * - `danger`: orange CTA — #F99366 60% fill, #F4652C border; hover #FF986A fill, #F18154 stroke
  * - `info`: cyan fill for informational actions
  * - `success`: green fill for confirm/close actions

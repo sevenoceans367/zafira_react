@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import {
+  Button,
+  FilterBar,
+  FilterField,
+  LoadingOverlay,
+  Select,
+  TextInput,
+  useConfirm,
+} from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
@@ -148,48 +156,42 @@ export default function OpsVcInOpsGlancePage() {
 
       <h3 className={styles.title}>In Ops at a glance - VC</h3>
 
-      <div className={styles.toolbar}>
-        <div className={styles.filters}>
-          <div className={styles.filterField}>
-            <label>Business Type</label>
-            <CoaCardSelect
-              label="Business Type"
-              value={businessType}
-              options={businessTypes}
-              includeEmpty={false}
-              onChange={(value) => {
-                setBusinessType(value);
-                updateQuery({ selBType: value, msg: '' });
-              }}
-            />
-          </div>
-          <div className={styles.filterField}>
-            <label>Year</label>
-            <CoaCardSelect
-              label="Year"
-              value={year}
-              options={years}
-              includeEmpty={false}
-              onChange={(value) => {
-                setYear(value);
-                updateQuery({ selYear: value, msg: '' });
-              }}
-            />
-          </div>
-          <div className={styles.filterField}>
-            <label htmlFor="ops-vc-search">Search</label>
-            <input
-              id="ops-vc-search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Nom ID, voyage, vessel…"
-            />
-          </div>
-        </div>
-        <div className={styles.toolbarActions}>
-          <Button variant="primary" label="Load" onClick={load} disabled={loading} />
-        </div>
-      </div>
+      <FilterBar
+        actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
+      >
+        <FilterField label="Business Type">
+          <CoaCardSelect
+            label="Business Type"
+            value={businessType}
+            options={businessTypes}
+            includeEmpty={false}
+            onChange={(value) => {
+              setBusinessType(value);
+              updateQuery({ selBType: value, msg: '' });
+            }}
+          />
+        </FilterField>
+        <FilterField label="Year">
+          <CoaCardSelect
+            label="Year"
+            value={year}
+            options={years}
+            includeEmpty={false}
+            onChange={(value) => {
+              setYear(value);
+              updateQuery({ selYear: value, msg: '' });
+            }}
+          />
+        </FilterField>
+        <FilterField id="ops-vc-search" label="Search">
+          <TextInput
+            id="ops-vc-search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Nom ID, voyage, vessel…"
+          />
+        </FilterField>
+      </FilterBar>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -294,7 +296,7 @@ export default function OpsVcInOpsGlancePage() {
                 </td>
                 <td>
                   {canEditOperator ? (
-                    <select
+                    <Select
                       value={row.operatorId || ''}
                       onChange={(e) => handleOperatorChange(row, e.target.value)}
                     >
@@ -302,7 +304,7 @@ export default function OpsVcInOpsGlancePage() {
                       {operators.map((opt) => (
                         <option key={opt.id} value={opt.id}>{opt.name}</option>
                       ))}
-                    </select>
+                    </Select>
                   ) : (row.operatorName || '—')}
                 </td>
                 <td>{row.charteringTeam || '—'}</td>

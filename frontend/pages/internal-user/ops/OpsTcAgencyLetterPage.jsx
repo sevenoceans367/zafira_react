@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, DmyDateInput, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import {
+  Button,
+  DmyDateInput,
+  Field,
+  FilterBar,
+  LoadingOverlay,
+  Select,
+  Textarea,
+  TextInput,
+  useConfirm,
+} from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import {
   deleteAgencyLetterTc,
@@ -34,15 +44,6 @@ function emptyDraft(form) {
     mainDescription: '',
     status: 1,
   };
-}
-
-function Field({ label, children }) {
-  return (
-    <div className={styles.formField}>
-      <label>{label}</label>
-      {children}
-    </div>
-  );
 }
 
 export default function OpsTcAgencyLetterPage() {
@@ -196,34 +197,37 @@ export default function OpsTcAgencyLetterPage() {
       ) : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.toolbar}>
+      <FilterBar
+        actions={<Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />}
+      >
         <div className={styles.muted}>
           {form?.tcNo ? `TC No. ${form.tcNo}` : null}
           {form?.nomId ? ` · Nom ID ${form.nomId}` : null}
         </div>
-        <div className={styles.toolbarActions}>
-          <Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />
-        </div>
-      </div>
+      </FilterBar>
 
       <h3 className={styles.title}>TC - GENERATE AGENCY RELATED LETTERS</h3>
 
       {!loading && form && draft ? (
         <>
           <div className={styles.formGrid}>
-            <Field label="Date">
-              <DmyDateInput value={draft.date} onChange={(value) => patchDraft({ date: value })} />
+            <Field id="tc-agency-date" label="Date">
+              <DmyDateInput
+                id="tc-agency-date"
+                value={draft.date}
+                onChange={(value) => patchDraft({ date: value })}
+              />
             </Field>
-            <Field label="Vessel">
-              <input
-                className={styles.input}
+            <Field id="tc-agency-vessel" label="Vessel">
+              <TextInput
+                id="tc-agency-vessel"
                 value={draft.vesselName || form.vesselName || ''}
                 readOnly
               />
             </Field>
-            <Field label="Agent Name">
-              <select
-                className={styles.input}
+            <Field id="tc-agency-agent" label="Agent Name">
+              <Select
+                id="tc-agency-agent"
                 value={draft.vendorId}
                 onChange={(e) => patchDraft({ vendorId: e.target.value })}
               >
@@ -231,11 +235,11 @@ export default function OpsTcAgencyLetterPage() {
                 {lookups.agents.map((row) => (
                   <option key={row.id} value={row.id}>{row.name}</option>
                 ))}
-              </select>
+              </Select>
             </Field>
-            <Field label="Port of Call">
-              <select
-                className={styles.input}
+            <Field id="tc-agency-port" label="Port of Call">
+              <Select
+                id="tc-agency-port"
                 value={draft.portOfCall}
                 onChange={(e) => patchDraft({ portOfCall: e.target.value })}
               >
@@ -243,11 +247,11 @@ export default function OpsTcAgencyLetterPage() {
                 {lookups.ports.map((row) => (
                   <option key={row.id} value={row.id}>{row.name}</option>
                 ))}
-              </select>
+              </Select>
             </Field>
-            <Field label="Purpose of Call">
-              <select
-                className={styles.input}
+            <Field id="tc-agency-purpose" label="Purpose of Call">
+              <Select
+                id="tc-agency-purpose"
                 value={draft.purposeOfCall}
                 onChange={(e) => patchDraft({ purposeOfCall: e.target.value })}
               >
@@ -255,20 +259,20 @@ export default function OpsTcAgencyLetterPage() {
                 {lookups.purposes.map((row) => (
                   <option key={row.id} value={row.id}>{row.name}</option>
                 ))}
-              </select>
+              </Select>
             </Field>
-            <Field label="Master's Name">
-              <input
-                className={styles.input}
+            <Field id="tc-agency-masters-name" label="Master's Name">
+              <TextInput
+                id="tc-agency-masters-name"
                 value={draft.mastersName}
                 onChange={(e) => patchDraft({ mastersName: e.target.value })}
                 placeholder="Master's Name"
                 autoComplete="off"
               />
             </Field>
-            <Field label="Ship Owner">
-              <select
-                className={styles.input}
+            <Field id="tc-agency-ship-owner" label="Ship Owner">
+              <Select
+                id="tc-agency-ship-owner"
                 value={draft.shipOwner}
                 onChange={(e) => patchDraft({ shipOwner: e.target.value })}
               >
@@ -276,12 +280,12 @@ export default function OpsTcAgencyLetterPage() {
                 {lookups.shipOwners.map((row) => (
                   <option key={row.id} value={row.id}>{row.name}</option>
                 ))}
-              </select>
+              </Select>
             </Field>
           </div>
 
-          <div className={styles.formField} style={{ marginTop: '1rem' }}>
-            <label>Main Description</label>
+          <div style={{ marginTop: '1rem' }}>
+            <Field id="tc-agency-main-description" label="Main Description">
             <div className={styles.muted} style={{ marginBottom: '0.5rem' }}>
               To :&nbsp;&nbsp;{agentDetail || '—'}
               <br />
@@ -289,13 +293,14 @@ export default function OpsTcAgencyLetterPage() {
               <br />
               Cc:&nbsp;&nbsp;{shipOwnerDetail || '—'}
             </div>
-            <textarea
-              className={styles.input}
+            <Textarea
+              id="tc-agency-main-description"
               rows={6}
               value={draft.mainDescription}
               onChange={(e) => patchDraft({ mainDescription: e.target.value })}
               placeholder="Enter Main Description Here"
             />
+            </Field>
           </div>
 
           {canSubmit ? (

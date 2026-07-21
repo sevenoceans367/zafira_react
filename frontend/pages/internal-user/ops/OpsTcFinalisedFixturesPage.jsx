@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import {
+  Button,
+  FilterBar,
+  FilterField,
+  LoadingOverlay,
+  Select,
+  TextInput,
+  useConfirm,
+} from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import {
@@ -139,27 +147,25 @@ export default function OpsTcFinalisedFixturesPage() {
 
       <h3 className={styles.title}>Finalised TC Fixtures List</h3>
 
-      <div className={styles.toolbar}>
-        <div className={styles.filters}>
-          <div className={styles.filterField}>
-            <label htmlFor="ops-tc-fixtures-search">Search</label>
-            <input
-              id="ops-tc-fixtures-search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Vessel, TC no…"
-            />
-          </div>
-        </div>
-        <div className={styles.toolbarActions}>
+      <FilterBar
+        actions={(
           <Button
             variant="primary"
             label="Finalise Fixture"
             onClick={handleFinalise}
             disabled={saving || loading}
           />
-        </div>
-      </div>
+        )}
+      >
+        <FilterField id="ops-tc-fixtures-search" label="Search">
+          <TextInput
+            id="ops-tc-fixtures-search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Vessel, TC no…"
+          />
+        </FilterField>
+      </FilterBar>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -234,7 +240,7 @@ export default function OpsTcFinalisedFixturesPage() {
                     {row.fixed ? (
                       <strong>{row.operatorName || '—'}</strong>
                     ) : (
-                      <select
+                      <Select
                         value={operatorById[id] || ''}
                         onChange={(e) => {
                           const value = e.target.value;
@@ -246,7 +252,7 @@ export default function OpsTcFinalisedFixturesPage() {
                         {operators.map((op) => (
                           <option key={op.id} value={op.id}>{op.name}</option>
                         ))}
-                      </select>
+                      </Select>
                     )}
                   </td>
                   <td>

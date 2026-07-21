@@ -190,6 +190,20 @@
   color: #f4652c;
 }
 
+.close {
+  background: #eeeeee;
+  border: 1.5px solid #888888;
+  border-radius: 999px;
+  color: #888888;
+  font-weight: 500;
+}
+
+.close:hover:not(:disabled) {
+  background: #e0e0e0;
+  border-color: #6b6b6b;
+  color: #6b6b6b;
+}
+
 .add {
   background: #549ae7;
   border: 1px solid #549ae7;

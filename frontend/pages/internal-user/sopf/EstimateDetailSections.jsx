@@ -27,8 +27,8 @@ import {
   getFixtureTypeLabel,
 } from './estimateDetail.constants.js';
 import { calcDemurrageEst, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt } from './estimateCalculations.js';
-import { NAVIGATION_METHOD_OPTIONS } from './distanceFetch.constants.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
+import RowRemoveButton from './RowRemoveButton.jsx';
 
 import DistanceFetchModal from './DistanceFetchModal.jsx';
 import TankerFreightModeSection from './TankerFreightModeSection.jsx';
@@ -39,9 +39,9 @@ import { fetchCanalOrcRates, searchEstimatePorts } from '../../../services/estim
 import { getAddRowBlockMessage } from './estimateValidation.js';
 import styles from './UpdateEstimatePage.module.css';
 
-function Field({ id, label, children }) {
+function Field({ id, label, children, className = '' }) {
   return (
-    <div className={styles.field}>
+    <div className={[styles.field, className].filter(Boolean).join(' ')}>
       <label htmlFor={id}>{label}</label>
       {children}
     </div>
@@ -284,7 +284,7 @@ export default function EstimateDetailSections({
   return (
     <div className={styles.estimateForm}>
       <div className={styles.estimateMain}>
-       <CollapsiblePanel title="Estimate Header" defaultOpen>
+       <CollapsiblePanel title="Estimate Identifier" defaultOpen>
           <div className={styles.headerGrid}>
             <Field id="fixtureTypeId" label="Business Type">
               {readOnly ? (
@@ -346,7 +346,7 @@ export default function EstimateDetailSections({
             <Field id="estimateType" label="Estimate Type">
               <input id="estimateType" value={detail.estimateTypeLabel} readOnly />
             </Field>
-            <Field id="sdrToUsd" label="SDR to USD">
+            <Field id="sdrToUsd" label="SDR Rate">
               <input {...inputProps('sdrToUsd', { recalc: true })} />
             </Field>
             <Field id="scnt" label="SCNT">
@@ -399,7 +399,7 @@ export default function EstimateDetailSections({
           </div>
       </CollapsiblePanel>
 
-       <CollapsiblePanel title="Vessel Particulars" defaultOpen={false}>
+       <CollapsiblePanel title="Fixed Vessel Particulars" defaultOpen={false}>
           <div className={styles.headerGrid}>
             <Field id="dwtSummer" label="DWT (Summer)">
               <input {...inputProps('dwtSummer')} />
@@ -426,7 +426,7 @@ export default function EstimateDetailSections({
             <Field id="gear" label="Gear">
               <input {...inputProps('gear')} />
             </Field>
-            <Field id="builtYear" label="Built Year">
+            <Field id="builtYear" label="Year Built">
               <input {...inputProps('builtYear')} />
             </Field>
             <Field id="beam" label="Beam">
@@ -452,14 +452,24 @@ export default function EstimateDetailSections({
         title="Passage & Ports"
         defaultOpen
         actions={(
-          <div style={{ display: 'flex', gap: 8 }}>
+          <>
+            {editable ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                label="+ Add"
+                onClick={() => addRow('portLegs', createEmptyPortLeg)}
+              />
+            ) : null}
             <Button
               type="button"
               variant="outline"
+              size="sm"
               label="Itinerary"
               onClick={() => setItineraryOpen(true)}
             />
-          </div>
+          </>
         )}
       >
         <div className={styles.portLegsStack}>
@@ -480,14 +490,7 @@ export default function EstimateDetailSections({
                       <tr>
                         <td className={styles.portIdxCol}>
                           {editable && (form.portLegs || []).length > 1 ? (
-                            <button
-                              type="button"
-                              className={styles.rowRemove}
-                              onClick={() => removeRow('portLegs', leg.id)}
-                              title="Remove"
-                            >
-                              ×
-                            </button>
+                            <RowRemoveButton onClick={() => removeRow('portLegs', leg.id)} />
                           ) : (
                             <span>{legIndex + 1}</span>
                           )}
@@ -605,7 +608,7 @@ export default function EstimateDetailSections({
                         <th>Wx(%)</th>
                         <th>L/B</th>
                         <th>Speed Type</th>
-                        {editable ? <th>Fetch</th> : null}
+                        {editable ? <th>Route</th> : null}
                         <th>Total Dist</th>
                         <th>Total Days</th>
                       </tr>
@@ -650,7 +653,7 @@ export default function EstimateDetailSections({
                               className={styles.fetchBtn}
                               onClick={() => openDistanceFetch(leg)}
                             >
-                              Fetch
+                              Sync
                             </button>
                           </td>
                         ) : null}
@@ -675,7 +678,6 @@ export default function EstimateDetailSections({
                         <th>BG</th>
                         <th>SECA Dist</th>
                         <th>SECA Days</th>
-                        <th>Navigation</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -718,18 +720,6 @@ export default function EstimateDetailSections({
                         <td>
                           <input value={leg.secaDays || ''} readOnly />
                         </td>
-                        <td>
-                          <select
-                            id={legIndex === 0 ? 'portNav_0' : `portNav_${legIndex}`}
-                            value={leg.navMethod || ''}
-                            disabled={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { navMethod: e.target.value })}
-                          >
-                            {NAVIGATION_METHOD_OPTIONS.map((o) => (
-                              <option key={o.value || 'none'} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
-                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -738,19 +728,9 @@ export default function EstimateDetailSections({
             </div>
           ))}
         </div>
-        {editable ? (
-          <div className={styles.portAddRow}>
-            <Button
-              type="button"
-              variant="outline"
-              label="Add"
-              onClick={() => addRow('portLegs', createEmptyPortLeg)}
-            />
-          </div>
-        ) : null}
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Speed / Consumption" defaultOpen={false}>
+      <CollapsiblePanel title="Speed & Consumption" defaultOpen>
         {(() => {
           const speedDataType = form.speedDataType || 'full';
           const speedCols = CONSUMPTION_SPEED_COLUMNS[speedDataType] || CONSUMPTION_SPEED_COLUMNS.full;
@@ -779,16 +759,21 @@ export default function EstimateDetailSections({
                 <table className={styles.portTable}>
                   <thead>
                     <tr>
+                      {editable ? <th style={{ width: 36 }} /> : null}
                       <th>Bunker</th>
                       {dataCols.map((col) => (
                         <th key={col.key}>{col.label}</th>
                       ))}
-                      {editable ? <th /> : null}
                     </tr>
                   </thead>
                   <tbody>
                     {(rows.length ? rows : []).map((row) => (
                       <tr key={`${title}-${row.id}`}>
+                        {editable ? (
+                          <td>
+                            <RowRemoveButton onClick={() => removeRow('consumptionRows', row.id)} />
+                          </td>
+                        ) : null}
                         <td>
                           {readOnly ? (
                             gradeName(row.bunkerGradeId)
@@ -820,18 +805,6 @@ export default function EstimateDetailSections({
                             />
                           </td>
                         ))}
-                        {editable ? (
-                          <td>
-                            <button
-                              type="button"
-                              className={styles.rowRemove}
-                              title="Remove"
-                              onClick={() => removeRow('consumptionRows', row.id)}
-                            >
-                              ×
-                            </button>
-                          </td>
-                        ) : null}
                       </tr>
                     ))}
                     {!rows.length ? (
@@ -850,7 +823,7 @@ export default function EstimateDetailSections({
                   className={styles.addRowBtn}
                   onClick={() => addRow('consumptionRows', () => createEmptyConsumptionRow(identify), { identify })}
                 >
-                  + Add {identify}
+                  {`+ Add ${identify}`}
                 </button>
               ) : null}
             </div>
@@ -878,8 +851,8 @@ export default function EstimateDetailSections({
                   <input {...inputProps(ladenKey, { recalc: true })} placeholder="0.00" />
                 </Field>
               </div>
-              {renderConsTable('FO Consp/day(MT) - At Sea', foRows, 'FO')}
-              {renderConsTable('DO Consp/day(MT) - At Sea', doRows, 'DO')}
+              {renderConsTable('FO Consp/day (MT) - At Sea', foRows, 'FO')}
+              {renderConsTable('DO Consp/day (MT) - At Sea', doRows, 'DO')}
             </>
           );
         })()}
@@ -896,8 +869,8 @@ export default function EstimateDetailSections({
       >
         <div className={styles.headerGrid}>
           {!(isTanker && String(form.tankType || '1') === '2') ? (
-          <Field id="cargoId_0" label="Cargo Name">
-            <div id="cargoId_0" className={styles.compactSelectWrap}>
+          <Field id="cargoId_0" label="Cargo Name" className={styles.cargoMultiSelectField}>
+            <div id="cargoId_0" className={styles.cargoMultiSelectWrap}>
               {(() => {
                 const cargoLookup = (lookups.cargos || [])
                   .map((c) => ({
@@ -973,39 +946,6 @@ export default function EstimateDetailSections({
             </div>
           </Field>
           ) : null}
-          <Field id="charteringTeam" label="Chartering Team">
-            <select
-              id="charteringTeam"
-              value={form.charteringTeam || ''}
-              disabled={readOnly}
-              onChange={(e) => updateField('charteringTeam', e.target.value)}
-            >
-              <option value="">— Select —</option>
-              {(lookups.charteringTeams || []).map((row) => (
-                <option key={row.id} value={row.id}>{row.name}</option>
-              ))}
-            </select>
-          </Field>
-          <Field id="charteringPic" label="Chartering PIC">
-            <select
-              id="charteringPic"
-              value={form.charteringPic || ''}
-              disabled={readOnly}
-              onChange={(e) => updateField('charteringPic', e.target.value)}
-            >
-              <option value="">— Select —</option>
-              {(() => {
-                const options = [...(lookups.charteringPics || [])];
-                const id = form.charteringPic != null ? String(form.charteringPic) : '';
-                if (id && !options.some((row) => String(row.id) === id)) {
-                  options.unshift({ id, name: form.charteringPicName || id });
-                }
-                return options.map((row) => (
-                  <option key={row.id} value={row.id}>{row.name}</option>
-                ));
-              })()}
-            </select>
-          </Field>
           <Field id="freightGrossCargoHeader" label="Total Freight">
             <input id="freightGrossCargoHeader" value={form.freightGross || ''} readOnly />
           </Field>
@@ -1056,7 +996,7 @@ export default function EstimateDetailSections({
               <tr>
                 <th style={{ width: 56 }} />
                 <th />
-                <th>Freight</th>
+                <th>Percentage (%)</th>
                 <th>Freight Comm.</th>
                 <th>Demurrage Comm.</th>
               </tr>
@@ -1064,7 +1004,7 @@ export default function EstimateDetailSections({
             <tbody>
               <tr>
                 <td />
-                <td>Address Commission (Freight)</td>
+                <td>ADCOM Freight</td>
                 <td>
                   <input {...inputProps('addCommPercent', { recalc: true })} id="addCommPercentCargo" placeholder="0.00" />
                 </td>
@@ -1084,17 +1024,10 @@ export default function EstimateDetailSections({
                 <tr key={row.id}>
                   <td>
                     {editable ? (
-                      <button
-                        type="button"
-                        className={styles.rowRemove}
-                        onClick={() => removeRow('brokerRows', row.id)}
-                        title="Remove"
-                      >
-                        ×
-                      </button>
+                      <RowRemoveButton onClick={() => removeRow('brokerRows', row.id)} />
                     ) : null}
                   </td>
-                  <td>Charterers side Brokerage commission (%)</td>
+                  <td>Brokerage commission</td>
                   <td>
                     <input
                       value={row.percent || ''}
@@ -1117,12 +1050,13 @@ export default function EstimateDetailSections({
                     <Button
                       type="button"
                       variant="outline"
-                      label="Add"
+                      size="sm"
+                      label="+ Add"
                       onClick={() => addRow('brokerRows', createEmptyBrokerRow)}
                     />
                   ) : null}
                 </td>
-                <td>Total Brokerage Commission (%)</td>
+                <td>Total</td>
                 <td>
                   <input id="brokeragePercentCargo" value={form.brokeragePercent || ''} readOnly placeholder="0.00" />
                 </td>
@@ -1151,13 +1085,14 @@ export default function EstimateDetailSections({
       />
 {estimateType === 1 || estimateType === 2 ? (
         <CollapsiblePanel
-          title="Bunker Activity"
+          title="Additional Bunker Consumption"
           defaultOpen={false}
           actions={editable ? (
             <Button
               type="button"
               variant="outline"
-              label="Add Activity"
+              size="sm"
+              label="+ Add"
               onClick={() => addRow('bunkerActivityRows', () => createEmptyBunkerActivityRow({
                 price: lookups.marketPrices?.vlsfo || '',
               }))}
@@ -1168,17 +1103,22 @@ export default function EstimateDetailSections({
             <table className={styles.portTable}>
               <thead>
                 <tr>
+                  {editable ? <th style={{ width: 36 }} /> : null}
                   <th>Activity</th>
                   <th>Bunker Grade</th>
-                  <th>Qty. (MT)</th>
-                  <th>Price (USD)</th>
-                  <th>Amount (USD)</th>
-                  {editable ? <th /> : null}
+                  <th>Qty (MT)</th>
+                  <th>Price</th>
+                  <th>Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {(form.bunkerActivityRows || []).map((row) => (
                   <tr key={row.id}>
+                    {editable ? (
+                      <td>
+                        <RowRemoveButton onClick={() => removeRow('bunkerActivityRows', row.id)} />
+                      </td>
+                    ) : null}
                     <td>
                       <select
                         value={row.activity || 'Cold Wash'}
@@ -1266,18 +1206,6 @@ export default function EstimateDetailSections({
                     <td>
                       <input value={row.amount || ''} readOnly placeholder="0.00" />
                     </td>
-                    {editable ? (
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowRemove}
-                          onClick={() => removeRow('bunkerActivityRows', row.id)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </td>
-                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -1286,7 +1214,7 @@ export default function EstimateDetailSections({
         </CollapsiblePanel>
       ) : null}
 
-      <CollapsiblePanel title="Demurrage Dispatch" defaultOpen={false}>
+      <CollapsiblePanel title="Demurrage/Dispatch" defaultOpen={false}>
         <div className={styles.headerGrid} style={{ marginBottom: 8 }}>
           <Field id="timeAllowed" label="Time Allowed (hrs)">
             <input
@@ -1309,14 +1237,14 @@ export default function EstimateDetailSections({
                 <th>Port Leg</th>
                 <th>LP Days</th>
                 <th>LP Rate</th>
-                <th>LP Est ($)</th>
-                <th>LP Actual ($)</th>
-                <th>LP Nett ($)</th>
+                <th>LP Est</th>
+                <th>LP Actual</th>
+                <th>LP Net</th>
                 <th>DP Days</th>
                 <th>DP Rate</th>
-                <th>DP Est ($)</th>
-                <th>DP Actual ($)</th>
-                <th>DP Nett ($)</th>
+                <th>DP Est</th>
+                <th>DP Actual</th>
+                <th>DP Net</th>
               </tr>
             </thead>
             <tbody>
@@ -1416,7 +1344,7 @@ export default function EstimateDetailSections({
           <Field id="demurrageBrokerAmt" label="Demm Brokerage Amt">
             <input id="demurrageBrokerAmt" value={form.demurrageBrokerAmt || '0.00'} readOnly />
           </Field>
-          <Field id="demurrageNett" label="Demm Nett">
+          <Field id="demurrageNett" label="Demm Net">
             <input id="demurrageNett" value={form.demurrageNett || '0.00'} readOnly />
           </Field>
         </div>
@@ -1430,7 +1358,8 @@ export default function EstimateDetailSections({
             <Button
               type="button"
               variant="outline"
-              label="Add Income"
+              size="sm"
+              label="+ Add"
               onClick={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)}
             />
           ) : null}
@@ -1439,16 +1368,21 @@ export default function EstimateDetailSections({
           <table className={styles.portTable}>
             <thead>
               <tr>
+                {editable ? <th style={{ width: 36 }} /> : null}
                 <th>Description</th>
                 <th>Amount</th>
                 <th>Add Comm</th>
                 <th>Net Amount</th>
-                {editable ? <th /> : null}
               </tr>
             </thead>
             <tbody>
               {(form.otherIncomeRows || []).map((row) => (
                 <tr key={row.id}>
+                  {editable ? (
+                    <td>
+                      <RowRemoveButton onClick={() => removeRow('otherIncomeRows', row.id)} />
+                    </td>
+                  ) : null}
                   <td>
                     <input
                       value={row.description}
@@ -1473,18 +1407,6 @@ export default function EstimateDetailSections({
                   <td>
                     <input value={row.netAmount} readOnly />
                   </td>
-                  {editable ? (
-                    <td>
-                      <button
-                        type="button"
-                        className={styles.rowRemove}
-                        onClick={() => removeRow('otherIncomeRows', row.id)}
-                        title="Remove"
-                      >
-                        ×
-                      </button>
-                    </td>
-                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -1504,7 +1426,7 @@ export default function EstimateDetailSections({
                 <th>Bunker Grade</th>
                 <th>Qty. (MT)</th>
                 <th>Price (MT)</th>
-                <th>Amount($)</th>
+                <th>Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -1521,13 +1443,13 @@ export default function EstimateDetailSections({
                 </tr>
               )}
               <tr>
-                <td className={styles.summaryLabelCell}>Total Bunker Consumed - SECA/NON SECA</td>
+                <td className={styles.summaryLabelCell}>Total Bunker Consumed</td>
                 <td colSpan={3}>
                   <input value={form.totalBunkerCost || ''} readOnly placeholder="0.00" />
                 </td>
               </tr>
               <tr>
-                <td className={styles.summaryLabelCell}>CO2 Price($/MT)</td>
+                <td className={styles.summaryLabelCell}>CO2 Price / MT</td>
                 <td>
                   <input
                     id="co2PriceInline"
@@ -1537,7 +1459,7 @@ export default function EstimateDetailSections({
                     onChange={(e) => updateField('co2Price', e.target.value)}
                   />
                 </td>
-                <td className={styles.summaryLabelCell}>EUA Price($/MT)</td>
+                <td className={styles.summaryLabelCell}>EUA Price / MT</td>
                 <td>
                   <input
                     id="euaPriceInline"
@@ -1553,9 +1475,9 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Hire / Vessel Daily Ops" defaultOpen={false}>
+      <CollapsiblePanel title="Vessel OpEx" defaultOpen={false}>
         <div className={styles.headerGrid}>
-          <Field id="hireRate" label="Hire / Day ($)">
+          <Field id="hireRate" label="Hire / Day">
             <input
               {...inputProps('hireRate', {
                 recalc: true,
@@ -1569,16 +1491,24 @@ export default function EstimateDetailSections({
           <Field id="addressCommAmt" label="Add Comm Amt">
             <input id="addressCommAmt" value={form.addressCommAmt || ''} readOnly />
           </Field>
-          <Field id="ballastBonus" label="BB ($)">
+          <Field id="ballastBonus" label="Ballast Bonus">
             <input {...inputProps('ballastBonus', { recalc: true })} />
           </Field>
           <Field id="hireAmt" label="Hire Amt">
             <input {...inputProps('hireAmt')} />
           </Field>
+          <Field id="lessOffHire" label="Less Off Hire">
+            <input id="lessOffHire" value={form.lessOffHire || form.totalOffHireAmt || ''} readOnly placeholder="0.00" />
+          </Field>
+          <Field id="vesselDailyOps" label="Vessel Daily Ops">
+            <input {...inputProps('vesselDailyOps', { recalc: true })} />
+          </Field>
+        </div>
+        <div className={styles.headerGrid} style={{ marginTop: 8 }}>
           <Field id="cvePerMonth" label="CVE (/Month)">
             <input {...inputProps('cvePerMonth', { recalc: true })} />
           </Field>
-          <Field id="cveAmt" label="CVE ($)">
+          <Field id="cveAmt" label="CVE">
             <input id="cveAmt" value={form.cveAmt || ''} readOnly placeholder="0.00" />
           </Field>
           <Field id="offHireCve" label="CVE Off Hire (/Month)">
@@ -1587,78 +1517,10 @@ export default function EstimateDetailSections({
           <Field id="offHireCveAmt" label="CVE Off Hire Amt">
             <input id="offHireCveAmt" value={form.offHireCveAmt || ''} readOnly placeholder="0.00" />
           </Field>
-          <Field id="lessOffHire" label="Less Off Hire">
-            <input id="lessOffHire" value={form.lessOffHire || form.totalOffHireAmt || ''} readOnly placeholder="0.00" />
-          </Field>
-          <Field id="vesselDailyOps" label="Vessel Daily Ops ($)">
-            <input {...inputProps('vesselDailyOps', { recalc: true })} />
-          </Field>
         </div>
       </CollapsiblePanel>
 
 
-      <CollapsiblePanel
-        title="Profit Sharing"
-        defaultOpen={false}
-        actions={editable ? (
-          <Button
-            type="button"
-            variant="outline"
-            label="Add"
-            onClick={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
-          />
-        ) : null}
-      >
-        <div className={styles.tableWrap}>
-          <table className={styles.portTable}>
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Percentage</th>
-                {editable ? <th /> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {(form.profitSharingRows || []).map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <select
-                      value={row.vendorId || ''}
-                      disabled={readOnly}
-                      onChange={(e) => updateRow('profitSharingRows', row.id, { vendorId: e.target.value })}
-                    >
-                      <option value="">— Select —</option>
-                      {(lookups.ownBusiness || lookups.owners || []).map((o) => (
-                        <option key={o.id} value={o.id}>{o.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <input
-                      value={row.percentage || ''}
-                      readOnly={readOnly}
-                      placeholder="0.00"
-                      onChange={(e) => updateRow('profitSharingRows', row.id, { percentage: e.target.value })}
-                    />
-                  </td>
-                  {editable ? (
-                    <td>
-                      <button
-                        type="button"
-                        className={styles.rowRemove}
-                        onClick={() => removeRow('profitSharingRows', row.id)}
-                        title="Remove"
-                      >
-                        ×
-                      </button>
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </CollapsiblePanel>
 {estimateType === 3 ? (
         <CollapsiblePanel title="Dry Cargo — Floating / Fixed / Average" defaultOpen={false}>
             <div className={styles.headerGrid}>
@@ -1723,6 +1585,62 @@ export default function EstimateDetailSections({
             onFieldChange={onFieldChange}
             onRecalc={onRecalc}
           />
+          <CollapsiblePanel
+            title="Profit Sharing"
+            defaultOpen={false}
+            actions={editable ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                label="+ Add"
+                onClick={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
+              />
+            ) : null}
+          >
+            <div className={styles.tableWrap}>
+              <table className={styles.portTable}>
+                <thead>
+                  <tr>
+                    {editable ? <th style={{ width: 36 }} /> : null}
+                    <th>Company</th>
+                    <th>Percentage</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(form.profitSharingRows || []).map((row) => (
+                    <tr key={row.id}>
+                      {editable ? (
+                        <td>
+                          <RowRemoveButton onClick={() => removeRow('profitSharingRows', row.id)} />
+                        </td>
+                      ) : null}
+                      <td>
+                        <select
+                          value={row.vendorId || ''}
+                          disabled={readOnly}
+                          onChange={(e) => updateRow('profitSharingRows', row.id, { vendorId: e.target.value })}
+                        >
+                          <option value="">— Select —</option>
+                          {(lookups.ownBusiness || lookups.owners || []).map((o) => (
+                            <option key={o.id} value={o.id}>{o.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          value={row.percentage || ''}
+                          readOnly={readOnly}
+                          placeholder="0.00"
+                          onChange={(e) => updateRow('profitSharingRows', row.id, { percentage: e.target.value })}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CollapsiblePanel>
         </div>
       </aside>
 

@@ -104,7 +104,7 @@ export default function VesselSearchModal({
         </div>
 
         <div className={styles.footer}>
-          <Button variant="outline" label="Close" onClick={onClose} disabled={submitting} />
+          <Button variant="close" label="Close" onClick={onClose} disabled={submitting} />
           <Button variant="primary" label="Submit" onClick={handleSubmit} disabled={submitting} />
         </div>
       </div>

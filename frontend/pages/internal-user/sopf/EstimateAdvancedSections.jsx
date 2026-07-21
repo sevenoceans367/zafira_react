@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
+import RowRemoveButton from './RowRemoveButton.jsx';
 import {
   BUNKER_TYPE_OPTIONS,
   CURRENCY_OPTIONS,
@@ -141,11 +142,12 @@ export default function EstimateAdvancedSections({
 
   return (
     <>
-      <CollapsiblePanel title="SECA / NON-SECA Bunker Estimate" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('secaBunkerRows', () => createEmptySecaBunkerRow('SECA', 'FO'))} />) : null}>
+      <CollapsiblePanel title="SECA / NON-SECA Bunker Estimate" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+ Add" onClick={() => addRow('secaBunkerRows', () => createEmptySecaBunkerRow('SECA', 'FO'))} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
+                  {editable ? <th style={{ width: 36 }} /> : null}
                   <th>Zone</th>
                   <th>Type</th>
                   <th>Grade</th>
@@ -153,12 +155,16 @@ export default function EstimateAdvancedSections({
                   <th>Price</th>
                   <th>Cost</th>
                   <th>Calc</th>
-                  {editable ? <th /> : null}
                 </tr>
               </thead>
               <tbody>
                 {(form.secaBunkerRows || []).map((row) => (
                   <tr key={row.id}>
+                    {editable ? (
+                      <td>
+                        <RowRemoveButton onClick={() => removeRow('secaBunkerRows', row.id)} />
+                      </td>
+                    ) : null}
                     <td>
                       <select
                         value={row.identify}
@@ -216,18 +222,6 @@ export default function EstimateAdvancedSections({
                         onChange={(e) => updateRow('secaBunkerRows', row.id, { calc: e.target.checked })}
                       />
                     </td>
-                    {editable ? (
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowRemove}
-                          onClick={() => removeRow('secaBunkerRows', row.id)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </td>
-                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -235,22 +229,27 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Passage Locations" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('passageLocations', createEmptyPassageLocationRow)} />) : null}>
+      <CollapsiblePanel title="Passage Locations" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+ Add" onClick={() => addRow('passageLocations', createEmptyPassageLocationRow)} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
+                  {editable ? <th style={{ width: 36 }} /> : null}
                   <th>From</th>
                   <th>To</th>
                   <th>Passage</th>
                   <th>Speed</th>
                   <th>Distance</th>
-                  {editable ? <th /> : null}
                 </tr>
               </thead>
               <tbody>
                 {(form.passageLocations || []).map((row) => (
                   <tr key={row.id}>
+                    {editable ? (
+                      <td>
+                        <RowRemoveButton onClick={() => removeRow('passageLocations', row.id)} />
+                      </td>
+                    ) : null}
                     <td>
                       <input
                         value={row.fromLocation}
@@ -294,18 +293,6 @@ export default function EstimateAdvancedSections({
                         onChange={(e) => updateRow('passageLocations', row.id, { distance: e.target.value })}
                       />
                     </td>
-                    {editable ? (
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowRemove}
-                          onClick={() => removeRow('passageLocations', row.id)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </td>
-                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -313,11 +300,12 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Freight Quantity / Vendors" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('freightQtyRows', createEmptyFreightQtyRow)} />) : null}>
+      <CollapsiblePanel title="Freight Quantity / Vendors" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+ Add" onClick={() => addRow('freightQtyRows', createEmptyFreightQtyRow)} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
+                  {editable ? <th style={{ width: 36 }} /> : null}
                   <th>Vendor</th>
                   <th>Cargo</th>
                   <th>Agreed Freight</th>
@@ -330,12 +318,16 @@ export default function EstimateAdvancedSections({
                   <th>Currency</th>
                   <th>Local Agreed</th>
                   <th>FX Rate</th>
-                  {editable ? <th /> : null}
                 </tr>
               </thead>
               <tbody>
                 {(form.freightQtyRows || []).map((row) => (
                   <tr key={row.id}>
+                    {editable ? (
+                      <td>
+                        <RowRemoveButton onClick={() => removeRow('freightQtyRows', row.id)} />
+                      </td>
+                    ) : null}
                     <td>
                       <select
                         value={row.vendorId}
@@ -411,18 +403,6 @@ export default function EstimateAdvancedSections({
                         onChange={(e) => updateRow('freightQtyRows', row.id, { exchangeRate: e.target.value })}
                       />
                     </td>
-                    {editable ? (
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowRemove}
-                          onClick={() => removeRow('freightQtyRows', row.id)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </td>
-                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -430,24 +410,29 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Off-Hire" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('offHireRows', createEmptyOffHireRow)} />) : null}>
+      <CollapsiblePanel title="Off-Hire" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+ Add" onClick={() => addRow('offHireRows', createEmptyOffHireRow)} />) : null}>
 {(form.offHireRows || []).map((row) => (
             <div key={row.id} className={styles.nestedBlock}>
               <div className={styles.tableWrap}>
                 <table className={styles.portTable}>
                   <thead>
                     <tr>
+                      {editable ? <th style={{ width: 36 }} /> : null}
                       <th>Reason</th>
                       <th>From</th>
                       <th>To</th>
                       <th>Days</th>
                       <th>Rate</th>
                       <th>Amount</th>
-                      {editable ? <th /> : null}
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
+                      {editable ? (
+                        <td>
+                          <RowRemoveButton onClick={() => removeRow('offHireRows', row.id)} />
+                        </td>
+                      ) : null}
                       <td>
                         <input
                           value={row.reason}
@@ -496,18 +481,6 @@ export default function EstimateAdvancedSections({
                         />
                       </td>
                       <td><input value={row.amount} readOnly /></td>
-                      {editable ? (
-                        <td>
-                          <button
-                            type="button"
-                            className={styles.rowRemove}
-                            onClick={() => removeRow('offHireRows', row.id)}
-                            title="Remove"
-                          >
-                            ×
-                          </button>
-                        </td>
-                      ) : null}
                     </tr>
                   </tbody>
                 </table>
@@ -528,17 +501,22 @@ export default function EstimateAdvancedSections({
                 <table className={styles.portTable}>
                   <thead>
                     <tr>
+                      {editable ? <th style={{ width: 36 }} /> : null}
                       <th>Grade</th>
                       <th>Qty</th>
                       <th>Price</th>
                       <th>Amount</th>
                       <th>Calc</th>
-                      {editable ? <th /> : null}
                     </tr>
                   </thead>
                   <tbody>
                     {(row.bunkers || []).map((b) => (
                       <tr key={b.id}>
+                        {editable ? (
+                          <td>
+                            <RowRemoveButton onClick={() => removeOffHireBunker(row.id, b.id)} />
+                          </td>
+                        ) : null}
                         <td>
                           <select
                             value={b.bunkerGradeId}
@@ -574,18 +552,6 @@ export default function EstimateAdvancedSections({
                             onChange={(e) => updateOffHireBunker(row.id, b.id, { calc: e.target.checked })}
                           />
                         </td>
-                        {editable ? (
-                          <td>
-                            <button
-                              type="button"
-                              className={styles.rowRemove}
-                              onClick={() => removeOffHireBunker(row.id, b.id)}
-                              title="Remove"
-                            >
-                              ×
-                            </button>
-                          </td>
-                        ) : null}
                       </tr>
                     ))}
                   </tbody>
@@ -595,22 +561,27 @@ export default function EstimateAdvancedSections({
           ))}
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Delivery Bunkers" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('deliveryBunkerRows', () => createEmptyDeliveryBunkerRow('DEL'))} />) : null}>
+      <CollapsiblePanel title="Delivery Bunkers" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+ Add" onClick={() => addRow('deliveryBunkerRows', () => createEmptyDeliveryBunkerRow('DEL'))} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
+                  {editable ? <th style={{ width: 36 }} /> : null}
                   <th>Grade</th>
                   <th>Date</th>
                   <th>Qty</th>
                   <th>Price</th>
                   <th>Amount</th>
-                  {editable ? <th /> : null}
                 </tr>
               </thead>
               <tbody>
                 {(form.deliveryBunkerRows || []).map((row) => (
                   <tr key={row.id}>
+                    {editable ? (
+                      <td>
+                        <RowRemoveButton onClick={() => removeRow('deliveryBunkerRows', row.id)} />
+                      </td>
+                    ) : null}
                     <td>
                       <select
                         value={row.bunkerGradeId}
@@ -650,18 +621,6 @@ export default function EstimateAdvancedSections({
                       />
                     </td>
                     <td><input value={row.amount} readOnly /></td>
-                    {editable ? (
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowRemove}
-                          onClick={() => removeRow('deliveryBunkerRows', row.id)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </td>
-                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -669,22 +628,27 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Redelivery Bunkers" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('redeliveryBunkerRows', () => createEmptyDeliveryBunkerRow('REDEL'))} />) : null}>
+      <CollapsiblePanel title="Redelivery Bunkers" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+ Add" onClick={() => addRow('redeliveryBunkerRows', () => createEmptyDeliveryBunkerRow('REDEL'))} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
+                  {editable ? <th style={{ width: 36 }} /> : null}
                   <th>Grade</th>
                   <th>Date</th>
                   <th>Qty</th>
                   <th>Price</th>
                   <th>Amount</th>
-                  {editable ? <th /> : null}
                 </tr>
               </thead>
               <tbody>
                 {(form.redeliveryBunkerRows || []).map((row) => (
                   <tr key={row.id}>
+                    {editable ? (
+                      <td>
+                        <RowRemoveButton onClick={() => removeRow('redeliveryBunkerRows', row.id)} />
+                      </td>
+                    ) : null}
                     <td>
                       <select
                         value={row.bunkerGradeId}
@@ -724,18 +688,6 @@ export default function EstimateAdvancedSections({
                       />
                     </td>
                     <td><input value={row.amount} readOnly /></td>
-                    {editable ? (
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowRemove}
-                          onClick={() => removeRow('redeliveryBunkerRows', row.id)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </td>
-                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -743,18 +695,23 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Linked Invoices" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('invoiceRows', createEmptyInvoiceRow)} />) : null}>
+      <CollapsiblePanel title="Linked Invoices" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+ Add" onClick={() => addRow('invoiceRows', createEmptyInvoiceRow)} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
+                  {editable ? <th style={{ width: 36 }} /> : null}
                   <th>Invoice ID</th>
-                  {editable ? <th /> : null}
                 </tr>
               </thead>
               <tbody>
                 {(form.invoiceRows || []).map((row) => (
                   <tr key={row.id}>
+                    {editable ? (
+                      <td>
+                        <RowRemoveButton onClick={() => removeRow('invoiceRows', row.id)} />
+                      </td>
+                    ) : null}
                     <td>
                       <input
                         value={row.invoiceId}
@@ -762,18 +719,6 @@ export default function EstimateAdvancedSections({
                         onChange={(e) => updateRow('invoiceRows', row.id, { invoiceId: e.target.value })}
                       />
                     </td>
-                    {editable ? (
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowRemove}
-                          onClick={() => removeRow('invoiceRows', row.id)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </td>
-                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -781,18 +726,23 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Disponent Owners" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('disponentRows', createEmptyDisponentRow)} />) : null}>
+      <CollapsiblePanel title="Disponent Owners" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+ Add" onClick={() => addRow('disponentRows', createEmptyDisponentRow)} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
+                  {editable ? <th style={{ width: 36 }} /> : null}
                   <th>Disponent Owner</th>
-                  {editable ? <th /> : null}
                 </tr>
               </thead>
               <tbody>
                 {(form.disponentRows || []).map((row) => (
                   <tr key={row.id}>
+                    {editable ? (
+                      <td>
+                        <RowRemoveButton onClick={() => removeRow('disponentRows', row.id)} />
+                      </td>
+                    ) : null}
                     <td>
                       <input
                         value={row.name}
@@ -800,18 +750,6 @@ export default function EstimateAdvancedSections({
                         onChange={(e) => updateRow('disponentRows', row.id, { name: e.target.value })}
                       />
                     </td>
-                    {editable ? (
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowRemove}
-                          onClick={() => removeRow('disponentRows', row.id)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </td>
-                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -819,19 +757,24 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Voyage Events" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" label="Add" onClick={() => addRow('voyageEventRows', createEmptyVoyageEventRow)} />) : null}>
+      <CollapsiblePanel title="Voyage Events" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+ Add" onClick={() => addRow('voyageEventRows', createEmptyVoyageEventRow)} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
+                  {editable ? <th style={{ width: 36 }} /> : null}
                   <th>Event Details</th>
                   <th>Date</th>
-                  {editable ? <th /> : null}
                 </tr>
               </thead>
               <tbody>
                 {(form.voyageEventRows || []).map((row) => (
                   <tr key={row.id}>
+                    {editable ? (
+                      <td>
+                        <RowRemoveButton onClick={() => removeRow('voyageEventRows', row.id)} />
+                      </td>
+                    ) : null}
                     <td>
                       <input
                         value={row.details}
@@ -851,18 +794,6 @@ export default function EstimateAdvancedSections({
                         />
                       )}
                     </td>
-                    {editable ? (
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowRemove}
-                          onClick={() => removeRow('voyageEventRows', row.id)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </td>
-                    ) : null}
                   </tr>
                 ))}
               </tbody>

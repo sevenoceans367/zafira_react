@@ -223,13 +223,13 @@ export async function dbGetCompareSheetsTc(comId) {
     buildRow('Gross Hire', pick('grossHire'), { section: 'REVENUE' }),
     buildRow('Add Comm(USD)', pick('addComm'), { section: 'REVENUE' }),
     buildRow("Broker's Comm(USD)", pick('brokerComm'), { section: 'REVENUE' }),
-    buildRow('Nett Hire(USD/day)', pick('nettHire'), { section: 'REVENUE' }),
+    buildRow('Net Hire(USD/day)', pick('nettHire'), { section: 'REVENUE' }),
     buildRow('Other expenses(USD)', pick('otherExpenses'), { section: 'EXPENSES' }),
-    buildRow('Nett Hireage', pick('netHireage'), { section: 'EXPENSES' }),
+    buildRow('Net Hireage', pick('netHireage'), { section: 'EXPENSES' }),
     buildRow('Total Expenses(USD)', pick('totalExpenses'), { section: 'EXPENSES' }),
     buildRow('TC Earnings(USD)', pick('tcEarnings'), { section: 'RESULTS' }),
     buildRow('Profit/Day(USD)', pick('profitPerDay'), { section: 'RESULTS' }),
-    buildRow('Nett Daily Profit', pick('netDailyProfit'), { section: 'RESULTS' }),
+    buildRow('Net Daily Profit', pick('netDailyProfit'), { section: 'RESULTS' }),
     buildRow('P/L', pick('profitLoss'), { section: 'RESULTS' }),
   ];
 

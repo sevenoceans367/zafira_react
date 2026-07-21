@@ -192,7 +192,7 @@ export default function TcInExpensesModal({
       <div className={`${styles.modal} ${styles.tcInModal}`}>
         <div className={styles.modalHeader}>
           <h3>{readOnly ? 'View TC Hire Details' : 'TC Hire Details'}</h3>
-          <Button variant="outline" label="Close" onClick={onClose} />
+          <Button variant="close" label="Close" onClick={onClose} />
         </div>
 
         <div className={readOnly ? styles.viewModeLock : undefined}>
@@ -303,7 +303,7 @@ export default function TcInExpensesModal({
                   />
                 </div>
                 <div className={styles.field}>
-                  <label>Nett Hire-age (USD)</label>
+                  <label>Net Hire-age (USD)</label>
                   <input className={styles.inputReadonly} readOnly value={resolved.nettHireage} />
                 </div>
                 <div className={styles.field}>
@@ -461,7 +461,7 @@ export default function TcInExpensesModal({
 
         <div className={styles.formActions}>
           {!readOnly ? <Button label="Apply" onClick={handleApply} /> : null}
-          <Button variant="outline" label="Close" onClick={onClose} />
+          <Button variant="close" label="Close" onClick={onClose} />
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
+import formStyles from './FormControls/FormControls.module.css';
 import styles from './DmyDateInput.module.css';
 
 /**
@@ -8,12 +9,14 @@ import styles from './DmyDateInput.module.css';
  * (or dd-mm-yyyy HH:MM when enableTime is true).
  * Calendar is appended to document.body so overflow:hidden parents (AppShell)
  * do not clip it.
+ *
+ * Uses shared form chrome by default (FormControls). Pass className to override.
  */
 const DmyDateInput = ({
   value = '',
   onChange,
   id,
-  className = 'form-control',
+  className,
   placeholder,
   disabled = false,
   required = false,
@@ -28,6 +31,13 @@ const DmyDateInput = ({
   const resolvedPlaceholder = placeholder
     || (enableTime ? 'dd-mm-yyyy HH:MM' : 'dd-mm-yyyy');
   const dateFormat = enableTime ? 'd-m-Y H:i' : 'd-m-Y';
+  const resolvedClassName = [
+    className != null ? className : formStyles.control,
+    size === 'sm' ? formStyles.sm : '',
+    styles.input,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   useEffect(() => {
     if (!inputRef.current) return undefined;
@@ -78,14 +88,12 @@ const DmyDateInput = ({
     if (disabled) fp.close();
   }, [disabled]);
 
-  const sizeClass = size === 'sm' ? 'form-control-sm' : '';
-
   return (
     <input
       ref={inputRef}
       type="text"
       id={id}
-      className={`${className} ${sizeClass} ${styles.input}`.trim()}
+      className={resolvedClassName}
       placeholder={resolvedPlaceholder}
       disabled={disabled}
       required={required}

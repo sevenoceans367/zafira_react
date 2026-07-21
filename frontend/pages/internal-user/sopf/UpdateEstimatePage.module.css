@@ -72,6 +72,13 @@
   font-size: 10px;
 }
 
+.estimateAside .distDaysGrid {
+  margin-top: 6px;
+  padding-top: 6px;
+  gap: 8px;
+  font-size: 10px;
+}
+
 .estimateAside .subHeading {
   margin: 6px 0 4px;
   font-size: 11px;
@@ -101,7 +108,6 @@
 .panelHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--color-border, #e5e7eb);
@@ -125,7 +131,7 @@
   cursor: pointer;
   text-align: left;
   min-width: 0;
-  flex: 1;
+  flex: 0 1 auto;
 }
 
 .panelChevron {
@@ -146,10 +152,32 @@
   padding: 10px;
 }
 
+/* Inverse Freight Results header only — body stays light */
+.panelInverse {
+  background: #fff;
+  border-color: var(--color-border, #e5e7eb);
+}
+
+.panelInverse .panelHeader {
+  background: var(--color-primary, #274670);
+  border-bottom-color: #1c3558;
+  color: #fff;
+}
+
+.panelInverse .panelChevron {
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .headerGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 6px 8px;
+}
+
+.field {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .field label {
@@ -251,10 +279,6 @@
   text-align: center;
 }
 
-.portAddRow {
-  margin-top: 8px;
-}
-
 @media (max-width: 1100px) {
   .portLegGrid {
     grid-template-columns: 1fr;
@@ -308,40 +332,66 @@
 }
 
 .rowRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
   border: none;
+  border-radius: 4px;
   background: transparent;
   color: #b42318;
-  font-size: 16px;
+  font-size: 12px;
   cursor: pointer;
   line-height: 1;
-  padding: 0 4px;
+  padding: 0;
+}
+
+.rowRemove:hover:not(:disabled) {
+  background: rgba(180, 35, 24, 0.1);
+  color: #912018;
+}
+
+.rowRemove:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rowRemove i {
+  font-size: 12px;
+  line-height: 1;
 }
 
 .fetchBtn {
-  border: 1px solid #b42318;
-  background: #dc2626;
-  color: #fff;
+  border: 1px solid #f87171;
+  background: #fca5a5;
+  color: #7f1d1d;
   font-size: 10px;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 3px;
   cursor: pointer;
   white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .fetchBtn:hover {
-  background: #b91c1c;
+  background: #991b1b;
+  border-color: #7f1d1d;
+  color: #fff;
 }
 
 .addRowBtn {
   border: 1px solid var(--color-border, #d1d5db);
   background: #fff;
   color: #274670;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   padding: 2px 8px;
   border-radius: 3px;
   cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .addRowBtn:hover {
@@ -362,12 +412,34 @@
   gap: 6px;
   min-width: 0;
   max-width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+/* LP = company blue, DP = orange, TP/BP = teal */
+.portLaytimeLp {
+  background: #dce6f2;
+  border-color: #b0c2d9;
+}
+
+.portLaytimeDp {
+  background: #fde8df;
+  border-color: #f5c4b0;
+}
+
+.portLaytimeTp {
+  background: #d9f0f0;
+  border-color: #a8d9d9;
 }
 
 .portLaytimeBlock .tableWrap {
   overflow-x: auto;
   overflow-y: visible;
   max-width: 100%;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .portLaytimeBlock .portTable {
@@ -378,8 +450,20 @@
 
 .portLaytimeTitle {
   font-size: 11px;
-  font-weight: 600;
-  color: #4b5563;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.portLaytimeLp .portLaytimeTitle {
+  color: var(--color-primary, #274670);
+}
+
+.portLaytimeDp .portLaytimeTitle {
+  color: var(--color-accent, #f4652c);
+}
+
+.portLaytimeTp .portLaytimeTitle {
+  color: #0d7377;
 }
 
 .portNameCell {
@@ -404,6 +488,16 @@
 
 .compactSelectWrap {
   max-width: 220px;
+}
+
+.cargoMultiSelectField {
+  grid-column: span 2;
+  min-width: 0;
+}
+
+.cargoMultiSelectWrap {
+  max-width: none;
+  width: 100%;
 }
 
 .bunkerGradeCell {
@@ -456,7 +550,7 @@
 
 .recalcBar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   margin-top: 8px;
 }
 
@@ -487,7 +581,7 @@
 }
 
 .resultAccent {
-  color: #1b77a6;
+  color: var(--color-accent, #f4652c);
   font-weight: 600;
 }
 
@@ -513,6 +607,35 @@
   font-weight: 600;
 }
 
+.distDaysGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #edf0f2;
+  font-size: 11px;
+}
+
+.distDaysCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.distDaysCol div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #4b5563;
+}
+
+.distDaysCol strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
 .subHeading {
   margin: 10px 0 6px;
   font-size: 12px;
@@ -523,16 +646,18 @@
 .checkRow {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
   margin: 8px 0 4px;
-  color: #dc2626;
+  color: var(--color-accent, #f4652c);
   font-weight: 700;
   font-size: 11px;
 }
 
 @media (max-width: 900px) {
   .resultsGrid,
-  .distGrid {
+  .distGrid,
+  .distDaysGrid {
     grid-template-columns: 1fr;
   }
 

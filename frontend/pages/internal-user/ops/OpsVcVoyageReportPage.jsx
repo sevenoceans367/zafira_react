@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, FilterBar, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchVoyageReports } from '../../../services/opsVc.js';
 import styles from './OpsPages.module.css';
@@ -119,20 +119,17 @@ export default function OpsVcVoyageReportPage() {
       {loading ? <LoadingOverlay /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.toolbar}>
-        <div>
-          {data?.vesselName ? (
-            <div className={styles.muted}>
-              {data.vesselName}
-              {data.voyageNo ? ` · Voy ${data.voyageNo}` : ''}
-              {data.vesselImoNo ? ` · IMO ${data.vesselImoNo}` : ''}
-            </div>
-          ) : null}
-        </div>
-        <div className={styles.toolbarActions}>
-          <Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />
-        </div>
-      </div>
+      <FilterBar
+        actions={<Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />}
+      >
+        {data?.vesselName ? (
+          <div className={styles.muted}>
+            {data.vesselName}
+            {data.voyageNo ? ` · Voy ${data.voyageNo}` : ''}
+            {data.vesselImoNo ? ` · IMO ${data.vesselImoNo}` : ''}
+          </div>
+        ) : null}
+      </FilterBar>
 
       <h3 className={styles.title}>VOYAGE REPORT</h3>
 

@@ -7,6 +7,7 @@ import {
   createEmptyTankerWsRow,
 } from './estimateDetail.constants.js';
 import { getAddRowBlockMessage } from './estimateValidation.js';
+import RowRemoveButton from './RowRemoveButton.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
 function Field({ id, label, children }) {
@@ -40,18 +41,19 @@ function CargoDetailsTable({
   addRow,
   removeRow,
   createRow,
-  addLabel = 'Add',
+  addLabel = '+ Add',
 }) {
   const totals = sumCargoRows(rows);
 
   return (
     <div className={styles.nestedBlock}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <strong>{title}</strong>
         {editable ? (
           <Button
             type="button"
             variant="outline"
+            size="sm"
             label={addLabel}
             onClick={() => addRow(collection, createRow)}
           />
@@ -61,18 +63,23 @@ function CargoDetailsTable({
         <table className={styles.portTable}>
           <thead>
             <tr>
+              {editable ? <th style={{ width: 36 }} /> : null}
               <th>Shipper/Charterer</th>
               <th>Cargo</th>
               <th>Cargo (CBM)</th>
               <th>Cargo (MT)</th>
-              <th>Rate USD/MT</th>
-              <th>Amount (USD)</th>
-              {editable ? <th /> : null}
+              <th>Rate / MT</th>
+              <th>Amount</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.id}>
+                {editable ? (
+                  <td>
+                    <RowRemoveButton onClick={() => removeRow(collection, row.id)} />
+                  </td>
+                ) : null}
                 <td>
                   <select
                     value={row.charterer || row.vendorId || ''}
@@ -133,31 +140,22 @@ function CargoDetailsTable({
                   />
                 </td>
                 <td>
-                  <input value={row.amountUsd || ''} readOnly placeholder="0.00" />
+                  <input
+                    value={row.amountUsd !== '' && row.amountUsd != null ? row.amountUsd : ''}
+                    readOnly
+                    placeholder="0.00"
+                  />
                 </td>
-                {editable ? (
-                  <td>
-                    <button
-                      type="button"
-                      className={styles.rowRemove}
-                      onClick={() => removeRow(collection, row.id)}
-                      title="Remove"
-                    >
-                      ×
-                    </button>
-                  </td>
-                ) : null}
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={2}><strong>Total</strong></td>
-              <td>{totals.cbm ? totals.cbm.toFixed(2) : ''}</td>
-              <td>{totals.mt ? totals.mt.toFixed(2) : ''}</td>
+              <td colSpan={editable ? 3 : 2}><strong>Total</strong></td>
+              <td>{totals.cbm.toFixed(2)}</td>
+              <td>{totals.mt.toFixed(2)}</td>
               <td />
-              <td>{totals.amount ? totals.amount.toFixed(2) : ''}</td>
-              {editable ? <td /> : null}
+              <td>{totals.amount.toFixed(2)}</td>
             </tr>
           </tfoot>
         </table>
@@ -277,7 +275,7 @@ export default function TankerFreightModeSection({
           </label>
           {isDistributed ? (
             <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              Freight Rate (USD/MT)
+              Freight Rate / MT
               <input
                 id="tankerFreightRate"
                 value={form.tankerFreightRate || ''}
@@ -308,7 +306,7 @@ export default function TankerFreightModeSection({
               disabled={readOnly}
               onChange={(e) => handleChkLumpsumChange(e.target.checked)}
             />
-            <strong>Lump-sum (USD)</strong>
+            <strong>Lump-sum</strong>
           </label>
 
           {chkLumpsum ? (
@@ -316,7 +314,7 @@ export default function TankerFreightModeSection({
               <Field id="lumpsumQty" label="Cargo Qty (MT)">
                 <input {...inputProps('lumpsumQty', { recalc: true })} />
               </Field>
-              <Field id="lumpsum" label="Amount (USD)">
+              <Field id="lumpsum" label="Amount">
                 <input {...inputProps('lumpsum', { recalc: true })} />
               </Field>
               <Field id="lumpsumVendor" label="Shipper/Charterer">
@@ -351,10 +349,10 @@ export default function TankerFreightModeSection({
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <strong>Freight Adjustment</strong>
                 {editable ? (
-                  <Button type="button" variant="outline" label="Add" onClick={addTankerWsRow} />
+                  <Button type="button" variant="outline" size="sm" label="+ Add" onClick={addTankerWsRow} />
                 ) : null}
               </div>
               {(form.tankerWsRows || []).map((row, rowIndex) => (
@@ -401,7 +399,8 @@ export default function TankerFreightModeSection({
                     <table className={styles.portTable}>
                       <thead>
                         <tr>
-                          <th style={{ width: 40 }} />
+                          <th style={{ width: 36 }} />
+                          <th />
                           <th />
                           <th>Flat Rate</th>
                           <th>WS</th>
@@ -413,14 +412,7 @@ export default function TankerFreightModeSection({
                         <tr>
                           <td>
                             {editable ? (
-                              <button
-                                type="button"
-                                className={styles.rowRemove}
-                                onClick={() => removeRow('tankerWsRows', row.id)}
-                                title="Remove"
-                              >
-                                ×
-                              </button>
+                              <RowRemoveButton onClick={() => removeRow('tankerWsRows', row.id)} />
                             ) : null}
                           </td>
                           <th scope="row" className={styles.tankerWsRowLabel}>Min Cargo Qty</th>
@@ -467,14 +459,19 @@ export default function TankerFreightModeSection({
                             <select
                               id={`tankCustomer_${rowIndex}`}
                               name="customerId"
-                              value={row.customerId}
+                              value={row.customerId || ''}
                               disabled={readOnly}
                               onChange={(e) => handleTankerWsFieldChange(row, 'customerId', e.target.value)}
                             >
                               <option value="">Select</option>
-                              {(lookups.owners || []).map((v) => (
-                                <option key={v.id} value={v.id}>{v.name}</option>
-                              ))}
+                              {(lookups.owners || []).map((v) => {
+                                const optionValue = String(v.code || v.id || '');
+                                return (
+                                  <option key={optionValue || v.id} value={optionValue}>
+                                    {v.name}
+                                  </option>
+                                );
+                              })}
                             </select>
                           </td>
                         </tr>
@@ -582,7 +579,7 @@ export default function TankerFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(2)}
-            addLabel="Add Overage"
+            addLabel="+ Add Overage"
           />
           <CargoDetailsTable
             title="Dead-freight"
@@ -595,7 +592,7 @@ export default function TankerFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(3)}
-            addLabel="Add Dead-freight"
+            addLabel="+ Add Dead-freight"
           />
         </>
       ) : null}

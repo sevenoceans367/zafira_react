@@ -264,7 +264,7 @@ export default function RunningCoasListPage() {
           <div className={styles.modal} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <h4>{modal.title}</h4>
-              <Button variant="outline" size="sm" label="Close" onClick={() => setModal(null)} />
+              <Button variant="close" size="sm" label="Close" onClick={() => setModal(null)} />
             </div>
             {modal.loading ? <p>Loading…</p> : (
               <div className={styles.splitPanels}>

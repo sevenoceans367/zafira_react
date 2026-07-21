@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
+import {
+  Button,
+  DmyDateInput,
+  FilterBar,
+  FilterField,
+  LoadingOverlay,
+  TextInput,
+} from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchYearUpdation, updateYearAddOnDate } from '../../../services/opsVc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
@@ -82,22 +89,18 @@ export default function OpsVcYearUpdationPage() {
 
       <h3 className={styles.title}>Year Updation</h3>
 
-      <div className={styles.toolbar}>
-        <div className={styles.filters}>
-          <div className={styles.filterField}>
-            <label htmlFor="ops-vc-year-search">Search</label>
-            <input
-              id="ops-vc-year-search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Voyage no, vessel…"
-            />
-          </div>
-        </div>
-        <div className={styles.toolbarActions}>
-          <Button variant="primary" label="Load" onClick={load} disabled={loading} />
-        </div>
-      </div>
+      <FilterBar
+        actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
+      >
+        <FilterField id="ops-vc-year-search" label="Search">
+          <TextInput
+            id="ops-vc-year-search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Voyage no, vessel…"
+          />
+        </FilterField>
+      </FilterBar>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>

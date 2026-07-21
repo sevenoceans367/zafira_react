@@ -1,6 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, DmyDateInput, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import {
+  Button,
+  DmyDateInput,
+  Field,
+  FilterBar,
+  LoadingOverlay,
+  Select,
+  Textarea,
+  TextInput,
+  useConfirm,
+} from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchTcChecklist, saveTcChecklist } from '../../../services/opsTc.js';
 import styles from './OpsPages.module.css';
@@ -50,8 +60,7 @@ function EtaRows({ rows, onChange, onAdd, onRemove, title }) {
           >
             ×
           </button>
-          <input
-            className={styles.input}
+          <TextInput
             value={row.text || ''}
             onChange={(e) => onChange(index, { text: e.target.value })}
             placeholder="ENTER ETA NOTICES"
@@ -189,13 +198,14 @@ export default function OpsTcChecklistPage() {
       {saving ? <LoadingOverlay active label="Saving checklist…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.toolbar}>
-        <div />
-        <div className={styles.toolbarActions}>
-          <span className={styles.linkMuted} title="PDF not migrated yet">Generate PDF</span>
-          <Button variant="outline" label="Back" href={backHref} />
-        </div>
-      </div>
+      <FilterBar
+        actions={(
+          <>
+            <span className={styles.linkMuted} title="PDF not migrated yet">Generate PDF</span>
+            <Button variant="outline" label="Back" href={backHref} />
+          </>
+        )}
+      />
 
       <h3 className={styles.title}>TC CHECKLIST</h3>
 
@@ -236,9 +246,8 @@ export default function OpsTcChecklistPage() {
           ))}
         </div>
         <div className={styles.formGrid} style={{ marginTop: 12 }}>
-          <div className={styles.field}>
-            <label htmlFor="tc-checklist-pni">Charterers PNI</label>
-            <select
+          <Field id="tc-checklist-pni" label="Charterers PNI">
+            <Select
               id="tc-checklist-pni"
               value={form.chartererPni || ''}
               onChange={(e) => setField('chartererPni', e.target.value)}
@@ -247,44 +256,59 @@ export default function OpsTcChecklistPage() {
               {pniVendors.map((opt) => (
                 <option key={opt.id} value={opt.id}>{opt.name}</option>
               ))}
-            </select>
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="tc-checklist-last-agent">Last Port Agent</label>
-            <input
+            </Select>
+          </Field>
+          <Field id="tc-checklist-last-agent" label="Last Port Agent">
+            <TextInput
               id="tc-checklist-last-agent"
-              className={styles.input}
               value={form.lastPortAgent || ''}
               onChange={(e) => setField('lastPortAgent', e.target.value)}
               placeholder="LAST PORT AGENT"
             />
-          </div>
+          </Field>
         </div>
       </div>
 
       <div className={styles.section}>
         <h4 className={styles.sectionTitle}>DELIVERY</h4>
         <div className={styles.formGrid}>
-          <div className={styles.field}>
-            <label>Laycan From</label>
-            <DmyDateInput enableTime value={form.laycanFrom || ''} onChange={(v) => setField('laycanFrom', v)} />
-          </div>
-          <div className={styles.field}>
-            <label>Laycan To</label>
-            <DmyDateInput enableTime value={form.laycanTo || ''} onChange={(v) => setField('laycanTo', v)} />
-          </div>
-          <div className={styles.field}>
-            <label>Draft Restrictions As Per CP</label>
-            <input className={styles.input} value={form.draftResAsPerCp || ''} onChange={(e) => setField('draftResAsPerCp', e.target.value)} />
-          </div>
-          <div className={styles.field}>
-            <label>Load Rate - CP</label>
-            <input className={styles.input} value={form.loadRateCp || ''} onChange={(e) => setField('loadRateCp', e.target.value)} />
-          </div>
-          <div className={styles.field}>
-            <label>Discharge Rate - CP</label>
-            <input className={styles.input} value={form.dischargeRateCp || ''} onChange={(e) => setField('dischargeRateCp', e.target.value)} />
-          </div>
+          <Field id="tc-checklist-laycan-from" label="Laycan From">
+            <DmyDateInput
+              id="tc-checklist-laycan-from"
+              enableTime
+              value={form.laycanFrom || ''}
+              onChange={(v) => setField('laycanFrom', v)}
+            />
+          </Field>
+          <Field id="tc-checklist-laycan-to" label="Laycan To">
+            <DmyDateInput
+              id="tc-checklist-laycan-to"
+              enableTime
+              value={form.laycanTo || ''}
+              onChange={(v) => setField('laycanTo', v)}
+            />
+          </Field>
+          <Field id="tc-checklist-draft-res" label="Draft Restrictions As Per CP">
+            <TextInput
+              id="tc-checklist-draft-res"
+              value={form.draftResAsPerCp || ''}
+              onChange={(e) => setField('draftResAsPerCp', e.target.value)}
+            />
+          </Field>
+          <Field id="tc-checklist-load-rate" label="Load Rate - CP">
+            <TextInput
+              id="tc-checklist-load-rate"
+              value={form.loadRateCp || ''}
+              onChange={(e) => setField('loadRateCp', e.target.value)}
+            />
+          </Field>
+          <Field id="tc-checklist-discharge-rate" label="Discharge Rate - CP">
+            <TextInput
+              id="tc-checklist-discharge-rate"
+              value={form.dischargeRateCp || ''}
+              onChange={(e) => setField('dischargeRateCp', e.target.value)}
+            />
+          </Field>
         </div>
       </div>
 
@@ -299,16 +323,16 @@ export default function OpsTcChecklistPage() {
       <div className={styles.section}>
         <h4 className={styles.sectionTitle}>ARRIVAL (Delivery)</h4>
         <div className={styles.formGrid}>
-          <input className={styles.input} value={form.delivery.actualArrivalText || ''} onChange={(e) => setDelivery('actualArrivalText', e.target.value)} />
+          <TextInput value={form.delivery.actualArrivalText || ''} onChange={(e) => setDelivery('actualArrivalText', e.target.value)} />
           <DmyDateInput enableTime value={form.delivery.actualArrivalDate || ''} onChange={(v) => setDelivery('actualArrivalDate', v)} />
-          <input className={styles.input} value={form.delivery.norTenderedText || ''} onChange={(e) => setDelivery('norTenderedText', e.target.value)} />
+          <TextInput value={form.delivery.norTenderedText || ''} onChange={(e) => setDelivery('norTenderedText', e.target.value)} />
           <DmyDateInput enableTime value={form.delivery.norTenderedDate || ''} onChange={(v) => setDelivery('norTenderedDate', v)} />
-          <input className={styles.input} value={form.delivery.placePortText || ''} onChange={(e) => setDelivery('placePortText', e.target.value)} />
-          <input className={styles.input} value={form.delivery.placePortData || ''} readOnly />
-          <input className={styles.input} value={form.delivery.foDoText || ''} onChange={(e) => setDelivery('foDoText', e.target.value)} />
-          <input className={styles.input} value={form.delivery.foDoData || ''} onChange={(e) => setDelivery('foDoData', e.target.value)} />
-          <input className={styles.input} value={form.delivery.dateTimeText || ''} onChange={(e) => setDelivery('dateTimeText', e.target.value)} />
-          <input className={styles.input} value={form.delivery.dateTimeData || ''} readOnly />
+          <TextInput value={form.delivery.placePortText || ''} onChange={(e) => setDelivery('placePortText', e.target.value)} />
+          <TextInput value={form.delivery.placePortData || ''} readOnly />
+          <TextInput value={form.delivery.foDoText || ''} onChange={(e) => setDelivery('foDoText', e.target.value)} />
+          <TextInput value={form.delivery.foDoData || ''} onChange={(e) => setDelivery('foDoData', e.target.value)} />
+          <TextInput value={form.delivery.dateTimeText || ''} onChange={(e) => setDelivery('dateTimeText', e.target.value)} />
+          <TextInput value={form.delivery.dateTimeData || ''} readOnly />
         </div>
       </div>
 
@@ -323,23 +347,22 @@ export default function OpsTcChecklistPage() {
       <div className={styles.section}>
         <h4 className={styles.sectionTitle}>ARRIVAL (Re-delivery)</h4>
         <div className={styles.formGrid}>
-          <input className={styles.input} value={form.redelivery.actualArrivalText || ''} onChange={(e) => setRedelivery('actualArrivalText', e.target.value)} />
+          <TextInput value={form.redelivery.actualArrivalText || ''} onChange={(e) => setRedelivery('actualArrivalText', e.target.value)} />
           <DmyDateInput enableTime value={form.redelivery.actualArrivalDate || ''} onChange={(v) => setRedelivery('actualArrivalDate', v)} />
-          <input className={styles.input} value={form.redelivery.norTenderedText || ''} onChange={(e) => setRedelivery('norTenderedText', e.target.value)} />
+          <TextInput value={form.redelivery.norTenderedText || ''} onChange={(e) => setRedelivery('norTenderedText', e.target.value)} />
           <DmyDateInput enableTime value={form.redelivery.norTenderedDate || ''} onChange={(v) => setRedelivery('norTenderedDate', v)} />
-          <input className={styles.input} value={form.redelivery.placePortText || ''} onChange={(e) => setRedelivery('placePortText', e.target.value)} />
-          <input className={styles.input} value={form.redelivery.placePortData || ''} readOnly />
-          <input className={styles.input} value={form.redelivery.foDoText || ''} onChange={(e) => setRedelivery('foDoText', e.target.value)} />
-          <input className={styles.input} value={form.redelivery.foDoData || ''} onChange={(e) => setRedelivery('foDoData', e.target.value)} />
-          <input className={styles.input} value={form.redelivery.dateTimeText || ''} onChange={(e) => setRedelivery('dateTimeText', e.target.value)} />
-          <input className={styles.input} value={form.redelivery.dateTimeData || ''} readOnly />
+          <TextInput value={form.redelivery.placePortText || ''} onChange={(e) => setRedelivery('placePortText', e.target.value)} />
+          <TextInput value={form.redelivery.placePortData || ''} readOnly />
+          <TextInput value={form.redelivery.foDoText || ''} onChange={(e) => setRedelivery('foDoText', e.target.value)} />
+          <TextInput value={form.redelivery.foDoData || ''} onChange={(e) => setRedelivery('foDoData', e.target.value)} />
+          <TextInput value={form.redelivery.dateTimeText || ''} onChange={(e) => setRedelivery('dateTimeText', e.target.value)} />
+          <TextInput value={form.redelivery.dateTimeData || ''} readOnly />
         </div>
       </div>
 
       <div className={styles.section}>
         <h4 className={styles.sectionTitle}>REMARKS</h4>
-        <textarea
-          className={styles.textarea}
+        <Textarea
           value={form.remarks || ''}
           onChange={(e) => setField('remarks', e.target.value)}
           rows={4}

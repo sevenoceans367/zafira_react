@@ -11,6 +11,7 @@ export default function CollapsiblePanel({
   open: controlledOpen,
   onOpenChange,
   actions = null,
+  className = '',
   children,
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
@@ -24,7 +25,13 @@ export default function CollapsiblePanel({
   };
 
   return (
-    <section className={`${styles.panel} ${open ? styles.panelOpen : styles.panelClosed}`}>
+    <section
+      className={[
+        styles.panel,
+        open ? styles.panelOpen : styles.panelClosed,
+        className,
+      ].filter(Boolean).join(' ')}
+    >
       <div className={styles.panelHeader}>
         <button
           type="button"

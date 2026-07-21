@@ -242,7 +242,7 @@ class TcEstimatePdfBuilder {
         ['TC Days', calc.tcDays],
         ['Utilisation Days', calc.utilisationDays],
         ['Daily Gross Hire', money(calc.dailyGrossHire)],
-        ['Nett Revenue', money(calc.nettRev)],
+        ['Net Revenue', money(calc.nettRev)],
         ['Bunker Difference', money(calc.bunkerDiffAmt)],
         ['Total Revenue', money(calc.totalRev)],
         ['Total Expenses', money(calc.totalExp)],

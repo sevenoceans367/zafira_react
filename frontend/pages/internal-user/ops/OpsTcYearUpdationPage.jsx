@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
+import {
+  Button,
+  DmyDateInput,
+  FilterBar,
+  LoadingOverlay,
+} from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchYearUpdationTc, updateTcUpdateOnDate } from '../../../services/opsTc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
@@ -91,11 +96,9 @@ export default function OpsTcYearUpdationPage() {
 
         <h3 className={styles.title}>Year Updation-TC</h3>
 
-        <div className={styles.toolbar}>
-          <div className={styles.toolbarActions}>
-            <Button variant="primary" label="Load" onClick={load} disabled={loading} />
-          </div>
-        </div>
+        <FilterBar
+          actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
+        />
 
         <div className={styles.tableWrap}>
           <table className={styles.table}>

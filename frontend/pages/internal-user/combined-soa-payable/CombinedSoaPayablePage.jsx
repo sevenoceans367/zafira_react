@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, FilterBar, LoadingOverlay, StatusBadge } from '@bainbridge/shared-ui';
 import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchCombinedSoaPayableList } from '../../../services/combinedSoaPayable.js';
@@ -16,11 +16,10 @@ const FLASH = {
   2: { type: 'success', text: 'Combined SOA Payable delete successfully.' },
 };
 
-function statusClass(tone) {
-  const base = styles.statusBadge;
-  if (tone === 'warning') return `${base} ${styles.statusWarning}`;
-  if (tone === 'success') return `${base} ${styles.statusSuccess}`;
-  return `${base} ${styles.statusDanger}`;
+function statusVariant(tone) {
+  if (tone === 'success') return 'success';
+  if (tone === 'warning') return 'warning';
+  return 'warning';
 }
 
 function LegacyLink({ href, children, className }) {
@@ -109,13 +108,13 @@ export default function CombinedSoaPayablePage() {
 
         <h3 className={styles.title}>Combined SOA Payable</h3>
 
-        <div className={styles.toolbar}>
-          {canCreate ? (
+        <FilterBar
+          actions={canCreate ? (
             <a href={getLegacyDryoutHref('addcombinedpayablesoa.php')} className={styles.addLink}>
               <Button variant="primary" label="Add New" />
             </a>
           ) : null}
-        </div>
+        />
 
         <div className={styles.tableWrap}>
           <table className={styles.table}>
@@ -147,9 +146,9 @@ export default function CombinedSoaPayablePage() {
                   <td className={styles.amountCell}>{row.soaAmount || '—'}</td>
                   <td>{row.creator || '—'}</td>
                   <td>
-                    <span className={statusClass(row.statusTone)}>
+                    <StatusBadge variant={statusVariant(row.statusTone)}>
                       {row.statusLabel || '—'}
-                    </span>
+                    </StatusBadge>
                   </td>
                   <td className={styles.detailsCell}>
                     <LegacyLink href={row.editHref} className={styles.editIcon} title="Edit Details">

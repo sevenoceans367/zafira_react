@@ -36,26 +36,6 @@ function splitPortDisplay(name, fallbackId) {
 const INTERVAL_OPTIONS = rangeOptions(500, ' n.m.');
 const PERCENT_OPTIONS = rangeOptions(100, '%');
 
-function TitlePinIcon() {
-  return (
-    <svg
-      className={styles.titleIcon}
-      width="20"
-      height="20"
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M10 1.5c-3.5 0-6.2 2.7-6.2 6.1 0 4.6 6.2 10.9 6.2 10.9s6.2-6.3 6.2-10.9c0-3.4-2.7-6.1-6.2-6.1z"
-        stroke="#274670"
-        strokeWidth="1.4"
-      />
-      <circle cx="10" cy="7.6" r="2.1" stroke="#F4652C" strokeWidth="1.4" />
-    </svg>
-  );
-}
-
 export default function DistanceFetchModal({
   open,
   leg,
@@ -137,6 +117,8 @@ export default function DistanceFetchModal({
     const timer = setTimeout(() => {
       if (!mapRef.current || mapInstanceRef.current) return;
       const map = L.map(mapRef.current, { zoomSnap: 0.25 }).setView([20, 0], 2);
+      // Show only "Seven Oceans" — hide default "Leaflet |" prefix.
+      map.attributionControl.setPrefix(false);
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 10,
         attribution: 'Seven Oceans',
@@ -269,7 +251,6 @@ export default function DistanceFetchModal({
       >
         <div className={styles.header}>
           <h4 id="distance-fetch-title" className={styles.title}>
-            <TitlePinIcon />
             Port to Port Distance
           </h4>
           <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">

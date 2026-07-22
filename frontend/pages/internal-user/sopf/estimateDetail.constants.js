@@ -1164,3 +1164,18 @@ export function toFormState(detail = {}) {
     totalCarbonCost: detail.totalCarbonCost != null ? String(detail.totalCarbonCost) : '',
   };
 }
+
+/** Prefill Add Estimate from a source row without persisting until Submit. */
+export function toReplicateFormState(detail = {}) {
+  const form = toFormState(detail);
+  const sheetName = String(form.voyageName || '').trim();
+  return {
+    ...form,
+    voyageNo: '',
+    voyageName: sheetName
+      ? (sheetName.endsWith('(Copy)') ? sheetName : `${sheetName} (Copy)`)
+      : '',
+    attachments: [],
+    attachmentFiles: [],
+  };
+}

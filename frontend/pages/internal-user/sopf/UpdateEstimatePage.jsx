@@ -238,6 +238,7 @@ export default function UpdateEstimatePage() {
           message: 'Voyage number already exists',
           confirmLabel: 'OK',
         });
+        focusEstimateValidationField('voyageNo');
         return;
       }
     } catch (err) {
@@ -303,6 +304,7 @@ export default function UpdateEstimatePage() {
             detail={detail}
             form={form}
             lookups={lookups}
+            voyageExcludeId={estimateId}
             onFieldChange={updateField}
             onVesselSelect={handleVesselSelect}
             onPeriodContractChange={handlePeriodContractChange}

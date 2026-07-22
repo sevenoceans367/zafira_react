@@ -5,6 +5,7 @@ import { appPath } from '@bainbridge/shared-routing';
 import {
   checkVoyageNoExists,
   createEstimateDetail,
+  fetchEstimateDetail,
   fetchEstimateLookups,
   fetchPeriodPrefill,
   fetchVesselEstimatePrefill,
@@ -13,7 +14,7 @@ import EstimateDetailSections from './EstimateDetailSections.jsx';
 import EstimateDetailHeaderActions from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
-import { createEmptyDetail, createEmptyPortLeg, toFormState } from './estimateDetail.constants.js';
+import { createEmptyDetail, createEmptyPortLeg, toFormState, toReplicateFormState } from './estimateDetail.constants.js';
 import { applyPeriodPrefillToForm, applyVesselPrefillToForm } from './estimatePrefill.js';
 import { validateEstimateForm, focusEstimateValidationField } from './estimateValidation.js';
 import styles from './UpdateEstimatePage.module.css';
@@ -27,9 +28,13 @@ export default function AddEstimatePage() {
   const businessType = searchParams.get('selBType') || estimateType;
   const periodId = searchParams.get('periodid') || '';
   const coaId = searchParams.get('coaid') || searchParams.get('coaId') || '';
+  const replicateFrom = searchParams.get('replicateFrom') || '';
 
-  const detail = useMemo(() => createEmptyDetail(estimateType), [estimateType]);
   const [form, setForm] = useState(() => toFormState({}));
+  const detail = useMemo(
+    () => createEmptyDetail(form.estimateType || estimateType),
+    [estimateType, form.estimateType],
+  );
   const [lookups, setLookups] = useState({
     cargos: [],
     bunkerGrades: [],
@@ -53,33 +58,48 @@ export default function AddEstimatePage() {
       setLoading(true);
       setError('');
       try {
-        const [lookupData, periodData] = await Promise.all([
-          fetchEstimateLookups(estimateType),
+        const sourceTypeHint = estimateType;
+        const [lookupData, periodData, sourceDetail] = await Promise.all([
+          fetchEstimateLookups(sourceTypeHint),
           periodId ? fetchPeriodPrefill(periodId) : Promise.resolve(null),
+          replicateFrom ? fetchEstimateDetail(replicateFrom) : Promise.resolve(null),
         ]);
         if (cancelled) return;
 
-        setLookups({
-          cargos: lookupData.cargos ?? [],
-          bunkerGrades: lookupData.bunkerGrades ?? [],
-          ownerCosts: lookupData.ownerCosts ?? [],
-          owners: lookupData.owners ?? [],
-          ownBusiness: lookupData.ownBusiness ?? [],
-          charteringTeams: lookupData.charteringTeams ?? [],
-          charteringPics: lookupData.charteringPics ?? [],
-          periodContracts: lookupData.periodContracts ?? [],
-          zones: lookupData.zones ?? [],
-          fixtureBrokers: lookupData.fixtureBrokers ?? [],
-          coaContracts: lookupData.coaContracts ?? [],
-          complianceFactors: lookupData.complianceFactors ?? {},
-          complianceYear: lookupData.complianceYear || new Date().getFullYear(),
-          marketPrices: lookupData.marketPrices ?? {},
-        });
+        const resolvedType = sourceDetail?.estimateType || sourceTypeHint;
+        const lookupsForType = String(resolvedType) === String(sourceTypeHint)
+          ? lookupData
+          : await fetchEstimateLookups(resolvedType);
+        if (cancelled) return;
+
+        const nextLookups = {
+          cargos: lookupsForType.cargos ?? [],
+          bunkerGrades: lookupsForType.bunkerGrades ?? [],
+          ownerCosts: lookupsForType.ownerCosts ?? [],
+          owners: lookupsForType.owners ?? [],
+          ownBusiness: lookupsForType.ownBusiness ?? [],
+          charteringTeams: lookupsForType.charteringTeams ?? [],
+          charteringPics: lookupsForType.charteringPics ?? [],
+          periodContracts: lookupsForType.periodContracts ?? [],
+          zones: lookupsForType.zones ?? [],
+          fixtureBrokers: lookupsForType.fixtureBrokers ?? [],
+          coaContracts: lookupsForType.coaContracts ?? [],
+          complianceFactors: lookupsForType.complianceFactors ?? {},
+          complianceYear: lookupsForType.complianceYear || new Date().getFullYear(),
+          marketPrices: lookupsForType.marketPrices ?? {},
+        };
+        setLookups(nextLookups);
+
+        if (sourceDetail) {
+          setForm(applyEstimateCalculations(toReplicateFormState(sourceDetail), nextLookups));
+          return;
+        }
 
         let vesselPrefill = null;
         if (periodData?.vesselImoId) {
           vesselPrefill = await fetchVesselEstimatePrefill(periodData.vesselImoId);
         }
+        if (cancelled) return;
 
         setForm((current) => {
           let next = {
@@ -88,7 +108,7 @@ export default function AddEstimatePage() {
             portLegs: (current.portLegs || []).length ? current.portLegs : [createEmptyPortLeg()],
           };
           if (coaId) {
-            const coaMatch = (lookupData.coaContracts || []).find(
+            const coaMatch = (lookupsForType.coaContracts || []).find(
               (item) => String(item.id) === String(coaId),
             );
             next = {
@@ -107,18 +127,18 @@ export default function AddEstimatePage() {
           }
           if (vesselPrefill) {
             next = applyVesselPrefillToForm(next, vesselPrefill, {
-              marketPrices: lookupData.marketPrices ?? {},
+              marketPrices: lookupsForType.marketPrices ?? {},
             });
-          } else if (lookupData.marketPrices) {
+          } else if (lookupsForType.marketPrices) {
             next = {
               ...next,
-              euaPrice: next.euaPrice || lookupData.marketPrices.euaPrice || '',
-              sdrToUsd: next.sdrToUsd || lookupData.marketPrices.sdrToUsd || '',
+              euaPrice: next.euaPrice || lookupsForType.marketPrices.euaPrice || '',
+              sdrToUsd: next.sdrToUsd || lookupsForType.marketPrices.sdrToUsd || '',
             };
           }
           return applyEstimateCalculations(next, {
-            bunkerGrades: lookupData.bunkerGrades ?? [],
-            complianceFactors: lookupData.complianceFactors ?? {},
+            bunkerGrades: lookupsForType.bunkerGrades ?? [],
+            complianceFactors: lookupsForType.complianceFactors ?? {},
           });
         });
       } catch (err) {
@@ -132,7 +152,7 @@ export default function AddEstimatePage() {
     return () => {
       cancelled = true;
     };
-  }, [coaId, estimateType, periodId]);
+  }, [coaId, estimateType, periodId, replicateFrom]);
 
   const updateField = useCallback((key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -275,6 +295,7 @@ export default function AddEstimatePage() {
           message: 'Voyage number already exists',
           confirmLabel: 'OK',
         });
+        focusEstimateValidationField('voyageNo');
         return;
       }
     } catch (err) {
@@ -300,7 +321,7 @@ export default function AddEstimatePage() {
       setForm(computed);
       const files = computed.attachmentFiles || [];
       await createEstimateDetail(
-        buildEstimateSubmitPayload(computed, estimateType, periodId),
+        buildEstimateSubmitPayload(computed, form.estimateType || estimateType, periodId),
         files,
       );
       await alert({

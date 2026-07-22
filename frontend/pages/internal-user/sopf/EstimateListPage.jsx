@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ActionButtonStack,
   Button,
@@ -10,13 +10,13 @@ import {
   SummaryCardGrid,
   useConfirm,
 } from '@bainbridge/shared-ui';
+import { appPath } from '@bainbridge/shared-routing';
 import {
   deleteEstimate,
   fetchBusinessTypes,
   fetchDecisionChart,
   fetchEstimateList,
   fetchSensitivityAnalysis,
-  replicateEstimate,
   sendEstimateToOps,
   submitDecisionChart,
 } from '../../../services/estimateList.js';
@@ -73,6 +73,7 @@ function TruncatedText({ text, maxLength = 10 }) {
 
 export default function EstimateListPage() {
   const confirm = useConfirm();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
   const [rows, setRows] = useState([]);
@@ -257,9 +258,11 @@ export default function EstimateListPage() {
     });
     if (!ok) return;
 
-    await replicateEstimate(id);
-    updateParams({ msg: 0 });
-    await loadData();
+    navigate(
+      appPath(
+        `/internal-user/sopf/addestimate?replicateFrom=${encodeURIComponent(id)}&estimatetype=${estimateType}&selBType=${businessType}`,
+      ),
+    );
   };
 
   const handleSubmitDecisionChart = async () => {

@@ -350,6 +350,8 @@ export async function dbReplicateEstimate(id) {
           return null;
         case 'FIXED':
           return '0';
+        case 'VOYAGE_NO':
+          return '';
         case 'VOYAGE_NAME':
           return source.VOYAGE_NAME ? `${source.VOYAGE_NAME} (Copy)` : '';
         case 'ADD_ON_DATE':

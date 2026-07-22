@@ -124,6 +124,7 @@ export async function replicateEstimate(id) {
     {
       ...source,
       fcaId: newId,
+      voyageNo: '',
       voyageName: source.voyageName ? `${source.voyageName} (Copy)` : '',
       comid: '',
     },

@@ -18,15 +18,15 @@ import {
   createEmptyBrokerRow,
   createEmptyBunkerActivityRow,
   createEmptyCargoRow,
-  createEmptyConsumptionRow,
   createEmptyHireRow,
   createEmptyOrcRow,
   createEmptyOtherIncomeRow,
   createEmptyPortLeg,
   createEmptyProfitSharingRow,
+  createEmptySecaBunkerRow,
   getFixtureTypeLabel,
 } from './estimateDetail.constants.js';
-import { calcDemurrageEst, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt } from './estimateCalculations.js';
+import { calcDemurrageEst, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName } from './estimateCalculations.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import RowRemoveButton from './RowRemoveButton.jsx';
 
@@ -35,9 +35,65 @@ import TankerFreightModeSection from './TankerFreightModeSection.jsx';
 import PortLaytimeSections from './PortLaytimeSections.jsx';
 import EstimateResultsPanels from './EstimateResultsPanels.jsx';
 import VesselItineraryModal from './VesselItineraryModal.jsx';
-import { fetchCanalOrcRates, searchEstimatePorts } from '../../../services/estimateDetail.js';
-import { getAddRowBlockMessage } from './estimateValidation.js';
+import { checkVoyageNoExists, fetchCanalOrcRates, searchEstimatePorts } from '../../../services/estimateDetail.js';
+import { focusEstimateValidationField, getAddRowBlockMessage } from './estimateValidation.js';
 import styles from './UpdateEstimatePage.module.css';
+
+/** PHP addestimate.php — Voyage No allows a-z, 0-9, and hyphen only. */
+function sanitizeVoyageNo(value) {
+  return String(value || '').replace(/[^a-zA-Z0-9-]/g, '');
+}
+
+/** Draft while typing; commit on blur so recalc does not fight the caret. */
+function sanitizeMoneyInput(value) {
+  let next = String(value || '').replace(/[^\d.]/g, '');
+  const firstDot = next.indexOf('.');
+  if (firstDot !== -1) {
+    next = `${next.slice(0, firstDot + 1)}${next.slice(firstDot + 1).replace(/\./g, '')}`;
+    const [whole, fraction = ''] = next.split('.');
+    next = `${whole}.${fraction.slice(0, 2)}`;
+  }
+  return next;
+}
+
+function BunkerPriceInput({ value, readOnly, onCommit }) {
+  const [draft, setDraft] = useState(null);
+  const editing = draft !== null;
+
+  return (
+    <input
+      value={editing ? draft : (value || '')}
+      readOnly={readOnly}
+      placeholder="0.00"
+      inputMode="decimal"
+      autoComplete="off"
+      onFocus={(e) => {
+        setDraft(value || '');
+        requestAnimationFrame(() => e.target.select());
+      }}
+      onChange={(e) => setDraft(sanitizeMoneyInput(e.target.value))}
+      onBlur={() => {
+        const raw = draft ?? '';
+        setDraft(null);
+        const cleaned = sanitizeMoneyInput(raw);
+        const normalized = cleaned === '' || cleaned === '.'
+          ? ''
+          : Number.isFinite(Number(cleaned))
+            ? Number(cleaned).toFixed(2)
+            : '';
+        if (String(normalized) !== String(value || '')) {
+          onCommit(normalized);
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
 
 function Field({ id, label, children, className = '' }) {
   return (
@@ -53,6 +109,7 @@ export default function EstimateDetailSections({
   form,
   readOnly = false,
   isAdd = false,
+  voyageExcludeId = null,
   lookups = { cargos: [], bunkerGrades: [] },
   onFieldChange,
   onVesselSelect,
@@ -253,8 +310,33 @@ export default function EstimateDetailSections({
   };
 
   const handleVoyageNoChange = (value) => {
-    updateField('voyageNo', value);
-    if (isAdd) updateField('voyageName', value);
+    const next = sanitizeVoyageNo(value);
+    updateField('voyageNo', next);
+    if (isAdd) updateField('voyageName', next);
+  };
+
+  const handleVoyageNoBlur = async () => {
+    if (readOnly) return;
+    const voyageNo = String(form.voyageNo || '').trim();
+    if (!voyageNo) return;
+    try {
+      const exists = await checkVoyageNoExists(voyageNo, { excludeId: voyageExcludeId });
+      if (!exists) return;
+      await alert({
+        title: 'Alert',
+        message: 'Voyage number already exists',
+        confirmLabel: 'OK',
+      });
+      updateField('voyageNo', '');
+      if (isAdd) updateField('voyageName', '');
+      focusEstimateValidationField('voyageNo');
+    } catch (err) {
+      await alert({
+        title: 'Error',
+        message: err.message || 'Failed to check voyage number.',
+        confirmLabel: 'OK',
+      });
+    }
   };
 
   const inputProps = (key, opts = {}) => ({
@@ -280,6 +362,58 @@ export default function EstimateDetailSections({
   // PHP Bunkers table: qty from consumption MT, price from SECA row (txtSECABunkerPrice / slave2 EST_PRICE).
   const bunkerSummaryRows = buildBunkerSummaryRows(form, bunkerGradeName);
   const { addressDemmComm, totalDemmComm } = calcDemurrageCommissionDisplay(form);
+
+  /** PHP txtSECABunkerPrice onKeyUp → getBunkerCalculation / getVoyageTime */
+  const handleBunkerSummaryPriceChange = (grade, value) => {
+    const classify = (gradeId) => {
+      const key = classifyBunkerGradeName(bunkerGradeName(gradeId));
+      return key === 'HSFO+SCRUBBER' ? 'HSFO' : key;
+    };
+
+    let matched = false;
+    let nextSeca = (form.secaBunkerRows || []).map((row) => {
+      if (classify(row.bunkerGradeId) !== grade) return row;
+      matched = true;
+      return { ...row, price: value };
+    });
+
+    if (!matched) {
+      const gradeOpt = (lookups.bunkerGrades || form._bunkerGrades || []).find(
+        (g) => classifyBunkerGradeName(g.name) === grade,
+      );
+      const bunkerType = grade === 'LSMGO' ? 'DO' : 'FO';
+      const emptyIdx = nextSeca.findIndex((row) => (
+        !row.bunkerGradeId
+        && String(row.bunkerType || 'FO').toUpperCase() === bunkerType
+      ));
+      if (emptyIdx >= 0 && gradeOpt) {
+        nextSeca = nextSeca.map((row, index) => (
+          index === emptyIdx
+            ? { ...row, bunkerGradeId: String(gradeOpt.id), price: value, bunkerType }
+            : row
+        ));
+      } else if (gradeOpt) {
+        nextSeca = [
+          ...nextSeca,
+          {
+            ...createEmptySecaBunkerRow('SECA', bunkerType),
+            bunkerGradeId: String(gradeOpt.id),
+            price: value,
+          },
+        ];
+      }
+    }
+
+    const nextBunker = (form.bunkerRows || []).map((row) => {
+      if (String(row.identify || '').toUpperCase() === 'SUPPLY') return row;
+      return classify(row.bunkerGradeId) === grade ? { ...row, price: value } : row;
+    });
+
+    applyPatch({
+      secaBunkerRows: nextSeca,
+      bunkerRows: nextBunker,
+    });
+  };
 
   return (
     <div className={styles.estimateForm}>
@@ -336,8 +470,10 @@ export default function EstimateDetailSections({
               <input
                 id="voyageNo"
                 value={form.voyageNo}
-                readOnly={!isAdd}
+                readOnly={readOnly}
+                autoComplete="off"
                 onChange={(e) => handleVoyageNoChange(e.target.value)}
+                onBlur={handleVoyageNoBlur}
               />
             </Field>
             <Field id="voyageName" label="Sheet Name">
@@ -491,11 +627,13 @@ export default function EstimateDetailSections({
                     <tbody>
                       <tr>
                         <td className={styles.portIdxCol}>
-                          {editable && (form.portLegs || []).length > 1 ? (
-                            <RowRemoveButton onClick={() => removeRow('portLegs', leg.id)} />
-                          ) : (
-                            <span>{legIndex + 1}</span>
-                          )}
+                          {editable
+                            && (form.portLegs || []).length > 1
+                            && legIndex === (form.portLegs || []).length - 1 ? (
+                              <RowRemoveButton onClick={() => removeRow('portLegs', leg.id)} />
+                            ) : (
+                              <span>{legIndex + 1}</span>
+                            )}
                         </td>
                         <td>
                           {readOnly ? (
@@ -761,7 +899,6 @@ export default function EstimateDetailSections({
                 <table className={styles.portTable}>
                   <thead>
                     <tr>
-                      {editable ? <th style={{ width: 36 }} /> : null}
                       <th>Bunker</th>
                       {dataCols.map((col) => (
                         <th key={col.key}>{col.label}</th>
@@ -771,11 +908,6 @@ export default function EstimateDetailSections({
                   <tbody>
                     {(rows.length ? rows : []).map((row) => (
                       <tr key={`${title}-${row.id}`}>
-                        {editable ? (
-                          <td>
-                            <RowRemoveButton onClick={() => removeRow('consumptionRows', row.id)} />
-                          </td>
-                        ) : null}
                         <td>
                           {readOnly ? (
                             gradeName(row.bunkerGradeId)
@@ -811,7 +943,7 @@ export default function EstimateDetailSections({
                     ))}
                     {!rows.length ? (
                       <tr>
-                        <td colSpan={1 + dataCols.length + (editable ? 1 : 0)}>
+                        <td colSpan={1 + dataCols.length}>
                           No {identify} rows
                         </td>
                       </tr>
@@ -819,16 +951,6 @@ export default function EstimateDetailSections({
                   </tbody>
                 </table>
               </div>
-              {editable ? (
-                <button
-                  type="button"
-                  className={styles.addRowBtn}
-                  aria-label={`Add ${identify}`}
-                  onClick={() => addRow('consumptionRows', () => createEmptyConsumptionRow(identify), { identify })}
-                >
-                  +
-                </button>
-              ) : null}
             </div>
           );
           };
@@ -1437,7 +1559,13 @@ export default function EstimateDetailSections({
                 <tr key={`summary-${row.grade}`}>
                   <td>{row.grade}</td>
                   <td><input value={row.qty || ''} readOnly placeholder="0.00" /></td>
-                  <td><input value={row.price || ''} readOnly placeholder="0.00" /></td>
+                  <td>
+                    <BunkerPriceInput
+                      value={row.price || ''}
+                      readOnly={readOnly}
+                      onCommit={(next) => handleBunkerSummaryPriceChange(row.grade, next)}
+                    />
+                  </td>
                   <td><input value={row.amount || ''} readOnly placeholder="0.00" /></td>
                 </tr>
               )) : (

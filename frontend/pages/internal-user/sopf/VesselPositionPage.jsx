@@ -174,8 +174,9 @@ export default function VesselPositionPage() {
     if (!mapContainerRef.current || mapRef.current) return undefined;
 
     const map = L.map(mapContainerRef.current).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
-    map.attributionControl.setPrefix(MAP_ATTRIBUTION);
-    L.tileLayer(MAP_TILE_URL).addTo(map);
+    // Show only "Seven Oceans" — no "Leaflet |" prefix.
+    map.attributionControl.setPrefix(false);
+    L.tileLayer(MAP_TILE_URL, { attribution: MAP_ATTRIBUTION }).addTo(map);
 
     markerLayerRef.current = L.layerGroup().addTo(map);
     map.on('click', handleMapClick);

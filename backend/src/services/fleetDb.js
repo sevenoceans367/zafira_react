@@ -1,13 +1,18 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 
-const MODULE_ID = process.env.MODULE_ID || '6';
+function moduleId() {
+  // Match commercialParametersDb so speeds/bunkers align with Commercial Parameters.
+  return process.env.VC_MODULE_ID || process.env.MODULE_ID || '6';
+}
 
 const BUSINESS_TYPE_LABELS = {
   1: 'Gas',
   2: 'Tanker',
   3: 'Dry Cargo',
 };
+
+const DO_BUNKER_TYPES = new Set(['MDO', 'DO', 'MGO', 'LSDO', 'ULSDO']);
 
 const FO_AT_SEA_LEVELS = [
   'SECA (Ballast) - Full Speed',
@@ -57,23 +62,56 @@ const FO_IN_PORT_FIELDS = [
   'FO_INPORT_NONSECA_CONSP_OTHER',
 ];
 
+function str(value) {
+  if (value == null || value === '') return '';
+  return String(value);
+}
+
+function isSecaField(field) {
+  return String(field).includes('_SECA_') && !String(field).includes('_NONSECA_');
+}
+
+function zoneMatchesField(zone, field) {
+  const normalized = String(zone || '').trim().toLowerCase();
+  // Legacy rows often have no ZONE and store both SECA + NON-SECA columns on one row.
+  if (!normalized) return true;
+  if (isSecaField(field)) return normalized === 'seca';
+  return normalized === 'non seca' || normalized === 'non-seca' || normalized === 'nonseca';
+}
+
+function isDoBunker(identify, bunkerType) {
+  const id = String(identify || '').toUpperCase();
+  if (id === 'DO') return true;
+  if (id === 'FO') return false;
+  return DO_BUNKER_TYPES.has(String(bunkerType || '').toUpperCase());
+}
+
+function pickQty(row, field) {
+  const direct = row[field];
+  if (direct != null && String(direct).trim() !== '') return str(direct);
+
+  const seca = isSecaField(field);
+  // React commercial-parameters form saves LP/DP + ballast/laden idle instead of legacy Working/Idle.
+  if (field.includes('WORKING') && !field.includes('WORKING_LP') && !field.includes('WORKING_DP')) {
+    const lp = seca ? row.FO_INPORT_SECA_CONSP_WORKING_LP : row.FO_INPORT_NONSECA_CONSP_WORKING_LP;
+    const dp = seca ? row.FO_INPORT_SECA_CONSP_WORKING_DP : row.FO_INPORT_NONSECA_CONSP_WORKING_DP;
+    return [lp, dp].map(str).filter(Boolean).join(' / ');
+  }
+  if (field.includes('IDLE') && !field.includes('IDLE_BALLAST') && !field.includes('IDLE_LADEN')) {
+    const ballast = seca ? row.FO_INPORT_SECA_CONSP_IDLE_BALLAST : row.FO_INPORT_NONSECA_CONSP_IDLE_BALLAST;
+    const laden = seca ? row.FO_INPORT_SECA_CONSP_IDLE_LADEN : row.FO_INPORT_NONSECA_CONSP_IDLE_LADEN;
+    return [ballast, laden].map(str).filter(Boolean).join(' / ');
+  }
+  return '';
+}
+
 async function getVesselTypeName(pool, typeId) {
   if (!typeId) return '';
   const [rows] = await pool.query(
-    'SELECT VESSELTYPE FROM vessel_type_master WHERE VESSELTYPEID = ? LIMIT 1',
+    'SELECT VesselType AS name FROM vessel_type_master WHERE VesselTypeId = ? LIMIT 1',
     [typeId],
   );
-  return rows[0]?.VESSELTYPE ?? '';
-}
-
-async function getBunkerGradeName(pool, bunkerId) {
-  if (!bunkerId) return '';
-  const [rows] = await pool.query(
-    `SELECT NAME FROM bunker_grade_master
-     WHERE BUNKERGRADEID = ? AND MODULEID = ? AND MCOMPANYID = ? LIMIT 1`,
-    [bunkerId, MODULE_ID, appContext.companyId],
-  );
-  return rows[0]?.NAME ?? '';
+  return rows[0]?.name ?? '';
 }
 
 async function getVesselImoRow(pool, vesselId) {
@@ -84,35 +122,71 @@ async function getVesselImoRow(pool, vesselId) {
   return rows[0] ?? null;
 }
 
-async function getVesselParticularField(pool, table, vesselId, field) {
-  const [rows] = await pool.query(
-    `SELECT \`${field}\` AS value FROM \`${table}\` WHERE VESSEL_IMO_ID = ? LIMIT 1`,
+async function getTpc(pool, vesselId, businessTypeId) {
+  if (Number(businessTypeId) === 3) {
+    const [rows] = await pool.query(
+      `SELECT COALESCE(NULLIF(TPC_MT, ''), NULLIF(SUMMER_3, '')) AS value
+       FROM vessel_master_1
+       WHERE VESSEL_IMO_ID = ?
+       LIMIT 1`,
+      [vesselId],
+    );
+    if (rows[0]?.value != null && rows[0].value !== '') return str(rows[0].value);
+  }
+  const [tankerRows] = await pool.query(
+    'SELECT TPC_SUMMER AS value FROM vessel_master_tankers WHERE VESSEL_IMO_ID = ? LIMIT 1',
     [vesselId],
   );
-  return rows[0]?.value ?? '';
+  if (tankerRows[0]?.value != null && tankerRows[0].value !== '') {
+    return str(tankerRows[0].value);
+  }
+  const [dryRows] = await pool.query(
+    `SELECT COALESCE(NULLIF(TPC_MT, ''), NULLIF(SUMMER_3, '')) AS value
+     FROM vessel_master_1
+     WHERE VESSEL_IMO_ID = ?
+     LIMIT 1`,
+    [vesselId],
+  );
+  return str(dryRows[0]?.value);
 }
 
 async function getCommercialParameterField(pool, vesselId, field) {
   const [rows] = await pool.query(
     `SELECT \`${field}\` AS value FROM vessel_commercial_parameters
      WHERE VESSEL_IMO_ID = ? AND MODULEID = ? LIMIT 1`,
-    [vesselId, MODULE_ID],
+    [vesselId, moduleId()],
   );
   return rows[0]?.value ?? '';
 }
 
-async function getBunkerConsumptionValues(pool, commercialParameterId, identify, field) {
+async function getBunkerConsumptionValues(pool, commercialParameterId, identify, foType, field) {
   if (!commercialParameterId) return '';
+
   const [rows] = await pool.query(
-    `SELECT \`${field}\` AS qty, BUNKERID
-     FROM vessel_commercial_parameters_slave1
-     WHERE IDENTIFY = ? AND COMMERCIAL_PARAMETERID = ?`,
-    [identify, commercialParameterId],
+    `SELECT s.*, bg.NAME AS gradeName, bg.BUNKERTYPE AS bunkerType
+     FROM vessel_commercial_parameters_slave1 s
+     LEFT JOIN bunker_grade_master bg
+       ON bg.BUNKERGRADEID = s.BUNKERID
+      AND bg.MODULEID = ?
+      AND bg.MCOMPANYID = ?
+     WHERE s.COMMERCIAL_PARAMETERID = ?
+       AND (
+         s.FO_TYPE = ?
+         OR IFNULL(s.FO_TYPE, '') = ''
+       )
+     ORDER BY s.BUNKERID, s.ZONE`,
+    [moduleId(), appContext.companyId, commercialParameterId, foType],
   );
+
+  const wantDo = String(identify).toUpperCase() === 'DO';
   const parts = [];
   for (const row of rows) {
-    const grade = await getBunkerGradeName(pool, row.BUNKERID);
-    parts.push(`${grade} - ${row.qty ?? ''}`);
+    if (wantDo !== isDoBunker(row.IDENTIFY, row.bunkerType)) continue;
+    if (!zoneMatchesField(row.ZONE, field)) continue;
+    const qty = pickQty(row, field);
+    const grade = row.gradeName || '';
+    if (!grade && (qty === '' || qty == null)) continue;
+    parts.push(`${grade} - ${qty}`);
   }
   return parts.join(', ');
 }
@@ -187,7 +261,7 @@ export async function dbGetFleetList({
   };
 }
 
-async function buildCompareRow(pool, vesselIds, label, valueFn) {
+async function buildCompareRow(vesselIds, label, valueFn) {
   const values = [];
   for (const vesselId of vesselIds) {
     values.push(await valueFn(vesselId));
@@ -195,12 +269,12 @@ async function buildCompareRow(pool, vesselIds, label, valueFn) {
   return { label, values };
 }
 
-async function buildBunkerSection(pool, vesselIds, title, identify, levels, fields) {
+async function buildBunkerSection(pool, vesselIds, title, identify, foType, levels, fields) {
   const rows = [];
   for (let j = 0; j < levels.length; j += 1) {
-    rows.push(await buildCompareRow(pool, vesselIds, levels[j], async (vesselId) => {
+    rows.push(await buildCompareRow(vesselIds, levels[j], async (vesselId) => {
       const commercialId = await getCommercialParameterField(pool, vesselId, 'COMMERCIAL_PARAMETERID');
-      return getBunkerConsumptionValues(pool, commercialId, identify, fields[j]);
+      return getBunkerConsumptionValues(pool, commercialId, identify, foType, fields[j]);
     }));
   }
   return { title, rows };
@@ -208,7 +282,7 @@ async function buildBunkerSection(pool, vesselIds, title, identify, levels, fiel
 
 export async function dbCompareVessels(vesselIds) {
   const pool = getPool();
-  const ids = vesselIds.filter(Boolean);
+  const ids = (vesselIds || []).map((id) => String(id).trim()).filter(Boolean);
   if (!ids.length) {
     return { vessels: [], sections: [] };
   }
@@ -227,45 +301,55 @@ export async function dbCompareVessels(vesselIds) {
   sections.push({
     title: null,
     rows: [
-      await buildCompareRow(pool, ids, 'Vessel Type', async (vesselId) => {
+      await buildCompareRow(ids, 'Vessel Type', async (vesselId) => {
         const row = await getVesselImoRow(pool, vesselId);
         return getVesselTypeName(pool, row?.VESSEL_TYPE);
       }),
-      await buildCompareRow(pool, ids, 'DWT (Summer)', async (vesselId) => {
+      await buildCompareRow(ids, 'DWT (Summer)', async (vesselId) => {
         const row = await getVesselImoRow(pool, vesselId);
-        return row?.DWT ?? '';
+        return str(row?.DWT);
       }),
-      await buildCompareRow(pool, ids, 'Draft (Summer)', async (vesselId) => {
+      await buildCompareRow(ids, 'Draft (Summer)', async (vesselId) => {
         const row = await getVesselImoRow(pool, vesselId);
-        return row?.DRAFTM ?? '';
+        return str(row?.DRAFTM);
       }),
-      await buildCompareRow(pool, ids, 'TPC', async (vesselId) =>
-        getVesselParticularField(pool, 'vessel_master_1', vesselId, 'SUMMER_3')),
+      await buildCompareRow(ids, 'TPC', async (vesselId) => {
+        const row = await getVesselImoRow(pool, vesselId);
+        return getTpc(pool, vesselId, row?.BUSINESSTYPEID);
+      }),
     ],
   });
 
   sections.push({
     title: 'SPEED DATA',
     rows: [
-      await buildCompareRow(pool, ids, 'Ballast Speed - Full Speed (Knots)', (id) =>
-        getCommercialParameterField(pool, id, 'B_FULL_SPEED')),
-      await buildCompareRow(pool, ids, 'Ballast Speed - Service Speed (Knots)', (id) =>
-        getCommercialParameterField(pool, id, 'B_ECO_SPEED1')),
-      await buildCompareRow(pool, ids, 'Ballast Speed - Most Eco Speed (Knots)', (id) =>
-        getCommercialParameterField(pool, id, 'B_ECO_SPEED2')),
-      await buildCompareRow(pool, ids, 'Laden Speed - Full Speed (Knots)', (id) =>
-        getCommercialParameterField(pool, id, 'L_FULL_SPEED')),
-      await buildCompareRow(pool, ids, 'Laden Speed - Service Speed (Knots)', (id) =>
-        getCommercialParameterField(pool, id, 'L_ECO_SPEED1')),
-      await buildCompareRow(pool, ids, 'Laden Speed - Most Eco Speed (Knots)', (id) =>
-        getCommercialParameterField(pool, id, 'L_ECO_SPEED2')),
+      await buildCompareRow(ids, 'Ballast Speed - Full Speed (Knots)', (id) =>
+        getCommercialParameterField(pool, id, 'B_FULL_SPEED').then(str)),
+      await buildCompareRow(ids, 'Ballast Speed - Service Speed (Knots)', (id) =>
+        getCommercialParameterField(pool, id, 'B_ECO_SPEED1').then(str)),
+      await buildCompareRow(ids, 'Ballast Speed - Most Eco Speed (Knots)', (id) =>
+        getCommercialParameterField(pool, id, 'B_ECO_SPEED2').then(str)),
+      await buildCompareRow(ids, 'Laden Speed - Full Speed (Knots)', (id) =>
+        getCommercialParameterField(pool, id, 'L_FULL_SPEED').then(str)),
+      await buildCompareRow(ids, 'Laden Speed - Service Speed (Knots)', (id) =>
+        getCommercialParameterField(pool, id, 'L_ECO_SPEED1').then(str)),
+      await buildCompareRow(ids, 'Laden Speed - Most Eco Speed (Knots)', (id) =>
+        getCommercialParameterField(pool, id, 'L_ECO_SPEED2').then(str)),
     ],
   });
 
-  sections.push(await buildBunkerSection(pool, ids, 'FO Consp/day(MT) - At Sea', 'FO', FO_AT_SEA_LEVELS, FO_AT_SEA_FIELDS));
-  sections.push(await buildBunkerSection(pool, ids, 'DO Consp/day(MT) - At Sea', 'DO', FO_AT_SEA_LEVELS, FO_AT_SEA_FIELDS));
-  sections.push(await buildBunkerSection(pool, ids, 'FO Consp/day(MT)- In Port', 'FO', FO_IN_PORT_LEVELS, FO_IN_PORT_FIELDS));
-  sections.push(await buildBunkerSection(pool, ids, 'DO Consp/day(MT)- In Port', 'DO', FO_IN_PORT_LEVELS, FO_IN_PORT_FIELDS));
+  sections.push(await buildBunkerSection(
+    pool, ids, 'FO Consp/day(MT) - At Sea', 'FO', 'AT SEA', FO_AT_SEA_LEVELS, FO_AT_SEA_FIELDS,
+  ));
+  sections.push(await buildBunkerSection(
+    pool, ids, 'DO Consp/day(MT) - At Sea', 'DO', 'AT SEA', FO_AT_SEA_LEVELS, FO_AT_SEA_FIELDS,
+  ));
+  sections.push(await buildBunkerSection(
+    pool, ids, 'FO Consp/day(MT)- In Port', 'FO', 'IN PORT', FO_IN_PORT_LEVELS, FO_IN_PORT_FIELDS,
+  ));
+  sections.push(await buildBunkerSection(
+    pool, ids, 'DO Consp/day(MT)- In Port', 'DO', 'IN PORT', FO_IN_PORT_LEVELS, FO_IN_PORT_FIELDS,
+  ));
 
   return { vessels, sections };
 }

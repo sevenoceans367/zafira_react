@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useFleetModule } from '../../../hooks/useFleetModule.js';
-import { fetchFleetCompare, fetchFleetList } from '../../../services/fleet.js';
+import { fetchFleetCompare, downloadFleetComparePdf, fetchFleetList } from '../../../services/fleet.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import FleetHeaderActions from './FleetHeaderActions.jsx';
@@ -16,11 +16,26 @@ const FLASH_MESSAGES = {
   1: { type: 'error', text: 'Sorry! there was an error while adding/updating Fleet.' },
 };
 
-function FleetCompareModal({ open, loading, data, onClose }) {
-  if (!open) return null;
+function FleetCompareModal({ open, loading, data, vesselIds, onClose }) {
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState('');
 
   const vessels = data?.vessels ?? [];
   const sections = data?.sections ?? [];
+
+  const handlePdf = async () => {
+    setPdfLoading(true);
+    setPdfError('');
+    try {
+      await downloadFleetComparePdf(vesselIds);
+    } catch (err) {
+      setPdfError(err.message || 'Failed to generate PDF.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  if (!open) return null;
 
   return (
     <div className={styles.modalBackdrop} role="presentation" onClick={onClose}>
@@ -35,12 +50,23 @@ function FleetCompareModal({ open, loading, data, onClose }) {
           <h4 id="fleet-compare-title">
             <i className="bi bi-file-text" aria-hidden /> Compare Vessels
           </h4>
-          <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close">
-            &times;
-          </button>
+          <div className={styles.modalHeaderActions}>
+            <Button
+              type="button"
+              variant="outline"
+              label={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
+              icon="download"
+              onClick={handlePdf}
+              disabled={loading || pdfLoading || !vessels.length}
+            />
+            <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close">
+              &times;
+            </button>
+          </div>
         </div>
         <div className={styles.modalBody}>
           {loading ? <LoadingOverlay active label="Loading comparison…" /> : null}
+          {pdfError ? <div className={styles.error}>{pdfError}</div> : null}
           {!loading && vessels.length ? (
             <div className={styles.tableWrap}>
               <table className={styles.table}>
@@ -168,10 +194,11 @@ export default function FleetPage() {
   };
 
   const toggleSelected = (vesselImoId) => {
+    const id = String(vesselImoId);
     setSelectedIds((current) => (
-      current.includes(vesselImoId)
-        ? current.filter((id) => id !== vesselImoId)
-        : [...current, vesselImoId]
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id]
     ));
   };
 
@@ -324,7 +351,7 @@ export default function FleetPage() {
                 <td className={styles.actionCell}>
                   <input
                     type="checkbox"
-                    checked={selectedIds.includes(row.vesselImoId)}
+                    checked={selectedIds.includes(String(row.vesselImoId))}
                     onChange={() => toggleSelected(row.vesselImoId)}
                     aria-label={`Select ${row.vesselName} to compare`}
                   />
@@ -346,6 +373,7 @@ export default function FleetPage() {
         open={compareOpen}
         loading={compareLoading}
         data={compareData}
+        vesselIds={selectedIds}
         onClose={() => setCompareOpen(false)}
       />
     </div>

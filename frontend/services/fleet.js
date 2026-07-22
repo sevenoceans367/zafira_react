@@ -37,6 +37,39 @@ export async function fetchFleetCompare(vesselIds) {
   return parseJson(response, 'Failed to compare vessels.');
 }
 
+function parseFilenameFromDisposition(disposition, fallback) {
+  if (!disposition) return fallback;
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1]);
+  const match = disposition.match(/filename="?([^"]+)"?/i);
+  return match?.[1] || fallback;
+}
+
+export async function downloadFleetComparePdf(vesselIds) {
+  const response = await fetch(`${BASE}/compare/pdf`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vesselIds }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || 'Failed to generate compare vessels PDF.');
+  }
+  const blob = await response.blob();
+  const filename = parseFilenameFromDisposition(
+    response.headers.get('Content-Disposition'),
+    'Compare-Vessels.pdf',
+  );
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function fetchVesselPrimary(vesselId) {
   const response = await fetch(`${BASE}/vessel/${encodeURIComponent(vesselId)}/primary`);
   return parseJson(response, 'Failed to load vessel.');

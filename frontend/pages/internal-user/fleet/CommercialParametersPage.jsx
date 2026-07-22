@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, CardSelect, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import {
+  Button,
+  CardSelect,
+  DmyDateInput,
+  Field,
+  LoadingOverlay,
+  TextInput,
+  useConfirm,
+} from '@bainbridge/shared-ui';
 import { useFleetModule } from '../../../hooks/useFleetModule.js';
 import {
   downloadCommercialParametersPdf,
@@ -49,10 +57,31 @@ function emptyVariousRow() {
   };
 }
 
-function NumericInput({ value, onChange, className = '' }) {
+function ThemedCardSelect({
+  value,
+  options = [],
+  onChange,
+  label,
+  placeholder = '----Select From List----',
+}) {
   return (
-    <input
-      className={`${styles.input} ${styles.inputNumeric} ${className}`}
+    <div className={styles.cardSelect}>
+      <CardSelect
+        value={value || ''}
+        options={options}
+        placeholder={placeholder}
+        ariaLabel={label || placeholder}
+        align="start"
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
+function NumericInput({ value, onChange }) {
+  return (
+    <TextInput
+      className={styles.inputNumeric}
       value={value ?? ''}
       onChange={(event) => onChange(event.target.value)}
     />
@@ -61,10 +90,10 @@ function NumericInput({ value, onChange, className = '' }) {
 
 function BunkerSelect({ row, lookups, onChange }) {
   return (
-    <CardSelect
+    <ThemedCardSelect
       value={row.bunkerId || ''}
       options={lookups.bunkers ?? []}
-      placeholder="----Select From List----"
+      label="Bunker"
       onChange={(value) => onChange({ bunkerId: value })}
     />
   );
@@ -72,9 +101,10 @@ function BunkerSelect({ row, lookups, onChange }) {
 
 function ZoneSelect({ row, lookups, onChange }) {
   return (
-    <CardSelect
+    <ThemedCardSelect
       value={row.zone || 'Non Seca'}
       options={lookups.zones ?? []}
+      label="Zone"
       placeholder="Zone"
       onChange={(value) => onChange({ zone: value })}
     />
@@ -200,11 +230,13 @@ export default function CommercialParametersPage() {
       ) : null}
 
       <div className={styles.toolbar}>
-        <Button variant="outline" label="Back" to={fleetPath} />
+        <Button type="button" variant="outline" label="Back" to={fleetPath} />
         <div className={styles.toolbarActions}>
           <Button
+            type="button"
             variant="outline"
             label={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
+            icon="download"
             onClick={handleGeneratePdf}
             disabled={loading || pdfLoading || !vessel}
           />
@@ -215,49 +247,41 @@ export default function CommercialParametersPage() {
 
       <h2 className={styles.subtitle}>COMMERCIAL - PARAMETERS</h2>
 
-      <section className={styles.section}>
+      <section className={`zafira-card ${styles.section}`}>
         <h3 className={styles.sectionTitle}>Main Data</h3>
         <div className={styles.sectionBody}>
           <div className={styles.grid4}>
-            <div className={styles.field}>
-              <label htmlFor="txtVName">Vessel Name</label>
-              <input id="txtVName" className={styles.input} readOnly value={vessel?.name ?? ''} />
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="txtVType">Vessel Type</label>
-              <input id="txtVType" className={styles.input} readOnly value={vessel?.type ?? ''} />
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="txtDate">Date *</label>
-              <input
+            <Field id="txtVName" label="Vessel Name">
+              <TextInput id="txtVName" readOnly value={vessel?.name ?? ''} />
+            </Field>
+            <Field id="txtVType" label="Vessel Type">
+              <TextInput id="txtVType" readOnly value={vessel?.type ?? ''} />
+            </Field>
+            <Field id="txtDate" label="Date *">
+              <DmyDateInput
                 id="txtDate"
-                className={styles.input}
-                placeholder="dd-mm-yyyy"
                 value={main.date ?? ''}
-                onChange={(event) => setMain((current) => ({ ...current, date: event.target.value }))}
+                onChange={(value) => setMain((current) => ({ ...current, date: value }))}
               />
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="txtDWTS">DWT (Summer)</label>
-              <input id="txtDWTS" className={styles.input} readOnly value={main.dwt ?? ''} />
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="txtDraft">Draft (Summer)</label>
-              <input id="txtDraft" className={styles.input} readOnly value={main.draft ?? ''} />
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="txtTPC">TPC</label>
-              <input id="txtTPC" className={styles.input} readOnly value={main.tpc ?? ''} />
-            </div>
+            </Field>
+            <Field id="txtDWTS" label="DWT (Summer)">
+              <TextInput id="txtDWTS" readOnly value={main.dwt ?? ''} />
+            </Field>
+            <Field id="txtDraft" label="Draft (Summer)">
+              <TextInput id="txtDraft" readOnly value={main.draft ?? ''} />
+            </Field>
+            <Field id="txtTPC" label="TPC">
+              <TextInput id="txtTPC" readOnly value={main.tpc ?? ''} />
+            </Field>
           </div>
         </div>
       </section>
 
-      <section className={styles.section}>
+      <section className={`zafira-card ${styles.section}`}>
         <h3 className={styles.sectionTitle}>Speed Data</h3>
         <div className={styles.sectionBody}>
           <div className={styles.tableWrap}>
-            <table className={styles.table}>
+            <table className={`zafira-data-table ${styles.table}`}>
               <thead>
                 <tr>
                   <th />
@@ -285,11 +309,11 @@ export default function CommercialParametersPage() {
         </div>
       </section>
 
-      <section className={styles.section}>
+      <section className={`zafira-card ${styles.section}`}>
         <h3 className={styles.sectionTitle}>Bunkers at Sea - Consumption(MT)/Day</h3>
         <div className={styles.sectionBody}>
           <div className={styles.tableWrap}>
-            <table className={styles.table}>
+            <table className={`zafira-data-table ${styles.table}`}>
               <thead>
                 <tr>
                   <th />
@@ -316,14 +340,12 @@ export default function CommercialParametersPage() {
                   <tr key={row.key}>
                     <td>
                       {bunkersAtSea.length > 1 ? (
-                        <button
+                        <Button
                           type="button"
-                          className={styles.iconButton}
+                          variant="outline"
+                          label="Remove"
                           onClick={() => removeRow(setBunkersAtSea, index, bunkersAtSea)}
-                          aria-label="Remove row"
-                        >
-                          ×
-                        </button>
+                        />
                       ) : null}
                     </td>
                     <td>
@@ -353,6 +375,7 @@ export default function CommercialParametersPage() {
           </div>
           <div className={styles.tableActions}>
             <Button
+              type="button"
               variant="outline"
               label="Add"
               onClick={() => setBunkersAtSea((rows) => [...rows, emptyAtSeaRow()])}
@@ -361,11 +384,11 @@ export default function CommercialParametersPage() {
         </div>
       </section>
 
-      <section className={styles.section}>
+      <section className={`zafira-card ${styles.section}`}>
         <h3 className={styles.sectionTitle}>Bunkers in Port - Consumption(MT)/Day</h3>
         <div className={styles.sectionBody}>
           <div className={styles.tableWrap}>
-            <table className={styles.table}>
+            <table className={`zafira-data-table ${styles.table}`}>
               <thead>
                 <tr>
                   <th>#</th>
@@ -382,14 +405,12 @@ export default function CommercialParametersPage() {
                   <tr key={row.key}>
                     <td>
                       {bunkersInPort.length > 1 ? (
-                        <button
+                        <Button
                           type="button"
-                          className={styles.iconButton}
+                          variant="outline"
+                          label="Remove"
                           onClick={() => removeRow(setBunkersInPort, index, bunkersInPort)}
-                          aria-label="Remove row"
-                        >
-                          ×
-                        </button>
+                        />
                       ) : null}
                     </td>
                     <td>
@@ -417,6 +438,7 @@ export default function CommercialParametersPage() {
           </div>
           <div className={styles.tableActions}>
             <Button
+              type="button"
               variant="outline"
               label="Add"
               onClick={() => setBunkersInPort((rows) => [...rows, emptyInPortRow()])}
@@ -426,11 +448,11 @@ export default function CommercialParametersPage() {
       </section>
 
       {showVarious ? (
-        <section className={styles.section}>
+        <section className={`zafira-card ${styles.section}`}>
           <h3 className={styles.sectionTitle}>Bunkers Various - Consumption(MT)/Day</h3>
           <div className={styles.sectionBody}>
             <div className={styles.tableWrap}>
-              <table className={styles.table}>
+              <table className={`zafira-data-table ${styles.table}`}>
                 <thead>
                   <tr>
                     <th>#</th>
@@ -449,14 +471,12 @@ export default function CommercialParametersPage() {
                     <tr key={row.key}>
                       <td>
                         {bunkersVarious.length > 1 ? (
-                          <button
+                          <Button
                             type="button"
-                            className={styles.iconButton}
+                            variant="outline"
+                            label="Remove"
                             onClick={() => removeRow(setBunkersVarious, index, bunkersVarious)}
-                            aria-label="Remove row"
-                          >
-                            ×
-                          </button>
+                          />
                         ) : null}
                       </td>
                       <td>
@@ -486,6 +506,7 @@ export default function CommercialParametersPage() {
             </div>
             <div className={styles.tableActions}>
               <Button
+                type="button"
                 variant="outline"
                 label="Add"
                 onClick={() => setBunkersVarious((rows) => [...rows, emptyVariousRow()])}
@@ -496,8 +517,8 @@ export default function CommercialParametersPage() {
       ) : null}
 
       <div className={styles.footerActions}>
-        <Button variant="outline" label="Cancel" to={fleetPath} />
-        <Button label="Submit" onClick={handleSubmit} disabled={loading || saving} />
+        <Button type="button" variant="outline" label="Cancel" to={fleetPath} />
+        <Button type="button" label="Submit" onClick={handleSubmit} disabled={loading || saving} />
       </div>
     </div>
   );

@@ -1,26 +1,8 @@
 import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { getDefaultReportPath } from '../../constants/reportsMenu.js';
 
+/** Legacy `/reports` entry — send users into the Reports menu. */
 export default function ReportsPage() {
-  return (
-    <div className="zafira-page">
-      <div className="zafira-card">
-        <div className="zafira-table-wrap">
-          <table className="zafira-data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Sample row</td>
-                <td>Active</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+  return <Navigate to={getDefaultReportPath()} replace />;
 }

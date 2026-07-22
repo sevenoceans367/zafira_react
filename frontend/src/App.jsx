@@ -10,6 +10,8 @@ import InternalUserLayout from '../components/Layout/InternalUserLayout.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import ModuleHomePage from '../pages/internal-user/ModuleHomePage.jsx';
 import ReportsPage from '../pages/internal-user/ReportsPage.jsx';
+import ReportModulePage from '../pages/internal-user/reports/ReportModulePage.jsx';
+import { getDefaultReportPath } from '../constants/reportsMenu.js';
 import VcDashboardPage from '../pages/internal-user/vc/VcDashboardPage.jsx';
 import RunningCoasListPage from '../pages/internal-user/coa/RunningCoasListPage.jsx';
 import CoaFormPage from '../pages/internal-user/coa/CoaFormPage.jsx';
@@ -79,6 +81,14 @@ export default function App() {
           >
             <Route path="/" element={<ModuleHomePage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route
+              path="/internal-user/vc/reports"
+              element={<Navigate to={getDefaultReportPath()} replace />}
+            />
+            <Route
+              path="/internal-user/vc/reports/:sectionId/:reportId"
+              element={<ReportModulePage />}
+            />
             <Route path="/internal-user/vc" element={<VcDashboardPage />} />
             <Route path="/internal-user/vc/coas/running" element={<RunningCoasListPage />} />
             <Route path="/internal-user/vc/coas/running/add" element={<CoaFormPage mode="add" />} />

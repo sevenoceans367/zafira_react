@@ -9,6 +9,7 @@ import { resolveCoaHeader } from './coaPageHeaders.js';
 import { resolveOpsVcHeader } from './opsVcPageHeaders.js';
 import { resolveOpsTcHeader } from './opsTcPageHeaders.js';
 import { resolveTcHeader } from './tcPageHeaders.js';
+import { resolveReportsHeader } from './reportsPageHeaders.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
 
@@ -17,11 +18,6 @@ const STATIC_HEADERS = {
     title: 'Dashboard',
     currentPage: 'Dashboard',
     breadcrumbs: [HOME],
-  },
-  '/reports': {
-    title: 'Reports',
-    currentPage: 'Reports',
-    breadcrumbs: [HOME, { label: 'Reports' }],
   },
   '/internal-user/vc': {
     title: 'Dashboard',
@@ -87,6 +83,9 @@ export function resolveInternalUserHeader(pathname) {
 
   const tcHeader = resolveTcHeader(pathname);
   if (tcHeader) return tcHeader;
+
+  const reportsHeader = resolveReportsHeader(pathname);
+  if (reportsHeader) return reportsHeader;
 
   if (pathname.startsWith('/internal-user/vc')) {
     return STATIC_HEADERS['/internal-user/vc'];

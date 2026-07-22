@@ -164,6 +164,12 @@
   border-bottom: 1px solid var(--color-border, #d9dee8);
 }
 
+.modalHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .modalHeader h4 {
   margin: 0;
   font-size: 16px;

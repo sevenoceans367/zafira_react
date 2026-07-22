@@ -177,18 +177,31 @@
 }
 
 @media print {
+  /* Hide the rest of the app when printing from this modal. */
+  :global(body *) {
+    visibility: hidden !important;
+  }
+
+  .backdrop,
+  .backdrop * {
+    visibility: visible !important;
+  }
+
   .backdrop {
-    position: static;
-    display: block;
-    padding: 0;
-    background: #fff;
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    padding: 0 !important;
+    background: #fff !important;
+    z-index: auto !important;
   }
 
   .modal {
-    width: 100%;
-    max-height: none;
-    box-shadow: none;
-    border-radius: 0;
+    width: 100% !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
   }
 
   .header,
@@ -197,15 +210,28 @@
     display: none !important;
   }
 
-  .body {
-    padding: 0;
-    overflow: visible;
+  .body,
+  .printArea {
+    padding: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
   }
 
   .input {
-    border: none;
-    background: transparent;
-    color: #fff;
-    padding: 0;
+    border: none !important;
+    background: transparent !important;
+    color: #111 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .headerCell,
+  .inputCell,
+  .resultCell,
+  .resultValue {
+    color: #111 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

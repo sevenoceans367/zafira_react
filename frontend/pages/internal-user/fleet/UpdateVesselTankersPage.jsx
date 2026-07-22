@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, CardSelect, LoadingOverlay } from '@bainbridge/shared-ui';
+import {
+  Button,
+  CardSelect,
+  DmyDateInput,
+  Field,
+  LoadingOverlay,
+  TextInput,
+  Textarea,
+} from '@bainbridge/shared-ui';
 import {
   fetchTankerParticulars,
   updateTankerParticulars,
@@ -71,6 +79,15 @@ const YES_NO_OPTIONS = [
   { value: '2', label: 'No' },
 ];
 
+function isDateField(field) {
+  if (!field || field.type === 'radio' || field.type === 'select') return false;
+  if (field.type === 'date') return true;
+  const key = String(field.key || '');
+  if (/Date$/i.test(key) || key === 'txtDOC') return true;
+  const label = String(field.label || '').toLowerCase();
+  return /\b(date|expiry)\b/.test(label);
+}
+
 function emptyCertificateRow(key = `cert-${Date.now()}`) {
   return {
     key,
@@ -100,6 +117,29 @@ function mapCertificatesToForm(certificates = []) {
   }));
 }
 
+function ThemedCardSelect({
+  value,
+  options = [],
+  onChange,
+  label,
+  placeholder = '----Select From List----',
+  disabled = false,
+}) {
+  return (
+    <div className={styles.cardSelect}>
+      <CardSelect
+        value={value || ''}
+        options={options}
+        placeholder={placeholder}
+        ariaLabel={label || placeholder}
+        align="start"
+        disabled={disabled}
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
 function EditableField({
   field,
   value,
@@ -109,12 +149,14 @@ function EditableField({
   const lookupName = field.lookup || SELECT_LOOKUPS[field.key];
   const isWide = TEXTAREA_KEYS.has(field.key) || field.label.length > 80;
   const readOnly = Boolean(field.readOnly) || READ_ONLY_KEYS.has(field.key);
+  const spanClass = TEXTAREA_KEYS.has(field.key)
+    ? styles.fieldWideFull
+    : (isWide ? styles.fieldWide : '');
 
   if (field.type === 'radio') {
     const options = field.key === 'rdoPitch' ? PITCH_OPTIONS : YES_NO_OPTIONS;
     return (
-      <div className={`${styles.field} ${isWide ? styles.fieldWide : ''}`}>
-        <label>{field.label}</label>
+      <Field id={field.key} label={field.label} className={spanClass}>
         <div className={styles.radioGroup}>
           {options.map((option) => (
             <label key={option.value} className={styles.radioOption}>
@@ -123,69 +165,75 @@ function EditableField({
                 name={field.key}
                 value={option.value}
                 checked={String(value || '1') === option.value}
+                disabled={readOnly}
                 onChange={(event) => onChange(field.key, event.target.value)}
               />
               <span>{option.label}</span>
             </label>
           ))}
         </div>
-      </div>
+      </Field>
     );
   }
 
   if (field.type === 'select' && lookupName) {
     const options = lookups?.[lookupName] ?? [];
     return (
-      <div className={`${styles.field} ${isWide ? styles.fieldWide : ''}`}>
-        <label htmlFor={field.key}>{field.label}</label>
-        <CardSelect
+      <Field id={field.key} label={field.label} className={spanClass}>
+        <ThemedCardSelect
           value={value || ''}
           options={options}
-          placeholder="----Select From List----"
+          label={field.label}
           disabled={readOnly}
-          ariaLabel={field.label}
           onChange={(nextValue) => onChange(field.key, nextValue)}
         />
-      </div>
+      </Field>
     );
   }
 
   if (TEXTAREA_KEYS.has(field.key)) {
     return (
-      <div className={`${styles.field} ${styles.fieldFull}`}>
-        <label htmlFor={field.key}>{field.label}</label>
-        <textarea
+      <Field id={field.key} label={field.label} className={styles.fieldWideFull}>
+        <Textarea
           id={field.key}
-          className={styles.textarea}
           value={value || ''}
           rows={4}
           readOnly={readOnly}
           onChange={(event) => onChange(field.key, event.target.value)}
         />
-      </div>
+      </Field>
+    );
+  }
+
+  if (isDateField(field)) {
+    return (
+      <Field id={field.key} label={field.label} className={spanClass}>
+        <DmyDateInput
+          id={field.key}
+          value={value || ''}
+          disabled={readOnly}
+          onChange={(next) => onChange(field.key, next)}
+        />
+      </Field>
     );
   }
 
   return (
-    <div className={`${styles.field} ${isWide ? styles.fieldWide : ''}`}>
-      <label htmlFor={field.key}>{field.label}</label>
-      <input
+    <Field id={field.key} label={field.label} className={spanClass}>
+      <TextInput
         id={field.key}
-        className={styles.input}
-        type={field.type === 'date' ? 'text' : 'text'}
         value={value || ''}
-        placeholder={field.type === 'date' ? 'dd-mm-yyyy' : ''}
         readOnly={readOnly}
         onChange={(event) => onChange(field.key, event.target.value)}
       />
-    </div>
+    </Field>
   );
 }
 
 function FormSection({ title, fields, values, lookups, onChange }) {
   if (!fields?.length) return null;
   return (
-    <section className={styles.section}>
+    <section className={`zafira-card ${styles.section}`}>
       <h3 className={styles.sectionTitle}>{title}</h3>
       <div className={styles.sectionBody}>
         <div className={styles.fieldGrid}>
@@ -209,7 +257,7 @@ function CertificatesEditor({ certificates, lookups, onChange, onAdd, onRemove }
 
   return (
     <div className={styles.tableWrap}>
-      <table className={styles.table}>
+      <table className={`zafira-data-table ${styles.table}`}>
         <thead>
           <tr>
             <th>Certificate Name</th>
@@ -224,35 +272,29 @@ function CertificatesEditor({ certificates, lookups, onChange, onAdd, onRemove }
           {certificates.map((row, index) => (
             <tr key={row.key}>
               <td>
-                <CardSelect
+                <ThemedCardSelect
                   value={row.certificateId || ''}
                   options={certificateOptions}
-                  placeholder="----Select From List----"
+                  label="Certificate Name"
                   onChange={(value) => onChange(index, { certificateId: value })}
                 />
               </td>
               <td>
-                <input
-                  className={styles.input}
+                <DmyDateInput
                   value={row.dateIssue || ''}
-                  placeholder="dd-mm-yyyy"
-                  onChange={(event) => onChange(index, { dateIssue: event.target.value })}
+                  onChange={(value) => onChange(index, { dateIssue: value })}
                 />
               </td>
               <td>
-                <input
-                  className={styles.input}
+                <DmyDateInput
                   value={row.dateLastAnnual || ''}
-                  placeholder="dd-mm-yyyy"
-                  onChange={(event) => onChange(index, { dateLastAnnual: event.target.value })}
+                  onChange={(value) => onChange(index, { dateLastAnnual: value })}
                 />
               </td>
               <td>
-                <input
-                  className={styles.input}
+                <DmyDateInput
                   value={row.dateExpiry || ''}
-                  placeholder="dd-mm-yyyy"
-                  onChange={(event) => onChange(index, { dateExpiry: event.target.value })}
+                  onChange={(value) => onChange(index, { dateExpiry: value })}
                 />
               </td>
               <td>
@@ -280,14 +322,12 @@ function CertificatesEditor({ certificates, lookups, onChange, onAdd, onRemove }
               </td>
               <td>
                 {certificates.length > 1 ? (
-                  <button
+                  <Button
                     type="button"
-                    className={styles.iconButton}
+                    variant="outline"
+                    label="Remove"
                     onClick={() => onRemove(index)}
-                    aria-label="Remove certificate row"
-                  >
-                    ×
-                  </button>
+                  />
                 ) : null}
               </td>
             </tr>
@@ -295,7 +335,7 @@ function CertificatesEditor({ certificates, lookups, onChange, onAdd, onRemove }
         </tbody>
       </table>
       <div className={styles.tableActions}>
-        <Button variant="outline" label="Add Certificate" onClick={onAdd} />
+        <Button type="button" variant="outline" label="Add Certificate" onClick={onAdd} />
       </div>
     </div>
   );
@@ -384,10 +424,10 @@ export default function UpdateVesselTankersPage() {
       ) : null}
 
       <div className={styles.toolbar}>
-        <Button variant="outline" label="Back" to={fleetPath} />
+        <Button type="button" variant="outline" label="Back" to={fleetPath} />
         <div className={styles.toolbarActions}>
-          <Button variant="outline" label="Cancel" to={fleetPath} />
-          <Button label="Save" onClick={handleSubmit} disabled={loading || saving} />
+          <Button type="button" variant="outline" label="Cancel" to={fleetPath} />
+          <Button type="button" label="Save" onClick={handleSubmit} disabled={loading || saving} />
         </div>
       </div>
 
@@ -416,7 +456,7 @@ export default function UpdateVesselTankersPage() {
         />
       ))}
 
-      <div className={styles.tabs}>
+      <div className={`zafira-card ${styles.tabs}`}>
         <div className={styles.tabList} role="tablist" aria-label="Vessel particulars tabs">
           {TANKER_PARTICULARS_LAYOUT.tabs.map((tab) => (
             <button
@@ -434,7 +474,7 @@ export default function UpdateVesselTankersPage() {
 
         <div className={styles.tabPanel} role="tabpanel">
           {activeTabConfig?.certificates ? (
-            <section className={styles.section}>
+            <section className={`zafira-card ${styles.section}`}>
               <h3 className={styles.sectionTitle}>Certification</h3>
               <div className={styles.sectionBody}>
                 <CertificatesEditor

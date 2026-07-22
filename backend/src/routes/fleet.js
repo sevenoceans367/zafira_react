@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { compareVessels, getFleetList } from '../services/fleetService.js';
+import { generateFleetComparePdf } from '../services/fleetComparePdfService.js';
 import {
   createVesselPrimary,
   getVesselPrimary,
@@ -45,6 +46,22 @@ router.post('/compare', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message || 'Failed to compare vessels.' });
+  }
+});
+
+router.post('/compare/pdf', async (req, res) => {
+  try {
+    const vesselIds = Array.isArray(req.body?.vesselIds) ? req.body.vesselIds : [];
+    const data = await compareVessels(vesselIds);
+    const { buffer, filename } = await generateFleetComparePdf(data);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error(error);
+    res.status(error.status || 500).json({
+      message: error.message || 'Failed to generate compare vessels PDF.',
+    });
   }
 });
 

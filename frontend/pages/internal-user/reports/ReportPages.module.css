@@ -1,0 +1,282 @@
+.page {
+  position: relative;
+}
+
+.title {
+  margin: 0 0 16px;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text, #1f2937);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  font-size: 12px;
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+  border-radius: 6px;
+}
+
+.empty {
+  margin: 24px auto;
+  max-width: 520px;
+  padding: 20px 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #4b5563;
+  font-size: 13px;
+  text-align: center;
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.sectionTitle {
+  margin: 20px 0 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.dashed {
+  border: none;
+  border-top: 3px dashed #bbb;
+  margin: 28px 0;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow: auto;
+}
+
+.modal {
+  width: min(960px, 100%);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.25);
+  padding: 16px 18px 20px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.modalBody h4 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.particularsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 18px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+
+.diffNeg {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.diffPos {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.chartCard {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.chartBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  min-height: 220px;
+  overflow-x: auto;
+  padding: 8px 4px 0;
+}
+
+.chartCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 72px;
+  flex: 0 0 auto;
+}
+
+.chartValue {
+  font-size: 11px;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.chartBar {
+  width: 36px;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.chartLabel {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #4b5563;
+  text-align: center;
+  max-width: 90px;
+  word-break: break-word;
+}
+
+.success {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  border: 1px solid #badbcc;
+  background: #d1e7dd;
+  color: #0f5132;
+  border-radius: 6px;
+}
+
+.saving {
+  margin-left: 4px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.checkLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  min-height: 34px;
+}
+
+.cardSelect {
+  min-width: 160px;
+  width: 100%;
+}
+
+.cardSelect > div {
+  display: block;
+  width: 100%;
+}
+
+.cardSelect > div > button:first-child {
+  width: 100%;
+  min-width: 160px;
+  justify-content: space-between;
+}
+
+.groupedChart {
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  min-height: 280px;
+  overflow-x: auto;
+  padding: 12px 8px 4px;
+}
+
+.groupedYear {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+
+.groupedBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-height: 220px;
+}
+
+.groupedBarWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 14px;
+}
+
+.groupedBarValue {
+  min-height: 14px;
+  margin-bottom: 4px;
+  font-size: 10px;
+  color: #374151;
+  line-height: 1;
+}
+
+.groupedBar {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  transition: height 0.2s ease;
+}
+
+.groupedTotal {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 16px;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+

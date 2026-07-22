@@ -21,6 +21,7 @@ import {
 import { fetchPortToPortDistance, searchEstimatePorts } from '../services/portDistanceService.js';
 import { getCanalOrcRates, getDefaultMarketPrices } from '../services/canalOrcService.js';
 import { getSensitivityAnalysis, updateSensitivityEstimate } from '../services/sensitivityAnalysisService.js';
+import { generateSensitivityAnalysisPdf } from '../services/sensitivityAnalysisPdfService.js';
 import { fetchVesselsWithinRange as queryVesselsWithinRange } from '../services/vesselPositionService.js';
 import {
   createSupportTicket,
@@ -265,6 +266,19 @@ router.post('/sensitivity_analysis', async (req, res) => {
     res.json(await getSensitivityAnalysis(parsed, businessType));
   } catch (error) {
     res.status(400).json({ message: error.message || 'Failed to load sensitivity analysis.' });
+  }
+});
+
+router.post('/sensitivity_analysis/pdf', async (req, res) => {
+  try {
+    const { buffer, filename } = await generateSensitivityAnalysisPdf(req.body || {});
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (error) {
+    res.status(error.status || 400).json({
+      message: error.message || 'Failed to generate sensitivity analysis PDF.',
+    });
   }
 });
 

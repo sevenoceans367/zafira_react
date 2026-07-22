@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@bainbridge/shared-ui';
-import { updateSensitivityEstimate } from '../../../services/estimateList.js';
+import { updateSensitivityEstimate, downloadSensitivityAnalysisPdf } from '../../../services/estimateList.js';
 import {
   buildColumnState,
   buildUpdatePayload,
@@ -52,6 +52,7 @@ export default function SensitivityAnalysisModal({
   const [columns, setColumns] = useState([]);
   const [bunkerGrades, setBunkerGrades] = useState([]);
   const [updatingId, setUpdatingId] = useState('');
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {
     if (!data?.columns?.length) {
@@ -156,8 +157,23 @@ export default function SensitivityAnalysisModal({
     }
   };
 
-  const handleGeneratePdf = () => {
-    window.print();
+  const handleGeneratePdf = async () => {
+    if (!columns.length || pdfLoading) return;
+    setPdfLoading(true);
+    try {
+      await downloadSensitivityAnalysisPdf({
+        businessType: resolvedBusinessType,
+        bunkerGrades,
+        columns: columns.map((column) => ({
+          ...column,
+          metrics: metricsById[column.id] || {},
+        })),
+      });
+    } catch (error) {
+      window.alert(error.message || 'Failed to generate PDF.');
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   if (!open) return null;
@@ -197,8 +213,9 @@ export default function SensitivityAnalysisModal({
               <div className={styles.toolbar}>
                 <Button
                   variant="accent"
-                  label="Generate PDF"
+                  label={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
                   onClick={handleGeneratePdf}
+                  disabled={pdfLoading || !columns.length}
                 />
               </div>
 

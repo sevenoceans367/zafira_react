@@ -9,6 +9,7 @@ import periodContractRoutes from './periodContract.js';
 import todoListRoutes from './todoList.js';
 import combinedSoaPayableRoutes from './combinedSoaPayable.js';
 import mastersRoutes from './masters.js';
+import reportsRoutes from './reports.js';
 import { pingDb } from '../db.js';
 import { isDbConfigured } from '../config.js';
 
@@ -59,5 +60,6 @@ router.use('/internal-user/period-contracts', periodContractRoutes);
 router.use('/internal-user/todo-list', todoListRoutes);
 router.use('/internal-user/combined-soa-payable', combinedSoaPayableRoutes);
 router.use('/internal-user/masters', mastersRoutes);
+router.use('/internal-user/reports', reportsRoutes);
 
 export default router;

@@ -12,6 +12,7 @@ import CoasSidebarTree from './coa/CoasSidebarTree.jsx';
 import OpsVcSidebarTree from './ops/OpsVcSidebarTree.jsx';
 import OpsTcSidebarTree from './ops/OpsTcSidebarTree.jsx';
 import MastersSidebarTree from './masters/MastersSidebarTree.jsx';
+import ReportsSidebarTree from './reports/ReportsSidebarTree.jsx';
 
 function isSidebarItemActive(pathname, item) {
   if (typeof item.isActive === 'function') {
@@ -156,6 +157,7 @@ export default function InternalUserSidebar({ isOpen }) {
             <CoasSidebarTree isOpen={isOpen} />
             <OpsVcSidebarTree isOpen={isOpen} />
             <OpsTcSidebarTree isOpen={isOpen} />
+            <ReportsSidebarTree isOpen={isOpen} />
             <MastersSidebarTree isOpen={isOpen} />
           </>
         ) : null}
@@ -181,6 +183,7 @@ export default function InternalUserSidebar({ isOpen }) {
               label={PERIOD_CONTRACT_LINK.label}
               active={currentPath.startsWith('/internal-user/tc/period-contracts')}
             />
+            <ReportsSidebarTree isOpen={isOpen} />
             <MastersSidebarTree isOpen={isOpen} />
           </>
         ) : null}

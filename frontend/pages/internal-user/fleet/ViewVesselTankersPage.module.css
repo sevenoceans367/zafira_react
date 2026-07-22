@@ -72,8 +72,25 @@
   grid-column: span 2;
 }
 
-.fieldFull {
+.fieldFull,
+.fieldWideFull {
   grid-column: 1 / -1;
+}
+
+.cardSelect {
+  width: 100%;
+  min-width: 0;
+}
+
+.cardSelect > div {
+  display: block;
+  width: 100%;
+}
+
+.cardSelect > div > button:first-child {
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
 }
 
 .field label {

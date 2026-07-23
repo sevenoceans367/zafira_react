@@ -200,9 +200,11 @@ export default function OpsTcHistoryPage() {
                   </td>
                   <td>
                     <Link
+                      className={styles.opsViewLink}
                       to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                      title="Payment / Invoice Grid"
                     >
-                      View
+                      <strong>View</strong>
                     </Link>
                   </td>
                   <td>

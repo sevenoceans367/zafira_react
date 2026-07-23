@@ -316,9 +316,11 @@ export default function OpsTcInOpsGlancePage() {
                 </td>
                 <td>
                   <Link
+                    className={styles.opsViewLink}
                     to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                    title="Payment / Invoice Grid"
                   >
-                    View
+                    <strong>View</strong>
                   </Link>
                 </td>
                 <td className={styles.actionsCell}>

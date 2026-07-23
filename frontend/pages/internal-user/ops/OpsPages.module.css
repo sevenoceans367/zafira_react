@@ -125,6 +125,16 @@
   cursor: default;
 }
 
+.opsViewLink {
+  color: #005a86;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.opsViewLink:hover {
+  text-decoration: underline;
+}
+
 .alertText {
   margin-top: 6px;
   color: #b42318;
@@ -425,4 +435,53 @@
 
 .btnDanger {
   background: #dd4b39;
+}
+
+.badgeWarning {
+  display: inline-block;
+  background: #f39c12;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 3px;
+  margin: 2px 4px 2px 0;
+}
+
+.inlineFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.inlineFields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: #4b5563;
+  min-width: 120px;
+  flex: 1;
+}
+
+.footerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.fileList {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.fileList li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
 }

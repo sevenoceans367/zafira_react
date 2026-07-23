@@ -25,6 +25,8 @@ import OpsVcHistoryPage from '../pages/internal-user/ops/OpsVcHistoryPage.jsx';
 import OpsVcYearUpdationPage from '../pages/internal-user/ops/OpsVcYearUpdationPage.jsx';
 import OpsVcVoyageReportPage from '../pages/internal-user/ops/OpsVcVoyageReportPage.jsx';
 import OpsVcAgencyLetterPage from '../pages/internal-user/ops/OpsVcAgencyLetterPage.jsx';
+import OpsVcPaymentGridPage from '../pages/internal-user/ops/OpsVcPaymentGridPage.jsx';
+import OpsVcSofPage from '../pages/internal-user/ops/OpsVcSofPage.jsx';
 import OpsTcFinalisedFixturesPage from '../pages/internal-user/ops/OpsTcFinalisedFixturesPage.jsx';
 import OpsTcInOpsGlancePage from '../pages/internal-user/ops/OpsTcInOpsGlancePage.jsx';
 import OpsTcChecklistPage from '../pages/internal-user/ops/OpsTcChecklistPage.jsx';
@@ -101,6 +103,8 @@ export default function App() {
             <Route path="/internal-user/vc/ops/in-ops-glance" element={<OpsVcInOpsGlancePage />} />
             <Route path="/internal-user/vc/ops/voyage-report" element={<OpsVcVoyageReportPage />} />
             <Route path="/internal-user/vc/ops/agency-letter" element={<OpsVcAgencyLetterPage />} />
+            <Route path="/internal-user/vc/ops/payment-grid" element={<OpsVcPaymentGridPage />} />
+            <Route path="/internal-user/vc/ops/sof" element={<OpsVcSofPage />} />
             <Route path="/internal-user/vc/ops/post-ops" element={<OpsVcPostOpsPage />} />
             <Route path="/internal-user/vc/ops/history" element={<OpsVcHistoryPage />} />
             <Route path="/internal-user/vc/ops/year-updation" element={<OpsVcYearUpdationPage />} />

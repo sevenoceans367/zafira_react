@@ -18,6 +18,7 @@ import {
   createEmptyVoyageEventRow,
 } from './estimateDetail.constants.js';
 import { getAddRowBlockMessage } from './estimateValidation.js';
+import { sanitizeDecimalInput, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import styles from './UpdateEstimatePage.module.css';
 
 function newBunkerId() {
@@ -37,23 +38,28 @@ export default function EstimateAdvancedSections({
   const alert = useAlert();
 
   const updateField = (key, value) => {
-    onFieldChange?.(key, value);
+    const next = ESTIMATE_DECIMAL_FIELDS.has(key)
+      ? sanitizeDecimalInput(value)
+      : value;
+    onFieldChange?.(key, next);
   };
 
   const applyPatch = (patch) => {
+    const cleanPatch = sanitizeEstimatePatch(patch);
     if (onApplyPatch) {
-      onApplyPatch(patch);
+      onApplyPatch(cleanPatch);
       return;
     }
-    Object.entries(patch || {}).forEach(([key, value]) => {
+    Object.entries(cleanPatch || {}).forEach(([key, value]) => {
       if (onRecalc) onRecalc(key, value);
       else updateField(key, value);
     });
   };
 
   const updateRow = (collection, id, patch) => {
+    const cleanPatch = sanitizeEstimatePatch(patch);
     const rows = (form[collection] || []).map((row) => (
-      row.id === id ? { ...row, ...patch } : row
+      row.id === id ? { ...row, ...cleanPatch } : row
     ));
     if (onRecalc) onRecalc(collection, rows);
     else updateField(collection, rows);
@@ -79,12 +85,13 @@ export default function EstimateAdvancedSections({
   };
 
   const updateOffHireBunker = (offId, bunkerId, patch) => {
+    const cleanPatch = sanitizeEstimatePatch(patch);
     const rows = (form.offHireRows || []).map((row) => {
       if (row.id !== offId) return row;
       return {
         ...row,
         bunkers: (row.bunkers || []).map((b) => (
-          b.id === bunkerId ? { ...b, ...patch } : b
+          b.id === bunkerId ? { ...b, ...cleanPatch } : b
         )),
       };
     });

@@ -6,6 +6,7 @@ import {
   PORT_FUNCTION_OPTIONS,
 } from './estimateDetail.constants.js';
 import { calcLaytimeWorkingDays } from './estimateCalculations.js';
+import { sanitizeDecimalInput } from './estimateInputSanitize.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
@@ -71,10 +72,30 @@ function displayWorkDays(leg, side) {
   const qty = side === 'load' ? leg.loadQty : leg.dischargeQty;
   const rate = side === 'load' ? leg.loadPortRate : leg.discPortRate;
   const stored = side === 'load' ? leg.loadPortWorkDays : leg.discPortWorkDays;
+  // DAP (terms 4): manual entry — keep typed decimals as-is
   if (String(terms) === '4') return stored || '';
-  if (stored) return stored;
   const computed = calcLaytimeWorkingDays(qty, rate, terms);
-  return computed ? String(computed) : '';
+  return computed ? String(computed) : (stored || '');
+}
+
+function DecimalInput({
+  value,
+  readOnly,
+  placeholder = '0.00',
+  onChange,
+  ...rest
+}) {
+  return (
+    <input
+      value={value || ''}
+      readOnly={readOnly}
+      placeholder={placeholder}
+      inputMode="decimal"
+      autoComplete="off"
+      onChange={(e) => onChange(sanitizeDecimalInput(e.target.value))}
+      {...rest}
+    />
+  );
 }
 
 function BunkerGradeSelect({ value, disabled, onChange }) {
@@ -154,6 +175,7 @@ export default function PortLaytimeSections({
                   <th>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
                   <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
+                  <th>SECA?</th>
                 </tr>
               </thead>
               <tbody>
@@ -181,27 +203,24 @@ export default function PortLaytimeSections({
                       </select>
                     </td>
                     <td>
-                      <input
-                        value={leg.loadPortCost || ''}
+                      <DecimalInput
+                        value={leg.loadPortCost}
                         readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { loadPortCost: e.target.value })}
+                        onChange={(value) => patchLeg(leg.id, { loadPortCost: value })}
                       />
                     </td>
                     <td>
-                      <input
-                        value={leg.loadQty || ''}
+                      <DecimalInput
+                        value={leg.loadQty}
                         readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { loadQty: e.target.value })}
+                        onChange={(value) => patchLeg(leg.id, { loadQty: value })}
                       />
                     </td>
                     <td>
-                      <input
-                        value={leg.loadPortRate || ''}
+                      <DecimalInput
+                        value={leg.loadPortRate}
                         readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { loadPortRate: e.target.value })}
+                        onChange={(value) => patchLeg(leg.id, { loadPortRate: value })}
                       />
                     </td>
                     <td>
@@ -216,18 +235,27 @@ export default function PortLaytimeSections({
                       </select>
                     </td>
                     <td>
-                      <input
+                      <DecimalInput
                         value={displayWorkDays(leg, 'load')}
                         readOnly={readOnly || String(leg.loadPortTerms) !== '4'}
-                        onChange={(e) => patchLeg(leg.id, { loadPortWorkDays: e.target.value })}
+                        onChange={(value) => patchLeg(leg.id, { loadPortWorkDays: value })}
+                      />
+                    </td>
+                    <td>
+                      <DecimalInput
+                        value={leg.loadPortIdleDays}
+                        readOnly={readOnly}
+                        onChange={(value) => patchLeg(leg.id, { loadPortIdleDays: value })}
                       />
                     </td>
                     <td>
                       <input
-                        value={leg.loadPortIdleDays || ''}
-                        readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { loadPortIdleDays: e.target.value })}
+                        type="checkbox"
+                        checked={!!leg.chkLpSeca}
+                        disabled={readOnly}
+                        onChange={(e) => patchLeg(leg.id, { chkLpSeca: e.target.checked })}
+                        title="Use SECA in-port consumption rates"
+                        aria-label="LP SECA"
                       />
                     </td>
                   </tr>
@@ -252,6 +280,7 @@ export default function PortLaytimeSections({
                   <th>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
                   <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
+                  <th>SECA?</th>
                 </tr>
               </thead>
               <tbody>
@@ -279,27 +308,24 @@ export default function PortLaytimeSections({
                       </select>
                     </td>
                     <td>
-                      <input
-                        value={leg.discPortCost || ''}
+                      <DecimalInput
+                        value={leg.discPortCost}
                         readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { discPortCost: e.target.value })}
+                        onChange={(value) => patchLeg(leg.id, { discPortCost: value })}
                       />
                     </td>
                     <td>
-                      <input
-                        value={leg.dischargeQty || ''}
+                      <DecimalInput
+                        value={leg.dischargeQty}
                         readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { dischargeQty: e.target.value })}
+                        onChange={(value) => patchLeg(leg.id, { dischargeQty: value })}
                       />
                     </td>
                     <td>
-                      <input
-                        value={leg.discPortRate || ''}
+                      <DecimalInput
+                        value={leg.discPortRate}
                         readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { discPortRate: e.target.value })}
+                        onChange={(value) => patchLeg(leg.id, { discPortRate: value })}
                       />
                     </td>
                     <td>
@@ -314,18 +340,27 @@ export default function PortLaytimeSections({
                       </select>
                     </td>
                     <td>
-                      <input
+                      <DecimalInput
                         value={displayWorkDays(leg, 'disc')}
                         readOnly={readOnly || String(leg.discPortTerms) !== '4'}
-                        onChange={(e) => patchLeg(leg.id, { discPortWorkDays: e.target.value })}
+                        onChange={(value) => patchLeg(leg.id, { discPortWorkDays: value })}
+                      />
+                    </td>
+                    <td>
+                      <DecimalInput
+                        value={leg.discPortIdleDays}
+                        readOnly={readOnly}
+                        onChange={(value) => patchLeg(leg.id, { discPortIdleDays: value })}
                       />
                     </td>
                     <td>
                       <input
-                        value={leg.discPortIdleDays || ''}
-                        readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { discPortIdleDays: e.target.value })}
+                        type="checkbox"
+                        checked={!!leg.chkDpSeca}
+                        disabled={readOnly}
+                        onChange={(e) => patchLeg(leg.id, { chkDpSeca: e.target.checked })}
+                        title="Use SECA in-port consumption rates"
+                        aria-label="DP SECA"
                       />
                     </td>
                   </tr>
@@ -346,6 +381,7 @@ export default function PortLaytimeSections({
                   <th>Cost</th>
                   <th>Idle Days</th>
                   <th className={styles.thStack}><span>Charterer&apos;s Account</span><span>(Days)</span></th>
+                  <th>SECA?</th>
                   <th>Region</th>
                 </tr>
               </thead>
@@ -361,27 +397,34 @@ export default function PortLaytimeSections({
                     </td>
                     <td className={styles.portNameCell}>{shortPortName(leg.toPortName || leg.toPortId)}</td>
                     <td>
-                      <input
-                        value={leg.transitPortCost || ''}
+                      <DecimalInput
+                        value={leg.transitPortCost}
                         readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { transitPortCost: e.target.value })}
+                        onChange={(value) => patchLeg(leg.id, { transitPortCost: value })}
+                      />
+                    </td>
+                    <td>
+                      <DecimalInput
+                        value={leg.transitIdleDays}
+                        readOnly={readOnly}
+                        onChange={(value) => patchLeg(leg.id, { transitIdleDays: value })}
+                      />
+                    </td>
+                    <td>
+                      <DecimalInput
+                        value={leg.chartererAccountDays}
+                        readOnly={readOnly}
+                        onChange={(value) => patchLeg(leg.id, { chartererAccountDays: value })}
                       />
                     </td>
                     <td>
                       <input
-                        value={leg.transitIdleDays || ''}
-                        readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { transitIdleDays: e.target.value })}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        value={leg.chartererAccountDays || ''}
-                        readOnly={readOnly}
-                        placeholder="0.00"
-                        onChange={(e) => patchLeg(leg.id, { chartererAccountDays: e.target.value })}
+                        type="checkbox"
+                        checked={!!leg.chkTpSeca}
+                        disabled={readOnly}
+                        onChange={(e) => patchLeg(leg.id, { chkTpSeca: e.target.checked })}
+                        title="Use SECA in-port consumption rates"
+                        aria-label="TP SECA"
                       />
                     </td>
                     <td>

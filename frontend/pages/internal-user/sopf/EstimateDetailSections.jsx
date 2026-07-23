@@ -15,6 +15,7 @@ import {
   SPEED_TYPE_OPTIONS,
   CONSUMPTION_PORT_COLUMNS,
   CONSUMPTION_SPEED_COLUMNS,
+  CONSUMPTION_OTHERS_COLUMNS,
   createEmptyBrokerRow,
   createEmptyBunkerActivityRow,
   createEmptyCargoRow,
@@ -37,23 +38,12 @@ import EstimateResultsPanels from './EstimateResultsPanels.jsx';
 import VesselItineraryModal from './VesselItineraryModal.jsx';
 import { checkVoyageNoExists, fetchCanalOrcRates, searchEstimatePorts } from '../../../services/estimateDetail.js';
 import { focusEstimateValidationField, getAddRowBlockMessage } from './estimateValidation.js';
+import { sanitizeDecimalInput, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import styles from './UpdateEstimatePage.module.css';
 
 /** PHP addestimate.php — Voyage No allows a-z, 0-9, and hyphen only. */
 function sanitizeVoyageNo(value) {
   return String(value || '').replace(/[^a-zA-Z0-9-]/g, '');
-}
-
-/** Draft while typing; commit on blur so recalc does not fight the caret. */
-function sanitizeMoneyInput(value) {
-  let next = String(value || '').replace(/[^\d.]/g, '');
-  const firstDot = next.indexOf('.');
-  if (firstDot !== -1) {
-    next = `${next.slice(0, firstDot + 1)}${next.slice(firstDot + 1).replace(/\./g, '')}`;
-    const [whole, fraction = ''] = next.split('.');
-    next = `${whole}.${fraction.slice(0, 2)}`;
-  }
-  return next;
 }
 
 function BunkerPriceInput({ value, readOnly, onCommit }) {
@@ -71,11 +61,11 @@ function BunkerPriceInput({ value, readOnly, onCommit }) {
         setDraft(value || '');
         requestAnimationFrame(() => e.target.select());
       }}
-      onChange={(e) => setDraft(sanitizeMoneyInput(e.target.value))}
+      onChange={(e) => setDraft(sanitizeDecimalInput(e.target.value))}
       onBlur={() => {
         const raw = draft ?? '';
         setDraft(null);
-        const cleaned = sanitizeMoneyInput(raw);
+        const cleaned = sanitizeDecimalInput(raw);
         const normalized = cleaned === '' || cleaned === '.'
           ? ''
           : Number.isFinite(Number(cleaned))
@@ -126,15 +116,19 @@ export default function EstimateDetailSections({
   const [itineraryOpen, setItineraryOpen] = useState(false);
 
   const updateField = (key, value) => {
-    onFieldChange?.(key, value);
+    const next = ESTIMATE_DECIMAL_FIELDS.has(key)
+      ? sanitizeDecimalInput(value)
+      : value;
+    onFieldChange?.(key, next);
   };
 
   const applyPatch = (patch) => {
+    const cleanPatch = sanitizeEstimatePatch(patch);
     if (onApplyPatch) {
-      onApplyPatch(patch);
+      onApplyPatch(cleanPatch);
       return;
     }
-    Object.entries(patch || {}).forEach(([key, value]) => {
+    Object.entries(cleanPatch || {}).forEach(([key, value]) => {
       if (onRecalc && Array.isArray(value)) onRecalc(key, value);
       else updateField(key, value);
     });
@@ -228,13 +222,14 @@ export default function EstimateDetailSections({
   };
 
   const updateRow = (collection, id, patch) => {
+    const cleanPatch = sanitizeEstimatePatch(patch);
     const rows = (form[collection] || []).map((row) => (
-      row.id === id ? { ...row, ...patch } : row
+      row.id === id ? { ...row, ...cleanPatch } : row
     ));
 
     // Cargo qty → seed load/disc qty on first empty legs (PHP QMT linking)
-    if (collection === 'cargoRows' && Object.prototype.hasOwnProperty.call(patch, 'cargoMt')) {
-      const cargoQty = String(patch.cargoMt ?? '');
+    if (collection === 'cargoRows' && Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoMt')) {
+      const cargoQty = String(cleanPatch.cargoMt ?? '');
       const portLegs = (form.portLegs || []).map((leg, index) => {
         if (!cargoQty) return leg;
         if (index === 0 && !leg.loadQty) {
@@ -251,7 +246,7 @@ export default function EstimateDetailSections({
 
     // Port date edits — mirror PHP calculatePortDates(type, subType, row)
     if (collection === 'portLegs') {
-      const keys = Object.keys(patch || {});
+      const keys = Object.keys(cleanPatch || {});
       let scheduleMode = null;
       if (keys.includes('fromArrival')) scheduleMode = 'fromArrival';
       else if (keys.includes('fromDeparture')) scheduleMode = 'fromDeparture';
@@ -339,19 +334,25 @@ export default function EstimateDetailSections({
     }
   };
 
-  const inputProps = (key, opts = {}) => ({
-    id: key,
-    value: form[key] ?? '',
-    readOnly: opts.readOnly ?? readOnly,
-    onChange: (event) => {
-      const value = event.target.value;
-      if (opts.recalc && onRecalc) {
-        onRecalc(key, value);
-      } else {
-        updateField(key, value);
-      }
-    },
-  });
+  const inputProps = (key, opts = {}) => {
+    const decimal = opts.decimal ?? ESTIMATE_DECIMAL_FIELDS.has(key);
+    return {
+      id: key,
+      value: form[key] ?? '',
+      readOnly: opts.readOnly ?? readOnly,
+      ...(decimal ? { inputMode: 'decimal', autoComplete: 'off' } : {}),
+      onChange: (event) => {
+        const value = decimal
+          ? sanitizeDecimalInput(event.target.value)
+          : event.target.value;
+        if (opts.recalc && onRecalc) {
+          onRecalc(key, value);
+        } else {
+          updateField(key, value);
+        }
+      },
+    };
+  };
 
   const bunkerGradeName = (gradeId) => (
     (lookups.bunkerGrades || form._bunkerGrades || []).find((g) => String(g.id) === String(gradeId))?.name
@@ -890,8 +891,8 @@ export default function EstimateDetailSections({
             (lookups.bunkerGrades || []).find((g) => String(g.id) === String(id))?.name || id || '—'
           );
 
-          const renderConsTable = (title, rows, identify) => {
-            const dataCols = [...speedCols, ...CONSUMPTION_PORT_COLUMNS];
+          const renderConsTable = (title, rows, identify, columns) => {
+            const dataCols = columns;
             return (
             <div className={styles.consBlock}>
               <div className={styles.consTitle}>{title}</div>
@@ -955,6 +956,8 @@ export default function EstimateDetailSections({
           );
           };
 
+          const atSeaCols = [...speedCols, ...CONSUMPTION_PORT_COLUMNS];
+
           return (
             <>
               <div className={styles.speedDataBar}>
@@ -976,8 +979,10 @@ export default function EstimateDetailSections({
                   <input {...inputProps(ladenKey, { recalc: true })} placeholder="0.00" />
                 </Field>
               </div>
-              {renderConsTable('FO Consp/day (MT) - At Sea', foRows, 'FO')}
-              {renderConsTable('DO Consp/day (MT) - At Sea', doRows, 'DO')}
+              {renderConsTable('FO Consp/day (MT) - At Sea / In Port (SECA & NON-SECA)', foRows, 'FO', atSeaCols)}
+              {renderConsTable('DO Consp/day (MT) - At Sea / In Port (SECA & NON-SECA)', doRows, 'DO', atSeaCols)}
+              {renderConsTable('FO Consp/day (MT) - Others (SECA & NON-SECA)', foRows, 'FO', CONSUMPTION_OTHERS_COLUMNS)}
+              {renderConsTable('DO Consp/day (MT) - Others (SECA & NON-SECA)', doRows, 'DO', CONSUMPTION_OTHERS_COLUMNS)}
             </>
           );
         })()}
@@ -1071,6 +1076,39 @@ export default function EstimateDetailSections({
             </div>
           </Field>
           ) : null}
+          <Field id="charteringTeam" label="Chartering Team">
+            <select
+              id="charteringTeam"
+              value={form.charteringTeam || ''}
+              disabled={readOnly}
+              onChange={(e) => updateField('charteringTeam', e.target.value)}
+            >
+              <option value="">— Select —</option>
+              {(lookups.charteringTeams || []).map((row) => (
+                <option key={row.id} value={row.id}>{row.name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field id="charteringPic" label="Chartering PIC">
+            <select
+              id="charteringPic"
+              value={form.charteringPic || ''}
+              disabled={readOnly}
+              onChange={(e) => updateField('charteringPic', e.target.value)}
+            >
+              <option value="">— Select —</option>
+              {(() => {
+                const options = [...(lookups.charteringPics || [])];
+                const id = form.charteringPic != null ? String(form.charteringPic) : '';
+                if (id && !options.some((row) => String(row.id) === id)) {
+                  options.unshift({ id, name: form.charteringPicName || id });
+                }
+                return options.map((row) => (
+                  <option key={row.id} value={row.id}>{row.name}</option>
+                ));
+              })()}
+            </select>
+          </Field>
           <Field id="freightGrossCargoHeader" label="Total Freight">
             <input id="freightGrossCargoHeader" value={form.freightGross || ''} readOnly />
           </Field>
@@ -1158,6 +1196,8 @@ export default function EstimateDetailSections({
                       value={row.percent || ''}
                       readOnly={readOnly}
                       placeholder="0.00"
+                      inputMode="decimal"
+                      autoComplete="off"
                       onChange={(e) => updateRow('brokerRows', row.id, { percent: e.target.value })}
                     />
                   </td>
@@ -1574,7 +1614,7 @@ export default function EstimateDetailSections({
                 </tr>
               )}
               <tr>
-                <td className={styles.summaryLabelCell}>Total Bunker Consumed</td>
+                <td className={styles.summaryLabelCell}>Total Bunker Consumed - SECA/NON SECA</td>
                 <td colSpan={3}>
                   <input value={form.totalBunkerCost || ''} readOnly placeholder="0.00" />
                 </td>

@@ -33,6 +33,8 @@ import {
   saveAgencyLetterTc,
 } from '../services/agencyLetterTcService.js';
 import { getPaymentGridTc } from '../services/paymentGridTcService.js';
+import { getPaymentGridVc } from '../services/paymentGridVcService.js';
+import { getSofForm, saveSof } from '../services/sofService.js';
 import { getCompareSheetsTc } from '../services/compareSheetsTcService.js';
 import { generateCompareSheetsTcPdf } from '../services/compareSheetsTcPdfService.js';
 import { resolveRequestIsMgmtUser } from '../services/authService.js';
@@ -209,6 +211,20 @@ router.get('/ops/voyage-report', asyncHandler(async (req, res) => {
     comId: req.query.comId || req.query.comid || '',
     selYear: req.query.selYear || '',
   }));
+}));
+
+router.get('/ops/payment-grid', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  res.json(await getPaymentGridVc(comId));
+}));
+
+router.get('/ops/sof', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  res.json(await getSofForm(comId));
+}));
+
+router.post('/ops/sof', asyncHandler(async (req, res) => {
+  res.json(await saveSof(req.body || {}));
 }));
 
 router.get('/ops/agency-letter', asyncHandler(async (req, res) => {

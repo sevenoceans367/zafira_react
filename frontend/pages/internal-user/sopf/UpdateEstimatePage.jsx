@@ -17,6 +17,7 @@ import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { toFormState } from './estimateDetail.constants.js';
 import { applyPeriodPrefillToForm, applyVesselPrefillToForm } from './estimatePrefill.js';
 import { validateEstimateForm, focusEstimateValidationField } from './estimateValidation.js';
+import { sanitizeDecimalInput, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import styles from './UpdateEstimatePage.module.css';
 
 const EMPTY_FORM = toFormState({});
@@ -97,24 +98,41 @@ export default function UpdateEstimatePage() {
   }, [loadDetail]);
 
   const updateField = useCallback((key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    const next = ESTIMATE_DECIMAL_FIELDS.has(key)
+      ? sanitizeDecimalInput(value)
+      : value;
+    setForm((current) => ({ ...current, [key]: next }));
   }, []);
 
   const handleRecalc = useCallback((key, value) => {
     setForm((current) => {
-      const next = key && value !== undefined && !Array.isArray(value) && typeof value !== 'object'
-        ? { ...current, [key]: value }
-        : key && Array.isArray(value)
-          ? { ...current, [key]: value }
-          : key && typeof value === 'boolean'
-            ? { ...current, [key]: value }
+      let resolved = value;
+      if (
+        key
+        && value !== undefined
+        && !Array.isArray(value)
+        && typeof value !== 'object'
+        && typeof value !== 'boolean'
+        && ESTIMATE_DECIMAL_FIELDS.has(key)
+      ) {
+        resolved = sanitizeDecimalInput(value);
+      }
+      const next = key && resolved !== undefined && !Array.isArray(resolved) && typeof resolved !== 'object'
+        ? { ...current, [key]: resolved }
+        : key && Array.isArray(resolved)
+          ? { ...current, [key]: resolved }
+          : key && typeof resolved === 'boolean'
+            ? { ...current, [key]: resolved }
             : { ...current };
       return applyEstimateCalculations(next, lookups);
     });
   }, [lookups]);
 
   const handleApplyPatch = useCallback((patch) => {
-    setForm((current) => applyEstimateCalculations({ ...current, ...patch }, lookups));
+    setForm((current) => applyEstimateCalculations(
+      { ...current, ...sanitizeEstimatePatch(patch) },
+      lookups,
+    ));
   }, [lookups]);
 
   const handleVesselSelect = async (vessel) => {

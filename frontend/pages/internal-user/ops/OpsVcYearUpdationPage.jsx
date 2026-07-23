@@ -1,15 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Button,
   DmyDateInput,
-  FilterBar,
-  FilterField,
   LoadingOverlay,
-  TextInput,
 } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchYearUpdation, updateYearAddOnDate } from '../../../services/opsVc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
 const PAGE_SIZE = 50;
@@ -82,25 +79,19 @@ export default function OpsVcYearUpdationPage() {
   };
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
+    <>
+      <OpsVcListHeaderActions
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="Search voyage no, vessel…"
+      />
+
+      <div className={`zafira-page ${styles.page}`}>
       {loading || savingId ? <LoadingOverlay active label={savingId ? 'Saving…' : 'Loading Year Updation…'} /> : null}
       {flash ? <div className={styles.flashSuccess}>{flash}</div> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <h3 className={styles.title}>Year Updation</h3>
-
-      <FilterBar
-        actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
-      >
-        <FilterField id="ops-vc-year-search" label="Search">
-          <TextInput
-            id="ops-vc-year-search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Voyage no, vessel…"
-          />
-        </FilterField>
-      </FilterBar>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -142,6 +133,7 @@ export default function OpsVcYearUpdationPage() {
       </div>
 
       <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-    </div>
+      </div>
+    </>
   );
 }

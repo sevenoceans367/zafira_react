@@ -85,6 +85,7 @@ export function diffDays(dateStr1, dateStr2) {
  * PHP getIdleDaysByLaycan:
  * If Laycan Start > first laden (passageType=2) from-arrival,
  * set that leg's loadPortIdleDays to the positive day difference.
+ * When laycan does not apply, leave the field alone so the user can type decimals.
  */
 export function applyIdleDaysByLaycan(portLegs, laycanStart) {
   const legs = (portLegs || []).map((leg) => ({ ...leg }));
@@ -105,11 +106,6 @@ export function applyIdleDaysByLaycan(portLegs, laycanStart) {
     legs[ladenIndex] = {
       ...legs[ladenIndex],
       loadPortIdleDays: days.toFixed(2),
-    };
-  } else {
-    legs[ladenIndex] = {
-      ...legs[ladenIndex],
-      loadPortIdleDays: '',
     };
   }
   return legs;
@@ -548,9 +544,15 @@ export function computeEstimateTotals(form) {
     return {
       ...leg,
       seaDays: days ? String(days) : '',
-      seaMargin: String(margin),
-      loadPortWorkDays: loadWork ? String(loadWork) : (leg.loadPortWorkDays || ''),
-      discPortWorkDays: discWork ? String(discWork) : (leg.discPortWorkDays || ''),
+      seaMargin: leg.seaMargin != null && leg.seaMargin !== '' ? String(leg.seaMargin) : String(margin),
+      // Keep typed work-day strings (e.g. "1.") when DAP / manual; only write
+      // computed days for non-manual terms so decimals are not stripped on recalc.
+      loadPortWorkDays: String(leg.loadPortTerms) === '4'
+        ? (leg.loadPortWorkDays ?? '')
+        : (loadWork ? String(loadWork) : (leg.loadPortWorkDays || '')),
+      discPortWorkDays: String(leg.discPortTerms) === '4'
+        ? (leg.discPortWorkDays ?? '')
+        : (discWork ? String(discWork) : (leg.discPortWorkDays || '')),
       portStayDays: portStayDays ? String(portStayDays) : '',
       portIdleDays: portIdleDays ? String(portIdleDays) : '',
       nonSecaDistance: String(round2(nonSecaDistance)),
@@ -761,11 +763,14 @@ export function computeEstimateTotals(form) {
     ? brokerRows
     : [{ percent: form.brokeragePercent, amount: form.brokerageAmt }]
   ).map((row) => {
-    const percent = num(row.percent ?? row.brokeragePercent);
+    // Keep the typed percent string (e.g. "2." / "1.25"); coercing via num()
+    // on every recalc strips trailing decimals while the user is typing.
+    const rawPercent = row.percent ?? row.brokeragePercent ?? '';
+    const percent = num(rawPercent);
     const amount = round2((freightGross * percent) / 100);
     return {
       ...row,
-      percent: percent ? String(percent) : (row.percent ?? ''),
+      percent: rawPercent === '' || rawPercent == null ? '' : String(rawPercent),
       amount: amount.toFixed(2),
     };
   });

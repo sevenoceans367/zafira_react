@@ -1,18 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  Button,
-  FilterBar,
-  FilterField,
   LoadingOverlay,
-  TextInput,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { fetchHistoryAtGlance } from '../../../services/opsVc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
-import CoaCardSelect from '../coa/CoaCardSelect.jsx';
+import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
 const PAGE_SIZE = 50;
@@ -71,37 +67,24 @@ export default function OpsVcHistoryPage() {
   useEffect(() => { setPage(1); }, [businessType, debouncedSearch]);
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
+    <>
+      <OpsVcListHeaderActions
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        businessTypes={businessTypes}
+        businessType={businessType}
+        onBusinessTypeChange={(value) => {
+          setBusinessType(value);
+          updateQuery({ selBType: value, msg: '' });
+        }}
+      />
+
+      <div className={`zafira-page ${styles.page}`}>
       {loading ? <LoadingOverlay active label="Loading Vessels in History…" /> : null}
       {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <h3 className={styles.title}>Vessels in History - VC</h3>
-
-      <FilterBar
-        actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
-      >
-        <FilterField label="Business Type">
-          <CoaCardSelect
-            label="Business Type"
-            value={businessType}
-            options={businessTypes}
-            includeEmpty={false}
-            onChange={(value) => {
-              setBusinessType(value);
-              updateQuery({ selBType: value, msg: '' });
-            }}
-          />
-        </FilterField>
-        <FilterField id="ops-vc-history-search" label="Search">
-          <TextInput
-            id="ops-vc-history-search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Nom ID, voyage, vessel…"
-          />
-        </FilterField>
-      </FilterBar>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -181,7 +164,14 @@ export default function OpsVcHistoryPage() {
                   <div><span className={styles.linkMuted}>SOA</span></div>
                 </td>
                 <td className={styles.actionsCell}>
-                  <div><span className={styles.linkMuted}>View</span></div>
+                  <div>
+                    <Link
+                      className={styles.opsViewLink}
+                      to={appPath(`/internal-user/vc/ops/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                    >
+                      <strong>View</strong>
+                    </Link>
+                  </div>
                   <div><span className={styles.linkMuted}>P &amp; I Club Declaration</span></div>
                 </td>
                 <td>{row.operatorName || '—'}</td>
@@ -194,6 +184,7 @@ export default function OpsVcHistoryPage() {
       </div>
 
       <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-    </div>
+      </div>
+    </>
   );
 }

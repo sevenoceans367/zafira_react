@@ -11,6 +11,8 @@ const PAGES = {
   'year-updation': 'Year Updation-VC/COA',
   'voyage-report': 'Voyage Report',
   'agency-letter': 'Generate Port Related Letters',
+  'payment-grid': 'Payment / Invoice Grid',
+  sof: 'SOF',
 };
 
 export function resolveOpsVcHeader(pathname) {
@@ -44,6 +46,34 @@ export function resolveOpsVcHeader(pathname) {
         OPS_VC,
         { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
         { label: 'Generate Port Related Letters' },
+      ],
+    };
+  }
+
+  if (pageId === 'payment-grid') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Payment / Invoice Grid',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Payment / Invoice Grid' },
+      ],
+    };
+  }
+
+  if (pageId === 'sof') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'SOF',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'SOF' },
       ],
     };
   }

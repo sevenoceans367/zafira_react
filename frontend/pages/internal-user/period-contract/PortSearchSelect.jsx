@@ -10,6 +10,8 @@ export default function PortSearchSelect({
   required = false,
   placeholder = 'Search port…',
   id,
+  /** Show × to clear the selected port (default true). */
+  clearable = true,
   /** Optional async (query) => [{ id, name }] — defaults to period-contract local search */
   searchPorts,
 }) {
@@ -108,6 +110,14 @@ export default function PortSearchSelect({
     setOpen(false);
   };
 
+  const handleClear = () => {
+    setQuery('');
+    setResults([]);
+    setOpen(false);
+    onChange?.('', '');
+  };
+
+  const showClear = clearable && !!(value || query);
   const showMenu = open && menuStyle && (loading || results.length > 0 || query.trim().length > 0);
 
   return (
@@ -115,7 +125,7 @@ export default function PortSearchSelect({
       <input
         id={id}
         type="text"
-        className={styles.input}
+        className={[styles.input, showClear ? styles.inputWithClear : ''].filter(Boolean).join(' ')}
         value={query}
         required={required}
         placeholder={placeholder}
@@ -128,6 +138,17 @@ export default function PortSearchSelect({
           if (results.length || query.trim().length >= 1) setOpen(true);
         }}
       />
+      {showClear ? (
+        <button
+          type="button"
+          className={styles.clearBtn}
+          onClick={handleClear}
+          title="Clear port"
+          aria-label="Clear port"
+        >
+          ×
+        </button>
+      ) : null}
       {showMenu
         ? createPortal(
           <ul

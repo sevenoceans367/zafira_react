@@ -62,6 +62,25 @@ export async function fetchVoyageReports(params = {}) {
   return parseJson(response, 'Failed to load voyage reports.');
 }
 
+export async function fetchPaymentGridVc(comId) {
+  const response = await fetch(`${BASE}/ops/payment-grid${toQuery({ comId })}`);
+  return parseJson(response, 'Failed to load payment / invoice grid.');
+}
+
+export async function fetchSofForm(comId) {
+  const response = await fetch(`${BASE}/ops/sof${toQuery({ comId })}`);
+  return parseJson(response, 'Failed to load SOF.');
+}
+
+export async function saveSof(payload) {
+  const response = await fetch(`${BASE}/ops/sof`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJson(response, 'Failed to save SOF.');
+}
+
 export async function fetchAgencyLetterForm(comId) {
   const response = await fetch(`${BASE}/ops/agency-letter${toQuery({ comId })}`);
   return parseJson(response, 'Failed to load port related letters.');

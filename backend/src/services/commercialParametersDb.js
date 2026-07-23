@@ -28,6 +28,30 @@ function str(value) {
   return String(value ?? '');
 }
 
+/** Prefer auto-increment slave PK so bunkers keep the order they were saved/selected. */
+function sortSlaveRowsByInsertOrder(rows = []) {
+  if (!rows.length) return rows;
+  const exclude = new Set(['COMMERCIAL_PARAMETERID', 'BUNKERID', 'MODULEID', 'MCOMPANYID']);
+  const idKey = Object.keys(rows[0]).find((key) => (
+    !exclude.has(key)
+    && /ID$/i.test(key)
+    && rows[0][key] != null
+    && Number.isFinite(Number(rows[0][key]))
+  ));
+  if (!idKey) return rows;
+  return [...rows].sort((a, b) => Number(a[idKey]) - Number(b[idKey]));
+}
+
+async function fetchCommercialParameterSlaveRows(pool, commercialParameterId) {
+  const [rows] = await pool.query(
+    `SELECT *
+     FROM vessel_commercial_parameters_slave1
+     WHERE COMMERCIAL_PARAMETERID = ?`,
+    [commercialParameterId],
+  );
+  return sortSlaveRowsByInsertOrder(rows);
+}
+
 function pickZoneValue(row, secaField, nonSecaField) {
   return row.ZONE === 'Seca' ? row[secaField] : row[nonSecaField];
 }
@@ -189,14 +213,7 @@ export async function dbGetCommercialParametersSlaveRows(vesselId) {
   const commercialParameterId = paramRows[0]?.COMMERCIAL_PARAMETERID;
   if (!commercialParameterId) return [];
 
-  const [rows] = await pool.query(
-    `SELECT *
-     FROM vessel_commercial_parameters_slave1
-     WHERE COMMERCIAL_PARAMETERID = ?
-     ORDER BY FO_TYPE, BUNKERID, ZONE`,
-    [commercialParameterId],
-  );
-  return rows;
+  return fetchCommercialParameterSlaveRows(pool, commercialParameterId);
 }
 
 export async function dbGetCommercialParameters(vesselId) {
@@ -228,14 +245,7 @@ export async function dbGetCommercialParameters(vesselId) {
 
   let slaveRows = [];
   if (commercialParameterId) {
-    const [rows] = await pool.query(
-      `SELECT *
-       FROM vessel_commercial_parameters_slave1
-       WHERE COMMERCIAL_PARAMETERID = ?
-       ORDER BY FO_TYPE, BUNKERID, ZONE`,
-      [commercialParameterId],
-    );
-    slaveRows = rows;
+    slaveRows = await fetchCommercialParameterSlaveRows(pool, commercialParameterId);
   }
 
   const atSea = slaveRows

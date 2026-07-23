@@ -2,11 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
-  FilterBar,
-  FilterField,
   LoadingOverlay,
   Select,
-  TextInput,
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -21,7 +18,7 @@ import {
   updateOpsVcOperator,
 } from '../../../services/opsVc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
-import CoaCardSelect from '../coa/CoaCardSelect.jsx';
+import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
 const PAGE_SIZE = 50;
@@ -151,49 +148,30 @@ export default function OpsVcPostOpsPage() {
   };
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
+    <>
+      <OpsVcListHeaderActions
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        businessTypes={businessTypes}
+        businessType={businessType}
+        onBusinessTypeChange={(value) => {
+          setBusinessType(value);
+          updateQuery({ selBType: value, msg: '' });
+        }}
+        years={years}
+        year={year}
+        onYearChange={(value) => {
+          setYear(value);
+          updateQuery({ selYear: value, msg: '' });
+        }}
+      />
+
+      <div className={`zafira-page ${styles.page}`}>
       {loading ? <LoadingOverlay active label="Loading Post Ops at a glance…" /> : null}
       {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <h3 className={styles.title}>In Post Ops at a glance - VC</h3>
-
-      <FilterBar
-        actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
-      >
-        <FilterField label="Business Type">
-          <CoaCardSelect
-            label="Business Type"
-            value={businessType}
-            options={businessTypes}
-            includeEmpty={false}
-            onChange={(value) => {
-              setBusinessType(value);
-              updateQuery({ selBType: value, msg: '' });
-            }}
-          />
-        </FilterField>
-        <FilterField label="Year">
-          <CoaCardSelect
-            label="Year"
-            value={year}
-            options={years}
-            includeEmpty={false}
-            onChange={(value) => {
-              setYear(value);
-              updateQuery({ selYear: value, msg: '' });
-            }}
-          />
-        </FilterField>
-        <FilterField id="ops-vc-post-search" label="Search">
-          <TextInput
-            id="ops-vc-post-search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Nom ID, voyage, vessel…"
-          />
-        </FilterField>
-      </FilterBar>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -281,12 +259,26 @@ export default function OpsVcPostOpsPage() {
                 </td>
                 <td><span className={styles.linkMuted}>PDA/FDA</span></td>
                 <td className={styles.actionsCell}>
-                  <div><span className={styles.linkMuted}>SOF</span></div>
+                  <div>
+                    <Link
+                      className={styles.opsViewLink}
+                      to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                    >
+                      SOF
+                    </Link>
+                  </div>
                   <div><span className={styles.linkMuted}>Laytime</span></div>
                   <div><span className={styles.linkMuted}>Bunkers</span></div>
                   <div><span className={styles.linkMuted}>SOA</span></div>
                 </td>
-                <td><span className={styles.linkMuted}>View</span></td>
+                <td>
+                  <Link
+                    className={styles.opsViewLink}
+                    to={appPath(`/internal-user/vc/ops/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                  >
+                    <strong>View</strong>
+                  </Link>
+                </td>
                 <td className={styles.actionsCell}>
                   {row.canDeactivate ? (
                     <button type="button" className={styles.dangerIcon} title="Deactivate entry" onClick={() => handleDeactivate(row)}>
@@ -329,6 +321,7 @@ export default function OpsVcPostOpsPage() {
       </div>
 
       <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-    </div>
+      </div>
+    </>
   );
 }

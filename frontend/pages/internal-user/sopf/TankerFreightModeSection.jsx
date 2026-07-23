@@ -7,6 +7,7 @@ import {
   createEmptyTankerWsRow,
 } from './estimateDetail.constants.js';
 import { getAddRowBlockMessage } from './estimateValidation.js';
+import { sanitizeDecimalInput, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import RowRemoveButton from './RowRemoveButton.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
@@ -121,6 +122,7 @@ function CargoDetailsTable({
                     value={row.cargoCbm || ''}
                     readOnly={readOnly}
                     placeholder="0.00"
+                    inputMode="decimal"
                     onChange={(e) => updateRow(collection, row.id, { cargoCbm: e.target.value })}
                   />
                 </td>
@@ -129,6 +131,7 @@ function CargoDetailsTable({
                     value={row.cargoMt || ''}
                     readOnly={readOnly}
                     placeholder="0.00"
+                    inputMode="decimal"
                     onChange={(e) => updateRow(collection, row.id, { cargoMt: e.target.value })}
                   />
                 </td>
@@ -137,6 +140,7 @@ function CargoDetailsTable({
                     value={row.rateUsdMt || ''}
                     readOnly={readOnly}
                     placeholder="0.00"
+                    inputMode="decimal"
                     onChange={(e) => updateRow(collection, row.id, { rateUsdMt: e.target.value })}
                   />
                 </td>
@@ -185,14 +189,15 @@ export default function TankerFreightModeSection({
   const isDistributed = tankType === '2';
 
   const updateTankerWsRow = (id, patch) => {
+    const cleanPatch = sanitizeEstimatePatch(patch);
     const rows = (form.tankerWsRows || []).map((row) => (
-      row.id === id ? { ...row, ...patch } : row
+      row.id === id ? { ...row, ...cleanPatch } : row
     ));
     const masterPatch = {};
     const first = rows[0];
     if (
       first?.id === id
-      && ('wsFromPortId' in patch || 'wsToPortId' in patch)
+      && ('wsFromPortId' in cleanPatch || 'wsToPortId' in cleanPatch)
     ) {
       masterPatch.tankWsFrom = first.wsFromPortId || '';
       masterPatch.tankWsTo = first.wsToPortId || '';
@@ -207,13 +212,16 @@ export default function TankerFreightModeSection({
   };
 
   const handleTankerWsFieldChange = (row, key, value) => {
-    const patch = { [key]: value };
-    if (key === 'minFlatRate' && value) {
-      const half = Number(String(value).replace(/,/g, ''));
+    const nextValue = ESTIMATE_DECIMAL_FIELDS.has(key)
+      ? sanitizeDecimalInput(value)
+      : value;
+    const patch = { [key]: nextValue };
+    if (key === 'minFlatRate' && nextValue) {
+      const half = Number(String(nextValue).replace(/,/g, ''));
       if (Number.isFinite(half)) patch.oveFlatRate = String(Math.round((half / 2) * 100) / 100);
     }
-    if (key === 'minWs' && value) {
-      patch.oveWs = value;
+    if (key === 'minWs' && nextValue) {
+      patch.oveWs = nextValue;
     }
     updateTankerWsRow(row.id, patch);
   };
@@ -282,8 +290,10 @@ export default function TankerFreightModeSection({
                 value={form.tankerFreightRate || ''}
                 readOnly={readOnly}
                 placeholder="0.00"
+                inputMode="decimal"
+                autoComplete="off"
                 onChange={(e) => {
-                  const value = e.target.value;
+                  const value = sanitizeDecimalInput(e.target.value);
                   if (onRecalc) {
                     onRecalc('tankerFreightRate', value);
                     onRecalc('marketRate', value);

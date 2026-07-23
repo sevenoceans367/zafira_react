@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@bainbridge/shared-ui';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
+import { sanitizeDecimalInput, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import styles from './UpdateEstimatePage.module.css';
 
 function Row({ label, value, accent }) {
@@ -22,8 +23,11 @@ export default function EstimateResultsPanels({
   const editable = !readOnly;
 
   const setField = (key, value) => {
-    if (onRecalc) onRecalc(key, value);
-    else onFieldChange?.(key, value);
+    const next = ESTIMATE_DECIMAL_FIELDS.has(key)
+      ? sanitizeDecimalInput(value)
+      : value;
+    if (onRecalc) onRecalc(key, next);
+    else onFieldChange?.(key, next);
   };
 
   return (

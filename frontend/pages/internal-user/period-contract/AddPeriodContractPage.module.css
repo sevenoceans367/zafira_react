@@ -72,6 +72,34 @@
   margin-left: 4px;
 }
 
+.cardSelect {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.cardSelect > div {
+  display: block;
+  width: 100%;
+}
+
+.cardSelect > div > button:first-child {
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+}
+
+.requiredMirror {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+}
+
 .field input,
 .field select,
 .field textarea {

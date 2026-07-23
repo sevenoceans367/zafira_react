@@ -251,7 +251,7 @@ export default function DistanceFetchModal({
       >
         <div className={styles.header}>
           <h4 id="distance-fetch-title" className={styles.title}>
-            Port to Port Distance
+            Route
           </h4>
           <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
             ✕

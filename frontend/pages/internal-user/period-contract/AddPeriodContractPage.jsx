@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { Button, CardSelect, DmyDateInput, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
   createPeriodContract,
@@ -47,6 +47,45 @@ function Section({ title, children }) {
       <div className={styles.sectionBody}>{children}</div>
     </section>
   );
+}
+
+function ThemedCardSelect({
+  value,
+  options = [],
+  onChange,
+  label,
+  placeholder = '----Select From List----',
+  required = false,
+}) {
+  return (
+    <div className={styles.cardSelect}>
+      {required ? (
+        <input
+          className={styles.requiredMirror}
+          value={value || ''}
+          required
+          tabIndex={-1}
+          aria-hidden
+          readOnly
+        />
+      ) : null}
+      <CardSelect
+        value={value || ''}
+        options={options}
+        placeholder={placeholder}
+        ariaLabel={label || placeholder}
+        align="start"
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
+function toSelectOptions(items = [], { idKey = 'id', nameKey = 'name', labelKey = 'label' } = {}) {
+  return items.map((item) => ({
+    id: String(item[idKey] ?? ''),
+    name: item[nameKey] ?? item[labelKey] ?? '',
+  }));
 }
 
 export default function AddPeriodContractPage() {
@@ -235,104 +274,81 @@ export default function AddPeriodContractPage() {
               />
             </Field>
             <Field label="Contract Date" required>
-              <input
-                type="text"
-                placeholder="dd-mm-yyyy"
+              <DmyDateInput
                 value={form.contractDate}
                 required
-                onChange={(e) => updateField('contractDate', e.target.value)}
+                onChange={(value) => updateField('contractDate', value)}
               />
             </Field>
             <Field label="Own Business Account" required>
-              <select
+              <ThemedCardSelect
+                label="Own Business Account"
                 value={form.ownBusinessAccount}
                 required
-                onChange={(e) => updateField('ownBusinessAccount', e.target.value)}
-              >
-                <option value="">---Select from list---</option>
-                {(lookups?.obaVendors ?? []).map((vendor) => (
-                  <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
-                ))}
-              </select>
+                options={toSelectOptions(lookups?.obaVendors)}
+                onChange={(value) => updateField('ownBusinessAccount', value)}
+              />
             </Field>
             <Field label="Business Type" required>
-              <select
+              <ThemedCardSelect
+                label="Business Type"
                 value={form.businessType}
                 required
-                onChange={(e) => {
+                options={toSelectOptions(businessTypes)}
+                onChange={(value) => {
                   setForm((current) => ({
                     ...current,
-                    businessType: e.target.value,
+                    businessType: value,
                     vesselType: '',
                     vesselImoId: '',
                   }));
                 }}
-              >
-                <option value="">----Select from list----</option>
-                {businessTypes.map((type) => (
-                  <option key={type.id} value={type.id}>{type.label}</option>
-                ))}
-              </select>
+              />
             </Field>
             <Field label="Vessel Type" required>
-              <select
+              <ThemedCardSelect
+                label="Vessel Type"
                 value={form.vesselType}
                 required
-                onChange={(e) => updateField('vesselType', e.target.value)}
-              >
-                <option value="">---Select From List---</option>
-                {vesselTypes.map((type) => (
-                  <option key={type.id} value={type.id}>{type.name}</option>
-                ))}
-              </select>
+                options={toSelectOptions(vesselTypes)}
+                onChange={(value) => updateField('vesselType', value)}
+              />
             </Field>
             <Field label="Vessel" required>
-              <select
+              <ThemedCardSelect
+                label="Vessel"
                 value={form.vesselImoId}
                 required
-                onChange={(e) => updateField('vesselImoId', e.target.value)}
-              >
-                <option value="">---Select From List---</option>
-                {vessels.map((vessel) => (
-                  <option key={vessel.id} value={vessel.id}>{vessel.name}</option>
-                ))}
-              </select>
+                options={toSelectOptions(vessels)}
+                onChange={(value) => updateField('vesselImoId', value)}
+              />
             </Field>
             <Field label="Working Currency" required>
-              <select
+              <ThemedCardSelect
+                label="Working Currency"
                 value={form.currency}
                 required
-                onChange={(e) => updateField('currency', e.target.value)}
-              >
-                <option value="">---Select from list---</option>
-                {(lookups?.currencies ?? []).map((currency) => (
-                  <option key={currency.id} value={currency.id}>{currency.name}</option>
-                ))}
-              </select>
+                options={toSelectOptions(lookups?.currencies)}
+                onChange={(value) => updateField('currency', value)}
+              />
             </Field>
             <Field label="Owner" required>
-              <select
+              <ThemedCardSelect
+                label="Owner"
                 value={form.owner}
                 required
-                onChange={(e) => updateField('owner', e.target.value)}
-              >
-                <option value="">---Select from list---</option>
-                {(lookups?.ownerVendors ?? []).map((vendor) => (
-                  <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
-                ))}
-              </select>
+                options={toSelectOptions(lookups?.ownerVendors)}
+                onChange={(value) => updateField('owner', value)}
+              />
             </Field>
             <Field label="Disponent Owner" required>
-              <select
+              <ThemedCardSelect
+                label="Disponent Owner"
                 value={form.disOwner}
                 required
-                onChange={(e) => updateField('disOwner', e.target.value)}
-              >
-                <option value="">---Select from list---</option>
-                {(lookups?.ownerVendors ?? []).map((vendor) => (
-                  <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
-                ))}
-              </select>
+                options={toSelectOptions(lookups?.ownerVendors)}
+                onChange={(value) => updateField('disOwner', value)}
+              />
             </Field>
             <Field label="Manager" required>
               <input
@@ -343,16 +359,13 @@ export default function AddPeriodContractPage() {
               />
             </Field>
             <Field label="Broker" required>
-              <select
+              <ThemedCardSelect
+                label="Broker"
                 value={form.broker}
                 required
-                onChange={(e) => updateField('broker', e.target.value)}
-              >
-                <option value="">---Select from list---</option>
-                {(lookups?.brokerVendors ?? []).map((vendor) => (
-                  <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
-                ))}
-              </select>
+                options={toSelectOptions(lookups?.brokerVendors)}
+                onChange={(value) => updateField('broker', value)}
+              />
             </Field>
             <Field label="Brokerage (%)">
               <input
@@ -392,21 +405,17 @@ export default function AddPeriodContractPage() {
         <Section title="Laycan & Period">
           <div className={styles.grid}>
             <Field label="Laycan Start" required>
-              <input
-                type="text"
-                placeholder="dd-mm-yyyy"
+              <DmyDateInput
                 value={form.laycanStart}
                 required
-                onChange={(e) => updateField('laycanStart', e.target.value)}
+                onChange={(value) => updateField('laycanStart', value)}
               />
             </Field>
             <Field label="Laycan End" required>
-              <input
-                type="text"
-                placeholder="dd-mm-yyyy"
+              <DmyDateInput
                 value={form.laycanEnd}
                 required
-                onChange={(e) => updateField('laycanEnd', e.target.value)}
+                onChange={(value) => updateField('laycanEnd', value)}
               />
             </Field>
             <Field label="Del Port" required>
@@ -421,25 +430,20 @@ export default function AddPeriodContractPage() {
               />
             </Field>
             <Field label="Delivery Date" required>
-              <input
-                type="text"
-                placeholder="dd-mm-yyyy"
+              <DmyDateInput
                 value={form.deliveryDate}
                 required
-                onChange={(e) => updateField('deliveryDate', e.target.value)}
+                onChange={(value) => updateField('deliveryDate', value)}
               />
             </Field>
             <Field label="Time Period" required>
-              <select
+              <ThemedCardSelect
+                label="Time Period"
                 value={form.periodType}
                 required
-                onChange={(e) => updateField('periodType', e.target.value)}
-              >
-                <option value="">---Select from list---</option>
-                {(lookups?.periodTypes ?? []).map((type) => (
-                  <option key={type.id} value={type.id}>{type.name}</option>
-                ))}
-              </select>
+                options={toSelectOptions(lookups?.periodTypes)}
+                onChange={(value) => updateField('periodType', value)}
+              />
             </Field>
             <Field label={`Time Period Min.${periodUnit ? ` (${periodUnit})` : ''}`} required>
               <input
@@ -478,21 +482,17 @@ export default function AddPeriodContractPage() {
               />
             </Field>
             <Field label="Re-Del Date (Min)" required>
-              <input
-                type="text"
-                placeholder="dd-mm-yyyy"
+              <DmyDateInput
                 value={form.reDelMinDate}
                 required
-                onChange={(e) => updateField('reDelMinDate', e.target.value)}
+                onChange={(value) => updateField('reDelMinDate', value)}
               />
             </Field>
             <Field label="Re-Del Date (Max)" required>
-              <input
-                type="text"
-                placeholder="dd-mm-yyyy"
+              <DmyDateInput
                 value={form.reDelMaxDate}
                 required
-                onChange={(e) => updateField('reDelMaxDate', e.target.value)}
+                onChange={(value) => updateField('reDelMaxDate', value)}
               />
             </Field>
             <Field label="Re-Del Port">
@@ -514,11 +514,9 @@ export default function AddPeriodContractPage() {
               />
             </Field>
             <Field label="Voyage days performed/fixed till">
-              <input
-                type="text"
-                placeholder="dd-mm-yyyy"
+              <DmyDateInput
                 value={form.voyageDaysPerformed}
-                onChange={(e) => updateField('voyageDaysPerformed', e.target.value)}
+                onChange={(value) => updateField('voyageDaysPerformed', value)}
               />
             </Field>
           </div>
@@ -563,13 +561,12 @@ export default function AddPeriodContractPage() {
                     />
                   </td>
                   <td>
-                    <input
-                      type="text"
-                      placeholder="dd-mm-yyyy hh:mm"
+                    <DmyDateInput
+                      enableTime
                       value={row.dateTime}
-                      onChange={(e) => {
+                      onChange={(value) => {
                         const deliveryNotices = [...form.deliveryNotices];
-                        deliveryNotices[index] = { ...row, dateTime: e.target.value };
+                        deliveryNotices[index] = { ...row, dateTime: value };
                         updateForm({ ...form, deliveryNotices });
                       }}
                     />
@@ -630,25 +627,23 @@ export default function AddPeriodContractPage() {
                     ) : null}
                   </td>
                   <td>
-                    <input
-                      type="text"
-                      placeholder="dd-mm-yyyy HH:MM"
+                    <DmyDateInput
+                      enableTime
                       value={row.hireFrom}
-                      onChange={(e) => {
+                      onChange={(value) => {
                         const hireRates = [...form.hireRates];
-                        hireRates[index] = { ...row, hireFrom: e.target.value };
+                        hireRates[index] = { ...row, hireFrom: value };
                         updateForm({ ...form, hireRates });
                       }}
                     />
                   </td>
                   <td>
-                    <input
-                      type="text"
-                      placeholder="dd-mm-yyyy HH:MM"
+                    <DmyDateInput
+                      enableTime
                       value={row.hireTo}
-                      onChange={(e) => {
+                      onChange={(value) => {
                         const hireRates = [...form.hireRates];
-                        hireRates[index] = { ...row, hireTo: e.target.value };
+                        hireRates[index] = { ...row, hireTo: value };
                         updateForm({ ...form, hireRates });
                       }}
                     />
@@ -780,25 +775,23 @@ export default function AddPeriodContractPage() {
                   />
                 </Field>
                 <Field label="Off Hire From">
-                  <input
-                    type="text"
-                    placeholder="dd-mm-yyyy HH:MM"
+                  <DmyDateInput
+                    enableTime
                     value={offHire.from}
-                    onChange={(e) => {
+                    onChange={(value) => {
                       const offHires = [...form.offHires];
-                      offHires[offIndex] = { ...offHire, from: e.target.value };
+                      offHires[offIndex] = { ...offHire, from: value };
                       updateForm({ ...form, offHires });
                     }}
                   />
                 </Field>
                 <Field label="Off Hire To">
-                  <input
-                    type="text"
-                    placeholder="dd-mm-yyyy HH:MM"
+                  <DmyDateInput
+                    enableTime
                     value={offHire.to}
-                    onChange={(e) => {
+                    onChange={(value) => {
                       const offHires = [...form.offHires];
-                      offHires[offIndex] = { ...offHire, to: e.target.value };
+                      offHires[offIndex] = { ...offHire, to: value };
                       updateForm({ ...form, offHires });
                     }}
                   />
@@ -856,21 +849,18 @@ export default function AddPeriodContractPage() {
                         ) : null}
                       </td>
                       <td>
-                        <select
+                        <ThemedCardSelect
+                          label="Bunker Grade"
                           value={bunker.gradeId}
-                          onChange={(e) => {
+                          options={toSelectOptions(lookups?.bunkers)}
+                          onChange={(value) => {
                             const offHires = [...form.offHires];
                             const bunkers = [...offHire.bunkers];
-                            bunkers[bunkerIndex] = { ...bunker, gradeId: e.target.value };
+                            bunkers[bunkerIndex] = { ...bunker, gradeId: value };
                             offHires[offIndex] = { ...offHire, bunkers };
                             updateForm({ ...form, offHires });
                           }}
-                        >
-                          <option value="">---Select from list---</option>
-                          {(lookups?.bunkers ?? []).map((item) => (
-                            <option key={item.id} value={item.id}>{item.name}</option>
-                          ))}
-                        </select>
+                        />
                       </td>
                       <td>
                         <input
@@ -1052,22 +1042,20 @@ function BunkerTable({ rows, bunkers, total, onChange, onAdd }) {
                   ) : null}
                 </td>
                 <td>
-                  <select value={row.gradeId} onChange={(e) => updateRow(index, { gradeId: e.target.value })}>
-                    <option value="">---Select from list---</option>
-                    {bunkers.map((bunker) => (
-                      <option key={bunker.id} value={bunker.id}>{bunker.name}</option>
-                    ))}
-                  </select>
+                  <ThemedCardSelect
+                    label="Bunker Grade"
+                    value={row.gradeId}
+                    options={toSelectOptions(bunkers)}
+                    onChange={(value) => updateRow(index, { gradeId: value })}
+                  />
                 </td>
                 <td>
                   <input type="text" value={row.qty} onChange={(e) => updateRow(index, { qty: e.target.value })} />
                 </td>
                 <td>
-                  <input
-                    type="text"
-                    placeholder="dd-mm-yyyy"
+                  <DmyDateInput
                     value={row.date}
-                    onChange={(e) => updateRow(index, { date: e.target.value })}
+                    onChange={(value) => updateRow(index, { date: value })}
                   />
                 </td>
                 <td>

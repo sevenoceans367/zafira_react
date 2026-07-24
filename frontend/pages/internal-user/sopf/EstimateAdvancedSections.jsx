@@ -18,7 +18,7 @@ import {
   createEmptyVoyageEventRow,
 } from './estimateDetail.constants.js';
 import { getAddRowBlockMessage } from './estimateValidation.js';
-import { sanitizeDecimalInput, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
+import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import styles from './UpdateEstimatePage.module.css';
 
 function newBunkerId() {
@@ -39,7 +39,7 @@ export default function EstimateAdvancedSections({
 
   const updateField = (key, value) => {
     const next = ESTIMATE_DECIMAL_FIELDS.has(key)
-      ? sanitizeDecimalInput(value)
+      ? sanitizeFieldDecimal(key, value)
       : value;
     onFieldChange?.(key, next);
   };
@@ -477,6 +477,7 @@ export default function EstimateAdvancedSections({
                         <input
                           value={row.days}
                           readOnly={readOnly}
+                          placeholder="0.000"
                           onChange={(e) => updateRow('offHireRows', row.id, { days: e.target.value })}
                         />
                       </td>

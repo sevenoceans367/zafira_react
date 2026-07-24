@@ -19,10 +19,9 @@ export function resolveTodoListHeader(pathname) {
   return {
     title: 'To - Do List',
     currentPage: 'To - Do List',
+    // Middle crumbs only — AppHeader adds Home + currentPage
     breadcrumbs: [
-      { label: 'Home', href: appPath('/') },
       { label: moduleLabel, href: moduleHref },
-      { label: 'To - Do List' },
     ],
   };
 }

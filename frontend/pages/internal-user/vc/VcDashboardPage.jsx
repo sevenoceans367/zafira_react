@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, CardSelect, LoadingOverlay, PeriodCardPicker } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
 import { getUser } from '@bainbridge/shared-auth';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import {
@@ -11,6 +11,7 @@ import {
   fetchVcBusinessTypes,
   fetchVcDashboardMeta,
 } from '../../../services/vcDashboard.js';
+import VcDashboardHeaderActions from './VcDashboardHeaderActions.jsx';
 import styles from './VcDashboardPage.module.css';
 
 const TABS = [
@@ -26,49 +27,6 @@ const CHART_COLORS = {
   interim: '#999898',
   completion: '#367fa9',
 };
-
-function DashboardFilters({
-  businessTypes,
-  businessType,
-  periodFrom,
-  periodTo,
-  showPeriod = true,
-  onBusinessTypeChange,
-  onPeriodChange,
-  onLoad,
-  loading,
-}) {
-  return (
-    <div className={styles.filters}>
-      <div className={styles.filterField}>
-        <span className={styles.periodLabel}>Business Type</span>
-        <CardSelect
-          options={businessTypes}
-          value={businessType}
-          onChange={onBusinessTypeChange}
-          placeholder="---Select Business Type---"
-          ariaLabel="Business type"
-          align="start"
-        />
-      </div>
-      {showPeriod ? (
-        <div className={styles.periodField}>
-          <span className={styles.periodLabel}>Period</span>
-          <PeriodCardPicker
-            from={periodFrom}
-            to={periodTo}
-            onChange={onPeriodChange}
-            label="Select Period"
-            align="start"
-          />
-        </div>
-      ) : null}
-      <div className={styles.filterAction}>
-        <Button variant="primary" label="Load" onClick={onLoad} disabled={loading} />
-      </div>
-    </div>
-  );
-}
 
 function DataTable({ columns, rows, emptyMessage = 'No records found.' }) {
   return (
@@ -206,7 +164,7 @@ export default function VcDashboardPage() {
 
   const [activeTab, setActiveTab] = useState('vc');
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState('3');
+  const [businessType, setBusinessType] = useState('2');
   const [periodFrom, setPeriodFrom] = useState('');
   const [periodTo, setPeriodTo] = useState('');
   const [refreshIntervalMs, setRefreshIntervalMs] = useState(50000);
@@ -316,7 +274,7 @@ export default function VcDashboardPage() {
       try {
         const meta = await fetchVcDashboardMeta();
         setRefreshIntervalMs(meta.refreshIntervalMs ?? 50000);
-        const defaultType = meta.defaultBusinessType || '3';
+        const defaultType = meta.defaultBusinessType || '2';
         setBusinessType(defaultType);
         await loadBusinessTypes(defaultType);
       } catch (err) {
@@ -336,10 +294,15 @@ export default function VcDashboardPage() {
     return () => window.clearInterval(timer);
   }, [loadAll, refreshIntervalMs]);
 
-  const handleBusinessTypeChange = async (value) => {
+  const handleBusinessTypeChange = useCallback(async (value) => {
     setBusinessType(value);
     await loadBusinessTypes(value);
-  };
+  }, [loadBusinessTypes]);
+
+  const handlePeriodChange = useCallback(({ from, to }) => {
+    setPeriodFrom(from || '');
+    setPeriodTo(to || '');
+  }, []);
 
   const openCoaDetails = async (coaId, coaIdentity) => {
     setCoaModalOpen(true);
@@ -456,7 +419,20 @@ export default function VcDashboardPage() {
   ];
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
+    <>
+      <VcDashboardHeaderActions
+        businessTypes={businessTypes}
+        businessType={businessType}
+        onBusinessTypeChange={handleBusinessTypeChange}
+        periodFrom={periodFrom}
+        periodTo={periodTo}
+        onPeriodChange={handlePeriodChange}
+        showPeriod={activeTab === 'vc' || activeTab === 'tc' || activeTab === 'coas'}
+        onLoad={loadActiveTab}
+        loading={loading}
+      />
+
+      <div className={`zafira-page ${styles.page}`}>
       {loading ? <LoadingOverlay active label="Loading dashboard…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
@@ -474,21 +450,6 @@ export default function VcDashboardPage() {
       </div>
 
       <div className={styles.tabPanel}>
-        <DashboardFilters
-          businessTypes={businessTypes}
-          businessType={businessType}
-          periodFrom={periodFrom}
-          periodTo={periodTo}
-          showPeriod={activeTab === 'vc' || activeTab === 'tc' || activeTab === 'coas'}
-          onBusinessTypeChange={handleBusinessTypeChange}
-          onPeriodChange={({ from, to }) => {
-            setPeriodFrom(from || '');
-            setPeriodTo(to || '');
-          }}
-          onLoad={loadActiveTab}
-          loading={loading}
-        />
-
         {activeTab === 'vc' ? (
           <>
             <h3 className={styles.sectionTitle}>Dashboard</h3>
@@ -651,6 +612,7 @@ export default function VcDashboardPage() {
         loading={coaModalLoading}
         onClose={() => setCoaModalOpen(false)}
       />
-    </div>
+      </div>
+    </>
   );
 }

@@ -78,7 +78,7 @@ router.get('/meta', (_req, res) => {
 });
 
 router.get('/business_types', (req, res) => {
-  res.json(getVcBusinessTypes(req.query.selBType || '3'));
+  res.json(getVcBusinessTypes(req.query.selBType || '2'));
 });
 
 router.get('/vc_dashboard', async (req, res) => {
@@ -165,7 +165,7 @@ router.get('/ops/operators', asyncHandler(async (_req, res) => {
 
 router.get('/ops/in-ops-glance', asyncHandler(async (req, res) => {
   res.json(await listInOpsAtGlance({
-    selBType: req.query.selBType || '3',
+    selBType: req.query.selBType || '2',
     selYear: req.query.selYear || String(new Date().getFullYear()),
     search: req.query.search || '',
     page: Number(req.query.page) || 1,
@@ -175,7 +175,7 @@ router.get('/ops/in-ops-glance', asyncHandler(async (req, res) => {
 
 router.get('/ops/post-ops', asyncHandler(async (req, res) => {
   res.json(await listPostOpsAtGlance({
-    selBType: req.query.selBType || '3',
+    selBType: req.query.selBType || '2',
     selYear: req.query.selYear || String(new Date().getFullYear()),
     search: req.query.search || '',
     page: Number(req.query.page) || 1,
@@ -185,7 +185,7 @@ router.get('/ops/post-ops', asyncHandler(async (req, res) => {
 
 router.get('/ops/history', asyncHandler(async (req, res) => {
   res.json(await listHistoryAtGlance({
-    selBType: req.query.selBType || '3',
+    selBType: req.query.selBType || '2',
     selYear: req.query.selYear || '',
     search: req.query.search || '',
     page: Number(req.query.page) || 1,
@@ -273,7 +273,7 @@ router.get('/ops-tc/years', asyncHandler(async (_req, res) => {
 
 router.get('/ops-tc/in-ops-glance', asyncHandler(async (req, res) => {
   res.json(await listInOpsAtGlanceTc({
-    selBType: req.query.selBType || '3',
+    selBType: req.query.selBType || '2',
     selYear: req.query.selYear || String(new Date().getFullYear()),
     search: req.query.search || '',
     page: Number(req.query.page) || 1,
@@ -285,7 +285,7 @@ router.get('/ops-tc/in-ops-glance', asyncHandler(async (req, res) => {
 
 router.get('/ops-tc/post-ops', asyncHandler(async (req, res) => {
   res.json(await listPostOpsAtGlanceTc({
-    selBType: req.query.selBType || '3',
+    selBType: req.query.selBType || '2',
     selYear: req.query.selYear || String(new Date().getFullYear()),
     search: req.query.search || '',
     page: Number(req.query.page) || 1,
@@ -296,7 +296,7 @@ router.get('/ops-tc/post-ops', asyncHandler(async (req, res) => {
 
 router.get('/ops-tc/history', asyncHandler(async (req, res) => {
   res.json(await listHistoryAtGlanceTc({
-    selBType: req.query.selBType || '3',
+    selBType: req.query.selBType || '2',
     selYear: req.query.selYear || String(new Date().getFullYear()),
     search: req.query.search || '',
     page: Number(req.query.page) || 1,

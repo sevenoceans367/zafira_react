@@ -28,7 +28,7 @@ import {
   getFixtureTypeLabel,
   seedPortLegsFromFirstCargo,
 } from './estimateDetail.constants.js';
-import { calcDemurrageEst, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurragePortLegLabel } from './estimateCalculations.js';
+import { calcDemurrageEst, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurragePortLegLabel, formatDays } from './estimateCalculations.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import RowRemoveButton from './RowRemoveButton.jsx';
 
@@ -39,7 +39,7 @@ import EstimateResultsPanels from './EstimateResultsPanels.jsx';
 import VesselItineraryModal from './VesselItineraryModal.jsx';
 import { checkVoyageNoExists, fetchCanalOrcRates, searchEstimatePorts } from '../../../services/estimateDetail.js';
 import { focusEstimateValidationField, getAddRowBlockMessage } from './estimateValidation.js';
-import { sanitizeDecimalInput, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
+import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import styles from './UpdateEstimatePage.module.css';
 
 /** PHP addestimate.php — Voyage No allows a-z, 0-9, and hyphen only. */
@@ -118,7 +118,7 @@ export default function EstimateDetailSections({
 
   const updateField = (key, value) => {
     const next = ESTIMATE_DECIMAL_FIELDS.has(key)
-      ? sanitizeDecimalInput(value)
+      ? sanitizeFieldDecimal(key, value)
       : value;
     onFieldChange?.(key, next);
   };
@@ -179,9 +179,9 @@ export default function EstimateDetailSections({
           secaDistance: patch.secaDistance,
           nonSecaDistance: String(Number(nonSecaDistance.toFixed(3))),
           navMethod: patch.navMethod || row.navMethod || '',
-          seaDays: seaDays ? String(seaDays) : '',
-          secaDays: secaDays ? String(secaDays) : '',
-          nonSecaDays: nonSecaDays ? String(nonSecaDays) : '',
+          seaDays: formatDays(seaDays),
+          secaDays: formatDays(secaDays),
+          nonSecaDays: formatDays(nonSecaDays),
         }
         : row
     ));
@@ -363,7 +363,7 @@ export default function EstimateDetailSections({
       ...(decimal ? { inputMode: 'decimal', autoComplete: 'off' } : {}),
       onChange: (event) => {
         const value = decimal
-          ? sanitizeDecimalInput(event.target.value)
+          ? sanitizeFieldDecimal(key, event.target.value)
           : event.target.value;
         // Cargo Qty (MT) / lump-sum qty → seed Port Details Qty when empty
         if (key === 'lumpsumQty') {
@@ -1451,7 +1451,7 @@ export default function EstimateDetailSections({
                     <input
                       value={leg.demmDaysLp || ''}
                       readOnly={readOnly}
-                      placeholder="0.00"
+                      placeholder="0.000"
                       onChange={(e) => {
                         const demmDaysLp = e.target.value;
                         const ddcLpEst = String(calcDemurrageEst(demmDaysLp, leg.demmRateLp) || '');
@@ -1489,7 +1489,7 @@ export default function EstimateDetailSections({
                     <input
                       value={leg.demmDaysDp || ''}
                       readOnly={readOnly}
-                      placeholder="0.00"
+                      placeholder="0.000"
                       onChange={(e) => {
                         const demmDaysDp = e.target.value;
                         const ddcDpEst = String(calcDemurrageEst(demmDaysDp, leg.demmRateDp) || '');

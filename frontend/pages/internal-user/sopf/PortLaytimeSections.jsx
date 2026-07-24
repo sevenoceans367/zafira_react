@@ -5,7 +5,7 @@ import {
   PORT_BUNKER_GRADE_OPTIONS,
   PORT_FUNCTION_OPTIONS,
 } from './estimateDetail.constants.js';
-import { calcLaytimeWorkingDays } from './estimateCalculations.js';
+import { calcLaytimeWorkingDays, formatDays } from './estimateCalculations.js';
 import { sanitizeDecimalInput } from './estimateInputSanitize.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import styles from './UpdateEstimatePage.module.css';
@@ -54,13 +54,14 @@ function displayWorkDays(leg, side) {
   // DAP (terms 4): manual entry — keep typed decimals as-is
   if (String(terms) === '4') return stored || '';
   const computed = calcLaytimeWorkingDays(qty, rate, terms);
-  return computed ? String(computed) : (stored || '');
+  return computed ? formatDays(computed) : (stored || '');
 }
 
 function DecimalInput({
   value,
   readOnly,
   placeholder = '0.00',
+  maxDecimals = 2,
   onChange,
   ...rest
 }) {
@@ -71,7 +72,7 @@ function DecimalInput({
       placeholder={placeholder}
       inputMode="decimal"
       autoComplete="off"
-      onChange={(e) => onChange(sanitizeDecimalInput(e.target.value))}
+      onChange={(e) => onChange(sanitizeDecimalInput(e.target.value, { maxDecimals }))}
       {...rest}
     />
   );
@@ -154,7 +155,7 @@ export default function PortLaytimeSections({
                   <th>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
                   <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
-                  <th>SECA?</th>
+                  <th className={styles.secaCol}>SECA?</th>
                 </tr>
               </thead>
               <tbody>
@@ -217,6 +218,8 @@ export default function PortLaytimeSections({
                       <DecimalInput
                         value={displayWorkDays(leg, 'load')}
                         readOnly={readOnly || String(leg.loadPortTerms) !== '4'}
+                        placeholder="0.000"
+                        maxDecimals={3}
                         onChange={(value) => patchLeg(leg.id, { loadPortWorkDays: value })}
                       />
                     </td>
@@ -224,12 +227,15 @@ export default function PortLaytimeSections({
                       <DecimalInput
                         value={leg.loadPortIdleDays}
                         readOnly={readOnly}
+                        placeholder="0.000"
+                        maxDecimals={3}
                         onChange={(value) => patchLeg(leg.id, { loadPortIdleDays: value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.secaCol}>
                       <input
                         type="checkbox"
+                        className={styles.secaCheck}
                         checked={!!leg.chkLpSeca}
                         disabled={readOnly}
                         onChange={(e) => patchLeg(leg.id, { chkLpSeca: e.target.checked })}
@@ -259,7 +265,7 @@ export default function PortLaytimeSections({
                   <th>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
                   <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
-                  <th>SECA?</th>
+                  <th className={styles.secaCol}>SECA?</th>
                 </tr>
               </thead>
               <tbody>
@@ -322,6 +328,8 @@ export default function PortLaytimeSections({
                       <DecimalInput
                         value={displayWorkDays(leg, 'disc')}
                         readOnly={readOnly || String(leg.discPortTerms) !== '4'}
+                        placeholder="0.000"
+                        maxDecimals={3}
                         onChange={(value) => patchLeg(leg.id, { discPortWorkDays: value })}
                       />
                     </td>
@@ -329,12 +337,15 @@ export default function PortLaytimeSections({
                       <DecimalInput
                         value={leg.discPortIdleDays}
                         readOnly={readOnly}
+                        placeholder="0.000"
+                        maxDecimals={3}
                         onChange={(value) => patchLeg(leg.id, { discPortIdleDays: value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.secaCol}>
                       <input
                         type="checkbox"
+                        className={styles.secaCheck}
                         checked={!!leg.chkDpSeca}
                         disabled={readOnly}
                         onChange={(e) => patchLeg(leg.id, { chkDpSeca: e.target.checked })}
@@ -360,7 +371,7 @@ export default function PortLaytimeSections({
                   <th>Cost</th>
                   <th>Idle Days</th>
                   <th className={styles.thStack}><span>Charterer&apos;s Account</span><span>(Days)</span></th>
-                  <th>SECA?</th>
+                  <th className={styles.secaCol}>SECA?</th>
                   <th>Region</th>
                 </tr>
               </thead>
@@ -386,6 +397,8 @@ export default function PortLaytimeSections({
                       <DecimalInput
                         value={leg.transitIdleDays}
                         readOnly={readOnly}
+                        placeholder="0.000"
+                        maxDecimals={3}
                         onChange={(value) => patchLeg(leg.id, { transitIdleDays: value })}
                       />
                     </td>
@@ -393,12 +406,15 @@ export default function PortLaytimeSections({
                       <DecimalInput
                         value={leg.chartererAccountDays}
                         readOnly={readOnly}
+                        placeholder="0.000"
+                        maxDecimals={3}
                         onChange={(value) => patchLeg(leg.id, { chartererAccountDays: value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.secaCol}>
                       <input
                         type="checkbox"
+                        className={styles.secaCheck}
                         checked={!!leg.chkTpSeca}
                         disabled={readOnly}
                         onChange={(e) => patchLeg(leg.id, { chkTpSeca: e.target.checked })}

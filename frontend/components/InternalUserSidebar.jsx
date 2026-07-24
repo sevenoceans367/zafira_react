@@ -142,6 +142,12 @@ export default function InternalUserSidebar({ isOpen }) {
               active={currentPath.startsWith('/internal-user/vc/combined-soa-payable-tc')}
             />
             <SidebarLink
+              to="/internal-user/vc/generic-finances"
+              icon="bi-cash-stack"
+              label="GENERIC FINANCES"
+              active={currentPath.startsWith('/internal-user/vc/generic-finances')}
+            />
+            <SidebarLink
               to={appPath('/internal-user/vc/tc')}
               icon="bi-file-earmark-text"
               label="TC Out Estimates"

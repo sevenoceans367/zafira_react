@@ -17,6 +17,35 @@ export function sanitizeDecimalInput(value, { maxDecimals = 2 } = {}) {
   return next;
 }
 
+/** Day / duration fields — always 3 decimal places (PHP getVoyageTime style). */
+export const ESTIMATE_DAYS_FIELDS = new Set([
+  'seaDays',
+  'secaDays',
+  'nonSecaDays',
+  'loadPortWorkDays',
+  'loadPortIdleDays',
+  'discPortWorkDays',
+  'discPortIdleDays',
+  'transitIdleDays',
+  'chartererAccountDays',
+  'portStayDays',
+  'portIdleDays',
+  'demmDaysLp',
+  'demmDaysDp',
+  'hireDays',
+  'ladenDays',
+  'ballastDays',
+  'totalSeaDays',
+  'totalDays',
+  'days',
+]);
+
+/** Sanitize a decimal estimate field (days → 3 dp, other decimals → 2 dp). */
+export function sanitizeFieldDecimal(key, value, opts) {
+  const maxDecimals = ESTIMATE_DAYS_FIELDS.has(key) ? 3 : 2;
+  return sanitizeDecimalInput(value, { maxDecimals, ...(opts || {}) });
+}
+
 /** Row / form keys that accept decimal numbers only. */
 export const ESTIMATE_DECIMAL_FIELDS = new Set([
   // commissions / freight
@@ -160,7 +189,7 @@ export function sanitizeEstimatePatch(patch, opts) {
     if (!ESTIMATE_DECIMAL_FIELDS.has(key)) continue;
     const raw = next[key];
     if (raw == null || typeof raw === 'boolean' || typeof raw === 'number') continue;
-    const cleaned = sanitizeDecimalInput(raw, opts);
+    const cleaned = sanitizeFieldDecimal(key, raw, opts);
     if (cleaned !== raw) {
       next[key] = cleaned;
       changed = true;

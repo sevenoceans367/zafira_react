@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@bainbridge/shared-ui';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
-import { sanitizeDecimalInput, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
+import { sanitizeFieldDecimal, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import styles from './UpdateEstimatePage.module.css';
 
 function Row({ label, value, accent }) {
@@ -24,7 +24,7 @@ export default function EstimateResultsPanels({
 
   const setField = (key, value) => {
     const next = ESTIMATE_DECIMAL_FIELDS.has(key)
-      ? sanitizeDecimalInput(value)
+      ? sanitizeFieldDecimal(key, value)
       : value;
     if (onRecalc) onRecalc(key, next);
     else onFieldChange?.(key, next);
@@ -52,12 +52,12 @@ export default function EstimateResultsPanels({
             <div><span>Laden Dist</span><strong>{form.ladenDist || '0'}</strong></div>
           </div>
           <div className={styles.distDaysCol}>
-            <div><span>Total Days</span><strong>{form.totalDays || '0.00'}</strong></div>
+            <div><span>Total Days</span><strong>{form.totalDays || '0.000'}</strong></div>
             <div><span>Total Sea Days</span><strong>{form.totalSeaDays || '0.000'}</strong></div>
             <div><span>Ballast Days</span><strong>{form.ballastDays || '0.000'}</strong></div>
             <div><span>Laden Days</span><strong>{form.ladenDays || '0.000'}</strong></div>
-            <div><span>Total Portstay Days</span><strong>{form.portStayDays || '0'}</strong></div>
-            <div><span>Total Port Idle Days</span><strong>{form.portIdleDays || '0'}</strong></div>
+            <div><span>Total Portstay Days</span><strong>{form.portStayDays || '0.000'}</strong></div>
+            <div><span>Total Port Idle Days</span><strong>{form.portIdleDays || '0.000'}</strong></div>
           </div>
         </div>
       </CollapsiblePanel>

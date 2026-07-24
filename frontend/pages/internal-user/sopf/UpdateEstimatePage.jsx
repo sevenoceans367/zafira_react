@@ -17,7 +17,7 @@ import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { toFormState } from './estimateDetail.constants.js';
 import { applyPeriodPrefillToForm, applyVesselPrefillToForm } from './estimatePrefill.js';
 import { validateEstimateForm, focusEstimateValidationField } from './estimateValidation.js';
-import { sanitizeDecimalInput, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
+import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import styles from './UpdateEstimatePage.module.css';
 
 const EMPTY_FORM = toFormState({});
@@ -99,7 +99,7 @@ export default function UpdateEstimatePage() {
 
   const updateField = useCallback((key, value) => {
     const next = ESTIMATE_DECIMAL_FIELDS.has(key)
-      ? sanitizeDecimalInput(value)
+      ? sanitizeFieldDecimal(key, value)
       : value;
     setForm((current) => ({ ...current, [key]: next }));
   }, []);
@@ -115,7 +115,7 @@ export default function UpdateEstimatePage() {
         && typeof value !== 'boolean'
         && ESTIMATE_DECIMAL_FIELDS.has(key)
       ) {
-        resolved = sanitizeDecimalInput(value);
+        resolved = sanitizeFieldDecimal(key, value);
       }
       const next = key && resolved !== undefined && !Array.isArray(resolved) && typeof resolved !== 'object'
         ? { ...current, [key]: resolved }

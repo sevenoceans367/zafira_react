@@ -14,8 +14,15 @@ function round2(value) {
 }
 
 /** PHP getVoyageTime uses .toFixed(3) for sea / SECA days. */
-function round3(value) {
+export function round3(value) {
   return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}
+
+/** Format a day value for display/storage with exactly 3 decimal places. */
+export function formatDays(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return '';
+  return round3(n).toFixed(3);
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +112,7 @@ export function applyIdleDaysByLaycan(portLegs, laycanStart) {
     const days = (d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24);
     legs[ladenIndex] = {
       ...legs[ladenIndex],
-      loadPortIdleDays: days.toFixed(2),
+      loadPortIdleDays: days.toFixed(3),
     };
   }
   return legs;
@@ -253,14 +260,14 @@ export function applyDemurrageDaysFromLaytime(portLegs, timeAllowedHrs) {
       - num(leg.discPortIdleDays);
   }
 
-  const timeAllowedDays = Number((num(timeAllowedHrs) / 24).toFixed(2));
-  const remaining = Number((demmDaysTotal - timeAllowedDays).toFixed(2));
+  const timeAllowedDays = Number((num(timeAllowedHrs) / 24).toFixed(3));
+  const remaining = Number((demmDaysTotal - timeAllowedDays).toFixed(3));
   const lastIndex = legs.length - 1;
   const est = calculateDemurrageCost(remaining, legs[lastIndex].demmRateDp);
 
   legs[lastIndex] = {
     ...legs[lastIndex],
-    demmDaysDp: remaining ? remaining.toFixed(2) : '0.00',
+    demmDaysDp: remaining ? remaining.toFixed(3) : '0.000',
     ddcDpEst: est ? String(est) : '0.00',
     ddcDpReal: est ? String(est) : '0.00',
   };
@@ -366,7 +373,7 @@ export function calcLaytimeWorkingDays(qty, rateMtDay, termsId) {
   const r = num(rateMtDay);
   const factor = LAYTIME_TERM_FACTORS[String(termsId)];
   if (factor == null || !q || !r) return 0;
-  return round2((q / r) * factor);
+  return round3((q / r) * factor);
 }
 
 export function calcDemurrageEst(days, rate) {
@@ -563,8 +570,8 @@ export function computeEstimateTotals(form) {
     const loadIdle = num(leg.loadPortIdleDays);
     const discIdle = num(leg.discPortIdleDays);
     const transitIdle = num(leg.transitIdleDays);
-    const portStayDays = round2(loadWork + discWork + loadIdle + discIdle + transitIdle);
-    const portIdleDays = round2(loadIdle + discIdle + transitIdle);
+    const portStayDays = round3(loadWork + discWork + loadIdle + discIdle + transitIdle);
+    const portIdleDays = round3(loadIdle + discIdle + transitIdle);
     const ddcLpEst = num(leg.ddcLpEst) || calcDemurrageEst(leg.demmDaysLp, leg.demmRateLp);
     const ddcDpEst = num(leg.ddcDpEst) || calcDemurrageEst(leg.demmDaysDp, leg.demmRateDp);
     const nonSecaDistance = Math.max(0, num(leg.distance) - num(leg.secaDistance));
@@ -573,21 +580,21 @@ export function computeEstimateTotals(form) {
     seaDays += days;
     return {
       ...leg,
-      seaDays: days ? String(days) : '',
+      seaDays: formatDays(days),
       seaMargin: leg.seaMargin != null && leg.seaMargin !== '' ? String(leg.seaMargin) : String(margin),
       // Keep typed work-day strings (e.g. "1.") when DAP / manual; only write
       // computed days for non-manual terms so decimals are not stripped on recalc.
       loadPortWorkDays: String(leg.loadPortTerms) === '4'
         ? (leg.loadPortWorkDays ?? '')
-        : (loadWork ? String(loadWork) : (leg.loadPortWorkDays || '')),
+        : (loadWork ? formatDays(loadWork) : (leg.loadPortWorkDays || '')),
       discPortWorkDays: String(leg.discPortTerms) === '4'
         ? (leg.discPortWorkDays ?? '')
-        : (discWork ? String(discWork) : (leg.discPortWorkDays || '')),
-      portStayDays: portStayDays ? String(portStayDays) : '',
-      portIdleDays: portIdleDays ? String(portIdleDays) : '',
+        : (discWork ? formatDays(discWork) : (leg.discPortWorkDays || '')),
+      portStayDays: formatDays(portStayDays),
+      portIdleDays: formatDays(portIdleDays),
       nonSecaDistance: String(round2(nonSecaDistance)),
-      secaDays: secaDays ? String(secaDays) : '',
-      nonSecaDays: nonSecaDays ? String(nonSecaDays) : '',
+      secaDays: formatDays(secaDays),
+      nonSecaDays: formatDays(nonSecaDays),
       ddcLpEst: ddcLpEst ? String(ddcLpEst) : (leg.ddcLpEst || ''),
       ddcDpEst: ddcDpEst ? String(ddcDpEst) : (leg.ddcDpEst || ''),
     };
@@ -604,12 +611,12 @@ export function computeEstimateTotals(form) {
     const transitIdle = num(leg.transitIdleDays);
     const loadWork = num(leg.loadPortWorkDays);
     const discWork = num(leg.discPortWorkDays);
-    const portStayDays = round2(loadWork + discWork + loadIdle + discIdle + transitIdle);
-    const portIdleDays = round2(loadIdle + discIdle + transitIdle);
+    const portStayDays = round3(loadWork + discWork + loadIdle + discIdle + transitIdle);
+    const portIdleDays = round3(loadIdle + discIdle + transitIdle);
     return {
       ...leg,
-      portStayDays: portStayDays ? String(portStayDays) : '',
-      portIdleDays: portIdleDays ? String(portIdleDays) : '',
+      portStayDays: formatDays(portStayDays),
+      portIdleDays: formatDays(portIdleDays),
     };
   });
 
@@ -819,9 +826,9 @@ export function computeEstimateTotals(form) {
   const addressCommAmt = round2((freightGross * addCommPercent) / 100);
 
   const hireRate = num(form.hireRate);
-  const portIdleDays = round2(legsWithDays.reduce((sum, leg) => sum + num(leg.portIdleDays), 0));
-  const portStayDays = round2(legsWithDays.reduce((sum, leg) => sum + num(leg.portStayDays), 0));
-  const hireDays = seaDays + portStayDays || num(form.totalDays);
+  const portIdleDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portIdleDays), 0));
+  const portStayDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portStayDays), 0));
+  const hireDays = round3(seaDays + portStayDays || num(form.totalDays));
   const hireAmt = round2(
     totalHireFromRows || num(form.hireAmt) || hireRate * hireDays,
   );
@@ -843,10 +850,10 @@ export function computeEstimateTotals(form) {
   }
   ladenDist = round2(ladenDist);
   ballastDist = round2(ballastDist);
-  ladenDays = round2(ladenDays);
-  ballastDays = round2(ballastDays);
-  const totalSeaDays = round2(ladenDays + ballastDays);
-  const totalDays = round2(totalSeaDays + portIdleDays + portStayDays || num(form.totalDays) || 0);
+  ladenDays = round3(ladenDays);
+  ballastDays = round3(ballastDays);
+  const totalSeaDays = round3(ladenDays + ballastDays);
+  const totalDays = round3(totalSeaDays + portIdleDays + portStayDays || num(form.totalDays) || 0);
 
   // PHP: CVE ($) = (CVE/Month × 12 / 365) × total voyage days
   const cvePerMonth = num(form.cvePerMonth);
@@ -1261,12 +1268,12 @@ export function computeEstimateTotals(form) {
     totalDistance: String(totalDistance || ''),
     ladenDist: String(ladenDist || ''),
     ballastDist: String(ballastDist || ''),
-    ladenDays: String(ladenDays || ''),
-    ballastDays: String(ballastDays || ''),
-    totalSeaDays: String(totalSeaDays || ''),
-    portIdleDays: String(portIdleDays || ''),
-    portStayDays: String(portStayDays || ''),
-    totalDays: String(totalDays || ''),
+    ladenDays: formatDays(ladenDays),
+    ballastDays: formatDays(ballastDays),
+    totalSeaDays: formatDays(totalSeaDays),
+    portIdleDays: formatDays(portIdleDays),
+    portStayDays: formatDays(portStayDays),
+    totalDays: formatDays(totalDays),
     totalPortCost: String(totalPortCost || ''),
     totalBunkerCost: String(bunkerExpenseTotal || ''),
     totalSecaBunkerCost: String(totalSecaBunkerCostSynced || ''),

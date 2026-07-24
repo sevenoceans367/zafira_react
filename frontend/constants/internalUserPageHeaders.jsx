@@ -4,6 +4,7 @@ import { resolveFleetHeader } from './fleetPageHeaders.js';
 import { resolvePeriodContractHeader } from './periodContractPageHeaders.js';
 import { resolveTodoListHeader } from './todoListPageHeaders.js';
 import { resolveCombinedSoaPayableHeader } from './combinedSoaPayablePageHeaders.js';
+import { resolveGenericFinancesHeader } from './genericFinancesPageHeaders.js';
 import { resolveMastersHeader } from './mastersPageHeaders.js';
 import { resolveCoaHeader } from './coaPageHeaders.js';
 import { resolveOpsVcHeader } from './opsVcPageHeaders.js';
@@ -11,32 +12,27 @@ import { resolveOpsTcHeader } from './opsTcPageHeaders.js';
 import { resolveTcHeader } from './tcPageHeaders.js';
 import { resolveReportsHeader } from './reportsPageHeaders.js';
 
-const HOME = { label: 'Home', href: appPath('/') };
-
 const STATIC_HEADERS = {
   '/': {
     title: 'Dashboard',
     currentPage: 'Dashboard',
-    breadcrumbs: [HOME],
+    // AppHeader adds Home — middle crumbs empty on home dashboard
+    breadcrumbs: [],
   },
   '/internal-user/vc': {
     title: 'Dashboard',
     currentPage: 'Dashboard',
-    breadcrumbs: [HOME, { label: 'SOC', href: appPath('/internal-user/vc') }, { label: 'Dashboard' }],
+    breadcrumbs: [{ label: 'SOC', href: appPath('/internal-user/vc') }],
   },
   '/internal-user/vc/decision-chart-tc': {
     title: 'TC Estimates',
     currentPage: 'Decision Chart',
-    breadcrumbs: [
-      HOME,
-      { label: 'SOC', href: appPath('/internal-user/vc') },
-      { label: 'Decision Chart' },
-    ],
+    breadcrumbs: [{ label: 'SOC', href: appPath('/internal-user/vc') }],
   },
   '/internal-user/tc': {
     title: 'Time Charter',
     currentPage: 'Time Charter',
-    breadcrumbs: [HOME, { label: 'SOC', href: appPath('/internal-user/vc') }, { label: 'Time Charter' }],
+    breadcrumbs: [{ label: 'SOC', href: appPath('/internal-user/vc') }],
   },
 };
 
@@ -65,6 +61,9 @@ export function resolveInternalUserHeader(pathname) {
 
   const combinedSoaPayableHeader = resolveCombinedSoaPayableHeader(pathname);
   if (combinedSoaPayableHeader) return combinedSoaPayableHeader;
+
+  const genericFinancesHeader = resolveGenericFinancesHeader(pathname);
+  if (genericFinancesHeader) return genericFinancesHeader;
 
   const periodContractHeader = resolvePeriodContractHeader(pathname);
   if (periodContractHeader) return periodContractHeader;
@@ -98,6 +97,6 @@ export function resolveInternalUserHeader(pathname) {
   return {
     title: 'Internal User',
     currentPage: 'Internal User',
-    breadcrumbs: [HOME],
+    breadcrumbs: [],
   };
 }

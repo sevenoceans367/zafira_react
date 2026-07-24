@@ -91,7 +91,7 @@ async function getLatestFcaId(pool, comid) {
 export async function dbGetVcDashboard({ selBType, fromDate, toDate }) {
   const pool = getPool();
   const { from, to } = defaultDateRange(fromDate, toDate);
-  const businessType = selBType || '3';
+  const businessType = selBType || '2';
 
   const [rows] = await pool.query(
     `SELECT c.COMID, m.VESSEL_IMO_ID, m.VOYAGE_NO, m.TRANS_DATE, m.PERIODID
@@ -255,7 +255,7 @@ export async function dbGetVcDashboard({ selBType, fromDate, toDate }) {
 export async function dbGetTcDashboard({ selBType, fromDate, toDate }) {
   const pool = getPool();
   const { from, to } = defaultDateRange(fromDate, toDate);
-  const businessType = selBType || '3';
+  const businessType = selBType || '2';
 
   const [rows] = await pool.query(
     `SELECT c.COMID, m.VESSEL_IMO_ID, m.DEL_DATE, m.RE_DEL_DATE, m.CP_DATE1,
@@ -431,7 +431,7 @@ export async function dbGetCoaList({
   sortDir = 'desc',
 }) {
   const pool = getPool();
-  const businessType = selBType || '3';
+  const businessType = selBType || '2';
   const offset = (Math.max(1, page) - 1) * pageSize;
   const sortColumns = [
     'COAID', 'COA_ROUTE', 'COA_ID', 'COA_NO', 'COA_DATE', 'VESSEL_TYPE',
@@ -552,7 +552,7 @@ export async function dbGetPeriodList({
   sortDir = 'desc',
 }) {
   const pool = getPool();
-  const businessType = selBType || '3';
+  const businessType = selBType || '2';
   const offset = (Math.max(1, page) - 1) * pageSize;
   const sortColumns = [
     'PERIODID', 'CONTRACT_ID', 'CONTRACT_NO', 'CONTRACT_DATE',

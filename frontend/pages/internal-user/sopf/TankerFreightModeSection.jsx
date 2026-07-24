@@ -7,7 +7,7 @@ import {
   createEmptyTankerWsRow,
 } from './estimateDetail.constants.js';
 import { getAddRowBlockMessage } from './estimateValidation.js';
-import { sanitizeDecimalInput, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
+import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import RowRemoveButton from './RowRemoveButton.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
@@ -213,7 +213,7 @@ export default function TankerFreightModeSection({
 
   const handleTankerWsFieldChange = (row, key, value) => {
     const nextValue = ESTIMATE_DECIMAL_FIELDS.has(key)
-      ? sanitizeDecimalInput(value)
+      ? sanitizeFieldDecimal(key, value)
       : value;
     const patch = { [key]: nextValue };
     if (key === 'minFlatRate' && nextValue) {
@@ -293,7 +293,7 @@ export default function TankerFreightModeSection({
                 inputMode="decimal"
                 autoComplete="off"
                 onChange={(e) => {
-                  const value = sanitizeDecimalInput(e.target.value);
+                  const value = sanitizeFieldDecimal('tankerFreightRate', e.target.value);
                   if (onRecalc) {
                     onRecalc('tankerFreightRate', value);
                     onRecalc('marketRate', value);

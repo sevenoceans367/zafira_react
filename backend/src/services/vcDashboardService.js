@@ -154,7 +154,7 @@ const MOCK_PERIODS = {
   pageSize: 10,
 };
 
-export function getVcBusinessTypes(selectedId = '3') {
+export function getVcBusinessTypes(selectedId = '2') {
   return BUSINESS_TYPES.map((type) => ({
     ...type,
     selected: type.id === String(selectedId),
@@ -208,7 +208,7 @@ export async function getCoaShipments(coaId) {
 export function getDashboardMeta() {
   return {
     isMgmtUser: isMgmtUser(),
-    defaultBusinessType: '3',
+    defaultBusinessType: '2',
     refreshIntervalMs: 50000,
   };
 }

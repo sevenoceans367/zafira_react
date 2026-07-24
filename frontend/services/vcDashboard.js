@@ -13,7 +13,7 @@ export async function fetchVcDashboardMeta() {
   return parseJson(response, 'Failed to load dashboard settings.');
 }
 
-export async function fetchVcBusinessTypes(selectedId = '3') {
+export async function fetchVcBusinessTypes(selectedId = '2') {
   const params = selectedId ? `?selBType=${encodeURIComponent(selectedId)}` : '';
   const response = await fetch(`${BASE}/business_types${params}`);
   return parseJson(response, 'Failed to load business types.');

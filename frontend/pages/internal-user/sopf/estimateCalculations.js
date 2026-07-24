@@ -272,15 +272,19 @@ export function applyDemurrageDaysFromLaytime(portLegs, timeAllowedHrs) {
  * Orchestrate PHP common.js schedule side-effects after sea/laytime days are known.
  *
  * form._portScheduleMode (optional):
- *   - 'fromArrival' (default) — cascade from arrival + work/sea days
+ *   - 'fromArrival' — cascade from arrival + work/sea days
  *   - 'fromDeparture' — keep edited departure, cascade toArrival onward
  *   - 'toArrival' — keep edited toArrival, cascade toDeparture onward
  *   - 'toDeparture' — keep edited toDeparture, cascade later legs only
  *   - 'laycanOnly' — idle-by-laycan + demurrage only (no date rewrite)
+ *   - omitted on generic recalc — cascade from existing arrivals when present
+ *
+ * Does NOT invent dates from laycan. Blank/NULL DB dates stay blank
+ * (PHP shows 01-01-1970 placeholder for the same empty values).
  */
 export function applyPortScheduleCalculations(form) {
   let portLegs = (form.portLegs || []).map((leg) => ({ ...leg }));
-  const mode = form._portScheduleMode || 'fromArrival';
+  const mode = form._portScheduleMode || null;
   const legId = form._portScheduleLegId;
   const legIndex = legId != null
     ? portLegs.findIndex((leg) => String(leg.id) === String(legId))
@@ -288,20 +292,24 @@ export function applyPortScheduleCalculations(form) {
 
   portLegs = applyIdleDaysByLaycan(portLegs, form.laycanStart);
 
-  if (mode !== 'laycanOnly') {
-    if (mode === 'fromDeparture' && legIndex >= 0) {
-      portLegs = cascadeFromDeparture(portLegs, legIndex);
-    } else if (mode === 'toArrival' && legIndex >= 0) {
-      portLegs = cascadeFromToArrival(portLegs, legIndex);
-    } else if (mode === 'toDeparture' && legIndex >= 0) {
-      portLegs = applyPortDateCascade(portLegs, { startIndex: legIndex + 1 });
-    } else {
-      const startIndex = legIndex >= 0 && mode === 'fromArrival'
-        ? legIndex
-        : portLegs.findIndex((leg) => leg.fromArrival);
-      if (startIndex >= 0) {
-        portLegs = applyPortDateCascade(portLegs, { startIndex });
-      }
+  if (mode === 'fromDeparture' && legIndex >= 0) {
+    portLegs = cascadeFromDeparture(portLegs, legIndex);
+  } else if (mode === 'toArrival' && legIndex >= 0) {
+    portLegs = cascadeFromToArrival(portLegs, legIndex);
+  } else if (mode === 'toDeparture' && legIndex >= 0) {
+    portLegs = applyPortDateCascade(portLegs, { startIndex: legIndex + 1 });
+  } else if (mode === 'fromArrival') {
+    const startIndex = legIndex >= 0
+      ? legIndex
+      : portLegs.findIndex((leg) => leg.fromArrival);
+    if (startIndex >= 0) {
+      portLegs = applyPortDateCascade(portLegs, { startIndex });
+    }
+  } else if (!mode) {
+    // Generic recalc: only cascade when a real arrival already exists
+    const startIndex = portLegs.findIndex((leg) => leg.fromArrival);
+    if (startIndex >= 0) {
+      portLegs = applyPortDateCascade(portLegs, { startIndex });
     }
   }
 
@@ -481,6 +489,28 @@ export function extractCountryCode(portName) {
   return match ? match[1].trim().toUpperCase() : '';
 }
 
+/**
+ * PHP-style short port label: first alias + country.
+ * "Kandla / Deendayal / Dindayal (IND)" → "Kandla (IND)"
+ */
+export function shortPortDisplayName(name, fallback = '') {
+  const raw = String(name || '').trim();
+  if (!raw) return fallback || '—';
+  const country = extractCountryCode(raw);
+  const primary = (raw.split(' / ')[0] || raw).trim();
+  const primaryName = primary.replace(/\s*\([^)]*\)\s*$/, '').trim() || primary;
+  if (country) return `${primaryName} (${country})`;
+  return primaryName || raw;
+}
+
+/** Demurrage/Dispatch port-leg column — mirrors PHP LP/DP vs TP/BP labels. */
+export function formatDemurragePortLegLabel(leg, index) {
+  const to = shortPortDisplayName(leg?.toPortName, leg?.toPortId || 'To');
+  if (index > 0) return `TP/BP ${to}`;
+  const from = shortPortDisplayName(leg?.fromPortName, leg?.fromPortId || 'From');
+  return `${from} → ${to} (LP/DP)`;
+}
+
 export function calculateSeaLegPercentage(fromCountry, toCountry) {
   const fromEU = EU_COUNTRIES.has(String(fromCountry || '').toUpperCase());
   const toEU = EU_COUNTRIES.has(String(toCountry || '').toUpperCase());
@@ -620,7 +650,11 @@ export function computeEstimateTotals(form) {
   const overageCargoRows = mapAmount(form.overageCargoRows);
   const deadfreightCargoRows = mapAmount(form.deadfreightCargoRows);
   const allCargos = [...cargoRows, ...overageCargoRows, ...deadfreightCargoRows];
-  const cargoQuantity = round2(allCargos.reduce((sum, row) => sum + num(row.cargoMt), 0));
+  const cargoQuantity = round2(
+    allCargos.reduce((sum, row) => sum + num(row.cargoMt), 0)
+    || num(form.lumpsumQty)
+    || num(form.cargoQuantity),
+  );
 
   const orcs = orcRows.map((row) => {
     const amountMt = cargoQuantity > 0
@@ -729,6 +763,7 @@ export function computeEstimateTotals(form) {
     : num(form.lumpsum);
   const cargoQtyTotal = round2(
     allCargos.reduce((sum, row) => sum + num(row.cargoMt), 0)
+    || num(form.lumpsumQty)
     || num(form.cargoQuantity),
   );
   // PHP: tankType 1 = Single → lumpsum OR WS (qty×flat×WS/100); tankType 2 = Distributed → cargo MT×rate

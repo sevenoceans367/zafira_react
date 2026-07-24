@@ -61,6 +61,11 @@ function toDbDateTime(value) {
 function formatDateTimeDMY(value) {
   if (!value) return '';
 
+  const rejectYear = (y) => {
+    const year = Number(y);
+    return !Number.isFinite(year) || year < 1971;
+  };
+
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) return '';
     // mysql2 maps DATETIME to a local Date with the same wall-clock parts.
@@ -69,20 +74,23 @@ function formatDateTimeDMY(value) {
     const y = value.getFullYear();
     const hh = String(value.getHours()).padStart(2, '0');
     const mi = String(value.getMinutes()).padStart(2, '0');
-    if (y < 1971) return '';
+    if (rejectYear(y)) return '';
     return `${d}-${mo}-${y} ${hh}:${mi}`;
   }
 
   const str = String(value).trim();
   if (!str || str.startsWith('0000-00-00') || str.startsWith('1970-01-01')) return '';
+  // Already-formatted empty placeholders from legacy PHP / flatpickr
+  if (/^0?1[-/]0?1[-/]1970\b/.test(str)) return '';
 
   // MySQL DATETIME / ISO without relying on Date() timezone conversion.
   const wall = str.match(
-    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/,
+    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/,
   );
   if (wall) {
-    const [, y, mo, d, h, mi] = wall;
-    return `${d}-${mo}-${y} ${String(h).padStart(2, '0')}:${mi}`;
+    const [, y, mo, d, h = '00', mi = '00'] = wall;
+    if (rejectYear(y)) return '';
+    return `${d}-${mo}-${y} ${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
   }
 
   const dmy = str.match(
@@ -90,6 +98,7 @@ function formatDateTimeDMY(value) {
   );
   if (dmy) {
     const [, d, mo, y, h = '00', mi = '00'] = dmy;
+    if (rejectYear(y)) return '';
     return `${d.padStart(2, '0')}-${mo.padStart(2, '0')}-${y} ${String(h).padStart(2, '0')}:${mi}`;
   }
 
@@ -215,6 +224,11 @@ async function resolveScntForDetail(detail) {
 }
 
 function mapPortLeg(row, index) {
+  const fromArrivalRaw = row.FROMARRIVAL_DMY ?? row.FROMARRIVAL ?? row.fromarrival ?? row.FromArrival;
+  const fromDepartureRaw = row.FROMDEPARTURE_DMY ?? row.FROMDEPARTURE ?? row.fromdeparture ?? row.FromDeparture;
+  const toArrivalRaw = row.TOARRIVAL_DMY ?? row.TOARRIVAL ?? row.toarrival ?? row.ToArrival;
+  const toDepartureRaw = row.TODEPARTURE_DMY ?? row.TODEPARTURE ?? row.todeparture ?? row.ToDeparture;
+
   return {
     id: pickRowId(row.RANDOMID, row.FCA_SLAVEID, row.FCA_SLVID) || `${row.FCAID}-${index}`,
     fromPortId: row.FROM_PORT,
@@ -229,10 +243,10 @@ function mapPortLeg(row, index) {
     distance: row.DISTANCE ?? '',
     seaDays: row.TOTAL_VOYAGE_DAYS ?? row.SEA_DAYS ?? '',
     seaMargin: row.MARGIN_DISTANCE ?? '0',
-    fromArrival: row.FROMARRIVAL ? formatDateTimeDMY(row.FROMARRIVAL) : '',
-    fromDeparture: row.FROMDEPARTURE ? formatDateTimeDMY(row.FROMDEPARTURE) : '',
-    toArrival: row.TOARRIVAL ? formatDateTimeDMY(row.TOARRIVAL) : '',
-    toDeparture: row.TODEPARTURE ? formatDateTimeDMY(row.TODEPARTURE) : '',
+    fromArrival: formatDateTimeDMY(fromArrivalRaw),
+    fromDeparture: formatDateTimeDMY(fromDepartureRaw),
+    toArrival: formatDateTimeDMY(toArrivalRaw),
+    toDeparture: formatDateTimeDMY(toDepartureRaw),
     loadPortCost: row.LOAD_PORT_COST ?? '',
     discPortCost: row.DISC_PORT_COST ?? '',
     loadPortRate: row.LOAD_PORT_RATE ?? '',
@@ -445,8 +459,8 @@ function mapOffHireRow(row, bunkers = [], index = 0) {
     id: pickRowId(row.RANDOMID, row.FCA_SLAVE14ID) || `off-${row.FCAID}-${index}`,
     slave14Id: row.FCA_SLAVE14ID,
     reason: row.OFF_REASON ?? '',
-    from: row.OFF_FROM ? formatDateTimeDMY(row.OFF_FROM) : '',
-    to: row.OFF_TO ? formatDateTimeDMY(row.OFF_TO) : '',
+    from: formatDateTimeDMY(row.OFF_FROM),
+    to: formatDateTimeDMY(row.OFF_TO),
     days: row.OFF_DAYS ?? '',
     rate: row.HIRE_RATE ?? '',
     amount: row.OFF_HIRE ?? '',
@@ -669,6 +683,8 @@ function mapEstimateDetail(
     vesselType: master.VESSEL_TYPE ?? '',
     flag: master.FLAG ?? '',
     transDate: formatDateDMY(master.TRANS_DATE),
+    // Prefer CP_DATE for charter-party date; fall back to TRANS_DATE
+    cpDate: formatDateDMY(master.CP_DATE) || formatDateDMY(master.TRANS_DATE),
     voyageNo: master.VOYAGE_NO ?? '',
     voyageName: master.VOYAGE_NAME ?? '',
     dwtSummer: master.DWT_SUMMER ?? master.VESSEL_DWT ?? '',
@@ -807,7 +823,6 @@ function mapEstimateDetail(
     coaNumberLift: master.COA_NUMBER_LIFT ?? '',
     noOfShipment: master.NO_OF_SHIPMENT
       || (master.COA_TOTAL_SHIPMENTS != null ? String(master.COA_TOTAL_SHIPMENTS) : ''),
-    cpDate: master.CP_DATE ? formatDateDMY(master.CP_DATE) : '',
     etaDate: master.ETA_DATE ? formatDateDMY(master.ETA_DATE) : '',
     ownerId: master.OWNER != null ? String(master.OWNER) : '',
     disponentOwner: master.DISPONENT_OWNER ?? '',
@@ -1223,6 +1238,10 @@ export async function dbGetEstimateDetail(id) {
 
   const [legs] = await pool.query(
     `SELECT s.*,
+            DATE_FORMAT(s.FROMARRIVAL, '%d-%m-%Y %H:%i') AS FROMARRIVAL_DMY,
+            DATE_FORMAT(s.FROMDEPARTURE, '%d-%m-%Y %H:%i') AS FROMDEPARTURE_DMY,
+            DATE_FORMAT(s.TOARRIVAL, '%d-%m-%Y %H:%i') AS TOARRIVAL_DMY,
+            DATE_FORMAT(s.TODEPARTURE, '%d-%m-%Y %H:%i') AS TODEPARTURE_DMY,
             CONCAT(COALESCE(fp.PortName, ''), ' (', COALESCE(fp.COUNTRY_KEY, ''), ')') AS FROM_PORT_NAME,
             CONCAT(COALESCE(tp.PortName, ''), ' (', COALESCE(tp.COUNTRY_KEY, ''), ')') AS TO_PORT_NAME
      FROM freight_cost_estimete_slave1 s

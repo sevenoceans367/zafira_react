@@ -640,7 +640,7 @@ export default function SensitivityAnalysisModal({
                       ))}
                     </tr>
                     <tr>
-                      <td className={styles.metricCell}><strong>P/L</strong></td>
+                      <td className={styles.metricCell}><strong>P&L</strong></td>
                       {columns.map((column) => (
                         <td key={`${column.id}-pl`} className={styles.resultCell}>
                           <ResultCell value={metricsById[column.id]?.profitLoss} />

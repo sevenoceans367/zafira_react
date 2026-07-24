@@ -21,7 +21,7 @@ function shortPortName(name) {
   return part || name;
 }
 
-function buildCargoOptions(cargoRows = [], cargos = [], extraIds = []) {
+function buildCargoOptions(cargoRows = [], cargos = []) {
   const cargoName = (id, fallback = '') => (
     cargos.find((item) => String(item.id) === String(id))?.name
     || fallback
@@ -29,7 +29,7 @@ function buildCargoOptions(cargoRows = [], cargos = [], extraIds = []) {
     || 'Cargo'
   );
 
-  // PHP targetSelectLp/Dp: options = cargos chosen in Cargo Name (selCName)
+  // Options = cargos currently chosen in Cargo Name (dynamic with panel)
   const seen = new Set();
   const fromSelected = [];
   for (const row of cargoRows || []) {
@@ -43,28 +43,7 @@ function buildCargoOptions(cargoRows = [], cargos = [], extraIds = []) {
     });
   }
 
-  // Keep persisted LP/DP selections visible even if not in current Cargo Name list
-  for (const rawId of extraIds || []) {
-    const cargoId = String(rawId || '').trim();
-    if (!cargoId || cargoId === '0' || seen.has(cargoId)) continue;
-    seen.add(cargoId);
-    fromSelected.push({
-      id: cargoId,
-      label: cargoName(cargoId),
-      mt: '',
-    });
-  }
-
-  if (fromSelected.length) return fromSelected;
-
-  // Fallback: full lookup list so the dropdown is never empty before Cargo Name is set
-  return (cargos || [])
-    .filter((item) => item.id)
-    .map((item) => ({
-      id: String(item.id),
-      label: item.name || String(item.id),
-      mt: '',
-    }));
+  return fromSelected;
 }
 
 function displayWorkDays(leg, side) {
@@ -119,10 +98,10 @@ export default function PortLaytimeSections({
   updateRow,
 }) {
   const legs = form.portLegs || [];
-  const cargoOptions = useMemo(() => {
-    const persistedIds = (form.portLegs || []).flatMap((leg) => [leg.lpCargoId, leg.dpCargoId]);
-    return buildCargoOptions(form.cargoRows, lookups.cargos, persistedIds);
-  }, [form.cargoRows, form.portLegs, lookups.cargos]);
+  const cargoOptions = useMemo(
+    () => buildCargoOptions(form.cargoRows, lookups.cargos),
+    [form.cargoRows, lookups.cargos],
+  );
 
   if (!legs.length) {
     return (

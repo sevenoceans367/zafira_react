@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Button } from '@bainbridge/shared-ui';
+import { Button, CardSelect } from '@bainbridge/shared-ui';
 import { fetchPortDistance } from '../../../services/estimateDetail.js';
 import {
   NAVIGATION_METHOD_OPTIONS,
@@ -16,7 +16,7 @@ import styles from './DistanceFetchModal.module.css';
 function rangeOptions(max, suffix = '') {
   const opts = [];
   for (let i = 0; i <= max; i += 1) {
-    opts.push({ value: String(i), label: `${i}${suffix}` });
+    opts.push({ id: String(i), name: `${i}${suffix}` });
   }
   return opts;
 }
@@ -35,6 +35,14 @@ function splitPortDisplay(name, fallbackId) {
 
 const INTERVAL_OPTIONS = rangeOptions(500, ' n.m.');
 const PERCENT_OPTIONS = rangeOptions(100, '%');
+const NAV_METHOD_OPTIONS = NAVIGATION_METHOD_OPTIONS.map((o) => ({
+  id: o.value,
+  name: o.label,
+}));
+const PIRACY_OPTIONS = PIRACY_ZONE_OPTIONS.map((o) => ({
+  id: o.value,
+  name: o.label,
+}));
 
 export default function DistanceFetchModal({
   open,
@@ -261,7 +269,7 @@ export default function DistanceFetchModal({
         <div className={styles.body}>
           <div className={styles.section}>
             <p className={styles.sectionLabel}>Route</p>
-            <div className={styles.formGrid}>
+            <div className={`${styles.formGrid} ${styles.routeRow}${navMethod === '1' ? ` ${styles.routeRowWithInterval}` : ''}`}>
               <div>
                 <div className={styles.fieldLabel}>From Port</div>
                 <div className={styles.portBox}>
@@ -282,31 +290,29 @@ export default function DistanceFetchModal({
               </div>
               <div>
                 <div className={styles.fieldLabel}>Navigation Method</div>
-                <div className={styles.selectWrap}>
-                  <select
-                    className={styles.field}
+                <div className={styles.cardSelect}>
+                  <CardSelect
+                    options={NAV_METHOD_OPTIONS}
                     value={navMethod}
-                    onChange={(e) => setNavMethod(e.target.value)}
-                  >
-                    {NAVIGATION_METHOD_OPTIONS.map((o) => (
-                      <option key={o.value || 'none'} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                    onChange={setNavMethod}
+                    placeholder="Navigation Method"
+                    ariaLabel="Navigation Method"
+                    align="start"
+                  />
                 </div>
               </div>
               {navMethod === '1' ? (
                 <div>
                   <div className={styles.fieldLabel}>Great Circle Interval (n.m.)</div>
-                  <div className={styles.selectWrap}>
-                    <select
-                      className={styles.field}
+                  <div className={styles.cardSelect}>
+                    <CardSelect
+                      options={INTERVAL_OPTIONS}
                       value={greatCircleInterval}
-                      onChange={(e) => setGreatCircleInterval(e.target.value)}
-                    >
-                      {INTERVAL_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
+                      onChange={setGreatCircleInterval}
+                      placeholder="Interval"
+                      ariaLabel="Great Circle Interval"
+                      align="start"
+                    />
                   </div>
                 </div>
               ) : null}
@@ -318,44 +324,41 @@ export default function DistanceFetchModal({
             <div className={styles.formGrid}>
               <div>
                 <div className={styles.fieldLabel}>SECA Area Avoidance (%)</div>
-                <div className={styles.selectWrap}>
-                  <select
-                    className={styles.field}
+                <div className={styles.cardSelect}>
+                  <CardSelect
+                    options={PERCENT_OPTIONS}
                     value={secaAvoidance}
-                    onChange={(e) => setSecaAvoidance(e.target.value)}
-                  >
-                    {PERCENT_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                    onChange={setSecaAvoidance}
+                    placeholder="SECA Avoidance"
+                    ariaLabel="SECA Area Avoidance"
+                    align="start"
+                  />
                 </div>
               </div>
               <div>
                 <div className={styles.fieldLabel}>ASL Compliance (%)</div>
-                <div className={styles.selectWrap}>
-                  <select
-                    className={styles.field}
+                <div className={styles.cardSelect}>
+                  <CardSelect
+                    options={PERCENT_OPTIONS}
                     value={aslCompliance}
-                    onChange={(e) => setAslCompliance(e.target.value)}
-                  >
-                    {PERCENT_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                    onChange={setAslCompliance}
+                    placeholder="ASL Compliance"
+                    ariaLabel="ASL Compliance"
+                    align="start"
+                  />
                 </div>
               </div>
               <div>
                 <div className={styles.fieldLabel}>Piracy Avoidance Settings</div>
-                <div className={styles.selectWrap}>
-                  <select
-                    className={styles.field}
+                <div className={styles.cardSelect}>
+                  <CardSelect
+                    options={PIRACY_OPTIONS}
                     value={piracyZone}
-                    onChange={(e) => setPiracyZone(e.target.value)}
-                  >
-                    {PIRACY_ZONE_OPTIONS.map((o) => (
-                      <option key={o.value || 'z1'} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                    onChange={setPiracyZone}
+                    placeholder="Piracy Avoidance"
+                    ariaLabel="Piracy Avoidance Settings"
+                    align="start"
+                  />
                 </div>
               </div>
             </div>

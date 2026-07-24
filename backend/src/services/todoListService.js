@@ -5,6 +5,10 @@ import {
   dbSetTodoPaymentStatus,
   dbUpdateTodoAlRem,
 } from './todoListDb.js';
+import {
+  dbSearchTodoVoyageByNumber,
+  dbSearchTodoVoyagesByVessel,
+} from './todoListVoyageSearchDb.js';
 
 const MOCK_RECORDS = {
   hold: [
@@ -126,5 +130,41 @@ export async function unholdTodoPayment(payload) {
     identify: payload.identify,
     identifyId: payload.identifyId,
     status: 'payment_payable',
+  });
+}
+
+/** PHP options.php?id=126 */
+export async function searchTodoVoyageByNumber(payload = {}) {
+  if (!isDbConfigured()) {
+    return {
+      status: 1,
+      type: String(payload.voyType || 'VC').toLowerCase() === 'coa' ? 'COA' : String(payload.voyType || 'vc').toLowerCase(),
+      voyage: payload.voyageNo || 'S26001',
+      year: new Date().getFullYear(),
+    };
+  }
+  return dbSearchTodoVoyageByNumber({
+    voyageNo: payload.voyageNo,
+    voyType: payload.voyType,
+    businessType: payload.businessType,
+  });
+}
+
+/** PHP options.php?id=153 */
+export async function searchTodoVoyagesByVessel(payload = {}) {
+  if (!isDbConfigured()) {
+    return [{
+      status: 1,
+      type: 'vc',
+      voyage: 'S26001',
+      year: new Date().getFullYear(),
+      Charterer: 'Mock Charterer',
+      CP_DATE: '01-Jan-2026',
+    }];
+  }
+  return dbSearchTodoVoyagesByVessel({
+    vesselId: payload.vesselId,
+    voyType: payload.voyType,
+    businessType: payload.businessType,
   });
 }

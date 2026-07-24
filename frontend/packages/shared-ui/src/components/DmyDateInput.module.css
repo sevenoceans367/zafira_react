@@ -10,3 +10,113 @@
 :global(.flatpickr-calendar) {
   z-index: 10050 !important;
 }
+
+/* —— Two-step date → hour grid (enableTime) —— */
+
+.stepDate :global(.flatpickr-time) {
+  display: none !important;
+}
+
+.stepDate .timePanel {
+  display: none;
+}
+
+.stepTime :global(.flatpickr-months),
+.stepTime :global(.flatpickr-innerContainer),
+.stepTime :global(.flatpickr-weekdays),
+.stepTime :global(.flatpickr-time) {
+  display: none !important;
+}
+
+.stepTime .timePanel {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  min-height: 240px;
+}
+
+.timePanel {
+  display: none;
+}
+
+.timeHeading {
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e3a5f;
+  background: #e8f0fe;
+  border-bottom: 1px solid #c5d4eb;
+  text-align: center;
+}
+
+.hourGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 10px;
+  flex: 1;
+}
+
+.hourBtn {
+  appearance: none;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #1f2937;
+  font-size: 13px;
+  line-height: 1.2;
+  padding: 8px 4px;
+  cursor: pointer;
+}
+
+.hourBtn:hover {
+  background: #e8f0fe;
+  color: #1e3a5f;
+}
+
+.hourBtnActive {
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 600;
+}
+
+.hourBtnActive:hover {
+  background: #2563eb;
+  color: #fff;
+}
+
+.timeFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.timeFooterBtn {
+  appearance: none;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.timeFooterBtn:hover {
+  background: #f9fafb;
+}
+
+.timeFooterToday {
+  flex: 1;
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.timeFooterToday:hover {
+  background: #dbeafe;
+}

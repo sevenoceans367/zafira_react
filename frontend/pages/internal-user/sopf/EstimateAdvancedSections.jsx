@@ -607,6 +607,7 @@ export default function EstimateAdvancedSections({
                       ) : (
                         <DmyDateInput
                           id={`delBunDate_${row.id}`}
+                          enableTime
                           className=""
                           value={row.bunkerDate || ''}
                           onChange={(value) => updateRow('deliveryBunkerRows', row.id, { bunkerDate: value })}
@@ -674,6 +675,7 @@ export default function EstimateAdvancedSections({
                       ) : (
                         <DmyDateInput
                           id={`reDelBunDate_${row.id}`}
+                          enableTime
                           className=""
                           value={row.bunkerDate || ''}
                           onChange={(value) => updateRow('redeliveryBunkerRows', row.id, { bunkerDate: value })}
@@ -795,6 +797,7 @@ export default function EstimateAdvancedSections({
                       ) : (
                         <DmyDateInput
                           id={`voyageEventDate_${row.id}`}
+                          enableTime
                           className=""
                           value={row.eventDate || ''}
                           onChange={(value) => updateRow('voyageEventRows', row.id, { eventDate: value })}

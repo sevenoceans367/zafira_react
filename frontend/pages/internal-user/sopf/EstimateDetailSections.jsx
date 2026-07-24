@@ -26,8 +26,9 @@ import {
   createEmptyProfitSharingRow,
   createEmptySecaBunkerRow,
   getFixtureTypeLabel,
+  seedPortLegsFromFirstCargo,
 } from './estimateDetail.constants.js';
-import { calcDemurrageEst, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName } from './estimateCalculations.js';
+import { calcDemurrageEst, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurragePortLegLabel } from './estimateCalculations.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import RowRemoveButton from './RowRemoveButton.jsx';
 
@@ -124,6 +125,20 @@ export default function EstimateDetailSections({
 
   const applyPatch = (patch) => {
     const cleanPatch = sanitizeEstimatePatch(patch);
+    const touchesCargo = Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoRows')
+      || Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoIds')
+      || Object.prototype.hasOwnProperty.call(cleanPatch, 'lumpsumQty');
+    if (touchesCargo && !Object.prototype.hasOwnProperty.call(cleanPatch, 'portLegs')) {
+      const syncQty = Object.prototype.hasOwnProperty.call(cleanPatch, 'lumpsumQty');
+      cleanPatch.portLegs = seedPortLegsFromFirstCargo(
+        form.portLegs,
+        cleanPatch.cargoRows || form.cargoRows,
+        Object.prototype.hasOwnProperty.call(cleanPatch, 'lumpsumQty')
+          ? cleanPatch.lumpsumQty
+          : form.lumpsumQty,
+        { syncQty },
+      );
+    }
     if (onApplyPatch) {
       onApplyPatch(cleanPatch);
       return;
@@ -227,20 +242,24 @@ export default function EstimateDetailSections({
       row.id === id ? { ...row, ...cleanPatch } : row
     ));
 
-    // Cargo qty → seed load/disc qty on first empty legs (PHP QMT linking)
-    if (collection === 'cargoRows' && Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoMt')) {
-      const cargoQty = String(cleanPatch.cargoMt ?? '');
-      const portLegs = (form.portLegs || []).map((leg, index) => {
-        if (!cargoQty) return leg;
-        if (index === 0 && !leg.loadQty) {
-          return { ...leg, loadQty: cargoQty };
-        }
-        if (!leg.dischargeQty && String(leg.passageType) === '2') {
-          return { ...leg, dischargeQty: cargoQty };
-        }
-        return leg;
+    // Cargo Name / Qty → auto-fill Port Details Cargo + Qty (MT)
+    if (
+      collection === 'cargoRows'
+      && (
+        Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoMt')
+        || Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoId')
+      )
+    ) {
+      const syncQty = Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoMt');
+      applyPatch({
+        cargoRows: rows,
+        portLegs: seedPortLegsFromFirstCargo(
+          form.portLegs,
+          rows,
+          form.lumpsumQty,
+          { syncQty },
+        ),
       });
-      applyPatch({ cargoRows: rows, portLegs });
       return;
     }
 
@@ -284,11 +303,12 @@ export default function EstimateDetailSections({
         next.fromPortId = prev.toPortId;
         next.fromPortName = prev.toPortName || '';
       }
-      const cargoQty = (form.cargoRows || []).find((r) => r.cargoMt)?.cargoMt || '';
-      if (cargoQty && String(next.passageType) === '2' && !next.loadQty) {
-        next.loadQty = String(cargoQty);
-      }
-      updateField(collection, [...(form.portLegs || []), next]);
+      const seeded = seedPortLegsFromFirstCargo(
+        [next],
+        form.cargoRows,
+        form.lumpsumQty,
+      )[0] || next;
+      updateField(collection, [...(form.portLegs || []), seeded]);
       return;
     }
     updateField(collection, [...(form[collection] || []), factory()]);
@@ -345,6 +365,11 @@ export default function EstimateDetailSections({
         const value = decimal
           ? sanitizeDecimalInput(event.target.value)
           : event.target.value;
+        // Cargo Qty (MT) / lump-sum qty → seed Port Details Qty when empty
+        if (key === 'lumpsumQty') {
+          applyPatch({ lumpsumQty: value });
+          return;
+        }
         if (opts.recalc && onRecalc) {
           onRecalc(key, value);
         } else {
@@ -458,12 +483,16 @@ export default function EstimateDetailSections({
             </Field>
             <Field id="transDate" label="CP Date">
               {readOnly ? (
-                <input id="transDate" value={form.transDate} readOnly />
+                <input id="transDate" value={form.cpDate || form.transDate || ''} readOnly />
               ) : (
                 <DmyDateInput
                   id="transDate"
-                  value={form.transDate}
-                  onChange={(value) => updateField('transDate', value)}
+                  enableTime
+                  value={form.cpDate || form.transDate || ''}
+                  onChange={(value) => applyPatch({
+                    cpDate: value,
+                    transDate: value,
+                  })}
                 />
               )}
             </Field>
@@ -589,30 +618,20 @@ export default function EstimateDetailSections({
         title="Passage & Ports"
         defaultOpen
         actions={(
-          <>
-            {editable ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                label="+"
-                ariaLabel="Add"
-                onClick={() => addRow('portLegs', createEmptyPortLeg)}
-              />
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              label="Itinerary"
-              ariaLabel="Itinerary"
-              className={styles.panelActionEnd}
-              onClick={() => setItineraryOpen(true)}
-            />
-          </>
+          <Button
+            type="button"
+            variant="outline"
+            label="Itinerary"
+            ariaLabel="Itinerary"
+            className={styles.panelActionEnd}
+            onClick={() => setItineraryOpen(true)}
+          />
         )}
       >
         <div className={styles.portLegsStack}>
-          {(form.portLegs || []).map((leg, legIndex) => (
+          {(form.portLegs || []).map((leg, legIndex) => {
+            const isLastLeg = legIndex === (form.portLegs || []).length - 1;
+            return (
             <div key={leg.id} className={styles.portLegCard}>
               <div className={styles.portLegGrid}>
                 <div className={styles.portLegPorts}>
@@ -630,7 +649,7 @@ export default function EstimateDetailSections({
                         <td className={styles.portIdxCol}>
                           {editable
                             && (form.portLegs || []).length > 1
-                            && legIndex === (form.portLegs || []).length - 1 ? (
+                            && isLastLeg ? (
                               <RowRemoveButton onClick={() => removeRow('portLegs', leg.id)} />
                             ) : (
                               <span>{legIndex + 1}</span>
@@ -692,7 +711,18 @@ export default function EstimateDetailSections({
                     </thead>
                     <tbody>
                       <tr>
-                        <td />
+                        <td className={styles.portIdxCol}>
+                          {editable && isLastLeg ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              label="+"
+                              ariaLabel="Add"
+                              onClick={() => addRow('portLegs', createEmptyPortLeg)}
+                            />
+                          ) : null}
+                        </td>
                         <td>
                           {readOnly ? (
                             leg.toPortName || leg.toPortId || '—'
@@ -867,7 +897,8 @@ export default function EstimateDetailSections({
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </CollapsiblePanel>
 
@@ -1415,12 +1446,7 @@ export default function EstimateDetailSections({
             <tbody>
               {(form.portLegs || []).map((leg, index) => (
                 <tr key={leg.id}>
-                  <td>
-                    {leg.fromPortName || 'From'}
-                    {' → '}
-                    {leg.toPortName || 'To'}
-                    {index === 0 ? ' (LP/DP)' : ''}
-                  </td>
+                  <td>{formatDemurragePortLegLabel(leg, index)}</td>
                   <td>
                     <input
                       value={leg.demmDaysLp || ''}

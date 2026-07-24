@@ -51,3 +51,23 @@ export async function unholdTodoPayment({ identify, identifyId }) {
   });
   return parseJson(response, 'Failed to unhold payment.');
 }
+
+/** PHP options.php?id=126 */
+export async function searchTodoVoyageByNumber({ voyageNo, voyType, businessType }) {
+  const response = await fetch(`${BASE}/search-voyage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ voyageNo, voyType, businessType }),
+  });
+  return parseJson(response, 'Failed to search voyage.');
+}
+
+/** PHP options.php?id=153 */
+export async function searchTodoVoyagesByVessel({ vesselId, voyType, businessType }) {
+  const response = await fetch(`${BASE}/search-voyage-by-vessel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vesselId, voyType, businessType }),
+  });
+  return parseJson(response, 'Failed to search voyages by vessel.');
+}

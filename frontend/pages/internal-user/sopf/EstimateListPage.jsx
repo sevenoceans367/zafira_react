@@ -385,7 +385,7 @@ export default function EstimateListPage() {
                         Quantity
                       </th>
                       <th className={styles.tceColumn}>TCE</th>
-                      <th>P/L</th>
+                      <th>P&L</th>
                       <th className={styles.actionColumn}>Replicate</th>
                       <th className={styles.compareColumn}>
                         <div className={styles.compareHeader}>
@@ -545,7 +545,7 @@ export default function EstimateListPage() {
                         <th>Duration</th>
                         <th>Cargo Quantity</th>
                         <th>Daily Net TCE</th>
-                        <th>P/L</th>
+                        <th>P&L</th>
                         <th>Remarks</th>
                         <th>Select</th>
                       </tr>

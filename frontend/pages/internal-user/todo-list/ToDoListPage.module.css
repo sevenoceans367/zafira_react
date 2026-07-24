@@ -2,14 +2,6 @@
   position: relative;
 }
 
-.title {
-  margin: 0 0 16px;
-  text-align: center;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-text, #1f2937);
-}
-
 .tabs {
   display: flex;
   gap: 0;
@@ -37,30 +29,8 @@
   background: #fff;
 }
 
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.filterField {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 200px;
-}
-
-.filterLabel {
-  font-size: var(--font-size-small, 11px);
-  font-weight: 600;
-  color: var(--color-text-light, #6b7280);
-}
-
-.select,
-.searchInput,
 .alRemInput {
+  width: 90px;
   min-height: 34px;
   padding: 6px 10px;
   border: 1px solid var(--color-border, #d9dee8);
@@ -68,10 +38,6 @@
   font-size: var(--font-size-body, 12px);
   background: #fff;
   color: var(--color-text, #1f2937);
-}
-
-.alRemInput {
-  width: 90px;
 }
 
 .error {

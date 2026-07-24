@@ -42,7 +42,7 @@ export default function EstimateResultsPanels({
           <Row label="Net Daily TCE" value={form.nettDailyTce} accent />
           <Row label="Voyage Earnings" value={form.voyageEarnings} />
           <Row label="Net Hireage" value={form.netHireage} />
-          <Row label="P/L" value={form.profitLoss} />
+          <Row label="P&L" value={form.profitLoss} />
         </div>
 
         <div className={styles.distDaysGrid}>

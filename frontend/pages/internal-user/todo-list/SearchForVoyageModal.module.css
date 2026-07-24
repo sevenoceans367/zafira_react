@@ -1,0 +1,126 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(27, 39, 51, 0.45);
+}
+
+.modal {
+  width: min(96vw, 520px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 12px 32px rgba(20, 30, 50, 0.12);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #274670;
+}
+
+.closeBtn {
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.body {
+  padding: 16px;
+  overflow: auto;
+}
+
+.formStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.cardSelect {
+  width: 100%;
+  min-width: 0;
+}
+
+.cardSelect > div {
+  display: block;
+  width: 100%;
+}
+
+.cardSelect > div > button:first-child {
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+}
+
+.textInput {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resultLink {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #274670;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  background: #fff;
+}
+
+.resultLink:hover {
+  background: #f0f7ff;
+  border-color: #c9d4e3;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #f8fafc;
+}

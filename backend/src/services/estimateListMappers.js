@@ -12,18 +12,40 @@ export const ESTIMATE_TYPE_LABELS = {
 
 export function formatDateDMY(value) {
   if (!value) return '';
+
   if (value instanceof Date) {
+    if (Number.isNaN(value.getTime()) || value.getFullYear() < 1971) return '';
     const d = String(value.getDate()).padStart(2, '0');
     const m = String(value.getMonth() + 1).padStart(2, '0');
     const y = value.getFullYear();
     return `${d}-${m}-${y}`;
   }
-  const str = String(value);
+
+  const str = String(value).trim();
+  if (!str || str.startsWith('0000-00-00') || str.startsWith('1970-01-01')) return '';
+  if (/^0?1[-/]0?1[-/]1970\b/.test(str)) return '';
+
+  // ISO with T
   if (str.includes('T')) {
     return formatDateDMY(new Date(str));
   }
-  const [y, m, d] = str.split(/[-/]/);
-  if (y && m && d) return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+
+  // MySQL DATETIME: YYYY-MM-DD[ HH:MM[:SS[.mmm]]]
+  const wall = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:[\sT].*)?$/);
+  if (wall) {
+    const [, y, m, d] = wall;
+    if (Number(y) < 1971) return '';
+    return `${d}-${m}-${y}`;
+  }
+
+  // Already dd-mm-yyyy (optional time)
+  const dmy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+.*)?$/);
+  if (dmy) {
+    const [, d, m, y] = dmy;
+    if (Number(y) < 1971) return '';
+    return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+  }
+
   return str;
 }
 

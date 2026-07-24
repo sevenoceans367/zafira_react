@@ -3,6 +3,8 @@ import {
   getTodoList,
   holdTodoPayment,
   inactiveTodoAlert,
+  searchTodoVoyageByNumber,
+  searchTodoVoyagesByVessel,
   unholdTodoPayment,
   updateTodoAlRem,
 } from '../services/todoListService.js';
@@ -20,6 +22,34 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message || 'Failed to load to-do list.' });
+  }
+});
+
+router.post('/search-voyage', async (req, res) => {
+  try {
+    const data = await searchTodoVoyageByNumber({
+      voyageNo: req.body.voyageNo || req.body.txtvoyageno,
+      voyType: req.body.voyType || req.body.voytype,
+      businessType: req.body.businessType || req.body.selBType1,
+    });
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message || 'Failed to search voyage.' });
+  }
+});
+
+router.post('/search-voyage-by-vessel', async (req, res) => {
+  try {
+    const data = await searchTodoVoyagesByVessel({
+      vesselId: req.body.vesselId || req.body.selVessel,
+      voyType: req.body.voyType || req.body.voytype,
+      businessType: req.body.businessType || req.body.selBType1,
+    });
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message || 'Failed to search voyages by vessel.' });
   }
 });
 

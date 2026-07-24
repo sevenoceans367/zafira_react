@@ -126,6 +126,19 @@ export default function CountryMultiSelect({
           })
         )}
       </ul>
+      <div className={styles.dropdownFooter}>
+        <button
+          type="button"
+          className={styles.closeBtn}
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpen(false);
+            setQuery('');
+          }}
+        >
+          Close
+        </button>
+      </div>
     </div>,
     document.body,
   ) : null;

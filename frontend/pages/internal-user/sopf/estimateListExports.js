@@ -7,7 +7,7 @@ const CSV_COLUMNS = [
   { key: 'duration', label: 'Duration' },
   { key: 'cargoQuantity', label: 'Cargo Quantity' },
   { key: 'tce', label: 'TCE' },
-  { key: 'profitLoss', label: 'P/L' },
+  { key: 'profitLoss', label: 'P&L' },
 ];
 
 function escapeCsvValue(value) {

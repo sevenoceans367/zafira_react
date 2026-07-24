@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay, PageHeaderSearch, HeaderFilterControls } from '@bainbridge/shared-ui';
-import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import {
   downloadTcDecisionChartsPdf,
@@ -76,7 +75,6 @@ export default function TcDecisionChartsListPage() {
             onClick={() => handleGeneratePdf()}
             disabled={pdfLoading}
           />
-          <Button variant="outline" label="Back" href={appPath('/internal-user/vc/tc')} />
         </HeaderFilterControls>
       </PageHeaderActions>
 

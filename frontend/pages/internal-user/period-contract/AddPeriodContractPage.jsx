@@ -1054,6 +1054,7 @@ function BunkerTable({ rows, bunkers, total, onChange, onAdd }) {
                 </td>
                 <td>
                   <DmyDateInput
+                    id={`bunkerDate_${row.id}`}
                     value={row.date}
                     onChange={(value) => updateRow(index, { date: value })}
                   />

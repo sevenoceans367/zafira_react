@@ -163,6 +163,76 @@ export function createEmptyCargoRow(status = 1) {
   };
 }
 
+/**
+ * Keep Port Details Cargo/Qty in sync with the Cargo panel.
+ * - Dropdown source of truth = selected Cargo Names.
+ * - Removed cargos are cleared from LP/DP (or replaced with the first remaining).
+ * - Empty selects are seeded from the first cargo; qty syncs when `syncQty` or selection remaps.
+ */
+export function seedPortLegsFromFirstCargo(
+  portLegs = [],
+  cargoRows = [],
+  lumpsumQty = '',
+  { syncQty = false } = {},
+) {
+  const selectedIds = [];
+  const seen = new Set();
+  for (const row of cargoRows || []) {
+    const id = String(row.cargoId || '').trim();
+    if (!id || id === '0' || seen.has(id)) continue;
+    seen.add(id);
+    selectedIds.push(id);
+  }
+
+  const firstId = selectedIds[0] || '';
+  const first = firstId
+    ? (cargoRows || []).find((row) => String(row.cargoId || '').trim() === firstId)
+    : null;
+  const rowQty = first?.cargoMt != null ? String(first.cargoMt).trim() : '';
+  const qty = rowQty || String(lumpsumQty || '').trim();
+  const isSelected = (raw) => {
+    const id = String(raw || '').trim();
+    return Boolean(id && id !== '0' && seen.has(id));
+  };
+
+  let changed = false;
+  const next = (portLegs || []).map((leg) => {
+    const patch = {};
+    const lp = String(leg.lpCargoId || '').trim();
+    const dp = String(leg.dpCargoId || '').trim();
+    const lpRemoved = Boolean(lp && !isSelected(lp));
+    const dpRemoved = Boolean(dp && !isSelected(dp));
+
+    if (lpRemoved) patch.lpCargoId = firstId;
+    else if (firstId && !lp) patch.lpCargoId = firstId;
+
+    if (dpRemoved) patch.dpCargoId = firstId;
+    else if (firstId && !dp) patch.dpCargoId = firstId;
+
+    if (!firstId) {
+      if (lp) patch.lpCargoId = '';
+      if (dp) patch.dpCargoId = '';
+    }
+
+    const shouldSyncQty = syncQty || lpRemoved || dpRemoved;
+    if (qty && (shouldSyncQty || !String(leg.loadQty || '').trim())) {
+      patch.loadQty = qty;
+    }
+    if (qty && (shouldSyncQty || !String(leg.dischargeQty || '').trim())) {
+      patch.dischargeQty = qty;
+    }
+    if (!firstId && (shouldSyncQty || lpRemoved || dpRemoved)) {
+      if (!String(leg.loadQty || '').trim() || lpRemoved) patch.loadQty = '';
+      if (!String(leg.dischargeQty || '').trim() || dpRemoved) patch.dischargeQty = '';
+    }
+
+    if (!Object.keys(patch).length) return leg;
+    changed = true;
+    return { ...leg, ...patch };
+  });
+  return changed ? next : (portLegs || []);
+}
+
 export function createEmptyPortLeg() {
   return {
     id: newRowId('leg'),
@@ -991,7 +1061,9 @@ export function toFormState(detail = {}) {
     vesselName: detail.vesselName ?? '',
     vesselType: detail.vesselType ?? '',
     flag: detail.flag ?? '',
-    transDate: detail.transDate ?? formatTodayDmy(),
+    transDate: detail.transDate || detail.cpDate || formatTodayDmy(),
+    // CP Date field prefers charter-party date
+    cpDate: detail.cpDate || detail.transDate || (!detail.id ? formatTodayDmy() : ''),
     voyageNo: detail.voyageNo ?? '',
     voyageName: detail.voyageName ?? '',
     dwtSummer: detail.dwtSummer != null ? String(detail.dwtSummer) : '',
@@ -1061,7 +1133,6 @@ export function toFormState(detail = {}) {
     coaNumberLabel: detail.coaNumberLabel ?? '',
     coaNumberLift: detail.coaNumberLift != null ? String(detail.coaNumberLift) : '',
     noOfShipment: detail.noOfShipment != null ? String(detail.noOfShipment) : '',
-    cpDate: detail.cpDate || (!detail.id ? formatTodayDmy() : ''),
     etaDate: detail.etaDate || (!detail.id ? formatTodayDmy() : ''),
     ownerId: detail.ownerId != null ? String(detail.ownerId) : '',
     disponentOwner: detail.disponentOwner ?? '',

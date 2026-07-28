@@ -13,6 +13,7 @@ export {
   SummaryCardGrid,
   Button,
   GlobalButton,
+  AddCircleButton,
   SecondaryActionButton,
   SendToOpsButton,
   ActionButtonStack,

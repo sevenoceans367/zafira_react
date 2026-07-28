@@ -34,8 +34,8 @@
 }
 
 .estimateAside .panelHeader {
-  padding: 4px 8px;
-  font-size: 11px;
+  padding: 6px 10px;
+  font-size: 12px;
 }
 
 .estimateAside .panelBody {
@@ -403,26 +403,6 @@
 
 .addRowBtn:hover {
   background: #f8fafc;
-}
-
-/* Circular bold + add buttons — not Itinerary / other panel actions */
-.estimateForm :global(button[aria-label='Add']),
-.estimateForm :global(button[aria-label^='Add ']),
-.panelActions :global(button[aria-label='Add']) {
-  box-sizing: border-box !important;
-  min-width: 20px !important;
-  width: 20px !important;
-  min-height: 20px !important;
-  height: 20px !important;
-  padding: 0 !important;
-  font-size: 14px !important;
-  font-weight: 700 !important;
-  line-height: 1 !important;
-  border-radius: 50% !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0 !important;
 }
 
 .portLaytimeStack {

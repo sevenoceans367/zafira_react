@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, useAlert } from '@bainbridge/shared-ui';
+import { AddCircleButton, useAlert } from '@bainbridge/shared-ui';
 import { searchEstimatePorts } from '../../../services/estimateDetail.js';
 import WsPortMultiSelect from './WsPortMultiSelect.jsx';
 import {
@@ -42,7 +42,6 @@ function CargoDetailsTable({
   addRow,
   removeRow,
   createRow,
-  addLabel = '+',
 }) {
   const totals = sumCargoRows(rows);
 
@@ -51,14 +50,7 @@ function CargoDetailsTable({
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <strong>{title}</strong>
         {editable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            label={addLabel}
-            ariaLabel="Add"
-            onClick={() => addRow(collection, createRow)}
-          />
+          <AddCircleButton onClick={() => addRow(collection, createRow)} />
         ) : null}
       </div>
       <div className={styles.tableWrap}>
@@ -363,7 +355,7 @@ export default function TankerFreightModeSection({
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <strong>Freight Adjustment</strong>
                 {editable ? (
-                  <Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={addTankerWsRow} />
+                  <AddCircleButton onClick={addTankerWsRow} />
                 ) : null}
               </div>
               {(form.tankerWsRows || []).map((row, rowIndex) => (
@@ -590,7 +582,6 @@ export default function TankerFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(2)}
-            addLabel="+"
           />
           <CargoDetailsTable
             title="Dead-freight"
@@ -603,7 +594,6 @@ export default function TankerFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(3)}
-            addLabel="+"
           />
         </>
       ) : null}

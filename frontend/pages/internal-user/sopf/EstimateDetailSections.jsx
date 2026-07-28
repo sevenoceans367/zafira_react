@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
+import { AddCircleButton, Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
 import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
 import VesselSearchSelect from './VesselSearchSelect.jsx';
@@ -713,12 +713,7 @@ export default function EstimateDetailSections({
                       <tr>
                         <td className={styles.portIdxCol}>
                           {editable && isLastLeg ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              label="+"
-                              ariaLabel="Add"
+                            <AddCircleButton
                               onClick={() => addRow('portLegs', createEmptyPortLeg)}
                             />
                           ) : null}
@@ -1243,11 +1238,7 @@ export default function EstimateDetailSections({
               <tr>
                 <td>
                   {editable ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      label="+" ariaLabel="Add"
+                    <AddCircleButton
                       onClick={() => addRow('brokerRows', createEmptyBrokerRow)}
                     />
                   ) : null}
@@ -1284,11 +1275,7 @@ export default function EstimateDetailSections({
           title="Additional Bunker Consumption"
           defaultOpen={false}
           actions={editable ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              label="+" ariaLabel="Add"
+            <AddCircleButton
               onClick={() => addRow('bunkerActivityRows', () => createEmptyBunkerActivityRow({
                 price: lookups.marketPrices?.vlsfo || '',
               }))}
@@ -1546,11 +1533,7 @@ export default function EstimateDetailSections({
         title="Other Income"
         defaultOpen={false}
         actions={editable ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              label="+" ariaLabel="Add"
+            <AddCircleButton
               onClick={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)}
             />
           ) : null}
@@ -1786,11 +1769,7 @@ export default function EstimateDetailSections({
             title="Profit Sharing"
             defaultOpen={false}
             actions={editable ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                label="+" ariaLabel="Add"
+              <AddCircleButton
                 onClick={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
               />
             ) : null}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
+import AddCircleButton from '../AddCircleButton/AddCircleButton.jsx';
 import styles from './Button.module.css';
 
 const VARIANT_CLASS = {
@@ -22,19 +23,7 @@ const VARIANT_CLASS = {
 
 /**
  * Design-system button.
- * - `outline` / `secondary`: hollow #376EB8 border
- * - `primary`: solid brand blue fill
- * - `accent`: orange fill/stroke (brand CTA)
- * - `outlineAccent`: hollow orange border — same curve as outline
- * - `add`: blue #549AE7 fill for add/create actions
- * - `sensitivity`: #549AE7 35% fill, #549AE7 stroke/text; hover reverses to solid fill
- * - `close`: white fill, soft blue outline/text, pill radius — modal dismiss
- * - `danger`: orange CTA — #F99366 60% fill, #F4652C border; hover #FF986A fill, #F18154 stroke
- * - `info`: cyan fill for informational actions
- * - `success`: green fill for confirm/close actions
- * - `warning`: amber fill for caution actions
- * - `link`: borderless icon/text action
- * Use `to` for React Router navigation, or `href` for path-based navigation.
+ * When `label` is "+", renders the shared circular AddCircleButton.
  */
 const Button = ({
   href,
@@ -49,6 +38,18 @@ const Button = ({
   className = '',
   ariaLabel,
 }) => {
+  if (label === '+') {
+    return (
+      <AddCircleButton
+        type={type}
+        onClick={onClick}
+        disabled={disabled}
+        className={className}
+        ariaLabel={ariaLabel || 'Add'}
+      />
+    );
+  }
+
   const variantClass = VARIANT_CLASS[variant] || VARIANT_CLASS.outline;
   const baseClass = [
     styles.button,

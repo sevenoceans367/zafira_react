@@ -11,6 +11,7 @@ export { default as PageHeaderSearch } from './components/PageHeaderSearch/PageH
 export { default as SummaryCard, SummaryCardGrid } from './components/SummaryCard/SummaryCard.jsx';
 export { default as Button } from './components/Button/Button.jsx';
 export { default as GlobalButton } from './components/GlobalButton.jsx';
+export { default as AddCircleButton } from './components/AddCircleButton/AddCircleButton.jsx';
 export {
   SecondaryActionButton,
   SendToOpsButton,

@@ -1,0 +1,57 @@
+.addCircle {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  max-width: 20px;
+  min-height: 20px;
+  max-height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #376eb8;
+  border-radius: 50%;
+  background: transparent;
+  color: #376eb8;
+  line-height: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  gap: 0;
+  overflow: hidden;
+  appearance: none;
+  -webkit-appearance: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.glyph {
+  display: block;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.addCircle:hover:not(:disabled) {
+  background: #bccadb;
+  border-color: #376eb8;
+  color: #376eb8;
+}
+
+.addCircle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.addCircle:focus {
+  outline: none;
+}
+
+.addCircle:focus-visible {
+  outline: 2px solid #376eb8;
+  outline-offset: 2px;
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
+import { AddCircleButton, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import RowRemoveButton from './RowRemoveButton.jsx';
 import {
@@ -149,7 +149,7 @@ export default function EstimateAdvancedSections({
 
   return (
     <>
-      <CollapsiblePanel title="SECA / NON-SECA Bunker Estimate" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={() => addRow('secaBunkerRows', () => createEmptySecaBunkerRow('SECA', 'FO'))} />) : null}>
+      <CollapsiblePanel title="SECA / NON-SECA Bunker Estimate" defaultOpen={false} actions={editable ? (<AddCircleButton onClick={() => addRow('secaBunkerRows', () => createEmptySecaBunkerRow('SECA', 'FO'))} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
@@ -236,7 +236,7 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Passage Locations" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={() => addRow('passageLocations', createEmptyPassageLocationRow)} />) : null}>
+      <CollapsiblePanel title="Passage Locations" defaultOpen={false} actions={editable ? (<AddCircleButton onClick={() => addRow('passageLocations', createEmptyPassageLocationRow)} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
@@ -307,7 +307,7 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Freight Quantity / Vendors" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={() => addRow('freightQtyRows', createEmptyFreightQtyRow)} />) : null}>
+      <CollapsiblePanel title="Freight Quantity / Vendors" defaultOpen={false} actions={editable ? (<AddCircleButton onClick={() => addRow('freightQtyRows', createEmptyFreightQtyRow)} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
@@ -417,7 +417,7 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Off-Hire" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={() => addRow('offHireRows', createEmptyOffHireRow)} />) : null}>
+      <CollapsiblePanel title="Off-Hire" defaultOpen={false} actions={editable ? (<AddCircleButton onClick={() => addRow('offHireRows', createEmptyOffHireRow)} />) : null}>
 {(form.offHireRows || []).map((row) => (
             <div key={row.id} className={styles.nestedBlock}>
               <div className={styles.tableWrap}>
@@ -569,7 +569,7 @@ export default function EstimateAdvancedSections({
           ))}
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Delivery Bunkers" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={() => addRow('deliveryBunkerRows', () => createEmptyDeliveryBunkerRow('DEL'))} />) : null}>
+      <CollapsiblePanel title="Delivery Bunkers" defaultOpen={false} actions={editable ? (<AddCircleButton onClick={() => addRow('deliveryBunkerRows', () => createEmptyDeliveryBunkerRow('DEL'))} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
@@ -637,7 +637,7 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Redelivery Bunkers" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={() => addRow('redeliveryBunkerRows', () => createEmptyDeliveryBunkerRow('REDEL'))} />) : null}>
+      <CollapsiblePanel title="Redelivery Bunkers" defaultOpen={false} actions={editable ? (<AddCircleButton onClick={() => addRow('redeliveryBunkerRows', () => createEmptyDeliveryBunkerRow('REDEL'))} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
@@ -705,7 +705,7 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Linked Invoices" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={() => addRow('invoiceRows', createEmptyInvoiceRow)} />) : null}>
+      <CollapsiblePanel title="Linked Invoices" defaultOpen={false} actions={editable ? (<AddCircleButton onClick={() => addRow('invoiceRows', createEmptyInvoiceRow)} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
@@ -736,7 +736,7 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Disponent Owners" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={() => addRow('disponentRows', createEmptyDisponentRow)} />) : null}>
+      <CollapsiblePanel title="Disponent Owners" defaultOpen={false} actions={editable ? (<AddCircleButton onClick={() => addRow('disponentRows', createEmptyDisponentRow)} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
@@ -767,7 +767,7 @@ export default function EstimateAdvancedSections({
           </div>
 </CollapsiblePanel>
 
-      <CollapsiblePanel title="Voyage Events" defaultOpen={false} actions={editable ? (<Button type="button" variant="outline" size="sm" label="+" ariaLabel="Add" onClick={() => addRow('voyageEventRows', createEmptyVoyageEventRow)} />) : null}>
+      <CollapsiblePanel title="Voyage Events" defaultOpen={false} actions={editable ? (<AddCircleButton onClick={() => addRow('voyageEventRows', createEmptyVoyageEventRow)} />) : null}>
 <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>

@@ -1177,8 +1177,12 @@ export default function EstimateDetailSections({
             </div>
           </>
         )}
+      </CollapsiblePanel>
 
-        <h4 className={styles.subHeading}>Commissions</h4>
+      <CollapsiblePanel
+        title="Commissions"
+        defaultOpen
+      >
         <div className={styles.tableWrap}>
           <table className={styles.portTable}>
             <thead>

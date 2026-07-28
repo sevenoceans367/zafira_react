@@ -25,7 +25,7 @@ export default function RunningCoasListPage() {
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '3');
+  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
   const [status, setStatus] = useState(searchParams.get('status') || '1');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);

@@ -167,7 +167,7 @@ export async function dbGetPeriodContractList({
   sortDir = 'desc',
 }) {
   const pool = getPool();
-  const businessType = selBType || '3';
+  const businessType = selBType || '2';
   const updateStatus = status === 'closed' ? '2' : '1';
   const offset = (Math.max(1, page) - 1) * pageSize;
   const sortColumns = [

@@ -18,7 +18,7 @@ const USER_ID = process.env.USER_ID || appContext.userId;
 
 function masterPayload(body = {}) {
   return {
-    ESTIMATE_TYPE: nullIfEmpty(body.businessTypeId) || '3',
+    ESTIMATE_TYPE: nullIfEmpty(body.businessTypeId) || '2',
     FIXTURE_TYPE: nullIfEmpty(body.fixtureType),
     VESSEL_IMO_ID: nullIfEmpty(body.vesselImoId),
     VESSEL_TYPE: nullIfEmpty(body.vesselType),
@@ -498,7 +498,7 @@ export async function dbGetTcLookups() {
 }
 
 export async function dbListTcEstimates({
-  selBType = '3',
+  selBType = '2',
   periodFrom = '',
   periodTo = '',
   search = '',
@@ -506,7 +506,7 @@ export async function dbListTcEstimates({
   pageSize = 10,
 } = {}) {
   const pool = getPool();
-  const params = [COMPANY_ID, selBType || '3'];
+  const params = [COMPANY_ID, selBType || '2'];
   let where = `
     chartering_estimate_tc_master.MCOMPANYID = ?
     AND vessel_imo_master.BUSINESSTYPEID = ?
@@ -568,7 +568,7 @@ export async function dbListTcEstimates({
   `;
   const [rows] = await pool.query(listSql, [...params, safeSize, offset]);
   return {
-    businessType: String(selBType || '3'),
+    businessType: String(selBType || '2'),
     records: rows.map((row, index) => mapTcListRow(row, offset + index)),
     recordsTotal,
     page: safePage,

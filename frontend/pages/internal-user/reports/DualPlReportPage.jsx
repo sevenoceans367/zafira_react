@@ -61,7 +61,7 @@ export default function DualPlReportPage({ reportId: reportIdProp }) {
   const [filters, setFilters] = useState({
     selYear: String(new Date().getFullYear()),
     selTeam: '',
-    selBType: '',
+    selBType: '2',
   });
   const [vcRows, setVcRows] = useState([]);
   const [tcRows, setTcRows] = useState([]);

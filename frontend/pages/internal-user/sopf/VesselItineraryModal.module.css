@@ -85,3 +85,14 @@
   padding: 12px 16px;
   border-top: 1px solid #e5e7eb;
 }
+
+/* Same pill shape as Close, brand orange outline */
+.copyBtn {
+  border-radius: 999px !important;
+  background: #fff !important;
+  font-weight: 600;
+}
+
+.copyBtn:hover:not(:disabled) {
+  background: rgba(244, 101, 44, 0.1) !important;
+}

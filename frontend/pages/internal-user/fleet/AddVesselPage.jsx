@@ -6,7 +6,7 @@ import { useFleetModule } from '../../../hooks/useFleetModule.js';
 import styles from './UpdateVesselPage.module.css';
 
 const EMPTY_FORM = {
-  businessTypeId: '3',
+  businessTypeId: '2',
   vesselTypeId: '',
   imoNo: '',
   vesselName: '',
@@ -97,7 +97,7 @@ export default function AddVesselPage() {
   const [lookups, setLookups] = useState(null);
   const [form, setForm] = useState(() => ({
     ...EMPTY_FORM,
-    businessTypeId: searchParams.get('selBType') || '3',
+    businessTypeId: searchParams.get('selBType') || '2',
   }));
   const [newFiles, setNewFiles] = useState([]);
 

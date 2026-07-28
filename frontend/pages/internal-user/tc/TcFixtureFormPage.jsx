@@ -16,7 +16,7 @@ import styles from './TcPages.module.css';
 
 const EMPTY_BUNKER = { bunkerId: '', qty: '', price: '', amount: '', bunkerDate: '' };
 
-function emptyForm(businessTypeId = '3') {
+function emptyForm(businessTypeId = '2') {
   return {
     businessTypeId,
     fixtureType: '1',
@@ -248,7 +248,7 @@ export default function TcFixtureFormPage({
   const tcOutId = overrideTcOutId || paramTcOutId;
   const [searchParams] = useSearchParams();
   const [lookups, setLookups] = useState(null);
-  const [form, setForm] = useState(() => emptyForm(searchParams.get('selBType') || '3'));
+  const [form, setForm] = useState(() => emptyForm(searchParams.get('selBType') || '2'));
   const [loading, setLoading] = useState(mode !== 'add');
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -294,7 +294,7 @@ export default function TcFixtureFormPage({
         const detail = await fetchTcEstimate(tcOutId);
         if (cancelled) return;
         setForm({
-          ...emptyForm(detail.businessTypeId || '3'),
+          ...emptyForm(detail.businessTypeId || '2'),
           ...detail,
           fixtureType: detail.fixtureType || '1',
           deliveryBunkers: detail.deliveryBunkers?.length ? detail.deliveryBunkers : [{ ...EMPTY_BUNKER }],

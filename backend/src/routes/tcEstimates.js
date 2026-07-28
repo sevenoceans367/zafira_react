@@ -36,7 +36,7 @@ function asyncHandler(handler) {
 }
 
 router.get('/business-types', asyncHandler(async (req, res) => {
-  res.json(getTcBusinessTypes(req.query.selectedId || req.query.selBType || '3'));
+  res.json(getTcBusinessTypes(req.query.selectedId || req.query.selBType || '2'));
 }));
 
 router.get('/lookups', asyncHandler(async (_req, res) => {
@@ -45,7 +45,7 @@ router.get('/lookups', asyncHandler(async (_req, res) => {
 
 router.get('/', asyncHandler(async (req, res) => {
   res.json(await listTcEstimates({
-    selBType: req.query.selBType || '3',
+    selBType: req.query.selBType || '2',
     periodFrom: req.query.periodFrom || '',
     periodTo: req.query.periodTo || '',
     search: req.query.search || '',

@@ -23,8 +23,8 @@ import styles from './GenericFinancesPage.module.css';
 const PAGE_SIZE = 50;
 
 const DEFAULT_BUSINESS_TYPES = [
-  { id: '3', name: 'Dry' },
   { id: '2', name: 'Tankers' },
+  { id: '3', name: 'Dry' },
   { id: '1', name: 'Gas' },
 ];
 
@@ -141,7 +141,7 @@ export default function GenericFinancesPage() {
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState('');
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '3');
+  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
   const [year, setYear] = useState(searchParams.get('selYear') || String(new Date().getFullYear()));
   const [businessTypes, setBusinessTypes] = useState(DEFAULT_BUSINESS_TYPES);
   const [years, setYears] = useState(() => defaultYearOptions(searchParams.get('selYear')));

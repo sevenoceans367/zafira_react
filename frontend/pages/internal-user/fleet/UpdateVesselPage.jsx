@@ -6,7 +6,7 @@ import { useFleetModule } from '../../../hooks/useFleetModule.js';
 import styles from './UpdateVesselPage.module.css';
 
 const EMPTY_FORM = {
-  businessTypeId: '3',
+  businessTypeId: '2',
   vesselTypeId: '',
   imoNo: '',
   vesselName: '',
@@ -47,7 +47,7 @@ const EMPTY_FORM = {
 function toFormState(vessel = {}) {
   return {
     ...EMPTY_FORM,
-    businessTypeId: vessel.businessTypeId ?? '3',
+    businessTypeId: vessel.businessTypeId ?? '2',
     vesselTypeId: vessel.vesselTypeId ?? '',
     imoNo: vessel.imoNo ?? '',
     vesselName: vessel.vesselName ?? '',

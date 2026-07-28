@@ -281,10 +281,10 @@ function parseDmy(value) {
   return `${parts[2]}-${parts[1]}-${parts[0]}`;
 }
 
-export function getTcBusinessTypes(selectedId = '3') {
+export function getTcBusinessTypes(selectedId = '2') {
   return TC_BUSINESS_TYPES.map((type) => ({
     ...type,
-    selected: type.id === String(selectedId || '3'),
+    selected: type.id === String(selectedId || '2'),
   }));
 }
 
@@ -296,7 +296,7 @@ export async function getTcLookups() {
 export async function listTcEstimates(params = {}) {
   if (isDbConfigured()) return dbListTcEstimates(params);
 
-  const selBType = String(params.selBType || '3');
+  const selBType = String(params.selBType || '2');
   const search = String(params.search || '').toLowerCase();
   const from = parseDmy(params.periodFrom);
   const to = parseDmy(params.periodTo);
@@ -363,8 +363,8 @@ export async function createTcEstimate(body = {}) {
     TCOUTID: id,
     MODULEID: '1',
     MCOMPANYID: '1',
-    ESTIMATE_TYPE: body.businessTypeId || '3',
-    BUSINESSTYPEID: vessel?.businessTypeId || body.businessTypeId || '3',
+    ESTIMATE_TYPE: body.businessTypeId || '2',
+    BUSINESSTYPEID: vessel?.businessTypeId || body.businessTypeId || '2',
     VESSEL_NAME: vessel?.name || 'Vessel',
     FIXTURE_TYPE: body.fixtureType || '',
     VESSEL_IMO_ID: body.vesselImoId || '',

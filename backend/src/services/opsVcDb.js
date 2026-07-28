@@ -151,7 +151,7 @@ export async function dbListHistoryAtGlance(params = {}) {
 }
 
 async function dbListOpsVcGlance({
-  selBType = '3',
+  selBType = '2',
   selYear = String(new Date().getFullYear()),
   search = '',
   page = 1,
@@ -160,7 +160,7 @@ async function dbListOpsVcGlance({
   requireYear = true,
 } = {}) {
   const pool = getPool();
-  const businessType = String(selBType || '3');
+  const businessType = String(selBType || '2');
   const year = String(selYear || new Date().getFullYear());
   const statusList = Array.isArray(status)
     ? status.map((value) => Number(value)).filter((value) => Number.isFinite(value))

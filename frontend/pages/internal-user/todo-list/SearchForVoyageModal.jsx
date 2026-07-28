@@ -46,7 +46,7 @@ export default function SearchForVoyageModal({ open, onClose }) {
     setLoading(false);
     (async () => {
       try {
-        const types = await fetchVcBusinessTypes('3');
+        const types = await fetchVcBusinessTypes('2');
         const options = (types || []).map((row) => ({
           id: String(row.id ?? row.value ?? ''),
           name: row.name ?? row.label ?? '',

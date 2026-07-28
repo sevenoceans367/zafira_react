@@ -14,7 +14,7 @@ import CoaCardSelect from './CoaCardSelect.jsx';
 import CoaFormHeaderActions from './CoaFormHeaderActions.jsx';
 import styles from './CoaPages.module.css';
 
-function emptyForm(businessTypeId = '3', nextCoaId = '') {
+function emptyForm(businessTypeId = '2', nextCoaId = '') {
   return {
     coaIdentity: nextCoaId,
     messageNo: '',
@@ -69,7 +69,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
   const isAdd = mode === 'add' || !coaId;
   const [lookups, setLookups] = useState(null);
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [form, setForm] = useState(() => emptyForm(searchParams.get('selBType') || '3'));
+  const [form, setForm] = useState(() => emptyForm(searchParams.get('selBType') || '2'));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -82,13 +82,13 @@ export default function CoaFormPage({ mode = 'edit' }) {
       try {
         const [lookupData, types] = await Promise.all([
           fetchCoaLookups(),
-          fetchVcBusinessTypes(searchParams.get('selBType') || '3'),
+          fetchVcBusinessTypes(searchParams.get('selBType') || '2'),
         ]);
         if (cancelled) return;
         setLookups(lookupData);
         setBusinessTypes(types);
         if (isAdd) {
-          setForm(emptyForm(searchParams.get('selBType') || '3', lookupData.nextCoaId));
+          setForm(emptyForm(searchParams.get('selBType') || '2', lookupData.nextCoaId));
         } else {
           const detail = await fetchCoa(coaId);
           if (cancelled) return;
@@ -149,7 +149,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
     }
   };
 
-  const listHref = appPath(`/internal-user/vc/coas/running?selBType=${form.businessTypeId || '3'}`);
+  const listHref = appPath(`/internal-user/vc/coas/running?selBType=${form.businessTypeId || '2'}`);
 
   if (loading) {
     return (

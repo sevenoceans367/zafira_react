@@ -39,7 +39,7 @@ export default function VesselYearlyPerformancePage({ reportId: reportIdProp }) 
   const definition = getReportDefinition(reportId);
 
   const [options, setOptions] = useState({ businessTypes: [] });
-  const [filters, setFilters] = useState({ selBType: '' });
+  const [filters, setFilters] = useState({ selBType: '2' });
   const [rows, setRows] = useState([]);
   const [chart, setChart] = useState([]);
   const [series, setSeries] = useState([]);
@@ -104,7 +104,7 @@ export default function VesselYearlyPerformancePage({ reportId: reportIdProp }) 
   }, []);
 
   useEffect(() => {
-    runSearch({ selBType: '' });
+    runSearch({ selBType: '2' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportId]);
 

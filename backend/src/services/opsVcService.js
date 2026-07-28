@@ -145,7 +145,7 @@ function filterMockRows(rows, params = {}) {
     recordsTotal: filtered.length,
     page: 1,
     pageSize: filtered.length || 50,
-    selBType: String(params.selBType || '3'),
+    selBType: String(params.selBType || '2'),
     selYear: requireYear ? year : '',
     canEditOperator: params.canEditOperator !== false,
   };

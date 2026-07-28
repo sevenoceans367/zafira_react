@@ -2,22 +2,6 @@ import React, { useMemo } from 'react';
 import { Button } from '@bainbridge/shared-ui';
 import styles from './VesselItineraryModal.module.css';
 
-function formatReportDate() {
-  const today = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(today.getDate())}-${pad(today.getMonth() + 1)}-${today.getFullYear()}`;
-}
-
-function formatMonDay(value) {
-  if (!value) return '';
-  const parts = String(value).trim().split(/[\s/:.-]+/);
-  if (parts.length < 3) return value;
-  const [d, m] = parts;
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = months[Number(m) - 1] || m;
-  return `${month} ${d}`;
-}
-
 /** PHP getVesselItinerary() — client-side itinerary report from passage legs. */
 export default function VesselItineraryModal({
   open,
@@ -56,28 +40,31 @@ export default function VesselItineraryModal({
   }, [legs]);
 
   const copyText = useMemo(() => {
-    const vessel = form.vesselName || '';
-    let text = `Vessel Name:    ${vessel}\n`;
-    text += `Voyage No.:    ${form.voyageNo || ''}\n`;
-    text += `Report Date:    ${formatReportDate()}\n\n`;
-    text += 'Leg Details\n';
-    for (const row of rows) {
-      if (row.arrival) {
-        text += `${formatMonDay(row.arrival)}  -  ${formatMonDay(row.departure)}  ETA/D  ${row.port}\n`;
-      } else if (row.departure) {
-        text += `${formatMonDay(row.departure)}  ETD  ${row.port}\n`;
-      } else {
-        text += `${row.port}\n`;
-      }
-    }
-    return text;
+    const vessel = (form.vesselName || '').split('(')[0].trim();
+    const header = ['Port', 'Type', 'Arrival', 'Departure', 'Working Days', 'Idle Days', 'Sea Days'];
+    const lines = [
+      `Voyage No.:\t${form.voyageNo || ''}`,
+      `Vessel:\t${vessel || ''}`,
+      '',
+      header.join('\t'),
+      ...rows.map((row) => ([
+        row.port || '',
+        row.type || '',
+        row.arrival || '',
+        row.departure || '',
+        row.workingDays || '',
+        row.idleDays || '',
+        row.seaDays || '',
+      ].join('\t'))),
+    ];
+    return lines.join('\n');
   }, [form.vesselName, form.voyageNo, rows]);
 
   if (!open) return null;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(copyText.replace(/&nbsp;/g, ' '));
+      await navigator.clipboard.writeText(copyText);
     } catch {
       // ignore clipboard failures
     }
@@ -136,7 +123,13 @@ export default function VesselItineraryModal({
         </div>
         <div className={styles.footer}>
           <Button type="button" variant="close" label="Close" onClick={onClose} />
-          <Button type="button" variant="primary" label="Copy Itinerary" onClick={handleCopy} />
+          <Button
+            type="button"
+            variant="outlineAccent"
+            label="Copy"
+            className={styles.copyBtn}
+            onClick={handleCopy}
+          />
         </div>
       </div>
     </div>

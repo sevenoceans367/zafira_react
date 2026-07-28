@@ -260,7 +260,7 @@ export async function dbListRunningCoas({
   const columns = await ensureCoaMasterLifecycleColumns(pool);
   const hasStatus = columns.has('STATUS');
   const hasCancelRemarks = columns.has('CANCEL_REMARKS');
-  const businessType = selBType || '3';
+  const businessType = selBType || '2';
   const offset = (Math.max(1, page) - 1) * pageSize;
   const coaStatus = status === 'all' ? null : (status || '1');
 
@@ -441,7 +441,7 @@ export async function dbCreateCoa(payload) {
         nullIfEmpty(payload.attachmentName),
         messageNo,
         nullIfEmpty(payload.currency) || 'USD',
-        nullIfEmpty(payload.businessTypeId) || '3',
+        nullIfEmpty(payload.businessTypeId) || '2',
         nullIfEmpty(payload.foPrice),
         nullIfEmpty(payload.bafAmt),
       ],
@@ -516,7 +516,7 @@ export async function dbUpdateCoa(coaId, payload) {
         nullIfEmpty(payload.attachment),
         nullIfEmpty(payload.attachmentName),
         nullIfEmpty(payload.currency) || 'USD',
-        nullIfEmpty(payload.businessTypeId) || '3',
+        nullIfEmpty(payload.businessTypeId) || '2',
         nullIfEmpty(payload.updateStatus) || '1',
         nullIfEmpty(payload.foPrice),
         nullIfEmpty(payload.bafAmt),
@@ -638,7 +638,7 @@ export async function dbListCargoRelets({
   coaId,
 } = {}) {
   const pool = getPool();
-  const businessType = selBType || '3';
+  const businessType = selBType || '2';
   const offset = (Math.max(1, page) - 1) * pageSize;
 
   const conditions = [
@@ -956,7 +956,7 @@ function reletMasterValues(payload, includeMeta = false) {
     nullIfEmpty(payload.minTermOut),
     nullIfEmpty(payload.spclCommentsOut),
     nullIfEmpty(payload.nomProcOut),
-    nullIfEmpty(payload.businessTypeId) || '3',
+    nullIfEmpty(payload.businessTypeId) || '2',
   ];
   if (includeMeta) {
     values.splice(3, 0, COA_MODULE_ID, appContext.companyId);
@@ -1148,7 +1148,7 @@ export async function dbListCoaOpsVoyages({
   toDate,
 } = {}) {
   const pool = getPool();
-  const businessType = selBType || '3';
+  const businessType = selBType || '2';
   const opsStatus = String(status) === '2' ? '2' : '1';
   const offset = (Math.max(1, page) - 1) * pageSize;
 

@@ -14,7 +14,7 @@ import TcListHeaderActions from './TcListHeaderActions.jsx';
 import styles from './TcPages.module.css';
 
 const PAGE_SIZE = 10;
-const DEFAULT_BUSINESS_TYPE = '3';
+const DEFAULT_BUSINESS_TYPE = '2';
 
 const FLASH = {
   0: { type: 'success', text: 'TC Out Estimate saved successfully.' },

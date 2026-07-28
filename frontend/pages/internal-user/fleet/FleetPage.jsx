@@ -130,7 +130,7 @@ export default function FleetPage() {
   const alert = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '3');
+  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);

@@ -18,7 +18,7 @@ function toQuery(params = {}) {
   return query ? `?${query}` : '';
 }
 
-export async function fetchTcBusinessTypes(selectedId = '3') {
+export async function fetchTcBusinessTypes(selectedId = '2') {
   const response = await fetch(`${BASE}/business-types${toQuery({ selectedId })}`);
   return parseJson(response, 'Failed to load business types.');
 }

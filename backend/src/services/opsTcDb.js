@@ -271,7 +271,7 @@ async function resolveTcHireDays(pool, comId) {
 }
 
 export async function dbListOpsTcGlance({
-  selBType = '3',
+  selBType = '2',
   selYear = String(new Date().getFullYear()),
   search = '',
   page = 1,
@@ -281,7 +281,7 @@ export async function dbListOpsTcGlance({
   canEditOperator: canEditOperatorOverride,
 } = {}) {
   const pool = getPool();
-  const businessType = String(selBType || '3');
+  const businessType = String(selBType || '2');
   const year = String(selYear || new Date().getFullYear());
   const statusList = Array.isArray(status)
     ? status.map((value) => Number(value)).filter((value) => Number.isFinite(value))

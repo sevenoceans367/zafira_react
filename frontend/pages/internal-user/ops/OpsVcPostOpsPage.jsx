@@ -45,7 +45,7 @@ export default function OpsVcPostOpsPage() {
   const [businessTypes, setBusinessTypes] = useState([]);
   const [years, setYears] = useState([]);
   const [operators, setOperators] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '3');
+  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
   const [year, setYear] = useState(searchParams.get('selYear') || String(new Date().getFullYear()));
   const [searchInput, setSearchInput] = useState('');
   const [rows, setRows] = useState([]);

@@ -30,6 +30,7 @@ function defaultFilters(definition) {
   (definition.filters || []).forEach((filter) => {
     if (filter.defaultValue != null) next[filter.key] = filter.defaultValue;
     else if (filter.type === 'year') next[filter.key] = String(new Date().getFullYear());
+    else if (filter.type === 'businessType') next[filter.key] = '2';
     else next[filter.key] = '';
   });
   return next;

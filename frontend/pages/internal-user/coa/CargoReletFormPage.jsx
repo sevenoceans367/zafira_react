@@ -23,7 +23,7 @@ function portRow() {
   return { portId: '', comments: '' };
 }
 
-function emptyForm(businessTypeId = '3', coaId = '') {
+function emptyForm(businessTypeId = '2', coaId = '') {
   return {
     coaId,
     openCargoId: '',
@@ -121,7 +121,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   const [coaOptions, setCoaOptions] = useState([]);
   const [businessTypes, setBusinessTypes] = useState([]);
   const [form, setForm] = useState(() => emptyForm(
-    searchParams.get('selBType') || '3',
+    searchParams.get('selBType') || '2',
     searchParams.get('coaId') || '',
   ));
   const [loading, setLoading] = useState(true);
@@ -134,7 +134,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
       setLoading(true);
       setError('');
       try {
-        const bType = searchParams.get('selBType') || '3';
+        const bType = searchParams.get('selBType') || '2';
         const [lookupData, types, coas] = await Promise.all([
           fetchCoaLookups(),
           fetchVcBusinessTypes(bType),
@@ -327,7 +327,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     );
   }
 
-  const listHref = appPath(`/internal-user/vc/coas/cargo-relet?selBType=${form.businessTypeId || '3'}`);
+  const listHref = appPath(`/internal-user/vc/coas/cargo-relet?selBType=${form.businessTypeId || '2'}`);
 
   return (
     <div className={`zafira-page ${styles.page}`}>

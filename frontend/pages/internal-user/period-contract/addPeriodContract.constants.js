@@ -51,7 +51,7 @@ export const EMPTY_FORM = {
   contractNo: '',
   contractDate: '',
   ownBusinessAccount: '',
-  businessType: '3',
+  businessType: '2',
   vesselType: '',
   vesselImoId: '',
   currency: '',

@@ -39,7 +39,7 @@ export default function EditableTrackerPage({ reportId: reportIdProp }) {
   const [filters, setFilters] = useState({
     selYear: String(new Date().getFullYear()),
     selTeam: '',
-    selBType: '',
+    selBType: '2',
     selPort: '',
     selAgent: '',
     selCostType: '',

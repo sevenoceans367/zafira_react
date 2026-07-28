@@ -200,7 +200,7 @@ export async function dbGetFleetList({
   sortDir = 'desc',
 }) {
   const pool = getPool();
-  const businessType = selBType || '3';
+  const businessType = selBType || '2';
   const offset = (Math.max(1, page) - 1) * pageSize;
   const sortColumns = [
     'VESSEL_IMO_ID', 'VESSEL_TYPE', 'VESSEL_NAME', 'BUSINESSTYPEID', 'IMO_NO', 'DWT', 'YEARBUILT',

@@ -21,7 +21,7 @@ const FLASH = {
 export default function OpsVcHistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '3');
+  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
   const [searchInput, setSearchInput] = useState(searchParams.get('voy_no') || '');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);

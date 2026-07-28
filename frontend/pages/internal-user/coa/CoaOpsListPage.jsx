@@ -15,7 +15,7 @@ export default function CoaOpsListPage({ status = '1', title = 'COA - In Ops' })
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '3');
+  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
   const [periodFrom, setPeriodFrom] = useState(searchParams.get('fromDate') || '');
   const [periodTo, setPeriodTo] = useState(searchParams.get('toDate') || '');
   const [rows, setRows] = useState([]);

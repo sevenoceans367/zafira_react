@@ -141,7 +141,7 @@ export default function AddPeriodContractPage() {
     try {
       const [lookupData, types] = await Promise.all([
         fetchPeriodContractLookups(),
-        fetchVcBusinessTypes('3'),
+        fetchVcBusinessTypes('2'),
       ]);
       setLookups(lookupData);
       setBusinessTypes(types);
@@ -149,7 +149,7 @@ export default function AddPeriodContractPage() {
         ...EMPTY_FORM,
         contractId: lookupData.contractId,
         contractDate: lookupData.today || current.contractDate,
-        businessType: types[0]?.id || '3',
+        businessType: types[0]?.id || '2',
       }));
     } catch (err) {
       setError(err.message || 'Failed to load period contract form.');

@@ -214,6 +214,9 @@ export default function EstimateListPage() {
 
     return [
       row.vesselDisplay,
+      row.vesselName,
+      row.vesselType,
+      row.voyageNo,
       row.sheetName,
       row.charteringPic,
       row.lpDp,
@@ -374,7 +377,11 @@ export default function EstimateListPage() {
                   <thead>
                     <tr>
                       <th className={styles.itemColumn}>Item</th>
-                      <th>Vessel Name/Type</th>
+                      <th className={styles.vesselColumn}>
+                        Vessel Name/Type
+                        <br />
+                        &amp; Voyage No
+                      </th>
                       <th>CP Date</th>
                       <th>DWT</th>
                       <th>LP/DP</th>
@@ -428,7 +435,10 @@ export default function EstimateListPage() {
                           className={row.isBenchmark ? styles.benchmarkRow : undefined}
                         >
                           <td>{row.rowNum}.</td>
-                          <td>{row.vesselDisplay}</td>
+                          <td className={styles.vesselColumn}>
+                            <div>{row.vesselName}/ {row.vesselType}</div>
+                            {row.voyageNo ? <div>{row.voyageNo}</div> : null}
+                          </td>
                           <td>{row.cpDate}</td>
                           <td>{row.dwt}</td>
                           <td><TruncatedText text={row.lpDp} /></td>

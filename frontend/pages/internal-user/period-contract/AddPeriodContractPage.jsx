@@ -999,6 +999,24 @@ export default function AddPeriodContractPage() {
             />
           </div>
         </Section>
+
+        <div className={styles.footerActions}>
+          <Button variant="outline" label="Back" to={periodContractPath} disabled={saving} />
+          <Button
+            type="button"
+            variant="primary"
+            label="Save & Open Period Contract"
+            disabled={saving}
+            onClick={handleSaveOpen}
+          />
+          <Button
+            type="button"
+            variant="accent"
+            label="Close Period Contract"
+            disabled={saving}
+            onClick={handleSaveClose}
+          />
+        </div>
       </form>
 
       {saving ? <LoadingOverlay active label="Saving period contract…" /> : null}

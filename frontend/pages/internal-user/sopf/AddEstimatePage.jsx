@@ -18,6 +18,7 @@ import { createEmptyDetail, createEmptyPortLeg, toFormState, toReplicateFormStat
 import { applyPeriodPrefillToForm, applyVesselPrefillToForm } from './estimatePrefill.js';
 import { validateEstimateForm, focusEstimateValidationField } from './estimateValidation.js';
 import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
+import { buildAddEstimateTestForm } from './addEstimateTestData.js';
 import styles from './UpdateEstimatePage.module.css';
 
 export default function AddEstimatePage() {
@@ -30,6 +31,7 @@ export default function AddEstimatePage() {
   const periodId = searchParams.get('periodid') || '';
   const coaId = searchParams.get('coaid') || searchParams.get('coaId') || '';
   const replicateFrom = searchParams.get('replicateFrom') || '';
+  const useTestData = import.meta.env.DEV && searchParams.get('testdata') === '1';
 
   const [form, setForm] = useState(() => toFormState({}));
   const detail = useMemo(
@@ -137,6 +139,9 @@ export default function AddEstimatePage() {
               sdrToUsd: next.sdrToUsd || lookupsForType.marketPrices.sdrToUsd || '',
             };
           }
+          if (useTestData) {
+            next = buildAddEstimateTestForm(next, nextLookups);
+          }
           return applyEstimateCalculations(next, {
             bunkerGrades: lookupsForType.bunkerGrades ?? [],
             complianceFactors: lookupsForType.complianceFactors ?? {},
@@ -153,7 +158,7 @@ export default function AddEstimatePage() {
     return () => {
       cancelled = true;
     };
-  }, [coaId, estimateType, periodId, replicateFrom]);
+  }, [coaId, estimateType, periodId, replicateFrom, useTestData]);
 
   const updateField = useCallback((key, value) => {
     const next = ESTIMATE_DECIMAL_FIELDS.has(key)

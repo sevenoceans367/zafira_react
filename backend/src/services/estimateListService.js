@@ -23,6 +23,7 @@ let estimates = [
     vesselName: 'Atlantic Star',
     vesselType: 'LNG Carrier',
     voyageName: 'VC Gas Q1-2026',
+    voyageNo: '260001',
     transDate: '2026-03-01',
     dwt: '85000',
     totalDays: 42,

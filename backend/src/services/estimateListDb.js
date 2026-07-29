@@ -138,6 +138,7 @@ function normalizeMasterRow(row) {
     vesselName: row.VESSEL_NAME || '',
     vesselType: row.VESSEL_TYPE || '',
     voyageName: row.VOYAGE_NAME || '',
+    voyageNo: row.VOYAGE_NO != null ? String(row.VOYAGE_NO) : '',
     transDate: row.TRANS_DATE,
     dwt: row.DWT ?? '',
     totalDays: Number(row.TOTAL_DAYS || 0),
@@ -198,7 +199,7 @@ async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = f
   }
 
   const [rows] = await pool.query(
-    `SELECT m.FCAID, m.VESSEL_IMO_ID, m.VOYAGE_NAME, m.VESSEL_TYPE, m.FREIGHT_GROSS,
+    `SELECT m.FCAID, m.VESSEL_IMO_ID, m.VOYAGE_NAME, m.VOYAGE_NO, m.VESSEL_TYPE, m.FREIGHT_GROSS,
             m.TOTAL_DAYS, m.QUANTITY, m.DAILY_EARNING, m.NET_DAILY_EARNING,
             m.DAILY_VESSEL_OPERATION_EXP,
             m.PROFIT_LOSS, m.TRANS_DATE, m.QTY_TYPE_RADIO, m.ESTIMATE_TYPE,

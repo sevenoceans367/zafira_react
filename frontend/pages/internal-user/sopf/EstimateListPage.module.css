@@ -139,8 +139,17 @@ th.itemColumn {
   line-height: 1.2;
 }
 
+.vesselColumn {
+  line-height: 1.25;
+  white-space: normal;
+  min-width: 140px;
+}
+
 .cargoQtyColumn {
-  max-width: 72px;
+  min-width: 4.5rem;
+  max-width: none;
+  padding-left: 8px;
+  padding-right: 8px;
 }
 
 .tceColumn {

@@ -145,7 +145,11 @@ export function mapListRow(row, index, portLegs = {}) {
     rowNum: index + 1,
     vesselName: row.vesselName,
     vesselType: row.vesselType,
-    vesselDisplay: `${row.vesselName}/ ${row.vesselType}`,
+    voyageNo: row.voyageNo || '',
+    vesselDisplay: [
+      `${row.vesselName || ''}/ ${row.vesselType || ''}`.trim(),
+      row.voyageNo ? String(row.voyageNo) : '',
+    ].filter(Boolean).join(' / '),
     businessType: ESTIMATE_TYPE_LABELS[row.estimateType],
     estimateType: row.estimateType,
     sheetName: row.voyageName,

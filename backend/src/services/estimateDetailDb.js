@@ -120,8 +120,9 @@ function numOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** PHP: intval(rand(1,9).rand(0,9)... ) — 5-digit, fits MySQL INT. */
 function randomId() {
-  return `${Date.now()}${Math.floor(Math.random() * 10000)}`;
+  return String(Math.floor(10000 + Math.random() * 90000));
 }
 
 function resolveTankWsPorts(payload) {

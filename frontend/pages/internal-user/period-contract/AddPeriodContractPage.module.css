@@ -46,6 +46,14 @@
   margin-top: 12px;
 }
 
+.footerActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

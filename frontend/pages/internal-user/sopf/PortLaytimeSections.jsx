@@ -5,7 +5,7 @@ import {
   PORT_BUNKER_GRADE_OPTIONS,
   PORT_FUNCTION_OPTIONS,
 } from './estimateDetail.constants.js';
-import { calcLaytimeWorkingDays, formatDays } from './estimateCalculations.js';
+import { formatDays, getLaytimeRateUnitLabel } from './estimateCalculations.js';
 import { sanitizeDecimalInput } from './estimateInputSanitize.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import styles from './UpdateEstimatePage.module.css';
@@ -46,15 +46,10 @@ function buildCargoOptions(cargoRows = [], cargos = []) {
   return fromSelected;
 }
 
+/** Show stored Portstay Days (synced from Passage dates or qty/rate calc). Editable only for DAP. */
 function displayWorkDays(leg, side) {
-  const terms = side === 'load' ? leg.loadPortTerms : leg.discPortTerms;
-  const qty = side === 'load' ? leg.loadQty : leg.dischargeQty;
-  const rate = side === 'load' ? leg.loadPortRate : leg.discPortRate;
   const stored = side === 'load' ? leg.loadPortWorkDays : leg.discPortWorkDays;
-  // DAP (terms 4): manual entry — keep typed decimals as-is
-  if (String(terms) === '4') return stored || '';
-  const computed = calcLaytimeWorkingDays(qty, rate, terms);
-  return computed ? formatDays(computed) : (stored || '');
+  return stored || '';
 }
 
 function DecimalInput({
@@ -99,6 +94,8 @@ export default function PortLaytimeSections({
   updateRow,
 }) {
   const legs = form.portLegs || [];
+  const estimateType = Number(form.estimateType) || 2;
+  const rateUnitLabel = getLaytimeRateUnitLabel(estimateType);
   const cargoOptions = useMemo(
     () => buildCargoOptions(form.cargoRows, lookups.cargos),
     [form.cargoRows, lookups.cargos],
@@ -151,7 +148,7 @@ export default function PortLaytimeSections({
                   <th>Cargo</th>
                   <th>Cost</th>
                   <th>Qty (MT)</th>
-                  <th className={styles.thStack}><span>Rate</span><span>(MT/Day)</span></th>
+                  <th className={styles.thStack}><span>Rate</span><span>{rateUnitLabel}</span></th>
                   <th>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
                   <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
@@ -261,7 +258,7 @@ export default function PortLaytimeSections({
                   <th>Cargo</th>
                   <th>Cost</th>
                   <th>Qty (MT)</th>
-                  <th className={styles.thStack}><span>Rate</span><span>(MT/Day)</span></th>
+                  <th className={styles.thStack}><span>Rate</span><span>{rateUnitLabel}</span></th>
                   <th>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
                   <th className={styles.thStack}><span>Idle</span><span>Days</span></th>

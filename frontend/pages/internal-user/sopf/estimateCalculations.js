@@ -30,21 +30,27 @@ export function formatDays(value) {
 // Date format: "dd-mm-yyyy HH:MM"
 // ---------------------------------------------------------------------------
 
-/** PHP parseDateTime — parse "dd-mm-yyyy HH:MM" as local wall-clock. */
+/** PHP parseDateTime — parse "dd-mm-yyyy HH:MM" (time optional → 00:00). */
 export function parseDateTime(str) {
   const raw = String(str || '').trim();
   if (!raw) return null;
   const parts = raw.split(/\s+/);
-  if (parts.length < 2) return null;
   const date = parts[0].split(/[-/]/);
-  const time = parts[1].split(':');
-  if (date.length < 3 || time.length < 2) return null;
+  if (date.length < 3) return null;
   const day = parseInt(date[0], 10);
   const month = parseInt(date[1], 10) - 1;
   const year = parseInt(date[2], 10);
-  const hour = parseInt(time[0], 10);
-  const minute = parseInt(time[1], 10);
+  let hour = 0;
+  let minute = 0;
+  if (parts[1]) {
+    const time = parts[1].split(':');
+    if (time.length >= 2) {
+      hour = parseInt(time[0], 10);
+      minute = parseInt(time[1], 10);
+    }
+  }
   if (![day, month, year, hour, minute].every((n) => Number.isFinite(n))) return null;
+  if (month < 0 || month > 11) return null;
   const dt = new Date(year, month, day, hour, minute);
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
@@ -86,6 +92,85 @@ export function diffDays(dateStr1, dateStr2) {
   const d2 = parseDateTime(dateStr2);
   if (!d1 || !d2) return 0;
   return (d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24);
+}
+
+/**
+ * PHP calculatePortDates — when Arrival/Departure both exist, write the gap into
+ * Portstay Days (txtWDays_ / txtDWDays_) or transit idle for ballast TP/BP.
+ * Only when the matching Terms dropdown has a value (PHP: if selLPTerms/selDPTerms).
+ *
+ * Runs for every Terms value (SHINC/SSHEX/…/DAP). UI is editable only for DAP.
+ */
+export function syncPortstayFromPassageDates(leg) {
+  if (!leg) return leg;
+  const next = { ...leg };
+  const passageType = String(next.passageType || '1');
+  const discQty = num(next.dischargeQty);
+  const isDapDp = String(next.discPortTerms) === '4';
+  const isDapLp = String(next.loadPortTerms) === '4';
+
+  // From Arrival/Departure → LP Total Portstay Days (laden, or DAP)
+  if (
+    next.fromArrival
+    && next.fromDeparture
+    && (passageType === '2' || isDapLp)
+    && String(next.loadPortTerms || '').trim()
+  ) {
+    const days = diffDays(next.fromArrival, next.fromDeparture);
+    next.loadPortWorkDays = Number(days.toFixed(2)).toFixed(2);
+  }
+
+  // To Arrival/Departure → DP Portstay Days (or TP/BP idle when ballast/zero qty and not DAP)
+  if (next.toArrival && next.toDeparture && String(next.discPortTerms || '').trim()) {
+    const days = Number(diffDays(next.toArrival, next.toDeparture).toFixed(2));
+    if (!isDapDp && (passageType === '1' || discQty === 0)) {
+      next.transitIdleDays = days.toFixed(2);
+      next.discPortWorkDays = '0.00';
+    } else {
+      next.discPortWorkDays = days.toFixed(2);
+      if (!isDapDp) next.transitIdleDays = '0.00';
+    }
+  }
+
+  return next;
+}
+
+/**
+ * PHP getDepartureDate('DP'): To Departure = To Arrival + DP Portstay Days, then cascade later legs.
+ */
+export function cascadeFromDiscPortstay(portLegs, legIndex) {
+  const legs = (portLegs || []).map((leg) => ({ ...leg }));
+  const i = Number(legIndex);
+  if (!legs[i]) return legs;
+
+  const leg = { ...legs[i] };
+  const toStay = num(leg.discPortWorkDays);
+  if (leg.toArrival && toStay) {
+    leg.toDeparture = addDecimalDays(leg.toArrival, toStay);
+  } else if (leg.toArrival) {
+    leg.toDeparture = leg.toArrival;
+  }
+  legs[i] = leg;
+  return applyPortDateCascade(legs, { startIndex: i + 1 });
+}
+
+/**
+ * PHP getDepartureDate('LP'): From Departure = From Arrival + LP Portstay Days, then cascade.
+ */
+export function cascadeFromLoadPortstay(portLegs, legIndex) {
+  const legs = (portLegs || []).map((leg) => ({ ...leg }));
+  const i = Number(legIndex);
+  if (!legs[i]) return legs;
+
+  const leg = { ...legs[i] };
+  const fromStay = num(leg.loadPortWorkDays);
+  if (leg.fromArrival && fromStay) {
+    leg.fromDeparture = addDecimalDays(leg.fromArrival, fromStay);
+  } else if (leg.fromArrival) {
+    leg.fromDeparture = leg.fromArrival;
+  }
+  legs[i] = leg;
+  return cascadeFromDeparture(legs, i);
 }
 
 /**
@@ -238,15 +323,27 @@ export function cascadeFromToArrival(portLegs, legIndex) {
   return applyPortDateCascade(legs, { startIndex: i + 1 });
 }
 
-/** PHP calculateDemurrageCost — days × rate. */
+/** PHP calculateDemurrageCost — days × rate → Estimated($). */
 export function calculateDemurrageCost(days, rate) {
   return round2(num(days) * num(rate));
 }
 
 /**
- * PHP putDaysToDemurrageDispatch:
- * Sum (LP working − idle) + (DP CA + working − idle), subtract timeAllowed (hrs → days),
- * put remainder on last DP demm days.
+ * Format Estimated/Actual like PHP `.toFixed(2)`.
+ * Leave blank when both days and rate are empty (PHP leaves inputs empty until typed / putDays).
+ */
+export function formatDemurrageCostField(days, rate) {
+  const hasDays = String(days ?? '').trim() !== '';
+  const hasRate = String(rate ?? '').trim() !== '';
+  if (!hasDays && !hasRate) return '';
+  return calculateDemurrageCost(days, rate).toFixed(2);
+}
+
+/**
+ * PHP putDaysToDemurrageDispatch (common.js):
+ * Sum (LP working − idle) + (DP CA + working − idle) across all demurrage rows,
+ * subtract timeAllowed (hrs → days, 2dp), write remainder onto the LAST DP Demm. Days only.
+ * Per-row LP/DP demm-day writes are commented out in PHP — do not auto-fill those.
  */
 export function applyDemurrageDaysFromLaytime(portLegs, timeAllowedHrs) {
   const legs = (portLegs || []).map((leg) => ({ ...leg }));
@@ -254,22 +351,25 @@ export function applyDemurrageDaysFromLaytime(portLegs, timeAllowedHrs) {
 
   let demmDaysTotal = 0;
   for (const leg of legs) {
+    // Mirrors $("[id^=DDCLProw_]") loop — uses laytime working/idle even when LP demm days stay blank
     demmDaysTotal += num(leg.loadPortWorkDays) - num(leg.loadPortIdleDays);
+    // Mirrors $("[id^=DDCDProw_]") loop
     demmDaysTotal += num(leg.chartererAccountDays)
       + num(leg.discPortWorkDays)
       - num(leg.discPortIdleDays);
   }
 
-  const timeAllowedDays = Number((num(timeAllowedHrs) / 24).toFixed(3));
-  const remaining = Number((demmDaysTotal - timeAllowedDays).toFixed(3));
+  const timeAllowedDays = Number((num(timeAllowedHrs) / 24).toFixed(2));
+  const remaining = Number((demmDaysTotal - timeAllowedDays).toFixed(2));
   const lastIndex = legs.length - 1;
-  const est = calculateDemurrageCost(remaining, legs[lastIndex].demmRateDp);
+  const demmDaysDp = remaining.toFixed(2);
+  const ddcDpEst = formatDemurrageCostField(demmDaysDp, legs[lastIndex].demmRateDp);
 
   legs[lastIndex] = {
     ...legs[lastIndex],
-    demmDaysDp: remaining ? remaining.toFixed(3) : '0.000',
-    ddcDpEst: est ? String(est) : '0.00',
-    ddcDpReal: est ? String(est) : '0.00',
+    demmDaysDp,
+    ddcDpEst,
+    ddcDpReal: ddcDpEst,
   };
 
   return legs;
@@ -279,10 +379,13 @@ export function applyDemurrageDaysFromLaytime(portLegs, timeAllowedHrs) {
  * Orchestrate PHP common.js schedule side-effects after sea/laytime days are known.
  *
  * form._portScheduleMode (optional):
- *   - 'fromArrival' — cascade from arrival + work/sea days
- *   - 'fromDeparture' — keep edited departure, cascade toArrival onward
- *   - 'toArrival' — keep edited toArrival, cascade toDeparture onward
- *   - 'toDeparture' — keep edited toDeparture, cascade later legs only
+ *   - 'fromArrival' — sync LP portstay from dates, cascade from arrival
+ *   - 'fromDeparture' — sync LP portstay from dates, cascade sea/DP onward
+ *   - 'toArrival' — sync DP portstay from dates, recompute toDeparture from stay
+ *   - 'toDeparture' — sync DP portstay from dates, cascade later legs only
+ *   - 'portstayDp' — PHP getDepartureDate('DP'): To Departure from DP Portstay Days
+ *   - 'portstayLp' — PHP getDepartureDate('LP'): From Departure from LP Portstay Days
+ *   - 'syncPortstayFromDates' — dates → Portstay Days only (e.g. selecting DAP)
  *   - 'laycanOnly' — idle-by-laycan + demurrage only (no date rewrite)
  *   - omitted on generic recalc — cascade from existing arrivals when present
  *
@@ -299,7 +402,26 @@ export function applyPortScheduleCalculations(form) {
 
   portLegs = applyIdleDaysByLaycan(portLegs, form.laycanStart);
 
-  if (mode === 'fromDeparture' && legIndex >= 0) {
+  // PHP calculatePortDates: whenever Arrival/Departure both exist and Terms are set,
+  // write the gap into Portstay Days (all Terms, not only DAP).
+  if (
+    legIndex >= 0
+    && (mode === 'fromArrival' || mode === 'fromDeparture' || mode === 'toArrival' || mode === 'toDeparture'
+      || mode === 'syncPortstayFromDates')
+  ) {
+    portLegs[legIndex] = syncPortstayFromPassageDates(portLegs[legIndex]);
+  } else if (!mode || mode === 'laycanOnly' || mode === 'demurrageLaytime') {
+    // Keep Portstay aligned with Passage dates on generic recalcs too
+    portLegs = portLegs.map((leg) => syncPortstayFromPassageDates(leg));
+  }
+
+  if (mode === 'portstayDp' && legIndex >= 0) {
+    portLegs = cascadeFromDiscPortstay(portLegs, legIndex);
+  } else if (mode === 'portstayLp' && legIndex >= 0) {
+    portLegs = cascadeFromLoadPortstay(portLegs, legIndex);
+  } else if (mode === 'syncPortstayFromDates') {
+    // Portstay Days already synced above — do not rewrite dates
+  } else if (mode === 'fromDeparture' && legIndex >= 0) {
     portLegs = cascadeFromDeparture(portLegs, legIndex);
   } else if (mode === 'toArrival' && legIndex >= 0) {
     portLegs = cascadeFromToArrival(portLegs, legIndex);
@@ -357,7 +479,7 @@ export function calcSeaDaysWithSeca(distance, secaDistance, speed, marginPercent
   return round3(partDays(nonSeca) + partDays(seca));
 }
 
-/** PHP getLPTermsList factors for MT/Day laytime. */
+/** PHP getLPTermsList factors for laytime working days. */
 export const LAYTIME_TERM_FACTORS = {
   1: 1,
   2: 1.555555,
@@ -368,12 +490,39 @@ export const LAYTIME_TERM_FACTORS = {
   7: 1.333333,
 };
 
-export function calcLaytimeWorkingDays(qty, rateMtDay, termsId) {
+/**
+ * PHP showHideEstimateTypeDiv rate-unit label:
+ * Gas(1)=CBM/Hr, Tanker(2)=MT/Hr, Dry(3)=MT/Day.
+ */
+export function getLaytimeRateUnitLabel(estimateType) {
+  const t = Number(estimateType);
+  if (t === 1) return '(CBM/Hr)';
+  if (t === 2) return '(MT/Hr)';
+  return '(MT/Day)';
+}
+
+/**
+ * PHP getPortCalculation `divideby`:
+ * hourly rates (Gas/Tanker) → 24; daily rates (Dry) → 1.
+ */
+export function getLaytimeRateDivideBy(estimateType) {
+  const t = Number(estimateType);
+  return (t === 1 || t === 2) ? 24 : 1;
+}
+
+/**
+ * PHP getPortCalculation (commented but authoritative):
+ * workingDays = (qty / rate) / divideby × termFactor
+ * Uses toFixed(2) like PHP when writing Portstay Days.
+ */
+export function calcLaytimeWorkingDays(qty, rate, termsId, estimateType = 2) {
   const q = num(qty);
-  const r = num(rateMtDay);
+  const r = num(rate);
   const factor = LAYTIME_TERM_FACTORS[String(termsId)];
   if (factor == null || !q || !r) return 0;
-  return round3((q / r) * factor);
+  const divideby = getLaytimeRateDivideBy(estimateType);
+  // Match PHP value.toFixed(2) on txtWDays_ / txtDWDays_
+  return Number((((q / r) / divideby) * factor).toFixed(2));
 }
 
 export function calcDemurrageEst(days, rate) {
@@ -510,7 +659,28 @@ export function shortPortDisplayName(name, fallback = '') {
   return primaryName || raw;
 }
 
-/** Demurrage/Dispatch port-leg column — mirrors PHP LP/DP vs TP/BP labels. */
+/** Demurrage Load Port row label — PHP spanDDCLPort. */
+export function formatDemurrageLoadPortLabel(leg) {
+  const name = shortPortDisplayName(leg?.fromPortName, '');
+  return name ? `Load Port ${name}` : 'Load Port';
+}
+
+/**
+ * Demurrage Discharge / TP-BP row label — PHP getPortText():
+ * Default HTML label is "Discharge Port". After a To Port is chosen,
+ * Ballast (passageType=1) or zero discharge qty → rename to "TP/BP".
+ */
+export function formatDemurrageDischargePortLabel(leg) {
+  const name = shortPortDisplayName(leg?.toPortName, '');
+  const hasToPort = Boolean(leg?.toPortId) || Boolean(name);
+  if (!hasToPort) return 'Discharge Port';
+  const qty = num(leg?.dischargeQty);
+  const isTpBp = String(leg?.passageType) === '1' || qty === 0;
+  const prefix = isTpBp ? 'TP/BP' : 'Discharge Port';
+  return `${prefix} ${name}`;
+}
+
+/** @deprecated Prefer formatDemurrageLoadPortLabel / formatDemurrageDischargePortLabel. */
 export function formatDemurragePortLegLabel(leg, index) {
   const to = shortPortDisplayName(leg?.toPortName, leg?.toPortId || 'To');
   if (index > 0) return `TP/BP ${to}`;
@@ -559,21 +729,26 @@ export function computeEstimateTotals(form) {
     const days = calcSeaDaysWithSeca(leg.distance, leg.secaDistance, speed, margin);
     const secaDays = calcSeaDays(leg.secaDistance, speed, margin);
 
-    const loadWork = String(leg.loadPortTerms) === '4'
+    // PHP getPortCalculation: qty/rate/terms when Passage dates are not both set.
+    // When Arrival+Departure exist, PHP calculatePortDates owns Portstay Days (any Terms).
+    // DAP (4): always keep stored/manual value (editable in UI).
+    const hasLpDates = !!(leg.fromArrival && leg.fromDeparture)
+      && String(leg.loadPortTerms || '').trim();
+    const hasDpDates = !!(leg.toArrival && leg.toDeparture)
+      && String(leg.discPortTerms || '').trim();
+    const loadWork = String(leg.loadPortTerms) === '4' || hasLpDates
       ? num(leg.loadPortWorkDays)
-      : (num(leg.loadPortWorkDays)
-        || calcLaytimeWorkingDays(leg.loadQty, leg.loadPortRate, leg.loadPortTerms));
-    const discWork = String(leg.discPortTerms) === '4'
+      : calcLaytimeWorkingDays(leg.loadQty, leg.loadPortRate, leg.loadPortTerms, form.estimateType);
+    const discWork = String(leg.discPortTerms) === '4' || hasDpDates
       ? num(leg.discPortWorkDays)
-      : (num(leg.discPortWorkDays)
-        || calcLaytimeWorkingDays(leg.dischargeQty, leg.discPortRate, leg.discPortTerms));
+      : calcLaytimeWorkingDays(leg.dischargeQty, leg.discPortRate, leg.discPortTerms, form.estimateType);
     const loadIdle = num(leg.loadPortIdleDays);
     const discIdle = num(leg.discPortIdleDays);
     const transitIdle = num(leg.transitIdleDays);
     const portStayDays = round3(loadWork + discWork + loadIdle + discIdle + transitIdle);
     const portIdleDays = round3(loadIdle + discIdle + transitIdle);
-    const ddcLpEst = num(leg.ddcLpEst) || calcDemurrageEst(leg.demmDaysLp, leg.demmRateLp);
-    const ddcDpEst = num(leg.ddcDpEst) || calcDemurrageEst(leg.demmDaysDp, leg.demmRateDp);
+    const ddcLpEst = formatDemurrageCostField(leg.demmDaysLp, leg.demmRateLp);
+    const ddcDpEst = formatDemurrageCostField(leg.demmDaysDp, leg.demmRateDp);
     const nonSecaDistance = Math.max(0, num(leg.distance) - num(leg.secaDistance));
     const nonSecaDays = Math.max(0, round3(days - secaDays));
 
@@ -582,21 +757,20 @@ export function computeEstimateTotals(form) {
       ...leg,
       seaDays: formatDays(days),
       seaMargin: leg.seaMargin != null && leg.seaMargin !== '' ? String(leg.seaMargin) : String(margin),
-      // Keep typed work-day strings (e.g. "1.") when DAP / manual; only write
-      // computed days for non-manual terms so decimals are not stripped on recalc.
-      loadPortWorkDays: String(leg.loadPortTerms) === '4'
+      // DAP or date-driven: keep stored. Else qty/rate (2dp).
+      loadPortWorkDays: String(leg.loadPortTerms) === '4' || hasLpDates
         ? (leg.loadPortWorkDays ?? '')
-        : (loadWork ? formatDays(loadWork) : (leg.loadPortWorkDays || '')),
-      discPortWorkDays: String(leg.discPortTerms) === '4'
+        : (loadWork ? loadWork.toFixed(2) : '0.00'),
+      discPortWorkDays: String(leg.discPortTerms) === '4' || hasDpDates
         ? (leg.discPortWorkDays ?? '')
-        : (discWork ? formatDays(discWork) : (leg.discPortWorkDays || '')),
+        : (discWork ? discWork.toFixed(2) : '0.00'),
       portStayDays: formatDays(portStayDays),
       portIdleDays: formatDays(portIdleDays),
       nonSecaDistance: String(round2(nonSecaDistance)),
       secaDays: formatDays(secaDays),
       nonSecaDays: formatDays(nonSecaDays),
-      ddcLpEst: ddcLpEst ? String(ddcLpEst) : (leg.ddcLpEst || ''),
-      ddcDpEst: ddcDpEst ? String(ddcDpEst) : (leg.ddcDpEst || ''),
+      ddcLpEst,
+      ddcDpEst,
     };
   });
 
@@ -865,29 +1039,32 @@ export function computeEstimateTotals(form) {
   const demurrageBrokerPercent = num(form.demurrageBrokerPercent)
     || round2(brokeragePercent + addCommPercent);
   const legsWithDemurrage = legsWithDays.map((leg) => {
-    const ddcLpEst = num(leg.ddcLpEst) || calcDemurrageEst(leg.demmDaysLp, leg.demmRateLp);
-    const ddcDpEst = num(leg.ddcDpEst) || calcDemurrageEst(leg.demmDaysDp, leg.demmRateDp);
-    const ddcLpReal = num(leg.ddcLpReal) || ddcLpEst;
-    const ddcDpReal = num(leg.ddcDpReal) || ddcDpEst;
-    const ddcLpNett = round2(ddcLpReal - (ddcLpReal * demurrageBrokerPercent) / 100);
-    const ddcDpNett = round2(ddcDpReal - (ddcDpReal * demurrageBrokerPercent) / 100);
+    // PHP calculateDemurrageCost: Estimated = days × rate (always derived, not sticky stored)
+    const ddcLpEst = formatDemurrageCostField(leg.demmDaysLp, leg.demmRateLp);
+    const ddcDpEst = formatDemurrageCostField(leg.demmDaysDp, leg.demmRateDp);
+    // PHP getDDCOwnerCalculation: Actual tracks Estimated when laytime flag is 0
+    const ddcLpReal = ddcLpEst;
+    const ddcDpReal = ddcDpEst;
+    // PHP Nett = Actual − Actual×ADDComm%/100; ADDComm UI commented out → Nett = Actual
+    const ddcLpNett = ddcLpReal;
+    const ddcDpNett = ddcDpReal;
     return {
       ...leg,
-      ddcLpEst: ddcLpEst ? String(ddcLpEst) : (leg.ddcLpEst || ''),
-      ddcDpEst: ddcDpEst ? String(ddcDpEst) : (leg.ddcDpEst || ''),
-      ddcLpReal: ddcLpReal ? String(ddcLpReal) : (leg.ddcLpReal || ''),
-      ddcDpReal: ddcDpReal ? String(ddcDpReal) : (leg.ddcDpReal || ''),
-      ddcLpNett: ddcLpNett ? String(ddcLpNett) : '',
-      ddcDpNett: ddcDpNett ? String(ddcDpNett) : '',
+      ddcLpEst,
+      ddcDpEst,
+      ddcLpReal,
+      ddcDpReal,
+      ddcLpNett,
+      ddcDpNett,
     };
   });
 
-  const demurrageRevenue = round2(
-    legsWithDemurrage.reduce((sum, leg) => sum + num(leg.ddcLpReal) + num(leg.ddcDpReal), 0)
-    + allCargos.reduce((sum, row) => sum + num(row.demAmt), 0),
+  // PHP txtDemurrageRevenues / Total Nett = sum of row Nett Values (getDDCOwnerCalculation)
+  const demurrageNett = round2(
+    legsWithDemurrage.reduce((sum, leg) => sum + num(leg.ddcLpNett) + num(leg.ddcDpNett), 0),
   );
+  const demurrageRevenue = demurrageNett;
   const demurrageBrokerAmt = round2((demurrageRevenue * demurrageBrokerPercent) / 100);
-  const demurrageNett = round2(demurrageRevenue - demurrageBrokerAmt);
   const brokersWithDemm = brokers.map((row) => {
     const pct = num(row.percent);
     const demmAmt = round2((demurrageRevenue * pct) / 100);

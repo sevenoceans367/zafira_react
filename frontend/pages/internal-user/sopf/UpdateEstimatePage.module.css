@@ -308,6 +308,15 @@
   white-space: nowrap;
 }
 
+.demurrageTotalLabel {
+  text-align: right;
+  font-weight: 600;
+  color: #274670;
+  white-space: nowrap;
+  text-transform: none;
+  font-size: 11px;
+}
+
 .portTable th.thStack {
   white-space: normal;
   line-height: 1.15;

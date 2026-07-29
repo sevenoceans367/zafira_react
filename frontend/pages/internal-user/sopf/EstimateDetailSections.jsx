@@ -28,7 +28,7 @@ import {
   getFixtureTypeLabel,
   seedPortLegsFromFirstCargo,
 } from './estimateDetail.constants.js';
-import { calcDemurrageEst, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurragePortLegLabel, formatDays } from './estimateCalculations.js';
+import { formatDemurrageCostField, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurrageLoadPortLabel, formatDemurrageDischargePortLabel, formatDays, syncPortstayFromPassageDates } from './estimateCalculations.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import RowRemoveButton from './RowRemoveButton.jsx';
 
@@ -238,8 +238,8 @@ export default function EstimateDetailSections({
 
   const updateRow = (collection, id, patch) => {
     const cleanPatch = sanitizeEstimatePatch(patch);
-    const rows = (form[collection] || []).map((row) => (
-      row.id === id ? { ...row, ...cleanPatch } : row
+    let rows = (form[collection] || []).map((row) => (
+      String(row.id) === String(id) ? { ...row, ...cleanPatch } : row
     ));
 
     // Cargo Name / Qty → auto-fill Port Details Cargo + Qty (MT)
@@ -263,7 +263,7 @@ export default function EstimateDetailSections({
       return;
     }
 
-    // Port date edits — mirror PHP calculatePortDates(type, subType, row)
+    // Port date / portstay edits — mirror PHP calculatePortDates / getDepartureDate
     if (collection === 'portLegs') {
       const keys = Object.keys(cleanPatch || {});
       let scheduleMode = null;
@@ -271,6 +271,20 @@ export default function EstimateDetailSections({
       else if (keys.includes('fromDeparture')) scheduleMode = 'fromDeparture';
       else if (keys.includes('toArrival')) scheduleMode = 'toArrival';
       else if (keys.includes('toDeparture')) scheduleMode = 'toDeparture';
+      else if (keys.includes('discPortWorkDays')) scheduleMode = 'portstayDp';
+      else if (keys.includes('loadPortWorkDays')) scheduleMode = 'portstayLp';
+      else if (keys.includes('discPortTerms') || keys.includes('loadPortTerms')) {
+        // Any Terms selection (PHP: if selLPTerms/selDPTerms): pull Portstay from Arrival/Departure.
+        // Field stays editable only for D.A.P. (see PortLaytimeSections).
+        const termsVal = keys.includes('discPortTerms')
+          ? cleanPatch.discPortTerms
+          : cleanPatch.loadPortTerms;
+        if (String(termsVal || '').trim()) {
+          scheduleMode = 'syncPortstayFromDates';
+          const idx = rows.findIndex((row) => String(row.id) === String(id));
+          if (idx >= 0) rows[idx] = syncPortstayFromPassageDates(rows[idx]);
+        }
+      }
 
       if (scheduleMode) {
         applyPatch({
@@ -487,7 +501,6 @@ export default function EstimateDetailSections({
               ) : (
                 <DmyDateInput
                   id="transDate"
-                  enableTime
                   value={form.cpDate || form.transDate || ''}
                   onChange={(value) => applyPatch({
                     cpDate: value,
@@ -1401,12 +1414,19 @@ export default function EstimateDetailSections({
         </CollapsiblePanel>
       ) : null}
 
-      <CollapsiblePanel title="Demurrage/Dispatch" defaultOpen={false}>
+      <CollapsiblePanel title="Demurrage Dispatch" defaultOpen={false}>
         <div className={styles.headerGrid} style={{ marginBottom: 8 }}>
           <Field id="timeAllowed" label="Time Allowed (hrs)">
             <input
-              {...inputProps('timeAllowed', { recalc: true })}
+              id="timeAllowed"
+              value={form.timeAllowed || ''}
+              readOnly={readOnly}
               placeholder="0.00"
+              autoComplete="off"
+              onChange={(e) => applyPatch({
+                timeAllowed: e.target.value,
+                _portScheduleMode: 'demurrageLaytime',
+              })}
             />
           </Field>
           <Field id="demurrageBrokerPercent" label="Demm Comm (%)">
@@ -1421,32 +1441,31 @@ export default function EstimateDetailSections({
           <table className={styles.portTable}>
             <thead>
               <tr>
-                <th>Port Leg</th>
-                <th>LP Days</th>
-                <th>LP Rate</th>
-                <th>LP Est</th>
-                <th>LP Actual</th>
-                <th>LP Net</th>
-                <th>DP Days</th>
-                <th>DP Rate</th>
-                <th>DP Est</th>
-                <th>DP Actual</th>
-                <th>DP Net</th>
+                <th style={{ width: '40%' }} />
+                <th>Demm. Days</th>
+                <th>Demm. Rate</th>
+                <th>Estimated($)</th>
+                <th>Actual($)</th>
+                <th>Nett Value($)</th>
               </tr>
             </thead>
             <tbody>
-              {(form.portLegs || []).map((leg, index) => (
-                <tr key={leg.id}>
-                  <td>{formatDemurragePortLegLabel(leg, index)}</td>
+              {(form.portLegs || []).flatMap((leg) => [
+                <tr key={`${leg.id}-lp`}>
+                  <td>{formatDemurrageLoadPortLabel(leg)}</td>
                   <td>
                     <input
                       value={leg.demmDaysLp || ''}
                       readOnly={readOnly}
-                      placeholder="0.000"
+                      placeholder="0.00"
                       onChange={(e) => {
                         const demmDaysLp = e.target.value;
-                        const ddcLpEst = String(calcDemurrageEst(demmDaysLp, leg.demmRateLp) || '');
-                        updateRow('portLegs', leg.id, { demmDaysLp, ddcLpEst, ddcLpReal: ddcLpEst });
+                        const ddcLpEst = formatDemurrageCostField(demmDaysLp, leg.demmRateLp);
+                        updateRow('portLegs', leg.id, {
+                          demmDaysLp,
+                          ddcLpEst,
+                          ddcLpReal: ddcLpEst,
+                        });
                       }}
                     />
                   </td>
@@ -1457,8 +1476,12 @@ export default function EstimateDetailSections({
                       placeholder="0.00"
                       onChange={(e) => {
                         const demmRateLp = e.target.value;
-                        const ddcLpEst = String(calcDemurrageEst(leg.demmDaysLp, demmRateLp) || '');
-                        updateRow('portLegs', leg.id, { demmRateLp, ddcLpEst, ddcLpReal: ddcLpEst });
+                        const ddcLpEst = formatDemurrageCostField(leg.demmDaysLp, demmRateLp);
+                        updateRow('portLegs', leg.id, {
+                          demmRateLp,
+                          ddcLpEst,
+                          ddcLpReal: ddcLpEst,
+                        });
                       }}
                     />
                   </td>
@@ -1468,23 +1491,29 @@ export default function EstimateDetailSections({
                   <td>
                     <input
                       value={leg.ddcLpReal || leg.ddcLpEst || ''}
-                      readOnly={readOnly}
+                      readOnly
                       placeholder="0.00"
-                      onChange={(e) => updateRow('portLegs', leg.id, { ddcLpReal: e.target.value })}
                     />
                   </td>
                   <td>
                     <input value={leg.ddcLpNett || ''} readOnly placeholder="0.00" />
                   </td>
+                </tr>,
+                <tr key={`${leg.id}-dp`}>
+                  <td>{formatDemurrageDischargePortLabel(leg)}</td>
                   <td>
                     <input
                       value={leg.demmDaysDp || ''}
                       readOnly={readOnly}
-                      placeholder="0.000"
+                      placeholder="0.00"
                       onChange={(e) => {
                         const demmDaysDp = e.target.value;
-                        const ddcDpEst = String(calcDemurrageEst(demmDaysDp, leg.demmRateDp) || '');
-                        updateRow('portLegs', leg.id, { demmDaysDp, ddcDpEst, ddcDpReal: ddcDpEst });
+                        const ddcDpEst = formatDemurrageCostField(demmDaysDp, leg.demmRateDp);
+                        updateRow('portLegs', leg.id, {
+                          demmDaysDp,
+                          ddcDpEst,
+                          ddcDpReal: ddcDpEst,
+                        });
                       }}
                     />
                   </td>
@@ -1495,8 +1524,12 @@ export default function EstimateDetailSections({
                       placeholder="0.00"
                       onChange={(e) => {
                         const demmRateDp = e.target.value;
-                        const ddcDpEst = String(calcDemurrageEst(leg.demmDaysDp, demmRateDp) || '');
-                        updateRow('portLegs', leg.id, { demmRateDp, ddcDpEst, ddcDpReal: ddcDpEst });
+                        const ddcDpEst = formatDemurrageCostField(leg.demmDaysDp, demmRateDp);
+                        updateRow('portLegs', leg.id, {
+                          demmRateDp,
+                          ddcDpEst,
+                          ddcDpReal: ddcDpEst,
+                        });
                       }}
                     />
                   </td>
@@ -1506,29 +1539,31 @@ export default function EstimateDetailSections({
                   <td>
                     <input
                       value={leg.ddcDpReal || leg.ddcDpEst || ''}
-                      readOnly={readOnly}
+                      readOnly
                       placeholder="0.00"
-                      onChange={(e) => updateRow('portLegs', leg.id, { ddcDpReal: e.target.value })}
                     />
                   </td>
                   <td>
                     <input value={leg.ddcDpNett || ''} readOnly placeholder="0.00" />
                   </td>
-                </tr>
-              ))}
+                </tr>,
+              ])}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={4} />
+                <td className={styles.demurrageTotalLabel}>Total Nett Value($)</td>
+                <td>
+                  <input
+                    id="demurrageNett"
+                    value={form.demurrageNett || '0.00'}
+                    readOnly
+                    placeholder="0.00"
+                  />
+                </td>
+              </tr>
+            </tfoot>
           </table>
-        </div>
-        <div className={styles.headerGrid} style={{ marginTop: 8 }}>
-          <Field id="demurrageRevenue" label="Total Demurrage Revenue">
-            <input id="demurrageRevenue" value={form.demurrageRevenue || '0.00'} readOnly />
-          </Field>
-          <Field id="demurrageBrokerAmt" label="Demm Brokerage Amt">
-            <input id="demurrageBrokerAmt" value={form.demurrageBrokerAmt || '0.00'} readOnly />
-          </Field>
-          <Field id="demurrageNett" label="Demm Net">
-            <input id="demurrageNett" value={form.demurrageNett || '0.00'} readOnly />
-          </Field>
         </div>
       </CollapsiblePanel>
 

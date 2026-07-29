@@ -54,8 +54,8 @@ function applyCommittedValue(fp, raw) {
  * Date input with calendar popup — legacy dryout format dd-mm-yyyy
  * (or dd-mm-yyyy HH:MM when enableTime is true).
  *
- * With enableTime: PHP-style two-step picker —
- * 1) calendar date, 2) hour grid (0:00–23:00); picking an hour closes.
+ * With enableTime: three-step picker —
+ * 1) calendar date, 2) hour, 3) minute; picking a minute closes.
  */
 const DmyDateInput = ({
   value = '',
@@ -73,6 +73,7 @@ const DmyDateInput = ({
   const onChangeRef = useRef(onChange);
   const valueRef = useRef(value);
   const stepRef = useRef('date');
+  const pendingHourRef = useRef(0);
   onChangeRef.current = onChange;
   valueRef.current = value;
 
@@ -95,7 +96,9 @@ const DmyDateInput = ({
       const cal = fp.calendarContainer;
       if (!cal) return;
       cal.classList.toggle(styles.stepDate, step === 'date');
-      cal.classList.toggle(styles.stepTime, step === 'time');
+      cal.classList.toggle(styles.stepTime, step === 'hour' || step === 'minute');
+      cal.classList.toggle(styles.stepHour, step === 'hour');
+      cal.classList.toggle(styles.stepMinute, step === 'minute');
     };
 
     let goToTimeAfterChange = false;
@@ -104,17 +107,35 @@ const DmyDateInput = ({
     const syncHourHighlight = (fp) => {
       const grid = fp.calendarContainer?.querySelector(`.${styles.hourGrid}`);
       if (!grid) return;
-      const hour = fp.selectedDates[0]?.getHours?.() ?? -1;
+      const hour = pendingHourRef.current;
       grid.querySelectorAll(`.${styles.hourBtn}`).forEach((btn) => {
         const h = Number(btn.dataset.hour);
         btn.classList.toggle(styles.hourBtnActive, h === hour);
       });
     };
 
+    const syncMinuteHighlight = (fp) => {
+      const grid = fp.calendarContainer?.querySelector(`.${styles.minuteGrid}`);
+      if (!grid) return;
+      const minute = fp.selectedDates[0]?.getMinutes?.() ?? -1;
+      grid.querySelectorAll(`.${styles.minuteBtn}`).forEach((btn) => {
+        const m = Number(btn.dataset.minute);
+        btn.classList.toggle(styles.minuteBtnActive, m === minute);
+      });
+    };
+
     const syncTimeHeading = (fp) => {
       const el = fp.calendarContainer?.querySelector(`.${styles.timeHeading}`);
       if (!el) return;
-      el.textContent = formatHeading(fp.selectedDates[0]) || 'Select time';
+      el.textContent = formatHeading(fp.selectedDates[0]) || 'Select date';
+    };
+
+    const refreshMinuteLabels = (fp) => {
+      const hour = pendingHourRef.current;
+      fp.calendarContainer?.querySelectorAll(`.${styles.minuteBtn}`).forEach((btn) => {
+        const minute = Number(btn.dataset.minute);
+        btn.textContent = `${hour}:${String(minute).padStart(2, '0')}`;
+      });
     };
 
     const commitDate = (fp, date) => {
@@ -137,9 +158,27 @@ const DmyDateInput = ({
       const heading = document.createElement('div');
       heading.className = styles.timeHeading;
       heading.textContent = 'Select time';
+      heading.title = 'Back';
+      heading.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      heading.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (stepRef.current === 'minute') {
+          syncTimeHeading(fp);
+          syncHourHighlight(fp);
+          setStep(fp, 'hour');
+          return;
+        }
+        if (stepRef.current === 'hour') {
+          setStep(fp, 'date');
+        }
+      });
 
-      const grid = document.createElement('div');
-      grid.className = styles.hourGrid;
+      const hourGrid = document.createElement('div');
+      hourGrid.className = styles.hourGrid;
 
       for (let hour = 0; hour < 24; hour += 1) {
         const btn = document.createElement('button');
@@ -154,38 +193,58 @@ const DmyDateInput = ({
         btn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
+          pendingHourRef.current = hour;
           const base = fp.selectedDates[0] ? new Date(fp.selectedDates[0]) : new Date();
           if (base.getFullYear() < 1971) {
             const now = new Date();
             base.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
           }
           base.setHours(hour, 0, 0, 0);
+          suppressChange = true;
+          fp.setDate(base, false);
+          suppressChange = false;
+          refreshMinuteLabels(fp);
+          syncTimeHeading(fp);
+          syncMinuteHighlight(fp);
+          setStep(fp, 'minute');
+        });
+        hourGrid.appendChild(btn);
+      }
+
+      const minuteGrid = document.createElement('div');
+      minuteGrid.className = styles.minuteGrid;
+
+      for (let minute = 0; minute < 60; minute += 1) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = styles.minuteBtn;
+        btn.dataset.minute = String(minute);
+        btn.textContent = `0:${String(minute).padStart(2, '0')}`;
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const base = fp.selectedDates[0] ? new Date(fp.selectedDates[0]) : new Date();
+          if (base.getFullYear() < 1971) {
+            const now = new Date();
+            base.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
+          }
+          base.setHours(pendingHourRef.current, minute, 0, 0);
           commitDate(fp, base);
           fp.close();
         });
-        grid.appendChild(btn);
+        minuteGrid.appendChild(btn);
       }
 
       const footer = document.createElement('div');
       footer.className = styles.timeFooter;
 
-      const backBtn = document.createElement('button');
-      backBtn.type = 'button';
-      backBtn.className = styles.timeFooterBtn;
-      backBtn.textContent = 'Back';
-      backBtn.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-      backBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setStep(fp, 'date');
-      });
-
       const todayBtn = document.createElement('button');
       todayBtn.type = 'button';
-      todayBtn.className = `${styles.timeFooterBtn} ${styles.timeFooterToday}`;
+      todayBtn.className = styles.timeFooterToday;
       todayBtn.textContent = 'Today';
       todayBtn.addEventListener('mousedown', (e) => {
         e.preventDefault();
@@ -200,11 +259,11 @@ const DmyDateInput = ({
         fp.close();
       });
 
-      footer.append(backBtn, todayBtn);
-      panel.append(heading, grid, footer);
+      footer.append(todayBtn);
+      panel.append(heading, hourGrid, minuteGrid, footer);
       cal.appendChild(panel);
 
-      // Day press → after flatpickr onChange, show time step
+      // Day press → after flatpickr onChange, show hour step
       cal.addEventListener('mousedown', (e) => {
         const day = e.target?.closest?.('.flatpickr-day:not(.flatpickr-disabled)');
         if (day && stepRef.current === 'date') {
@@ -219,7 +278,7 @@ const DmyDateInput = ({
       time_24hr: true,
       allowInput: true,
       disableMobile: true,
-      minuteIncrement: 60,
+      minuteIncrement: 1,
       appendTo: typeof document !== 'undefined' ? document.body : undefined,
       clickOpens: !disabled,
       parseDate: (datestr) => {
@@ -244,9 +303,12 @@ const DmyDateInput = ({
         if (!enableTime) return;
         goToTimeAfterChange = false;
         ensureTimeUi(fp);
+        const current = fp.selectedDates[0];
+        pendingHourRef.current = current?.getHours?.() ?? 0;
         setStep(fp, 'date');
         syncTimeHeading(fp);
         syncHourHighlight(fp);
+        syncMinuteHighlight(fp);
       },
       onChange: (selectedDates, dateStr, fp) => {
         if (suppressChange) return;
@@ -261,11 +323,10 @@ const DmyDateInput = ({
         if (goToTimeAfterChange && selectedDates?.length && stepRef.current === 'date') {
           goToTimeAfterChange = false;
           const picked = selectedDates[0];
-          // Keep existing hour if editing; otherwise 00:00 until user picks
-          if (!Number.isFinite(picked.getHours())) picked.setHours(0, 0, 0, 0);
+          pendingHourRef.current = Number.isFinite(picked.getHours()) ? picked.getHours() : 0;
           syncTimeHeading(fp);
           syncHourHighlight(fp);
-          setStep(fp, 'time');
+          setStep(fp, 'hour');
         }
       },
       onClose: (_dates, _str, fp) => {

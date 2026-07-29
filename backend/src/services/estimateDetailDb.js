@@ -24,9 +24,11 @@ function toDbDate(value) {
   if (!value) return null;
   const str = String(value).trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
-  const [d, m, y] = str.split(/[-/]/);
-  if (d && m && y) {
-    return `${y.padStart(4, '0')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  // Accept dd-mm-yyyy or dd-mm-yyyy HH:MM — do not split year on space/time.
+  const m = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (m) {
+    const [, d, mo, y] = m;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
   return str;
 }

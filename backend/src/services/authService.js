@@ -4,8 +4,8 @@ import { dbAuthenticateUser, isAuthDbAvailable } from './authDb.js';
 
 const sessions = new Map();
 
-/** Idle session lifetime — 30 minutes (matches frontend). */
-const SESSION_TTL_MS = 30 * 60 * 1000;
+/** Idle session lifetime — 1 hour (matches frontend). */
+const SESSION_TTL_MS = 60 * 60 * 1000;
 
 function createToken(user) {
   const token = crypto.randomBytes(32).toString('hex');

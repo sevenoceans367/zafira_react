@@ -2,8 +2,8 @@ const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
 const EXPIRES_KEY = 'auth_expires_at';
 
-/** Idle session lifetime — 30 minutes. */
-export const SESSION_TTL_MS = 30 * 60 * 1000;
+/** Idle session lifetime — 1 hour. */
+export const SESSION_TTL_MS = 60 * 60 * 1000;
 
 function readExpiresAt() {
   const raw = localStorage.getItem(EXPIRES_KEY);

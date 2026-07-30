@@ -284,6 +284,14 @@ export default function EstimateDetailSections({
           const idx = rows.findIndex((row) => String(row.id) === String(id));
           if (idx >= 0) rows[idx] = syncPortstayFromPassageDates(rows[idx]);
         }
+      } else if (
+        keys.includes('demmDaysDp')
+        || keys.includes('demmDaysLp')
+        || keys.includes('demmRateDp')
+        || keys.includes('demmRateLp')
+      ) {
+        // Keep typed Demm. Days/Rate — do not re-run putDaysToDemurrageDispatch
+        scheduleMode = 'demurrageManual';
       }
 
       if (scheduleMode) {

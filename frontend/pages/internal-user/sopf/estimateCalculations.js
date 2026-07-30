@@ -387,6 +387,8 @@ export function applyDemurrageDaysFromLaytime(portLegs, timeAllowedHrs) {
  *   - 'portstayLp' — PHP getDepartureDate('LP'): From Departure from LP Portstay Days
  *   - 'syncPortstayFromDates' — dates → Portstay Days only (e.g. selecting DAP)
  *   - 'laycanOnly' — idle-by-laycan + demurrage only (no date rewrite)
+ *   - 'demurrageLaytime' — Time Allowed change → refresh Demm. Days from laytime
+ *   - 'demurrageManual' — user edited Demm. Days/Rate; keep typed values (do not auto-fill)
  *   - omitted on generic recalc — cascade from existing arrivals when present
  *
  * Does NOT invent dates from laycan. Blank/NULL DB dates stay blank
@@ -419,8 +421,8 @@ export function applyPortScheduleCalculations(form) {
     portLegs = cascadeFromDiscPortstay(portLegs, legIndex);
   } else if (mode === 'portstayLp' && legIndex >= 0) {
     portLegs = cascadeFromLoadPortstay(portLegs, legIndex);
-  } else if (mode === 'syncPortstayFromDates') {
-    // Portstay Days already synced above — do not rewrite dates
+  } else if (mode === 'syncPortstayFromDates' || mode === 'demurrageManual') {
+    // Portstay / demurrage days already set — do not rewrite dates
   } else if (mode === 'fromDeparture' && legIndex >= 0) {
     portLegs = cascadeFromDeparture(portLegs, legIndex);
   } else if (mode === 'toArrival' && legIndex >= 0) {
@@ -442,7 +444,10 @@ export function applyPortScheduleCalculations(form) {
     }
   }
 
-  portLegs = applyDemurrageDaysFromLaytime(portLegs, form.timeAllowed);
+  // PHP putDaysToDemurrageDispatch — skip when user is typing Demm. Days/Rate
+  if (mode !== 'demurrageManual') {
+    portLegs = applyDemurrageDaysFromLaytime(portLegs, form.timeAllowed);
+  }
 
   return {
     ...form,

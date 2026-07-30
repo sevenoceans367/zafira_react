@@ -1,8 +1,8 @@
-/* Login shell — logo deferred */
+/* Login shell */
 
 .page {
-  --login-bg: #070d18;
-  --login-card: rgba(21, 32, 56, 0.72);
+  --login-bg: #0a101c;
+  --login-card: #2b3a55;
   --login-card-border: rgba(255, 255, 255, 0.08);
   --login-input: #0e1628;
   --login-input-border: rgba(255, 255, 255, 0.12);
@@ -17,33 +17,30 @@
   isolation: isolate;
   min-height: 100vh;
   background-color: var(--login-bg);
-  /* Warm copper glow (left) + deep navy falloff — matches Genesis portal mock */
+  /* Provided SOPF login mesh gradient (peach TL + teal TR + blue BR) */
   background-image:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 3px,
-      rgba(255, 255, 255, 0.015) 3px,
-      rgba(255, 255, 255, 0.015) 4px
+    url('../assets/login-background.png'),
+    radial-gradient(
+      ellipse 75% 70% at 12% 18%,
+      rgba(196, 120, 72, 0.38) 0%,
+      rgba(120, 70, 45, 0.14) 38%,
+      transparent 68%
     ),
     radial-gradient(
-      ellipse 70% 80% at 18% 48%,
-      rgba(180, 78, 28, 0.55) 0%,
-      rgba(120, 48, 22, 0.28) 32%,
-      rgba(40, 28, 48, 0.12) 55%,
-      transparent 72%
+      ellipse 55% 50% at 88% 12%,
+      rgba(55, 140, 155, 0.28) 0%,
+      transparent 62%
     ),
     radial-gradient(
-      ellipse 55% 50% at 78% 40%,
-      rgba(28, 48, 88, 0.35) 0%,
-      transparent 65%
+      ellipse 70% 65% at 92% 88%,
+      rgba(35, 75, 170, 0.42) 0%,
+      rgba(20, 45, 100, 0.18) 40%,
+      transparent 70%
     ),
-    linear-gradient(
-      160deg,
-      #0a1424 0%,
-      #070d18 45%,
-      #050910 100%
-    );
+    linear-gradient(180deg, #0c1422 0%, #080e18 55%, #060a12 100%);
+  background-size: cover, auto, auto, auto, auto;
+  background-position: center, 0 0, 100% 0, 100% 100%, center;
+  background-repeat: no-repeat;
   color: var(--login-text);
   font-family: var(--login-font-body);
 }
@@ -62,23 +59,43 @@
 .hero {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-end;
+  align-items: flex-start;
   min-height: min(70vh, 560px);
   max-width: 640px;
 }
 
 .logoSlot {
-  /* Reserved for brand mark */
-  height: 40px;
-  margin-bottom: 48px;
+  position: absolute;
+  top: 10%;
+  left: clamp(24px, 6vw, 96px);
+  z-index: 2;
+  margin: 0;
+}
+
+.logo {
+  display: block;
+  height: clamp(88px, 12vw, 112px);
+  width: auto;
+  max-width: min(100%, 560px);
+  object-fit: contain;
+  object-position: left top;
+}
+
+.heroBottom {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+  width: 100%;
 }
 
 .heroCopy {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 20px;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
 }
 
 .headline {
@@ -103,7 +120,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 48px;
+  margin-top: 0;
 }
 
 .ghostPill {
@@ -316,14 +333,16 @@
   .hero {
     min-height: 0;
     max-width: none;
+    gap: 40px;
   }
 
   .logoSlot {
-    margin-bottom: 24px;
+    top: 10%;
+    left: 24px;
   }
 
-  .heroActions {
-    margin-top: 28px;
+  .logo {
+    height: 72px;
   }
 
   .cardWrap {

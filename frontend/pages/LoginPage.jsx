@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { isAuthenticated, login } from '@bainbridge/shared-auth';
+import brandLogo from '../assets/2026_Seven_Oceans_White_Stacked_Logo.png';
 import styles from './LoginPage.module.css';
 
 export default function LoginPage() {
@@ -41,25 +42,36 @@ export default function LoginPage() {
 
       <div className={styles.shell}>
         <section className={styles.hero} aria-label="Welcome">
-          {/* Logo placeholder — brand mark added later */}
-          <div className={styles.logoSlot} aria-hidden />
-
-          <div className={styles.heroCopy}>
-            <h1 className={styles.headline}>
-              Welcome back to the platform that powers shipping &amp; cargo
-            </h1>
-            <p className={styles.lede}>
-              One intelligent solution — across every desk covering your global portfolio.
-            </p>
+          <div className={styles.logoSlot}>
+            <img
+              src={brandLogo}
+              alt="Seven Oceans"
+              className={styles.logo}
+            />
           </div>
 
-          <div className={styles.heroActions}>
-            <button type="button" className={styles.ghostPill}>
-              What&apos;s New
-            </button>
-            <button type="button" className={styles.ghostPill}>
-              Support
-            </button>
+          <div className={styles.heroBottom}>
+            <div className={styles.heroCopy}>
+              <h1 className={styles.headline}>
+                Welcome back to the
+                <br />
+                platform that powers
+                <br />
+                shipping &amp; cargo
+              </h1>
+              <p className={styles.lede}>
+                One intelligent solution – across every desk covering your global portfolio.
+              </p>
+            </div>
+
+            <div className={styles.heroActions}>
+              <button type="button" className={styles.ghostPill}>
+                What&apos;s New
+              </button>
+              <button type="button" className={styles.ghostPill}>
+                Support
+              </button>
+            </div>
           </div>
         </section>
 

@@ -47,7 +47,7 @@ function formatOpenTrade(value) {
 }
 
 const STAT_CARDS = [
-  { key: 'openTrade', label: 'Open Trade', variant: 'gradient', formatValue: formatOpenTrade },
+  { key: 'openTrade', label: 'Open Trades', variant: 'gradient', formatValue: formatOpenTrade },
   { key: 'vesselsInSubs', label: 'Vessels in Subs', variant: 'plain' },
   {
     key: 'tradesInOperations',

@@ -243,39 +243,49 @@ export default function TankerFreightModeSection({
     applyPatch(patch);
   };
 
-  const showRadioDiv = !chkLumpsum;
+  const setCargoType = (nextType) => {
+    if (nextType === '2') {
+      applyPatch({ tankType: '2', chkLumpsum: false });
+      return;
+    }
+    applyPatch({ tankType: '1' });
+  };
+
+  const setCalculationMethod = (method) => {
+    handleChkLumpsumChange(method === 'lumpsum');
+  };
+
   const showSingleSection = isSingle || chkLumpsum;
   const showDistributedSection = isDistributed && !chkLumpsum;
 
   return (
     <>
       <h4 className={styles.subHeading}>Tanker Freight Mode</h4>
-      {showRadioDiv ? (
-        <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-          <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input
-              type="radio"
-              name="tankType"
-              value="1"
-              checked={isSingle}
+      <div className={styles.tankerModeControls}>
+        <div className={styles.tankerModeRow}>
+          <span className={styles.tankerModeLabel}>1. CARGO TYPE:</span>
+          <div className={styles.segmented} role="group" aria-label="Cargo type">
+            <button
+              type="button"
+              className={`${styles.segmentedBtn} ${isSingle ? styles.segmentedBtnActive : ''}`}
               disabled={readOnly}
-              onChange={() => applyPatch({ tankType: '1' })}
-            />
-            <strong>Single</strong>
-          </label>
-          <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input
-              type="radio"
-              name="tankType"
-              value="2"
-              checked={isDistributed}
+              aria-pressed={isSingle}
+              onClick={() => setCargoType('1')}
+            >
+              Single
+            </button>
+            <button
+              type="button"
+              className={`${styles.segmentedBtn} ${isDistributed ? styles.segmentedBtnActive : ''}`}
               disabled={readOnly}
-              onChange={() => applyPatch({ tankType: '2', chkLumpsum: false })}
-            />
-            <strong>Distributed</strong>
-          </label>
+              aria-pressed={isDistributed}
+              onClick={() => setCargoType('2')}
+            >
+              Multiple
+            </button>
+          </div>
           {isDistributed ? (
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <label className={styles.tankerRateField} htmlFor="tankerFreightRate">
               Freight Rate / MT
               <input
                 id="tankerFreightRate"
@@ -297,21 +307,34 @@ export default function TankerFreightModeSection({
             </label>
           ) : null}
         </div>
-      ) : null}
+
+        <div className={styles.tankerModeRow}>
+          <span className={styles.tankerModeLabel}>2. CALCULATION METHOD:</span>
+          <div className={styles.segmented} role="group" aria-label="Calculation method">
+            <button
+              type="button"
+              className={`${styles.segmentedBtn} ${chkLumpsum ? styles.segmentedBtnActive : ''}`}
+              disabled={readOnly}
+              aria-pressed={chkLumpsum}
+              onClick={() => setCalculationMethod('lumpsum')}
+            >
+              Lump Sum
+            </button>
+            <button
+              type="button"
+              className={`${styles.segmentedBtn} ${!chkLumpsum ? styles.segmentedBtnActive : ''}`}
+              disabled={readOnly}
+              aria-pressed={!chkLumpsum}
+              onClick={() => setCalculationMethod('worldscale')}
+            >
+              World Scale
+            </button>
+          </div>
+        </div>
+      </div>
 
       {showSingleSection ? (
         <div className={styles.nestedBlock}>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-            <input
-              type="checkbox"
-              id="chkLumpsum"
-              checked={chkLumpsum}
-              disabled={readOnly}
-              onChange={(e) => handleChkLumpsumChange(e.target.checked)}
-            />
-            <strong>Lump-sum</strong>
-          </label>
-
           {chkLumpsum ? (
             <div className={styles.headerGrid}>
               <Field id="lumpsumQty" label="Cargo Qty (MT)">
@@ -353,7 +376,7 @@ export default function TankerFreightModeSection({
           ) : (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <strong>Freight Adjustment</strong>
+                <strong className={styles.tankerSectionTitle}>Freight Adjustment</strong>
                 {editable ? (
                   <AddCircleButton onClick={addTankerWsRow} />
                 ) : null}

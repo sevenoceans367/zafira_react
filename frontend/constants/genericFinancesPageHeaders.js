@@ -14,7 +14,19 @@ export function genericFinancesAppPath() {
  * `breadcrumbs` are middle segments only → Home / SOC / GENERIC FINANCES.
  */
 export function resolveGenericFinancesHeader(pathname = '') {
-  if (!String(pathname || '').includes(GENERIC_FINANCES_SEGMENT)) return null;
+  const path = String(pathname || '');
+  if (!path.includes(GENERIC_FINANCES_SEGMENT)) return null;
+
+  if (path.includes(`/${GENERIC_FINANCES_SEGMENT}/add`)) {
+    return {
+      title: 'ADD GENERIC INVOICE',
+      currentPage: 'ADD INVOICE',
+      breadcrumbs: [
+        SOC,
+        { label: 'GENERIC FINANCES', href: genericFinancesAppPath() },
+      ],
+    };
+  }
 
   return {
     title: 'GENERIC FINANCES',

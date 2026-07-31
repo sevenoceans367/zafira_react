@@ -33,6 +33,29 @@ export async function fetchGenericFinanceYears() {
   return parseJson(response, 'Failed to load years.');
 }
 
+export async function fetchGenericInvoiceLookups() {
+  const response = await fetch(`${BASE}/new`);
+  return parseJson(response, 'Failed to load invoice form.');
+}
+
+export async function fetchBankingDetail(bdId) {
+  const response = await fetch(`${BASE}/banking/${encodeURIComponent(bdId)}`);
+  return parseJson(response, 'Failed to load banking details.');
+}
+
+export async function fetchVendorBanking(vendorId) {
+  const response = await fetch(`${BASE}/vendors/${encodeURIComponent(vendorId)}/banking`);
+  return parseJson(response, 'Failed to load vendor banking.');
+}
+
+export async function createGenericInvoice(formData) {
+  const response = await fetch(BASE, {
+    method: 'POST',
+    body: formData,
+  });
+  return parseJson(response, 'Failed to create invoice.');
+}
+
 export async function cancelGenericFinanceInvoice(invoiceId) {
   const response = await fetch(`${BASE}/${encodeURIComponent(invoiceId)}/cancel`, {
     method: 'POST',

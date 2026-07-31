@@ -213,3 +213,356 @@ export async function dbReceiveGenericPayment(invoiceId, {
   if (!result.affectedRows) throw new Error('Invoice not found or cancelled.');
   return { msg: 2 };
 }
+
+function toSqlDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const dmy = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmy) {
+    const day = dmy[1].padStart(2, '0');
+    const month = dmy[2].padStart(2, '0');
+    return `${dmy[3]}-${month}-${day}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  return null;
+}
+
+function parseAmount(value) {
+  const n = Number(String(value ?? '').replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseLineRows(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+const DEFAULT_INVOICE_TYPES = [
+  { id: 'Agency Fee', name: 'Agency Fee' },
+  { id: 'Survey Fee', name: 'Survey Fee' },
+  { id: 'Brokerage', name: 'Brokerage' },
+  { id: 'Legal Fee', name: 'Legal Fee' },
+  { id: 'Consultancy', name: 'Consultancy' },
+  { id: 'Other', name: 'Other' },
+];
+
+const CONTRACT_TYPE_OPTIONS = [
+  { id: 'Spot', name: 'Spot' },
+  { id: 'COA', name: 'COA' },
+  { id: 'TC', name: 'TC' },
+];
+
+const CURRENCY_OPTIONS = [
+  { id: 'USD', name: 'USD' },
+  { id: 'EURO', name: 'EURO' },
+  { id: 'GBP', name: 'GBP' },
+  { id: 'AED', name: 'AED' },
+  { id: 'INR', name: 'INR' },
+  { id: 'JPY', name: 'JPY' },
+];
+
+export async function dbGetGenericInvoiceLookups(userId = appContext.userId) {
+  const pool = getPool();
+
+  const [
+    [owners],
+    [vendors],
+    [invoiceTypes],
+    [bankingDetails],
+    [approver1Rows],
+    [approver2Rows],
+    [[authRow]],
+    [[matrixCounts]],
+  ] = await Promise.all([
+    pool.query(
+      `SELECT CODE AS id, CONCAT(NAME, ' (', CODE, ')') AS name
+       FROM vendor_master
+       WHERE STATUS = 1 AND VENDOR_TYPEID = 11 AND MCOMPANYID = ?
+       ORDER BY NAME`,
+      [COMPANY_ID],
+    ),
+    pool.query(
+      `SELECT CODE AS id, VENDORID AS vendorId, CONCAT(NAME, ' (', CODE, ')') AS name
+       FROM vendor_master
+       WHERE STATUS = 1 AND MCOMPANYID = ?
+       ORDER BY NAME`,
+      [COMPANY_ID],
+    ),
+    pool.query(
+      `SELECT NAME AS id, NAME AS name
+       FROM invoicetype_master
+       WHERE STATUS = 1
+       ORDER BY NAME`,
+    ).catch(() => [[]]),
+    pool.query(
+      `SELECT BD_ID AS id, CONCAT(NAME, ' - ', BANK) AS name
+       FROM banking_details
+       WHERE STATUS = 1
+       ORDER BY NAME`,
+    ).catch(() => [[]]),
+    pool.query(
+      `SELECT am.LOGINID AS id, l.CONTACT_PERSON AS name
+       FROM approval_matrix am
+       INNER JOIN login l ON l.LOGINID = am.LOGINID
+       WHERE am.MCOMPANYID = ? AND am.GEN_CHK_APP_1 = 1 AND l.STATUS = 1
+       ORDER BY l.CONTACT_PERSON`,
+      [COMPANY_ID],
+    ).catch(() => [[]]),
+    pool.query(
+      `SELECT am.LOGINID AS id, l.CONTACT_PERSON AS name
+       FROM approval_matrix am
+       INNER JOIN login l ON l.LOGINID = am.LOGINID
+       WHERE am.MCOMPANYID = ? AND am.GEN_CHK_APP_2 = 1 AND l.STATUS = 1
+       ORDER BY l.CONTACT_PERSON`,
+      [COMPANY_ID],
+    ).catch(() => [[]]),
+    pool.query(
+      `SELECT GEN_CHK_CRETR AS creator, GEN_CHK_APP_1 AS approver1, GEN_CHK_APP_2 AS approver2
+       FROM approval_matrix
+       WHERE MCOMPANYID = ? AND LOGINID = ?
+       LIMIT 1`,
+      [COMPANY_ID, userId],
+    ).catch(() => [[null]]),
+    pool.query(
+      `SELECT
+         SUM(CASE WHEN GEN_CHK_APP_1 = 1 THEN 1 ELSE 0 END) AS app1,
+         SUM(CASE WHEN GEN_CHK_APP_2 = 1 THEN 1 ELSE 0 END) AS app2
+       FROM approval_matrix
+       WHERE MCOMPANYID = ?`,
+      [COMPANY_ID],
+    ).catch(() => [[{ app1: 0, app2: 0 }]]),
+  ]);
+
+  const hasApp1 = Number(matrixCounts?.app1) > 0;
+  const hasApp2 = Number(matrixCounts?.app2) > 0;
+  let sendForApprovalStatus = 1;
+  if (!hasApp1 && !hasApp2) sendForApprovalStatus = 5;
+  else if (!hasApp1 && hasApp2) sendForApprovalStatus = 4;
+
+  const resolvedInvoiceTypes = invoiceTypes.length
+    ? invoiceTypes.map((row) => ({ id: String(row.id), name: row.name }))
+    : DEFAULT_INVOICE_TYPES;
+
+  return {
+    owners: owners.map((row) => ({ id: String(row.id), name: row.name })),
+    vendors: vendors.map((row) => ({
+      id: String(row.id),
+      name: row.name,
+      vendorId: row.vendorId != null ? String(row.vendorId) : '',
+    })),
+    contractTypes: CONTRACT_TYPE_OPTIONS,
+    invoiceTypes: resolvedInvoiceTypes,
+    businessTypes: listGenericFinanceBusinessTypes('2'),
+    currencies: CURRENCY_OPTIONS,
+    bankingDetails: bankingDetails.map((row) => ({ id: String(row.id), name: row.name })),
+    approvers: approver1Rows.map((row) => ({ id: String(row.id), name: row.name })),
+    approversLevel2: approver2Rows.map((row) => ({ id: String(row.id), name: row.name })),
+    canCreate: Number(authRow?.creator) === 1 || !authRow,
+    sendForApprovalStatus,
+    typeOptions: [
+      { id: 'invoice', name: 'Invoice' },
+      { id: 'payment', name: 'Payment' },
+    ],
+  };
+}
+
+export async function dbGetBankingDetail(bdId) {
+  const pool = getPool();
+  const [[row]] = await pool.query(
+    `SELECT BD_ID, NAME, ADDRESS, AC_NO, BANK, B_ADDRESS, BANK_SWIFT_CODE,
+            IBAN_NO, FED_ABA, C_BANK_NAME, C_SWIFT_CODE, CORRES_ADDRESS, B_ACNO
+     FROM banking_details
+     WHERE BD_ID = ?
+     LIMIT 1`,
+    [bdId],
+  );
+  if (!row) return null;
+  return {
+    id: String(row.BD_ID),
+    name: row.NAME ?? '',
+    address: row.ADDRESS ?? '',
+    accountNo: row.AC_NO ?? '',
+    bank: row.BANK ?? '',
+    bankAddress: row.B_ADDRESS ?? '',
+    swiftCode: row.BANK_SWIFT_CODE ?? '',
+    ibanNo: row.IBAN_NO ?? '',
+    fedAba: row.FED_ABA ?? '',
+    correspondentBankName: row.C_BANK_NAME ?? '',
+    correspondentBankAddress: row.CORRES_ADDRESS ?? '',
+    correspondentAccountNo: row.B_ACNO ?? '',
+    correspondentSwiftCode: row.C_SWIFT_CODE ?? '',
+  };
+}
+
+export async function dbGetVendorBanking(vendorId) {
+  const pool = getPool();
+  const [rows] = await pool.query(
+    `SELECT SLAVEID, NAME, ADDRESS, ACCOUNTNO, BANK_NAME, BANK_ADDRESS, SWIFT_CODE,
+            IBAN_NO, IBAN_REMARKS, US_CORRES_BANK
+     FROM vendor_master_slave
+     WHERE VENDORID = ?
+     ORDER BY SLAVEID`,
+    [vendorId],
+  );
+  return rows.map((row) => ({
+    id: String(row.SLAVEID),
+    name: row.BANK_NAME || row.NAME || `Bank ${row.SLAVEID}`,
+    address: row.ADDRESS ?? '',
+    accountNo: row.ACCOUNTNO ?? '',
+    bank: row.BANK_NAME ?? '',
+    bankAddress: row.BANK_ADDRESS ?? '',
+    swiftCode: row.SWIFT_CODE ?? '',
+    ibanNo: row.IBAN_NO ?? '',
+    fedAba: row.IBAN_REMARKS ?? '',
+    correspondentBankName: row.US_CORRES_BANK ?? '',
+    correspondentBankAddress: '',
+    correspondentAccountNo: '',
+    correspondentSwiftCode: '',
+  }));
+}
+
+export async function dbCreateGenericInvoice(payload = {}, { userId = appContext.userId } = {}) {
+  const pool = getPool();
+
+  const type = String(payload.type || 'invoice').toLowerCase() === 'payment' ? 'payment' : 'invoice';
+  const shipOwner = String(payload.selFromOwner || payload.shipOwner || '').trim();
+  const vendor = String(payload.selVendor || payload.vendor || '').trim();
+  const contractDetails = String(payload.txtContractDetails || payload.contractDetails || '').trim();
+  const invoiceType = String(payload.selIType || payload.invoiceType || '').trim();
+  const invoiceNo = String(payload.txtInvoiceNo || payload.invoiceNo || '').trim();
+  const invoiceDate = toSqlDate(payload.txtInvoiceDate || payload.invoiceDate);
+  const dueDate = toSqlDate(payload.txtDueDate || payload.dueDate);
+  const currency = String(payload.selExchangeCurrency || payload.exchangeCurrency || 'USD').trim();
+  const paymentTerms = String(payload.txtPaymentTerms || payload.paymentTerms || '').trim();
+  const description = String(payload.txtDesc || payload.remarks || '').trim();
+  const amountDesc = String(payload.txtAmountDesc || payload.amountDesc || '').trim();
+  const bankingId = String(payload.selNOB || payload.nob || '').trim();
+  const businessTypeId = Number(payload.selBType || payload.businessTypeId || 2) || 2;
+  const contractType = String(payload.selContractType || payload.contractType || '').trim();
+  const atten = String(payload.txtAttenName || payload.atten || '').trim();
+  const paymentStatus = String(payload.payment_status || payload.paymentStatus || '').trim();
+  const mainAmount = parseAmount(payload.txtMainAmount || payload.amount);
+  const addRows = parseLineRows(payload.addRows).filter(
+    (row) => String(row.description || '').trim() || parseAmount(row.amount),
+  );
+  const subRows = parseLineRows(payload.subRows).filter(
+    (row) => String(row.description || '').trim() || parseAmount(row.amount),
+  );
+  const addTotal = addRows.reduce((sum, row) => sum + parseAmount(row.amount), 0);
+  const subTotal = subRows.reduce((sum, row) => sum + parseAmount(row.amount), 0);
+  const netAmount = Number((mainAmount + addTotal - subTotal).toFixed(2));
+
+  let status = Number(payload.txtStatus ?? payload.status);
+  if (!Number.isFinite(status)) status = 0;
+  if (status !== 0) {
+    const lookups = await dbGetGenericInvoiceLookups(userId);
+    status = Number(lookups.sendForApprovalStatus) || 1;
+  }
+
+  const approversRaw = payload.selApprovers || payload.approvers || [];
+  const approvers = Array.isArray(approversRaw)
+    ? approversRaw.map(String).filter(Boolean)
+    : String(approversRaw).split(',').map((v) => v.trim()).filter(Boolean);
+
+  if (status === 1 && !approvers.length) {
+    throw new Error('Please select Level 1 Approvers first.');
+  }
+
+  const required = [
+    [shipOwner, 'Invoicing Company is required.'],
+    [vendor, 'Vendor (To) is required.'],
+    [contractDetails, 'Contract Details are required.'],
+    [amountDesc, 'Amount Description is required.'],
+    [mainAmount > 0, 'Main Amount is required.'],
+    [invoiceDate, 'Invoice Date is required.'],
+    [invoiceType, 'Invoice Type is required.'],
+    [invoiceNo, 'Invoice Number is required.'],
+    [dueDate, 'Due Date is required.'],
+    [currency, 'Working Currency is required.'],
+    [paymentTerms, 'Payment Terms are required.'],
+    [bankingId, 'Banking Details are required.'],
+    [description, 'Description is required.'],
+  ];
+  for (const [ok, message] of required) {
+    if (!ok) throw new Error(message);
+  }
+
+  const upload = String(payload.upload || payload.UPLOAD || '').trim();
+  const uploadName = String(payload.uploadName || payload.UPLOAD_NAME || '').trim();
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = await connection.query(
+      `INSERT INTO generic_invoice_master (
+         MODULEID, MCOMPANYID, INVOICE_DATE, I_TYPE, INVOICE_NO, NOB, STATUS,
+         VENDOR, AMOUNT, NET_AMOUNT, REMARKS, PAYMENT_TERMS, ATTEN, DUE_DATE,
+         EXCHANGE_CURRENCY, SHIP_OWNER, CONTRACT_DETAILS, CONTRACT_TYPE,
+         BUSINESSTYPEID, AMOUNT_DESC, TYPE, CREATOR, APPROVERS, PAYMENT_STATUS,
+         UPLOAD, UPLOAD_NAME, ATTACHMENTS, ATTACHMENTS_NAME
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        MODULE_ID,
+        COMPANY_ID,
+        invoiceDate,
+        invoiceType,
+        invoiceNo,
+        bankingId,
+        status,
+        vendor,
+        mainAmount,
+        netAmount,
+        description,
+        paymentTerms,
+        atten,
+        dueDate,
+        currency,
+        shipOwner,
+        contractDetails,
+        contractType,
+        businessTypeId,
+        amountDesc,
+        type,
+        userId,
+        approvers.join(','),
+        paymentStatus || null,
+        upload,
+        uploadName,
+        upload,
+        uploadName,
+      ],
+    );
+
+    const invoiceId = result.insertId;
+    for (const row of addRows) {
+      await connection.query(
+        `INSERT INTO generic_invoice_slave (INVOICEID, DESCRIPTION, AMOUNT, IDENTIFY)
+         VALUES (?, ?, ?, 'add')`,
+        [invoiceId, String(row.description || '').trim(), parseAmount(row.amount)],
+      );
+    }
+    for (const row of subRows) {
+      await connection.query(
+        `INSERT INTO generic_invoice_slave (INVOICEID, DESCRIPTION, AMOUNT, IDENTIFY)
+         VALUES (?, ?, ?, 'sub')`,
+        [invoiceId, String(row.description || '').trim(), parseAmount(row.amount)],
+      );
+    }
+
+    await connection.commit();
+    return { msg: 0, invoiceId };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}

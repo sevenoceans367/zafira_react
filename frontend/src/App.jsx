@@ -43,6 +43,7 @@ import OpsTcYearUpdationPage from '../pages/internal-user/ops/OpsTcYearUpdationP
 import CombinedSoaPayablePage from '../pages/internal-user/combined-soa-payable/CombinedSoaPayablePage.jsx';
 import CombinedSoaPayableTcPage from '../pages/internal-user/combined-soa-payable/CombinedSoaPayableTcPage.jsx';
 import GenericFinancesPage from '../pages/internal-user/generic-finances/GenericFinancesPage.jsx';
+import AddGenericInvoicePage from '../pages/internal-user/generic-finances/AddGenericInvoicePage.jsx';
 import FleetPage from '../pages/internal-user/fleet/FleetPage.jsx';
 import AddVesselPage from '../pages/internal-user/fleet/AddVesselPage.jsx';
 import UpdateVesselPage from '../pages/internal-user/fleet/UpdateVesselPage.jsx';
@@ -166,6 +167,10 @@ export default function App() {
             <Route
               path="/internal-user/vc/generic-finances"
               element={<GenericFinancesPage />}
+            />
+            <Route
+              path="/internal-user/vc/generic-finances/add"
+              element={<AddGenericInvoicePage />}
             />
             <Route path="/internal-user/vc/decision-chart-tc" element={<TcDecisionChartsListPage />} />
             <Route path="/internal-user/vc/tc" element={<TcOutEstimatesListPage />} />

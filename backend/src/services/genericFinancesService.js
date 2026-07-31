@@ -1,6 +1,10 @@
 import { isDbConfigured } from '../config.js';
 import {
   dbCancelGenericInvoice,
+  dbCreateGenericInvoice,
+  dbGetBankingDetail,
+  dbGetGenericInvoiceLookups,
+  dbGetVendorBanking,
   dbListGenericFinanceYears,
   dbListGenericFinances,
   dbReceiveGenericPayment,
@@ -150,6 +154,99 @@ export async function receiveGenericPayment(invoiceId, body = {}) {
   row.statusLabel = 'Paid';
   row.statusTone = 'success';
   return { msg: 2 };
+}
+
+export async function getGenericInvoiceLookups(userId) {
+  if (isDbConfigured()) {
+    return dbGetGenericInvoiceLookups(userId);
+  }
+  return {
+    owners: [{ id: 'OWN1', name: 'Sample Owner (OWN1)' }],
+    vendors: [{ id: 'V001', name: 'Sample Vendor (V001)', vendorId: '1' }],
+    contractTypes: [
+      { id: 'Spot', name: 'Spot' },
+      { id: 'COA', name: 'COA' },
+      { id: 'TC', name: 'TC' },
+    ],
+    invoiceTypes: [
+      { id: 'Agency Fee', name: 'Agency Fee' },
+      { id: 'Survey Fee', name: 'Survey Fee' },
+    ],
+    businessTypes: listGenericFinanceBusinessTypes('2'),
+    currencies: [
+      { id: 'USD', name: 'USD' },
+      { id: 'EURO', name: 'EURO' },
+    ],
+    bankingDetails: [{ id: '1', name: 'Sample Bank' }],
+    approvers: [{ id: '1', name: 'Approver One' }],
+    approversLevel2: [],
+    canCreate: true,
+    sendForApprovalStatus: 1,
+    typeOptions: [
+      { id: 'invoice', name: 'Invoice' },
+      { id: 'payment', name: 'Payment' },
+    ],
+  };
+}
+
+export async function getBankingDetail(bdId) {
+  if (isDbConfigured()) {
+    return dbGetBankingDetail(bdId);
+  }
+  return {
+    id: String(bdId),
+    name: 'Sample Bank',
+    address: '',
+    accountNo: '',
+    bank: 'Sample Bank',
+    bankAddress: '',
+    swiftCode: '',
+    ibanNo: '',
+    fedAba: '',
+    correspondentBankName: '',
+    correspondentBankAddress: '',
+    correspondentAccountNo: '',
+    correspondentSwiftCode: '',
+  };
+}
+
+export async function getVendorBanking(vendorId) {
+  if (isDbConfigured()) {
+    return dbGetVendorBanking(vendorId);
+  }
+  return [];
+}
+
+export async function createGenericInvoice(payload, options = {}) {
+  if (isDbConfigured()) {
+    return dbCreateGenericInvoice(payload, options);
+  }
+  const invoiceId = 600 + MOCK_ROWS.length;
+  MOCK_ROWS.unshift({
+    index: 1,
+    invoiceId,
+    invoiceNo: payload.txtInvoiceNo || `GF-${invoiceId}`,
+    invoiceDate: payload.txtInvoiceDate || '',
+    invoiceType: payload.selIType || '',
+    recordType: payload.type === 'payment' ? 'Payment' : 'Invoice',
+    vendor: payload.selVendor || '',
+    amount: Number(payload.txtMainAmount || 0).toFixed(2),
+    netAmount: Number(payload.txtMainAmount || 0).toFixed(2),
+    creator: 'Mock User',
+    businessTypeId: String(payload.selBType || '2'),
+    paymentAmount: '',
+    paymentDate: '',
+    paymentRemarks: '',
+    statusCode: Number(payload.txtStatus) || 0,
+    statusLabel: 'Submit to Edit',
+    statusTone: 'info',
+    editHref: `updateginvoice.php?id=${invoiceId}`,
+    pdfHref: `allPdf.php?id=83&im_id=${invoiceId}`,
+    canEdit: true,
+    canCancel: true,
+    canReceivePayment: true,
+  });
+  return { msg: 0, invoiceId };
 }
 
 export { mapGenericFinanceStatus };

@@ -857,6 +857,97 @@
   color: #274670;
 }
 
+.tankerModeControls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, max-content));
+  gap: 16px 48px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.tankerModeRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tankerModeLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #9ca3af;
+  text-transform: none;
+}
+
+.tankerSectionTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9ca3af;
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid #d0d7e2;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
+.segmentedBtn {
+  appearance: none;
+  border: none;
+  margin: 0;
+  padding: 7px 16px;
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.segmentedBtn + .segmentedBtn {
+  border-left: 1px solid #d0d7e2;
+}
+
+.segmentedBtnActive {
+  background: #274670;
+  color: #fff;
+}
+
+.segmentedBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.tankerRateField {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.tankerRateField input {
+  width: 110px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid #d0d7e2;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .tankerModeControls {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
 .checkRow {
   display: flex;
   align-items: center;

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, CardSelect, HeaderFilterControls, PageHeaderSearch } from '@bainbridge/shared-ui';
-import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
+import { appPath } from '@bainbridge/shared-routing';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 
 export default function GenericFinancesHeaderActions({
@@ -14,6 +15,7 @@ export default function GenericFinancesHeaderActions({
   onYearChange,
   canCreate = false,
 }) {
+  const navigate = useNavigate();
   const searchRef = useRef(null);
 
   useEffect(() => {
@@ -72,7 +74,7 @@ export default function GenericFinancesHeaderActions({
             variant="primary"
             label="Add New"
             onClick={() => {
-              window.open(getLegacyDryoutHref('addginvoice.php'), '_blank', 'noopener,noreferrer');
+              navigate(appPath('/internal-user/vc/generic-finances/add'));
             }}
           />
         ) : null}

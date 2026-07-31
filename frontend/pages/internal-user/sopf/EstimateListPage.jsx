@@ -9,6 +9,7 @@ import {
   SummaryCard,
   SummaryCardGrid,
   useConfirm,
+  useAlert,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import {
@@ -73,6 +74,7 @@ function TruncatedText({ text, maxLength = 10 }) {
 
 export default function EstimateListPage() {
   const confirm = useConfirm();
+  const alert = useAlert();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -134,7 +136,11 @@ export default function EstimateListPage() {
 
   const openDecisionChart = useCallback(async (ids) => {
     if (!ids.length) {
-      window.alert('Please select at least one checkbox');
+      await alert({
+        title: 'Missing Information',
+        message: 'Please select at least one checkbox',
+        confirmLabel: 'OK',
+      });
       return;
     }
 
@@ -147,7 +153,7 @@ export default function EstimateListPage() {
     } finally {
       setModalLoading(false);
     }
-  }, []);
+  }, [alert]);
 
   useEffect(() => {
     const current = searchParams.get('selBType');
@@ -204,7 +210,11 @@ export default function EstimateListPage() {
       updateParams({ msg: 3 });
       await loadData();
     } catch (error) {
-      window.alert(error?.message || 'Unable to send this estimate to Operations.');
+      await alert({
+        title: 'Error',
+        message: error?.message || 'Unable to send this estimate to Operations.',
+        confirmLabel: 'OK',
+      });
     }
   };
 
@@ -270,7 +280,11 @@ export default function EstimateListPage() {
 
   const handleSubmitDecisionChart = async () => {
     if (!chartSelection.id || !chartSelection.remarks.trim()) {
-      window.alert('Please select one Fixture and fill remarks');
+      await alert({
+        title: 'Missing Information',
+        message: 'Please select one Fixture and fill remarks',
+        confirmLabel: 'OK',
+      });
       return;
     }
 
@@ -280,9 +294,13 @@ export default function EstimateListPage() {
     await loadData();
   };
 
-  const handleDownloadCsv = () => {
+  const handleDownloadCsv = async () => {
     if (!filteredRows.length) {
-      window.alert('No data available to download.');
+      await alert({
+        title: 'Notice',
+        message: 'No data available to download.',
+        confirmLabel: 'OK',
+      });
       return;
     }
     downloadEstimateListCsv(filteredRows);
@@ -298,7 +316,11 @@ export default function EstimateListPage() {
 
   const handleSensitivityAnalysis = async () => {
     if (!selectedIds.length) {
-      window.alert('Please select at least one checkbox');
+      await alert({
+        title: 'Missing Information',
+        message: 'Please select at least one checkbox',
+        confirmLabel: 'OK',
+      });
       return;
     }
 
@@ -309,7 +331,11 @@ export default function EstimateListPage() {
       const data = await fetchSensitivityAnalysis(selectedIds, businessType);
       setSaData(data);
     } catch (error) {
-      window.alert(error.message || 'Failed to load sensitivity analysis.');
+      await alert({
+        title: 'Error',
+        message: error.message || 'Failed to load sensitivity analysis.',
+        confirmLabel: 'OK',
+      });
       setSaModalOpen(false);
     } finally {
       setSaModalLoading(false);

@@ -138,6 +138,8 @@ export const ESTIMATE_DECIMAL_FIELDS = new Set([
   'hireAmt',
   'hireDays',
   'ballastBonus',
+  'hireagePercent',
+  'hireageBroPercent',
   'vesselDailyOps',
   'cvePerMonth',
   'offHireCve',

@@ -151,9 +151,13 @@ export default function EstimateDetailSections({
 
   const resolveNrt = () => resolveNrtFromGnrt(form.nrt, form.gnrt);
 
-  const openDistanceFetch = (leg) => {
+  const openDistanceFetch = async (leg) => {
     if (!leg.fromPortId || !leg.toPortId) {
-      window.alert('Please select From Port and To Port');
+      await alert({
+        title: 'Missing Information',
+        message: 'Please select From Port and To Port',
+        confirmLabel: 'OK',
+      });
       return;
     }
     setDistanceLegId(leg.id);
@@ -314,7 +318,7 @@ export default function EstimateDetailSections({
   const addRow = async (collection, factory, opts = {}) => {
     const blockMessage = getAddRowBlockMessage(collection, form[collection] || [], opts);
     if (blockMessage) {
-      await alert({ title: 'Alert', message: blockMessage, confirmLabel: 'OK' });
+      await alert({ title: 'Missing Information', message: blockMessage, confirmLabel: 'OK' });
       return;
     }
 
@@ -1592,7 +1596,7 @@ export default function EstimateDetailSections({
                 {editable ? <th style={{ width: 36 }} /> : null}
                 <th>Description</th>
                 <th>Amount</th>
-                <th>Add Comm</th>
+                <th>Add Comm(%)</th>
                 <th>Net Amount</th>
               </tr>
             </thead>
@@ -1720,6 +1724,12 @@ export default function EstimateDetailSections({
           </Field>
           <Field id="ballastBonus" label="Ballast Bonus">
             <input {...inputProps('ballastBonus', { recalc: true })} />
+          </Field>
+          <Field id="hireagePercent" label="Hireage Add Comm (%)">
+            <input {...inputProps('hireagePercent', { recalc: true })} placeholder="0.00" />
+          </Field>
+          <Field id="hireageBroPercent" label="Hireage Brokerage (%)">
+            <input {...inputProps('hireageBroPercent', { recalc: true })} placeholder="0.00" />
           </Field>
           <Field id="hireAmt" label="Hire Amt">
             <input {...inputProps('hireAmt')} />

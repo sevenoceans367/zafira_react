@@ -68,7 +68,7 @@ export default function EstimateAdvancedSections({
   const addRow = async (collection, factory, opts = {}) => {
     const blockMessage = getAddRowBlockMessage(collection, form[collection] || [], opts);
     if (blockMessage) {
-      await alert({ title: 'Alert', message: blockMessage, confirmLabel: 'OK' });
+      await alert({ title: 'Missing Information', message: blockMessage, confirmLabel: 'OK' });
       return;
     }
     updateField(collection, [...(form[collection] || []), factory()]);
@@ -104,7 +104,11 @@ export default function EstimateAdvancedSections({
     const bunkers = offRow?.bunkers || [];
     const last = bunkers[bunkers.length - 1];
     if (last && (!String(last.bunkerGradeId || '').trim() || !String(last.qty || '').trim())) {
-      await alert({ title: 'Alert', message: 'Please fill previous data', confirmLabel: 'OK' });
+      await alert({
+        title: 'Missing Information',
+        message: 'Please fill in missing data from previous sections for results.',
+        confirmLabel: 'OK',
+      });
       return;
     }
     const rows = (form.offHireRows || []).map((row) => {

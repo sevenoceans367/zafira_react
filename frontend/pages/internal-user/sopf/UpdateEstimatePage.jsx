@@ -243,7 +243,7 @@ export default function UpdateEstimatePage() {
 
     const validationError = validateEstimateForm(form);
     if (validationError) {
-      await alert({ title: 'Alert', message: validationError.message, confirmLabel: 'OK' });
+      await alert({ title: 'Missing Information', message: validationError.message, confirmLabel: 'OK' });
       focusEstimateValidationField(validationError.fieldId);
       return;
     }

@@ -56,6 +56,8 @@ export function buildEstimateSubmitPayload(form, estimateType, periodId = null) 
     offHireCveAmt: form.offHireCveAmt,
     lessOffHire: form.lessOffHire,
     ballastBonus: form.ballastBonus,
+    hireagePercent: form.hireagePercent,
+    hireageBroPercent: form.hireageBroPercent,
     lumpsum: form.lumpsum,
     lumpsumQty: form.lumpsumQty,
     chkLumpsum: !!form.chkLumpsum,

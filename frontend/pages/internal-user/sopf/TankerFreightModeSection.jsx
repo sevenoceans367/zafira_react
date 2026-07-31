@@ -221,7 +221,7 @@ export default function TankerFreightModeSection({
   const addTankerWsRow = async () => {
     const blockMessage = getAddRowBlockMessage('tankerWsRows', form.tankerWsRows || []);
     if (blockMessage) {
-      await alert({ title: 'Alert', message: blockMessage, confirmLabel: 'OK' });
+      await alert({ title: 'Missing Information', message: blockMessage, confirmLabel: 'OK' });
       return;
     }
     const row = createEmptyTankerWsRow();

@@ -199,7 +199,10 @@ export default function OpsVcBunkerPage() {
     const rows = draft.ports[portIndex][field] || [];
     const last = rows[rows.length - 1];
     if (last && !rowFilled(last)) {
-      await alert({ title: 'Alert', message: 'Please fill previous data' });
+      await alert({
+        title: 'Missing Information',
+        message: 'Please fill in missing data from previous sections for results.',
+      });
       return;
     }
     const ports = [...draft.ports];

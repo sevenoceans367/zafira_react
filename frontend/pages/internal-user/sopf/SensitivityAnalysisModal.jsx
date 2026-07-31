@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from '@bainbridge/shared-ui';
+import { Button, useAlert } from '@bainbridge/shared-ui';
 import { updateSensitivityEstimate, downloadSensitivityAnalysisPdf } from '../../../services/estimateList.js';
 import {
   buildColumnState,
@@ -48,6 +48,7 @@ export default function SensitivityAnalysisModal({
   businessType,
   onClose,
 }) {
+  const alert = useAlert();
   const printRef = useRef(null);
   const [columns, setColumns] = useState([]);
   const [bunkerGrades, setBunkerGrades] = useState([]);
@@ -149,9 +150,17 @@ export default function SensitivityAnalysisModal({
     setUpdatingId(columnId);
     try {
       await updateSensitivityEstimate(columnId, buildUpdatePayload(column, metrics));
-      window.alert('Estimate updated successfully.');
+      await alert({
+        title: 'Success',
+        message: 'Estimate updated successfully.',
+        confirmLabel: 'OK',
+      });
     } catch (error) {
-      window.alert(error.message || 'Failed to update estimate.');
+      await alert({
+        title: 'Error',
+        message: error.message || 'Failed to update estimate.',
+        confirmLabel: 'OK',
+      });
     } finally {
       setUpdatingId('');
     }
@@ -170,7 +179,11 @@ export default function SensitivityAnalysisModal({
         })),
       });
     } catch (error) {
-      window.alert(error.message || 'Failed to generate PDF.');
+      await alert({
+        title: 'Error',
+        message: error.message || 'Failed to generate PDF.',
+        confirmLabel: 'OK',
+      });
     } finally {
       setPdfLoading(false);
     }

@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import { fetchVesselsWithinRange } from '../../../services/vesselPositions.js';
 import VesselSearchModal from './VesselSearchModal.jsx';
 import {
@@ -40,6 +40,7 @@ function buildPopupHtml(vessel) {
 }
 
 export default function VesselPositionPage() {
+  const alert = useAlert();
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markerLayerRef = useRef(null);
@@ -117,13 +118,21 @@ export default function VesselPositionPage() {
       });
 
       if (data.resultCode !== 200) {
-        window.alert('Something went wrong!');
+        await alert({
+          title: 'Error',
+          message: 'Something went wrong!',
+          confirmLabel: 'OK',
+        });
         handleReset();
         return;
       }
 
       if (!data.vessels?.length) {
-        window.alert('No vessels found!');
+        await alert({
+          title: 'Notice',
+          message: 'No vessels found!',
+          confirmLabel: 'OK',
+        });
         handleReset();
         return;
       }
@@ -132,12 +141,16 @@ export default function VesselPositionPage() {
       setShowReset(true);
       renderVessels(data.vessels);
     } catch (error) {
-      window.alert(error.message || 'Something went wrong!');
+      await alert({
+        title: 'Error',
+        message: error.message || 'Something went wrong!',
+        confirmLabel: 'OK',
+      });
       handleReset();
     } finally {
       setLoading(false);
     }
-  }, [latitude, longitude, radius, navStatus, renderVessels, handleReset]);
+  }, [alert, latitude, longitude, radius, navStatus, renderVessels, handleReset]);
 
   const handleMapClick = useCallback((event) => {
     if (searchLockedRef.current) return;

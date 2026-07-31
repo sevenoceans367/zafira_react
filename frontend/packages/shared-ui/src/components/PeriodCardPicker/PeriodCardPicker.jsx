@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../Button/Button.jsx';
+import { useAlert } from '../ConfirmDialog/ConfirmContext.jsx';
 import styles from './PeriodCardPicker.module.css';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -115,6 +116,7 @@ export default function PeriodCardPicker({
   subtitle = 'Choose a from and to date range.',
   align = 'end',
 }) {
+  const alert = useAlert();
   const wrapRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [viewDate, setViewDate] = useState(() => parseDmy(from) || startOfDay(new Date()));
@@ -238,7 +240,7 @@ export default function PeriodCardPicker({
     setViewDate(parsed);
   };
 
-  const handleApply = () => {
+  const handleApply = async () => {
     commitFromInput();
     commitToInput();
 
@@ -246,11 +248,19 @@ export default function PeriodCardPicker({
     const nextTo = parseDmy(toInput) || draftTo;
 
     if (!nextFrom || !nextTo) {
-      window.alert('Please select both start and end dates');
+      await alert({
+        title: 'Missing Information',
+        message: 'Please select both start and end dates',
+        confirmLabel: 'OK',
+      });
       return;
     }
     if (nextFrom > nextTo) {
-      window.alert('Start date cannot be after end date');
+      await alert({
+        title: 'Missing Information',
+        message: 'Start date cannot be after end date',
+        confirmLabel: 'OK',
+      });
       return;
     }
 

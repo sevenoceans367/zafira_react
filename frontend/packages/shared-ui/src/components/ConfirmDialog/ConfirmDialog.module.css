@@ -1,72 +1,239 @@
-.backdrop {
+/* Seven Oceans — Global Alert / Confirm Pattern */
+
+.overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 2000;
+  z-index: 1050;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
+  background: rgba(15, 25, 40, 0.55);
+  animation: soFadeIn 0.18s ease;
 }
 
 .dialog {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  padding: 30px 30px 26px;
   background: #fff;
-  border-radius: var(--border-radius-md, 10px);
-  width: min(95%, 480px);
-  max-height: min(90vh, 720px);
-  overflow: auto;
-  padding: 20px 24px;
-  box-shadow: var(--shadow-md, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
+  border-radius: 18px;
+  box-shadow: 0 24px 56px rgba(15, 25, 40, 0.35);
+  animation: soSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.closeBtn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #8a93a0;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.closeBtn:hover:not(:disabled) {
+  background: #f1f2f4;
+  color: #57626f;
+}
+
+.closeBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 26px;
+  padding-right: 24px;
+}
+
+.iconBadge {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fdece4;
+  color: #f4652c;
+}
+
+.iconGlyph {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.iconBadge svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.iconBadgeConfirm {
+  background: rgba(39, 70, 112, 0.1);
+  color: #274670;
+}
+
+.iconBadgeError {
+  background: rgba(200, 48, 48, 0.1);
+  color: #c83030;
+}
+
+.iconBadgeSuccess {
+  background: rgba(34, 140, 90, 0.12);
+  color: #228c5a;
+}
+
+.copy {
+  min-width: 0;
+  flex: 1;
 }
 
 .title {
-  margin: 0 0 12px;
-  font-family: var(--font-family-heading);
-  font-size: var(--font-size-subtitle);
-  font-weight: 600;
-  color: #111827;
+  margin: 2px 0 8px;
+  color: #274670;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 
 .message {
-  margin: 0 0 12px;
-  font-family: var(--font-family-body);
-  font-size: var(--font-size-body);
-  color: #374151;
-  line-height: 1.5;
-}
-
-.validationList {
-  margin: 0 0 12px;
-  padding-left: 20px;
-  font-family: var(--font-family-body);
-  font-size: var(--font-size-body);
-  color: #374151;
+  margin: 0;
+  color: #57626f;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.55;
+  white-space: pre-wrap;
 }
 
 .body {
-  margin: 12px 0;
+  margin-top: 12px;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-family: var(--font-family-body);
-  font-size: var(--font-size-body);
-  color: #374151;
+.validationList {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: #57626f;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .error {
-  margin: 8px 0 0;
-  font-family: var(--font-family-body);
-  font-size: var(--font-size-body);
-  color: #c0392b;
-  font-weight: 500;
+  margin: 10px 0 0;
+  color: #c83030;
+  font-size: 13px;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 10px;
+}
+
+.btnCancel {
+  min-width: 88px;
+  padding: 10px 22px;
+  border: 1.5px solid #e4e6e9;
+  border-radius: 999px;
+  background: #fff;
+  color: #274670;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btnCancel:hover:not(:disabled) {
+  background: #f1f2f4;
+  border-color: #d0dae8;
+}
+
+.btnOk {
+  min-width: 88px;
+  padding: 10px 26px;
+  border: none;
+  border-radius: 999px;
+  background: #f4652c;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.btnOk:hover:not(:disabled) {
+  background: #e0551e;
+}
+
+.btnOk:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btnOk:disabled,
+.btnCancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnOk:focus-visible,
+.btnCancel:focus-visible,
+.closeBtn:focus-visible {
+  outline: 2px solid #274670;
+  outline-offset: 2px;
+}
+
+@keyframes soFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes soSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 480px) {
+  .dialog {
+    padding: 26px 22px 22px;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .btnCancel,
+  .btnOk {
+    width: 100%;
+  }
 }

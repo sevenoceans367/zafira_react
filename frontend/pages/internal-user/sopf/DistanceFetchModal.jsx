@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Button, CardSelect } from '@bainbridge/shared-ui';
+import { Button, CardSelect, useAlert } from '@bainbridge/shared-ui';
 import { fetchPortDistance } from '../../../services/estimateDetail.js';
 import {
   NAVIGATION_METHOD_OPTIONS,
@@ -50,6 +50,7 @@ export default function DistanceFetchModal({
   onClose,
   onConfirm,
 }) {
+  const alert = useAlert();
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const layerRef = useRef(null);
@@ -202,7 +203,11 @@ export default function DistanceFetchModal({
 
   const handleGetDistance = async () => {
     if (!leg?.fromPortId || !leg?.toPortId) {
-      setError('Please select From Port and To Port');
+      await alert({
+        title: 'Missing Information',
+        message: 'Please select From Port and To Port',
+        confirmLabel: 'OK',
+      });
       return;
     }
     setLoading(true);

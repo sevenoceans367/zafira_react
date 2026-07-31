@@ -852,10 +852,23 @@ export function computeEstimateTotals(form) {
     };
   });
   const totalOrcCost = round2(orcs.reduce((sum, row) => sum + num(row.amount), 0));
+  // PHP setIlhocForTcDet: txtIlohcForTcDet = txtORCAmt_6 (owner cost id 12 / ILOHC).
+  // Included in ops expenses, then added back into voyage_earning for Nett Daily TCE / P&L.
+  const ilohcRow = orcs.find((row) => {
+    const costId = String(row.costId || '');
+    const name = String(row.costName || '').toUpperCase();
+    return costId === '12' || name.includes('ILOHC');
+  });
+  const ilohcAmt = round2(num(ilohcRow?.amount) || num(form.ilohcForTcDet));
 
   const otherIncomes = otherIncomeRows.map((row) => {
-    const net = num(row.netAmount) || round2(num(row.amount) - num(row.addComm));
-    return { ...row, netAmount: net ? String(net) : row.netAmount };
+    // PHP Add Comm(%): net = amount − amount × percent / 100 (empty percent → 0%).
+    const amount = num(row.amount);
+    const addCommPct = num(row.addComm);
+    const net = amount > 0
+      ? round2(amount - ((amount * addCommPct) / 100))
+      : (num(row.netAmount) || 0);
+    return { ...row, netAmount: net ? String(net) : '0.00' };
   });
   const totalOtherIncome = round2(
     otherIncomes.reduce((sum, row) => sum + num(row.netAmount || row.amount), 0),
@@ -943,7 +956,9 @@ export function computeEstimateTotals(form) {
   });
 
   const freightFromCargo = round2(allCargos.reduce((sum, row) => sum + num(row.amountUsd), 0));
-  const isTanker = Number(form.estimateType) === 2;
+  const estimateType = Number(form.estimateType) || 2;
+  const isTanker = estimateType === 2;
+  const isGas = estimateType === 1;
   const lumpsum = isTanker
     ? (form.chkLumpsum ? num(form.lumpsum) : 0)
     : num(form.lumpsum);
@@ -959,7 +974,18 @@ export function computeEstimateTotals(form) {
     ? round2(tankerFreightRate * cargoQtyTotal)
     : 0;
   let freightGross = 0;
-  if (tankType === '1') {
+  if (isGas) {
+    // PHP rdoEstimateType==1: base rate × gas qty, or gas lumpsum.
+    const gasQty = num(form.cargoQuantity) || cargoQtyTotal;
+    const gasBase = num(form.gasBaseRate);
+    const gasFromRate = gasQty > 0 && gasBase > 0 ? round2(gasQty * gasBase) : 0;
+    freightGross = round2(
+      gasFromRate
+      || lumpsum
+      || num(form.freightGross)
+      || freightFromCargo,
+    );
+  } else if (tankType === '1') {
     freightGross = round2(
       lumpsum
       || totalTankerWs
@@ -1007,6 +1033,7 @@ export function computeEstimateTotals(form) {
   const hireRate = num(form.hireRate);
   const portIdleDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portIdleDays), 0));
   const portStayDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portStayDays), 0));
+  // Hire days = sea + full port stay (work + idle). Matches PHP txtTDays / hire-days base.
   const hireDays = round3(seaDays + portStayDays || num(form.totalDays));
   const hireAmt = round2(
     totalHireFromRows || num(form.hireAmt) || hireRate * hireDays,
@@ -1032,14 +1059,40 @@ export function computeEstimateTotals(form) {
   ladenDays = round3(ladenDays);
   ballastDays = round3(ballastDays);
   const totalSeaDays = round3(ladenDays + ballastDays);
-  const totalDays = round3(totalSeaDays + portIdleDays + portStayDays || num(form.totalDays) || 0);
+  // PHP txtTDays = sea + idle + work. portStayDays already includes idle+work — do not add idle again.
+  const totalDays = round3(totalSeaDays + portStayDays || num(form.totalDays) || 0);
 
-  // PHP: CVE ($) = (CVE/Month × 12 / 365) × total voyage days
+  // PHP: CVE ($) = (CVE/Month × 12 / 365) × total voyage days (txtTDays)
   const cvePerMonth = num(form.cvePerMonth);
   const cveAmt = cvePerMonth > 0
     ? round2(((cvePerMonth * 12) / 365) * (totalDays || 0))
     : num(form.cveAmt);
   const ballastBonus = num(form.ballastBonus);
+
+  // PHP hireage CVE uses hire-days sum (txtTotalVoyageDays), not total days.
+  const hireageCveAmt = cvePerMonth > 0
+    ? round2(((cvePerMonth * 12) / 365) * (hireDays || 0))
+    : 0;
+
+  // PHP: gross = ballast + hire; nett = gross − addComm% − broker% on hire amt.
+  // Hireage % fields often sync from freight addcomm / brokerage (dummyAdcom / dummyBrokerage).
+  const hireageAddCommPct = form.hireagePercent != null && String(form.hireagePercent).trim() !== ''
+    ? num(form.hireagePercent)
+    : addCommPercent;
+  const hireageBroPct = form.hireageBroPercent != null && String(form.hireageBroPercent).trim() !== ''
+    ? num(form.hireageBroPercent)
+    : brokeragePercent;
+  const grossHireargeAmt = round2(ballastBonus + hireAmt);
+  const hireageAddCommAmt = round2((grossHireargeAmt * hireageAddCommPct) / 100);
+  const hireageBroAmt = round2((hireAmt * hireageBroPct) / 100);
+  const nettHireargeAmt = round2(grossHireargeAmt - hireageAddCommAmt - hireageBroAmt);
+
+  const offHireDays = round2(offHires.reduce((sum, row) => sum + num(row.days), 0));
+  const offHireCvePerMonth = num(form.offHireCve) || cvePerMonth;
+  const offHireCveAmt = offHireCvePerMonth > 0 && offHireDays > 0
+    ? round2(((offHireCvePerMonth * 12) / 365) * offHireDays)
+    : num(form.offHireCveAmt);
+  const lessOffHire = round2(totalOffHireAmt + offHireCveAmt);
 
   const demurrageBrokerPercent = num(form.demurrageBrokerPercent)
     || round2(brokeragePercent + addCommPercent);
@@ -1081,7 +1134,10 @@ export function computeEstimateTotals(form) {
 
   const deliveryTotal = round2(deliveryBunkers.reduce((sum, row) => sum + num(row.amount), 0));
   const redeliveryTotal = round2(redeliveryBunkers.reduce((sum, row) => sum + num(row.amount), 0));
-  const netHireage = round2(hireAmt + deliveryTotal + cveAmt - redeliveryTotal - totalOffHireAmt);
+  // PHP txtFinalHireargeAmt = nettHire + delivery + hireageCVE − redelivery − OffhireDaysAMT
+  const netHireage = round2(
+    nettHireargeAmt + deliveryTotal + hireageCveAmt - redeliveryTotal - lessOffHire,
+  );
 
   const vesselDailyOps = num(form.vesselDailyOps);
   const vesselDailyOpsAmt = round2(vesselDailyOps * (totalDays || 0));
@@ -1421,10 +1477,12 @@ export function computeEstimateTotals(form) {
       ? storedSecaExpense
       : (bunkerExpenseSaved > 0 ? round2(bunkerExpenseSaved) : 0));
   // PHP: revenue = freight − address commission + other income (lumpsum already in freight when used)
-  const revenue = round2(Math.max(0, freightGross - addressCommAmt) + totalOtherIncome);
+  const revenue = round2((freightGross - addressCommAmt) + totalOtherIncome);
   const totalExpenses = round2(operationalExpenses + totalPortCost + bunkerExpenseTotal);
-  const voyageEarnings = round2(revenue - totalExpenses - cveAmt + demurrageNett);
-  const gTotalVoyageEarnings = round2(revenue - totalExpenses - netHireage);
+  // PHP costbeforebamarage (Voyage Earnings) = revenue − expenses − hireageCVE + demurrage
+  const voyageEarnings = round2(revenue - totalExpenses - hireageCveAmt + demurrageNett);
+  // PHP: voyage_earning = revenue - totalexpenses - finalHireage + txtIlohcForTcDet
+  const gTotalVoyageEarnings = round2(revenue - totalExpenses - netHireage + ilohcAmt);
   const daysForTce = totalDays > 0 ? totalDays : 1;
   const nettDailyTce = round2((gTotalVoyageEarnings + demurrageNett) / daysForTce);
   const profitLoss = round2(gTotalVoyageEarnings + demurrageNett);
@@ -1462,7 +1520,16 @@ export function computeEstimateTotals(form) {
     totalOrcCost: String(totalOrcCost || ''),
     totalOtherIncome: String(totalOtherIncome || ''),
     totalHireAmt: String(hireAmt || ''),
-    totalOffHireAmt: String(totalOffHireAmt || ''),
+    totalOffHireAmt: String(lessOffHire || ''),
+    lessOffHire: String(lessOffHire || ''),
+    offHireCveAmt: String(offHireCveAmt || ''),
+    hireagePercent: String(hireageAddCommPct || ''),
+    hireageBroPercent: String(hireageBroPct || ''),
+    hireagePercentAmt: String(hireageAddCommAmt || ''),
+    hireageBroPercentAmt: String(hireageBroAmt || ''),
+    grossHireargeAmt: String(grossHireargeAmt || ''),
+    nettHireargeAmt: String(nettHireargeAmt || ''),
+    hireageCveAmt: String(hireageCveAmt || ''),
     totalFreightQty: String(totalFreightQty || ''),
     cargoQuantity: String(cargoQuantity || ''),
     freightGross: String(freightGross || ''),
@@ -1472,12 +1539,14 @@ export function computeEstimateTotals(form) {
     hireAmt: String(hireAmt || ''),
     cvePerMonth: form.cvePerMonth != null ? String(form.cvePerMonth) : '',
     cveAmt: String(cveAmt || ''),
+    ballastBonus: String(ballastBonus || ''),
     demurrageRevenue: String(demurrageRevenue || ''),
     demurrageBrokerPercent: String(demurrageBrokerPercent || ''),
     demurrageBrokerAmt: String(demurrageBrokerAmt || ''),
     demurrageNett: String(demurrageNett || ''),
     operationalExpenses: String(operationalExpenses || ''),
     netHireage: String(netHireage || ''),
+    ilohcForTcDet: String(ilohcAmt || ''),
     vesselDailyOpsAmt: String(vesselDailyOpsAmt || ''),
     hsfoMt: String(bunkerMt.HSFO || ''),
     vlsfoMt: String(bunkerMt.VLSFO || ''),

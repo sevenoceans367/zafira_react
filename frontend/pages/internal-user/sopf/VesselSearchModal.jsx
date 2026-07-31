@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Button } from '@bainbridge/shared-ui';
+import React from 'react';
+import { Button, useAlert } from '@bainbridge/shared-ui';
 import { NAVIGATION_STATUSES } from './vesselPosition.constants.js';
 import styles from './VesselSearchModal.module.css';
 
@@ -15,6 +15,8 @@ export default function VesselSearchModal({
   onSubmit,
   submitting,
 }) {
+  const alert = useAlert();
+
   if (!open) return null;
 
   const toggleStatus = (index) => {
@@ -24,13 +26,21 @@ export default function VesselSearchModal({
     onNavStatusChange(next);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (radius === '' || radius == null) {
-      window.alert('Please fill Radius!');
+      await alert({
+        title: 'Missing Information',
+        message: 'Please fill Radius!',
+        confirmLabel: 'OK',
+      });
       return;
     }
     if (Number(radius) <= 0) {
-      window.alert('Radius should be greater than zero');
+      await alert({
+        title: 'Missing Information',
+        message: 'Radius should be greater than zero',
+        confirmLabel: 'OK',
+      });
       return;
     }
     onSubmit();

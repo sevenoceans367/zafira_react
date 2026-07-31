@@ -159,9 +159,30 @@ export default function OpsVcHistoryPage() {
                 </td>
                 <td><span className={styles.linkMuted}>FDA</span></td>
                 <td className={styles.actionsCell}>
-                  <div><span className={styles.linkMuted}>Laytime</span></div>
-                  <div><span className={styles.linkMuted}>Bunkers</span></div>
-                  <div><span className={styles.linkMuted}>SOA</span></div>
+                  <div>
+                    <Link
+                      className={styles.opsViewLink}
+                      to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                    >
+                      Laytime
+                    </Link>
+                  </div>
+                  <div>
+                    <Link
+                      className={styles.opsViewLink}
+                      to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                    >
+                      Bunkers
+                    </Link>
+                  </div>
+                  <div>
+                    <Link
+                      className={styles.opsViewLink}
+                      to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                    >
+                      SOA
+                    </Link>
+                  </div>
                 </td>
                 <td className={styles.actionsCell}>
                   <div>

@@ -81,6 +81,48 @@ export async function saveSof(payload) {
   return parseJson(response, 'Failed to save SOF.');
 }
 
+export async function fetchLaytimeForm(comId) {
+  const response = await fetch(`${BASE}/ops/laytime${toQuery({ comId })}`);
+  return parseJson(response, 'Failed to load Laytime.');
+}
+
+export async function saveLaytime(payload) {
+  const response = await fetch(`${BASE}/ops/laytime`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJson(response, 'Failed to save Laytime.');
+}
+
+export async function openLaytime(payload) {
+  const response = await fetch(`${BASE}/ops/laytime/open`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJson(response, 'Failed to open Laytime.');
+}
+
+export async function fetchBunkerForm(comId, prevComId) {
+  const response = await fetch(`${BASE}/ops/bunker${toQuery({ comId, prevComId })}`);
+  return parseJson(response, 'Failed to load Bunker Calculations.');
+}
+
+export async function saveBunker(payload) {
+  const response = await fetch(`${BASE}/ops/bunker`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJson(response, 'Failed to save Bunker Calculations.');
+}
+
+export async function fetchSoaReport(comId) {
+  const response = await fetch(`${BASE}/ops/soa-report${toQuery({ comId })}`);
+  return parseJson(response, 'Failed to load SOA report.');
+}
+
 export async function fetchAgencyLetterForm(comId) {
   const response = await fetch(`${BASE}/ops/agency-letter${toQuery({ comId })}`);
   return parseJson(response, 'Failed to load port related letters.');

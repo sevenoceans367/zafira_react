@@ -7,6 +7,7 @@ import {
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
+import { getUser } from '@bainbridge/shared-auth';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
@@ -84,10 +85,12 @@ export default function OpsVcPostOpsPage() {
       ]);
       setBusinessTypes(types);
       setYears(yearOptions);
-      setOperators(operatorOptions);
+      setOperators(Array.isArray(operatorOptions) ? operatorOptions : []);
       setRows(data.records || []);
       setTotal(data.recordsTotal || 0);
-      setCanEditOperator(Boolean(data.canEditOperator));
+      // PHP: $_SESSION['iutype'] == 'mgmt_user' shows operator <select>
+      const loggedInIsMgmt = getUser()?.userType === 'mgmt_user';
+      setCanEditOperator(loggedInIsMgmt || Boolean(data.canEditOperator));
     } catch (err) {
       setError(err.message || 'Failed to load Post Ops at a glance.');
     } finally {
@@ -267,9 +270,30 @@ export default function OpsVcPostOpsPage() {
                       SOF
                     </Link>
                   </div>
-                  <div><span className={styles.linkMuted}>Laytime</span></div>
-                  <div><span className={styles.linkMuted}>Bunkers</span></div>
-                  <div><span className={styles.linkMuted}>SOA</span></div>
+                  <div>
+                    <Link
+                      className={styles.opsViewLink}
+                      to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                    >
+                      Laytime
+                    </Link>
+                  </div>
+                  <div>
+                    <Link
+                      className={styles.opsViewLink}
+                      to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                    >
+                      Bunkers
+                    </Link>
+                  </div>
+                  <div>
+                    <Link
+                      className={styles.opsViewLink}
+                      to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                    >
+                      SOA
+                    </Link>
+                  </div>
                 </td>
                 <td>
                   <Link
@@ -292,7 +316,7 @@ export default function OpsVcPostOpsPage() {
                       value={row.operatorId || ''}
                       onChange={(e) => handleOperatorChange(row, e.target.value)}
                     >
-                      <option value="">---Select---</option>
+                      <option value="">---Select from list---</option>
                       {operators.map((opt) => (
                         <option key={opt.id} value={opt.id}>{opt.name}</option>
                       ))}

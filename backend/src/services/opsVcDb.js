@@ -126,13 +126,14 @@ export async function dbListOpsVcYears() {
 
 export async function dbListOpsVcOperators() {
   const pool = getPool();
+  // PHP getUserListForOp(): all internal_user / mgmt_user (no STATUS filter).
   const [rows] = await pool.query(
     `SELECT LOGINID AS id, CONTACT_PERSON AS name
      FROM login
-     WHERE STATUS = 1 AND USER_TYPE IN ('internal_user', 'mgmt_user')
+     WHERE USER_TYPE IN ('internal_user', 'mgmt_user')
      ORDER BY CONTACT_PERSON`,
   );
-  return rows.map((row) => ({
+  return (rows || []).map((row) => ({
     id: String(row.id),
     name: row.name || String(row.id),
   }));
@@ -147,7 +148,7 @@ export async function dbListPostOpsAtGlance(params = {}) {
 }
 
 export async function dbListHistoryAtGlance(params = {}) {
-  return dbListOpsVcGlance({ ...params, status: [3, 4], requireYear: false });
+  return dbListOpsVcGlance({ ...params, status: [3, 4], requireYear: false, canEditOperator: false });
 }
 
 async function dbListOpsVcGlance({
@@ -158,6 +159,7 @@ async function dbListOpsVcGlance({
   pageSize = 50,
   status = 1,
   requireYear = true,
+  canEditOperator: canEditOperatorOverride,
 } = {}) {
   const pool = getPool();
   const businessType = String(selBType || '2');
@@ -167,6 +169,10 @@ async function dbListOpsVcGlance({
     : [Number(status) === 2 ? 2 : Number(status) === 3 ? 3 : Number(status) === 4 ? 4 : 1];
   const safeStatuses = statusList.length ? statusList : [1];
   const isHistory = safeStatuses.includes(3) || safeStatuses.includes(4);
+  // PHP in_ops_at_glance.php: dropdown only when $_SESSION['iutype'] == 'mgmt_user'
+  const allowOperatorEdit = canEditOperatorOverride != null
+    ? Boolean(canEditOperatorOverride)
+    : (!isHistory && isMgmtUser());
   const safePage = Math.max(1, Number(page) || 1);
   const safeSize = Math.max(1, Math.min(200, Number(pageSize) || 50));
   const offset = (safePage - 1) * safeSize;
@@ -343,7 +349,7 @@ async function dbListOpsVcGlance({
       canDeactivate: !isHistory,
       canMoveToPostOps: rowStatus === 1,
       canMoveToHistory: rowStatus === 2,
-      canEditOperator: !isHistory && isMgmtUser(),
+      canEditOperator: allowOperatorEdit,
       pageContext: isHistory ? 3 : (rowStatus === 2 ? 2 : 1),
     });
   }
@@ -356,7 +362,7 @@ async function dbListOpsVcGlance({
     selBType: businessType,
     selYear: requireYear ? year : '',
     status: isHistory ? 'history' : safeStatuses[0],
-    canEditOperator: !isHistory && isMgmtUser(),
+    canEditOperator: allowOperatorEdit,
   };
 }
 

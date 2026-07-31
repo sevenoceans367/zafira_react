@@ -35,6 +35,9 @@ import {
 import { getPaymentGridTc } from '../services/paymentGridTcService.js';
 import { getPaymentGridVc } from '../services/paymentGridVcService.js';
 import { getSofForm, saveSof } from '../services/sofService.js';
+import { getLaytimeForm, saveLaytime, openLaytime } from '../services/laytimeService.js';
+import { getBunkerForm, saveBunker } from '../services/bunkerService.js';
+import { getSoaReport } from '../services/soaReportService.js';
 import { getCompareSheetsTc } from '../services/compareSheetsTcService.js';
 import { generateCompareSheetsTcPdf } from '../services/compareSheetsTcPdfService.js';
 import { resolveRequestIsMgmtUser } from '../services/authService.js';
@@ -170,6 +173,8 @@ router.get('/ops/in-ops-glance', asyncHandler(async (req, res) => {
     search: req.query.search || '',
     page: Number(req.query.page) || 1,
     pageSize: Number(req.query.pageSize) || 50,
+    // PHP in_ops_at_glance.php: dropdown only when $_SESSION['iutype'] == 'mgmt_user'
+    canEditOperator: resolveRequestIsMgmtUser(req),
   }));
 }));
 
@@ -180,6 +185,7 @@ router.get('/ops/post-ops', asyncHandler(async (req, res) => {
     search: req.query.search || '',
     page: Number(req.query.page) || 1,
     pageSize: Number(req.query.pageSize) || 50,
+    canEditOperator: resolveRequestIsMgmtUser(req),
   }));
 }));
 
@@ -225,6 +231,34 @@ router.get('/ops/sof', asyncHandler(async (req, res) => {
 
 router.post('/ops/sof', asyncHandler(async (req, res) => {
   res.json(await saveSof(req.body || {}));
+}));
+
+router.get('/ops/laytime', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  res.json(await getLaytimeForm(comId));
+}));
+
+router.post('/ops/laytime', asyncHandler(async (req, res) => {
+  res.json(await saveLaytime(req.body || {}));
+}));
+
+router.post('/ops/laytime/open', asyncHandler(async (req, res) => {
+  res.json(await openLaytime(req.body || {}));
+}));
+
+router.get('/ops/bunker', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  const prevComId = req.query.prevComId || req.query.prevcomid;
+  res.json(await getBunkerForm(comId, prevComId));
+}));
+
+router.post('/ops/bunker', asyncHandler(async (req, res) => {
+  res.json(await saveBunker(req.body || {}));
+}));
+
+router.get('/ops/soa-report', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  res.json(await getSoaReport(comId));
 }));
 
 router.get('/ops/agency-letter', asyncHandler(async (req, res) => {

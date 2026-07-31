@@ -13,6 +13,9 @@ const PAGES = {
   'agency-letter': 'Generate Port Related Letters',
   'payment-grid': 'Payment / Invoice Grid',
   sof: 'SOF',
+  laytime: 'Laytime',
+  bunker: 'Bunkers',
+  'soa-report': 'SOA',
 };
 
 export function resolveOpsVcHeader(pathname) {
@@ -74,6 +77,48 @@ export function resolveOpsVcHeader(pathname) {
         OPS_VC,
         { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
         { label: 'SOF' },
+      ],
+    };
+  }
+
+  if (pageId === 'laytime') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Laytime',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Laytime' },
+      ],
+    };
+  }
+
+  if (pageId === 'bunker') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Bunkers',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Bunkers' },
+      ],
+    };
+  }
+
+  if (pageId === 'soa-report') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'SOA',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'SOA' },
       ],
     };
   }

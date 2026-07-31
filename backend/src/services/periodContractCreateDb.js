@@ -132,8 +132,8 @@ export async function dbCreatePeriodContract(payload, attachments = {}) {
 
       const [offResult] = await connection.query(
         `INSERT INTO period_contract_master_slave2 (
-          PERIODID, OFF_HIRE_REASON, OFF_HIRE_FROM, OFF_HIRE_TO,
-          OFF_HIRE_DAYS, OFF_HIRE_RATE, OFF_HIRE_AMT
+          PERIODID, OFF_REASON, OFF_FROM, OFF_TO,
+          OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           periodId,
@@ -152,7 +152,7 @@ export async function dbCreatePeriodContract(payload, attachments = {}) {
         if (!bunker.gradeId || bunker.amount == null || bunker.amount === '') continue;
         await connection.query(
           `INSERT INTO period_contract_master_slave21 (
-            PERIOD_SLAVEID, PERIODID, BUNKERGRADEID, BUNKER_QTY, BUNKER_PRICE, BUNKER_AMT, CHK_OWNER_ACCOUNT
+            PERIOD_SLAVEID, PERIODID, BUNKERID, BUNKERQTY, BUNKERPRICE, BUNKERAMT, CHK_OWNER_ACCOUNT
           ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             offHireId,

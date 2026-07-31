@@ -26,6 +26,7 @@ export function resolvePeriodContractHeader(pathname) {
 
   const listHref = periodContractAppPath(module);
   const isAdd = pathname.includes('/period-contracts/add');
+  const isEdit = /\/period-contracts\/edit\//.test(pathname);
 
   if (isAdd) {
     return {
@@ -36,6 +37,19 @@ export function resolvePeriodContractHeader(pathname) {
         moduleBreadcrumb(module),
         { label: 'Period Contract', href: listHref },
         { label: 'Add New' },
+      ],
+    };
+  }
+
+  if (isEdit) {
+    return {
+      title: 'Period Contract',
+      currentPage: 'Edit Details',
+      breadcrumbs: [
+        HOME,
+        moduleBreadcrumb(module),
+        { label: 'Period Contract', href: listHref },
+        { label: 'Edit Details' },
       ],
     };
   }
@@ -53,6 +67,10 @@ export function resolvePeriodContractHeader(pathname) {
 
 export function periodContractAddPath(module) {
   return periodContractAppPath(module, 'add');
+}
+
+export function periodContractEditPath(module, id) {
+  return periodContractAppPath(module, `edit/${id}`);
 }
 
 export function periodContractListPath(module) {

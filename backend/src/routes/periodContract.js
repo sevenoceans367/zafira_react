@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import {
   createPeriodContract,
+  getPeriodContractById,
   getPeriodContractList,
   getPeriodContractLookups,
   searchPeriodContractPorts,
+  updatePeriodContract,
 } from '../services/periodContractService.js';
 import { mapUploadedFiles } from '../utils/ticketAttachments.js';
-import { vesselUpload } from '../utils/vesselAttachments.js';
+import { mergeVesselAttachments, vesselUpload } from '../utils/vesselAttachments.js';
 
 const router = Router();
 
@@ -57,6 +59,47 @@ router.post('/', vesselUpload, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(400).json({ message: error.message || 'Failed to create period contract.', msg: 1 });
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const data = await getPeriodContractById(req.params.id);
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    const status = error.status || 500;
+    res.status(status).json({ message: error.message || 'Failed to load period contract.' });
+  }
+});
+
+router.put('/:id', vesselUpload, async (req, res) => {
+  try {
+    const payload = req.body.payload ? JSON.parse(req.body.payload) : req.body;
+    const existingFiles = String(req.body.existingFiles || '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const existingNames = String(req.body.existingNames || '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const { attachment, attachmentName } = mergeVesselAttachments(
+      existingFiles,
+      existingNames,
+      req.files || [],
+    );
+    const result = await updatePeriodContract(req.params.id, payload, {
+      attachment,
+      attachmentName,
+    });
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    const status = error.message?.includes('not found') ? 404
+      : error.message?.includes('cannot be edited') ? 403
+        : 400;
+    res.status(status).json({ message: error.message || 'Failed to update period contract.', msg: 1 });
   }
 });
 

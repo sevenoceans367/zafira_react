@@ -264,6 +264,36 @@
   font-size: var(--font-size-body, 12px);
 }
 
+.attachmentList {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attachmentList li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--font-size-body, 12px);
+}
+
+.attachmentList a {
+  color: #1d4ed8;
+  text-decoration: none;
+}
+
+.attachmentList button {
+  border: 0;
+  background: transparent;
+  color: #b42318;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .error {
   margin: 0 24px 16px;
   padding: 12px 14px;

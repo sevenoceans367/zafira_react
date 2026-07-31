@@ -20,6 +20,11 @@ export async function searchPeriodContractPorts(query) {
   return parseJson(response, 'Failed to search ports.');
 }
 
+export async function fetchPeriodContract(id) {
+  const response = await fetch(`${BASE}/${encodeURIComponent(id)}`);
+  return parseJson(response, 'Failed to load period contract.');
+}
+
 export async function createPeriodContract(payload, files = []) {
   const formData = new FormData();
   formData.append('payload', JSON.stringify(payload));
@@ -34,6 +39,30 @@ export async function createPeriodContract(payload, files = []) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.message || 'Failed to create period contract.');
+  }
+  return data;
+}
+
+export async function updatePeriodContract(id, payload, {
+  files = [],
+  existingFiles = [],
+  existingNames = [],
+} = {}) {
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(payload));
+  formData.append('existingFiles', existingFiles.join(','));
+  formData.append('existingNames', existingNames.join(','));
+  for (const file of files) {
+    formData.append('attach_file', file);
+  }
+
+  const response = await fetch(`${BASE}/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: formData,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to update period contract.');
   }
   return data;
 }

@@ -6,6 +6,10 @@ import {
   dbGetPeriodContractLookups,
   dbSearchPorts,
 } from './periodContractLookupsDb.js';
+import {
+  dbGetPeriodContractById,
+  dbUpdatePeriodContract,
+} from './periodContractUpdateDb.js';
 
 const MOCK_LOOKUPS = {
   contractId: 'PERIOD-001-2026',
@@ -119,7 +123,7 @@ export async function searchPeriodContractPorts(query) {
   return dbSearchPorts(query);
 }
 
-export async function createPeriodContract(payload, attachments = {}) {
+function validatePeriodContractPayload(payload) {
   if (!payload?.contractNo) {
     throw new Error('Contract No. is required.');
   }
@@ -147,6 +151,10 @@ export async function createPeriodContract(payload, attachments = {}) {
   if (!payload?.redelRange) {
     throw new Error('Redelivery Range is required.');
   }
+}
+
+export async function createPeriodContract(payload, attachments = {}) {
+  validatePeriodContractPayload(payload);
 
   if (!isDbConfigured()) {
     return {
@@ -162,4 +170,95 @@ export async function createPeriodContract(payload, attachments = {}) {
   }
 
   return dbCreatePeriodContract(payload, attachments);
+}
+
+export async function getPeriodContractById(periodId) {
+  if (!isDbConfigured()) {
+    const mock = MOCK_RECORDS.find((row) => String(row.periodId) === String(periodId));
+    if (!mock) {
+      throw Object.assign(new Error('Period contract not found.'), { status: 404 });
+    }
+    return {
+      periodId: mock.periodId,
+      updateStatus: mock.status === 'Closed Period Contract' ? '2' : '1',
+      contractId: mock.contractId,
+      contractNo: mock.contractNo,
+      contractDate: mock.contractDate,
+      ownBusinessAccount: 'SO01',
+      businessType: '3',
+      vesselType: '1',
+      vesselImoId: '1',
+      currency: mock.workingCurrency || 'USD',
+      owner: 'SO01',
+      disOwner: '',
+      manager: '',
+      broker: 'BR01',
+      brokerage: '1.25',
+      hire: mock.initialHire,
+      addComm: '2.5',
+      hireRemarks: '',
+      laycanStart: mock.contractDate,
+      laycanEnd: mock.contractDate,
+      delPort: '1',
+      delPortLabel: 'Singapore (SG)',
+      deliveryDate: mock.contractDate,
+      periodType: '1',
+      periodMin: '3',
+      periodMax: '6',
+      aboutDaysMin: '0',
+      aboutDaysMax: '0',
+      reDelMinDate: mock.reDelMinDate,
+      reDelMaxDate: mock.reDelMaxDate,
+      reDelPort: '2',
+      reDelPortLabel: 'Rotterdam (NL)',
+      redelRange: 'Worldwide',
+      voyageDaysPerformed: '',
+      tradeExclusions: '',
+      cargoExclusions: '',
+      intermediateHoldCleaning: '',
+      remarks: mock.remarks,
+      dirtiesAllowed: '',
+      dirtiesDone: '',
+      dirtiesRemaining: '',
+      holdCleaningMaterial: '',
+      addnlPremiumHra: '',
+      ilohc: '',
+      legDetails: '',
+      monthDays: '90',
+      attachments: [],
+      deliveryNotices: [{ notice: '', dateTime: '' }],
+      hireRates: [{ hireFrom: '', hireTo: '', hireDays: '', hireRate: mock.initialHire, remarks: '' }],
+      deliveryBunkers: [{ gradeId: '', qty: '', date: '', price: '', amount: '' }],
+      redeliveryBunkers: [{ gradeId: '', qty: '', date: '', price: '', amount: '' }],
+      offHires: [{
+        reason: '',
+        from: '',
+        to: '',
+        days: '',
+        rate: '',
+        amount: '',
+        bunkers: [{ gradeId: '', qty: '', price: '', amount: '', ownerAccount: false }],
+      }],
+    };
+  }
+
+  const record = await dbGetPeriodContractById(periodId);
+  if (!record) {
+    throw Object.assign(new Error('Period contract not found.'), { status: 404 });
+  }
+  return record;
+}
+
+export async function updatePeriodContract(periodId, payload, attachments = {}) {
+  validatePeriodContractPayload(payload);
+
+  if (!isDbConfigured()) {
+    return {
+      periodId: Number(periodId) || 999,
+      contractId: payload.contractId || MOCK_LOOKUPS.contractId,
+      msg: 0,
+    };
+  }
+
+  return dbUpdatePeriodContract(periodId, payload, attachments);
 }

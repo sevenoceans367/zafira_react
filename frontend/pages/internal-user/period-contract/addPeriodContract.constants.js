@@ -98,6 +98,125 @@ export const EMPTY_FORM = {
   offHires: [EMPTY_OFF_HIRE()],
 };
 
+function withAtLeastOne(rows, emptyFactory) {
+  if (!rows?.length) return [emptyFactory()];
+  return rows;
+}
+
+export function formFromPeriodContract(record) {
+  return {
+    ...EMPTY_FORM,
+    contractId: record.contractId || '',
+    contractNo: record.contractNo || '',
+    contractDate: record.contractDate || '',
+    ownBusinessAccount: record.ownBusinessAccount || '',
+    businessType: record.businessType || '2',
+    vesselType: record.vesselType || '',
+    vesselImoId: record.vesselImoId || '',
+    currency: record.currency || '',
+    owner: record.owner || '',
+    disOwner: record.disOwner || '',
+    manager: record.manager || '',
+    broker: record.broker || '',
+    brokerage: record.brokerage || '',
+    hire: record.hire || '',
+    addComm: record.addComm || '',
+    hireRemarks: record.hireRemarks || '',
+    laycanStart: record.laycanStart || '',
+    laycanEnd: record.laycanEnd || '',
+    delPort: record.delPort || '',
+    delPortLabel: record.delPortLabel || '',
+    deliveryDate: record.deliveryDate || '',
+    periodType: record.periodType || '',
+    periodMin: record.periodMin || '',
+    periodMax: record.periodMax || '',
+    aboutDaysMin: record.aboutDaysMin || '',
+    aboutDaysMax: record.aboutDaysMax || '',
+    reDelMinDate: record.reDelMinDate || '',
+    reDelMaxDate: record.reDelMaxDate || '',
+    reDelPort: record.reDelPort || '',
+    reDelPortLabel: record.reDelPortLabel || '',
+    redelRange: record.redelRange || '',
+    voyageDaysPerformed: record.voyageDaysPerformed || '',
+    tradeExclusions: record.tradeExclusions || '',
+    cargoExclusions: record.cargoExclusions || '',
+    intermediateHoldCleaning: record.intermediateHoldCleaning || '',
+    remarks: record.remarks || '',
+    dirtiesAllowed: record.dirtiesAllowed || '',
+    dirtiesDone: record.dirtiesDone || '',
+    dirtiesRemaining: record.dirtiesRemaining || '',
+    holdCleaningMaterial: record.holdCleaningMaterial || '',
+    addnlPremiumHra: record.addnlPremiumHra || '',
+    ilohc: record.ilohc || '',
+    legDetails: record.legDetails || '',
+    monthDays: record.monthDays || '',
+    deliveryNotices: withAtLeastOne(
+      (record.deliveryNotices || []).map((row) => ({
+        ...EMPTY_DELIVERY_NOTICE(),
+        notice: row.notice || '',
+        dateTime: row.dateTime || '',
+      })),
+      EMPTY_DELIVERY_NOTICE,
+    ),
+    hireRates: withAtLeastOne(
+      (record.hireRates || []).map((row) => ({
+        ...EMPTY_HIRE_RATE(),
+        hireFrom: row.hireFrom || '',
+        hireTo: row.hireTo || '',
+        hireDays: row.hireDays || '',
+        hireRate: row.hireRate || '',
+        remarks: row.remarks || '',
+      })),
+      EMPTY_HIRE_RATE,
+    ),
+    deliveryBunkers: withAtLeastOne(
+      (record.deliveryBunkers || []).map((row) => ({
+        ...EMPTY_BUNKER_ROW(),
+        gradeId: row.gradeId || '',
+        qty: row.qty || '',
+        date: row.date || '',
+        price: row.price || '',
+        amount: row.amount || '',
+      })),
+      EMPTY_BUNKER_ROW,
+    ),
+    redeliveryBunkers: withAtLeastOne(
+      (record.redeliveryBunkers || []).map((row) => ({
+        ...EMPTY_BUNKER_ROW(),
+        gradeId: row.gradeId || '',
+        qty: row.qty || '',
+        date: row.date || '',
+        price: row.price || '',
+        amount: row.amount || '',
+      })),
+      EMPTY_BUNKER_ROW,
+    ),
+    offHires: withAtLeastOne(
+      (record.offHires || []).map((row) => ({
+        ...EMPTY_OFF_HIRE(),
+        reason: row.reason || '',
+        from: row.from || '',
+        to: row.to || '',
+        days: row.days || '',
+        rate: row.rate || '',
+        amount: row.amount || '',
+        bunkers: withAtLeastOne(
+          (row.bunkers || []).map((bunker) => ({
+            ...EMPTY_OFF_HIRE_BUNKER(),
+            gradeId: bunker.gradeId || '',
+            qty: bunker.qty || '',
+            price: bunker.price || '',
+            amount: bunker.amount || '',
+            ownerAccount: Boolean(bunker.ownerAccount),
+          })),
+          EMPTY_OFF_HIRE_BUNKER,
+        ),
+      })),
+      EMPTY_OFF_HIRE,
+    ),
+  };
+}
+
 export function toCreatePayload(form, updateStatus) {
   return {
     contractId: form.contractId,
@@ -129,6 +248,7 @@ export function toCreatePayload(form, updateStatus) {
     reDelMaxDate: form.reDelMaxDate,
     reDelPort: form.reDelPort,
     redelRange: form.redelRange,
+    voyageDaysPerformed: form.voyageDaysPerformed,
     tradeExclusions: form.tradeExclusions,
     cargoExclusions: form.cargoExclusions,
     intermediateHoldCleaning: form.intermediateHoldCleaning,

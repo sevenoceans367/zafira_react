@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.js';
-import { periodContractAddPath } from '../../../constants/periodContractPageHeaders.js';
+import { periodContractAddPath, periodContractEditPath } from '../../../constants/periodContractPageHeaders.js';
 import { fetchPeriodContractList } from '../../../services/periodContracts.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
@@ -210,8 +210,8 @@ export default function PeriodContractListPage() {
                     type="button"
                     className={styles.actionIcon}
                     title="Edit Details"
-                    disabled
                     aria-label="Edit Details"
+                    onClick={() => navigate(periodContractEditPath(module, row.periodId))}
                   >
                     <i className="bi bi-pencil-square" aria-hidden />
                   </button>

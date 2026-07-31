@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button, CardSelect, DmyDateInput, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
   createPeriodContract,
+  fetchPeriodContract,
   fetchPeriodContractLookups,
+  updatePeriodContract,
 } from '../../../services/periodContracts.js';
 import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.js';
 import {
@@ -14,6 +16,7 @@ import {
   EMPTY_HIRE_RATE,
   EMPTY_OFF_HIRE,
   EMPTY_OFF_HIRE_BUNKER,
+  formFromPeriodContract,
   toCreatePayload,
 } from './addPeriodContract.constants.js';
 import {
@@ -91,17 +94,23 @@ function toSelectOptions(items = [], { idKey = 'id', nameKey = 'name', labelKey 
 export default function AddPeriodContractPage() {
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
   const { periodContractPath } = usePeriodContractModule();
 
   const [lookups, setLookups] = useState(null);
   const [businessTypes, setBusinessTypes] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [files, setFiles] = useState([]);
+  const [attachments, setAttachments] = useState([]);
+  const [updateStatus, setUpdateStatus] = useState('1');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const formRef = useRef(null);
+  const skipRedelCalcRef = useRef(false);
 
+  const isLocked = Number(updateStatus) > 1;
   const periodUnit = periodTypeLabel(form.periodType);
 
   const vesselTypes = useMemo(
@@ -145,18 +154,31 @@ export default function AddPeriodContractPage() {
       ]);
       setLookups(lookupData);
       setBusinessTypes(types);
-      setForm((current) => ({
-        ...EMPTY_FORM,
-        contractId: lookupData.contractId,
-        contractDate: lookupData.today || current.contractDate,
-        businessType: types[0]?.id || '2',
-      }));
+
+      if (isEdit) {
+        const record = await fetchPeriodContract(id);
+        skipRedelCalcRef.current = true;
+        setUpdateStatus(record.updateStatus || '1');
+        setAttachments(record.attachments || []);
+        setFiles([]);
+        setForm(recalcHireAndOffHireRows(formFromPeriodContract(record)));
+      } else {
+        setUpdateStatus('1');
+        setAttachments([]);
+        setFiles([]);
+        setForm((current) => ({
+          ...EMPTY_FORM,
+          contractId: lookupData.contractId,
+          contractDate: lookupData.today || current.contractDate,
+          businessType: types[0]?.id || '2',
+        }));
+      }
     } catch (err) {
       setError(err.message || 'Failed to load period contract form.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [id, isEdit]);
 
   useEffect(() => {
     loadPage();
@@ -164,6 +186,10 @@ export default function AddPeriodContractPage() {
 
   useEffect(() => {
     if (!form.deliveryDate || !form.periodType) return;
+    if (skipRedelCalcRef.current) {
+      skipRedelCalcRef.current = false;
+      return;
+    }
     const dates = calculateRedeliveryDates({
       deliveryDate: form.deliveryDate,
       periodMin: form.periodMin,
@@ -186,6 +212,18 @@ export default function AddPeriodContractPage() {
     form.aboutDaysMax,
   ]);
 
+  const removeAttachment = async (file) => {
+    const ok = await confirm({
+      title: 'Confirmation',
+      message: 'Are you sure you want to remove this attachment permanently?',
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      confirmVariant: 'danger',
+    });
+    if (!ok) return;
+    setAttachments((current) => current.filter((item) => item.file !== file));
+  };
+
   const handleDirtiesChange = (key, value) => {
     setForm((current) => {
       const next = { ...current, [key]: value };
@@ -194,7 +232,9 @@ export default function AddPeriodContractPage() {
     });
   };
 
-  const handleSubmit = async (updateStatus) => {
+  const handleSubmit = async (nextStatus) => {
+    if (isLocked) return;
+
     const ok = await confirm({
       title: 'Confirmation',
       message: 'Are you sure you have checked each entry?',
@@ -205,8 +245,16 @@ export default function AddPeriodContractPage() {
     setSaving(true);
     setError('');
     try {
-      const payload = toCreatePayload(form, updateStatus);
-      await createPeriodContract(payload, files);
+      const payload = toCreatePayload(form, nextStatus);
+      if (isEdit) {
+        await updatePeriodContract(id, payload, {
+          files,
+          existingFiles: attachments.map((item) => item.file),
+          existingNames: attachments.map((item) => item.name),
+        });
+      } else {
+        await createPeriodContract(payload, files);
+      }
       navigate(`${periodContractPath}?msg=0`, { replace: true });
     } catch (err) {
       setError(err.message || 'Failed to save period contract.');
@@ -216,11 +264,13 @@ export default function AddPeriodContractPage() {
   };
 
   const handleSaveOpen = () => {
+    if (isLocked) return;
     if (formRef.current && !formRef.current.reportValidity()) return;
     handleSubmit(1);
   };
 
   const handleSaveClose = () => {
+    if (isLocked) return;
     if (formRef.current && !formRef.current.reportValidity()) return;
     handleSubmit(2);
   };
@@ -231,6 +281,7 @@ export default function AddPeriodContractPage() {
         <AddPeriodContractHeaderActions
           listPath={periodContractPath}
           saving={saving}
+          showSaveActions={!isLocked}
           onSaveOpen={handleSaveOpen}
           onSaveClose={handleSaveClose}
         />
@@ -244,13 +295,16 @@ export default function AddPeriodContractPage() {
       <AddPeriodContractHeaderActions
         listPath={periodContractPath}
         saving={saving}
+        showSaveActions={!isLocked}
         onSaveOpen={handleSaveOpen}
         onSaveClose={handleSaveClose}
       />
 
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <h2 className={styles.title}>Create a New Period Contract</h2>
+      <h2 className={styles.title}>
+        {isEdit ? 'Update Period Contract' : 'Create a New Period Contract'}
+      </h2>
 
       <form
         ref={formRef}
@@ -992,30 +1046,54 @@ export default function AddPeriodContractPage() {
 
         <Section title="Attachments">
           <div className={styles.attachmentsField}>
-            <input
-              type="file"
-              multiple
-              onChange={(event) => setFiles(Array.from(event.target.files || []))}
-            />
+            {!isLocked ? (
+              <input
+                type="file"
+                multiple
+                onChange={(event) => setFiles(Array.from(event.target.files || []))}
+              />
+            ) : null}
+            {attachments.length ? (
+              <ul className={styles.attachmentList}>
+                {attachments.map((item) => (
+                  <li key={item.file}>
+                    <a href={item.url} target="_blank" rel="noreferrer">{item.name}</a>
+                    {!isLocked ? (
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(item.file)}
+                        aria-label={`Remove ${item.name}`}
+                      >
+                        &times;
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         </Section>
 
         <div className={styles.footerActions}>
           <Button variant="outline" label="Back" to={periodContractPath} disabled={saving} />
-          <Button
-            type="button"
-            variant="primary"
-            label="Save & Open Period Contract"
-            disabled={saving}
-            onClick={handleSaveOpen}
-          />
-          <Button
-            type="button"
-            variant="accent"
-            label="Close Period Contract"
-            disabled={saving}
-            onClick={handleSaveClose}
-          />
+          {!isLocked ? (
+            <>
+              <Button
+                type="button"
+                variant="primary"
+                label="Save & Open Period Contract"
+                disabled={saving}
+                onClick={handleSaveOpen}
+              />
+              <Button
+                type="button"
+                variant="accent"
+                label="Close Period Contract"
+                disabled={saving}
+                onClick={handleSaveClose}
+              />
+            </>
+          ) : null}
         </div>
       </form>
 

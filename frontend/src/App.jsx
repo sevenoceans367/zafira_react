@@ -193,6 +193,7 @@ export default function App() {
             <Route path="/internal-user/:module/fleet/vessel/:id/particulars/edit" element={<UpdateVesselTankersPage />} />
             <Route path="/internal-user/:module/fleet/vessel/:id/commercial" element={<CommercialParametersPage />} />
             <Route path="/internal-user/:module/period-contracts/add" element={<AddPeriodContractPage />} />
+            <Route path="/internal-user/:module/period-contracts/edit/:id" element={<AddPeriodContractPage />} />
             <Route path="/internal-user/:module/period-contracts" element={<PeriodContractListPage />} />
             <Route path="/internal-user/:module/todo-list" element={<ToDoListPage />} />
             <Route path="/internal-user/:module/masters/:masterId" element={<MasterModulePage />} />

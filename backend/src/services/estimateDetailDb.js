@@ -1130,8 +1130,8 @@ export async function dbGetPeriodPrefill(periodId) {
   );
 
   const [offHireRows] = await pool.query(
-    `SELECT PERIOD_SLAVEID, OFF_HIRE_REASON, OFF_HIRE_FROM, OFF_HIRE_TO,
-            OFF_HIRE_DAYS, OFF_HIRE_RATE, OFF_HIRE_AMT
+    `SELECT PERIOD_SLAVEID, OFF_REASON, OFF_FROM, OFF_TO,
+            OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE
      FROM period_contract_master_slave2
      WHERE PERIODID = ?
      ORDER BY PERIOD_SLAVEID ASC`,
@@ -1141,23 +1141,24 @@ export async function dbGetPeriodPrefill(periodId) {
   const offHireDetails = [];
   for (const row of offHireRows) {
     const [bunkers] = await pool.query(
-      `SELECT BUNKERGRADEID, BUNKER_QTY, BUNKER_PRICE, BUNKER_AMT, CHK_OWNER_ACCOUNT
+      `SELECT BUNKERID, BUNKERQTY, BUNKERPRICE, BUNKERAMT, CHK_OWNER_ACCOUNT
        FROM period_contract_master_slave21
-       WHERE PERIODID = ? AND PERIOD_SLAVEID = ?`,
+       WHERE PERIODID = ? AND PERIOD_SLAVEID = ?
+       ORDER BY PERIOD_SUB_SLAVEID ASC`,
       [id, row.PERIOD_SLAVEID],
     );
     offHireDetails.push({
-      reason: row.OFF_HIRE_REASON || '',
-      from: formatPeriodDateTime(row.OFF_HIRE_FROM),
-      to: formatPeriodDateTime(row.OFF_HIRE_TO),
+      reason: row.OFF_REASON || '',
+      from: formatPeriodDateTime(row.OFF_FROM),
+      to: formatPeriodDateTime(row.OFF_TO),
       days: row.OFF_HIRE_DAYS != null ? String(row.OFF_HIRE_DAYS) : '',
-      rate: row.OFF_HIRE_RATE != null ? String(row.OFF_HIRE_RATE) : '',
-      amount: row.OFF_HIRE_AMT != null ? String(row.OFF_HIRE_AMT) : '',
+      rate: row.HIRE_RATE != null ? String(row.HIRE_RATE) : '',
+      amount: row.OFF_HIRE != null ? String(row.OFF_HIRE) : '',
       bunkers: bunkers.map((b) => ({
-        bunkerGradeId: b.BUNKERGRADEID != null ? String(b.BUNKERGRADEID) : '',
-        qty: b.BUNKER_QTY != null ? String(b.BUNKER_QTY) : '',
-        price: b.BUNKER_PRICE != null ? String(b.BUNKER_PRICE) : '',
-        amount: b.BUNKER_AMT != null ? String(b.BUNKER_AMT) : '',
+        bunkerGradeId: b.BUNKERID != null ? String(b.BUNKERID) : '',
+        qty: b.BUNKERQTY != null ? String(b.BUNKERQTY) : '',
+        price: b.BUNKERPRICE != null ? String(b.BUNKERPRICE) : '',
+        amount: b.BUNKERAMT != null ? String(b.BUNKERAMT) : '',
         calc: String(b.CHK_OWNER_ACCOUNT) === '1',
       })),
     });

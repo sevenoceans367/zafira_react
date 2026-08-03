@@ -1,11 +1,12 @@
 const CSV_COLUMNS = [
   { key: 'rowNum', label: 'Item' },
-  { key: 'vesselDisplay', label: 'Vessel Name/Type & Voyage No' },
+  { key: 'vesselName', label: 'Vessel' },
+  { key: 'voyageNo', label: 'Voyage No' },
   { key: 'cpDate', label: 'CP Date' },
   { key: 'dwt', label: 'DWT' },
-  { key: 'lpDp', label: 'LP/DP' },
-  { key: 'duration', label: 'Duration' },
-  { key: 'cargoQuantity', label: 'Cargo Quantity' },
+  { key: 'lpDp', label: 'LP - DP' },
+  { key: 'duration', label: 'Voy Days' },
+  { key: 'cargoQuantity', label: 'Cargo' },
   { key: 'tce', label: 'TCE' },
   { key: 'profitLoss', label: 'P&L' },
 ];

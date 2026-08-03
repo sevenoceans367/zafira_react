@@ -4,6 +4,8 @@ import {
   getPeriodContractById,
   getPeriodContractList,
   getPeriodContractLookups,
+  getPeriodLinkedVoyage,
+  getPeriodNominations,
   searchPeriodContractPorts,
   updatePeriodContract,
 } from '../services/periodContractService.js';
@@ -70,6 +72,30 @@ router.get('/:id', async (req, res) => {
     console.error(error);
     const status = error.status || 500;
     res.status(status).json({ message: error.message || 'Failed to load period contract.' });
+  }
+});
+
+router.get('/:id/voyage', async (req, res) => {
+  try {
+    const data = await getPeriodLinkedVoyage(req.params.id);
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    const status = error.status || 500;
+    res.status(status).json({ message: error.message || 'Failed to load period voyage.' });
+  }
+});
+
+router.get('/:id/nominations', async (req, res) => {
+  try {
+    const data = await getPeriodNominations(req.params.id, {
+      businessType: req.query.selBType || '',
+    });
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    const status = error.status || 500;
+    res.status(status).json({ message: error.message || 'Failed to load period nominations.' });
   }
 });
 

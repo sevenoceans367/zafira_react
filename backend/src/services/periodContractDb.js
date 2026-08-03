@@ -263,4 +263,186 @@ export async function dbGetPeriodContractList({
   };
 }
 
+export async function dbGetPeriodLinkedVoyage(periodId) {
+  const pool = getPool();
+  const id = Number(periodId);
+  if (!id) return null;
+
+  const [vcRows] = await pool.query(
+    `SELECT m.FCAID, m.VOYAGE_NO
+     FROM freight_cost_estimete_master m
+     INNER JOIN freight_cost_estimate_compare c ON c.COMID = m.COMID
+     WHERE m.PERIODID = ? AND c.FINAL_ID != '' AND m.FIXED = 1
+     ORDER BY m.FCAID DESC
+     LIMIT 1`,
+    [id],
+  );
+  if (vcRows[0]?.FCAID) {
+    return {
+      type: 'vc',
+      id: String(vcRows[0].FCAID),
+      voyageNo: vcRows[0].VOYAGE_NO != null ? String(vcRows[0].VOYAGE_NO) : '',
+    };
+  }
+
+  const [tcRows] = await pool.query(
+    `SELECT m.TCOUTID, m.TC_NO
+     FROM chartering_estimate_tc_master m
+     INNER JOIN chartering_estimate_tc_compare c ON c.COMID = m.COMID
+     WHERE m.PERIODID = ? AND c.FINAL_ID != '' AND m.FIXED = 1
+     ORDER BY m.TCOUTID DESC
+     LIMIT 1`,
+    [id],
+  );
+  if (tcRows[0]?.TCOUTID) {
+    return {
+      type: 'tc',
+      id: String(tcRows[0].TCOUTID),
+      voyageNo: tcRows[0].TC_NO != null ? String(tcRows[0].TC_NO) : '',
+    };
+  }
+
+  return null;
+}
+
+async function getPortName(pool, portId) {
+  if (!portId) return '';
+  const [[row]] = await pool.query(
+    'SELECT PortName FROM port_master WHERE PortId = ? LIMIT 1',
+    [portId],
+  );
+  return row?.PortName || '';
+}
+
+export async function dbGetPeriodNominations(periodId, { businessType } = {}) {
+  const pool = getPool();
+  const id = Number(periodId);
+  if (!id) return null;
+
+  const [[master]] = await pool.query(
+    `SELECT PERIODID, CONTRACT_ID, CONTRACT_NO, WORKING_CURRENCY
+     FROM period_contract_master
+     WHERE PERIODID = ?
+     LIMIT 1`,
+    [id],
+  );
+  if (!master) return null;
+
+  const voyageParams = [VC_MODULE_ID, appContext.companyId, id];
+  let estimateTypeFilter = '';
+  if (businessType) {
+    estimateTypeFilter = ' AND m.ESTIMATE_TYPE = ?';
+    voyageParams.push(businessType);
+  }
+
+  const [voyageRows] = await pool.query(
+    `SELECT m.FCAID, m.COMID, m.VESSEL_IMO_ID, m.VOYAGE_NO, m.PROFIT_LOSS,
+            m.QUANTITY, m.TRANS_DATE, m.TOTAL_DAYS, m.FIXED,
+            v.VESSEL_NAME, v.DWT
+     FROM freight_cost_estimate_compare c
+     INNER JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
+     LEFT JOIN vessel_imo_master v ON v.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+     WHERE c.MODULEID = ? AND c.MCOMPANYID = ?
+       AND c.FINAL_ID != '' AND m.FIXED = 1
+       AND m.PERIODID = ?${estimateTypeFilter}
+     ORDER BY m.FCAID ASC`,
+    voyageParams,
+  );
+
+  const voyages = [];
+  let voyageIndex = 0;
+  for (const row of voyageRows) {
+    voyageIndex += 1;
+    const [legs] = await pool.query(
+      `SELECT FROM_PORT, TO_PORT, LOAD_PORT_QTY, DISC_PORT_QTY
+       FROM freight_cost_estimete_slave1
+       WHERE FCAID = ?`,
+      [row.FCAID],
+    );
+    const loadPorts = [];
+    const discPorts = [];
+    for (const leg of legs) {
+      if (Number(leg.LOAD_PORT_QTY) > 0) {
+        const name = await getPortName(pool, leg.FROM_PORT);
+        if (name) loadPorts.push(name);
+      }
+      if (Number(leg.DISC_PORT_QTY) > 0) {
+        const name = await getPortName(pool, leg.TO_PORT);
+        if (name) discPorts.push(name);
+      }
+    }
+
+    const [[qtyRow]] = await pool.query(
+      `SELECT SUM(QUANTITY) AS sumQty
+       FROM freight_cost_estimete_slave7
+       WHERE FCAID = ?`,
+      [row.FCAID],
+    ).catch(() => [[{ sumQty: 0 }]]);
+
+    const duration = Number(row.TOTAL_DAYS) || 0;
+    const profitLoss = Number(row.PROFIT_LOSS) || 0;
+    const cargoQty = Number(qtyRow?.sumQty || 0) + Number(row.QUANTITY || 0);
+    const netTce = duration ? (profitLoss / duration) : 0;
+
+    voyages.push({
+      index: voyageIndex,
+      fcaId: String(row.FCAID),
+      comId: row.COMID != null ? String(row.COMID) : '',
+      vesselName: row.VESSEL_NAME || '',
+      voyageNo: row.VOYAGE_NO || '',
+      cpDate: formatDateDMY(row.TRANS_DATE),
+      dwt: row.DWT != null ? String(row.DWT) : '',
+      lpDp: `${loadPorts.join(', ')}/ ${discPorts.join(', ')}`.trim(),
+      duration: duration ? duration.toFixed(2) : '',
+      cargoQuantity: cargoQty ? String(cargoQty) : '',
+      netTce: netTce ? netTce.toFixed(2) : '',
+      profitLoss: profitLoss ? profitLoss.toFixed(2) : '',
+    });
+  }
+
+  const [tcRows] = await pool.query(
+    `SELECT m.TCOUTID, m.COMID, m.VESSEL_IMO_ID, m.TC_NO, m.CP_DATE1,
+            m.DWT_SUMMER_CP, m.DEL_RANGE_PORT, m.RE_DEL_RANGE, m.EXCHANGE_RATE,
+            v.VESSEL_NAME,
+            (SELECT SUM(TC_DAYS_EST) FROM chartering_tc_estimate_slave1 s1
+             WHERE s1.TCOUTID = m.TCOUTID) AS TC_DAYS_EST,
+            (SELECT TC_RATE FROM chartering_tc_estimate_slave2 s2
+             WHERE s2.TC_SLAVE1ID = (
+               SELECT TC_SLAVE1ID FROM chartering_tc_estimate_slave1 s1
+               WHERE s1.TCOUTID = m.TCOUTID LIMIT 1
+             ) LIMIT 1) AS TC_RATE
+     FROM chartering_estimate_tc_compare c
+     INNER JOIN chartering_estimate_tc_master m ON m.TCOUTID = c.TCOUTID
+     LEFT JOIN vessel_imo_master v ON v.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+     WHERE c.MODULEID = ? AND c.MCOMPANYID = ?
+       AND c.FINAL_ID != '' AND m.FIXED = 1
+       AND m.PERIODID = ?
+     ORDER BY m.TCOUTID ASC`,
+    [VC_MODULE_ID, appContext.companyId, id],
+  );
+
+  const tcEstimates = tcRows.map((row, index) => ({
+    index: index + 1,
+    tcOutId: String(row.TCOUTID),
+    comId: row.COMID != null ? String(row.COMID) : '',
+    vesselName: row.VESSEL_NAME || '',
+    tcNo: row.TC_NO || '',
+    cpDate: formatDateDMY(row.CP_DATE1),
+    dwt: row.DWT_SUMMER_CP != null ? String(row.DWT_SUMMER_CP) : '',
+    delPort: row.DEL_RANGE_PORT || '',
+    reDelPort: row.RE_DEL_RANGE || '',
+    tcDays: row.TC_DAYS_EST != null ? String(row.TC_DAYS_EST) : '',
+    dailyGrossHire: row.TC_RATE != null ? Number(row.TC_RATE).toFixed(2) : '',
+  }));
+
+  return {
+    periodId: id,
+    contractId: master.CONTRACT_ID || '',
+    contractNo: master.CONTRACT_NO || '',
+    workingCurrency: master.WORKING_CURRENCY || 'USD',
+    voyages,
+    tcEstimates,
+  };
+}
+
 export { VC_MODULE_ID };

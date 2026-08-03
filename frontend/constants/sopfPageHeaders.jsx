@@ -28,16 +28,19 @@ const SOPF_ROUTE_PATTERNS = Object.keys(SOPF_PAGE_HEADERS).map(
   (segment) => `/internal-user/sopf/${segment}`,
 );
 
-export function resolveSopfHeader(pathname) {
+export function resolveSopfHeader(pathname, search = '') {
   if (pathname.includes('/addestimate')) {
+    const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    const isNominate = Boolean(params.get('periodid'));
+    const pageLabel = isNominate ? 'Nominate' : 'Add Estimate';
     return {
       title: SPOT_BUSINESS,
-      currentPage: 'Add Estimate',
+      currentPage: pageLabel,
       breadcrumbs: [
         HOME,
         SOPF,
         { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
-        { label: 'Add Estimate' },
+        { label: pageLabel },
       ],
     };
   }

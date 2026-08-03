@@ -25,6 +25,21 @@ export async function fetchPeriodContract(id) {
   return parseJson(response, 'Failed to load period contract.');
 }
 
+export async function fetchPeriodLinkedVoyage(id) {
+  const response = await fetch(`${BASE}/${encodeURIComponent(id)}/voyage`);
+  return parseJson(response, 'Failed to load period voyage.');
+}
+
+export async function fetchPeriodNominations(id, { selBType } = {}) {
+  const params = new URLSearchParams();
+  if (selBType) params.set('selBType', selBType);
+  const query = params.toString();
+  const response = await fetch(
+    `${BASE}/${encodeURIComponent(id)}/nominations${query ? `?${query}` : ''}`,
+  );
+  return parseJson(response, 'Failed to load period nominations.');
+}
+
 export async function createPeriodContract(payload, files = []) {
   const formData = new FormData();
   formData.append('payload', JSON.stringify(payload));

@@ -611,8 +611,8 @@ export async function dbGetPeriodTcInDetails(periodId) {
   ).catch(() => [[]]);
 
   const [offHireRows] = await pool.query(
-    `SELECT PERIOD_SLAVEID, OFF_HIRE_REASON, OFF_HIRE_FROM, OFF_HIRE_TO,
-            OFF_HIRE_DAYS, OFF_HIRE_RATE, OFF_HIRE_AMT
+    `SELECT PERIOD_SLAVEID, OFF_REASON, OFF_FROM, OFF_TO,
+            OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE
      FROM period_contract_master_slave2 WHERE PERIODID = ? ORDER BY PERIOD_SLAVEID ASC`,
     [id],
   ).catch(() => [[]]);
@@ -621,32 +621,33 @@ export async function dbGetPeriodTcInDetails(periodId) {
   let bunkerOnOwner = 0;
   for (const row of offHireRows) {
     const [bunkers] = await pool.query(
-      `SELECT BUNKERGRADEID, BUNKER_QTY, BUNKER_PRICE, BUNKER_AMT, CHK_OWNER_ACCOUNT
+      `SELECT BUNKERID, BUNKERQTY, BUNKERPRICE, BUNKERAMT, CHK_OWNER_ACCOUNT
        FROM period_contract_master_slave21
-       WHERE PERIODID = ? AND PERIOD_SLAVEID = ?`,
+       WHERE PERIODID = ? AND PERIOD_SLAVEID = ?
+       ORDER BY PERIOD_SUB_SLAVEID ASC`,
       [id, row.PERIOD_SLAVEID],
     ).catch(() => [[]]);
     const mappedBunkers = bunkers.map((b) => {
-      const qty = Number(b.BUNKER_QTY) || 0;
-      const price = Number(b.BUNKER_PRICE) || 0;
-      const amount = Number(b.BUNKER_AMT) || qty * price;
+      const qty = Number(b.BUNKERQTY) || 0;
+      const price = Number(b.BUNKERPRICE) || 0;
+      const amount = Number(b.BUNKERAMT) || qty * price;
       const onOwner = String(b.CHK_OWNER_ACCOUNT) === '1';
       if (onOwner) bunkerOnOwner += amount;
       return {
-        bunkerId: b.BUNKERGRADEID != null ? String(b.BUNKERGRADEID) : '',
-        qty: b.BUNKER_QTY != null ? String(b.BUNKER_QTY) : '',
-        price: b.BUNKER_PRICE != null ? String(b.BUNKER_PRICE) : '',
+        bunkerId: b.BUNKERID != null ? String(b.BUNKERID) : '',
+        qty: b.BUNKERQTY != null ? String(b.BUNKERQTY) : '',
+        price: b.BUNKERPRICE != null ? String(b.BUNKERPRICE) : '',
         amount: amount ? amount.toFixed(2) : '',
         onOwner,
       };
     });
     offHires.push({
-      reason: row.OFF_HIRE_REASON || '',
-      from: isBlankDt(row.OFF_HIRE_FROM) ? '' : formatDateTimeDMY(row.OFF_HIRE_FROM),
-      to: isBlankDt(row.OFF_HIRE_TO) ? '' : formatDateTimeDMY(row.OFF_HIRE_TO),
+      reason: row.OFF_REASON || '',
+      from: isBlankDt(row.OFF_FROM) ? '' : formatDateTimeDMY(row.OFF_FROM),
+      to: isBlankDt(row.OFF_TO) ? '' : formatDateTimeDMY(row.OFF_TO),
       days: row.OFF_HIRE_DAYS != null ? String(row.OFF_HIRE_DAYS) : '',
-      hireRate: row.OFF_HIRE_RATE != null ? String(row.OFF_HIRE_RATE) : '',
-      amount: row.OFF_HIRE_AMT != null ? String(row.OFF_HIRE_AMT) : '',
+      hireRate: row.HIRE_RATE != null ? String(row.HIRE_RATE) : '',
+      amount: row.OFF_HIRE != null ? String(row.OFF_HIRE) : '',
       bunkers: mappedBunkers,
     });
   }

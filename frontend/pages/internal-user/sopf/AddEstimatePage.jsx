@@ -375,6 +375,9 @@ export default function AddEstimatePage() {
 
       {!loading ? (
         <form onSubmit={handleSubmit}>
+          <h2 className={styles.formTitle}>
+            {periodId ? 'Nominate Voyage (New Estimate)' : 'Add Estimate'}
+          </h2>
           <EstimateDetailSections
             detail={detail}
             form={form}

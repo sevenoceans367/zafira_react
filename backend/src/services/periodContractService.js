@@ -1,6 +1,6 @@
 import { isDbConfigured } from '../config.js';
 import { dbCreatePeriodContract } from './periodContractCreateDb.js';
-import { dbGetPeriodContractList } from './periodContractDb.js';
+import { dbGetPeriodContractList, dbGetPeriodLinkedVoyage, dbGetPeriodNominations } from './periodContractDb.js';
 import {
   dbGetNextPeriodContractId,
   dbGetPeriodContractLookups,
@@ -261,4 +261,54 @@ export async function updatePeriodContract(periodId, payload, attachments = {}) 
   }
 
   return dbUpdatePeriodContract(periodId, payload, attachments);
+}
+
+export async function getPeriodLinkedVoyage(periodId) {
+  if (!isDbConfigured()) {
+    return {
+      type: 'vc',
+      id: '1001',
+      voyageNo: '260001',
+    };
+  }
+
+  const voyage = await dbGetPeriodLinkedVoyage(periodId);
+  if (!voyage) {
+    throw Object.assign(new Error('No fixed voyage found for this period contract.'), { status: 404 });
+  }
+  return voyage;
+}
+
+export async function getPeriodNominations(periodId, { businessType } = {}) {
+  if (!isDbConfigured()) {
+    return {
+      periodId: Number(periodId) || 1,
+      contractId: 'PERIOD-001-2026',
+      contractNo: 'PER-01/2026',
+      workingCurrency: 'USD',
+      voyages: [
+        {
+          index: 1,
+          fcaId: '1001',
+          comId: '10',
+          vesselName: 'ATLANTIC STAR',
+          voyageNo: '260001',
+          cpDate: '01-01-2026',
+          dwt: '105000',
+          lpDp: 'Singapore/ Rotterdam',
+          duration: '42.00',
+          cargoQuantity: '65000',
+          netTce: '18500.00',
+          profitLoss: '777000.00',
+        },
+      ],
+      tcEstimates: [],
+    };
+  }
+
+  const data = await dbGetPeriodNominations(periodId, { businessType });
+  if (!data) {
+    throw Object.assign(new Error('Period contract not found.'), { status: 404 });
+  }
+  return data;
 }

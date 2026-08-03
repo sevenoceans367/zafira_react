@@ -24,6 +24,7 @@ import {
 import EstimateListHeaderActions from './EstimateListHeaderActions.jsx';
 import EstimateListTableToolbar from './EstimateListTableToolbar.jsx';
 import SensitivityAnalysisModal from './SensitivityAnalysisModal.jsx';
+import SopfPagination from './SopfPagination.jsx';
 import {
   buildEstimateListEmailUrl,
   buildEstimateListPdfUrl,
@@ -60,6 +61,7 @@ const STAT_CARDS = [
 
 /** Gas=1, Tanker=2, Dry Cargo=3 — legacy PHP default is Tanker */
 const DEFAULT_BUSINESS_TYPE = '2';
+const PAGE_SIZE = 10;
 
 function TruncatedText({ text, maxLength = 10 }) {
   const value = String(text ?? '');
@@ -95,6 +97,7 @@ export default function EstimateListPage() {
   const [saModalLoading, setSaModalLoading] = useState(false);
   const [saData, setSaData] = useState({ columns: [], sections: [] });
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const selBTypeInUrl = searchParams.get('selBType');
   const businessType = selBTypeInUrl && selBTypeInUrl !== '' ? selBTypeInUrl : DEFAULT_BUSINESS_TYPE;
@@ -171,6 +174,10 @@ export default function EstimateListPage() {
   }, [loadData]);
 
   useEffect(() => {
+    setPage(1);
+  }, [search, businessType, periodFrom, periodTo]);
+
+  useEffect(() => {
     const ids = searchParams.get('ids');
     if (ids) {
       openDecisionChart(ids.split(',').filter(Boolean));
@@ -232,14 +239,29 @@ export default function EstimateListPage() {
       row.lpDp,
     ].some((value) => String(value ?? '').toLowerCase().includes(query));
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = filteredRows.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+
   const allSelected =
-    filteredRows.length > 0
-    && filteredRows.every((row) => selectedIds.includes(row.id));
+    pagedRows.length > 0
+    && pagedRows.every((row) => selectedIds.includes(row.id));
 
   const toggleAll = () => {
-    setSelectedIds(
-      allSelected ? [] : filteredRows.map((row) => row.id),
-    );
+    if (allSelected) {
+      const pageIds = new Set(pagedRows.map((row) => row.id));
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      pagedRows.forEach((row) => next.add(row.id));
+      return [...next];
+    });
   };
 
   const toggleRow = (id) => {
@@ -403,26 +425,18 @@ export default function EstimateListPage() {
                   <thead>
                     <tr>
                       <th className={styles.itemColumn}>Item</th>
-                      <th className={styles.vesselColumn}>
-                        Vessel Name/Type
-                        <br />
-                        &amp; Voyage No
-                      </th>
+                      <th className={styles.vesselColumn}>Vessel</th>
+                      <th className={styles.voyageColumn}>Voyage No</th>
                       <th>CP Date</th>
                       <th>DWT</th>
-                      <th>LP/DP</th>
-                      <th>Duration</th>
-                      <th className={styles.cargoQtyColumn}>
-                        Cargo
-                        <br />
-                        Quantity
-                      </th>
+                      <th>LP - DP</th>
+                      <th>Voy Days</th>
+                      <th className={styles.cargoQtyColumn}>Cargo</th>
                       <th className={styles.tceColumn}>TCE</th>
                       <th>P&L</th>
                       <th className={styles.actionColumn}>Replicate</th>
                       <th className={styles.compareColumn}>
                         <div className={styles.compareHeader}>
-                          <span>Compare</span>
                           <input
                             type="checkbox"
                             className={styles.compareCheckbox}
@@ -430,6 +444,7 @@ export default function EstimateListPage() {
                             onChange={toggleAll}
                             aria-label="Select all"
                           />
+                          <span>Compare</span>
                         </div>
                       </th>
                       <th>Details</th>
@@ -438,33 +453,31 @@ export default function EstimateListPage() {
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan={12} className={styles.emptyState}>
+                        <td colSpan={13} className={styles.emptyState}>
                           Loading estimates...
                         </td>
                       </tr>
                     ) : rows.length === 0 ? (
                       <tr>
-                        <td colSpan={12} className={styles.emptyState}>
+                        <td colSpan={13} className={styles.emptyState}>
                           No estimates found for the selected business type.
                         </td>
                       </tr>
                     ) : filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={12} className={styles.emptyState}>
+                        <td colSpan={13} className={styles.emptyState}>
                           No estimates match your search.
                         </td>
                       </tr>
                     ) : (
-                      filteredRows.map((row) => (
+                      pagedRows.map((row) => (
                         <tr
                           key={row.id}
                           className={row.isBenchmark ? styles.benchmarkRow : undefined}
                         >
                           <td>{row.rowNum}.</td>
-                          <td className={styles.vesselColumn}>
-                            <div>{row.vesselName}/ {row.vesselType}</div>
-                            {row.voyageNo ? <div>{row.voyageNo}</div> : null}
-                          </td>
+                          <td className={styles.vesselColumn}>{row.vesselName}</td>
+                          <td className={styles.voyageColumn}>{row.voyageNo || '—'}</td>
                           <td>{row.cpDate}</td>
                           <td>{row.dwt}</td>
                           <td><TruncatedText text={row.lpDp} /></td>
@@ -534,6 +547,12 @@ export default function EstimateListPage() {
                   </tbody>
                 </table>
                 </div>
+                <SopfPagination
+                  page={safePage}
+                  pageSize={PAGE_SIZE}
+                  total={filteredRows.length}
+                  onPageChange={setPage}
+                />
           </div>
         </div>
       </div>
@@ -577,7 +596,7 @@ export default function EstimateListPage() {
                         <th>DWT</th>
                         <th>Freight</th>
                         <th>Delivery Port</th>
-                        <th>LP/DP</th>
+                        <th>LP - DP</th>
                         <th>Duration</th>
                         <th>Cargo Quantity</th>
                         <th>Daily Net TCE</th>

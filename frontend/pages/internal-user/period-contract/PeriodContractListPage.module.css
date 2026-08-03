@@ -166,3 +166,90 @@
 .multiline {
   white-space: pre-line;
 }
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  width: min(96vw, 1200px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: var(--border-radius-md, 10px);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.modalHeader h4 {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-highlight, 14px);
+  font-weight: 600;
+}
+
+.modalBody {
+  padding: 1rem 1.25rem;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modalLoading {
+  margin: 2rem 0;
+  text-align: center;
+  color: #4b5563;
+}
+
+.modalSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.nestedTableWrap {
+  overflow: auto;
+}
+
+.nestedTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-body, 12px);
+}
+
+.nestedTable th,
+.nestedTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border-light, #f3f4f6);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.nestedTable thead th {
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #4b5563;
+}

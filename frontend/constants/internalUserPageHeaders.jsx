@@ -36,7 +36,7 @@ const STATIC_HEADERS = {
   },
 };
 
-export function resolveInternalUserHeader(pathname) {
+export function resolveInternalUserHeader(pathname, search = '') {
   if (STATIC_HEADERS[pathname]) {
     return STATIC_HEADERS[pathname];
   }
@@ -50,7 +50,7 @@ export function resolveInternalUserHeader(pathname) {
     if (periodContractHeader) return periodContractHeader;
     const fleetHeader = resolveFleetHeader(pathname);
     if (fleetHeader) return fleetHeader;
-    return resolveSopfHeader(pathname);
+    return resolveSopfHeader(pathname, search);
   }
 
   const mastersHeader = resolveMastersHeader(pathname);

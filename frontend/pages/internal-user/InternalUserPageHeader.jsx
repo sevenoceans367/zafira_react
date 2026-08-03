@@ -5,9 +5,9 @@ import { resolveInternalUserHeader } from '../../constants/internalUserPageHeade
 import { usePageHeaderState } from './PageHeaderContext.jsx';
 
 export default function InternalUserPageHeader() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { actions } = usePageHeaderState();
-  const config = resolveInternalUserHeader(pathname);
+  const config = resolveInternalUserHeader(pathname, search);
 
   return (
     <BusinessPageHeader

@@ -2,18 +2,18 @@
   display: inline-flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: 4px;
   width: max-content;
-  min-width: 7.75rem;
+  min-width: 5.75rem;
 }
 
 .actionButton {
   width: 100%;
-  min-width: 7.75rem;
-  min-height: 30px;
-  padding: 0 10px !important;
-  font-size: 12px !important;
-  line-height: 1.2;
+  min-width: 5.75rem;
+  min-height: 24px;
+  padding: 0 6px !important;
+  font-size: 11px !important;
+  line-height: 1.15;
   box-sizing: border-box;
   white-space: nowrap;
 }

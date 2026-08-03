@@ -2,6 +2,7 @@ import { appPath } from '@bainbridge/shared-routing';
 import { resolveSopfHeader } from './sopfPageHeaders.jsx';
 import { resolveFleetHeader } from './fleetPageHeaders.js';
 import { resolvePeriodContractHeader } from './periodContractPageHeaders.js';
+import { resolveElibraryHeader } from './elibraryPageHeaders.js';
 import { resolveTodoListHeader } from './todoListPageHeaders.js';
 import { resolveCombinedSoaPayableHeader } from './combinedSoaPayablePageHeaders.js';
 import { resolveGenericFinancesHeader } from './genericFinancesPageHeaders.js';
@@ -48,6 +49,8 @@ export function resolveInternalUserHeader(pathname, search = '') {
     if (todoListHeader) return todoListHeader;
     const periodContractHeader = resolvePeriodContractHeader(pathname);
     if (periodContractHeader) return periodContractHeader;
+    const elibraryHeader = resolveElibraryHeader(pathname);
+    if (elibraryHeader) return elibraryHeader;
     const fleetHeader = resolveFleetHeader(pathname);
     if (fleetHeader) return fleetHeader;
     return resolveSopfHeader(pathname, search);
@@ -67,6 +70,9 @@ export function resolveInternalUserHeader(pathname, search = '') {
 
   const periodContractHeader = resolvePeriodContractHeader(pathname);
   if (periodContractHeader) return periodContractHeader;
+
+  const elibraryHeader = resolveElibraryHeader(pathname);
+  if (elibraryHeader) return elibraryHeader;
 
   const fleetHeader = resolveFleetHeader(pathname);
   if (fleetHeader) return fleetHeader;

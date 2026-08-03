@@ -4,6 +4,7 @@ import { AppSidebar } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fleetAppPath } from '../constants/fleetModule.js';
 import { periodContractAppPath } from '../constants/periodContractModule.js';
+import { elibraryAppPath } from '../constants/elibraryModule.js';
 import { todoListAppPath } from '../constants/todoListPageHeaders.js';
 import { combinedSoaPayableAppPath, combinedSoaPayableTcAppPath } from '../constants/combinedSoaPayablePageHeaders.js';
 import { SOPF_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
@@ -52,6 +53,11 @@ const FLEET_LINK = {
 const PERIOD_CONTRACT_LINK = {
   icon: 'bi-journal-text',
   label: 'Period Contract',
+};
+
+const ELIBRARY_LINK = {
+  icon: 'bi-book',
+  label: 'E-Library',
 };
 
 const TODO_LIST_LINK = {
@@ -123,6 +129,12 @@ export default function InternalUserSidebar({ isOpen }) {
               active={currentPath.startsWith('/internal-user/vc/period-contracts')}
             />
             <SidebarLink
+              to={elibraryAppPath('vc')}
+              icon={ELIBRARY_LINK.icon}
+              label={ELIBRARY_LINK.label}
+              active={currentPath.startsWith('/internal-user/vc/elibrary')}
+            />
+            <SidebarLink
               to={todoListAppPath('vc')}
               icon={TODO_LIST_LINK.icon}
               label={TODO_LIST_LINK.label}
@@ -188,6 +200,12 @@ export default function InternalUserSidebar({ isOpen }) {
               icon={PERIOD_CONTRACT_LINK.icon}
               label={PERIOD_CONTRACT_LINK.label}
               active={currentPath.startsWith('/internal-user/tc/period-contracts')}
+            />
+            <SidebarLink
+              to={elibraryAppPath('tc')}
+              icon={ELIBRARY_LINK.icon}
+              label={ELIBRARY_LINK.label}
+              active={currentPath.startsWith('/internal-user/tc/elibrary')}
             />
             <ReportsSidebarTree isOpen={isOpen} />
             <MastersSidebarTree isOpen={isOpen} />

@@ -3,6 +3,7 @@
  */
 import { fleetAppPath } from './fleetModule.js';
 import { periodContractAppPath } from './periodContractModule.js';
+import { elibraryAppPath } from './elibraryModule.js';
 import spotIcon from '../assets/icons/spot-icon.svg';
 
 export const SOPF_SIDEBAR_ITEMS = [
@@ -31,6 +32,13 @@ export const SOPF_SIDEBAR_ITEMS = [
     label: 'Period Contract',
     icon: 'bi-journal-text',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/period-contracts'),
+  },
+  {
+    id: 'elibrary',
+    href: elibraryAppPath('sopf'),
+    label: 'E-Library',
+    icon: 'bi-book',
+    isActive: (pathname) => pathname.includes('/internal-user/sopf/elibrary'),
   },
   {
     id: 'vessel_position',

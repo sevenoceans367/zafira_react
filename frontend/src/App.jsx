@@ -52,6 +52,8 @@ import UpdateVesselTankersPage from '../pages/internal-user/fleet/UpdateVesselTa
 import CommercialParametersPage from '../pages/internal-user/fleet/CommercialParametersPage.jsx';
 import PeriodContractListPage from '../pages/internal-user/period-contract/PeriodContractListPage.jsx';
 import AddPeriodContractPage from '../pages/internal-user/period-contract/AddPeriodContractPage.jsx';
+import ElibraryPage from '../pages/internal-user/elibrary/ElibraryPage.jsx';
+import ElibraryFormPage from '../pages/internal-user/elibrary/ElibraryFormPage.jsx';
 import ToDoListPage from '../pages/internal-user/todo-list/ToDoListPage.jsx';
 import MasterModulePage from '../pages/internal-user/masters/MasterModulePage.jsx';
 import TcModulePage from '../pages/internal-user/tc/TcModulePage.jsx';
@@ -195,6 +197,9 @@ export default function App() {
             <Route path="/internal-user/:module/period-contracts/add" element={<AddPeriodContractPage />} />
             <Route path="/internal-user/:module/period-contracts/edit/:id" element={<AddPeriodContractPage />} />
             <Route path="/internal-user/:module/period-contracts" element={<PeriodContractListPage />} />
+            <Route path="/internal-user/:module/elibrary/add" element={<ElibraryFormPage />} />
+            <Route path="/internal-user/:module/elibrary/edit/:id" element={<ElibraryFormPage />} />
+            <Route path="/internal-user/:module/elibrary" element={<ElibraryPage />} />
             <Route path="/internal-user/:module/todo-list" element={<ToDoListPage />} />
             <Route path="/internal-user/:module/masters/:masterId" element={<MasterModulePage />} />
 

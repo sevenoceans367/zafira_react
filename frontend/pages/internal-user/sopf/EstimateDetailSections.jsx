@@ -1740,7 +1740,18 @@ export default function EstimateDetailSections({
             />
           </Field>
           <Field id="addCommPercent" label="Add Comm (%)">
-            <input {...inputProps('addCommPercent', { recalc: true })} />
+            <input
+              id="addCommPercent"
+              value={form.addCommPercent || ''}
+              readOnly={readOnly}
+              inputMode="decimal"
+              autoComplete="off"
+              onChange={(e) => {
+                const value = sanitizeFieldDecimal('addCommPercent', e.target.value);
+                // PHP setCveAmtInTcDet: dummyAdcom → txtHireargePercent
+                applyPatch({ addCommPercent: value, hireagePercent: value });
+              }}
+            />
           </Field>
           <Field id="addressCommAmt" label="Add Comm Amt">
             <input id="addressCommAmt" value={form.addressCommAmt || ''} readOnly />

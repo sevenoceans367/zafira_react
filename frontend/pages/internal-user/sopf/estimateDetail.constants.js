@@ -1178,8 +1178,19 @@ export function toFormState(detail = {}) {
     freightGross: detail.freightGross != null ? String(detail.freightGross) : '',
     brokeragePercent: detail.brokeragePercent != null ? String(detail.brokeragePercent) : '',
     brokerageAmt: detail.brokerageAmt != null ? String(detail.brokerageAmt) : '',
-    hireRate: detail.hireRate != null ? String(detail.hireRate) : '',
+    hireRate: (() => {
+      if (detail.hireRate != null && String(detail.hireRate).trim() !== '') {
+        return String(detail.hireRate);
+      }
+      const fromRow = hireRows[0]?.hireRate;
+      if (fromRow != null && String(fromRow).trim() !== '') return String(fromRow);
+      if (detail.dailyVesselOperationExp != null && String(detail.dailyVesselOperationExp).trim() !== '') {
+        return String(detail.dailyVesselOperationExp);
+      }
+      return '';
+    })(),
     hireAmt: detail.hireAmt != null ? String(detail.hireAmt) : '',
+    netHireage: detail.netHireage != null ? String(detail.netHireage) : '',
     cvePerMonth: detail.cvePerMonth != null ? String(detail.cvePerMonth) : '',
     cveAmt: detail.cveAmt != null ? String(detail.cveAmt) : '',
     offHireCve: detail.offHireCve != null ? String(detail.offHireCve) : '',
@@ -1196,7 +1207,11 @@ export function toFormState(detail = {}) {
     co2Price: detail.co2Price != null ? String(detail.co2Price) : '',
     euaPrice: detail.euaPrice != null ? String(detail.euaPrice) : '',
     sdrToUsd: detail.sdrToUsd != null ? String(detail.sdrToUsd) : '',
+    // Do not seed from dailyVesselOperationExp (PHP Daily Hire) — that inflated OpEx.
     vesselDailyOps: detail.vesselDailyOps != null ? String(detail.vesselDailyOps) : '',
+    dailyVesselOperationExp: detail.dailyVesselOperationExp != null
+      ? String(detail.dailyVesselOperationExp)
+      : '',
     timeAllowed: detail.timeAllowed != null ? String(detail.timeAllowed) : '',
     laycanStart: detail.laycanStart ?? '',
     laycanEnd: detail.laycanEnd ?? '',

@@ -1077,7 +1077,8 @@ export function computeEstimateTotals(form) {
   const addCommPercent = num(form.addCommPercent);
   const addressCommAmt = round2((freightGross * addCommPercent) / 100);
 
-  const hireRate = num(form.hireRate);
+  // Prefer Vessel OpEx Hire/Day; fall back to hire row 1 (PHP dummyHireRate ↔ txtHireRate_1).
+  const hireRate = num(form.hireRate) || num(hires[0]?.hireRate);
   // PHP txtTtPIDays / txtTtPWDays — idle vs working kept separate
   const portIdleDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portIdleDays), 0));
   const portStayDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portStayDays), 0));
@@ -1106,23 +1107,27 @@ export function computeEstimateTotals(form) {
   // PHP txtTDays / hire days = sea + idle + working, then .toFixed(2)
   const totalDays = round2(totalSeaDays + portIdleDays + portStayDays || num(form.totalDays) || 0);
   const hireDays = totalDays;
-  // PHP $("#txtHireDays_1").val(same as txtTDays)
-  const hiresSynced = hires.map((row, index) => {
+  // PHP: always keep at least hire row 1; sync days/rate/amt like getFinalCalculation
+  const hireBaseRows = hires.length
+    ? hires
+    : [{ hireDays: '', hireRate: form.hireRate || '', hireAmt: form.hireAmt || '' }];
+  const hiresSynced = hireBaseRows.map((row, index) => {
     if (index !== 0) return row;
     const daysStr = totalDays ? totalDays.toFixed(2) : (row.hireDays || '');
-    const rate = num(row.hireRate);
+    const rate = num(row.hireRate) || hireRate;
     const amt = rate > 0 && totalDays > 0
       ? round2(rate * totalDays)
-      : (num(row.hireAmt) || 0);
+      : (num(row.hireAmt) || num(form.hireAmt) || 0);
     return {
       ...row,
       hireDays: daysStr,
-      hireAmt: amt ? String(amt) : row.hireAmt,
+      hireRate: rate ? String(rate) : (row.hireRate || ''),
+      hireAmt: amt ? String(amt) : '',
     };
   });
   totalHireFromRows = round2(hiresSynced.reduce((sum, row) => sum + num(row.hireAmt), 0));
   const hireAmt = round2(
-    totalHireFromRows || num(form.hireAmt) || hireRate * hireDays,
+    totalHireFromRows || (hireRate * hireDays) || num(form.hireAmt),
   );
 
   // PHP: CVE ($) = (CVE/Month × 12 / 365) × total voyage days (txtTDays)
@@ -1137,14 +1142,9 @@ export function computeEstimateTotals(form) {
     ? round2(((cvePerMonth * 12) / 365) * (hireDays || 0))
     : 0;
 
-  // PHP: gross = ballast + hire; nett = gross − addComm% − broker% on hire amt.
-  // Hireage % fields often sync from freight addcomm / brokerage (dummyAdcom / dummyBrokerage).
-  const hireageAddCommPct = form.hireagePercent != null && String(form.hireagePercent).trim() !== ''
-    ? num(form.hireagePercent)
-    : addCommPercent;
-  const hireageBroPct = form.hireageBroPercent != null && String(form.hireageBroPercent).trim() !== ''
-    ? num(form.hireageBroPercent)
-    : brokeragePercent;
+  // PHP: empty hireage % → 0 (dummyAdcom/dummyBrokerage only copy when setCveAmtInTcDet runs).
+  const hireageAddCommPct = num(form.hireagePercent);
+  const hireageBroPct = num(form.hireageBroPercent);
   const grossHireargeAmt = round2(ballastBonus + hireAmt);
   const hireageAddCommAmt = round2((grossHireargeAmt * hireageAddCommPct) / 100);
   const hireageBroAmt = round2((hireAmt * hireageBroPct) / 100);
@@ -1601,6 +1601,7 @@ export function computeEstimateTotals(form) {
     brokerageAmt: brokerageAmt ? brokerageAmt.toFixed(2) : '',
     addressCommAmt: addressCommAmt ? addressCommAmt.toFixed(2) : '',
     hireAmt: String(hireAmt || ''),
+    hireRate: hireRate ? String(hireRate) : (form.hireRate || ''),
     cvePerMonth: form.cvePerMonth != null ? String(form.cvePerMonth) : '',
     cveAmt: String(cveAmt || ''),
     ballastBonus: String(ballastBonus || ''),

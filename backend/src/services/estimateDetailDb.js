@@ -735,16 +735,25 @@ function mapEstimateDetail(
     totalDistance: master.TOTAL_DISTANCE ?? '',
     cargoQuantity: master.QUANTITY ?? master.TANK_QUANTITY ?? master.GAS_QUANTITY ?? '',
     dailyEarning: master.DAILY_EARNING ?? '',
+    // PHP txtDailyVesselOperatingExpenses = "Daily Hire ($/Day)" (hidden) — NOT Vessel Daily Ops.
     dailyVesselOperationExp: master.DAILY_VESSEL_OPERATION_EXP ?? '',
-    vesselDailyOps: master.DAILY_VESSEL_OPERATION_EXP ?? master.VESSELDAILYOPS ?? '',
+    // PHP txtVesselDailyOps is live-only and is not persisted on master.
+    vesselDailyOps: master.VESSELDAILYOPS ?? '',
     profitLoss: master.PROFIT_LOSS ?? '',
     freightGross: master.FREIGHT_GROSS ?? '',
     revenue: master.REVENUES_FREIGHT ?? master.REVENUE ?? master.FREIGHT_GROSS ?? '',
     voyageEarnings: master.VOYAGE_EARNING ?? master.VOYAGE_EARNINGS ?? '',
     totalBunkerCost: master.BUNKER_EXPENSES ?? master.TOTAL_BUNKER_COST ?? '',
     totalPortCost: master.PORT_EXPENSES ?? master.TOTAL_PORT_COST ?? '',
-    hireRate: master.HIRE_RATE ?? '',
+    // Hire / Day: slave17 → master.HIRE_RATE → PHP Daily Hire column
+    hireRate: (() => {
+      const fromRows = hireRows[0]?.HIRE_RATE ?? hireRows[0]?.hireRate;
+      if (fromRows != null && String(fromRows).trim() !== '') return fromRows;
+      if (master.HIRE_RATE != null && String(master.HIRE_RATE).trim() !== '') return master.HIRE_RATE;
+      return master.DAILY_VESSEL_OPERATION_EXP ?? '';
+    })(),
     hireAmt: master.HIREAGE_AMT ?? master.HIRE_AMT ?? '',
+    netHireage: master.FINAL_HIERAGE_AMOUNT ?? '',
     brokeragePercent: firstBroker?.percent
       ?? master.BROKERAGE_PER ?? master.BROKERAGE_PERCENT ?? '',
     brokerageAmt: firstBroker?.amount ?? master.BROKERAGE_AMT ?? '',
@@ -2328,7 +2337,8 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     Array.isArray(payload.cargoIds) && payload.cargoIds.length
       ? payload.cargoIds.join(',')
       : (payload.cargoIds || null),
-    numOrNull(payload.vesselDailyOps),
+    // PHP DAILY_VESSEL_OPERATION_EXP = Daily Hire ($/Day), not Vessel Daily Ops
+    numOrNull(payload.hireRate || payload.dailyVesselOperationExp),
     toDbDateTime(payload.laycanStart),
     toDbDateTime(payload.laycanEnd),
     numOrNull(payload.timeAllowed),
@@ -2613,8 +2623,9 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         fcaId,
-        toDbDateTime(hire.hireFrom) || '1970-01-01 00:00:00',
-        toDbDateTime(hire.hireTo) || '1970-01-01 00:00:00',
+        // Empty dates → NULL. Do not use 1970-01-01 00:00:00 (invalid for TIMESTAMP).
+        toDbDateTime(hire.hireFrom),
+        toDbDateTime(hire.hireTo),
         numOrNull(hire.hireDays),
         numOrNull(hire.hireRate),
         numOrNull(hire.hireAmt),

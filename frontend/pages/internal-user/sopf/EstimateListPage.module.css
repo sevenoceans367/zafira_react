@@ -187,20 +187,55 @@ th.itemColumn {
 }
 
 .rowActionBtn {
-  min-width: 24px !important;
-  min-height: 24px !important;
-  width: 24px;
-  height: 24px;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  width: 28px;
+  height: 28px;
   padding: 0 !important;
   justify-content: center;
-  font-size: 11px !important;
+  font-size: 13px !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.rowActionBtn:hover,
+.rowActionBtn:focus {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
 }
 
 .rowActionBtn :global(i),
 .rowActionBtn :global(svg) {
-  font-size: 0.75rem !important;
-  width: 0.75rem;
-  height: 0.75rem;
+  font-size: 1rem !important;
+  width: 1rem;
+  height: 1rem;
+}
+
+.rowActionEdit {
+  color: #6b7280 !important;
+}
+
+.rowActionEdit:hover {
+  color: #4b5563 !important;
+}
+
+.rowActionDelete {
+  color: #dd4b39 !important;
+}
+
+.rowActionDelete:hover {
+  color: #c0392b !important;
+}
+
+.rowActionView {
+  color: #6b7280 !important;
+}
+
+.rowActionView:hover {
+  color: #4b5563 !important;
 }
 
 .modalBackdrop {

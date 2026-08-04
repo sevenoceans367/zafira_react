@@ -54,6 +54,8 @@ import PeriodContractListPage from '../pages/internal-user/period-contract/Perio
 import AddPeriodContractPage from '../pages/internal-user/period-contract/AddPeriodContractPage.jsx';
 import ElibraryPage from '../pages/internal-user/elibrary/ElibraryPage.jsx';
 import ElibraryFormPage from '../pages/internal-user/elibrary/ElibraryFormPage.jsx';
+import UserGuidesPage from '../pages/internal-user/user-guides/UserGuidesPage.jsx';
+import UserGuideViewerPage from '../pages/internal-user/user-guides/UserGuideViewerPage.jsx';
 import ToDoListPage from '../pages/internal-user/todo-list/ToDoListPage.jsx';
 import MasterModulePage from '../pages/internal-user/masters/MasterModulePage.jsx';
 import TcModulePage from '../pages/internal-user/tc/TcModulePage.jsx';
@@ -200,6 +202,8 @@ export default function App() {
             <Route path="/internal-user/:module/elibrary/add" element={<ElibraryFormPage />} />
             <Route path="/internal-user/:module/elibrary/edit/:id" element={<ElibraryFormPage />} />
             <Route path="/internal-user/:module/elibrary" element={<ElibraryPage />} />
+            <Route path="/internal-user/:module/user-guides/:guideId" element={<UserGuideViewerPage />} />
+            <Route path="/internal-user/:module/user-guides" element={<UserGuidesPage />} />
             <Route path="/internal-user/:module/todo-list" element={<ToDoListPage />} />
             <Route path="/internal-user/:module/masters/:masterId" element={<MasterModulePage />} />
 

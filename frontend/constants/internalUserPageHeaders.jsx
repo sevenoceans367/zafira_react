@@ -3,6 +3,7 @@ import { resolveSopfHeader } from './sopfPageHeaders.jsx';
 import { resolveFleetHeader } from './fleetPageHeaders.js';
 import { resolvePeriodContractHeader } from './periodContractPageHeaders.js';
 import { resolveElibraryHeader } from './elibraryPageHeaders.js';
+import { resolveUserGuidesHeader } from './userGuidesPageHeaders.js';
 import { resolveTodoListHeader } from './todoListPageHeaders.js';
 import { resolveCombinedSoaPayableHeader } from './combinedSoaPayablePageHeaders.js';
 import { resolveGenericFinancesHeader } from './genericFinancesPageHeaders.js';
@@ -51,6 +52,8 @@ export function resolveInternalUserHeader(pathname, search = '') {
     if (periodContractHeader) return periodContractHeader;
     const elibraryHeader = resolveElibraryHeader(pathname);
     if (elibraryHeader) return elibraryHeader;
+    const userGuidesHeader = resolveUserGuidesHeader(pathname);
+    if (userGuidesHeader) return userGuidesHeader;
     const fleetHeader = resolveFleetHeader(pathname);
     if (fleetHeader) return fleetHeader;
     return resolveSopfHeader(pathname, search);
@@ -73,6 +76,9 @@ export function resolveInternalUserHeader(pathname, search = '') {
 
   const elibraryHeader = resolveElibraryHeader(pathname);
   if (elibraryHeader) return elibraryHeader;
+
+  const userGuidesHeader = resolveUserGuidesHeader(pathname);
+  if (userGuidesHeader) return userGuidesHeader;
 
   const fleetHeader = resolveFleetHeader(pathname);
   if (fleetHeader) return fleetHeader;

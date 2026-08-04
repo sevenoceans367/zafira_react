@@ -1,0 +1,99 @@
+.page {
+  position: relative;
+}
+
+.title {
+  margin: 0 0 20px;
+  text-align: center;
+  font-family: var(--font-family-heading, inherit);
+  font-size: var(--font-size-highlight, 14px);
+  font-weight: 700;
+  color: var(--color-text-dark, #111827);
+}
+
+.guideList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.guideLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: var(--border-radius-md, 10px);
+  background: var(--color-surface, #fff);
+  color: var(--color-primary, #274670);
+  text-decoration: none;
+  font-family: var(--font-family-body, inherit);
+  font-size: var(--font-size-body, 12px);
+  font-weight: 600;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.guideLink:hover {
+  border-color: var(--color-primary, #274670);
+  background: #f8fafc;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.guideIcon {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-primary, #274670);
+}
+
+.guideTitle {
+  flex: 1;
+}
+
+.guideChevron {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.viewerHeader {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.viewerFrameWrap {
+  width: 100%;
+  min-height: calc(100vh - 220px);
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: var(--border-radius-md, 10px);
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.viewerFrame {
+  width: 100%;
+  height: calc(100vh - 220px);
+  min-height: 640px;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+  font-size: var(--font-size-body, 12px);
+}
+
+.empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 32px 16px;
+}

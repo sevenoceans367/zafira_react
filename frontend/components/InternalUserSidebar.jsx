@@ -5,6 +5,7 @@ import { appPath } from '@bainbridge/shared-routing';
 import { fleetAppPath } from '../constants/fleetModule.js';
 import { periodContractAppPath } from '../constants/periodContractModule.js';
 import { elibraryAppPath } from '../constants/elibraryModule.js';
+import { userGuidesAppPath } from '../constants/userGuidesModule.js';
 import { todoListAppPath } from '../constants/todoListPageHeaders.js';
 import { combinedSoaPayableAppPath, combinedSoaPayableTcAppPath } from '../constants/combinedSoaPayablePageHeaders.js';
 import { SOPF_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
@@ -58,6 +59,11 @@ const PERIOD_CONTRACT_LINK = {
 const ELIBRARY_LINK = {
   icon: 'bi-book',
   label: 'E-Library',
+};
+
+const USER_GUIDES_LINK = {
+  icon: 'bi-camera-video',
+  label: 'User Guides',
 };
 
 const TODO_LIST_LINK = {
@@ -135,6 +141,12 @@ export default function InternalUserSidebar({ isOpen }) {
               active={currentPath.startsWith('/internal-user/vc/elibrary')}
             />
             <SidebarLink
+              to={userGuidesAppPath('vc')}
+              icon={USER_GUIDES_LINK.icon}
+              label={USER_GUIDES_LINK.label}
+              active={currentPath.startsWith('/internal-user/vc/user-guides')}
+            />
+            <SidebarLink
               to={todoListAppPath('vc')}
               icon={TODO_LIST_LINK.icon}
               label={TODO_LIST_LINK.label}
@@ -206,6 +218,12 @@ export default function InternalUserSidebar({ isOpen }) {
               icon={ELIBRARY_LINK.icon}
               label={ELIBRARY_LINK.label}
               active={currentPath.startsWith('/internal-user/tc/elibrary')}
+            />
+            <SidebarLink
+              to={userGuidesAppPath('tc')}
+              icon={USER_GUIDES_LINK.icon}
+              label={USER_GUIDES_LINK.label}
+              active={currentPath.startsWith('/internal-user/tc/user-guides')}
             />
             <ReportsSidebarTree isOpen={isOpen} />
             <MastersSidebarTree isOpen={isOpen} />

@@ -513,28 +513,28 @@ export default function EstimateListPage() {
                               {row.selectable ? (
                                 <>
                                   <Button
-                                    variant="outlineAccent"
+                                    variant="link"
                                     size="sm"
                                     icon="pencil"
-                                    className={styles.rowActionBtn}
+                                    className={`${styles.rowActionBtn} ${styles.rowActionEdit}`}
                                     href={`/internal-user/sopf/updateestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}`}
                                     ariaLabel={`Edit ${row.sheetName}`}
                                   />
                                   <Button
-                                    variant="outlineAccent"
+                                    variant="link"
                                     size="sm"
                                     icon="trash"
-                                    className={styles.rowActionBtn}
+                                    className={`${styles.rowActionBtn} ${styles.rowActionDelete}`}
                                     onClick={() => handleDelete(row.id)}
                                     ariaLabel={`Delete ${row.sheetName}`}
                                   />
                                 </>
                               ) : (
                                 <Button
-                                  variant="outlineAccent"
+                                  variant="link"
                                   size="sm"
                                   icon="file-earmark"
-                                  className={styles.rowActionBtn}
+                                  className={`${styles.rowActionBtn} ${styles.rowActionView}`}
                                   href={`/internal-user/sopf/viewestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}&rttype=1`}
                                   ariaLabel={`View ${row.sheetName}`}
                                 />

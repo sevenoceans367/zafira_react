@@ -47,12 +47,12 @@ export default function EstimateResultsPanels({
 
         <div className={styles.distDaysGrid}>
           <div className={styles.distDaysCol}>
-            <div><span>Total Dist</span><strong>{form.totalDistance || '0.000'}</strong></div>
-            <div><span>Ballast Dist</span><strong>{form.ballastDist || '0.000'}</strong></div>
-            <div><span>Laden Dist</span><strong>{form.ladenDist || '0.000'}</strong></div>
+            <div><span>Total Dist</span><strong>{form.totalDistance || '0.00'}</strong></div>
+            <div><span>Ballast Dist</span><strong>{form.ballastDist || '0.00'}</strong></div>
+            <div><span>Laden Dist</span><strong>{form.ladenDist || '0.00'}</strong></div>
           </div>
           <div className={styles.distDaysCol}>
-            <div><span>Total Days</span><strong>{form.totalDays || '0.000'}</strong></div>
+            <div><span>Total Days</span><strong>{form.totalDays || '0.00'}</strong></div>
             <div><span>Total Sea Days</span><strong>{form.totalSeaDays || '0.000'}</strong></div>
             <div><span>Ballast Days</span><strong>{form.ballastDays || '0.000'}</strong></div>
             <div><span>Laden Days</span><strong>{form.ladenDays || '0.000'}</strong></div>

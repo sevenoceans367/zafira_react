@@ -768,11 +768,11 @@ export function computeEstimateTotals(form) {
   const deliveryBunkerRows = form.deliveryBunkerRows || [];
   const redeliveryBunkerRows = form.redeliveryBunkerRows || [];
 
-  const totalDistance = round3(
+  const totalDistance = round2(
     portLegs.reduce((sum, leg) => sum + num(leg.distance), 0),
   );
 
-  let seaDays = 0;
+  let seaDays = 0; // per-leg sea days still written on each row; roll-up uses laden/ballast below
   let legsWithDays = portLegs.map((leg) => {
     const speed = pickPassageSpeedKnots(form, leg.passageType, leg.speedType);
     // PHP: empty margin = 0 (not 5)
@@ -796,8 +796,9 @@ export function computeEstimateTotals(form) {
     const loadIdle = num(leg.loadPortIdleDays);
     const discIdle = num(leg.discPortIdleDays);
     const transitIdle = num(leg.transitIdleDays);
-    const portStayDays = round3(loadWork + discWork + loadIdle + discIdle + transitIdle);
-    const portIdleDays = round3(loadIdle + discIdle + transitIdle);
+    // PHP: txtTtPWDays = working only; txtTtPIDays = idle only; txtTDays = sea+idle+work
+    const portWorkDays = round3(loadWork + discWork);
+    const portIdleOnly = round3(loadIdle + discIdle + transitIdle);
     const ddcLpEst = formatDemurrageCostField(leg.demmDaysLp, leg.demmRateLp);
     const ddcDpEst = formatDemurrageCostField(leg.demmDaysDp, leg.demmRateDp);
     const nonSecaDistance = Math.max(0, num(leg.distance) - num(leg.secaDistance));
@@ -815,8 +816,8 @@ export function computeEstimateTotals(form) {
       discPortWorkDays: String(leg.discPortTerms) === '4' || hasDpDates
         ? (leg.discPortWorkDays ?? '')
         : (discWork ? discWork.toFixed(2) : '0.00'),
-      portStayDays: formatDays(portStayDays),
-      portIdleDays: formatIdleDays(portIdleDays) || '0.000',
+      portStayDays: formatDays(portWorkDays),
+      portIdleDays: formatIdleDays(portIdleOnly) || '0.000',
       nonSecaDistance: formatDistance(nonSecaDistance),
       secaDays: formatDays(secaDays),
       nonSecaDays: formatDays(nonSecaDays),
@@ -836,12 +837,12 @@ export function computeEstimateTotals(form) {
     const transitIdle = num(leg.transitIdleDays);
     const loadWork = num(leg.loadPortWorkDays);
     const discWork = num(leg.discPortWorkDays);
-    const portStayDays = round3(loadWork + discWork + loadIdle + discIdle + transitIdle);
-    const portIdleDays = round3(loadIdle + discIdle + transitIdle);
+    const portWorkDays = round3(loadWork + discWork);
+    const portIdleOnly = round3(loadIdle + discIdle + transitIdle);
     return {
       ...leg,
-      portStayDays: formatDays(portStayDays),
-      portIdleDays: formatIdleDays(portIdleDays) || '0.000',
+      portStayDays: formatDays(portWorkDays),
+      portIdleDays: formatIdleDays(portIdleOnly) || '0.000',
     };
   });
 
@@ -924,7 +925,7 @@ export function computeEstimateTotals(form) {
     const amt = num(row.hireAmt) || round2(num(row.hireDays) * num(row.hireRate));
     return { ...row, hireAmt: amt ? String(amt) : row.hireAmt };
   });
-  const totalHireFromRows = round2(hires.reduce((sum, row) => sum + num(row.hireAmt), 0));
+  let totalHireFromRows = round2(hires.reduce((sum, row) => sum + num(row.hireAmt), 0));
 
   const freightQtys = freightQtyRows.map((row) => {
     const quantity = num(row.quantity);
@@ -1077,13 +1078,9 @@ export function computeEstimateTotals(form) {
   const addressCommAmt = round2((freightGross * addCommPercent) / 100);
 
   const hireRate = num(form.hireRate);
+  // PHP txtTtPIDays / txtTtPWDays — idle vs working kept separate
   const portIdleDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portIdleDays), 0));
   const portStayDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portStayDays), 0));
-  // Hire days = sea + full port stay (work + idle). Matches PHP txtTDays / hire-days base.
-  const hireDays = round3(seaDays + portStayDays || num(form.totalDays));
-  const hireAmt = round2(
-    totalHireFromRows || num(form.hireAmt) || hireRate * hireDays,
-  );
 
   let ladenDist = 0;
   let ballastDist = 0;
@@ -1100,13 +1097,33 @@ export function computeEstimateTotals(form) {
       ballastDays += days;
     }
   }
-  ladenDist = round3(ladenDist);
-  ballastDist = round3(ballastDist);
+  // PHP Results: distances .toFixed(2); sea/idle/portstay days .toFixed(3); Total Days .toFixed(2)
+  ladenDist = round2(ladenDist);
+  ballastDist = round2(ballastDist);
   ladenDays = round3(ladenDays);
   ballastDays = round3(ballastDays);
   const totalSeaDays = round3(ladenDays + ballastDays);
-  // PHP txtTDays = sea + idle + work. portStayDays already includes idle+work — do not add idle again.
-  const totalDays = round3(totalSeaDays + portStayDays || num(form.totalDays) || 0);
+  // PHP txtTDays / hire days = sea + idle + working, then .toFixed(2)
+  const totalDays = round2(totalSeaDays + portIdleDays + portStayDays || num(form.totalDays) || 0);
+  const hireDays = totalDays;
+  // PHP $("#txtHireDays_1").val(same as txtTDays)
+  const hiresSynced = hires.map((row, index) => {
+    if (index !== 0) return row;
+    const daysStr = totalDays ? totalDays.toFixed(2) : (row.hireDays || '');
+    const rate = num(row.hireRate);
+    const amt = rate > 0 && totalDays > 0
+      ? round2(rate * totalDays)
+      : (num(row.hireAmt) || 0);
+    return {
+      ...row,
+      hireDays: daysStr,
+      hireAmt: amt ? String(amt) : row.hireAmt,
+    };
+  });
+  totalHireFromRows = round2(hiresSynced.reduce((sum, row) => sum + num(row.hireAmt), 0));
+  const hireAmt = round2(
+    totalHireFromRows || num(form.hireAmt) || hireRate * hireDays,
+  );
 
   // PHP: CVE ($) = (CVE/Month × 12 / 365) × total voyage days (txtTDays)
   const cvePerMonth = num(form.cvePerMonth);
@@ -1544,22 +1561,23 @@ export function computeEstimateTotals(form) {
     bunkerActivityRows: bunkerActivities,
     orcRows: orcs,
     otherIncomeRows: otherIncomes,
-    hireRows: hires,
+    hireRows: hiresSynced,
     secaBunkerRows: secaBunkersSynced,
     freightQtyRows: freightQtys,
     tankerWsRows: tankerWs,
     offHireRows: offHires.map(({ bunkerTotal, ...row }) => row),
     deliveryBunkerRows: deliveryBunkers,
     redeliveryBunkerRows: redeliveryBunkers,
-    totalDistance: formatDistance(totalDistance) || '0.000',
-    ladenDist: formatDistance(ladenDist) || '0.000',
-    ballastDist: formatDistance(ballastDist) || '0.000',
+    totalDistance: totalDistance ? totalDistance.toFixed(2) : '0.00',
+    ladenDist: ladenDist ? ladenDist.toFixed(2) : '0.00',
+    ballastDist: ballastDist ? ballastDist.toFixed(2) : '0.00',
     ladenDays: formatDays(ladenDays),
     ballastDays: formatDays(ballastDays),
     totalSeaDays: formatDays(totalSeaDays),
     portIdleDays: formatIdleDays(portIdleDays) || '0.000',
     portStayDays: formatDays(portStayDays),
-    totalDays: formatDays(totalDays),
+    // PHP txtTDays uses .toFixed(2)
+    totalDays: totalDays ? totalDays.toFixed(2) : '0.00',
     totalPortCost: String(totalPortCost || ''),
     totalBunkerCost: String(bunkerExpenseTotal || ''),
     totalSecaBunkerCost: String(totalSecaBunkerCostSynced || ''),

@@ -6,7 +6,7 @@ import {
   PORT_FUNCTION_OPTIONS,
   normalizeCargoId,
 } from './estimateDetail.constants.js';
-import { formatDays, getLaytimeRateUnitLabel } from './estimateCalculations.js';
+import { formatIdleDays, getLaytimeRateUnitLabel } from './estimateCalculations.js';
 import { sanitizeDecimalInput } from './estimateInputSanitize.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import styles from './UpdateEstimatePage.module.css';
@@ -66,6 +66,7 @@ function DecimalInput({
   placeholder = '0.00',
   maxDecimals = 2,
   onChange,
+  onBlur,
   ...rest
 }) {
   return (
@@ -76,9 +77,14 @@ function DecimalInput({
       inputMode="decimal"
       autoComplete="off"
       onChange={(e) => onChange(sanitizeDecimalInput(e.target.value, { maxDecimals }))}
+      onBlur={onBlur}
       {...rest}
     />
   );
+}
+
+function commitIdleDays(patchLeg, legId, key, value) {
+  patchLeg(legId, { [key]: formatIdleDays(value) });
 }
 
 function BunkerGradeSelect({ value, disabled, onChange }) {
@@ -255,6 +261,10 @@ export default function PortLaytimeSections({
                         placeholder="0.000"
                         maxDecimals={3}
                         onChange={(value) => patchLeg(leg.id, { loadPortIdleDays: value })}
+                        onBlur={(e) => {
+                          if (readOnly) return;
+                          commitIdleDays(patchLeg, leg.id, 'loadPortIdleDays', e.target.value);
+                        }}
                       />
                     </td>
                     <td className={styles.secaCol}>
@@ -377,6 +387,10 @@ export default function PortLaytimeSections({
                         placeholder="0.000"
                         maxDecimals={3}
                         onChange={(value) => patchLeg(leg.id, { discPortIdleDays: value })}
+                        onBlur={(e) => {
+                          if (readOnly) return;
+                          commitIdleDays(patchLeg, leg.id, 'discPortIdleDays', e.target.value);
+                        }}
                       />
                     </td>
                     <td className={styles.secaCol}>
@@ -444,6 +458,10 @@ export default function PortLaytimeSections({
                         placeholder="0.000"
                         maxDecimals={3}
                         onChange={(value) => patchLeg(leg.id, { transitIdleDays: value })}
+                        onBlur={(e) => {
+                          if (readOnly) return;
+                          commitIdleDays(patchLeg, leg.id, 'transitIdleDays', e.target.value);
+                        }}
                       />
                     </td>
                     <td>
@@ -453,6 +471,10 @@ export default function PortLaytimeSections({
                         placeholder="0.000"
                         maxDecimals={3}
                         onChange={(value) => patchLeg(leg.id, { chartererAccountDays: value })}
+                        onBlur={(e) => {
+                          if (readOnly) return;
+                          commitIdleDays(patchLeg, leg.id, 'chartererAccountDays', e.target.value);
+                        }}
                       />
                     </td>
                     <td className={styles.secaCol}>

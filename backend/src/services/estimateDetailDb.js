@@ -122,6 +122,18 @@ function numOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Idle/portstay day fields — keep as 3dp numeric strings. */
+function formatIdleDaysValue(value) {
+  if (value == null || value === '') return '';
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return '';
+    return '';
+  }
+  const n = Number(String(value).replace(/,/g, ''));
+  if (!Number.isFinite(n)) return '';
+  return (Math.round((n + Number.EPSILON) * 1000) / 1000).toFixed(3);
+}
+
 /** PHP: intval(rand(1,9).rand(0,9)... ) — 5-digit, fits MySQL INT. */
 function randomId() {
   return String(Math.floor(10000 + Math.random() * 90000));
@@ -258,9 +270,9 @@ function mapPortLeg(row, index) {
     discPortTerms: row.DISC_PORT_TERMS != null ? String(row.DISC_PORT_TERMS) : '1',
     loadPortWorkDays: row.LOAD_PORT_WORK_DAYS ?? '',
     discPortWorkDays: row.DISC_PORT_WORK_DAYS ?? '',
-    loadPortIdleDays: row.LOAD_PORT_IDEAL_DAYS ?? '',
-    discPortIdleDays: row.DISC_PORT_IDEAL_DATE ?? '',
-    transitIdleDays: row.TRANSIT_PORT_IDLE_DAYS ?? '',
+    loadPortIdleDays: formatIdleDaysValue(row.LOAD_PORT_IDEAL_DAYS),
+    discPortIdleDays: formatIdleDaysValue(row.DISC_PORT_IDEAL_DATE),
+    transitIdleDays: formatIdleDaysValue(row.TRANSIT_PORT_IDLE_DAYS),
     secaDistance: row.SECA_DISTANCE ?? '',
     nonSecaDistance: row.NON_SECA_DISTANCE ?? '',
     secaDays: row.SECA_DAYS ?? '',
@@ -2176,6 +2188,8 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     'PIDOFULLSPEED = ?',
     'PWDOFULLSPEED = ?',
     'QUANTITY = ?',
+    'TANK_QUANTITY = ?',
+    'GAS_QUANTITY = ?',
     'TOTAL_DAYS = ?',
     'TOTAL_DISTANCE = ?',
     'DAILY_EARNING = ?',
@@ -2285,6 +2299,9 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     numOrNull(payload.pIdoFullSpeed),
     numOrNull(payload.pWdoFullSpeed),
     numOrNull(payload.cargoQuantity),
+    // Dashboard Cargo column uses TANK_QUANTITY (tankers) / GAS_QUANTITY (gas)
+    Number(payload.estimateType) === 2 ? numOrNull(payload.cargoQuantity) : null,
+    Number(payload.estimateType) === 1 ? numOrNull(payload.cargoQuantity) : null,
     numOrNull(payload.totalDays),
     numOrNull(payload.totalDistance),
     numOrNull(payload.dailyEarning),

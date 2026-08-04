@@ -79,10 +79,11 @@ export function isDateWithinPeriod(value, periodFrom, periodTo) {
 }
 
 export function getCargoQuantity(row) {
-  if (row.estimateType === 1) return row.gasQuantity;
-  if (row.estimateType === 2) return row.tankQuantity;
-  if (row.qtyTypeRadio === 1) return row.quantity;
-  return row.slave7SumQty ?? 0;
+  // List historically used type-specific columns; fall back to QUANTITY for React saves.
+  if (row.estimateType === 1) return row.gasQuantity || row.quantity || 0;
+  if (row.estimateType === 2) return row.tankQuantity || row.quantity || 0;
+  if (row.qtyTypeRadio === 1) return row.quantity || 0;
+  return row.slave7SumQty ?? row.quantity ?? 0;
 }
 
 export function getFreightLabel(row) {

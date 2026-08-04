@@ -25,6 +25,17 @@ export function formatDays(value) {
   return round3(n).toFixed(3);
 }
 
+/**
+ * Idle / transit idle days — always 3 decimal places when set (including 0.000).
+ * Empty string stays empty so the field can be cleared.
+ */
+export function formatIdleDays(value) {
+  if (value == null || String(value).trim() === '') return '';
+  const n = num(value);
+  if (!Number.isFinite(n)) return '';
+  return round3(n).toFixed(3);
+}
+
 /** Format a distance (nm) for display/storage with exactly 3 decimal places. */
 export function formatDistance(value) {
   if (value == null || String(value).trim() === '') return '';
@@ -132,11 +143,11 @@ export function syncPortstayFromPassageDates(leg) {
   if (next.toArrival && next.toDeparture && String(next.discPortTerms || '').trim()) {
     const days = Number(diffDays(next.toArrival, next.toDeparture).toFixed(2));
     if (!isDapDp && (passageType === '1' || discQty === 0)) {
-      next.transitIdleDays = days.toFixed(2);
+      next.transitIdleDays = formatIdleDays(days) || '0.000';
       next.discPortWorkDays = '0.00';
     } else {
       next.discPortWorkDays = days.toFixed(2);
-      if (!isDapDp) next.transitIdleDays = '0.00';
+      if (!isDapDp) next.transitIdleDays = '0.000';
     }
   }
 
@@ -205,7 +216,7 @@ export function applyIdleDaysByLaycan(portLegs, laycanStart) {
     const days = (d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24);
     legs[ladenIndex] = {
       ...legs[ladenIndex],
-      loadPortIdleDays: days.toFixed(3),
+      loadPortIdleDays: formatIdleDays(days) || '0.000',
     };
   }
   return legs;
@@ -395,6 +406,7 @@ export function applyDemurrageDaysFromLaytime(portLegs, timeAllowedHrs) {
  *   - 'portstayLp' — PHP getDepartureDate('LP'): From Departure from LP Portstay Days
  *   - 'syncPortstayFromDates' — dates → Portstay Days only (e.g. selecting DAP)
  *   - 'laycanOnly' — idle-by-laycan + demurrage only (no date rewrite)
+ *   - 'idleManual' — user edited Idle Days; keep typed values (do not re-apply laycan idle)
  *   - 'demurrageLaytime' — Time Allowed change → refresh Demm. Days from laytime
  *   - 'demurrageManual' — user edited Demm. Days/Rate; keep typed values (do not auto-fill)
  *   - omitted on generic recalc — cascade from existing arrivals when present
@@ -410,7 +422,18 @@ export function applyPortScheduleCalculations(form) {
     ? portLegs.findIndex((leg) => String(leg.id) === String(legId))
     : -1;
 
-  portLegs = applyIdleDaysByLaycan(portLegs, form.laycanStart);
+  // PHP getIdleDaysByLaycan — only when laycan / arrival schedule changes, not on Idle typing
+  // or generic freight recalcs (otherwise Idle Days appear locked after save).
+  const applyLaycanIdle = (
+    mode === 'laycanOnly'
+    || mode === 'fromArrival'
+    || mode === 'fromDeparture'
+    || mode === 'toArrival'
+    || mode === 'toDeparture'
+  );
+  if (applyLaycanIdle) {
+    portLegs = applyIdleDaysByLaycan(portLegs, form.laycanStart);
+  }
 
   // PHP calculatePortDates: whenever Arrival/Departure both exist and Terms are set,
   // write the gap into Portstay Days (all Terms, not only DAP).
@@ -429,8 +452,12 @@ export function applyPortScheduleCalculations(form) {
     portLegs = cascadeFromDiscPortstay(portLegs, legIndex);
   } else if (mode === 'portstayLp' && legIndex >= 0) {
     portLegs = cascadeFromLoadPortstay(portLegs, legIndex);
-  } else if (mode === 'syncPortstayFromDates' || mode === 'demurrageManual') {
-    // Portstay / demurrage days already set — do not rewrite dates
+  } else if (
+    mode === 'syncPortstayFromDates'
+    || mode === 'demurrageManual'
+    || mode === 'idleManual'
+  ) {
+    // Portstay / demurrage / idle days already set — do not rewrite dates
   } else if (mode === 'fromDeparture' && legIndex >= 0) {
     portLegs = cascadeFromDeparture(portLegs, legIndex);
   } else if (mode === 'toArrival' && legIndex >= 0) {
@@ -789,7 +816,7 @@ export function computeEstimateTotals(form) {
         ? (leg.discPortWorkDays ?? '')
         : (discWork ? discWork.toFixed(2) : '0.00'),
       portStayDays: formatDays(portStayDays),
-      portIdleDays: formatDays(portIdleDays),
+      portIdleDays: formatIdleDays(portIdleDays) || '0.000',
       nonSecaDistance: formatDistance(nonSecaDistance),
       secaDays: formatDays(secaDays),
       nonSecaDays: formatDays(nonSecaDays),
@@ -814,7 +841,7 @@ export function computeEstimateTotals(form) {
     return {
       ...leg,
       portStayDays: formatDays(portStayDays),
-      portIdleDays: formatDays(portIdleDays),
+      portIdleDays: formatIdleDays(portIdleDays) || '0.000',
     };
   });
 
@@ -1530,7 +1557,7 @@ export function computeEstimateTotals(form) {
     ladenDays: formatDays(ladenDays),
     ballastDays: formatDays(ballastDays),
     totalSeaDays: formatDays(totalSeaDays),
-    portIdleDays: formatDays(portIdleDays),
+    portIdleDays: formatIdleDays(portIdleDays) || '0.000',
     portStayDays: formatDays(portStayDays),
     totalDays: formatDays(totalDays),
     totalPortCost: String(totalPortCost || ''),

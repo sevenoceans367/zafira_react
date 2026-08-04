@@ -277,7 +277,15 @@ export default function EstimateDetailSections({
       else if (keys.includes('toDeparture')) scheduleMode = 'toDeparture';
       else if (keys.includes('discPortWorkDays')) scheduleMode = 'portstayDp';
       else if (keys.includes('loadPortWorkDays')) scheduleMode = 'portstayLp';
-      else if (keys.includes('discPortTerms') || keys.includes('loadPortTerms')) {
+      else if (
+        keys.includes('loadPortIdleDays')
+        || keys.includes('discPortIdleDays')
+        || keys.includes('transitIdleDays')
+        || keys.includes('chartererAccountDays')
+      ) {
+        // Keep typed Idle Days — do not re-run getIdleDaysByLaycan on each keystroke
+        scheduleMode = 'idleManual';
+      } else if (keys.includes('discPortTerms') || keys.includes('loadPortTerms')) {
         // Any Terms selection (PHP: if selLPTerms/selDPTerms): pull Portstay from Arrival/Departure.
         // Field stays editable only for D.A.P. (see PortLaytimeSections).
         const termsVal = keys.includes('discPortTerms')

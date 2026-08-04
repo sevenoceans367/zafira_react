@@ -1,4 +1,4 @@
-import { formatDistance } from './estimateCalculations.js';
+import { formatDistance, formatIdleDays } from './estimateCalculations.js';
 
 export const FIXTURE_TYPE_OPTIONS = [
   { value: '1', label: 'TCIN-VCOUT' },
@@ -733,11 +733,11 @@ export function toFormState(detail = {}) {
       discPortTerms: row.discPortTerms != null ? String(row.discPortTerms) : '1',
       loadPortWorkDays: row.loadPortWorkDays != null ? String(row.loadPortWorkDays) : '',
       discPortWorkDays: row.discPortWorkDays != null ? String(row.discPortWorkDays) : '',
-      loadPortIdleDays: row.loadPortIdleDays != null ? String(row.loadPortIdleDays) : '',
-      discPortIdleDays: row.discPortIdleDays != null ? String(row.discPortIdleDays) : '',
-      transitIdleDays: row.transitIdleDays != null ? String(row.transitIdleDays) : '',
+      loadPortIdleDays: formatIdleDays(row.loadPortIdleDays),
+      discPortIdleDays: formatIdleDays(row.discPortIdleDays),
+      transitIdleDays: formatIdleDays(row.transitIdleDays),
       portStayDays: row.portStayDays != null ? String(row.portStayDays) : '',
-      portIdleDays: row.portIdleDays != null ? String(row.portIdleDays) : '',
+      portIdleDays: formatIdleDays(row.portIdleDays),
       secaDistance: distStr(row.secaDistance),
       nonSecaDistance: distStr(row.nonSecaDistance),
       navMethod: row.navMethod != null ? String(row.navMethod) : '',
@@ -770,7 +770,7 @@ export function toFormState(detail = {}) {
         : ['VLSFO'],
       bgNonSeca: row.bgNonSeca || 'VLSFO',
       bgSeca: row.bgSeca || 'LSMGO',
-      chartererAccountDays: row.chartererAccountDays != null ? String(row.chartererAccountDays) : '',
+      chartererAccountDays: formatIdleDays(row.chartererAccountDays),
       portFunction: row.portFunction != null ? String(row.portFunction) : '',
     }))
     : [createEmptyPortLeg()];

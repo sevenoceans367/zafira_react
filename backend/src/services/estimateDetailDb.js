@@ -2617,15 +2617,19 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
 
   for (const hire of payload.hireRows || []) {
     if (!hire.hireDays && !hire.hireRate && !hire.hireAmt) continue;
+    // PHP: only insert slave17 when both HIRE_FROM and HIRE_TO are provided.
+    // Rate/days/amt still persist on master (HIREAGE_AMT / hire calc).
+    const hireFrom = toDbDateTime(hire.hireFrom);
+    const hireTo = toDbDateTime(hire.hireTo);
+    if (!hireFrom || !hireTo) continue;
     await connection.query(
       `INSERT INTO freight_cost_estimete_slave17 (
         FCAID, HIRE_FROM, HIRE_TO, HIRE_DAYS, HIRE_RATE, HIRE_AMT, RANDOMID
       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         fcaId,
-        // Empty dates → NULL. Do not use 1970-01-01 00:00:00 (invalid for TIMESTAMP).
-        toDbDateTime(hire.hireFrom),
-        toDbDateTime(hire.hireTo),
+        hireFrom,
+        hireTo,
         numOrNull(hire.hireDays),
         numOrNull(hire.hireRate),
         numOrNull(hire.hireAmt),

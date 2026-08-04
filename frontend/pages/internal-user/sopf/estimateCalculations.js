@@ -25,6 +25,14 @@ export function formatDays(value) {
   return round3(n).toFixed(3);
 }
 
+/** Format a distance (nm) for display/storage with exactly 3 decimal places. */
+export function formatDistance(value) {
+  if (value == null || String(value).trim() === '') return '';
+  const n = num(value);
+  if (!Number.isFinite(n)) return '';
+  return round3(n).toFixed(3);
+}
+
 // ---------------------------------------------------------------------------
 // Port schedule / laycan / demurrage (php/common.js)
 // Date format: "dd-mm-yyyy HH:MM"
@@ -606,18 +614,29 @@ export function buildBunkerSummaryRows(form, resolveGradeName) {
   }).filter((row) => row.qty || row.price || row.amount);
 }
 
-/** Demurrage address + broker commission display totals. */
+/** Demurrage address + broker commission display totals (Commissions panel). */
 export function calcDemurrageCommissionDisplay(form) {
   const demurrageRevenue = num(form.demurrageRevenue);
   const addCommPercent = num(form.addCommPercent);
+  const addressCommAmt = num(form.addressCommAmt);
   const addressDemmComm = round2((demurrageRevenue * addCommPercent) / 100);
-  const brokerDemmCommTotal = (form.brokerRows || []).reduce(
-    (sum, row) => sum + num(row.demmPercent),
-    0,
+  const brokerPercentTotal = round2(
+    (form.brokerRows || []).reduce((sum, row) => sum + num(row.percent), 0),
+  );
+  const brokerFreightTotal = round2(
+    (form.brokerRows || []).reduce((sum, row) => sum + num(row.amount), 0),
+  );
+  const brokerDemmCommTotal = round2(
+    (form.brokerRows || []).reduce((sum, row) => sum + num(row.demmPercent), 0),
   );
   return {
     addressDemmComm,
     brokerDemmCommTotal,
+    /** Percentage total = ADCOM % + brokerage % */
+    totalCommPercent: round2(addCommPercent + brokerPercentTotal),
+    /** Freight commission total = ADCOM amt + brokerage amt */
+    totalFreightComm: round2(addressCommAmt + brokerFreightTotal),
+    /** Demurrage commission total = ADCOM demm + brokerage demm */
     totalDemmComm: round2(addressDemmComm + brokerDemmCommTotal),
   };
 }
@@ -722,7 +741,7 @@ export function computeEstimateTotals(form) {
   const deliveryBunkerRows = form.deliveryBunkerRows || [];
   const redeliveryBunkerRows = form.redeliveryBunkerRows || [];
 
-  const totalDistance = round2(
+  const totalDistance = round3(
     portLegs.reduce((sum, leg) => sum + num(leg.distance), 0),
   );
 
@@ -771,7 +790,7 @@ export function computeEstimateTotals(form) {
         : (discWork ? discWork.toFixed(2) : '0.00'),
       portStayDays: formatDays(portStayDays),
       portIdleDays: formatDays(portIdleDays),
-      nonSecaDistance: String(round2(nonSecaDistance)),
+      nonSecaDistance: formatDistance(nonSecaDistance),
       secaDays: formatDays(secaDays),
       nonSecaDays: formatDays(nonSecaDays),
       ddcLpEst,
@@ -1023,7 +1042,7 @@ export function computeEstimateTotals(form) {
   });
   const brokeragePercent = round2(
     brokers.reduce((sum, row) => sum + num(row.percent), 0),
-  ) || num(form.brokeragePercent);
+  );
   const brokerageAmt = round2(
     brokers.reduce((sum, row) => sum + num(row.amount), 0),
   );
@@ -1054,8 +1073,8 @@ export function computeEstimateTotals(form) {
       ballastDays += days;
     }
   }
-  ladenDist = round2(ladenDist);
-  ballastDist = round2(ballastDist);
+  ladenDist = round3(ladenDist);
+  ballastDist = round3(ballastDist);
   ladenDays = round3(ladenDays);
   ballastDays = round3(ballastDays);
   const totalSeaDays = round3(ladenDays + ballastDays);
@@ -1505,9 +1524,9 @@ export function computeEstimateTotals(form) {
     offHireRows: offHires.map(({ bunkerTotal, ...row }) => row),
     deliveryBunkerRows: deliveryBunkers,
     redeliveryBunkerRows: redeliveryBunkers,
-    totalDistance: String(totalDistance || ''),
-    ladenDist: String(ladenDist || ''),
-    ballastDist: String(ballastDist || ''),
+    totalDistance: formatDistance(totalDistance) || '0.000',
+    ladenDist: formatDistance(ladenDist) || '0.000',
+    ballastDist: formatDistance(ballastDist) || '0.000',
     ladenDays: formatDays(ladenDays),
     ballastDays: formatDays(ballastDays),
     totalSeaDays: formatDays(totalSeaDays),
@@ -1533,7 +1552,7 @@ export function computeEstimateTotals(form) {
     totalFreightQty: String(totalFreightQty || ''),
     cargoQuantity: String(cargoQuantity || ''),
     freightGross: String(freightGross || ''),
-    brokeragePercent: String(brokeragePercent || ''),
+    brokeragePercent: brokeragePercent ? brokeragePercent.toFixed(2) : '',
     brokerageAmt: brokerageAmt ? brokerageAmt.toFixed(2) : '',
     addressCommAmt: addressCommAmt ? addressCommAmt.toFixed(2) : '',
     hireAmt: String(hireAmt || ''),

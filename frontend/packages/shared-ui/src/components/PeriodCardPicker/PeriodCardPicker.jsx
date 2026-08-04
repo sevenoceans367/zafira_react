@@ -16,11 +16,29 @@ function isValidDate(date) {
 function parseDmy(value) {
   if (!value) return null;
   const trimmed = String(value).trim();
-  const dmy = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+
+  const dmy = trimmed.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
   if (dmy) {
     const day = Number(dmy[1]);
     const month = Number(dmy[2]);
     const year = Number(dmy[3]);
+    const date = startOfDay(new Date(year, month - 1, day));
+    if (
+      isValidDate(date)
+      && date.getFullYear() === year
+      && date.getMonth() === month - 1
+      && date.getDate() === day
+    ) {
+      return date;
+    }
+    return null;
+  }
+
+  const iso = trimmed.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (iso) {
+    const year = Number(iso[1]);
+    const month = Number(iso[2]);
+    const day = Number(iso[3]);
     const date = startOfDay(new Date(year, month - 1, day));
     if (
       isValidDate(date)

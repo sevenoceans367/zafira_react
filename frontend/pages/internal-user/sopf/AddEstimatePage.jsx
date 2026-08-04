@@ -347,6 +347,8 @@ export default function AddEstimatePage() {
         buildEstimateSubmitPayload(computed, form.estimateType || estimateType, periodId),
         files,
       );
+      // Clear overlay before alert — LoadingOverlay sits above the dialog and would block OK.
+      setSaving(false);
       await alert({
         title: 'Success',
         message: 'Congratulations! Estimate added successfully.',
@@ -354,6 +356,7 @@ export default function AddEstimatePage() {
       });
       navigate(`${listHref}&msg=0`, { replace: true });
     } catch (err) {
+      setSaving(false);
       const message = err.message || 'Failed to create estimate.';
       setError(message);
       await alert({

@@ -40,9 +40,23 @@ export const ESTIMATE_DAYS_FIELDS = new Set([
   'days',
 ]);
 
-/** Sanitize a decimal estimate field (days → 3 dp, other decimals → 2 dp). */
+/** Distance fields (nm) — 3 decimal places. */
+export const ESTIMATE_DISTANCE_FIELDS = new Set([
+  'distance',
+  'secaDistance',
+  'nonSecaDistance',
+  'totalDistance',
+  'ladenDist',
+  'ballastDist',
+  'minDistance',
+  'oveDistance',
+]);
+
+/** Sanitize a decimal estimate field (days/dist → 3 dp, other decimals → 2 dp). */
 export function sanitizeFieldDecimal(key, value, opts) {
-  const maxDecimals = ESTIMATE_DAYS_FIELDS.has(key) ? 3 : 2;
+  const maxDecimals = (
+    ESTIMATE_DAYS_FIELDS.has(key) || ESTIMATE_DISTANCE_FIELDS.has(key)
+  ) ? 3 : 2;
   return sanitizeDecimalInput(value, { maxDecimals, ...(opts || {}) });
 }
 
@@ -110,6 +124,10 @@ export const ESTIMATE_DECIMAL_FIELDS = new Set([
   'seaMargin',
   'distance',
   'secaDistance',
+  'nonSecaDistance',
+  'totalDistance',
+  'ladenDist',
+  'ballastDist',
   'loadPortCost',
   'loadQty',
   'loadPortRate',

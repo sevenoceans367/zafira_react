@@ -286,6 +286,8 @@ export default function UpdateEstimatePage() {
         buildEstimateSubmitPayload(computed, estimateType),
         files,
       );
+      // Clear overlay before alert — LoadingOverlay sits above the dialog and would block OK.
+      setSaving(false);
       await alert({
         title: 'Success',
         message: 'Congratulations! Estimate updated successfully.',
@@ -293,6 +295,7 @@ export default function UpdateEstimatePage() {
       });
       navigate(`${listHref}&msg=0`, { replace: true });
     } catch (err) {
+      setSaving(false);
       const message = err.message || 'Failed to save estimate.';
       setError(message);
       await alert({

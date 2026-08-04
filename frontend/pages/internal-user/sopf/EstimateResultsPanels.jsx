@@ -47,9 +47,9 @@ export default function EstimateResultsPanels({
 
         <div className={styles.distDaysGrid}>
           <div className={styles.distDaysCol}>
-            <div><span>Total Dist</span><strong>{form.totalDistance || '0'}</strong></div>
-            <div><span>Ballast Dist</span><strong>{form.ballastDist || '0'}</strong></div>
-            <div><span>Laden Dist</span><strong>{form.ladenDist || '0'}</strong></div>
+            <div><span>Total Dist</span><strong>{form.totalDistance || '0.000'}</strong></div>
+            <div><span>Ballast Dist</span><strong>{form.ballastDist || '0.000'}</strong></div>
+            <div><span>Laden Dist</span><strong>{form.ladenDist || '0.000'}</strong></div>
           </div>
           <div className={styles.distDaysCol}>
             <div><span>Total Days</span><strong>{form.totalDays || '0.000'}</strong></div>
@@ -87,15 +87,24 @@ export default function EstimateResultsPanels({
                 onChange={(e) => setField('co2Price', e.target.value)}
               />
             </div>
-            <div className={styles.field}>
+            <div className={`${styles.field} ${styles.euaPriceWithRun}`}>
               <label htmlFor="euaPrice">EUA Price / MT</label>
-              <input
-                id="euaPrice"
-                value={form.euaPrice || ''}
-                readOnly={readOnly}
-                placeholder="0.00"
-                onChange={(e) => setField('euaPrice', e.target.value)}
-              />
+              <div className={styles.euaPriceRow}>
+                <input
+                  id="euaPrice"
+                  value={form.euaPrice || ''}
+                  readOnly={readOnly}
+                  placeholder="0.00"
+                  onChange={(e) => setField('euaPrice', e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="sensitivity"
+                  size="sm"
+                  label="Run"
+                  onClick={() => onRecalc?.()}
+                />
+              </div>
             </div>
           </div>
         ) : (
@@ -151,12 +160,6 @@ export default function EstimateResultsPanels({
               onChange={(e) => setField('fuelEuAddToFreight', e.target.checked)}
             />
           </label>
-        ) : null}
-
-        {editable ? (
-          <div className={styles.recalcBar}>
-            <Button type="button" variant="sensitivity" size="sm" label="Run" onClick={() => onRecalc?.()} />
-          </div>
         ) : null}
       </CollapsiblePanel>
     </>

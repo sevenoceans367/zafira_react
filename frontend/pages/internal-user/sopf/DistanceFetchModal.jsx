@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button, CardSelect, useAlert } from '@bainbridge/shared-ui';
 import { fetchPortDistance } from '../../../services/estimateDetail.js';
+import { formatDistance } from './estimateCalculations.js';
 import {
   NAVIGATION_METHOD_OPTIONS,
   PASSAGE_AREA_OPTIONS,
@@ -55,7 +56,7 @@ export default function DistanceFetchModal({
   const mapInstanceRef = useRef(null);
   const layerRef = useRef(null);
 
-  const [navMethod, setNavMethod] = useState('');
+  const [navMethod, setNavMethod] = useState('1');
   const [greatCircleInterval, setGreatCircleInterval] = useState('0');
   const [secaAvoidance, setSecaAvoidance] = useState('0');
   const [aslCompliance, setAslCompliance] = useState('0');
@@ -68,7 +69,7 @@ export default function DistanceFetchModal({
 
   useEffect(() => {
     if (!open || !leg) return;
-    setNavMethod('');
+    setNavMethod('1');
     setGreatCircleInterval('0');
     setSecaAvoidance('0');
     setAslCompliance('0');
@@ -240,11 +241,9 @@ export default function DistanceFetchModal({
 
   const handleConfirm = () => {
     if (!result || !leg) return;
-    const totalDistance = Number(result.totalDistance) || 0;
-    const secaDistance = Number(result.secaDistance) || 0;
     onConfirm?.(leg.id, {
-      distance: String(totalDistance),
-      secaDistance: String(secaDistance),
+      distance: formatDistance(result.totalDistance) || '0.000',
+      secaDistance: formatDistance(result.secaDistance) || '0.000',
       navMethod: navMethod || undefined,
       canals: result.canals || { turkish: false, suez: false, panama: false },
     });
@@ -432,13 +431,13 @@ export default function DistanceFetchModal({
             <div className={`${styles.statCard} ${styles.statCardPrimary}`}>
               <div className={styles.statLabel}>Total Distance</div>
               <div className={styles.statValue}>
-                {result ? Number(result.totalDistance).toFixed(2) : '0.00'}
+                {result ? formatDistance(result.totalDistance) || '0.000' : '0.000'}
               </div>
             </div>
             <div className={`${styles.statCard} ${styles.statCardSecondary}`}>
               <div className={styles.statLabel}>Total SECA Distance</div>
               <div className={styles.statValue}>
-                {result ? Number(result.secaDistance).toFixed(2) : '0.00'}
+                {result ? formatDistance(result.secaDistance) || '0.000' : '0.000'}
               </div>
             </div>
           </div>

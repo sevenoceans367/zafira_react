@@ -1,8 +1,16 @@
+import { formatDistance } from './estimateCalculations.js';
+
 export const FIXTURE_TYPE_OPTIONS = [
   { value: '1', label: 'TCIN-VCOUT' },
   { value: '2', label: 'VCIN-VCOUT' },
   { value: '3', label: 'VCOUT' },
 ];
+
+/** Format API distance values to 3dp when present. */
+function distStr(value) {
+  if (value == null || String(value).trim() === '') return '';
+  return formatDistance(value) || String(value);
+}
 
 /** PHP getCOASpotList() — show COA number row when value is 2. */
 export const COA_SPOT_OPTIONS = [
@@ -698,7 +706,7 @@ export function toFormState(detail = {}) {
       toPortName: row.toPortName ?? '',
       passageType: row.passageType != null ? String(row.passageType) : '1',
       speedType: row.speedType != null ? String(row.speedType) : '1',
-      distance: row.distance != null ? String(row.distance) : '',
+      distance: distStr(row.distance),
       seaDays: row.seaDays != null ? String(row.seaDays) : '',
       seaMargin: row.seaMargin != null ? String(row.seaMargin) : '0',
       fromArrival: row.fromArrival ?? '',
@@ -720,8 +728,8 @@ export function toFormState(detail = {}) {
       transitIdleDays: row.transitIdleDays != null ? String(row.transitIdleDays) : '',
       portStayDays: row.portStayDays != null ? String(row.portStayDays) : '',
       portIdleDays: row.portIdleDays != null ? String(row.portIdleDays) : '',
-      secaDistance: row.secaDistance != null ? String(row.secaDistance) : '',
-      nonSecaDistance: row.nonSecaDistance != null ? String(row.nonSecaDistance) : '',
+      secaDistance: distStr(row.secaDistance),
+      nonSecaDistance: distStr(row.nonSecaDistance),
       navMethod: row.navMethod != null ? String(row.navMethod) : '',
       secaDays: row.secaDays != null ? String(row.secaDays) : '',
       nonSecaDays: row.nonSecaDays != null ? String(row.nonSecaDays) : '',
@@ -946,7 +954,7 @@ export function toFormState(detail = {}) {
       toLocation: row.toLocation ?? '',
       passageType: row.passageType != null ? String(row.passageType) : '1',
       speedType: row.speedType != null ? String(row.speedType) : '1',
-      distance: row.distance != null ? String(row.distance) : '',
+      distance: distStr(row.distance),
     }))
     : [createEmptyPassageLocationRow()];
 
@@ -1201,7 +1209,7 @@ export function toFormState(detail = {}) {
     totalOffHireAmt: detail.totalOffHireAmt != null ? String(detail.totalOffHireAmt) : '',
     totalFreightQty: detail.totalFreightQty != null ? String(detail.totalFreightQty) : '',
     totalDays: detail.totalDays != null ? String(detail.totalDays) : '',
-    totalDistance: detail.totalDistance != null ? String(detail.totalDistance) : '',
+    totalDistance: distStr(detail.totalDistance),
     cargoQuantity: detail.cargoQuantity != null ? String(detail.cargoQuantity) : '',
     revenue: detail.revenue != null ? String(detail.revenue) : '',
     voyageEarnings: detail.voyageEarnings != null ? String(detail.voyageEarnings) : '',

@@ -776,6 +776,28 @@
   margin-top: 8px;
 }
 
+.euaPriceWithRun {
+  max-width: 220px;
+}
+
+.euaPriceRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.euaPriceRow input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 110px;
+}
+
+.euaPriceRow :global(button),
+.euaPriceRow :global(a) {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .resultsGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -28,7 +28,7 @@ import {
   getFixtureTypeLabel,
   seedPortLegsFromFirstCargo,
 } from './estimateDetail.constants.js';
-import { formatDemurrageCostField, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurrageLoadPortLabel, formatDemurrageDischargePortLabel, formatDays, syncPortstayFromPassageDates } from './estimateCalculations.js';
+import { formatDemurrageCostField, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurrageLoadPortLabel, formatDemurrageDischargePortLabel, formatDays, formatDistance, syncPortstayFromPassageDates } from './estimateCalculations.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
 import RowRemoveButton from './RowRemoveButton.jsx';
 
@@ -179,9 +179,9 @@ export default function EstimateDetailSections({
       row.id === legId
         ? {
           ...row,
-          distance: patch.distance,
-          secaDistance: patch.secaDistance,
-          nonSecaDistance: String(Number(nonSecaDistance.toFixed(3))),
+          distance: formatDistance(patch.distance) || '0.000',
+          secaDistance: formatDistance(patch.secaDistance) || '0.000',
+          nonSecaDistance: formatDistance(nonSecaDistance) || '0.000',
           navMethod: patch.navMethod || row.navMethod || '',
           seaDays: formatDays(seaDays),
           secaDays: formatDays(secaDays),
@@ -413,7 +413,12 @@ export default function EstimateDetailSections({
 
   // PHP Bunkers table: qty from consumption MT, price from SECA row (txtSECABunkerPrice / slave2 EST_PRICE).
   const bunkerSummaryRows = buildBunkerSummaryRows(form, bunkerGradeName);
-  const { addressDemmComm, totalDemmComm } = calcDemurrageCommissionDisplay(form);
+  const {
+    addressDemmComm,
+    totalCommPercent,
+    totalFreightComm,
+    totalDemmComm,
+  } = calcDemurrageCommissionDisplay(form);
 
   /** PHP txtSECABunkerPrice onKeyUp → getBunkerCalculation / getVoyageTime */
   const handleBunkerSummaryPriceChange = (grade, value) => {
@@ -1274,10 +1279,20 @@ export default function EstimateDetailSections({
                 </td>
                 <td>Total</td>
                 <td>
-                  <input id="brokeragePercentCargo" value={form.brokeragePercent || ''} readOnly placeholder="0.00" />
+                  <input
+                    id="brokeragePercentCargo"
+                    value={totalCommPercent ? totalCommPercent.toFixed(2) : ''}
+                    readOnly
+                    placeholder="0.00"
+                  />
                 </td>
                 <td>
-                  <input id="brokerageAmtCargo" value={form.brokerageAmt || ''} readOnly placeholder="0.00" />
+                  <input
+                    id="brokerageAmtCargo"
+                    value={totalFreightComm ? totalFreightComm.toFixed(2) : ''}
+                    readOnly
+                    placeholder="0.00"
+                  />
                 </td>
                 <td>
                   <input

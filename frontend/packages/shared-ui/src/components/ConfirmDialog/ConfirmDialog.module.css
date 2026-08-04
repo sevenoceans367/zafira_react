@@ -3,7 +3,8 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 1050;
+  /* Above LoadingOverlay (1990) so alerts/confirms remain clickable during save. */
+  z-index: 2100;
   display: flex;
   align-items: center;
   justify-content: center;

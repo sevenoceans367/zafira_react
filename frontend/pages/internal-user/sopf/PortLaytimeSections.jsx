@@ -4,6 +4,7 @@ import {
   LAYTIME_TERM_OPTIONS,
   PORT_BUNKER_GRADE_OPTIONS,
   PORT_FUNCTION_OPTIONS,
+  normalizeCargoId,
 } from './estimateDetail.constants.js';
 import { formatDays, getLaytimeRateUnitLabel } from './estimateCalculations.js';
 import { sanitizeDecimalInput } from './estimateInputSanitize.js';
@@ -33,8 +34,8 @@ function buildCargoOptions(cargoRows = [], cargos = []) {
   const seen = new Set();
   const fromSelected = [];
   for (const row of cargoRows || []) {
-    const cargoId = String(row.cargoId || '').trim();
-    if (!cargoId || cargoId === '0' || seen.has(cargoId)) continue;
+    const cargoId = normalizeCargoId(row.cargoId);
+    if (!cargoId || seen.has(cargoId)) continue;
     seen.add(cargoId);
     fromSelected.push({
       id: cargoId,
@@ -44,6 +45,13 @@ function buildCargoOptions(cargoRows = [], cargos = []) {
   }
 
   return fromSelected;
+}
+
+/** Ensure select value exists in options (avoids browser showing raw "0"). */
+function resolveCargoSelectValue(rawId, options) {
+  const id = normalizeCargoId(rawId);
+  if (!id) return '';
+  return options.some((item) => String(item.id) === id) ? id : '';
 }
 
 /** Show stored Portstay Days (synced from Passage dates or qty/rate calc). Editable only for DAP. */
@@ -101,6 +109,13 @@ export default function PortLaytimeSections({
     [form.cargoRows, lookups.cargos],
   );
 
+  // L/B: Laden (2) → LP + DP; Ballast stays off LP/DP.
+  // TP/BP is independent of L/B and always lists every leg.
+  const ladenLegs = useMemo(
+    () => legs.filter((leg) => String(leg.passageType) === '2'),
+    [legs],
+  );
+
   if (!legs.length) {
     return (
       <CollapsiblePanel title="Port Details" defaultOpen>
@@ -114,22 +129,23 @@ export default function PortLaytimeSections({
   };
 
   const selectPortCargo = (legId, cargoId, side) => {
-    const fromOptions = cargoOptions.find((item) => String(item.id) === String(cargoId));
+    const normalized = normalizeCargoId(cargoId);
+    const fromOptions = cargoOptions.find((item) => String(item.id) === normalized);
     const cargoRow = (form.cargoRows || []).find(
-      (row) => String(row.cargoId) === String(cargoId),
+      (row) => normalizeCargoId(row.cargoId) === normalized,
     );
-    const mt = cargoId
+    const mt = normalized
       ? (cargoRow?.cargoMt || fromOptions?.mt || '')
       : '';
     if (side === 'load') {
       patchLeg(legId, {
-        lpCargoId: cargoId || '',
+        lpCargoId: normalized,
         ...(mt ? { loadQty: mt } : {}),
       });
       return;
     }
     patchLeg(legId, {
-      dpCargoId: cargoId || '',
+      dpCargoId: normalized,
       ...(mt ? { dischargeQty: mt } : {}),
     });
   };
@@ -143,9 +159,9 @@ export default function PortLaytimeSections({
             <table className={styles.portTable}>
               <thead>
                 <tr>
-                  <th>Bunker Grade</th>
-                  <th>LP</th>
-                  <th>Cargo</th>
+                  <th className={styles.bunkerGradeCell}>Bunker Grade</th>
+                  <th className={styles.portNameCell}>LP</th>
+                  <th className={styles.cargoSelectCell}>Cargo</th>
                   <th>Cost</th>
                   <th>Qty (MT)</th>
                   <th className={styles.thStack}><span>Rate</span><span>{rateUnitLabel}</span></th>
@@ -156,7 +172,12 @@ export default function PortLaytimeSections({
                 </tr>
               </thead>
               <tbody>
-                {legs.map((leg) => (
+                {ladenLegs.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className={styles.hintText}>No laden legs — LP applies when L/B is Laden.</td>
+                  </tr>
+                ) : null}
+                {ladenLegs.map((leg) => (
                   <tr key={`lp-${leg.id}`}>
                     <td className={styles.bunkerGradeCell}>
                       <BunkerGradeSelect
@@ -165,13 +186,20 @@ export default function PortLaytimeSections({
                         onChange={(grades) => patchLeg(leg.id, { lpBunkerGrades: grades })}
                       />
                     </td>
-                    <td className={styles.portNameCell}>{shortPortName(leg.fromPortName || leg.fromPortId)}</td>
+                    <td
+                      className={styles.portNameCell}
+                      title={leg.fromPortName || leg.fromPortId || ''}
+                    >
+                      <span className={styles.portNameText}>
+                        {shortPortName(leg.fromPortName || leg.fromPortId)}
+                      </span>
+                    </td>
                     <td className={styles.cargoSelectCell}>
                       <select
-                        value={leg.lpCargoId || ''}
+                        value={resolveCargoSelectValue(leg.lpCargoId, cargoOptions)}
                         disabled={readOnly || !cargoOptions.length}
                         onChange={(e) => selectPortCargo(leg.id, e.target.value, 'load')}
-                        title={cargoOptions.find((item) => String(item.id) === String(leg.lpCargoId))?.label || ''}
+                        title={cargoOptions.find((item) => String(item.id) === normalizeCargoId(leg.lpCargoId))?.label || ''}
                       >
                         <option value="">— Select —</option>
                         {cargoOptions.map((item) => (
@@ -253,9 +281,9 @@ export default function PortLaytimeSections({
             <table className={styles.portTable}>
               <thead>
                 <tr>
-                  <th>Bunker Grade</th>
-                  <th>DP</th>
-                  <th>Cargo</th>
+                  <th className={styles.bunkerGradeCell}>Bunker Grade</th>
+                  <th className={styles.portNameCell}>DP</th>
+                  <th className={styles.cargoSelectCell}>Cargo</th>
                   <th>Cost</th>
                   <th>Qty (MT)</th>
                   <th className={styles.thStack}><span>Rate</span><span>{rateUnitLabel}</span></th>
@@ -266,7 +294,12 @@ export default function PortLaytimeSections({
                 </tr>
               </thead>
               <tbody>
-                {legs.map((leg) => (
+                {ladenLegs.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className={styles.hintText}>No laden legs — DP applies when L/B is Laden.</td>
+                  </tr>
+                ) : null}
+                {ladenLegs.map((leg) => (
                   <tr key={`dp-${leg.id}`}>
                     <td className={styles.bunkerGradeCell}>
                       <BunkerGradeSelect
@@ -275,13 +308,20 @@ export default function PortLaytimeSections({
                         onChange={(grades) => patchLeg(leg.id, { dpBunkerGrades: grades })}
                       />
                     </td>
-                    <td className={styles.portNameCell}>{shortPortName(leg.toPortName || leg.toPortId)}</td>
+                    <td
+                      className={styles.portNameCell}
+                      title={leg.toPortName || leg.toPortId || ''}
+                    >
+                      <span className={styles.portNameText}>
+                        {shortPortName(leg.toPortName || leg.toPortId)}
+                      </span>
+                    </td>
                     <td className={styles.cargoSelectCell}>
                       <select
-                        value={leg.dpCargoId || ''}
+                        value={resolveCargoSelectValue(leg.dpCargoId, cargoOptions)}
                         disabled={readOnly || !cargoOptions.length}
                         onChange={(e) => selectPortCargo(leg.id, e.target.value, 'disc')}
-                        title={cargoOptions.find((item) => String(item.id) === String(leg.dpCargoId))?.label || ''}
+                        title={cargoOptions.find((item) => String(item.id) === normalizeCargoId(leg.dpCargoId))?.label || ''}
                       >
                         <option value="">— Select —</option>
                         {cargoOptions.map((item) => (
@@ -363,8 +403,8 @@ export default function PortLaytimeSections({
             <table className={styles.portTable}>
               <thead>
                 <tr>
-                  <th>Bunker Grade</th>
-                  <th>TP/BP</th>
+                  <th className={styles.bunkerGradeCell}>Bunker Grade</th>
+                  <th className={styles.portNameCell}>TP/BP</th>
                   <th>Cost</th>
                   <th>Idle Days</th>
                   <th className={styles.thStack}><span>Charterer&apos;s Account</span><span>(Days)</span></th>
@@ -382,7 +422,14 @@ export default function PortLaytimeSections({
                         onChange={(grades) => patchLeg(leg.id, { tpBunkerGrades: grades })}
                       />
                     </td>
-                    <td className={styles.portNameCell}>{shortPortName(leg.toPortName || leg.toPortId)}</td>
+                    <td
+                      className={styles.portNameCell}
+                      title={leg.toPortName || leg.toPortId || ''}
+                    >
+                      <span className={styles.portNameText}>
+                        {shortPortName(leg.toPortName || leg.toPortId)}
+                      </span>
+                    </td>
                     <td>
                       <DecimalInput
                         value={leg.transitPortCost}

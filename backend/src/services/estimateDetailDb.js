@@ -281,13 +281,15 @@ function mapPortLeg(row, index) {
     // PHP selNSBG / selSBG
     bgNonSeca: row.BG_NON_SECA || 'VLSFO',
     bgSeca: row.BG_SECA || 'LSMGO',
-    // PHP targetSelectLp_ / targetSelectDp_ → SEL_CARGO_LP / SEL_CARGO_DP
-    lpCargoId: row.SEL_CARGO_LP != null && String(row.SEL_CARGO_LP).trim() !== ''
-      ? String(row.SEL_CARGO_LP).trim()
-      : '',
-    dpCargoId: row.SEL_CARGO_DP != null && String(row.SEL_CARGO_DP).trim() !== ''
-      ? String(row.SEL_CARGO_DP).trim()
-      : '',
+    // PHP targetSelectLp_ / targetSelectDp_ → SEL_CARGO_LP / SEL_CARGO_DP (0 = empty)
+    lpCargoId: (() => {
+      const raw = row.SEL_CARGO_LP != null ? String(row.SEL_CARGO_LP).trim() : '';
+      return raw && raw !== '0' ? raw : '';
+    })(),
+    dpCargoId: (() => {
+      const raw = row.SEL_CARGO_DP != null ? String(row.SEL_CARGO_DP).trim() : '';
+      return raw && raw !== '0' ? raw : '';
+    })(),
     lpBunkerGrades: (row.BUNKER_GRADE_LP || row.LOAD_PORT_BUNKER_GRADE)
       ? String(row.BUNKER_GRADE_LP || row.LOAD_PORT_BUNKER_GRADE).split(',').map((s) => s.trim()).filter(Boolean)
       : ['VLSFO'],

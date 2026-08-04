@@ -12,6 +12,13 @@ function distStr(value) {
   return formatDistance(value) || String(value);
 }
 
+/** PHP often stores empty cargo selects as 0 — treat as unset. */
+export function normalizeCargoId(value) {
+  const id = String(value ?? '').trim();
+  if (!id || id === '0') return '';
+  return id;
+}
+
 /** PHP getCOASpotList() — show COA number row when value is 2. */
 export const COA_SPOT_OPTIONS = [
   { value: '1', label: 'SPOT' },
@@ -186,40 +193,43 @@ export function seedPortLegsFromFirstCargo(
   const selectedIds = [];
   const seen = new Set();
   for (const row of cargoRows || []) {
-    const id = String(row.cargoId || '').trim();
-    if (!id || id === '0' || seen.has(id)) continue;
+    const id = normalizeCargoId(row.cargoId);
+    if (!id || seen.has(id)) continue;
     seen.add(id);
     selectedIds.push(id);
   }
 
   const firstId = selectedIds[0] || '';
   const first = firstId
-    ? (cargoRows || []).find((row) => String(row.cargoId || '').trim() === firstId)
+    ? (cargoRows || []).find((row) => normalizeCargoId(row.cargoId) === firstId)
     : null;
   const rowQty = first?.cargoMt != null ? String(first.cargoMt).trim() : '';
   const qty = rowQty || String(lumpsumQty || '').trim();
   const isSelected = (raw) => {
-    const id = String(raw || '').trim();
-    return Boolean(id && id !== '0' && seen.has(id));
+    const id = normalizeCargoId(raw);
+    return Boolean(id && seen.has(id));
   };
 
   let changed = false;
   const next = (portLegs || []).map((leg) => {
     const patch = {};
-    const lp = String(leg.lpCargoId || '').trim();
-    const dp = String(leg.dpCargoId || '').trim();
-    const lpRemoved = Boolean(lp && !isSelected(lp));
-    const dpRemoved = Boolean(dp && !isSelected(dp));
+    const lp = normalizeCargoId(leg.lpCargoId);
+    const dp = normalizeCargoId(leg.dpCargoId);
+    // Treat legacy "0" / missing as empty so we can seed from Cargo panel
+    const lpRemoved = Boolean(String(leg.lpCargoId ?? '').trim() && !isSelected(leg.lpCargoId));
+    const dpRemoved = Boolean(String(leg.dpCargoId ?? '').trim() && !isSelected(leg.dpCargoId));
 
     if (lpRemoved) patch.lpCargoId = firstId;
     else if (firstId && !lp) patch.lpCargoId = firstId;
+    else if (!lp && String(leg.lpCargoId ?? '').trim()) patch.lpCargoId = '';
 
     if (dpRemoved) patch.dpCargoId = firstId;
     else if (firstId && !dp) patch.dpCargoId = firstId;
+    else if (!dp && String(leg.dpCargoId ?? '').trim()) patch.dpCargoId = '';
 
     if (!firstId) {
-      if (lp) patch.lpCargoId = '';
-      if (dp) patch.dpCargoId = '';
+      if (String(leg.lpCargoId ?? '').trim()) patch.lpCargoId = '';
+      if (String(leg.dpCargoId ?? '').trim()) patch.dpCargoId = '';
     }
 
     const shouldSyncQty = syncQty || lpRemoved || dpRemoved;
@@ -697,7 +707,7 @@ export function toFormState(detail = {}) {
     : [createEmptyCargoRow(3)];
 
   const legSeen = new Set();
-  const portLegs = Array.isArray(detail.portLegs) && detail.portLegs.length
+  const mappedPortLegs = Array.isArray(detail.portLegs) && detail.portLegs.length
     ? detail.portLegs.map((row) => ({
       id: resolveUniqueRowId(row.id, 'leg', legSeen),
       fromPortId: row.fromPortId != null ? String(row.fromPortId) : '',
@@ -747,8 +757,8 @@ export function toFormState(detail = {}) {
       chkLpSeca: !!row.chkLpSeca,
       chkDpSeca: !!row.chkDpSeca,
       chkTpSeca: !!row.chkTpSeca,
-      lpCargoId: row.lpCargoId != null ? String(row.lpCargoId) : '',
-      dpCargoId: row.dpCargoId != null ? String(row.dpCargoId) : '',
+      lpCargoId: normalizeCargoId(row.lpCargoId),
+      dpCargoId: normalizeCargoId(row.dpCargoId),
       lpBunkerGrades: Array.isArray(row.lpBunkerGrades) && row.lpBunkerGrades.length
         ? row.lpBunkerGrades
         : ['VLSFO'],
@@ -764,6 +774,13 @@ export function toFormState(detail = {}) {
       portFunction: row.portFunction != null ? String(row.portFunction) : '',
     }))
     : [createEmptyPortLeg()];
+
+  // Replace legacy "0" empties and seed LP/DP from Cargo panel selection
+  const portLegs = seedPortLegsFromFirstCargo(
+    mappedPortLegs,
+    cargoRows,
+    detail.lumpsumQty,
+  );
 
   const bunkerSeen = new Set();
   const bunkerRows = Array.isArray(detail.bunkerRows) && detail.bunkerRows.length

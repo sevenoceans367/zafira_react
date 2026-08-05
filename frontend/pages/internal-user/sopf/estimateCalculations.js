@@ -1077,9 +1077,12 @@ export function computeEstimateTotals(form) {
   const addCommPercent = num(form.addCommPercent);
   const addressCommAmt = round2((freightGross * addCommPercent) / 100);
 
-  // Vessel OpEx Hire / Day is the source of truth (PHP dummyHireRate).
-  // Do not fall back to hireRows when the field is cleared — that made clears snap back.
-  const hireRate = num(form.hireRate);
+  // Hire / Day: prefer Vessel OpEx field; fall back to hire row 1 (PHP dummyHireRate).
+  // `_hireRateCleared` lets the user blank the field without snapping back from hire rows.
+  const hireRateCleared = !!form._hireRateCleared;
+  const hireRate = hireRateCleared
+    ? 0
+    : (num(form.hireRate) || num(hires[0]?.hireRate));
   // PHP txtTtPIDays / txtTtPWDays — idle vs working kept separate
   const portIdleDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portIdleDays), 0));
   const portStayDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portStayDays), 0));
@@ -1108,10 +1111,10 @@ export function computeEstimateTotals(form) {
   // PHP txtTDays / hire days = sea + idle + working, then .toFixed(2)
   const totalDays = round2(totalSeaDays + portIdleDays + portStayDays || num(form.totalDays) || 0);
   const hireDays = totalDays;
-  // PHP: sync hire row 1 days/rate/amt from Vessel OpEx + total days
+  // PHP: sync hire row 1 days from total days; rate from Vessel OpEx / row
   const hireBaseRows = hires.length
     ? hires
-    : [{ hireDays: '', hireRate: form.hireRate || '', hireAmt: '' }];
+    : [{ hireDays: '', hireRate: hireRate ? String(hireRate) : '', hireAmt: '' }];
   const hiresSynced = hireBaseRows.map((row, index) => {
     if (index !== 0) return row;
     const daysStr = totalDays ? totalDays.toFixed(2) : (row.hireDays || '');
@@ -1551,19 +1554,18 @@ export function computeEstimateTotals(form) {
   const totalExpensesOpsPortBunker = round2(
     operationalExpenses + totalPortCost + bunkerExpenseTotal,
   );
-  // Voyage Earnings (UI): subtracts CVE only, NOT full hire
-  //   revenue − ops − port − bunker − cve + demurrage
+  // Voyage Earnings (UI / PHP costbeforebamarage): subtracts hireage CVE only, NOT full hire
+  //   revenue − ops − port − bunker − hireageCVE + demurrage
   const voyageEarnings = round2(
-    revenue - totalExpensesOpsPortBunker - cveAmt + demurrageRevenue,
+    revenue - totalExpensesOpsPortBunker - hireageCveAmt + demurrageRevenue,
   );
-  // Internal voyage_earning for TCE / P&L:
+  // Internal voyage_earning for TCE / P&L (PHP txtGTTLVoyageEarnings):
   //   revenue − ops − port − bunker − finalHireage + ilohc
   const voyageEarningForTce = round2(
     revenue - totalExpensesOpsPortBunker - netHireage + ilohcAmt,
   );
-  // pl = voyageEarningForTce + demurrage
+  // pl = voyage_earning + demurrage; nettDailyTce = pl / max(totalDays, 1)
   const profitLoss = round2(voyageEarningForTce + demurrageRevenue);
-  // nettDailyTce = pl / max(totalDays, 1)
   const daysForTce = totalDays > 0 ? totalDays : 1;
   const nettDailyTce = round2(profitLoss / daysForTce);
   const dailyEarning = nettDailyTce;
@@ -1617,9 +1619,14 @@ export function computeEstimateTotals(form) {
     brokeragePercent: brokeragePercent ? brokeragePercent.toFixed(2) : '',
     brokerageAmt: brokerageAmt ? brokerageAmt.toFixed(2) : '',
     addressCommAmt: addressCommAmt ? addressCommAmt.toFixed(2) : '',
-    // Hire Amt is derived (rate × days); Hire / Day keeps the typed/cleared value
+    // Hire Amt is derived (rate × days). Hire / Day: keep typed value, or seed from row when not cleared.
     hireAmt: hireAmt ? hireAmt.toFixed(2) : '',
-    hireRate: form.hireRate != null ? String(form.hireRate) : '',
+    hireRate: hireRateCleared
+      ? ''
+      : (form.hireRate != null && String(form.hireRate).trim() !== ''
+        ? String(form.hireRate)
+        : (hireRate ? String(hireRate) : '')),
+    _hireRateCleared: hireRateCleared,
     cvePerMonth: form.cvePerMonth != null ? String(form.cvePerMonth) : '',
     cveAmt: String(cveAmt || ''),
     ballastBonus: form.ballastBonus != null ? String(form.ballastBonus) : '',

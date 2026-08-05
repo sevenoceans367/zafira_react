@@ -21,12 +21,20 @@ import {
   moveOpsVcToPostOps,
   updateOpsVcOperator,
   updateYearAddOnDate,
+  getOpsVcCostSheet,
+  createOpsVcCostSheet,
 } from '../services/opsVcService.js';
 import {
   deleteAgencyLetter,
   getAgencyLetterForm,
   saveAgencyLetter,
 } from '../services/agencyLetterService.js';
+import {
+  createOpsDocument,
+  deleteOpsDocument,
+  getOpsDocuments,
+} from '../services/opsDocumentsService.js';
+import { mapUploadedFiles, ticketUpload } from '../utils/ticketAttachments.js';
 import {
   deleteAgencyLetterTc,
   getAgencyLetterTcForm,
@@ -40,6 +48,7 @@ import { getBunkerForm, saveBunker } from '../services/bunkerService.js';
 import { getSoaReport } from '../services/soaReportService.js';
 import { getCompareSheetsTc } from '../services/compareSheetsTcService.js';
 import { generateCompareSheetsTcPdf } from '../services/compareSheetsTcPdfService.js';
+import { getCompareSheetsVc } from '../services/compareSheetsVcService.js';
 import { resolveRequestIsMgmtUser } from '../services/authService.js';
 import {
   createOpsTcCostSheet,
@@ -261,6 +270,24 @@ router.get('/ops/soa-report', asyncHandler(async (req, res) => {
   res.json(await getSoaReport(comId));
 }));
 
+router.get('/ops/documents', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  res.json(await getOpsDocuments(comId));
+}));
+
+router.post('/ops/documents', ticketUpload, asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid || req.body?.comId || req.body?.comid;
+  const payload = req.body?.payload ? JSON.parse(req.body.payload) : (req.body || {});
+  const files = mapUploadedFiles(req.files || []);
+  res.status(201).json(await createOpsDocument(comId, payload, files));
+}));
+
+router.delete('/ops/documents', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  const fileName = req.query.fileName || req.query.filename || req.body?.fileName;
+  res.json(await deleteOpsDocument(comId, fileName));
+}));
+
 router.get('/ops/agency-letter', asyncHandler(async (req, res) => {
   const comId = req.query.comId || req.query.comid;
   res.json(await getAgencyLetterForm(comId));
@@ -281,6 +308,11 @@ router.get('/ops/agency-letter/:genAgencyId/pdf', asyncHandler(async (_req, res)
   });
 }));
 
+router.get('/ops/compare-sheets', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  res.json(await getCompareSheetsVc(comId));
+}));
+
 router.patch('/ops/:comId/operator', asyncHandler(async (req, res) => {
   res.json(await updateOpsVcOperator(req.params.comId, req.body?.operatorId));
 }));
@@ -295,6 +327,17 @@ router.post('/ops/:comId/history', asyncHandler(async (req, res) => {
 
 router.post('/ops/:comId/deactivate', asyncHandler(async (req, res) => {
   res.json(await deactivateOpsVcEntry(req.params.comId));
+}));
+
+router.get('/ops/:comId/cost-sheets/:costSheetId', asyncHandler(async (req, res) => {
+  res.json(await getOpsVcCostSheet(req.params.comId, req.params.costSheetId));
+}));
+
+router.post('/ops/:comId/cost-sheets', asyncHandler(async (req, res) => {
+  res.json(await createOpsVcCostSheet(
+    req.params.comId,
+    req.body?.sheetName || req.body?.txtFile || '',
+  ));
 }));
 
 router.get('/ops-tc/operators', asyncHandler(async (_req, res) => {

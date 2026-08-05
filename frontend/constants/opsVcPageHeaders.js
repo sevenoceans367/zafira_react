@@ -11,11 +11,14 @@ const PAGES = {
   'year-updation': 'Year Updation-VC/COA',
   'voyage-report': 'Voyage Report',
   'agency-letter': 'Generate Port Related Letters',
+  'pda-fda': 'PDA/FDA',
+  documents: 'Documents',
   'payment-grid': 'Payment / Invoice Grid',
   sof: 'SOF',
   laytime: 'Laytime',
   bunker: 'Bunkers',
   'soa-report': 'SOA',
+  'cost-sheet': 'Voyage Financials',
 };
 
 export function resolveOpsVcHeader(pathname) {
@@ -49,6 +52,34 @@ export function resolveOpsVcHeader(pathname) {
         OPS_VC,
         { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
         { label: 'Generate Port Related Letters' },
+      ],
+    };
+  }
+
+  if (pageId === 'pda-fda') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'PDA/FDA',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'PDA/FDA' },
+      ],
+    };
+  }
+
+  if (pageId === 'documents') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Documents',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Documents' },
       ],
     };
   }
@@ -119,6 +150,20 @@ export function resolveOpsVcHeader(pathname) {
         OPS_VC,
         { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
         { label: 'SOA' },
+      ],
+    };
+  }
+
+  if (pageId === 'cost-sheet') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Voyage Financials',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Voyage Financials' },
       ],
     };
   }

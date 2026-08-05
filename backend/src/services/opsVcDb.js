@@ -1,4 +1,4 @@
-import { appContext, isMgmtUser } from '../config.js';
+import { appContext, compareSheetsEnabled, isMgmtUser } from '../config.js';
 import { getPool } from '../db.js';
 import { formatDateDMY } from './estimateListMappers.js';
 
@@ -285,11 +285,15 @@ async function dbListOpsVcGlance({
     );
 
     const sheetFcaId = sheet?.FCAID || row.FCAID;
+    // PHP Voyage Financials links → cost_sheet_tci / updatecost_sheet_tci
+    // getTCICostSheetID: FCAID where COMID + SHEET_NO = COST_SHEETID
     const [costSheets] = await pool.query(
-      `SELECT COST_SHEETID, SHEET_NAME
-       FROM cost_sheet_name_master
-       WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
-       ORDER BY COST_SHEETID`,
+      `SELECT m.COST_SHEETID, m.SHEET_NAME, e.FCAID, e.ESTIMATE_TYPE
+       FROM cost_sheet_name_master m
+       LEFT JOIN freight_cost_estimete_master e
+         ON e.COMID = m.COMID AND e.SHEET_NO = m.COST_SHEETID
+       WHERE m.COMID = ? AND m.MODULEID = ? AND m.MCOMPANYID = ?
+       ORDER BY m.COST_SHEETID`,
       [row.COMID, MODULE_ID, COMPANY_ID],
     );
 
@@ -316,6 +320,20 @@ async function dbListOpsVcGlance({
       paymentNotPaid = false;
     }
 
+    // PHP: allow Add ("A") when latest estimate FINAL_STATUS=1 and
+    // (no sheets yet OR latest named sheet already has an estimate row).
+    const [[latestEst]] = await pool.query(
+      `SELECT FCAID, FINAL_STATUS
+       FROM freight_cost_estimete_master
+       WHERE COMID = ? AND MODULEID = ?
+       ORDER BY FCAID DESC
+       LIMIT 1`,
+      [row.COMID, MODULE_ID],
+    );
+    const latestSheet = costSheets.length ? costSheets[costSheets.length - 1] : null;
+    const latestSheetHasEstimate = !latestSheet || latestSheet.FCAID != null;
+    const canAddCostSheet = Number(latestEst?.FINAL_STATUS) === 1 && latestSheetHasEstimate;
+
     const rowStatus = Number(row.OPS_STATUS || safeStatuses[0]);
     records.push({
       index: offset + index + 1,
@@ -336,6 +354,8 @@ async function dbListOpsVcGlance({
       costSheets: costSheets.map((sheetRow) => ({
         id: sheetRow.COST_SHEETID,
         name: sheetRow.SHEET_NAME || `Sheet ${sheetRow.COST_SHEETID}`,
+        fcaId: sheetRow.FCAID || null,
+        estimateType: sheetRow.ESTIMATE_TYPE != null ? String(sheetRow.ESTIMATE_TYPE) : '',
       })),
       operatorId: row.OPERATOR_ID != null ? String(row.OPERATOR_ID) : '',
       operatorName: row.OPERATOR_NAME ?? '',
@@ -349,6 +369,7 @@ async function dbListOpsVcGlance({
       canDeactivate: !isHistory,
       canMoveToPostOps: rowStatus === 1,
       canMoveToHistory: rowStatus === 2,
+      canAddCostSheet: !isHistory && canAddCostSheet,
       canEditOperator: allowOperatorEdit,
       pageContext: isHistory ? 3 : (rowStatus === 2 ? 2 : 1),
     });
@@ -363,6 +384,7 @@ async function dbListOpsVcGlance({
     selYear: requireYear ? year : '',
     status: isHistory ? 'history' : safeStatuses[0],
     canEditOperator: allowOperatorEdit,
+    canCompareSheets: compareSheetsEnabled(),
   };
 }
 
@@ -919,4 +941,103 @@ export async function dbListVoyageReports({ vesselImoNo = '', comId = '' } = {})
     })),
     recordsTotal: records.length,
   };
+}
+
+/** PHP getTCICostSheetID + sheet name — open updatecost_sheet_tci. */
+export async function dbGetOpsVcCostSheet(comId, costSheetId) {
+  const pool = getPool();
+  const safeComId = Number(comId);
+  const safeSheetId = Number(costSheetId);
+  if (!safeComId || !safeSheetId) {
+    const error = new Error('COMID and cost sheet id are required.');
+    error.status = 400;
+    throw error;
+  }
+
+  const [[sheet]] = await pool.query(
+    `SELECT COST_SHEETID, SHEET_NAME, COMID
+     FROM cost_sheet_name_master
+     WHERE COST_SHEETID = ? AND COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+     LIMIT 1`,
+    [safeSheetId, safeComId, MODULE_ID, COMPANY_ID],
+  );
+  if (!sheet) {
+    const error = new Error('Voyage Financials sheet not found.');
+    error.status = 404;
+    throw error;
+  }
+
+  const [[estimate]] = await pool.query(
+    `SELECT FCAID, ESTIMATE_TYPE, FINAL_STATUS, VOYAGE_NO
+     FROM freight_cost_estimete_master
+     WHERE COMID = ? AND SHEET_NO = ?
+     ORDER BY FCAID DESC
+     LIMIT 1`,
+    [safeComId, safeSheetId],
+  );
+  if (!estimate?.FCAID) {
+    const error = new Error('Cost sheet estimate not found for this Voyage Financials entry.');
+    error.status = 404;
+    throw error;
+  }
+
+  return {
+    comId: safeComId,
+    costSheetId: safeSheetId,
+    sheetName: sheet.SHEET_NAME || `Sheet ${safeSheetId}`,
+    fcaId: estimate.FCAID,
+    estimateType: estimate.ESTIMATE_TYPE != null ? String(estimate.ESTIMATE_TYPE) : '2',
+    voyageNo: estimate.VOYAGE_NO || '',
+    finalStatus: Number(estimate.FINAL_STATUS || 0),
+  };
+}
+
+/** PHP insertActualCostSheetName — Voyage Financials "A" button. */
+export async function dbCreateOpsVcCostSheet(comId, sheetName) {
+  const name = String(sheetName || '').trim();
+  if (!name) {
+    const error = new Error('Please fill the file name');
+    error.status = 400;
+    throw error;
+  }
+  const safeComId = Number(comId);
+  if (!safeComId) {
+    const error = new Error('COMID is required.');
+    error.status = 400;
+    throw error;
+  }
+
+  const pool = getPool();
+  const [[latestEst]] = await pool.query(
+    `SELECT FCAID, FINAL_STATUS
+     FROM freight_cost_estimete_master
+     WHERE COMID = ? AND MODULEID = ?
+     ORDER BY FCAID DESC
+     LIMIT 1`,
+    [safeComId, MODULE_ID],
+  );
+  const [existingSheets] = await pool.query(
+    `SELECT m.COST_SHEETID, e.FCAID
+     FROM cost_sheet_name_master m
+     LEFT JOIN freight_cost_estimete_master e
+       ON e.COMID = m.COMID AND e.SHEET_NO = m.COST_SHEETID
+     WHERE m.COMID = ? AND m.MODULEID = ? AND m.MCOMPANYID = ?
+     ORDER BY m.COST_SHEETID DESC
+     LIMIT 1`,
+    [safeComId, MODULE_ID, COMPANY_ID],
+  );
+  const latestSheet = existingSheets[0];
+  const latestSheetHasEstimate = !latestSheet || latestSheet.FCAID != null;
+  if (Number(latestEst?.FINAL_STATUS) !== 1 || !latestSheetHasEstimate) {
+    const error = new Error('Please make sure the last Voyage Financials is Submit to Close');
+    error.status = 400;
+    throw error;
+  }
+
+  const [result] = await pool.query(
+    `INSERT INTO cost_sheet_name_master (SHEET_NAME, COMID, MODULEID, MCOMPANYID, PROCESS)
+     VALUES (?, ?, ?, ?, 'Actual')`,
+    [name, safeComId, MODULE_ID, COMPANY_ID],
+  );
+  return { msg: 4, costSheetId: result.insertId, sheetName: name, comId: safeComId };
 }

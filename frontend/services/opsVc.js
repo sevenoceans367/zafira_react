@@ -123,6 +123,33 @@ export async function fetchSoaReport(comId) {
   return parseJson(response, 'Failed to load SOA report.');
 }
 
+export async function fetchOpsDocuments(comId) {
+  const response = await fetch(`${BASE}/ops/documents${toQuery({ comId })}`);
+  return parseJson(response, 'Failed to load documents.');
+}
+
+export async function createOpsDocument(comId, payload = {}, files = []) {
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify({
+    fileName: payload.fileName || '',
+  }));
+  (files || []).forEach((file) => {
+    formData.append('mul_file', file);
+  });
+  const response = await fetch(`${BASE}/ops/documents${toQuery({ comId })}`, {
+    method: 'POST',
+    body: formData,
+  });
+  return parseJson(response, 'Failed to upload document.');
+}
+
+export async function deleteOpsDocument(comId, storedFiles) {
+  const response = await fetch(`${BASE}/ops/documents${toQuery({ comId, fileName: storedFiles })}`, {
+    method: 'DELETE',
+  });
+  return parseJson(response, 'Failed to delete document.');
+}
+
 export async function fetchAgencyLetterForm(comId) {
   const response = await fetch(`${BASE}/ops/agency-letter${toQuery({ comId })}`);
   return parseJson(response, 'Failed to load port related letters.');
@@ -172,4 +199,28 @@ export async function deactivateOpsVcEntry(comId) {
     method: 'POST',
   });
   return parseJson(response, 'Failed to deactivate voyage.');
+}
+
+/** PHP cost_sheet_tci / updatecost_sheet_tci — resolve FCAID for Voyage Financials. */
+export async function fetchOpsVcCostSheet(comId, costSheetId) {
+  const response = await fetch(
+    `${BASE}/ops/${encodeURIComponent(comId)}/cost-sheets/${encodeURIComponent(costSheetId)}`,
+  );
+  return parseJson(response, 'Failed to load Voyage Financials cost sheet.');
+}
+
+/** PHP insertActualCostSheetName — Voyage Financials "A" button. */
+export async function createOpsVcCostSheet(comId, sheetName) {
+  const response = await fetch(`${BASE}/ops/${encodeURIComponent(comId)}/cost-sheets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sheetName }),
+  });
+  return parseJson(response, 'Failed to create Voyage Financials sheet.');
+}
+
+/** PHP options.php?id=131 getCompareSheetData — VC Compare Sheets. */
+export async function fetchCompareSheetsVc(comId) {
+  const response = await fetch(`${BASE}/ops/compare-sheets${toQuery({ comId })}`);
+  return parseJson(response, 'Failed to load compare sheets.');
 }

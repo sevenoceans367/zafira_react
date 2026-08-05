@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
+  FilterField,
   LoadingOverlay,
-  Select,
+  TextInput,
+  useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -11,6 +13,7 @@ import { getUser } from '@bainbridge/shared-auth';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
+  createOpsVcCostSheet,
   deactivateOpsVcEntry,
   fetchOpsVcOperators,
   fetchOpsVcYears,
@@ -19,7 +22,9 @@ import {
   updateOpsVcOperator,
 } from '../../../services/opsVc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
+import OpsVcCompareSheetsModal from './OpsVcCompareSheetsModal.jsx';
 import styles from './OpsPages.module.css';
 
 const PAGE_SIZE = 50;
@@ -28,6 +33,7 @@ const FLASH = {
   3: { type: 'success', text: 'Nomination sent to "History".' },
   2: { type: 'success', text: 'Status changed successfully.' },
   0: { type: 'success', text: 'In Post Ops at a glance added/updated successfully.' },
+  4: { type: 'success', text: 'New sheet added successfully.' },
 };
 
 function Multiline({ value }) {
@@ -42,6 +48,7 @@ function Multiline({ value }) {
 
 export default function OpsVcPostOpsPage() {
   const confirm = useConfirm();
+  const alert = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
   const [years, setYears] = useState([]);
@@ -53,8 +60,12 @@ export default function OpsVcPostOpsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [canEditOperator, setCanEditOperator] = useState(false);
+  const [canCompareSheets, setCanCompareSheets] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [savingSheet, setSavingSheet] = useState(false);
   const [error, setError] = useState('');
+  const [sheetModal, setSheetModal] = useState({ open: false, comId: '', sheetName: '' });
+  const [compareModal, setCompareModal] = useState({ open: false, comId: '' });
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flash = FLASH[Number(searchParams.get('msg'))];
 
@@ -91,6 +102,7 @@ export default function OpsVcPostOpsPage() {
       // PHP: $_SESSION['iutype'] == 'mgmt_user' shows operator <select>
       const loggedInIsMgmt = getUser()?.userType === 'mgmt_user';
       setCanEditOperator(loggedInIsMgmt || Boolean(data.canEditOperator));
+      setCanCompareSheets(Boolean(data.canCompareSheets));
     } catch (err) {
       setError(err.message || 'Failed to load Post Ops at a glance.');
     } finally {
@@ -150,6 +162,42 @@ export default function OpsVcPostOpsPage() {
     }
   };
 
+  const handleAddSheetClick = async (row) => {
+    if (!row.canAddCostSheet) {
+      await alert({
+        title: 'Alert',
+        message: 'Please make sure the last Voyage Financials is Submit to Close',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+    setSheetModal({ open: true, comId: row.comId, sheetName: '' });
+  };
+
+  const handleCreateSheet = async () => {
+    const sheetName = String(sheetModal.sheetName || '').trim();
+    if (!sheetName) {
+      await alert({
+        title: 'Alert',
+        message: 'Please fill the file name',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+    setSavingSheet(true);
+    setError('');
+    try {
+      await createOpsVcCostSheet(sheetModal.comId, sheetName);
+      setSheetModal({ open: false, comId: '', sheetName: '' });
+      updateQuery({ msg: 4 });
+      load();
+    } catch (err) {
+      setError(err.message || 'Failed to create Voyage Financials sheet.');
+    } finally {
+      setSavingSheet(false);
+    }
+  };
+
   return (
     <>
       <OpsVcListHeaderActions
@@ -170,7 +218,9 @@ export default function OpsVcPostOpsPage() {
       />
 
       <div className={`zafira-page ${styles.page}`}>
-      {loading ? <LoadingOverlay active label="Loading Post Ops at a glance…" /> : null}
+      {loading || savingSheet ? (
+        <LoadingOverlay active label={savingSheet ? 'Creating sheet…' : 'Loading Post Ops at a glance…'} />
+      ) : null}
       {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
@@ -193,7 +243,7 @@ export default function OpsVcPostOpsPage() {
               <th>PDA/<br />FDA</th>
               <th>Calculations</th>
               <th>Payment<br />Grid</th>
-              <th>Deactivate</th>
+              <th className={styles.alertsCell}>Deactivate</th>
               <th>Operator</th>
               <th>Last Updated<br />By/Time</th>
               <th>Chartering<br />Team</th>
@@ -215,7 +265,14 @@ export default function OpsVcPostOpsPage() {
                   <a href={`/api/internal-user/sopf/estimate/${encodeURIComponent(row.fcaId)}/pdf`} title="Download PDF">
                     <i className="bi bi-download" aria-hidden />
                   </a>
-                  <div className={styles.muted}>Docs</div>
+                  <div>
+                    <Link
+                      to={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                      title="Click me"
+                    >
+                      Docs
+                    </Link>
+                  </div>
                 </td>
                 <td>
                   {row.message}
@@ -249,9 +306,22 @@ export default function OpsVcPostOpsPage() {
                 </td>
                 <td className={styles.actionsCell}>
                   {(row.costSheets || []).map((sheet) => (
-                    <div key={sheet.id}>{sheet.name}</div>
+                    <div key={sheet.id}>
+                      <Link
+                        to={appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${PAGE_CONTEXT}`)}
+                      >
+                        {sheet.name}
+                      </Link>
+                    </div>
                   ))}
-                  {!row.costSheets?.length ? <span className={styles.muted}>—</span> : null}
+                  <div>
+                    <Button
+                      size="sm"
+                      label="A"
+                      title="Add New CS"
+                      onClick={() => handleAddSheetClick(row)}
+                    />
+                  </div>
                 </td>
                 <td>
                   <Link
@@ -260,7 +330,13 @@ export default function OpsVcPostOpsPage() {
                     Generate Port Related Letters
                   </Link>
                 </td>
-                <td><span className={styles.linkMuted}>PDA/FDA</span></td>
+                <td>
+                  <Link
+                    to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                  >
+                    PDA/FDA
+                  </Link>
+                </td>
                 <td className={styles.actionsCell}>
                   <div>
                     <Link
@@ -303,24 +379,36 @@ export default function OpsVcPostOpsPage() {
                     <strong>View</strong>
                   </Link>
                 </td>
-                <td className={styles.actionsCell}>
+                <td className={`${styles.actionsCell} ${styles.alertsCell}`}>
                   {row.canDeactivate ? (
-                    <button type="button" className={styles.dangerIcon} title="Deactivate entry" onClick={() => handleDeactivate(row)}>
-                      <i className="bi bi-x-lg" aria-hidden />
-                    </button>
+                    <div className={styles.alertsBin}>
+                      <button type="button" className={styles.dangerIcon} title="Deactivate entry" onClick={() => handleDeactivate(row)}>
+                        <i className="bi bi-trash" aria-hidden />
+                      </button>
+                    </div>
+                  ) : null}
+                  {canCompareSheets ? (
+                    <div>
+                      <Button
+                        size="sm"
+                        label="Compare Sheets"
+                        title="Compare Sheets"
+                        onClick={() => setCompareModal({ open: true, comId: row.comId })}
+                      />
+                    </div>
                   ) : null}
                 </td>
                 <td>
                   {canEditOperator ? (
-                    <Select
-                      value={row.operatorId || ''}
-                      onChange={(e) => handleOperatorChange(row, e.target.value)}
-                    >
-                      <option value="">---Select from list---</option>
-                      {operators.map((opt) => (
-                        <option key={opt.id} value={opt.id}>{opt.name}</option>
-                      ))}
-                    </Select>
+                    <div className={styles.operatorSelect}>
+                      <CoaCardSelect
+                        label="Operator"
+                        value={row.operatorId || ''}
+                        options={operators}
+                        placeholder="---Select from list---"
+                        onChange={(value) => handleOperatorChange(row, value)}
+                      />
+                    </div>
                   ) : (row.operatorName || '—')}
                 </td>
                 <td>
@@ -345,6 +433,48 @@ export default function OpsVcPostOpsPage() {
       </div>
 
       <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+
+      {sheetModal.open ? (
+        <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
+          <div className={styles.modal}>
+            <div className={styles.modalHeader}>
+              <h4>Add Voyage Financials</h4>
+              <button
+                type="button"
+                className={styles.dangerIcon}
+                onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <p className={styles.muted}>Please enter Voyage Financials Name and Submit</p>
+            <FilterField id="ops-vc-post-sheet-name" label="Voyage Financials Name">
+              <TextInput
+                id="ops-vc-post-sheet-name"
+                value={sheetModal.sheetName}
+                onChange={(e) => setSheetModal((prev) => ({ ...prev, sheetName: e.target.value }))}
+                placeholder="Voyage Financials Name"
+              />
+            </FilterField>
+            <div className={styles.toolbarActions} style={{ marginTop: 12 }}>
+              <Button label={savingSheet ? 'Submitting…' : 'Submit'} onClick={handleCreateSheet} disabled={savingSheet} />
+              <Button
+                variant="outline"
+                label="Cancel"
+                onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
+                disabled={savingSheet}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <OpsVcCompareSheetsModal
+        open={compareModal.open}
+        comId={compareModal.comId}
+        onClose={() => setCompareModal({ open: false, comId: '' })}
+      />
       </div>
     </>
   );

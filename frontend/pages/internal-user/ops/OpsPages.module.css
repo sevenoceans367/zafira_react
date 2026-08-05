@@ -151,6 +151,30 @@
   font-size: 14px;
 }
 
+.alertsCell {
+  text-align: center !important;
+  vertical-align: middle;
+}
+
+.alertsCell .dangerIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.alertsBin {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.alertsCell .alertText {
+  text-align: center;
+}
+
 .wideTableWrap {
   max-height: 75vh;
 }
@@ -222,6 +246,15 @@
   color: #b42318;
   font-size: 12px;
   font-style: italic;
+}
+
+.operatorSelect {
+  min-width: 160px;
+  max-width: 220px;
+}
+
+.operatorSelect > div {
+  width: 100%;
 }
 
 .modalBackdrop {

@@ -1090,6 +1090,7 @@ export function toFormState(detail = {}) {
     // CP Date field prefers charter-party date
     cpDate: detail.cpDate || detail.transDate || (!detail.id ? formatTodayDmy() : ''),
     voyageNo: detail.voyageNo ?? '',
+    comid: detail.comid != null ? String(detail.comid) : '',
     voyageName: detail.voyageName ?? '',
     dwtSummer: detail.dwtSummer != null ? String(detail.dwtSummer) : '',
     dwtTropical: detail.dwtTropical != null ? String(detail.dwtTropical) : '',

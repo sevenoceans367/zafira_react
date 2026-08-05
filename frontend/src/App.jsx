@@ -25,11 +25,14 @@ import OpsVcHistoryPage from '../pages/internal-user/ops/OpsVcHistoryPage.jsx';
 import OpsVcYearUpdationPage from '../pages/internal-user/ops/OpsVcYearUpdationPage.jsx';
 import OpsVcVoyageReportPage from '../pages/internal-user/ops/OpsVcVoyageReportPage.jsx';
 import OpsVcAgencyLetterPage from '../pages/internal-user/ops/OpsVcAgencyLetterPage.jsx';
+import OpsVcPdaFdaPage from '../pages/internal-user/ops/OpsVcPdaFdaPage.jsx';
+import OpsVcDocumentsPage from '../pages/internal-user/ops/OpsVcDocumentsPage.jsx';
 import OpsVcPaymentGridPage from '../pages/internal-user/ops/OpsVcPaymentGridPage.jsx';
 import OpsVcSofPage from '../pages/internal-user/ops/OpsVcSofPage.jsx';
 import OpsVcLaytimePage from '../pages/internal-user/ops/OpsVcLaytimePage.jsx';
 import OpsVcBunkerPage from '../pages/internal-user/ops/OpsVcBunkerPage.jsx';
 import OpsVcSoaReportPage from '../pages/internal-user/ops/OpsVcSoaReportPage.jsx';
+import OpsVcCostSheetPage from '../pages/internal-user/ops/OpsVcCostSheetPage.jsx';
 import OpsTcFinalisedFixturesPage from '../pages/internal-user/ops/OpsTcFinalisedFixturesPage.jsx';
 import OpsTcInOpsGlancePage from '../pages/internal-user/ops/OpsTcInOpsGlancePage.jsx';
 import OpsTcChecklistPage from '../pages/internal-user/ops/OpsTcChecklistPage.jsx';
@@ -110,8 +113,11 @@ export default function App() {
             <Route path="/internal-user/vc/coas/in-ops" element={<CoaInOpsPage />} />
             <Route path="/internal-user/vc/coas/post-ops" element={<CoaPostOpsPage />} />
             <Route path="/internal-user/vc/ops/in-ops-glance" element={<OpsVcInOpsGlancePage />} />
+            <Route path="/internal-user/vc/ops/cost-sheet" element={<OpsVcCostSheetPage />} />
             <Route path="/internal-user/vc/ops/voyage-report" element={<OpsVcVoyageReportPage />} />
             <Route path="/internal-user/vc/ops/agency-letter" element={<OpsVcAgencyLetterPage />} />
+            <Route path="/internal-user/vc/ops/pda-fda" element={<OpsVcPdaFdaPage />} />
+            <Route path="/internal-user/vc/ops/documents" element={<OpsVcDocumentsPage />} />
             <Route path="/internal-user/vc/ops/payment-grid" element={<OpsVcPaymentGridPage />} />
             <Route path="/internal-user/vc/ops/sof" element={<OpsVcSofPage />} />
             <Route path="/internal-user/vc/ops/laytime" element={<OpsVcLaytimePage />} />

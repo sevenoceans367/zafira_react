@@ -30,6 +30,18 @@ export default function UpdateEstimatePage() {
   const estimateId = searchParams.get('id');
   const estimateType = searchParams.get('estimatetype') || '2';
   const businessType = searchParams.get('selBType') || estimateType;
+  // Ops VC Voyage Financials (updatecost_sheet_tci) returns to In Ops / Post Ops / History
+  const returnToRaw = searchParams.get('returnTo') || '';
+  const returnTo = (() => {
+    if (!returnToRaw) return '';
+    try {
+      const decoded = decodeURIComponent(returnToRaw);
+      if (decoded.startsWith('/internal-user/')) return appPath(decoded);
+    } catch {
+      /* ignore bad returnTo */
+    }
+    return '';
+  })();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,7 +57,7 @@ export default function UpdateEstimatePage() {
     complianceYear: new Date().getFullYear(),
   });
 
-  const listHref = appPath(
+  const listHref = returnTo || appPath(
     `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
   );
 
@@ -293,7 +305,9 @@ export default function UpdateEstimatePage() {
         message: 'Congratulations! Estimate updated successfully.',
         confirmLabel: 'OK',
       });
-      navigate(`${listHref}&msg=0`, { replace: true });
+      navigate(returnTo ? `${returnTo}${returnTo.includes('?') ? '&' : '?'}msg=0` : `${listHref}&msg=0`, {
+        replace: true,
+      });
     } catch (err) {
       setSaving(false);
       const message = err.message || 'Failed to save estimate.';

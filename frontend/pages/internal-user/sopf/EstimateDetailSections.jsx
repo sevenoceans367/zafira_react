@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AddCircleButton, Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
+import { appPath } from '@bainbridge/shared-routing';
 import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
 import VesselSearchSelect from './VesselSearchSelect.jsx';
@@ -113,8 +115,22 @@ export default function EstimateDetailSections({
   const showLumpsum = estimateType !== 3;
   const editable = !readOnly;
   const alert = useAlert();
+  const [searchParams] = useSearchParams();
   const [distanceLegId, setDistanceLegId] = useState(null);
   const [itineraryOpen, setItineraryOpen] = useState(false);
+
+  // PHP updatecost_sheet_tci Passage & Ports → sof.php?comid=&page=
+  const sofComId = searchParams.get('comid')
+    || searchParams.get('comId')
+    || detail?.comid
+    || form?.comid
+    || '';
+  const sofPage = searchParams.get('page') || '1';
+  const sofHref = sofComId
+    ? appPath(
+      `/internal-user/vc/ops/sof?comid=${encodeURIComponent(sofComId)}&page=${encodeURIComponent(sofPage)}`,
+    )
+    : '';
 
   const updateField = (key, value) => {
     const next = ESTIMATE_DECIMAL_FIELDS.has(key)
@@ -656,14 +672,26 @@ export default function EstimateDetailSections({
         title="Passage & Ports"
         defaultOpen
         actions={(
-          <Button
-            type="button"
-            variant="outline"
-            label="Itinerary"
-            ariaLabel="Itinerary"
-            className={styles.panelActionEnd}
-            onClick={() => setItineraryOpen(true)}
-          />
+          <div className={styles.panelActionGroup}>
+            {sofHref ? (
+              <a
+                href={sofHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.panelActionLink}
+                title="SOF"
+              >
+                SOF
+              </a>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              label="Itinerary"
+              ariaLabel="Itinerary"
+              onClick={() => setItineraryOpen(true)}
+            />
+          </div>
         )}
       >
         <div className={styles.portLegsStack}>
@@ -1733,10 +1761,19 @@ export default function EstimateDetailSections({
         <div className={styles.headerGrid}>
           <Field id="hireRate" label="Hire / Day">
             <input
-              {...inputProps('hireRate', {
-                recalc: true,
-                readOnly: readOnly || estimateType === 3,
-              })}
+              id="hireRate"
+              value={form.hireRate || ''}
+              readOnly={readOnly || estimateType === 3}
+              inputMode="decimal"
+              autoComplete="off"
+              onChange={(e) => {
+                const value = sanitizeFieldDecimal('hireRate', e.target.value);
+                // Cleared field must stay empty; otherwise hire row rate re-seeds and inflates TCE wrongly when missing.
+                applyPatch({
+                  hireRate: value,
+                  _hireRateCleared: value === '' || value == null,
+                });
+              }}
             />
           </Field>
           <Field id="addCommPercent" label="Add Comm (%)">

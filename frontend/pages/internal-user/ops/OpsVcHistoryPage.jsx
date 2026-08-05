@@ -119,7 +119,14 @@ export default function OpsVcHistoryPage() {
                   <a href={`/api/internal-user/sopf/estimate/${encodeURIComponent(row.fcaId)}/pdf`} title="Download PDF">
                     <i className="bi bi-download" aria-hidden />
                   </a>
-                  <div className={styles.muted}>Docs</div>
+                  <div>
+                    <Link
+                      to={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                      title="Click me"
+                    >
+                      Docs
+                    </Link>
+                  </div>
                 </td>
                 <td className={styles.wrapCell}>
                   {row.businessType || '—'}
@@ -153,11 +160,22 @@ export default function OpsVcHistoryPage() {
                 </td>
                 <td className={styles.actionsCell}>
                   {(row.costSheets || []).map((sheet) => (
-                    <div key={sheet.id}>{sheet.name}</div>
+                    <div key={sheet.id}>
+                      <Link
+                        to={appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${PAGE_CONTEXT}`)}
+                      >
+                        {sheet.name}
+                      </Link>
+                    </div>
                   ))}
-                  {!row.costSheets?.length ? <span className={styles.muted}>—</span> : null}
                 </td>
-                <td><span className={styles.linkMuted}>FDA</span></td>
+                <td>
+                  <Link
+                    to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                  >
+                    FDA
+                  </Link>
+                </td>
                 <td className={styles.actionsCell}>
                   <div>
                     <Link

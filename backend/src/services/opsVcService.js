@@ -1,6 +1,8 @@
-import { isDbConfigured } from '../config.js';
+import { compareSheetsEnabled, isDbConfigured } from '../config.js';
 import {
   dbDeactivateOpsVcEntry,
+  dbCreateOpsVcCostSheet,
+  dbGetOpsVcCostSheet,
   dbListHistoryAtGlance,
   dbListInOpsAtGlance,
   dbListOpsVcOperators,
@@ -41,7 +43,7 @@ let mockRows = [
     charterer: 'Steel Corp',
     cpDate: '15-01-2026',
     ownBusiness: 'Dry Cargo',
-    costSheets: [{ id: 11, name: 'Initial CS' }],
+    costSheets: [{ id: 11, name: 'Initial CS', fcaId: 2001, estimateType: '3' }],
     operatorId: '1',
     operatorName: 'Ops User',
     charteringTeam: 'Zafira',
@@ -52,6 +54,7 @@ let mockRows = [
     canDeactivate: true,
     canMoveToPostOps: true,
     canMoveToHistory: false,
+    canAddCostSheet: true,
     canEditOperator: true,
     pageContext: 1,
   },
@@ -74,7 +77,7 @@ let mockPostOpsRows = [
     charterer: 'Agri Traders',
     cpDate: '10-01-2026',
     ownBusiness: 'Dry Cargo',
-    costSheets: [{ id: 21, name: 'Final CS' }],
+    costSheets: [{ id: 21, name: 'Final CS', fcaId: 2002, estimateType: '3' }],
     operatorId: '1',
     operatorName: 'Ops User',
     charteringTeam: 'Zafira',
@@ -85,6 +88,7 @@ let mockPostOpsRows = [
     canDeactivate: true,
     canMoveToPostOps: false,
     canMoveToHistory: true,
+    canAddCostSheet: true,
     canEditOperator: true,
     pageContext: 2,
   },
@@ -107,7 +111,7 @@ let mockHistoryRows = [
     charterer: 'Steel Mill',
     cpDate: '05-11-2025',
     ownBusiness: 'Dry Cargo',
-    costSheets: [{ id: 31, name: 'Closed CS' }],
+    costSheets: [{ id: 31, name: 'Closed CS', fcaId: 2310, estimateType: '3' }],
     operatorId: '2',
     operatorName: 'Support',
     charteringTeam: 'Zafira',
@@ -120,6 +124,7 @@ let mockHistoryRows = [
     canDeactivate: false,
     canMoveToPostOps: false,
     canMoveToHistory: false,
+    canAddCostSheet: false,
     canEditOperator: false,
     pageContext: 3,
   },
@@ -148,6 +153,7 @@ function filterMockRows(rows, params = {}) {
     selBType: String(params.selBType || '2'),
     selYear: requireYear ? year : '',
     canEditOperator: params.canEditOperator !== false,
+    canCompareSheets: compareSheetsEnabled(),
   };
 }
 
@@ -162,17 +168,26 @@ export async function listOpsVcOperators() {
 }
 
 export async function listInOpsAtGlance(params = {}) {
-  if (isDbConfigured()) return dbListInOpsAtGlance(params);
+  if (isDbConfigured()) {
+    const data = await dbListInOpsAtGlance(params);
+    return { ...data, canCompareSheets: data.canCompareSheets ?? compareSheetsEnabled() };
+  }
   return filterMockRows(mockRows, params);
 }
 
 export async function listPostOpsAtGlance(params = {}) {
-  if (isDbConfigured()) return dbListPostOpsAtGlance(params);
+  if (isDbConfigured()) {
+    const data = await dbListPostOpsAtGlance(params);
+    return { ...data, canCompareSheets: data.canCompareSheets ?? compareSheetsEnabled() };
+  }
   return filterMockRows(mockPostOpsRows, params);
 }
 
 export async function listHistoryAtGlance(params = {}) {
-  if (isDbConfigured()) return dbListHistoryAtGlance(params);
+  if (isDbConfigured()) {
+    const data = await dbListHistoryAtGlance(params);
+    return { ...data, canCompareSheets: data.canCompareSheets ?? compareSheetsEnabled() };
+  }
   return filterMockRows(mockHistoryRows, { ...params, requireYear: false, canEditOperator: false });
 }
 
@@ -401,6 +416,56 @@ export async function listVoyageReports(params = {}) {
   };
 }
 
+/** PHP cost_sheet_tci → updatecost_sheet_tci (resolve FCAID by COMID + COST_SHEETID). */
+export async function getOpsVcCostSheet(comId, costSheetId) {
+  if (isDbConfigured()) return dbGetOpsVcCostSheet(comId, costSheetId);
+  const sheetId = Number(costSheetId);
+  const all = [...mockRows, ...mockPostOpsRows, ...mockHistoryRows];
+  for (const row of all) {
+    const sheet = (row.costSheets || []).find((item) => Number(item.id) === sheetId);
+    if (sheet && String(row.comId) === String(comId)) {
+      return {
+        comId: Number(row.comId),
+        costSheetId: sheetId,
+        sheetName: sheet.name,
+        fcaId: sheet.fcaId || row.fcaId,
+        estimateType: sheet.estimateType || '2',
+        voyageNo: row.voyageNo || '',
+        finalStatus: 0,
+      };
+    }
+  }
+  const error = new Error('Voyage Financials sheet not found.');
+  error.status = 404;
+  throw error;
+}
+
+/** PHP insertActualCostSheetName — Voyage Financials "A" button. */
+export async function createOpsVcCostSheet(comId, sheetName) {
+  if (isDbConfigured()) return dbCreateOpsVcCostSheet(comId, sheetName);
+  const name = String(sheetName || '').trim();
+  if (!name) {
+    const error = new Error('Please fill the file name');
+    error.status = 400;
+    throw error;
+  }
+  const row = [...mockRows, ...mockPostOpsRows].find((item) => String(item.comId) === String(comId));
+  if (!row) {
+    const error = new Error('Voyage not found.');
+    error.status = 404;
+    throw error;
+  }
+  if (row.canAddCostSheet === false) {
+    const error = new Error('Please make sure the last Voyage Financials is Submit to Close');
+    error.status = 400;
+    throw error;
+  }
+  const nextId = Math.max(0, ...(row.costSheets || []).map((s) => Number(s.id) || 0)) + 1;
+  const sheet = { id: nextId, name, fcaId: null, estimateType: '2' };
+  row.costSheets = [...(row.costSheets || []), sheet];
+  return { msg: 4, costSheetId: nextId, sheetName: name, comId: Number(comId) };
+}
+
 export function __resetOpsVcMockForTests() {
   mockRows = [
     {
@@ -419,7 +484,7 @@ export function __resetOpsVcMockForTests() {
       charterer: 'Steel Corp',
       cpDate: '15-01-2026',
       ownBusiness: 'Dry Cargo',
-      costSheets: [{ id: 11, name: 'Initial CS' }],
+      costSheets: [{ id: 11, name: 'Initial CS', fcaId: 2001, estimateType: '3' }],
       operatorId: '1',
       operatorName: 'Ops User',
       charteringTeam: 'Zafira',
@@ -430,6 +495,7 @@ export function __resetOpsVcMockForTests() {
       canDeactivate: true,
       canMoveToPostOps: true,
       canMoveToHistory: false,
+      canAddCostSheet: true,
       canEditOperator: true,
       pageContext: 1,
     },
@@ -451,7 +517,7 @@ export function __resetOpsVcMockForTests() {
       charterer: 'Agri Traders',
       cpDate: '10-01-2026',
       ownBusiness: 'Dry Cargo',
-      costSheets: [{ id: 21, name: 'Final CS' }],
+      costSheets: [{ id: 21, name: 'Final CS', fcaId: 2002, estimateType: '3' }],
       operatorId: '1',
       operatorName: 'Ops User',
       charteringTeam: 'Zafira',
@@ -462,6 +528,7 @@ export function __resetOpsVcMockForTests() {
       canDeactivate: true,
       canMoveToPostOps: false,
       canMoveToHistory: true,
+      canAddCostSheet: true,
       canEditOperator: true,
       pageContext: 2,
     },
@@ -483,7 +550,7 @@ export function __resetOpsVcMockForTests() {
       charterer: 'Steel Mill',
       cpDate: '05-11-2025',
       ownBusiness: 'Dry Cargo',
-      costSheets: [{ id: 31, name: 'Closed CS' }],
+      costSheets: [{ id: 31, name: 'Closed CS', fcaId: 2310, estimateType: '3' }],
       operatorId: '2',
       operatorName: 'Support',
       charteringTeam: 'Zafira',
@@ -496,6 +563,7 @@ export function __resetOpsVcMockForTests() {
       canDeactivate: false,
       canMoveToPostOps: false,
       canMoveToHistory: false,
+      canAddCostSheet: false,
       canEditOperator: false,
       pageContext: 3,
     },

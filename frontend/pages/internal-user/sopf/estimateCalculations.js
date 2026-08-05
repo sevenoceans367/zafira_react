@@ -1077,8 +1077,9 @@ export function computeEstimateTotals(form) {
   const addCommPercent = num(form.addCommPercent);
   const addressCommAmt = round2((freightGross * addCommPercent) / 100);
 
-  // Prefer Vessel OpEx Hire/Day; fall back to hire row 1 (PHP dummyHireRate ↔ txtHireRate_1).
-  const hireRate = num(form.hireRate) || num(hires[0]?.hireRate);
+  // Vessel OpEx Hire / Day is the source of truth (PHP dummyHireRate).
+  // Do not fall back to hireRows when the field is cleared — that made clears snap back.
+  const hireRate = num(form.hireRate);
   // PHP txtTtPIDays / txtTtPWDays — idle vs working kept separate
   const portIdleDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portIdleDays), 0));
   const portStayDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portStayDays), 0));
@@ -1107,27 +1108,25 @@ export function computeEstimateTotals(form) {
   // PHP txtTDays / hire days = sea + idle + working, then .toFixed(2)
   const totalDays = round2(totalSeaDays + portIdleDays + portStayDays || num(form.totalDays) || 0);
   const hireDays = totalDays;
-  // PHP: always keep at least hire row 1; sync days/rate/amt like getFinalCalculation
+  // PHP: sync hire row 1 days/rate/amt from Vessel OpEx + total days
   const hireBaseRows = hires.length
     ? hires
-    : [{ hireDays: '', hireRate: form.hireRate || '', hireAmt: form.hireAmt || '' }];
+    : [{ hireDays: '', hireRate: form.hireRate || '', hireAmt: '' }];
   const hiresSynced = hireBaseRows.map((row, index) => {
     if (index !== 0) return row;
     const daysStr = totalDays ? totalDays.toFixed(2) : (row.hireDays || '');
-    const rate = num(row.hireRate) || hireRate;
-    const amt = rate > 0 && totalDays > 0
-      ? round2(rate * totalDays)
-      : (num(row.hireAmt) || num(form.hireAmt) || 0);
+    const rate = hireRate;
+    const amt = rate > 0 && totalDays > 0 ? round2(rate * totalDays) : 0;
     return {
       ...row,
       hireDays: daysStr,
-      hireRate: rate ? String(rate) : (row.hireRate || ''),
+      hireRate: rate > 0 ? String(rate) : '',
       hireAmt: amt ? String(amt) : '',
     };
   });
   totalHireFromRows = round2(hiresSynced.reduce((sum, row) => sum + num(row.hireAmt), 0));
   const hireAmt = round2(
-    totalHireFromRows || (hireRate * hireDays) || num(form.hireAmt),
+    totalHireFromRows || (hireRate * hireDays) || 0,
   );
   // PHP txtTotalVoyageDays = sum of hire-row days (used for hireage CVE)
   const totalHireDays = round2(
@@ -1605,8 +1604,8 @@ export function computeEstimateTotals(form) {
     totalOffHireAmt: String(lessOffHire || ''),
     lessOffHire: String(lessOffHire || ''),
     offHireCveAmt: String(offHireCveAmt || ''),
-    hireagePercent: String(hireageAddCommPct || ''),
-    hireageBroPercent: String(hireageBroPct || ''),
+    hireagePercent: form.hireagePercent != null ? String(form.hireagePercent) : '',
+    hireageBroPercent: form.hireageBroPercent != null ? String(form.hireageBroPercent) : '',
     hireagePercentAmt: String(hireageAddCommAmt || ''),
     hireageBroPercentAmt: String(hireageBroAmt || ''),
     grossHireargeAmt: String(grossHireargeAmt || ''),
@@ -1618,11 +1617,12 @@ export function computeEstimateTotals(form) {
     brokeragePercent: brokeragePercent ? brokeragePercent.toFixed(2) : '',
     brokerageAmt: brokerageAmt ? brokerageAmt.toFixed(2) : '',
     addressCommAmt: addressCommAmt ? addressCommAmt.toFixed(2) : '',
-    hireAmt: String(hireAmt || ''),
-    hireRate: hireRate ? String(hireRate) : (form.hireRate || ''),
+    // Hire Amt is derived (rate × days); Hire / Day keeps the typed/cleared value
+    hireAmt: hireAmt ? hireAmt.toFixed(2) : '',
+    hireRate: form.hireRate != null ? String(form.hireRate) : '',
     cvePerMonth: form.cvePerMonth != null ? String(form.cvePerMonth) : '',
     cveAmt: String(cveAmt || ''),
-    ballastBonus: String(ballastBonus || ''),
+    ballastBonus: form.ballastBonus != null ? String(form.ballastBonus) : '',
     demurrageRevenue: String(demurrageRevenue || ''),
     demurrageBrokerPercent: String(demurrageBrokerPercent || ''),
     demurrageBrokerAmt: String(demurrageBrokerAmt || ''),

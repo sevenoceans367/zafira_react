@@ -1766,7 +1766,12 @@ export default function EstimateDetailSections({
             <input {...inputProps('hireageBroPercent', { recalc: true })} placeholder="0.00" />
           </Field>
           <Field id="hireAmt" label="Hire Amt">
-            <input {...inputProps('hireAmt')} />
+            <input
+              id="hireAmt"
+              value={form.hireAmt || ''}
+              readOnly
+              placeholder="0.00"
+            />
           </Field>
           <Field id="lessOffHire" label="Less Off Hire">
             <input id="lessOffHire" value={form.lessOffHire || form.totalOffHireAmt || ''} readOnly placeholder="0.00" />

@@ -170,6 +170,33 @@ export async function deleteAgencyLetterTc(genAgencyTcId) {
   return parseJson(response, 'Failed to delete TC Agency Letter.');
 }
 
+export async function fetchOpsTcDocuments(comId) {
+  const response = await fetch(`${BASE}/ops-tc/documents${toQuery({ comId })}`);
+  return parseJson(response, 'Failed to load documents.');
+}
+
+export async function createOpsTcDocument(comId, payload = {}, files = []) {
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify({
+    fileName: payload.fileName || '',
+  }));
+  (files || []).forEach((file) => {
+    formData.append('mul_file', file);
+  });
+  const response = await fetch(`${BASE}/ops-tc/documents${toQuery({ comId })}`, {
+    method: 'POST',
+    body: formData,
+  });
+  return parseJson(response, 'Failed to upload document.');
+}
+
+export async function deleteOpsTcDocument(comId, storedFiles) {
+  const response = await fetch(`${BASE}/ops-tc/documents${toQuery({ comId, fileName: storedFiles })}`, {
+    method: 'DELETE',
+  });
+  return parseJson(response, 'Failed to delete document.');
+}
+
 export async function fetchPaymentGridTc(comId) {
   const response = await fetch(`${BASE}/ops-tc/payment-grid${toQuery({ comId })}`);
   return parseJson(response, 'Failed to load Payment / Invoice Grid.');

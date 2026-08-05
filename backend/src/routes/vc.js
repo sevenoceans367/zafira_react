@@ -272,7 +272,8 @@ router.get('/ops/soa-report', asyncHandler(async (req, res) => {
 
 router.get('/ops/documents', asyncHandler(async (req, res) => {
   const comId = req.query.comId || req.query.comid;
-  res.json(await getOpsDocuments(comId));
+  const kind = req.query.kind || 'vc';
+  res.json(await getOpsDocuments(comId, kind));
 }));
 
 router.post('/ops/documents', ticketUpload, asyncHandler(async (req, res) => {
@@ -283,6 +284,24 @@ router.post('/ops/documents', ticketUpload, asyncHandler(async (req, res) => {
 }));
 
 router.delete('/ops/documents', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  const fileName = req.query.fileName || req.query.filename || req.body?.fileName;
+  res.json(await deleteOpsDocument(comId, fileName));
+}));
+
+router.get('/ops-tc/documents', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  res.json(await getOpsDocuments(comId, 'tc'));
+}));
+
+router.post('/ops-tc/documents', ticketUpload, asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid || req.body?.comId || req.body?.comid;
+  const payload = req.body?.payload ? JSON.parse(req.body.payload) : (req.body || {});
+  const files = mapUploadedFiles(req.files || []);
+  res.status(201).json(await createOpsDocument(comId, payload, files));
+}));
+
+router.delete('/ops-tc/documents', asyncHandler(async (req, res) => {
   const comId = req.query.comId || req.query.comid;
   const fileName = req.query.fileName || req.query.filename || req.body?.fileName;
   res.json(await deleteOpsDocument(comId, fileName));

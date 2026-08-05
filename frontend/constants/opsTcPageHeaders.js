@@ -14,6 +14,7 @@ const PAGES = {
   'fixture-note': 'Fixture Note',
   'cost-sheet': 'TC Cost Sheet',
   'agency-letter': 'Generate Agency Letter',
+  documents: 'Documents',
   'payment-grid': 'Payment / Invoice Grid',
 };
 
@@ -29,6 +30,7 @@ export function resolveOpsTcHeader(pathname) {
     || pageId === 'fixture-note'
     || pageId === 'cost-sheet'
     || pageId === 'agency-letter'
+    || pageId === 'documents'
     || pageId === 'payment-grid'
   ) {
     return {

@@ -2,11 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
-  FilterBar,
   FilterField,
   LoadingOverlay,
-  Select,
   TextInput,
+  useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -39,6 +38,7 @@ const FLASH = {
 
 export default function OpsTcPostOpsPage() {
   const confirm = useConfirm();
+  const alert = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
   const [years, setYears] = useState([]);
@@ -154,7 +154,11 @@ export default function OpsTcPostOpsPage() {
   const handleCreateSheet = async () => {
     const sheetName = String(sheetModal.sheetName || '').trim();
     if (!sheetName) {
-      setError('TC Sheet Name is required.');
+      await alert({
+        title: 'Alert',
+        message: 'Please fill the file name',
+        confirmLabel: 'OK',
+      });
       return;
     }
     setSavingSheet(true);
@@ -171,11 +175,35 @@ export default function OpsTcPostOpsPage() {
     }
   };
 
+  const handleAddSheetClick = async (row) => {
+    if (!row.canAddCostSheet) {
+      await alert({
+        title: 'Alert',
+        message: 'Please make sure the last TC Sheet is Submit to Close',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+    setSheetModal({ open: true, comId: row.comId, sheetName: '' });
+  };
+
   return (
     <>
       <OpsTcInOpsGlanceHeaderActions
         search={searchInput}
         onSearchChange={setSearchInput}
+        businessTypes={businessTypes}
+        businessType={businessType}
+        onBusinessTypeChange={(value) => {
+          setBusinessType(value);
+          updateQuery({ selBType: value, msg: '' });
+        }}
+        years={years}
+        year={year}
+        onYearChange={(value) => {
+          setYear(value);
+          updateQuery({ selYear: value, msg: '' });
+        }}
       />
 
       <div className={`zafira-page ${styles.page}`}>
@@ -187,56 +215,27 @@ export default function OpsTcPostOpsPage() {
 
         <h3 className={styles.title}>Vessels In Post Ops - TC</h3>
 
-        <FilterBar
-          actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
-        >
-          <FilterField label="Business Type">
-            <CoaCardSelect
-              label="Business Type"
-              value={businessType}
-              options={businessTypes}
-              includeEmpty={false}
-              onChange={(value) => {
-                setBusinessType(value);
-                updateQuery({ selBType: value, msg: '' });
-              }}
-            />
-          </FilterField>
-          <FilterField label="Year">
-            <CoaCardSelect
-              label="Year"
-              value={year}
-              options={years}
-              includeEmpty={false}
-              onChange={(value) => {
-                setYear(value);
-                updateQuery({ selYear: value, msg: '' });
-              }}
-            />
-          </FilterField>
-        </FilterBar>
-
-        <div className={styles.tableWrap}>
+        <div className={`${styles.tableWrap} ${styles.wideTableWrap}`}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Final TC Est / Docs</th>
-                <th>Nom ID / TC No.</th>
-                <th>Business Type</th>
+                <th>Final TC Est /<br />Docs</th>
+                <th>Nom ID /<br />TC No.</th>
+                <th>Business<br />Type</th>
                 <th>Vessel</th>
                 <th>Charterer</th>
-                <th>CP Date</th>
-                <th>Port Del / Port Re-Del</th>
+                <th>CP<br />Date</th>
+                <th>Port Del /<br />Port Re-Del</th>
                 <th>Checklist</th>
-                <th>TC days / Fixture Note</th>
-                <th>TC Financials</th>
-                <th>Agency Letters</th>
-                <th>Payment / Invoices</th>
-                <th>De-activate / Compare</th>
+                <th>TC days /<br />Fixture Note</th>
+                <th>TC<br />Financials</th>
+                <th>Agency<br />Letters</th>
+                <th>Payment /<br />Invoices</th>
+                <th className={styles.alertsCell}>De-activate /<br />Compare</th>
                 <th>Operator</th>
-                <th>Re-Del Date</th>
-                <th>Chartering Team</th>
-                <th>Change TC Status</th>
+                <th>Re-Del<br />Date</th>
+                <th>Chartering<br />Team</th>
+                <th>Change TC<br />Status</th>
               </tr>
             </thead>
             <tbody>
@@ -254,7 +253,14 @@ export default function OpsTcPostOpsPage() {
                     >
                       TC
                     </Link>
-                    <div className={styles.muted}>Docs</div>
+                    <div>
+                      <Link
+                        to={appPath(`/internal-user/vc/ops-tc/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                        title="Click me"
+                      >
+                        Docs
+                      </Link>
+                    </div>
                   </td>
                   <td>
                     {row.message || '—'}
@@ -297,15 +303,14 @@ export default function OpsTcPostOpsPage() {
                         </Link>
                       </div>
                     ))}
-                    {!row.costSheets?.length ? <span className={styles.muted}>—</span> : null}
-                    {row.canAddCostSheet ? (
+                    <div>
                       <Button
                         size="sm"
                         label="A"
                         title="Add New CS"
-                        onClick={() => setSheetModal({ open: true, comId: row.comId, sheetName: '' })}
+                        onClick={() => handleAddSheetClick(row)}
                       />
-                    ) : null}
+                    </div>
                   </td>
                   <td>
                     <Link
@@ -323,37 +328,41 @@ export default function OpsTcPostOpsPage() {
                       <strong>View</strong>
                     </Link>
                   </td>
-                  <td className={styles.actionsCell}>
+                  <td className={`${styles.actionsCell} ${styles.alertsCell}`}>
                     {row.canDeactivate ? (
-                      <button
-                        type="button"
-                        className={styles.dangerIcon}
-                        title="Deactivate entry"
-                        onClick={() => handleDeactivate(row)}
-                      >
-                        <i className="bi bi-x-lg" aria-hidden />
-                      </button>
+                      <div className={styles.alertsBin}>
+                        <button
+                          type="button"
+                          className={styles.dangerIcon}
+                          title="Deactivate entry"
+                          onClick={() => handleDeactivate(row)}
+                        >
+                          <i className="bi bi-trash" aria-hidden />
+                        </button>
+                      </div>
                     ) : null}
                     {canCompareSheets ? (
-                      <Button
-                        size="sm"
-                        label="Compare"
-                        title="Compare Sheets"
-                        onClick={() => setCompareModal({ open: true, comId: row.comId })}
-                      />
+                      <div>
+                        <Button
+                          size="sm"
+                          label="Compare"
+                          title="Compare Sheets"
+                          onClick={() => setCompareModal({ open: true, comId: row.comId })}
+                        />
+                      </div>
                     ) : null}
                   </td>
                   <td>
                     {canEditOperator ? (
-                      <Select
-                        value={row.operatorId || ''}
-                        onChange={(e) => handleOperatorChange(row, e.target.value)}
-                      >
-                        <option value="">---Select from list---</option>
-                        {operators.map((opt) => (
-                          <option key={opt.id} value={opt.id}>{opt.name}</option>
-                        ))}
-                      </Select>
+                      <div className={styles.operatorSelect}>
+                        <CoaCardSelect
+                          label="Operator"
+                          value={row.operatorId || ''}
+                          options={operators}
+                          placeholder="---Select from list---"
+                          onChange={(value) => handleOperatorChange(row, value)}
+                        />
+                      </div>
                     ) : (row.operatorName || '—')}
                   </td>
                   <td>{row.reDelDate || '—'}</td>

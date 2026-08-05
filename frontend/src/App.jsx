@@ -39,6 +39,7 @@ import OpsTcChecklistPage from '../pages/internal-user/ops/OpsTcChecklistPage.js
 import OpsTcFixtureNotePage from '../pages/internal-user/ops/OpsTcFixtureNotePage.jsx';
 import OpsTcCostSheetPage from '../pages/internal-user/ops/OpsTcCostSheetPage.jsx';
 import OpsTcAgencyLetterPage from '../pages/internal-user/ops/OpsTcAgencyLetterPage.jsx';
+import OpsTcDocumentsPage from '../pages/internal-user/ops/OpsTcDocumentsPage.jsx';
 import OpsTcPaymentGridPage from '../pages/internal-user/ops/OpsTcPaymentGridPage.jsx';
 import OpsTcPostOpsPage from '../pages/internal-user/ops/OpsTcPostOpsPage.jsx';
 import OpsTcHistoryPage from '../pages/internal-user/ops/OpsTcHistoryPage.jsx';
@@ -149,6 +150,10 @@ export default function App() {
             <Route
               path="/internal-user/vc/ops-tc/agency-letter"
               element={<OpsTcAgencyLetterPage />}
+            />
+            <Route
+              path="/internal-user/vc/ops-tc/documents"
+              element={<OpsTcDocumentsPage />}
             />
             <Route
               path="/internal-user/vc/ops-tc/payment-grid"

@@ -2,11 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
-  FilterBar,
   FilterField,
   LoadingOverlay,
-  Select,
   TextInput,
+  useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -38,6 +37,7 @@ const FLASH = {
 
 export default function OpsTcInOpsGlancePage() {
   const confirm = useConfirm();
+  const alert = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
   const [years, setYears] = useState([]);
@@ -85,10 +85,9 @@ export default function OpsTcInOpsGlancePage() {
       ]);
       setBusinessTypes(types);
       setYears(yearOptions);
-      setOperators(operatorOptions);
+      setOperators(Array.isArray(operatorOptions) ? operatorOptions : []);
       setRows(data.records || []);
       setTotal(data.recordsTotal || 0);
-      // PHP: $_SESSION['iutype'] == 'mgmt_user' shows operator <select>
       const loggedInIsMgmt = getUser()?.userType === 'mgmt_user';
       setCanEditOperator(loggedInIsMgmt || Boolean(data.canEditOperator));
       setCanCompareSheets(Boolean(data.canCompareSheets));
@@ -151,10 +150,26 @@ export default function OpsTcInOpsGlancePage() {
     }
   };
 
+  const handleAddSheetClick = async (row) => {
+    if (!row.canAddCostSheet) {
+      await alert({
+        title: 'Alert',
+        message: 'Please make sure the last TC Sheet is Submit to Close',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+    setSheetModal({ open: true, comId: row.comId, sheetName: '' });
+  };
+
   const handleCreateSheet = async () => {
     const sheetName = String(sheetModal.sheetName || '').trim();
     if (!sheetName) {
-      setError('TC Sheet Name is required.');
+      await alert({
+        title: 'Alert',
+        message: 'Please fill the file name',
+        confirmLabel: 'OK',
+      });
       return;
     }
     setSavingSheet(true);
@@ -176,245 +191,238 @@ export default function OpsTcInOpsGlancePage() {
       <OpsTcInOpsGlanceHeaderActions
         search={searchInput}
         onSearchChange={setSearchInput}
+        businessTypes={businessTypes}
+        businessType={businessType}
+        onBusinessTypeChange={(value) => {
+          setBusinessType(value);
+          updateQuery({ selBType: value, msg: '' });
+        }}
+        years={years}
+        year={year}
+        onYearChange={(value) => {
+          setYear(value);
+          updateQuery({ selYear: value, msg: '' });
+        }}
       />
 
       <div className={`zafira-page ${styles.page}`}>
-      {loading || savingSheet ? (
-        <LoadingOverlay active label={savingSheet ? 'Creating sheet…' : 'Loading In Ops at a glance TC…'} />
-      ) : null}
-      {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
-      {error ? <div className={styles.error}>{error}</div> : null}
+        {loading || savingSheet ? (
+          <LoadingOverlay active label={savingSheet ? 'Creating sheet…' : 'Loading In Ops at a glance TC…'} />
+        ) : null}
+        {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
+        {error ? <div className={styles.error}>{error}</div> : null}
 
-      <h3 className={styles.title}>In Ops at a glance - TC</h3>
+        <h3 className={styles.title}>In Ops at a glance - TC</h3>
 
-      <FilterBar
-        actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
-      >
-        <FilterField label="Business Type">
-          <CoaCardSelect
-            label="Business Type"
-            value={businessType}
-            options={businessTypes}
-            includeEmpty={false}
-            onChange={(value) => {
-              setBusinessType(value);
-              updateQuery({ selBType: value, msg: '' });
-            }}
-          />
-        </FilterField>
-        <FilterField label="Year">
-          <CoaCardSelect
-            label="Year"
-            value={year}
-            options={years}
-            includeEmpty={false}
-            onChange={(value) => {
-              setYear(value);
-              updateQuery({ selYear: value, msg: '' });
-            }}
-          />
-        </FilterField>
-      </FilterBar>
-
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Final TC Est / Docs</th>
-              <th>Nom ID / TC No.</th>
-              <th>Business Type</th>
-              <th>Vessel</th>
-              <th>Charterer</th>
-              <th>CP Date</th>
-              <th>Port Del / Port Re-Del</th>
-              <th>Checklist</th>
-              <th>TC days / Fixture Note</th>
-              <th>TC Financials</th>
-              <th>Agency Letters</th>
-              <th>Payment / Invoices</th>
-              <th>De-activate / Compare</th>
-              <th>Operator</th>
-              <th>Re-Del Date</th>
-              <th>Chartering Team</th>
-              <th>Change TC Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!rows.length && !loading ? (
+        <div className={`${styles.tableWrap} ${styles.wideTableWrap}`}>
+          <table className={styles.table}>
+            <thead>
               <tr>
-                <td colSpan={17} className={styles.emptyCell}>
-                  SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
-                </td>
+                <th>Final TC Est /<br />Docs</th>
+                <th>Nom ID /<br />TC No.</th>
+                <th>Business<br />Type</th>
+                <th>Vessel</th>
+                <th>Charterer</th>
+                <th>CP<br />Date</th>
+                <th>Port Del /<br />Port Re-Del</th>
+                <th>Checklist</th>
+                <th>TC days /<br />Fixture Note</th>
+                <th>TC<br />Financials</th>
+                <th>Agency<br />Letters</th>
+                <th>Payment /<br />Invoices</th>
+                <th className={styles.alertsCell}>De-activate /<br />Compare</th>
+                <th>Operator</th>
+                <th>Re-Del<br />Date</th>
+                <th>Chartering<br />Team</th>
+                <th>Change TC<br />Status</th>
               </tr>
-            ) : rows.map((row) => (
-              <tr key={row.comId}>
-                <td className={styles.actionsCell}>
-                  <Link
-                    to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/calculate?mode=view&from=ops-tc`)}
-                  >
-                    TC
-                  </Link>
-                  <div className={styles.muted}>Docs</div>
-                </td>
-                <td>
-                  {row.message || '—'}
-                  <br />
-                  <span className={styles.alertText}>{row.tcNo || '—'}</span>
-                </td>
-                <td>{row.businessType || '—'}</td>
-                <td className={row.isPeriod ? styles.periodVessel : undefined}>
-                  {row.vesselName || '—'}
-                  <br />
-                  {row.vesselType || '—'}
-                </td>
-                <td className={styles.wrapCell}>{row.charterer || '—'}</td>
-                <td>{row.cpDate || '—'}</td>
-                <td className={styles.wrapCell}>{row.ports || '—'}</td>
-                <td>
-                  <Link
-                    to={appPath(`/internal-user/vc/ops-tc/checklist?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                    style={{ color: '#b42318' }}
-                  >
-                    Check List
-                  </Link>
-                </td>
-                <td>
-                  {row.hireDays || '—'}
-                  <br />
-                  <Link
-                    to={appPath(`/internal-user/vc/ops-tc/fixture-note?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                  >
-                    Fixture Note
-                  </Link>
-                </td>
-                <td className={styles.actionsCell}>
-                  {(row.costSheets || []).map((sheet) => (
-                    <div key={sheet.id}>
+            </thead>
+            <tbody>
+              {!rows.length && !loading ? (
+                <tr>
+                  <td colSpan={17} className={styles.emptyCell}>
+                    SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
+                  </td>
+                </tr>
+              ) : rows.map((row) => (
+                <tr key={row.comId}>
+                  <td className={styles.actionsCell}>
+                    <Link
+                      to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/calculate?mode=view&from=ops-tc`)}
+                    >
+                      TC
+                    </Link>
+                    <div>
                       <Link
-                        to={appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=1`)}
+                        to={appPath(`/internal-user/vc/ops-tc/documents?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                        title="Click me"
                       >
-                        {sheet.name}
+                        Docs
                       </Link>
                     </div>
-                  ))}
-                  {!row.costSheets?.length ? <span className={styles.muted}>—</span> : null}
-                  {row.canAddCostSheet ? (
-                    <Button
-                      size="sm"
-                      label="A"
-                      title="Add New CS"
-                      onClick={() => setSheetModal({ open: true, comId: row.comId, sheetName: '' })}
-                    />
-                  ) : null}
-                </td>
-                <td>
-                  <Link
-                    to={appPath(`/internal-user/vc/ops-tc/agency-letter?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                  >
-                    Generate Agency Letter
-                  </Link>
-                </td>
-                <td>
-                  <Link
-                    className={styles.opsViewLink}
-                    to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                    title="Payment / Invoice Grid"
-                  >
-                    <strong>View</strong>
-                  </Link>
-                </td>
-                <td className={styles.actionsCell}>
-                  {row.canDeactivate ? (
-                    <button
-                      type="button"
-                      className={styles.dangerIcon}
-                      title="Deactivate entry"
-                      onClick={() => handleDeactivate(row)}
+                  </td>
+                  <td>
+                    {row.message || '—'}
+                    <br />
+                    <span className={styles.alertText}>{row.tcNo || '—'}</span>
+                  </td>
+                  <td>{row.businessType || '—'}</td>
+                  <td className={row.isPeriod ? styles.periodVessel : undefined}>
+                    {row.vesselName || '—'}
+                    <br />
+                    {row.vesselType || '—'}
+                  </td>
+                  <td className={styles.wrapCell}>{row.charterer || '—'}</td>
+                  <td>{row.cpDate || '—'}</td>
+                  <td className={styles.wrapCell}>{row.ports || '—'}</td>
+                  <td>
+                    <Link
+                      to={appPath(`/internal-user/vc/ops-tc/checklist?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                      style={{ color: '#b42318' }}
                     >
-                      <i className="bi bi-x-lg" aria-hidden />
-                    </button>
-                  ) : null}
-                  {canCompareSheets ? (
-                    <Button
-                      size="sm"
-                      label="Compare"
-                      title="Compare Sheets"
-                      onClick={() => setCompareModal({ open: true, comId: row.comId })}
-                    />
-                  ) : null}
-                </td>
-                <td>
-                  {canEditOperator ? (
-                    <Select
-                      value={row.operatorId || ''}
-                      onChange={(e) => handleOperatorChange(row, e.target.value)}
+                      Check List
+                    </Link>
+                  </td>
+                  <td>
+                    {row.hireDays || '—'}
+                    <br />
+                    <Link
+                      to={appPath(`/internal-user/vc/ops-tc/fixture-note?comid=${encodeURIComponent(row.comId)}&page=1`)}
                     >
-                      <option value="">---Select from list---</option>
-                      {operators.map((opt) => (
-                        <option key={opt.id} value={opt.id}>{opt.name}</option>
-                      ))}
-                    </Select>
-                  ) : (row.operatorName || '—')}
-                </td>
-                <td>{row.reDelDate || '—'}</td>
-                <td>{row.charteringTeam || '—'}</td>
-                <td>
-                  {row.canMoveToPostOps ? (
-                    <Button size="sm" label="Post Ops" onClick={() => handlePostOps(row)} />
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                      Fixture Note
+                    </Link>
+                  </td>
+                  <td className={styles.actionsCell}>
+                    {(row.costSheets || []).map((sheet) => (
+                      <div key={sheet.id}>
+                        <Link
+                          to={appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=1`)}
+                        >
+                          {sheet.name}
+                        </Link>
+                      </div>
+                    ))}
+                    <div>
+                      <Button
+                        size="sm"
+                        label="A"
+                        title="Add New CS"
+                        onClick={() => handleAddSheetClick(row)}
+                      />
+                    </div>
+                  </td>
+                  <td>
+                    <Link
+                      to={appPath(`/internal-user/vc/ops-tc/agency-letter?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                    >
+                      Generate Agency Letter
+                    </Link>
+                  </td>
+                  <td>
+                    <Link
+                      className={styles.opsViewLink}
+                      to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                      title="Payment / Invoice Grid"
+                    >
+                      <strong>View</strong>
+                    </Link>
+                  </td>
+                  <td className={`${styles.actionsCell} ${styles.alertsCell}`}>
+                    {row.canDeactivate ? (
+                      <div className={styles.alertsBin}>
+                        <button
+                          type="button"
+                          className={styles.dangerIcon}
+                          title="Deactivate entry"
+                          onClick={() => handleDeactivate(row)}
+                        >
+                          <i className="bi bi-trash" aria-hidden />
+                        </button>
+                      </div>
+                    ) : null}
+                    {canCompareSheets ? (
+                      <div>
+                        <Button
+                          size="sm"
+                          label="Compare"
+                          title="Compare Sheets"
+                          onClick={() => setCompareModal({ open: true, comId: row.comId })}
+                        />
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>
+                    {canEditOperator ? (
+                      <div className={styles.operatorSelect}>
+                        <CoaCardSelect
+                          label="Operator"
+                          value={row.operatorId || ''}
+                          options={operators}
+                          placeholder="---Select from list---"
+                          onChange={(value) => handleOperatorChange(row, value)}
+                        />
+                      </div>
+                    ) : (row.operatorName || '—')}
+                  </td>
+                  <td>{row.reDelDate || '—'}</td>
+                  <td>{row.charteringTeam || '—'}</td>
+                  <td>
+                    {row.canMoveToPostOps ? (
+                      <Button size="sm" label="Post Ops" onClick={() => handlePostOps(row)} />
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
 
-      {sheetModal.open ? (
-        <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <h4>Add TC Sheet</h4>
-              <button
-                type="button"
-                className={styles.dangerIcon}
-                onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <p className={styles.muted}>
-              In the Ops side, enter any desired TC Sheet Name. This is then also possible after every Submit to Close.
-            </p>
-            <FilterField id="ops-tc-sheet-name" label="TC Sheet Name">
-              <TextInput
-                id="ops-tc-sheet-name"
-                value={sheetModal.sheetName}
-                onChange={(e) => setSheetModal((prev) => ({ ...prev, sheetName: e.target.value }))}
-                placeholder="TC Sheet Name"
-              />
-            </FilterField>
-            <div className={styles.toolbarActions} style={{ marginTop: 12 }}>
-              <Button label={savingSheet ? 'Submitting…' : 'Submit'} onClick={handleCreateSheet} disabled={savingSheet} />
-              <Button
-                variant="outline"
-                label="Cancel"
-                onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
-                disabled={savingSheet}
-              />
+        {sheetModal.open ? (
+          <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
+            <div className={styles.modal}>
+              <div className={styles.modalHeader}>
+                <h4>Add TC Sheet</h4>
+                <button
+                  type="button"
+                  className={styles.dangerIcon}
+                  onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+              <p className={styles.muted}>
+                In the Ops side, enter any desired TC Sheet Name. This is then also possible after every Submit to Close.
+              </p>
+              <FilterField id="ops-tc-sheet-name" label="TC Sheet Name">
+                <TextInput
+                  id="ops-tc-sheet-name"
+                  value={sheetModal.sheetName}
+                  onChange={(e) => setSheetModal((prev) => ({ ...prev, sheetName: e.target.value }))}
+                  placeholder="TC Sheet Name"
+                />
+              </FilterField>
+              <div className={styles.toolbarActions} style={{ marginTop: 12 }}>
+                <Button label={savingSheet ? 'Submitting…' : 'Submit'} onClick={handleCreateSheet} disabled={savingSheet} />
+                <Button
+                  variant="outline"
+                  label="Cancel"
+                  onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
+                  disabled={savingSheet}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <OpsTcCompareSheetsModal
-        open={compareModal.open}
-        comId={compareModal.comId}
-        onClose={() => setCompareModal({ open: false, comId: '' })}
-      />
-    </div>
+        <OpsTcCompareSheetsModal
+          open={compareModal.open}
+          comId={compareModal.comId}
+          onClose={() => setCompareModal({ open: false, comId: '' })}
+        />
+      </div>
     </>
   );
 }

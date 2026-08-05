@@ -155,7 +155,14 @@ export default function OpsTcHistoryPage() {
                     >
                       TC
                     </Link>
-                    <div className={styles.muted}>Docs</div>
+                    <div>
+                      <Link
+                        to={appPath(`/internal-user/vc/ops-tc/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                        title="Click me"
+                      >
+                        Docs
+                      </Link>
+                    </div>
                   </td>
                   <td>
                     {row.message || '—'}
@@ -189,7 +196,6 @@ export default function OpsTcHistoryPage() {
                         </Link>
                       </div>
                     ))}
-                    {!row.costSheets?.length ? <span className={styles.muted}>—</span> : null}
                   </td>
                   <td>
                     <Link

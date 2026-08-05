@@ -228,8 +228,9 @@
 .treeview-menu {
   /* Fixed so flyouts are not clipped by the scrolling sidebar nav */
   position: fixed;
-  left: 0;
-  top: 0;
+  /* Stay invisible until JS sets left/top and data-anchored — avoids flash at 0,0 */
+  visibility: hidden;
+  pointer-events: none;
   z-index: 1100;
   list-style-type: none;
   min-width: 260px;
@@ -243,6 +244,11 @@
   border: 1px solid #d7dde4;
   border-radius: 10px;
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+}
+
+.treeview-menu[data-anchored='true'] {
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .sidebar-wrapper.closed .treeview-menu {

@@ -36,7 +36,7 @@ function invoiceTypeName(type) {
   return INVOICE_TYPE_NAMES[type] || String(type);
 }
 
-async function getCompareMeta(pool, comId) {
+async function getVcCompareMeta(pool, comId) {
   const [[compare]] = await pool.query(
     `SELECT FCAID, MESSAGE
      FROM freight_cost_estimate_compare
@@ -45,7 +45,7 @@ async function getCompareMeta(pool, comId) {
     [comId, MODULE_ID, COMPANY_ID],
   );
   if (!compare?.FCAID) {
-    return { fcaId: null, nomId: '', vesselName: '' };
+    return { fcaId: null, nomId: '', vesselName: '', vesselAttachments: [] };
   }
 
   const [[sheet]] = await pool.query(
@@ -63,6 +63,57 @@ async function getCompareMeta(pool, comId) {
     vesselName: sheet?.VESSEL_NAME || '',
     vesselAttachments: parseAttachments(sheet?.ATTACHMENT, sheet?.ATTACHMENT_NAME),
   };
+}
+
+async function getTcCompareMeta(pool, comId) {
+  const [[compare]] = await pool.query(
+    `SELECT TCOUTID, MESSAGE
+     FROM chartering_estimate_tc_compare
+     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+     LIMIT 1`,
+    [comId, MODULE_ID, COMPANY_ID],
+  );
+  if (!compare?.TCOUTID) {
+    return { fcaId: null, tcOutId: null, nomId: '', vesselName: '', vesselAttachments: [] };
+  }
+
+  let sheet = null;
+  try {
+    const [rows] = await pool.query(
+      `SELECT m.ATTACHMENT, m.ATTACHMENT_NAME, m.VESSEL_IMO_ID, vim.VESSEL_NAME
+       FROM chartering_estimate_tc_master m
+       LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+       WHERE m.TCOUTID = ?
+       LIMIT 1`,
+      [compare.TCOUTID],
+    );
+    sheet = rows?.[0] || null;
+  } catch {
+    const [[row]] = await pool.query(
+      `SELECT m.VESSEL_IMO_ID, vim.VESSEL_NAME
+       FROM chartering_estimate_tc_master m
+       LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+       WHERE m.TCOUTID = ?
+       LIMIT 1`,
+      [compare.TCOUTID],
+    );
+    sheet = row || null;
+  }
+
+  return {
+    fcaId: null,
+    tcOutId: String(compare.TCOUTID),
+    nomId: compare.MESSAGE || '',
+    vesselName: sheet?.VESSEL_NAME || '',
+    vesselAttachments: parseAttachments(sheet?.ATTACHMENT, sheet?.ATTACHMENT_NAME),
+  };
+}
+
+async function getCompareMeta(pool, comId, kind = 'vc') {
+  if (String(kind).toLowerCase() === 'tc') {
+    return getTcCompareMeta(pool, comId);
+  }
+  return getVcCompareMeta(pool, comId);
 }
 
 async function listUploadedDocs(pool, comId) {
@@ -159,7 +210,7 @@ async function listInvoiceAttachments(pool, comId) {
   return rows;
 }
 
-export async function dbGetOpsDocuments(comId) {
+export async function dbGetOpsDocuments(comId, kind = 'vc') {
   const pool = getPool();
   if (!comId) {
     const error = new Error('COMID is required.');
@@ -167,7 +218,7 @@ export async function dbGetOpsDocuments(comId) {
     throw error;
   }
 
-  const meta = await getCompareMeta(pool, comId);
+  const meta = await getCompareMeta(pool, comId, kind);
   const documents = await listUploadedDocs(pool, comId);
   let invoiceAttachments = [];
   try {
@@ -178,7 +229,9 @@ export async function dbGetOpsDocuments(comId) {
 
   return {
     comId: String(comId),
+    kind: String(kind || 'vc').toLowerCase() === 'tc' ? 'tc' : 'vc',
     fcaId: meta.fcaId || '',
+    tcOutId: meta.tcOutId || '',
     nomId: meta.nomId || '',
     vesselName: meta.vesselName || '',
     documents,

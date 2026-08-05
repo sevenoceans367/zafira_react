@@ -29,11 +29,13 @@ const MOCK = {
 let mockDocs = structuredClone(MOCK);
 let mockNextId = 2;
 
-export async function getOpsDocuments(comId) {
-  if (isDbConfigured()) return dbGetOpsDocuments(comId);
+export async function getOpsDocuments(comId, kind = 'vc') {
+  if (isDbConfigured()) return dbGetOpsDocuments(comId, kind);
   return {
     ...mockDocs,
     comId: String(comId || mockDocs.comId),
+    kind: String(kind || 'vc').toLowerCase() === 'tc' ? 'tc' : 'vc',
+    tcOutId: kind === 'tc' ? '9001' : '',
   };
 }
 

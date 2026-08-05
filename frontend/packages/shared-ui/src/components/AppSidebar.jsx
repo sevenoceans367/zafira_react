@@ -12,24 +12,24 @@ function positionTreeviewFlyout(treeviewLi) {
   );
   if (!menu) return;
 
-  menu.style.top = '0px';
-  menu.style.maxHeight = '';
-
-  // Layout with default top so we can measure overflow.
-  void menu.offsetHeight;
-  const rect = menu.getBoundingClientRect();
+  const liRect = treeviewLi.getBoundingClientRect();
+  const gap = 6;
   const vh = window.innerHeight;
-  let shift = 0;
+  menu.style.left = `${Math.round(liRect.right + gap)}px`;
+  menu.style.top = `${Math.round(liRect.top)}px`;
+  menu.style.maxHeight = '';
+  void menu.offsetHeight;
 
+  const rect = menu.getBoundingClientRect();
+  let top = liRect.top;
   if (rect.bottom > vh - VIEWPORT_EDGE) {
-    shift = (vh - VIEWPORT_EDGE) - rect.bottom;
+    top -= rect.bottom - (vh - VIEWPORT_EDGE);
   }
-  if (rect.top + shift < VIEWPORT_EDGE) {
-    shift = VIEWPORT_EDGE - rect.top;
+  if (top < VIEWPORT_EDGE) {
+    top = VIEWPORT_EDGE;
     menu.style.maxHeight = `${Math.max(160, vh - VIEWPORT_EDGE * 2)}px`;
   }
-
-  menu.style.top = `${shift}px`;
+  menu.style.top = `${Math.round(top)}px`;
 }
 
 const AppSidebar = ({ isOpen, children }) => {
@@ -64,25 +64,29 @@ const AppSidebar = ({ isOpen, children }) => {
       const menu = Array.from(li.children).find((el) => el.classList?.contains('treeview-menu'));
       if (menu) {
         menu.style.top = '';
+        menu.style.left = '';
         menu.style.maxHeight = '';
       }
     };
 
-    const handleResize = () => {
+    const repositionOpen = () => {
       root.querySelectorAll('li.treeview:hover, li.treeview.open, li.treeview:focus-within').forEach((li) => {
         positionTreeviewFlyout(li);
       });
     };
 
+    const nav = root.querySelector('.sidebar-nav');
     root.addEventListener('mouseover', handleOver);
     root.addEventListener('focusin', handleOver);
     root.addEventListener('mouseout', handleLeave);
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', repositionOpen);
+    nav?.addEventListener('scroll', repositionOpen, { passive: true });
     return () => {
       root.removeEventListener('mouseover', handleOver);
       root.removeEventListener('focusin', handleOver);
       root.removeEventListener('mouseout', handleLeave);
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', repositionOpen);
+      nav?.removeEventListener('scroll', repositionOpen);
     };
   }, []);
 

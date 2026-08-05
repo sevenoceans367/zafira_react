@@ -6,6 +6,7 @@ import { periodContractAppPath } from './periodContractModule.js';
 import { elibraryAppPath } from './elibraryModule.js';
 import { userGuidesAppPath } from './userGuidesModule.js';
 import spotIcon from '../assets/icons/spot-icon.svg';
+import fleetIcon from '../assets/icons/fleet-icon.svg';
 
 export const SOPF_SIDEBAR_ITEMS = [
   {
@@ -24,7 +25,8 @@ export const SOPF_SIDEBAR_ITEMS = [
     id: 'fleet',
     href: fleetAppPath('sopf'),
     label: 'Fleet',
-    icon: 'bi-anchor',
+    iconSrc: fleetIcon,
+    iconAlt: 'Fleet',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/fleet'),
   },
   {

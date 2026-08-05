@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   padding: 0;
-  overflow: visible;
+  overflow: hidden;
   background-color: #fff;
   border-right: 1px solid #d7dde4;
   box-shadow: inset -3px 0px 8px -4px rgba(0, 0, 0, 0.07);
@@ -15,35 +15,6 @@
   --sidebar-link-bg-hover: #e6e6e6;
   --sidebar-link-radius: 8px;
   font-family: var(--font-family-body);
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.sidebar-wrapper::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-}
-
-.sidebar-wrapper:hover,
-.sidebar-wrapper:focus-within {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.22) transparent;
-}
-
-.sidebar-wrapper:hover::-webkit-scrollbar,
-.sidebar-wrapper:focus-within::-webkit-scrollbar {
-  width: 6px;
-}
-
-.sidebar-wrapper:hover::-webkit-scrollbar-thumb,
-.sidebar-wrapper:focus-within::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.22);
-  border-radius: 999px;
-}
-
-.sidebar-wrapper:hover::-webkit-scrollbar-track,
-.sidebar-wrapper:focus-within::-webkit-scrollbar-track {
-  background: transparent;
 }
 
 .sidebar-user-panel {
@@ -55,6 +26,7 @@
   height: 74px;
   min-width: 220px;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .sidebar-wrapper.closed .sidebar-user-panel {
@@ -87,9 +59,26 @@
 
 .sidebar-nav {
   min-width: 220px;
-  overflow: visible;
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.22) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.22);
+  border-radius: 999px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .sidebar-menu {
@@ -200,8 +189,9 @@
 }
 
 .treeview-menu {
-  position: absolute;
-  left: calc(100% + 6px);
+  /* Fixed so flyouts are not clipped by the scrolling sidebar nav */
+  position: fixed;
+  left: 0;
   top: 0;
   z-index: 1100;
   list-style-type: none;
@@ -219,7 +209,6 @@
 }
 
 .sidebar-wrapper.closed .treeview-menu {
-  left: calc(100% + 8px);
   min-width: 260px;
 }
 

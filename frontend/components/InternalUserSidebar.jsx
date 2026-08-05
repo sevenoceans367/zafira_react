@@ -10,6 +10,7 @@ import { todoListAppPath } from '../constants/todoListPageHeaders.js';
 import { combinedSoaPayableAppPath, combinedSoaPayableTcAppPath } from '../constants/combinedSoaPayablePageHeaders.js';
 import { SOPF_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
 import helpIcon from '../assets/help-icon.svg';
+import fleetIcon from '../assets/icons/fleet-icon.svg';
 import CoasSidebarTree from './coa/CoasSidebarTree.jsx';
 import OpsVcSidebarTree from './ops/OpsVcSidebarTree.jsx';
 import OpsTcSidebarTree from './ops/OpsTcSidebarTree.jsx';
@@ -47,7 +48,8 @@ function SidebarSection({ label }) {
 }
 
 const FLEET_LINK = {
-  icon: 'bi-anchor',
+  iconSrc: fleetIcon,
+  iconAlt: 'Fleet',
   label: 'Fleet',
 };
 
@@ -124,7 +126,8 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to={fleetAppPath('vc')}
-              icon={FLEET_LINK.icon}
+              iconSrc={FLEET_LINK.iconSrc}
+              iconAlt={FLEET_LINK.iconAlt}
               label={FLEET_LINK.label}
               active={currentPath.startsWith('/internal-user/vc/fleet')}
             />
@@ -203,7 +206,8 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to={fleetAppPath('tc')}
-              icon={FLEET_LINK.icon}
+              iconSrc={FLEET_LINK.iconSrc}
+              iconAlt={FLEET_LINK.iconAlt}
               label={FLEET_LINK.label}
               active={currentPath.startsWith('/internal-user/tc/fleet')}
             />

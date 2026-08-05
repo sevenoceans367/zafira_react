@@ -854,23 +854,21 @@ export function computeEstimateTotals(form) {
   );
 
   const bunkers = bunkerRows.map((row) => {
-    const cost = num(row.cost) || calcBunkerCost(row.qty, row.price);
+    // Per grade: Amount = Qty (MT) × Price ($/MT) — always recompute like PHP
+    const computed = calcBunkerCost(row.qty, row.price);
+    const cost = (num(row.qty) || num(row.price)) ? computed : num(row.cost);
     return { ...row, cost: cost ? String(cost) : row.cost };
   });
   const bunkerActivities = bunkerActivityRows.map((row) => {
-    const amount = num(row.amount) || calcBunkerCost(row.qty, row.price);
+    const computed = calcBunkerCost(row.qty, row.price);
+    const amount = (num(row.qty) || num(row.price)) ? computed : num(row.amount);
     return { ...row, amount: amount ? String(amount) : (row.amount || '') };
   });
-  const totalBunkerActivityCost = round2(
-    bunkerActivities.reduce((sum, row) => sum + num(row.amount), 0),
-  );
-  const totalBunkerCost = round2(
-    bunkers.reduce((sum, row) => sum + num(row.cost), 0) + totalBunkerActivityCost,
-  );
 
   // PHP getBunkerCalculation: always sum SECA + NON-SECA amounts (calc flag only gates price edit / FO-DO mt)
   const secaBunkers = secaBunkerRows.map((row) => {
-    const cost = num(row.cost) || calcBunkerCost(row.qty, row.price);
+    const computed = calcBunkerCost(row.qty, row.price);
+    const cost = (num(row.qty) || num(row.price)) ? computed : num(row.cost);
     return { ...row, cost: cost ? String(cost) : row.cost };
   });
 
@@ -978,7 +976,8 @@ export function computeEstimateTotals(form) {
       const bunkerAmt = num(b.amount) || calcBunkerCost(b.qty, b.price);
       return { ...b, amount: bunkerAmt ? String(bunkerAmt) : b.amount };
     });
-    const bunkerTotal = bunkersMapped.reduce(
+    // PHP ChkOFFHireCal: only owner-account bunkers enter Less Off Hire
+    const ownerBunkerTotal = bunkersMapped.reduce(
       (sum, b) => (b.calc === false ? sum : sum + num(b.amount)),
       0,
     );
@@ -986,9 +985,10 @@ export function computeEstimateTotals(form) {
       ...row,
       amount: amount ? String(amount) : row.amount,
       bunkers: bunkersMapped,
-      bunkerTotal,
+      bunkerTotal: ownerBunkerTotal,
     };
   });
+  // Off-hire hire amounts + owner bunkers (CVE added later into lessOffHire)
   const totalOffHireAmt = round2(
     offHires.reduce((sum, row) => sum + num(row.amount) + num(row.bunkerTotal), 0),
   );
@@ -1129,20 +1129,25 @@ export function computeEstimateTotals(form) {
   const hireAmt = round2(
     totalHireFromRows || (hireRate * hireDays) || num(form.hireAmt),
   );
+  // PHP txtTotalVoyageDays = sum of hire-row days (used for hireage CVE)
+  const totalHireDays = round2(
+    hiresSynced.reduce((sum, row) => sum + num(row.hireDays), 0),
+  ) || hireDays;
 
-  // PHP: CVE ($) = (CVE/Month × 12 / 365) × total voyage days (txtTDays)
+  // PHP: CVE ($) display = (CVE/Month × 12 / 365) × total voyage days (txtTDays)
   const cvePerMonth = num(form.cvePerMonth);
   const cveAmt = cvePerMonth > 0
     ? round2(((cvePerMonth * 12) / 365) * (totalDays || 0))
     : num(form.cveAmt);
   const ballastBonus = num(form.ballastBonus);
 
-  // PHP hireage CVE uses hire-days sum (txtTotalVoyageDays), not total days.
+  // PHP hireage CVE uses hire-days sum (txtTotalVoyageDays)
   const hireageCveAmt = cvePerMonth > 0
-    ? round2(((cvePerMonth * 12) / 365) * (hireDays || 0))
+    ? round2(((cvePerMonth * 12) / 365) * (totalHireDays || 0))
     : 0;
 
   // PHP: empty hireage % → 0 (dummyAdcom/dummyBrokerage only copy when setCveAmtInTcDet runs).
+  // Add Comm % on (hire + ballast); Brokerage % on hire amt only.
   const hireageAddCommPct = num(form.hireagePercent);
   const hireageBroPct = num(form.hireageBroPercent);
   const grossHireargeAmt = round2(ballastBonus + hireAmt);
@@ -1155,6 +1160,7 @@ export function computeEstimateTotals(form) {
   const offHireCveAmt = offHireCvePerMonth > 0 && offHireDays > 0
     ? round2(((offHireCvePerMonth * 12) / 365) * offHireDays)
     : num(form.offHireCveAmt);
+  // Off hire hire-amt + owner bunkers (calc/CHECK_BUNKER_CAL); CVE added below.
   const lessOffHire = round2(totalOffHireAmt + offHireCveAmt);
 
   const demurrageBrokerPercent = num(form.demurrageBrokerPercent)
@@ -1197,7 +1203,10 @@ export function computeEstimateTotals(form) {
 
   const deliveryTotal = round2(deliveryBunkers.reduce((sum, row) => sum + num(row.amount), 0));
   const redeliveryTotal = round2(redeliveryBunkers.reduce((sum, row) => sum + num(row.amount), 0));
-  // PHP txtFinalHireargeAmt = nettHire + delivery + hireageCVE − redelivery − OffhireDaysAMT
+  // Net Hireage =
+  //   (Σ HireDays×HireRate + Ballast Bonus − Add Comm − Brokerage)
+  //   + Delivery bunkers + CVE − Redelivery bunkers
+  //   − Off Hire (hire + CVE + owner bunkers)
   const netHireage = round2(
     nettHireargeAmt + deliveryTotal + hireageCveAmt - redeliveryTotal - lessOffHire,
   );
@@ -1465,12 +1474,6 @@ export function computeEstimateTotals(form) {
     });
   }
 
-  // PHP Bunker Expenses = Σ (NONSECA qty × price) with price from Bunkers table
-  const expenseFromMtPrices = round2(
-    (bunkerMt.HSFO * (priceByGrade.HSFO || 0))
-    + (bunkerMt.VLSFO * (priceByGrade.VLSFO || 0))
-    + (bunkerMt.LSMGO * (priceByGrade.LSMGO || 0)),
-  );
   const totalSecaBunkerCostSynced = round2(
     secaBunkersSynced.reduce((sum, row) => sum + num(row.cost), 0),
   );
@@ -1528,27 +1531,42 @@ export function computeEstimateTotals(form) {
     operationalExpenses = round2(operationalExpenses + hsfoPenal + vlsfoPenal + lsmgoPenal);
   }
 
-  // PHP txtTotalBunkerCost = sum of Bunkers table amounts (not supply/activity rows)
-  const bunkerExpenseComputed = expenseFromMtPrices > 0
-    ? expenseFromMtPrices
-    : (totalSecaBunkerCostSynced > 0 ? totalSecaBunkerCostSynced : 0);
-  const bunkerExpenseSaved = num(form.bunkerResultsCost) || num(form.totalBunkerCost);
-  // Live MT×price → synced row costs → DB EST_COST sum → PHP-saved total
-  const bunkerExpenseTotal = bunkerExpenseComputed > 0
-    ? bunkerExpenseComputed
-    : (storedSecaExpense > 0
-      ? storedSecaExpense
-      : (bunkerExpenseSaved > 0 ? round2(bunkerExpenseSaved) : 0));
+  // PHP Bunker Expenses (getBunkerCalculation):
+  //   Default: Σ SECA/NON-SECA grade amounts (qty × price)
+  //   If Σ ConBunkerAmt (manual consumed / slave8 CONSUMPTION) > 0 → that sum overrides
+  const conBunkerExpense = round2(
+    bunkers
+      .filter((row) => String(row.identify || '').toUpperCase() === 'CONSUMPTION')
+      .reduce((sum, row) => sum + num(row.cost), 0),
+  );
+  const bunkerExpenseTotal = conBunkerExpense > 0
+    ? conBunkerExpense
+    : (totalSecaBunkerCostSynced > 0
+      ? totalSecaBunkerCostSynced
+      : (storedSecaExpense > 0
+        ? storedSecaExpense
+        : round2(num(form.bunkerResultsCost) || num(form.totalBunkerCost) || 0)));
   // PHP: revenue = freight − address commission + other income (lumpsum already in freight when used)
   const revenue = round2((freightGross - addressCommAmt) + totalOtherIncome);
-  const totalExpenses = round2(operationalExpenses + totalPortCost + bunkerExpenseTotal);
-  // PHP costbeforebamarage (Voyage Earnings) = revenue − expenses − hireageCVE + demurrage
-  const voyageEarnings = round2(revenue - totalExpenses - hireageCveAmt + demurrageNett);
-  // PHP: voyage_earning = revenue - totalexpenses - finalHireage + txtIlohcForTcDet
-  const gTotalVoyageEarnings = round2(revenue - totalExpenses - netHireage + ilohcAmt);
+  // totalExpensesOpsPortBunker = ops + port + bunker
+  const totalExpensesOpsPortBunker = round2(
+    operationalExpenses + totalPortCost + bunkerExpenseTotal,
+  );
+  // Voyage Earnings (UI): subtracts CVE only, NOT full hire
+  //   revenue − ops − port − bunker − cve + demurrage
+  const voyageEarnings = round2(
+    revenue - totalExpensesOpsPortBunker - cveAmt + demurrageRevenue,
+  );
+  // Internal voyage_earning for TCE / P&L:
+  //   revenue − ops − port − bunker − finalHireage + ilohc
+  const voyageEarningForTce = round2(
+    revenue - totalExpensesOpsPortBunker - netHireage + ilohcAmt,
+  );
+  // pl = voyageEarningForTce + demurrage
+  const profitLoss = round2(voyageEarningForTce + demurrageRevenue);
+  // nettDailyTce = pl / max(totalDays, 1)
   const daysForTce = totalDays > 0 ? totalDays : 1;
-  const nettDailyTce = round2((gTotalVoyageEarnings + demurrageNett) / daysForTce);
-  const profitLoss = round2(gTotalVoyageEarnings + demurrageNett);
+  const nettDailyTce = round2(profitLoss / daysForTce);
   const dailyEarning = nettDailyTce;
 
   return {

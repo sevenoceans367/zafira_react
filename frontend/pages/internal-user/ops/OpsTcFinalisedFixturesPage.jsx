@@ -1,12 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  Button,
-  FilterBar,
-  FilterField,
   LoadingOverlay,
   Select,
-  TextInput,
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -17,6 +13,7 @@ import {
   finaliseVoyageFixturesTc,
 } from '../../../services/opsTc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import OpsTcFinalisedFixturesHeaderActions from './OpsTcFinalisedFixturesHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
 const PAGE_SIZE = 50;
@@ -138,34 +135,20 @@ export default function OpsTcFinalisedFixturesPage() {
   };
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
-      {loading || saving ? (
-        <LoadingOverlay active label={saving ? 'Finalising…' : 'Loading Finalised TC Fixtures…'} />
-      ) : null}
+    <>
+      <OpsTcFinalisedFixturesHeaderActions
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        onFinalise={handleFinalise}
+        finaliseDisabled={saving || loading}
+      />
+
+      <div className={`zafira-page ${styles.page}`}>
+      <LoadingOverlay show={loading || saving} fullScreen={false} label={saving ? 'Finalising…' : 'Loading Finalised TC Fixtures…'} />
       {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <h3 className={styles.title}>Finalised TC Fixtures List</h3>
-
-      <FilterBar
-        actions={(
-          <Button
-            variant="primary"
-            label="Finalise Fixture"
-            onClick={handleFinalise}
-            disabled={saving || loading}
-          />
-        )}
-      >
-        <FilterField id="ops-tc-fixtures-search" label="Search">
-          <TextInput
-            id="ops-tc-fixtures-search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Vessel, TC no…"
-          />
-        </FilterField>
-      </FilterBar>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -273,5 +256,6 @@ export default function OpsTcFinalisedFixturesPage() {
 
       <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
     </div>
+    </>
   );
 }

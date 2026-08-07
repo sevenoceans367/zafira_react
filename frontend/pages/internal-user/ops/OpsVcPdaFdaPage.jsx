@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, FilterBar, LoadingOverlay } from '@bainbridge/shared-ui';
+import { useSearchParams } from 'react-router-dom';
+import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchAgencyLetterForm } from '../../../services/opsVc.js';
+import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
 const BACK_PATHS = {
@@ -12,7 +13,6 @@ const BACK_PATHS = {
 };
 
 export default function OpsVcPdaFdaPage() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const page = searchParams.get('page') || '1';
@@ -73,18 +73,19 @@ export default function OpsVcPdaFdaPage() {
   };
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
-      {loading ? <LoadingOverlay /> : null}
+    <>
+      <OpsVcBackHeaderActions backHref={backHref} disabled={loading} />
+
+      <div className={`zafira-page ${styles.page}`}>
+      {loading ? <LoadingOverlay show={loading} fullScreen={false} /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <FilterBar
-        actions={<Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />}
-      >
-        <div className={styles.muted}>
+      {(form?.nomId || form?.vesselName) ? (
+        <div className={styles.muted} style={{ marginBottom: 8 }}>
           {form?.nomId ? `Nom ID ${form.nomId}` : null}
           {form?.vesselName ? ` · ${form.vesselName}` : null}
         </div>
-      </FilterBar>
+      ) : null}
 
       <h3 className={styles.title}>PDA/FDA</h3>
 
@@ -168,5 +169,6 @@ export default function OpsVcPdaFdaPage() {
         </>
       ) : null}
     </div>
+    </>
   );
 }

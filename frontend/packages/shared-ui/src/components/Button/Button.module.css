@@ -166,16 +166,16 @@
 }
 
 .accent {
-  background: rgba(249, 147, 102, 0.6);
+  background: transparent;
   border: 1px solid #f4652c;
   border-radius: 10px;
   color: #f4652c;
 }
 
 .accent:hover:not(:disabled) {
-  background: #ff986a;
-  border-color: #f18154;
-  color: #fff;
+  background: rgba(244, 101, 44, 0.1);
+  border-color: #f4652c;
+  color: #f4652c;
 }
 
 .outlineAccent {

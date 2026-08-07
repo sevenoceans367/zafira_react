@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, PeriodCardPicker, useConfirm } from '@bainbridge/shared-ui';
+import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { fetchCoaOpsVoyages, moveVoyageToPostOps } from '../../../services/coas.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
-import CoaCardSelect from './CoaCardSelect.jsx';
+import CoaListHeaderActions from './CoaListHeaderActions.jsx';
 import styles from './CoaPages.module.css';
 
 const PAGE_SIZE = 10;
@@ -71,55 +71,32 @@ export default function CoaOpsListPage({ status = '1', title = 'COA - In Ops' })
   };
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
-      {loading ? <LoadingOverlay active label="Loading COA operations…" /> : null}
+    <>
+      <CoaListHeaderActions
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="Voyage, vessel, COA…"
+        businessTypes={businessTypes}
+        businessType={businessType}
+        onBusinessTypeChange={(value) => {
+          setBusinessType(value);
+          const next = new URLSearchParams(searchParams);
+          next.set('selBType', value);
+          setSearchParams(next, { replace: true });
+        }}
+        periodFrom={periodFrom}
+        periodTo={periodTo}
+        onPeriodChange={({ from, to }) => {
+          setPeriodFrom(from || '');
+          setPeriodTo(to || '');
+        }}
+      />
+
+      <div className={`zafira-page ${styles.page}`}>
+      <LoadingOverlay show={loading} fullScreen={false} label="Loading COA operations…" />
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <h3 className={styles.title}>{title}</h3>
-
-      <div className={styles.toolbar}>
-        <div className={styles.filters}>
-          <div className={styles.filterField}>
-            <label>Business Type</label>
-            <CoaCardSelect
-              label="Business Type"
-              value={businessType}
-              options={businessTypes}
-              includeEmpty={false}
-              onChange={(value) => {
-                setBusinessType(value);
-                const next = new URLSearchParams(searchParams);
-                next.set('selBType', value);
-                setSearchParams(next, { replace: true });
-              }}
-            />
-          </div>
-          <div className={`${styles.filterField} ${styles.periodFilter}`}>
-            <PeriodCardPicker
-              from={periodFrom}
-              to={periodTo}
-              onChange={({ from, to }) => {
-                setPeriodFrom(from || '');
-                setPeriodTo(to || '');
-              }}
-              label="Select Period"
-              align="start"
-            />
-          </div>
-          <div className={styles.filterField}>
-            <label htmlFor="ops-search">Search</label>
-            <input
-              id="ops-search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Voyage, vessel, COA…"
-            />
-          </div>
-        </div>
-        <div className={styles.toolbarActions}>
-          <Button variant="primary" label="Load" onClick={load} disabled={loading} />
-        </div>
-      </div>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -194,5 +171,6 @@ export default function CoaOpsListPage({ status = '1', title = 'COA - In Ops' })
 
       <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
     </div>
+    </>
   );
 }

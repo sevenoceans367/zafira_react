@@ -33,7 +33,9 @@ const BusinessPageHeader = ({
   return (
     <header className={styles.header}>
       <h1 className={styles.title}>{title}</h1>
-      {actions ? <div className={styles.actions}>{actions}</div> : null}
+      <div className={styles.actions} data-page-header-actions>
+        {actions}
+      </div>
     </header>
   );
 };

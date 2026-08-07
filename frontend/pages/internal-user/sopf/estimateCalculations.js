@@ -641,30 +641,39 @@ export function buildBunkerSummaryRows(form, resolveGradeName) {
   }).filter((row) => row.qty || row.price || row.amount);
 }
 
-/** Demurrage address + broker commission display totals (Commissions panel). */
+/** Brokerage-only totals for the Commissions panel Total row (excludes ADCOM Freight). */
 export function calcDemurrageCommissionDisplay(form) {
   const demurrageRevenue = num(form.demurrageRevenue);
   const addCommPercent = num(form.addCommPercent);
-  const addressCommAmt = num(form.addressCommAmt);
   const addressDemmComm = round2((demurrageRevenue * addCommPercent) / 100);
+
+  const brokerRows = Array.isArray(form.brokerRows) && form.brokerRows.length
+    ? form.brokerRows
+    : [{
+      percent: form.brokeragePercent,
+      amount: form.brokerageAmt,
+      demmPercent: '',
+    }];
+
   const brokerPercentTotal = round2(
-    (form.brokerRows || []).reduce((sum, row) => sum + num(row.percent), 0),
+    brokerRows.reduce((sum, row) => sum + num(row.percent), 0),
   );
   const brokerFreightTotal = round2(
-    (form.brokerRows || []).reduce((sum, row) => sum + num(row.amount), 0),
+    brokerRows.reduce((sum, row) => sum + num(row.amount), 0),
   );
   const brokerDemmCommTotal = round2(
-    (form.brokerRows || []).reduce((sum, row) => sum + num(row.demmPercent), 0),
+    brokerRows.reduce((sum, row) => sum + num(row.demmPercent), 0),
   );
+
   return {
     addressDemmComm,
     brokerDemmCommTotal,
-    /** Percentage total = ADCOM % + brokerage % */
-    totalCommPercent: round2(addCommPercent + brokerPercentTotal),
-    /** Freight commission total = ADCOM amt + brokerage amt */
-    totalFreightComm: round2(addressCommAmt + brokerFreightTotal),
-    /** Demurrage commission total = ADCOM demm + brokerage demm */
-    totalDemmComm: round2(addressDemmComm + brokerDemmCommTotal),
+    /** Total % = brokerage rows only (not ADCOM) */
+    totalCommPercent: brokerPercentTotal,
+    /** Total freight = brokerage amounts only (not ADCOM) */
+    totalFreightComm: brokerFreightTotal,
+    /** Total demurrage = brokerage demm only (not ADCOM) */
+    totalDemmComm: brokerDemmCommTotal,
   };
 }
 
@@ -1080,9 +1089,13 @@ export function computeEstimateTotals(form) {
   // Hire / Day: prefer Vessel OpEx field; fall back to hire row 1 (PHP dummyHireRate).
   // `_hireRateCleared` lets the user blank the field without snapping back from hire rows.
   const hireRateCleared = !!form._hireRateCleared;
-  const hireRate = hireRateCleared
+  const baseHireRate = hireRateCleared
     ? 0
     : (num(form.hireRate) || num(hires[0]?.hireRate));
+  // PHP dummyBalticIndex — added to hire rate row 1 when Index Linked is checked (Dry).
+  const balticRate = form.chkIndex ? num(form.balticRate) : 0;
+  const hireRate = round2(baseHireRate + balticRate);
+  const totalHireRate = hireRate;
   // PHP txtTtPIDays / txtTtPWDays — idle vs working kept separate
   const portIdleDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portIdleDays), 0));
   const portStayDays = round3(legsWithDays.reduce((sum, leg) => sum + num(leg.portStayDays), 0));
@@ -1111,19 +1124,33 @@ export function computeEstimateTotals(form) {
   // PHP txtTDays / hire days = sea + idle + working, then .toFixed(2)
   const totalDays = round2(totalSeaDays + portIdleDays + portStayDays || num(form.totalDays) || 0);
   const hireDays = totalDays;
-  // PHP: sync hire row 1 days from total days; rate from Vessel OpEx / row
+  // PHP getFinalCalculation: hire days from Hire From/To when set; else voyage total days for row 1.
   const hireBaseRows = hires.length
     ? hires
-    : [{ hireDays: '', hireRate: hireRate ? String(hireRate) : '', hireAmt: '' }];
+    : [{ hireDays: '', hireRate: baseHireRate ? String(baseHireRate) : '', hireAmt: '', hireFrom: '', hireTo: '' }];
   const hiresSynced = hireBaseRows.map((row, index) => {
-    if (index !== 0) return row;
-    const daysStr = totalDays ? totalDays.toFixed(2) : (row.hireDays || '');
-    const rate = hireRate;
-    const amt = rate > 0 && totalDays > 0 ? round2(rate * totalDays) : 0;
+    const fromToDays = row.hireFrom && row.hireTo
+      ? round2(diffDays(row.hireFrom, row.hireTo))
+      : null;
+    const rowBaseRate = index === 0
+      ? (baseHireRate || num(row.hireRate))
+      : num(row.hireRate);
+    const effectiveRate = index === 0
+      ? round2(rowBaseRate + balticRate)
+      : rowBaseRate;
+    let days;
+    if (fromToDays != null && fromToDays > 0) {
+      days = fromToDays;
+    } else if (index === 0) {
+      days = totalDays;
+    } else {
+      days = num(row.hireDays);
+    }
+    const amt = effectiveRate > 0 && days > 0 ? round2(effectiveRate * days) : 0;
     return {
       ...row,
-      hireDays: daysStr,
-      hireRate: rate > 0 ? String(rate) : '',
+      hireDays: days ? (fromToDays != null && fromToDays > 0 ? days.toFixed(4) : days.toFixed(2)) : (row.hireDays || ''),
+      hireRate: rowBaseRate > 0 ? String(rowBaseRate) : '',
       hireAmt: amt ? String(amt) : '',
     };
   });
@@ -1603,6 +1630,7 @@ export function computeEstimateTotals(form) {
     totalOrcCost: String(totalOrcCost || ''),
     totalOtherIncome: String(totalOtherIncome || ''),
     totalHireAmt: String(hireAmt || ''),
+    totalHireDays: totalHireDays ? String(totalHireDays) : '',
     totalOffHireAmt: String(lessOffHire || ''),
     lessOffHire: String(lessOffHire || ''),
     offHireCveAmt: String(offHireCveAmt || ''),
@@ -1625,8 +1653,10 @@ export function computeEstimateTotals(form) {
       ? ''
       : (form.hireRate != null && String(form.hireRate).trim() !== ''
         ? String(form.hireRate)
-        : (hireRate ? String(hireRate) : '')),
+        : (baseHireRate ? String(baseHireRate) : '')),
     _hireRateCleared: hireRateCleared,
+    balticRate: form.chkIndex && balticRate ? String(balticRate) : (form.balticRate || ''),
+    totalHireRate: totalHireRate ? String(totalHireRate) : '',
     cvePerMonth: form.cvePerMonth != null ? String(form.cvePerMonth) : '',
     cveAmt: String(cveAmt || ''),
     ballastBonus: form.ballastBonus != null ? String(form.ballastBonus) : '',

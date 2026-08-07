@@ -313,6 +313,21 @@ function mapPortLeg(row, index) {
       : ['VLSFO'],
     chartererAccountDays: row.CHARTERERACCOUNT ?? row.CHARTERER_ACCOUNT_DAYS ?? row.CA_DAYS ?? '',
     portFunction: row.PORT_FUNCTION ?? row.PORT_FUN ?? row.CHK_MAND ?? '',
+    tpPortVendorId: row.PORT_COSTTP_VENDOR != null && String(row.PORT_COSTTP_VENDOR).trim() !== ''
+      ? String(row.PORT_COSTTP_VENDOR).trim()
+      : '',
+    lpPortVendorId: row.PORT_COSTLP_VENDOR != null && String(row.PORT_COSTLP_VENDOR).trim() !== ''
+      ? String(row.PORT_COSTLP_VENDOR).trim()
+      : '',
+    dpPortVendorId: row.PORT_COSTDP_VENDOR != null && String(row.PORT_COSTDP_VENDOR).trim() !== ''
+      ? String(row.PORT_COSTDP_VENDOR).trim()
+      : '',
+    ddcLpVendorId: row.DDCLP_VENDOR != null && String(row.DDCLP_VENDOR).trim() !== ''
+      ? String(row.DDCLP_VENDOR).trim()
+      : '',
+    ddcDpVendorId: row.DDCDP_VENDOR != null && String(row.DDCDP_VENDOR).trim() !== ''
+      ? String(row.DDCDP_VENDOR).trim()
+      : '',
   };
 }
 
@@ -330,7 +345,9 @@ function mapBrokerRow(row, index) {
     percent: row.BROKAGE_PERCENT ?? '',
     amount: row.BROKAGE_AMT ?? '',
     vendorId: row.VENDORID != null ? String(row.VENDORID) : '',
-    demmPercent: '',
+    demmPercent: row.DEMM_BROKAGE_PERCENT != null && row.DEMM_BROKAGE_PERCENT !== ''
+      ? String(row.DEMM_BROKAGE_PERCENT)
+      : '',
   };
 }
 
@@ -378,6 +395,9 @@ function mapBunkerRow(row, index) {
     price: row.PRICE ?? '',
     cost: row.COST ?? '',
     identify: row.IDENTIFY || 'CONSUMPTION',
+    vendorId: row.VENDORID != null ? String(row.VENDORID) : '',
+    portId: row.PORT != null ? String(row.PORT) : '',
+    portName: row.PORT_NAME ?? '',
   };
 }
 
@@ -406,8 +426,8 @@ function mapOtherIncomeRow(row, index) {
 function mapHireRow(row, index) {
   return {
     id: pickRowId(row.RANDOMID) || `hire-${row.FCAID}-${index}`,
-    hireFrom: row.HIRE_FROM ? formatDateDMY(row.HIRE_FROM) : '',
-    hireTo: row.HIRE_TO ? formatDateDMY(row.HIRE_TO) : '',
+    hireFrom: row.HIRE_FROM ? formatDateTimeDMY(row.HIRE_FROM) : '',
+    hireTo: row.HIRE_TO ? formatDateTimeDMY(row.HIRE_TO) : '',
     hireDays: row.HIRE_DAYS ?? '',
     hireRate: row.HIRE_RATE ?? '',
     hireAmt: row.HIRE_AMT ?? '',
@@ -737,8 +757,21 @@ function mapEstimateDetail(
     dailyEarning: master.DAILY_EARNING ?? '',
     // PHP txtDailyVesselOperatingExpenses = "Daily Hire ($/Day)" (hidden) — NOT Vessel Daily Ops.
     dailyVesselOperationExp: master.DAILY_VESSEL_OPERATION_EXP ?? '',
-    // PHP txtVesselDailyOps is live-only and is not persisted on master.
     vesselDailyOps: master.VESSELDAILYOPS ?? '',
+    // Dry cargo (estimate type 3): Index Linked hire — PHP CHKHIRE / CHKINDEX / BALTIC*
+    chkHire: Number(master.CHKHIRE) === 1,
+    chkIndex: Number(master.CHKINDEX) === 1,
+    balticIndex: master.BALTICINDEX != null ? String(master.BALTICINDEX) : '',
+    balticPercent: master.BALTICPERCENT != null ? String(master.BALTICPERCENT) : '100',
+    balticRate: master.BALTICRATE != null ? String(master.BALTICRATE) : '',
+    cveVendorId: master.CVE_VENDORID != null ? String(master.CVE_VENDORID) : '',
+    dtcVendorId: master.DTCVENDORID != null ? String(master.DTCVENDORID) : '',
+    brokerageVendorId: master.BROKERAGE_VENDORID != null ? String(master.BROKERAGE_VENDORID) : '',
+    tcCpDate: master.TC_CP_DATE ? formatDateDMY(master.TC_CP_DATE) : '',
+    tcDeliveryRange: master.TC_DELIVERY_RANGE ?? '',
+    tcRedeliveryRange: master.TC_RE_DELIVERY_RANGE ?? '',
+    tcDeliveryDate: master.TC_DELIVERY_DATE ? formatDateTimeDMY(master.TC_DELIVERY_DATE) : '',
+    tcRedeliveryDate: master.TC_RE_DELIVERY_DATE ? formatDateTimeDMY(master.TC_RE_DELIVERY_DATE) : '',
     profitLoss: master.PROFIT_LOSS ?? '',
     freightGross: master.FREIGHT_GROSS ?? '',
     revenue: master.REVENUES_FREIGHT ?? master.REVENUE ?? master.FREIGHT_GROSS ?? '',
@@ -863,6 +896,8 @@ function mapEstimateDetail(
       : '',
     charteringPicName: master.CHARTERING_PIC_NAME ?? '',
     comid: master.COMID || null,
+    sheetNo: master.SHEET_NO != null ? String(master.SHEET_NO) : '',
+    finalStatus: Number(master.FINAL_STATUS || 0),
     fixed: Number(master.FIXED) === 1,
     portLegs: portLegs.map((row, index) => mapPortLeg(row, index)),
     cargoIds: masterCargoIds,
@@ -1000,6 +1035,13 @@ export async function dbGetEstimateLookups(estimateType = 2) {
      ORDER BY ZoneName`,
   );
 
+  const [balticRoutes] = await pool.query(
+    `SELECT BALTICID AS id, CODE AS code, NAME AS name, DAILYRATE AS dailyRate
+     FROM baltic_master
+     WHERE STATUS = 1
+     ORDER BY CODE`,
+  );
+
   const [fixtureBrokers] = await pool.query(
     `SELECT CODE AS id, NAME, CODE
      FROM vendor_master
@@ -1080,6 +1122,13 @@ export async function dbGetEstimateLookups(estimateType = 2) {
       label: `${row.CONTRACT_ID || ''}${row.CONTRACT_NO ? ` (${row.CONTRACT_NO})` : ''}`.trim(),
     })),
     zones: zones.map((row) => ({ id: String(row.id), name: row.name ?? '' })),
+    balticRoutes: balticRoutes.map((row) => ({
+      id: String(row.id),
+      code: row.code ?? '',
+      name: row.name ?? '',
+      label: row.code || row.name || String(row.id),
+      dailyRate: row.dailyRate != null ? String(row.dailyRate) : '',
+    })),
     fixtureBrokers: fixtureBrokers.map((row) => ({
       id: String(row.id),
       name: `${row.NAME ?? ''} ( ${row.CODE ?? ''} )`,
@@ -1291,12 +1340,16 @@ export async function dbGetEstimateDetail(id) {
   );
 
   const [bunkers] = await pool.query(
-    `SELECT * FROM freight_cost_estimete_slave8 WHERE FCAID = ?`,
+    `SELECT s.*,
+            CONCAT(COALESCE(p.PortName, ''), ' (', COALESCE(p.COUNTRY_KEY, ''), ')') AS PORT_NAME
+     FROM freight_cost_estimete_slave8 s
+     LEFT JOIN port_master p ON p.PortId = s.PORT
+     WHERE s.FCAID = ?`,
     [id],
   );
 
   const [brokerageRows] = await pool.query(
-    `SELECT BROKAGE_PERCENT, BROKAGE_AMT, VENDORID, FCAID
+    `SELECT BROKAGE_PERCENT, BROKAGE_AMT, DEMM_BROKAGE_PERCENT, VENDORID, FCAID
      FROM freight_cost_estimete_slave4
      WHERE FCAID = ?`,
     [id],
@@ -2266,6 +2319,20 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     'NO_OF_SHIPMENT = ?',
     'CP_DATE = ?',
     'ETA_DATE = ?',
+    'VESSELDAILYOPS = ?',
+    'CVE_VENDORID = ?',
+    'CHKHIRE = ?',
+    'CHKINDEX = ?',
+    'BALTICINDEX = ?',
+    'BALTICPERCENT = ?',
+    'BALTICRATE = ?',
+    'DTCVENDORID = ?',
+    'BROKERAGE_VENDORID = ?',
+    'TC_CP_DATE = ?',
+    'TC_DELIVERY_RANGE = ?',
+    'TC_RE_DELIVERY_RANGE = ?',
+    'TC_DELIVERY_DATE = ?',
+    'TC_RE_DELIVERY_DATE = ?',
   ];
 
   const tankWs = resolveTankWsPorts(payload);
@@ -2383,11 +2450,31 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     payload.noOfShipment || null,
     toDbDate(payload.cpDate),
     toDbDate(payload.etaDate),
+    numOrNull(payload.vesselDailyOps),
+    payload.cveVendorId || null,
+    payload.chkHire ? 1 : 0,
+    payload.chkIndex ? 1 : 0,
+    payload.balticIndex || null,
+    numOrNull(payload.balticPercent),
+    numOrNull(payload.balticRate),
+    payload.dtcVendorId || null,
+    payload.brokerageVendorId || null,
+    toDbDate(payload.tcCpDate),
+    payload.tcDeliveryRange || null,
+    payload.tcRedeliveryRange || null,
+    toDbDateTime(payload.tcDeliveryDate),
+    toDbDateTime(payload.tcRedeliveryDate),
   ];
 
   if (opts.includeAttachment) {
     sets.push('ATTACHMENT = ?', 'ATTACHMENT_NAME = ?');
     values.push(opts.attachment || null, opts.attachmentName || null);
+  }
+
+  // Voyage Financials (updatecost_sheet_tci) — Submit to Edit (0) / Submit to Close (1)
+  if (payload.finalStatus != null && payload.finalStatus !== '') {
+    sets.push('FINAL_STATUS = ?', 'FIXED = 1');
+    values.push(Number(payload.finalStatus) === 1 ? 1 : 0);
   }
 
   values.push(fcaId, appContext.moduleId, appContext.companyId);
@@ -2416,8 +2503,10 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         DEMMDAYSLP, DEMMRATELP, DEMMDAYSDP, DEMMRATEDP,
         CHK_LP_SECA, CHK_DP_SECA, CHK_TP_SECA,
         BG_NON_SECA, BG_SECA, BUNKER_GRADE_LP, BUNKER_GRADE_DP, BUNKER_GRADE_TP,
-        CHARTERERACCOUNT, CHK_MAND, SEL_CARGO_LP, SEL_CARGO_DP
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        CHARTERERACCOUNT, CHK_MAND, SEL_CARGO_LP, SEL_CARGO_DP,
+        PORT_COSTTP_VENDOR, PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR,
+        DDCLP_VENDOR, DDCDP_VENDOR
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         fcaId,
         leg.fromPortId || null,
@@ -2471,6 +2560,11 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         leg.portFunction || null,
         leg.lpCargoId || null,
         leg.dpCargoId || null,
+        leg.tpPortVendorId || null,
+        leg.lpPortVendorId || null,
+        leg.dpPortVendorId || null,
+        leg.ddcLpVendorId || null,
+        leg.ddcDpVendorId || null,
       ],
     );
   }
@@ -2506,6 +2600,24 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
 
   for (const bunker of payload.bunkerRows || []) {
     if (!bunker.bunkerGradeId && !bunker.qty) continue;
+    const identify = bunker.identify || 'CONSUMPTION';
+    if (String(identify).toUpperCase() === 'SUPPLY') {
+      await connection.query(
+        `INSERT INTO freight_cost_estimete_slave8 (
+          FCAID, BUNKERGRADEID, COST, VENDORID, COST_MT, QTY, PRICE, PORT, IDENTIFY
+        ) VALUES (?, ?, ?, ?, '0.00', ?, ?, ?, 'SUPPLY')`,
+        [
+          fcaId,
+          bunker.bunkerGradeId || null,
+          numOrNull(bunker.cost),
+          bunker.vendorId || null,
+          numOrNull(bunker.qty),
+          numOrNull(bunker.price),
+          bunker.portId || null,
+        ],
+      );
+      continue;
+    }
     await connection.query(
       `INSERT INTO freight_cost_estimete_slave8 (
         FCAID, BUNKERGRADEID, COST, COST_MT, QTY, PRICE, IDENTIFY
@@ -2516,7 +2628,7 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         numOrNull(bunker.cost),
         numOrNull(bunker.qty),
         numOrNull(bunker.price),
-        bunker.identify || 'CONSUMPTION',
+        identify,
       ],
     );
   }
@@ -2566,15 +2678,16 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
       ? [{ percent: payload.brokeragePercent, amount: payload.brokerageAmt, vendorId: '' }]
       : []);
   for (const broker of brokerRows) {
-    if (!broker.percent && !broker.amount) continue;
+    if (!broker.percent && !broker.amount && !broker.vendorId) continue;
     await connection.query(
       `INSERT INTO freight_cost_estimete_slave4 (
-        FCAID, BROKAGE_PERCENT, BROKAGE_AMT, VENDORID
-      ) VALUES (?, ?, ?, ?)`,
+        FCAID, BROKAGE_PERCENT, BROKAGE_AMT, DEMM_BROKAGE_PERCENT, VENDORID
+      ) VALUES (?, ?, ?, ?, ?)`,
       [
         fcaId,
         numOrNull(broker.percent),
         numOrNull(broker.amount),
+        numOrNull(broker.demmPercent),
         broker.vendorId || null,
       ],
     );

@@ -426,14 +426,14 @@ export default function EstimateListPage() {
                     <tr>
                       <th className={styles.itemColumn}>Item</th>
                       <th className={styles.vesselColumn}>Vessel</th>
-                      <th className={styles.voyageColumn}>Voyage No</th>
+                      <th className={styles.voyageColumn}>VOY NO</th>
                       <th>CP Date</th>
                       <th>DWT</th>
                       <th>LP - DP</th>
                       <th>Voy Days</th>
                       <th className={styles.cargoQtyColumn}>Cargo</th>
                       <th className={styles.tceColumn}>TCE</th>
-                      <th>P&L</th>
+                      <th className={styles.pnlColumn}>P&L</th>
                       <th className={styles.actionColumn}>Replicate</th>
                       <th className={styles.compareColumn}>
                         <div className={styles.compareHeader}>

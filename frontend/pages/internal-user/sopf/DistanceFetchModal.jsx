@@ -448,7 +448,7 @@ export default function DistanceFetchModal({
           <div className={styles.footerActions}>
             <Button
               type="button"
-              variant="danger"
+              variant="outlineAccent"
               label={loading ? 'Calculating…' : 'Calculate'}
               onClick={handleGetDistance}
               disabled={loading}

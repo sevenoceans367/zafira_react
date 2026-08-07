@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AddCircleButton, Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
-import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
-import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
-import VesselSearchSelect from './VesselSearchSelect.jsx';
+import PortSearchSelect from '../../period-contract/PortSearchSelect.jsx';
+import CountryMultiSelect from '../../masters/port-cost-type/CountryMultiSelect.jsx';
+import VesselSearchSelect from '../../sopf/VesselSearchSelect.jsx';
 import {
   BUNKER_ACTIVITY_GRADE_OPTIONS,
   BUNKER_ACTIVITY_OPTIONS,
   BUNKER_ACTIVITY_RATE_FIELD,
   FIXTURE_TYPE_OPTIONS,
+  COA_SPOT_OPTIONS,
   NSBG_OPTIONS,
   PASSAGE_TYPE_OPTIONS,
   SBG_OPTIONS,
@@ -24,25 +25,27 @@ import {
   createEmptyHireRow,
   createEmptyOrcRow,
   createEmptyOtherIncomeRow,
+  createEmptyBunkerRow,
   createEmptyPortLeg,
   createEmptyProfitSharingRow,
   createEmptySecaBunkerRow,
   getFixtureTypeLabel,
   seedPortLegsFromFirstCargo,
-} from './estimateDetail.constants.js';
-import { formatDemurrageCostField, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurrageLoadPortLabel, formatDemurrageDischargePortLabel, formatDays, formatDistance, syncPortstayFromPassageDates } from './estimateCalculations.js';
-import CollapsiblePanel from './CollapsiblePanel.jsx';
-import RowRemoveButton from './RowRemoveButton.jsx';
+} from '../../sopf/estimateDetail.constants.js';
+import { formatDemurrageCostField, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurrageLoadPortLabel, formatDemurrageDischargePortLabel, formatDays, formatDistance, syncPortstayFromPassageDates } from '../../sopf/estimateCalculations.js';
+import CollapsiblePanel from '../../sopf/CollapsiblePanel.jsx';
+import RowRemoveButton from '../../sopf/RowRemoveButton.jsx';
 
-import DistanceFetchModal from './DistanceFetchModal.jsx';
-import TankerFreightModeSection from './TankerFreightModeSection.jsx';
-import PortLaytimeSections from './PortLaytimeSections.jsx';
-import EstimateResultsPanels from './EstimateResultsPanels.jsx';
-import VesselItineraryModal from './VesselItineraryModal.jsx';
-import { checkVoyageNoExists, fetchCanalOrcRates, searchEstimatePorts } from '../../../services/estimateDetail.js';
-import { focusEstimateValidationField, getAddRowBlockMessage } from './estimateValidation.js';
-import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
-import styles from './UpdateEstimatePage.module.css';
+import DistanceFetchModal from '../../sopf/DistanceFetchModal.jsx';
+import TankerFreightModeSection from '../../sopf/TankerFreightModeSection.jsx';
+import PortLaytimeSections from './CostSheetPortLaytimeSections.jsx';
+import EstimateResultsPanels from '../../sopf/EstimateResultsPanels.jsx';
+import VesselItineraryModal from '../../sopf/VesselItineraryModal.jsx';
+import HireDetailsModal from './HireDetailsModal.jsx';
+import { checkVoyageNoExists, fetchCanalOrcRates, searchEstimatePorts } from '../../../../services/estimateDetail.js';
+import { focusEstimateValidationField, getAddRowBlockMessage } from '../../sopf/estimateValidation.js';
+import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from '../../sopf/estimateInputSanitize.js';
+import styles from './CostSheetEstimatePage.module.css';
 
 /** PHP addestimate.php — Voyage No allows a-z, 0-9, and hyphen only. */
 function sanitizeVoyageNo(value) {
@@ -112,12 +115,22 @@ export default function EstimateDetailSections({
 }) {
   const estimateType = Number(detail?.estimateType) || 2;
   const isTanker = estimateType === 2;
+  const isDry = estimateType === 3;
   const showLumpsum = estimateType !== 3;
+  const fixtureType = String(form.fixtureTypeId ?? '');
+  // PHP makeFieldManD: hire table for TCIN/VCIN (1|2); Vessel Daily Ops for VCOUT (3)
+  const showHireSection = fixtureType === '1' || fixtureType === '2';
+  const showVesselDailyOps = fixtureType === '3';
+  // PHP .tcin — Hire Details button only for TCIN-VCOUT
+  const showHireDetailsButton = fixtureType === '1';
+  const showCoaFields = String(form.coaSpot || '') === '2';
+  const showIndexLinked = isDry && showHireSection;
   const editable = !readOnly;
   const alert = useAlert();
   const [searchParams] = useSearchParams();
   const [distanceLegId, setDistanceLegId] = useState(null);
   const [itineraryOpen, setItineraryOpen] = useState(false);
+  const [hireDetailsOpen, setHireDetailsOpen] = useState(false);
 
   // PHP updatecost_sheet_tci Passage & Ports → sof.php?comid=&page=
   const sofComId = searchParams.get('comid')
@@ -508,7 +521,23 @@ export default function EstimateDetailSections({
                 <select
                   id="fixtureTypeId"
                   value={String(form.fixtureTypeId ?? '')}
-                  onChange={(e) => updateField('fixtureTypeId', e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const patch = { fixtureTypeId: value };
+                    // PHP makeFieldManD: VCOUT hides hire / clears index; TCIN/VCIN clear Vessel Daily Ops
+                    if (value === '3') {
+                      patch.chkHire = false;
+                      patch.chkIndex = false;
+                      patch.balticIndex = '';
+                      patch.balticPercent = '100';
+                      patch.balticRate = '';
+                      patch.totalHireRate = '';
+                    } else if (value === '1' || value === '2') {
+                      patch.vesselDailyOps = '';
+                    }
+                    if (value !== '1') setHireDetailsOpen(false);
+                    applyPatch(patch);
+                  }}
                 >
                   <option value="">Select from list</option>
                   {FIXTURE_TYPE_OPTIONS.map((option) => (
@@ -616,6 +645,105 @@ export default function EstimateDetailSections({
                 ))}
               </select>
             </Field>
+            <Field id="openPort" label="Open Port">
+              {readOnly ? (
+                <input id="openPort" value={form.openPortName || form.openPort || ''} readOnly />
+              ) : (
+                <PortSearchSelect
+                  id="openPort"
+                  value={form.openPort}
+                  label={form.openPortName}
+                  searchPorts={searchEstimatePorts}
+                  onChange={(portId, portName) => {
+                    applyPatch({ openPort: portId, openPortName: portName });
+                  }}
+                />
+              )}
+            </Field>
+            <Field id="zoneOpen" label="Zone Open">
+              <select
+                id="zoneOpen"
+                value={form.zoneOpen || ''}
+                disabled={readOnly}
+                onChange={(e) => updateField('zoneOpen', e.target.value)}
+              >
+                <option value="">— Select —</option>
+                {(lookups.zones || []).map((row) => (
+                  <option key={row.id} value={row.id}>{row.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field id="fixtureBroker" label="Broker">
+              <select
+                id="fixtureBroker"
+                value={form.fixtureBroker || ''}
+                disabled={readOnly}
+                onChange={(e) => updateField('fixtureBroker', e.target.value)}
+              >
+                <option value="">— Select —</option>
+                {(lookups.fixtureBrokers || []).map((row) => (
+                  <option key={row.id} value={row.id}>{row.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field id="coaSpot" label="COA / Spot">
+              <select
+                id="coaSpot"
+                value={form.coaSpot || ''}
+                disabled={readOnly}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const patch = { coaSpot: value };
+                  // PHP getShow(): hide COA number row unless Spot/COA = 2
+                  if (value !== '2') {
+                    patch.coaNumber = '';
+                    patch.coaNumberLabel = '';
+                    patch.coaNumberLift = '';
+                    patch.noOfShipment = '';
+                  }
+                  applyPatch(patch);
+                }}
+              >
+                <option value="">— Select —</option>
+                {COA_SPOT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </Field>
+            {showCoaFields ? (
+              <>
+                <Field id="coaNumber" label="COA Number">
+                  <select
+                    id="coaNumber"
+                    value={form.coaNumber || ''}
+                    disabled={readOnly}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const match = (lookups.coaContracts || []).find((row) => String(row.id) === String(value));
+                      applyPatch({
+                        coaNumber: value,
+                        coaNumberLabel: match?.name || '',
+                        coaNumberLift: match?.noOfShipment != null ? String(match.noOfShipment) : form.coaNumberLift || '',
+                        noOfShipment: match?.noOfShipment != null ? String(match.noOfShipment) : form.noOfShipment || '',
+                        fixtureBroker: match?.broker || form.fixtureBroker || '',
+                        ownerId: match?.owner || form.ownerId || '',
+                      });
+                    }}
+                  >
+                    <option value="">— Select —</option>
+                    {(lookups.coaContracts || []).map((row) => (
+                      <option key={row.id} value={row.id}>{row.name || row.id}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field id="coaNumberLift" label="Number of Lift">
+                  <input {...inputProps('coaNumberLift')} placeholder="Number of Lift" />
+                </Field>
+                <Field id="noOfShipment" label="Total No. of Shipments">
+                  <input id="noOfShipment" value={form.noOfShipment || ''} readOnly />
+                </Field>
+              </>
+            ) : null}
           </div>
       </CollapsiblePanel>
 
@@ -1258,6 +1386,7 @@ export default function EstimateDetailSections({
                 <th>Percentage (%)</th>
                 <th>Freight Comm.</th>
                 <th>Demurrage Comm.</th>
+                <th>Vendor</th>
               </tr>
             </thead>
             <tbody>
@@ -1265,7 +1394,15 @@ export default function EstimateDetailSections({
                 <td />
                 <td>ADCOM Freight</td>
                 <td>
-                  <input {...inputProps('addCommPercent', { recalc: true })} id="addCommPercentCargo" placeholder="0.00" />
+                  <input
+                    {...inputProps('addCommPercent', {
+                      recalc: true,
+                      // PHP updatecost_sheet_tci: Address Commission % is read-only
+                      readOnly: readOnly || Boolean(searchParams.get('cost_sheet_id')),
+                    })}
+                    id="addCommPercentCargo"
+                    placeholder="0.00"
+                  />
                 </td>
                 <td>
                   <input id="addressCommAmtCargo" value={form.addressCommAmt || ''} readOnly placeholder="0.00" />
@@ -1278,6 +1415,7 @@ export default function EstimateDetailSections({
                     placeholder="0.00"
                   />
                 </td>
+                <td />
               </tr>
               {(form.brokerRows || []).map((row) => (
                 <tr key={row.id}>
@@ -1294,7 +1432,9 @@ export default function EstimateDetailSections({
                       placeholder="0.00"
                       inputMode="decimal"
                       autoComplete="off"
-                      onChange={(e) => updateRow('brokerRows', row.id, { percent: e.target.value })}
+                      onChange={(e) => updateRow('brokerRows', row.id, {
+                        percent: sanitizeDecimalInput(e.target.value),
+                      })}
                     />
                   </td>
                   <td>
@@ -1302,6 +1442,21 @@ export default function EstimateDetailSections({
                   </td>
                   <td>
                     <input value={row.demmPercent || ''} readOnly placeholder="0.00" />
+                  </td>
+                  <td>
+                    <select
+                      value={row.vendorId || ''}
+                      disabled={readOnly}
+                      style={{ minWidth: 120 }}
+                      onChange={(e) => updateRow('brokerRows', row.id, { vendorId: e.target.value })}
+                    >
+                      <option value="">— Select —</option>
+                      {(lookups.owners || []).map((vendor) => (
+                        <option key={vendor.id} value={vendor.id}>
+                          {vendor.name}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -1317,7 +1472,7 @@ export default function EstimateDetailSections({
                 <td>
                   <input
                     id="brokeragePercentCargo"
-                    value={totalCommPercent ? totalCommPercent.toFixed(2) : ''}
+                    value={Number.isFinite(totalCommPercent) ? totalCommPercent.toFixed(2) : ''}
                     readOnly
                     placeholder="0.00"
                   />
@@ -1325,7 +1480,7 @@ export default function EstimateDetailSections({
                 <td>
                   <input
                     id="brokerageAmtCargo"
-                    value={totalFreightComm ? totalFreightComm.toFixed(2) : ''}
+                    value={Number.isFinite(totalFreightComm) ? totalFreightComm.toFixed(2) : ''}
                     readOnly
                     placeholder="0.00"
                   />
@@ -1333,11 +1488,12 @@ export default function EstimateDetailSections({
                 <td>
                   <input
                     id="totalDemmCommCargo"
-                    value={totalDemmComm ? totalDemmComm.toFixed(2) : ''}
+                    value={Number.isFinite(totalDemmComm) ? totalDemmComm.toFixed(2) : ''}
                     readOnly
                     placeholder="0.00"
                   />
                 </td>
+                <td />
               </tr>
             </tbody>
           </table>
@@ -1510,6 +1666,7 @@ export default function EstimateDetailSections({
                 <th>Estimated($)</th>
                 <th>Actual($)</th>
                 <th>Nett Value($)</th>
+                <th>Vendor</th>
               </tr>
             </thead>
             <tbody>
@@ -1561,6 +1718,22 @@ export default function EstimateDetailSections({
                   <td>
                     <input value={leg.ddcLpNett || ''} readOnly placeholder="0.00" />
                   </td>
+                  <td>
+                    <select
+                      value={leg.ddcLpVendorId || ''}
+                      disabled={readOnly}
+                      style={{ minWidth: 120 }}
+                      onChange={(e) => updateRow('portLegs', leg.id, { ddcLpVendorId: e.target.value })}
+                    >
+                      <option value="">— Select —</option>
+                      {(lookups.owners || []).map((vendor) => {
+                        const value = vendor.code || vendor.id;
+                        return (
+                          <option key={vendor.id} value={value}>{vendor.name}</option>
+                        );
+                      })}
+                    </select>
+                  </td>
                 </tr>,
                 <tr key={`${leg.id}-dp`}>
                   <td>{formatDemurrageDischargePortLabel(leg)}</td>
@@ -1609,12 +1782,28 @@ export default function EstimateDetailSections({
                   <td>
                     <input value={leg.ddcDpNett || ''} readOnly placeholder="0.00" />
                   </td>
+                  <td>
+                    <select
+                      value={leg.ddcDpVendorId || ''}
+                      disabled={readOnly}
+                      style={{ minWidth: 120 }}
+                      onChange={(e) => updateRow('portLegs', leg.id, { ddcDpVendorId: e.target.value })}
+                    >
+                      <option value="">— Select —</option>
+                      {(lookups.owners || []).map((vendor) => {
+                        const value = vendor.code || vendor.id;
+                        return (
+                          <option key={vendor.id} value={value}>{vendor.name}</option>
+                        );
+                      })}
+                    </select>
+                  </td>
                 </tr>,
               ])}
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={4} />
+                <td colSpan={5} />
                 <td className={styles.demurrageTotalLabel}>Total Nett Value($)</td>
                 <td>
                   <input
@@ -1649,6 +1838,7 @@ export default function EstimateDetailSections({
                 <th>Amount</th>
                 <th>Add Comm(%)</th>
                 <th>Net Amount</th>
+                <th>Vendor</th>
               </tr>
             </thead>
             <tbody>
@@ -1682,6 +1872,22 @@ export default function EstimateDetailSections({
                   </td>
                   <td>
                     <input value={row.netAmount} readOnly />
+                  </td>
+                  <td>
+                    <select
+                      value={row.vendorId || ''}
+                      disabled={readOnly}
+                      style={{ minWidth: 120 }}
+                      onChange={(e) => updateRow('otherIncomeRows', row.id, { vendorId: e.target.value })}
+                    >
+                      <option value="">— Select —</option>
+                      {(lookups.owners || []).map((vendor) => {
+                        const value = vendor.code || vendor.id;
+                        return (
+                          <option key={vendor.id} value={value}>{vendor.name}</option>
+                        );
+                      })}
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -1757,79 +1963,347 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Vessel OPEX" defaultOpen={false}>
-        <div className={styles.headerGrid}>
-          <Field id="hireRate" label="Vessel OPEX">
-            <input
-              id="hireRate"
-              value={form.hireRate || ''}
-              readOnly={readOnly || estimateType === 3}
-              inputMode="decimal"
-              autoComplete="off"
-              onChange={(e) => {
-                const value = sanitizeFieldDecimal('hireRate', e.target.value);
-                // Cleared field must stay empty; otherwise hire row rate re-seeds and inflates TCE wrongly when missing.
-                applyPatch({
-                  hireRate: value,
-                  _hireRateCleared: value === '' || value == null,
-                });
-              }}
-            />
-          </Field>
-          <Field id="addCommPercent" label="Add Comm (%)">
-            <input
-              id="addCommPercent"
-              value={form.addCommPercent || ''}
-              readOnly={readOnly}
-              inputMode="decimal"
-              autoComplete="off"
-              onChange={(e) => {
-                const value = sanitizeFieldDecimal('addCommPercent', e.target.value);
-                // PHP setCveAmtInTcDet: dummyAdcom → txtHireargePercent
-                applyPatch({ addCommPercent: value, hireagePercent: value });
-              }}
-            />
-          </Field>
-          <Field id="addressCommAmt" label="Add Comm Amt">
-            <input id="addressCommAmt" value={form.addressCommAmt || ''} readOnly />
-          </Field>
-          <Field id="ballastBonus" label="Ballast Bonus">
-            <input {...inputProps('ballastBonus', { recalc: true })} />
-          </Field>
-          <Field id="hireagePercent" label="Hireage Add Comm (%)">
-            <input {...inputProps('hireagePercent', { recalc: true })} placeholder="0.00" />
-          </Field>
-          <Field id="hireageBroPercent" label="Hireage Brokerage (%)">
-            <input {...inputProps('hireageBroPercent', { recalc: true })} placeholder="0.00" />
-          </Field>
-          <Field id="hireAmt" label="Hire Amt">
-            <input
-              id="hireAmt"
-              value={form.hireAmt || ''}
-              readOnly
-              placeholder="0.00"
-            />
-          </Field>
-          <Field id="lessOffHire" label="Less Off Hire">
-            <input id="lessOffHire" value={form.lessOffHire || form.totalOffHireAmt || ''} readOnly placeholder="0.00" />
-          </Field>
-          <Field id="vesselDailyOps" label="Vessel Daily Ops">
-            <input {...inputProps('vesselDailyOps', { recalc: true })} />
-          </Field>
+      <CollapsiblePanel
+        title="Bunkers Supplied"
+        defaultOpen={false}
+        actions={editable ? (
+          <AddCircleButton
+            onClick={() => addRow('bunkerRows', () => createEmptyBunkerRow('SUPPLY'))}
+          />
+        ) : null}
+      >
+        <div className={styles.tableWrap}>
+          <table className={styles.portTable}>
+            <thead>
+              <tr>
+                {editable ? <th style={{ width: 36 }} /> : null}
+                <th>Bunker Grade</th>
+                <th>Qty(MT)</th>
+                <th>Price(USD)</th>
+                <th>Amount(USD)</th>
+                <th>Port</th>
+                <th>Vendor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(form.bunkerRows || [])
+                .filter((row) => String(row.identify || '').toUpperCase() === 'SUPPLY')
+                .map((row) => {
+                  const passagePorts = [];
+                  const seenPorts = new Set();
+                  for (const leg of form.portLegs || []) {
+                    for (const [id, name] of [
+                      [leg.fromPortId, leg.fromPortName],
+                      [leg.toPortId, leg.toPortName],
+                    ]) {
+                      if (!id || seenPorts.has(String(id))) continue;
+                      seenPorts.add(String(id));
+                      passagePorts.push({ id: String(id), name: name || String(id) });
+                    }
+                  }
+                  if (row.portId && !seenPorts.has(String(row.portId))) {
+                    passagePorts.unshift({
+                      id: String(row.portId),
+                      name: row.portName || String(row.portId),
+                    });
+                  }
+                  return (
+                    <tr key={row.id}>
+                      {editable ? (
+                        <td>
+                          <RowRemoveButton onClick={() => removeRow('bunkerRows', row.id)} />
+                        </td>
+                      ) : null}
+                      <td>
+                        <select
+                          value={row.bunkerGradeId || ''}
+                          disabled={readOnly}
+                          onChange={(e) => updateRow('bunkerRows', row.id, { bunkerGradeId: e.target.value })}
+                        >
+                          <option value="">— Select —</option>
+                          {(lookups.bunkerGrades || []).map((g) => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          value={row.qty || ''}
+                          readOnly={readOnly}
+                          placeholder="0.00"
+                          onChange={(e) => updateRow('bunkerRows', row.id, { qty: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={row.price || ''}
+                          readOnly={readOnly}
+                          placeholder="0.00"
+                          onChange={(e) => updateRow('bunkerRows', row.id, { price: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input value={row.cost || ''} readOnly placeholder="0.00" />
+                      </td>
+                      <td>
+                        <select
+                          value={row.portId || ''}
+                          disabled={readOnly}
+                          style={{ minWidth: 140 }}
+                          onChange={(e) => {
+                            const portId = e.target.value;
+                            const match = passagePorts.find((p) => String(p.id) === String(portId));
+                            updateRow('bunkerRows', row.id, {
+                              portId,
+                              portName: match?.name || '',
+                            });
+                          }}
+                        >
+                          <option value="">— Select —</option>
+                          {passagePorts.map((port) => (
+                            <option key={port.id} value={port.id}>{port.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          value={row.vendorId || ''}
+                          disabled={readOnly}
+                          style={{ minWidth: 120 }}
+                          onChange={(e) => updateRow('bunkerRows', row.id, { vendorId: e.target.value })}
+                        >
+                          <option value="">— Select —</option>
+                          {(lookups.owners || []).map((vendor) => {
+                            const value = vendor.code || vendor.id;
+                            return (
+                              <option key={vendor.id} value={value}>{vendor.name}</option>
+                            );
+                          })}
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
         </div>
-        <div className={styles.headerGrid} style={{ marginTop: 8 }}>
+      </CollapsiblePanel>
+
+      <CollapsiblePanel title="Vessel OPEX" defaultOpen={false}>
+        {showHireSection ? (
+          <div className={styles.headerGrid}>
+            <Field id="hireRate" label={showIndexLinked ? 'Hire / Day ($)' : 'Hire / Day'}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {showIndexLinked ? (
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                    <input
+                      type="checkbox"
+                      id="chkHire"
+                      checked={!!form.chkHire}
+                      disabled={readOnly}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        applyPatch(checked
+                          ? { chkHire: true }
+                          : { chkHire: false, hireRate: '', _hireRateCleared: true });
+                      }}
+                    />
+                  </label>
+                ) : null}
+                <input
+                  id="hireRate"
+                  value={form.hireRate || ''}
+                  readOnly={readOnly || (isDry && !showIndexLinked) || (showIndexLinked && !form.chkHire)}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  style={{ flex: 1 }}
+                  onChange={(e) => {
+                    const value = sanitizeFieldDecimal('hireRate', e.target.value);
+                    applyPatch({
+                      hireRate: value,
+                      _hireRateCleared: value === '' || value == null,
+                    });
+                  }}
+                />
+              </div>
+            </Field>
+            {showIndexLinked ? (
+              <>
+                <Field id="chkIndex" label="Index Linked">
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      id="chkIndex"
+                      checked={!!form.chkIndex}
+                      disabled={readOnly}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        if (!checked) {
+                          applyPatch({
+                            chkIndex: false,
+                            balticIndex: '',
+                            balticPercent: '100',
+                            balticRate: '',
+                            totalHireRate: '',
+                          });
+                          return;
+                        }
+                        applyPatch({ chkIndex: true, balticPercent: form.balticPercent || '100' });
+                      }}
+                    />
+                    <span>Enable Baltic Index</span>
+                  </label>
+                </Field>
+                <Field id="balticIndex" label="Baltic Index">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <select
+                      id="balticIndex"
+                      value={form.balticIndex || ''}
+                      disabled={readOnly || !form.chkIndex}
+                      style={{ minWidth: 120 }}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const match = (lookups.balticRoutes || []).find((row) => String(row.id) === String(value));
+                        const daily = Number(match?.dailyRate) || 0;
+                        const pct = Number(form.balticPercent) || 100;
+                        const balticRate = daily > 0 ? ((pct * daily) / 100).toFixed(2) : '';
+                        applyPatch({
+                          balticIndex: value,
+                          balticRate,
+                        });
+                      }}
+                    >
+                      <option value="">— Select —</option>
+                      {(lookups.balticRoutes || []).map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.label || row.code || row.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span>%</span>
+                    <input
+                      id="balticPercent"
+                      value={form.balticPercent || ''}
+                      readOnly={readOnly || !form.chkIndex}
+                      inputMode="decimal"
+                      autoComplete="off"
+                      style={{ width: 56 }}
+                      placeholder="100"
+                      onChange={(e) => {
+                        const value = sanitizeFieldDecimal('balticPercent', e.target.value);
+                        const match = (lookups.balticRoutes || []).find(
+                          (row) => String(row.id) === String(form.balticIndex),
+                        );
+                        const daily = Number(match?.dailyRate) || 0;
+                        const pct = Number(value) || 0;
+                        const balticRate = daily > 0 ? ((pct * daily) / 100).toFixed(2) : '';
+                        applyPatch({ balticPercent: value, balticRate });
+                      }}
+                    />
+                    <input
+                      id="balticRate"
+                      value={form.balticRate || ''}
+                      readOnly
+                      placeholder="0.00"
+                      style={{ width: 90 }}
+                    />
+                  </div>
+                </Field>
+                <Field id="totalHireRate" label="Total Hire / Day ($)">
+                  <input id="totalHireRate" value={form.totalHireRate || ''} readOnly placeholder="0.00" />
+                </Field>
+              </>
+            ) : null}
+            <Field id="addCommPercent" label="Add Comm (%)">
+              <input
+                id="addCommPercent"
+                value={form.addCommPercent || ''}
+                readOnly={readOnly}
+                inputMode="decimal"
+                autoComplete="off"
+                onChange={(e) => {
+                  const value = sanitizeFieldDecimal('addCommPercent', e.target.value);
+                  // PHP setCveAmtInTcDet: dummyAdcom → txtHireargePercent
+                  applyPatch({ addCommPercent: value, hireagePercent: value });
+                }}
+              />
+            </Field>
+            <Field id="addressCommAmt" label="Add Comm Amt">
+              <input id="addressCommAmt" value={form.addressCommAmt || ''} readOnly />
+            </Field>
+            <Field id="ballastBonus" label="Ballast Bonus">
+              <input {...inputProps('ballastBonus', { recalc: true })} />
+            </Field>
+            <Field id="hireagePercent" label="Hireage Add Comm (%)">
+              <input {...inputProps('hireagePercent', { recalc: true })} placeholder="0.00" />
+            </Field>
+            <Field id="hireageBroPercent" label="Hireage Brokerage (%)">
+              <input {...inputProps('hireageBroPercent', { recalc: true })} placeholder="0.00" />
+            </Field>
+            <Field id="hireAmt" label="Hire Amt">
+              <input
+                id="hireAmt"
+                value={form.hireAmt || ''}
+                readOnly
+                placeholder="0.00"
+              />
+            </Field>
+            <Field id="lessOffHire" label="Less Off Hire">
+              <input id="lessOffHire" value={form.lessOffHire || form.totalOffHireAmt || ''} readOnly placeholder="0.00" />
+            </Field>
+            {showHireDetailsButton ? (
+              <Field id="hireDetailsBtn" label=" ">
+                <button
+                  type="button"
+                  id="hireDetailsBtn"
+                  className={styles.hireDetailsBtn}
+                  onClick={() => setHireDetailsOpen(true)}
+                >
+                  Hire Details
+                </button>
+              </Field>
+            ) : null}
+          </div>
+        ) : null}
+        <div className={styles.headerGrid} style={{ marginTop: showHireSection ? 8 : 0 }}>
           <Field id="cvePerMonth" label="CVE (/Month)">
             <input {...inputProps('cvePerMonth', { recalc: true })} />
           </Field>
           <Field id="cveAmt" label="CVE">
             <input id="cveAmt" value={form.cveAmt || ''} readOnly placeholder="0.00" />
           </Field>
-          <Field id="offHireCve" label="CVE Off Hire (/Month)">
-            <input {...inputProps('offHireCve', { recalc: true })} placeholder="0.00" />
+          <Field id="cveVendorId" label="CVE Vendor">
+            <select
+              id="cveVendorId"
+              value={form.cveVendorId || ''}
+              disabled={readOnly}
+              onChange={(e) => updateField('cveVendorId', e.target.value)}
+            >
+              <option value="">— Select —</option>
+              {(lookups.owners || []).map((vendor) => {
+                // PHP selVendor option value is vendor CODE (CVE_VENDORID).
+                const value = vendor.code || vendor.id;
+                return (
+                  <option key={vendor.id} value={value}>{vendor.name}</option>
+                );
+              })}
+            </select>
           </Field>
-          <Field id="offHireCveAmt" label="CVE Off Hire Amt">
-            <input id="offHireCveAmt" value={form.offHireCveAmt || ''} readOnly placeholder="0.00" />
-          </Field>
+          {showVesselDailyOps ? (
+            <Field id="vesselDailyOps" label="Vessel Daily Ops">
+              <input {...inputProps('vesselDailyOps', { recalc: true })} />
+            </Field>
+          ) : null}
+          {showHireSection ? (
+            <>
+              <Field id="offHireCve" label="CVE Off Hire (/Month)">
+                <input {...inputProps('offHireCve', { recalc: true })} placeholder="0.00" />
+              </Field>
+              <Field id="offHireCveAmt" label="CVE Off Hire Amt">
+                <input id="offHireCveAmt" value={form.offHireCveAmt || ''} readOnly placeholder="0.00" />
+              </Field>
+            </>
+          ) : null}
         </div>
       </CollapsiblePanel>
 
@@ -1965,6 +2439,14 @@ export default function EstimateDetailSections({
         open={itineraryOpen}
         onClose={() => setItineraryOpen(false)}
         form={form}
+      />
+      <HireDetailsModal
+        open={hireDetailsOpen}
+        onClose={() => setHireDetailsOpen(false)}
+        form={form}
+        readOnly={readOnly}
+        lookups={lookups}
+        applyPatch={applyPatch}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
@@ -9,10 +9,16 @@ import {
   fetchRunningCoas,
 } from '../../../services/coas.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
-import CoaCardSelect from './CoaCardSelect.jsx';
+import CoaListHeaderActions from './CoaListHeaderActions.jsx';
 import styles from './CoaPages.module.css';
 
 const PAGE_SIZE = 10;
+
+const STATUS_OPTIONS = [
+  { id: '1', name: 'Active' },
+  { id: '2', name: 'Cancelled' },
+  { id: 'all', name: 'All' },
+];
 
 const FLASH = {
   0: { type: 'success', text: 'COA saved successfully.' },
@@ -110,8 +116,31 @@ export default function RunningCoasListPage() {
   };
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
-      {loading ? <LoadingOverlay active label="Loading running COAs…" /> : null}
+    <>
+      <CoaListHeaderActions
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="COA ID, route, cargo…"
+        businessTypes={businessTypes}
+        businessType={businessType}
+        onBusinessTypeChange={(value) => {
+          setBusinessType(value);
+          updateQuery({ selBType: value });
+        }}
+        statusOptions={STATUS_OPTIONS}
+        status={status}
+        onStatusChange={(value) => {
+          setStatus(value);
+          updateQuery({ status: value });
+        }}
+        primaryAction={{
+          label: 'Add New COA',
+          onClick: () => navigate(`/internal-user/vc/coas/running/add?selBType=${businessType}`),
+        }}
+      />
+
+      <div className={`zafira-page ${styles.page}`}>
+      <LoadingOverlay show={loading} fullScreen={false} label="Loading running COAs…" />
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
           {flash.text}
@@ -120,57 +149,6 @@ export default function RunningCoasListPage() {
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <h3 className={styles.title}>Running COAs</h3>
-
-      <div className={styles.toolbar}>
-        <div className={styles.filters}>
-          <div className={styles.filterField}>
-            <label>Business Type</label>
-            <CoaCardSelect
-              label="Business Type"
-              value={businessType}
-              options={businessTypes}
-              includeEmpty={false}
-              onChange={(value) => {
-                setBusinessType(value);
-                updateQuery({ selBType: value });
-              }}
-            />
-          </div>
-          <div className={styles.filterField}>
-            <label>Status</label>
-            <CoaCardSelect
-              label="Status"
-              value={status}
-              options={[
-                { id: '1', name: 'Active' },
-                { id: '2', name: 'Cancelled' },
-                { id: 'all', name: 'All' },
-              ]}
-              includeEmpty={false}
-              onChange={(value) => {
-                setStatus(value);
-                updateQuery({ status: value });
-              }}
-            />
-          </div>
-          <div className={styles.filterField}>
-            <label htmlFor="running-search">Search</label>
-            <input
-              id="running-search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="COA ID, route, cargo…"
-            />
-          </div>
-        </div>
-        <div className={styles.toolbarActions}>
-          <Button
-            variant="add"
-            label="Add New COA"
-            onClick={() => navigate(`/internal-user/vc/coas/running/add?selBType=${businessType}`)}
-          />
-        </div>
-      </div>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -356,5 +334,6 @@ export default function RunningCoasListPage() {
         </div>
       ) : null}
     </div>
+    </>
   );
 }

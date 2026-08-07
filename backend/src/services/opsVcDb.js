@@ -943,6 +943,155 @@ export async function dbListVoyageReports({ vesselImoNo = '', comId = '' } = {})
   };
 }
 
+/** Slave tables copied when seeding a Voyage Financials estimate from FVF / prior sheet. */
+const COST_SHEET_SLAVE_TABLES = [
+  'freight_cost_estimete_slave1',
+  'freight_cost_estimete_slave2',
+  'freight_cost_estimete_slave3',
+  'freight_cost_estimete_slave4',
+  'freight_cost_estimete_slave5',
+  'freight_cost_estimete_slave6',
+  'freight_cost_estimete_slave7',
+  'freight_cost_estimete_slave8',
+  'freight_cost_estimete_slave9',
+  'freight_cost_estimete_slave10',
+  'freight_cost_estimete_slave11',
+  'freight_cost_estimete_slave12',
+  'freight_cost_estimete_slave13',
+  'freight_cost_estimete_slave14',
+  'freight_cost_estimete_slave15',
+  'freight_cost_estimete_slave16',
+  'freight_cost_estimete_slave17',
+  'freight_cost_estimete_slave18',
+];
+
+async function getInsertableColumns(connection, tableName) {
+  const [rows] = await connection.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
+       AND EXTRA NOT LIKE '%auto_increment%'
+     ORDER BY ORDINAL_POSITION`,
+    [tableName],
+  );
+  return rows.map((row) => row.COLUMN_NAME);
+}
+
+async function copyEstimateSlaveRows(connection, tableName, sourceId, targetId) {
+  try {
+    const columns = await getInsertableColumns(connection, tableName);
+    const dataColumns = columns.filter((column) => column !== 'FCAID');
+    if (!dataColumns.length) return;
+    const selectCols = dataColumns.map((column) => `\`${column}\``).join(', ');
+    const insertCols = ['`FCAID`', ...dataColumns.map((column) => `\`${column}\``)].join(', ');
+    await connection.query(
+      `INSERT INTO \`${tableName}\` (${insertCols})
+       SELECT ?, ${selectCols} FROM \`${tableName}\` WHERE FCAID = ?`,
+      [targetId, sourceId],
+    );
+  } catch {
+    // Skip missing optional slave tables.
+  }
+}
+
+/**
+ * PHP updateTCICostSheetDetails creates the SHEET_NO estimate on first save.
+ * React opens Update Estimate by FCAID, so seed that row on first open.
+ */
+async function ensureCostSheetEstimate(pool, comId, costSheetId) {
+  const [[existing]] = await pool.query(
+    `SELECT FCAID, ESTIMATE_TYPE, FINAL_STATUS, VOYAGE_NO
+     FROM freight_cost_estimete_master
+     WHERE COMID = ? AND SHEET_NO = ?
+     ORDER BY FCAID DESC
+     LIMIT 1`,
+    [comId, costSheetId],
+  );
+  if (existing?.FCAID) return existing;
+
+  // PHP getLatestCostSheetID — latest master for this nomination (FVF or prior VF).
+  const [[source]] = await pool.query(
+    `SELECT *
+     FROM freight_cost_estimete_master
+     WHERE COMID = ? AND MODULEID = ?
+     ORDER BY FCAID DESC
+     LIMIT 1`,
+    [comId, MODULE_ID],
+  );
+  if (!source?.FCAID) {
+    const error = new Error('Cost sheet estimate not found for this Voyage Financials entry.');
+    error.status = 404;
+    throw error;
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Re-check inside the transaction to avoid duplicate sheet estimates.
+    const [[again]] = await connection.query(
+      `SELECT FCAID, ESTIMATE_TYPE, FINAL_STATUS, VOYAGE_NO
+       FROM freight_cost_estimete_master
+       WHERE COMID = ? AND SHEET_NO = ?
+       ORDER BY FCAID DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [comId, costSheetId],
+    );
+    if (again?.FCAID) {
+      await connection.commit();
+      return again;
+    }
+
+    const columns = await getInsertableColumns(connection, 'freight_cost_estimete_master');
+    const dataColumns = columns.filter((column) => column !== 'FCAID');
+    const values = dataColumns.map((column) => {
+      switch (column) {
+        case 'SHEET_NO':
+          return costSheetId;
+        case 'COMID':
+          return comId;
+        case 'FIXED':
+          return 1;
+        case 'FINAL_STATUS':
+          return 0;
+        case 'FINAL_DATETIME':
+          return null;
+        case 'ADD_ON_DATE':
+          return new Date();
+        case 'ADDED_BY':
+          return appContext.userId || source.ADDED_BY;
+        default:
+          return source[column];
+      }
+    });
+
+    const insertCols = dataColumns.map((column) => `\`${column}\``).join(', ');
+    const placeholders = dataColumns.map(() => '?').join(', ');
+    const [insertResult] = await connection.query(
+      `INSERT INTO freight_cost_estimete_master (${insertCols}) VALUES (${placeholders})`,
+      values,
+    );
+    const newId = insertResult.insertId;
+
+    for (const table of COST_SHEET_SLAVE_TABLES) {
+      await copyEstimateSlaveRows(connection, table, source.FCAID, newId);
+    }
+
+    await connection.commit();
+    return {
+      FCAID: newId,
+      ESTIMATE_TYPE: source.ESTIMATE_TYPE,
+      FINAL_STATUS: 0,
+      VOYAGE_NO: source.VOYAGE_NO,
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 /** PHP getTCICostSheetID + sheet name — open updatecost_sheet_tci. */
 export async function dbGetOpsVcCostSheet(comId, costSheetId) {
   const pool = getPool();
@@ -967,19 +1116,7 @@ export async function dbGetOpsVcCostSheet(comId, costSheetId) {
     throw error;
   }
 
-  const [[estimate]] = await pool.query(
-    `SELECT FCAID, ESTIMATE_TYPE, FINAL_STATUS, VOYAGE_NO
-     FROM freight_cost_estimete_master
-     WHERE COMID = ? AND SHEET_NO = ?
-     ORDER BY FCAID DESC
-     LIMIT 1`,
-    [safeComId, safeSheetId],
-  );
-  if (!estimate?.FCAID) {
-    const error = new Error('Cost sheet estimate not found for this Voyage Financials entry.');
-    error.status = 404;
-    throw error;
-  }
+  const estimate = await ensureCostSheetEstimate(pool, safeComId, safeSheetId);
 
   return {
     comId: safeComId,

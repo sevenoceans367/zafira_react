@@ -1,0 +1,212 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 12px;
+}
+
+.modal {
+  width: min(1400px, 98vw);
+  max-height: 94vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #ddd;
+  background: #f7f9fc;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #274670;
+}
+
+.body {
+  padding: 12px 14px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionTitle {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #274670;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.table th,
+.table td {
+  border: 1px solid #d9dee7;
+  padding: 3px 5px;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.table th {
+  background: #eef2f7;
+  font-weight: 600;
+  color: #274670;
+  white-space: nowrap;
+}
+
+.table input,
+.table select,
+.table textarea,
+.deliveryBlock textarea,
+.deliveryBlock input,
+.summaryRow input,
+.summaryRow select {
+  width: 100%;
+  min-height: 26px;
+  font-size: 11px;
+  box-sizing: border-box;
+}
+
+.addRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.addHireBtn {
+  border: 1px solid #94a3b8;
+  background: #f8fafc;
+  color: #274670;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 3px;
+}
+
+.addHireBtn:hover {
+  background: #eef2f7;
+}
+
+.deliveryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.deliveryBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.deliveryBlock strong {
+  font-size: 12px;
+  color: #274670;
+}
+
+/* PHP: col-md-5 summary | col-md-7 bunkers/off-hire */
+.mainSplit {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.42fr) minmax(0, 0.58fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.summaryPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border: 1px solid #d9dee7;
+  padding: 8px;
+  background: #fafbfc;
+}
+
+.summaryRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.1fr) minmax(120px, 1fr);
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+}
+
+.summaryRow span {
+  color: #374151;
+}
+
+.pair {
+  display: flex;
+  gap: 4px;
+}
+
+.pair input {
+  flex: 1;
+  min-width: 0;
+}
+
+.rightPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.rightBlock {
+  border: 1px solid #d9dee7;
+  padding: 8px;
+  background: #fff;
+}
+
+.offHireBlock {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.offHireBlock:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid #ddd;
+}
+
+@media (max-width: 1000px) {
+  .mainSplit,
+  .deliveryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryRow {
+    grid-template-columns: 1fr;
+  }
+}

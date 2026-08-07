@@ -33,7 +33,8 @@ export function SecondaryActionButton({
 }
 
 /**
- * Orange filled table/action CTA (Send to Ops and similar primary row actions).
+ * Orange outline table/action CTA (Send to Ops and similar primary row actions).
+ * Matches Itinerary Copy / outlineAccent color treatment.
  */
 export function SendToOpsButton({
   label = 'Send to Ops',

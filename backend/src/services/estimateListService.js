@@ -184,7 +184,9 @@ export async function submitDecisionChart({ selection }) {
   const message = `${year}-${messageNo}`;
 
   estimates = estimates.map((row) =>
-    row.fcaId === id ? { ...row, comid: String(500 + compareCounter) } : row,
+    row.fcaId === id
+      ? { ...row, comid: String(500 + compareCounter), fixed: 1 }
+      : row,
   );
 
   return {

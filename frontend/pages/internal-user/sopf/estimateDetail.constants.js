@@ -310,6 +310,11 @@ export function createEmptyPortLeg() {
     bgSeca: 'LSMGO',
     chartererAccountDays: '',
     portFunction: '',
+    tpPortVendorId: '',
+    lpPortVendorId: '',
+    dpPortVendorId: '',
+    ddcLpVendorId: '',
+    ddcDpVendorId: '',
   };
 }
 
@@ -339,6 +344,9 @@ export function createEmptyBunkerRow(identify = 'CONSUMPTION') {
     price: '',
     cost: '',
     identify,
+    vendorId: '',
+    portId: '',
+    portName: '',
   };
 }
 
@@ -772,6 +780,11 @@ export function toFormState(detail = {}) {
       bgSeca: row.bgSeca || 'LSMGO',
       chartererAccountDays: formatIdleDays(row.chartererAccountDays),
       portFunction: row.portFunction != null ? String(row.portFunction) : '',
+      tpPortVendorId: row.tpPortVendorId != null ? String(row.tpPortVendorId) : '',
+      lpPortVendorId: row.lpPortVendorId != null ? String(row.lpPortVendorId) : '',
+      dpPortVendorId: row.dpPortVendorId != null ? String(row.dpPortVendorId) : '',
+      ddcLpVendorId: row.ddcLpVendorId != null ? String(row.ddcLpVendorId) : '',
+      ddcDpVendorId: row.ddcDpVendorId != null ? String(row.ddcDpVendorId) : '',
     }))
     : [createEmptyPortLeg()];
 
@@ -791,6 +804,9 @@ export function toFormState(detail = {}) {
       price: row.price != null ? String(row.price) : '',
       cost: row.cost != null ? String(row.cost) : '',
       identify: row.identify || 'CONSUMPTION',
+      vendorId: row.vendorId != null ? String(row.vendorId) : '',
+      portId: row.portId != null ? String(row.portId) : '',
+      portName: row.portName ?? '',
     }))
     : [createEmptyBunkerRow('CONSUMPTION'), createEmptyBunkerRow('SUPPLY')];
 
@@ -1213,6 +1229,22 @@ export function toFormState(detail = {}) {
     dailyVesselOperationExp: detail.dailyVesselOperationExp != null
       ? String(detail.dailyVesselOperationExp)
       : '',
+    chkHire: !!detail.chkHire,
+    chkIndex: !!detail.chkIndex,
+    balticIndex: detail.balticIndex != null ? String(detail.balticIndex) : '',
+    balticPercent: detail.balticPercent != null && String(detail.balticPercent).trim() !== ''
+      ? String(detail.balticPercent)
+      : '100',
+    balticRate: detail.balticRate != null ? String(detail.balticRate) : '',
+    totalHireRate: detail.totalHireRate != null ? String(detail.totalHireRate) : '',
+    cveVendorId: detail.cveVendorId != null ? String(detail.cveVendorId) : '',
+    dtcVendorId: detail.dtcVendorId != null ? String(detail.dtcVendorId) : '',
+    brokerageVendorId: detail.brokerageVendorId != null ? String(detail.brokerageVendorId) : '',
+    tcCpDate: detail.tcCpDate ?? '',
+    tcDeliveryRange: detail.tcDeliveryRange ?? '',
+    tcRedeliveryRange: detail.tcRedeliveryRange ?? '',
+    tcDeliveryDate: detail.tcDeliveryDate ?? '',
+    tcRedeliveryDate: detail.tcRedeliveryDate ?? '',
     timeAllowed: detail.timeAllowed != null ? String(detail.timeAllowed) : '',
     laycanStart: detail.laycanStart ?? '',
     laycanEnd: detail.laycanEnd ?? '',

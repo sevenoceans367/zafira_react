@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { deleteCargoRelet, fetchCargoRelets } from '../../../services/coas.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
-import CoaCardSelect from './CoaCardSelect.jsx';
+import CoaListHeaderActions from './CoaListHeaderActions.jsx';
 import styles from './CoaPages.module.css';
 
 const PAGE_SIZE = 10;
@@ -69,47 +69,32 @@ export default function CargoReletListPage() {
   };
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
-      {loading ? <LoadingOverlay active label="Loading cargo relets…" /> : null}
+    <>
+      <CoaListHeaderActions
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="Relet no, COA…"
+        businessTypes={businessTypes}
+        businessType={businessType}
+        onBusinessTypeChange={(value) => {
+          setBusinessType(value);
+          const next = new URLSearchParams(searchParams);
+          next.set('selBType', value);
+          setSearchParams(next, { replace: true });
+        }}
+        primaryAction={{
+          label: 'Add New Cargo Relet',
+          onClick: () => navigate(
+            `/internal-user/vc/coas/cargo-relet/add?selBType=${businessType}${coaId ? `&coaId=${coaId}` : ''}`,
+          ),
+        }}
+      />
+
+      <div className={`zafira-page ${styles.page}`}>
+      <LoadingOverlay show={loading} fullScreen={false} label="Loading cargo relets…" />
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <h3 className={styles.title}>COA - Cargo Relet</h3>
-
-      <div className={styles.toolbar}>
-        <div className={styles.filters}>
-          <div className={styles.filterField}>
-            <label>Business Type</label>
-            <CoaCardSelect
-              label="Business Type"
-              value={businessType}
-              options={businessTypes}
-              includeEmpty={false}
-              onChange={(value) => {
-                setBusinessType(value);
-                const next = new URLSearchParams(searchParams);
-                next.set('selBType', value);
-                setSearchParams(next, { replace: true });
-              }}
-            />
-          </div>
-          <div className={styles.filterField}>
-            <label htmlFor="relet-search">Search</label>
-            <input
-              id="relet-search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Relet no, COA…"
-            />
-          </div>
-        </div>
-        <div className={styles.toolbarActions}>
-          <Button
-            variant="add"
-            label="Add New Cargo Relet"
-            onClick={() => navigate(`/internal-user/vc/coas/cargo-relet/add?selBType=${businessType}${coaId ? `&coaId=${coaId}` : ''}`)}
-          />
-        </div>
-      </div>
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -179,5 +164,6 @@ export default function CargoReletListPage() {
 
       <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
     </div>
+    </>
   );
 }

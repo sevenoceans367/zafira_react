@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, FilterBar, LoadingOverlay } from '@bainbridge/shared-ui';
+import { useSearchParams } from 'react-router-dom';
+import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchVoyageReports } from '../../../services/opsVc.js';
+import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
 const COLUMNS = [
@@ -73,7 +74,6 @@ function cellValue(row, column) {
 }
 
 export default function OpsVcVoyageReportPage() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const vesselImoNo = searchParams.get('vesselimono') || searchParams.get('vesselImoNo') || '';
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
@@ -115,21 +115,20 @@ export default function OpsVcVoyageReportPage() {
   const records = data?.records || [];
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
-      {loading ? <LoadingOverlay /> : null}
+    <>
+      <OpsVcBackHeaderActions backHref={backHref} disabled={loading} />
+
+      <div className={`zafira-page ${styles.page}`}>
+      {loading ? <LoadingOverlay show={loading} fullScreen={false} /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <FilterBar
-        actions={<Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />}
-      >
-        {data?.vesselName ? (
-          <div className={styles.muted}>
-            {data.vesselName}
-            {data.voyageNo ? ` · Voy ${data.voyageNo}` : ''}
-            {data.vesselImoNo ? ` · IMO ${data.vesselImoNo}` : ''}
-          </div>
-        ) : null}
-      </FilterBar>
+      {data?.vesselName ? (
+        <div className={styles.muted} style={{ marginBottom: 8 }}>
+          {data.vesselName}
+          {data.voyageNo ? ` · Voy ${data.voyageNo}` : ''}
+          {data.vesselImoNo ? ` · IMO ${data.vesselImoNo}` : ''}
+        </div>
+      ) : null}
 
       <h3 className={styles.title}>VOYAGE REPORT</h3>
 
@@ -165,5 +164,6 @@ export default function OpsVcVoyageReportPage() {
         </table>
       </div>
     </div>
+    </>
   );
 }

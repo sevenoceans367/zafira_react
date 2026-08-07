@@ -226,9 +226,9 @@ a:focus-visible,
   color: #376eb8 !important;
 }
 
-/* Brand accent CTA — Send to Ops style */
+/* Brand accent CTA — outline style (matches Itinerary Copy) */
 .global-btn-accent {
-  background-color: rgba(249, 147, 102, 0.6) !important;
+  background-color: transparent !important;
   border: 1px solid #f4652c !important;
   border-color: #f4652c !important;
   color: #f4652c !important;
@@ -237,9 +237,9 @@ a:focus-visible,
 
 .global-btn-accent:hover:not(:disabled),
 .global-btn-accent:focus:not(:disabled) {
-  background-color: #ff986a !important;
-  border-color: #f18154 !important;
-  color: #fff !important;
+  background-color: rgba(244, 101, 44, 0.1) !important;
+  border-color: #f4652c !important;
+  color: #f4652c !important;
 }
 
 /* Brand destructive CTA — replaces legacy Bootstrap red buttons */

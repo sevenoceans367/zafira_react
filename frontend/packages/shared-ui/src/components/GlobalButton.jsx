@@ -24,7 +24,7 @@ const CLOSE_CLASS = 'global-btn-close';
 const OUTLINE_CLASS = SECONDARY_CLASS;
 
 const ACCENT_STYLE = {
-  backgroundColor: 'rgba(249, 147, 102, 0.6)',
+  backgroundColor: 'transparent',
   border: '1px solid #f4652c',
   borderRadius: '10px',
   color: '#f4652c',
@@ -64,7 +64,7 @@ const SQUARE_VARIANTS = new Set(['secondary', 'outline', 'accent', 'close']);
 /**
  * Shared pill button used across admin, internal-user, and other apps.
  * - `secondary`: hollow #376EB8 border/text, 10px radius, hover fill #BCCADB
- * - `accent`: #F99366 60% fill, #F4652C stroke; hover #FF986A / #F18154, 10px radius
+ * - `accent`: hollow #F4652C border/text (matches Itinerary Copy); soft orange hover tint
  * - `close`: light grey fill, medium grey stroke/text, pill radius
  * Use `to` for React Router navigation, or `href` for path-based navigation.
  */

@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Button,
   Field,
-  FilterBar,
   LoadingOverlay,
   TextInput,
   useConfirm,
@@ -14,6 +13,7 @@ import {
   deleteOpsDocument,
   fetchOpsDocuments,
 } from '../../../services/opsVc.js';
+import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
 const BACK_PATHS = {
@@ -41,7 +41,6 @@ function AttachmentLinks({ attachments }) {
 
 export default function OpsVcDocumentsPage() {
   const confirm = useConfirm();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const page = searchParams.get('page') || '1';
@@ -127,18 +126,19 @@ export default function OpsVcDocumentsPage() {
   };
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
-      {(loading || saving) ? <LoadingOverlay /> : null}
+    <>
+      <OpsVcBackHeaderActions backHref={backHref} disabled={loading || saving} />
+
+      <div className={`zafira-page ${styles.page}`}>
+      {(loading || saving) ? <LoadingOverlay show={loading || saving} fullScreen={false} /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <FilterBar
-        actions={<Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />}
-      >
-        <div className={styles.muted}>
+      {(data?.nomId || data?.vesselName) ? (
+        <div className={styles.muted} style={{ marginBottom: 8 }}>
           {data?.nomId ? `Nom ID ${data.nomId}` : null}
           {data?.vesselName ? ` · ${data.vesselName}` : null}
         </div>
-      </FilterBar>
+      ) : null}
 
       <h3 className={styles.title}>DOCUMENTS</h3>
 
@@ -271,5 +271,6 @@ export default function OpsVcDocumentsPage() {
         </table>
       </div>
     </div>
+    </>
   );
 }

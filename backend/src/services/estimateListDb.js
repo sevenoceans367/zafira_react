@@ -486,8 +486,12 @@ export async function dbSubmitDecisionChart({ selection }) {
       [id, id, padded, appContext.userId, remarks, message, appContext.moduleId, appContext.companyId, coaId],
     );
 
+    // Ops VC / In Ops requires FIXED=1 (same as COA nominate / fixture finalise).
+    // COMID alone only marks the estimate as on the decision chart.
     await connection.query(
-      'UPDATE freight_cost_estimete_master SET COMID = ? WHERE FCAID = ?',
+      `UPDATE freight_cost_estimete_master
+       SET COMID = ?, FIXED = 1, FINAL_DATETIME = NOW(), FINAL_STATUS = 1
+       WHERE FCAID = ?`,
       [compareResult.insertId, id],
     );
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '@bainbridge/shared-ui';
+import { Button, HeaderFilterControls } from '@bainbridge/shared-ui';
 import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 
@@ -14,17 +14,19 @@ export default function OpsVcSoaReportHeaderActions({
 
   return (
     <PageHeaderActions deps={[backHref, comId, disabled, pdfHref]}>
-      {pdfHref ? (
-        <Button
-          variant="secondary"
-          label="Generate PDF"
-          href={pdfHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          disabled={disabled}
-        />
-      ) : null}
-      <Button variant="secondary" label="Back" href={backHref} disabled={disabled} />
+      <HeaderFilterControls>
+        {pdfHref ? (
+          <Button
+            variant="secondary"
+            label="Generate PDF"
+            href={pdfHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            disabled={disabled}
+          />
+        ) : null}
+        <Button variant="secondary" label="Back" href={backHref} disabled={disabled} />
+      </HeaderFilterControls>
     </PageHeaderActions>
   );
 }

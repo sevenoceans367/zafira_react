@@ -161,6 +161,18 @@ th.itemColumn {
   max-width: 64px;
 }
 
+th.tceColumn,
+th.pnlColumn {
+  color: #274670;
+  font-weight: 700;
+}
+
+.pnlColumn {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+}
+
 .actionCell {
   text-align: center;
   white-space: nowrap;

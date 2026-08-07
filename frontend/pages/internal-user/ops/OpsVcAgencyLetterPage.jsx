@@ -4,7 +4,6 @@ import {
   Button,
   DmyDateInput,
   Field,
-  FilterBar,
   LoadingOverlay,
   Select,
   Textarea,
@@ -17,6 +16,7 @@ import {
   fetchAgencyLetterForm,
   saveAgencyLetter,
 } from '../../../services/opsVc.js';
+import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
 const BACK_PATHS = {
@@ -252,21 +252,22 @@ export default function OpsVcAgencyLetterPage() {
   };
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
-      {(loading || saving) ? <LoadingOverlay /> : null}
+    <>
+      <OpsVcBackHeaderActions backHref={backHref} disabled={loading || saving} />
+
+      <div className={`zafira-page ${styles.page}`}>
+      {(loading || saving) ? <LoadingOverlay show={loading || saving} fullScreen={false} /> : null}
       {flash ? (
         <div className={flash.type === 'error' ? styles.error : styles.flashSuccess}>{flash.text}</div>
       ) : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <FilterBar
-        actions={<Button variant="secondary" label="Back" onClick={() => navigate(backHref)} />}
-      >
-        <div className={styles.muted}>
+      {(form?.nomId || form?.vesselName) ? (
+        <div className={styles.muted} style={{ marginBottom: 8 }}>
           {form?.nomId ? `Nom ID ${form.nomId}` : null}
           {form?.vesselName ? ` · ${form.vesselName}` : null}
         </div>
-      </FilterBar>
+      ) : null}
 
       <h3 className={styles.title}>GENERATE PORT RELATED LETTERS</h3>
 
@@ -654,5 +655,6 @@ export default function OpsVcAgencyLetterPage() {
         </>
       ) : null}
     </div>
+    </>
   );
 }

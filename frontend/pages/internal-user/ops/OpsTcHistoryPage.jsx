@@ -1,17 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import {
-  Button,
-  FilterBar,
-  FilterField,
-  LoadingOverlay,
-} from '@bainbridge/shared-ui';
+import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { fetchHistoryAtGlanceTc, fetchOpsTcYears } from '../../../services/opsTc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
-import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsTcCompareSheetsModal from './OpsTcCompareSheetsModal.jsx';
 import OpsTcInOpsGlanceHeaderActions from './OpsTcInOpsGlanceHeaderActions.jsx';
 import styles from './OpsPages.module.css';
@@ -82,43 +76,27 @@ export default function OpsTcHistoryPage() {
       <OpsTcInOpsGlanceHeaderActions
         search={searchInput}
         onSearchChange={setSearchInput}
+        searchPlaceholder="Search Nom ID, TC no, vessel…"
+        businessTypes={businessTypes}
+        businessType={businessType}
+        onBusinessTypeChange={(value) => {
+          setBusinessType(value);
+          updateQuery({ selBType: value, msg: '' });
+        }}
+        years={years}
+        year={year}
+        onYearChange={(value) => {
+          setYear(value);
+          updateQuery({ selYear: value, msg: '' });
+        }}
       />
 
       <div className={`zafira-page ${styles.page}`}>
-        {loading ? <LoadingOverlay active label="Loading Vessels in History TC…" /> : null}
+        <LoadingOverlay show={loading} fullScreen={false} label="Loading Vessels in History TC…" />
         {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
         {error ? <div className={styles.error}>{error}</div> : null}
 
         <h3 className={styles.title}>Vessels in History - TC</h3>
-
-        <FilterBar
-          actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
-        >
-          <FilterField label="Business Type">
-            <CoaCardSelect
-              label="Business Type"
-              value={businessType}
-              options={businessTypes}
-              includeEmpty={false}
-              onChange={(value) => {
-                setBusinessType(value);
-                updateQuery({ selBType: value, msg: '' });
-              }}
-            />
-          </FilterField>
-          <FilterField label="Year">
-            <CoaCardSelect
-              label="Year"
-              options={years}
-              value={year}
-              includeEmpty={false}
-              onChange={(value) => {
-                setYear(value);
-                updateQuery({ selYear: value, msg: '' });
-              }}
-            />
-          </FilterField>
-        </FilterBar>
 
         <div className={styles.tableWrap}>
           <table className={styles.table}>

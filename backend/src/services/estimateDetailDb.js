@@ -1562,7 +1562,7 @@ function mapDbVesselSearchRow(row, status = 'From DB') {
 }
 
 /**
- * Fallback when DB has no match ? mirrors PHP getVesselByImo.php (NavAPI ShipDetails).
+ * Fallback when DB has no match — mirrors PHP getVesselByImo.php (NavAPI ShipDetails).
  * Upserts into vessel_imo_master so the selected vessel has a VESSEL_IMO_ID.
  */
 async function searchVesselsFromNavApi(term) {
@@ -1570,110 +1570,142 @@ async function searchVesselsFromNavApi(term) {
   const token = process.env.NAVAPI_SHIP_DETAILS_TOKEN
     || '06a7fcf47f827decf942ee99fb05f8a21718038108684';
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ Q: term }),
-  });
+  let response;
+  try {
+    response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ Q: term }),
+    });
+  } catch (err) {
+    throw new Error(`NavAPI unreachable: ${err.message || err}`);
+  }
 
   if (!response.ok) {
-    throw new Error(`Vessel API returned ${response.status}`);
+    const bodyText = await response.text().catch(() => '');
+    throw new Error(
+      `Vessel API returned ${response.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ''}`,
+    );
   }
 
   const payload = await response.json();
-  if (payload?.Metadata?.ResultMessage !== 'Success' || !Array.isArray(payload?.ApiResults)) {
+  const resultMessage = payload?.Metadata?.ResultMessage;
+  const apiResults = Array.isArray(payload?.ApiResults) ? payload.ApiResults : null;
+
+  // Accept results even if ResultMessage casing/wording differs slightly.
+  if (!apiResults) {
+    throw new Error(
+      `NavAPI bad payload (ResultMessage=${resultMessage ?? 'n/a'}, ApiResults missing)`,
+    );
+  }
+  if (resultMessage && String(resultMessage).toLowerCase() !== 'success' && apiResults.length === 0) {
+    throw new Error(`NavAPI ResultMessage=${resultMessage}`);
+  }
+  if (!apiResults.length) {
+    console.warn('NavAPI ShipDetails returned 0 ApiResults for:', term);
     return [];
   }
 
   const pool = getPool();
   const results = [];
 
-  for (const ship of payload.ApiResults) {
-    const shipName = String(ship.ShipName || '').trim();
-    const imoNo = String(ship.ImoNumber || '').trim();
-    if (!shipName && !imoNo) continue;
+  for (const ship of apiResults) {
+    try {
+      const shipName = String(ship.ShipName || '').trim();
+      const imoNo = String(ship.ImoNumber || '').trim();
+      if (!shipName && !imoNo) continue;
 
-    const shipType = String(ship.ShipType || '').trim();
-    const countryCode = String(ship.CountryCode || '').trim();
-    const dwt = ship.DeadWeight ?? '';
-    const businessTypeId = businessTypeFromShipType(shipType);
-    const vesselTypeId = vesselTypeIdFromDwt(businessTypeId, dwt) || null;
-    const grossTon = ship.GrossTonnage ?? '';
+      const shipType = String(ship.ShipType || '').trim();
+      const countryCode = String(ship.CountryCode || '').trim();
+      const dwt = ship.DeadWeight ?? '';
+      const businessTypeId = businessTypeFromShipType(shipType);
+      const vesselTypeId = vesselTypeIdFromDwt(businessTypeId, dwt) || null;
+      const grossTon = ship.GrossTonnage ?? '';
 
-    const [existing] = await pool.query(
-      `SELECT VESSEL_IMO_ID, VESSEL_NAME, IMO_NO, DWT, VESSEL_TYPE, VESSEL_TYPE_API,
-              COUNTRY_CODE, FLAG, LOA, GRT_NRT
-       FROM vessel_imo_master
-       WHERE IMO_NO = ?
-       LIMIT 1`,
-      [imoNo],
-    );
+      const [existing] = imoNo
+        ? await pool.query(
+          `SELECT VESSEL_IMO_ID, VESSEL_NAME, IMO_NO, DWT, VESSEL_TYPE, VESSEL_TYPE_API,
+                  COUNTRY_CODE, FLAG, LOA, GRT_NRT
+           FROM vessel_imo_master
+           WHERE IMO_NO = ?
+           LIMIT 1`,
+          [imoNo],
+        )
+        : [[]];
 
-    if (!existing.length) {
-      const [insertResult] = await pool.query(
-        `INSERT INTO vessel_imo_master (
-          VESSEL_NAME, VESSEL_TYPE_API, COUNTRY_CODE, SHIP_FLAG, DWT, YEARBUILT,
-          CALL_SIGN, GROSS_TON, MMSI_NO, SHIP_MANAGER, SHIP_OWNER, OPERATION_STAT,
-          IMO_NO, BUSINESSTYPEID, MCOMPANYID, GRT_NRT, VESSEL_TYPE
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          shipName,
-          shipType,
-          countryCode,
-          ship.ShipFlag ?? '',
-          dwt,
-          ship.YearOfBuilt ?? '',
-          ship.CallSign ?? '',
-          grossTon,
-          ship.MmsiNumber ?? '',
-          typeof ship.ShipManager === 'string' ? ship.ShipManager : JSON.stringify(ship.ShipManager ?? ''),
-          typeof ship.ShipOwner === 'string' ? ship.ShipOwner : JSON.stringify(ship.ShipOwner ?? ''),
-          ship.OperationStatus ?? '',
+      if (!existing.length) {
+        const [insertResult] = await pool.query(
+          `INSERT INTO vessel_imo_master (
+            VESSEL_NAME, VESSEL_TYPE_API, COUNTRY_CODE, SHIP_FLAG, DWT, YEARBUILT,
+            CALL_SIGN, GROSS_TON, MMSI_NO, SHIP_MANAGER, SHIP_OWNER, OPERATION_STAT,
+            IMO_NO, BUSINESSTYPEID, MCOMPANYID, GRT_NRT, VESSEL_TYPE
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            shipName,
+            shipType,
+            countryCode,
+            ship.ShipFlag ?? '',
+            dwt,
+            ship.YearOfBuilt ?? '',
+            ship.CallSign ?? '',
+            grossTon,
+            ship.MmsiNumber ?? '',
+            typeof ship.ShipManager === 'string' ? ship.ShipManager : JSON.stringify(ship.ShipManager ?? ''),
+            typeof ship.ShipOwner === 'string' ? ship.ShipOwner : JSON.stringify(ship.ShipOwner ?? ''),
+            ship.OperationStatus ?? '',
+            imoNo || null,
+            businessTypeId,
+            appContext.companyId,
+            grossTon,
+            vesselTypeId,
+          ],
+        );
+        const newId = insertResult.insertId;
+        results.push({
+          id: String(newId),
+          name: formatVesselSearchName(shipName, countryCode, shipType, imoNo),
+          vesselName: shipName,
           imoNo,
-          businessTypeId,
-          appContext.companyId,
-          grossTon,
-          vesselTypeId,
-        ],
+          dwt: dwt !== '' && dwt != null ? String(dwt) : '',
+          vesselType: vesselTypeId != null ? String(vesselTypeId) : '',
+          shipType,
+          flag: '',
+          loa: '',
+          gnrt: grossTon !== '' && grossTon != null ? String(grossTon) : '',
+          status: 'From API',
+        });
+      } else {
+        const row = existing[0];
+        await pool.query(
+          `UPDATE vessel_imo_master
+           SET VESSEL_TYPE_API = ?, DWT = ?, GRT_NRT = ?
+           WHERE VESSEL_IMO_ID = ?`,
+          [shipType, dwt, grossTon, row.VESSEL_IMO_ID],
+        );
+        results.push({
+          id: String(row.VESSEL_IMO_ID),
+          name: formatVesselSearchName(row.VESSEL_NAME || shipName, countryCode, shipType, imoNo),
+          vesselName: row.VESSEL_NAME || shipName,
+          imoNo: row.IMO_NO || imoNo,
+          dwt: dwt !== '' && dwt != null ? String(dwt) : String(row.DWT ?? ''),
+          vesselType: row.VESSEL_TYPE != null ? String(row.VESSEL_TYPE) : '',
+          shipType,
+          flag: row.FLAG != null ? String(row.FLAG) : '',
+          loa: row.LOA ?? '',
+          gnrt: grossTon !== '' && grossTon != null ? String(grossTon) : String(row.GRT_NRT ?? ''),
+          status: 'From API',
+        });
+      }
+    } catch (shipErr) {
+      console.error(
+        'NavAPI vessel upsert failed for',
+        ship?.ShipName || ship?.ImoNumber || 'unknown',
+        ':',
+        shipErr.message || shipErr,
       );
-      const newId = insertResult.insertId;
-      results.push({
-        id: String(newId),
-        name: formatVesselSearchName(shipName, countryCode, shipType, imoNo),
-        vesselName: shipName,
-        imoNo,
-        dwt: dwt !== '' && dwt != null ? String(dwt) : '',
-        vesselType: vesselTypeId != null ? String(vesselTypeId) : '',
-        shipType,
-        flag: '',
-        loa: '',
-        gnrt: grossTon !== '' && grossTon != null ? String(grossTon) : '',
-        status: 'From API',
-      });
-    } else {
-      const row = existing[0];
-      await pool.query(
-        `UPDATE vessel_imo_master
-         SET VESSEL_TYPE_API = ?, DWT = ?, GRT_NRT = ?
-         WHERE VESSEL_IMO_ID = ?`,
-        [shipType, dwt, grossTon, row.VESSEL_IMO_ID],
-      );
-      results.push({
-        id: String(row.VESSEL_IMO_ID),
-        name: formatVesselSearchName(row.VESSEL_NAME || shipName, countryCode, shipType, imoNo),
-        vesselName: row.VESSEL_NAME || shipName,
-        imoNo: row.IMO_NO || imoNo,
-        dwt: dwt !== '' && dwt != null ? String(dwt) : String(row.DWT ?? ''),
-        vesselType: row.VESSEL_TYPE != null ? String(row.VESSEL_TYPE) : '',
-        shipType,
-        flag: row.FLAG != null ? String(row.FLAG) : '',
-        loa: row.LOA ?? '',
-        gnrt: grossTon !== '' && grossTon != null ? String(grossTon) : String(row.GRT_NRT ?? ''),
-        status: 'From API',
-      });
     }
   }
 
@@ -1681,7 +1713,7 @@ async function searchVesselsFromNavApi(term) {
 }
 
 /**
- * Vessel search for Add Estimate ? mirrors PHP getVesselByImo.php:
+ * Vessel search for Add Estimate — mirrors PHP getVesselByImo.php:
  * 1) Search vessel_imo_master
  * 2) If empty, query NavAPI ShipDetails and upsert into DB
  */
@@ -1699,9 +1731,12 @@ function normalizeVesselSearchTerm(raw) {
   return term;
 }
 
+/**
+ * @returns {Promise<{ rows: object[], warning?: string }>}
+ */
 export async function dbSearchVessels(query) {
   const term = normalizeVesselSearchTerm(query);
-  if (term.length < 2) return [];
+  if (term.length < 2) return { rows: [] };
 
   const pool = getPool();
   const like = `%${term}%`;
@@ -1716,17 +1751,36 @@ export async function dbSearchVessels(query) {
   );
 
   if (rows.length) {
-    return rows.map((row) => mapDbVesselSearchRow(row, 'From DB'));
+    return {
+      rows: rows.map((row) => mapDbVesselSearchRow(row, 'From DB')),
+      source: 'db',
+    };
   }
 
   // PHP transport waits until 3+ chars before calling the external API
-  if (term.length < 3) return [];
+  if (term.length < 3) {
+    return { rows: [], source: 'db', warning: 'Type at least 3 characters to search NavAPI.' };
+  }
 
   try {
-    return await searchVesselsFromNavApi(term);
+    console.info('NavAPI ShipDetails search for:', term);
+    const apiRows = await searchVesselsFromNavApi(term);
+    if (!apiRows.length) {
+      return {
+        rows: [],
+        source: 'navapi',
+        warning: `NavAPI returned no vessels for "${term}".`,
+      };
+    }
+    return { rows: apiRows, source: 'navapi' };
   } catch (err) {
-    console.error('NavAPI ShipDetails vessel search failed:', err.message || err);
-    return [];
+    const message = err.message || String(err);
+    console.error('NavAPI ShipDetails vessel search failed:', message);
+    return {
+      rows: [],
+      source: 'navapi',
+      warning: message,
+    };
   }
 }
 

@@ -32,11 +32,12 @@ export default function AddEstimatePage() {
   const coaId = searchParams.get('coaid') || searchParams.get('coaId') || '';
   const replicateFrom = searchParams.get('replicateFrom') || '';
   const useTestData = import.meta.env.DEV && searchParams.get('testdata') === '1';
+  const resolvedEstimateType = Number(estimateType) || 2;
 
-  const [form, setForm] = useState(() => toFormState({}));
+  const [form, setForm] = useState(() => toFormState({ estimateType: resolvedEstimateType }));
   const detail = useMemo(
-    () => createEmptyDetail(form.estimateType || estimateType),
-    [estimateType, form.estimateType],
+    () => createEmptyDetail(Number(form.estimateType) || resolvedEstimateType),
+    [resolvedEstimateType, form.estimateType],
   );
   const [lookups, setLookups] = useState({
     cargos: [],
@@ -107,6 +108,7 @@ export default function AddEstimatePage() {
         setForm((current) => {
           let next = {
             ...current,
+            estimateType: Number(resolvedType) || resolvedEstimateType,
             periodId: periodId || current.periodId || '',
             portLegs: (current.portLegs || []).length ? current.portLegs : [createEmptyPortLeg()],
           };
@@ -158,7 +160,7 @@ export default function AddEstimatePage() {
     return () => {
       cancelled = true;
     };
-  }, [coaId, estimateType, periodId, replicateFrom, useTestData]);
+  }, [coaId, estimateType, resolvedEstimateType, periodId, replicateFrom, useTestData]);
 
   const updateField = useCallback((key, value) => {
     const next = ESTIMATE_DECIMAL_FIELDS.has(key)

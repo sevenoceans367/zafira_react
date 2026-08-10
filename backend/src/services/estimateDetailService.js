@@ -85,7 +85,10 @@ export async function updateEstimateDetail(id, payload, upload = {}) {
 
 export async function searchVessels(query) {
   if (isDbConfigured()) {
-    return dbSearchVessels(query);
+    const result = await dbSearchVessels(query);
+    // Newer shape: { rows, source, warning }; keep array fallback for safety.
+    if (Array.isArray(result)) return { rows: result };
+    return result;
   }
 
   const term = String(query || '').trim().toLowerCase();
@@ -102,9 +105,12 @@ export async function searchVessels(query) {
       gnrt: '45000',
     },
   ];
-  return mock.filter(
-    (row) => row.name.toLowerCase().includes(term) || row.imoNo.includes(term),
-  );
+  return {
+    rows: mock.filter(
+      (row) => row.name.toLowerCase().includes(term) || row.imoNo.includes(term),
+    ),
+    source: 'mock',
+  };
 }
 
 export async function getVesselEstimatePrefill(vesselId) {

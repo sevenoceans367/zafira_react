@@ -54,8 +54,16 @@ router.get('/estimate_list', async (req, res) => {
 
 router.get('/vessels/search', async (req, res) => {
   try {
-    const rows = await searchVessels(req.query.q);
-    res.json({ rows });
+    const result = await searchVessels(req.query.q);
+    if (Array.isArray(result)) {
+      res.json({ rows: result });
+      return;
+    }
+    res.json({
+      rows: result.rows || [],
+      source: result.source,
+      warning: result.warning,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message || 'Failed to search vessels.' });

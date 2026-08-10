@@ -1570,52 +1570,78 @@ async function searchVesselsFromNavApi(term) {
   const token = process.env.NAVAPI_SHIP_DETAILS_TOKEN
     || '06a7fcf47f827decf942ee99fb05f8a21718038108684';
 
-  let response;
-  try {
-    response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ Q: term }),
-    });
-  } catch (err) {
-    throw new Error(`NavAPI unreachable: ${err.message || err}`);
+  async function postShipDetails(query) {
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ Q: query }),
+      });
+    } catch (err) {
+      throw new Error(`NavAPI unreachable: ${err.message || err}`);
+    }
+
+    if (!response.ok) {
+      const bodyText = await response.text().catch(() => '');
+      throw new Error(
+        `Vessel API returned ${response.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ''}`,
+      );
+    }
+
+    return response.json();
   }
 
-  if (!response.ok) {
-    const bodyText = await response.text().catch(() => '');
-    throw new Error(
-      `Vessel API returned ${response.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ''}`,
-    );
+  const queries = [term];
+  // NavAPI sometimes matches IMO only with an "IMO" prefix.
+  if (/^\d{6,}$/.test(term)) {
+    queries.push(`IMO${term}`);
   }
 
-  const payload = await response.json();
-  const resultMessage = payload?.Metadata?.ResultMessage;
-  const apiResults = Array.isArray(payload?.ApiResults) ? payload.ApiResults : null;
+  let payload = null;
+  let usedQuery = term;
+  let apiResults = [];
+  let resultMessage = '';
 
-  // Accept results even if ResultMessage casing/wording differs slightly.
-  if (!apiResults) {
-    throw new Error(
-      `NavAPI bad payload (ResultMessage=${resultMessage ?? 'n/a'}, ApiResults missing)`,
-    );
+  for (const query of queries) {
+    payload = await postShipDetails(query);
+    resultMessage = payload?.Metadata?.ResultMessage || '';
+    const batch = Array.isArray(payload?.ApiResults) ? payload.ApiResults : null;
+    if (!batch) {
+      throw new Error(
+        `NavAPI bad payload (ResultMessage=${resultMessage || 'n/a'}, ApiResults missing)`,
+      );
+    }
+    usedQuery = query;
+    apiResults = batch;
+    if (apiResults.length) break;
   }
+
   if (resultMessage && String(resultMessage).toLowerCase() !== 'success' && apiResults.length === 0) {
     throw new Error(`NavAPI ResultMessage=${resultMessage}`);
   }
   if (!apiResults.length) {
-    console.warn('NavAPI ShipDetails returned 0 ApiResults for:', term);
-    return [];
+    console.warn('NavAPI ShipDetails returned 0 ApiResults for:', queries.join(' / '));
+    const err = new Error(
+      `NavAPI returned no vessels for "${term}"`
+      + (usedQuery !== term ? ` (also tried "${usedQuery}")` : '')
+      + (resultMessage ? ` [ResultMessage=${resultMessage}]` : ''),
+    );
+    err.code = 'NAVAPI_EMPTY';
+    throw err;
   }
 
   const pool = getPool();
   const results = [];
+  let upsertFailures = 0;
 
   for (const ship of apiResults) {
     try {
       const shipName = String(ship.ShipName || '').trim();
-      const imoNo = String(ship.ImoNumber || '').trim();
+      const imoNo = String(ship.ImoNumber || '').replace(/^IMO/i, '').trim();
       if (!shipName && !imoNo) continue;
 
       const shipType = String(ship.ShipType || '').trim();
@@ -1700,6 +1726,7 @@ async function searchVesselsFromNavApi(term) {
         });
       }
     } catch (shipErr) {
+      upsertFailures += 1;
       console.error(
         'NavAPI vessel upsert failed for',
         ship?.ShipName || ship?.ImoNumber || 'unknown',
@@ -1707,6 +1734,13 @@ async function searchVesselsFromNavApi(term) {
         shipErr.message || shipErr,
       );
     }
+  }
+
+  if (!results.length && apiResults.length) {
+    throw new Error(
+      `NavAPI returned ${apiResults.length} vessel(s) for "${term}" but DB insert failed`
+      + (upsertFailures ? ` (${upsertFailures} error(s) — check server logs)` : ''),
+    );
   }
 
   return results;
@@ -1738,28 +1772,36 @@ export async function dbSearchVessels(query) {
   const term = normalizeVesselSearchTerm(query);
   if (term.length < 2) return { rows: [] };
 
-  const pool = getPool();
-  const like = `%${term}%`;
-  const [rows] = await pool.query(
-    `SELECT VESSEL_IMO_ID, VESSEL_NAME, IMO_NO, DWT, VESSEL_TYPE, VESSEL_TYPE_API,
-            COUNTRY_CODE, FLAG, LOA, GRT_NRT
-     FROM vessel_imo_master
-     WHERE VESSEL_NAME LIKE ? OR IMO_NO LIKE ?
-     ORDER BY VESSEL_NAME
-     LIMIT 25`,
-    [like, like],
-  );
+  // Temporary testing flag: skip vessel_imo_master and always query NavAPI.
+  const navApiOnly = String(process.env.VESSEL_SEARCH_NAVAPI_ONLY || '').toLowerCase();
+  const skipLocalDb = navApiOnly === '1' || navApiOnly === 'true' || navApiOnly === 'yes';
 
-  if (rows.length) {
-    return {
-      rows: rows.map((row) => mapDbVesselSearchRow(row, 'From DB')),
-      source: 'db',
-    };
+  if (!skipLocalDb) {
+    const pool = getPool();
+    const like = `%${term}%`;
+    const [rows] = await pool.query(
+      `SELECT VESSEL_IMO_ID, VESSEL_NAME, IMO_NO, DWT, VESSEL_TYPE, VESSEL_TYPE_API,
+              COUNTRY_CODE, FLAG, LOA, GRT_NRT
+       FROM vessel_imo_master
+       WHERE VESSEL_NAME LIKE ? OR IMO_NO LIKE ?
+       ORDER BY VESSEL_NAME
+       LIMIT 25`,
+      [like, like],
+    );
+
+    if (rows.length) {
+      return {
+        rows: rows.map((row) => mapDbVesselSearchRow(row, 'From DB')),
+        source: 'db',
+      };
+    }
+  } else {
+    console.info('Vessel search: VESSEL_SEARCH_NAVAPI_ONLY enabled — skipping local DB for:', term);
   }
 
   // PHP transport waits until 3+ chars before calling the external API
   if (term.length < 3) {
-    return { rows: [], source: 'db', warning: 'Type at least 3 characters to search NavAPI.' };
+    return { rows: [], source: 'navapi', warning: 'Type at least 3 characters to search NavAPI.' };
   }
 
   try {

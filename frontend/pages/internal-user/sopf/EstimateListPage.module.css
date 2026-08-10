@@ -114,10 +114,17 @@ th.itemColumn {
 
 .compareHeader {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
+}
+
+.compareHeaderIcon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
 }
 
 .compareCheckbox {
@@ -131,8 +138,8 @@ th.itemColumn {
   width: 1%;
 }
 
-/* Beat .zafira-data-table thead th { text-align: left } */
-:global(.zafira-data-table) thead th.actionColumn {
+/* Spot Business list — center all headers (beats .zafira-data-table thead th left align) */
+:global(#fce_list.zafira-data-table) thead th {
   text-align: center;
 }
 

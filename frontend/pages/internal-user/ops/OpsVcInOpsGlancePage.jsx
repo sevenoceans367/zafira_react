@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
+  DownloadIcon,
   FilterField,
   LoadingOverlay,
   TextInput,
@@ -262,7 +263,7 @@ export default function OpsVcInOpsGlancePage() {
                   <Link to={appPath(`/internal-user/sopf/viewestimate?id=${row.fcaId}&rttype=1`)}>FVF</Link>
                   <span className={styles.muted}> | </span>
                   <a href={`/api/internal-user/sopf/estimate/${encodeURIComponent(row.fcaId)}/pdf`} title="Download PDF">
-                    <i className="bi bi-download" aria-hidden />
+                    <DownloadIcon size={16} title="" />
                   </a>
                   <div>
                     <Link

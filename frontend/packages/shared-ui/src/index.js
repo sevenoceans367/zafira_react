@@ -10,6 +10,7 @@ export { default as BusinessPageHeader } from './components/BusinessPageHeader/B
 export { default as PageHeaderSearch } from './components/PageHeaderSearch/PageHeaderSearch.jsx';
 export { default as SummaryCard, SummaryCardGrid } from './components/SummaryCard/SummaryCard.jsx';
 export { default as Button } from './components/Button/Button.jsx';
+export { default as DownloadIcon } from './components/icons/DownloadIcon.jsx';
 export { default as GlobalButton } from './components/GlobalButton.jsx';
 export { default as AddCircleButton } from './components/AddCircleButton/AddCircleButton.jsx';
 export {

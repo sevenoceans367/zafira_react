@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
 import AddCircleButton from '../AddCircleButton/AddCircleButton.jsx';
+import DownloadIcon from '../icons/DownloadIcon.jsx';
 import styles from './Button.module.css';
 
 const VARIANT_CLASS = {
@@ -24,6 +25,7 @@ const VARIANT_CLASS = {
 /**
  * Design-system button.
  * When `label` is "+", renders the shared circular AddCircleButton.
+ * When `icon` is "download", uses the brand DownloadIcon (gloablDownload.svg).
  */
 const Button = ({
   href,
@@ -31,6 +33,8 @@ const Button = ({
   onClick,
   label,
   icon,
+  iconSrc,
+  iconAlt = '',
   variant = 'outline',
   type = 'button',
   disabled = false,
@@ -60,14 +64,32 @@ const Button = ({
     .filter(Boolean)
     .join(' ');
 
-  const accessibleName = ariaLabel || label || icon;
+  const accessibleName = ariaLabel || label || icon || iconAlt;
   const resolvedIcon =
     variant === 'add' && (!icon || icon === 'plus') ? 'plus-circle' : icon;
+  const iconSize = size === 'sm' ? 14 : 16;
+
+  let iconNode = null;
+  if (iconSrc) {
+    iconNode = (
+      <img
+        src={iconSrc}
+        alt={iconAlt}
+        className={styles.icon}
+        aria-hidden={!iconAlt}
+        width={iconSize}
+        height={iconSize}
+      />
+    );
+  } else if (resolvedIcon === 'download') {
+    iconNode = <DownloadIcon className={styles.icon} size={iconSize} title="" />;
+  } else if (resolvedIcon) {
+    iconNode = <i className={`bi bi-${resolvedIcon} ${styles.icon}`} aria-hidden />;
+  }
+
   const content = (
     <>
-      {resolvedIcon ? (
-        <i className={`bi bi-${resolvedIcon} ${styles.icon}`} aria-hidden />
-      ) : null}
+      {iconNode}
       {label}
     </>
   );

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
+  DownloadIcon,
   LoadingOverlay,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -117,7 +118,7 @@ export default function OpsVcHistoryPage() {
                   <Link to={appPath(`/internal-user/sopf/viewestimate?id=${row.fcaId}&rttype=4`)}>FVF</Link>
                   <span className={styles.muted}> | </span>
                   <a href={`/api/internal-user/sopf/estimate/${encodeURIComponent(row.fcaId)}/pdf`} title="Download PDF">
-                    <i className="bi bi-download" aria-hidden />
+                    <DownloadIcon size={16} title="" />
                   </a>
                   <div>
                     <Link

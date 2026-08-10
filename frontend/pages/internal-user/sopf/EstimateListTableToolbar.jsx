@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Button } from '@bainbridge/shared-ui';
+import { Button, DownloadIcon } from '@bainbridge/shared-ui';
 import styles from './EstimateListTableToolbar.module.css';
 
 const DOWNLOAD_OPTIONS = [
-  { id: 'csv', label: 'Download CSV', icon: '📊' },
-  { id: 'pdf', label: 'Download PDF', icon: '📄' },
-  { id: 'email', label: 'Email attachment', icon: '✉️' },
+  { id: 'csv', label: 'Download CSV' },
+  { id: 'pdf', label: 'Download PDF' },
+  { id: 'email', label: 'Email attachment' },
 ];
 
 export default function EstimateListTableToolbar({
@@ -69,7 +69,7 @@ export default function EstimateListTableToolbar({
             aria-haspopup="menu"
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <i className="bi bi-three-dots" aria-hidden />
+            <DownloadIcon size={18} title="" />
           </button>
           {menuOpen ? (
             <div className={styles.menuDropdown} role="menu">
@@ -83,7 +83,7 @@ export default function EstimateListTableToolbar({
                 >
                   <span>{option.label}</span>
                   <span className={styles.menuIcon} aria-hidden>
-                    {option.icon}
+                    <DownloadIcon size={16} title="" />
                   </span>
                 </button>
               ))}

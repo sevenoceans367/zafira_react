@@ -118,6 +118,9 @@ const AppHeader = ({
   const notificationCount = notifications.length;
   const notificationBadgeCount = notificationCount > 9 ? '9+' : notificationCount;
   const userInitial = (userLabel.trim().charAt(0) || 'U').toUpperCase();
+  const middleCrumbs = (pageTrail?.breadcrumbs ?? []).filter(
+    (crumb) => crumb?.label && crumb.label !== 'Home',
+  );
 
   return (
     <>
@@ -135,14 +138,11 @@ const AppHeader = ({
           {pageTrail && (
             <nav className={styles.headerBreadcrumbWrap} aria-label="Breadcrumb">
               <ol className={styles.headerBreadcrumb}>
-                <li>
-                  <a href={pageTrail.homeHref} className={styles.headerBreadcrumbLink}>
-                    <i className="bi bi-house-door-fill"></i> Home
-                  </a>
-                </li>
-                {(pageTrail.breadcrumbs ?? []).map((crumb, index) => (
+                {middleCrumbs.map((crumb, index) => (
                   <React.Fragment key={`${crumb.label}-${index}`}>
-                    <li className={styles.headerBreadcrumbSeparator}>/</li>
+                    {index > 0 ? (
+                      <li className={styles.headerBreadcrumbSeparator}>/</li>
+                    ) : null}
                     <li>
                       {crumb.href ? (
                         <a href={crumb.href} className={styles.headerBreadcrumbMuted}>
@@ -156,7 +156,9 @@ const AppHeader = ({
                 ))}
                 {pageTrail.currentPage && (
                   <>
-                    <li className={styles.headerBreadcrumbSeparator}>/</li>
+                    {middleCrumbs.length > 0 ? (
+                      <li className={styles.headerBreadcrumbSeparator}>/</li>
+                    ) : null}
                     <li className={styles.headerBreadcrumbCurrent}>{pageTrail.currentPage}</li>
                   </>
                 )}

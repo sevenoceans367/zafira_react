@@ -10,7 +10,8 @@ import { todoListAppPath } from '../constants/todoListPageHeaders.js';
 import { combinedSoaPayableAppPath, combinedSoaPayableTcAppPath } from '../constants/combinedSoaPayablePageHeaders.js';
 import { SOPF_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
 import helpIcon from '../assets/help-icon.svg';
-import fleetIcon from '../assets/icons/fleet-icon.svg';
+import fleetIcon from '../assets/vessel.png';
+import elibraryIcon from '../assets/elibrary.svg';
 import CoasSidebarTree from './coa/CoasSidebarTree.jsx';
 import OpsVcSidebarTree from './ops/OpsVcSidebarTree.jsx';
 import OpsTcSidebarTree from './ops/OpsTcSidebarTree.jsx';
@@ -59,7 +60,8 @@ const PERIOD_CONTRACT_LINK = {
 };
 
 const ELIBRARY_LINK = {
-  icon: 'bi-book',
+  iconSrc: elibraryIcon,
+  iconAlt: 'E-Library',
   label: 'E-Library',
 };
 
@@ -84,12 +86,7 @@ export default function InternalUserSidebar({ isOpen }) {
   return (
     <AppSidebar isOpen={isOpen}>
       <ul className="sidebar-menu">
-        <SidebarLink
-          to={appPath('/')}
-          icon="bi-house"
-          label="Home"
-          active={currentPath === '/'}
-        />
+        <SidebarSection label="SOPreFix" />
         <SidebarLink
           to={appPath(HELP_DESK_HREF)}
           iconSrc={helpIcon}
@@ -100,7 +97,7 @@ export default function InternalUserSidebar({ isOpen }) {
 
         {inSopf ? (
           <>
-            <SidebarSection label="SOPF" />
+            <SidebarSection label="CHARTERING DESK" />
             {SOPF_SIDEBAR_ITEMS.map((item) => (
               <SidebarLink
                 key={item.id}
@@ -139,7 +136,8 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to={elibraryAppPath('vc')}
-              icon={ELIBRARY_LINK.icon}
+              iconSrc={ELIBRARY_LINK.iconSrc}
+              iconAlt={ELIBRARY_LINK.iconAlt}
               label={ELIBRARY_LINK.label}
               active={currentPath.startsWith('/internal-user/vc/elibrary')}
             />
@@ -219,7 +217,8 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to={elibraryAppPath('tc')}
-              icon={ELIBRARY_LINK.icon}
+              iconSrc={ELIBRARY_LINK.iconSrc}
+              iconAlt={ELIBRARY_LINK.iconAlt}
               label={ELIBRARY_LINK.label}
               active={currentPath.startsWith('/internal-user/tc/elibrary')}
             />

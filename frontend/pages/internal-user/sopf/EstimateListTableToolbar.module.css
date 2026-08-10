@@ -51,9 +51,11 @@
   outline-offset: 2px;
 }
 
-.menuTrigger i {
+.menuTrigger i,
+.menuTrigger svg {
   font-size: 18px;
   line-height: 1;
+  display: block;
 }
 
 .menuDropdown {
@@ -93,4 +95,6 @@
 .menuIcon {
   font-size: 14px;
   line-height: 1;
+  display: inline-flex;
+  color: #374151;
 }

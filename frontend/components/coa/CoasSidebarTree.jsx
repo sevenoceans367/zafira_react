@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
+import coaIcon from '../../assets/COA.svg';
 
 const COA_ITEMS = [
   { id: 'running', label: 'Running COAs' },
@@ -44,7 +45,7 @@ export default function CoasSidebarTree({ isOpen }) {
         aria-expanded={expanded}
         aria-haspopup="true"
       >
-        <i className="bi bi-file-earmark-text icon" aria-hidden />
+        <img src={coaIcon} alt="" className="icon" aria-hidden />
         {isOpen ? <span>COAs</span> : null}
         {isOpen ? (
           <i className="bi bi-chevron-down master-chevron" aria-hidden />

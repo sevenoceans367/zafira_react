@@ -6,7 +6,9 @@ import { periodContractAppPath } from './periodContractModule.js';
 import { elibraryAppPath } from './elibraryModule.js';
 import { userGuidesAppPath } from './userGuidesModule.js';
 import spotIcon from '../assets/icons/spot-icon.svg';
-import fleetIcon from '../assets/icons/fleet-icon.svg';
+import fleetIcon from '../assets/vessel.png';
+import vesselPositionIcon from '../assets/vesselPosition.svg';
+import elibraryIcon from '../assets/elibrary.svg';
 
 export const SOPF_SIDEBAR_ITEMS = [
   {
@@ -40,7 +42,8 @@ export const SOPF_SIDEBAR_ITEMS = [
     id: 'elibrary',
     href: elibraryAppPath('sopf'),
     label: 'E-Library',
-    icon: 'bi-book',
+    iconSrc: elibraryIcon,
+    iconAlt: 'E-Library',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/elibrary'),
   },
   {
@@ -54,7 +57,8 @@ export const SOPF_SIDEBAR_ITEMS = [
     id: 'vessel_position',
     href: '/internal-user/sopf/vessel_position',
     label: 'Vessel Positions',
-    icon: 'bi-geo-alt',
+    iconSrc: vesselPositionIcon,
+    iconAlt: 'Vessel Positions',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/vessel_position'),
   },
 ];

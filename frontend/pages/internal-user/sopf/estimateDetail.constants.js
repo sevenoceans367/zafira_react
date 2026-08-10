@@ -32,6 +32,7 @@ export const ESTIMATE_TYPE_LABELS = {
 };
 
 export const PASSAGE_TYPE_OPTIONS = [
+  { value: '', label: '---Select---' },
   { value: '1', label: 'Ballast' },
   { value: '2', label: 'Laden' },
 ];
@@ -258,7 +259,7 @@ export function createEmptyPortLeg() {
     fromPortName: '',
     toPortId: '',
     toPortName: '',
-    passageType: '1',
+    passageType: '',
     speedType: '1',
     distance: '',
     seaDays: '',
@@ -477,7 +478,7 @@ export function createEmptyPassageLocationRow() {
     id: newRowId('loc'),
     fromLocation: '',
     toLocation: '',
-    passageType: '1',
+    passageType: '',
     speedType: '1',
     distance: '',
   };

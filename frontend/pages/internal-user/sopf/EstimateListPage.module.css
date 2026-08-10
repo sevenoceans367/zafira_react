@@ -131,6 +131,11 @@ th.itemColumn {
   width: 1%;
 }
 
+/* Beat .zafira-data-table thead th { text-align: left } */
+:global(.zafira-data-table) thead th.actionColumn {
+  text-align: center;
+}
+
 .cargoQtyColumn,
 .tceColumn {
   width: 1%;

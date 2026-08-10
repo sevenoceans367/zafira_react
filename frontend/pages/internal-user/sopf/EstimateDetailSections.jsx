@@ -541,6 +541,7 @@ export default function EstimateDetailSections({
                 <input id="transDate" value={form.cpDate || form.transDate || ''} readOnly />
               ) : (
                 <DmyDateInput
+                  allowClear={false}
                   id="transDate"
                   value={form.cpDate || form.transDate || ''}
                   onChange={(value) => applyPatch({
@@ -577,6 +578,7 @@ export default function EstimateDetailSections({
                 <input id="laycanStart" value={form.laycanStart || ''} readOnly />
               ) : (
                 <DmyDateInput
+                  allowClear={false}
                   id="laycanStart"
                   enableTime
                   value={form.laycanStart || ''}
@@ -592,6 +594,7 @@ export default function EstimateDetailSections({
                 <input id="laycanEnd" value={form.laycanEnd || ''} readOnly />
               ) : (
                 <DmyDateInput
+                  allowClear={false}
                   id="laycanEnd"
                   enableTime
                   value={form.laycanEnd || ''}
@@ -706,7 +709,7 @@ export default function EstimateDetailSections({
                       <tr>
                         <th className={styles.portIdxCol}>#</th>
                         <th>From Port</th>
-                        <th>Arrival</th>
+                        <th>{legIndex > 0 ? 'Arrival' : null}</th>
                         <th>Departure</th>
                       </tr>
                     </thead>
@@ -740,23 +743,27 @@ export default function EstimateDetailSections({
                           )}
                         </td>
                         <td>
-                          {readOnly ? (
-                            <input value={leg.fromArrival || ''} readOnly />
-                          ) : (
-                            <DmyDateInput
-                              id={`fromArrival_${leg.id}`}
-                              enableTime
-                              className=""
-                              value={leg.fromArrival || ''}
-                              onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
-                            />
-                          )}
+                          {legIndex > 0 ? (
+                            readOnly ? (
+                              <input value={leg.fromArrival || ''} readOnly />
+                            ) : (
+                              <DmyDateInput
+                                allowClear={false}
+                                id={`fromArrival_${leg.id}`}
+                                enableTime
+                                className=""
+                                value={leg.fromArrival || ''}
+                                onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
+                              />
+                            )
+                          ) : null}
                         </td>
                         <td>
                           {readOnly ? (
                             <input value={leg.fromDeparture || ''} readOnly />
                           ) : (
                             <DmyDateInput
+                              allowClear={false}
                               id={`fromDeparture_${leg.id}`}
                               enableTime
                               className=""
@@ -807,6 +814,7 @@ export default function EstimateDetailSections({
                             <input value={leg.toArrival || ''} readOnly />
                           ) : (
                             <DmyDateInput
+                              allowClear={false}
                               id={`toArrival_${leg.id}`}
                               enableTime
                               className=""
@@ -820,6 +828,7 @@ export default function EstimateDetailSections({
                             <input value={leg.toDeparture || ''} readOnly />
                           ) : (
                             <DmyDateInput
+                              allowClear={false}
                               id={`toDeparture_${leg.id}`}
                               enableTime
                               className=""
@@ -857,12 +866,12 @@ export default function EstimateDetailSections({
                         <td>
                           <select
                             id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
-                            value={leg.passageType}
+                            value={leg.passageType || ''}
                             disabled={readOnly}
                             onChange={(e) => updateRow('portLegs', leg.id, { passageType: e.target.value })}
                           >
                             {PASSAGE_TYPE_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
+                              <option key={o.value || 'blank'} value={o.value}>{o.label}</option>
                             ))}
                           </select>
                         </td>

@@ -277,12 +277,12 @@ export default function EstimateAdvancedSections({
                     </td>
                     <td>
                       <select
-                        value={row.passageType}
+                        value={row.passageType || ''}
                         disabled={readOnly}
                         onChange={(e) => updateRow('passageLocations', row.id, { passageType: e.target.value })}
                       >
                         {PASSAGE_TYPE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
+                          <option key={o.value || 'blank'} value={o.value}>{o.label}</option>
                         ))}
                       </select>
                     </td>
@@ -456,6 +456,7 @@ export default function EstimateAdvancedSections({
                           <input value={row.from || ''} readOnly />
                         ) : (
                           <DmyDateInput
+                            allowClear={false}
                             id={`offHireFrom_${row.id}`}
                             enableTime
                             className=""
@@ -469,6 +470,7 @@ export default function EstimateAdvancedSections({
                           <input value={row.to || ''} readOnly />
                         ) : (
                           <DmyDateInput
+                            allowClear={false}
                             id={`offHireTo_${row.id}`}
                             enableTime
                             className=""
@@ -611,6 +613,7 @@ export default function EstimateAdvancedSections({
                         <input value={row.bunkerDate || ''} readOnly />
                       ) : (
                         <DmyDateInput
+                          allowClear={false}
                           id={`delBunDate_${row.id}`}
                           enableTime
                           className=""
@@ -679,6 +682,7 @@ export default function EstimateAdvancedSections({
                         <input value={row.bunkerDate || ''} readOnly />
                       ) : (
                         <DmyDateInput
+                          allowClear={false}
                           id={`reDelBunDate_${row.id}`}
                           enableTime
                           className=""
@@ -801,6 +805,7 @@ export default function EstimateAdvancedSections({
                         <input value={row.eventDate || ''} readOnly />
                       ) : (
                         <DmyDateInput
+                          allowClear={false}
                           id={`voyageEventDate_${row.id}`}
                           enableTime
                           className=""

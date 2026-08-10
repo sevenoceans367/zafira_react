@@ -101,6 +101,9 @@ function applyCommittedValue(fp, raw) {
  *
  * With enableTime: three-step picker —
  * 1) calendar date, 2) hour, 3) minute; picking a minute closes.
+ *
+ * @param {boolean} [allowClear=true] When false, an existing value cannot be
+ *   cleared (keyboard delete / empty blur restores the last committed date).
  */
 const DmyDateInput = ({
   value = '',
@@ -112,15 +115,18 @@ const DmyDateInput = ({
   required = false,
   size,
   enableTime = false,
+  allowClear = true,
 }) => {
   const inputRef = useRef(null);
   const fpRef = useRef(null);
   const onChangeRef = useRef(onChange);
   const valueRef = useRef(sanitizeValue(value));
+  const allowClearRef = useRef(allowClear);
   const stepRef = useRef('date');
   const pendingHourRef = useRef(0);
   const pendingDateRef = useRef(null);
   onChangeRef.current = onChange;
+  allowClearRef.current = allowClear;
 
   const resolvedPlaceholder = placeholder
     || (enableTime ? 'dd-mm-yyyy HH:MM' : 'dd-mm-yyyy');
@@ -196,6 +202,10 @@ const DmyDateInput = ({
     };
 
     const clearInput = (fp) => {
+      if (!allowClearRef.current && valueRef.current) {
+        applyCommittedValue(fp, valueRef.current);
+        return;
+      }
       suppressChange = true;
       fp.clear(false);
       suppressChange = false;
@@ -208,6 +218,10 @@ const DmyDateInput = ({
     const commitRawInput = (fp, raw) => {
       const cleaned = sanitizeValue(raw);
       if (!cleaned) {
+        if (!allowClearRef.current && valueRef.current) {
+          applyCommittedValue(fp, valueRef.current);
+          return true;
+        }
         clearInput(fp);
         return true;
       }

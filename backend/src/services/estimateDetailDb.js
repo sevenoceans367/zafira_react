@@ -1544,6 +1544,26 @@ function formatVesselSearchName(vesselName, countryCode, shipType, imoNo) {
   return meta ? `${name}(${meta})` : name;
 }
 
+/** Empty / non-numeric → null (avoids STRICT mode errors on DECIMAL/FLOAT/INT). */
+function toSqlNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(String(value).replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+function toSqlInt(value) {
+  const n = toSqlNumber(value);
+  if (n == null) return null;
+  return Math.trunc(n);
+}
+
+function toSqlText(value, maxLen = 0) {
+  if (value === null || value === undefined) return '';
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  if (maxLen > 0 && text.length > maxLen) return text.slice(0, maxLen);
+  return text;
+}
+
 function mapDbVesselSearchRow(row, status = 'From DB') {
   const shipType = row.VESSEL_TYPE_API || '';
   return {
@@ -1637,6 +1657,7 @@ async function searchVesselsFromNavApi(term) {
   const pool = getPool();
   const results = [];
   let upsertFailures = 0;
+  let firstUpsertError = '';
 
   for (const ship of apiResults) {
     try {
@@ -1646,10 +1667,11 @@ async function searchVesselsFromNavApi(term) {
 
       const shipType = String(ship.ShipType || '').trim();
       const countryCode = String(ship.CountryCode || '').trim();
-      const dwt = ship.DeadWeight ?? '';
+      const dwt = toSqlNumber(ship.DeadWeight);
       const businessTypeId = businessTypeFromShipType(shipType);
       const vesselTypeId = vesselTypeIdFromDwt(businessTypeId, dwt) || null;
-      const grossTon = ship.GrossTonnage ?? '';
+      const grossTon = toSqlNumber(ship.GrossTonnage);
+      const mmsiNo = toSqlInt(ship.MmsiNumber);
 
       const [existing] = imoNo
         ? await pool.query(
@@ -1663,30 +1685,35 @@ async function searchVesselsFromNavApi(term) {
         : [[]];
 
       if (!existing.length) {
+        // ATTACHMENT / ATTACHMENT_NAME are NOT NULL with no default on legacy schema.
+        // Numeric columns must not get '' under MySQL STRICT mode.
         const [insertResult] = await pool.query(
           `INSERT INTO vessel_imo_master (
             VESSEL_NAME, VESSEL_TYPE_API, COUNTRY_CODE, SHIP_FLAG, DWT, YEARBUILT,
             CALL_SIGN, GROSS_TON, MMSI_NO, SHIP_MANAGER, SHIP_OWNER, OPERATION_STAT,
-            IMO_NO, BUSINESSTYPEID, MCOMPANYID, GRT_NRT, VESSEL_TYPE
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            IMO_NO, BUSINESSTYPEID, MCOMPANYID, GRT_NRT, VESSEL_TYPE,
+            ATTACHMENT, ATTACHMENT_NAME
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            shipName,
-            shipType,
-            countryCode,
-            ship.ShipFlag ?? '',
+            toSqlText(shipName, 200),
+            toSqlText(shipType, 1500),
+            toSqlText(countryCode, 200),
+            toSqlText(ship.ShipFlag ?? '', 200),
             dwt,
-            ship.YearOfBuilt ?? '',
-            ship.CallSign ?? '',
+            toSqlText(ship.YearOfBuilt ?? '', 50),
+            toSqlText(ship.CallSign ?? '', 100),
             grossTon,
-            ship.MmsiNumber ?? '',
-            typeof ship.ShipManager === 'string' ? ship.ShipManager : JSON.stringify(ship.ShipManager ?? ''),
-            typeof ship.ShipOwner === 'string' ? ship.ShipOwner : JSON.stringify(ship.ShipOwner ?? ''),
-            ship.OperationStatus ?? '',
+            mmsiNo,
+            toSqlText(ship.ShipManager ?? ''),
+            toSqlText(ship.ShipOwner ?? ''),
+            toSqlText(ship.OperationStatus ?? ''),
             imoNo || null,
-            businessTypeId,
-            appContext.companyId,
-            grossTon,
+            businessTypeId != null ? String(businessTypeId) : null,
+            toSqlInt(appContext.companyId),
+            grossTon != null ? String(grossTon) : '',
             vesselTypeId,
+            '',
+            '',
           ],
         );
         const newId = insertResult.insertId;
@@ -1695,12 +1722,12 @@ async function searchVesselsFromNavApi(term) {
           name: formatVesselSearchName(shipName, countryCode, shipType, imoNo),
           vesselName: shipName,
           imoNo,
-          dwt: dwt !== '' && dwt != null ? String(dwt) : '',
+          dwt: dwt != null ? String(dwt) : '',
           vesselType: vesselTypeId != null ? String(vesselTypeId) : '',
           shipType,
           flag: '',
           loa: '',
-          gnrt: grossTon !== '' && grossTon != null ? String(grossTon) : '',
+          gnrt: grossTon != null ? String(grossTon) : '',
           status: 'From API',
         });
       } else {
@@ -1709,29 +1736,36 @@ async function searchVesselsFromNavApi(term) {
           `UPDATE vessel_imo_master
            SET VESSEL_TYPE_API = ?, DWT = ?, GRT_NRT = ?
            WHERE VESSEL_IMO_ID = ?`,
-          [shipType, dwt, grossTon, row.VESSEL_IMO_ID],
+          [
+            toSqlText(shipType, 1500),
+            dwt,
+            grossTon != null ? String(grossTon) : '',
+            row.VESSEL_IMO_ID,
+          ],
         );
         results.push({
           id: String(row.VESSEL_IMO_ID),
           name: formatVesselSearchName(row.VESSEL_NAME || shipName, countryCode, shipType, imoNo),
           vesselName: row.VESSEL_NAME || shipName,
           imoNo: row.IMO_NO || imoNo,
-          dwt: dwt !== '' && dwt != null ? String(dwt) : String(row.DWT ?? ''),
+          dwt: dwt != null ? String(dwt) : String(row.DWT ?? ''),
           vesselType: row.VESSEL_TYPE != null ? String(row.VESSEL_TYPE) : '',
           shipType,
           flag: row.FLAG != null ? String(row.FLAG) : '',
           loa: row.LOA ?? '',
-          gnrt: grossTon !== '' && grossTon != null ? String(grossTon) : String(row.GRT_NRT ?? ''),
+          gnrt: grossTon != null ? String(grossTon) : String(row.GRT_NRT ?? ''),
           status: 'From API',
         });
       }
     } catch (shipErr) {
       upsertFailures += 1;
+      const detail = shipErr.sqlMessage || shipErr.message || String(shipErr);
+      if (!firstUpsertError) firstUpsertError = detail;
       console.error(
         'NavAPI vessel upsert failed for',
         ship?.ShipName || ship?.ImoNumber || 'unknown',
         ':',
-        shipErr.message || shipErr,
+        detail,
       );
     }
   }
@@ -1739,7 +1773,9 @@ async function searchVesselsFromNavApi(term) {
   if (!results.length && apiResults.length) {
     throw new Error(
       `NavAPI returned ${apiResults.length} vessel(s) for "${term}" but DB insert failed`
-      + (upsertFailures ? ` (${upsertFailures} error(s) — check server logs)` : ''),
+      + (upsertFailures ? ` (${upsertFailures} error(s)` : '')
+      + (firstUpsertError ? `: ${firstUpsertError}` : '')
+      + (upsertFailures ? ')' : ''),
     );
   }
 

@@ -16,6 +16,11 @@
   text-align: left;
 }
 
+.control:focus-within {
+  border-color: var(--multiselect-focus-border, var(--color-accent, #f4652c));
+  box-shadow: 0 0 0 2px var(--multiselect-focus-glow, transparent);
+}
+
 .control:disabled {
   opacity: 0.65;
   cursor: not-allowed;
@@ -43,9 +48,15 @@
   max-width: 100%;
   padding: 1px 6px;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--color-accent, #f4652c) 16%, #fff);
-  color: var(--color-accent, #f4652c);
-  border: 1px solid color-mix(in srgb, var(--color-accent, #f4652c) 35%, #fff);
+  background: var(
+    --multiselect-chip-bg,
+    color-mix(in srgb, var(--color-accent, #f4652c) 16%, #fff)
+  );
+  color: var(--multiselect-chip-text, var(--color-accent, #f4652c));
+  border: 1px solid var(
+    --multiselect-chip-border,
+    color-mix(in srgb, var(--color-accent, #f4652c) 35%, #fff)
+  );
   font-size: 11px;
   line-height: 1.35;
 }

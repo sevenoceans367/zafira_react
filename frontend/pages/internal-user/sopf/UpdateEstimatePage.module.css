@@ -500,7 +500,7 @@
   --multiselect-chevron: var(--port-accent);
 }
 
-/* LP = orange, DP = blue, TP/BP = teal — fields/chips match section */
+/* LP = orange, DP = blue, TP/BP = navy — fields/chips match section */
 .portLaytimeLp {
   --port-accent: #f4652c;
   --port-bg: #fdeee6;
@@ -515,11 +515,64 @@
   border-color: #b0c2d9;
 }
 
+/* TP/BP navy palette (solid tokens — no alpha mixes) */
 .portLaytimeTp {
-  --port-accent: #0d9488;
-  --port-bg: #e6f7f5;
+  --port-accent: #274670; /* base: label fill / header text / focus border */
+  --port-bg: #e6eaf1; /* card background (tint) */
+  --port-tint-strong: #d3dae7; /* card border / chip fill / focus glow */
+  --port-line: #8fa1c2; /* field border / chip border / chip text */
   background: var(--port-bg);
-  border-color: #a8d9d9;
+  border-color: var(--port-tint-strong);
+  --color-accent: var(--port-accent);
+  --color-border: var(--port-line);
+  --multiselect-chevron: var(--port-line);
+  --multiselect-chip-bg: var(--port-tint-strong);
+  --multiselect-chip-text: var(--port-line);
+  --multiselect-chip-border: var(--port-line);
+  --multiselect-focus-border: var(--port-accent);
+  --multiselect-focus-glow: var(--port-tint-strong);
+}
+
+.portLaytimeTp .portTable th {
+  color: var(--port-accent);
+}
+
+.portLaytimeTp .portTable thead th {
+  border-bottom-color: var(--port-tint-strong);
+}
+
+.portLaytimeTp .portTable th:not(:last-child),
+.portLaytimeTp .portTable td:not(:last-child) {
+  border-right-color: var(--port-tint-strong);
+}
+
+.portLaytimeTp .portTable input,
+.portLaytimeTp .portTable select {
+  box-shadow: 0 0 0 0.5px var(--port-line);
+}
+
+.portLaytimeTp .portTable input:read-only,
+.portLaytimeTp .portTable select:disabled {
+  box-shadow: 0 0 0 0.5px var(--port-line);
+}
+
+.portLaytimeTp .portTable input:focus,
+.portLaytimeTp .portTable select:focus {
+  box-shadow:
+    0 0 0 1px var(--port-accent),
+    0 0 0 3px var(--port-tint-strong);
+}
+
+.portLaytimeTp .bunkerGradeCell button {
+  box-shadow: 0 0 0 0.5px var(--port-line) !important;
+}
+
+.portLaytimeTp .bunkerGradeCell button:focus,
+.portLaytimeTp .bunkerGradeCell button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 1px var(--port-accent),
+    0 0 0 3px var(--port-tint-strong) !important;
 }
 
 .portLaytimeBlock .tableWrap {
@@ -646,7 +699,7 @@
 
 .portLaytimeTp .portTable select,
 .portLaytimeTp .portTable select:disabled {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M0.5 0.5h8L4.5 5.5z' fill='%230d9488'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M0.5 0.5h8L4.5 5.5z' fill='%23274670'/%3E%3C/svg%3E");
 }
 
 .portLaytimeBlock .portTable input::placeholder {

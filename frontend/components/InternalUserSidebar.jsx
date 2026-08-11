@@ -110,15 +110,19 @@ export default function InternalUserSidebar({ isOpen }) {
             ))}
             <SidebarSection label="COMMERCIAL OPERATIONS" />
             {SOPF_CHARTERING_SIDEBAR_ITEMS.map((item) => (
-              <SidebarLink
-                key={item.id}
-                to={item.href.startsWith('/') ? appPath(item.href) : item.href}
-                icon={item.icon}
-                iconSrc={item.iconSrc}
-                iconAlt={item.iconAlt}
-                label={item.label}
-                active={isSidebarItemActive(currentPath, item)}
-              />
+              <React.Fragment key={item.id}>
+                <SidebarLink
+                  to={item.href.startsWith('/') ? appPath(item.href) : item.href}
+                  icon={item.icon}
+                  iconSrc={item.iconSrc}
+                  iconAlt={item.iconAlt}
+                  label={item.label}
+                  active={isSidebarItemActive(currentPath, item)}
+                />
+                {item.id === 'period' ? (
+                  <CoasSidebarTree isOpen={isOpen} />
+                ) : null}
+              </React.Fragment>
             ))}
           </>
         ) : null}

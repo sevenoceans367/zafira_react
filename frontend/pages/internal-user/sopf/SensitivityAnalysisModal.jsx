@@ -345,9 +345,10 @@ export default function SensitivityAnalysisModal({
           </h4>
           <div className={styles.chromeActions}>
             <Button
-              variant="accent"
+              variant="outline"
               icon="download"
-              label={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
+              ariaLabel={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
+              className={styles.pdfIconBtn}
               onClick={handleGeneratePdf}
               disabled={pdfLoading || !columns.length}
             />

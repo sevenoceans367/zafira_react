@@ -243,15 +243,6 @@ export default function App() {
                 />
               )}
             />
-            <Route
-              path="/internal-user/sopf/coas"
-              element={(
-                <SopfComingSoonPage
-                  title="COAs"
-                  description="COAs chartering desk screens will appear here."
-                />
-              )}
-            />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

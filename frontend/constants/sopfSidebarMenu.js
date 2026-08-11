@@ -7,7 +7,6 @@ import { userGuidesAppPath } from './userGuidesModule.js';
 import spotIcon from '../assets/icons/spot-icon.svg';
 import fleetIcon from '../assets/vessel.png';
 import vesselPositionIcon from '../assets/vesselPosition.svg';
-import coaIcon from '../assets/COA.svg';
 
 /** Links under the SOPF section (above Chartering Desk). */
 export const SOPF_TOP_SIDEBAR_ITEMS = [
@@ -57,14 +56,7 @@ export const SOPF_CHARTERING_SIDEBAR_ITEMS = [
     icon: 'bi-journal-text',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/period-contracts'),
   },
-  {
-    id: 'coas',
-    href: '/internal-user/sopf/coas',
-    label: 'COAs',
-    iconSrc: coaIcon,
-    iconAlt: 'COAs',
-    isActive: (pathname) => pathname.includes('/internal-user/sopf/coas'),
-  },
+  // COAs: shared global tree (same as SOC) — rendered via CoasSidebarTree in InternalUserSidebar
   {
     id: 'pools',
     href: '/internal-user/sopf/pools',

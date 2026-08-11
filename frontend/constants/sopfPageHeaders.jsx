@@ -27,11 +27,6 @@ export const SOPF_PAGE_HEADERS = {
     currentPage: 'Time Charter',
     breadcrumbs: [HOME, SOPF, { label: 'Time Charter' }],
   },
-  coas: {
-    title: 'COAs',
-    currentPage: 'COAs',
-    breadcrumbs: [HOME, SOPF, { label: 'COAs' }],
-  },
   support_ticket: {
     title: 'Help Desk',
     currentPage: 'Help Desk',

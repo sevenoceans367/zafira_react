@@ -11,22 +11,36 @@ export const NAVIGATION_STATUSES = [
   'Under way sailing',
 ];
 
+/** Light basemap for readable sea/land contrast */
 export const MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 export const MAP_ATTRIBUTION = 'Seven Oceans';
 export const DEFAULT_MAP_CENTER = [20, 0];
 export const DEFAULT_MAP_ZOOM = 3;
 export const RESULT_MAP_ZOOM = 6;
 
-export const VESSEL_POPUP_FIELDS = [
+export const VESSEL_DETAIL_FIELDS = [
+  { key: 'ShipName', label: 'Name' },
+  { key: 'OriginDeclared', label: 'Origin' },
   { key: 'DestDeclared', label: 'Destination' },
   { key: 'EtaDeclared', label: 'ETA' },
   { key: 'ImoNumber', label: 'IMO No.' },
   { key: 'MmsiNumber', label: 'MMSI No.' },
-  { key: 'ShipName', label: 'Name' },
-  { key: 'OriginDeclared', label: 'Origin' },
   { key: 'PositionLastUpdated', label: 'Last Position' },
   { key: 'Latitude', label: 'Latitude' },
   { key: 'Longitude', label: 'Longitude' },
   { key: 'DraughtDeclared', label: 'Draught' },
   { key: 'ShipFlag', label: 'Flag' },
 ];
+
+/** @deprecated Prefer VESSEL_DETAIL_FIELDS */
+export const VESSEL_POPUP_FIELDS = VESSEL_DETAIL_FIELDS;
+
+export function vesselDisplayName(vessel) {
+  return String(vessel?.ShipName || vessel?.ImoNumber || 'Vessel').trim() || 'Vessel';
+}
+
+export function vesselField(vessel, key) {
+  const value = vessel?.[key];
+  if (value == null || String(value).trim() === '') return '';
+  return String(value).trim();
+}

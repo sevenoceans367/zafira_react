@@ -74,9 +74,13 @@ export default function EstimateResultsPanels({
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Compliance Results" defaultOpen={false} className={styles.panelInverse}>
+      <CollapsiblePanel
+        title="Compliance Results"
+        defaultOpen={false}
+        className={`${styles.panelInverse} ${styles.compliancePanel}`}
+      >
         {editable ? (
-          <div className={styles.headerGrid} style={{ marginBottom: 12 }}>
+          <div className={styles.compliancePriceRow}>
             <div className={styles.field}>
               <label htmlFor="co2Price">CO2 Price / MT</label>
               <input
@@ -87,25 +91,24 @@ export default function EstimateResultsPanels({
                 onChange={(e) => setField('co2Price', e.target.value)}
               />
             </div>
-            <div className={`${styles.field} ${styles.euaPriceWithRun}`}>
+            <div className={styles.field}>
               <label htmlFor="euaPrice">EUA Price / MT</label>
-              <div className={styles.euaPriceRow}>
-                <input
-                  id="euaPrice"
-                  value={form.euaPrice || ''}
-                  readOnly={readOnly}
-                  placeholder="0.00"
-                  onChange={(e) => setField('euaPrice', e.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="sensitivity"
-                  size="sm"
-                  label="Run"
-                  onClick={() => onRecalc?.()}
-                />
-              </div>
+              <input
+                id="euaPrice"
+                value={form.euaPrice || ''}
+                readOnly={readOnly}
+                placeholder="0.00"
+                onChange={(e) => setField('euaPrice', e.target.value)}
+              />
             </div>
+            <Button
+              type="button"
+              variant="sensitivity"
+              size="sm"
+              label="Run"
+              className={styles.complianceRunBtn}
+              onClick={() => onRecalc?.()}
+            />
           </div>
         ) : (
           <div className={styles.distGrid} style={{ marginBottom: 12 }}>

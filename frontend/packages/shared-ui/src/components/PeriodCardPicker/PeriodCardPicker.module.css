@@ -220,24 +220,15 @@
   font-weight: 700;
 }
 
-.dayStart {
-  background: linear-gradient(
-    90deg,
-    transparent 50%,
-    rgba(84, 154, 231, 0.18) 50%
-  );
-}
-
+/* Full-cell range tint behind start/end circles (half-fill looked odd) */
+.dayStart,
 .dayEnd {
-  background: linear-gradient(
-    90deg,
-    rgba(84, 154, 231, 0.18) 50%,
-    transparent 50%
-  );
+  background: rgba(84, 154, 231, 0.18);
 }
 
 .dayStart.dayEnd {
-  background: transparent;
+  background: rgba(84, 154, 231, 0.18);
+  border-radius: 999px;
 }
 
 .field {

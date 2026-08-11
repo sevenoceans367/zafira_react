@@ -2,6 +2,15 @@ import React, { useMemo } from 'react';
 import { Button } from '@bainbridge/shared-ui';
 import styles from './VesselItineraryModal.module.css';
 
+function Cell({ value }) {
+  const empty = value === undefined || value === null || value === '';
+  return (
+    <td className={empty ? styles.empty : undefined}>
+      {empty ? '—' : value}
+    </td>
+  );
+}
+
 /** PHP getVesselItinerary() — client-side itinerary report from passage legs. */
 export default function VesselItineraryModal({
   open,
@@ -39,12 +48,13 @@ export default function VesselItineraryModal({
     return out;
   }, [legs]);
 
+  const vesselName = (form.vesselName || '').split('(')[0].trim() || '—';
+
   const copyText = useMemo(() => {
-    const vessel = (form.vesselName || '').split('(')[0].trim();
     const header = ['Port', 'Type', 'Arrival', 'Departure', 'Working Days', 'Idle Days', 'Sea Days'];
     const lines = [
       `Voyage No.:\t${form.voyageNo || ''}`,
-      `Vessel:\t${vessel || ''}`,
+      `Vessel:\t${vesselName === '—' ? '' : vesselName}`,
       '',
       header.join('\t'),
       ...rows.map((row) => ([
@@ -58,7 +68,7 @@ export default function VesselItineraryModal({
       ].join('\t'))),
     ];
     return lines.join('\n');
-  }, [form.vesselName, form.voyageNo, rows]);
+  }, [form.voyageNo, rows, vesselName]);
 
   if (!open) return null;
 
@@ -81,13 +91,23 @@ export default function VesselItineraryModal({
       >
         <div className={styles.header}>
           <h3>Itinerary</h3>
-          <button type="button" className={styles.close} onClick={onClose} aria-label="Close">×</button>
+          <button type="button" className={styles.close} onClick={onClose} aria-label="Close">
+            ✕
+          </button>
         </div>
+
         <div className={styles.body}>
           <div className={styles.meta}>
-            <span>Voyage No.: {form.voyageNo || '—'}</span>
-            <span>Vessel: {(form.vesselName || '').split('(')[0].trim() || '—'}</span>
+            <div className={styles.metaItem}>
+              <span className={styles.metaLabel}>Voyage No.</span>
+              <span className={styles.metaValue}>{form.voyageNo || '—'}</span>
+            </div>
+            <div className={styles.metaItem}>
+              <span className={styles.metaLabel}>Vessel</span>
+              <span className={styles.metaValue}>{vesselName}</span>
+            </div>
           </div>
+
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -105,24 +125,39 @@ export default function VesselItineraryModal({
                 {rows.length ? rows.map((row, index) => (
                   <tr key={`${row.port}-${row.type}-${index}`}>
                     <td>{row.port}</td>
-                    <td>{row.type}</td>
-                    <td>{row.arrival || '—'}</td>
-                    <td>{row.departure || '—'}</td>
-                    <td>{row.workingDays || '—'}</td>
-                    <td>{row.idleDays || '—'}</td>
-                    <td>{row.seaDays || '—'}</td>
+                    <td>
+                      <span
+                        className={`${styles.tag} ${
+                          row.type === 'From' ? styles.tagFrom : styles.tagTo
+                        }`}
+                      >
+                        {row.type}
+                      </span>
+                    </td>
+                    <Cell value={row.arrival} />
+                    <Cell value={row.departure} />
+                    <Cell value={row.workingDays} />
+                    <Cell value={row.idleDays} />
+                    <Cell value={row.seaDays} />
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={7}>No passage legs yet.</td>
+                    <td colSpan={7} className={styles.emptyState}>No passage legs yet.</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
+
         <div className={styles.footer}>
-          <Button type="button" variant="close" label="Close" onClick={onClose} />
+          <Button
+            type="button"
+            variant="close"
+            label="Close"
+            className={styles.closeBtn}
+            onClick={onClose}
+          />
           <Button
             type="button"
             variant="outlineAccent"

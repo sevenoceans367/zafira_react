@@ -46,6 +46,7 @@ import { checkVoyageNoExists, fetchCanalOrcRates, searchEstimatePorts } from '..
 import { focusEstimateValidationField, getAddRowBlockMessage } from '../../sopf/estimateValidation.js';
 import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from '../../sopf/estimateInputSanitize.js';
 import styles from './CostSheetEstimatePage.module.css';
+import updateEstimateStyles from '../../sopf/UpdateEstimatePage.module.css';
 
 /** PHP addestimate.php — Voyage No allows a-z, 0-9, and hyphen only. */
 function sanitizeVoyageNo(value) {
@@ -802,15 +803,13 @@ export default function EstimateDetailSections({
         actions={(
           <div className={styles.panelActionGroup}>
             {sofHref ? (
-              <a
-                href={sofHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.panelActionLink}
-                title="SOF"
-              >
-                SOF
-              </a>
+              <Button
+                size="sm"
+                variant="accent"
+                label="SOF"
+                ariaLabel="SOF"
+                to={sofHref}
+              />
             ) : null}
             <Button
               type="button"
@@ -2364,7 +2363,7 @@ export default function EstimateDetailSections({
       </div>
 
       <aside className={styles.estimateAside}>
-        <div className={styles.estimateAsideInner}>
+        <div className={`${styles.estimateAsideInner} ${updateEstimateStyles.resultsAside}`}>
           <EstimateResultsPanels
             form={form}
             readOnly={readOnly}

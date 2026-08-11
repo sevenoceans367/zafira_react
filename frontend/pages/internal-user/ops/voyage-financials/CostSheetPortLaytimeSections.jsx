@@ -180,11 +180,11 @@ export default function PortLaytimeSections({
                   <th>Cost</th>
                   <th>Qty (MT)</th>
                   <th className={styles.thStack}><span>Rate</span><span>{rateUnitLabel}</span></th>
-                  <th>Terms</th>
+                  <th className={styles.termsSelectCell}>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
                   <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
                   <th className={styles.secaCol}>SECA?</th>
-                  <th>Port Cost Vendor</th>
+                  <th className={styles.vendorSelectCell}>Port Cost Vendor</th>
                 </tr>
               </thead>
               <tbody>
@@ -244,7 +244,7 @@ export default function PortLaytimeSections({
                         onChange={(value) => patchLeg(leg.id, { loadPortRate: value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.termsSelectCell}>
                       <select
                         value={leg.loadPortTerms || '1'}
                         disabled={readOnly}
@@ -288,11 +288,10 @@ export default function PortLaytimeSections({
                         aria-label="LP SECA"
                       />
                     </td>
-                    <td>
+                    <td className={styles.vendorSelectCell}>
                       <select
                         value={leg.lpPortVendorId || ''}
                         disabled={readOnly}
-                        style={{ minWidth: 120 }}
                         onChange={(e) => patchLeg(leg.id, { lpPortVendorId: e.target.value })}
                       >
                         <option value="">— Select —</option>
@@ -320,11 +319,11 @@ export default function PortLaytimeSections({
                   <th>Cost</th>
                   <th>Qty (MT)</th>
                   <th className={styles.thStack}><span>Rate</span><span>{rateUnitLabel}</span></th>
-                  <th>Terms</th>
+                  <th className={styles.termsSelectCell}>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
                   <th className={styles.thStack}><span>Idle</span><span>Days</span></th>
                   <th className={styles.secaCol}>SECA?</th>
-                  <th>Port Cost Vendor</th>
+                  <th className={styles.vendorSelectCell}>Port Cost Vendor</th>
                 </tr>
               </thead>
               <tbody>
@@ -384,7 +383,7 @@ export default function PortLaytimeSections({
                         onChange={(value) => patchLeg(leg.id, { discPortRate: value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.termsSelectCell}>
                       <select
                         value={leg.discPortTerms || '1'}
                         disabled={readOnly}
@@ -428,11 +427,10 @@ export default function PortLaytimeSections({
                         aria-label="DP SECA"
                       />
                     </td>
-                    <td>
+                    <td className={styles.vendorSelectCell}>
                       <select
                         value={leg.dpPortVendorId || ''}
                         disabled={readOnly}
-                        style={{ minWidth: 120 }}
                         onChange={(e) => patchLeg(leg.id, { dpPortVendorId: e.target.value })}
                       >
                         <option value="">— Select —</option>
@@ -460,8 +458,8 @@ export default function PortLaytimeSections({
                   <th>Idle Days</th>
                   <th className={styles.thStack}><span>Charterer&apos;s Account</span><span>(Days)</span></th>
                   <th className={styles.secaCol}>SECA?</th>
-                  <th>Region</th>
-                  <th>Vendor</th>
+                  <th className={styles.regionSelectCell}>Region</th>
+                  <th className={styles.vendorSelectCell}>Vendor</th>
                 </tr>
               </thead>
               <tbody>
@@ -526,7 +524,7 @@ export default function PortLaytimeSections({
                         aria-label="TP SECA"
                       />
                     </td>
-                    <td>
+                    <td className={styles.regionSelectCell}>
                       <select
                         value={leg.portFunction || ''}
                         disabled={readOnly}
@@ -537,11 +535,10 @@ export default function PortLaytimeSections({
                         ))}
                       </select>
                     </td>
-                    <td>
+                    <td className={styles.vendorSelectCell}>
                       <select
                         value={leg.tpPortVendorId || ''}
                         disabled={readOnly}
-                        style={{ minWidth: 120 }}
                         onChange={(e) => patchLeg(leg.id, { tpPortVendorId: e.target.value })}
                       >
                         <option value="">— Select —</option>

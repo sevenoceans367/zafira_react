@@ -6,9 +6,214 @@
   cursor: not-allowed;
 }
 
-/* Flatpickr is appended to body so AppShell overflow does not clip it. */
+/*
+ * Zafira-themed Flatpickr calendar (look only).
+ * Keeps default flatpickr day grid + multi-step date → hour → minute layout.
+ * Tokens: navy #274670 · blue #376eb8 · orange #f4652c
+ */
 :global(.flatpickr-calendar) {
+  --fp-navy: #274670;
+  --fp-blue: #376eb8;
+  --fp-orange: #f4652c;
+  --fp-orange-soft: rgba(244, 101, 44, 0.14);
+  --fp-navy-soft: rgba(39, 70, 112, 0.08);
+  --fp-border: #d5dee9;
+  --fp-text: #1f2937;
+  --fp-muted: #6b7280;
+
   z-index: 10050 !important;
+  border: 1px solid var(--fp-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow:
+    0 12px 28px rgba(39, 70, 112, 0.16),
+    0 2px 6px rgba(15, 23, 42, 0.06);
+  font-family: inherit;
+  overflow: hidden;
+}
+
+:global(.flatpickr-calendar.arrowTop::before),
+:global(.flatpickr-calendar.arrowTop::after),
+:global(.flatpickr-calendar.arrowBottom::before),
+:global(.flatpickr-calendar.arrowBottom::after) {
+  display: none;
+}
+
+:global(.flatpickr-months) {
+  background: var(--fp-navy);
+  border-radius: 0;
+  padding-top: 4px;
+}
+
+:global(.flatpickr-months .flatpickr-month) {
+  background: transparent;
+  color: #fff;
+  fill: #fff;
+  height: 34px;
+}
+
+:global(.flatpickr-current-month) {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding-top: 4px;
+}
+
+:global(.flatpickr-current-month .flatpickr-monthDropdown-months),
+:global(.flatpickr-current-month input.cur-year) {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  box-shadow: none;
+}
+
+:global(.flatpickr-current-month .flatpickr-monthDropdown-months:hover),
+:global(.flatpickr-current-month input.cur-year:hover),
+:global(.flatpickr-current-month input.cur-year:focus) {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+:global(.flatpickr-current-month .numInputWrapper span) {
+  border: 0;
+}
+
+:global(.flatpickr-current-month .numInputWrapper span.arrowUp::after) {
+  border-bottom-color: #fff;
+}
+
+:global(.flatpickr-current-month .numInputWrapper span.arrowDown::after) {
+  border-top-color: #fff;
+}
+
+:global(.flatpickr-months .flatpickr-prev-month),
+:global(.flatpickr-months .flatpickr-next-month) {
+  color: #fff;
+  fill: #fff;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+:global(.flatpickr-months .flatpickr-prev-month:hover),
+:global(.flatpickr-months .flatpickr-next-month:hover) {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  fill: #fff;
+}
+
+:global(.flatpickr-months .flatpickr-prev-month:hover svg),
+:global(.flatpickr-months .flatpickr-next-month:hover svg) {
+  fill: #fff;
+}
+
+:global(.flatpickr-weekdays) {
+  background: transparent;
+}
+
+:global(span.flatpickr-weekday) {
+  color: var(--fp-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: transparent;
+}
+
+/* Keep flatpickr’s native 7-column day sizing — do not override widths. */
+:global(.flatpickr-day) {
+  border-radius: 8px;
+  border: 0;
+  color: var(--fp-text);
+  font-weight: 500;
+}
+
+:global(.flatpickr-day:hover),
+:global(.flatpickr-day:focus),
+:global(.flatpickr-day.prevMonthDay:hover),
+:global(.flatpickr-day.nextMonthDay:hover) {
+  background: var(--fp-navy-soft);
+  border-color: transparent;
+  color: var(--fp-navy);
+}
+
+:global(.flatpickr-day.today) {
+  border: 1px solid var(--fp-orange);
+  background: transparent;
+  color: var(--fp-orange);
+  font-weight: 700;
+}
+
+:global(.flatpickr-day.today:hover),
+:global(.flatpickr-day.today:focus) {
+  background: var(--fp-orange-soft);
+  border-color: var(--fp-orange);
+  color: var(--fp-orange);
+}
+
+:global(.flatpickr-day.selected),
+:global(.flatpickr-day.startRange),
+:global(.flatpickr-day.endRange),
+:global(.flatpickr-day.selected:hover),
+:global(.flatpickr-day.startRange:hover),
+:global(.flatpickr-day.endRange:hover),
+:global(.flatpickr-day.selected:focus),
+:global(.flatpickr-day.startRange:focus),
+:global(.flatpickr-day.endRange:focus) {
+  background: var(--fp-orange);
+  border-color: var(--fp-orange);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+:global(.flatpickr-day.selected.today) {
+  background: var(--fp-orange);
+  border-color: var(--fp-orange);
+  color: #fff;
+}
+
+:global(.flatpickr-day.inRange),
+:global(.flatpickr-day.prevMonthDay.inRange),
+:global(.flatpickr-day.nextMonthDay.inRange) {
+  background: var(--fp-orange-soft);
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--fp-navy);
+}
+
+:global(.flatpickr-day.prevMonthDay),
+:global(.flatpickr-day.nextMonthDay) {
+  color: #b0b8c4;
+}
+
+:global(.flatpickr-day.flatpickr-disabled),
+:global(.flatpickr-day.flatpickr-disabled:hover) {
+  color: #c5cad3;
+  background: transparent;
+  border-color: transparent;
+  cursor: not-allowed;
+}
+
+:global(.flatpickr-time) {
+  border-top: 1px solid var(--fp-border);
+  background: #f7f9fc;
+}
+
+:global(.flatpickr-time input),
+:global(.flatpickr-time .flatpickr-am-pm) {
+  color: var(--fp-navy);
+  font-weight: 600;
+}
+
+:global(.flatpickr-time input:hover),
+:global(.flatpickr-time .flatpickr-am-pm:hover),
+:global(.flatpickr-time input:focus),
+:global(.flatpickr-time .flatpickr-am-pm:focus) {
+  background: #fff;
 }
 
 /* —— Multi-step date → hour → minute (enableTime) —— */
@@ -28,11 +233,20 @@
   display: none !important;
 }
 
+/* Shrink popup to time-panel size so hour/minute stay compact (no wide strip). */
+.stepTime:global(.flatpickr-calendar) {
+  width: 268px !important;
+  min-width: 268px !important;
+  max-width: 268px !important;
+  padding: 0;
+}
+
 .stepTime .timePanel {
   display: flex;
   flex-direction: column;
   width: 268px;
   min-height: 280px;
+  box-sizing: border-box;
 }
 
 .timePanel {
@@ -43,11 +257,16 @@
   padding: 10px 12px;
   font-size: 13px;
   font-weight: 600;
-  color: #1e3a5f;
-  background: #e8f0fe;
-  border-bottom: 1px solid #c5d4eb;
+  color: #fff;
+  background: #274670;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   text-align: center;
   cursor: pointer;
+  box-sizing: border-box;
+}
+
+.timeHeading:hover {
+  background: #1c3558;
 }
 
 .hourGrid,
@@ -59,6 +278,7 @@
   flex: 1;
   max-height: 260px;
   overflow-y: auto;
+  background: #fff;
 }
 
 .stepHour .hourGrid {
@@ -73,7 +293,7 @@
 .minuteBtn {
   appearance: none;
   border: 0;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
   color: #1f2937;
   font-size: 13px;
@@ -85,20 +305,20 @@
 
 .hourBtn:hover,
 .minuteBtn:hover {
-  background: #e8f0fe;
-  color: #1e3a5f;
+  background: rgba(39, 70, 112, 0.08);
+  color: #274670;
 }
 
 .hourBtnActive,
 .minuteBtnActive {
-  background: #3b82f6;
+  background: #f4652c;
   color: #fff;
   font-weight: 600;
 }
 
 .hourBtnActive:hover,
 .minuteBtnActive:hover {
-  background: #2563eb;
+  background: #e2551f;
   color: #fff;
 }
 
@@ -106,16 +326,17 @@
   display: flex;
   justify-content: center;
   padding: 8px 10px 10px;
-  border-top: 1px solid #e5e7eb;
-  background: #eff6ff;
+  border-top: 1px solid #d5dee9;
+  background: #f7f9fc;
+  box-sizing: border-box;
 }
 
 .timeFooterToday {
   appearance: none;
-  border: 0;
+  border: 1px solid #376eb8;
   background: transparent;
-  color: #2563eb;
-  border-radius: 4px;
+  color: #376eb8;
+  border-radius: 6px;
   padding: 4px 12px;
   font-size: 13px;
   font-weight: 600;
@@ -124,6 +345,8 @@
 }
 
 .timeFooterToday:hover {
-  color: #1d4ed8;
-  text-decoration: underline;
+  background: rgba(55, 110, 184, 0.12);
+  color: #274670;
+  border-color: #274670;
+  text-decoration: none;
 }

@@ -33,12 +33,18 @@ export default function CountryMultiSelect({
     const el = rootRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const width = Math.max(rect.width, compact ? 180 : 160);
+    const maxWidth = Math.max(16, window.innerWidth - 16);
+    const width = Math.min(Math.max(rect.width, compact ? 180 : 160), maxWidth);
     const spaceBelow = window.innerHeight - rect.bottom;
     const openUp = spaceBelow < 220 && rect.top > spaceBelow;
+    let left = rect.left;
+    if (left + width > window.innerWidth - 8) {
+      left = window.innerWidth - width - 8;
+    }
+    if (left < 8) left = 8;
     setMenuStyle({
       position: 'fixed',
-      left: Math.min(rect.left, window.innerWidth - width - 8),
+      left,
       width,
       top: openUp ? undefined : rect.bottom + 4,
       bottom: openUp ? window.innerHeight - rect.top + 4 : undefined,

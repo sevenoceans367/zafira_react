@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button, useAlert } from '@bainbridge/shared-ui';
 import { updateSensitivityEstimate, downloadSensitivityAnalysisPdf } from '../../../services/estimateList.js';
 import {
@@ -13,6 +13,34 @@ import {
 } from './sensitivityAnalysisCalculations.js';
 import styles from './SensitivityAnalysisModal.module.css';
 
+function SoMark({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 40 40" aria-hidden>
+      <circle cx="20" cy="20" r="19" fill="#fff" stroke="#274670" strokeWidth="2" />
+      <circle cx="20" cy="20" r="14" fill="none" stroke="#F4652C" strokeWidth="2.5" />
+      <text
+        x="20"
+        y="26"
+        textAnchor="middle"
+        fontFamily="Inter, sans-serif"
+        fontWeight="700"
+        fontSize="18"
+        fill="#274670"
+      >
+        S
+      </text>
+    </svg>
+  );
+}
+
+function formatMoney(value, digits = 0) {
+  const num = toNumber(value);
+  return num.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
 function InputCell({ value, onChange, readOnly = false }) {
   return (
     <input
@@ -24,20 +52,65 @@ function InputCell({ value, onChange, readOnly = false }) {
   );
 }
 
-function ResultCell({ value }) {
-  return <span className={styles.resultValue}>{value === '' ? '' : formatAmount(value)}</span>;
+function SectionLabel({ children }) {
+  return (
+    <p className={styles.sectionLabel}>
+      <span className={styles.dot} />
+      {children}
+    </p>
+  );
 }
 
-function BunkerResultCell({ estMt, estPrice, estCost }) {
-  if (!toNumber(estPrice)) return null;
+function GroupHeader({ label, colCount }) {
   return (
-    <span className={styles.resultValue}>
-      {formatAmount(estMt)}
-      {' / '}
-      {formatAmount(estPrice)}
-      {' / '}
-      {formatAmount(estCost)}
-    </span>
+    <div className={`${styles.row} ${styles.groupHeader}`}>
+      <div className={styles.labelCell}>{label}</div>
+      {Array.from({ length: colCount }).map((_, index) => (
+        <div key={index} className={`${styles.colCell} ${styles.spacer}`} />
+      ))}
+    </div>
+  );
+}
+
+function DisplayRow({
+  label,
+  values,
+  variant = '',
+  emptyDash = true,
+}) {
+  return (
+    <div className={`${styles.row} ${variant ? styles[variant] : ''}`.trim()}>
+      <div className={styles.labelCell}>{label}</div>
+      {values.map((value, index) => {
+        const empty = value === undefined || value === null || value === '';
+        return (
+          <div
+            key={index}
+            className={`${styles.colCell} ${empty && emptyDash ? styles.colCellEmpty : ''}`.trim()}
+          >
+            {empty ? (emptyDash ? '—' : '') : value}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function EditableRow({
+  label,
+  columns,
+  variant = '',
+  renderCell,
+}) {
+  return (
+    <div className={`${styles.row} ${variant ? styles[variant] : ''}`.trim()}>
+      <div className={styles.labelCell}>{label}</div>
+      {columns.map((column) => (
+        <div key={column.id} className={styles.colCell}>
+          {renderCell(column)}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -49,7 +122,6 @@ export default function SensitivityAnalysisModal({
   onClose,
 }) {
   const alert = useAlert();
-  const printRef = useRef(null);
   const [columns, setColumns] = useState([]);
   const [bunkerGrades, setBunkerGrades] = useState([]);
   const [updatingId, setUpdatingId] = useState('');
@@ -67,6 +139,7 @@ export default function SensitivityAnalysisModal({
 
   const resolvedBusinessType = data?.businessType ?? businessType ?? '2';
   const isTanker = String(resolvedBusinessType) === '2';
+  const tradeLabel = isTanker ? 'Tankers' : 'Dry Bulk';
 
   const metricsById = useMemo(() => {
     const map = {};
@@ -173,6 +246,8 @@ export default function SensitivityAnalysisModal({
       await downloadSensitivityAnalysisPdf({
         businessType: resolvedBusinessType,
         bunkerGrades,
+        tradeLabel,
+        calculatedAt: new Date().toISOString(),
         columns: columns.map((column) => ({
           ...column,
           metrics: metricsById[column.id] || {},
@@ -191,497 +266,545 @@ export default function SensitivityAnalysisModal({
 
   if (!open) return null;
 
-  const colspan = columns.length + 1;
+  const colCount = Math.max(columns.length, 1);
+  const calculatedLabel = new Date().toLocaleString(undefined, {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const renderAdjustmentInputs = (column, field, onChangeFactory, readOnlyFactory) => {
+    const items = column.freightAdjustments?.length
+      ? column.freightAdjustments
+      : [{ key: 'empty' }];
+    return items.map((item, index) => (
+      <div key={item.key || index} className={styles.stackItem}>
+        {index > 0 ? <hr className={styles.stackDivider} /> : null}
+        {item.key === 'empty' ? (
+          <span className={styles.colCellEmpty}>—</span>
+        ) : (
+          <InputCell
+            value={
+              readOnlyFactory
+                ? readOnlyFactory(item)
+                : item[field]
+            }
+            readOnly={Boolean(readOnlyFactory)}
+            onChange={(value) => onChangeFactory(column.id, item.key, value)}
+          />
+        )}
+      </div>
+    ));
+  };
+
+  const renderPortInputs = (column, collection) => {
+    const ports = column[collection] || [];
+    if (!ports.length) return <span className={styles.colCellEmpty}>—</span>;
+    return ports.map((port, index) => (
+      <div key={port.key} className={styles.stackItem}>
+        {index > 0 ? <hr className={styles.stackDivider} /> : null}
+        {port.portName ? <span className={styles.portNameTiny}>{port.portName}</span> : null}
+        <InputCell
+          value={port.cost}
+          onChange={(value) => handlePortChange(column.id, collection, port.key, value)}
+        />
+      </div>
+    ));
+  };
+
+  const portNameNote = (collection) => {
+    const names = columns
+      .flatMap((column) => (column[collection] || []).map((port) => port.portName).filter(Boolean));
+    const unique = [...new Set(names)];
+    if (!unique.length) return null;
+    return (
+      <div className={`${styles.row} ${styles.portNote}`}>
+        <div className={styles.labelCell}>{unique.join(' / ')}</div>
+        {columns.map((column) => (
+          <div key={column.id} className={`${styles.colCell} ${styles.spacer}`} />
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <div
-      className={styles.backdrop}
-      role="presentation"
-      onClick={onClose}
-    >
+    <div className={styles.backdrop} role="presentation" onClick={onClose}>
       <div
         className={styles.modal}
         role="dialog"
         aria-modal="true"
         aria-labelledby="sensitivity-analysis-title"
+        style={{ '--cols': colCount }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className={styles.header}>
-          <h4 id="sensitivity-analysis-title">
+        <div className={styles.chrome}>
+          <h4 id="sensitivity-analysis-title" className={styles.chromeTitle}>
             <i className="bi bi-graph-up" /> Sensitivity Analysis
           </h4>
-          <button
-            type="button"
-            className="btn-close"
-            aria-label="Close"
-            onClick={onClose}
-          />
+          <div className={styles.chromeActions}>
+            <Button
+              variant="accent"
+              label={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
+              onClick={handleGeneratePdf}
+              disabled={pdfLoading || !columns.length}
+            />
+            <button type="button" className="btn-close" aria-label="Close" onClick={onClose} />
+          </div>
         </div>
 
         <div className={styles.body}>
           {loading ? (
             <p className={styles.loading}>Please wait...</p>
           ) : (
-            <>
-              <div className={styles.toolbar}>
-                <Button
-                  variant="accent"
-                  label={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
-                  onClick={handleGeneratePdf}
-                  disabled={pdfLoading || !columns.length}
-                />
-              </div>
+            <div className={styles.doc}>
+              <div className={styles.docInner}>
+                <div className={styles.docHeader}>
+                  <div>
+                    <p className={styles.eyebrow}>Seven Oceans PreFixture Platform</p>
+                    <h1 className={styles.docTitle}>Estimate - Sensitivity Analysis</h1>
+                  </div>
+                  <div className={styles.soLogo}>
+                    <SoMark className={styles.soLogoMark} />
+                    <div className={styles.soLogoWord}>
+                      <b>SEVEN</b>
+                      <span>OCEANS</span>
+                    </div>
+                  </div>
+                </div>
+                <hr className={styles.headerRule} />
 
-              <div ref={printRef} className={`zafira-table-wrap ${styles.printArea}`}>
-                <table className={`zafira-data-table ${styles.table}`} id="compareDiv">
-                  <thead>
-                    <tr>
-                      <td colSpan={colspan} className={styles.titleRow}>
-                        <h3 className={styles.title}>Sensitivity Analysis</h3>
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <th className={styles.metricCol}>Vessel</th>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-vessel`} className={styles.headerCell}>
-                          {column.vesselName}
-                        </td>
-                      ))}
-                    </tr>
-
-                    <tr>
-                      <th className={styles.metricCol}>Voyage No./Parameters</th>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-voyage`} className={styles.headerCell}>
-                          {column.voyageNo}
-                        </td>
-                      ))}
-                    </tr>
-
-                    <tr className={styles.sectionRow}>
-                      <td colSpan={colspan}>Cargo Type</td>
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell} />
-                      {columns.map((column) => (
-                        <td key={`${column.id}-cargo`} className={styles.headerCell}>
-                          {column.cargoType}
-                        </td>
-                      ))}
-                    </tr>
-
-                    <tr className={styles.sectionRow}>
-                      <td colSpan={colspan}>Sensitivity Analysis</td>
-                    </tr>
-
-                    {isTanker ? (
-                      <>
-                        <tr className={styles.inputRow}>
-                          <td className={styles.metricCell}>Min Cargo</td>
-                          {columns.map((column) => (
-                            <td key={`${column.id}-min`} className={styles.inputCell}>
-                              {column.freightAdjustments.map((item, index) => (
-                                <div key={item.key} className={styles.inputStack}>
-                                  {index > 0 ? <hr className={styles.divider} /> : null}
-                                  <label>Qty</label>
-                                  <InputCell
-                                    value={item.minCargoQty}
-                                    onChange={(value) => handleAdjustmentChange(column.id, item.key, 'minCargoQty', value)}
-                                  />
-                                  <label>Flat Rate</label>
-                                  <InputCell
-                                    value={item.minFlatRate}
-                                    onChange={(value) => handleMinFlatRateChange(column.id, item.key, value)}
-                                  />
-                                  <label>WS</label>
-                                  <InputCell
-                                    value={item.minWSRate}
-                                    onChange={(value) => handleMinWSRateChange(column.id, item.key, value)}
-                                  />
-                                  <label>Amount</label>
-                                  <InputCell
-                                    value={formatAmount(
-                                      calculateFreightAdjustmentAmount(
-                                        item.minCargoQty,
-                                        item.minFlatRate,
-                                        item.minWSRate,
-                                      ),
-                                    )}
-                                    readOnly
-                                  />
+                <div className={styles.overview}>
+                  <div className={styles.overviewLabel}>
+                    Voyage Comparison
+                    <span className={styles.tradeBadge}>{tradeLabel}</span>
+                  </div>
+                  <div className={styles.overviewBody}>
+                    <div className={`${styles.gridRow} ${styles.voyagecard}`}>
+                      <div className={styles.labelCell}>Quick&nbsp;Read</div>
+                      {columns.map((column, index) => {
+                        const metrics = metricsById[column.id] || {};
+                        const tce = toNumber(metrics.nettDailyProfit);
+                        const pnl = toNumber(metrics.profitLoss);
+                        return (
+                          <div
+                            key={column.id}
+                            className={`${styles.colCell} ${index % 2 === 0 ? styles.voy0 : styles.voy1}`}
+                          >
+                            <span className={styles.voyChip}>
+                              Voy
+                              {' '}
+                              {column.voyageNo || '—'}
+                            </span>
+                            <div className={styles.vessel}>{column.vesselName || '—'}</div>
+                            <div className={styles.qrChipsWrap}>
+                              <div className={styles.qrChips}>
+                                <div className={`${styles.qrChip} ${tce >= 0 ? styles.qrPos : styles.qrNeg}`}>
+                                  <div className={styles.qrLabel}>TCE</div>
+                                  <div className={styles.qrValue}>
+                                    $
+                                    {formatMoney(tce, 0)}
+                                  </div>
                                 </div>
-                              ))}
-                            </td>
-                          ))}
-                        </tr>
-
-                        <tr className={styles.inputRow}>
-                          <td className={styles.metricCell}>Overage</td>
-                          {columns.map((column) => (
-                            <td key={`${column.id}-overage`} className={styles.inputCell}>
-                              {column.freightAdjustments.map((item, index) => (
-                                <div key={item.key} className={styles.inputStack}>
-                                  {index > 0 ? <hr className={styles.divider} /> : null}
-                                  <label>Qty</label>
-                                  <InputCell
-                                    value={item.overageQty}
-                                    onChange={(value) => handleAdjustmentChange(column.id, item.key, 'overageQty', value)}
-                                  />
-                                  <label>Flat Rate</label>
-                                  <InputCell
-                                    value={item.overageFlatRate}
-                                    onChange={(value) => handleAdjustmentChange(column.id, item.key, 'overageFlatRate', value)}
-                                  />
-                                  <label>WS</label>
-                                  <InputCell
-                                    value={item.overageWSRate}
-                                    onChange={(value) => handleAdjustmentChange(column.id, item.key, 'overageWSRate', value)}
-                                  />
-                                  <label>Amount</label>
-                                  <InputCell
-                                    value={formatAmount(
-                                      calculateFreightAdjustmentAmount(
-                                        item.overageQty,
-                                        item.overageFlatRate,
-                                        item.overageWSRate,
-                                      ),
-                                    )}
-                                    readOnly
-                                  />
+                                <div className={`${styles.qrChip} ${pnl >= 0 ? styles.qrPos : styles.qrNeg}`}>
+                                  <div className={styles.qrLabel}>P&amp;L</div>
+                                  <div className={styles.qrValue}>
+                                    $
+                                    {formatMoney(pnl, 0)}
+                                  </div>
                                 </div>
-                              ))}
-                            </td>
-                          ))}
-                        </tr>
-                      </>
-                    ) : (
-                      <>
-                        <tr className={styles.inputRow}>
-                          <td className={styles.metricCell}>Freight / MT</td>
-                          {columns.map((column) => (
-                            <td key={`${column.id}-freight`} className={styles.inputCell}>
-                              {!column.chkLumpSum ? (
-                                <InputCell
-                                  value={column.freight}
-                                  onChange={(value) => updateColumn(column.id, (current) => ({ ...current, freight: value }))}
-                                />
-                              ) : null}
-                            </td>
-                          ))}
-                        </tr>
-                        <tr className={styles.inputRow}>
-                          <td className={styles.metricCell}>QTY (MT)</td>
-                          {columns.map((column) => (
-                            <td key={`${column.id}-qty`} className={styles.inputCell}>
-                              {!column.chkLumpSum ? (
-                                <InputCell
-                                  value={column.qty}
-                                  onChange={(value) => updateColumn(column.id, (current) => ({ ...current, qty: value }))}
-                                />
-                              ) : null}
-                            </td>
-                          ))}
-                        </tr>
-                      </>
-                    )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
 
-                    <tr className={styles.inputRow}>
-                      <td className={styles.metricCell}>Lumpsum</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-lumpsum`} className={styles.inputCell}>
-                          {column.chkLumpSum ? (
+                <div className={`${styles.section} ${styles.themeNavy}`}>
+                  <SectionLabel>Vessel OPEX</SectionLabel>
+
+                  {isTanker ? (
+                    <>
+                      <GroupHeader label="Min Cargo" colCount={colCount} />
+                      <EditableRow
+                        label="Qty"
+                        columns={columns}
+                        variant="sub"
+                        renderCell={(column) => renderAdjustmentInputs(
+                          column,
+                          'minCargoQty',
+                          (id, key, value) => handleAdjustmentChange(id, key, 'minCargoQty', value),
+                        )}
+                      />
+                      <EditableRow
+                        label="Flat Rate"
+                        columns={columns}
+                        variant="sub"
+                        renderCell={(column) => renderAdjustmentInputs(
+                          column,
+                          'minFlatRate',
+                          handleMinFlatRateChange,
+                        )}
+                      />
+                      <EditableRow
+                        label="WS"
+                        columns={columns}
+                        variant="sub"
+                        renderCell={(column) => renderAdjustmentInputs(
+                          column,
+                          'minWSRate',
+                          handleMinWSRateChange,
+                        )}
+                      />
+
+                      <GroupHeader label="Overage" colCount={colCount} />
+                      <EditableRow
+                        label="Qty"
+                        columns={columns}
+                        variant="sub"
+                        renderCell={(column) => renderAdjustmentInputs(
+                          column,
+                          'overageQty',
+                          (id, key, value) => handleAdjustmentChange(id, key, 'overageQty', value),
+                        )}
+                      />
+                      <EditableRow
+                        label="Flat Rate"
+                        columns={columns}
+                        variant="sub"
+                        renderCell={(column) => renderAdjustmentInputs(
+                          column,
+                          'overageFlatRate',
+                          (id, key, value) => handleAdjustmentChange(id, key, 'overageFlatRate', value),
+                        )}
+                      />
+                      <EditableRow
+                        label="WS"
+                        columns={columns}
+                        variant="sub"
+                        renderCell={(column) => renderAdjustmentInputs(
+                          column,
+                          'overageWSRate',
+                          (id, key, value) => handleAdjustmentChange(id, key, 'overageWSRate', value),
+                        )}
+                      />
+                      <EditableRow
+                        label="Amount"
+                        columns={columns}
+                        variant="amt"
+                        renderCell={(column) => renderAdjustmentInputs(
+                          column,
+                          'overageAmt',
+                          () => {},
+                          (item) => formatAmount(
+                            calculateFreightAdjustmentAmount(
+                              item.overageQty,
+                              item.overageFlatRate,
+                              item.overageWSRate,
+                            ),
+                          ),
+                        )}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <EditableRow
+                        label="Freight / MT"
+                        columns={columns}
+                        renderCell={(column) => (
+                          column.chkLumpSum ? (
+                            <span className={styles.colCellEmpty}>—</span>
+                          ) : (
                             <InputCell
-                              value={column.lumpsumAmt}
-                              onChange={(value) => updateColumn(column.id, (current) => ({ ...current, lumpsumAmt: value }))}
+                              value={column.freight}
+                              onChange={(value) => updateColumn(column.id, (current) => ({
+                                ...current,
+                                freight: value,
+                              }))}
                             />
-                          ) : null}
-                        </td>
-                      ))}
-                    </tr>
+                          )
+                        )}
+                      />
+                      <EditableRow
+                        label="QTY (MT)"
+                        columns={columns}
+                        renderCell={(column) => (
+                          column.chkLumpSum ? (
+                            <span className={styles.colCellEmpty}>—</span>
+                          ) : (
+                            <InputCell
+                              value={column.qty}
+                              onChange={(value) => updateColumn(column.id, (current) => ({
+                                ...current,
+                                qty: value,
+                              }))}
+                            />
+                          )
+                        )}
+                      />
+                    </>
+                  )}
 
-                    <tr className={styles.inputRow}>
-                      <td className={styles.metricCell}>Loading Port</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-load`} className={styles.inputCell}>
-                          {column.loadPorts.map((port) => (
-                            <div key={port.key} className={styles.inputStack}>
-                              <label>{port.portName}</label>
-                              <InputCell
-                                value={port.cost}
-                                onChange={(value) => handlePortChange(column.id, 'loadPorts', port.key, value)}
-                              />
-                            </div>
-                          ))}
-                        </td>
-                      ))}
-                    </tr>
+                  <EditableRow
+                    label="Lumpsum"
+                    columns={columns}
+                    renderCell={(column) => (
+                      column.chkLumpSum ? (
+                        <InputCell
+                          value={column.lumpsumAmt}
+                          onChange={(value) => updateColumn(column.id, (current) => ({
+                            ...current,
+                            lumpsumAmt: value,
+                          }))}
+                        />
+                      ) : (
+                        <span className={styles.colCellEmpty}>—</span>
+                      )
+                    )}
+                  />
 
-                    <tr className={styles.inputRow}>
-                      <td className={styles.metricCell}>Discharge Port</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-disc`} className={styles.inputCell}>
-                          {column.discPorts.map((port) => (
-                            <div key={port.key} className={styles.inputStack}>
-                              <label>{port.portName}</label>
-                              <InputCell
-                                value={port.cost}
-                                onChange={(value) => handlePortChange(column.id, 'discPorts', port.key, value)}
-                              />
-                            </div>
-                          ))}
-                        </td>
-                      ))}
-                    </tr>
+                  <EditableRow
+                    label="Loading Port"
+                    columns={columns}
+                    renderCell={(column) => renderPortInputs(column, 'loadPorts')}
+                  />
+                  {portNameNote('loadPorts')}
 
-                    <tr className={styles.inputRow}>
-                      <td className={styles.metricCell}>Transit Port</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-transit`} className={styles.inputCell}>
-                          {column.transitPorts.length
-                            ? column.transitPorts.map((port) => (
-                              <div key={port.key} className={styles.inputStack}>
-                                <label>{port.portName}</label>
-                                <InputCell
-                                  value={port.cost}
-                                  onChange={(value) => handlePortChange(column.id, 'transitPorts', port.key, value)}
-                                />
-                              </div>
-                            ))
-                            : null}
-                        </td>
-                      ))}
-                    </tr>
+                  <EditableRow
+                    label="Discharge Port"
+                    columns={columns}
+                    renderCell={(column) => renderPortInputs(column, 'discPorts')}
+                  />
+                  {portNameNote('discPorts')}
 
-                    <tr className={styles.inputRow}>
-                      <td className={styles.metricCell}>Bunkering Port</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-bunkering`} className={styles.inputCell}>
-                          {column.bunkeringPorts.length
-                            ? column.bunkeringPorts.map((port) => (
-                              <div key={port.key} className={styles.inputStack}>
-                                <label>{port.portName}</label>
-                                <InputCell
-                                  value={port.cost}
-                                  onChange={(value) => handlePortChange(column.id, 'bunkeringPorts', port.key, value)}
-                                />
-                              </div>
-                            ))
-                            : null}
-                        </td>
-                      ))}
-                    </tr>
+                  <EditableRow
+                    label="Transit Port"
+                    columns={columns}
+                    renderCell={(column) => renderPortInputs(column, 'transitPorts')}
+                  />
+                  <EditableRow
+                    label="Bunkering Port"
+                    columns={columns}
+                    renderCell={(column) => renderPortInputs(column, 'bunkeringPorts')}
+                  />
 
-                    {bunkerGrades.map((grade) => (
-                      <tr key={grade} className={styles.inputRow}>
-                        <td className={styles.metricCell}>
-                          {grade}
-                          {' '}
-                          <em className={styles.subLabel}>(PRICE/MT)</em>
-                        </td>
-                        {columns.map((column) => {
-                          const bunker = column.bunkerExpenses.find((item) => item.grade === grade);
-                          return (
-                            <td key={`${column.id}-${grade}`} className={styles.inputCell}>
-                              {bunker && toNumber(bunker.estPrice) ? (
-                                <InputCell
-                                  value={bunker.estPrice}
-                                  onChange={(value) => handleBunkerPriceChange(column.id, grade, value)}
-                                />
-                              ) : null}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-
-                    <tr className={styles.inputRow}>
-                      <td className={styles.metricCell}>Hire / Day</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-hire`} className={styles.inputCell}>
+                  {bunkerGrades.map((grade) => (
+                    <EditableRow
+                      key={`price-${grade}`}
+                      label={`${grade} (Price/MT)`}
+                      columns={columns}
+                      renderCell={(column) => {
+                        const bunker = column.bunkerExpenses.find((item) => item.grade === grade);
+                        if (!bunker || !toNumber(bunker.estPrice)) {
+                          return <span className={styles.colCellEmpty}>—</span>;
+                        }
+                        return (
                           <InputCell
-                            value={column.hire.rate}
-                            onChange={(value) => handleHireChange(column.id, value)}
+                            value={bunker.estPrice}
+                            onChange={(value) => handleBunkerPriceChange(column.id, grade, value)}
                           />
-                        </td>
-                      ))}
-                    </tr>
+                        );
+                      }}
+                    />
+                  ))}
 
-                    <tr className={styles.sectionRow}>
-                      <td colSpan={colspan}>Revenue</td>
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}>Gross freight</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-gross`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.grossFreight} />
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}>Brokerage</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-brokerage`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.brokerageAmt} />
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}>Add Comm</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-addcomm`} className={styles.resultCell}>
-                          {formatAddComm(column.addCommPer, metricsById[column.id]?.addressCommAmt)}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}>Other Income</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-other`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.otherIncome} />
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}><strong>Net Receivable</strong></td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-netrecv`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.netReceivable} />
-                        </td>
-                      ))}
-                    </tr>
+                  <EditableRow
+                    label="Hire/Day ($)"
+                    columns={columns}
+                    variant="highlight"
+                    renderCell={(column) => (
+                      <InputCell
+                        value={column.hire?.rate}
+                        onChange={(value) => handleHireChange(column.id, value)}
+                      />
+                    )}
+                  />
+                </div>
 
-                    <tr className={styles.sectionRow}>
-                      <td colSpan={colspan}>Expenses - Cargo</td>
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}>Loading Port</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-load-total`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.loadPortCost} />
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}>Discharge Port</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-disc-total`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.discPortCost} />
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}>Transit Port</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-transit-total`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.transitPortCost} />
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}>Bunkering Port</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-bunkering-total`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.bunkeringPortCost} />
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}>Operational Cost</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-ops`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.operationalCost} />
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}><strong>Total Expenses - Cargo</strong></td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-total-exp`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.totalExpense} />
-                        </td>
-                      ))}
-                    </tr>
+                <div className={`${styles.section} ${styles.themeOrange}`}>
+                  <SectionLabel>Revenue</SectionLabel>
+                  <DisplayRow
+                    label="Gross Freight"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.grossFreight))}
+                  />
+                  <DisplayRow
+                    label="Brokerage"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.brokerageAmt))}
+                  />
+                  <DisplayRow
+                    label="Add Comm"
+                    values={columns.map((column) => formatAddComm(
+                      column.addCommPer,
+                      metricsById[column.id]?.addressCommAmt,
+                    ))}
+                  />
+                  <DisplayRow
+                    label="Other Income"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.otherIncome))}
+                  />
+                  <DisplayRow
+                    label="Net Receivable"
+                    variant="subtotal"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.netReceivable))}
+                  />
+                </div>
 
-                    <tr className={styles.sectionRow}>
-                      <td colSpan={colspan}>Bunker Expenses (Qty / Price / Amount)</td>
-                    </tr>
-                    {bunkerGrades.map((grade) => (
-                      <tr key={`result-${grade}`}>
-                        <td className={styles.metricCell}>{grade}</td>
-                        {columns.map((column) => {
+                <div className={`${styles.section} ${styles.themeBlue}`}>
+                  <SectionLabel>Cargo Expenses</SectionLabel>
+                  <DisplayRow
+                    label="Loading Port"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.loadPortCost))}
+                  />
+                  <DisplayRow
+                    label="Discharge Port"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.discPortCost))}
+                  />
+                  <DisplayRow
+                    label="Transit Port"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.transitPortCost))}
+                  />
+                  <DisplayRow
+                    label="Bunkering Port"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.bunkeringPortCost))}
+                  />
+                  <DisplayRow
+                    label="Operational Cost"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.operationalCost))}
+                  />
+                  <DisplayRow
+                    label="Total Cargo Expense"
+                    variant="subtotal"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.totalExpense))}
+                  />
+                </div>
+
+                <div className={`${styles.section} ${styles.themePurple}`}>
+                  <SectionLabel>Bunker Expenses</SectionLabel>
+                  <p className={styles.sectionCaption}>Qty / Price / Amount</p>
+                  {bunkerGrades.map((grade) => (
+                    <React.Fragment key={`bunker-${grade}`}>
+                      <GroupHeader label={grade} colCount={colCount} />
+                      <DisplayRow
+                        label="Qty"
+                        variant="sub"
+                        values={columns.map((column) => {
                           const bunker = metricsById[column.id]?.bunkerExpenses
                             ?.find((item) => item.grade === grade);
-                          return (
-                            <td key={`${column.id}-bunker-${grade}`} className={styles.resultCell}>
-                              <BunkerResultCell
-                                estMt={bunker?.estMt}
-                                estPrice={bunker?.estPrice}
-                                estCost={bunker?.estCost}
-                              />
-                            </td>
-                          );
+                          return toNumber(bunker?.estPrice) ? formatAmount(bunker?.estMt) : '';
                         })}
-                      </tr>
-                    ))}
-                    <tr>
-                      <td className={styles.metricCell}><strong>Total Bunker Expense</strong></td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-total-bunker`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.totalBunkerExpense} />
-                        </td>
-                      ))}
-                    </tr>
+                      />
+                      <DisplayRow
+                        label="Price"
+                        variant="sub"
+                        values={columns.map((column) => {
+                          const bunker = metricsById[column.id]?.bunkerExpenses
+                            ?.find((item) => item.grade === grade);
+                          return toNumber(bunker?.estPrice) ? formatAmount(bunker?.estPrice) : '';
+                        })}
+                      />
+                      <DisplayRow
+                        label="Amount"
+                        variant="amt"
+                        values={columns.map((column) => {
+                          const bunker = metricsById[column.id]?.bunkerExpenses
+                            ?.find((item) => item.grade === grade);
+                          return toNumber(bunker?.estPrice) ? formatAmount(bunker?.estCost) : '';
+                        })}
+                      />
+                    </React.Fragment>
+                  ))}
+                  <DisplayRow
+                    label="Total Bunker Expense"
+                    variant="subtotal"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.totalBunkerExpense))}
+                  />
+                </div>
 
-                    <tr className={styles.sectionRow}>
-                      <td colSpan={colspan}>Hireage</td>
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}>Estimated Hire</td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-est-hire`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.estimatedHire} />
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}><strong>Net Daily Profit (TCE)</strong></td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-daily`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.nettDailyProfit} />
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className={styles.metricCell}><strong>P&L</strong></td>
-                      {columns.map((column) => (
-                        <td key={`${column.id}-pl`} className={styles.resultCell}>
-                          <ResultCell value={metricsById[column.id]?.profitLoss} />
-                        </td>
-                      ))}
-                    </tr>
-                  </thead>
-                </table>
+                <div className={`${styles.section} ${styles.themeBrown}`}>
+                  <SectionLabel>Hireage</SectionLabel>
+                  <DisplayRow
+                    label="Estimated Hire"
+                    values={columns.map((column) => formatAmount(metricsById[column.id]?.estimatedHire))}
+                  />
+                </div>
 
-                <table className={`zafira-data-table ${styles.updateTable}`}>
-                  <tbody>
-                    <tr>
-                      <td className={styles.metricCol} />
-                      {columns.map((column) => (
-                        <td key={`${column.id}-update`} className={styles.updateCell}>
-                          <Button
-                            variant="accent"
-                            label={updatingId === column.id ? 'Updating...' : 'Update Estimate'}
-                            onClick={() => handleUpdateEstimate(column.id)}
-                            disabled={Boolean(updatingId)}
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
+                <div className={styles.results}>
+                  <div className={styles.resultsLabel}>Results</div>
+                  <div className={styles.resultsBody}>
+                    <div className={styles.resultsRow}>
+                      <div className={styles.labelCell}>TCE&nbsp;$</div>
+                      {columns.map((column) => {
+                        const tce = toNumber(metricsById[column.id]?.nettDailyProfit);
+                        return (
+                          <div
+                            key={`${column.id}-tce`}
+                            className={`${styles.colCell} ${tce >= 0 ? styles.rcPos : styles.rcNeg}`}
+                          >
+                            {formatMoney(tce, 2)}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className={styles.resultsRow}>
+                      <div className={styles.labelCell}>P&amp;L&nbsp;$</div>
+                      {columns.map((column) => {
+                        const pnl = toNumber(metricsById[column.id]?.profitLoss);
+                        return (
+                          <div
+                            key={`${column.id}-pnl`}
+                            className={`${styles.colCell} ${pnl >= 0 ? styles.rcPos : styles.rcNeg}`}
+                          >
+                            {formatMoney(pnl, 2)}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`${styles.gridRow} ${styles.updateRow}`}>
+                  <div className={styles.labelCell} />
+                  {columns.map((column) => (
+                    <div key={`${column.id}-update`} className={styles.colCell}>
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        label={updatingId === column.id ? 'Updating...' : 'Update Estimate'}
+                        onClick={() => handleUpdateEstimate(column.id)}
+                        disabled={Boolean(updatingId)}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className={styles.footer}>
+                  <div className={styles.footerLeft}>
+                    Calculated
+                    {' '}
+                    <b>{calculatedLabel}</b>
+                    {' '}
+                    — Zafira Shipping &amp; Trading SA
+                  </div>
+                  <div className={styles.footerRight}>
+                    <div className={styles.analysed}>
+                      Analysed by
+                      {' '}
+                      <b>Seven Oceans</b>
+                      <br />
+                      For more information visit
+                      {' '}
+                      <a href="https://www.sevenoceans.world" target="_blank" rel="noreferrer">
+                        www.sevenoceans.world
+                      </a>
+                    </div>
+                    <SoMark className={styles.miniLogo} />
+                  </div>
+                </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>

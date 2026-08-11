@@ -677,15 +677,13 @@ export default function EstimateDetailSections({
         actions={(
           <div className={styles.panelActionGroup}>
             {sofHref ? (
-              <a
-                href={sofHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.panelActionLink}
-                title="SOF"
-              >
-                SOF
-              </a>
+              <Button
+                size="sm"
+                variant="accent"
+                label="SOF"
+                ariaLabel="SOF"
+                to={sofHref}
+              />
             ) : null}
             <Button
               type="button"
@@ -1899,7 +1897,7 @@ export default function EstimateDetailSections({
       </div>
 
       <aside className={styles.estimateAside}>
-        <div className={styles.estimateAsideInner}>
+        <div className={`${styles.estimateAsideInner} ${styles.resultsAside}`}>
           <EstimateResultsPanels
             form={form}
             readOnly={readOnly}

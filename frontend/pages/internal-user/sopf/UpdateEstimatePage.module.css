@@ -37,42 +37,56 @@
   padding-right: 2px;
 }
 
-.estimateAside .panel {
-  margin-bottom: 6px;
-}
-
-.estimateAside .panelHeader {
-  padding: 6px 10px;
-  font-size: 12px;
-}
-
-.estimateAside .panelBody {
-  padding: 6px 8px;
-}
-
 /* Keep closed panel fields in DOM so validation can focus/highlight them. */
 .panelBodyHidden {
   display: none;
 }
 
-.estimateAside .resultsGrid {
+/**
+ * Compact Results stack for the sticky aside (estimate + cost sheet).
+ * Must live in this CSS module with .panel / .resultsGrid so hashed
+ * descendant selectors work across pages that wrap the aside content.
+ */
+.resultsAside .panel {
+  margin-bottom: 6px;
+}
+
+.resultsAside .panelHeader {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.resultsAside .panelBody {
+  padding: 6px 8px;
+}
+
+.resultsAside .resultsGrid {
   grid-template-columns: 1fr;
   gap: 2px 0;
 }
 
-.estimateAside .resultCell {
+.resultsAside .resultCell {
   font-size: 10px;
   gap: 4px;
+  min-width: 0;
 }
 
-.estimateAside .resultCell input {
+.resultsAside .resultCell span {
+  min-width: 0;
+  flex: 1 1 auto;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.resultsAside .resultCell input {
   width: 84px;
+  flex: 0 0 84px;
   min-height: 22px;
   font-size: 10px;
   padding: 1px 4px;
 }
 
-.estimateAside .distGrid {
+.resultsAside .distGrid {
   grid-template-columns: 1fr 1fr;
   gap: 2px 8px;
   margin-top: 6px;
@@ -80,16 +94,25 @@
   font-size: 10px;
 }
 
-.estimateAside .distDaysGrid {
+.resultsAside .distDaysGrid {
   margin-top: 6px;
   padding-top: 6px;
   gap: 8px;
   font-size: 10px;
 }
 
-.estimateAside .subHeading {
+.resultsAside .headerGrid {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.resultsAside .subHeading {
   margin: 6px 0 4px;
   font-size: 11px;
+}
+
+.resultsAside .euaPriceRow {
+  flex-wrap: wrap;
 }
 
 @media (max-width: 1100px) {
@@ -468,7 +491,7 @@
   min-width: 0;
   max-width: 100%;
   padding: 0 0 10px;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 8px;
   border: 1px solid transparent;
   /* Theme CountryMultiSelect chips / control borders via cascade */
@@ -576,7 +599,7 @@
   background: #fff;
   padding-top: 4px;
   padding-bottom: 4px;
-  overflow: hidden;
+  overflow: visible;
   vertical-align: middle;
 }
 
@@ -751,7 +774,7 @@
 .cargoSelectCell {
   width: 14%;
   max-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .cargoSelectCell select {
@@ -779,7 +802,7 @@
   max-width: 0;
   min-width: 100px;
   vertical-align: middle;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .portLaytimeBlock .bunkerGradeCell > div {

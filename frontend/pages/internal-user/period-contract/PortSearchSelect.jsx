@@ -22,11 +22,35 @@ export default function PortSearchSelect({
   const [menuStyle, setMenuStyle] = useState(null);
   const wrapRef = useRef(null);
   const menuRef = useRef(null);
+  const stateRef = useRef({ query: label || '', label, value, onChange });
   const searchFn = searchPorts || searchPeriodContractPorts;
+
+  stateRef.current = { query, label, value, onChange };
 
   useEffect(() => {
     setQuery(label || '');
   }, [label, value]);
+
+  const dismissWithoutSelection = () => {
+    const {
+      query: currentQuery,
+      label: committedLabel,
+      value: committedValue,
+      onChange: notify,
+    } = stateRef.current;
+    const committed = String(committedLabel || '').trim();
+    const current = String(currentQuery || '').trim();
+    setOpen(false);
+    setResults([]);
+    if (current === committed) return;
+    // Typed/search text without a port pick — discard it.
+    if (committedValue && committed) {
+      setQuery(committed);
+      return;
+    }
+    setQuery('');
+    if (committedValue || current) notify?.('', '');
+  };
 
   useLayoutEffect(() => {
     if (!open) {
@@ -37,15 +61,21 @@ export default function PortSearchSelect({
     const updatePosition = () => {
       const rect = wrapRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const width = Math.max(rect.width, 220);
+      const maxWidth = Math.max(16, window.innerWidth - 16);
+      const width = Math.min(Math.max(rect.width, 220), maxWidth);
       const maxHeight = 220;
       const spaceBelow = window.innerHeight - rect.bottom - 8;
       const openUp = spaceBelow < 120 && rect.top > spaceBelow;
+      let left = rect.left;
+      if (left + width > window.innerWidth - 8) {
+        left = window.innerWidth - width - 8;
+      }
+      if (left < 8) left = 8;
       setMenuStyle({
         position: 'fixed',
         top: openUp ? undefined : rect.bottom + 4,
         bottom: openUp ? window.innerHeight - rect.top + 4 : undefined,
-        left: Math.min(rect.left, window.innerWidth - width - 8),
+        left,
         width,
         maxHeight,
         zIndex: 10050,
@@ -67,7 +97,7 @@ export default function PortSearchSelect({
     const handleClickOutside = (event) => {
       const inWrap = wrapRef.current?.contains(event.target);
       const inMenu = menuRef.current?.contains(event.target);
-      if (!inWrap && !inMenu) setOpen(false);
+      if (!inWrap && !inMenu) dismissWithoutSelection();
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -137,12 +167,21 @@ export default function PortSearchSelect({
         onFocus={() => {
           if (results.length || query.trim().length >= 1) setOpen(true);
         }}
+        onBlur={() => {
+          // Tab/away without picking a port — same as click outside.
+          window.setTimeout(() => {
+            if (menuRef.current?.contains(document.activeElement)) return;
+            if (wrapRef.current?.contains(document.activeElement)) return;
+            dismissWithoutSelection();
+          }, 0);
+        }}
       />
       {showClear ? (
         <button
           type="button"
           className={styles.clearBtn}
           onClick={handleClear}
+          onMouseDown={(event) => event.preventDefault()}
           title="Clear port"
           aria-label="Clear port"
         >
@@ -164,7 +203,13 @@ export default function PortSearchSelect({
             {!loading
               ? results.map((port) => (
                 <li key={port.id}>
-                  <button type="button" onClick={() => handleSelect(port)}>
+                  <button
+                    type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      handleSelect(port);
+                    }}
+                  >
                     {port.name}
                   </button>
                 </li>

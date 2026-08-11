@@ -3,20 +3,40 @@
  */
 import { fleetAppPath } from './fleetModule.js';
 import { periodContractAppPath } from './periodContractModule.js';
-import { elibraryAppPath } from './elibraryModule.js';
 import { userGuidesAppPath } from './userGuidesModule.js';
 import spotIcon from '../assets/icons/spot-icon.svg';
 import fleetIcon from '../assets/vessel.png';
 import vesselPositionIcon from '../assets/vesselPosition.svg';
-import elibraryIcon from '../assets/elibrary.svg';
+import coaIcon from '../assets/COA.svg';
 
-export const SOPF_SIDEBAR_ITEMS = [
+/** Links under the SOPF section (above Chartering Desk). */
+export const SOPF_TOP_SIDEBAR_ITEMS = [
   {
-    id: 'estimate_list',
+    id: 'vessel_position',
+    href: '/internal-user/sopf/vessel_position',
+    label: 'Vessels on Water',
+    iconSrc: vesselPositionIcon,
+    iconAlt: 'Vessels on Water',
+    isActive: (pathname) => pathname.includes('/internal-user/sopf/vessel_position'),
+  },
+  {
+    id: 'operated_vessels',
+    href: fleetAppPath('sopf'),
+    label: 'Operated Vessels',
+    iconSrc: fleetIcon,
+    iconAlt: 'Operated Vessels',
+    isActive: (pathname) => pathname.includes('/internal-user/sopf/fleet'),
+  },
+];
+
+/** Links under CHARTERING DESK. */
+export const SOPF_CHARTERING_SIDEBAR_ITEMS = [
+  {
+    id: 'spot',
     href: '/internal-user/sopf/estimate_list',
-    label: 'SPOT',
+    label: 'Spot',
     iconSrc: spotIcon,
-    iconAlt: 'SPOT',
+    iconAlt: 'Spot',
     isActive: (pathname) =>
       pathname.includes('/internal-user/sopf/estimate_list')
       || pathname.includes('/internal-user/sopf/updateestimate')
@@ -24,27 +44,33 @@ export const SOPF_SIDEBAR_ITEMS = [
       || pathname.includes('/internal-user/sopf/addestimate'),
   },
   {
-    id: 'fleet',
-    href: fleetAppPath('sopf'),
-    label: 'Fleet',
-    iconSrc: fleetIcon,
-    iconAlt: 'Fleet',
-    isActive: (pathname) => pathname.includes('/internal-user/sopf/fleet'),
+    id: 'time_charter',
+    href: '/internal-user/sopf/time-charter',
+    label: 'Time Charter',
+    icon: 'bi-clock-history',
+    isActive: (pathname) => pathname.includes('/internal-user/sopf/time-charter'),
   },
   {
-    id: 'period_contracts',
+    id: 'period',
     href: periodContractAppPath('sopf'),
-    label: 'Period Contract',
+    label: 'Period',
     icon: 'bi-journal-text',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/period-contracts'),
   },
   {
-    id: 'elibrary',
-    href: elibraryAppPath('sopf'),
-    label: 'E-Library',
-    iconSrc: elibraryIcon,
-    iconAlt: 'E-Library',
-    isActive: (pathname) => pathname.includes('/internal-user/sopf/elibrary'),
+    id: 'coas',
+    href: '/internal-user/sopf/coas',
+    label: 'COAs',
+    iconSrc: coaIcon,
+    iconAlt: 'COAs',
+    isActive: (pathname) => pathname.includes('/internal-user/sopf/coas'),
+  },
+  {
+    id: 'pools',
+    href: '/internal-user/sopf/pools',
+    label: 'Pools',
+    icon: 'bi-people',
+    isActive: (pathname) => pathname.includes('/internal-user/sopf/pools'),
   },
   {
     id: 'user_guides',
@@ -53,14 +79,12 @@ export const SOPF_SIDEBAR_ITEMS = [
     icon: 'bi-camera-video',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/user-guides'),
   },
-  {
-    id: 'vessel_position',
-    href: '/internal-user/sopf/vessel_position',
-    label: 'Vessel Positions',
-    iconSrc: vesselPositionIcon,
-    iconAlt: 'Vessel Positions',
-    isActive: (pathname) => pathname.includes('/internal-user/sopf/vessel_position'),
-  },
+];
+
+/** @deprecated Prefer SOPF_TOP_SIDEBAR_ITEMS + SOPF_CHARTERING_SIDEBAR_ITEMS */
+export const SOPF_SIDEBAR_ITEMS = [
+  ...SOPF_TOP_SIDEBAR_ITEMS,
+  ...SOPF_CHARTERING_SIDEBAR_ITEMS,
 ];
 
 export const SOPF_ENTRY_ROUTE = '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2';

@@ -346,6 +346,7 @@ export default function SensitivityAnalysisModal({
           <div className={styles.chromeActions}>
             <Button
               variant="accent"
+              icon="download"
               label={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
               onClick={handleGeneratePdf}
               disabled={pdfLoading || !columns.length}
@@ -772,7 +773,8 @@ export default function SensitivityAnalysisModal({
                       <Button
                         variant="accent"
                         size="sm"
-                        label={updatingId === column.id ? 'Updating...' : 'Update Estimate'}
+                        className={styles.updatePillBtn}
+                        label={updatingId === column.id ? 'Updating...' : 'Update'}
                         onClick={() => handleUpdateEstimate(column.id)}
                         disabled={Boolean(updatingId)}
                       />

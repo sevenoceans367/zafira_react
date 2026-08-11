@@ -624,6 +624,10 @@
   margin: 0;
 }
 
+.updatePillBtn {
+  border-radius: 999px !important;
+}
+
 .footer {
   margin-top: 26px;
   padding-top: 14px;

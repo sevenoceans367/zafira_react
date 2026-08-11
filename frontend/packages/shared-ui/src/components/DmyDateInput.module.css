@@ -9,13 +9,12 @@
 /*
  * Zafira-themed Flatpickr calendar (look only).
  * Keeps default flatpickr day grid + multi-step date → hour → minute layout.
- * Tokens: navy #274670 · blue #376eb8 · orange #f4652c
+ * Tokens: navy #274670 · light blue #376eb8 (selection)
  */
 :global(.flatpickr-calendar) {
   --fp-navy: #274670;
   --fp-blue: #376eb8;
-  --fp-orange: #f4652c;
-  --fp-orange-soft: rgba(244, 101, 44, 0.14);
+  --fp-blue-soft: rgba(55, 110, 184, 0.14);
   --fp-navy-soft: rgba(39, 70, 112, 0.08);
   --fp-border: #d5dee9;
   --fp-text: #1f2937;
@@ -141,17 +140,17 @@
 }
 
 :global(.flatpickr-day.today) {
-  border: 1px solid var(--fp-orange);
+  border: 1px solid var(--fp-blue);
   background: transparent;
-  color: var(--fp-orange);
+  color: var(--fp-blue);
   font-weight: 700;
 }
 
 :global(.flatpickr-day.today:hover),
 :global(.flatpickr-day.today:focus) {
-  background: var(--fp-orange-soft);
-  border-color: var(--fp-orange);
-  color: var(--fp-orange);
+  background: var(--fp-blue-soft);
+  border-color: var(--fp-blue);
+  color: var(--fp-blue);
 }
 
 :global(.flatpickr-day.selected),
@@ -163,23 +162,23 @@
 :global(.flatpickr-day.selected:focus),
 :global(.flatpickr-day.startRange:focus),
 :global(.flatpickr-day.endRange:focus) {
-  background: var(--fp-orange);
-  border-color: var(--fp-orange);
+  background: var(--fp-blue);
+  border-color: var(--fp-blue);
   color: #fff;
   font-weight: 700;
   box-shadow: none;
 }
 
 :global(.flatpickr-day.selected.today) {
-  background: var(--fp-orange);
-  border-color: var(--fp-orange);
+  background: var(--fp-blue);
+  border-color: var(--fp-blue);
   color: #fff;
 }
 
 :global(.flatpickr-day.inRange),
 :global(.flatpickr-day.prevMonthDay.inRange),
 :global(.flatpickr-day.nextMonthDay.inRange) {
-  background: var(--fp-orange-soft);
+  background: var(--fp-blue-soft);
   border-color: transparent;
   box-shadow: none;
   color: var(--fp-navy);
@@ -311,14 +310,14 @@
 
 .hourBtnActive,
 .minuteBtnActive {
-  background: #f4652c;
+  background: #376eb8;
   color: #fff;
   font-weight: 600;
 }
 
 .hourBtnActive:hover,
 .minuteBtnActive:hover {
-  background: #e2551f;
+  background: #2f5fa0;
   color: #fff;
 }
 

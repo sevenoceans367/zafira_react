@@ -13,9 +13,24 @@ export const SOPF_PAGE_HEADERS = {
     breadcrumbs: [HOME, SOPF, { label: SPOT_BUSINESS }],
   },
   vessel_position: {
-    title: 'Vessel Positions',
-    currentPage: 'Vessel Positions',
-    breadcrumbs: [HOME, SOPF, { label: 'Vessel Positions' }],
+    title: 'Vessels on Water',
+    currentPage: 'Vessels on Water',
+    breadcrumbs: [HOME, SOPF, { label: 'Vessels on Water' }],
+  },
+  pools: {
+    title: 'Pools',
+    currentPage: 'Pools',
+    breadcrumbs: [HOME, SOPF, { label: 'Pools' }],
+  },
+  'time-charter': {
+    title: 'Time Charter',
+    currentPage: 'Time Charter',
+    breadcrumbs: [HOME, SOPF, { label: 'Time Charter' }],
+  },
+  coas: {
+    title: 'COAs',
+    currentPage: 'COAs',
+    breadcrumbs: [HOME, SOPF, { label: 'COAs' }],
   },
   support_ticket: {
     title: 'Help Desk',

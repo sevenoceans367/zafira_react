@@ -20,11 +20,16 @@ function moduleBreadcrumb(module) {
   return { label: FLEET_MODULE_LABELS.vc, href: appPath('/internal-user/vc') };
 }
 
+function fleetListLabel(module) {
+  return module === 'sopf' ? 'Operated Vessels' : 'Fleet';
+}
+
 function fleetListHeader(module) {
+  const label = fleetListLabel(module);
   return {
-    title: 'Fleet',
-    currentPage: 'Fleet',
-    breadcrumbs: [HOME, moduleBreadcrumb(module), { label: 'Fleet' }],
+    title: label,
+    currentPage: label,
+    breadcrumbs: [HOME, moduleBreadcrumb(module), { label }],
   };
 }
 
@@ -34,44 +39,45 @@ export function resolveFleetHeader(pathname) {
 
   const fleetHref = fleetAppPath(module);
   const moduleCrumb = moduleBreadcrumb(module);
+  const listLabel = fleetListLabel(module);
 
   if (pathname.match(/\/fleet\/vessel\/[^/]+\/(particulars|particulars-tanker)$/) && !pathname.endsWith('/edit')) {
     return {
-      title: 'Fleet',
+      title: listLabel,
       currentPage: 'Vessel Particulars',
-      breadcrumbs: [HOME, moduleCrumb, { label: 'Fleet', href: fleetHref }, { label: 'Vessel Particulars' }],
+      breadcrumbs: [HOME, moduleCrumb, { label: listLabel, href: fleetHref }, { label: 'Vessel Particulars' }],
     };
   }
 
   if (pathname.match(/\/fleet\/vessel\/[^/]+\/particulars(\-tanker)?\/edit$/)) {
     return {
-      title: 'Fleet',
+      title: listLabel,
       currentPage: 'Edit Vessel Particulars',
-      breadcrumbs: [HOME, moduleCrumb, { label: 'Fleet', href: fleetHref }, { label: 'Edit Vessel Particulars' }],
+      breadcrumbs: [HOME, moduleCrumb, { label: listLabel, href: fleetHref }, { label: 'Edit Vessel Particulars' }],
     };
   }
 
   if (pathname.endsWith('/commercial')) {
     return {
-      title: 'Fleet',
+      title: listLabel,
       currentPage: 'Commercial Parameters',
-      breadcrumbs: [HOME, moduleCrumb, { label: 'Fleet', href: fleetHref }, { label: 'Commercial Parameters' }],
+      breadcrumbs: [HOME, moduleCrumb, { label: listLabel, href: fleetHref }, { label: 'Commercial Parameters' }],
     };
   }
 
   if (pathname.endsWith('/primary')) {
     return {
-      title: 'Fleet',
+      title: listLabel,
       currentPage: 'Update Vessel',
-      breadcrumbs: [HOME, moduleCrumb, { label: 'Fleet', href: fleetHref }, { label: 'Update Vessel' }],
+      breadcrumbs: [HOME, moduleCrumb, { label: listLabel, href: fleetHref }, { label: 'Update Vessel' }],
     };
   }
 
   if (pathname.endsWith('/fleet/add')) {
     return {
-      title: 'Fleet',
+      title: listLabel,
       currentPage: 'Add Vessel',
-      breadcrumbs: [HOME, moduleCrumb, { label: 'Fleet', href: fleetHref }, { label: 'Add Vessel' }],
+      breadcrumbs: [HOME, moduleCrumb, { label: listLabel, href: fleetHref }, { label: 'Add Vessel' }],
     };
   }
 

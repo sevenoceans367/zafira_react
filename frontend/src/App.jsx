@@ -74,6 +74,7 @@ import AddEstimatePage from '../pages/internal-user/sopf/AddEstimatePage.jsx';
 import ViewEstimatePage from '../pages/internal-user/sopf/ViewEstimatePage.jsx';
 import VesselPositionPage from '../pages/internal-user/sopf/VesselPositionPage.jsx';
 import SupportTicketPage from '../pages/internal-user/sopf/SupportTicketPage.jsx';
+import SopfComingSoonPage from '../pages/internal-user/sopf/SopfComingSoonPage.jsx';
 
 installBasePathGlobals();
 installLinkInterceptor();
@@ -224,6 +225,33 @@ export default function App() {
             <Route path="/internal-user/sopf/viewestimate" element={<ViewEstimatePage />} />
             <Route path="/internal-user/sopf/vessel_position" element={<VesselPositionPage />} />
             <Route path="/internal-user/sopf/support_ticket" element={<SupportTicketPage />} />
+            <Route
+              path="/internal-user/sopf/pools"
+              element={(
+                <SopfComingSoonPage
+                  title="Pools"
+                  description="Pools chartering desk screens will appear here."
+                />
+              )}
+            />
+            <Route
+              path="/internal-user/sopf/time-charter"
+              element={(
+                <SopfComingSoonPage
+                  title="Time Charter"
+                  description="Time Charter screens will appear here."
+                />
+              )}
+            />
+            <Route
+              path="/internal-user/sopf/coas"
+              element={(
+                <SopfComingSoonPage
+                  title="COAs"
+                  description="COAs chartering desk screens will appear here."
+                />
+              )}
+            />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

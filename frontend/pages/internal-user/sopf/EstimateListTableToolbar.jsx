@@ -64,12 +64,12 @@ export default function EstimateListTableToolbar({
           <button
             type="button"
             className={styles.menuTrigger}
-            aria-label="Download options"
+            aria-label="More options"
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <DownloadIcon size={18} title="" />
+            <i className="bi bi-three-dots-vertical" aria-hidden />
           </button>
           {menuOpen ? (
             <div className={styles.menuDropdown} role="menu">

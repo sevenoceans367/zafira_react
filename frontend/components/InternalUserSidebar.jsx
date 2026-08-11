@@ -8,7 +8,7 @@ import { elibraryAppPath } from '../constants/elibraryModule.js';
 import { userGuidesAppPath } from '../constants/userGuidesModule.js';
 import { todoListAppPath } from '../constants/todoListPageHeaders.js';
 import { combinedSoaPayableAppPath, combinedSoaPayableTcAppPath } from '../constants/combinedSoaPayablePageHeaders.js';
-import { SOPF_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
+import { SOPF_TOP_SIDEBAR_ITEMS, SOPF_CHARTERING_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
 import helpIcon from '../assets/help-icon.svg';
 import fleetIcon from '../assets/vessel.png';
 import elibraryIcon from '../assets/elibrary.svg';
@@ -86,7 +86,7 @@ export default function InternalUserSidebar({ isOpen }) {
   return (
     <AppSidebar isOpen={isOpen}>
       <ul className="sidebar-menu">
-        <SidebarSection label="SOPreFix" />
+        <SidebarSection label="SOPF" />
         <SidebarLink
           to={appPath(HELP_DESK_HREF)}
           iconSrc={helpIcon}
@@ -97,8 +97,19 @@ export default function InternalUserSidebar({ isOpen }) {
 
         {inSopf ? (
           <>
-            <SidebarSection label="CHARTERING DESK" />
-            {SOPF_SIDEBAR_ITEMS.map((item) => (
+            {SOPF_TOP_SIDEBAR_ITEMS.map((item) => (
+              <SidebarLink
+                key={item.id}
+                to={item.href.startsWith('/') ? appPath(item.href) : item.href}
+                icon={item.icon}
+                iconSrc={item.iconSrc}
+                iconAlt={item.iconAlt}
+                label={item.label}
+                active={isSidebarItemActive(currentPath, item)}
+              />
+            ))}
+            <SidebarSection label="COMMERCIAL OPERATIONS" />
+            {SOPF_CHARTERING_SIDEBAR_ITEMS.map((item) => (
               <SidebarLink
                 key={item.id}
                 to={item.href.startsWith('/') ? appPath(item.href) : item.href}

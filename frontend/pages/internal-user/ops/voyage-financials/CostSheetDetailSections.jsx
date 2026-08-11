@@ -344,6 +344,24 @@ export default function EstimateDetailSections({
         });
         return;
       }
+
+      // PHP setROB(id, fo|do): To Port departure ROB cascades to next leg From Port
+      if (keys.includes('toRobFoDeparture') || keys.includes('toRobDoDeparture')) {
+        const idx = rows.findIndex((row) => String(row.id) === String(id));
+        if (idx >= 0 && idx < rows.length - 1) {
+          const cur = rows[idx];
+          const nxt = { ...rows[idx + 1] };
+          if (keys.includes('toRobFoDeparture')) {
+            nxt.fromRobFoArrival = cur.toRobFoDeparture ?? '';
+            nxt.fromRobFoDeparture = cur.toRobFoDeparture ?? '';
+          }
+          if (keys.includes('toRobDoDeparture')) {
+            nxt.fromRobDoArrival = cur.toRobDoDeparture ?? '';
+            nxt.fromRobDoDeparture = cur.toRobDoDeparture ?? '';
+          }
+          rows[idx + 1] = nxt;
+        }
+      }
     }
 
     if (onRecalc) {
@@ -366,6 +384,13 @@ export default function EstimateDetailSections({
       if (prev?.toPortId) {
         next.fromPortId = prev.toPortId;
         next.fromPortName = prev.toPortName || '';
+      }
+      // Mirror PHP: carry previous To Port departure ROB onto new From Port
+      if (prev) {
+        next.fromRobFoArrival = prev.toRobFoDeparture || '';
+        next.fromRobDoArrival = prev.toRobDoDeparture || '';
+        next.fromRobFoDeparture = prev.toRobFoDeparture || '';
+        next.fromRobDoDeparture = prev.toRobDoDeparture || '';
       }
       const seeded = seedPortLegsFromFirstCargo(
         [next],
@@ -813,6 +838,7 @@ export default function EstimateDetailSections({
             ) : null}
             <Button
               type="button"
+              size="sm"
               variant="outline"
               label="Itinerary"
               ariaLabel="Itinerary"
@@ -828,13 +854,17 @@ export default function EstimateDetailSections({
             <div key={leg.id} className={styles.portLegCard}>
               <div className={styles.portLegGrid}>
                 <div className={styles.portLegPorts}>
-                  <table className={styles.portTable}>
+                  <table className={`${styles.portTable} ${styles.portRobTable}`}>
                     <thead>
                       <tr>
                         <th className={styles.portIdxCol}>#</th>
                         <th>From Port</th>
-                        <th>Arrival</th>
+                        <th>{legIndex > 0 ? 'Arrival' : ''}</th>
+                        <th className={styles.robCol}>VLSFO ROB</th>
+                        <th className={styles.robCol}>LSMGO ROB</th>
                         <th>Departure</th>
+                        <th className={styles.robCol}>VLSFO ROB</th>
+                        <th className={styles.robCol}>LSMGO ROB</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -867,17 +897,35 @@ export default function EstimateDetailSections({
                           )}
                         </td>
                         <td>
-                          {readOnly ? (
-                            <input value={leg.fromArrival || ''} readOnly />
-                          ) : (
-                            <DmyDateInput
-                              id={`fromArrival_${leg.id}`}
-                              enableTime
-                              className=""
-                              value={leg.fromArrival || ''}
-                              onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
-                            />
-                          )}
+                          {legIndex > 0 ? (
+                            readOnly ? (
+                              <input value={leg.fromArrival || ''} readOnly />
+                            ) : (
+                              <DmyDateInput
+                                id={`fromArrival_${leg.id}`}
+                                enableTime
+                                className=""
+                                value={leg.fromArrival || ''}
+                                onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
+                              />
+                            )
+                          ) : null}
+                        </td>
+                        <td className={styles.robCol}>
+                          <input
+                            value={leg.fromRobFoArrival || ''}
+                            readOnly={readOnly}
+                            placeholder="0.00"
+                            onChange={(e) => updateRow('portLegs', leg.id, { fromRobFoArrival: e.target.value })}
+                          />
+                        </td>
+                        <td className={styles.robCol}>
+                          <input
+                            value={leg.fromRobDoArrival || ''}
+                            readOnly={readOnly}
+                            placeholder="0.00"
+                            onChange={(e) => updateRow('portLegs', leg.id, { fromRobDoArrival: e.target.value })}
+                          />
                         </td>
                         <td>
                           {readOnly ? (
@@ -892,6 +940,22 @@ export default function EstimateDetailSections({
                             />
                           )}
                         </td>
+                        <td className={styles.robCol}>
+                          <input
+                            value={leg.fromRobFoDeparture || ''}
+                            readOnly={readOnly}
+                            placeholder="0.00"
+                            onChange={(e) => updateRow('portLegs', leg.id, { fromRobFoDeparture: e.target.value })}
+                          />
+                        </td>
+                        <td className={styles.robCol}>
+                          <input
+                            value={leg.fromRobDoDeparture || ''}
+                            readOnly={readOnly}
+                            placeholder="0.00"
+                            onChange={(e) => updateRow('portLegs', leg.id, { fromRobDoDeparture: e.target.value })}
+                          />
+                        </td>
                       </tr>
                     </tbody>
                     <thead>
@@ -899,7 +963,11 @@ export default function EstimateDetailSections({
                         <th />
                         <th>To Port</th>
                         <th>Arrival</th>
+                        <th className={styles.robCol}>VLSFO ROB</th>
+                        <th className={styles.robCol}>LSMGO ROB</th>
                         <th>Departure</th>
+                        <th className={styles.robCol}>VLSFO ROB</th>
+                        <th className={styles.robCol}>LSMGO ROB</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -942,6 +1010,22 @@ export default function EstimateDetailSections({
                             />
                           )}
                         </td>
+                        <td className={styles.robCol}>
+                          <input
+                            value={leg.toRobFoArrival || ''}
+                            readOnly={readOnly}
+                            placeholder="0.00"
+                            onChange={(e) => updateRow('portLegs', leg.id, { toRobFoArrival: e.target.value })}
+                          />
+                        </td>
+                        <td className={styles.robCol}>
+                          <input
+                            value={leg.toRobDoArrival || ''}
+                            readOnly={readOnly}
+                            placeholder="0.00"
+                            onChange={(e) => updateRow('portLegs', leg.id, { toRobDoArrival: e.target.value })}
+                          />
+                        </td>
                         <td>
                           {readOnly ? (
                             <input value={leg.toDeparture || ''} readOnly />
@@ -954,6 +1038,22 @@ export default function EstimateDetailSections({
                               onChange={(value) => updateRow('portLegs', leg.id, { toDeparture: value })}
                             />
                           )}
+                        </td>
+                        <td className={styles.robCol}>
+                          <input
+                            value={leg.toRobFoDeparture || ''}
+                            readOnly={readOnly}
+                            placeholder="0.00"
+                            onChange={(e) => updateRow('portLegs', leg.id, { toRobFoDeparture: e.target.value })}
+                          />
+                        </td>
+                        <td className={styles.robCol}>
+                          <input
+                            value={leg.toRobDoDeparture || ''}
+                            readOnly={readOnly}
+                            placeholder="0.00"
+                            onChange={(e) => updateRow('portLegs', leg.id, { toRobDoDeparture: e.target.value })}
+                          />
                         </td>
                       </tr>
                     </tbody>

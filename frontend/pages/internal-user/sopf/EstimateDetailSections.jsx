@@ -687,6 +687,7 @@ export default function EstimateDetailSections({
             ) : null}
             <Button
               type="button"
+              size="sm"
               variant="outline"
               label="Itinerary"
               ariaLabel="Itinerary"

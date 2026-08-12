@@ -1709,6 +1709,7 @@ export default function EstimateDetailSections({
               <tr>
                 <th>Bunker Grade</th>
                 <th>Qty. (MT)</th>
+                <th>Actual Qty. (MT)</th>
                 <th>Price (MT)</th>
                 <th>Amount</th>
               </tr>
@@ -1718,6 +1719,7 @@ export default function EstimateDetailSections({
                 <tr key={`summary-${row.grade}`}>
                   <td>{row.grade}</td>
                   <td><input value={row.qty || ''} readOnly placeholder="0.00" /></td>
+                  <td><input value={row.actualQty || ''} readOnly placeholder="0.00" /></td>
                   <td>
                     <BunkerPriceInput
                       value={row.price || ''}
@@ -1729,12 +1731,12 @@ export default function EstimateDetailSections({
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={4} className={styles.summaryEmptyCell}>No bunker summary available yet.</td>
+                  <td colSpan={5} className={styles.summaryEmptyCell}>No bunker summary available yet.</td>
                 </tr>
               )}
               <tr>
                 <td className={styles.summaryLabelCell}>Total Bunker Consumed - SECA/NON SECA</td>
-                <td colSpan={3}>
+                <td colSpan={4}>
                   <input value={form.totalBunkerCost || ''} readOnly placeholder="0.00" />
                 </td>
               </tr>

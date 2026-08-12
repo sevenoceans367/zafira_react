@@ -635,6 +635,53 @@ function isNonSecaBunkerIdentify(identify) {
 }
 
 /**
+ * PHP Bunkers Qty column = txtNONSECABunkerQty (slave2 NON_SECA EST_MT).
+ * Prefer synced secaBunkerRows qty over master VLSFOMT/LSMGO/HSFO fields.
+ */
+function pickEstimateQtyFromSecaRows(form, grade, classify) {
+  const matches = (form.secaBunkerRows || []).filter((row) => {
+    const key = classify(row.bunkerGradeId);
+    return (key === 'HSFO+SCRUBBER' ? 'HSFO' : key) === grade;
+  });
+  const nonSeca = matches.find((row) => isNonSecaBunkerIdentify(row.identify));
+  if (nonSeca && num(nonSeca.qty)) return num(nonSeca.qty);
+  if (matches.length === 1 && num(matches[0].qty)) return num(matches[0].qty);
+  return 0;
+}
+
+/** PHP getVoyageTime in-port rates (see mapConsumptionRow field cross-map). */
+function pickInPortConsumptionRates(cons, { lpSeca, dpSeca, tpSeca, port }) {
+  if (port === 'lp') {
+    if (lpSeca) {
+      return {
+        working: num(cons.inPortSecaWorking),
+        idle: num(cons.inPortSecaIdle),
+      };
+    }
+    return {
+      working: num(cons.inPortNonSecaWorking),
+      idle: num(cons.inPortNonSecaIdle),
+    };
+  }
+  if (port === 'dp') {
+    if (dpSeca) {
+      return {
+        working: num(cons.inPortSecaWorkingDp),
+        idle: num(cons.inPortSecaIdle),
+      };
+    }
+    return {
+      working: num(cons.inPortNonSecaWorkingDp),
+      idle: num(cons.inPortNonSecaIdle),
+    };
+  }
+  return {
+    working: 0,
+    idle: tpSeca ? num(cons.inPortSecaIdle) : num(cons.inPortNonSecaIdle),
+  };
+}
+
+/**
  * PHP getBunkerCalculation amount MT for one grade:
  * Amount = (SECA_MT + effectiveNonSecaMt) × price
  * effectiveNonSecaMt = ROB when (VLSFO|LSMGO) && ROB != 0, else estimated Qty (NON_SECA / voyage).
@@ -722,9 +769,9 @@ export function buildBunkerSummaryRows(form, resolveGradeName) {
       || pickPrice(secaMatches, false)
       || pickPrice(entryMatches, false);
 
-    const qty = num(
-      grade === 'HSFO' ? form.hsfoMt : grade === 'LSMGO' ? form.lsmgoMt : form.vlsfoMt,
-    );
+    const qtyFromSeca = pickEstimateQtyFromSecaRows(form, grade, classify);
+    const qtyField = grade === 'HSFO' ? form.hsfoMt : grade === 'LSMGO' ? form.lsmgoMt : form.vlsfoMt;
+    const qty = qtyFromSeca || num(qtyField);
     let actualQty = 0;
     if (grade === 'VLSFO' || grade === 'LSMGO') {
       actualQty = robActual[grade];
@@ -1415,8 +1462,8 @@ export function computeEstimateTotals(form) {
 
       for (const leg of legsWithDemurrage) {
         const seaDays = num(leg.seaDays);
-        const secaDays = num(leg.secaDays);
-        const nonSecaDays = Math.max(0, seaDays - secaDays);
+        const secaDaysVal = num(leg.secaDays);
+        const nonSecaDays = num(leg.nonSecaDays) || Math.max(0, seaDays - secaDaysVal);
         const nsGrade = leg.bgNonSeca || 'VLSFO';
         const sGrade = leg.bgSeca || 'LSMGO';
         const secaRate = pickAtSeaRate(cons, leg.passageType, leg.speedType, true);
@@ -1429,59 +1476,60 @@ export function computeEstimateTotals(form) {
         if (identify === 'FO') {
           // PHP NON-SECA FO qty when selNSBG matches bunker name
           if (gradeMatches(nsGrade, key, gradeName)) {
-            total += (nonSecaDays * nonSecaRate) + (secaDays * secaRate);
+            total += (nonSecaDays * nonSecaRate) + (secaDaysVal * secaRate);
             // getEuConsp NON-SECA FO: nonSecaDays × NS rate × EU%
             etsQty += nonSecaDays * nonSecaRate * euPct;
             any = true;
           }
         } else if (gradeMatches(sGrade, key, gradeName)) {
           // PHP NON-SECA DO qty when selSBG matches
-          total += (secaDays * secaRate) + (nonSecaDays * nonSecaRate);
+          total += (secaDaysVal * secaRate) + (nonSecaDays * nonSecaRate);
           // getEuConsp SECA DO: secaDays × DO NON-SECA rate × EU%
-          etsQty += secaDays * nonSecaRate * euPct;
+          etsQty += secaDaysVal * nonSecaRate * euPct;
           any = true;
         }
 
         // In-port (working / idle) — gated by port bunker grade + SECA checkbox
         const lpOk = (leg.lpBunkerGrades || []).some((g) => gradeMatches(g, key, gradeName));
         const dpOk = (leg.dpBunkerGrades || []).some((g) => gradeMatches(g, key, gradeName));
+        const tpOk = (leg.tpBunkerGrades || []).some((g) => gradeMatches(g, key, gradeName));
         const lw = num(leg.loadPortWorkDays);
         const li = num(leg.loadPortIdleDays);
         const dw = num(leg.discPortWorkDays);
         const di = num(leg.discPortIdleDays);
+        const ti = num(leg.transitIdleDays);
         const lpEu = calculatePortLegPercentage(extractCountryCode(leg.fromPortName));
         const dpEu = calculatePortLegPercentage(extractCountryCode(leg.toPortName));
 
         if (lpOk) {
-          if (leg.chkLpSeca) {
-            const w = num(cons.inPortSecaWorking);
-            const idle = num(cons.inPortSecaIdle);
-            total += lw * w + li * idle;
-            etsQty += (lw * w + li * idle) * lpEu;
-            any = true;
-          } else {
-            const w = num(cons.inPortNonSecaWorking);
-            const idle = num(cons.inPortNonSecaIdle);
-            total += lw * w + li * idle;
-            // PHP getEuConsp NON-SECA in-port is included via totalconspfo2 for FO grades
-            if (identify === 'FO') etsQty += (lw * w + li * idle) * lpEu;
-            any = true;
+          const rates = pickInPortConsumptionRates(cons, {
+            lpSeca: leg.chkLpSeca,
+            port: 'lp',
+          });
+          total += lw * rates.working + li * rates.idle;
+          if (leg.chkLpSeca || identify === 'FO') {
+            etsQty += (lw * rates.working + li * rates.idle) * lpEu;
           }
+          any = true;
         }
         if (dpOk) {
-          if (leg.chkDpSeca) {
-            const w = num(cons.inPortSecaWorkingDp || cons.inPortSecaWorking);
-            const idle = num(cons.inPortSecaIdle);
-            total += dw * w + di * idle;
-            etsQty += (dw * w + di * idle) * dpEu;
-            any = true;
-          } else {
-            const w = num(cons.inPortNonSecaWorkingDp || cons.inPortNonSecaWorking);
-            const idle = num(cons.inPortNonSecaIdle);
-            total += dw * w + di * idle;
-            if (identify === 'FO') etsQty += (dw * w + di * idle) * dpEu;
-            any = true;
+          const rates = pickInPortConsumptionRates(cons, {
+            dpSeca: leg.chkDpSeca,
+            port: 'dp',
+          });
+          total += dw * rates.working + di * rates.idle;
+          if (leg.chkDpSeca || identify === 'FO') {
+            etsQty += (dw * rates.working + di * rates.idle) * dpEu;
           }
+          any = true;
+        }
+        if (tpOk && ti > 0) {
+          const rates = pickInPortConsumptionRates(cons, {
+            tpSeca: leg.chkTpSeca,
+            port: 'tp',
+          });
+          total += ti * rates.idle;
+          any = true;
         }
       }
 
@@ -1523,7 +1571,9 @@ export function computeEstimateTotals(form) {
     Object.assign(bunkerMt, fromConsumption.bunkerMt);
     Object.assign(etsMt, fromConsumption.etsMt);
   } else if (storedSum > 0 || storedEtsSum > 0) {
-    Object.assign(bunkerMt, storedTotals);
+    for (const g of ['HSFO', 'VLSFO', 'LSMGO']) {
+      bunkerMt[g] = pickEstimateQtyFromSecaRows(form, g, classify) || storedTotals[g];
+    }
     Object.assign(etsMt, storedEts);
   } else {
     for (const row of bunkers) {

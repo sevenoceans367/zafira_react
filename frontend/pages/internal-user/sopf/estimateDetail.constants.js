@@ -536,49 +536,52 @@ export const SPEED_DATA_OPTIONS = [
   { value: 'eco', label: 'Most Eco Speed' },
 ];
 
-/** PHP FO/DO At Sea column groups — visibility toggled by speedDataType. */
+/** PHP FO/DO At Sea column groups — visibility toggled by speedDataType.
+ * Short domain labels (S=SECA, NS=non-SECA) to reduce horizontal scroll.
+ * Full Speed / Service Speed omit FS/SS prefixes; MES keeps the eco prefix.
+ */
 export const CONSUMPTION_SPEED_COLUMNS = {
   full: [
-    { key: 'balNonSecaFs', label: 'FS (B) NON-SECA' },
-    { key: 'balSecaFs', label: 'FS (B) SECA' },
-    { key: 'ladNonSecaFs', label: 'FS (L) NON-SECA' },
-    { key: 'ladSecaFs', label: 'FS (L) SECA' },
+    { key: 'balNonSecaFs', label: '(B) NS' },
+    { key: 'balSecaFs', label: '(B) S' },
+    { key: 'ladNonSecaFs', label: '(L) NS' },
+    { key: 'ladSecaFs', label: '(L) S' },
   ],
   service: [
-    { key: 'balNonSecaSs', label: 'SS (B) NON-SECA' },
-    { key: 'balSecaSs', label: 'SS (B) SECA' },
-    { key: 'ladNonSecaSs', label: 'SS (L) NON-SECA' },
-    { key: 'ladSecaSs', label: 'SS (L) SECA' },
+    { key: 'balNonSecaSs', label: '(B) NS' },
+    { key: 'balSecaSs', label: '(B) S' },
+    { key: 'ladNonSecaSs', label: '(L) NS' },
+    { key: 'ladSecaSs', label: '(L) S' },
   ],
   eco: [
-    { key: 'balNonSecaMes', label: 'MES (B) NON-SECA' },
-    { key: 'balSecaMes', label: 'MES (B) SECA' },
-    { key: 'ladNonSecaMes', label: 'MES (L) NON-SECA' },
-    { key: 'ladSecaMes', label: 'MES (L) SECA' },
+    { key: 'balNonSecaMes', label: 'MES (B) NS' },
+    { key: 'balSecaMes', label: 'MES (B) S' },
+    { key: 'ladNonSecaMes', label: 'MES (L) NS' },
+    { key: 'ladSecaMes', label: 'MES (L) S' },
   ],
 };
 
 export const CONSUMPTION_PORT_COLUMNS = [
-  { key: 'inPortNonSecaWorking', label: 'Working LP NON-SECA' },
-  { key: 'inPortSecaWorking', label: 'Working LP SECA' },
-  { key: 'inPortNonSecaWorkingDp', label: 'Working DP NON-SECA' },
-  { key: 'inPortSecaWorkingDp', label: 'Working DP SECA' },
-  { key: 'inPortNonSecaIdle', label: 'Idle NON-SECA' },
-  { key: 'inPortSecaIdle', label: 'Idle SECA' },
+  { key: 'inPortNonSecaWorking', label: 'WKG LP NS' },
+  { key: 'inPortSecaWorking', label: 'WKG LP S' },
+  { key: 'inPortNonSecaWorkingDp', label: 'WKG DP NS' },
+  { key: 'inPortSecaWorkingDp', label: 'WKG DP S' },
+  { key: 'inPortNonSecaIdle', label: 'IDLE NS' },
+  { key: 'inPortSecaIdle', label: 'IDLE S' },
 ];
 
 /** PHP FO/DO Consp/day - Others (tank cleaning, inert, gas free, heating). */
 export const CONSUMPTION_OTHERS_COLUMNS = [
-  { key: 'otherSecaTk', label: 'Tank Cln SECA' },
-  { key: 'otherNonSecaTk', label: 'Tank Cln NON-SECA' },
-  { key: 'otherSecaInert', label: 'Inert SECA' },
-  { key: 'otherNonSecaInert', label: 'Inert NON-SECA' },
-  { key: 'otherSecaGf', label: 'Gas Free SECA' },
-  { key: 'otherNonSecaGf', label: 'Gas Free NON-SECA' },
-  { key: 'otherSecaHeat', label: 'Heat Maint SECA' },
-  { key: 'otherNonSecaHeat', label: 'Heat Maint NON-SECA' },
-  { key: 'otherSecaHeat1', label: 'Heat Raise SECA' },
-  { key: 'otherNonSecaHeat1', label: 'Heat Raise NON-SECA' },
+  { key: 'otherSecaTk', label: 'TK CLN S' },
+  { key: 'otherNonSecaTk', label: 'TK CLN NS' },
+  { key: 'otherSecaInert', label: 'Inert S' },
+  { key: 'otherNonSecaInert', label: 'Inert NS' },
+  { key: 'otherSecaGf', label: 'Gas Free S' },
+  { key: 'otherNonSecaGf', label: 'Gas Free NS' },
+  { key: 'otherSecaHeat', label: 'Heat MNT S' },
+  { key: 'otherNonSecaHeat', label: 'Heat MNT NS' },
+  { key: 'otherSecaHeat1', label: 'Heat Raise S' },
+  { key: 'otherNonSecaHeat1', label: 'Heat Raise NS' },
 ];
 
 export function createEmptyInvoiceRow() {

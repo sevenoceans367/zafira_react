@@ -1192,10 +1192,11 @@
 }
 
 .speedDataBar {
-  display: grid;
-  grid-template-columns: auto minmax(120px, 160px) repeat(2, minmax(120px, 1fr));
-  gap: 8px 12px;
-  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: flex-end;
+  gap: 8px 16px;
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid #edf0f2;
@@ -1204,17 +1205,36 @@
 .speedDataLabel {
   font-size: 11px;
   font-weight: 700;
-  color: #dc631e;
+  color: #274670;
   padding-bottom: 4px;
+  align-self: flex-end;
 }
 
 .speedDataBar select {
   min-height: 24px;
+  width: auto;
+  min-width: 120px;
   font-size: 10px;
   color: #175c84;
   border: 1px solid var(--color-border, #e5e7eb);
   border-radius: 3px;
   padding: 2px 5px;
+  text-align: left;
+}
+
+.speedDataBar .field {
+  width: 130px;
+  max-width: 130px;
+  text-align: left;
+}
+
+.speedDataBar .field label {
+  text-align: left;
+}
+
+.speedDataBar .field input {
+  width: 100%;
+  text-align: left;
 }
 
 .consBlock {
@@ -1224,12 +1244,57 @@
 .consTitle {
   font-size: 11px;
   font-weight: 700;
-  color: #dc631e;
+  color: #274670;
   margin-bottom: 4px;
 }
 
 .consBlock .addRowBtn {
   margin-top: 4px;
+}
+
+/* Fill panel width; short headers stay readable, inputs stretch with columns */
+.consBlock .tableWrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.consBlock .portTable {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.consBlock .portTable th {
+  padding: 2px 3px;
+  font-size: 8px;
+  letter-spacing: 0;
+  white-space: normal;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.consBlock .portTable th:first-child,
+.consBlock .portTable td:first-child {
+  width: 11%;
+  min-width: 88px;
+  text-align: left;
+}
+
+.consBlock .portTable td {
+  padding: 2px 3px;
+}
+
+.consBlock .portTable td:first-child select {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+.consBlock .portTable td:not(:first-child) input {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding: 1px 2px;
+  text-align: center;
 }
 
 /* PHP-style validation highlight (jQuery validate .error) */

@@ -289,7 +289,7 @@ function drawBunkerAgentBody(doc, data) {
   if (data.agentLoginUrl) {
     const abs = /^https?:\/\//i.test(data.agentLoginUrl)
       ? data.agentLoginUrl
-      : `https://zafira.sevenoceansgenesis.com${data.agentLoginUrl.startsWith('/') ? '' : '/'}${data.agentLoginUrl}`;
+      : `https://zafira.sevenoceans.net.in${data.agentLoginUrl.startsWith('/') ? '' : '/'}${data.agentLoginUrl}`;
     const left = doc.page.margins.left;
     const usable = doc.page.width - doc.page.margins.left - doc.page.margins.right;
     doc.x = left;
@@ -352,7 +352,7 @@ function mockPdfData(genAgencyId, opts = {}) {
     companyPhone: '+30 210 0000000',
     companyEmail: 'ops@zafirast.com',
     companyWebsite: 'www.zafirast.com',
-    agentLoginUrl: 'https://zafira.sevenoceansgenesis.com/agentlogin.php',
+    agentLoginUrl: 'https://zafira.sevenoceans.net.in/login',
     bunkerSurveyor: 'John Surveyor',
     bunkerSurveyorCom: 'Survey Co / +65 1234',
     bunkers: [

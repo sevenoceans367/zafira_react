@@ -872,6 +872,17 @@ function mapEstimateDetail(
     })(),
     gasBaltic: master.GAS_BALTIC ?? '',
     gasBaseRate: master.GAS_BASE_RATE ?? '',
+    gasMarket: master.GAS_MARKET != null && Number(master.GAS_MARKET) !== 0
+      ? String(master.GAS_MARKET)
+      : '1',
+    gasLumsum: master.GAS_LUMSUM ?? '',
+    // PHP rdoMMarket: 1 = Freight $/MT, 2 = LS — infer from saved lumpsum vs cargo rate.
+    dryMarket: Number(master.ESTIMATE_TYPE) === 3
+      && Number(master.LUMPSUMAMT || master.LUMSUM || 0) > 0
+      && !(Number(master.CARGO_RATE || 0) > 0)
+      ? '2'
+      : '1',
+    dfQty: master.DF_QTY ?? master.DEAD_FREIGHT_QTY ?? '',
     addnlPremium: master.ADDNL_PRENIUM ?? '',
     baseRateFloat: master.BASERATE_FLOAT ?? '',
     baseRateFixed: master.BASERATE_FIXED ?? '',
@@ -2435,6 +2446,8 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     'DISPONENT_OWNER = ?',
     'GAS_BALTIC = ?',
     'GAS_BASE_RATE = ?',
+    'GAS_MARKET = ?',
+    'GAS_LUMSUM = ?',
     'ADDNL_PRENIUM = ?',
     'BASERATE_FLOAT = ?',
     'BASERATE_FIXED = ?',
@@ -2566,6 +2579,12 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
       || null,
     numOrNull(payload.gasBaltic),
     numOrNull(payload.gasBaseRate),
+    Number(payload.estimateType) === 1
+      ? (Number(payload.gasMarket) === 2 ? 2 : 1)
+      : null,
+    Number(payload.estimateType) === 1
+      ? numOrNull(payload.gasLumsum || payload.lumpsum)
+      : null,
     numOrNull(payload.addnlPremium),
     numOrNull(payload.baseRateFloat),
     numOrNull(payload.baseRateFixed),

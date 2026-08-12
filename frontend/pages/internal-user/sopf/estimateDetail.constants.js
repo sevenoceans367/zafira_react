@@ -1243,6 +1243,16 @@ export function toFormState(detail = {}) {
     addressCommAmt: detail.addressCommAmt != null ? String(detail.addressCommAmt) : '',
     gasBaltic: detail.gasBaltic != null ? String(detail.gasBaltic) : '',
     gasBaseRate: detail.gasBaseRate != null ? String(detail.gasBaseRate) : '',
+    gasMarket: detail.gasMarket != null && String(detail.gasMarket) !== '0'
+      ? String(detail.gasMarket)
+      : '1',
+    gasLumsum: detail.gasLumsum != null
+      ? String(detail.gasLumsum)
+      : (detail.lumpsum != null && Number(detail.estimateType) === 1 ? String(detail.lumpsum) : ''),
+    dryMarket: detail.dryMarket != null && String(detail.dryMarket) !== '0'
+      ? String(detail.dryMarket)
+      : '1',
+    dfQty: detail.dfQty != null ? String(detail.dfQty) : '',
     addnlPremium: detail.addnlPremium != null ? String(detail.addnlPremium) : '',
     co2Price: detail.co2Price != null ? String(detail.co2Price) : '',
     euaPrice: detail.euaPrice != null ? String(detail.euaPrice) : '',

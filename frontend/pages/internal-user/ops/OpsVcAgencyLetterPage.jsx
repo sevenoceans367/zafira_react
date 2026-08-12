@@ -19,6 +19,18 @@ import {
 import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
+function PdfDownloadButton({ href, label }) {
+  return (
+    <Button
+      href={href}
+      icon="download"
+      label={label}
+      variant="outline"
+      size="sm"
+    />
+  );
+}
+
 const BACK_PATHS = {
   1: '/internal-user/vc/ops/in-ops-glance',
   2: '/internal-user/vc/ops/post-ops',
@@ -626,14 +638,16 @@ export default function OpsVcAgencyLetterPage() {
                         <td>{record.username || '—'}</td>
                         <td>{record.password || '—'}</td>
                         <td className={styles.actionsCell}>
-                          {activePort.portType !== 'TP' ? (
-                            <>
-                              <div><a href={pdfHref(record, 'pda')}>PDA Request Letter</a></div>
-                              <div><a href={pdfHref(record, 'nomination')}>Agency Nomination Letter</a></div>
-                            </>
-                          ) : null}
-                          <div><a href={pdfHref(record, 'agent-bunker')}>Letter to Agents - Bunker Stemmed</a></div>
-                          <div><a href={pdfHref(record, 'master-bunker')}>Letter to Master - Bunker Stemmed</a></div>
+                          <div className={styles.pdfActions}>
+                            {activePort.portType !== 'TP' ? (
+                              <>
+                                <PdfDownloadButton href={pdfHref(record, 'pda')} label="PDA Request Letter" />
+                                <PdfDownloadButton href={pdfHref(record, 'nomination')} label="Agency Nomination Letter" />
+                              </>
+                            ) : null}
+                            <PdfDownloadButton href={pdfHref(record, 'agent-bunker')} label="Letter to Agents - Bunker Stemmed" />
+                            <PdfDownloadButton href={pdfHref(record, 'master-bunker')} label="Letter to Master - Bunker Stemmed" />
+                          </div>
                         </td>
                         <td>
                           <button

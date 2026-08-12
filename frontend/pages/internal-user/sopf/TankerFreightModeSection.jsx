@@ -31,7 +31,7 @@ function sumCargoRows(rows = []) {
   );
 }
 
-function CargoDetailsTable({
+export function CargoDetailsTable({
   title,
   collection,
   rows,

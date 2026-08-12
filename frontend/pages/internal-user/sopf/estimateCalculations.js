@@ -1175,9 +1175,15 @@ export function computeEstimateTotals(form) {
   const estimateType = Number(form.estimateType) || 2;
   const isTanker = estimateType === 2;
   const isGas = estimateType === 1;
+  const isDry = estimateType === 3;
+  const gasMarket = String(form.gasMarket || '1');
+  const dryMarket = String(form.dryMarket || '1');
+  const gasLumsum = num(form.gasLumsum) || num(form.lumpsum);
   const lumpsum = isTanker
     ? (form.chkLumpsum ? num(form.lumpsum) : 0)
-    : num(form.lumpsum);
+    : isGas
+      ? (gasMarket === '2' ? gasLumsum : 0)
+      : num(form.lumpsum);
   const cargoQtyTotal = round2(
     allCargos.reduce((sum, row) => sum + num(row.cargoMt), 0)
     || num(form.lumpsumQty)
@@ -1189,18 +1195,46 @@ export function computeEstimateTotals(form) {
   const rateTimesQty = tankerFreightRate > 0 && cargoQtyTotal > 0
     ? round2(tankerFreightRate * cargoQtyTotal)
     : 0;
+  const dryQty = num(form.cargoQuantity) || cargoQtyTotal;
+  const dfQty = num(form.dfQty);
+  const dryRate = num(form.marketRate);
+  const dryGrossFreight = dryMarket === '2'
+    ? round2(num(form.lumpsum))
+    : round2(dryRate * dryQty);
+  const deadFreightAmt = dryMarket === '1' ? round2(dryRate * dfQty) : 0;
   let freightGross = 0;
   if (isGas) {
     // PHP rdoEstimateType==1: base rate × gas qty, or gas lumpsum.
     const gasQty = num(form.cargoQuantity) || cargoQtyTotal;
     const gasBase = num(form.gasBaseRate);
-    const gasFromRate = gasQty > 0 && gasBase > 0 ? round2(gasQty * gasBase) : 0;
-    freightGross = round2(
-      gasFromRate
-      || lumpsum
-      || num(form.freightGross)
-      || freightFromCargo,
-    );
+    if (gasMarket === '2') {
+      freightGross = round2(gasLumsum || num(form.freightGross) || freightFromCargo);
+    } else {
+      const gasFromRate = gasQty > 0 && gasBase > 0 ? round2(gasQty * gasBase) : 0;
+      freightGross = round2(
+        gasFromRate
+        || num(form.freightGross)
+        || freightFromCargo,
+      );
+    }
+  } else if (isDry) {
+    // PHP: Multiple (rdoTankType=2) → sum Main/Overage/Deadfreight cargo amounts.
+    // Single → Market freight×qty (+ DF) or LS, plus freight-qty vendor nets.
+    if (tankType === '2') {
+      freightGross = round2(
+        freightFromCargo
+        || num(form.freightGross)
+        || rateTimesQty
+        || totalFreightQty,
+      );
+    } else {
+      const dryTotal = round2(dryGrossFreight + deadFreightAmt + totalFreightQty);
+      freightGross = round2(
+        dryTotal
+        || num(form.freightGross)
+        || freightFromCargo,
+      );
+    }
   } else if (tankType === '1') {
     freightGross = round2(
       lumpsum
@@ -1820,6 +1854,8 @@ export function computeEstimateTotals(form) {
     totalFreightQty: String(totalFreightQty || ''),
     cargoQuantity: String(cargoQuantity || ''),
     freightGross: String(freightGross || ''),
+    dryGrossFreight: String(dryGrossFreight || ''),
+    deadFreightAmt: String(deadFreightAmt || ''),
     brokeragePercent: brokeragePercent ? brokeragePercent.toFixed(2) : '',
     brokerageAmt: brokerageAmt ? brokerageAmt.toFixed(2) : '',
     addressCommAmt: addressCommAmt ? addressCommAmt.toFixed(2) : '',

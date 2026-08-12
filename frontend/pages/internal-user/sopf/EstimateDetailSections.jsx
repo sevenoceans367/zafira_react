@@ -36,6 +36,7 @@ import RowRemoveButton from './RowRemoveButton.jsx';
 
 import DistanceFetchModal from './DistanceFetchModal.jsx';
 import TankerFreightModeSection from './TankerFreightModeSection.jsx';
+import { DryFreightModeSection, GasFreightModeSection } from './EstimateTypeCargoFreight.jsx';
 import PortLaytimeSections from './PortLaytimeSections.jsx';
 import EstimateResultsPanels from './EstimateResultsPanels.jsx';
 import VesselItineraryModal from './VesselItineraryModal.jsx';
@@ -111,8 +112,9 @@ export default function EstimateDetailSections({
   onApplyPatch,
 }) {
   const estimateType = Number(detail?.estimateType) || 2;
+  const isGas = estimateType === 1;
   const isTanker = estimateType === 2;
-  const showLumpsum = estimateType !== 3;
+  const isDry = estimateType === 3;
   const editable = !readOnly;
   const alert = useAlert();
   const [searchParams] = useSearchParams();
@@ -1098,7 +1100,7 @@ export default function EstimateDetailSections({
         defaultOpen
       >
         <div className={styles.headerGrid}>
-          {!(isTanker && String(form.tankType || '1') === '2') ? (
+          {!(!isGas && String(form.tankType || '1') === '2') ? (
           <Field id="cargoId_0" label="Cargo Name" className={styles.cargoMultiSelectField}>
             <div id="cargoId_0" className={styles.cargoMultiSelectWrap}>
               {(() => {
@@ -1214,6 +1216,15 @@ export default function EstimateDetailSections({
           </Field>
         </div>
 
+        {isGas ? (
+          <GasFreightModeSection
+            form={form}
+            readOnly={readOnly}
+            inputProps={inputProps}
+            applyPatch={applyPatch}
+            onRecalc={onRecalc}
+          />
+        ) : null}
         {isTanker ? (
           <TankerFreightModeSection
             form={form}
@@ -1228,29 +1239,21 @@ export default function EstimateDetailSections({
             onRecalc={onRecalc}
             updateField={updateField}
           />
-        ) : (
-          <>
-            <h4 className={styles.subHeading}>Freight</h4>
-            <div className={styles.headerGrid}>
-              {showLumpsum ? (
-                <>
-                  <Field id="lumpsumQty" label="Lump Sum Qty">
-                    <input {...inputProps('lumpsumQty', { recalc: true })} />
-                  </Field>
-                  <Field id="lumpsum" label="Lump Sum">
-                    <input {...inputProps('lumpsum', { recalc: true })} />
-                  </Field>
-                </>
-              ) : null}
-              <Field id="marketRate" label="Market / Cargo Rate">
-                <input {...inputProps('marketRate', { recalc: true })} />
-              </Field>
-              <Field id="freightGross" label="Gross Freight / Total Freight">
-                <input {...inputProps('freightGross', { recalc: true })} />
-              </Field>
-            </div>
-          </>
-        )}
+        ) : null}
+        {isDry ? (
+          <DryFreightModeSection
+            form={form}
+            readOnly={readOnly}
+            editable={editable}
+            lookups={lookups}
+            inputProps={inputProps}
+            applyPatch={applyPatch}
+            updateRow={updateRow}
+            addRow={addRow}
+            removeRow={removeRow}
+            onRecalc={onRecalc}
+          />
+        ) : null}
       </CollapsiblePanel>
 
       <CollapsiblePanel

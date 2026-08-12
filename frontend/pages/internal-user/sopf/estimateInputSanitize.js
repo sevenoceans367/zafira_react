@@ -70,6 +70,8 @@ export const ESTIMATE_DECIMAL_FIELDS = new Set([
   'lumpsum',
   'lumpsumQty',
   'marketRate',
+  'cargoQuantity',
+  'dfQty',
   'freightGross',
   'tankerFreightRate',
   // vessel particulars
@@ -188,6 +190,8 @@ export const ESTIMATE_DECIMAL_FIELDS = new Set([
   // gas / float fields
   'gasBaltic',
   'gasBaseRate',
+  'gasLumsum',
+  'dfQty',
   'addnlPremium',
   'baseRateFloat',
   'baseRateFixed',

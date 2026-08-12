@@ -399,7 +399,9 @@ function parseCargoIds(value) {
 function mapBunkerRow(row, index) {
   return {
     id: `bunker-${row.FCAID}-${index}`,
-    bunkerGradeId: row.BUNKERGRADEID != null ? String(row.BUNKERGRADEID) : '',
+    bunkerGradeId: row.BUNKERGRADEID != null
+      ? String(row.BUNKERGRADEID)
+      : (row.BUNKERID != null ? String(row.BUNKERID) : ''),
     qty: row.QTY ?? '',
     price: row.PRICE ?? '',
     cost: row.COST ?? '',
@@ -453,6 +455,7 @@ function mapSecaBunkerRow(row, index) {
     identify: row.IDENTIFY || 'SECA',
     bunkerType: row.BUNKER_TYPE || 'FO',
     calc: Number(row.CHK_IF_CAL) !== 0,
+    actualQty: row.ACTUAL_MT ?? '',
   };
 }
 

@@ -9,6 +9,30 @@ import { applyEstimateCalculations } from './estimateCalculations.js';
 import { toFormState } from './estimateDetail.constants.js';
 import styles from './UpdateEstimatePage.module.css';
 
+/** PHP viewestimate.php $redirect from rttype (in_ops / post_ops / history). */
+const RTTYPE_BACK = {
+  1: '/internal-user/vc/ops/in-ops-glance',
+  3: '/internal-user/vc/ops/post-ops',
+  4: '/internal-user/vc/ops/history',
+};
+
+function resolveViewEstimateBackHref(searchParams, { businessType, estimateType }) {
+  const returnToRaw = searchParams.get('returnTo') || '';
+  if (returnToRaw) {
+    try {
+      const decoded = decodeURIComponent(returnToRaw);
+      if (decoded.startsWith('/internal-user/')) return appPath(decoded);
+    } catch {
+      /* ignore bad returnTo */
+    }
+  }
+  const opsBack = RTTYPE_BACK[String(searchParams.get('rttype') || '')];
+  if (opsBack) return appPath(opsBack);
+  return appPath(
+    `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
+  );
+}
+
 export default function ViewEstimatePage() {
   const [searchParams] = useSearchParams();
   const estimateId = searchParams.get('id');
@@ -28,9 +52,7 @@ export default function ViewEstimatePage() {
     complianceYear: new Date().getFullYear(),
   });
 
-  const listHref = appPath(
-    `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
-  );
+  const listHref = resolveViewEstimateBackHref(searchParams, { businessType, estimateType });
 
   const loadDetail = useCallback(async () => {
     if (!estimateId) {

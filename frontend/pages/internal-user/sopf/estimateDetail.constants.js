@@ -415,6 +415,7 @@ export function createEmptySecaBunkerRow(identify = 'SECA', bunkerType = 'FO') {
     identify,
     bunkerType,
     calc: true,
+    actualQty: '',
   };
 }
 
@@ -907,6 +908,7 @@ export function toFormState(detail = {}) {
       identify: row.identify || 'SECA',
       bunkerType: row.bunkerType || 'FO',
       calc: row.calc !== false,
+      actualQty: row.actualQty != null ? String(row.actualQty) : '',
     }))
     : [
       createEmptySecaBunkerRow('SECA', 'FO'),

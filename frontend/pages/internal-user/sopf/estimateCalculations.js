@@ -600,12 +600,106 @@ export function classifyBunkerGradeName(gradeName) {
 }
 
 /**
- * PHP Bunkers summary: qty from consumption MT, price from SECA row (slave2 EST_PRICE).
+ * PHP updatecost_sheet_tci getBunkerCalculation Actual Qty. (MT):
+ * VLSFO = to_rob_fo_arrival_1 − to_rob_fo_departure_{last} + slave8 SUPPLY qty (grade 29)
+ * LSMGO = to_rob_do_arrival_1 − to_rob_do_departure_{last} + slave8 SUPPLY qty (grade 23)
+ * HSFO  = slave2 SECA ACTUAL_MT (no ROB overwrite)
+ */
+function calcCostSheetActualBunkerQty(form, classify) {
+  const legs = Array.isArray(form.portLegs) ? form.portLegs : [];
+  const first = legs[0] || {};
+  const last = legs[legs.length - 1] || {};
+  let vlsfoRob = num(first.toRobFoArrival) - num(last.toRobFoDeparture);
+  let lsmgoRob = num(first.toRobDoArrival) - num(last.toRobDoDeparture);
+
+  for (const row of form.bunkerRows || []) {
+    if (String(row.identify || '').toUpperCase() !== 'SUPPLY') continue;
+    const gradeId = String(row.bunkerGradeId || '');
+    const key = classify(row.bunkerGradeId);
+    const qty = num(row.qty);
+    if (key === 'VLSFO' || gradeId === '29') vlsfoRob += qty;
+    if (key === 'LSMGO' || gradeId === '23') lsmgoRob += qty;
+  }
+
+  return { VLSFO: round2(vlsfoRob), LSMGO: round2(lsmgoRob) };
+}
+
+function isSecaBunkerIdentify(identify) {
+  const id = String(identify || '').toUpperCase().replace(/\s+/g, '_');
+  return id === 'SECA' || id === '1';
+}
+
+function isNonSecaBunkerIdentify(identify) {
+  const id = String(identify || '').toUpperCase().replace(/\s+/g, '_');
+  return id === 'NON_SECA' || id === 'NONSECA' || id === '2';
+}
+
+/**
+ * PHP getBunkerCalculation amount MT for one grade:
+ * Amount = (SECA_MT + effectiveNonSecaMt) × price
+ * effectiveNonSecaMt = ROB when (VLSFO|LSMGO) && ROB != 0, else estimated Qty (NON_SECA / voyage).
+ * When only a SECA row exists, its qty is the NON_SECA stand-in (do not add it again with ROB).
+ */
+function calcCostSheetBunkerAmountMt({
+  grade,
+  estimateQty,
+  actualQty,
+  secaMatches,
+}) {
+  const matches = secaMatches || [];
+  const hasNonSeca = matches.some((row) => isNonSecaBunkerIdentify(row.identify));
+  const secaQtyPart = hasNonSeca
+    ? round2(matches
+      .filter((row) => isSecaBunkerIdentify(row.identify))
+      .reduce((sum, row) => sum + num(row.qty), 0))
+    : 0;
+  const useRobForAmount = (grade === 'VLSFO' || grade === 'LSMGO') && actualQty !== 0;
+  return useRobForAmount ? round2(secaQtyPart + actualQty) : num(estimateQty);
+}
+
+/**
+ * PHP txtTotalSECAConsumption / txtBrokTtlCostUsd — bunker expense that feeds voyage results.
+ */
+function calcCostSheetBunkerExpenseTotal(form, classify, bunkerMt, priceByGrade, secaBunkerRows) {
+  const robActual = calcCostSheetActualBunkerQty(form, classify);
+  let total = 0;
+  for (const grade of ['VLSFO', 'LSMGO', 'HSFO']) {
+    const price = num(priceByGrade?.[grade]);
+    if (!(price > 0)) continue;
+    const secaMatches = (secaBunkerRows || []).filter((row) => {
+      const key = classify(row.bunkerGradeId);
+      return (key === 'HSFO+SCRUBBER' ? 'HSFO' : key) === grade;
+    });
+    const estimateQty = num(bunkerMt?.[grade]);
+    const actualQty = grade === 'VLSFO' || grade === 'LSMGO'
+      ? robActual[grade]
+      : round2(secaMatches
+        .filter((row) => isSecaBunkerIdentify(row.identify))
+        .reduce((sum, row) => sum + num(row.actualQty), 0));
+    const amountMt = calcCostSheetBunkerAmountMt({
+      grade,
+      estimateQty,
+      actualQty,
+      secaMatches,
+    });
+    total = round2(total + amountMt * price);
+  }
+  return {
+    total,
+    robActual,
+    hasRobActual: robActual.VLSFO !== 0 || robActual.LSMGO !== 0,
+  };
+}
+
+/**
+ * PHP Bunkers summary: qty from voyage calc MT, actual qty from ROB + supplied
+ * (updatecost_sheet_tci getBunkerCalculation), price from SECA row (slave2 EST_PRICE).
  * @param {object} form
  * @param {(gradeId: string) => string} resolveGradeName
  */
 export function buildBunkerSummaryRows(form, resolveGradeName) {
   const classify = (gradeId) => classifyBunkerGradeName(resolveGradeName(gradeId));
+  const robActual = calcCostSheetActualBunkerQty(form, classify);
 
   return ['VLSFO', 'LSMGO', 'HSFO'].map((grade) => {
     const pickPrice = (rows, preferSeca = false) => (rows || []).reduce((acc, row) => {
@@ -631,14 +725,33 @@ export function buildBunkerSummaryRows(form, resolveGradeName) {
     const qty = num(
       grade === 'HSFO' ? form.hsfoMt : grade === 'LSMGO' ? form.lsmgoMt : form.vlsfoMt,
     );
-    const amount = round2(qty * price);
+    let actualQty = 0;
+    if (grade === 'VLSFO' || grade === 'LSMGO') {
+      actualQty = robActual[grade];
+    } else {
+      actualQty = round2(secaMatches
+        .filter((row) => isSecaBunkerIdentify(row.identify))
+        .reduce((sum, row) => sum + num(row.actualQty), 0));
+    }
+    const amountMt = calcCostSheetBunkerAmountMt({
+      grade,
+      estimateQty: qty,
+      actualQty,
+      secaMatches,
+    });
+    const amount = round2(amountMt * price);
+    const hasOther = qty || price || amount;
+    const actualStr = actualQty
+      ? Number(actualQty).toFixed(2)
+      : ((grade === 'VLSFO' || grade === 'LSMGO') && hasOther ? '0.00' : '');
     return {
       grade,
       qty: qty ? qty.toFixed(2) : '',
+      actualQty: actualStr,
       price: price ? price.toFixed(2) : '',
       amount: amount ? amount.toFixed(2) : '',
     };
-  }).filter((row) => row.qty || row.price || row.amount);
+  }).filter((row) => row.qty || row.actualQty || row.price || row.amount);
 }
 
 /** Brokerage-only totals for the Commissions panel Total row (excludes ADCOM Freight). */
@@ -1507,6 +1620,19 @@ export function computeEstimateTotals(form) {
     secaBunkersSynced.reduce((sum, row) => sum + num(row.cost), 0),
   );
 
+  // PHP getBunkerCalculation → txtTotalSECAConsumption → txtBrokTtlCostUsd (feeds voyage results).
+  // When ROB actual is set for VLSFO/LSMGO, amount uses Actual Qty instead of estimated Qty.
+  const costSheetBunker = calcCostSheetBunkerExpenseTotal(
+    { ...form, bunkerRows: bunkers },
+    classify,
+    bunkerMt,
+    priceByGrade,
+    secaBunkersSynced,
+  );
+  const totalSecaBunkerCostForResults = costSheetBunker.total > 0
+    ? costSheetBunker.total
+    : totalSecaBunkerCostSynced;
+
   const factors = form._complianceFactors || {};
   const fac = (key) => factors[key] || { co2Fac: 0, penalty: 0, intensity: 0, ghgRate: 0, euaCo2Rate: 0 };
   // PHP Fuel EU penalties use TOTAL bunker MT (txtHsfo / txtVlfoMT / txtLsmgo)
@@ -1561,7 +1687,7 @@ export function computeEstimateTotals(form) {
   }
 
   // PHP Bunker Expenses (getBunkerCalculation):
-  //   Default: Σ SECA/NON-SECA grade amounts (qty × price)
+  //   Default: Σ SECA/NON-SECA grade amounts (qty × price; ROB replaces NON_SECA when set)
   //   If Σ ConBunkerAmt (manual consumed / slave8 CONSUMPTION) > 0 → that sum overrides
   const conBunkerExpense = round2(
     bunkers
@@ -1570,8 +1696,8 @@ export function computeEstimateTotals(form) {
   );
   const bunkerExpenseTotal = conBunkerExpense > 0
     ? conBunkerExpense
-    : (totalSecaBunkerCostSynced > 0
-      ? totalSecaBunkerCostSynced
+    : (totalSecaBunkerCostForResults > 0
+      ? totalSecaBunkerCostForResults
       : (storedSecaExpense > 0
         ? storedSecaExpense
         : round2(num(form.bunkerResultsCost) || num(form.totalBunkerCost) || 0)));
@@ -1626,7 +1752,7 @@ export function computeEstimateTotals(form) {
     totalDays: totalDays ? totalDays.toFixed(2) : '0.00',
     totalPortCost: String(totalPortCost || ''),
     totalBunkerCost: String(bunkerExpenseTotal || ''),
-    totalSecaBunkerCost: String(totalSecaBunkerCostSynced || ''),
+    totalSecaBunkerCost: String(totalSecaBunkerCostForResults || ''),
     totalOrcCost: String(totalOrcCost || ''),
     totalOtherIncome: String(totalOtherIncome || ''),
     totalHireAmt: String(hireAmt || ''),

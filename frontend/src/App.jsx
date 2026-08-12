@@ -28,6 +28,12 @@ import OpsVcAgencyLetterPage from '../pages/internal-user/ops/OpsVcAgencyLetterP
 import OpsVcPdaFdaPage from '../pages/internal-user/ops/OpsVcPdaFdaPage.jsx';
 import OpsVcDocumentsPage from '../pages/internal-user/ops/OpsVcDocumentsPage.jsx';
 import OpsVcPaymentGridPage from '../pages/internal-user/ops/OpsVcPaymentGridPage.jsx';
+import OpsVcFreightInvoicePage from '../pages/internal-user/ops/OpsVcFreightInvoicePage.jsx';
+import OpsVcRequestPortCostPage from '../pages/internal-user/ops/OpsVcRequestPortCostPage.jsx';
+import OpsVcOtherInvoicePage from '../pages/internal-user/ops/OpsVcOtherInvoicePage.jsx';
+import OpsVcHireStatementPage from '../pages/internal-user/ops/OpsVcHireStatementPage.jsx';
+import OpsVcClubbedInvoicePage from '../pages/internal-user/ops/OpsVcClubbedInvoicePage.jsx';
+import OpsVcClubbedHirePage from '../pages/internal-user/ops/OpsVcClubbedHirePage.jsx';
 import OpsVcSofPage from '../pages/internal-user/ops/OpsVcSofPage.jsx';
 import OpsVcLaytimePage from '../pages/internal-user/ops/OpsVcLaytimePage.jsx';
 import OpsVcBunkerPage from '../pages/internal-user/ops/OpsVcBunkerPage.jsx';
@@ -121,6 +127,12 @@ export default function App() {
             <Route path="/internal-user/vc/ops/pda-fda" element={<OpsVcPdaFdaPage />} />
             <Route path="/internal-user/vc/ops/documents" element={<OpsVcDocumentsPage />} />
             <Route path="/internal-user/vc/ops/payment-grid" element={<OpsVcPaymentGridPage />} />
+            <Route path="/internal-user/vc/ops/freight-invoice" element={<OpsVcFreightInvoicePage />} />
+            <Route path="/internal-user/vc/ops/request-port-cost" element={<OpsVcRequestPortCostPage />} />
+            <Route path="/internal-user/vc/ops/other-invoice" element={<OpsVcOtherInvoicePage />} />
+            <Route path="/internal-user/vc/ops/hire-statement" element={<OpsVcHireStatementPage />} />
+            <Route path="/internal-user/vc/ops/clubbed-invoice" element={<OpsVcClubbedInvoicePage />} />
+            <Route path="/internal-user/vc/ops/clubbed-hire" element={<OpsVcClubbedHirePage />} />
             <Route path="/internal-user/vc/ops/sof" element={<OpsVcSofPage />} />
             <Route path="/internal-user/vc/ops/laytime" element={<OpsVcLaytimePage />} />
             <Route path="/internal-user/vc/ops/bunker" element={<OpsVcBunkerPage />} />

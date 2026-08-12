@@ -449,9 +449,9 @@ export default function PeriodCardPicker({
                 : 'No period selected'}
             </span>
             <div className={styles.footerActions}>
-              <Button variant="outline" size="sm" label="Cancel" onClick={() => setOpen(false)} />
-              <Button variant="outline" size="sm" label="Clear" onClick={handleClear} />
               <Button variant="sensitivity" size="sm" label="Apply" onClick={handleApply} />
+              <Button variant="outline" size="sm" label="Clear" onClick={handleClear} />
+              <Button variant="outline" size="sm" label="Cancel" onClick={() => setOpen(false)} />
             </div>
           </div>
         </div>

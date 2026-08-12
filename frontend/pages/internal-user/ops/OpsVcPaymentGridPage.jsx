@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchPaymentGridVc } from '../../../services/opsVc.js';
@@ -19,33 +19,40 @@ const VARIANT_CLASS = {
   danger: styles.btnDanger,
 };
 
-function ActionButtons({ actions, badges }) {
+function ActionButtons({ actions, badges, onAction }) {
   if (!actions?.length && !badges?.length) return null;
+
   return (
     <div className={styles.actionsCell}>
       {(badges || []).map((item) => (
         <span key={item.label} className={styles.badgeWarning}>{item.label}</span>
       ))}
-      {(actions || []).map((action) => (
-        <button
-          key={`${action.key}-${action.label}-${action.vendorId || ''}`}
-          type="button"
-          className={`${styles.actionBtn} ${VARIANT_CLASS[action.variant] || styles.btnInfo}`}
-          disabled={!action.enabled || !action.migrated}
-          title={
-            !action.migrated
-              ? 'Invoice / payment form is not migrated yet'
-              : action.label
-          }
-        >
-          {action.label}
-        </button>
-      ))}
+      {(actions || []).map((action) => {
+        const canOpen = Boolean(action.enabled && action.migrated && action.href);
+        return (
+          <button
+            key={`${action.key}-${action.label}-${action.href || action.vendorId || ''}`}
+            type="button"
+            className={`${styles.actionBtn} ${VARIANT_CLASS[action.variant] || styles.btnInfo}`}
+            disabled={!canOpen}
+            title={
+              canOpen
+                ? action.label
+                : (!action.migrated
+                  ? 'Invoice / payment form is not migrated yet'
+                  : action.label)
+            }
+            onClick={() => onAction?.(action)}
+          >
+            {action.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function SectionTable({ section }) {
+function SectionTable({ section, onAction }) {
   const showPayments = Boolean(section.columns?.showPayments);
   const showVoyageId = Boolean(section.columns?.showVoyageId);
   const lines = section.lines || [];
@@ -93,7 +100,13 @@ function SectionTable({ section }) {
                 >
                   <td><strong>{row.name}</strong></td>
                   <td>{row.vendorName || ''}</td>
-                  <td><ActionButtons actions={row.actions} badges={row.badges} /></td>
+                  <td>
+                    <ActionButtons
+                      actions={row.actions}
+                      badges={row.badges}
+                      onAction={onAction}
+                    />
+                  </td>
                   {showPayments ? <td>{row.totalPaid || ''}</td> : null}
                   {showPayments ? <td>{row.lastPaidDate || ''}</td> : null}
                   {showVoyageId ? <td>{row.voyageId || ''}</td> : null}
@@ -112,9 +125,11 @@ function SectionTable({ section }) {
  * Opened from In Ops / Post Ops / History “View” under Payment / Invoices.
  */
 export default function OpsVcPaymentGridPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const page = searchParams.get('page') || '1';
+  const voyageNo = searchParams.get('voyage_no') || searchParams.get('voyageNo') || '';
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -136,7 +151,7 @@ export default function OpsVcPaymentGridPage() {
       setLoading(true);
       setError('');
       try {
-        const result = await fetchPaymentGridVc(comId);
+        const result = await fetchPaymentGridVc(comId, { page, voyageNo });
         if (!cancelled) setData(result);
       } catch (err) {
         if (!cancelled) {
@@ -148,14 +163,23 @@ export default function OpsVcPaymentGridPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [comId]);
+  }, [comId, page, voyageNo]);
+
+  const handleAction = (action) => {
+    if (!action?.href) return;
+    if (action.href.startsWith('/')) {
+      navigate(appPath(action.href));
+      return;
+    }
+    navigate(appPath(`/${action.href.replace(/^\.?\//, '')}`));
+  };
 
   return (
     <>
       <OpsVcPaymentGridHeaderActions backHref={backHref} disabled={loading} />
 
       <div className={`zafira-page ${styles.page}`}>
-        {loading ? <LoadingOverlay active label="Loading Payment / Invoice Grid…" /> : null}
+        {loading ? <LoadingOverlay show label="Loading Payment / Invoice Grid…" /> : null}
         {error ? <div className={styles.error}>{error}</div> : null}
 
         <h3 className={styles.title}>
@@ -172,7 +196,7 @@ export default function OpsVcPaymentGridPage() {
         ) : null}
 
         {(data?.sections || []).map((section) => (
-          <SectionTable key={section.key} section={section} />
+          <SectionTable key={section.key} section={section} onAction={handleAction} />
         ))}
       </div>
     </>

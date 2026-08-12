@@ -42,6 +42,52 @@ import {
 } from '../services/agencyLetterTcService.js';
 import { getPaymentGridTc } from '../services/paymentGridTcService.js';
 import { getPaymentGridVc } from '../services/paymentGridVcService.js';
+import {
+  cancelFreightInvoice,
+  deleteFreightInvoice,
+  generateFreightInvoicePdf,
+  getFreightInvoiceBanking,
+  getFreightInvoiceForm,
+  receiveFreightInvoicePayment,
+  reopenFreightInvoice,
+  saveFreightInvoice,
+} from '../services/freightInvoiceService.js';
+import {
+  deleteRequestPortCost,
+  generateRequestPortCostPdf,
+  getRequestPortCostForm,
+  getRequestPortCostVendorBanking,
+  receiveRequestPortCostPayment,
+  reopenRequestPortCost,
+  saveRequestPortCost,
+} from '../services/requestPortCostService.js';
+import {
+  cancelOtherInvoice,
+  deleteOtherInvoice,
+  generateOtherInvoicePdf,
+  getOtherInvoiceBanking,
+  getOtherInvoiceForm,
+  receiveOtherInvoicePayment,
+  reopenOtherInvoice,
+  saveOtherInvoice,
+} from '../services/otherInvoiceService.js';
+import {
+  deleteHireStatement,
+  generateHireStatementPdf,
+  getHireStatementForm,
+  receiveHireStatementPayment,
+  reopenHireStatement,
+  saveHireStatement,
+} from '../services/hireStatementService.js';
+import {
+  generateClubbedFreightPdf,
+  generateClubbedHirePdf,
+  getClubbedFreightInvoice,
+  getClubbedHireInvoice,
+  reopenClubbedFreightInvoice,
+  reopenClubbedHireInvoice,
+} from '../services/clubbedInvoiceService.js';
+import { getRequestUser, resolveRequestIsMgmtUser } from '../services/authService.js';
 import { getSofForm, saveSof } from '../services/sofService.js';
 import { getLaytimeForm, saveLaytime, openLaytime } from '../services/laytimeService.js';
 import { getBunkerForm, saveBunker } from '../services/bunkerService.js';
@@ -49,7 +95,6 @@ import { getSoaReport } from '../services/soaReportService.js';
 import { getCompareSheetsTc } from '../services/compareSheetsTcService.js';
 import { generateCompareSheetsTcPdf } from '../services/compareSheetsTcPdfService.js';
 import { getCompareSheetsVc } from '../services/compareSheetsVcService.js';
-import { resolveRequestIsMgmtUser } from '../services/authService.js';
 import {
   createOpsTcCostSheet,
   deactivateOpsTcEntry,
@@ -69,8 +114,78 @@ import {
 } from '../services/opsTcService.js';
 import { getTcChecklist, saveTcChecklist } from '../services/tcChecklistService.js';
 import { getTcCostSheet, saveTcCostSheet } from '../services/tcCostSheetService.js';
+import { mergeVesselAttachments, vesselUpload } from '../utils/vesselAttachments.js';
 
 const router = Router();
+
+function parseBodyJsonField(body, key) {
+  const value = body?.[key];
+  if (value == null || value === '') return undefined;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function parseFreightInvoiceBody(body = {}) {
+  const payload = { ...body };
+  for (const key of [
+    'addRows',
+    'subRows',
+    'adjAddRows',
+    'adjSubRows',
+    'clubCharterers',
+    'demurrageRows',
+    'daRows',
+    'selApprovers',
+    'paymentRows',
+  ]) {
+    const parsed = parseBodyJsonField(payload, key);
+    if (parsed !== undefined) payload[key] = parsed;
+  }
+  if (typeof payload.selApprovers === 'string') {
+    payload.selApprovers = payload.selApprovers.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return payload;
+}
+
+function parseRequestPortCostBody(body = {}) {
+  const payload = { ...body };
+  for (const key of ['addRows', 'subRows', 'adjAddRows', 'adjSubRows', 'selApprovers']) {
+    const parsed = parseBodyJsonField(payload, key);
+    if (parsed !== undefined) payload[key] = parsed;
+  }
+  if (typeof payload.selApprovers === 'string') {
+    payload.selApprovers = payload.selApprovers.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return payload;
+}
+
+function parseOtherInvoiceBody(body = {}) {
+  const payload = { ...body };
+  for (const key of ['addRows', 'subRows', 'demurrageRows', 'otherIncomeRows', 'selApprovers', 'paymentRows']) {
+    const parsed = parseBodyJsonField(payload, key);
+    if (parsed !== undefined) payload[key] = parsed;
+  }
+  if (typeof payload.selApprovers === 'string') {
+    payload.selApprovers = payload.selApprovers.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return payload;
+}
+
+function parseHireStatementBody(body = {}) {
+  const payload = { ...body };
+  for (const key of ['addRows', 'subRows', 'adjAddRows', 'adjSubRows', 'hireDayRows', 'offhireRows', 'selApprovers', 'paymentRows']) {
+    const parsed = parseBodyJsonField(payload, key);
+    if (parsed !== undefined) payload[key] = parsed;
+  }
+  if (typeof payload.selApprovers === 'string') {
+    payload.selApprovers = payload.selApprovers.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return payload;
+}
 
 function asyncHandler(handler) {
   return async (req, res) => {
@@ -230,7 +345,467 @@ router.get('/ops/voyage-report', asyncHandler(async (req, res) => {
 
 router.get('/ops/payment-grid', asyncHandler(async (req, res) => {
   const comId = req.query.comId || req.query.comid;
-  res.json(await getPaymentGridVc(comId));
+  const page = req.query.page || '1';
+  const voyageNo = req.query.voyageNo || req.query.voyage_no || '';
+  res.json(await getPaymentGridVc(comId, { page, voyageNo }));
+}));
+
+router.get('/ops/freight-invoice', asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  const data = await getFreightInvoiceForm({
+    comId: req.query.comId || req.query.comid,
+    id: req.query.id,
+    name: req.query.name,
+    invType: req.query.invType || req.query.invtype,
+    voyageNo: req.query.voyageNo || req.query.voyage_no || '',
+    vcIn: req.query.vcIn || req.query.vcin || req.query.mode === 'vc-in',
+    userId: user?.id,
+    mgmtUser: resolveRequestIsMgmtUser(req),
+  });
+  res.json(data);
+}));
+
+router.get('/ops/freight-invoice/banking/:bdId', asyncHandler(async (req, res) => {
+  getRequestUser(req);
+  const detail = await getFreightInvoiceBanking(req.params.bdId);
+  if (!detail) {
+    res.status(404).json({ message: 'Banking details not found.' });
+    return;
+  }
+  res.json(detail);
+}));
+
+router.post('/ops/freight-invoice', vesselUpload, asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  const body = parseFreightInvoiceBody(req.body || {});
+  const existingUpload = String(body.existingUpload || body.upload || body.txtCRMFILE || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const existingUploadName = String(body.existingUploadName || body.uploadName || body.txtCRMNAME || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const { attachment, attachmentName } = mergeVesselAttachments(
+    existingUpload,
+    existingUploadName,
+    req.files || [],
+  );
+  const data = await saveFreightInvoice(
+    {
+      ...body,
+      upload: attachment,
+      uploadName: attachmentName,
+    },
+    { userId: user?.id },
+  );
+  res.status(201).json(data);
+}));
+
+router.post('/ops/freight-invoice/:invoiceId/payment', (req, res, next) => {
+  const ct = String(req.headers['content-type'] || '');
+  if (!ct.includes('multipart/form-data')) {
+    next();
+    return;
+  }
+  ticketUpload(req, res, (err) => {
+    if (err) {
+      next(err);
+      return;
+    }
+    next();
+  });
+}, asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  const body = parseFreightInvoiceBody(req.body || {});
+  const existingUpload = String(body.existingUpload || body.upload || body.txtCRMFILE1 || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const existingUploadName = String(body.existingUploadName || body.uploadName || body.txtCRMNAME1 || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const { attachment, attachmentName } = mergeVesselAttachments(
+    existingUpload,
+    existingUploadName,
+    req.files || [],
+  );
+  const data = await receiveFreightInvoicePayment(
+    req.params.invoiceId,
+    {
+      amount: body.amount || body.txtP_PR,
+      paymentDate: body.paymentDate || body.txtP_Date || body.date,
+      remarks: body.remarks || body.txtP_Remarks || '',
+      paymentRows: body.paymentRows,
+      upload: attachment,
+      uploadName: attachmentName,
+    },
+    { userId: user?.id },
+  );
+  res.json(data);
+}));
+
+router.post('/ops/freight-invoice/:invoiceId/cancel', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can cancel invoices.' });
+    return;
+  }
+  const user = getRequestUser(req);
+  res.json(await cancelFreightInvoice(req.params.invoiceId, { userId: user?.id }));
+}));
+
+router.post('/ops/freight-invoice/:invoiceId/reopen', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can reopen invoices.' });
+    return;
+  }
+  res.json(await reopenFreightInvoice(req.params.invoiceId));
+}));
+
+router.delete('/ops/freight-invoice/:invoiceId', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can delete invoices.' });
+    return;
+  }
+  res.json(await deleteFreightInvoice(req.params.invoiceId));
+}));
+
+router.get('/ops/freight-invoice/:invoiceId/pdf', asyncHandler(async (req, res) => {
+  getRequestUser(req);
+  const { buffer, filename } = await generateFreightInvoicePdf(req.params.invoiceId);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buffer);
+}));
+
+router.get('/ops/request-port-cost', asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  const data = await getRequestPortCostForm({
+    id: req.query.id,
+    name: req.query.name,
+    page: req.query.page || '1',
+    voyageNo: req.query.voyageNo || req.query.voyage_no || '',
+    userId: user?.id,
+    mgmtUser: resolveRequestIsMgmtUser(req),
+  });
+  res.json(data);
+}));
+
+router.get('/ops/request-port-cost/vendor-banking/:vendorId', asyncHandler(async (req, res) => {
+  getRequestUser(req);
+  res.json(await getRequestPortCostVendorBanking(req.params.vendorId));
+}));
+
+router.post('/ops/request-port-cost', vesselUpload, asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  const body = parseRequestPortCostBody(req.body || {});
+  const existingUpload = String(body.existingUpload || body.upload || body.txtCRMFILE || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const existingUploadName = String(body.existingUploadName || body.uploadName || body.txtCRMNAME || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const { attachment, attachmentName } = mergeVesselAttachments(
+    existingUpload,
+    existingUploadName,
+    req.files || [],
+  );
+  const data = await saveRequestPortCost(
+    {
+      ...body,
+      upload: attachment,
+      uploadName: attachmentName,
+    },
+    { userId: user?.id },
+  );
+  res.status(201).json(data);
+}));
+
+router.post('/ops/request-port-cost/:reqId/payment', (req, res, next) => {
+  const ct = String(req.headers['content-type'] || '');
+  if (!ct.includes('multipart/form-data')) {
+    next();
+    return;
+  }
+  ticketUpload(req, res, (err) => {
+    if (err) {
+      next(err);
+      return;
+    }
+    next();
+  });
+}, asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  const body = parseRequestPortCostBody(req.body || {});
+  const existingUpload = String(body.existingUpload || body.upload || body.txtCRMFILE1 || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const existingUploadName = String(body.existingUploadName || body.uploadName || body.txtCRMNAME1 || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const { attachment, attachmentName } = mergeVesselAttachments(
+    existingUpload,
+    existingUploadName,
+    req.files || [],
+  );
+  const data = await receiveRequestPortCostPayment(
+    req.params.reqId,
+    {
+      amount: body.amount || body.txtP_PR,
+      amountEx: body.amountEx || body.txtP_PREX || '',
+      paymentDate: body.paymentDate || body.txtP_Date || body.date,
+      remarks: body.remarks || body.txtP_Remarks || '',
+      costDesc: body.costDesc || body.name || '',
+      name: body.name || '',
+      upload: attachment,
+      uploadName: attachmentName,
+    },
+    { userId: user?.id },
+  );
+  res.json(data);
+}));
+
+router.post('/ops/request-port-cost/:reqId/reopen', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can reopen payments.' });
+    return;
+  }
+  res.json(await reopenRequestPortCost(req.params.reqId));
+}));
+
+router.delete('/ops/request-port-cost/:reqId', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can delete payments.' });
+    return;
+  }
+  res.json(await deleteRequestPortCost(req.params.reqId));
+}));
+
+router.get('/ops/request-port-cost/:reqId/pdf', asyncHandler(async (req, res) => {
+  getRequestUser(req);
+  const { buffer, filename } = await generateRequestPortCostPdf(req.params.reqId);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buffer);
+}));
+
+router.get('/ops/other-invoice', asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  res.json(await getOtherInvoiceForm({
+    id: req.query.id,
+    name: req.query.name,
+    amountTitle: req.query.amountTitle || req.query.amounttitle,
+    page: req.query.page || '1',
+    portType: req.query.portType || req.query.porttype,
+    randomId: req.query.randomId || req.query.randomid,
+    portId: req.query.portId || req.query.portid,
+    voyageNo: req.query.voyageNo || req.query.voyage_no || '',
+    userId: user?.id,
+    mgmtUser: resolveRequestIsMgmtUser(req),
+  }));
+}));
+
+router.get('/ops/other-invoice/banking/:bdId', asyncHandler(async (req, res) => {
+  getRequestUser(req);
+  const detail = await getOtherInvoiceBanking(req.params.bdId);
+  if (!detail) {
+    res.status(404).json({ message: 'Banking details not found.' });
+    return;
+  }
+  res.json(detail);
+}));
+
+router.post('/ops/other-invoice', vesselUpload, asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  const body = parseOtherInvoiceBody(req.body || {});
+  const existingUpload = String(body.existingUpload || body.upload || body.txtCRMFILE || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  const existingUploadName = String(body.existingUploadName || body.uploadName || body.txtCRMNAME || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  const { attachment, attachmentName } = mergeVesselAttachments(
+    existingUpload,
+    existingUploadName,
+    req.files || [],
+  );
+  res.status(201).json(await saveOtherInvoice({ ...body, upload: attachment, uploadName: attachmentName }, { userId: user?.id }));
+}));
+
+router.post('/ops/other-invoice/:invoiceId/payment', (req, res, next) => {
+  const ct = String(req.headers['content-type'] || '');
+  if (!ct.includes('multipart/form-data')) {
+    next();
+    return;
+  }
+  ticketUpload(req, res, (err) => {
+    if (err) next(err);
+    else next();
+  });
+}, asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  const body = parseOtherInvoiceBody(req.body || {});
+  res.json(await receiveOtherInvoicePayment(req.params.invoiceId, {
+    amount: body.amount || body.txtP_PR,
+    paymentDate: body.paymentDate || body.txtP_Date || body.date,
+    remarks: body.remarks || body.txtP_Remarks || '',
+    paymentRows: body.paymentRows,
+    upload: body.upload,
+    uploadName: body.uploadName,
+  }, { userId: user?.id }));
+}));
+
+router.post('/ops/other-invoice/:invoiceId/cancel', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can cancel invoices.' });
+    return;
+  }
+  const user = getRequestUser(req);
+  res.json(await cancelOtherInvoice(req.params.invoiceId, { userId: user?.id }));
+}));
+
+router.post('/ops/other-invoice/:invoiceId/reopen', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can reopen invoices.' });
+    return;
+  }
+  res.json(await reopenOtherInvoice(req.params.invoiceId));
+}));
+
+router.delete('/ops/other-invoice/:invoiceId', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can delete invoices.' });
+    return;
+  }
+  res.json(await deleteOtherInvoice(req.params.invoiceId));
+}));
+
+router.get('/ops/other-invoice/:invoiceId/pdf', asyncHandler(async (req, res) => {
+  getRequestUser(req);
+  const { buffer, filename } = await generateOtherInvoicePdf(req.params.invoiceId);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buffer);
+}));
+
+router.get('/ops/hire-statement', asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  res.json(await getHireStatementForm({
+    comId: req.query.comId || req.query.comid,
+    page: req.query.page || '1',
+    voyageNo: req.query.voyageNo || req.query.voyage_no || '',
+    userId: user?.id,
+    mgmtUser: resolveRequestIsMgmtUser(req),
+  }));
+}));
+
+router.post('/ops/hire-statement', vesselUpload, asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  const body = parseHireStatementBody(req.body || {});
+  const existingUpload = String(body.existingUpload || body.upload || body.txtCRMFILE || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  const existingUploadName = String(body.existingUploadName || body.uploadName || body.txtCRMNAME || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  const { attachment, attachmentName } = mergeVesselAttachments(
+    existingUpload,
+    existingUploadName,
+    req.files || [],
+  );
+  res.status(201).json(await saveHireStatement({ ...body, upload: attachment, uploadName: attachmentName }, { userId: user?.id }));
+}));
+
+router.post('/ops/hire-statement/:invoiceId/payment', asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  const body = parseHireStatementBody(req.body || {});
+  res.json(await receiveHireStatementPayment(req.params.invoiceId, {
+    amount: body.amount,
+    paymentDate: body.paymentDate || body.date,
+    remarks: body.remarks || '',
+    paymentRows: body.paymentRows,
+  }, { userId: user?.id }));
+}));
+
+router.post('/ops/hire-statement/:invoiceId/reopen', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can reopen hire statements.' });
+    return;
+  }
+  res.json(await reopenHireStatement(req.params.invoiceId));
+}));
+
+router.delete('/ops/hire-statement/:invoiceId', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can delete hire statements.' });
+    return;
+  }
+  res.json(await deleteHireStatement(req.params.invoiceId));
+}));
+
+router.get('/ops/hire-statement/:invoiceId/pdf', asyncHandler(async (req, res) => {
+  getRequestUser(req);
+  const { buffer, filename } = await generateHireStatementPdf(req.params.invoiceId);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buffer);
+}));
+
+router.get('/ops/clubbed-invoice', asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  res.json(await getClubbedFreightInvoice({
+    id: req.query.id,
+    name: req.query.name,
+    invType: req.query.invType || req.query.invtype,
+    voyageNo: req.query.voyageNo || req.query.voyage_no || '',
+    page: req.query.page || '1',
+    userId: user?.id,
+    mgmtUser: resolveRequestIsMgmtUser(req),
+  }));
+}));
+
+router.post('/ops/clubbed-invoice/:invoiceId/reopen', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can reopen invoices.' });
+    return;
+  }
+  res.json(await reopenClubbedFreightInvoice(req.params.invoiceId));
+}));
+
+router.get('/ops/clubbed-invoice/:invoiceId/pdf', asyncHandler(async (req, res) => {
+  getRequestUser(req);
+  const { buffer, filename } = await generateClubbedFreightPdf(req.params.invoiceId);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buffer);
+}));
+
+router.get('/ops/clubbed-hire', asyncHandler(async (req, res) => {
+  const user = getRequestUser(req);
+  res.json(await getClubbedHireInvoice({
+    comId: req.query.comId || req.query.comid,
+    page: req.query.page || '1',
+    voyageNo: req.query.voyageNo || req.query.voyage_no || '',
+    userId: user?.id,
+    mgmtUser: resolveRequestIsMgmtUser(req),
+  }));
+}));
+
+router.post('/ops/clubbed-hire/:invoiceId/reopen', asyncHandler(async (req, res) => {
+  if (!resolveRequestIsMgmtUser(req)) {
+    res.status(403).json({ message: 'Only management users can reopen invoices.' });
+    return;
+  }
+  res.json(await reopenClubbedHireInvoice(req.params.invoiceId));
+}));
+
+router.get('/ops/clubbed-hire/:invoiceId/pdf', asyncHandler(async (req, res) => {
+  getRequestUser(req);
+  const { buffer, filename } = await generateClubbedHirePdf(req.params.invoiceId);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buffer);
 }));
 
 router.get('/ops/sof', asyncHandler(async (req, res) => {

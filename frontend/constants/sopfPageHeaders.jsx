@@ -56,6 +56,26 @@ export function resolveSopfHeader(pathname, search = '') {
   }
 
   if (pathname.includes('/viewestimate')) {
+    const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    const rttype = String(params.get('rttype') || '');
+    if (rttype === '1' || rttype === '3' || rttype === '4') {
+      const opsBack = rttype === '3'
+        ? { label: 'Vessels in Post Ops VC', href: appPath('/internal-user/vc/ops/post-ops') }
+        : rttype === '4'
+          ? { label: 'Vessels in History VC', href: appPath('/internal-user/vc/ops/history') }
+          : { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') };
+      return {
+        title: 'Ops - VC',
+        currentPage: 'View Estimate',
+        breadcrumbs: [
+          HOME,
+          { label: 'SOC', href: appPath('/internal-user/vc') },
+          { label: 'Ops - VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+          opsBack,
+          { label: 'View Estimate' },
+        ],
+      };
+    }
     return {
       title: SPOT_BUSINESS,
       currentPage: 'View Estimate',

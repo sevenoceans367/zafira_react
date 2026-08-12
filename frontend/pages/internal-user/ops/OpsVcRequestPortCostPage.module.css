@@ -1,0 +1,365 @@
+.page {
+  position: relative;
+  padding-bottom: 24px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0 0 16px;
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+  font-size: 12px;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px 16px;
+}
+
+.panelLabel {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.metaLine {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #1f2937;
+  line-height: 1.4;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.span2 {
+  grid-column: span 2;
+}
+
+.span3 {
+  grid-column: span 3;
+}
+
+.span4 {
+  grid-column: span 4;
+}
+
+.section {
+  margin-bottom: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.sectionTitle {
+  margin: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sectionBody {
+  padding: 14px 16px;
+}
+
+.linesTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.linesTable th,
+.linesTable td {
+  padding: 8px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: top;
+}
+
+.linesTable th {
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.lineActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.paymentStatus {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px 0 4px;
+}
+
+.paymentStatus label {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.approverRow {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  align-items: start;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.cardSelect {
+  width: 100%;
+}
+
+.textarea,
+.input {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.removeBtn {
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 6px;
+}
+
+.muted {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.hint {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.bankPanel {
+  margin-top: 12px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 12px;
+}
+
+.bankPanel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.bankPanel td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+.bankPanel td:first-child {
+  width: 42%;
+  color: #4b5563;
+  font-weight: 600;
+}
+
+.corrHead td {
+  background: #6b7280;
+  color: #fff;
+  font-weight: 700;
+}
+
+.corrCheck {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: #fff;
+  cursor: pointer;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.existingTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.existingTable th,
+.existingTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: top;
+}
+
+.existingTable th {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #6b7280;
+  background: #f8fafc;
+}
+
+.actionBtns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  width: min(420px, 100%);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+  padding: 16px 18px;
+}
+
+.modalTitle {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.modalField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.modalField label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.modalField input,
+.modalField textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.modalError {
+  margin-bottom: 10px;
+  color: #b42318;
+  font-size: 12px;
+}
+
+@media (max-width: 960px) {
+  .infoGrid,
+  .formGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .span2,
+  .span3,
+  .span4 {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .infoGrid,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .span2,
+  .span3,
+  .span4 {
+    grid-column: span 1;
+  }
+
+  .totals {
+    grid-template-columns: 1fr;
+  }
+
+  .approverRow {
+    grid-template-columns: 1fr;
+  }
+}

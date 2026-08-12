@@ -26,14 +26,137 @@ function isNullishFlag(value) {
   return value == null || value === '' || String(value).toLowerCase() === 'null';
 }
 
+function money2(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '0.00';
+  return num.toFixed(2);
+}
+
+function joinInvoiceId(parts) {
+  return parts.map((part) => (part == null || part === '' ? '0' : String(part))).join(',');
+}
+
+/** React freight invoice page for Initial/Final actions. */
+function freightInvoiceHref({
+  invoiceId,
+  name,
+  page = '1',
+  invType,
+  voyageNo = '',
+  vcIn = false,
+}) {
+  const params = new URLSearchParams();
+  params.set('id', invoiceId);
+  params.set('name', name);
+  params.set('page', String(page || '1'));
+  params.set('invType', invType);
+  if (voyageNo) params.set('voyageNo', String(voyageNo));
+  if (vcIn) params.set('vcIn', '1');
+  return `/internal-user/vc/ops/freight-invoice?${params.toString()}`;
+}
+
+function otherInvoiceHref({
+  id,
+  name,
+  amountTitle = '',
+  page = '1',
+  voyageNo = '',
+  portType = '',
+  randomId = '',
+  portId = '',
+}) {
+  const params = new URLSearchParams();
+  params.set('id', id);
+  params.set('name', name);
+  params.set('page', String(page || '1'));
+  if (amountTitle) params.set('amountTitle', amountTitle);
+  if (portType) params.set('portType', portType);
+  if (randomId) params.set('randomId', String(randomId));
+  if (portId) params.set('portId', String(portId));
+  if (voyageNo) params.set('voyageNo', String(voyageNo));
+  return `/internal-user/vc/ops/other-invoice?${params.toString()}`;
+}
+
+function hireStatementHref({ comId, page = '1', voyageNo = '' }) {
+  const params = new URLSearchParams();
+  params.set('comId', comId);
+  params.set('page', String(page || '1'));
+  if (voyageNo) params.set('voyageNo', String(voyageNo));
+  return `/internal-user/vc/ops/hire-statement?${params.toString()}`;
+}
+
+function clubbedInvoiceHref({
+  invoiceId,
+  name,
+  page = '1',
+  invType = 'Final',
+  voyageNo = '',
+}) {
+  const params = new URLSearchParams();
+  params.set('id', invoiceId);
+  params.set('name', name);
+  params.set('page', String(page || '1'));
+  params.set('invType', invType);
+  if (voyageNo) params.set('voyageNo', String(voyageNo));
+  return `/internal-user/vc/ops/clubbed-invoice?${params.toString()}`;
+}
+
+function clubbedHireHref({ comId, page = '1', voyageNo = '' }) {
+  const params = new URLSearchParams();
+  params.set('comId', comId);
+  params.set('page', String(page || '1'));
+  if (voyageNo) params.set('voyageNo', String(voyageNo));
+  return `/internal-user/vc/ops/clubbed-hire?${params.toString()}`;
+}
+
+/** React Operational Costs (Others) payment page. */
+function requestPortCostHref({
+  id,
+  name,
+  page = '1',
+  voyageNo = '',
+}) {
+  const params = new URLSearchParams();
+  params.set('id', id);
+  params.set('name', name);
+  params.set('page', String(page || '1'));
+  if (voyageNo) params.set('voyageNo', String(voyageNo));
+  return `/internal-user/vc/ops/request-port-cost?${params.toString()}`;
+}
+
+function freightInvoiceActions({ invoiceId, name, page, voyageNo }) {
+  return [
+    action('initialInvoice', 'Initial Invoice', 'warning', true, {
+      href: freightInvoiceHref({
+        invoiceId,
+        name,
+        page,
+        invType: 'Interim',
+        voyageNo,
+      }),
+    }),
+    action('finalInvoice', 'Final Invoice', 'info', true, {
+      href: freightInvoiceHref({
+        invoiceId,
+        name,
+        page,
+        invType: 'Final',
+        voyageNo,
+      }),
+    }),
+  ];
+}
+
 function action(key, label, variant, enabled = true, params = {}) {
+  const { migrated, href, ...rest } = params;
   return {
     key,
     label,
     variant,
     enabled: Boolean(enabled),
-    migrated: false,
-    ...params,
+    href: href || '',
+    migrated: migrated != null ? Boolean(migrated) : Boolean(href),
+    ...rest,
   };
 }
 
@@ -139,13 +262,15 @@ async function countQuery(pool, sql, params) {
  * PHP payment_grid.php — Payment / Invoice Grid for Ops VC (COMID keyed).
  * Mirrors Freight / Demurrage / Other Income / Bunkers / Ops Costs / Port Costs / Hireage.
  */
-export async function dbGetPaymentGridVc(comId) {
+export async function dbGetPaymentGridVc(comId, options = {}) {
   const pool = getPool();
   if (!comId) {
     const error = new Error('COMID is required.');
     error.status = 400;
     throw error;
   }
+  const page = String(options.page || '1');
+  const voyageNoOpt = str(options.voyageNo || '');
 
   const [[compare]] = await pool.query(
     `SELECT c.*, m.VOYAGE_NO AS MASTER_VOYAGE_NO, m.VESSEL_IMO_ID AS MASTER_VESSEL_IMO_ID,
@@ -185,7 +310,7 @@ export async function dbGetPaymentGridVc(comId) {
     throw error;
   }
 
-  const voyageNo = master.VOYAGE_NO || compare.MASTER_VOYAGE_NO || compare.MESSAGE || '';
+  const voyageNo = voyageNoOpt || master.VOYAGE_NO || compare.MASTER_VOYAGE_NO || compare.MESSAGE || '';
   const vesselName = compare.VESSEL_NAME || '';
   const estimateType = Number(master.ESTIMATE_TYPE);
   const tankerSingle = Number(master.TANKER_RADIO_SINGLE_DIS);
@@ -203,17 +328,30 @@ export async function dbGetPaymentGridVc(comId) {
         if (chkLumpsum) {
           const vendorId = str(master.LUMP_VENDOR);
           const vendorName = await getVendorName(pool, vendorId);
-          const actions = [];
-          if (vendorName) {
-            actions.push(action('initialInvoice', 'Initial Invoice', 'warning'));
-            actions.push(action('finalInvoice', 'Final Invoice', 'info'));
-          }
+          const invoiceId = joinInvoiceId([
+            comId,
+            fcaId,
+            vendorId,
+            money2(master.LUMPSUMAMT),
+            0,
+            master.QUANTITY ?? master.TANK_QUANTITY ?? 0,
+            0,
+            0,
+            0,
+          ]);
           freightLines.push(line({
             key: 'freight-lumpsum',
             name: 'Final Nett Freight',
             vendorId,
             vendorName,
-            actions,
+            actions: vendorName
+              ? freightInvoiceActions({
+                invoiceId,
+                name: 'Final Nett Freight',
+                page,
+                voyageNo,
+              })
+              : [],
           }));
         } else {
           const [rows] = await pool.query(
@@ -224,17 +362,30 @@ export async function dbGetPaymentGridVc(comId) {
           for (const [idx, row] of (rows || []).entries()) {
             const vendorId = str(row.CUSTOMER);
             const vendorName = await getVendorName(pool, vendorId);
-            const actions = [];
-            if (vendorName) {
-              actions.push(action('initialInvoice', 'Initial Invoice', 'warning'));
-              actions.push(action('finalInvoice', 'Final Invoice', 'info'));
-            }
+            const invoiceId = joinInvoiceId([
+              comId,
+              fcaId,
+              vendorId,
+              money2(row.TOTAL_AMOUNT),
+              0,
+              row.TOTAL_QTY ?? 0,
+              0,
+              0,
+              0,
+            ]);
             freightLines.push(line({
               key: `freight-ws-${idx}`,
               name: 'Final Nett Freight',
               vendorId,
               vendorName,
-              actions,
+              actions: vendorName
+                ? freightInvoiceActions({
+                  invoiceId,
+                  name: 'Final Nett Freight',
+                  page,
+                  voyageNo,
+                })
+                : [],
             }));
           }
         }
@@ -250,6 +401,7 @@ export async function dbGetPaymentGridVc(comId) {
             : status === 2
               ? 'Overage Cargo Freight'
               : 'Dead Freight';
+          const invoiceName = `Final Nett ${nameSuffix}`;
           const [rows] = await pool.query(
             `SELECT * FROM freight_cost_estimete_slave10
              WHERE FCAID = ? AND SHIPPER_CHARTER IS NOT NULL AND SHIPPER_CHARTER != '' AND STATUS = ?`,
@@ -276,11 +428,50 @@ export async function dbGetPaymentGridVc(comId) {
             const actions = [];
             const badges = [];
             if (vendorName) {
+              const invoiceId = status === 1
+                ? joinInvoiceId([
+                  comId,
+                  fcaId,
+                  vendorId,
+                  money2(row.AMOUNT_USD),
+                  0,
+                  row.CARGO_MT ?? 0,
+                  row.CARGOID ?? 0,
+                  0,
+                  0,
+                  row.RANDOMID ?? 0,
+                  row.FCA_SLAVE10ID ?? 0,
+                ])
+                : joinInvoiceId([
+                  comId,
+                  fcaId,
+                  vendorId,
+                  money2(row.AMOUNT_USD),
+                  0,
+                  row.CARGO_MT ?? 0,
+                  0,
+                  0,
+                  0,
+                  row.RANDOMID ?? 0,
+                  row.FCA_SLAVE10ID ?? 0,
+                ]);
               if (clubbed === 0) {
-                actions.push(action('initialInvoice', 'Initial Invoice', 'warning'));
-                actions.push(action('finalInvoice', 'Final Invoice', 'info'));
+                actions.push(...freightInvoiceActions({
+                  invoiceId,
+                  name: invoiceName,
+                  page,
+                  voyageNo,
+                }));
               } else {
-                badges.push(badge('Invoice Clubbed'));
+                actions.push(action('invoiceClubbed', 'Invoice Clubbed', 'info', true, {
+                  href: clubbedInvoiceHref({
+                    invoiceId,
+                    name: invoiceName,
+                    page,
+                    invType: 'Final',
+                    voyageNo,
+                  }),
+                }));
               }
             }
             freightLines.push(line({
@@ -301,8 +492,23 @@ export async function dbGetPaymentGridVc(comId) {
       const vendorName = await getVendorName(pool, vendorId);
       const actions = [];
       if (vendorName) {
-        actions.push(action('initialInvoice', 'Initial Invoice', 'warning'));
-        actions.push(action('finalInvoice', 'Final Invoice', 'info'));
+        const invoiceId = joinInvoiceId([
+          comId,
+          fcaId,
+          vendorId,
+          compare.TOTAL_PREIGHT_ADJ ?? master.TOTAL_PREIGHT_ADJ ?? 0,
+          compare.BROKERAGE_PER ?? master.BROKERAGE_PER ?? 0,
+          master.QUANTITY ?? 0,
+          master.CARGO ?? master.CARGOID ?? 0,
+          master.AGREED_GROSS_FREIGHT_LOCAL ?? master.FREIGHT_GROSS ?? 0,
+          master.EXCHANGE_RATE ?? 0,
+        ]);
+        actions.push(...freightInvoiceActions({
+          invoiceId,
+          name: 'Final Nett Freight',
+          page,
+          voyageNo,
+        }));
         const [[neg]] = await pool.query(
           `SELECT INVOICEID, NET_PAYABLE_TAX
            FROM freight_invoice_master
@@ -313,7 +519,23 @@ export async function dbGetPaymentGridVc(comId) {
           [comId, MODULE_ID, COMPANY_ID, vendorId],
         ).catch(() => [[null]]);
         if (neg) {
-          actions.push(action('freightPayment', 'Payment', 'warning'));
+          actions.push(action('freightPayment', 'Payment', 'warning', true, {
+            href: requestPortCostHref({
+              id: joinInvoiceId([
+                6,
+                'Final Settlement',
+                neg.INVOICEID,
+                vendorId,
+                comId,
+                Math.abs(Number(neg.NET_PAYABLE_TAX) || 0),
+                'Freight',
+                12345,
+              ]),
+              name: 'Freight',
+              page,
+              voyageNo,
+            }),
+          }));
         }
       }
       freightLines.push(line({
@@ -351,12 +573,55 @@ export async function dbGetPaymentGridVc(comId) {
         const actions = [];
         const badges = [];
         if (vendorName) {
+          const invoiceId = joinInvoiceId([
+            comId,
+            fcaId,
+            vendorId,
+            row.GROSS_FREIGHT ?? 0,
+            row.BROKERAGE ?? 0,
+            row.QUANTITY ?? 0,
+            row.CARGO ?? 0,
+            row.AGREED_GROSS_FREIGHT_LOCAL ?? 0,
+            row.EXCHANGE_RATE ?? 0,
+            row.RANDOMID ?? 0,
+            row.FCA_SLAVE7ID ?? 0,
+          ]);
           if (clubbed === 0 || (neg && Number(neg.STATUS) < 5)) {
-            actions.push(action('initialInvoice', 'Initial Invoice', 'warning'));
-            actions.push(action('finalInvoice', 'Final Invoice', 'info'));
-            if (neg) actions.push(action('freightPayment', 'Payment', 'warning'));
+            actions.push(...freightInvoiceActions({
+              invoiceId,
+              name: 'Final Nett Freight',
+              page,
+              voyageNo,
+            }));
+            if (neg) {
+              actions.push(action('freightPayment', 'Payment', 'warning', true, {
+                href: requestPortCostHref({
+                  id: joinInvoiceId([
+                    6,
+                    'Final Settlement',
+                    neg.INVOICEID,
+                    vendorId,
+                    comId,
+                    Math.abs(Number(neg.NET_PAYABLE_TAX) || 0),
+                    'Freight',
+                    row.RANDOMID || 12345,
+                  ]),
+                  name: 'Freight',
+                  page,
+                  voyageNo,
+                }),
+              }));
+            }
           } else {
-            badges.push(badge('Invoice Clubbed'));
+            actions.push(action('invoiceClubbed', 'Invoice Clubbed', 'info', true, {
+              href: clubbedInvoiceHref({
+                invoiceId,
+                name: 'Final Nett Freight',
+                page,
+                invType: 'Final',
+                voyageNo,
+              }),
+            }));
           }
         }
         freightLines.push(line({
@@ -380,9 +645,54 @@ export async function dbGetPaymentGridVc(comId) {
       const vendorName = await getVendorName(pool, vendorId);
       const actions = [];
       if (vendorName) {
-        actions.push(action('vcInInitial', 'VC in Initial', 'warning'));
-        actions.push(action('vcInFinal', 'VC in Final', 'info'));
-        actions.push(action('vcInPayment', 'VC in Payment', 'warning'));
+        const vcInInvoiceId = joinInvoiceId([
+          comId,
+          vcIn.FCAID || fcaId,
+          vendorId,
+          vcIn.TOTAL_PREIGHT_ADJ ?? vcIn.LUMPSUMAMT ?? 0,
+          vcIn.BROKERAGE_PER ?? 0,
+          vcIn.QUANTITY ?? 0,
+          0,
+          vcIn.FREIGHT_GROSS ?? 0,
+          vcIn.EXCHANGE_RATE ?? 0,
+        ]);
+        actions.push(action('vcInInitial', 'VC in Initial', 'warning', true, {
+          href: freightInvoiceHref({
+            invoiceId: vcInInvoiceId,
+            name: 'VC In Payment',
+            page,
+            invType: 'Interim',
+            voyageNo,
+            vcIn: true,
+          }),
+        }));
+        actions.push(action('vcInFinal', 'VC in Final', 'info', true, {
+          href: freightInvoiceHref({
+            invoiceId: vcInInvoiceId,
+            name: 'VC In Payment',
+            page,
+            invType: 'Final',
+            voyageNo,
+            vcIn: true,
+          }),
+        }));
+        actions.push(action('vcInPayment', 'VC in Payment', 'warning', true, {
+          href: requestPortCostHref({
+            id: joinInvoiceId([
+              6,
+              'Final_Settlement_VC_IN',
+              4500,
+              vendorId,
+              comId,
+              Math.abs(Number(vcIn.NET_PAYABLE_TAX) || 0),
+              'Freight',
+              12345,
+            ]),
+            name: 'Freight',
+            page,
+            voyageNo,
+          }),
+        }));
       }
       freightLines.push(line({
         key: 'freight-vcin',
@@ -441,9 +751,30 @@ export async function dbGetPaymentGridVc(comId) {
               isPayment ? 'demurragePayment' : 'demurrageInvoice',
               isPayment ? 'Payment' : 'Invoice',
               isPayment ? 'warning' : 'info',
+              true,
+              {
+                href: otherInvoiceHref({
+                  id: joinInvoiceId([comId, fcaId, vendorId, leg.DDCLP_NETCOST, 'Demurrage/Dispatch(LP)']),
+                  name: `Demurrage/Dispatch Invoice for Load Port ${portName}`,
+                  amountTitle: `Load Port ${portName}`,
+                  page,
+                  voyageNo,
+                  portType: 'LP',
+                  randomId: leg.RANDOMID,
+                  portId: leg.FROM_PORT,
+                }),
+              },
             ));
           } else {
-            badges.push(badge('Invoice Clubbed'));
+            actions.push(action('invoiceClubbed', 'Invoice Clubbed', 'warning', true, {
+              href: clubbedInvoiceHref({
+                invoiceId: joinInvoiceId([comId, fcaId, vendorId, leg.DDCLP_NETCOST, 'Demurrage/Dispatch(LP)']),
+                name: `Demurrage/Dispatch Invoice for Load Port ${portName}`,
+                page,
+                invType: 'Final',
+                voyageNo,
+              }),
+            }));
           }
         }
         demLines.push(line({
@@ -487,9 +818,30 @@ export async function dbGetPaymentGridVc(comId) {
               isPayment ? 'demurragePayment' : 'demurrageInvoice',
               isPayment ? 'Payment' : 'Invoice',
               isPayment ? 'warning' : 'info',
+              true,
+              {
+                href: otherInvoiceHref({
+                  id: joinInvoiceId([comId, fcaId, vendorId, leg.DDCDP_NETCOST, 'Demurrage/Dispatch(DP)']),
+                  name: `Demurrage/Dispatch Invoice for Discharge Port ${portName}`,
+                  amountTitle: `Discharge Port ${portName}`,
+                  page,
+                  voyageNo,
+                  portType: 'DP',
+                  randomId: leg.RANDOMID,
+                  portId: leg.TO_PORT,
+                }),
+              },
             ));
           } else {
-            badges.push(badge('Invoice Clubbed'));
+            actions.push(action('invoiceClubbed', 'Invoice Clubbed', 'warning', true, {
+              href: clubbedInvoiceHref({
+                invoiceId: joinInvoiceId([comId, fcaId, vendorId, leg.DDCDP_NETCOST, 'Demurrage/Dispatch(DP)']),
+                name: `Demurrage/Dispatch Invoice for Discharge Port ${portName}`,
+                page,
+                invType: 'Final',
+                voyageNo,
+              }),
+            }));
           }
         }
         demLines.push(line({
@@ -533,8 +885,28 @@ export async function dbGetPaymentGridVc(comId) {
       const actions = [];
       const badges = [];
       if (vendorName) {
-        if (clubbed > 0) badges.push(badge('Invoice Clubbed'));
-        else actions.push(action('otherIncomeInvoice', 'Invoice', 'info'));
+        if (clubbed > 0) {
+          actions.push(action('invoiceClubbed', 'Invoice Clubbed', 'warning', true, {
+            href: clubbedInvoiceHref({
+              invoiceId: joinInvoiceId([comId, fcaId, vendorId, row.RAW_AMOUNT, 'Other Income']),
+              name: `Other Income Invoice for ${row.IDENTY_ID || ''}`,
+              page,
+              invType: 'Final',
+              voyageNo,
+            }),
+          }));
+        } else {
+          actions.push(action('otherIncomeInvoice', 'Invoice', 'info', true, {
+            href: otherInvoiceHref({
+              id: joinInvoiceId([comId, fcaId, vendorId, row.RAW_AMOUNT, 'Other Income']),
+              name: `Other Income Invoice for ${row.IDENTY_ID || ''}`,
+              amountTitle: str(row.IDENTY_ID),
+              page,
+              voyageNo,
+              randomId: row.RANDOMID,
+            }),
+          }));
+        }
       }
       oiLines.push(line({
         key: `oi-${idx}`,
@@ -574,7 +946,21 @@ export async function dbGetPaymentGridVc(comId) {
       );
       const actions = [];
       if (vendorName) {
-        actions.push(action('bunkerPayment', 'Payment', 'warning'));
+        actions.push(action('bunkerPayment', 'Payment', 'warning', true, {
+          href: requestPortCostHref({
+            id: joinInvoiceId([
+              2,
+              'Bunkers Nett Supply',
+              row.BUNKERGRADEID,
+              vendorId,
+              comId,
+              row.COST,
+            ]),
+            name: `${gradeName} Nett`,
+            page,
+            voyageNo,
+          }),
+        }));
       }
       bunkerLines.push(line({
         key: `bunker-${idx}`,
@@ -616,7 +1002,22 @@ export async function dbGetPaymentGridVc(comId) {
       );
       const actions = [];
       if (vendorName) {
-        actions.push(action('brokerPayment', 'Payment', 'warning'));
+        const paymentId = joinInvoiceId([
+          3,
+          'Operational Costs (Others)',
+          0,
+          vendorId,
+          comId,
+          row.BROKAGE_AMT,
+        ]);
+        actions.push(action('brokerPayment', 'Payment', 'warning', true, {
+          href: requestPortCostHref({
+            id: paymentId,
+            name: 'Brokerage Commission',
+            page,
+            voyageNo,
+          }),
+        }));
       }
       opLines.push(line({
         key: `broker-${idx}`,
@@ -672,9 +1073,26 @@ export async function dbGetPaymentGridVc(comId) {
       const actions = [];
       if (vendorName) {
         if (clubbed === 0) {
-          actions.push(action('orcPayment', 'Payment', 'warning'));
+          const paymentId = joinInvoiceId([
+            3,
+            'Operational Costs',
+            row.RANDOMID,
+            vendorId,
+            comId,
+            row.RAW_AMOUNT,
+          ]);
+          actions.push(action('orcPayment', 'Payment', 'warning', true, {
+            href: requestPortCostHref({
+              id: paymentId,
+              name: costName,
+              page,
+              voyageNo,
+            }),
+          }));
         } else {
-          actions.push(action('paymentClubbed', 'Payment Clubbed', 'danger'));
+          actions.push(action('paymentClubbed', 'Payment Clubbed', 'danger', true, {
+            href: clubbedHireHref({ comId, page, voyageNo }),
+          }));
         }
       }
       opLines.push(line({
@@ -711,10 +1129,13 @@ export async function dbGetPaymentGridVc(comId) {
         key,
         name,
         requestName,
+        displayName,
         vendorId,
         portId,
         randomId,
         daPort,
+        amount,
+        portKind,
       }) => {
         const vendorName = await getVendorName(pool, vendorId);
         const pay = await getPaymentSummary(
@@ -736,7 +1157,25 @@ export async function dbGetPaymentGridVc(comId) {
         const badges = [];
         if (vendorName) {
           if (daClubbed > 0) badges.push(badge('Payment Clubbed'));
-          else actions.push(action('portPayment', 'Payment', 'warning'));
+          else {
+            actions.push(action('portPayment', 'Payment', 'warning', true, {
+              href: requestPortCostHref({
+                id: joinInvoiceId([
+                  5,
+                  requestName,
+                  portId,
+                  vendorId,
+                  comId,
+                  amount || 0,
+                  portKind,
+                  randomId,
+                ]),
+                name: displayName || name,
+                page,
+                voyageNo,
+              }),
+            }));
+          }
         }
         portLines.push(line({
           key,
@@ -757,10 +1196,13 @@ export async function dbGetPaymentGridVc(comId) {
           key: `port-lp-${idx}`,
           name: `Load Port ${portName}`,
           requestName: 'Load Port Costs',
+          displayName: `Load Port  ${portName}`,
           vendorId: leg.PORT_COSTLP_VENDOR,
           portId: leg.FROM_PORT,
           randomId: leg.RANDOMID,
           daPort: 'LP',
+          amount: leg.LOAD_PORT_COST,
+          portKind: 'Load',
         });
       }
 
@@ -770,10 +1212,13 @@ export async function dbGetPaymentGridVc(comId) {
           key: `port-lp-opa-${idx}`,
           name: `OPA ${portName}`,
           requestName: 'OPA FEE',
+          displayName: `OPA FEE ${portName}`,
           vendorId: leg.LP_OPA_VENDOR,
           portId: leg.FROM_PORT,
           randomId: leg.RANDOMID,
           daPort: null,
+          amount: 0,
+          portKind: 'OPA',
         });
       }
 
@@ -783,10 +1228,13 @@ export async function dbGetPaymentGridVc(comId) {
           key: `port-dp-${idx}`,
           name: `Discharge Port ${portName}`,
           requestName: 'Discharge Port Costs',
+          displayName: `Discharge Port  ${portName}`,
           vendorId: leg.PORT_COSTDP_VENDOR,
           portId: leg.TO_PORT,
           randomId: leg.RANDOMID,
           daPort: 'DP',
+          amount: leg.DISC_PORT_COST,
+          portKind: 'Discharge',
         });
       }
 
@@ -796,10 +1244,13 @@ export async function dbGetPaymentGridVc(comId) {
           key: `port-dp-opa-${idx}`,
           name: `OPA ${portName}`,
           requestName: 'OPA FEE',
+          displayName: `OPA FEE ${portName}`,
           vendorId: leg.DP_OPA_VENDOR,
           portId: leg.TO_PORT,
           randomId: leg.RANDOMID,
           daPort: null,
+          amount: 0,
+          portKind: 'OPA',
         });
       }
 
@@ -810,10 +1261,13 @@ export async function dbGetPaymentGridVc(comId) {
           key: `port-tp-${idx}`,
           name: isBunker ? `Bunkering Port ${portName}` : `Transit Port ${portName}`,
           requestName: isBunker ? 'Bunkering Port Costs' : 'Transit Port Costs',
+          displayName: isBunker ? `Bunkering Port ${portName}` : `Transit Port ${portName}`,
           vendorId: leg.PORT_COSTTP_VENDOR,
           portId: leg.FROM_PORT,
           randomId: leg.RANDOMID,
           daPort: 'TP',
+          amount: leg.TRANSIT_PORT_COST,
+          portKind: isBunker ? 'Bunkering' : 'Transit',
         });
       }
     }
@@ -843,7 +1297,9 @@ export async function dbGetPaymentGridVc(comId) {
     );
     const hireActions = [];
     if (dtcVendorName) {
-      hireActions.push(action('hireStatement', 'Hire Statement', 'danger'));
+      hireActions.push(action('hireStatement', 'Hire Statement', 'danger', true, {
+        href: hireStatementHref({ comId, page, voyageNo }),
+      }));
     }
     hireLines.push(line({
       key: 'hire',
@@ -893,8 +1349,28 @@ export async function dbGetPaymentGridVc(comId) {
       );
       const actions = [];
       if (vendorName) {
-        if (clubbed === 0) actions.push(action('orcPayment', 'Payment', 'warning'));
-        else actions.push(action('paymentClubbed', 'Payment Clubbed', 'danger'));
+        if (clubbed === 0) {
+          const paymentId = joinInvoiceId([
+            3,
+            'Operational Costs',
+            row.RANDOMID,
+            vendorId,
+            comId,
+            row.RAW_AMOUNT,
+          ]);
+          actions.push(action('orcPayment', 'Payment', 'warning', true, {
+            href: requestPortCostHref({
+              id: paymentId,
+              name: costName,
+              page,
+              voyageNo,
+            }),
+          }));
+        } else {
+          actions.push(action('paymentClubbed', 'Payment Clubbed', 'danger', true, {
+            href: clubbedHireHref({ comId, page, voyageNo }),
+          }));
+        }
       }
       hireLines.push(line({
         key: `hire-orc24-${idx}`,
@@ -918,7 +1394,21 @@ export async function dbGetPaymentGridVc(comId) {
     );
     const ownersBrokerActions = [];
     if (ownersBrokerName) {
-      ownersBrokerActions.push(action('ownersBrokerPayment', 'Payment', 'warning'));
+      ownersBrokerActions.push(action('ownersBrokerPayment', 'Payment', 'warning', true, {
+        href: requestPortCostHref({
+          id: joinInvoiceId([
+            13,
+            'Owners Side brokerage',
+            1771,
+            ownersBrokerVendor,
+            comId,
+            compare.HIERAGE_BROKER_AMT || master.HIERAGE_BROKER_AMT || 0,
+          ]),
+          name: 'Owners Side brokerage',
+          page,
+          voyageNo,
+        }),
+      }));
     }
     hireLines.push(line({
       key: 'owners-broker',

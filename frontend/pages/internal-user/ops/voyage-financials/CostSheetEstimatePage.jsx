@@ -122,7 +122,7 @@ export default function CostSheetEstimatePage({
     } finally {
       setLoading(false);
     }
-  }, [estimateId, estimateType]);
+  }, [comIdProp, estimateId, estimateType]);
 
   useEffect(() => {
     loadDetail();

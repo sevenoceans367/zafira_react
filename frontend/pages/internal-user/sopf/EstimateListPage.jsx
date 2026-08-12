@@ -541,7 +541,7 @@ export default function EstimateListPage() {
                                   size="sm"
                                   icon="file-earmark"
                                   className={`${styles.rowActionBtn} ${styles.rowActionView}`}
-                                  href={`/internal-user/sopf/viewestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}&rttype=1`}
+                                  href={`/internal-user/sopf/viewestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}`}
                                   ariaLabel={`View ${row.sheetName}`}
                                 />
                               )}

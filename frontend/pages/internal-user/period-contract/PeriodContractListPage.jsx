@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.js';
+import { periodContractBasePath } from '../../../constants/periodContractModule.js';
 import {
   fetchPeriodContractList,
   fetchPeriodNominations,
@@ -330,7 +331,7 @@ export default function PeriodContractListPage() {
                             <td>{voyage.netTce}</td>
                             <td>
                               <Link
-                                to={`/internal-user/sopf/viewestimate?id=${encodeURIComponent(voyage.fcaId)}&estimatetype=${encodeURIComponent(businessType)}&selBType=${encodeURIComponent(businessType)}&rttype=1`}
+                                to={`/internal-user/sopf/viewestimate?id=${encodeURIComponent(voyage.fcaId)}&estimatetype=${encodeURIComponent(businessType)}&selBType=${encodeURIComponent(businessType)}&returnTo=${encodeURIComponent(periodContractBasePath(module))}`}
                                 title="FVF Sheet"
                               >
                                 <i className="bi bi-file-earmark-text" aria-hidden />

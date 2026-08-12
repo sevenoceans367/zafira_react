@@ -14,6 +14,12 @@ const PAGES = {
   'pda-fda': 'PDA/FDA',
   documents: 'Documents',
   'payment-grid': 'Payment / Invoice Grid',
+  'freight-invoice': 'Freight Invoice',
+  'other-invoice': 'Other Invoice',
+  'hire-statement': 'Hire Statement',
+  'clubbed-invoice': 'Invoice Clubbed',
+  'clubbed-hire': 'Payment Clubbed',
+  'request-port-cost': 'Operational Costs Payment',
   sof: 'SOF',
   laytime: 'Laytime',
   bunker: 'Bunkers',
@@ -94,6 +100,96 @@ export function resolveOpsVcHeader(pathname) {
         OPS_VC,
         { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
         { label: 'Payment / Invoice Grid' },
+      ],
+    };
+  }
+
+  if (pageId === 'other-invoice') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Other Invoice',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
+        { label: 'Other Invoice' },
+      ],
+    };
+  }
+
+  if (pageId === 'hire-statement') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Hire Statement',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
+        { label: 'Hire Statement' },
+      ],
+    };
+  }
+
+  if (pageId === 'clubbed-invoice') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Invoice Clubbed',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
+        { label: 'Invoice Clubbed' },
+      ],
+    };
+  }
+
+  if (pageId === 'clubbed-hire') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Payment Clubbed',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
+        { label: 'Payment Clubbed' },
+      ],
+    };
+  }
+
+  if (pageId === 'freight-invoice') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Freight Invoice',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
+        { label: 'Freight Invoice' },
+      ],
+    };
+  }
+
+  if (pageId === 'request-port-cost') {
+    return {
+      title: 'Ops - VC',
+      currentPage: 'Operational Costs Payment',
+      breadcrumbs: [
+        HOME,
+        SOC,
+        OPS_VC,
+        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
+        { label: 'Operational Costs Payment' },
       ],
     };
   }

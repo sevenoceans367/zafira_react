@@ -29,6 +29,7 @@ import {
   getAgencyLetterForm,
   saveAgencyLetter,
 } from '../services/agencyLetterService.js';
+import { generateAgencyLetterPdf } from '../services/agencyLetterPdfService.js';
 import {
   createOpsDocument,
   deleteOpsDocument,
@@ -896,10 +897,18 @@ router.delete('/ops/agency-letter/:genAgencyId', asyncHandler(async (req, res) =
   res.json(await deleteAgencyLetter(req.params.genAgencyId));
 }));
 
-router.get('/ops/agency-letter/:genAgencyId/pdf', asyncHandler(async (_req, res) => {
-  res.status(501).json({
-    message: 'Agency letter PDF generation is not migrated yet (legacy allPdf.php).',
+router.get('/ops/agency-letter/:genAgencyId/pdf', asyncHandler(async (req, res) => {
+  const { buffer, filename } = await generateAgencyLetterPdf(req.params.genAgencyId, {
+    type: req.query.type || 'pda',
+    portType: req.query.portType || req.query.port_type || '',
+    comId: req.query.comId || req.query.comid || '',
+    portId: req.query.portId || req.query.port_name || '',
+    agentCode: req.query.agentCode || req.query.agent_code || '',
+    randomId: req.query.randomId || req.query.randomno || '',
   });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buffer);
 }));
 
 router.get('/ops/compare-sheets', asyncHandler(async (req, res) => {

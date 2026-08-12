@@ -1298,10 +1298,10 @@ export default function EstimateDetailSections({
                   <input {...inputProps(ladenKey, { recalc: true })} placeholder="0.00" />
                 </Field>
               </div>
-              {renderConsTable('FO Consp/day (MT) - At Sea / In Port (S & NS)', foRows, 'FO', atSeaCols)}
-              {renderConsTable('DO Consp/day (MT) - At Sea / In Port (S & NS)', doRows, 'DO', atSeaCols)}
-              {renderConsTable('FO Consp/day (MT) - Others (S & NS)', foRows, 'FO', CONSUMPTION_OTHERS_COLUMNS)}
-              {renderConsTable('DO Consp/day (MT) - Others (S & NS)', doRows, 'DO', CONSUMPTION_OTHERS_COLUMNS)}
+              {renderConsTable('FO Consp/day (MT) - At Sea / In Port (SECA & NON-SECA)', foRows, 'FO', atSeaCols)}
+              {renderConsTable('DO Consp/day (MT) - At Sea / In Port (SECA & NON-SECA)', doRows, 'DO', atSeaCols)}
+              {renderConsTable('FO Consp/day (MT) - Others (SECA & NON-SECA)', foRows, 'FO', CONSUMPTION_OTHERS_COLUMNS)}
+              {renderConsTable('DO Consp/day (MT) - Others (SECA & NON-SECA)', doRows, 'DO', CONSUMPTION_OTHERS_COLUMNS)}
             </>
           );
         })()}

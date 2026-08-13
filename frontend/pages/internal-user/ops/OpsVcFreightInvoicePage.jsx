@@ -948,7 +948,7 @@ export default function OpsVcFreightInvoicePage() {
     append('vatPercent', form.vatPercent);
     append('paymentStatus', form.paymentStatus);
     append('nob', form.nob);
-    append('cBankCheck', form.cBankCheck ? 'Yes' : '');
+    append('cBankCheck', form.cBankCheck ? 'Yes' : 'No');
     append('existingUpload', existingUpload);
     append('existingUploadName', existingUploadName);
 

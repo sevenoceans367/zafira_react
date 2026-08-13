@@ -1019,7 +1019,9 @@ function mapDraftInvoice(row, lineRows, adjRows, clubCheckedIds, demCheckedIds, 
     vatPercent: str(row.VAT_PERCENT || ''),
     paymentStatus: str(row.PAYMENT_STATUS || 'payment_payable'),
     nob: str(row.NOB || ''),
-    cBankCheck: Number(row.c_bank_check) === 1 || Number(row.C_BANK_CHECK) === 1,
+    cBankCheck: String(row.c_bank_check || row.C_BANK_CHECK || '').toLowerCase() === 'yes'
+      || Number(row.c_bank_check) === 1
+      || Number(row.C_BANK_CHECK) === 1,
     percentThereOff: str(row.TO_1 || ''),
     ffiSettlementDays: row.FFI_SET_DAYS != null ? str(row.FFI_SET_DAYS) : '',
     agreedLocal: str(row.AGREED_GROSS_FREIGHT_LOCAL || ''),
@@ -1766,10 +1768,16 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
   const paymentStatus = str(payload.paymentStatus || payload.payment_status || 'payment_payable')
     || 'payment_payable';
   const nob = str(payload.nob || payload.selNOB);
-  const cBankCheck = payload.cBankCheck === true || payload.cBankCheck === 1 || payload.cBankCheck === '1'
-    || payload.c_bank_check === true || payload.c_bank_check === 1 || payload.c_bank_check === '1'
-    ? 1
-    : 0;
+  const cBankCheck = payload.cBankCheck === true
+    || payload.cBankCheck === 1
+    || payload.cBankCheck === '1'
+    || String(payload.cBankCheck || '').toLowerCase() === 'yes'
+    || payload.c_bank_check === true
+    || payload.c_bank_check === 1
+    || payload.c_bank_check === '1'
+    || String(payload.c_bank_check || '').toLowerCase() === 'yes'
+    ? 'Yes'
+    : 'No';
   const upload = str(payload.upload || payload.UPLOAD || payload.attachment || '');
   const uploadName = str(payload.uploadName || payload.UPLOAD_NAME || payload.attachmentName || '');
   const setProRate = payload.prorate === true || payload.prorate === 1 || payload.setProRate === 1 ? 1 : 0;

@@ -53,8 +53,8 @@ function SidebarSection({ label }) {
 
 const FLEET_LINK = {
   iconSrc: fleetIcon,
-  iconAlt: 'Fleet',
-  label: 'Fleet',
+  iconAlt: 'Operated Vessels',
+  label: 'Operated Vessels',
 };
 
 const PERIOD_CONTRACT_LINK = {

@@ -12,6 +12,8 @@ import { SOPF_TOP_SIDEBAR_ITEMS, SOPF_CHARTERING_SIDEBAR_ITEMS } from '../consta
 import helpIcon from '../assets/help-icon.svg';
 import fleetIcon from '../assets/vessel.png';
 import elibraryIcon from '../assets/elibrary.svg';
+import timeCharterIcon from '../assets/TIME CHARTER.png';
+import periodContractIcon from '../assets/Period contact.svg';
 import CoasSidebarTree from './coa/CoasSidebarTree.jsx';
 import OpsVcSidebarTree from './ops/OpsVcSidebarTree.jsx';
 import OpsTcSidebarTree from './ops/OpsTcSidebarTree.jsx';
@@ -55,8 +57,15 @@ const FLEET_LINK = {
 };
 
 const PERIOD_CONTRACT_LINK = {
-  icon: 'bi-journal-text',
+  iconSrc: periodContractIcon,
+  iconAlt: 'Period Contract',
   label: 'Period Contract',
+};
+
+const TIME_CHARTER_LINK = {
+  iconSrc: timeCharterIcon,
+  iconAlt: 'Time Charter',
+  label: 'Time Charter',
 };
 
 const ELIBRARY_LINK = {
@@ -145,7 +154,8 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to={periodContractAppPath('vc')}
-              icon={PERIOD_CONTRACT_LINK.icon}
+              iconSrc={PERIOD_CONTRACT_LINK.iconSrc}
+              iconAlt={PERIOD_CONTRACT_LINK.iconAlt}
               label={PERIOD_CONTRACT_LINK.label}
               active={currentPath.startsWith('/internal-user/vc/period-contracts')}
             />
@@ -213,8 +223,9 @@ export default function InternalUserSidebar({ isOpen }) {
             <SidebarSection label="SOC" />
             <SidebarLink
               to={appPath('/internal-user/tc')}
-              icon="bi-clock-history"
-              label="Time Charter"
+              iconSrc={TIME_CHARTER_LINK.iconSrc}
+              iconAlt={TIME_CHARTER_LINK.iconAlt}
+              label={TIME_CHARTER_LINK.label}
               active={currentPath === '/internal-user/tc'}
             />
             <SidebarLink
@@ -226,7 +237,8 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to={periodContractAppPath('tc')}
-              icon={PERIOD_CONTRACT_LINK.icon}
+              iconSrc={PERIOD_CONTRACT_LINK.iconSrc}
+              iconAlt={PERIOD_CONTRACT_LINK.iconAlt}
               label={PERIOD_CONTRACT_LINK.label}
               active={currentPath.startsWith('/internal-user/tc/period-contracts')}
             />

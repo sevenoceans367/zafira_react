@@ -49,6 +49,19 @@ function padAgencyNumber(value) {
   return code;
 }
 
+/** MySQL DECIMAL/INT columns reject ''; use null for blank/invalid. */
+function decimalOrNull(value) {
+  if (value == null || value === '') return null;
+  const n = Number(String(value).replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+function intOrNull(value) {
+  if (value == null || value === '') return null;
+  const n = Number(String(value).trim());
+  return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
 function storedPortType(portType) {
   return String(portType || '').slice(0, 2);
 }
@@ -683,13 +696,13 @@ export async function dbSaveAgencyLetter(payload = {}) {
         ...(includeLpDp ? ['LP_DP'] : []),
       ];
       const insertVals = [
-        comId, MODULE_ID, COMPANY_ID, port, portId, date, vendorId, '',
-        usernameId, username, payload.password || '', payload.qty || null, payload.countryId || '', '', '',
+        intOrNull(comId), intOrNull(MODULE_ID), intOrNull(COMPANY_ID), port, intOrNull(portId), date, vendorId, '',
+        usernameId, username, payload.password || '', decimalOrNull(payload.qty), intOrNull(payload.countryId), '', '',
         '', payload.shipOwner || null, '', '', '', '',
         '', '', '', '', '',
-        '', payload.masterName || '', payload.cargoDetails || '', payload.tolerance || '',
-        '', randomId, submitId, etaDate, payload.bunkerSurveyor || '',
-        payload.bunkerSurveyorCom || '', appContext.userId, etaDate1,
+        '', payload.masterName || '', payload.cargoDetails || '', decimalOrNull(payload.tolerance),
+        decimalOrNull(payload.toleranceAdd), intOrNull(randomId), submitId, etaDate, payload.bunkerSurveyor || '',
+        payload.bunkerSurveyorCom || '', intOrNull(appContext.userId) ?? 0, etaDate1,
         ...(includeLpDp ? [lpDpValue] : []),
       ];
       const [result] = await connection.query(
@@ -711,13 +724,13 @@ export async function dbSaveAgencyLetter(payload = {}) {
          WHERE GEN_AGENCY_ID = ? AND COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
            AND PORT = ? AND PORTID = ? AND VENDORID = ?`,
         [
-          date, vendorId, username, payload.password || '', payload.qty || null, payload.countryId || '',
+          date, vendorId, username, payload.password || '', decimalOrNull(payload.qty), intOrNull(payload.countryId),
           payload.shipOwner || null, payload.masterName || '', payload.cargoDetails || '',
-          payload.tolerance || '', randomId, submitId, etaDate,
+          decimalOrNull(payload.tolerance), intOrNull(randomId), submitId, etaDate,
           payload.bunkerSurveyor || '', payload.bunkerSurveyorCom || '', etaDate1,
           ...(includeLpDp ? [lpDpValue] : []),
-          genAgencyId, comId, MODULE_ID, COMPANY_ID,
-          port, portId, vendorId,
+          genAgencyId, intOrNull(comId), intOrNull(MODULE_ID), intOrNull(COMPANY_ID),
+          port, intOrNull(portId), vendorId,
         ],
       );
       await connection.query('DELETE FROM generate_agency_letter_slave1 WHERE GEN_AGENCY_ID = ?', [genAgencyId]);

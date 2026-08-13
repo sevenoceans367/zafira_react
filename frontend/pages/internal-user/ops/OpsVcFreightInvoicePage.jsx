@@ -425,6 +425,28 @@ export default function OpsVcFreightInvoicePage() {
     ],
     [context?.bankingDetails],
   );
+  const currencyOptions = useMemo(
+    () => [
+      { value: '', label: '----Select From List----' },
+      ...(context?.currencies || []).map((row) => ({
+        value: row.id,
+        label: row.name,
+      })),
+    ],
+    [context?.currencies],
+  );
+  const invoiceTypeOptions = useMemo(
+    () => [
+      { value: '', label: '----Select From List----' },
+      ...(context?.invoiceTypes || []).map((row) => ({
+        value: row.id,
+        label: row.name,
+      })),
+    ],
+    [context?.invoiceTypes],
+  );
+  const currencyCode = form.exchangeCurrency || 'USD';
+  const showNetDead = Boolean(context?.freightBreakdown?.showNetDead);
   const fixtureVesselMap = useMemo(() => {
     const map = new Map();
     (context?.fixtures || []).forEach((row) => {
@@ -461,15 +483,25 @@ export default function OpsVcFreightInvoicePage() {
 
   const totals = useMemo(() => {
     const gross = parseAmount(form.grossFreight);
+    const percentThereOff = parseAmount(form.percentThereOff);
+    // PHP getAmountThereOff: txtNet = gross × % There Off / 100
+    const freightDue = percentThereOff > 0
+      ? money2((gross * percentThereOff) / 100)
+      : 0;
     const addTotal = addRows.reduce((sum, row) => sum + parseAmount(row.amount), 0);
     const subTotal = subRows.reduce((sum, row) => sum + parseAmount(row.amount), 0);
     const adjAddTotal = adjAddRows.reduce((sum, row) => sum + parseAmount(row.amount), 0);
     const adjSubTotal = adjSubRows.reduce((sum, row) => sum + parseAmount(row.amount), 0);
-    const brokerage = money2((gross * parseAmount(form.brokeragePercent)) / 100);
-    const addCom = money2((gross * parseAmount(form.addComPercent)) / 100);
+    // PHP: brokerage / addcom on full gross only when % There Off > 0
+    const brokerage = percentThereOff > 0
+      ? money2((gross * parseAmount(form.brokeragePercent)) / 100)
+      : 0;
+    const addCom = percentThereOff > 0
+      ? money2((gross * parseAmount(form.addComPercent)) / 100)
+      : 0;
     const gstOnBrok = money2((brokerage * parseAmount(form.gstOnBrokPercent)) / 100);
     const netPayable = money2(
-      gross
+      freightDue
         + addTotal
         + adjAddTotal
         + demCheckedTotal
@@ -499,6 +531,7 @@ export default function OpsVcFreightInvoicePage() {
     const exchanged = exchangeRate > 0 ? money2(netPayableTax * exchangeRate) : 0;
 
     return {
+      freightDue,
       brokerage,
       addCom,
       gstOnBrok,
@@ -512,6 +545,7 @@ export default function OpsVcFreightInvoicePage() {
     };
   }, [
     form.grossFreight,
+    form.percentThereOff,
     form.brokeragePercent,
     form.addComPercent,
     form.gstOnBrokPercent,
@@ -581,6 +615,7 @@ export default function OpsVcFreightInvoicePage() {
         || prefill.cBankCheck === '1'
         || prefill.cBankCheck === 1,
       percentThereOff: strOrEmpty(prefill.percentThereOff),
+      ffiSettlementDays: strOrEmpty(prefill.ffiSettlementDays),
       selApprovers: Array.isArray(prefill.selApprovers)
         ? prefill.selApprovers.map(String)
         : [],
@@ -782,7 +817,8 @@ export default function OpsVcFreightInvoicePage() {
     append('comId', context.comId);
     append('fcaId', context.fcaId);
     append('vendorId', context.vendorId);
-    append('invType', context.invType || invType);
+    append('invType', form.invoiceType || context.invType || invType);
+    append('invoiceType', form.invoiceType || context.invType || invType);
     append('pType', context.pType || name);
     if (vcIn || context.vcIn) append('vcIn', '1');
     append('cargoId', context.cargoId);
@@ -811,9 +847,17 @@ export default function OpsVcFreightInvoicePage() {
     append('remarks', form.remarks);
     append('atten', form.atten);
     append('grossFreight', form.grossFreight);
+    append('percentThereOff', form.percentThereOff);
+    append('ffiSettlementDays', form.ffiSettlementDays);
+    append('netAmount', totals.freightDue.toFixed(2));
     append('brokeragePercent', form.brokeragePercent);
+    append('brokerageAmt', totals.brokerage.toFixed(2));
     append('gstOnBrokPercent', form.gstOnBrokPercent);
+    append('gstOnBrok', totals.gstOnBrok.toFixed(2));
     append('addComPercent', form.addComPercent);
+    append('addComAmt', totals.addCom.toFixed(2));
+    append('netPayable', totals.netPayable.toFixed(2));
+    append('netPayableTax', totals.netPayableTax.toFixed(2));
     append('taxApplicable', form.taxApplicable);
     append('gstVat', form.gstVat);
     append('sgstPercent', form.sgstPercent);
@@ -823,7 +867,6 @@ export default function OpsVcFreightInvoicePage() {
     append('paymentStatus', form.paymentStatus);
     append('nob', form.nob);
     append('cBankCheck', form.cBankCheck ? 'Yes' : '');
-    append('percentThereOff', form.percentThereOff);
     append('existingUpload', existingUpload);
     append('existingUploadName', existingUploadName);
 
@@ -867,9 +910,11 @@ export default function OpsVcFreightInvoicePage() {
   const validateClient = async (status) => {
     const missing = [
       [form.shipOwner, 'Invoicing Company'],
+      [form.invoiceType, 'Invoice Type'],
       [form.invoiceNo, 'Invoice Number'],
       [form.invoiceDate, 'Invoice Date'],
-      [form.grossFreight, 'Freight Amount'],
+      [form.grossFreight, 'Gross Freight'],
+      [form.percentThereOff, '% There Off'],
       [form.paymentStatus, 'Invoice Hold / Payable'],
     ].find(([value]) => !String(value || '').trim());
 
@@ -1069,10 +1114,9 @@ export default function OpsVcFreightInvoicePage() {
         <>
           <div className={styles.infoGrid}>
             <div className={styles.panel}>
-              <p className={styles.panelLabel}>Invoicing Company</p>
               <FormSelect
                 id="shipOwner"
-                label="Owner"
+                label="Invoicing Company"
                 required
                 value={form.shipOwner}
                 options={ownerOptions}
@@ -1173,6 +1217,23 @@ export default function OpsVcFreightInvoicePage() {
                 onChange={(event) => updateField('freightRate', event.target.value)}
               />
             </Field>
+
+            <FormSelect
+              id="invoiceType"
+              label="Invoice Type"
+              required
+              value={form.invoiceType}
+              options={invoiceTypeOptions}
+              onChange={(value) => updateField('invoiceType', value)}
+            />
+            <Field id="atten" label="Attn">
+              <input
+                id="atten"
+                className={styles.input}
+                value={form.atten || ''}
+                onChange={(event) => updateField('atten', event.target.value)}
+              />
+            </Field>
             <Field id="invoiceNo" label="Invoice Number *">
               <input
                 id="invoiceNo"
@@ -1196,31 +1257,6 @@ export default function OpsVcFreightInvoicePage() {
                 onChange={(value) => updateField('dueDate', value)}
               />
             </Field>
-            <Field id="atten" label="Attn">
-              <input
-                id="atten"
-                className={styles.input}
-                value={form.atten || ''}
-                onChange={(event) => updateField('atten', event.target.value)}
-              />
-            </Field>
-            <Field id="exchangeCurrency" label="Currency">
-              <input
-                id="exchangeCurrency"
-                className={styles.input}
-                value={form.exchangeCurrency || ''}
-                onChange={(event) => updateField('exchangeCurrency', event.target.value)}
-              />
-            </Field>
-            <Field id="paymentTerms" label="Payment Terms">
-              <input
-                id="paymentTerms"
-                className={styles.input}
-                value={form.paymentTerms || ''}
-                onChange={(event) => updateField('paymentTerms', event.target.value)}
-              />
-            </Field>
-
             <Field id="exchangeRate" label="Exchange Rate">
               <input
                 id="exchangeRate"
@@ -1234,6 +1270,30 @@ export default function OpsVcFreightInvoicePage() {
                 id="exchangeDate"
                 value={form.exchangeDate || ''}
                 onChange={(value) => updateField('exchangeDate', value)}
+              />
+            </Field>
+            <FormSelect
+              id="exchangeCurrency"
+              label="Exchange To Currency"
+              value={form.exchangeCurrency}
+              options={currencyOptions}
+              onChange={(value) => updateField('exchangeCurrency', value)}
+            />
+            <Field id="paymentTerms" label="Payment Terms">
+              <input
+                id="paymentTerms"
+                className={styles.input}
+                value={form.paymentTerms || ''}
+                onChange={(event) => updateField('paymentTerms', event.target.value)}
+              />
+            </Field>
+            <Field id="ffiSettlementDays" label="FFI Settlement Days">
+              <input
+                id="ffiSettlementDays"
+                className={styles.input}
+                value={form.ffiSettlementDays || ''}
+                onChange={(event) => updateField('ffiSettlementDays', event.target.value)}
+                inputMode="numeric"
               />
             </Field>
 
@@ -1306,16 +1366,54 @@ export default function OpsVcFreightInvoicePage() {
           />
 
           <div className={styles.formGrid}>
+            {showNetDead ? (
+              <>
+                <Field id="netFreight" label={`Net Freight (${currencyCode})`}>
+                  <input
+                    className={styles.input}
+                    readOnly
+                    value={Number(context?.freightBreakdown?.netFreight || 0).toFixed(2)}
+                  />
+                </Field>
+                <Field id="deadFreight" label={`Dead Freight (${currencyCode})`}>
+                  <input
+                    className={styles.input}
+                    readOnly
+                    value={Number(context?.freightBreakdown?.deadFreight || 0).toFixed(2)}
+                  />
+                </Field>
+              </>
+            ) : null}
             <div className={styles.span2}>
-              <Field id="grossFreight" label="Freight Amount *">
+              <Field id="grossFreight" label={`Gross Freight (${currencyCode}) *`}>
                 <input
                   id="grossFreight"
                   className={styles.input}
                   value={form.grossFreight || ''}
                   onChange={(event) => updateField('grossFreight', event.target.value)}
+                  readOnly={Boolean(context?.freightBreakdown?.isDistributed)}
                 />
               </Field>
             </div>
+            <Field id="percentThereOff" label="% There Off *">
+              <input
+                id="percentThereOff"
+                className={styles.input}
+                style={{ textAlign: 'right' }}
+                value={form.percentThereOff || ''}
+                onChange={(event) => updateField('percentThereOff', event.target.value)}
+                inputMode="decimal"
+                placeholder="0.00"
+              />
+            </Field>
+            <Field id="freightDue" label="Freight Due">
+              <input
+                id="freightDue"
+                className={styles.input}
+                readOnly
+                value={totals.freightDue.toFixed(2)}
+              />
+            </Field>
             <Field id="brokeragePercent" label="Brokerage (%)">
               <input
                 id="brokeragePercent"
@@ -1332,7 +1430,7 @@ export default function OpsVcFreightInvoicePage() {
                 onChange={(event) => updateField('gstOnBrokPercent', event.target.value)}
               />
             </Field>
-            <Field id="addComPercent" label="Less Addcom (%)">
+            <Field id="addComPercent" label="Less Addcom">
               <input
                 id="addComPercent"
                 className={styles.input}
@@ -1507,12 +1605,19 @@ export default function OpsVcFreightInvoicePage() {
                 <input className={styles.input} readOnly value={totals.netPayable.toFixed(2)} />
                 <div>Amount Payable (After Tax)</div>
                 <input className={styles.input} readOnly value={totals.netPayableTax.toFixed(2)} />
-                {parseAmount(form.exchangeRate) > 0 ? (
-                  <>
-                    <div>Exchanged Amount</div>
-                    <input className={styles.input} readOnly value={totals.exchanged.toFixed(2)} />
-                  </>
-                ) : null}
+                <div>
+                  Exchange To Currency
+                  {form.exchangeCurrency ? ` (${form.exchangeCurrency})` : ''}
+                </div>
+                <input
+                  className={styles.input}
+                  readOnly
+                  value={
+                    parseAmount(form.exchangeRate) > 0
+                      ? totals.exchanged.toFixed(2)
+                      : 'N.A'
+                  }
+                />
               </div>
             </div>
           </div>

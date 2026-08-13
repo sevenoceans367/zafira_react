@@ -7,6 +7,9 @@ import { userGuidesAppPath } from './userGuidesModule.js';
 import spotIcon from '../assets/icons/spot-icon.svg';
 import fleetIcon from '../assets/vessel.png';
 import vesselPositionIcon from '../assets/vesselPosition.svg';
+import timeCharterIcon from '../assets/TIME CHARTER.png';
+import periodContractIcon from '../assets/Period contact.svg';
+import poolsIcon from '../assets/pools.svg';
 
 /** Links under the SOPF section (above Chartering Desk). */
 export const SOPF_TOP_SIDEBAR_ITEMS = [
@@ -46,14 +49,16 @@ export const SOPF_CHARTERING_SIDEBAR_ITEMS = [
     id: 'time_charter',
     href: '/internal-user/sopf/time-charter',
     label: 'Time Charter',
-    icon: 'bi-clock-history',
+    iconSrc: timeCharterIcon,
+    iconAlt: 'Time Charter',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/time-charter'),
   },
   {
     id: 'period',
     href: periodContractAppPath('sopf'),
     label: 'Period',
-    icon: 'bi-journal-text',
+    iconSrc: periodContractIcon,
+    iconAlt: 'Period',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/period-contracts'),
   },
   // COAs: shared global tree (same as SOC) — rendered via CoasSidebarTree in InternalUserSidebar
@@ -61,7 +66,8 @@ export const SOPF_CHARTERING_SIDEBAR_ITEMS = [
     id: 'pools',
     href: '/internal-user/sopf/pools',
     label: 'Pools',
-    icon: 'bi-people',
+    iconSrc: poolsIcon,
+    iconAlt: 'Pools',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/pools'),
   },
   {

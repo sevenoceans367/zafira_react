@@ -21,6 +21,44 @@ const APPROVAL_COLS = Object.freeze({
   },
 });
 
+/** PHP getCurrencyList() */
+const CURRENCY_OPTIONS = [
+  { id: 'EURO', name: 'Euro (EUR)' },
+  { id: 'USD', name: 'United States Dollar (USD)' },
+  { id: 'AUD', name: 'Australian dollar (AUD)' },
+  { id: 'GBP', name: 'United Kingdom Pound (GBP)' },
+  { id: 'INR', name: 'Indian Rupee (INR)' },
+  { id: 'AED', name: 'Emirati Dirham (AED)' },
+  { id: 'JPY', name: 'Japanese Yen (JPY)' },
+  { id: 'SGD', name: 'Singapore Doller (SGD)' },
+  { id: 'ZAR', name: 'South Africa Rand(ZAR)' },
+  { id: 'MAD', name: 'Moroccan Dirham(MAD)' },
+  { id: 'NZD', name: 'New Zealand Dollar (NZD)' },
+];
+
+/** PHP getInvoiceTypeForInterimFinal($invtype) */
+function invoiceTypeOptionsFor(invType) {
+  const key = normalizeInvType(invType);
+  if (key === 'Interim' || key === 'Interim2') {
+    return [
+      { id: 'Interim', name: 'Interim' },
+      { id: 'Interim2', name: 'Interim-2' },
+      { id: 'Memo', name: 'Memo' },
+      { id: 'Debit Note', name: 'Debit Note' },
+      { id: 'Credit Note', name: 'Credit Note' },
+      { id: 'Adjustment', name: 'Adjustment' },
+    ];
+  }
+  return [
+    { id: 'Final', name: 'Final' },
+    { id: 'Memo', name: 'Memo' },
+    { id: 'Debit Note', name: 'Debit Note' },
+    { id: 'Credit Note', name: 'Credit Note' },
+    { id: 'Adjustment', name: 'Adjustment' },
+    { id: 'Provisional', name: 'Provisional' },
+  ];
+}
+
 export { dbGetBankingDetail };
 
 function str(value) {
@@ -351,6 +389,7 @@ async function getApproverContext(pool, invType, userId) {
 
 function computePayable({
   grossFreight,
+  percentThereOff = 0,
   addTotal,
   subTotal,
   adjAddTotal,
@@ -367,8 +406,11 @@ function computePayable({
   igstPercent,
   vatPercent,
 }) {
+  const pct = Number(percentThereOff) || 0;
+  // PHP getAmountThereOff: freight due = gross × % There Off / 100
+  const freightDue = pct > 0 ? money2((grossFreight * pct) / 100) : 0;
   const netPayable = money2(
-    grossFreight
+    freightDue
       + addTotal
       + adjAddTotal
       + demTotal
@@ -395,6 +437,7 @@ function computePayable({
   }
 
   return {
+    freightDue,
     netPayable,
     netPayableTax,
     sgstAmount,
@@ -615,6 +658,59 @@ async function loadClubCharterers(pool, {
     });
   }
   return out;
+}
+
+/**
+ * PHP invoice.php Net/Dead/Gross freight display from slave7 or master adj.
+ */
+async function loadFreightBreakdown(pool, {
+  fcaId,
+  vendorId,
+  cargoId,
+  master,
+}) {
+  const [[slave7]] = await pool.query(
+    `SELECT GROSS_FREIGHT, NET_FREIGHT, DF_QUANTITY, AGREED_GROSS_FREIGHT_LOCAL
+     FROM freight_cost_estimete_slave7
+     WHERE FCAID = ?
+       AND CARGO = ?
+       AND QTY_VENDORID = ?
+     LIMIT 1`,
+    [fcaId, cargoId || '0', vendorId],
+  ).catch(() => [[null]]);
+
+  if (slave7) {
+    const deadFreight = money2(
+      parseAmount(slave7.DF_QUANTITY) * parseAmount(slave7.AGREED_GROSS_FREIGHT_LOCAL),
+    );
+    return {
+      isDistributed: true,
+      showNetDead: true,
+      netFreight: money2(slave7.GROSS_FREIGHT),
+      deadFreight,
+      grossFreight: money2(slave7.NET_FREIGHT),
+    };
+  }
+
+  const deadAdj = money2(master?.DEAD_PREIGHT_ADJ);
+  const deadAdjPrmt = parseAmount(master?.DEAD_PREIGHT_ADJ_PRMT);
+  if (deadAdjPrmt > 0 || deadAdj > 0) {
+    return {
+      isDistributed: false,
+      showNetDead: true,
+      netFreight: money2(master?.GROSS_PREIGHT_ADJ),
+      deadFreight: deadAdj,
+      grossFreight: 0,
+    };
+  }
+
+  return {
+    isDistributed: false,
+    showNetDead: false,
+    netFreight: 0,
+    deadFreight: 0,
+    grossFreight: 0,
+  };
 }
 
 async function loadDemurrageRows(pool, {
@@ -879,6 +975,7 @@ function mapDraftInvoice(row, lineRows, adjRows, clubCheckedIds, demCheckedIds, 
     invoiceId: String(row.INVOICEID),
     status: Number(row.STATUS) || 0,
     shipOwner: str(row.SHIP_OWNER),
+    invoiceType: normalizeInvType(row.I_TYPE),
     invoiceNo: str(row.MESSAGE),
     invoiceDate: formatDateDMY(row.DATE),
     dueDate: formatDateDMY(row.DUE_DATE),
@@ -1217,6 +1314,13 @@ export async function dbGetFreightInvoiceForm({
     draftInvoiceId: draftId,
   });
 
+  const freightBreakdown = await loadFreightBreakdown(pool, {
+    fcaId,
+    vendorId,
+    cargoId,
+    master,
+  });
+
   let currentInvoice = null;
   if (draft) {
     const lineRows = await loadSlaveLineRows(pool, draft.INVOICEID, inMode);
@@ -1243,6 +1347,12 @@ export async function dbGetFreightInvoiceForm({
     vcIn: inMode,
   });
 
+  const defaultGross = currentInvoice?.grossFreight
+    || (freightBreakdown.isDistributed && freightBreakdown.grossFreight
+      ? String(freightBreakdown.grossFreight)
+      : '')
+    || (grossFreight ? String(grossFreight) : '');
+
   const defaults = {
     shipOwner: currentInvoice?.shipOwner || '',
     manualVendorName: currentInvoice?.manualVendorName || vendorAddressParts.join(' '),
@@ -1254,7 +1364,7 @@ export async function dbGetFreightInvoiceForm({
     imoNo: currentInvoice?.imoNo || str(compare.IMO_NO || ''),
     blQuantity: currentInvoice?.blQuantity || (quantity ? String(quantity) : ''),
     freightRate: currentInvoice?.freightRate || (freightRate ? String(freightRate) : ''),
-    invoiceType,
+    invoiceType: currentInvoice?.invoiceType || invoiceType,
     atten: currentInvoice?.atten || '',
     invoiceNo: currentInvoice?.invoiceNo || '',
     invoiceDate: currentInvoice?.invoiceDate || '',
@@ -1264,7 +1374,7 @@ export async function dbGetFreightInvoiceForm({
     exchangeDate: currentInvoice?.exchangeDate || '',
     paymentTerms: currentInvoice?.paymentTerms || '',
     remarks: currentInvoice?.remarks || '',
-    grossFreight: currentInvoice?.grossFreight || (grossFreight ? String(grossFreight) : ''),
+    grossFreight: defaultGross,
     brokeragePercent: currentInvoice?.brokeragePercent || str(compare.BROKERAGE_PER || '0'),
     gstOnBrokPercent: currentInvoice?.gstOnBrokPercent || '0',
     addComPercent: currentInvoice?.addComPercent || '0',
@@ -1314,6 +1424,9 @@ export async function dbGetFreightInvoiceForm({
       id: String(row.id),
       name: row.name,
     })),
+    currencies: CURRENCY_OPTIONS,
+    invoiceTypes: invoiceTypeOptionsFor(invoiceType),
+    freightBreakdown,
     clubCharterers,
     demurrageRows,
     daRows,
@@ -1509,7 +1622,9 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
   const comId = str(payload.comId || parsed.comId);
   const fcaId = str(payload.fcaId || parsed.fcaId);
   const vendorId = str(payload.vendorId || parsed.vendorId);
-  const invType = normalizeInvType(payload.invType || payload.iType || payload.selIType || 'Interim');
+  const invType = normalizeInvType(
+    payload.invoiceType || payload.invType || payload.iType || payload.selIType || 'Interim',
+  );
   const pType = str(payload.pType || payload.name) || (vcIn ? 'VC In Payment' : 'Final Nett Freight');
 
   if (!comId) throw Object.assign(new Error('COMID is required.'), { status: 400 });
@@ -1525,17 +1640,19 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
   const grossFreight = parseAmount(payload.grossFreight || payload.txtGrossFreight || payload.txtFreightAmt);
   const quantity = parseAmount(payload.blQuantity || payload.quantity || payload.txtQty || parsed.quantity);
   const freightRate = parseAmount(payload.freightRate || payload.txtFrieghtRate || parsed.agreedLocal);
+  const percentThereOff = parseAmount(payload.percentThereOff || payload.txtTO || payload.to_1);
   const brokeragePercent = parseAmount(payload.brokeragePercent || payload.txtBrokerage);
+  // PHP: brokerage / addcom only when % There Off > 0, calculated on full gross
   const brokerageAmt = money2(
     payload.brokerageAmt != null && payload.brokerageAmt !== ''
       ? parseAmount(payload.brokerageAmt || payload.txtBrokerageAmt)
-      : (grossFreight * brokeragePercent) / 100,
+      : (percentThereOff > 0 ? (grossFreight * brokeragePercent) / 100 : 0),
   );
   const addComPercent = parseAmount(payload.addComPercent || payload.txtAddComm);
   const addComAmt = money2(
     payload.addComAmt != null && payload.addComAmt !== ''
       ? parseAmount(payload.addComAmt || payload.txtAddCommAmt)
-      : (grossFreight * addComPercent) / 100,
+      : (percentThereOff > 0 ? (grossFreight * addComPercent) / 100 : 0),
   );
   const gstOnBrokPercent = parseAmount(payload.gstOnBrokPercent || payload.gst_on_brokage_perc);
   const gstOnBrok = money2(
@@ -1568,6 +1685,7 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
 
   const computed = computePayable({
     grossFreight,
+    percentThereOff,
     addTotal,
     subTotal,
     adjAddTotal,
@@ -1596,13 +1714,19 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
   const igstAmount = payload.igstAmount != null ? money2(payload.igstAmount) : computed.igstAmount;
   const vatAmount = payload.vatAmount != null ? money2(payload.vatAmount) : computed.vatAmount;
 
-  const percentThereOff = parseAmount(payload.percentThereOff || payload.txtTO || payload.to_1);
   const finalFreight = payload.finalFreight != null && payload.finalFreight !== ''
     ? money2(payload.finalFreight || payload.txtNetFreight)
     : netPayable;
+  // PHP NET_AMOUNT / txtNet = gross × % There Off
   const netAmount = payload.netAmount != null && payload.netAmount !== ''
     ? money2(payload.netAmount || payload.txtNet)
-    : netPayable;
+    : computed.freightDue;
+  const ffiSettlementDays = (() => {
+    const raw = payload.ffiSettlementDays ?? payload.txtFFiSettleday;
+    if (raw == null || raw === '') return null;
+    const n = Number(String(raw).trim());
+    return Number.isFinite(n) ? Math.trunc(n) : null;
+  })();
 
   if (!shipOwner) throw Object.assign(new Error('Invoicing Company is required.'), { status: 400 });
   if (!invoiceNo) throw Object.assign(new Error('Invoice Number is required.'), { status: 400 });
@@ -1682,6 +1806,7 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
            BL_DATE, BL_NO, FLAG, IMO_NO, LOAD_PORT_NAME, DISCHARGE_PORT_NAME,
            MANUAL_VENDOR_NAME, FREIGHT_RATE, c_bank_check, PAYMENT_STATUS,
            GST_ON_BROK_PERC, GST_ON_BROK, PRORATE, SYNC_STATUS,
+           FFI_SET_DAYS,
            L_UPDATED_BY, L_UP_TIME
          ) VALUES (
            ?, ?, ?, ?, ?, ?, ?, ?,
@@ -1698,6 +1823,7 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
            ?, ?, ?, ?, ?, ?,
            ?, ?, ?, ?,
            ?, ?, ?, ?,
+           ?,
            ?, NOW()
          )`,
         [
@@ -1763,6 +1889,7 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
           gstOnBrok,
           setProRate,
           status === 5 ? 1 : 0,
+          ffiSettlementDays,
           userId,
         ],
       );
@@ -1791,7 +1918,7 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
            BL_DATE = ?, BL_NO = ?, FLAG = ?, IMO_NO = ?,
            LOAD_PORT_NAME = ?, DISCHARGE_PORT_NAME = ?, MANUAL_VENDOR_NAME = ?, FREIGHT_RATE = ?,
            c_bank_check = ?, GST_ON_BROK_PERC = ?, GST_ON_BROK = ?, PRORATE = ?,
-           PAYMENT_STATUS = ?, SYNC_STATUS = ?,
+           PAYMENT_STATUS = ?, SYNC_STATUS = ?, FFI_SET_DAYS = ?,
            L_UPDATED_BY = ?, L_UP_TIME = NOW()
          WHERE INVOICEID = ?`,
         [
@@ -1852,6 +1979,7 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
           setProRate,
           paymentStatus,
           status === 5 ? 1 : 0,
+          ffiSettlementDays,
           userId,
           invoiceId,
         ],

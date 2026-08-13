@@ -443,6 +443,7 @@ export default function OpsVcFreightInvoicePage() {
   const [context, setContext] = useState(null);
   const [form, setForm] = useState({});
   const [invoiceId, setInvoiceId] = useState('');
+  const [draftInvoiceNo, setDraftInvoiceNo] = useState('');
   const [invoiceStatus, setInvoiceStatus] = useState(null);
   const [addRows, setAddRows] = useState([EMPTY_LINE()]);
   const [subRows, setSubRows] = useState([EMPTY_LINE()]);
@@ -664,6 +665,7 @@ export default function OpsVcFreightInvoicePage() {
       imoNo: strOrEmpty(prefill.imoNo),
       blQuantity: strOrEmpty(prefill.blQuantity),
       freightRate: strOrEmpty(prefill.freightRate),
+      invoiceType: strOrEmpty(prefill.invoiceType || data.invType),
       invoiceNo: strOrEmpty(prefill.invoiceNo),
       invoiceDate: strOrEmpty(prefill.invoiceDate),
       dueDate: strOrEmpty(prefill.dueDate),
@@ -697,6 +699,8 @@ export default function OpsVcFreightInvoicePage() {
     });
 
     setInvoiceId(strOrEmpty(current?.invoiceId));
+    // PHP txtDNote1 — keep original MESSAGE key once set so renames still update the same draft
+    setDraftInvoiceNo((prev) => (prev || strOrEmpty(current?.invoiceNo)));
     setInvoiceStatus(current?.status != null ? Number(current.status) : null);
     setExistingUpload(strOrEmpty(current?.upload || current?.existingUpload));
     setExistingUploadName(strOrEmpty(current?.uploadName || current?.existingUploadName));
@@ -763,6 +767,7 @@ export default function OpsVcFreightInvoicePage() {
           invType,
           voyageNo,
           vcIn: vcIn ? '1' : undefined,
+          invoiceId: invoiceId || undefined,
         });
         if (cancelled) return;
         applyContext(data);
@@ -892,15 +897,17 @@ export default function OpsVcFreightInvoicePage() {
     append('comId', context.comId);
     append('fcaId', context.fcaId);
     append('vendorId', context.vendorId);
-    append('invType', form.invoiceType || context.invType || invType);
+    append('pageInvType', context.invType || invType);
+    append('invType', context.invType || invType);
     append('invoiceType', form.invoiceType || context.invType || invType);
     append('pType', context.pType || name);
     if (vcIn || context.vcIn) append('vcIn', '1');
-    append('cargoId', context.cargoId);
-    append('randomId', context.randomId);
+    append('cargoId', context.cargoId || '0');
+    append('randomId', context.randomId || '0');
     append('cpDate', context.cpDate);
     append('status', status);
     if (invoiceId) append('invoiceId', invoiceId);
+    if (draftInvoiceNo) append('draftInvoiceNo', draftInvoiceNo);
 
     append('shipOwner', form.shipOwner);
     append('manualVendorName', form.manualVendorName);
@@ -1033,7 +1040,12 @@ export default function OpsVcFreightInvoicePage() {
     setSaving(true);
     setError('');
     try {
-      await saveFreightInvoice(buildFormData(status));
+      const result = await saveFreightInvoice(buildFormData(status));
+      const savedId = result?.invoiceId != null ? String(result.invoiceId) : '';
+      if (savedId) setInvoiceId(savedId);
+      if (!draftInvoiceNo && form.invoiceNo) {
+        setDraftInvoiceNo(String(form.invoiceNo).trim());
+      }
       await alert({
         title: 'Saved',
         message: Number(status) === 0
@@ -1046,6 +1058,15 @@ export default function OpsVcFreightInvoicePage() {
       setError(err.message || 'Failed to save freight invoice.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGeneratePdf = async () => {
+    if (!invoiceId) return;
+    try {
+      await downloadFreightInvoicePdf(invoiceId);
+    } catch (err) {
+      setError(err.message || 'Failed to download freight invoice PDF.');
     }
   };
 
@@ -1172,6 +1193,15 @@ export default function OpsVcFreightInvoicePage() {
             disabled={loading || saving || !context}
           />
         </>
+      ) : null}
+      {invoiceId ? (
+        <Button
+          variant="outline"
+          label="Generate PDF"
+          icon="download"
+          onClick={handleGeneratePdf}
+          disabled={loading || saving}
+        />
       ) : null}
     </div>
   );
@@ -1431,6 +1461,37 @@ export default function OpsVcFreightInvoicePage() {
                   onToggle={toggleClub}
                 />
 
+                <div className={styles.freightTrio}>
+                  <Field id="grossFreight" label={`Gross Freight (${currencyCode}) *`}>
+                    <input
+                      id="grossFreight"
+                      className={styles.input}
+                      value={form.grossFreight || ''}
+                      onChange={(event) => updateField('grossFreight', event.target.value)}
+                      readOnly={Boolean(context?.freightBreakdown?.isDistributed)}
+                    />
+                  </Field>
+                  <Field id="percentThereOff" label="% There Off *">
+                    <input
+                      id="percentThereOff"
+                      className={styles.input}
+                      style={{ textAlign: 'right' }}
+                      value={form.percentThereOff || ''}
+                      onChange={(event) => updateField('percentThereOff', event.target.value)}
+                      inputMode="decimal"
+                      placeholder="0.00"
+                    />
+                  </Field>
+                  <Field id="freightDue" label="Freight Due">
+                    <input
+                      id="freightDue"
+                      className={styles.input}
+                      readOnly
+                      value={totals.freightDue.toFixed(2)}
+                    />
+                  </Field>
+                </div>
+
                 <ChecklistSection
                   title="Demurrage / Dispatch"
                   rows={demRows}
@@ -1464,38 +1525,6 @@ export default function OpsVcFreightInvoicePage() {
                     </Field>
                   </>
                 ) : null}
-
-                <Field id="grossFreight" label={`Gross Freight (${currencyCode}) *`}>
-                  <input
-                    id="grossFreight"
-                    className={styles.input}
-                    value={form.grossFreight || ''}
-                    onChange={(event) => updateField('grossFreight', event.target.value)}
-                    readOnly={Boolean(context?.freightBreakdown?.isDistributed)}
-                  />
-                </Field>
-
-                <div className={styles.freightPair}>
-                  <Field id="percentThereOff" label="% There Off *">
-                    <input
-                      id="percentThereOff"
-                      className={styles.input}
-                      style={{ textAlign: 'right' }}
-                      value={form.percentThereOff || ''}
-                      onChange={(event) => updateField('percentThereOff', event.target.value)}
-                      inputMode="decimal"
-                      placeholder="0.00"
-                    />
-                  </Field>
-                  <Field id="freightDue" label="Freight Due">
-                    <input
-                      id="freightDue"
-                      className={styles.input}
-                      readOnly
-                      value={totals.freightDue.toFixed(2)}
-                    />
-                  </Field>
-                </div>
 
                 <LineSection
                   title="Add Adjustment"

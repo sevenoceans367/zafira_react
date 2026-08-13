@@ -99,6 +99,13 @@
   align-items: end;
 }
 
+.freightTrio {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
 .panel {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -485,7 +492,8 @@
     grid-column: span 1;
   }
 
-  .freightPair {
+  .freightPair,
+  .freightTrio {
     grid-template-columns: 1fr;
   }
 

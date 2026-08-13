@@ -360,6 +360,7 @@ router.get('/ops/freight-invoice', asyncHandler(async (req, res) => {
     invType: req.query.invType || req.query.invtype,
     voyageNo: req.query.voyageNo || req.query.voyage_no || '',
     vcIn: req.query.vcIn || req.query.vcin || req.query.mode === 'vc-in',
+    invoiceId: req.query.invoiceId || req.query.invoiceid || '',
     userId: user?.id,
     mgmtUser: resolveRequestIsMgmtUser(req),
   });

@@ -150,6 +150,19 @@ function isInterimType(invType) {
   return /interim/i.test(String(invType || ''));
 }
 
+/**
+ * I_TYPE values that belong to an Initial (Interim) or Final payment-grid form.
+ * PHP only reloads Interim/Interim2 or Final/Provisional; we also match Memo/notes
+ * so "Submit to edit" still reloads after the user changes Invoice Type.
+ */
+function draftTypesForPage(pageInvType) {
+  const key = normalizeInvType(pageInvType);
+  if (key === 'Final' || key === 'Provisional') {
+    return ['Final', 'Provisional', 'Memo', 'Debit Note', 'Credit Note', 'Adjustment'];
+  }
+  return ['Interim', 'Interim2', 'Memo', 'Debit Note', 'Credit Note', 'Adjustment'];
+}
+
 function approvalColsFor(invType) {
   return isInterimType(invType) ? APPROVAL_COLS.interim : APPROVAL_COLS.final;
 }
@@ -1126,9 +1139,8 @@ async function findDraftInvoice(pool, {
     return row || null;
   }
 
-  const typeClause = isInterimType(invType)
-    ? `(I_TYPE = ? OR I_TYPE = 'Interim2')`
-    : `(I_TYPE = ? OR I_TYPE = 'Provisional')`;
+  const types = draftTypesForPage(invType);
+  const placeholders = types.map(() => '?').join(', ');
 
   const [[row]] = await pool.query(
     `SELECT * FROM ${master}
@@ -1139,10 +1151,11 @@ async function findDraftInvoice(pool, {
        AND P_TYPE = ?
        AND CARGOID = ?
        AND RANDOMID = ?
-       AND ${typeClause}
+       AND I_TYPE IN (${placeholders})
        AND STATUS < 5
+     ORDER BY INVOICEID DESC
      LIMIT 1`,
-    [comId, MODULE_ID, COMPANY_ID, vendorId, pType, cargoId || '0', randomId || '0', invType],
+    [comId, MODULE_ID, COMPANY_ID, vendorId, pType, cargoId || '0', randomId || '0', ...types],
   ).catch(() => [[null]]);
   return row || null;
 }
@@ -1157,6 +1170,7 @@ export async function dbGetFreightInvoiceForm({
   invType,
   voyageNo = '',
   vcIn = false,
+  invoiceId: invoiceIdParam = '',
   userId = appContext.userId,
   mgmtUser = isMgmtUser(),
 } = {}) {
@@ -1282,6 +1296,7 @@ export async function dbGetFreightInvoiceForm({
   );
 
   const draft = await findDraftInvoice(pool, {
+    invoiceId: str(invoiceIdParam),
     comId: resolvedComId,
     vendorId,
     pType,
@@ -1623,8 +1638,12 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
   const fcaId = str(payload.fcaId || parsed.fcaId);
   const vendorId = str(payload.vendorId || parsed.vendorId);
   const invType = normalizeInvType(
-    payload.invoiceType || payload.invType || payload.iType || payload.selIType || 'Interim',
+    payload.invoiceType || payload.selIType || payload.invType || payload.iType || 'Interim',
   );
+  // Payment-grid entry type (Interim vs Final) — draft lookup only; I_TYPE uses invType above
+  const pageInvType = normalizeInvType(
+    payload.pageInvType || payload.contextInvType || payload.invTypeFromUrl || '',
+  ) || (invType === 'Final' || invType === 'Provisional' ? 'Final' : 'Interim');
   const pType = str(payload.pType || payload.name) || (vcIn ? 'VC In Payment' : 'Final Nett Freight');
 
   if (!comId) throw Object.assign(new Error('COMID is required.'), { status: 400 });
@@ -1762,7 +1781,7 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
     pType,
     cargoId,
     randomId,
-    invType,
+    invType: pageInvType,
     vcIn,
   });
 
@@ -1775,8 +1794,11 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
         `SELECT * FROM ${masterTable}
          WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
            AND VENDOR = ? AND MESSAGE = ?
+           AND P_TYPE = ? AND CARGOID = ? AND RANDOMID = ?
+           AND STATUS < 5
+         ORDER BY INVOICEID DESC
          LIMIT 1`,
-          [comId, MODULE_ID, COMPANY_ID, vendorId, draftKey],
+        [comId, MODULE_ID, COMPANY_ID, vendorId, draftKey, pType, cargoId || '0', randomId || '0'],
       ).catch(() => [[null]]);
       existingRow = byMsg || null;
     }
@@ -2316,8 +2338,13 @@ export async function dbGetFreightInvoiceForPdf(invoiceId) {
   const [[row]] = await pool.query(
     `SELECT m.*,
             vm.NAME AS VENDOR_NAME,
-            vm.STREET_1, vm.CITY, vm.COUNTRY, vm.CITY_POSTAL_CODE,
-            owner.NAME AS OWNER_NAME
+            vm.STREET_1 AS V_STREET_1, vm.STREET_2 AS V_STREET_2,
+            vm.CITY AS V_CITY, vm.COUNTRY AS V_COUNTRY, vm.CITY_POSTAL_CODE AS V_POSTAL,
+            vm.VAT_NUMBER AS V_VAT,
+            owner.NAME AS OWNER_NAME,
+            owner.STREET_1 AS O_STREET_1, owner.CITY AS O_CITY, owner.COUNTRY AS O_COUNTRY,
+            owner.PHONE AS O_PHONE, owner.FAX AS O_FAX, owner.EMAILID AS O_EMAIL,
+            owner.VAT_NUMBER AS O_VAT
      FROM ${invoiceMasterTable(vcIn)} m
      LEFT JOIN vendor_master vm ON vm.CODE = m.VENDOR
      LEFT JOIN vendor_master owner ON owner.CODE = m.SHIP_OWNER
@@ -2338,30 +2365,162 @@ export async function dbGetFreightInvoiceForPdf(invoiceId) {
     [invoiceId],
   ).catch(() => [[]]);
 
+  const [[master]] = await pool.query(
+    `SELECT * FROM freight_cost_estimete_master WHERE FCAID = ? LIMIT 1`,
+    [row.FCAID],
+  ).catch(() => [[null]]);
+
+  const [[compare]] = await pool.query(
+    `SELECT c.*, vim.VESSEL_NAME, vim.IMO_NO AS VESSEL_IMO, vim.FLAG AS VESSEL_FLAG
+     FROM freight_cost_estimate_compare c
+     LEFT JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
+     LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+     WHERE c.COMID = ? AND c.MODULEID = ?
+     LIMIT 1`,
+    [row.COMID, MODULE_ID],
+  ).catch(() => [[null]]);
+
+  const cargoId = (() => {
+    const fromInv = str(row.CARGOID);
+    if (fromInv && fromInv !== '0') return fromInv;
+    const fromMaster = str(master?.CARGO_ID || master?.CARGOID);
+    if (fromMaster && fromMaster !== '0') return fromMaster;
+    return '';
+  })();
+  const cargoName = await getCargoName(pool, cargoId);
+  const ports = await getPortNames(pool, row.FCAID).catch(() => ({ loadPorts: '', dischargePorts: '' }));
+
+  let flagName = str(row.FLAG);
+  if (!flagName && compare?.VESSEL_FLAG) {
+    const [[flagCountry]] = await pool.query(
+      `SELECT COUNTRY_NAME FROM country_master WHERE COUNTRYID = ? LIMIT 1`,
+      [compare.VESSEL_FLAG],
+    ).catch(() => [[null]]);
+    flagName = str(flagCountry?.COUNTRY_NAME);
+  }
+
+  let banking = null;
+  if (str(row.NOB)) {
+    banking = await dbGetBankingDetail(row.NOB).catch(() => null);
+  }
+
+  const isLumpsum = Number(master?.CHK_LUMPSUM) === 1
+    || parseAmount(master?.LUMPSUMAMT) > 0
+    || parseAmount(row.FREIGHT_RATE) === 0;
+  const percentThereOff = parseAmount(row.TO_1);
+  const grossFreight = money2(row.GROSS_FREIGHT);
+  const freightDue = money2(row.NET_AMOUNT) || money2((grossFreight * percentThereOff) / 100);
+  const titleType = isInterimType(row.I_TYPE) ? 'INITIAL' : 'FINAL';
+
+  const vendorAddress = (() => {
+    const street = str(row.V_STREET_1);
+    const city = str(row.V_CITY);
+    const country = str(row.V_COUNTRY);
+    const postal = str(row.V_POSTAL);
+    const parts = [];
+    if (street) parts.push(street);
+    if (city && !street.toLowerCase().includes(city.toLowerCase())) parts.push(city);
+    if (
+      country
+      && !street.toLowerCase().includes(country.toLowerCase())
+      && country.toLowerCase() !== city.toLowerCase()
+    ) {
+      parts.push(country);
+    }
+    if (postal && !street.includes(postal)) parts.push(postal);
+    const structured = parts.join(', ');
+    if (structured) return structured;
+    return str(row.MANUAL_VENDOR_NAME)
+      .replace(new RegExp(`^\\s*${String(row.VENDOR_NAME || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`, 'i'), '')
+      .replace(/Hong KongHong Kong/gi, 'Hong Kong')
+      .trim();
+  })();
+
+  const loadPort = str(row.LOAD_PORT_NAME) || ports.loadPorts;
+  const dischargePort = str(row.DISCHARGE_PORT_NAME) || ports.dischargePorts;
+  const quantity = parseAmount(row.QUANTITY) || parseAmount(master?.WS_QTY) || parseAmount(master?.BL_QTY_FREIGHT);
+
+  const uniquePorts = (value) => [...new Set(
+    String(value || '')
+      .split(/\s*[/|,]\s*/)
+      .map((part) => part.trim())
+      .filter(Boolean),
+  )];
+  const loadList = uniquePorts(loadPort);
+  const discList = uniquePorts(dischargePort);
+  // Avoid "A / B / A / B" when load & discharge strings are identical or overlapping
+  let voyageParts = [];
+  if (loadList.length && discList.length) {
+    const same = loadList.join('|').toLowerCase() === discList.join('|').toLowerCase();
+    voyageParts = same ? loadList : [...loadList, ...discList.filter((p) => !loadList.some((l) => l.toLowerCase() === p.toLowerCase()))];
+  } else {
+    voyageParts = loadList.length ? loadList : discList;
+  }
+  // Keep voyage readable — prefer first load + last discharge when many legs
+  if (voyageParts.length > 4) {
+    if (loadList.length && discList.length && loadList.join('|').toLowerCase() !== discList.join('|').toLowerCase()) {
+      voyageParts = [loadList[0], discList[discList.length - 1] || discList[0]];
+    } else {
+      voyageParts = [voyageParts[0], voyageParts[voyageParts.length - 1]];
+    }
+  }
+  const voyageLabel = voyageParts.join(' / ');
+
   return {
     invoiceId: String(row.INVOICEID),
     invoiceNo: str(row.MESSAGE),
     invoiceDate: formatDateDMY(row.DATE),
+    invoiceDateRaw: row.DATE,
     dueDate: formatDateDMY(row.DUE_DATE),
+    cpDate: formatDateDMY(row.CPDATE || compare?.TRANS_DATE || master?.TRANS_DATE),
+    cpDateRaw: row.CPDATE || compare?.TRANS_DATE || master?.TRANS_DATE,
     invType: str(row.I_TYPE),
     pType: str(row.P_TYPE),
+    title: `${titleType} FREIGHT INVOICE`,
     vendorName: str(row.VENDOR_NAME || row.VENDOR),
-    vendorAddress: [row.STREET_1, row.CITY, row.COUNTRY, row.CITY_POSTAL_CODE].map(str).filter(Boolean).join(', '),
+    vendorAddress,
+    vendorGstin: str(row.V_VAT),
     ownerName: str(row.OWNER_NAME || row.SHIP_OWNER),
-    currency: str(row.EXCHANGE_CURRENCY || 'USD'),
-    grossFreight: money2(row.GROSS_FREIGHT),
+    ownerPhone: str(row.O_PHONE),
+    ownerFax: str(row.O_FAX),
+    ownerEmail: str(row.O_EMAIL),
+    ownerWeb: 'www.zafirast.com',
+    currency: str(row.EXCHANGE_CURRENCY || 'USD') || 'USD',
+    vesselName: str(compare?.VESSEL_NAME),
+    imoNo: str(row.IMO_NO || compare?.VESSEL_IMO || compare?.IMO_NO),
+    flag: flagName.toUpperCase(),
+    voyageLabel,
+    loadPort,
+    dischargePort,
+    quantity,
+    cargoName: cargoName || 'CARGO',
+    isLumpsum,
+    freightRate: money2(row.FREIGHT_RATE || master?.CARGO_RATE),
+    agreedFreight: money2(master?.LUMPSUMAMT || row.GROSS_FREIGHT),
+    grossFreight,
+    percentThereOff,
+    freightDue,
+    brokeragePercent: parseAmount(row.BROKERAGE_PERCENT),
     brokerage: money2(row.BROKERAGE),
+    addComPercent: parseAmount(row.ADDCOM),
     addCom: money2(row.ADDCOM_AMOUNT),
     gstOnBrok: money2(row.GST_ON_BROK),
     netPayable: money2(row.NET_PAYABLE),
     netPayableTax: money2(row.NET_PAYABLE_TAX),
+    sgstPercent: parseAmount(row.SGST_PERCENT),
+    cgstPercent: parseAmount(row.CGST_PERCENT),
+    igstPercent: parseAmount(row.IGST_PERCENT),
+    vatPercent: parseAmount(row.VAT_PERCENT),
     sgst: money2(row.SGST_PERCENT_AMOUNT),
     cgst: money2(row.CGST_PERCENT_AMOUNT),
     igst: money2(row.IGST_PERCENT_AMOUNT),
     vat: money2(row.VAT_PERCENT_AMOUNT),
     taxApplicable: Number(row.RDOTAXAPPLICABLE),
     gstVat: Number(row.RDOVATGST),
+    hsnSac: '996521',
+    paymentTerms: str(row.PAYMENT_TERMS || row.FFI_SET_DAYS || ''),
     remarks: str(row.REMARKS),
+    banking,
     addRows: (addRows || []).map((r) => ({ description: str(r.DESCRIPTION), amount: money2(r.AMOUNT) })),
     subRows: (subRows || []).map((r) => ({ description: str(r.DESCRIPTION), amount: money2(r.AMOUNT) })),
   };

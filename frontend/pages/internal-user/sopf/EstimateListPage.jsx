@@ -431,11 +431,11 @@ export default function EstimateListPage() {
                       <th>CP Date</th>
                       <th>DWT</th>
                       <th>LP - DP</th>
-                      <th>Voy Days</th>
+                      <th className={styles.voyDaysColumn}>Voy Days</th>
                       <th className={styles.cargoQtyColumn}>Cargo</th>
                       <th className={styles.tceColumn}>TCE</th>
                       <th className={styles.pnlColumn}>P&L</th>
-                      <th className={styles.actionColumn}>Replicate</th>
+                      <th className={styles.actionColumn} aria-label="Replicate" />
                       <th className={styles.compareColumn}>
                         <div className={styles.compareHeader}>
                           <img
@@ -453,7 +453,7 @@ export default function EstimateListPage() {
                           />
                         </div>
                       </th>
-                      <th>Details</th>
+                      <th className={styles.detailsColumn}>Details</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -487,7 +487,7 @@ export default function EstimateListPage() {
                           <td>{row.cpDate}</td>
                           <td>{row.dwt}</td>
                           <td><TruncatedText text={row.lpDp} /></td>
-                          <td>{row.duration}</td>
+                          <td className={styles.voyDaysColumn}>{row.duration}</td>
                           <td className={styles.cargoQtyColumn}>{row.cargoQuantity}</td>
                           <td className={styles.tceColumn}>{row.tce}</td>
                           <td>{row.profitLoss}</td>

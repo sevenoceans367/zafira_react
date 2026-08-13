@@ -138,13 +138,21 @@ th.itemColumn {
   width: 1%;
 }
 
-/* Spot Business list — compact header; center labels */
+/* Spot Business list — compact header; left-align labels (except Voy Days / Cargo / TCE / P&L) */
 :global(#fce_list.zafira-data-table) thead th {
-  text-align: center;
+  text-align: left;
   padding-top: 4px;
   padding-bottom: 4px;
   font-size: calc(var(--font-size-small, 11px) * 1);
   line-height: 1.2;
+}
+
+:global(#fce_list.zafira-data-table) thead th.voyDaysColumn,
+:global(#fce_list.zafira-data-table) thead th.cargoQtyColumn,
+:global(#fce_list.zafira-data-table) thead th.tceColumn,
+:global(#fce_list.zafira-data-table) thead th.pnlColumn,
+:global(#fce_list.zafira-data-table) thead th.detailsColumn {
+  text-align: center;
 }
 
 .cargoQtyColumn,
@@ -164,6 +172,14 @@ th.itemColumn {
 .voyageColumn {
   white-space: nowrap;
   min-width: 90px;
+}
+
+.voyDaysColumn {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 .cargoQtyColumn {
@@ -205,6 +221,11 @@ th.pnlColumn {
 .actions {
   text-align: center;
   vertical-align: middle;
+}
+
+.detailsColumn {
+  text-align: center;
+  white-space: nowrap;
 }
 
 .rowActions {

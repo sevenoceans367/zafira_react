@@ -15,6 +15,7 @@ export default function CardSelect({
   ariaLabel = 'Select option',
   align = 'end',
   disabled = false,
+  id,
 }) {
   const wrapRef = useRef(null);
   const triggerRef = useRef(null);
@@ -152,6 +153,7 @@ export default function CardSelect({
     <div className={styles.wrap} ref={wrapRef}>
       <button
         ref={triggerRef}
+        id={id}
         type="button"
         className={styles.trigger}
         aria-label={ariaLabel}

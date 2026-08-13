@@ -70,8 +70,9 @@ function withClientIds(rows, factory) {
 function FormSelect({ id, label, value, options, onChange, required = false }) {
   return (
     <Field id={id} label={required ? `${label} *` : label}>
-      <div className={styles.cardSelect}>
+      <div className={styles.cardSelect} data-field={id}>
         <CardSelect
+          id={id}
           value={value || ''}
           options={options}
           placeholder="----Select From List----"
@@ -82,6 +83,80 @@ function FormSelect({ id, label, value, options, onChange, required = false }) {
       </div>
     </Field>
   );
+}
+
+function focusMandatoryField(fieldId) {
+  if (!fieldId || typeof document === 'undefined') return false;
+
+  const byId = document.getElementById(fieldId);
+  const byData = document.querySelector(`[data-field="${CSS.escape(fieldId)}"]`);
+  const byLabel = document.querySelector(`label[for="${CSS.escape(fieldId)}"]`);
+  const container = byData
+    || byId?.closest('[class*="field"]')
+    || byLabel?.parentElement
+    || byId;
+
+  let focusable = null;
+  if (byId && typeof byId.focus === 'function' && !byId.disabled) {
+    focusable = byId;
+  } else if (byData) {
+    focusable = byData.querySelector(
+      'button:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
+    );
+  }
+  if (!focusable && container) {
+    focusable = container.querySelector(
+      'button:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
+    );
+  }
+
+  const scrollTarget = focusable || container || byData || byId;
+  if (!scrollTarget) return false;
+
+  scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+
+  if (container?.classList && styles.fieldHighlight) {
+    container.classList.add(styles.fieldHighlight);
+    window.setTimeout(() => container.classList.remove(styles.fieldHighlight), 2500);
+  }
+
+  const applyFocus = () => {
+    const el = focusable || document.getElementById(fieldId);
+    if (!el || typeof el.focus !== 'function') return;
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
+    if (typeof el.select === 'function' && el.tagName === 'INPUT') {
+      try { el.select(); } catch { /* ignore */ }
+    }
+  };
+
+  // Dialog OK / reflow can steal focus — retry a few times after paint.
+  applyFocus();
+  window.requestAnimationFrame(() => {
+    applyFocus();
+    window.setTimeout(applyFocus, 50);
+    window.setTimeout(applyFocus, 150);
+    window.setTimeout(applyFocus, 300);
+  });
+  return true;
+}
+
+async function alertThenFocus(alertFn, alertOpts, fieldId) {
+  // Scroll/highlight first so the field is on-screen under the dialog.
+  focusMandatoryField(fieldId);
+  await alertFn(alertOpts);
+  // Re-apply after dialog unmounts and returns focus to the toolbar button.
+  await new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        focusMandatoryField(fieldId);
+        resolve();
+      }, 80);
+    });
+  });
 }
 
 function BankingPanel({ detail, cBankCheck, onCBankCheckChange }) {
@@ -909,30 +984,33 @@ export default function OpsVcFreightInvoicePage() {
 
   const validateClient = async (status) => {
     const missing = [
-      [form.shipOwner, 'Invoicing Company'],
-      [form.invoiceType, 'Invoice Type'],
-      [form.invoiceNo, 'Invoice Number'],
-      [form.invoiceDate, 'Invoice Date'],
-      [form.grossFreight, 'Gross Freight'],
-      [form.percentThereOff, '% There Off'],
-      [form.paymentStatus, 'Invoice Hold / Payable'],
+      [form.shipOwner, 'Invoicing Company', 'shipOwner'],
+      [form.invoiceType, 'Invoice Type', 'invoiceType'],
+      [form.invoiceNo, 'Invoice Number', 'invoiceNo'],
+      [form.invoiceDate, 'Invoice Date', 'invoiceDate'],
+      [form.grossFreight, 'Gross Freight', 'grossFreight'],
+      [form.percentThereOff, '% There Off', 'percentThereOff'],
+      [form.paymentStatus, 'Invoice Hold / Payable', 'paymentStatus'],
     ].find(([value]) => !String(value || '').trim());
 
     if (missing) {
-      await alert({
+      const [, label, fieldId] = missing;
+      await alertThenFocus(alert, {
         title: 'Missing Information',
-        message: `Please fill ${missing[1]}.`,
+        message: `Please fill ${label}.`,
         confirmLabel: 'OK',
-      });
+      }, fieldId);
       return false;
     }
 
-    if (Number(status) === 1 && !(form.selApprovers || []).length) {
-      await alert({
+    const isSendForApproval = Number(status) === Number(auth.sendForApprovalStatus)
+      || Number(status) === 1;
+    if (isSendForApproval && !(form.selApprovers || []).length) {
+      await alertThenFocus(alert, {
         title: 'Missing Information',
         message: 'Please select Level 1 Approvers first.',
         confirmLabel: 'OK',
-      });
+      }, 'selApprovers');
       return false;
     }
     return true;
@@ -1638,7 +1716,7 @@ export default function OpsVcFreightInvoicePage() {
           <div className={styles.section}>
             <h3 className={styles.sectionTitle}>Invoice</h3>
             <div className={styles.sectionBody}>
-              <div className={styles.paymentStatus}>
+              <div className={styles.paymentStatus} data-field="paymentStatus" id="paymentStatus">
                 <label>
                   <input
                     type="radio"
@@ -1659,7 +1737,7 @@ export default function OpsVcFreightInvoicePage() {
                 </label>
               </div>
 
-              <div className={styles.approverRow}>
+              <div className={styles.approverRow} data-field="selApprovers" id="selApprovers">
                 <div>Level 1 Approver</div>
                 <CountryMultiSelect
                   options={context.approvers || []}

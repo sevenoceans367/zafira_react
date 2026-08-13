@@ -1,6 +1,8 @@
-.page {
-  position: relative;
-  padding-bottom: 24px;
+.fieldHighlight {
+  outline: 2px solid #dc2626;
+  outline-offset: 3px;
+  border-radius: 6px;
+  background: #fef2f2;
 }
 
 .toolbar {

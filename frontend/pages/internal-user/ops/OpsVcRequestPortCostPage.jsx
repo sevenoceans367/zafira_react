@@ -69,8 +69,9 @@ function withClientIds(rows, factory) {
 function FormSelect({ id, label, value, options, onChange, required = false }) {
   return (
     <Field id={id} label={required ? `${label} *` : label}>
-      <div className={styles.cardSelect}>
+      <div className={styles.cardSelect} data-field={id}>
         <CardSelect
+          id={id}
           value={value || ''}
           options={options}
           placeholder="----Select From List----"
@@ -81,6 +82,77 @@ function FormSelect({ id, label, value, options, onChange, required = false }) {
       </div>
     </Field>
   );
+}
+
+function focusMandatoryField(fieldId) {
+  if (!fieldId || typeof document === 'undefined') return false;
+
+  const byId = document.getElementById(fieldId);
+  const byData = document.querySelector(`[data-field="${CSS.escape(fieldId)}"]`);
+  const byLabel = document.querySelector(`label[for="${CSS.escape(fieldId)}"]`);
+  const container = byData
+    || byId?.closest('[class*="field"]')
+    || byLabel?.parentElement
+    || byId;
+
+  let focusable = null;
+  if (byId && typeof byId.focus === 'function' && !byId.disabled) {
+    focusable = byId;
+  } else if (byData) {
+    focusable = byData.querySelector(
+      'button:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
+    );
+  }
+  if (!focusable && container) {
+    focusable = container.querySelector(
+      'button:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
+    );
+  }
+
+  const scrollTarget = focusable || container || byData || byId;
+  if (!scrollTarget) return false;
+
+  scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+
+  if (container?.classList && styles.fieldHighlight) {
+    container.classList.add(styles.fieldHighlight);
+    window.setTimeout(() => container.classList.remove(styles.fieldHighlight), 2500);
+  }
+
+  const applyFocus = () => {
+    const el = focusable || document.getElementById(fieldId);
+    if (!el || typeof el.focus !== 'function') return;
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
+    if (typeof el.select === 'function' && el.tagName === 'INPUT') {
+      try { el.select(); } catch { /* ignore */ }
+    }
+  };
+
+  applyFocus();
+  window.requestAnimationFrame(() => {
+    applyFocus();
+    window.setTimeout(applyFocus, 50);
+    window.setTimeout(applyFocus, 150);
+    window.setTimeout(applyFocus, 300);
+  });
+  return true;
+}
+
+async function alertThenFocus(alertFn, alertOpts, fieldId) {
+  focusMandatoryField(fieldId);
+  await alertFn(alertOpts);
+  await new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        focusMandatoryField(fieldId);
+        resolve();
+      }, 80);
+    });
+  });
 }
 
 function BankingPanel({ detail, cBankCheck, onCBankCheckChange }) {
@@ -709,27 +781,30 @@ export default function OpsVcRequestPortCostPage() {
 
   const validateClient = async (status) => {
     const missing = [
-      [form.paymentNo, 'Payment No/Description'],
-      [form.date, 'Date'],
-      [form.requestedToPay, 'Requested To Pay/Recover'],
-      [form.paymentStatus, 'Accrual / Payable'],
+      [form.paymentNo, 'Payment No/Description', 'paymentNo'],
+      [form.date, 'Date', 'date'],
+      [form.requestedToPay, 'Requested To Pay/Recover', 'requestedToPay'],
+      [form.paymentStatus, 'Accrual / Payable', 'paymentStatus'],
     ].find(([value]) => !String(value || '').trim());
 
     if (missing) {
-      await alert({
+      const [, label, fieldId] = missing;
+      await alertThenFocus(alert, {
         title: 'Missing Information',
-        message: `Please fill ${missing[1]}.`,
+        message: `Please fill ${label}.`,
         confirmLabel: 'OK',
-      });
+      }, fieldId);
       return false;
     }
 
-    if (Number(status) === 1 && !(form.selApprovers || []).length) {
-      await alert({
+    const isSendForApproval = Number(status) === Number(auth.sendForApprovalStatus)
+      || Number(status) === 1;
+    if (isSendForApproval && !(form.selApprovers || []).length) {
+      await alertThenFocus(alert, {
         title: 'Missing Information',
         message: 'Please select Level 1 Approvers first.',
         confirmLabel: 'OK',
-      });
+      }, 'selApprovers');
       return false;
     }
     return true;
@@ -832,71 +907,75 @@ export default function OpsVcRequestPortCostPage() {
     ? money2(form.vendorInvoiceAmount).toFixed(2)
     : outstandingAmount.toFixed(2);
 
+  const actionToolbar = (
+    <div className={styles.toolbar}>
+      <Button variant="outline" label="Back" href={backHref} disabled={saving} />
+      {showCreatorActions ? (
+        <>
+          <Button
+            variant="primary"
+            label="Submit to edit"
+            onClick={() => handleSubmit(0)}
+            disabled={loading || saving || !context}
+          />
+          <Button
+            variant="accent"
+            label="Send for Approval"
+            onClick={() => handleSubmit(auth.sendForApprovalStatus)}
+            disabled={loading || saving || !context}
+          />
+        </>
+      ) : null}
+      {showApprover1Actions ? (
+        <>
+          <Button
+            variant="primary"
+            label="Send for Review"
+            onClick={() => handleSubmit(2)}
+            disabled={loading || saving || !context}
+          />
+          <Button
+            variant="accent"
+            label="Submit & Approve"
+            onClick={() => handleSubmit(approveStatusApp1)}
+            disabled={loading || saving || !context}
+          />
+        </>
+      ) : null}
+      {showApprover2Actions ? (
+        <>
+          <Button
+            variant="primary"
+            label="Send for Review"
+            onClick={() => handleSubmit(reviewStatusApp2)}
+            disabled={loading || saving || !context}
+          />
+          <Button
+            variant="accent"
+            label="Submit & Approve"
+            onClick={() => handleSubmit(5)}
+            disabled={loading || saving || !context}
+          />
+        </>
+      ) : null}
+      {reqId ? (
+        <Button
+          variant="outline"
+          label="Generate PDF"
+          onClick={() => handleRequestAction('pdf', { reqId })}
+          disabled={loading || saving}
+        />
+      ) : null}
+    </div>
+  );
+
   return (
     <div className={`zafira-page ${styles.page}`}>
       {(loading || saving) ? (
         <LoadingOverlay show label={saving ? 'Saving payment…' : 'Loading payment…'} />
       ) : null}
 
-      <div className={styles.toolbar}>
-        <Button variant="outline" label="Back" href={backHref} disabled={saving} />
-        {showCreatorActions ? (
-          <>
-            <Button
-              variant="primary"
-              label="Submit to edit"
-              onClick={() => handleSubmit(0)}
-              disabled={loading || saving || !context}
-            />
-            <Button
-              variant="accent"
-              label="Send for Approval"
-              onClick={() => handleSubmit(auth.sendForApprovalStatus)}
-              disabled={loading || saving || !context}
-            />
-          </>
-        ) : null}
-        {showApprover1Actions ? (
-          <>
-            <Button
-              variant="primary"
-              label="Send for Review"
-              onClick={() => handleSubmit(2)}
-              disabled={loading || saving || !context}
-            />
-            <Button
-              variant="accent"
-              label="Submit & Approve"
-              onClick={() => handleSubmit(approveStatusApp1)}
-              disabled={loading || saving || !context}
-            />
-          </>
-        ) : null}
-        {showApprover2Actions ? (
-          <>
-            <Button
-              variant="primary"
-              label="Send for Review"
-              onClick={() => handleSubmit(reviewStatusApp2)}
-              disabled={loading || saving || !context}
-            />
-            <Button
-              variant="accent"
-              label="Submit & Approve"
-              onClick={() => handleSubmit(5)}
-              disabled={loading || saving || !context}
-            />
-          </>
-        ) : null}
-        {reqId ? (
-          <Button
-            variant="outline"
-            label="Generate PDF"
-            onClick={() => handleRequestAction('pdf', { reqId })}
-            disabled={loading || saving}
-          />
-        ) : null}
-      </div>
+      {actionToolbar}
 
       <h2 className={styles.title}>
         Account {context?.requestName || context?.costName || 'Operational Costs'}
@@ -1124,6 +1203,8 @@ export default function OpsVcRequestPortCostPage() {
                 <input className={styles.input} readOnly value={totals.net.toFixed(2)} />
                 <div>Requested To Pay/Recover *</div>
                 <input
+                  id="requestedToPay"
+                  data-field="requestedToPay"
                   className={styles.input}
                   value={form.requestedToPay || ''}
                   onChange={(event) => updateField('requestedToPay', event.target.value)}
@@ -1157,7 +1238,7 @@ export default function OpsVcRequestPortCostPage() {
                 </div>
               </div>
 
-              <div className={styles.paymentStatus}>
+              <div className={styles.paymentStatus} data-field="paymentStatus" id="paymentStatus">
                 <label>
                   <input
                     type="radio"
@@ -1178,7 +1259,7 @@ export default function OpsVcRequestPortCostPage() {
                 </label>
               </div>
 
-              <div className={styles.approverRow}>
+              <div className={styles.approverRow} data-field="selApprovers" id="selApprovers">
                 <div>Level 1 Approver</div>
                 <CountryMultiSelect
                   options={context.approvers || []}
@@ -1280,6 +1361,8 @@ export default function OpsVcRequestPortCostPage() {
               </div>
             </div>
           ) : null}
+
+          {actionToolbar}
         </>
       ) : null}
 

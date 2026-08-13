@@ -11,6 +11,11 @@
   flex-wrap: wrap;
 }
 
+.toolbar:last-child {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
 .title {
   margin: 0 0 16px;
   text-align: center;
@@ -32,6 +37,64 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 16px;
+}
+
+.headerRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.blRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.qtyRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+  margin-bottom: 16px;
+  max-width: 50%;
+}
+
+.mainSplit {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr);
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.leftCol,
+.rightCol {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.stackFields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.freightStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.freightPair {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.8fr);
+  gap: 10px;
+  align-items: end;
 }
 
 .panel {
@@ -379,9 +442,19 @@
 
 @media (max-width: 960px) {
   .infoGrid,
+  .headerRow,
   .formGrid,
-  .taxGrid {
+  .taxGrid,
+  .blRow {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .mainSplit {
+    grid-template-columns: 1fr;
+  }
+
+  .qtyRow {
+    max-width: none;
   }
 
   .span2,
@@ -397,7 +470,10 @@
 
 @media (max-width: 640px) {
   .infoGrid,
-  .formGrid {
+  .headerRow,
+  .formGrid,
+  .blRow,
+  .qtyRow {
     grid-template-columns: 1fr;
   }
 
@@ -405,6 +481,10 @@
   .span3,
   .span4 {
     grid-column: span 1;
+  }
+
+  .freightPair {
+    grid-template-columns: 1fr;
   }
 
   .totals {

@@ -14,6 +14,7 @@ import fleetIcon from '../assets/vessel.png';
 import elibraryIcon from '../assets/elibrary.svg';
 import timeCharterIcon from '../assets/TIME CHARTER.png';
 import periodContractIcon from '../assets/Period contact.svg';
+import userGuidesIcon from '../assets/user-guides.svg';
 import CoasSidebarTree from './coa/CoasSidebarTree.jsx';
 import OpsVcSidebarTree from './ops/OpsVcSidebarTree.jsx';
 import OpsTcSidebarTree from './ops/OpsTcSidebarTree.jsx';
@@ -75,7 +76,8 @@ const ELIBRARY_LINK = {
 };
 
 const USER_GUIDES_LINK = {
-  icon: 'bi-camera-video',
+  iconSrc: userGuidesIcon,
+  iconAlt: 'User Guides',
   label: 'User Guides',
 };
 
@@ -168,7 +170,8 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to={userGuidesAppPath('vc')}
-              icon={USER_GUIDES_LINK.icon}
+              iconSrc={USER_GUIDES_LINK.iconSrc}
+              iconAlt={USER_GUIDES_LINK.iconAlt}
               label={USER_GUIDES_LINK.label}
               active={currentPath.startsWith('/internal-user/vc/user-guides')}
             />
@@ -251,7 +254,8 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to={userGuidesAppPath('tc')}
-              icon={USER_GUIDES_LINK.icon}
+              iconSrc={USER_GUIDES_LINK.iconSrc}
+              iconAlt={USER_GUIDES_LINK.iconAlt}
               label={USER_GUIDES_LINK.label}
               active={currentPath.startsWith('/internal-user/tc/user-guides')}
             />

@@ -1,14 +1,9 @@
 import React from 'react';
-import { AddCircleButton, useAlert } from '@bainbridge/shared-ui';
 import {
-  CURRENCY_OPTIONS,
   createEmptyCargoRow,
-  createEmptyFreightQtyRow,
 } from './estimateDetail.constants.js';
-import { getAddRowBlockMessage } from './estimateValidation.js';
 import { sanitizeFieldDecimal } from './estimateInputSanitize.js';
 import { CargoDetailsTable } from './TankerFreightModeSection.jsx';
-import RowRemoveButton from './RowRemoveButton.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
 function Field({ id, label, children }) {
@@ -109,9 +104,9 @@ export function GasFreightModeSection({
 }
 
 /**
- * PHP Dry Cargo (distypeDiv2 + distypeDiv3):
- * - Single (rdoTankType=1): freight qty vendors + Market Freight/$MT or LS
- * - Multiple / Distributed (rdoTankType=2): Main / Overage / Deadfreight cargo tables
+ * PHP Dry Cargo:
+ * - Single: Market Freight/$MT or LS (+ qty / DF)
+ * - Multiple / Distributed: Main / Overage / Deadfreight cargo tables
  */
 export function DryFreightModeSection({
   form,
@@ -125,16 +120,11 @@ export function DryFreightModeSection({
   removeRow,
   onRecalc,
 }) {
-  const alert = useAlert();
   const tankType = String(form.tankType || '1');
   const isSingle = tankType !== '2';
   const isMultiple = tankType === '2';
   const dryMarket = String(form.dryMarket || '1');
   const isFreightRate = dryMarket !== '2';
-  const freightQtyTotalMt = (form.freightQtyRows || []).reduce(
-    (sum, row) => sum + (Number(String(row.quantity || '').replace(/,/g, '')) || 0),
-    0,
-  );
 
   const setCargoType = (nextType) => {
     if (String(nextType) === '2') {
@@ -152,15 +142,6 @@ export function DryFreightModeSection({
       patch.lumpsum = '';
     }
     applyPatch(patch);
-  };
-
-  const addFreightQtyRow = async () => {
-    const blockMessage = getAddRowBlockMessage('freightQtyRows', form.freightQtyRows || []);
-    if (blockMessage) {
-      await alert({ title: 'Missing Information', message: blockMessage, confirmLabel: 'OK' });
-      return;
-    }
-    addRow('freightQtyRows', createEmptyFreightQtyRow);
   };
 
   return (
@@ -260,150 +241,7 @@ export function DryFreightModeSection({
         </>
       ) : (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <strong className={styles.tankerSectionTitle}>Freight Quantity / Vendors</strong>
-            {editable ? <AddCircleButton onClick={addFreightQtyRow} /> : null}
-          </div>
-          <div className={styles.tableWrap}>
-            <table className={styles.portTable}>
-              <thead>
-                <tr>
-                  {editable ? <th style={{ width: 36 }} /> : null}
-                  <th>Customer</th>
-                  <th>Cargo</th>
-                  <th>Agreed Gross Freight (Local/MT)</th>
-                  <th>Currency</th>
-                  <th>Exchange Rate</th>
-                  <th>Agreed Gross Freight (USD/MT)</th>
-                  <th>Quantity (MT)</th>
-                  <th>Gross Freight (USD)</th>
-                  <th>Final Net Freight (USD)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(form.freightQtyRows || []).map((row) => (
-                  <tr key={row.id}>
-                    {editable ? (
-                      <td>
-                        <RowRemoveButton onClick={() => removeRow('freightQtyRows', row.id)} />
-                      </td>
-                    ) : null}
-                    <td>
-                      <select
-                        value={row.vendorId || ''}
-                        disabled={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { vendorId: e.target.value })}
-                      >
-                        <option value="">Select</option>
-                        {(lookups.owners || []).map((v) => (
-                          <option key={v.id} value={v.id}>{v.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <select
-                        value={row.cargoId || ''}
-                        disabled={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { cargoId: e.target.value })}
-                      >
-                        <option value="">Select</option>
-                        {(lookups.cargos || []).map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <input
-                        value={row.localAgreedFreight || ''}
-                        readOnly={readOnly}
-                        placeholder="0.00"
-                        inputMode="decimal"
-                        onChange={(e) => updateRow('freightQtyRows', row.id, {
-                          localAgreedFreight: sanitizeFieldDecimal('localAgreedFreight', e.target.value),
-                        })}
-                      />
-                    </td>
-                    <td>
-                      <select
-                        value={row.currencyId || ''}
-                        disabled={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { currencyId: e.target.value })}
-                      >
-                        <option value="">Select</option>
-                        {CURRENCY_OPTIONS.map((c) => (
-                          <option key={c.value} value={c.value}>{c.label}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <input
-                        value={row.exchangeRate || ''}
-                        readOnly={readOnly}
-                        placeholder="0.00"
-                        inputMode="decimal"
-                        onChange={(e) => updateRow('freightQtyRows', row.id, {
-                          exchangeRate: sanitizeFieldDecimal('exchangeRate', e.target.value),
-                        })}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        value={row.agreedGrossFreight || ''}
-                        readOnly={readOnly}
-                        placeholder="0.00"
-                        inputMode="decimal"
-                        onChange={(e) => {
-                          const agreedGrossFreight = sanitizeFieldDecimal('agreedGrossFreight', e.target.value);
-                          if (onRecalc) {
-                            const rows = (form.freightQtyRows || []).map((r) => (
-                              r.id === row.id ? { ...r, agreedGrossFreight } : r
-                            ));
-                            onRecalc('freightQtyRows', rows);
-                            return;
-                          }
-                          updateRow('freightQtyRows', row.id, { agreedGrossFreight });
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        value={row.quantity || ''}
-                        readOnly={readOnly}
-                        placeholder="0.00"
-                        inputMode="decimal"
-                        onChange={(e) => {
-                          const quantity = sanitizeFieldDecimal('quantity', e.target.value);
-                          if (onRecalc) {
-                            const rows = (form.freightQtyRows || []).map((r) => (
-                              r.id === row.id ? { ...r, quantity } : r
-                            ));
-                            onRecalc('freightQtyRows', rows);
-                            return;
-                          }
-                          updateRow('freightQtyRows', row.id, { quantity });
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <input value={row.grossFreight || ''} readOnly placeholder="0.00" />
-                    </td>
-                    <td>
-                      <input value={row.netFreight || ''} readOnly placeholder="0.00" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={editable ? 8 : 7}><strong>Total</strong></td>
-                  <td>{freightQtyTotalMt ? freightQtyTotalMt.toFixed(2) : ''}</td>
-                  <td>{form.totalFreightQty || ''}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <div className={styles.tankerModeControls} style={{ marginTop: 12 }}>
+          <div className={styles.tankerModeControls}>
             <div className={styles.tankerModeRow}>
               <span className={styles.tankerModeLabel}>MARKET:</span>
               <div className={styles.segmented} role="group" aria-label="Dry market method">

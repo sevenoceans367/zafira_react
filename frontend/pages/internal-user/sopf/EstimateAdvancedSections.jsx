@@ -4,12 +4,10 @@ import CollapsiblePanel from './CollapsiblePanel.jsx';
 import RowRemoveButton from './RowRemoveButton.jsx';
 import {
   BUNKER_TYPE_OPTIONS,
-  CURRENCY_OPTIONS,
   PASSAGE_TYPE_OPTIONS,
   SECA_IDENTIFY_OPTIONS,
   SPEED_TYPE_OPTIONS,
   createEmptyDeliveryBunkerRow,
-  createEmptyFreightQtyRow,
   createEmptyInvoiceRow,
   createEmptyOffHireRow,
   createEmptyPassageLocationRow,
@@ -302,116 +300,6 @@ export default function EstimateAdvancedSections({
                         value={row.distance}
                         readOnly={readOnly}
                         onChange={(e) => updateRow('passageLocations', row.id, { distance: e.target.value })}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-</CollapsiblePanel>
-
-      <CollapsiblePanel title="Freight Quantity / Vendors" defaultOpen={false} actions={editable ? (<AddCircleButton onClick={() => addRow('freightQtyRows', createEmptyFreightQtyRow)} />) : null}>
-<div className={styles.tableWrap}>
-            <table className={styles.portTable}>
-              <thead>
-                <tr>
-                  {editable ? <th style={{ width: 36 }} /> : null}
-                  <th>Vendor</th>
-                  <th>Cargo</th>
-                  <th>Agreed Freight</th>
-                  <th>Qty</th>
-                  <th>Gross Freight</th>
-                  <th>Brkg %</th>
-                  <th>Net Brkg</th>
-                  <th>Net Freight</th>
-                  <th>Net / MT</th>
-                  <th>Currency</th>
-                  <th>Local Agreed</th>
-                  <th>FX Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(form.freightQtyRows || []).map((row) => (
-                  <tr key={row.id}>
-                    {editable ? (
-                      <td>
-                        <RowRemoveButton onClick={() => removeRow('freightQtyRows', row.id)} />
-                      </td>
-                    ) : null}
-                    <td>
-                      <select
-                        value={row.vendorId}
-                        disabled={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { vendorId: e.target.value })}
-                      >
-                        <option value="">Select</option>
-                        {(lookups.owners || []).map((v) => (
-                          <option key={v.id} value={v.id}>{v.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <select
-                        value={row.cargoId}
-                        disabled={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { cargoId: e.target.value })}
-                      >
-                        <option value="">Select</option>
-                        {(lookups.cargos || []).map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <input
-                        value={row.agreedGrossFreight}
-                        readOnly={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { agreedGrossFreight: e.target.value })}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        value={row.quantity}
-                        readOnly={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { quantity: e.target.value })}
-                      />
-                    </td>
-                    <td><input value={row.grossFreight} readOnly /></td>
-                    <td>
-                      <input
-                        value={row.brokeragePercent}
-                        readOnly={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { brokeragePercent: e.target.value })}
-                      />
-                    </td>
-                    <td><input value={row.netBrokerage} readOnly /></td>
-                    <td><input value={row.netFreight} readOnly /></td>
-                    <td><input value={row.netFreightPerMt} readOnly /></td>
-                    <td>
-                      <select
-                        value={row.currencyId}
-                        disabled={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { currencyId: e.target.value })}
-                      >
-                        <option value="">Select</option>
-                        {CURRENCY_OPTIONS.map((c) => (
-                          <option key={c.value} value={c.value}>{c.label}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <input
-                        value={row.localAgreedFreight}
-                        readOnly={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { localAgreedFreight: e.target.value })}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        value={row.exchangeRate}
-                        readOnly={readOnly}
-                        onChange={(e) => updateRow('freightQtyRows', row.id, { exchangeRate: e.target.value })}
                       />
                     </td>
                   </tr>

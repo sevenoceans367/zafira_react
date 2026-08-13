@@ -10,6 +10,7 @@ import vesselPositionIcon from '../assets/vesselPosition.svg';
 import timeCharterIcon from '../assets/TIME CHARTER.png';
 import periodContractIcon from '../assets/Period contact.svg';
 import poolsIcon from '../assets/pools.svg';
+import userGuidesIcon from '../assets/user-guides.svg';
 
 /** Links under the SOPF section (above Chartering Desk). */
 export const SOPF_TOP_SIDEBAR_ITEMS = [
@@ -74,7 +75,8 @@ export const SOPF_CHARTERING_SIDEBAR_ITEMS = [
     id: 'user_guides',
     href: userGuidesAppPath('sopf'),
     label: 'User Guides',
-    icon: 'bi-camera-video',
+    iconSrc: userGuidesIcon,
+    iconAlt: 'User Guides',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/user-guides'),
   },
 ];

@@ -112,6 +112,36 @@ function drawSignOff(doc, data) {
   if (data.contactEmail) para(doc, data.contactEmail, { gap: 0.15 });
 }
 
+/** PHP agency letters: Username / Password + clickable agent login link. */
+function drawAgentLoginCredentials(doc, data) {
+  doc.moveDown(0.35);
+  para(
+    doc,
+    `Username: ${data.username || ''}          Password: ${data.password || ''}`,
+    { gap: 0.25, size: 11 },
+  );
+
+  const raw = data.agentLoginUrl
+    || process.env.AGENT_LOGIN_URL
+    || 'https://zafira.sevenoceans.net.in/login';
+  const abs = /^https?:\/\//i.test(raw)
+    ? raw
+    : `https://zafira.sevenoceans.net.in${raw.startsWith('/') ? '' : '/'}${raw}`;
+
+  const left = doc.page.margins.left;
+  const usable = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  doc.x = left;
+  doc.fillColor(BLUE).font('Helvetica').fontSize(10)
+    .text('Click here to login', {
+      width: usable,
+      link: abs,
+      underline: true,
+    });
+  doc.fillColor(TEXT);
+  doc.moveDown(0.4);
+  doc.x = left;
+}
+
 function kv(doc, label, value) {
   para(doc, `${label} : ${value == null || value === '' ? '' : String(value)}`, { gap: 0.1, size: 9 });
 }
@@ -160,6 +190,7 @@ function drawPdaBody(doc, data) {
   para(doc, 'Please quote ALL IN agency fee.');
   para(doc, 'In addition, please advise the usual port restrictions for this vessel type.');
   drawSignOff(doc, data);
+  drawAgentLoginCredentials(doc, data);
 }
 
 function drawNominationBody(doc, data) {
@@ -193,6 +224,7 @@ function drawNominationBody(doc, data) {
     if (data.shipOwnerEmail) para(doc, data.shipOwnerEmail, { gap: 0.15 });
   }
   drawSignOff(doc, data);
+  drawAgentLoginCredentials(doc, data);
 }
 
 function drawBunkerAgentBody(doc, data) {
@@ -284,20 +316,7 @@ function drawBunkerAgentBody(doc, data) {
   para(doc, 'Many thanks and we look forward to a speedy and cost-effective turnaround of the vessel under your agency.');
   para(doc, 'Kind regards,');
   para(doc, data.companyName || '-', { bold: true });
-  doc.moveDown(0.35);
-  para(doc, `Username: ${data.username || ''}          Password: ${data.password || ''}`, { gap: 0.25, size: 11 });
-  if (data.agentLoginUrl) {
-    const abs = /^https?:\/\//i.test(data.agentLoginUrl)
-      ? data.agentLoginUrl
-      : `https://zafira.sevenoceans.net.in${data.agentLoginUrl.startsWith('/') ? '' : '/'}${data.agentLoginUrl}`;
-    const left = doc.page.margins.left;
-    const usable = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-    doc.x = left;
-    doc.fillColor(BLUE).font('Helvetica').fontSize(10)
-      .text('Click here to login', { width: usable, link: abs, underline: true });
-    doc.fillColor(TEXT);
-    doc.x = left;
-  }
+  drawAgentLoginCredentials(doc, data);
 }
 
 function drawBunkerMasterBody(doc, data) {

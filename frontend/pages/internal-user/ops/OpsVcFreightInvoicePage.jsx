@@ -602,8 +602,6 @@ export default function OpsVcFreightInvoicePage() {
   const [bankingDetail, setBankingDetail] = useState(null);
   const [paymentInvoice, setPaymentInvoice] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
-  /** After Send for Approval / final approve, match PHP: leave create form and show the invoices grid. */
-  const [preferListView, setPreferListView] = useState(false);
 
   const backHref = useMemo(() => {
     const comId = context?.comId || id.split(',')[0] || '';
@@ -680,16 +678,13 @@ export default function OpsVcFreightInvoicePage() {
   const auth = useMemo(() => {
     const fromCtx = context?.auth || {};
     const sessionUser = getUser();
-    const isMgmtUser = Boolean(fromCtx.isMgmtUser)
-      || sessionUser?.userType === 'mgmt_user';
-    // PHP: buttons come from approval_matrix APP_1 / APP_2, not USER_TYPE.
-    // All current mgmt users have both flags; also trust the logged-in session
-    // when the API fell back to env USER_ID and returned approver1=false.
+    // PHP invoice.php: creator / App1 / App2 come only from approval_matrix
+    // (INI_* for Initial, FINL_* for Final). USER_TYPE is not an approve role.
     return {
-      creator: Boolean(fromCtx.creator ?? true),
-      approver1: Boolean(fromCtx.approver1) || isMgmtUser,
-      approver2: Boolean(fromCtx.approver2) || isMgmtUser,
-      isMgmtUser,
+      creator: Boolean(fromCtx.creator),
+      approver1: Boolean(fromCtx.approver1),
+      approver2: Boolean(fromCtx.approver2),
+      isMgmtUser: Boolean(fromCtx.isMgmtUser) || sessionUser?.userType === 'mgmt_user',
       userId: String(fromCtx.userId || sessionUser?.id || ''),
       sendForApprovalStatus: Number(
         fromCtx.sendForApprovalStatus
@@ -1200,15 +1195,13 @@ export default function OpsVcFreightInvoicePage() {
       const savedStatus = Number(result?.status);
       const approved = Number.isFinite(savedStatus) && savedStatus >= 5;
 
-      // PHP: STATUS 5 leaves the create form and shows Existing Invoices.
-      // STATUS 1–4 stays on the same form so App1/App2 can Submit & Approve.
+      // PHP: pending drafts (STATUS 1–4) stay on this form. Approved Final hides the
+      // create form after reload (see showInvoiceForm / existing invoices).
       if (approved) {
-        setPreferListView(true);
         setInvoiceId('');
         setDraftInvoiceNo('');
         setInvoiceStatus(null);
       } else if (savedId) {
-        setPreferListView(false);
         setInvoiceId(savedId);
         if (!draftInvoiceNo && form.invoiceNo) {
           setDraftInvoiceNo(String(form.invoiceNo).trim());
@@ -1302,10 +1295,7 @@ export default function OpsVcFreightInvoicePage() {
 
       setSaving(true);
       if (action === 'cancel') await cancelFreightInvoice(invoice.invoiceId);
-      if (action === 'reopen') {
-        await reopenFreightInvoice(invoice.invoiceId);
-        setPreferListView(false);
-      }
+      if (action === 'reopen') await reopenFreightInvoice(invoice.invoiceId);
       if (action === 'delete') await deleteFreightInvoice(invoice.invoiceId);
       await alert({
         title: 'Done',
@@ -1326,34 +1316,24 @@ export default function OpsVcFreightInvoicePage() {
   const hasDraft = status != null && !Number.isNaN(status);
   const editableByCreator = !hasDraft || status === 0 || status === 2;
 
-  // Always show create/save actions on editable invoices (same as generic invoice).
-  // Approval-matrix CRETR flag alone was hiding buttons for users without that bit.
-  const showCreatorActions = editableByCreator;
-  // PHP: Submit & Approve only if this login has APP_1 / APP_2 on the matrix.
-  // Internal-user creators see Send for Approval; they do not approve themselves.
+  // PHP: Submit to edit / Send for Approval only when CRETR = 1 on the matching matrix.
+  const showCreatorActions = Boolean(auth.creator) && editableByCreator;
+  // PHP: Submit & Approve only when APP_1 / APP_2 = 1 (not USER_TYPE, not the picker).
   const statusNum = Number(status);
-  const selectedAsApprover = Boolean(auth.userId)
-    && (form.selApprovers || []).map(String).includes(String(auth.userId));
-  const showApprover1Actions = (auth.approver1 || selectedAsApprover)
-    && hasDraft
-    && (statusNum === 1 || statusNum === 4);
+  const showApprover1Actions = auth.approver1 && hasDraft && (statusNum === 1 || statusNum === 4);
   const showApprover2Actions = auth.approver2 && hasDraft && statusNum === 3;
 
   const approveStatusApp1 = auth.hasApp2 ? 3 : 5;
   const reviewStatusApp2 = auth.hasApp1 ? 4 : 2;
 
   const existingInvoices = context?.existingInvoices || [];
-
-  // PHP: hide create form only after STATUS >= 5. Pending invoices stay on this form for Submit & Approve.
-  const showInvoiceForm = !preferListView;
-
-  const startNewInvoice = () => {
-    setPreferListView(false);
-    setInvoiceId('');
-    setDraftInvoiceNo('');
-    setInvoiceStatus(null);
-    setReloadToken((token) => token + 1);
-  };
+  const isCoaVoyage = Boolean(context?.coaId) && String(context.coaId) !== '0';
+  const hasApprovedFinal = existingInvoices.some((row) => (
+    Number(row.status) === 5
+    && /^final$/i.test(String(row.invoiceType || '').trim())
+  ));
+  // PHP invoice.php: $('#frm1').hide() when a STATUS=5 Final row exists and the voyage is not COA.
+  const showInvoiceForm = isCoaVoyage || !hasApprovedFinal;
 
   const actionToolbar = (
     <div className={styles.toolbar}>
@@ -1418,14 +1398,7 @@ export default function OpsVcFreightInvoicePage() {
             />
           ) : null}
         </>
-      ) : (
-        <Button
-          variant="primary"
-          label="Create New Invoice"
-          onClick={startNewInvoice}
-          disabled={loading || saving}
-        />
-      )}
+      ) : null}
     </div>
   );
 

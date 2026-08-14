@@ -333,24 +333,15 @@ async function getFixtureOptions(pool) {
 async function getUserAuthority(pool, userId, col, companyId = COMPANY_ID) {
   if (!userId || !col) return 0;
   const company = companyId || COMPANY_ID;
+  // PHP getUserAuthority: MCOMPANYID = session company AND LOGINID = uid. No cross-company fallback.
   const [[row]] = await pool.query(
     `SELECT ${col} AS flag
      FROM approval_matrix
-     WHERE CAST(LOGINID AS CHAR) = CAST(? AS CHAR)
-       AND (CAST(MCOMPANYID AS CHAR) = CAST(? AS CHAR)
-            OR CAST(MCOMPANYID AS CHAR) = CAST(? AS CHAR))
+     WHERE LOGINID = ? AND MCOMPANYID = ?
      LIMIT 1`,
-    [userId, company, COMPANY_ID],
+    [userId, company],
   ).catch(() => [[null]]);
-  if (Number(row?.flag) === 1) return 1;
-  const [[anyRow]] = await pool.query(
-    `SELECT ${col} AS flag
-     FROM approval_matrix
-     WHERE CAST(LOGINID AS CHAR) = CAST(? AS CHAR)
-     LIMIT 1`,
-    [userId],
-  ).catch(() => [[null]]);
-  return Number(anyRow?.flag) === 1 ? 1 : 0;
+  return Number(row?.flag) === 1 ? 1 : 0;
 }
 
 function nonemptyIds(ids) {
@@ -411,6 +402,47 @@ async function getApproverContext(pool, invType, userId, companyId = COMPANY_ID)
     approver2: approver2 === 1,
     userId: userId != null ? String(userId) : '',
   };
+}
+
+function forbidStatus(message) {
+  const error = new Error(message);
+  error.status = 403;
+  return error;
+}
+
+/** PHP invoice.php footer: CRETR / APP_1 / APP_2 only — not USER_TYPE. */
+async function assertFreightInvoiceStatusChange(pool, {
+  invType,
+  userId,
+  companyId,
+  currentStatus,
+  nextStatus,
+}) {
+  const approval = await getApproverContext(pool, invType, userId, companyId);
+  const from = currentStatus == null || currentStatus === '' ? null : Number(currentStatus);
+  const to = Number(nextStatus);
+  const fromDraft = from == null || Number.isNaN(from) || from === 0 || from === 2;
+  const sendTo = Number(approval.sendForApprovalStatus);
+
+  if (fromDraft && (to === 0 || to === sendTo)) {
+    if (!approval.creator) {
+      throw forbidStatus('Only invoice creators can submit or send this invoice for approval.');
+    }
+    return;
+  }
+  if ((from === 1 || from === 4) && (to === 2 || to === 3 || to === 5)) {
+    if (!approval.approver1) {
+      throw forbidStatus('Only Level 1 approvers can review or approve this invoice.');
+    }
+    return;
+  }
+  if (from === 3 && (to === 2 || to === 4 || to === 5)) {
+    if (!approval.approver2) {
+      throw forbidStatus('Only Level 2 approvers can review or approve this invoice.');
+    }
+    return;
+  }
+  throw forbidStatus('You are not allowed to change this invoice status.');
 }
 
 function computePayable({
@@ -1503,6 +1535,8 @@ export async function dbGetFreightInvoiceForm({
     existingInvoices,
     vcIn: inMode,
     currentInvoice,
+    // PHP invoice.php: hide #frm1 when an approved Final exists and the voyage is not COA.
+    coaId: str(master?.COAID || compare.COAID || ''),
     approvers: approval.approvers,
     sendForApprovalStatus: approval.sendForApprovalStatus,
     auth: {
@@ -1865,6 +1899,14 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
       existingRow = byMsg || null;
     }
   }
+
+  await assertFreightInvoiceStatusChange(pool, {
+    invType: pageInvType,
+    userId,
+    companyId: COMPANY_ID,
+    currentStatus: existingRow?.STATUS,
+    nextStatus: status,
+  });
 
   const connection = await pool.getConnection();
   try {

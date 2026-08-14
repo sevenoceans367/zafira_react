@@ -1,4 +1,7 @@
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { appContext, isMgmtUser } from '../config.js';
 import { dbAuthenticateUser, isAuthDbAvailable } from './authDb.js';
 
@@ -6,6 +9,65 @@ const sessions = new Map();
 
 /** Idle session lifetime — 1 hour (matches frontend). */
 const SESSION_TTL_MS = 60 * 60 * 1000;
+
+// node --watch restarts wipe in-memory Maps. Keep tokens on disk in dev so a
+// code save does not force re-login. Frontend still holds auth_token in localStorage.
+const SESSION_FILE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '.dev-sessions.json',
+);
+
+let persistTimer = null;
+
+function isSessionExpired(session) {
+  if (!session) return true;
+  const lastActive = session.lastActiveAt ?? session.createdAt ?? 0;
+  return Date.now() - lastActive >= SESSION_TTL_MS;
+}
+
+function persistSessions() {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    const entries = [];
+    for (const [token, session] of sessions) {
+      if (isSessionExpired(session)) continue;
+      entries.push({
+        token,
+        user: session.user,
+        createdAt: session.createdAt,
+        lastActiveAt: session.lastActiveAt,
+      });
+    }
+    try {
+      fs.writeFileSync(SESSION_FILE, JSON.stringify(entries), 'utf8');
+    } catch {
+      /* ignore disk errors in dev */
+    }
+  }, 200);
+}
+
+function loadSessions() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+    if (!Array.isArray(parsed)) return;
+    for (const row of parsed) {
+      if (!row?.token || !row?.user) continue;
+      const session = {
+        user: row.user,
+        createdAt: Number(row.createdAt) || Date.now(),
+        lastActiveAt: Number(row.lastActiveAt) || Date.now(),
+      };
+      if (!isSessionExpired(session)) sessions.set(String(row.token), session);
+    }
+  } catch {
+    /* first run or missing file */
+  }
+}
+
+loadSessions();
 
 function createToken(user) {
   const token = crypto.randomBytes(32).toString('hex');
@@ -15,13 +77,8 @@ function createToken(user) {
     createdAt: now,
     lastActiveAt: now,
   });
+  persistSessions();
   return token;
-}
-
-function isSessionExpired(session) {
-  if (!session) return true;
-  const lastActive = session.lastActiveAt ?? session.createdAt ?? 0;
-  return Date.now() - lastActive >= SESSION_TTL_MS;
 }
 
 export function getSessionUser(token) {
@@ -33,6 +90,7 @@ export function getSessionUser(token) {
     return null;
   }
   session.lastActiveAt = Date.now();
+  persistSessions();
   return session.user;
 }
 
@@ -75,6 +133,7 @@ export async function loginUser(username, password) {
 
 export function logoutUser(token) {
   if (token) sessions.delete(token);
+  persistSessions();
   return { ok: true };
 }
 

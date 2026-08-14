@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -69,21 +69,113 @@ function withClientIds(rows, factory) {
   }));
 }
 
-function FormSelect({ id, label, value, options, onChange, required = false }) {
+function FormSelect({ id, label, value, options, onChange, required = false, className = '' }) {
   return (
-    <Field id={id} label={required ? `${label} *` : label}>
+    <Field
+      id={id}
+      label={required ? `${label} *` : label}
+      className={[styles.field, className].filter(Boolean).join(' ')}
+    >
       <div className={styles.cardSelect} data-field={id}>
         <CardSelect
           id={id}
           value={value || ''}
           options={options}
-          placeholder="----Select From List----"
+          placeholder="Select"
           ariaLabel={label}
           align="start"
           onChange={onChange}
         />
       </div>
     </Field>
+  );
+}
+
+function InvoiceCard({ num, title, sub, children }) {
+  return (
+    <section className={styles.card}>
+      <div className={styles.cardHead}>
+        <div className={styles.cardTitleRow}>
+          <span className={styles.cardNum}>{num}</span>
+          <div className={styles.cardTitle}>
+            {title}
+            {sub ? <span className={styles.cardTitleSub}>{sub}</span> : null}
+          </div>
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function splitLocChips(value) {
+  return String(value || '')
+    .split(/[,;\n]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function AttachDropzone({ files, existingName, existingUpload, onFiles }) {
+  const [over, setOver] = useState(false);
+  const inputRef = useRef(null);
+  const selected = files?.length
+    ? `${files.length} file(s) selected`
+    : (existingName || existingUpload)
+      ? `Existing: ${existingName || existingUpload}`
+      : 'No documents attached yet';
+
+  return (
+    <div
+      className={`${styles.dropzone} ${over ? styles.dropzoneOver : ''}`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setOver(false);
+        onFiles(Array.from(event.dataTransfer.files || []));
+      }}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M21 12.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9.5" />
+        <path d="M16 3l5 5-9 9H7v-5z" />
+      </svg>
+      <div className={styles.dzText}>
+        Drag & drop files here, or{' '}
+        <span
+          className={styles.dzBrowse}
+          role="button"
+          tabIndex={0}
+          onClick={() => inputRef.current?.click()}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click();
+          }}
+        >
+          browse
+        </span>
+      </div>
+      <div className={styles.dzSub}>{selected}</div>
+      <input
+        id="attach_file"
+        ref={inputRef}
+        className={styles.hiddenFile}
+        type="file"
+        multiple
+        onChange={(event) => onFiles(Array.from(event.target.files || []))}
+      />
+      <button
+        type="button"
+        className={styles.attachBtn}
+        onClick={() => inputRef.current?.click()}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+          <path d="M21 12.5l-8.4 8.4a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3l7.7-7.7" />
+        </svg>
+        Attach
+      </button>
+    </div>
   );
 }
 
@@ -204,46 +296,44 @@ function BankingPanel({ detail, cBankCheck, onCBankCheckChange }) {
 function ChecklistSection({ title, rows, onToggle, onProrateToggle, kind }) {
   if (!rows?.length) return null;
   return (
-    <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>{title}</h3>
-      <div className={styles.sectionBody}>
-        <ul className={styles.checklist}>
-          {rows.map((row) => {
-            const key = row.id ?? row.randomId ?? `${row.port}-${row.portId}`;
-            const label = kind === 'club'
-              ? `${row.vendorName || '—'}${row.cargoName ? ` (${row.cargoName})` : ''}`
-              : (row.portLabel || row.port || '—');
-            return (
-              <li key={key} className={styles.checklistItem}>
-                <label className={styles.checklistMain}>
+    <div className={styles.adjBlock}>
+      {title ? <div className={styles.adjSublabel}>{title}</div> : null}
+      <div className={styles.grid2}>
+        {rows.map((row) => {
+          const key = row.id ?? row.randomId ?? `${row.port}-${row.portId}`;
+          const label = kind === 'club'
+            ? `${row.vendorName || '—'}${row.cargoName ? ` (${row.cargoName})` : ''}`
+            : (row.portLabel || row.port || '—');
+          return (
+            <div key={key} className={styles.field}>
+              <label className={styles.fieldCheck}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(row.checked)}
+                  disabled={Boolean(row.disabled)}
+                  onChange={() => onToggle(key)}
+                />
+                {label}
+              </label>
+              {kind === 'dem' && row.showProrate ? (
+                <label className={styles.prorate}>
                   <input
                     type="checkbox"
-                    checked={Boolean(row.checked)}
-                    disabled={Boolean(row.disabled)}
-                    onChange={() => onToggle(key)}
+                    checked={Boolean(row.prorate)}
+                    onChange={() => onProrateToggle?.(key)}
                   />
-                  <span>{label}</span>
+                  Prorate
                 </label>
-                {kind === 'dem' && row.showProrate ? (
-                  <label className={styles.prorate}>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(row.prorate)}
-                      onChange={() => onProrateToggle?.(key)}
-                    />
-                    Prorate
-                  </label>
-                ) : null}
-                <input
-                  className={styles.input}
-                  readOnly
-                  value={money2(row.amount).toFixed(2)}
-                  aria-label={`${label} amount`}
-                />
-              </li>
-            );
-          })}
-        </ul>
+              ) : null}
+              <input
+                className={styles.input}
+                readOnly
+                value={money2(row.amount).toFixed(2)}
+                aria-label={`${label} amount`}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -474,93 +564,91 @@ function LineSection({
   onUpdate,
   adjustment = false,
 }) {
+  const rowClass = adjustment ? styles.adjGridAdj : styles.adjGridSimple;
   return (
-    <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>{title}</h3>
-      <div className={styles.sectionBody}>
-        <table className={styles.linesTable}>
-          <thead>
-            <tr>
-              <th style={{ width: 44 }} />
-              <th style={{ width: adjustment ? '16%' : '24%' }}>Cost type</th>
-              {adjustment ? (
-                <>
-                  <th style={{ width: '16%' }}>Fixture no</th>
-                  <th style={{ width: '16%' }}>Vessel</th>
-                </>
-              ) : null}
-              <th>Description</th>
-              <th style={{ width: '14%' }}>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="danger"
-                    icon="trash"
-                    ariaLabel={`Delete ${title} row`}
-                    onClick={() => onRemove(row.id)}
-                  />
-                </td>
-                <td>
-                  <CardSelect
-                    value={row.orcId || ''}
-                    options={orcOptions}
-                    placeholder="----Select----"
-                    ariaLabel={`${title} cost type`}
-                    align="start"
-                    onChange={(value) => onUpdate(row.id, { orcId: value })}
-                  />
-                </td>
-                {adjustment ? (
-                  <>
-                    <td>
-                      <CardSelect
-                        value={row.fixtureNo || ''}
-                        options={fixtureOptions}
-                        placeholder="----Select----"
-                        ariaLabel={`${title} fixture`}
-                        align="start"
-                        onChange={(value) => onFixtureChange?.(row.id, value)}
-                      />
-                    </td>
-                    <td>
-                      <CardSelect
-                        value={row.vessel || ''}
-                        options={vesselOptions}
-                        placeholder="----Select----"
-                        ariaLabel={`${title} vessel`}
-                        align="start"
-                        onChange={(value) => onUpdate(row.id, { vessel: value })}
-                      />
-                    </td>
-                  </>
-                ) : null}
-                <td>
-                  <input
-                    className={styles.input}
-                    value={row.description}
-                    onChange={(event) => onUpdate(row.id, { description: event.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.input}
-                    value={row.amount}
-                    onChange={(event) => onUpdate(row.id, { amount: event.target.value })}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className={styles.lineActions}>
-          <Button variant="outline" size="sm" label="Add row" onClick={onAdd} />
+    <div className={styles.adjBlock}>
+      {title ? <div className={styles.adjSublabel}>{title}</div> : null}
+      <div className={`${rowClass} ${styles.adjGridHead}`}>
+        <span>{adjustment ? 'Cost Type' : 'Type'}</span>
+        {adjustment ? <span>Fixture No</span> : null}
+        {adjustment ? <span>Vessel</span> : null}
+        <span>Description</span>
+        <span>Amount</span>
+        <span />
+      </div>
+      {rows.map((row) => (
+        <div key={row.id} className={`${rowClass} ${styles.adjGridFields}`}>
+          <div className={styles.cardSelect}>
+            <CardSelect
+              value={row.orcId || ''}
+              options={orcOptions}
+              placeholder="Select"
+              ariaLabel={`${title} cost type`}
+              align="start"
+              onChange={(value) => onUpdate(row.id, { orcId: value })}
+            />
+          </div>
+          {adjustment ? (
+            <>
+              <div className={styles.cardSelect}>
+                <CardSelect
+                  value={row.fixtureNo || ''}
+                  options={fixtureOptions}
+                  placeholder="Select"
+                  ariaLabel={`${title} fixture`}
+                  align="start"
+                  onChange={(value) => onFixtureChange?.(row.id, value)}
+                />
+              </div>
+              <div className={styles.cardSelect}>
+                <CardSelect
+                  value={row.vessel || ''}
+                  options={vesselOptions}
+                  placeholder="Select"
+                  ariaLabel={`${title} vessel`}
+                  align="start"
+                  onChange={(value) => onUpdate(row.id, { vessel: value })}
+                />
+              </div>
+            </>
+          ) : null}
+          <input
+            className={styles.input}
+            value={row.description}
+            placeholder="Description…"
+            onChange={(event) => onUpdate(row.id, { description: event.target.value })}
+          />
+          <input
+            className={styles.input}
+            value={row.amount}
+            placeholder="Amount"
+            onChange={(event) => onUpdate(row.id, { amount: event.target.value })}
+          />
+          <button
+            type="button"
+            className={styles.adjRowX}
+            aria-label={`Delete ${title} row`}
+            onClick={() => onRemove(row.id)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
+      ))}
+      <div className={rowClass}>
+        <span className={styles.adjGridAddSpacer} />
+        <button
+          type="button"
+          className={styles.adjRowAdd}
+          title="Add row"
+          aria-label={`Add ${title} row`}
+          onClick={onAdd}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
       </div>
     </div>
   );
@@ -1335,72 +1423,73 @@ export default function OpsVcFreightInvoicePage() {
   // PHP invoice.php: $('#frm1').hide() when a STATUS=5 Final row exists and the voyage is not COA.
   const showInvoiceForm = isCoaVoyage || !hasApprovedFinal;
 
-  const actionToolbar = (
-    <div className={styles.toolbar}>
-      <Button variant="outline" label="Back" href={backHref} disabled={saving} />
-      {showInvoiceForm ? (
+  const formActions = showInvoiceForm ? (
+    <div className={styles.actionRow}>
+      {showCreatorActions ? (
         <>
-          {showCreatorActions ? (
-            <>
-              <Button
-                variant="primary"
-                label="Submit to edit"
-                onClick={() => handleSubmit(0)}
-                disabled={loading || saving || !context}
-              />
-              <Button
-                variant="accent"
-                label="Send for Approval"
-                onClick={() => handleSubmit(auth.sendForApprovalStatus)}
-                disabled={loading || saving || !context}
-              />
-            </>
-          ) : null}
-          {showApprover1Actions ? (
-            <>
-              <Button
-                variant="primary"
-                label="Send for Review"
-                onClick={() => handleSubmit(2)}
-                disabled={loading || saving || !context}
-              />
-              <Button
-                variant="accent"
-                label="Submit & Approve"
-                onClick={() => handleSubmit(approveStatusApp1)}
-                disabled={loading || saving || !context}
-              />
-            </>
-          ) : null}
-          {showApprover2Actions ? (
-            <>
-              <Button
-                variant="primary"
-                label="Send for Review"
-                onClick={() => handleSubmit(reviewStatusApp2)}
-                disabled={loading || saving || !context}
-              />
-              <Button
-                variant="accent"
-                label="Submit & Approve"
-                onClick={() => handleSubmit(5)}
-                disabled={loading || saving || !context}
-              />
-            </>
-          ) : null}
-          {invoiceId ? (
-            <Button
-              variant="outline"
-              label="Generate PDF"
-              icon="download"
-              onClick={handleGeneratePdf}
-              disabled={loading || saving}
-            />
-          ) : null}
+          <Button
+            variant="outline"
+            label="Save"
+            onClick={() => handleSubmit(0)}
+            disabled={loading || saving || !context}
+          />
+          <Button
+            variant="accent"
+            label="Send for Approval"
+            onClick={() => handleSubmit(auth.sendForApprovalStatus)}
+            disabled={loading || saving || !context}
+          />
         </>
       ) : null}
+      {showApprover1Actions ? (
+        <>
+          <Button
+            variant="primary"
+            label="Send for Review"
+            onClick={() => handleSubmit(2)}
+            disabled={loading || saving || !context}
+          />
+          <Button
+            variant="accent"
+            label="Submit & Approve"
+            onClick={() => handleSubmit(approveStatusApp1)}
+            disabled={loading || saving || !context}
+          />
+        </>
+      ) : null}
+      {showApprover2Actions ? (
+        <>
+          <Button
+            variant="primary"
+            label="Send for Review"
+            onClick={() => handleSubmit(reviewStatusApp2)}
+            disabled={loading || saving || !context}
+          />
+          <Button
+            variant="accent"
+            label="Submit & Approve"
+            onClick={() => handleSubmit(5)}
+            disabled={loading || saving || !context}
+          />
+        </>
+      ) : null}
+      {invoiceId ? (
+        <Button
+          variant="outline"
+          label="Generate PDF"
+          icon="download"
+          onClick={handleGeneratePdf}
+          disabled={loading || saving}
+        />
+      ) : null}
     </div>
-  );
+  ) : null;
+
+  const pageTitleText = showInvoiceForm
+    ? `${vcIn || context?.vcIn ? 'VC-in Invoice Creation' : 'Freight Invoice Creation'}${invType ? ` — ${invType === 'Final' ? 'Final' : 'Initial'}` : ''}${hasDraft ? ` (Status ${status})` : ''}`
+    : `${vcIn || context?.vcIn ? 'VC-in Invoices' : 'Freight Invoices'}${invType ? ` — ${invType === 'Final' ? 'Final' : 'Initial'}` : ''}`;
+  const loadChips = splitLocChips(context?.loadPorts);
+  const dischargeChips = splitLocChips(context?.dischargePorts);
 
   return (
     <div className={`zafira-page ${styles.page}`}>
@@ -1408,24 +1497,44 @@ export default function OpsVcFreightInvoicePage() {
         <LoadingOverlay show label={saving ? 'Saving invoice…' : 'Loading invoice…'} />
       ) : null}
 
-      {actionToolbar}
-
-      <h2 className={styles.title}>
-        {showInvoiceForm
-          ? (
+      <div className={styles.pageHead}>
+        <div className={styles.pageHeadTitleRow}>
+          <div className={styles.pageHeadIcon} aria-hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <g transform="translate(3.5,2)">
+                <path d="M11.2378,0.761771171 L4.5848,0.761771171 C2.5048,0.7538 0.7998,2.4118 0.7508,4.4908 L0.7508,15.2038 C0.7048,17.3168 2.3798,19.0678 4.4928,19.1148 C4.5238,19.1148 4.5538,19.1158 4.5848,19.1148 L12.5738,19.1148 C14.6678,19.0298 16.3178,17.2998 16.3029015,15.2038 L16.3029015,6.0378 L11.2378,0.761771171 Z" />
+                <path d="M10.9751,0.75 L10.9751,3.659 C10.9751,5.079 12.1231,6.23 13.5431,6.234 L16.2981,6.234" />
+                <line x1="10.7881" y1="13.3585" x2="5.3881" y2="13.3585" />
+                <line x1="8.7432" y1="9.606" x2="5.3872" y2="9.606" />
+              </g>
+            </svg>
+          </div>
+          <h2 className={styles.pageTitle}>{pageTitleText}</h2>
+        </div>
+        <div className={styles.pageSub}>
+          {context ? (
             <>
-              {vcIn || context?.vcIn ? 'VC-in Invoice Creation' : 'Freight Invoice Creation'}
-              {invType ? ` — ${invType === 'Final' ? 'Final' : 'Initial'}` : ''}
-              {hasDraft ? ` (Status ${status})` : ''}
+              <span>
+                {context.voyageNo || '—'} · <b>{context.vesselName || '—'}</b>
+                {context.cpDate ? <> · CP <b>{context.cpDate}</b></> : null}
+              </span>
+              {loadChips.map((port) => (
+                <span key={`load-${port}`} className={styles.locChip}>{port}</span>
+              ))}
+              {loadChips.length > 0 && dischargeChips.length > 0 ? (
+                <svg className={styles.locArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                  <path d="M5 12h14" />
+                  <path d="M13 6l6 6-6 6" />
+                </svg>
+              ) : null}
+              {dischargeChips.map((port) => (
+                <span key={`dis-${port}`} className={styles.locChip}>{port}</span>
+              ))}
             </>
-          )
-          : (
-            <>
-              {vcIn || context?.vcIn ? 'VC-in Invoices' : 'Freight Invoices'}
-              {invType ? ` — ${invType === 'Final' ? 'Final' : 'Initial'}` : ''}
-            </>
-          )}
-      </h2>
+          ) : null}
+        </div>
+        <Button variant="outline" label="Back" href={backHref} disabled={saving} />
+      </div>
 
       {error ? <div className={styles.error}>{error}</div> : null}
 
@@ -1433,8 +1542,8 @@ export default function OpsVcFreightInvoicePage() {
         <>
           {showInvoiceForm ? (
           <>
-          <div className={styles.infoGrid}>
-            <div className={styles.panel}>
+          <InvoiceCard num="1" title="Invoice Details">
+            <div className={styles.grid4}>
               <FormSelect
                 id="shipOwner"
                 label="Invoicing Company"
@@ -1443,298 +1552,240 @@ export default function OpsVcFreightInvoicePage() {
                 options={ownerOptions}
                 onChange={(value) => updateField('shipOwner', value)}
               />
+              <FormSelect
+                id="invoiceType"
+                label="Invoice Type"
+                required
+                value={form.invoiceType}
+                options={invoiceTypeOptions}
+                onChange={(value) => updateField('invoiceType', value)}
+              />
+              <Field id="invoiceNo" label="Invoice Number *" className={styles.field}>
+                <input
+                  id="invoiceNo"
+                  className={styles.input}
+                  value={form.invoiceNo || ''}
+                  onChange={(event) => updateField('invoiceNo', event.target.value)}
+                />
+              </Field>
+              <Field id="atten" label="Attn" className={styles.field}>
+                <input
+                  id="atten"
+                  className={styles.input}
+                  value={form.atten || ''}
+                  onChange={(event) => updateField('atten', event.target.value)}
+                />
+              </Field>
+              <Field id="invoiceDate" label="Invoice Date *" className={styles.field}>
+                <DmyDateInput
+                  id="invoiceDate"
+                  value={form.invoiceDate || ''}
+                  onChange={(value) => updateField('invoiceDate', value)}
+                />
+              </Field>
+              <Field id="dueDate" label="Due Date" className={styles.field}>
+                <DmyDateInput
+                  id="dueDate"
+                  value={form.dueDate || ''}
+                  onChange={(value) => updateField('dueDate', value)}
+                />
+              </Field>
+              <Field id="paymentTerms" label="Payment Terms" className={styles.field}>
+                <input
+                  id="paymentTerms"
+                  className={styles.input}
+                  value={form.paymentTerms || ''}
+                  onChange={(event) => updateField('paymentTerms', event.target.value)}
+                />
+              </Field>
+              <Field id="ffiSettlementDays" label="FFI Settlement Days" className={styles.field}>
+                <input
+                  id="ffiSettlementDays"
+                  className={styles.input}
+                  value={form.ffiSettlementDays || ''}
+                  onChange={(event) => updateField('ffiSettlementDays', event.target.value)}
+                  inputMode="numeric"
+                />
+              </Field>
+              <FormSelect
+                id="nob"
+                label="Banking Details"
+                className={styles.span2}
+                value={form.nob}
+                options={bankingOptions}
+                onChange={(value) => updateField('nob', value)}
+              />
+              <BankingPanel
+                detail={bankingDetail}
+                cBankCheck={form.cBankCheck}
+                onCBankCheckChange={(checked) => updateField('cBankCheck', checked)}
+              />
             </div>
-            <div className={styles.panel}>
-              <p className={styles.panelLabel}>To</p>
-              <p className={styles.metaLine}><strong>{context.vendorName || '—'}</strong></p>
-              <p className={styles.metaLine}>{context.vendorAddress || '—'}</p>
+          </InvoiceCard>
+
+          <InvoiceCard num="2" title="Freight Details">
+            <div className={styles.grid4}>
+              <Field id="vesselName" label="Vessel" className={`${styles.field} ${styles.readonly}`}>
+                <input className={styles.input} readOnly value={context.vesselName || ''} />
+              </Field>
+              <Field id="fixtureRef" label="Fixture Ref." className={`${styles.field} ${styles.readonly}`}>
+                <input className={styles.input} readOnly value={context.voyageNo || ''} />
+              </Field>
+              <Field id="cpDate" label="CP Date" className={`${styles.field} ${styles.readonly}`}>
+                <input className={styles.input} readOnly value={context.cpDate || ''} />
+              </Field>
+              <Field id="cargoName" label="Cargo" className={`${styles.field} ${styles.readonly}`}>
+                <input className={styles.input} readOnly value={context.cargoName || ''} />
+              </Field>
             </div>
-            <div className={styles.panel}>
-              <p className={styles.panelLabel}>Freight Details</p>
-              <p className={styles.metaLine}>Fixture Ref.: {context.voyageNo || '—'}</p>
-              <p className={styles.metaLine}>Vessel: {context.vesselName || '—'}</p>
-              <p className={styles.metaLine}>CP Date: {context.cpDate || '—'}</p>
-              {context.cargoName ? (
-                <p className={styles.metaLine}>Cargo: {context.cargoName}</p>
-              ) : null}
-              <p className={styles.metaLine}>Port of Loading: {context.loadPorts || '—'}</p>
-              <p className={styles.metaLine}>Port of Discharging: {context.dischargePorts || '—'}</p>
+            <div className={`${styles.grid2} ${styles.mt14}`}>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>To (Charterer)</label>
+                <div className={styles.readonlyBlock}>
+                  <div className={styles.rbName}>{context.vendorName || '—'}</div>
+                  <div className={styles.rbAddress}>{context.vendorAddress || '—'}</div>
+                </div>
+              </div>
+              <Field id="manualVendorName" label="Vendor (Billing)" className={styles.field}>
+                <textarea
+                  id="manualVendorName"
+                  className={styles.textarea}
+                  value={form.manualVendorName || ''}
+                  onChange={(event) => updateField('manualVendorName', event.target.value)}
+                />
+              </Field>
             </div>
-          </div>
-
-          <div className={styles.headerRow}>
-            <Field id="manualVendorName" label="Vendor (Billing)">
-              <textarea
-                id="manualVendorName"
-                className={styles.textarea}
-                value={form.manualVendorName || ''}
-                onChange={(event) => updateField('manualVendorName', event.target.value)}
-              />
-            </Field>
-            <Field id="loadPortName" label="Port of Loading">
-              <textarea
-                id="loadPortName"
-                className={styles.textarea}
-                value={form.loadPortName || ''}
-                onChange={(event) => updateField('loadPortName', event.target.value)}
-              />
-            </Field>
-            <Field id="dischargePortName" label="Port of Discharging">
-              <textarea
-                id="dischargePortName"
-                className={styles.textarea}
-                value={form.dischargePortName || ''}
-                onChange={(event) => updateField('dischargePortName', event.target.value)}
-              />
-            </Field>
-          </div>
-
-          <div className={styles.blRow}>
-            <Field id="blDate" label="BL Date">
-              <DmyDateInput
-                id="blDate"
-                value={form.blDate || ''}
-                onChange={(value) => updateField('blDate', value)}
-              />
-            </Field>
-            <Field id="blNo" label="BL No.">
-              <input
-                id="blNo"
-                className={styles.input}
-                value={form.blNo || ''}
-                onChange={(event) => updateField('blNo', event.target.value)}
-              />
-            </Field>
-            <Field id="flag" label="Flag">
-              <input
-                id="flag"
-                className={styles.input}
-                value={form.flag || ''}
-                onChange={(event) => updateField('flag', event.target.value)}
-              />
-            </Field>
-            <Field id="imoNo" label="IMO No.">
-              <input
-                id="imoNo"
-                className={styles.input}
-                value={form.imoNo || ''}
-                onChange={(event) => updateField('imoNo', event.target.value)}
-              />
-            </Field>
-          </div>
-
-          <div className={styles.qtyRow}>
-            <Field id="blQuantity" label="BL Quantity">
-              <input
-                id="blQuantity"
-                className={styles.input}
-                value={form.blQuantity || ''}
-                onChange={(event) => updateField('blQuantity', event.target.value)}
-              />
-            </Field>
-            <Field id="freightRate" label="Freight Rate">
-              <input
-                id="freightRate"
-                className={styles.input}
-                value={form.freightRate || ''}
-                onChange={(event) => updateField('freightRate', event.target.value)}
-              />
-            </Field>
-          </div>
-
-          <div className={styles.mainSplit}>
-            <div className={styles.leftCol}>
-              <div className={styles.stackFields}>
-                <FormSelect
-                  id="invoiceType"
-                  label="Invoice Type"
-                  required
-                  value={form.invoiceType}
-                  options={invoiceTypeOptions}
-                  onChange={(value) => updateField('invoiceType', value)}
+            <div className={`${styles.grid4} ${styles.mt14}`}>
+              <Field id="blDate" label="BL Date" className={styles.field}>
+                <DmyDateInput
+                  id="blDate"
+                  value={form.blDate || ''}
+                  onChange={(value) => updateField('blDate', value)}
                 />
-                <Field id="atten" label="Attn">
-                  <input
-                    id="atten"
-                    className={styles.input}
-                    value={form.atten || ''}
-                    onChange={(event) => updateField('atten', event.target.value)}
-                  />
-                </Field>
-                <Field id="invoiceNo" label="Invoice Number *">
-                  <input
-                    id="invoiceNo"
-                    className={styles.input}
-                    value={form.invoiceNo || ''}
-                    onChange={(event) => updateField('invoiceNo', event.target.value)}
-                  />
-                </Field>
-                <Field id="invoiceDate" label="Invoice Date *">
-                  <DmyDateInput
-                    id="invoiceDate"
-                    value={form.invoiceDate || ''}
-                    onChange={(value) => updateField('invoiceDate', value)}
-                  />
-                </Field>
-                <Field id="dueDate" label="Due Date">
-                  <DmyDateInput
-                    id="dueDate"
-                    value={form.dueDate || ''}
-                    onChange={(value) => updateField('dueDate', value)}
-                  />
-                </Field>
-                <Field id="exchangeRate" label="Exchange Rate">
-                  <input
-                    id="exchangeRate"
-                    className={styles.input}
-                    value={form.exchangeRate || ''}
-                    onChange={(event) => updateField('exchangeRate', event.target.value)}
-                  />
-                </Field>
-                <Field id="exchangeDate" label="Exchange Date">
-                  <DmyDateInput
-                    id="exchangeDate"
-                    value={form.exchangeDate || ''}
-                    onChange={(value) => updateField('exchangeDate', value)}
-                  />
-                </Field>
-                <FormSelect
-                  id="exchangeCurrency"
-                  label="Exchange To Currency"
-                  value={form.exchangeCurrency}
-                  options={currencyOptions}
-                  onChange={(value) => updateField('exchangeCurrency', value)}
+              </Field>
+              <Field id="blNo" label="BL No." className={styles.field}>
+                <input
+                  id="blNo"
+                  className={styles.input}
+                  value={form.blNo || ''}
+                  onChange={(event) => updateField('blNo', event.target.value)}
                 />
-                <Field id="paymentTerms" label="Payment Terms">
-                  <input
-                    id="paymentTerms"
-                    className={styles.input}
-                    value={form.paymentTerms || ''}
-                    onChange={(event) => updateField('paymentTerms', event.target.value)}
-                  />
-                </Field>
-                <Field id="ffiSettlementDays" label="FFI Settlement Days">
-                  <input
-                    id="ffiSettlementDays"
-                    className={styles.input}
-                    value={form.ffiSettlementDays || ''}
-                    onChange={(event) => updateField('ffiSettlementDays', event.target.value)}
-                    inputMode="numeric"
-                  />
-                </Field>
-                <Field id="remarks" label="Description">
-                  <textarea
-                    id="remarks"
-                    className={styles.textarea}
-                    value={form.remarks || ''}
-                    onChange={(event) => updateField('remarks', event.target.value)}
-                  />
-                </Field>
-                <FormSelect
-                  id="nob"
-                  label="Banking Details"
-                  value={form.nob}
-                  options={bankingOptions}
-                  onChange={(value) => updateField('nob', value)}
+              </Field>
+              <Field id="flag" label="Flag" className={styles.field}>
+                <input
+                  id="flag"
+                  className={styles.input}
+                  value={form.flag || ''}
+                  onChange={(event) => updateField('flag', event.target.value)}
                 />
-                <BankingPanel
-                  detail={bankingDetail}
-                  cBankCheck={form.cBankCheck}
-                  onCBankCheckChange={(checked) => updateField('cBankCheck', checked)}
+              </Field>
+              <Field id="imoNo" label="IMO No." className={styles.field}>
+                <input
+                  id="imoNo"
+                  className={styles.input}
+                  value={form.imoNo || ''}
+                  onChange={(event) => updateField('imoNo', event.target.value)}
                 />
-                <Field id="attach_file" label="Documents">
+              </Field>
+            </div>
+            <div className={`${styles.grid4} ${styles.mt14}`}>
+              <div className={`${styles.field} ${styles.computed}`}>
+                <label className={styles.fieldLabel} htmlFor="blQuantity">
+                  BL Quantity<span className={styles.autoTag}>Auto</span>
+                </label>
+                <input
+                  id="blQuantity"
+                  className={styles.input}
+                  value={form.blQuantity || ''}
+                  onChange={(event) => updateField('blQuantity', event.target.value)}
+                />
+              </div>
+              <Field id="freightRate" label="Freight Rate" className={styles.field}>
+                <input
+                  id="freightRate"
+                  className={styles.input}
+                  value={form.freightRate || ''}
+                  onChange={(event) => updateField('freightRate', event.target.value)}
+                />
+              </Field>
+              <Field id="loadPortName" label="Port of Loading" className={styles.field}>
+                <textarea
+                  id="loadPortName"
+                  className={styles.textarea}
+                  value={form.loadPortName || ''}
+                  onChange={(event) => updateField('loadPortName', event.target.value)}
+                />
+              </Field>
+              <Field id="dischargePortName" label="Port of Discharging" className={styles.field}>
+                <textarea
+                  id="dischargePortName"
+                  className={styles.textarea}
+                  value={form.dischargePortName || ''}
+                  onChange={(event) => updateField('dischargePortName', event.target.value)}
+                />
+              </Field>
+            </div>
+          </InvoiceCard>
+
+          <InvoiceCard num="3" title="Gross Freight & Adjustments">
+            <ChecklistSection
+              title="Club Freight"
+              rows={clubRows}
+              kind="club"
+              onToggle={toggleClub}
+            />
+            <div className={`${styles.grid3} ${styles.mb18}`}>
+              <Field id="grossFreight" label={`Gross Freight (${currencyCode}) *`} className={styles.field}>
+                <input
+                  id="grossFreight"
+                  className={styles.input}
+                  value={form.grossFreight || ''}
+                  onChange={(event) => updateField('grossFreight', event.target.value)}
+                  readOnly={Boolean(context?.freightBreakdown?.isDistributed)}
+                />
+              </Field>
+              <Field id="percentThereOff" label="% Thereof *" className={styles.field}>
+                <input
+                  id="percentThereOff"
+                  className={styles.input}
+                  style={{ textAlign: 'right' }}
+                  value={form.percentThereOff || ''}
+                  onChange={(event) => updateField('percentThereOff', event.target.value)}
+                  inputMode="decimal"
+                  placeholder="%"
+                />
+              </Field>
+              <Field id="freightDue" label="Amount" className={`${styles.field} ${styles.computed}`}>
+                <input
+                  id="freightDue"
+                  className={styles.input}
+                  readOnly
+                  value={totals.freightDue.toFixed(2)}
+                />
+              </Field>
+            </div>
+            {showNetDead ? (
+              <div className={`${styles.grid2} ${styles.mb18}`}>
+                <Field id="netFreight" label={`Net Freight (${currencyCode})`} className={`${styles.field} ${styles.computed}`}>
                   <input
-                    id="attach_file"
-                    type="file"
-                    multiple
-                    onChange={(event) => setAttachFiles(Array.from(event.target.files || []))}
+                    className={styles.input}
+                    readOnly
+                    value={Number(context?.freightBreakdown?.netFreight || 0).toFixed(2)}
                   />
-                  {attachFiles.length ? (
-                    <p className={styles.muted}>{attachFiles.length} file(s) selected</p>
-                  ) : null}
-                  {existingUploadName || existingUpload ? (
-                    <p className={styles.muted}>
-                      Existing: {existingUploadName || existingUpload}
-                    </p>
-                  ) : null}
+                </Field>
+                <Field id="deadFreight" label={`Dead Freight (${currencyCode})`} className={`${styles.field} ${styles.computed}`}>
+                  <input
+                    className={styles.input}
+                    readOnly
+                    value={Number(context?.freightBreakdown?.deadFreight || 0).toFixed(2)}
+                  />
                 </Field>
               </div>
-            </div>
+            ) : null}
 
-            <div className={styles.rightCol}>
-              <div className={styles.freightStack}>
-                <ChecklistSection
-                  title="Club Freight"
-                  rows={clubRows}
-                  kind="club"
-                  onToggle={toggleClub}
-                />
-
-                <div className={styles.freightTrio}>
-                  <Field id="grossFreight" label={`Gross Freight (${currencyCode}) *`}>
-                    <input
-                      id="grossFreight"
-                      className={styles.input}
-                      value={form.grossFreight || ''}
-                      onChange={(event) => updateField('grossFreight', event.target.value)}
-                      readOnly={Boolean(context?.freightBreakdown?.isDistributed)}
-                    />
-                  </Field>
-                  <Field id="percentThereOff" label="% There Off *">
-                    <input
-                      id="percentThereOff"
-                      className={styles.input}
-                      style={{ textAlign: 'right' }}
-                      value={form.percentThereOff || ''}
-                      onChange={(event) => updateField('percentThereOff', event.target.value)}
-                      inputMode="decimal"
-                      placeholder="0.00"
-                    />
-                  </Field>
-                  <Field id="freightDue" label="Freight Due">
-                    <input
-                      id="freightDue"
-                      className={styles.input}
-                      readOnly
-                      value={totals.freightDue.toFixed(2)}
-                    />
-                  </Field>
-                </div>
-
-                <ChecklistSection
-                  title="Demurrage / Dispatch"
-                  rows={demRows}
-                  kind="dem"
-                  onToggle={toggleChecklist(setDemRows)}
-                  onProrateToggle={toggleDemProrate}
-                />
-
-                <ChecklistSection
-                  title="DA LP / DP / TP"
-                  rows={daRows}
-                  kind="da"
-                  onToggle={toggleChecklist(setDaRows)}
-                />
-
-                {showNetDead ? (
-                  <>
-                    <Field id="netFreight" label={`Net Freight (${currencyCode})`}>
-                      <input
-                        className={styles.input}
-                        readOnly
-                        value={Number(context?.freightBreakdown?.netFreight || 0).toFixed(2)}
-                      />
-                    </Field>
-                    <Field id="deadFreight" label={`Dead Freight (${currencyCode})`}>
-                      <input
-                        className={styles.input}
-                        readOnly
-                        value={Number(context?.freightBreakdown?.deadFreight || 0).toFixed(2)}
-                      />
-                    </Field>
-                  </>
-                ) : null}
-
+            <div className={styles.adjTwoCol}>
+              <div className={styles.adjSide}>
+                <div className={styles.adjLabel}><span className={`${styles.adjTag} ${styles.adjTagAdd}`}>Add</span>Adjustments</div>
                 <LineSection
                   title="Add Adjustment"
                   rows={adjAddRows}
@@ -1749,16 +1800,20 @@ export default function OpsVcFreightInvoicePage() {
                   onUpdate={(lineId, patch) => updateLine(adjAddRows, setAdjAddRows, lineId, patch)}
                   adjustment
                 />
-
                 <LineSection
-                  title="Add"
+                  title="Other Add"
                   rows={addRows}
                   orcOptions={orcOptions}
                   onAdd={() => addLine(addRows, setAddRows)}
                   onRemove={(lineId) => removeLine(addRows, setAddRows, lineId)}
                   onUpdate={(lineId, patch) => updateLine(addRows, setAddRows, lineId, patch)}
                 />
+              </div>
 
+              <div className={styles.adjDivider} />
+
+              <div className={styles.adjSide}>
+                <div className={styles.adjLabel}><span className={`${styles.adjTag} ${styles.adjTagLess}`}>Less</span>Adjustments</div>
                 <LineSection
                   title="Less Adjustment"
                   rows={adjSubRows}
@@ -1773,210 +1828,246 @@ export default function OpsVcFreightInvoicePage() {
                   onUpdate={(lineId, patch) => updateLine(adjSubRows, setAdjSubRows, lineId, patch)}
                   adjustment
                 />
-
-                <LineSection
-                  title="Less"
-                  rows={subRows}
-                  orcOptions={orcOptions}
-                  onAdd={() => addLine(subRows, setSubRows)}
-                  onRemove={(lineId) => removeLine(subRows, setSubRows, lineId)}
-                  onUpdate={(lineId, patch) => updateLine(subRows, setSubRows, lineId, patch)}
-                />
-
-                <div className={styles.freightPair}>
-                  <Field id="brokeragePercent" label="Brokerage (%)">
-                    <input
-                      id="brokeragePercent"
-                      className={styles.input}
-                      value={form.brokeragePercent || ''}
-                      onChange={(event) => updateField('brokeragePercent', event.target.value)}
-                    />
-                  </Field>
-                  <Field id="brokerageAmt" label="Brokerage Amt">
-                    <input className={styles.input} readOnly value={totals.brokerage.toFixed(2)} />
-                  </Field>
-                </div>
-                <div className={styles.freightPair}>
-                  <Field id="gstOnBrokPercent" label="GST on brokerage (%)">
-                    <input
-                      id="gstOnBrokPercent"
-                      className={styles.input}
-                      value={form.gstOnBrokPercent || ''}
-                      onChange={(event) => updateField('gstOnBrokPercent', event.target.value)}
-                    />
-                  </Field>
-                  <Field id="gstOnBrokAmt" label="GST on brokerage Amt">
-                    <input className={styles.input} readOnly value={totals.gstOnBrok.toFixed(2)} />
-                  </Field>
-                </div>
-                <div className={styles.freightPair}>
-                  <Field id="addComPercent" label="Less Addcom">
-                    <input
-                      id="addComPercent"
-                      className={styles.input}
-                      value={form.addComPercent || ''}
-                      onChange={(event) => updateField('addComPercent', event.target.value)}
-                    />
-                  </Field>
-                  <Field id="addComAmt" label="Addcom Amt">
-                    <input className={styles.input} readOnly value={totals.addCom.toFixed(2)} />
-                  </Field>
+                <div className={styles.adjBlock}>
+                  <div className={styles.adjSublabel}>Other Less</div>
+                  <div className={`${styles.grid3} ${styles.mb14}`}>
+                    <Field id="brokeragePercent" label="Brokerage (%)" className={styles.field}>
+                      <input
+                        id="brokeragePercent"
+                        className={styles.input}
+                        value={form.brokeragePercent || ''}
+                        onChange={(event) => updateField('brokeragePercent', event.target.value)}
+                      />
+                    </Field>
+                    <Field id="brokerageAmt" label="Amount" className={`${styles.field} ${styles.computed}`}>
+                      <input className={styles.input} readOnly value={totals.brokerage.toFixed(2)} />
+                    </Field>
+                    <Field id="gstOnBrokPercent" label="GST on Brokerage (%)" className={styles.field}>
+                      <input
+                        id="gstOnBrokPercent"
+                        className={styles.input}
+                        value={form.gstOnBrokPercent || ''}
+                        onChange={(event) => updateField('gstOnBrokPercent', event.target.value)}
+                      />
+                    </Field>
+                  </div>
+                  <div className={`${styles.grid3} ${styles.mb14}`}>
+                    <Field id="gstOnBrokAmt" label="Amount" className={`${styles.field} ${styles.computed}`}>
+                      <input className={styles.input} readOnly value={totals.gstOnBrok.toFixed(2)} />
+                    </Field>
+                    <Field id="addComPercent" label="Less Addcom" className={styles.field}>
+                      <input
+                        id="addComPercent"
+                        className={styles.input}
+                        value={form.addComPercent || ''}
+                        onChange={(event) => updateField('addComPercent', event.target.value)}
+                      />
+                    </Field>
+                    <Field id="addComAmt" label="Amount" className={`${styles.field} ${styles.computed}`}>
+                      <input className={styles.input} readOnly value={totals.addCom.toFixed(2)} />
+                    </Field>
+                  </div>
+                  <LineSection
+                    title=""
+                    rows={subRows}
+                    orcOptions={orcOptions}
+                    onAdd={() => addLine(subRows, setSubRows)}
+                    onRemove={(lineId) => removeLine(subRows, setSubRows, lineId)}
+                    onUpdate={(lineId, patch) => updateLine(subRows, setSubRows, lineId, patch)}
+                  />
                 </div>
               </div>
             </div>
-          </div>
+          </InvoiceCard>
 
-          <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>Tax / GST / VAT</h3>
-            <div className={styles.sectionBody}>
-              <div className={styles.radioRow}>
-                <span>GST/VAT Applicable</span>
-                <label>
-                  <input
-                    type="radio"
-                    name="taxApplicable"
-                    checked={String(form.taxApplicable) === '1'}
-                    onChange={() => updateField('taxApplicable', '1')}
-                  />
-                  Yes
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="taxApplicable"
-                    checked={String(form.taxApplicable) === '2'}
-                    onChange={() => updateField('taxApplicable', '2')}
-                  />
-                  No
-                </label>
+          <InvoiceCard num="4" title="Demurrage / Dispatch & DA">
+            <ChecklistSection
+              title="Demurrage / Dispatch"
+              rows={demRows}
+              kind="dem"
+              onToggle={toggleChecklist(setDemRows)}
+              onProrateToggle={toggleDemProrate}
+            />
+            <ChecklistSection
+              title="DA (LP/DP/TP)"
+              rows={daRows}
+              kind="da"
+              onToggle={toggleChecklist(setDaRows)}
+            />
+          </InvoiceCard>
+
+          <InvoiceCard num="5" title="Exchange & Tax">
+            <div className={`${styles.grid3} ${styles.mb14}`}>
+              <Field id="exchangeRate" label="Exchange Rate" className={styles.field}>
+                <input
+                  id="exchangeRate"
+                  className={styles.input}
+                  value={form.exchangeRate || ''}
+                  onChange={(event) => updateField('exchangeRate', event.target.value)}
+                />
+              </Field>
+              <Field id="exchangeDate" label="Exchange Date" className={styles.field}>
+                <DmyDateInput
+                  id="exchangeDate"
+                  value={form.exchangeDate || ''}
+                  onChange={(value) => updateField('exchangeDate', value)}
+                />
+              </Field>
+              <FormSelect
+                id="exchangeCurrency"
+                label="Exchange To Currency"
+                value={form.exchangeCurrency}
+                options={currencyOptions}
+                onChange={(value) => updateField('exchangeCurrency', value)}
+              />
+            </div>
+            <div className={`${styles.field} ${styles.mb14}`}>
+              <label className={styles.fieldLabel}>Apply GST or VAT</label>
+              <div className={styles.toggleRow}>
+                <button
+                  type="button"
+                  className={`${styles.toggleSwitch} ${taxEnabled ? styles.toggleOn : ''}`}
+                  aria-pressed={taxEnabled}
+                  onClick={() => updateField('taxApplicable', taxEnabled ? '2' : '1')}
+                >
+                  <span className={styles.toggleKnob} />
+                </button>
+                <span className={styles.toggleText}>{taxEnabled ? 'Yes' : 'No'}</span>
+                <div className={`${styles.segToggle} ${gstMode ? '' : styles.segPos2} ${taxEnabled ? '' : styles.segDisabled}`}>
+                  <div className={styles.segThumb} />
+                  <button
+                    type="button"
+                    className={`${styles.segOpt} ${gstMode ? styles.segActive : ''}`}
+                    onClick={() => updateField('gstVat', '1')}
+                    disabled={!taxEnabled}
+                  >
+                    GST
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.segOpt} ${!gstMode ? styles.segActive : ''}`}
+                    onClick={() => updateField('gstVat', '2')}
+                    disabled={!taxEnabled}
+                  >
+                    VAT
+                  </button>
+                </div>
               </div>
+            </div>
+            {taxEnabled && gstMode ? (
+              <div className={`${styles.grid3} ${styles.mb14}`}>
+                <Field id="sgstPercent" label="SGST (%)" className={styles.field}>
+                  <input
+                    id="sgstPercent"
+                    className={styles.input}
+                    value={form.sgstPercent || ''}
+                    onChange={(event) => updateField('sgstPercent', event.target.value)}
+                  />
+                </Field>
+                <Field id="cgstPercent" label="CGST (%)" className={styles.field}>
+                  <input
+                    id="cgstPercent"
+                    className={styles.input}
+                    value={form.cgstPercent || ''}
+                    onChange={(event) => updateField('cgstPercent', event.target.value)}
+                  />
+                </Field>
+                <Field id="igstPercent" label="IGST (%)" className={styles.field}>
+                  <input
+                    id="igstPercent"
+                    className={styles.input}
+                    value={form.igstPercent || ''}
+                    onChange={(event) => updateField('igstPercent', event.target.value)}
+                  />
+                </Field>
+                <Field id="sgstAmount" label="SGST Amt" className={`${styles.field} ${styles.computed}`}>
+                  <input className={styles.input} readOnly value={totals.sgstAmount.toFixed(2)} />
+                </Field>
+                <Field id="cgstAmount" label="CGST Amt" className={`${styles.field} ${styles.computed}`}>
+                  <input className={styles.input} readOnly value={totals.cgstAmount.toFixed(2)} />
+                </Field>
+                <Field id="igstAmount" label="IGST Amt" className={`${styles.field} ${styles.computed}`}>
+                  <input className={styles.input} readOnly value={totals.igstAmount.toFixed(2)} />
+                </Field>
+              </div>
+            ) : null}
+            {taxEnabled && !gstMode ? (
+              <div className={`${styles.grid2} ${styles.mb14}`}>
+                <Field id="vatPercent" label="VAT (%)" className={styles.field}>
+                  <input
+                    id="vatPercent"
+                    className={styles.input}
+                    value={form.vatPercent || ''}
+                    onChange={(event) => updateField('vatPercent', event.target.value)}
+                  />
+                </Field>
+                <Field id="vatAmount" label="VAT Amt" className={`${styles.field} ${styles.computed}`}>
+                  <input className={styles.input} readOnly value={totals.vatAmount.toFixed(2)} />
+                </Field>
+              </div>
+            ) : null}
+            <Field id="remarks" label="Description" className={`${styles.field} ${styles.narrow}`}>
+              <textarea
+                id="remarks"
+                className={styles.textarea}
+                value={form.remarks || ''}
+                onChange={(event) => updateField('remarks', event.target.value)}
+              />
+            </Field>
+          </InvoiceCard>
 
-              {taxEnabled ? (
-                <>
-                  <div className={styles.radioRow}>
-                    <span>Type</span>
-                    <label>
-                      <input
-                        type="radio"
-                        name="gstVat"
-                        checked={gstMode}
-                        onChange={() => updateField('gstVat', '1')}
-                      />
-                      GST
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        name="gstVat"
-                        checked={!gstMode}
-                        onChange={() => updateField('gstVat', '2')}
-                      />
-                      VAT
-                    </label>
-                  </div>
-
-                  {gstMode ? (
-                    <div className={styles.taxGrid}>
-                      <Field id="sgstPercent" label="SGST %">
-                        <input
-                          id="sgstPercent"
-                          className={styles.input}
-                          value={form.sgstPercent || ''}
-                          onChange={(event) => updateField('sgstPercent', event.target.value)}
-                        />
-                      </Field>
-                      <Field id="sgstAmount" label="SGST Amt">
-                        <input className={styles.input} readOnly value={totals.sgstAmount.toFixed(2)} />
-                      </Field>
-                      <Field id="cgstPercent" label="CGST %">
-                        <input
-                          id="cgstPercent"
-                          className={styles.input}
-                          value={form.cgstPercent || ''}
-                          onChange={(event) => updateField('cgstPercent', event.target.value)}
-                        />
-                      </Field>
-                      <Field id="cgstAmount" label="CGST Amt">
-                        <input className={styles.input} readOnly value={totals.cgstAmount.toFixed(2)} />
-                      </Field>
-                      <Field id="igstPercent" label="IGST %">
-                        <input
-                          id="igstPercent"
-                          className={styles.input}
-                          value={form.igstPercent || ''}
-                          onChange={(event) => updateField('igstPercent', event.target.value)}
-                        />
-                      </Field>
-                      <Field id="igstAmount" label="IGST Amt">
-                        <input className={styles.input} readOnly value={totals.igstAmount.toFixed(2)} />
-                      </Field>
-                    </div>
-                  ) : (
-                    <div className={styles.taxGrid}>
-                      <Field id="vatPercent" label="VAT %">
-                        <input
-                          id="vatPercent"
-                          className={styles.input}
-                          value={form.vatPercent || ''}
-                          onChange={(event) => updateField('vatPercent', event.target.value)}
-                        />
-                      </Field>
-                      <Field id="vatAmount" label="VAT Amt">
-                        <input className={styles.input} readOnly value={totals.vatAmount.toFixed(2)} />
-                      </Field>
-                    </div>
-                  )}
-                </>
-              ) : null}
-
-              <div className={styles.totals}>
-                <div>Amount Payable</div>
-                <input className={styles.input} readOnly value={totals.netPayable.toFixed(2)} />
-                <div>Amount Payable (After Tax)</div>
-                <input className={styles.input} readOnly value={totals.netPayableTax.toFixed(2)} />
-                <div>
+          <InvoiceCard num="6" title="Payable Summary">
+            <div className={styles.summaryTiles}>
+              <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
+                <div className={styles.stLabel}>Amount Payable</div>
+                <div className={styles.stValue}>{totals.netPayable.toFixed(2)}</div>
+              </div>
+              <div className={`${styles.summaryTile} ${styles.tileOrange}`}>
+                <div className={styles.stLabel}>Amount Payable (After Tax)</div>
+                <div className={styles.stValue}>{totals.netPayableTax.toFixed(2)}</div>
+              </div>
+              <div className={`${styles.summaryTile} ${styles.tileGrey}`}>
+                <div className={styles.stLabel}>
                   Exchange To Currency
                   {form.exchangeCurrency ? ` (${form.exchangeCurrency})` : ''}
                 </div>
-                <input
-                  className={styles.input}
-                  readOnly
-                  value={
-                    parseAmount(form.exchangeRate) > 0
-                      ? totals.exchanged.toFixed(2)
-                      : 'N.A'
-                  }
-                />
+                <div className={styles.stValue}>
+                  {parseAmount(form.exchangeRate) > 0 ? totals.exchanged.toFixed(2) : '—'}
+                </div>
               </div>
             </div>
-          </div>
+          </InvoiceCard>
 
-          <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>Invoice</h3>
-            <div className={styles.sectionBody}>
-              <div className={styles.paymentStatus} data-field="paymentStatus" id="paymentStatus">
-                <label>
-                  <input
-                    type="radio"
-                    name="payment_status"
-                    checked={form.paymentStatus === 'payment_hold'}
-                    onChange={() => updateField('paymentStatus', 'payment_hold')}
-                  />
-                  Invoice Hold
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="payment_status"
-                    checked={form.paymentStatus === 'payment_payable'}
-                    onChange={() => updateField('paymentStatus', 'payment_payable')}
-                  />
-                  Invoice Payable
-                </label>
+          <InvoiceCard num="7" title="Documents & Approval">
+            <AttachDropzone
+              files={attachFiles}
+              existingName={existingUploadName}
+              existingUpload={existingUpload}
+              onFiles={setAttachFiles}
+            />
+            <div className={`${styles.field} ${styles.mb14}`} data-field="paymentStatus" id="paymentStatus">
+              <label className={styles.fieldLabel}>Invoice Status</label>
+              <div className={`${styles.statusToggle} ${form.paymentStatus === 'payment_hold' ? styles.statusHold : ''}`}>
+                <div className={styles.stThumb} />
+                <button
+                  type="button"
+                  className={`${styles.stOpt} ${form.paymentStatus === 'payment_payable' ? styles.stActive : ''}`}
+                  onClick={() => updateField('paymentStatus', 'payment_payable')}
+                >
+                  Payable
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.stOpt} ${form.paymentStatus === 'payment_hold' ? styles.stActive : ''}`}
+                  onClick={() => updateField('paymentStatus', 'payment_hold')}
+                >
+                  On Hold
+                </button>
               </div>
-
-              <div className={styles.approverRow} data-field="selApprovers" id="selApprovers">
-                <div>Level 1 Approver</div>
+            </div>
+            <div className={styles.approverRow} data-field="selApprovers" id="selApprovers">
+              <div className={`${styles.field} ${styles.approverField}`}>
+                <label className={styles.fieldLabel}>Level 1 Approver</label>
                 <CountryMultiSelect
                   options={context.approvers || []}
                   value={form.selApprovers || []}
@@ -1986,7 +2077,8 @@ export default function OpsVcFreightInvoicePage() {
                 />
               </div>
             </div>
-          </div>
+            {formActions}
+          </InvoiceCard>
           </>
           ) : (
             <p className={styles.listHint}>
@@ -1994,11 +2086,15 @@ export default function OpsVcFreightInvoicePage() {
             </p>
           )}
 
-          <div className={styles.section} id="freight-existing-invoices">
-              <h3 className={styles.sectionTitle}>Existing Invoices</h3>
-              <div className={styles.sectionBody}>
-                <div className={styles.tableWrap}>
-                  <table className={styles.existingTable}>
+          <InvoiceCard
+            num="8"
+            title="Invoice History"
+            sub={context.voyageNo || context.vesselName
+              ? `Ref. ${context.voyageNo || '—'} · ${context.vesselName || '—'}`
+              : null}
+          >
+            <div className={styles.tableWrap} id="freight-existing-invoices">
+              <table className={styles.existingTable}>
                     <thead>
                       <tr>
                         <th>Fixture No.</th>
@@ -2135,10 +2231,7 @@ export default function OpsVcFreightInvoicePage() {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            </div>
-
-          {showInvoiceForm ? actionToolbar : null}
+          </InvoiceCard>
         </>
       ) : null}
 

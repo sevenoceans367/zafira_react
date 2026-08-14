@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
+import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 
 export const OPS_TC_ITEMS = [
   { id: 'finalised-fixtures', label: 'Finalised Voyage Fixtures TC' },
@@ -62,7 +63,7 @@ export default function OpsTcSidebarTree({ isOpen }) {
                 className={active ? 'active' : ''}
                 onClick={() => setExpanded(false)}
               >
-                <i className="bi bi-chevron-double-right icon" aria-hidden />
+                <SidebarSubmenuArrow />
                 <span>{item.label}</span>
               </Link>
             </li>

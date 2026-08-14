@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
 import coaIcon from '../../assets/COA.svg';
+import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 
 const COA_ITEMS = [
   { id: 'running', label: 'Running COAs' },
@@ -62,7 +63,7 @@ export default function CoasSidebarTree({ isOpen }) {
                 className={active ? 'active' : ''}
                 onClick={() => setExpanded(false)}
               >
-                <i className="bi bi-chevron-double-right icon" aria-hidden />
+                <SidebarSubmenuArrow />
                 <span>{item.label}</span>
               </Link>
             </li>

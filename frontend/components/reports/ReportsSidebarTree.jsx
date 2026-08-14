@@ -5,6 +5,7 @@ import {
   REPORTS_SECTIONS,
   reportAppPath,
 } from '../../constants/reportsMenu.js';
+import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 import styles from './ReportsSidebarTree.module.css';
 
 const SUBMENU_WIDTH = 300;
@@ -126,9 +127,9 @@ export default function ReportsSidebarTree({ isOpen }) {
                 aria-expanded={sectionOpen}
                 aria-haspopup="true"
               >
-                <i className="bi bi-chevron-double-right icon" aria-hidden />
+                <SidebarSubmenuArrow />
                 <span>{section.label}</span>
-                <i className={`bi bi-chevron-right ${styles.sectionChevron}`} aria-hidden />
+                <SidebarSubmenuArrow className={styles.sectionChevron} />
               </button>
 
               {sectionOpen ? (
@@ -151,7 +152,7 @@ export default function ReportsSidebarTree({ isOpen }) {
                           onClick={closeAll}
                           role="menuitem"
                         >
-                          <i className="bi bi-chevron-double-right icon" aria-hidden />
+                          <SidebarSubmenuArrow />
                           <span>{item.label}</span>
                         </Link>
                       </li>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { MASTERS_MODULES } from '../../constants/mastersModules.js';
 import { masterAppPath, parseMastersModuleFromPath } from '../../constants/mastersModule.js';
+import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 
 export default function MastersSidebarTree({ isOpen }) {
   const { pathname } = useLocation();
@@ -52,7 +53,7 @@ export default function MastersSidebarTree({ isOpen }) {
           return (
             <li key={master.id}>
               <Link to={href} className={active ? 'active' : ''} onClick={() => setExpanded(false)}>
-                <i className="bi bi-chevron-double-right icon" aria-hidden />
+                <SidebarSubmenuArrow />
                 <span>{master.label}</span>
               </Link>
             </li>

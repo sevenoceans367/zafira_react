@@ -43,21 +43,51 @@ const MSG_COPY = {
 function formatOpenTrade(value) {
   const amount = Number(value) || 0;
   if (amount >= 1000) {
-    return `${(amount / 1000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}K $`;
+    return `$${(amount / 1000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}K`;
   }
-  return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`;
+  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const STAT_ICONS = {
+  openTrade: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v18" />
+      <path d="M16.5 7.5c0-2-2-3-4.5-3s-4.5 1.2-4.5 3.2c0 4.3 9 2 9 6.3 0 2-2 3.2-4.5 3.2s-4.5-1-4.5-3" />
+    </svg>
+  ),
+  vesselsInSubs: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="5" r="2" />
+      <path d="M12 7v13" />
+      <path d="M8 10h8" />
+      <path d="M5 14a7 7 0 0 0 14 0" />
+    </svg>
+  ),
+  tradesInOperations: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 12h4l2 7 4-14 2 7h6" />
+    </svg>
+  ),
+  vesselsOnWater: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 14l1.3-5.2A2 2 0 0 1 8.2 7.3h7.6a2 2 0 0 1 1.9 1.5L19 14" />
+      <path d="M12 3v4.3" />
+      <path d="M12 3.5l3 1.2-3 1.1z" fill="currentColor" stroke="none" />
+      <path d="M3 17.5c1.4 1 3 1 4.4 0 1.4-1 3-1 4.4 0 1.4 1 3 1 4.4 0 1.4-1 3-1 4.4 0" />
+    </svg>
+  ),
+};
+
 const STAT_CARDS = [
-  { key: 'openTrade', label: 'Open Trades', variant: 'gradient', formatValue: formatOpenTrade },
-  { key: 'vesselsInSubs', label: 'Vessels in Subs', variant: 'plain' },
+  { key: 'openTrade', label: 'Open Trades', variant: 'fin', formatValue: formatOpenTrade },
+  { key: 'vesselsInSubs', label: 'Vessels in Subs', variant: 'count' },
   {
     key: 'tradesInOperations',
     label: 'Trades in Operations',
-    variant: 'gradient',
+    variant: 'fin',
     formatValue: formatOpenTrade,
   },
-  { key: 'vesselsOnWater', label: 'Vessels on Water', variant: 'plain' },
+  { key: 'vesselsOnWater', label: 'Vessels on Water', variant: 'count' },
 ];
 
 /** Gas=1, Tanker=2, Dry Cargo=3 — legacy PHP default is Tanker */
@@ -407,6 +437,7 @@ export default function EstimateListPage() {
                   : (stats[card.key] ?? 0)
               }
               variant={card.variant}
+              icon={STAT_ICONS[card.key]}
             />
           ))}
         </SummaryCardGrid>
@@ -466,7 +497,7 @@ export default function EstimateListPage() {
                     ) : rows.length === 0 ? (
                       <tr>
                         <td colSpan={13} className={styles.emptyState}>
-                          No estimates found for the selected business type.
+                          No open trades for the selected business type.
                         </td>
                       </tr>
                     ) : filteredRows.length === 0 ? (

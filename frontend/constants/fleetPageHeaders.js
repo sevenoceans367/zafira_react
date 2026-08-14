@@ -20,16 +20,16 @@ function moduleBreadcrumb(module) {
   return { label: FLEET_MODULE_LABELS.vc, href: appPath('/internal-user/vc') };
 }
 
-function fleetListLabel(module) {
-  return module === 'sopf' ? 'Operated Vessels' : 'Fleet';
+function fleetListLabel() {
+  return 'Operated Vessels';
 }
 
 function fleetListHeader(module) {
-  const label = fleetListLabel(module);
+  const label = fleetListLabel();
   return {
     title: label,
     currentPage: label,
-    breadcrumbs: [HOME, moduleBreadcrumb(module), { label }],
+    breadcrumbs: [HOME, moduleBreadcrumb(module)],
   };
 }
 
@@ -39,7 +39,7 @@ export function resolveFleetHeader(pathname) {
 
   const fleetHref = fleetAppPath(module);
   const moduleCrumb = moduleBreadcrumb(module);
-  const listLabel = fleetListLabel(module);
+  const listLabel = fleetListLabel();
 
   if (pathname.match(/\/fleet\/vessel\/[^/]+\/(particulars|particulars-tanker)$/) && !pathname.endsWith('/edit')) {
     return {

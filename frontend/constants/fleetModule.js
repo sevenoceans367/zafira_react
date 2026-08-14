@@ -12,7 +12,7 @@ export const FLEET_MODULE_LABELS = {
 export const FLEET_NAV_ITEM = {
   id: 'fleet',
   segment: 'fleet',
-  label: 'Fleet',
+  label: 'Operated Vessels',
   icon: 'bi-anchor',
 };
 

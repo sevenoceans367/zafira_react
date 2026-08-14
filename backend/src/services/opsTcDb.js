@@ -11,6 +11,23 @@ const BUSINESS_TYPE_NAMES = {
   3: 'Dry Cargo',
 };
 
+const CHARTERING_TEAM_NAMES = {
+  1: 'India',
+  2: 'Fareast',
+  3: 'Indian Ocean',
+  4: 'South East Asia',
+  5: 'HANDY & STEEL',
+  6: 'ATLANTIC',
+  7: 'Zafira',
+  8: 'S.E.Asia(Pacific)',
+  9: 'BH Cape Holdings',
+};
+
+function charteringTeamName(id) {
+  if (id == null || String(id).trim() === '' || String(id) === '0') return '';
+  return CHARTERING_TEAM_NAMES[Number(id)] || '';
+}
+
 function toNumber(value) {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
@@ -355,24 +372,24 @@ export async function dbListOpsTcGlance({
         latest.VESSEL_TYPE,
         latest.DEL_RANGE_PORT,
         latest.RE_DEL_RANGE,
-        latest.CHARTERING_PIC_1,
+        latest.CHARTERING_PIC,
+        m.CHARTERING_PIC AS MASTER_CHARTERING_PIC,
         first_sheet.TCOUTID AS VIEW_TCOUTID,
         first_sheet.CP_DATE1,
-        charterer.NAME AS CHARTERER_NAME,
-        pic.CONTACT_PERSON AS CHARTERING_TEAM
+        charterer.NAME AS CHARTERER_NAME
      FROM chartering_estimate_tc_compare c
      INNER JOIN chartering_estimate_tc_master m ON m.TCOUTID = c.TCOUTID
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
      LEFT JOIN login op ON op.LOGINID = c.OPERATOR
      LEFT JOIN (
-       SELECT t.COMID, t.TCOUTID, t.VESSEL_TYPE, t.DEL_RANGE_PORT, t.RE_DEL_RANGE, t.CHARTERING_PIC_1
+       SELECT t.COMID, t.TCOUTID, t.VESSEL_TYPE, t.DEL_RANGE_PORT, t.RE_DEL_RANGE, t.CHARTERING_PIC
        FROM chartering_estimate_tc_master t
        INNER JOIN (
          SELECT COMID, MAX(TCOUTID) AS MAX_TCOUTID
          FROM chartering_estimate_tc_master
          GROUP BY COMID
-       ) x ON x.MAX_TCOUTID = t.TCOUTID
-     ) latest ON latest.COMID = c.COMID
+       ) x ON x.MAX_TCOUTID = t.TCOUTID AND x.COMID = t.COMID
+     ) latest ON CAST(latest.COMID AS CHAR) = CAST(c.COMID AS CHAR)
      LEFT JOIN (
        SELECT t.COMID, t.TCOUTID, t.CP_DATE1
        FROM chartering_estimate_tc_master t
@@ -380,10 +397,9 @@ export async function dbListOpsTcGlance({
          SELECT COMID, MIN(TCOUTID) AS MIN_TCOUTID
          FROM chartering_estimate_tc_master
          GROUP BY COMID
-       ) x ON x.MIN_TCOUTID = t.TCOUTID
-     ) first_sheet ON first_sheet.COMID = c.COMID
+       ) x ON x.MIN_TCOUTID = t.TCOUTID AND x.COMID = t.COMID
+     ) first_sheet ON CAST(first_sheet.COMID AS CHAR) = CAST(c.COMID AS CHAR)
      LEFT JOIN vendor_master charterer ON charterer.CODE = m.SEL_CHARTERER
-     LEFT JOIN login pic ON pic.LOGINID = latest.CHARTERING_PIC_1
      WHERE ${where}
      ORDER BY DATE(m.FINAL_DATETIME) DESC
      LIMIT ? OFFSET ?`,
@@ -440,7 +456,7 @@ export async function dbListOpsTcGlance({
         })),
       operatorId: row.OPERATOR_ID != null ? String(row.OPERATOR_ID) : '',
       operatorName: row.OPERATOR_NAME ?? '',
-      charteringTeam: row.CHARTERING_TEAM ?? '',
+      charteringTeam: charteringTeamName(row.CHARTERING_PIC ?? row.MASTER_CHARTERING_PIC),
       status: rowStatus,
       statusLabel: rowStatus === 3 ? 'Deactivated' : (rowStatus === 4 || isHistory ? 'History' : ''),
       canDeactivate: !isHistory,

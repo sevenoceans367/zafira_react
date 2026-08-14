@@ -18,7 +18,7 @@ export async function dbAuthenticateUser(username, password) {
 
   const row = rows[0];
   return {
-    id: row.LOGINID,
+    id: row.LOGINID != null ? String(row.LOGINID) : '',
     username: row.USERNAME,
     name: row.CONTACT_PERSON || row.USERNAME,
     userType: row.USER_TYPE,

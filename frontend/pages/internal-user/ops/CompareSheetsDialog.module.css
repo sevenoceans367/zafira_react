@@ -1,0 +1,462 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  --navy: #274670;
+  --navy-tint: #e6eaf1;
+  --navy-tint-strong: #d3dae7;
+  --navy-tint-pale: #f1f3f7;
+  --orange: #f4652c;
+  --orange-tint: #fdece4;
+  --orange-tint-strong: #fbd9c9;
+  --orange-tint-pale: #fef6f1;
+  --blue: #3b82f6;
+  --blue-tint: #eaf1fe;
+  --blue-tint-strong: #d3e3fd;
+  --blue-tint-pale: #f3f7fe;
+  --purple: #6c47ff;
+  --purple-tint: #eee9ff;
+  --purple-tint-strong: #ded4ff;
+  --purple-tint-pale: #f7f4ff;
+  --brown: #8b5e3c;
+  --brown-tint: #f3eae0;
+  --brown-tint-strong: #e9d8c6;
+  --brown-tint-pale: #faf6f2;
+  --page-bg: #ebedf0;
+  --card-bg: #ffffff;
+  --line: #eceef2;
+  --line-strong: #d8dce3;
+  --text-dark: #1b2733;
+  --text-mid: #57626f;
+  --text-light: #8a93a0;
+  --green: #0fa836;
+  --green-tint: #e8f8ec;
+  --red: #ff3b30;
+  --red-tint: #ffeceb;
+  --field-grey: #f1f2f4;
+  --field-grey-border: #e4e6e9;
+  --field-empty: #a6adb6;
+  --label-col: 168px;
+  --cols: 3;
+
+  width: min(98vw, 1200px);
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--page-bg);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(20, 30, 50, 0.06), 0 8px 24px rgba(20, 30, 50, 0.05);
+  overflow: hidden;
+  color: var(--text-dark);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+
+.chromeTitle {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.chromeActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pdfIconBtn {
+  min-width: 36px !important;
+  width: 36px;
+  min-height: 36px !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  background: transparent !important;
+  border: 1px solid #9ca3af !important;
+  border-radius: 10px !important;
+  color: #6b7280 !important;
+}
+
+.pdfIconBtn:hover:not(:disabled) {
+  background: #f3f4f6 !important;
+  border-color: #6b7280 !important;
+  color: #4b5563 !important;
+}
+
+.body {
+  padding: 1rem 1.25rem 1.5rem;
+  overflow: auto;
+  background: var(--page-bg);
+}
+
+.loading,
+.empty {
+  margin: 2rem 0;
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--text-mid);
+}
+
+.error {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--red-tint);
+  color: #c22a20;
+  font-size: 13px;
+}
+
+.doc {
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(20, 30, 50, 0.06);
+  overflow: hidden;
+}
+
+.docInner {
+  padding: 30px 36px 22px;
+}
+
+.docHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.docTitle {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--navy);
+}
+
+.soLogo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.soLogoMark {
+  width: 32px;
+  height: 32px;
+  flex: none;
+}
+
+.soLogoWord {
+  line-height: 1;
+}
+
+.soLogoWord b {
+  display: block;
+  font-size: 15px;
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.soLogoWord span {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.headerRule {
+  margin: 16px 0 0;
+  border: none;
+  border-top: 2px dashed var(--line-strong);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: var(--label-col) repeat(var(--cols), 1fr);
+  column-gap: 6px;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+}
+
+.overview {
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 18px;
+}
+
+.overviewLabel {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--navy);
+  padding: 8px 14px;
+}
+
+.overviewBody {
+  padding: 12px 10px 10px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px 12px;
+  margin-bottom: 12px;
+  padding: 0 4px 8px;
+}
+
+.factLabel {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.factValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.voyagecard .labelCell {
+  visibility: visible;
+  display: flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  line-height: 1.25;
+  padding: 0 6px 0 2px;
+}
+
+.voyagecard .colCell {
+  padding: 9px 9px 8px;
+  text-align: center;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 10px;
+}
+
+.voy0 {
+  background: var(--navy-tint);
+  border-color: var(--navy) !important;
+}
+
+.voy1 {
+  background: var(--blue-tint);
+  border-color: var(--blue) !important;
+}
+
+.voyChip {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 9.5px;
+  color: #fff;
+  padding: 1px 8px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.voy0 .voyChip {
+  background: var(--navy);
+}
+
+.voy1 .voyChip {
+  background: var(--blue);
+}
+
+.sheetName {
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--text-dark);
+  word-break: break-word;
+}
+
+.section {
+  margin-top: 20px;
+  margin-bottom: 7px;
+}
+
+.overview + .section {
+  margin-top: 10px;
+}
+
+.themeNavy {
+  --sc: var(--navy);
+  --sc-tint: var(--navy-tint);
+  --sc-tint-strong: var(--navy-tint-strong);
+}
+
+.themeOrange {
+  --sc: var(--orange);
+  --sc-tint: var(--orange-tint);
+  --sc-tint-strong: var(--orange-tint-strong);
+}
+
+.themeBlue {
+  --sc: var(--blue);
+  --sc-tint: var(--blue-tint);
+  --sc-tint-strong: var(--blue-tint-strong);
+}
+
+.themePurple {
+  --sc: var(--purple);
+  --sc-tint: var(--purple-tint);
+  --sc-tint-strong: var(--purple-tint-strong);
+}
+
+.themeBrown {
+  --sc: var(--brown);
+  --sc-tint: var(--brown-tint);
+  --sc-tint-strong: var(--brown-tint-strong);
+}
+
+.sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--sc);
+  margin: 0 0 6px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--sc);
+  flex: none;
+}
+
+.sectionLabel::after {
+  content: '';
+  flex: 1;
+  border-top: 2px dashed var(--sc-tint-strong);
+}
+
+.labelCell {
+  display: flex;
+  align-items: center;
+  padding: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-mid);
+  line-height: 1.2;
+}
+
+.colCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 5px 4px;
+  font-size: 11px;
+  color: var(--text-dark);
+  background: var(--field-grey);
+  border: 1px solid var(--field-grey-border);
+  margin: 2px 0;
+  border-radius: 4px;
+  min-height: 28px;
+}
+
+.colHead {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+  background: var(--navy-tint-pale);
+}
+
+.fixtureCol {
+  background: var(--navy-tint);
+  border-color: var(--navy-tint-strong);
+}
+
+.sheetCol {
+  background: var(--blue-tint);
+  border-color: var(--blue-tint-strong);
+}
+
+.negative {
+  color: #c22a20;
+  font-weight: 700;
+  background: var(--red-tint);
+}
+
+.positive {
+  color: #0b7a28;
+  font-weight: 700;
+  background: var(--green-tint);
+}
+
+.highlight .labelCell,
+.highlight .colCell {
+  font-weight: 700;
+}
+
+.highlight .labelCell {
+  color: var(--text-dark);
+}
+
+.colCellEmpty {
+  color: var(--field-empty);
+}
+
+.labelLink {
+  color: var(--navy);
+  text-decoration: none;
+}
+
+.labelLink:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .docInner {
+    padding: 20px 16px 16px;
+  }
+
+  .modal {
+    --label-col: 110px;
+  }
+}

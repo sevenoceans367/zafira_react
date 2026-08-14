@@ -2,7 +2,7 @@ import React from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AppShell } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
-import { logout } from '@bainbridge/shared-auth';
+import { getUser, logout } from '@bainbridge/shared-auth';
 import InternalUserSidebar from '../InternalUserSidebar.jsx';
 import ModuleSwitcherRail from '../ModuleSwitcherRail.jsx';
 import InternalUserPageHeader from '../../pages/internal-user/InternalUserPageHeader.jsx';
@@ -18,6 +18,8 @@ const COLLAPSE_SIDEBAR_PATHS = [
 export default function InternalUserLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const user = getUser();
+  const displayName = String(user?.name || user?.username || '').trim() || 'User';
   const collapseSidebar = COLLAPSE_SIDEBAR_PATHS.some((path) => (
     location.pathname === path || location.pathname.startsWith(`${path}/`)
   ));
@@ -30,7 +32,7 @@ export default function InternalUserLayout() {
   return (
     <PageHeaderProvider>
       <AppShell
-        companyName="Internal User"
+        companyName={displayName}
         collapseSidebar={collapseSidebar}
         sidebar={({ isOpen }) => (
           <div className={styles.navCluster}>

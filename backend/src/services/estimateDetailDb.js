@@ -2204,6 +2204,7 @@ export async function dbCreateEstimateDetail(payload, upload = {}) {
     const [result] = await connection.query(
       `INSERT INTO freight_cost_estimete_master (
         FIXTURETYPEID, TRANS_DATE, MODULEID, MCOMPANYID, ADDED_BY, ADD_ON_DATE,
+        L_UPDATED_BY, L_UP_TIME,
         VESSEL_IMO_ID, VESSEL_TYPE, FLAG, VOYAGE_NO, VOYAGE_NAME,
         DWT_SUMMER, DWT_TOPICAL, GNRT, LOA, TPC, ESTIMATE_TYPE, FIXED, CP_DATE,
         GROSS_BREAKDOWN, BREAKDOWN_MT, SEL_BUSI_TYPE, PERIODID,
@@ -2214,7 +2215,7 @@ export async function dbCreateEstimateDetail(payload, upload = {}) {
         ADDRESS_COMMISSION_PER, REMARKS, OWNER, DISPONENT_OWNER,
         ATTACHMENT, ATTACHMENT_NAME
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0', ?, 0, 0, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0', ?, 0, 0, ?, ?,
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       )`,
       [
@@ -2222,6 +2223,8 @@ export async function dbCreateEstimateDetail(payload, upload = {}) {
         transDate,
         appContext.moduleId,
         appContext.companyId,
+        appContext.userId,
+        now,
         appContext.userId,
         now,
         payload.vesselImoId,
@@ -2639,6 +2642,9 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     sets.push('FINAL_STATUS = ?', 'FIXED = 1');
     values.push(Number(payload.finalStatus) === 1 ? 1 : 0);
   }
+
+  sets.push('L_UPDATED_BY = ?', 'L_UP_TIME = NOW()');
+  values.push(appContext.userId);
 
   values.push(fcaId, appContext.moduleId, appContext.companyId);
 

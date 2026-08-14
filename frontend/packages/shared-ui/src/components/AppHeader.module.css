@@ -323,6 +323,19 @@
   color: #111827;
 }
 
+.drawerLink {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  color: inherit;
+  text-decoration: none;
+  width: 100%;
+}
+
+.drawerLink:hover strong {
+  text-decoration: underline;
+}
+
 .drawerIcon {
   display: inline-flex;
   align-items: center;

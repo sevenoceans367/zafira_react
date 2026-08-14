@@ -2,6 +2,7 @@ import { appContext, isMgmtUser } from '../config.js';
 import { getPool } from '../db.js';
 import { formatDateDMY } from './estimateListMappers.js';
 import { dbGetBankingDetail } from './genericFinancesDb.js';
+import { dbLogRecentWork } from './userAlertsDb.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -329,32 +330,50 @@ async function getFixtureOptions(pool) {
   };
 }
 
-async function getUserAuthority(pool, userId, col) {
+async function getUserAuthority(pool, userId, col, companyId = COMPANY_ID) {
   if (!userId || !col) return 0;
+  const company = companyId || COMPANY_ID;
   const [[row]] = await pool.query(
     `SELECT ${col} AS flag
      FROM approval_matrix
-     WHERE MCOMPANYID = ? AND LOGINID = ?
+     WHERE CAST(LOGINID AS CHAR) = CAST(? AS CHAR)
+       AND (CAST(MCOMPANYID AS CHAR) = CAST(? AS CHAR)
+            OR CAST(MCOMPANYID AS CHAR) = CAST(? AS CHAR))
      LIMIT 1`,
-    [COMPANY_ID, userId],
+    [userId, company, COMPANY_ID],
   ).catch(() => [[null]]);
-  return Number(row?.flag) === 1 ? 1 : 0;
+  if (Number(row?.flag) === 1) return 1;
+  const [[anyRow]] = await pool.query(
+    `SELECT ${col} AS flag
+     FROM approval_matrix
+     WHERE CAST(LOGINID AS CHAR) = CAST(? AS CHAR)
+     LIMIT 1`,
+    [userId],
+  ).catch(() => [[null]]);
+  return Number(anyRow?.flag) === 1 ? 1 : 0;
 }
 
-async function getUsersWithAuthority(pool, col) {
+function nonemptyIds(ids) {
+  return (ids || [])
+    .map((id) => String(id ?? '').trim())
+    .filter((id) => id && id !== 'null' && id !== 'undefined');
+}
+
+async function getUsersWithAuthority(pool, col, companyId = COMPANY_ID) {
   if (!col) return [];
-  const [rows] = await pool.query(
-    `SELECT am.LOGINID AS id
-     FROM approval_matrix am
-     INNER JOIN login l ON l.LOGINID = am.LOGINID
-     WHERE am.MCOMPANYID = ? AND am.${col} = 1 AND l.STATUS = 1`,
-    [COMPANY_ID],
-  ).catch(() => [[]]);
-  return (rows || []).map((row) => String(row.id));
+  // PHP getUsersWithAuthority: GROUP_CONCAT from approval_matrix (no login STATUS join)
+  const [[row]] = await pool.query(
+    `SELECT GROUP_CONCAT(LOGINID) AS USERS
+     FROM approval_matrix
+     WHERE MCOMPANYID = ? AND ${col} = 1`,
+    [companyId],
+  ).catch(() => [[{ USERS: null }]]);
+  return nonemptyIds(String(row?.USERS || '').split(','));
 }
 
-async function getApproverContext(pool, invType, userId) {
+async function getApproverContext(pool, invType, userId, companyId = COMPANY_ID) {
   const cols = approvalColsFor(invType);
+  const company = companyId || COMPANY_ID;
 
   const [approverRows] = await pool.query(
     `SELECT am.LOGINID AS id, l.CONTACT_PERSON AS name
@@ -362,28 +381,21 @@ async function getApproverContext(pool, invType, userId) {
      INNER JOIN login l ON l.LOGINID = am.LOGINID
      WHERE am.MCOMPANYID = ? AND am.${cols.app1} = 1 AND l.STATUS = 1
      ORDER BY l.CONTACT_PERSON`,
-    [COMPANY_ID],
+    [company],
   ).catch(() => [[]]);
 
-  const [[matrixCounts]] = await pool.query(
-    `SELECT
-       SUM(CASE WHEN ${cols.app1} = 1 THEN 1 ELSE 0 END) AS app1,
-       SUM(CASE WHEN ${cols.app2} = 1 THEN 1 ELSE 0 END) AS app2
-     FROM approval_matrix
-     WHERE MCOMPANYID = ?`,
-    [COMPANY_ID],
-  ).catch(() => [[{ app1: 0, app2: 0 }]]);
-
-  const hasApp1 = Number(matrixCounts?.app1) > 0;
-  const hasApp2 = Number(matrixCounts?.app2) > 0;
+  const app1Users = await getUsersWithAuthority(pool, cols.app1, company);
+  const app2Users = await getUsersWithAuthority(pool, cols.app2, company);
+  const hasApp1 = app1Users.length > 0;
+  const hasApp2 = app2Users.length > 0;
   let sendForApprovalStatus = 1;
   if (!hasApp1 && !hasApp2) sendForApprovalStatus = 5;
   else if (!hasApp1 && hasApp2) sendForApprovalStatus = 4;
 
   const [creator, approver1, approver2] = await Promise.all([
-    getUserAuthority(pool, userId, cols.creator),
-    getUserAuthority(pool, userId, cols.app1),
-    getUserAuthority(pool, userId, cols.app2),
+    getUserAuthority(pool, userId, cols.creator, company),
+    getUserAuthority(pool, userId, cols.app1, company),
+    getUserAuthority(pool, userId, cols.app2, company),
   ]);
 
   return {
@@ -397,6 +409,7 @@ async function getApproverContext(pool, invType, userId) {
     creator: creator === 1,
     approver1: approver1 === 1,
     approver2: approver2 === 1,
+    userId: userId != null ? String(userId) : '',
   };
 }
 
@@ -1046,7 +1059,7 @@ async function loadExistingInvoices(pool, {
   randomId,
   voyageNo,
   vesselName,
-  mgmt,
+  mgmt: _mgmt,
   vcIn = false,
 }) {
   const inMode = parseVcInFlag(vcIn);
@@ -1082,9 +1095,29 @@ async function loadExistingInvoices(pool, {
       : [comId, MODULE_ID, COMPANY_ID, vendorId, pType, cargoId || '0', randomId || '0'],
   ).catch(() => [[]]);
 
+  const invoiceIds = (rows || []).map((row) => String(row.INVOICEID)).filter(Boolean);
+  const paymentsByInvoice = new Map();
+  if (invoiceIds.length) {
+    const [payRows] = await pool.query(
+      `SELECT INVOICEID, RECVD_DATE, RECVD_REMARKS, RECVD_AMOUNT
+       FROM ${invoicePaymentTable(inMode)}
+       WHERE INVOICEID IN (${invoiceIds.map(() => '?').join(',')})
+       ORDER BY RECVD_DATE, RECVD_AMOUNT`,
+      invoiceIds,
+    ).catch(() => [[]]);
+    for (const pay of payRows || []) {
+      const key = String(pay.INVOICEID);
+      if (!paymentsByInvoice.has(key)) paymentsByInvoice.set(key, []);
+      paymentsByInvoice.get(key).push({
+        date: formatDateDMY(pay.RECVD_DATE),
+        remarks: str(pay.RECVD_REMARKS),
+        amount: money2(pay.RECVD_AMOUNT),
+      });
+    }
+  }
+
   return (rows || []).map((row) => {
     const status = Number(row.STATUS) || 0;
-    const paid = parseAmount(row.P_AMT);
     return {
       invoiceId: String(row.INVOICEID),
       voyageNo: voyageNo || '',
@@ -1094,15 +1127,32 @@ async function loadExistingInvoices(pool, {
       chartererName: str(row.VENDOR_NAME || row.VENDOR),
       amount: money2(row.NET_PAYABLE_TAX || row.NET_PAYABLE || row.NET_AMOUNT),
       remarks: str(row.REMARKS),
+      mainRemarks: str(row.P_REMARKS),
+      paymentRows: paymentsByInvoice.get(String(row.INVOICEID)) || [],
+      attachments: str(row.ATTACHMENTS),
+      attachmentNames: str(row.ATTACHMENTS_NAME),
       status,
       lastUpdatedBy: str(row.LUPNAME),
-      lastUpdatedAt: row.L_UP_TIME ? formatDateDMY(row.L_UP_TIME) : '',
-      canReceivePayment: status === 5 && paid <= 0,
-      canCancel: mgmt && status === 5,
-      canReopen: mgmt && status >= 5 && status !== 8,
-      canDelete: mgmt,
-      canPdf: true,
-      canPdfAed: str(row.SHIP_OWNER) === 'OB0002',
+      lastUpdatedAt: (() => {
+        if (!row.L_UP_TIME) return '';
+        const d = row.L_UP_TIME instanceof Date ? row.L_UP_TIME : new Date(row.L_UP_TIME);
+        if (Number.isNaN(d.getTime())) return formatDateDMY(row.L_UP_TIME);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      })(),
+      canReceivePayment: status === 5,
+      // Show buttons for STATUS 5+ (PHP also gates Cancel/Open/Del to mgmt_user in the UI;
+      // API routes still enforce mgmt for cancel/reopen/delete).
+      canCancel: status === 5,
+      canReopen: status >= 5 && status !== 8,
+      canDelete: status >= 5,
+      canPdf: status >= 5,
+      canPdfAed: status >= 5 && str(row.SHIP_OWNER) === 'OB0002',
+      canJson: status >= 5,
+      statusLabel: status >= 5
+        ? (status === 8 ? 'Cancelled' : 'Approved')
+        : 'Pending approval',
+      isCancelled: status === 8,
     };
   });
 }
@@ -1123,6 +1173,8 @@ async function findDraftInvoice(pool, {
       `SELECT * FROM ${master} WHERE INVOICEID = ? LIMIT 1`,
       [invoiceId],
     ).catch(() => [[null]]);
+    // PHP form only loads drafts (STATUS < 5); approved invoices belong in the grid
+    if (row && Number(row.STATUS) >= 5) return null;
     return row || null;
   }
 
@@ -1175,6 +1227,7 @@ export async function dbGetFreightInvoiceForm({
   invoiceId: invoiceIdParam = '',
   userId = appContext.userId,
   mgmtUser = isMgmtUser(),
+  companyId = COMPANY_ID,
 } = {}) {
   const pool = getPool();
   const inMode = parseVcInFlag(vcIn);
@@ -1280,7 +1333,7 @@ export async function dbGetFreightInvoiceForm({
   ).catch(() => [[]]);
 
   const { fixtures, vessels } = await getFixtureOptions(pool);
-  const approval = await getApproverContext(pool, invoiceType, userId);
+  const approval = await getApproverContext(pool, invoiceType, userId, companyId || COMPANY_ID);
 
   const voyage = str(voyageNo)
     || str(compare.MASTER_VOYAGE_NO)
@@ -1460,6 +1513,7 @@ export async function dbGetFreightInvoiceForm({
       sendForApprovalStatus: approval.sendForApprovalStatus,
       hasApp1: approval.hasApp1,
       hasApp2: approval.hasApp2,
+      userId: approval.userId || (userId != null ? String(userId) : ''),
     },
     defaults,
   };
@@ -2061,6 +2115,7 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
       redirectUrl,
       vcIn,
     });
+    await dbLogRecentWork(userId, `Freight Invoice (${invoiceNo || invoiceId}) saved successfully.`);
 
     return {
       msg: 0,

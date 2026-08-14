@@ -14,6 +14,12 @@ import reportsRoutes from './reports.js';
 import elibraryRoutes from './elibrary.js';
 import { pingDb } from '../db.js';
 import { isDbConfigured } from '../config.js';
+import { getRequestUser } from '../services/authService.js';
+import {
+  dbDismissUserAlert,
+  dbListRecentWork,
+  dbListUserAlerts,
+} from '../services/userAlertsDb.js';
 
 const router = Router();
 
@@ -32,25 +38,39 @@ router.get('/health', async (_req, res) => {
   res.json(payload);
 });
 
-router.get('/recent_work', (_req, res) => {
-  res.json([
-    { work: 'Viewed Dashboard', datetime: new Date().toISOString() },
-    {
-      work: 'Opened Reports',
-      datetime: new Date(Date.now() - 3600000).toISOString(),
-    },
-  ]);
+router.get('/recent_work', async (req, res) => {
+  try {
+    const user = getRequestUser(req);
+    if (!user?.id) {
+      res.status(401).json({ message: 'Not authenticated.' });
+      return;
+    }
+    res.json(await dbListRecentWork(user.id));
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Failed to load recent activity.' });
+  }
 });
 
-router.get('/alerts', (_req, res) => {
-  res.json([
-    {
-      alertId: 1,
-      title: 'Welcome',
-      message: 'Zafira API is running.',
-      datetime: new Date().toISOString(),
-    },
-  ]);
+router.get('/alerts', async (req, res) => {
+  try {
+    const user = getRequestUser(req);
+    if (!user?.id) {
+      res.status(401).json({ message: 'Not authenticated.' });
+      return;
+    }
+    res.json(await dbListUserAlerts(user.id));
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Failed to load notifications.' });
+  }
+});
+
+router.post('/alerts/:alertId/read', async (req, res) => {
+  try {
+    const user = getRequestUser(req);
+    res.json(await dbDismissUserAlert(user?.id, req.params.alertId));
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Failed to dismiss notification.' });
+  }
 });
 
 router.use('/internal-user/sopf', sopfRoutes);

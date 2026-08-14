@@ -10,6 +10,7 @@ import {
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
+import { notifyRecentWorkUpdated } from '../../../services/recentWork.js';
 import {
   cancelOtherInvoice,
   deleteOtherInvoice,
@@ -728,6 +729,7 @@ export default function OpsVcOtherInvoicePage() {
     setError('');
     try {
       await saveOtherInvoice(buildFormData(status));
+      notifyRecentWorkUpdated();
       await alert({
         title: 'Saved',
         message: Number(status) === 0

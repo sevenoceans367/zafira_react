@@ -1,6 +1,9 @@
 .page {
   position: relative;
   padding-bottom: 24px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .toolbar {
@@ -29,9 +32,107 @@
 
 .infoGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 16px;
+}
+
+.lastUpdated {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.mainSplit {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr);
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.leftCol,
+.rightCol {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px 16px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.stackFields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.freightStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.freightPair {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.8fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.readonlyValue {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #eee;
+  font-size: 12px;
+}
+
+.hireDaysTable,
+.bunkerTable,
+.linesTable {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.hireDaysTable th,
+.hireDaysTable td,
+.bunkerTable th,
+.bunkerTable td,
+.linesTable th,
+.linesTable td {
+  padding: 6px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.hireDaysTable th,
+.bunkerTable th,
+.linesTable th {
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.surveyCheck {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  white-space: normal;
 }
 
 .panel {
@@ -39,6 +140,8 @@
   border-radius: 8px;
   background: #fff;
   padding: 14px 16px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .panelLabel {
@@ -54,6 +157,7 @@
   font-size: 12px;
   color: #1f2937;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .formGrid {
@@ -80,6 +184,8 @@
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sectionTitle {
@@ -93,6 +199,8 @@
 
 .sectionBody {
   padding: 14px 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sectionHeadRow {
@@ -103,26 +211,6 @@
   margin-bottom: 12px;
 }
 
-.linesTable {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.linesTable th,
-.linesTable td {
-  padding: 8px;
-  border-bottom: 1px solid #f3f4f6;
-  vertical-align: top;
-}
-
-.linesTable th {
-  text-align: left;
-  font-size: 10px;
-  text-transform: uppercase;
-  color: #6b7280;
-}
-
 .lineActions {
   display: flex;
   gap: 8px;
@@ -131,12 +219,13 @@
 
 .totals {
   display: grid;
-  grid-template-columns: 1fr 220px;
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 180px);
   gap: 8px;
   align-items: center;
   margin-top: 12px;
   font-size: 12px;
   font-weight: 600;
+  min-width: 0;
 }
 
 .checkRow {
@@ -149,10 +238,20 @@
 
 .lineRow {
   display: grid;
-  grid-template-columns: 1fr 140px 40px;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 120px) 32px;
   gap: 8px;
   margin-bottom: 8px;
   align-items: center;
+  min-width: 0;
+}
+
+.surveyRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(88px, 120px) 32px;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+  min-width: 0;
 }
 
 .paymentStatus {
@@ -172,20 +271,39 @@
 
 .approverRow {
   display: grid;
-  grid-template-columns: 160px 1fr;
+  grid-template-columns: minmax(0, 140px) minmax(0, 1fr);
   gap: 12px;
   align-items: start;
   margin-top: 12px;
   font-size: 13px;
+  min-width: 0;
 }
 
 .cardSelect {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cardSelect > * {
+  display: flex !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  flex-shrink: 1 !important;
+}
+
+.cardSelect button {
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100%;
 }
 
 .textarea,
 .input {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 34px;
   padding: 7px 10px;
   border: 1px solid #d1d5db;
@@ -232,6 +350,7 @@
   padding: 6px 8px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: top;
+  word-break: break-word;
 }
 
 .bankPanel td:first-child {
@@ -255,11 +374,15 @@
 }
 
 .tableWrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
 }
 
 .existingTable {
   width: 100%;
+  min-width: 880px;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -344,10 +467,28 @@
   font-size: 12px;
 }
 
+@media (max-width: 1280px) {
+  .infoGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mainSplit {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 960px) {
   .infoGrid,
   .formGrid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .mainSplit,
+  .freightPair,
+  .totals,
+  .approverRow,
+  .surveyRow {
+    grid-template-columns: 1fr;
   }
 
   .span2,
@@ -360,6 +501,10 @@
 @media (max-width: 640px) {
   .infoGrid,
   .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .mainSplit {
     grid-template-columns: 1fr;
   }
 

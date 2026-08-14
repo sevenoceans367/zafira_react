@@ -11,16 +11,75 @@ const BUSINESS_TYPE_NAMES = {
   3: 'Dry Cargo',
 };
 
+// PHP getCountryName() on CHARTERING_PIC (team id, not a login). Zafira stores 7.
+const CHARTERING_TEAM_NAMES = {
+  1: 'India',
+  2: 'Fareast',
+  3: 'Indian Ocean',
+  4: 'South East Asia',
+  5: 'HANDY & STEEL',
+  6: 'ATLANTIC',
+  7: 'Zafira',
+  8: 'S.E.Asia(Pacific)',
+  9: 'BH Cape Holdings',
+};
+
+function charteringTeamName(id) {
+  if (id == null || String(id).trim() === '' || String(id) === '0') return '';
+  return CHARTERING_TEAM_NAMES[Number(id)] || '';
+}
+
+async function loginContactName(pool, loginId) {
+  if (loginId == null || String(loginId).trim() === '' || String(loginId) === '0') return '';
+  const [[person]] = await pool.query(
+    `SELECT COALESCE(NULLIF(CONTACT_PERSON, ''), USERNAME) AS NAME
+     FROM login
+     WHERE LOGINID = ?
+     LIMIT 1`,
+    [loginId],
+  );
+  return person?.NAME || '';
+}
+
+async function firstLoginName(pool, ...loginIds) {
+  const seen = new Set();
+  for (const loginId of loginIds) {
+    const key = loginId == null ? '' : String(loginId).trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const name = await loginContactName(pool, loginId);
+    if (name) return name;
+  }
+  return '';
+}
+
+function pad2(value) {
+  return String(value).padStart(2, '0');
+}
+
 function formatDateTime(value) {
-  if (!value) return '';
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const d = String(date.getDate()).padStart(2, '0');
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const y = date.getFullYear();
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  return `${d}-${m}-${y} ${hh}:${mm}`;
+  if (value == null || value === '') return '';
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime()) || value.getUTCFullYear() < 1971) return '';
+    // mysql DATETIME is timezone-naive; mysql2 exposes it as a UTC Date.
+    return `${pad2(value.getUTCDate())}-${pad2(value.getUTCMonth() + 1)}-${value.getUTCFullYear()} ${pad2(value.getUTCHours())}:${pad2(value.getUTCMinutes())}`;
+  }
+  const str = String(value).trim();
+  if (!str || str.startsWith('0000-00-00') || str.startsWith('1970-01-01')) return '';
+  if (/^\d{1,2}-\d{1,2}-\d{4}/.test(str)) {
+    return str.replace(/:\d{2}$/, '').slice(0, 16);
+  }
+  const date = new Date(str.includes('T') ? str : str.replace(' ', 'T'));
+  if (Number.isNaN(date.getTime()) || date.getUTCFullYear() < 1971) return '';
+  return `${pad2(date.getUTCDate())}-${pad2(date.getUTCMonth() + 1)}-${date.getUTCFullYear()} ${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}`;
+}
+
+function firstDateTime(...values) {
+  for (const value of values) {
+    const formatted = formatDateTime(value);
+    if (formatted) return formatted;
+  }
+  return '';
 }
 
 async function getPortShortName(pool, portId) {
@@ -236,33 +295,50 @@ async function dbListOpsVcGlance({
         latest.CARGO_ID,
         latest.TRANS_DATE,
         latest.CHARTERING_PIC,
-        pic.CONTACT_PERSON AS CHARTERING_TEAM,
+        latest.L_UPDATED_BY AS LATEST_UPDATED_BY,
+        latest.L_UP_TIME AS LATEST_UP_TIME,
+        latest.ADDED_BY AS LATEST_ADDED_BY,
+        latest.ADD_ON_DATE AS LATEST_ADD_ON_DATE,
+        latest.ADDED_NAME AS LATEST_ADDED_NAME,
+        m.CHARTERING_PIC AS MASTER_CHARTERING_PIC,
+        m.L_UPDATED_BY AS MASTER_UPDATED_BY,
+        m.L_UP_TIME AS MASTER_UP_TIME,
+        m.ADDED_BY AS MASTER_ADDED_BY,
+        m.ADD_ON_DATE AS MASTER_ADD_ON_DATE,
         updated.L_UP_TIME,
-        updated.LUPNAME
+        updated.L_UPDATED_BY,
+        updated.LUPNAME,
+        updated.ADDED_BY,
+        updated.ADD_ON_DATE,
+        updated.ADDED_NAME
      FROM freight_cost_estimate_compare c
      INNER JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
      LEFT JOIN login op ON op.LOGINID = c.OPERATOR
      LEFT JOIN (
-       SELECT t.COMID, t.VOYAGE_NO, t.VESSEL_TYPE, t.CARGO_ID, t.TRANS_DATE, t.CHARTERING_PIC
+       SELECT t.COMID, t.VOYAGE_NO, t.VESSEL_TYPE, t.CARGO_ID, t.TRANS_DATE,
+              t.CHARTERING_PIC, t.L_UPDATED_BY, t.L_UP_TIME, t.ADDED_BY, t.ADD_ON_DATE,
+              la.CONTACT_PERSON AS ADDED_NAME
        FROM freight_cost_estimete_master t
+       LEFT JOIN login la ON la.LOGINID = t.ADDED_BY
        INNER JOIN (
          SELECT COMID, MAX(FCAID) AS MAX_FCAID
          FROM freight_cost_estimete_master
          GROUP BY COMID
-       ) x ON x.MAX_FCAID = t.FCAID
+       ) x ON x.MAX_FCAID = t.FCAID AND x.COMID = t.COMID
      ) latest ON latest.COMID = c.COMID
-     LEFT JOIN login pic ON pic.LOGINID = latest.CHARTERING_PIC
      LEFT JOIN (
-       SELECT t.COMID, t.L_UP_TIME, l.CONTACT_PERSON AS LUPNAME
+       SELECT t.COMID, t.L_UP_TIME, t.L_UPDATED_BY, t.ADDED_BY, t.ADD_ON_DATE,
+              l.CONTACT_PERSON AS LUPNAME, la.CONTACT_PERSON AS ADDED_NAME
        FROM freight_cost_estimete_master t
        LEFT JOIN login l ON l.LOGINID = t.L_UPDATED_BY
+       LEFT JOIN login la ON la.LOGINID = t.ADDED_BY
        INNER JOIN (
          SELECT COMID, MAX(FCAID) AS MAX_FCAID
          FROM freight_cost_estimete_master
          WHERE SHEET_NO IS NOT NULL
          GROUP BY COMID
-       ) x ON x.MAX_FCAID = t.FCAID
+       ) x ON x.MAX_FCAID = t.FCAID AND x.COMID = t.COMID
      ) updated ON updated.COMID = c.COMID
      WHERE ${where}
      ORDER BY DATE(m.FINAL_DATETIME) DESC, c.COMID DESC
@@ -275,6 +351,13 @@ async function dbListOpsVcGlance({
     const row = rows[index];
     const [[sheet]] = await pool.query(
       `SELECT FCAID, TANKER_RADIO_SINGLE_DIS, QTY_TYPE_RADIO, ESTIMATE_TYPE,
+              CHARTERING_PIC, L_UPDATED_BY, L_UP_TIME, ADDED_BY, ADD_ON_DATE,
+              (SELECT COALESCE(NULLIF(CONTACT_PERSON, ''), USERNAME) FROM login
+                WHERE login.LOGINID = freight_cost_estimete_master.L_UPDATED_BY
+                LIMIT 1) AS LUPNAME,
+              (SELECT COALESCE(NULLIF(CONTACT_PERSON, ''), USERNAME) FROM login
+                WHERE login.LOGINID = freight_cost_estimete_master.ADDED_BY
+                LIMIT 1) AS ADDED_NAME,
               (SELECT NAME FROM vendor_master WHERE vendor_master.CODE = freight_cost_estimete_master.FGFF_VENDORID) AS FGFF_VENDOR_NAME,
               (SELECT NAME FROM vendor_master WHERE vendor_master.CODE = freight_cost_estimete_master.LUMP_VENDOR) AS LUMP_VENDOR_NAME
        FROM freight_cost_estimete_master
@@ -359,9 +442,35 @@ async function dbListOpsVcGlance({
       })),
       operatorId: row.OPERATOR_ID != null ? String(row.OPERATOR_ID) : '',
       operatorName: row.OPERATOR_NAME ?? '',
-      charteringTeam: row.CHARTERING_TEAM ?? '',
-      lastUpdatedBy: row.LUPNAME ?? '',
-      lastUpdatedAt: formatDateTime(row.L_UP_TIME),
+      charteringTeam: charteringTeamName(
+        sheet?.CHARTERING_PIC ?? row.CHARTERING_PIC ?? row.MASTER_CHARTERING_PIC,
+      ),
+      lastUpdatedBy: sheet?.LUPNAME
+        || row.LUPNAME
+        || sheet?.ADDED_NAME
+        || row.ADDED_NAME
+        || row.LATEST_ADDED_NAME
+        || await firstLoginName(
+          pool,
+          sheet?.L_UPDATED_BY,
+          row.L_UPDATED_BY,
+          row.LATEST_UPDATED_BY,
+          row.MASTER_UPDATED_BY,
+          sheet?.ADDED_BY,
+          row.ADDED_BY,
+          row.LATEST_ADDED_BY,
+          row.MASTER_ADDED_BY,
+        ),
+      lastUpdatedAt: firstDateTime(
+        sheet?.L_UP_TIME,
+        row.L_UP_TIME,
+        row.LATEST_UP_TIME,
+        row.MASTER_UP_TIME,
+        sheet?.ADD_ON_DATE,
+        row.ADD_ON_DATE,
+        row.LATEST_ADD_ON_DATE,
+        row.MASTER_ADD_ON_DATE,
+      ),
       paymentNotReceived,
       paymentNotPaid,
       status: rowStatus,
@@ -1060,6 +1169,10 @@ async function ensureCostSheetEstimate(pool, comId, costSheetId) {
           return new Date();
         case 'ADDED_BY':
           return appContext.userId || source.ADDED_BY;
+        case 'L_UP_TIME':
+          return new Date();
+        case 'L_UPDATED_BY':
+          return appContext.userId || source.L_UPDATED_BY || source.ADDED_BY;
         default:
           return source[column];
       }

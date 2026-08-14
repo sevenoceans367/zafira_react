@@ -1,6 +1,8 @@
 import { isDbConfigured } from '../config.js';
 import { dbGetCompareSheetsVc } from './compareSheetsVcDb.js';
 
+export { generateCompareSheetsVcPdf } from './compareSheetsVcPdfService.js';
+
 const MOCK = {
   comId: '1001',
   header: {

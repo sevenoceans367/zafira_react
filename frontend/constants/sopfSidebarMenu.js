@@ -4,7 +4,7 @@
 import { fleetAppPath } from './fleetModule.js';
 import { periodContractAppPath } from './periodContractModule.js';
 import { userGuidesAppPath } from './userGuidesModule.js';
-import spotIcon from '../assets/icons/spot-icon.svg';
+import spotIcon from '../assets/010-pie-chart.png';
 import fleetIcon from '../assets/vessel.png';
 import vesselPositionIcon from '../assets/vesselPosition.svg';
 import timeCharterIcon from '../assets/TIME CHARTER.png';

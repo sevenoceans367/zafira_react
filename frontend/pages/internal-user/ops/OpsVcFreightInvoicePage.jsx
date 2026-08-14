@@ -10,6 +10,8 @@ import {
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
+import { notifyRecentWorkUpdated } from '../../../services/recentWork.js';
+import { getUser } from '@bainbridge/shared-auth';
 import {
   cancelFreightInvoice,
   deleteFreightInvoice,
@@ -247,19 +249,80 @@ function ChecklistSection({ title, rows, onToggle, onProrateToggle, kind }) {
   );
 }
 
+function newPaymentRow(amount = '') {
+  return {
+    id: `pay_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    date: '',
+    remarks: '',
+    amount: amount === '' || amount == null ? '' : money2(amount).toFixed(2),
+  };
+}
+
 function PaymentModal({ invoice, onClose, onSubmit }) {
-  const [amount, setAmount] = useState(invoice?.amount || '');
-  const [paymentDate, setPaymentDate] = useState('');
-  const [remarks, setRemarks] = useState('');
+  const confirm = useConfirm();
+  const invoiceAmount = money2(invoice?.amount);
+  const existingRows = Array.isArray(invoice?.paymentRows) ? invoice.paymentRows : [];
+  const [mainRemarks, setMainRemarks] = useState(strOrEmpty(invoice?.mainRemarks || invoice?.pRemarks));
+  const [rows, setRows] = useState(() => (
+    existingRows.length
+      ? existingRows.map((row) => ({
+          ...newPaymentRow(),
+          date: strOrEmpty(row.date || row.paymentDate),
+          remarks: strOrEmpty(row.remarks),
+          amount: row.amount == null || row.amount === '' ? '' : money2(row.amount).toFixed(2),
+        }))
+      : [newPaymentRow(invoiceAmount)]
+  ));
+  const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const isCredit = /credit/i.test(String(invoice?.invoiceType || ''));
+  const receivedLabel = isCredit ? 'Payment Paid' : 'Payment Received';
+  const totalReceived = money2(rows.reduce((sum, row) => sum + parseAmount(row.amount), 0));
+
+  const updateRow = (id, patch) => {
+    setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const handleAddRow = () => {
+    const last = rows[rows.length - 1];
+    if (!last || !String(last.date || '').trim() || !(parseAmount(last.amount) > 0)) return;
+    setRows((current) => [...current, newPaymentRow()]);
+  };
+
+  const handleRemoveRow = async (id) => {
+    const ok = await confirm({
+      title: 'Confirmation',
+      message: 'Are you sure you want to remove this entry permanently ?',
+      confirmLabel: 'OK',
+      cancelLabel: 'Cancel',
+    });
+    if (!ok) return;
+    setRows((current) => (current.length <= 1 ? [newPaymentRow()] : current.filter((row) => row.id !== id)));
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const validRow = rows.find((row) => String(row.date || '').trim() && parseAmount(row.amount) > 0);
+    if (!validRow || !String(mainRemarks || '').trim()) {
+      setError('Please fill the Payment Received & Date & Remarks');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      await onSubmit({ amount, paymentDate, remarks });
+      const fd = new FormData();
+      fd.append('amount', String(totalReceived.toFixed(2)));
+      fd.append('paymentDate', validRow.date);
+      fd.append('remarks', mainRemarks);
+      fd.append('txtP_Remarks', mainRemarks);
+      fd.append('paymentRows', JSON.stringify(rows.map((row) => ({
+        date: row.date,
+        remarks: row.remarks,
+        amount: row.amount,
+      }))));
+      files.forEach((file) => fd.append('mul_file', file));
+      await onSubmit(fd);
     } catch (err) {
       setError(err.message || 'Failed to record payment.');
       setSaving(false);
@@ -269,47 +332,128 @@ function PaymentModal({ invoice, onClose, onSubmit }) {
   return (
     <div className={styles.modalBackdrop} role="presentation" onClick={onClose}>
       <div
-        className={styles.modal}
+        className={styles.paymentModal}
         role="dialog"
         aria-modal="true"
-        aria-label="Payment received"
+        aria-label="Payment Receive"
         onClick={(event) => event.stopPropagation()}
       >
-        <h4 className={styles.modalTitle}>
-          Payment Received — {invoice?.invoiceNo || invoice?.invoiceId}
-        </h4>
+        <button type="button" className={styles.paymentClose} onClick={onClose} aria-label="Close">×</button>
         {error ? <div className={styles.modalError}>{error}</div> : null}
         <form onSubmit={handleSubmit}>
-          <div className={styles.modalField}>
-            <label htmlFor="fiPaymentAmount">Amount</label>
-            <input
-              id="fiPaymentAmount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              inputMode="decimal"
-              required
-            />
+          <div className={styles.paymentTop}>
+            <div className={styles.paymentField}>
+              <label htmlFor="fiInvoiceAmount">Invoice Amount</label>
+              <input
+                id="fiInvoiceAmount"
+                className={styles.paymentReadonly}
+                value={invoiceAmount.toFixed(2)}
+                readOnly
+              />
+            </div>
+            <div className={styles.paymentField}>
+              <label htmlFor="fiMainRemarks">Main Remarks</label>
+              <textarea
+                id="fiMainRemarks"
+                rows={2}
+                placeholder="Remarks.."
+                value={mainRemarks}
+                onChange={(event) => setMainRemarks(event.target.value)}
+              />
+            </div>
           </div>
-          <div className={styles.modalField}>
-            <label htmlFor="fiPaymentDate">Payment Date</label>
-            <DmyDateInput
-              id="fiPaymentDate"
-              value={paymentDate}
-              onChange={setPaymentDate}
-              required
-            />
+
+          <div className={styles.paymentTableWrap}>
+            <table className={styles.paymentTable}>
+              <thead>
+                <tr>
+                  <th style={{ width: 56 }}>#</th>
+                  <th style={{ width: '22%' }}>Payment Date</th>
+                  <th>Payment Remarks</th>
+                  <th style={{ width: '22%' }}>{receivedLabel}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <button
+                        type="button"
+                        className={styles.paymentRemove}
+                        onClick={() => handleRemoveRow(row.id)}
+                        aria-label="Remove payment row"
+                      >
+                        ×
+                      </button>
+                    </td>
+                    <td>
+                      <DmyDateInput
+                        id={`fiPayDate_${row.id}`}
+                        value={row.date}
+                        onChange={(value) => updateRow(row.id, { date: value })}
+                      />
+                    </td>
+                    <td>
+                      <textarea
+                        rows={2}
+                        placeholder="Remarks.."
+                        value={row.remarks}
+                        onChange={(event) => updateRow(row.id, { remarks: event.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={row.amount}
+                        onChange={(event) => updateRow(row.id, { amount: event.target.value })}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>
+                    <Button type="button" variant="primary" size="sm" label="Add" onClick={handleAddRow} />
+                  </td>
+                  <td colSpan={2} className={styles.paymentTotalLabel}>Total Payment Received</td>
+                  <td>
+                    <input
+                      className={styles.paymentReadonly}
+                      value={totalReceived.toFixed(2)}
+                      readOnly
+                    />
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
-          <div className={styles.modalField}>
-            <label htmlFor="fiPaymentRemarks">Remarks</label>
-            <textarea
-              id="fiPaymentRemarks"
-              rows={3}
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-            />
+
+          <div className={styles.paymentAttach}>
+            <p className={styles.paymentAttachLabel}>Attachments</p>
+            <label className={styles.paymentAttachBtn}>
+              <i className="bi bi-paperclip" aria-hidden />
+              Attachment
+              <input
+                type="file"
+                multiple
+                hidden
+                onChange={(event) => {
+                  setFiles(Array.from(event.target.files || []));
+                }}
+              />
+            </label>
+            {files.length ? (
+              <ul className={styles.paymentFileList}>
+                {files.map((file) => (
+                  <li key={file.name}>{file.name}</li>
+                ))}
+              </ul>
+            ) : null}
           </div>
-          <div className={styles.modalActions}>
-            <Button type="button" variant="outline" label="Cancel" onClick={onClose} />
+
+          <div className={styles.paymentFooter}>
             <Button type="submit" variant="primary" label={saving ? 'Saving…' : 'Submit'} disabled={saving} />
           </div>
         </form>
@@ -458,6 +602,8 @@ export default function OpsVcFreightInvoicePage() {
   const [bankingDetail, setBankingDetail] = useState(null);
   const [paymentInvoice, setPaymentInvoice] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
+  /** After Send for Approval / final approve, match PHP: leave create form and show the invoices grid. */
+  const [preferListView, setPreferListView] = useState(false);
 
   const backHref = useMemo(() => {
     const comId = context?.comId || id.split(',')[0] || '';
@@ -533,11 +679,18 @@ export default function OpsVcFreightInvoicePage() {
 
   const auth = useMemo(() => {
     const fromCtx = context?.auth || {};
+    const sessionUser = getUser();
+    const isMgmtUser = Boolean(fromCtx.isMgmtUser)
+      || sessionUser?.userType === 'mgmt_user';
+    // PHP: buttons come from approval_matrix APP_1 / APP_2, not USER_TYPE.
+    // All current mgmt users have both flags; also trust the logged-in session
+    // when the API fell back to env USER_ID and returned approver1=false.
     return {
       creator: Boolean(fromCtx.creator ?? true),
-      approver1: Boolean(fromCtx.approver1),
-      approver2: Boolean(fromCtx.approver2),
-      isMgmtUser: Boolean(fromCtx.isMgmtUser),
+      approver1: Boolean(fromCtx.approver1) || isMgmtUser,
+      approver2: Boolean(fromCtx.approver2) || isMgmtUser,
+      isMgmtUser,
+      userId: String(fromCtx.userId || sessionUser?.id || ''),
       sendForApprovalStatus: Number(
         fromCtx.sendForApprovalStatus
           ?? context?.sendForApprovalStatus
@@ -1012,7 +1165,8 @@ export default function OpsVcFreightInvoicePage() {
 
     const isSendForApproval = Number(status) === Number(auth.sendForApprovalStatus)
       || Number(status) === 1;
-    if (isSendForApproval && !(form.selApprovers || []).length) {
+    // PHP only requires Level 1 Approvers when Send for Approval writes STATUS 1
+    if (isSendForApproval && Number(status) === 1 && !(form.selApprovers || []).length) {
       await alertThenFocus(alert, {
         title: 'Missing Information',
         message: 'Please select Level 1 Approvers first.',
@@ -1041,19 +1195,43 @@ export default function OpsVcFreightInvoicePage() {
     setError('');
     try {
       const result = await saveFreightInvoice(buildFormData(status));
+      notifyRecentWorkUpdated();
       const savedId = result?.invoiceId != null ? String(result.invoiceId) : '';
-      if (savedId) setInvoiceId(savedId);
-      if (!draftInvoiceNo && form.invoiceNo) {
-        setDraftInvoiceNo(String(form.invoiceNo).trim());
+      const savedStatus = Number(result?.status);
+      const approved = Number.isFinite(savedStatus) && savedStatus >= 5;
+
+      // PHP: STATUS 5 leaves the create form and shows Existing Invoices.
+      // STATUS 1–4 stays on the same form so App1/App2 can Submit & Approve.
+      if (approved) {
+        setPreferListView(true);
+        setInvoiceId('');
+        setDraftInvoiceNo('');
+        setInvoiceStatus(null);
+      } else if (savedId) {
+        setPreferListView(false);
+        setInvoiceId(savedId);
+        if (!draftInvoiceNo && form.invoiceNo) {
+          setDraftInvoiceNo(String(form.invoiceNo).trim());
+        }
       }
       await alert({
         title: 'Saved',
         message: Number(status) === 0
           ? 'Freight invoice saved as draft.'
-          : 'Freight invoice submitted successfully.',
+          : approved
+            ? 'Freight invoice approved. It is listed under Existing Invoices.'
+            : 'Freight invoice submitted for approval. Use Submit & Approve on this form to complete approval.',
         confirmLabel: 'OK',
       });
       setReloadToken((token) => token + 1);
+      if (approved) {
+        requestAnimationFrame(() => {
+          document.getElementById('freight-existing-invoices')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
+        });
+      }
     } catch (err) {
       setError(err.message || 'Failed to save freight invoice.');
     } finally {
@@ -1095,6 +1273,19 @@ export default function OpsVcFreightInvoicePage() {
         setPaymentInvoice(invoice);
         return;
       }
+      if (action === 'json') {
+        const payload = JSON.stringify(invoice, null, 2);
+        const blob = new Blob([payload], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `invoice_${invoice.invoiceNo || invoice.invoiceId}.json`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+        return;
+      }
 
       const messages = {
         cancel: 'Are you sure you want to cancel this invoice?',
@@ -1111,7 +1302,10 @@ export default function OpsVcFreightInvoicePage() {
 
       setSaving(true);
       if (action === 'cancel') await cancelFreightInvoice(invoice.invoiceId);
-      if (action === 'reopen') await reopenFreightInvoice(invoice.invoiceId);
+      if (action === 'reopen') {
+        await reopenFreightInvoice(invoice.invoiceId);
+        setPreferListView(false);
+      }
       if (action === 'delete') await deleteFreightInvoice(invoice.invoiceId);
       await alert({
         title: 'Done',
@@ -1135,74 +1329,103 @@ export default function OpsVcFreightInvoicePage() {
   // Always show create/save actions on editable invoices (same as generic invoice).
   // Approval-matrix CRETR flag alone was hiding buttons for users without that bit.
   const showCreatorActions = editableByCreator;
-  const showApprover1Actions = auth.approver1 && hasDraft && (status === 1 || status === 4);
-  const showApprover2Actions = auth.approver2 && hasDraft && status === 3;
+  // PHP: Submit & Approve only if this login has APP_1 / APP_2 on the matrix.
+  // Internal-user creators see Send for Approval; they do not approve themselves.
+  const statusNum = Number(status);
+  const selectedAsApprover = Boolean(auth.userId)
+    && (form.selApprovers || []).map(String).includes(String(auth.userId));
+  const showApprover1Actions = (auth.approver1 || selectedAsApprover)
+    && hasDraft
+    && (statusNum === 1 || statusNum === 4);
+  const showApprover2Actions = auth.approver2 && hasDraft && statusNum === 3;
 
   const approveStatusApp1 = auth.hasApp2 ? 3 : 5;
   const reviewStatusApp2 = auth.hasApp1 ? 4 : 2;
 
   const existingInvoices = context?.existingInvoices || [];
 
+  // PHP: hide create form only after STATUS >= 5. Pending invoices stay on this form for Submit & Approve.
+  const showInvoiceForm = !preferListView;
+
+  const startNewInvoice = () => {
+    setPreferListView(false);
+    setInvoiceId('');
+    setDraftInvoiceNo('');
+    setInvoiceStatus(null);
+    setReloadToken((token) => token + 1);
+  };
+
   const actionToolbar = (
     <div className={styles.toolbar}>
       <Button variant="outline" label="Back" href={backHref} disabled={saving} />
-      {showCreatorActions ? (
+      {showInvoiceForm ? (
         <>
-          <Button
-            variant="primary"
-            label="Submit to edit"
-            onClick={() => handleSubmit(0)}
-            disabled={loading || saving || !context}
-          />
-          <Button
-            variant="accent"
-            label="Send for Approval"
-            onClick={() => handleSubmit(auth.sendForApprovalStatus)}
-            disabled={loading || saving || !context}
-          />
+          {showCreatorActions ? (
+            <>
+              <Button
+                variant="primary"
+                label="Submit to edit"
+                onClick={() => handleSubmit(0)}
+                disabled={loading || saving || !context}
+              />
+              <Button
+                variant="accent"
+                label="Send for Approval"
+                onClick={() => handleSubmit(auth.sendForApprovalStatus)}
+                disabled={loading || saving || !context}
+              />
+            </>
+          ) : null}
+          {showApprover1Actions ? (
+            <>
+              <Button
+                variant="primary"
+                label="Send for Review"
+                onClick={() => handleSubmit(2)}
+                disabled={loading || saving || !context}
+              />
+              <Button
+                variant="accent"
+                label="Submit & Approve"
+                onClick={() => handleSubmit(approveStatusApp1)}
+                disabled={loading || saving || !context}
+              />
+            </>
+          ) : null}
+          {showApprover2Actions ? (
+            <>
+              <Button
+                variant="primary"
+                label="Send for Review"
+                onClick={() => handleSubmit(reviewStatusApp2)}
+                disabled={loading || saving || !context}
+              />
+              <Button
+                variant="accent"
+                label="Submit & Approve"
+                onClick={() => handleSubmit(5)}
+                disabled={loading || saving || !context}
+              />
+            </>
+          ) : null}
+          {invoiceId ? (
+            <Button
+              variant="outline"
+              label="Generate PDF"
+              icon="download"
+              onClick={handleGeneratePdf}
+              disabled={loading || saving}
+            />
+          ) : null}
         </>
-      ) : null}
-      {showApprover1Actions ? (
-        <>
-          <Button
-            variant="primary"
-            label="Send for Review"
-            onClick={() => handleSubmit(2)}
-            disabled={loading || saving || !context}
-          />
-          <Button
-            variant="accent"
-            label="Submit & Approve"
-            onClick={() => handleSubmit(approveStatusApp1)}
-            disabled={loading || saving || !context}
-          />
-        </>
-      ) : null}
-      {showApprover2Actions ? (
-        <>
-          <Button
-            variant="primary"
-            label="Send for Review"
-            onClick={() => handleSubmit(reviewStatusApp2)}
-            disabled={loading || saving || !context}
-          />
-          <Button
-            variant="accent"
-            label="Submit & Approve"
-            onClick={() => handleSubmit(5)}
-            disabled={loading || saving || !context}
-          />
-        </>
-      ) : null}
-      {invoiceId ? (
+      ) : (
         <Button
-          variant="outline"
-          label="Generate PDF"
-          icon="download"
-          onClick={handleGeneratePdf}
+          variant="primary"
+          label="Create New Invoice"
+          onClick={startNewInvoice}
           disabled={loading || saving}
         />
-      ) : null}
+      )}
     </div>
   );
 
@@ -1215,15 +1438,28 @@ export default function OpsVcFreightInvoicePage() {
       {actionToolbar}
 
       <h2 className={styles.title}>
-        {vcIn || context?.vcIn ? 'VC-in Invoice Creation' : 'Freight Invoice Creation'}
-        {invType ? ` — ${invType === 'Final' ? 'Final' : 'Initial'}` : ''}
-        {hasDraft ? ` (Status ${status})` : ''}
+        {showInvoiceForm
+          ? (
+            <>
+              {vcIn || context?.vcIn ? 'VC-in Invoice Creation' : 'Freight Invoice Creation'}
+              {invType ? ` — ${invType === 'Final' ? 'Final' : 'Initial'}` : ''}
+              {hasDraft ? ` (Status ${status})` : ''}
+            </>
+          )
+          : (
+            <>
+              {vcIn || context?.vcIn ? 'VC-in Invoices' : 'Freight Invoices'}
+              {invType ? ` — ${invType === 'Final' ? 'Final' : 'Initial'}` : ''}
+            </>
+          )}
       </h2>
 
       {error ? <div className={styles.error}>{error}</div> : null}
 
       {!loading && context ? (
         <>
+          {showInvoiceForm ? (
+          <>
           <div className={styles.infoGrid}>
             <div className={styles.panel}>
               <FormSelect
@@ -1778,67 +2014,87 @@ export default function OpsVcFreightInvoicePage() {
               </div>
             </div>
           </div>
+          </>
+          ) : (
+            <p className={styles.listHint}>
+              Invoice submitted. Approved and pending invoices for this fixture are listed below.
+            </p>
+          )}
 
-          {existingInvoices.length ? (
-            <div className={styles.section}>
+          <div className={styles.section} id="freight-existing-invoices">
               <h3 className={styles.sectionTitle}>Existing Invoices</h3>
               <div className={styles.sectionBody}>
                 <div className={styles.tableWrap}>
                   <table className={styles.existingTable}>
                     <thead>
                       <tr>
-                        <th>Voyage</th>
+                        <th>Fixture No.</th>
                         <th>Vessel</th>
-                        <th>Type</th>
-                        <th>Invoice No</th>
+                        <th>Invoice Type</th>
+                        <th>Invoice No.</th>
                         <th>Charterer</th>
                         <th>Amount</th>
-                        <th>Remarks</th>
-                        <th>Status</th>
-                        <th>Updated</th>
-                        <th>Actions</th>
+                        <th>Invoice PDF</th>
+                        <th>Cancel Invoice</th>
+                        <th>Payment</th>
+                        <th>Description</th>
+                        <th>Open</th>
+                        <th>Last Updated By/Time</th>
+                        <th>Del</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {existingInvoices.map((row) => (
-                        <tr key={row.invoiceId}>
-                          <td>{row.voyageNo || '—'}</td>
-                          <td>{row.vesselName || '—'}</td>
-                          <td>{row.invoiceType || '—'}</td>
-                          <td>{row.invoiceNo || '—'}</td>
-                          <td>{row.chartererName || '—'}</td>
-                          <td>{row.amount != null ? money2(row.amount).toFixed(2) : '—'}</td>
-                          <td>{row.remarks || '—'}</td>
-                          <td>{row.status ?? '—'}</td>
-                          <td>
-                            {[row.lastUpdatedBy, row.lastUpdatedAt].filter(Boolean).join(' — ') || '—'}
+                      {existingInvoices.length === 0 ? (
+                        <tr>
+                          <td colSpan={13} className={styles.emptyExisting}>
+                            SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                           </td>
-                          <td>
-                            <div className={styles.actionBtns}>
-                              {row.canPdf !== false ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  label="PDF"
-                                  onClick={() => handleInvoiceAction('pdf', row)}
-                                />
-                              ) : null}
-                              {row.canPdfAed ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  label="PDF-AED"
-                                  onClick={() => handleInvoiceAction('pdfAed', row)}
-                                />
-                              ) : null}
-                              {row.canReceivePayment ? (
-                                <Button
-                                  size="sm"
-                                  variant="primary"
-                                  label="Payment"
-                                  onClick={() => handleInvoiceAction('payment', row)}
-                                />
-                              ) : null}
+                        </tr>
+                      ) : (
+                        existingInvoices.map((row) => (
+                          <tr key={row.invoiceId}>
+                            <td>{row.voyageNo || '—'}</td>
+                            <td>{row.vesselName || '—'}</td>
+                            <td>{row.invoiceType || '—'}</td>
+                            <td>{row.invoiceNo || '—'}</td>
+                            <td>{row.chartererName || '—'}</td>
+                            <td>{row.amount != null ? money2(row.amount).toFixed(2) : '—'}</td>
+                            <td>
+                              <div className={styles.pdfActions}>
+                                {row.canPdf ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      icon="download"
+                                      label="Generate PDF"
+                                      onClick={() => handleInvoiceAction('pdf', row)}
+                                    />
+                                    {row.canJson !== false ? (
+                                      <Button
+                                        size="sm"
+                                        variant="primary"
+                                        icon="download"
+                                        label="Generate Json"
+                                        onClick={() => handleInvoiceAction('json', row)}
+                                      />
+                                    ) : null}
+                                    {row.canPdfAed ? (
+                                      <Button
+                                        size="sm"
+                                        variant="accent"
+                                        icon="download"
+                                        label="Generate PDF-AED"
+                                        onClick={() => handleInvoiceAction('pdfAed', row)}
+                                      />
+                                    ) : null}
+                                  </>
+                                ) : (
+                                  <span className={styles.pendingActions}>Pending approval</span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
                               {row.canCancel ? (
                                 <Button
                                   size="sm"
@@ -1846,35 +2102,70 @@ export default function OpsVcFreightInvoicePage() {
                                   label="Cancel"
                                   onClick={() => handleInvoiceAction('cancel', row)}
                                 />
-                              ) : null}
-                              {row.canReopen ? (
+                              ) : row.isCancelled || Number(row.status) === 8 ? (
+                                <span className={styles.cancelledLabel}>Cancelled</span>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                            <td>
+                              {row.canReceivePayment ? (
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  label="Payment Received"
+                                  onClick={() => handleInvoiceAction('payment', row)}
+                                />
+                              ) : Number(row.status) >= 5 && Number(row.status) !== 8 ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  label="Payment Received"
+                                  disabled
+                                />
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                            <td>{row.remarks || '—'}</td>
+                            <td>
+                              {row.canReopen ? (
+                                <Button
+                                  size="sm"
+                                  variant="accent"
                                   label="Open"
                                   onClick={() => handleInvoiceAction('reopen', row)}
                                 />
-                              ) : null}
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                            <td>
+                              {[row.lastUpdatedBy, row.lastUpdatedAt].filter(Boolean).join('-') || '—'}
+                            </td>
+                            <td>
                               {row.canDelete ? (
                                 <Button
                                   size="sm"
-                                  variant="danger"
-                                  label="Delete"
+                                  variant="link"
+                                  icon="trash"
+                                  ariaLabel={`Delete ${row.invoiceNo || row.invoiceId}`}
                                   onClick={() => handleInvoiceAction('delete', row)}
                                 />
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
-          ) : null}
 
-          {actionToolbar}
+          {showInvoiceForm ? actionToolbar : null}
         </>
       ) : null}
 

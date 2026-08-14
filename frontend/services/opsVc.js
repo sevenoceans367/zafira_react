@@ -519,3 +519,22 @@ export async function fetchCompareSheetsVc(comId) {
   const response = await fetch(`${BASE}/ops/compare-sheets${toQuery({ comId })}`);
   return parseJson(response, 'Failed to load compare sheets.');
 }
+
+export async function downloadCompareSheetsVcPdf(comId) {
+  const response = await fetch(`${BASE}/ops/compare-sheets/pdf${toQuery({ comId })}`);
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || 'Failed to generate Compare Sheet PDF.');
+  }
+  const blob = await response.blob();
+  const disposition = response.headers.get('Content-Disposition') || '';
+  const filename = disposition.match(/filename="?([^"]+)"?/i)?.[1] || 'Compare-Sheet-Vc.pdf';
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}

@@ -34,6 +34,15 @@
   font-size: 12px;
 }
 
+.listHint {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #cfe2ff;
+  background: #eef5ff;
+  color: #1e3a5f;
+  font-size: 13px;
+}
+
 .infoGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -390,6 +399,37 @@
   gap: 6px;
 }
 
+.pdfActions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.emptyExisting {
+  text-align: center;
+  color: #dc2626;
+  letter-spacing: 0.04em;
+  padding: 18px 10px !important;
+  font-weight: 600;
+}
+
+.pendingActions {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.cancelledLabel {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .modalBackdrop {
   position: fixed;
   inset: 0;
@@ -399,6 +439,147 @@
   justify-content: center;
   padding: 16px;
   background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  width: min(420px, 100%);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+  padding: 16px 18px;
+}
+
+.paymentModal {
+  position: relative;
+  width: min(920px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+  padding: 28px 24px 18px;
+}
+
+.paymentClose {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.paymentTop {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(280px, 2fr);
+  gap: 16px 24px;
+  margin-bottom: 16px;
+}
+
+.paymentField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.paymentField label,
+.paymentAttachLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.paymentField input,
+.paymentField textarea,
+.paymentTable input,
+.paymentTable textarea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font: inherit;
+  background: #fff;
+}
+
+.paymentReadonly {
+  background: #eeeeee !important;
+}
+
+.paymentTableWrap {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.paymentTable {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.paymentTable th,
+.paymentTable td {
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+  vertical-align: middle;
+}
+
+.paymentTable thead th {
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  color: #4b5563;
+}
+
+.paymentRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: #dc2626;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.paymentTotalLabel {
+  font-weight: 600;
+  color: #111827;
+}
+
+.paymentAttach {
+  margin-bottom: 18px;
+}
+
+.paymentAttachBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 4px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.paymentFileList {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.paymentFooter {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .modal {

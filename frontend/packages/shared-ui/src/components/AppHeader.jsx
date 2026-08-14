@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchRecentWork } from '../services/recentWork.js';
-import { fetchUserAlerts } from '../services/userAlerts.js';
+import { dismissUserAlert, fetchUserAlerts } from '../services/userAlerts.js';
 import styles from './AppHeader.module.css';
 
 const AppHeader = ({
@@ -15,6 +15,7 @@ const AppHeader = ({
   const [recentActivity, setRecentActivity] = useState([]);
   const [recentActivityLoading, setRecentActivityLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [holdNotifications, setHoldNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [pageTrail, setPageTrail] = useState(null);
   const profileRef = useRef(null);
@@ -24,7 +25,11 @@ const AppHeader = ({
     try {
       setRecentActivityLoading(true);
       const data = await fetchRecentWork();
-      setRecentActivity(Array.isArray(data) ? data.slice(0, 10) : []);
+      const rows = (Array.isArray(data) ? data : []).map((item) => ({
+        work: item.work || item.WORK || item.message || '',
+        datetime: item.datetime || item.WORK_DATE || item.date || '',
+      })).filter((item) => item.work);
+      setRecentActivity(rows.slice(0, 10));
     } catch (error) {
       console.error('Failed to load recent work:', error);
       setRecentActivity([]);
@@ -37,14 +42,21 @@ const AppHeader = ({
     try {
       setNotificationsLoading(true);
       const data = await fetchUserAlerts();
-      setNotifications(Array.isArray(data) ? data.slice(0, 10) : []);
+      setNotifications(Array.isArray(data.alerts) ? data.alerts : []);
+      setHoldNotifications(Array.isArray(data.holds) ? data.holds : []);
     } catch (error) {
       console.error('Failed to load notifications:', error);
       setNotifications([]);
+      setHoldNotifications([]);
     } finally {
       setNotificationsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    loadRecentActivity();
+    loadNotifications();
+  }, [loadRecentActivity, loadNotifications]);
 
   useEffect(() => {
     const handlePageHeaderChange = (event) => {
@@ -57,23 +69,19 @@ const AppHeader = ({
 
   useEffect(() => {
     const onRecentWorkUpdated = () => {
-      if (activeDropdown === 'history') {
-        loadRecentActivity();
-      }
+      loadRecentActivity();
     };
     window.addEventListener('recent-work-updated', onRecentWorkUpdated);
     return () => window.removeEventListener('recent-work-updated', onRecentWorkUpdated);
-  }, [activeDropdown, loadRecentActivity]);
+  }, [loadRecentActivity]);
 
   useEffect(() => {
     const onAlertsUpdated = () => {
-      if (activeDropdown === 'activity') {
-        loadNotifications();
-      }
+      loadNotifications();
     };
     window.addEventListener('alerts-updated', onAlertsUpdated);
     return () => window.removeEventListener('alerts-updated', onAlertsUpdated);
-  }, [activeDropdown, loadNotifications]);
+  }, [loadNotifications]);
 
   const handleDropdown = (e, menu) => {
     e.preventDefault();
@@ -113,9 +121,55 @@ const AppHeader = ({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [activeDropdown]);
 
+  const handleAlertClick = (item) => {
+    if (item?.alertId) {
+      dismissUserAlert(item.alertId);
+      setNotifications((current) => current.filter((row) => String(row.alertId) !== String(item.alertId)));
+      setHoldNotifications((current) => current.filter((row) => String(row.alertId) !== String(item.alertId)));
+    }
+    setActiveDropdown(null);
+  };
+
+  const renderAlertItem = (item) => {
+    const body = (
+      <>
+        <span className={styles.drawerIcon}>
+          <i className="bi bi-bell-fill"></i>
+        </span>
+        <span>
+          <strong>{item.title}</strong>
+          {item.message ? <small className={styles.drawerMessage}>{item.message}</small> : null}
+          <small>{item.datetime}</small>
+        </span>
+      </>
+    );
+    if (item.href) {
+      const isAppRoute = item.href.startsWith('/internal-user/') || item.href.startsWith('/profile');
+      const className = styles.drawerLink;
+      const onClick = () => handleAlertClick(item);
+      return (
+        <li key={item.alertId} className={styles.drawerItem}>
+          {isAppRoute ? (
+            <Link to={item.href} className={className} onClick={onClick}>
+              {body}
+            </Link>
+          ) : (
+            <a href={item.href} className={className} onClick={onClick}>
+              {body}
+            </a>
+          )}
+        </li>
+      );
+    }
+    return (
+      <li key={item.alertId} className={styles.drawerItem}>
+        {body}
+      </li>
+    );
+  };
   const activityCount = recentActivity.length;
   const activityBadgeCount = activityCount > 9 ? '9+' : activityCount;
-  const notificationCount = notifications.length;
+  const notificationCount = notifications.length + holdNotifications.length;
   const notificationBadgeCount = notificationCount > 9 ? '9+' : notificationCount;
   const userInitial = (userLabel.trim().charAt(0) || 'U').toUpperCase();
   const middleCrumbs = (pageTrail?.breadcrumbs ?? []).filter(
@@ -300,18 +354,7 @@ const AppHeader = ({
             <section>
               <h3 className={styles.drawerTitle}>Notifications</h3>
               <ul className={styles.drawerList}>
-                {notifications.map((item) => (
-                  <li key={item.alertId} className={styles.drawerItem}>
-                    <span className={styles.drawerIcon}>
-                      <i className="bi bi-bell-fill"></i>
-                    </span>
-                    <span>
-                      <strong>{item.title}</strong>
-                      {item.message ? <small className={styles.drawerMessage}>{item.message}</small> : null}
-                      <small>{item.datetime}</small>
-                    </span>
-                  </li>
-                ))}
+                {notifications.map(renderAlertItem)}
                 {notificationsLoading && (
                   <li className={styles.drawerItem}>
                     <span className={styles.drawerIcon}>
@@ -330,9 +373,12 @@ const AppHeader = ({
             </section>
 
             <section className={styles.drawerSection}>
-              <h3 className={styles.drawerTitle}>Tasks</h3>
+              <h3 className={styles.drawerTitle}>On Hold</h3>
               <ul className={styles.drawerList}>
-                <li className={styles.drawerEmpty}>No tasks available.</li>
+                {holdNotifications.map(renderAlertItem)}
+                {!notificationsLoading && holdNotifications.length === 0 && (
+                  <li className={styles.drawerEmpty}>No held payments.</li>
+                )}
               </ul>
             </section>
           </aside>

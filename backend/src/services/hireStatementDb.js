@@ -2,6 +2,7 @@ import { appContext, isMgmtUser } from '../config.js';
 import { getPool } from '../db.js';
 import { formatDateDMY } from './estimateListMappers.js';
 import { dbGetVendorBanking } from './genericFinancesDb.js';
+import { dbLogRecentWork } from './userAlertsDb.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -228,6 +229,125 @@ async function getVendorRow(pool, code) {
     [code],
   ).catch(() => [[null]]);
   return row || null;
+}
+
+async function getPortName(pool, portId) {
+  if (!portId) return '';
+  const [[row]] = await pool.query(
+    `SELECT PortName FROM port_master WHERE PortId = ? LIMIT 1`,
+    [portId],
+  ).catch(() => [[null]]);
+  return str(row?.PortName);
+}
+
+async function getPortNames(pool, fcaId) {
+  if (!fcaId) return { loadPorts: '', dischargePorts: '' };
+  const [legs] = await pool.query(
+    `SELECT FROM_PORT, TO_PORT, LOAD_PORT_QTY, DISC_PORT_QTY
+     FROM freight_cost_estimete_slave1
+     WHERE FCAID = ?
+     ORDER BY FCA_SLAVEID`,
+    [fcaId],
+  ).catch(() => [[]]);
+
+  const load = [];
+  const disc = [];
+  for (const leg of legs || []) {
+    if (Number(leg.LOAD_PORT_QTY) > 0 && leg.FROM_PORT) {
+      const name = await getPortName(pool, leg.FROM_PORT);
+      if (name) load.push(name);
+    }
+    if (Number(leg.DISC_PORT_QTY) > 0 && (leg.TO_PORT || leg.FROM_PORT)) {
+      const name = await getPortName(pool, leg.TO_PORT || leg.FROM_PORT);
+      if (name) disc.push(name);
+    }
+  }
+  return {
+    loadPorts: [...new Set(load)].join(', '),
+    dischargePorts: [...new Set(disc)].join(', '),
+  };
+}
+
+function mapBunkerRow(row) {
+  const qty = parseAmount(row.BUNKER_QTY ?? row.QTY);
+  const price = parseAmount(row.BUNKER_PRICE ?? row.PRICE);
+  const amount = money2(row.BUNKER_AMT ?? row.AMOUNT ?? qty * price);
+  return {
+    bunkerId: str(row.BUNKERID),
+    qty,
+    price,
+    amount,
+  };
+}
+
+function parseBunkerRows(rows) {
+  return parseJsonArray(rows)
+    .map((row) => ({
+      bunkerId: str(row.bunkerId || row.BUNKERID || ''),
+      qty: parseAmount(row.qty ?? row.BUNKER_QTY ?? row.QTY),
+      price: parseAmount(row.price ?? row.BUNKER_PRICE ?? row.PRICE),
+      amount: money2(row.amount ?? row.BUNKER_AMT ?? row.AMOUNT),
+    }))
+    .filter((row) => row.bunkerId || row.qty || row.price || row.amount);
+}
+
+async function loadBunkerRows(pool, { invoiceId, fcaId }) {
+  const empty = { bunkerDelRows: [], bunkerRedelRows: [], bunkerOverRows: [] };
+  if (invoiceId) {
+    const [rows] = await pool.query(
+      `SELECT BUNKERID, BUNKER_QTY, BUNKER_PRICE, BUNKER_AMT, IDENTIFY
+       FROM invoice_hire_slave2
+       WHERE INVOICEID = ?`,
+      [invoiceId],
+    ).catch(() => [[]]);
+    if (rows?.length) {
+      const bunkerDelRows = [];
+      const bunkerRedelRows = [];
+      const bunkerOverRows = [];
+      for (const row of rows) {
+        const identify = String(row.IDENTIFY || '').toUpperCase();
+        const mapped = mapBunkerRow(row);
+        if (identify === 'REDEL') bunkerRedelRows.push(mapped);
+        else if (identify === 'OVERCONSP') bunkerOverRows.push(mapped);
+        else bunkerDelRows.push(mapped);
+      }
+      return { bunkerDelRows, bunkerRedelRows, bunkerOverRows };
+    }
+  }
+  if (!fcaId) return empty;
+  const [rows] = await pool.query(
+    `SELECT BUNKERID, QTY, PRICE, AMOUNT, IDENTITY
+     FROM freight_cost_estimete_slave13
+     WHERE FCAID = ? AND IDENTITY IN ('DEL', 'REDEL')`,
+    [fcaId],
+  ).catch(() => [[]]);
+  const bunkerDelRows = [];
+  const bunkerRedelRows = [];
+  for (const row of rows || []) {
+    const mapped = mapBunkerRow(row);
+    if (String(row.IDENTITY || '').toUpperCase() === 'REDEL') bunkerRedelRows.push(mapped);
+    else bunkerDelRows.push(mapped);
+  }
+  return { bunkerDelRows, bunkerRedelRows, bunkerOverRows: [] };
+}
+
+async function loadDefaultHoldRows(pool, fcaId) {
+  if (!fcaId) return [{ description: 'ILOHC', amount: 0 }];
+  const [[row]] = await pool.query(
+    `SELECT RAW_AMOUNT
+     FROM freight_cost_estimete_slave3
+     WHERE FCAID = ? AND IDENTIFY = 'ORC' AND IDENTY_ID = 12
+     LIMIT 1`,
+    [fcaId],
+  ).catch(() => [[null]]);
+  return [{ description: 'ILOHC', amount: money2(row?.RAW_AMOUNT) }];
+}
+
+function defaultSurveyRows() {
+  return [
+    { description: 'Joint On-Hire Survey', amount: 0, chkOwnerAcc: false },
+    { description: 'Joint Off-Hire Survey', amount: 0, chkOwnerAcc: false },
+  ];
 }
 
 async function getFixtureOptions(pool) {
@@ -627,7 +747,7 @@ async function loadEstimateHireDays(pool, {
   return result;
 }
 
-function mapDraftInvoice(row, lineRows, adjRows, offhireRows, hireDayRows) {
+function mapDraftInvoice(row, lineRows, adjRows, offhireRows, hireDayRows, bunkerRows = {}) {
   return {
     invoiceId: String(row.INVOICEID),
     status: Number(row.STATUS) || 0,
@@ -675,7 +795,7 @@ function mapDraftInvoice(row, lineRows, adjRows, offhireRows, hireDayRows) {
     pRemarks: str(row.P_REMARKS),
     selApprovers: parseApprovers(row.APPROVERS),
     creator: str(row.CREATOR),
-    lastUpdatedBy: str(row.L_UPDATED_BY),
+    lastUpdatedBy: str(row.UPDATED_BY_NAME || row.L_UPDATED_BY),
     lastUpdatedAt: str(row.L_UP_TIME),
     hireDayRows,
     addRows: lineRows.addRows,
@@ -685,25 +805,34 @@ function mapDraftInvoice(row, lineRows, adjRows, offhireRows, hireDayRows) {
     adjAddRows: adjRows.adjAddRows,
     adjSubRows: adjRows.adjSubRows,
     offhireRows,
+    bunkerDelRows: bunkerRows.bunkerDelRows || [],
+    bunkerRedelRows: bunkerRows.bunkerRedelRows || [],
+    bunkerOverRows: bunkerRows.bunkerOverRows || [],
   };
 }
 
 async function findDraftInvoice(pool, { invoiceId, comId }) {
   if (invoiceId) {
     const [[row]] = await pool.query(
-      `SELECT * FROM invoice_hire_master WHERE INVOICEID = ? LIMIT 1`,
+      `SELECT m.*, l.CONTACT_PERSON AS UPDATED_BY_NAME
+       FROM invoice_hire_master m
+       LEFT JOIN login l ON l.LOGINID = m.L_UPDATED_BY
+       WHERE m.INVOICEID = ?
+       LIMIT 1`,
       [invoiceId],
     ).catch(() => [[null]]);
     return row || null;
   }
   if (!comId) return null;
   const [[row]] = await pool.query(
-    `SELECT * FROM invoice_hire_master
-     WHERE COMID = ?
-       AND MODULEID = ?
-       AND MCOMPANYID = ?
-       AND STATUS < 5
-     ORDER BY INVOICEID DESC
+    `SELECT m.*, l.CONTACT_PERSON AS UPDATED_BY_NAME
+     FROM invoice_hire_master m
+     LEFT JOIN login l ON l.LOGINID = m.L_UPDATED_BY
+     WHERE m.COMID = ?
+       AND m.MODULEID = ?
+       AND m.MCOMPANYID = ?
+       AND m.STATUS < 5
+     ORDER BY m.INVOICEID DESC
      LIMIT 1`,
     [comId, MODULE_ID, COMPANY_ID],
   ).catch(() => [[null]]);
@@ -778,6 +907,12 @@ async function insertHireSlaves(conn, invoiceId, {
   offhireRows,
   chkOffhire,
   periodId,
+  bunkerDelRows = [],
+  bunkerRedelRows = [],
+  bunkerOverRows = [],
+  chkDelivery = 0,
+  chkRedelivery = 0,
+  chkOverconsp = 0,
 }) {
   for (const row of hireDayRows) {
     await conn.query(
@@ -866,6 +1001,30 @@ async function insertHireSlaves(conn, invoiceId, {
       );
     }
   }
+
+  const bunkerSets = [
+    { rows: chkDelivery ? bunkerDelRows : [], identify: 'DEL' },
+    { rows: chkRedelivery ? bunkerRedelRows : [], identify: 'REDEL' },
+    { rows: chkOverconsp ? bunkerOverRows : [], identify: 'OVERCONSP' },
+  ];
+  for (const set of bunkerSets) {
+    for (const row of set.rows) {
+      if (!row.bunkerId && !row.qty && !row.amount) continue;
+      await conn.query(
+        `INSERT INTO invoice_hire_slave2
+           (INVOICEID, BUNKERID, BUNKER_QTY, BUNKER_PRICE, BUNKER_AMT, IDENTIFY)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          invoiceId,
+          row.bunkerId || null,
+          row.qty || 0,
+          row.price || 0,
+          row.amount || money2((row.qty || 0) * (row.price || 0)),
+          set.identify,
+        ],
+      );
+    }
+  }
 }
 
 function computeHireTotals({
@@ -877,12 +1036,18 @@ function computeHireTotals({
   adjAddRows,
   adjSubRows,
   offhireRows,
+  bunkerDelRows = [],
+  bunkerRedelRows = [],
+  bunkerOverRows = [],
   cve,
   addCommPer,
   broCommPer,
   chkOffhire,
   chkBallastBonus,
   ballastBonus,
+  chkDelivery = 0,
+  chkRedelivery = 0,
+  chkOverconsp = 0,
 }) {
   const hireDays = days5(hireDayRows.reduce((sum, row) => sum + parseAmount(row.utilisedDays), 0));
   const hireAmt = money2(hireDayRows.reduce((sum, row) => sum + parseAmount(row.hireAmt), 0));
@@ -902,6 +1067,15 @@ function computeHireTotals({
   );
   const adjAdd = money2(adjAddRows.reduce((sum, row) => sum + parseAmount(row.amount), 0));
   const adjSub = money2(adjSubRows.reduce((sum, row) => sum + parseAmount(row.amount), 0));
+  const bunkerDel = chkDelivery
+    ? money2(bunkerDelRows.reduce((sum, row) => sum + parseAmount(row.amount), 0))
+    : 0;
+  const bunkerRedel = chkRedelivery
+    ? money2(bunkerRedelRows.reduce((sum, row) => sum + parseAmount(row.amount), 0))
+    : 0;
+  const bunkerOver = chkOverconsp
+    ? money2(bunkerOverRows.reduce((sum, row) => sum + parseAmount(row.amount), 0))
+    : 0;
   const offhireDays = chkOffhire
     ? days5(offhireRows.reduce((sum, row) => sum + parseAmount(row.days), 0))
     : 0;
@@ -918,11 +1092,14 @@ function computeHireTotals({
     + holdTotal
     + surveyAdd
     + adjAdd
+    + bunkerDel
     - addCommAmt
     - broCommAmt
     - subTotal
     - surveyLess
     - adjSub
+    - bunkerRedel
+    - bunkerOver
     - offhireAmt,
   );
   return {
@@ -934,6 +1111,9 @@ function computeHireTotals({
     offhireDays,
     offhireAmt,
     offhireCveAmt,
+    bunkerDel,
+    bunkerRedel,
+    bunkerOver,
     finalAmt,
   };
 }
@@ -954,66 +1134,76 @@ export async function dbGetHireStatementForm({
     throw Object.assign(new Error('COMID is required.'), { status: 400 });
   }
 
+  // PHP invoice_hire.php: getLatestCostSheetID(comid) then viewFreightCostEstimationTempleteRecordsNew.
+  // Do not join compare.VESSEL_IMO_ID / DTCVENDORID — those columns are not on freight_cost_estimate_compare.
+  let latest = null;
+  try {
+    const [rows] = await pool.query(
+      `SELECT m.FCAID, m.COMID, m.TRANS_DATE, m.CP_DATE, m.TC_CP_DATE, m.VESSEL_IMO_ID, m.VOYAGE_NO, m.TC_NO,
+              m.HIREAGE_PERCENT, m.HIERAGE_CVE, m.HIERAGE_BROKER_PERCENT, m.BALLAST_BONUS,
+              m.FINAL_HIERAGE_AMOUNT, m.TC_HIRE_DAYS, m.TOTAL_DAYS, m.PERIODID, m.EXPECTED_HIRE,
+              m.EXCHANGE_RATE, m.DTCVENDORID, m.TC_DELIVERY_RANGE, m.TC_RE_DELIVERY_RANGE,
+              m.TC_DELIVERY_DATE, m.TC_RE_DELIVERY_DATE, vim.VESSEL_NAME
+       FROM freight_cost_estimete_master m
+       LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+       WHERE CAST(m.COMID AS CHAR) = CAST(? AS CHAR) AND m.MODULEID = ?
+       ORDER BY m.FCAID DESC
+       LIMIT 1`,
+      [resolvedComId, MODULE_ID],
+    );
+    latest = rows?.[0] || null;
+  } catch {
+    const [rows] = await pool.query(
+      `SELECT m.FCAID, m.COMID, m.TRANS_DATE, m.CP_DATE, m.TC_CP_DATE, m.VESSEL_IMO_ID, m.VOYAGE_NO, m.TC_NO,
+              m.HIREAGE_PERCENT, m.HIERAGE_CVE, m.HIERAGE_BROKER_PERCENT, m.BALLAST_BONUS,
+              m.FINAL_HIERAGE_AMOUNT, m.TC_HIRE_DAYS, m.TOTAL_DAYS, m.PERIODID, m.EXPECTED_HIRE,
+              m.EXCHANGE_RATE, m.DTCVENDORID, vim.VESSEL_NAME
+       FROM freight_cost_estimete_master m
+       LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+       WHERE CAST(m.COMID AS CHAR) = CAST(? AS CHAR) AND m.MODULEID = ?
+       ORDER BY m.FCAID DESC
+       LIMIT 1`,
+      [resolvedComId, MODULE_ID],
+    );
+    latest = rows?.[0] || null;
+  }
+
   const [[compare]] = await pool.query(
-    `SELECT c.*, m.VOYAGE_NO AS MASTER_VOYAGE_NO, m.VESSEL_IMO_ID AS MASTER_VESSEL_IMO_ID,
-            m.TRANS_DATE, m.CP_DATE AS MASTER_CP_DATE, m.TC_CP_DATE, m.TC_NO,
-            m.HIREAGE_PERCENT, m.HIERAGE_CVE, m.HIERAGE_BROKER_PERCENT, m.BALLAST_BONUS,
-            m.FINAL_HIERAGE_AMOUNT, m.TC_HIRE_DAYS, m.TOTAL_DAYS, m.PERIODID,
-            m.EXPECTED_HIRE, m.EXCHANGE_RATE AS MASTER_EXCHANGE_RATE, m.DTCVENDORID AS MASTER_DTCVENDORID,
-            m.FCAID AS MASTER_FCAID, vim.VESSEL_NAME
+    `SELECT c.COMID, c.FCAID, c.MESSAGE, c.OPERATOR
      FROM freight_cost_estimate_compare c
-     LEFT JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
-     LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = COALESCE(m.VESSEL_IMO_ID, c.VESSEL_IMO_ID)
-     WHERE c.COMID = ? AND c.MODULEID = ?
+     WHERE CAST(c.COMID AS CHAR) = CAST(? AS CHAR) AND c.MODULEID = ?
      LIMIT 1`,
     [resolvedComId, MODULE_ID],
-  ).catch(() => [[null]]);
+  );
 
-  if (!compare?.COMID) {
+  if (!latest?.FCAID && !compare?.COMID) {
     throw Object.assign(new Error('VC nomination not found.'), { status: 404 });
   }
 
-  const [[latest]] = await pool.query(
-    `SELECT FCAID, TRANS_DATE, CP_DATE, TC_CP_DATE, VESSEL_IMO_ID, VOYAGE_NO, TC_NO,
-            HIREAGE_PERCENT, HIERAGE_CVE, HIERAGE_BROKER_PERCENT, BALLAST_BONUS,
-            FINAL_HIERAGE_AMOUNT, TC_HIRE_DAYS, TOTAL_DAYS, PERIODID, EXPECTED_HIRE,
-            EXCHANGE_RATE, DTCVENDORID
-     FROM freight_cost_estimete_master
-     WHERE COMID = ? AND MODULEID = ?
-     ORDER BY FCAID DESC
-     LIMIT 1`,
-    [resolvedComId, MODULE_ID],
-  ).catch(() => [[null]]);
-
-  const fcaId = str(compare.FCAID || compare.MASTER_FCAID || latest?.FCAID);
-  const vendorId = str(compare.DTCVENDORID || compare.MASTER_DTCVENDORID || latest?.DTCVENDORID);
+  const fcaId = str(latest?.FCAID || compare?.FCAID);
+  const vendorId = str(latest?.DTCVENDORID);
   const vendor = await getVendorRow(pool, vendorId);
   const vendorInternalId = vendor?.VENDORID != null ? String(vendor.VENDORID) : '';
   const voyage = str(voyageNo)
-    || str(compare.MASTER_VOYAGE_NO)
     || str(latest?.VOYAGE_NO)
-    || str(compare.MESSAGE);
-  const vesselName = str(compare.VESSEL_NAME);
-  const vesselImoId = str(compare.MASTER_VESSEL_IMO_ID || latest?.VESSEL_IMO_ID || compare.VESSEL_IMO_ID);
+    || str(compare?.MESSAGE);
+  const vesselName = str(latest?.VESSEL_NAME);
+  const vesselImoId = str(latest?.VESSEL_IMO_ID);
   const cpDate = blankDate(
-    compare.TC_CP_DATE
-    || latest?.TC_CP_DATE
-    || compare.TRANS_DATE
+    latest?.TC_CP_DATE
     || latest?.TRANS_DATE
-    || compare.MASTER_CP_DATE
-    || latest?.CP_DATE
-    || compare.CP_DATE,
+    || latest?.CP_DATE,
   );
-  const nomMessage = str(compare.MESSAGE);
-  const tcNo = str(compare.TC_NO || latest?.TC_NO);
-  const periodId = str(compare.PERIODID || latest?.PERIODID);
-  const dailyHireRate = parseAmount(compare.EXPECTED_HIRE || latest?.EXPECTED_HIRE);
-  const cve = parseAmount(compare.HIERAGE_CVE || latest?.HIERAGE_CVE);
-  const addCommPer = parseAmount(compare.HIREAGE_PERCENT || latest?.HIREAGE_PERCENT);
-  const broCommPer = parseAmount(compare.HIERAGE_BROKER_PERCENT || latest?.HIERAGE_BROKER_PERCENT);
-  const ballastBonus = parseAmount(compare.BALLAST_BONUS || latest?.BALLAST_BONUS);
-  const finalHireage = parseAmount(compare.FINAL_HIERAGE_AMOUNT || latest?.FINAL_HIERAGE_AMOUNT);
-  const estHireDays = parseAmount(compare.TC_HIRE_DAYS || latest?.TC_HIRE_DAYS || compare.TOTAL_DAYS || latest?.TOTAL_DAYS);
+  const nomMessage = str(compare?.MESSAGE);
+  const tcNo = str(latest?.TC_NO);
+  const periodId = str(latest?.PERIODID);
+  const dailyHireRate = parseAmount(latest?.EXPECTED_HIRE);
+  const cve = parseAmount(latest?.HIERAGE_CVE);
+  const addCommPer = parseAmount(latest?.HIREAGE_PERCENT);
+  const broCommPer = parseAmount(latest?.HIERAGE_BROKER_PERCENT);
+  const ballastBonus = parseAmount(latest?.BALLAST_BONUS);
+  const finalHireage = parseAmount(latest?.FINAL_HIERAGE_AMOUNT);
+  const estHireDays = parseAmount(latest?.TC_HIRE_DAYS || latest?.TOTAL_DAYS);
 
   const [orcOptions] = await pool.query(
     `SELECT OWNER_RCOSTID AS id, NAME AS name
@@ -1044,6 +1234,18 @@ export async function dbGetHireStatementForm({
     vendorBanking = await dbGetVendorBanking(vendorInternalId).catch(() => []);
   }
 
+  const [bunkerGrades] = await pool.query(
+    `SELECT BUNKERGRADEID AS id, NAME AS name
+     FROM bunker_grade_master
+     ORDER BY NAME`,
+  ).catch(() => [[]]);
+
+  const ports = await getPortNames(pool, fcaId);
+  const deliveryPort = str(latest?.TC_DELIVERY_RANGE);
+  const redeliveryPort = str(latest?.TC_RE_DELIVERY_RANGE);
+  const deliveryDate = formatDateTimeDMY(latest?.TC_DELIVERY_DATE);
+  const redeliveryDate = formatDateTimeDMY(latest?.TC_RE_DELIVERY_DATE);
+
   const draft = await findDraftInvoice(pool, { comId: resolvedComId });
   const hireDayRows = await loadEstimateHireDays(pool, {
     fcaId,
@@ -1051,13 +1253,17 @@ export async function dbGetHireStatementForm({
     draftInvoiceId: draft?.INVOICEID,
     fallbackRate: dailyHireRate,
   });
+  const bunkerRows = await loadBunkerRows(pool, {
+    invoiceId: draft?.INVOICEID,
+    fcaId,
+  });
 
   let currentInvoice = null;
   if (draft) {
     const lineRows = await loadSlave1Rows(pool, draft.INVOICEID);
     const adjRows = await loadAdjRows(pool, draft.INVOICEID);
     const offhireRows = await loadOffhireRows(pool, draft.INVOICEID);
-    currentInvoice = mapDraftInvoice(draft, lineRows, adjRows, offhireRows, hireDayRows);
+    currentInvoice = mapDraftInvoice(draft, lineRows, adjRows, offhireRows, hireDayRows, bunkerRows);
   }
 
   const existingInvoices = await loadExistingInvoices(pool, {
@@ -1067,11 +1273,27 @@ export async function dbGetHireStatementForm({
     mgmt: Boolean(mgmtUser),
   });
 
+  const remainingDaysToStatement = days5(
+    hireDayRows.reduce((sum, row) => (
+      sum + Math.max(0, parseAmount(row.remainingDays) - parseAmount(row.utilisedDays))
+    ), 0),
+  );
+
+  const holdRowsPrefill = currentInvoice?.holdRows?.length
+    ? currentInvoice.holdRows
+    : await loadDefaultHoldRows(pool, fcaId);
+  const surveyRowsPrefill = currentInvoice?.surveyRows?.length
+    ? currentInvoice.surveyRows
+    : defaultSurveyRows();
+  const offhireRowsPrefill = currentInvoice?.offhireRows?.length
+    ? currentInvoice.offhireRows
+    : [{ reason: '', offFrom: '', offTo: '', percent: 0, days: 0, hireRate: dailyHireRate, amount: 0 }];
+
   const defaults = {
     invoiceType: currentInvoice?.invoiceType || 'Interim',
     invoiceNo: currentInvoice?.invoiceNo || tcNo || voyage || '',
     invoiceDate: currentInvoice?.invoiceDate || '',
-    exchangeRate: currentInvoice?.exchangeRate || str(compare.MASTER_EXCHANGE_RATE || latest?.EXCHANGE_RATE || '1'),
+    exchangeRate: currentInvoice?.exchangeRate || str(latest?.EXCHANGE_RATE || '1'),
     exchangeDate: currentInvoice?.exchangeDate || '',
     exchangeCurrency: currentInvoice?.exchangeCurrency || 'USD',
     paymentTerms: currentInvoice?.paymentTerms || '',
@@ -1082,9 +1304,10 @@ export async function dbGetHireStatementForm({
     cve: currentInvoice?.cve != null ? currentInvoice.cve : cve,
     addCommPer: currentInvoice?.addCommPer != null ? currentInvoice.addCommPer : addCommPer,
     broCommPer: currentInvoice?.broCommPer != null ? currentInvoice.broCommPer : broCommPer,
-    ballastBonus: ballastBonus,
+    ballastBonus,
     finalHireage,
     estHireDays,
+    remainingDaysToStatement,
     chkOffhire: currentInvoice?.chkOffhire || false,
     chkDelivery: currentInvoice?.chkDelivery || false,
     chkRedelivery: currentInvoice?.chkRedelivery || false,
@@ -1098,6 +1321,16 @@ export async function dbGetHireStatementForm({
     upload: currentInvoice?.upload || '',
     uploadName: currentInvoice?.uploadName || '',
     hireDayRows: currentInvoice?.hireDayRows || hireDayRows,
+    addRows: currentInvoice?.addRows || [],
+    subRows: currentInvoice?.subRows || [],
+    holdRows: holdRowsPrefill,
+    surveyRows: surveyRowsPrefill,
+    adjAddRows: currentInvoice?.adjAddRows || [],
+    adjSubRows: currentInvoice?.adjSubRows || [],
+    offhireRows: offhireRowsPrefill,
+    bunkerDelRows: currentInvoice?.bunkerDelRows || bunkerRows.bunkerDelRows,
+    bunkerRedelRows: currentInvoice?.bunkerRedelRows || bunkerRows.bunkerRedelRows,
+    bunkerOverRows: currentInvoice?.bunkerOverRows || bunkerRows.bunkerOverRows,
   };
 
   return {
@@ -1122,6 +1355,19 @@ export async function dbGetHireStatementForm({
     vesselImoId,
     nomMessage,
     cpDate,
+    loadPorts: ports.loadPorts,
+    dischargePorts: ports.dischargePorts,
+    deliveryPort,
+    deliveryDate,
+    redeliveryPort,
+    redeliveryDate,
+    remainingDaysToStatement,
+    lastUpdatedBy: currentInvoice?.lastUpdatedBy || '',
+    lastUpdatedAt: currentInvoice?.lastUpdatedAt || '',
+    bunkerGrades: (bunkerGrades || []).map((row) => ({
+      id: String(row.id),
+      name: row.name,
+    })),
     dailyHireRate: defaults.dailyHireRate,
     cve: defaults.cve,
     addCommPer: defaults.addCommPer,
@@ -1219,6 +1465,9 @@ export async function dbSaveHireStatement(payload = {}, { userId = appContext.us
   const adjAddRows = parseAdjRows(payload.adjAddRows);
   const adjSubRows = parseAdjRows(payload.adjSubRows);
   const offhireRows = chkOffhire ? parseOffhireRows(payload.offhireRows) : [];
+  const bunkerDelRows = chkDelivery ? parseBunkerRows(payload.bunkerDelRows) : [];
+  const bunkerRedelRows = chkRedelivery ? parseBunkerRows(payload.bunkerRedelRows) : [];
+  const bunkerOverRows = chkOverconsp ? parseBunkerRows(payload.bunkerOverRows) : [];
 
   const computed = computeHireTotals({
     hireDayRows,
@@ -1229,12 +1478,18 @@ export async function dbSaveHireStatement(payload = {}, { userId = appContext.us
     adjAddRows,
     adjSubRows,
     offhireRows,
+    bunkerDelRows,
+    bunkerRedelRows,
+    bunkerOverRows,
     cve,
     addCommPer,
     broCommPer,
     chkOffhire,
     chkBallastBonus,
     ballastBonus,
+    chkDelivery,
+    chkRedelivery,
+    chkOverconsp,
   });
 
   const hireDays = payload.hireDays != null && payload.hireDays !== ''
@@ -1460,6 +1715,12 @@ export async function dbSaveHireStatement(payload = {}, { userId = appContext.us
       offhireRows,
       chkOffhire,
       periodId,
+      bunkerDelRows,
+      bunkerRedelRows,
+      bunkerOverRows,
+      chkDelivery,
+      chkRedelivery,
+      chkOverconsp,
     });
 
     await connection.commit();
@@ -1478,6 +1739,7 @@ export async function dbSaveHireStatement(payload = {}, { userId = appContext.us
       userId,
       redirectUrl,
     });
+    await dbLogRecentWork(userId, `Hire Statement (${invoiceNo || invoiceId}) saved successfully.`);
 
     return {
       msg: 0,
@@ -1646,7 +1908,7 @@ export async function dbGetHireStatementForPdf(invoiceId) {
     `SELECT RANDOMID, UTILISED_DAYS, HIRE_AMT, HIRE_FROM, HIRE_TO
      FROM invoice_hire_slave8
      WHERE INVOICEID = ?
-     ORDER BY RANDOMID`
+     ORDER BY RANDOMID`,
     [id],
   ).catch(() => [[]]);
 

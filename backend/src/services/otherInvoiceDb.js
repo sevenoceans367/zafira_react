@@ -2,6 +2,7 @@ import { appContext, isMgmtUser } from '../config.js';
 import { getPool } from '../db.js';
 import { formatDateDMY } from './estimateListMappers.js';
 import { dbGetBankingDetail, dbGetVendorBanking } from './genericFinancesDb.js';
+import { dbLogRecentWork } from './userAlertsDb.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -1363,6 +1364,7 @@ export async function dbSaveOtherInvoice(payload = {}, { userId = appContext.use
       userId,
       redirectUrl,
     });
+    await dbLogRecentWork(userId, `Other Invoice (${invoiceNo || invoiceId}) saved successfully.`);
 
     return {
       msg: 0,

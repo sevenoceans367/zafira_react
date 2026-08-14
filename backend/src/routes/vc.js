@@ -96,6 +96,7 @@ import { getSoaReport } from '../services/soaReportService.js';
 import { getCompareSheetsTc } from '../services/compareSheetsTcService.js';
 import { generateCompareSheetsTcPdf } from '../services/compareSheetsTcPdfService.js';
 import { getCompareSheetsVc } from '../services/compareSheetsVcService.js';
+import { generateCompareSheetsVcPdf } from '../services/compareSheetsVcPdfService.js';
 import {
   createOpsTcCostSheet,
   deactivateOpsTcEntry,
@@ -178,7 +179,7 @@ function parseOtherInvoiceBody(body = {}) {
 
 function parseHireStatementBody(body = {}) {
   const payload = { ...body };
-  for (const key of ['addRows', 'subRows', 'adjAddRows', 'adjSubRows', 'hireDayRows', 'offhireRows', 'selApprovers', 'paymentRows']) {
+  for (const key of ['addRows', 'subRows', 'adjAddRows', 'adjSubRows', 'hireDayRows', 'offhireRows', 'holdRows', 'surveyRows', 'bunkerDelRows', 'bunkerRedelRows', 'bunkerOverRows', 'selApprovers', 'paymentRows']) {
     const parsed = parseBodyJsonField(payload, key);
     if (parsed !== undefined) payload[key] = parsed;
   }
@@ -363,6 +364,7 @@ router.get('/ops/freight-invoice', asyncHandler(async (req, res) => {
     invoiceId: req.query.invoiceId || req.query.invoiceid || '',
     userId: user?.id,
     mgmtUser: resolveRequestIsMgmtUser(req),
+    companyId: user?.companyId,
   });
   res.json(data);
 }));
@@ -915,6 +917,14 @@ router.get('/ops/agency-letter/:genAgencyId/pdf', asyncHandler(async (req, res) 
 router.get('/ops/compare-sheets', asyncHandler(async (req, res) => {
   const comId = req.query.comId || req.query.comid;
   res.json(await getCompareSheetsVc(comId));
+}));
+
+router.get('/ops/compare-sheets/pdf', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  const { buffer, filename } = await generateCompareSheetsVcPdf(comId);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buffer);
 }));
 
 router.patch('/ops/:comId/operator', asyncHandler(async (req, res) => {

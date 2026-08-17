@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calcTcTotals,
+  computeTcListStats,
   dailyGrossHire,
   mapTcListRow,
 } from './tcEstimateMappers.js';
@@ -33,6 +34,9 @@ describe('tcEstimateMappers', () => {
     assert.equal(eligible.canCompare, true);
     assert.equal(eligible.sentToDecisionChart, false);
     assert.equal(eligible.dailyGrossHire, '15000.00');
+    assert.equal(eligible.hireOut, '15000.00');
+    assert.equal(eligible.hireIn, '');
+    assert.equal(eligible.delRedel, 'Singapore - Rotterdam');
 
     const draft = mapTcListRow({
       TCOUTID: 2,
@@ -53,6 +57,17 @@ describe('tcEstimateMappers', () => {
     });
     assert.equal(sent.sentToDecisionChart, true);
     assert.equal(sent.compareLabel, 'Sent to Decision Chart');
+  });
+
+  it('computes highlight stats from live revenue without inventing values', () => {
+    const stats = computeTcListStats([
+      { TOTAL_REV_EST: 1860000, COMID: '' },
+      { TOTAL_REV_EST: 2710000, COMID: '12' },
+    ]);
+    assert.equal(stats.openTrade, 1860);
+    assert.equal(stats.vesselsInSubs, 1);
+    assert.equal(stats.tradesInOperations, 2710);
+    assert.equal(stats.vesselsOnWater, 2);
   });
 
   it('calculates commissions, bunker diff, and profit/day like PHP getFinalCalculation', () => {

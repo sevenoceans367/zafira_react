@@ -96,10 +96,33 @@ export function dailyGrossHire(hireFixPer, exchangeRate) {
   return formatNumber(Number(hireFixPer || 0) * exchange);
 }
 
+export function isTcSentToOps(comId) {
+  return comId != null && String(comId).trim() !== '';
+}
+
+export function computeTcListStats(rows = []) {
+  const inSubs = [];
+  const inOps = [];
+  for (const row of rows) {
+    if (isTcSentToOps(row.COMID ?? row.comId)) inOps.push(row);
+    else inSubs.push(row);
+  }
+  const revOf = (row) => Number(row.TOTAL_REV_EST ?? row.totalRev ?? row.calc?.totalRev ?? 0) || 0;
+  return {
+    openTrade: inSubs.reduce((sum, row) => sum + revOf(row), 0) / 1000,
+    vesselsInSubs: inSubs.length,
+    tradesInOperations: inOps.reduce((sum, row) => sum + revOf(row), 0) / 1000,
+    vesselsOnWater: rows.length,
+  };
+}
+
 export function mapTcListRow(row, index = 0) {
   const exchangeRate = Number(row.EXCHANGE_RATE);
   const hasRevenue = Number(row.TOTAL_REV_EST || 0) > 0;
-  const sentToChart = row.COMID != null && String(row.COMID).trim() !== '';
+  const sentToChart = isTcSentToOps(row.COMID);
+  const delPort = row.DEL_RANGE_PORT ?? '';
+  const reDelPort = row.RE_DEL_RANGE ?? '';
+  const delRedel = [delPort, reDelPort].filter((part) => String(part).trim() !== '').join(' - ');
   return {
     index: index + 1,
     tcOutId: row.TCOUTID,
@@ -108,9 +131,12 @@ export function mapTcListRow(row, index = 0) {
     tcNo: row.TC_NO ?? '',
     cpDate: formatDateDMY(row.CP_DATE1),
     dwt: row.DWT_SUMMER_CP ?? '',
-    delPort: row.DEL_RANGE_PORT ?? '',
-    reDelPort: row.RE_DEL_RANGE ?? '',
+    delPort,
+    reDelPort,
+    delRedel,
     tcDays: row.TC_DAYS_EST != null ? String(row.TC_DAYS_EST) : '',
+    hireIn: row.HIRE_IN != null && String(row.HIRE_IN).trim() !== '' ? String(row.HIRE_IN) : '',
+    hireOut: dailyGrossHire(row.HIRE_FIX_PER, exchangeRate),
     dailyGrossHire: dailyGrossHire(row.HIRE_FIX_PER, exchangeRate),
     totalRev: row.TOTAL_REV_EST != null ? String(row.TOTAL_REV_EST) : '',
     comId: row.COMID != null ? String(row.COMID) : '',

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button, CardSelect, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
-import { appPath } from '@bainbridge/shared-routing';
+import { useTcModule } from '../../../hooks/useTcModule.js';
 import {
   createTcEstimate,
   downloadTcEstimatePdf,
@@ -244,6 +244,7 @@ export default function TcFixtureFormPage({
   backHref,
 }) {
   const navigate = useNavigate();
+  const { tcPath } = useTcModule();
   const { tcOutId: paramTcOutId } = useParams();
   const tcOutId = overrideTcOutId || paramTcOutId;
   const [searchParams] = useSearchParams();
@@ -256,7 +257,7 @@ export default function TcFixtureFormPage({
   const [activeTab, setActiveTab] = useState('fixture');
 
   const readOnly = mode === 'view';
-  const listHref = backHref || appPath('/internal-user/vc/tc');
+  const listHref = backHref || tcPath();
   const isDry = String(form.businessTypeId) === '3';
 
   const title = mode === 'add'
@@ -386,10 +387,10 @@ export default function TcFixtureFormPage({
       const payload = { ...form, fixtureType: form.fixtureType || '1' };
       if (mode === 'add') {
         const created = await createTcEstimate(payload);
-        navigate(appPath(`/internal-user/vc/tc/${created.tcOutId}/edit?msg=0`));
+        navigate(`${tcPath(`${created.tcOutId}/edit`)}?msg=0`);
       } else {
         await updateTcEstimate(tcOutId, payload);
-        navigate(appPath('/internal-user/vc/tc?msg=0'));
+        navigate(`${tcPath()}?msg=0`);
       }
     } catch (err) {
       setError(err.message || 'Failed to save fixture note.');
@@ -973,7 +974,7 @@ export default function TcFixtureFormPage({
             <Button
               variant="outline"
               label="Calculate"
-              href={appPath(`/internal-user/vc/tc/${tcOutId}/calculate`)}
+              href={tcPath(`${tcOutId}/calculate`)}
               disabled={saving}
             />
           ) : null}

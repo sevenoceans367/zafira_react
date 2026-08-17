@@ -1,0 +1,403 @@
+.page {
+  position: relative;
+}
+
+.flashSuccess,
+.flashError,
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+.flashSuccess {
+  border: 1px solid #badbcc;
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.flashError,
+.error {
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+}
+
+.hcardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.hcard {
+  border-radius: 16px;
+  padding: 18px 20px 20px;
+  border: 1px solid;
+}
+
+.hcardFin {
+  background: linear-gradient(135deg, #e6f5f6 0%, #ffffff 65%);
+  border-color: #c6e8e9;
+}
+
+.hcardCnt {
+  background: linear-gradient(135deg, #f0f1f3 0%, #ffffff 65%);
+  border-color: #dfe2e7;
+}
+
+.hcardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  min-height: 34px;
+}
+
+.hcardIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: #fff;
+}
+
+.hcardFin .hcardIcon {
+  background: linear-gradient(135deg, #3fc6ce, #14919b);
+}
+
+.hcardCnt .hcardIcon {
+  background: linear-gradient(135deg, #8b94a3, #5b6472);
+}
+
+.hcardIcon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.hcardLabel {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #5b6472;
+}
+
+.hcardValue {
+  margin: 0;
+  font-family: var(--font-family-heading, inherit);
+  font-weight: 700;
+  font-size: 29px;
+  line-height: 1;
+  color: #2b3444;
+}
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.btnAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  border-radius: 9px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnAdd:hover {
+  background: #2f6fe0;
+}
+
+.btnAdd svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btnSensitivity {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #f1f2f4;
+  color: #8a93a2;
+  font-weight: 700;
+  font-size: 13px;
+  border: 1px solid #dfe2e7;
+  border-radius: 9px;
+  padding: 10px 16px;
+  cursor: not-allowed;
+  font-family: inherit;
+}
+
+.btnSensitivity svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btnSensitivityEnabled {
+  background: #fff;
+  color: #274670;
+  cursor: pointer;
+  border-color: #d3dae7;
+}
+
+.btnSensitivityEnabled:hover {
+  background: #e6eaf1;
+}
+
+.menuWrap {
+  position: relative;
+}
+
+.btnMore {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid #dfe2e7;
+  background: #fff;
+  color: #5b6472;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+
+.btnMore:hover,
+.btnMore[aria-expanded='true'] {
+  background: #f1f2f4;
+}
+
+.btnMore svg {
+  width: 16px;
+  height: 16px;
+}
+
+.menuDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 210px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #111827;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: #f3f4f6;
+}
+
+.menuItem:disabled {
+  color: #8a93a2;
+  cursor: not-allowed;
+}
+
+.tableCard {
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1180px;
+}
+
+.grid thead th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  background: #fafbfc;
+  padding: 12px 14px;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: nowrap;
+}
+
+.grid tbody td {
+  padding: 14px;
+  border-bottom: 1px solid #eceef2;
+  font-size: 13px;
+  color: #1b2430;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.grid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.grid tbody tr:hover {
+  background: #fafbfc;
+}
+
+.cellItem {
+  color: #8a93a2;
+  font-weight: 600;
+}
+
+.cellVessel {
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.cellNum {
+  font-variant-numeric: tabular-nums;
+}
+
+.cellRoute {
+  color: #5b6472;
+}
+
+.center {
+  text-align: center;
+}
+
+.empty {
+  text-align: center;
+  color: #8a93a2;
+  padding: 28px 14px !important;
+}
+
+.rowActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.pillAction {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 5px 12px;
+  border: 1.5px solid;
+  cursor: pointer;
+  white-space: nowrap;
+  background: #fff;
+  font-family: inherit;
+}
+
+.pillReplicate {
+  color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.pillReplicate:hover {
+  background: #eff6ff;
+}
+
+.pillSendOps {
+  color: #f4652c;
+  border-color: #f4652c;
+}
+
+.pillSendOps:hover {
+  background: #fdece4;
+}
+
+.sentLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8a93a2;
+}
+
+.iconPair {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.iconBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a93a2;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.iconBtn:hover {
+  background: #f1f2f4;
+  color: #5b6472;
+}
+
+.iconBtn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.iconDanger:hover {
+  color: #e4483b;
+  background: #fdecea;
+}
+
+.compareHeader {
+  width: 36px;
+}
+
+.compareHeader svg {
+  width: 14px;
+  height: 14px;
+  color: #8a93a2;
+  display: block;
+}
+
+@media (max-width: 1100px) {
+  .hcardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .hcardGrid {
+    grid-template-columns: 1fr;
+  }
+}

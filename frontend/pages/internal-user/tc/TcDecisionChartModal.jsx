@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
-import { appPath } from '@bainbridge/shared-routing';
+import { useTcModule } from '../../../hooks/useTcModule.js';
 import { fetchTcCompareEstimates, submitTcDecisionChart } from '../../../services/tcEstimates.js';
 import styles from './TcPages.module.css';
 
@@ -16,6 +16,7 @@ export default function TcDecisionChartModal({
   const [fixtures, setFixtures] = useState([]);
   const [finalId, setFinalId] = useState('');
   const [remarks, setRemarks] = useState({});
+  const { tcPath } = useTcModule();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -121,7 +122,7 @@ export default function TcDecisionChartModal({
                     />
                   </td>
                   <td className={styles.center}>
-                    <a href={appPath(`/internal-user/vc/tc/${row.tcOutId}/edit`)}>Edit</a>
+                    <a href={tcPath(`${row.tcOutId}/edit`)}>Edit</a>
                   </td>
                 </tr>
               ))}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
-import { appPath } from '@bainbridge/shared-routing';
+import { useTcModule } from '../../../hooks/useTcModule.js';
 import { fetchTcEstimate } from '../../../services/tcEstimates.js';
 import TcFormHeaderActions from './TcFormHeaderActions.jsx';
 import styles from './TcPages.module.css';
@@ -17,10 +17,11 @@ function ReadField({ label, value }) {
 
 export default function TcViewPage() {
   const { tcOutId } = useParams();
+  const { tcPath } = useTcModule();
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const listHref = appPath('/internal-user/vc/tc');
+  const listHref = tcPath();
 
   useEffect(() => {
     let cancelled = false;
@@ -121,9 +122,9 @@ export default function TcViewPage() {
           </div>
 
           <div className={styles.formActions}>
-            <Button label="Edit Fixture" href={appPath(`/internal-user/vc/tc/${tcOutId}/edit`)} />
+            <Button label="Edit Fixture" href={tcPath(`${tcOutId}/edit`)} />
             {!detail.comId ? (
-              <Button variant="outline" label="Calculate" href={appPath(`/internal-user/vc/tc/${tcOutId}/calculate`)} />
+              <Button variant="outline" label="Calculate" href={tcPath(`${tcOutId}/calculate`)} />
             ) : null}
             <Button variant="outline" label="Back to List" href={listHref} />
           </div>

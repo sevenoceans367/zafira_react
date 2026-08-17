@@ -30,6 +30,9 @@ describe('tcEstimateService mock lifecycle', () => {
     assert.ok(list.recordsTotal >= 1);
     assert.equal(list.records[0].vesselName, 'Atlantic Star');
     assert.equal(list.records[0].canCompare, true);
+    assert.ok(list.stats);
+    assert.equal(typeof list.stats.openTrade, 'number');
+    assert.equal(list.stats.vesselsOnWater, list.recordsTotal);
   });
 
   it('supports create, update, calculate, compare, finalize, and delete', async () => {

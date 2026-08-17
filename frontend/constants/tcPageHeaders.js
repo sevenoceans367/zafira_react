@@ -1,63 +1,93 @@
 import { appPath } from '@bainbridge/shared-routing';
+import { SOPF_ENTRY_ROUTE } from './sopfSidebarMenu.js';
+import {
+  TC_MODULE_LABELS,
+  parseTcModuleFromPath,
+  tcAppPath,
+} from './tcModule.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
-const SOC = { label: 'SOC', href: appPath('/internal-user/vc') };
-const TC_LIST = { label: 'TC Out Estimates', href: appPath('/internal-user/vc/tc') };
+
+function moduleCrumb(module) {
+  if (module === 'sopf') {
+    return { label: TC_MODULE_LABELS.sopf, href: appPath(SOPF_ENTRY_ROUTE) };
+  }
+  return { label: TC_MODULE_LABELS.vc, href: appPath('/internal-user/vc') };
+}
+
+function listMeta(module) {
+  const listHref = tcAppPath(module);
+  if (module === 'sopf') {
+    return {
+      title: 'Time Charter Business',
+      currentPage: 'Time Charter Business : Estimate',
+      listHref,
+      listLabel: 'Time Charter Business',
+    };
+  }
+  return {
+    title: 'TC Out Estimates',
+    currentPage: 'TC Out Estimates',
+    listHref,
+    listLabel: 'TC Out Estimates',
+  };
+}
 
 export function resolveTcHeader(pathname) {
-  if (!pathname.startsWith('/internal-user/vc/tc')) return null;
+  const path = String(pathname || '');
+  const isSopfTc = path.startsWith('/internal-user/sopf/time-charter');
+  const isVcTc = path.startsWith('/internal-user/vc/tc')
+    || path === '/internal-user/vc/decision-chart-tc';
+  if (!isSopfTc && !isVcTc) return null;
 
-  if (pathname === '/internal-user/vc/tc/add') {
+  const module = parseTcModuleFromPath(path);
+  const crumb = moduleCrumb(module);
+  const meta = listMeta(module);
+  const listCrumb = { label: meta.listLabel, href: meta.listHref };
+
+  if (path.endsWith('/add')) {
     return {
-      title: 'TC Out Estimates',
+      title: meta.title,
       currentPage: 'Add Fixture Note',
-      breadcrumbs: [HOME, SOC, TC_LIST, { label: 'Add Fixture Note' }],
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Add Fixture Note' }],
     };
   }
 
-  if (pathname === '/internal-user/vc/tc/decision-charts') {
+  if (path.endsWith('/decision-charts') || path === '/internal-user/vc/decision-chart-tc') {
     return {
-      title: 'TC Out Estimates',
+      title: meta.title,
       currentPage: 'Decision Charts',
-      breadcrumbs: [HOME, SOC, TC_LIST, { label: 'Decision Charts' }],
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Decision Charts' }],
     };
   }
 
-  if (/^\/internal-user\/vc\/tc\/[^/]+\/edit$/.test(pathname)) {
+  if (/\/[^/]+\/edit$/.test(path)) {
     return {
-      title: 'TC Out Estimates',
+      title: meta.title,
       currentPage: 'Edit Fixture Note',
-      breadcrumbs: [HOME, SOC, TC_LIST, { label: 'Edit Fixture Note' }],
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Edit Fixture Note' }],
     };
   }
 
-  if (/^\/internal-user\/vc\/tc\/[^/]+\/calculate$/.test(pathname)) {
+  if (/\/[^/]+\/calculate$/.test(path)) {
     return {
-      title: 'TC Out Estimates',
+      title: meta.title,
       currentPage: 'Calculate Estimate',
-      breadcrumbs: [HOME, SOC, TC_LIST, { label: 'Calculate Estimate' }],
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Calculate Estimate' }],
     };
   }
 
-  if (/^\/internal-user\/vc\/tc\/[^/]+\/view$/.test(pathname)) {
+  if (/\/[^/]+\/view$/.test(path)) {
     return {
-      title: 'TC Out Estimates',
+      title: meta.title,
       currentPage: 'View Estimate',
-      breadcrumbs: [HOME, SOC, TC_LIST, { label: 'View Estimate' }],
-    };
-  }
-
-  if (pathname === '/internal-user/vc/tc') {
-    return {
-      title: 'TC Out Estimates',
-      currentPage: 'TC Out Estimates',
-      breadcrumbs: [HOME, SOC, { label: 'TC Out Estimates' }],
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'View Estimate' }],
     };
   }
 
   return {
-    title: 'TC Out Estimates',
-    currentPage: 'TC Out Estimates',
-    breadcrumbs: [HOME, SOC, { label: 'TC Out Estimates' }],
+    title: meta.title,
+    currentPage: meta.currentPage,
+    breadcrumbs: [HOME, crumb, { label: meta.listLabel }],
   };
 }

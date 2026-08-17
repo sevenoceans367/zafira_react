@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
+import { useTcModule } from '../../../hooks/useTcModule.js';
 import {
   calcTcTotals,
   daysBetween,
@@ -221,6 +222,7 @@ export default function TcCalculatePage({
   saveLabel = 'Save Calculation',
 } = {}) {
   const navigate = useNavigate();
+  const { tcPath } = useTcModule();
   const { tcOutId: paramTcOutId } = useParams();
   const [searchParams] = useSearchParams();
   const tcOutId = overrideTcOutId || paramTcOutId;
@@ -238,7 +240,7 @@ export default function TcCalculatePage({
   const listHref = listHrefProp
     || (searchParams.get('from') === 'ops-tc'
       ? appPath('/internal-user/vc/ops-tc/finalised-fixtures')
-      : appPath('/internal-user/vc/tc'));
+      : tcPath());
 
   useEffect(() => {
     let cancelled = false;
@@ -441,7 +443,7 @@ export default function TcCalculatePage({
           itineraryExpenses: payload.itineraryExpenses,
           tcInExpenses: payload.tcInExpenses,
         });
-        navigate(appPath('/internal-user/vc/tc?msg=0'));
+        navigate(`${tcPath()}?msg=0`);
       }
     } catch (err) {
       setError(err.message || 'Failed to save calculation.');
@@ -1077,7 +1079,7 @@ export default function TcCalculatePage({
             <>
               <Button type="submit" label={saving ? 'Saving…' : saveLabel} disabled={saving} />
               {!hideEditFixture && tcOutId ? (
-                <Button variant="outline" label="Edit Fixture" href={appPath(`/internal-user/vc/tc/${tcOutId}/edit`)} disabled={saving} />
+                <Button variant="outline" label="Edit Fixture" href={tcPath(`${tcOutId}/edit`)} disabled={saving} />
               ) : null}
             </>
           ) : null}

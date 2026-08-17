@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
-import { appPath } from '@bainbridge/shared-routing';
+import { useTcModule } from '../../../hooks/useTcModule.js';
 import { fetchTcDecisionChartDetails } from '../../../services/tcEstimates.js';
 import styles from './TcPages.module.css';
 
@@ -13,6 +13,7 @@ export default function TcDecisionChartDetailsModal({
   const [fixtures, setFixtures] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { tcPath } = useTcModule();
 
   useEffect(() => {
     if (!message) return undefined;
@@ -92,7 +93,7 @@ export default function TcDecisionChartDetailsModal({
                     <input type="radio" checked={Boolean(row.isFinal)} readOnly aria-label={`${row.tcNo} final selection`} />
                   </td>
                   <td className={styles.center}>
-                    <a href={appPath(`/internal-user/vc/tc/${row.tcOutId}/view`)} title="View Details">
+                    <a href={tcPath(`${row.tcOutId}/view`)} title="View Details">
                       <i className="bi bi-file-earmark-text" aria-hidden />
                     </a>
                   </td>

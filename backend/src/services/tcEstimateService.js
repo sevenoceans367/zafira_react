@@ -19,6 +19,7 @@ import {
   dailyGrossHire,
   mapTcDetail,
   mapTcListRow,
+  computeTcListStats,
 } from './tcEstimateMappers.js';
 
 const MOCK_LOOKUPS = {
@@ -329,6 +330,10 @@ export async function listTcEstimates(params = {}) {
     recordsTotal: rows.length,
     page,
     pageSize,
+    stats: computeTcListStats(rows.map((row) => ({
+      COMID: row.COMID,
+      TOTAL_REV_EST: row.calc?.totalRev,
+    }))),
   };
 }
 

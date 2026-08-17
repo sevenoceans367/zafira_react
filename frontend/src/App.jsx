@@ -246,15 +246,12 @@ export default function App() {
                 />
               )}
             />
-            <Route
-              path="/internal-user/sopf/time-charter"
-              element={(
-                <SopfComingSoonPage
-                  title="Time Charter"
-                  description="Time Charter screens will appear here."
-                />
-              )}
-            />
+            <Route path="/internal-user/sopf/time-charter/add" element={<TcFixtureFormPage mode="add" />} />
+            <Route path="/internal-user/sopf/time-charter/decision-charts" element={<TcDecisionChartsListPage />} />
+            <Route path="/internal-user/sopf/time-charter/:tcOutId/edit" element={<TcFixtureFormPage mode="edit" />} />
+            <Route path="/internal-user/sopf/time-charter/:tcOutId/calculate" element={<TcCalculatePage />} />
+            <Route path="/internal-user/sopf/time-charter/:tcOutId/view" element={<TcViewPage />} />
+            <Route path="/internal-user/sopf/time-charter" element={<TcOutEstimatesListPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

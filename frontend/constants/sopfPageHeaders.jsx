@@ -23,9 +23,9 @@ export const SOPF_PAGE_HEADERS = {
     breadcrumbs: [HOME, SOPF, { label: 'Pools' }],
   },
   'time-charter': {
-    title: 'Time Charter',
-    currentPage: 'Time Charter',
-    breadcrumbs: [HOME, SOPF, { label: 'Time Charter' }],
+    title: 'Time Charter Business',
+    currentPage: 'Time Charter Business : Estimate',
+    breadcrumbs: [HOME, SOPF, { label: 'Time Charter Business' }],
   },
   support_ticket: {
     title: 'Help Desk',

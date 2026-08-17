@@ -6,6 +6,7 @@ import {
   mapCalcRow,
   mapTcDetail,
   mapTcListRow,
+  computeTcListStats,
   nullIfEmpty,
   parsePeriodDate,
   toDbDate,
@@ -567,12 +568,26 @@ export async function dbListTcEstimates({
     LIMIT ? OFFSET ?
   `;
   const [rows] = await pool.query(listSql, [...params, safeSize, offset]);
+
+  const statsSql = `
+    SELECT
+      chartering_estimate_tc_master.COMID,
+      (SELECT SUM(TOTAL_REV_EST) FROM chartering_tc_estimate_slave1
+       WHERE chartering_tc_estimate_slave1.TCOUTID = chartering_estimate_tc_master.TCOUTID) AS TOTAL_REV_EST
+    FROM chartering_estimate_tc_master
+    INNER JOIN vessel_imo_master
+      ON vessel_imo_master.VESSEL_IMO_ID = chartering_estimate_tc_master.VESSEL_IMO_ID
+    WHERE ${where}
+  `;
+  const [statRows] = await pool.query(statsSql, params);
+
   return {
     businessType: String(selBType || '2'),
     records: rows.map((row, index) => mapTcListRow(row, offset + index)),
     recordsTotal,
     page: safePage,
     pageSize: safeSize,
+    stats: computeTcListStats(statRows),
   };
 }
 

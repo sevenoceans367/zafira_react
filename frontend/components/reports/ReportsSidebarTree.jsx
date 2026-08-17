@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
 import {
   REPORTS_SECTIONS,
+  getDefaultReportPath,
   reportAppPath,
 } from '../../constants/reportsMenu.js';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
@@ -24,6 +25,9 @@ export default function ReportsSidebarTree({ isOpen }) {
   const rootRef = useRef(null);
   const sectionItemRefs = useRef({});
   const submenuRefs = useRef({});
+
+  const firstHref = appPath(getDefaultReportPath());
+  const branchActive = pathname.includes('/reports/');
 
   const closeAll = () => {
     setExpanded(false);
@@ -89,11 +93,10 @@ export default function ReportsSidebarTree({ isOpen }) {
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={closeAll}
     >
-      <button
-        type="button"
-        className={expanded ? 'expanded' : ''}
-        onClick={() => setExpanded((value) => !value)}
-        aria-expanded={expanded || undefined}
+      <Link
+        to={firstHref}
+        className={`${expanded ? 'expanded' : ''} ${branchActive ? 'active' : ''}`.trim()}
+        onClick={closeAll}
         aria-haspopup="true"
       >
         <i className="bi bi-file-earmark-bar-graph icon" aria-hidden />
@@ -101,7 +104,7 @@ export default function ReportsSidebarTree({ isOpen }) {
         {isOpen ? (
           <i className="bi bi-chevron-down master-chevron" aria-hidden />
         ) : null}
-      </button>
+      </Link>
 
       <ul
         className={`treeview-menu ${styles.sectionMenu}`}
@@ -119,18 +122,17 @@ export default function ReportsSidebarTree({ isOpen }) {
               className={styles.sectionItem}
               onMouseEnter={() => setOpenSectionId(section.id)}
             >
-              <button
-                type="button"
+              <Link
+                to={appPath(reportAppPath(section.id, section.items[0].id))}
                 className={`${styles.sectionBtn} ${sectionActive || sectionOpen ? styles.sectionBtnActive : ''}`}
                 onFocus={() => setOpenSectionId(section.id)}
-                onClick={() => setOpenSectionId(section.id)}
-                aria-expanded={sectionOpen}
+                onClick={closeAll}
                 aria-haspopup="true"
               >
                 <SidebarSubmenuArrow />
                 <span>{section.label}</span>
                 <SidebarSubmenuArrow className={styles.sectionChevron} />
-              </button>
+              </Link>
 
               {sectionOpen ? (
                 <ul

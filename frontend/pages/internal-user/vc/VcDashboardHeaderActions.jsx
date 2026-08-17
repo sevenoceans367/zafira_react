@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, CardSelect, HeaderFilterControls, PeriodCardPicker } from '@bainbridge/shared-ui';
+import { CardSelect, HeaderFilterControls, PeriodCardPicker } from '@bainbridge/shared-ui';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 
 export default function VcDashboardHeaderActions({
@@ -10,8 +10,6 @@ export default function VcDashboardHeaderActions({
   periodTo,
   onPeriodChange,
   showPeriod = true,
-  onLoad,
-  loading = false,
 }) {
   return (
     <PageHeaderActions
@@ -23,8 +21,6 @@ export default function VcDashboardHeaderActions({
         periodTo,
         onPeriodChange,
         showPeriod,
-        onLoad,
-        loading,
       ]}
     >
       <HeaderFilterControls>
@@ -43,7 +39,6 @@ export default function VcDashboardHeaderActions({
             label="Select Period"
           />
         ) : null}
-        <Button variant="primary" label="Load" onClick={onLoad} disabled={loading} />
       </HeaderFilterControls>
     </PageHeaderActions>
   );

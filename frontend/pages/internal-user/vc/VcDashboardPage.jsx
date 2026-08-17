@@ -12,14 +12,81 @@ import {
   fetchVcDashboardMeta,
 } from '../../../services/vcDashboard.js';
 import VcDashboardHeaderActions from './VcDashboardHeaderActions.jsx';
+import {
+  ALL_KPI,
+  ATTENTION_ITEMS,
+  AVG_HIRE_BY_TYPE,
+  CARGO_BREAKDOWN,
+  CARGO_CATEGORY_COLORS,
+  CARGO_OFFICE,
+  CHARTERERS,
+  CHARTERERS_TC,
+  CHARTERER_SHADES,
+  COA_PACE,
+  DESK_OFFICE_TC,
+  DESK_OFFICE_VC,
+  FLEET_MIX,
+  MARK_TO_MARKET,
+  OFFICE_SHADES,
+  OWNER_SHADES,
+  OWNERS_OPERATOR,
+  OWNERS_TC,
+  PERFORMING_TC,
+  PERFORMING_VC,
+  PERIOD_CARDS,
+  PERIOD_RECORDS,
+  PIPELINE,
+  QUARTER_TRADES,
+  RECEIVABLE_VS_INVOICED,
+  REVENUE_QUARTERLY,
+  TC_SPARK,
+  TC_VESSEL_SHADES,
+  VC_SPARK,
+  VC_VESSEL_SHADES,
+  VESSEL_TYPE_TC,
+  VESSEL_TYPE_VC,
+  ZONES_TC,
+  ZONES_VC,
+} from './dashboardDemoData.js';
+import {
+  ActivityBadge,
+  AllKpiTile,
+  AttentionList,
+  ChartCard,
+  ContractMixPanel,
+  FleetMixBar,
+  HireDuePanel,
+  HorizontalBars,
+  MarkToMarketCard,
+  OffHirePanel,
+  PaceCard,
+  PeriodPaceCard,
+  PieLegend,
+  PipelineList,
+  QuarterlyAreaChart,
+  RevenueByContractCard,
+  SopFCta,
+  SparklineSummaryCard,
+  VerticalBars,
+} from './DashboardDemoCharts.jsx';
 import styles from './VcDashboardPage.module.css';
 
 const TABS = [
-  { id: 'vc', label: 'VC Business' },
-  { id: 'tc', label: 'TC Business' },
-  { id: 'coas', label: 'COAs' },
-  { id: 'periods', label: 'Periods' },
+  { id: 'vc', label: 'VC Business', toneClass: 'tabVc' },
+  { id: 'tc', label: 'TC Business', toneClass: 'tabTc' },
+  { id: 'coas', label: 'COAs', toneClass: 'tabCoas' },
+  { id: 'periods', label: 'Periods', toneClass: 'tabPeriods' },
+  { id: 'all', label: 'All Contracts', toneClass: 'tabNavy' },
 ];
+
+function SectionHead({ title, showUsd = false }) {
+  return (
+    <div className={styles.secHead}>
+      <h3 className={styles.sectionTitle}>{title}</h3>
+      {showUsd ? <span className={styles.usdTag}>Values in USD</span> : null}
+    </div>
+  );
+}
 
 const PAGE_SIZE = 10;
 const CHART_COLORS = {
@@ -247,11 +314,14 @@ export default function VcDashboardPage() {
         case 'periods':
           await loadPeriods();
           break;
+        case 'all':
+          await Promise.all([loadVc(), loadTc(), loadCoas(), loadPeriods()]);
+          break;
         default:
           break;
       }
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard.');
+      setError(err.message || 'Failed to load commercial performance.');
     } finally {
       setLoading(false);
     }
@@ -263,7 +333,7 @@ export default function VcDashboardPage() {
     try {
       await Promise.all([loadVc(), loadTc(), loadCoas(), loadPeriods()]);
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard.');
+      setError(err.message || 'Failed to load commercial performance.');
     } finally {
       setLoading(false);
     }
@@ -278,7 +348,7 @@ export default function VcDashboardPage() {
         setBusinessType(defaultType);
         await loadBusinessTypes(defaultType);
       } catch (err) {
-        setError(err.message || 'Failed to initialize dashboard.');
+        setError(err.message || 'Failed to initialize commercial performance.');
       }
     })();
   }, [loadBusinessTypes]);
@@ -427,180 +497,417 @@ export default function VcDashboardPage() {
         periodFrom={periodFrom}
         periodTo={periodTo}
         onPeriodChange={handlePeriodChange}
-        showPeriod={activeTab === 'vc' || activeTab === 'tc' || activeTab === 'coas'}
-        onLoad={loadActiveTab}
-        loading={loading}
+        showPeriod={activeTab === 'vc' || activeTab === 'tc' || activeTab === 'coas' || activeTab === 'all'}
       />
 
       <div className={`zafira-page ${styles.page}`}>
-      {loading ? <LoadingOverlay active label="Loading dashboard…" /> : null}
+      {loading ? <LoadingOverlay active label="Loading commercial performance…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.tabs}>
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={activeTab === tab.id ? styles.tabActive : styles.tab}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className={styles.tabs} role="tablist">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={`${isActive ? styles.tabActive : styles.tab} ${styles[tab.toneClass]}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <span className={styles.tabDot} aria-hidden />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className={styles.tabPanel}>
         {activeTab === 'vc' ? (
           <>
-            <h3 className={styles.sectionTitle}>Dashboard</h3>
-            <DataTable
-              columns={vcCompletedColumns}
-              rows={(vcData?.completedRows ?? []).map((row, index) => ({
-                ...row,
-                id: `${row.voyageNo}-${index}`,
-              }))}
-            />
+            <section className={styles.secBlock}>
+              <SectionHead title="Spot Business Overview" showUsd />
+              <div className={styles.sparkRow}>
+                {VC_SPARK.map((card) => (
+                  <SparklineSummaryCard key={card.label} {...card} />
+                ))}
+              </div>
+              <div className={styles.shellGrid}>
+                <ChartCard title="Trades by Chartering Desk" sub="By office · YTD · sample">
+                  <VerticalBars data={DESK_OFFICE_VC} colors={OFFICE_SHADES} />
+                </ChartCard>
+                <ChartCard title="Trades by Vessel Type" sub="YTD · sample">
+                  <VerticalBars data={VESSEL_TYPE_VC} colors={VC_VESSEL_SHADES} />
+                </ChartCard>
+                <ChartCard title="Cargo Handled" sub="YTD · Metric Tons by office · sample">
+                  <PieLegend data={CARGO_OFFICE} colors={OFFICE_SHADES} valueFmt={(v) => `${v.toLocaleString()} MT`} />
+                </ChartCard>
+                <ChartCard title="Cargo Traded Breakdown" sub="By category · YTD · Metric Tons · sample">
+                  <PieLegend data={CARGO_BREAKDOWN} colors={CARGO_CATEGORY_COLORS} valueFmt={(v) => `${v.toLocaleString()} MT`} />
+                </ChartCard>
+              </div>
+              <div className={styles.shellStack}>
+                <ChartCard title="Trades per Quarter" sub="Calendar year, Q1–Q4 · sample">
+                  <VerticalBars data={QUARTER_TRADES} colors={OFFICE_SHADES} />
+                </ChartCard>
+              </div>
+              <div className={styles.shellGrid}>
+                <ChartCard title="Business with Top Owners" sub="YTD · USD (millions) · sample">
+                  <PieLegend data={OWNERS_OPERATOR} colors={OWNER_SHADES} valueFmt={(v) => `${v} mil`} />
+                  <FleetMixBar owned={FLEET_MIX.owned} charteredIn={FLEET_MIX.charteredIn} />
+                </ChartCard>
+                <ChartCard title="Business with Top Cargo Owners" sub="Billed-to party · YTD · USD (millions) · sample">
+                  <PieLegend data={CHARTERERS} colors={CHARTERER_SHADES} valueFmt={(v) => `${v} mil`} />
+                </ChartCard>
+              </div>
+              <div className={styles.shellStack}>
+                <ChartCard title="Vessel Redelivery Zones" sub="YTD · open positions · sample">
+                  <HorizontalBars data={ZONES_VC} valueFmt={(v) => String(v)} />
+                  <SopFCta />
+                </ChartCard>
+              </div>
+            </section>
+
+            <section className={styles.secBlock}>
+              <SectionHead title="Performing Vessels" />
+              <div className={styles.card}>
+                <div className={styles.cardHead}>
+                  <h4 className={styles.cardTitle}>Active voyages</h4>
+                  <span className={styles.demoBadge}>Sample data</span>
+                </div>
+                <DataTable
+                  columns={[
+                    { key: 'vessel', label: 'Vessels' },
+                    { key: 'voy', label: 'Voy No.' },
+                    { key: 'cpDate', label: 'CP Date' },
+                    { key: 'activity', label: 'Activity Status' },
+                    { key: 'route', label: 'Delivery – Re-delivery' },
+                  ]}
+                  rows={PERFORMING_VC.map((row, index) => ({
+                    id: `pvc-${index}`,
+                    vessel: row.vessel,
+                    voy: row.voy,
+                    cpDate: row.cpDate,
+                    activity: <ActivityBadge status={row.status} label={row.statusLabel} />,
+                    route: row.route,
+                  }))}
+                />
+                <p className={styles.drillHint}>Activity Status is sourced from Daily Position Report triggers.</p>
+              </div>
+            </section>
+
+            <section className={styles.secBlock}>
+              <SectionHead title="Commercial Performance" showUsd />
+              <div className={styles.card}>
+                <DataTable
+                  columns={vcCompletedColumns}
+                  rows={(vcData?.completedRows ?? []).map((row, index) => ({
+                    ...row,
+                    id: `${row.voyageNo}-${index}`,
+                  }))}
+                />
+              </div>
+            </section>
 
             {isMgmtUser ? (
-              <div className={styles.splitPanel}>
-                <div>
-                  <DataTable
-                    columns={vcFixtureColumns}
-                    rows={(vcData?.chartRows ?? []).map((row, index) => ({
-                      ...row,
-                      id: `${row.voyageNo}-${index}`,
-                    }))}
-                  />
+              <section className={styles.secBlock}>
+                <SectionHead title="Fixtures" showUsd />
+                <div className={styles.splitPanel}>
+                  <div className={styles.card}>
+                    <h4 className={styles.cardTitle}>Fixture detail</h4>
+                    <DataTable
+                      columns={vcFixtureColumns}
+                      rows={(vcData?.chartRows ?? []).map((row, index) => ({
+                        ...row,
+                        id: `${row.voyageNo}-${index}`,
+                      }))}
+                    />
+                  </div>
+                  <div className={styles.card}>
+                    <h4 className={styles.cardTitle}>Fixture chart</h4>
+                    <FixtureChart rows={vcData?.chartRows ?? []} />
+                  </div>
                 </div>
-                <FixtureChart rows={vcData?.chartRows ?? []} />
-              </div>
+              </section>
             ) : null}
 
-            <h3 className={styles.sectionTitle}>UNSETTLED FREIGHT</h3>
-            <DataTable
-              columns={freightColumns}
-              rows={[
-                ...(vcData?.freightRows ?? []).map((row, index) => ({
-                  ...row,
-                  id: `freight-${index}`,
-                })),
-                ...(vcData?.freightRows?.length
-                  ? [{
-                    id: 'freight-total',
-                    voyage: '',
-                    vessel: '',
-                    charterer: 'Total',
-                    initialFreight: vcData.freightTotals?.initial ?? '',
-                    finalFreight: vcData.freightTotals?.final ?? '',
-                  }]
-                  : []),
-              ]}
-            />
+            <section className={styles.secBlock}>
+              <SectionHead title="Unsettled Freight" showUsd />
+              <div className={styles.card}>
+                <DataTable
+                  columns={freightColumns}
+                  rows={[
+                    ...(vcData?.freightRows ?? []).map((row, index) => ({
+                      ...row,
+                      id: `freight-${index}`,
+                    })),
+                    ...(vcData?.freightRows?.length
+                      ? [{
+                        id: 'freight-total',
+                        voyage: '',
+                        vessel: '',
+                        charterer: 'Total',
+                        initialFreight: vcData.freightTotals?.initial ?? '',
+                        finalFreight: vcData.freightTotals?.final ?? '',
+                      }]
+                      : []),
+                  ]}
+                />
+              </div>
+            </section>
           </>
         ) : null}
 
         {activeTab === 'tc' ? (
           <>
-            <h3 className={styles.sectionTitle}>Dashboard</h3>
-            <DataTable
-              columns={tcCompletedColumns}
-              rows={(tcData?.completedRows ?? []).map((row, index) => ({
-                ...row,
-                id: `${row.tcNo}-${index}`,
-              }))}
-            />
+            <section className={styles.secBlock}>
+              <SectionHead title="TC Business Overview" showUsd />
+              <div className={styles.sparkRow}>
+                {TC_SPARK.map((card) => (
+                  <SparklineSummaryCard key={card.label} {...card} />
+                ))}
+              </div>
+              <div className={styles.shellGrid}>
+                <ChartCard title="Trades by Chartering Desk" sub="By office · TC · YTD · sample">
+                  <VerticalBars data={DESK_OFFICE_TC} colors={OFFICE_SHADES} />
+                </ChartCard>
+                <ChartCard title="Trades by Vessel Type" sub="TC · YTD · sample">
+                  <VerticalBars data={VESSEL_TYPE_TC} colors={TC_VESSEL_SHADES} />
+                </ChartCard>
+              </div>
+              <div className={styles.shellStack}>
+                <ChartCard title="Average Hire by Vessel Type" sub="TC · YTD · USD / day · sample">
+                  <HorizontalBars data={AVG_HIRE_BY_TYPE} valueFmt={(v) => `$${v.toLocaleString()}/day`} />
+                </ChartCard>
+              </div>
+              <div className={styles.shellGrid}>
+                <ChartCard title="Chartered-In Business" sub="TC · YTD · USD (millions) · sample">
+                  <PieLegend data={OWNERS_TC} colors={OWNER_SHADES} valueFmt={(v) => `${v} mil`} />
+                  <FleetMixBar owned={FLEET_MIX.owned} charteredIn={FLEET_MIX.charteredIn} />
+                </ChartCard>
+                <ChartCard title="Chartered-Out Business" sub="TC · YTD · USD (millions) · sample">
+                  <PieLegend data={CHARTERERS_TC} colors={TC_VESSEL_SHADES} valueFmt={(v) => `${v} mil`} />
+                </ChartCard>
+              </div>
+              <div className={styles.shellStack}>
+                <ChartCard title="Vessel Redelivery Zones" sub="TC · YTD · sample">
+                  <HorizontalBars data={ZONES_TC} valueFmt={(v) => String(v)} />
+                  <SopFCta />
+                </ChartCard>
+              </div>
+            </section>
+
+            <section className={styles.secBlock}>
+              <SectionHead title="Performing Vessels" />
+              <div className={styles.card}>
+                <div className={styles.cardHead}>
+                  <h4 className={styles.cardTitle}>Active TCs</h4>
+                  <span className={styles.demoBadge}>Sample data</span>
+                </div>
+                <DataTable
+                  columns={[
+                    { key: 'tcNo', label: 'TC No.' },
+                    { key: 'vessel', label: 'Vessels' },
+                    { key: 'cpDate', label: 'CP Date' },
+                    { key: 'activity', label: 'Activity Status' },
+                    { key: 'route', label: 'Delivery – Re-delivery' },
+                  ]}
+                  rows={PERFORMING_TC.map((row, index) => ({
+                    id: `ptc-${index}`,
+                    tcNo: row.tcNo,
+                    vessel: row.vessel,
+                    cpDate: row.cpDate,
+                    activity: <ActivityBadge status={row.status} label={row.statusLabel} />,
+                    route: row.route,
+                  }))}
+                />
+                <p className={styles.drillHint}>Activity Status is sourced from Daily Position Report triggers.</p>
+              </div>
+            </section>
+
+            <section className={styles.secBlock}>
+              <SectionHead title="Commercial Performance" showUsd />
+              <div className={styles.card}>
+                <DataTable
+                  columns={tcCompletedColumns}
+                  rows={(tcData?.completedRows ?? []).map((row, index) => ({
+                    ...row,
+                    id: `${row.tcNo}-${index}`,
+                  }))}
+                />
+              </div>
+            </section>
 
             {isMgmtUser ? (
-              <div className={styles.splitPanel}>
-                <div>
-                  <DataTable
-                    columns={tcFixtureColumns}
-                    rows={(tcData?.chartRows ?? []).map((row, index) => ({
-                      ...row,
-                      id: `${row.tcNo}-${index}`,
-                    }))}
-                  />
+              <section className={styles.secBlock}>
+                <SectionHead title="Fixtures" showUsd />
+                <div className={styles.splitPanel}>
+                  <div className={styles.card}>
+                    <h4 className={styles.cardTitle}>Fixture detail</h4>
+                    <DataTable
+                      columns={tcFixtureColumns}
+                      rows={(tcData?.chartRows ?? []).map((row, index) => ({
+                        ...row,
+                        id: `${row.tcNo}-${index}`,
+                      }))}
+                    />
+                  </div>
+                  <div className={styles.card}>
+                    <h4 className={styles.cardTitle}>Fixture chart</h4>
+                    <FixtureChart rows={tcData?.chartRows ?? []} categoryKey="vessel" />
+                  </div>
                 </div>
-                <FixtureChart rows={tcData?.chartRows ?? []} categoryKey="vessel" />
-              </div>
+              </section>
             ) : null}
 
-            <div className={styles.splitPanel}>
-              <div>
-                <h3 className={styles.sectionTitle}>Receivables</h3>
-                <DataTable
-                  columns={hireColumns}
-                  rows={[
-                    ...(tcData?.hireRows ?? []).map((row, index) => ({
-                      ...row,
-                      id: `hire-${index}`,
-                    })),
-                    ...(tcData?.hireRows?.length
-                      ? [{
-                        id: 'hire-total',
-                        tcNo: '',
-                        vessel: '',
-                        customer: 'Total',
-                        amount: tcData.hireTotal ?? '',
-                      }]
-                      : []),
-                  ]}
-                />
+            <section className={styles.secBlock}>
+              <SectionHead title="Receivables" showUsd />
+              <div className={styles.splitPanel}>
+                <div className={styles.card}>
+                  <h4 className={styles.cardTitle}>Receivables (Hire)</h4>
+                  <DataTable
+                    columns={hireColumns}
+                    rows={[
+                      ...(tcData?.hireRows ?? []).map((row, index) => ({
+                        ...row,
+                        id: `hire-${index}`,
+                      })),
+                      ...(tcData?.hireRows?.length
+                        ? [{
+                          id: 'hire-total',
+                          tcNo: '',
+                          vessel: '',
+                          customer: 'Total',
+                          amount: tcData.hireTotal ?? '',
+                        }]
+                        : []),
+                    ]}
+                  />
+                </div>
+                <div className={styles.card}>
+                  <h4 className={styles.cardTitle}>Receivables (Other)</h4>
+                  <DataTable
+                    columns={otherColumns}
+                    rows={[
+                      ...(tcData?.otherRows ?? []).map((row, index) => ({
+                        ...row,
+                        id: `other-${index}`,
+                      })),
+                      ...(tcData?.otherRows?.length
+                        ? [{
+                          id: 'other-total',
+                          tcNo: '',
+                          vessel: '',
+                          otherInvoiceType: 'Total',
+                          amount: tcData.otherTotal ?? '',
+                        }]
+                        : []),
+                    ]}
+                  />
+                </div>
               </div>
-              <div>
-                <h3 className={styles.sectionTitle}>Other Receivables</h3>
-                <DataTable
-                  columns={otherColumns}
-                  rows={[
-                    ...(tcData?.otherRows ?? []).map((row, index) => ({
-                      ...row,
-                      id: `other-${index}`,
-                    })),
-                    ...(tcData?.otherRows?.length
-                      ? [{
-                        id: 'other-total',
-                        tcNo: '',
-                        vessel: '',
-                        otherInvoiceType: 'Total',
-                        amount: tcData.otherTotal ?? '',
-                      }]
-                      : []),
-                  ]}
-                />
-              </div>
-            </div>
+            </section>
           </>
         ) : null}
 
         {activeTab === 'coas' ? (
-          <>
-            <DataTable
-              columns={coaColumns}
-              rows={coaRows.map((row) => ({ ...row, id: row.coaId }))}
-              emptyMessage="SORRY CURRENTLY THERE ARE ZERO(0) RECORDS"
-            />
-            <SopfPagination
-              page={coaPage}
-              pageSize={PAGE_SIZE}
-              total={coaTotal}
-              onPageChange={setCoaPage}
-            />
-          </>
+          <section className={styles.secBlock}>
+            <SectionHead title="COA Business Overview" showUsd />
+            <div className={styles.shellGrid}>
+              {COA_PACE.map((item) => (
+                <PaceCard key={item.id} item={item} />
+              ))}
+            </div>
+            <SectionHead title="Contracts" />
+            <div className={styles.card}>
+              <DataTable
+                columns={coaColumns}
+                rows={coaRows.map((row) => ({ ...row, id: row.coaId }))}
+                emptyMessage="SORRY CURRENTLY THERE ARE ZERO(0) RECORDS"
+              />
+              <SopfPagination
+                page={coaPage}
+                pageSize={PAGE_SIZE}
+                total={coaTotal}
+                onPageChange={setCoaPage}
+              />
+            </div>
+          </section>
         ) : null}
 
         {activeTab === 'periods' ? (
+          <section className={styles.secBlock}>
+            <SectionHead title="Period Business Overview" showUsd />
+            <div className={styles.shellGrid}>
+              {PERIOD_CARDS.map((item) => (
+                <PeriodPaceCard key={item.id} item={item} />
+              ))}
+            </div>
+            <div className={styles.shellStack}>
+              <ChartCard title="Redelivery & Option Pipeline" sub="Next 90 days · sample">
+                <PipelineList items={PIPELINE} />
+              </ChartCard>
+            </div>
+            <div className={styles.shellGrid}>
+              <ChartCard title="On-Hire vs. Off-Hire" sub="Days & USD impact by reason · sample">
+                <OffHirePanel records={PERIOD_RECORDS} />
+              </ChartCard>
+              <ChartCard title="Revenue Due vs Received" sub="Days performed, with value impact · sample">
+                <HireDuePanel records={PERIOD_RECORDS} />
+              </ChartCard>
+            </div>
+            <div className={styles.shellStack}>
+              <MarkToMarketCard data={MARK_TO_MARKET} />
+            </div>
+            <SectionHead title="Contracts" />
+            <div className={styles.card}>
+              <DataTable
+                columns={periodColumns}
+                rows={periodRows.map((row) => ({ ...row, id: row.periodId }))}
+                emptyMessage="SORRY CURRENTLY THERE ARE ZERO(0) RECORDS"
+              />
+              <SopfPagination
+                page={periodPage}
+                pageSize={PAGE_SIZE}
+                total={periodTotal}
+                onPageChange={setPeriodPage}
+              />
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === 'all' ? (
           <>
-            <DataTable
-              columns={periodColumns}
-              rows={periodRows.map((row) => ({ ...row, id: row.periodId }))}
-              emptyMessage="SORRY CURRENTLY THERE ARE ZERO(0) RECORDS"
-            />
-            <SopfPagination
-              page={periodPage}
-              pageSize={PAGE_SIZE}
-              total={periodTotal}
-              onPageChange={setPeriodPage}
-            />
+            <section className={styles.secBlock}>
+              <SectionHead title="All Contracts Overview" showUsd />
+              <div className={styles.sparkRow}>
+                {ALL_KPI.map((card) => (
+                  <AllKpiTile key={card.label} {...card} />
+                ))}
+              </div>
+            </section>
+            <section className={styles.secBlock}>
+              <ContractMixPanel />
+            </section>
+            <section className={styles.secBlock}>
+              <RevenueByContractCard />
+            </section>
+            <section className={styles.secBlock}>
+              <ChartCard title="Needs Attention">
+                <AttentionList items={ATTENTION_ITEMS} />
+              </ChartCard>
+            </section>
+            <section className={styles.secBlock}>
+              <ChartCard title="Receivable vs Invoiced" sub="USD (millions)">
+                <HorizontalBars data={RECEIVABLE_VS_INVOICED} valueFmt={(v) => `${v.toFixed(1)} mil`} />
+              </ChartCard>
+            </section>
+            <section className={styles.secBlock}>
+              <ChartCard title="Total Trade Revenue" sub="Completed trades · USD (millions) · Quarterly YTD">
+                <QuarterlyAreaChart data={REVENUE_QUARTERLY} />
+              </ChartCard>
+            </section>
           </>
         ) : null}
       </div>

@@ -2,6 +2,7 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   __resetOpsVcMockForTests,
+  createOpsVcCostSheet,
   deactivateOpsVcEntry,
   listHistoryAtGlance,
   listInOpsAtGlance,
@@ -12,6 +13,7 @@ import {
   moveOpsVcToPostOps,
   updateOpsVcOperator,
   updateYearAddOnDate,
+  updateOpsVcCostSheetLayout,
 } from './opsVcService.js';
 
 describe('opsVcService mock lifecycle', () => {
@@ -82,5 +84,18 @@ describe('opsVcService mock lifecycle', () => {
     assert.equal(data.recordsTotal, 1);
     assert.equal(data.records[0].reportTitle, 'Noon Report');
     assert.equal(data.vesselImoNo, '9123456');
+  });
+
+  it('pins a worksheet and keeps it first after reorder', async () => {
+    await createOpsVcCostSheet(1001, 'Rev 2');
+    await updateOpsVcCostSheetLayout(1001, [
+      { id: 12, pinned: false, sortOrder: 0 },
+      { id: 11, pinned: true, sortOrder: 1 },
+    ]);
+    const data = await listInOpsAtGlance({ selYear: '2026' });
+    assert.equal(data.records[0].costSheets[0].id, 11);
+    assert.equal(data.records[0].costSheets[0].pinned, true);
+    assert.equal(data.records[0].costSheets[1].id, 12);
+    assert.equal(data.records[0].costSheets[1].pinned, false);
   });
 });

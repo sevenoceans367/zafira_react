@@ -12,6 +12,7 @@ import {
   dbListYearUpdation,
   dbMoveOpsVcToHistory,
   dbMoveOpsVcToPostOps,
+  dbUpdateOpsVcCostSheetLayout,
   dbUpdateOpsVcOperator,
   dbUpdateYearAddOnDate,
 } from './opsVcDb.js';
@@ -461,9 +462,37 @@ export async function createOpsVcCostSheet(comId, sheetName) {
     throw error;
   }
   const nextId = Math.max(0, ...(row.costSheets || []).map((s) => Number(s.id) || 0)) + 1;
-  const sheet = { id: nextId, name, fcaId: null, estimateType: '2' };
+  const sheet = { id: nextId, name, fcaId: null, estimateType: '2', pinned: false, sortOrder: (row.costSheets || []).length };
   row.costSheets = [...(row.costSheets || []), sheet];
   return { msg: 4, costSheetId: nextId, sheetName: name, comId: Number(comId) };
+}
+
+export async function updateOpsVcCostSheetLayout(comId, sheets = []) {
+  const list = Array.isArray(sheets) ? sheets : [];
+  if (isDbConfigured()) return dbUpdateOpsVcCostSheetLayout(comId, list);
+  const row = [...mockRows, ...mockPostOpsRows, ...mockHistoryRows].find((item) => String(item.comId) === String(comId));
+  if (!row) {
+    const error = new Error('Voyage not found.');
+    error.status = 404;
+    throw error;
+  }
+  const byId = new Map(list.map((sheet) => [String(sheet.id), sheet]));
+  row.costSheets = (row.costSheets || []).map((sheet) => {
+    const next = byId.get(String(sheet.id));
+    if (!next) return sheet;
+    return {
+      ...sheet,
+      pinned: Boolean(next.pinned),
+      sortOrder: next.sortOrder,
+    };
+  }).sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    const ao = a.sortOrder;
+    const bo = b.sortOrder;
+    if (ao != null && bo != null && Number(ao) !== Number(bo)) return Number(ao) - Number(bo);
+    return Number(b.id) - Number(a.id);
+  });
+  return { msg: 0, comId: Number(comId) };
 }
 
 export function __resetOpsVcMockForTests() {

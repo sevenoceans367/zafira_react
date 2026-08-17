@@ -67,7 +67,7 @@ export default function ToDoListPage() {
       }
       setAlRemDrafts(drafts);
     } catch (err) {
-      setError(err.message || 'Failed to load to-do list.');
+      setError(err.message || 'Failed to load financial transactions.');
       setRows([]);
     } finally {
       setLoading(false);
@@ -151,7 +151,7 @@ export default function ToDoListPage() {
   };
 
   const handleExcel = () => {
-    downloadReportExcel('Todo List', TODO_EXCEL_COLUMNS, rows);
+    downloadReportExcel('Financial Transactions', TODO_EXCEL_COLUMNS, rows);
   };
 
   return (
@@ -172,7 +172,7 @@ export default function ToDoListPage() {
       />
 
       <div className={`zafira-page ${styles.page}`}>
-        {loading ? <LoadingOverlay active label="Loading to-do list…" /> : null}
+        {loading ? <LoadingOverlay active label="Loading financial transactions…" /> : null}
 
         {error ? <div className={styles.error}>{error}</div> : null}
 

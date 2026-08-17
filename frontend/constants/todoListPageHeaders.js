@@ -17,8 +17,8 @@ export function resolveTodoListHeader(pathname) {
   );
 
   return {
-    title: 'To - Do List',
-    currentPage: 'To - Do List',
+    title: 'Financial Transactions',
+    currentPage: 'Financial Transactions',
     // Middle crumbs only — AppHeader adds Home + currentPage
     breadcrumbs: [
       { label: moduleLabel, href: moduleHref },

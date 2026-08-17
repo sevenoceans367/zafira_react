@@ -23,6 +23,7 @@ import {
   updateYearAddOnDate,
   getOpsVcCostSheet,
   createOpsVcCostSheet,
+  updateOpsVcCostSheetLayout,
 } from '../services/opsVcService.js';
 import {
   deleteAgencyLetter,
@@ -951,6 +952,13 @@ router.post('/ops/:comId/cost-sheets', asyncHandler(async (req, res) => {
   res.json(await createOpsVcCostSheet(
     req.params.comId,
     req.body?.sheetName || req.body?.txtFile || '',
+  ));
+}));
+
+router.patch('/ops/:comId/cost-sheets/layout', asyncHandler(async (req, res) => {
+  res.json(await updateOpsVcCostSheetLayout(
+    req.params.comId,
+    req.body?.sheets || [],
   ));
 }));
 

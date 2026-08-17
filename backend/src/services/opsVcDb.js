@@ -29,6 +29,64 @@ function charteringTeamName(id) {
   return CHARTERING_TEAM_NAMES[Number(id)] || '';
 }
 
+let sheetLayoutTableReady = false;
+
+async function ensureSheetLayoutTable(pool) {
+  if (sheetLayoutTableReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ops_vc_cost_sheet_layout (
+      COMID INT NOT NULL,
+      COST_SHEETID INT NOT NULL,
+      PINNED TINYINT(1) NOT NULL DEFAULT 0,
+      SORT_ORDER INT NOT NULL DEFAULT 0,
+      PRIMARY KEY (COMID, COST_SHEETID),
+      INDEX idx_comid_order (COMID, SORT_ORDER)
+    )
+  `);
+  sheetLayoutTableReady = true;
+}
+
+export function applyCostSheetLayout(sheets, layoutRows = []) {
+  const prefs = new Map(
+    (layoutRows || []).map((row) => [String(row.COST_SHEETID ?? row.costSheetId ?? row.id), row]),
+  );
+  const withMeta = (sheets || []).map((sheet) => {
+    const pref = prefs.get(String(sheet.id));
+    return {
+      ...sheet,
+      pinned: Boolean(Number(pref?.PINNED ?? pref?.pinned ?? 0)),
+      sortOrder: pref?.SORT_ORDER ?? pref?.sortOrder ?? null,
+    };
+  });
+  withMeta.sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    const ao = a.sortOrder;
+    const bo = b.sortOrder;
+    if (ao != null && bo != null && Number(ao) !== Number(bo)) return Number(ao) - Number(bo);
+    return Number(b.id) - Number(a.id);
+  });
+  return withMeta;
+}
+
+async function loadSheetLayouts(pool, comIds) {
+  await ensureSheetLayoutTable(pool);
+  const ids = [...new Set((comIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id)))];
+  if (!ids.length) return new Map();
+  const [rows] = await pool.query(
+    `SELECT COMID, COST_SHEETID, PINNED, SORT_ORDER
+     FROM ops_vc_cost_sheet_layout
+     WHERE COMID IN (?)`,
+    [ids],
+  );
+  const map = new Map();
+  for (const row of rows) {
+    const key = String(row.COMID);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(row);
+  }
+  return map;
+}
+
 async function loginContactName(pool, loginId) {
   if (loginId == null || String(loginId).trim() === '' || String(loginId) === '0') return '';
   const [[person]] = await pool.query(
@@ -481,6 +539,17 @@ async function dbListOpsVcGlance({
       canAddCostSheet: !isHistory && canAddCostSheet,
       canEditOperator: allowOperatorEdit,
       pageContext: isHistory ? 3 : (rowStatus === 2 ? 2 : 1),
+    });
+  }
+
+  try {
+    const layoutByComId = await loadSheetLayouts(pool, records.map((record) => record.comId));
+    records.forEach((record) => {
+      record.costSheets = applyCostSheetLayout(record.costSheets, layoutByComId.get(String(record.comId)) || []);
+    });
+  } catch {
+    records.forEach((record) => {
+      record.costSheets = applyCostSheetLayout(record.costSheets, []);
     });
   }
 
@@ -1290,4 +1359,40 @@ export async function dbCreateOpsVcCostSheet(comId, sheetName) {
     [name, safeComId, MODULE_ID, COMPANY_ID],
   );
   return { msg: 4, costSheetId: result.insertId, sheetName: name, comId: safeComId };
+}
+
+export async function dbUpdateOpsVcCostSheetLayout(comId, sheets = []) {
+  const pool = getPool();
+  const safeComId = Number(comId);
+  if (!Number.isFinite(safeComId) || safeComId <= 0) {
+    const error = new Error('Voyage not found.');
+    error.status = 404;
+    throw error;
+  }
+  const list = Array.isArray(sheets) ? sheets : [];
+  await ensureSheetLayoutTable(pool);
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query(
+      `DELETE FROM ops_vc_cost_sheet_layout WHERE COMID = ?`,
+      [safeComId],
+    );
+    for (const [index, sheet] of list.entries()) {
+      const sheetId = Number(sheet.id ?? sheet.costSheetId);
+      if (!Number.isFinite(sheetId) || sheetId <= 0) continue;
+      await connection.query(
+        `INSERT INTO ops_vc_cost_sheet_layout (COMID, COST_SHEETID, PINNED, SORT_ORDER)
+         VALUES (?, ?, ?, ?)`,
+        [safeComId, sheetId, sheet.pinned ? 1 : 0, Number.isFinite(Number(sheet.sortOrder)) ? Number(sheet.sortOrder) : index],
+      );
+    }
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+  return { msg: 0, comId: safeComId };
 }

@@ -15,7 +15,7 @@ export async function fetchTodoList({ tab, accountType, search } = {}) {
   if (search) params.set('search', search);
   const query = params.toString();
   const response = await fetch(`${BASE}${query ? `?${query}` : ''}`);
-  return parseJson(response, 'Failed to load to-do list.');
+  return parseJson(response, 'Failed to load financial transactions.');
 }
 
 export async function inactiveTodoAlert(alertId) {

@@ -28,9 +28,11 @@
   font-size: var(--sidebar-sub-font-size, 12px);
   font-weight: normal;
   text-align: left;
+  text-decoration: none;
   white-space: normal;
   line-height: 1.35;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .sectionBtn .icon {

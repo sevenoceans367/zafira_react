@@ -22,8 +22,8 @@ const STATIC_HEADERS = {
     breadcrumbs: [],
   },
   '/internal-user/vc': {
-    title: 'Dashboard',
-    currentPage: 'Dashboard',
+    title: 'Commercial Performance',
+    currentPage: 'Commercial Performance',
     breadcrumbs: [{ label: 'SOC', href: appPath('/internal-user/vc') }],
   },
   '/internal-user/vc/decision-chart-tc': {

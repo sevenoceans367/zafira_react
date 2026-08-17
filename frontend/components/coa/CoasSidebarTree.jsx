@@ -15,6 +15,8 @@ export default function CoasSidebarTree({ isOpen }) {
   const { pathname } = useLocation();
   const [expanded, setExpanded] = useState(false);
   const rootRef = useRef(null);
+  const firstHref = appPath(`/internal-user/vc/coas/${COA_ITEMS[0].id}`);
+  const branchActive = pathname.includes('/internal-user/vc/coas/');
 
   useEffect(() => {
     if (!expanded) return undefined;
@@ -39,11 +41,10 @@ export default function CoasSidebarTree({ isOpen }) {
 
   return (
     <li ref={rootRef} className={`treeview ${expanded ? 'open' : ''}`}>
-      <button
-        type="button"
-        className={expanded ? 'expanded' : ''}
-        onClick={() => setExpanded((value) => !value)}
-        aria-expanded={expanded}
+      <Link
+        to={firstHref}
+        className={`${expanded ? 'expanded' : ''} ${branchActive ? 'active' : ''}`.trim()}
+        onClick={() => setExpanded(false)}
         aria-haspopup="true"
       >
         <img src={coaIcon} alt="" className="icon" aria-hidden />
@@ -51,7 +52,7 @@ export default function CoasSidebarTree({ isOpen }) {
         {isOpen ? (
           <i className="bi bi-chevron-down master-chevron" aria-hidden />
         ) : null}
-      </button>
+      </Link>
       <ul className="treeview-menu">
         {COA_ITEMS.map((item) => {
           const href = `/internal-user/vc/coas/${item.id}`;

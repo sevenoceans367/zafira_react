@@ -514,6 +514,15 @@ export async function createOpsVcCostSheet(comId, sheetName) {
   return parseJson(response, 'Failed to create Voyage Financials sheet.');
 }
 
+export async function updateOpsVcCostSheetLayout(comId, sheets) {
+  const response = await fetch(`${BASE}/ops/${encodeURIComponent(comId)}/cost-sheets/layout`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sheets }),
+  });
+  return parseJson(response, 'Failed to update worksheet layout.');
+}
+
 /** PHP options.php?id=131 getCompareSheetData — VC Compare Sheets. */
 export async function fetchCompareSheetsVc(comId) {
   const response = await fetch(`${BASE}/ops/compare-sheets${toQuery({ comId })}`);

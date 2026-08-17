@@ -9,6 +9,8 @@ export default function MastersSidebarTree({ isOpen }) {
   const module = parseMastersModuleFromPath(pathname);
   const [expanded, setExpanded] = useState(false);
   const rootRef = useRef(null);
+  const firstHref = masterAppPath(module, MASTERS_MODULES[0].id);
+  const branchActive = pathname.includes('/masters/');
 
   useEffect(() => {
     if (!expanded) return undefined;
@@ -33,11 +35,10 @@ export default function MastersSidebarTree({ isOpen }) {
 
   return (
     <li ref={rootRef} className={`treeview ${expanded ? 'open' : ''}`}>
-      <button
-        type="button"
-        className={expanded ? 'expanded' : ''}
-        onClick={() => setExpanded((value) => !value)}
-        aria-expanded={expanded}
+      <Link
+        to={firstHref}
+        className={`${expanded ? 'expanded' : ''} ${branchActive ? 'active' : ''}`.trim()}
+        onClick={() => setExpanded(false)}
         aria-haspopup="true"
       >
         <i className="bi bi-folder icon" aria-hidden />
@@ -45,7 +46,7 @@ export default function MastersSidebarTree({ isOpen }) {
         {isOpen ? (
           <i className="bi bi-chevron-down master-chevron" aria-hidden />
         ) : null}
-      </button>
+      </Link>
       <ul className="treeview-menu">
         {MASTERS_MODULES.map((master) => {
           const href = masterAppPath(module, master.id);

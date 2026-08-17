@@ -115,6 +115,7 @@
 
 /* Hide top-level labels only — keep flyout submenu text visible on hover. */
 .sidebar-wrapper.closed .sidebar-menu > li > a > span,
+.sidebar-wrapper.closed .sidebar-menu > li.treeview > a > span,
 .sidebar-wrapper.closed .sidebar-menu > li.treeview > button > span,
 .sidebar-wrapper.closed .sidebar-user-panel .info,
 .sidebar-wrapper.closed .treeview > a > i[class*="bi-chevron-"],
@@ -123,6 +124,7 @@
 }
 
 .sidebar-wrapper.closed .sidebar-menu > li > a,
+.sidebar-wrapper.closed .sidebar-menu > li.treeview > a,
 .sidebar-wrapper.closed .sidebar-menu > li.treeview > button {
   justify-content: center;
   margin: 0 8px;
@@ -160,6 +162,8 @@
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+.sidebar-menu > li.treeview > a .icon,
+.sidebar-menu > li.treeview > a i,
 .sidebar-menu > li.treeview > button .icon,
 .sidebar-menu > li.treeview > button i {
   color: inherit;
@@ -188,6 +192,7 @@
   font-weight: normal;
 }
 
+.sidebar-menu > li.treeview > a > span,
 .sidebar-menu > li.treeview > button > span {
   flex: 1;
 }
@@ -208,6 +213,7 @@
 }
 
 .sidebar-wrapper.closed .sidebar-menu > li > a > .icon,
+.sidebar-wrapper.closed .sidebar-menu > li.treeview > a > .icon,
 .sidebar-wrapper.closed .sidebar-menu > li.treeview > button > .icon {
   margin-right: 0 !important;
 }

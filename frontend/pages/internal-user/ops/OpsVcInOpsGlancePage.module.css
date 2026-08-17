@@ -1,0 +1,531 @@
+.pageTitle {
+  margin: 0 0 22px;
+  font-family: var(--font-family-heading, inherit);
+  font-size: 27px;
+  font-weight: 700;
+  color: #1b2430;
+  text-align: left;
+}
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px;
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-bottom: none;
+  border-radius: 14px 14px 0 0;
+}
+
+.actionRowLeft,
+.actionRowRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.actionRowRight {
+  font-size: 12.5px;
+  color: #8a93a2;
+}
+
+.rowsSelect {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b6472;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  padding: 5px 8px;
+}
+
+.tableCard {
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-radius: 0 0 14px 14px;
+  overflow: hidden;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 3050px;
+}
+
+.grid thead th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  background: #fafbfc;
+  padding: 10px 11px;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: nowrap;
+}
+
+.iconTh {
+  text-align: center;
+}
+
+.iconTh svg {
+  width: 15px;
+  height: 15px;
+  color: #8a93a2;
+  display: block;
+  margin: 0 auto;
+}
+
+.grid tbody td {
+  padding: 11px;
+  border-bottom: 1px solid #eceef2;
+  font-size: 13px;
+  color: #1b2430;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.grid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.grid tbody tr:hover {
+  background: #fafbfc;
+}
+
+.itemCell {
+  color: #8a93a2;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.opsCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+}
+
+.primary {
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.sub {
+  font-size: 11.5px;
+  color: #8a93a2;
+  font-weight: 600;
+}
+
+.muted {
+  color: #8a93a2;
+}
+
+.periodVessel .primary {
+  color: #b42318;
+}
+
+.route {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #5b6472;
+  font-size: 12.5px;
+  white-space: normal;
+  min-width: 140px;
+}
+
+.trunc {
+  display: inline-block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.docCenter {
+  display: flex;
+  justify-content: center;
+}
+
+.docGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f2f4;
+  border: 1px solid #dfe2e7;
+  border-radius: 9px;
+  padding: 4px;
+}
+
+.docBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #5b6472;
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: none;
+}
+
+.docBtn:hover {
+  background: #fff;
+  color: #274670;
+  box-shadow: 0 1px 2px rgba(20, 30, 50, 0.08);
+}
+
+.docBtnDisabled {
+  color: #8a93a2;
+  cursor: default;
+  pointer-events: none;
+}
+
+.docBtn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.chipStack {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+
+.chipLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #3b82f6;
+  background: #eaf1fe;
+  border: 1px solid #d3e3fd;
+  border-radius: 7px;
+  padding: 5px 10px;
+  text-decoration: none;
+  white-space: nowrap;
+  max-width: 132px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chipLink:hover {
+  background: #d3e3fd;
+}
+
+.wsheetStack {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+  max-width: 170px;
+}
+
+.wchip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+.wsheetMany .wchip:nth-child(even) {
+  background: #f1f2f4;
+}
+
+.wchipPinned {
+  border-color: #fbd9c9;
+  background: #fdece4;
+}
+
+.wsheetMany .wchipPinned:nth-child(even) {
+  background: #fdece4;
+}
+
+.wchipDragging {
+  opacity: 0.55;
+}
+
+.pinIco,
+.editIco,
+.dragIco {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: #8a93a2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.pinIco svg,
+.editIco svg,
+.dragIco svg {
+  width: 100%;
+  height: 100%;
+}
+
+.wchipPinned .pinIco {
+  color: #f4652c;
+  filter: drop-shadow(0 0 0.5px rgba(244, 101, 44, 0.5));
+}
+
+.editIco:hover,
+.pinIco:hover {
+  color: #274670;
+}
+
+.wchipPinned .pinIco:hover {
+  color: #d45520;
+}
+
+.dragIco {
+  width: 11px;
+  height: 11px;
+  cursor: grab;
+}
+
+.dragIco:active {
+  cursor: grabbing;
+}
+
+.wchipName {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #3b82f6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.wchipName:hover {
+  text-decoration: underline;
+}
+
+.wchipBadge {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: #e6eaf1;
+  color: #274670;
+  font-weight: 700;
+  font-size: 9.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.wchipAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  background: none;
+  border: 2px dashed #8a93a2;
+  border-radius: 7px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #5b6472;
+  cursor: pointer;
+}
+
+.wchipAdd:hover {
+  border-color: #274670;
+  color: #274670;
+  background: #e6eaf1;
+}
+
+.wchipAdd svg {
+  width: 9px;
+  height: 9px;
+}
+
+.cmpBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #274670;
+  background: #e6eaf1;
+  border: 1px solid #d3dae7;
+  cursor: pointer;
+  padding: 0;
+}
+
+.cmpBtn:hover {
+  background: #274670;
+  color: #fff;
+}
+
+.cmpBtn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.cmpBtnDisabled {
+  color: #8a93a2;
+  background: #f1f2f4;
+  border-color: #dfe2e7;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.iconBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a93a2;
+  background: #f1f2f4;
+  border: 1px solid #dfe2e7;
+  text-decoration: none;
+}
+
+.iconBtn:hover {
+  background: #fff;
+  color: #274670;
+}
+
+.iconBtn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.alertPill {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 5px;
+  background: #fdecea;
+  color: #e4483b;
+  border: 1px solid #f6c6c1;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: normal;
+  max-width: 128px;
+  line-height: 1.3;
+}
+
+.alertStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.alertPill svg {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  margin-top: 1px;
+}
+
+.pillAction {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 5px 12px;
+  border: 1.5px solid #f4652c;
+  cursor: pointer;
+  white-space: nowrap;
+  background: #fdece4;
+  color: #f4652c;
+}
+
+.pillAction:hover {
+  background: #fbd9c9;
+}
+
+.pillAction svg {
+  width: 11px;
+  height: 11px;
+  margin-left: 2px;
+}
+
+.opCell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+  min-width: 140px;
+}
+
+.opSelect {
+  width: 140px;
+}
+
+.opStamp {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 1px;
+}
+
+.opName {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #5b6472;
+}
+
+.opTime {
+  font-size: 10px;
+  color: #8a93a2;
+}
+
+.deactivateBtn {
+  border: none;
+  background: transparent;
+  color: #b42318;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+}
+
+.tableFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 8px 18px;
+  font-size: 12.5px;
+  color: #5b6472;
+  border-top: 1px solid #eceef2;
+}
+
+.emptyCell {
+  padding: 24px !important;
+  text-align: center !important;
+  color: #6b7280;
+  white-space: normal !important;
+}

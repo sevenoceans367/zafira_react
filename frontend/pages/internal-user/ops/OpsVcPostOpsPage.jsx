@@ -263,15 +263,16 @@ export default function OpsVcPostOpsPage() {
         {flash ? <div className={pageStyles.flashSuccess}>{flash.text}</div> : null}
         {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-        <OpsVcGlanceHeader
-          stats={stats}
-          cards={CARDS}
+        <OpsVcGlanceHeader stats={stats} cards={CARDS} />
+
+        <OpsVcGlanceTable
+          page={page}
           pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
           onPageSizeChange={setPageSize}
           showingLabel={`Showing ${rows.length} of ${total} operations`}
-        />
-
-        <OpsVcGlanceTable page={page} pageSize={pageSize} total={total} onPageChange={setPage}>
+        >
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>

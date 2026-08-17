@@ -110,15 +110,17 @@ export default function OpsVcYearUpdationPage() {
         {flash ? <div className={pageStyles.flashSuccess}>{flash}</div> : null}
         {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-        <OpsVcGlanceHeader
-          stats={stats}
-          cards={CARDS}
+        <OpsVcGlanceHeader stats={stats} cards={CARDS} />
+
+        <OpsVcGlanceTable
+          compact
+          page={page}
           pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
           onPageSizeChange={setPageSize}
           showingLabel={`Showing ${rows.length} of ${total} voyages`}
-        />
-
-        <OpsVcGlanceTable compact page={page} pageSize={pageSize} total={total} onPageChange={setPage}>
+        >
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>

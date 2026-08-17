@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
+import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import { deleteCargoRelet, fetchCargoRelets } from '../../../services/coas.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import CoaListHeaderActions from './CoaListHeaderActions.jsx';
@@ -12,6 +13,7 @@ const PAGE_SIZE = 10;
 
 export default function CargoReletListPage() {
   const navigate = useNavigate();
+  const { coaPath } = useCoaModule();
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -85,7 +87,7 @@ export default function CargoReletListPage() {
         primaryAction={{
           label: 'Add New Cargo Relet',
           onClick: () => navigate(
-            `/internal-user/vc/coas/cargo-relet/add?selBType=${businessType}${coaId ? `&coaId=${coaId}` : ''}`,
+            `${coaPath('cargo-relet/add')}?selBType=${businessType}${coaId ? `&coaId=${coaId}` : ''}`,
           ),
         }}
       />
@@ -141,7 +143,7 @@ export default function CargoReletListPage() {
                     type="button"
                     className={styles.actionIcon}
                     title="Edit"
-                    onClick={() => navigate(`/internal-user/vc/coas/cargo-relet/${row.fcaId}`)}
+                    onClick={() => navigate(coaPath(`cargo-relet/${row.fcaId}`))}
                   >
                     <i className="bi bi-pencil-square" aria-hidden />
                   </button>

@@ -5,10 +5,10 @@ const SOC = { label: 'SOC', href: appPath('/internal-user/vc') };
 const OPS_VC = { label: 'Ops - VC', href: appPath('/internal-user/vc/ops/in-ops-glance') };
 
 const PAGES = {
-  'in-ops-glance': 'In Ops at a glance VC',
-  'post-ops': 'Vessels in Post Ops VC',
-  history: 'Vessels in History VC',
-  'year-updation': 'Year Updation-VC/COA',
+  'in-ops-glance': 'Spot Operations',
+  'post-ops': 'Post Ops',
+  history: 'History',
+  'year-updation': 'Year Updation',
   'voyage-report': 'Voyage Report',
   'agency-letter': 'Generate Port Related Letters',
   'pda-fda': 'PDA/FDA',
@@ -22,10 +22,36 @@ const PAGES = {
   'request-port-cost': 'Operational Costs Payment',
   sof: 'SOF',
   laytime: 'Laytime',
-  bunker: 'Bunkers',
+  bunker: 'Bunker Calculations',
   'soa-report': 'SOA',
   'cost-sheet': 'Voyage Financials',
 };
+
+const FROM_PAYMENT_GRID = new Set([
+  'other-invoice',
+  'hire-statement',
+  'clubbed-invoice',
+  'clubbed-hire',
+  'freight-invoice',
+  'request-port-cost',
+]);
+
+const FROM_IN_OPS = new Set([
+  'voyage-report',
+  'agency-letter',
+  'pda-fda',
+  'documents',
+  'payment-grid',
+  'sof',
+  'laytime',
+  'bunker',
+  'soa-report',
+  'cost-sheet',
+]);
+
+function header(title, breadcrumbs) {
+  return { title, currentPage: title, breadcrumbs };
+}
 
 export function resolveOpsVcHeader(pathname) {
   if (!pathname.startsWith('/internal-user/vc/ops')) return null;
@@ -33,248 +59,26 @@ export function resolveOpsVcHeader(pathname) {
   const match = pathname.match(/^\/internal-user\/vc\/ops\/([^/]+)/);
   const pageId = match?.[1];
   const label = PAGES[pageId];
+  const inOpsCrumb = {
+    label: PAGES['in-ops-glance'],
+    href: appPath('/internal-user/vc/ops/in-ops-glance'),
+  };
+  const paymentGridCrumb = {
+    label: PAGES['payment-grid'],
+    href: appPath('/internal-user/vc/ops/payment-grid'),
+  };
 
-  if (pageId === 'voyage-report') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Voyage Report',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Voyage Report' },
-      ],
-    };
+  if (FROM_PAYMENT_GRID.has(pageId) && label) {
+    return header(label, [HOME, SOC, OPS_VC, inOpsCrumb, paymentGridCrumb, { label }]);
   }
 
-  if (pageId === 'agency-letter') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Generate Port Related Letters',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Generate Port Related Letters' },
-      ],
-    };
-  }
-
-  if (pageId === 'pda-fda') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'PDA/FDA',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'PDA/FDA' },
-      ],
-    };
-  }
-
-  if (pageId === 'documents') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Documents',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Documents' },
-      ],
-    };
-  }
-
-  if (pageId === 'payment-grid') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Payment / Invoice Grid',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Payment / Invoice Grid' },
-      ],
-    };
-  }
-
-  if (pageId === 'other-invoice') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Other Invoice',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
-        { label: 'Other Invoice' },
-      ],
-    };
-  }
-
-  if (pageId === 'hire-statement') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Hire Statement',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
-        { label: 'Hire Statement' },
-      ],
-    };
-  }
-
-  if (pageId === 'clubbed-invoice') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Invoice Clubbed',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
-        { label: 'Invoice Clubbed' },
-      ],
-    };
-  }
-
-  if (pageId === 'clubbed-hire') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Payment Clubbed',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
-        { label: 'Payment Clubbed' },
-      ],
-    };
-  }
-
-  if (pageId === 'freight-invoice') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Freight Invoice',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
-        { label: 'Freight Invoice' },
-      ],
-    };
-  }
-
-  if (pageId === 'request-port-cost') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Operational Costs Payment',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Payment / Invoice Grid', href: appPath('/internal-user/vc/ops/payment-grid') },
-        { label: 'Operational Costs Payment' },
-      ],
-    };
-  }
-
-  if (pageId === 'sof') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'SOF',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'SOF' },
-      ],
-    };
-  }
-
-  if (pageId === 'laytime') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Laytime',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Laytime' },
-      ],
-    };
-  }
-
-  if (pageId === 'bunker') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Bunkers',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Bunkers' },
-      ],
-    };
-  }
-
-  if (pageId === 'soa-report') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'SOA',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'SOA' },
-      ],
-    };
-  }
-
-  if (pageId === 'cost-sheet') {
-    return {
-      title: 'Ops - VC',
-      currentPage: 'Voyage Financials',
-      breadcrumbs: [
-        HOME,
-        SOC,
-        OPS_VC,
-        { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
-        { label: 'Voyage Financials' },
-      ],
-    };
+  if (FROM_IN_OPS.has(pageId) && label) {
+    return header(label, [HOME, SOC, OPS_VC, inOpsCrumb, { label }]);
   }
 
   if (label) {
-    return {
-      title: 'Ops - VC',
-      currentPage: label,
-      breadcrumbs: [HOME, SOC, OPS_VC, { label }],
-    };
+    return header(label, [HOME, SOC, OPS_VC, { label }]);
   }
 
-  return {
-    title: 'Ops - VC',
-    currentPage: 'Ops - VC',
-    breadcrumbs: [HOME, SOC, { label: 'Ops - VC' }],
-  };
+  return header('Ops - VC', [HOME, SOC, { label: 'Ops - VC' }]);
 }

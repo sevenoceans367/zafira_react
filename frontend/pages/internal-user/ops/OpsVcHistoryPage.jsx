@@ -133,7 +133,6 @@ export default function OpsVcHistoryPage() {
         {error ? <div className={pageStyles.error}>{error}</div> : null}
 
         <OpsVcGlanceHeader
-          title="History"
           stats={stats}
           cards={CARDS}
           pageSize={pageSize}

@@ -148,7 +148,6 @@ export function ChipLink({ to, children }) {
 }
 
 export function OpsVcGlanceHeader({
-  title,
   stats,
   cards,
   pageSize,
@@ -157,7 +156,6 @@ export function OpsVcGlanceHeader({
 }) {
   return (
     <>
-      <h2 className={styles.pageTitle}>{title}</h2>
       <SummaryCardGrid>
         {cards.map((card) => (
           <SummaryCard

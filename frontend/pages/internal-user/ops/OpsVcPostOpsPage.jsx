@@ -264,7 +264,6 @@ export default function OpsVcPostOpsPage() {
         {error ? <div className={pageStyles.error}>{error}</div> : null}
 
         <OpsVcGlanceHeader
-          title="Post Ops"
           stats={stats}
           cards={CARDS}
           pageSize={pageSize}

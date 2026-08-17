@@ -65,7 +65,7 @@ export function resolveSopfHeader(pathname, search = '') {
           ? { label: 'Vessels in History VC', href: appPath('/internal-user/vc/ops/history') }
           : { label: 'In Ops at a glance VC', href: appPath('/internal-user/vc/ops/in-ops-glance') };
       return {
-        title: 'Ops - VC',
+        title: 'View Estimate',
         currentPage: 'View Estimate',
         breadcrumbs: [
           HOME,

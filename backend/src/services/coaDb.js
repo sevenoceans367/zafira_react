@@ -1290,10 +1290,11 @@ export async function dbGetCoaNominations(coaId) {
   const [voyageRows] = await pool.query(
     `SELECT c.COMID, c.MESSAGE, m.VESSEL_IMO_ID, m.VOYAGE_NO, m.TRANS_DATE,
             m.TOTAL_DAYS, m.DAILY_EARNING, m.PROFIT_LOSS, m.VESSEL_TYPE, m.FCAID,
-            vim.VESSEL_NAME
+            vim.VESSEL_NAME, vim.DWT, vt.VesselType AS VESSEL_TYPE_NAME
      FROM freight_cost_estimate_compare c
      INNER JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+     LEFT JOIN vessel_type_master vt ON vt.VesselTypeId = m.VESSEL_TYPE
      WHERE c.COAAID = ? AND c.FINAL_ID != '' AND m.FIXED = 1
      ORDER BY DATE(m.TRANS_DATE) DESC`,
     [coaId],
@@ -1301,33 +1302,76 @@ export async function dbGetCoaNominations(coaId) {
 
   const [reletRows] = await pool.query(
     `SELECT r.FCAID, r.CARGO_RELET_NO, r.CARGO_QMT_MT, r.FREIGHT_USD, r.FREIGHT_AMT,
-            r.BUNKER_SURCHARGE_AMT, r.FREIGHT_USD_OUT, r.FREIGHT_AMT_OUT, r.PROFIT, r.FIXED
+            r.BUNKER_SURCHARGE_AMT, r.FREIGHT_USD_OUT, r.FREIGHT_AMT_OUT, r.PROFIT, r.FIXED,
+            r.TRANS_DATE
      FROM cargo_relet_estimate_masster r
      WHERE r.COAID = ? AND r.MODULEID = ? AND r.MCOMPANYID = ? AND r.SHEET_NO IS NULL
      ORDER BY r.FCAID DESC`,
     [coaId, COA_MODULE_ID, appContext.companyId],
   );
 
-  return {
-    coaLabel: `${coa.COA_ID} / ${coa.COA_NO}`,
-    currency: coa.CURRENCY || 'USD',
-    voyages: voyageRows.map((row, i) => ({
+  const voyages = [];
+  for (let i = 0; i < voyageRows.length; i += 1) {
+    const row = voyageRows[i];
+    const [legs] = await pool.query(
+      `SELECT FROM_PORT, TO_PORT, LOAD_PORT_QTY, DISC_PORT_QTY
+       FROM freight_cost_estimete_slave1 WHERE FCAID = ?`,
+      [row.FCAID],
+    );
+    const load = [];
+    const discharge = [];
+    for (const leg of legs) {
+      if (Number(leg.LOAD_PORT_QTY) > 0) load.push(await getPortShortName(pool, leg.FROM_PORT));
+      if (Number(leg.DISC_PORT_QTY) > 0) discharge.push(await getPortShortName(pool, leg.TO_PORT));
+    }
+    const [[qtyRow]] = await pool.query(
+      `SELECT SUM(CARGO_MT) AS SUM FROM freight_cost_estimete_slave10
+       WHERE FCAID = ? AND STATUS != 3`,
+      [row.FCAID],
+    );
+    voyages.push({
       index: i + 1,
       comId: row.COMID,
       fcaId: row.FCAID,
       vesselName: row.VESSEL_NAME ?? '',
+      vesselType: row.VESSEL_TYPE_NAME || row.VESSEL_TYPE || '',
+      coaNo: coa.COA_NO ?? '',
       voyageNo: row.VOYAGE_NO ?? '',
       cpDate: formatDateDMY(row.TRANS_DATE),
+      dwt: row.DWT ?? '',
+      lpdp: `${load.filter(Boolean).join(', ')} / ${discharge.filter(Boolean).join(', ')}`.replace(/^\s*\/\s*$/, ''),
       duration: row.TOTAL_DAYS ?? '',
+      cargoQty: qtyRow?.SUM ?? '',
       tce: row.DAILY_EARNING ?? '',
+      hire: '',
       profitLoss: row.PROFIT_LOSS ?? '',
       message: row.MESSAGE ?? '',
-    })),
-    relets: reletRows.map((row, i) => ({
+    });
+  }
+
+  const relets = [];
+  for (let i = 0; i < reletRows.length; i += 1) {
+    const row = reletRows[i];
+    const [ports] = await pool.query(
+      `SELECT PORTID, PORT_TYPE FROM cargo_relet_estimate_slave2
+       WHERE FCAID = ? AND IDENTIFY = 'IN'`,
+      [row.FCAID],
+    );
+    const load = [];
+    const discharge = [];
+    for (const port of ports) {
+      const name = await getPortShortName(pool, port.PORTID);
+      if (port.PORT_TYPE === 'LP') load.push(name);
+      if (port.PORT_TYPE === 'DP') discharge.push(name);
+    }
+    relets.push({
       index: i + 1,
       fcaId: row.FCAID,
+      coaNo: coa.COA_NO ?? '',
       reletNo: row.CARGO_RELET_NO ?? '',
+      date: formatDateDMY(row.TRANS_DATE),
       cargoQty: row.CARGO_QMT_MT ?? '',
+      lpdp: `${load.filter(Boolean).join(', ')} / ${discharge.filter(Boolean).join(', ')}`.replace(/^\s*\/\s*$/, ''),
       freightInPerMt: row.FREIGHT_USD ?? '',
       freightInAmt: row.FREIGHT_AMT ?? '',
       foSurcharge: row.BUNKER_SURCHARGE_AMT ?? '',
@@ -1335,6 +1379,13 @@ export async function dbGetCoaNominations(coaId) {
       freightOutAmt: row.FREIGHT_AMT_OUT ?? '',
       profit: row.PROFIT ?? '',
       fixed: Number(row.FIXED) === 1,
-    })),
+    });
+  }
+
+  return {
+    coaLabel: coa.COA_NO || coa.COA_ID || '',
+    currency: coa.CURRENCY || 'USD',
+    voyages,
+    relets,
   };
 }

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
-import { appPath } from '@bainbridge/shared-routing';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
+import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import {
   createCargoRelet,
   fetchCargoRelet,
@@ -115,6 +115,7 @@ function Field({ id, label, children, wide = false }) {
 export default function CargoReletFormPage({ mode = 'edit' }) {
   const { fcaId } = useParams();
   const navigate = useNavigate();
+  const { coaPath } = useCoaModule();
   const [searchParams] = useSearchParams();
   const isAdd = mode === 'add' || !fcaId;
   const [lookups, setLookups] = useState(null);
@@ -196,7 +197,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
       const payload = { ...form, ...totals, updateStatus };
       if (isAdd) await createCargoRelet(payload);
       else await updateCargoRelet(fcaId, payload);
-      navigate(`/internal-user/vc/coas/cargo-relet?selBType=${form.businessTypeId}`);
+      navigate(`${coaPath('cargo-relet')}?selBType=${form.businessTypeId}`);
     } catch (err) {
       setError(err.message || 'Failed to save cargo relet.');
     } finally {
@@ -327,7 +328,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     );
   }
 
-  const listHref = appPath(`/internal-user/vc/coas/cargo-relet?selBType=${form.businessTypeId || '2'}`);
+  const listHref = `${coaPath('cargo-relet')}?selBType=${form.businessTypeId || '2'}`;
 
   return (
     <div className={`zafira-page ${styles.page}`}>

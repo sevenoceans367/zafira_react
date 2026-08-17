@@ -112,14 +112,6 @@ export default function App() {
               element={<ReportModulePage />}
             />
             <Route path="/internal-user/vc" element={<VcDashboardPage />} />
-            <Route path="/internal-user/vc/coas/running" element={<RunningCoasListPage />} />
-            <Route path="/internal-user/vc/coas/running/add" element={<CoaFormPage mode="add" />} />
-            <Route path="/internal-user/vc/coas/running/:coaId" element={<CoaFormPage mode="edit" />} />
-            <Route path="/internal-user/vc/coas/cargo-relet" element={<CargoReletListPage />} />
-            <Route path="/internal-user/vc/coas/cargo-relet/add" element={<CargoReletFormPage mode="add" />} />
-            <Route path="/internal-user/vc/coas/cargo-relet/:fcaId" element={<CargoReletFormPage mode="edit" />} />
-            <Route path="/internal-user/vc/coas/in-ops" element={<CoaInOpsPage />} />
-            <Route path="/internal-user/vc/coas/post-ops" element={<CoaPostOpsPage />} />
             <Route path="/internal-user/vc/ops/in-ops-glance" element={<OpsVcInOpsGlancePage />} />
             <Route path="/internal-user/vc/ops/cost-sheet" element={<OpsVcCostSheetPage />} />
             <Route path="/internal-user/vc/ops/voyage-report" element={<OpsVcVoyageReportPage />} />
@@ -212,6 +204,14 @@ export default function App() {
             <Route path="/internal-user/vc/tc/:tcOutId/view" element={<TcViewPage />} />
             <Route path="/internal-user/tc" element={<TcModulePage />} />
 
+            <Route path="/internal-user/:module/coas/running/add" element={<CoaFormPage mode="add" />} />
+            <Route path="/internal-user/:module/coas/running/:coaId" element={<CoaFormPage mode="edit" />} />
+            <Route path="/internal-user/:module/coas/running" element={<RunningCoasListPage />} />
+            <Route path="/internal-user/:module/coas/cargo-relet/add" element={<CargoReletFormPage mode="add" />} />
+            <Route path="/internal-user/:module/coas/cargo-relet/:fcaId" element={<CargoReletFormPage mode="edit" />} />
+            <Route path="/internal-user/:module/coas/cargo-relet" element={<CargoReletListPage />} />
+            <Route path="/internal-user/:module/coas/in-ops" element={<CoaInOpsPage />} />
+            <Route path="/internal-user/:module/coas/post-ops" element={<CoaPostOpsPage />} />
             <Route path="/internal-user/:module/fleet" element={<FleetPage />} />
             <Route path="/internal-user/:module/fleet/add" element={<AddVesselPage />} />
             <Route path="/internal-user/:module/fleet/vessel/:id/primary" element={<UpdateVesselPage />} />

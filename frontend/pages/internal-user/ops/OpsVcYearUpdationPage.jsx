@@ -111,7 +111,6 @@ export default function OpsVcYearUpdationPage() {
         {error ? <div className={pageStyles.error}>{error}</div> : null}
 
         <OpsVcGlanceHeader
-          title="Year Updation"
           stats={stats}
           cards={CARDS}
           pageSize={pageSize}

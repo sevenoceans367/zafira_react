@@ -1,22 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { appPath } from '@bainbridge/shared-routing';
+import { COA_ITEMS, coaAppPath, parseCoaModuleFromPath } from '../../constants/coaModule.js';
 import coaIcon from '../../assets/COA.svg';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
-
-const COA_ITEMS = [
-  { id: 'running', label: 'Running COAs' },
-  { id: 'cargo-relet', label: 'COA - Cargo Relet' },
-  { id: 'in-ops', label: 'COA - In Ops' },
-  { id: 'post-ops', label: 'COA - Post Ops' },
-];
 
 export default function CoasSidebarTree({ isOpen }) {
   const { pathname } = useLocation();
   const [expanded, setExpanded] = useState(false);
   const rootRef = useRef(null);
-  const firstHref = appPath(`/internal-user/vc/coas/${COA_ITEMS[0].id}`);
-  const branchActive = pathname.includes('/internal-user/vc/coas/');
+  const module = parseCoaModuleFromPath(pathname);
+  const firstHref = coaAppPath(module, COA_ITEMS[0].id);
+  const branchActive = pathname.includes(`/internal-user/${module}/coas`);
 
   useEffect(() => {
     if (!expanded) return undefined;
@@ -55,12 +49,12 @@ export default function CoasSidebarTree({ isOpen }) {
       </Link>
       <ul className="treeview-menu">
         {COA_ITEMS.map((item) => {
-          const href = `/internal-user/vc/coas/${item.id}`;
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+          const href = coaAppPath(module, item.id);
+          const active = pathname.includes(`/internal-user/${module}/coas/${item.id}`);
           return (
             <li key={item.id}>
               <Link
-                to={appPath(href)}
+                to={href}
                 className={active ? 'active' : ''}
                 onClick={() => setExpanded(false)}
               >

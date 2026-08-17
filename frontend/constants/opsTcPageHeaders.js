@@ -34,7 +34,7 @@ export function resolveOpsTcHeader(pathname) {
     || pageId === 'payment-grid'
   ) {
     return {
-      title: 'Ops - TC',
+      title: label,
       currentPage: label,
       breadcrumbs: [
         HOME,
@@ -48,7 +48,7 @@ export function resolveOpsTcHeader(pathname) {
 
   if (label) {
     return {
-      title: 'Ops - TC',
+      title: label,
       currentPage: label,
       breadcrumbs: [HOME, SOC, OPS_TC, { label }],
     };

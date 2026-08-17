@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
-import { appPath } from '@bainbridge/shared-routing';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
+import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import {
   createCoa,
   fetchCoa,
@@ -65,6 +65,7 @@ function Field({ id, label, children, wide = false }) {
 export default function CoaFormPage({ mode = 'edit' }) {
   const { coaId } = useParams();
   const navigate = useNavigate();
+  const { coaPath } = useCoaModule();
   const [searchParams] = useSearchParams();
   const isAdd = mode === 'add' || !coaId;
   const [lookups, setLookups] = useState(null);
@@ -141,7 +142,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
         id,
         (form.monthlyRemarks || []).filter((row) => row.remarkDate || row.remarks),
       );
-      navigate(`/internal-user/vc/coas/running?selBType=${form.businessTypeId}&msg=0`);
+      navigate(`${coaPath('running')}?selBType=${form.businessTypeId}&msg=0`);
     } catch (err) {
       setError(err.message || 'Failed to save COA.');
     } finally {
@@ -149,7 +150,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
     }
   };
 
-  const listHref = appPath(`/internal-user/vc/coas/running?selBType=${form.businessTypeId || '2'}`);
+  const listHref = `${coaPath('running')}?selBType=${form.businessTypeId || '2'}`;
 
   if (loading) {
     return (

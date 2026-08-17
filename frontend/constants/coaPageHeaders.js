@@ -1,99 +1,118 @@
 import { appPath } from '@bainbridge/shared-routing';
+import {
+  COA_MODULE_IDS,
+  COA_MODULE_LABELS,
+  coaAppPath,
+  parseCoaModuleFromPath,
+} from './coaModule.js';
+import { SOPF_ENTRY_ROUTE } from './sopfSidebarMenu.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
-const SOC = { label: 'SOC', href: appPath('/internal-user/vc') };
-const COAS = { label: 'COAs', href: appPath('/internal-user/vc/coas/running') };
+
+function moduleBreadcrumb(module) {
+  if (module === 'sopf') {
+    return { label: COA_MODULE_LABELS.sopf, href: appPath(SOPF_ENTRY_ROUTE) };
+  }
+  return { label: COA_MODULE_LABELS.vc, href: appPath('/internal-user/vc') };
+}
 
 export function resolveCoaHeader(pathname) {
-  if (!pathname.startsWith('/internal-user/vc/coas')) return null;
+  if (!pathname.includes('/coas')) return null;
+  const module = parseCoaModuleFromPath(pathname);
+  if (!COA_MODULE_IDS.includes(module)) return null;
+  if (!pathname.startsWith(`/internal-user/${module}/coas`)) return null;
 
-  if (pathname.startsWith('/internal-user/vc/coas/running/add')) {
+  const runningHref = coaAppPath(module, 'running');
+  const reletHref = coaAppPath(module, 'cargo-relet');
+  const moduleCrumb = moduleBreadcrumb(module);
+
+  if (pathname.includes('/coas/running/add')) {
     return {
       title: 'Running COAs',
       currentPage: 'Add COA',
       breadcrumbs: [
         HOME,
-        SOC,
-        { label: 'Running COAs', href: appPath('/internal-user/vc/coas/running') },
+        moduleCrumb,
+        { label: 'Running COA Business', href: runningHref },
         { label: 'Add COA' },
       ],
     };
   }
 
-  if (/^\/internal-user\/vc\/coas\/running\/[^/]+$/.test(pathname)) {
+  if (/\/coas\/running\/[^/]+$/.test(pathname)) {
     return {
       title: 'Running COAs',
       currentPage: 'Update COA',
       breadcrumbs: [
         HOME,
-        SOC,
-        { label: 'Running COAs', href: appPath('/internal-user/vc/coas/running') },
+        moduleCrumb,
+        { label: 'Running COA Business', href: runningHref },
         { label: 'Update COA' },
       ],
     };
   }
 
-  if (pathname === '/internal-user/vc/coas/running') {
+  if (pathname.endsWith('/coas/running') || pathname.endsWith('/coas/running/')) {
     return {
-      title: 'Running COAs',
-      currentPage: 'Running COAs',
-      breadcrumbs: [HOME, SOC, { label: 'Running COAs' }],
+      title: 'Running COA Business',
+      currentPage: 'Running COA Business',
+      breadcrumbs: [HOME, moduleCrumb, { label: 'Running COA Business' }],
     };
   }
 
-  if (pathname.startsWith('/internal-user/vc/coas/cargo-relet/add')) {
+  if (pathname.includes('/coas/cargo-relet/add')) {
     return {
       title: 'COA - Cargo Relet',
       currentPage: 'Add Cargo Relet',
       breadcrumbs: [
         HOME,
-        SOC,
-        { label: 'COA - Cargo Relet', href: appPath('/internal-user/vc/coas/cargo-relet') },
+        moduleCrumb,
+        { label: 'COA - Cargo Relet', href: reletHref },
         { label: 'Add Cargo Relet' },
       ],
     };
   }
 
-  if (/^\/internal-user\/vc\/coas\/cargo-relet\/[^/]+$/.test(pathname)) {
+  if (/\/coas\/cargo-relet\/[^/]+$/.test(pathname)) {
     return {
       title: 'COA - Cargo Relet',
       currentPage: 'Update Cargo Relet',
       breadcrumbs: [
         HOME,
-        SOC,
-        { label: 'COA - Cargo Relet', href: appPath('/internal-user/vc/coas/cargo-relet') },
+        moduleCrumb,
+        { label: 'COA - Cargo Relet', href: reletHref },
         { label: 'Update Cargo Relet' },
       ],
     };
   }
 
-  if (pathname === '/internal-user/vc/coas/cargo-relet') {
+  if (pathname.endsWith('/coas/cargo-relet') || pathname.endsWith('/coas/cargo-relet/')) {
     return {
       title: 'COA - Cargo Relet',
       currentPage: 'COA - Cargo Relet',
-      breadcrumbs: [HOME, SOC, { label: 'COA - Cargo Relet' }],
+      breadcrumbs: [HOME, moduleCrumb, { label: 'COA - Cargo Relet' }],
     };
   }
 
-  if (pathname.startsWith('/internal-user/vc/coas/in-ops')) {
+  if (pathname.includes('/coas/in-ops')) {
     return {
       title: 'COA - In Ops',
       currentPage: 'COA - In Ops',
-      breadcrumbs: [HOME, SOC, { label: 'COA - In Ops' }],
+      breadcrumbs: [HOME, moduleCrumb, { label: 'COA - In Ops' }],
     };
   }
 
-  if (pathname.startsWith('/internal-user/vc/coas/post-ops')) {
+  if (pathname.includes('/coas/post-ops')) {
     return {
       title: 'COA - Post Ops',
       currentPage: 'COA - Post Ops',
-      breadcrumbs: [HOME, SOC, { label: 'COA - Post Ops' }],
+      breadcrumbs: [HOME, moduleCrumb, { label: 'COA - Post Ops' }],
     };
   }
 
   return {
     title: 'COAs',
     currentPage: 'COAs',
-    breadcrumbs: [HOME, SOC, COAS],
+    breadcrumbs: [HOME, moduleCrumb, { label: 'COAs', href: runningHref }],
   };
 }

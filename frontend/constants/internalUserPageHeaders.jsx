@@ -56,6 +56,8 @@ export function resolveInternalUserHeader(pathname, search = '') {
     if (userGuidesHeader) return userGuidesHeader;
     const fleetHeader = resolveFleetHeader(pathname);
     if (fleetHeader) return fleetHeader;
+    const coaHeader = resolveCoaHeader(pathname);
+    if (coaHeader) return coaHeader;
     return resolveSopfHeader(pathname, search);
   }
 

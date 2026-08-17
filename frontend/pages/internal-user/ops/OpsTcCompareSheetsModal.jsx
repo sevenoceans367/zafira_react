@@ -53,7 +53,7 @@ export default function OpsTcCompareSheetsModal({ open, comId, onClose }) {
       error={error || pdfError}
       data={data}
       onClose={onClose}
-      docTitle="Time Charter — Compare Sheets"
+      title="Compare Working Sheets"
       headerFields={[
         { label: 'Vessel Name', value: header.vesselName },
         { label: 'Vessel Type', value: header.vesselType },

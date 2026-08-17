@@ -51,19 +51,19 @@ export default function OpsVcCompareSheetsModal({ open, comId, onClose }) {
       error={error || pdfError}
       data={data}
       onClose={onClose}
-      docTitle="Voyage Financials — Compare Sheets"
-      onDownloadPdf={handleGeneratePdf}
-      pdfLoading={pdfLoading}
+      title="Compare Working Sheets"
       headerFields={[
         { label: 'Vessel Name', value: header.vesselName },
         { label: 'Vessel Type', value: header.vesselType },
         { label: 'Flag', value: header.flag },
         { label: 'Fixture Date', value: header.fixtureDate },
-        { label: 'Voyage No.', value: header.voyageNo },
+        { label: 'Voyage No. / COA / Spot', value: header.voyageNo },
         { label: 'Voyage Financials Name', value: header.voyageName },
-        { label: 'DWT Summer', value: header.dwtSummer },
-        { label: 'DWT Tropical', value: header.dwtTropical },
+        { label: 'DWT (Summer)', value: header.dwtSummer },
+        { label: 'DWT (Tropical)', value: header.dwtTropical },
       ]}
+      onDownloadPdf={handleGeneratePdf}
+      pdfLoading={pdfLoading}
     />
   );
 }

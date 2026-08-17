@@ -1,36 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button } from '@bainbridge/shared-ui';
 import styles from './CompareSheetsDialog.module.css';
 
-const THEMES = ['themeNavy', 'themeOrange', 'themeBlue', 'themePurple', 'themeBrown'];
-
-function SoMark({ className }) {
+function CompareIcon() {
   return (
-    <svg className={className} viewBox="0 0 40 40" aria-hidden>
-      <circle cx="20" cy="20" r="19" fill="#fff" stroke="#274670" strokeWidth="2" />
-      <circle cx="20" cy="20" r="14" fill="none" stroke="#F4652C" strokeWidth="2.5" />
-      <text
-        x="20"
-        y="26"
-        textAnchor="middle"
-        fontFamily="Inter, sans-serif"
-        fontWeight="700"
-        fontSize="18"
-        fill="#274670"
-      >
-        S
-      </text>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 8h10" />
+      <path d="M10 5l3 3-3 3" />
+      <path d="M21 16H11" />
+      <path d="M14 19l-3-3 3-3" />
     </svg>
-  );
-}
-
-function SectionLabel({ children }) {
-  return (
-    <p className={styles.sectionLabel}>
-      <span className={styles.dot} />
-      {children}
-    </p>
   );
 }
 
@@ -48,13 +27,53 @@ function groupRows(rows = []) {
   return groups;
 }
 
-function cellClass(tone, extra = '') {
-  const toneClass = tone === 'negative'
-    ? styles.negative
-    : tone === 'positive'
-      ? styles.positive
-      : '';
-  return `${styles.colCell} ${toneClass} ${extra}`.trim();
+function liveValue(value) {
+  if (value == null) return '';
+  const text = String(value).trim();
+  if (!text || text === 'N/A') return '';
+  return text;
+}
+
+function displayValue(value) {
+  const text = liveValue(value);
+  return text || 'N/A';
+}
+
+function parseAmount(value) {
+  const text = liveValue(value);
+  if (!text) return null;
+  const n = Number(String(text).replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function pairDiff(row, leftIdx, rightIdx) {
+  const left = parseAmount(row?.values?.[leftIdx]);
+  const right = parseAmount(row?.values?.[rightIdx]);
+  if (left == null || right == null) return { text: 'N/A', tone: '' };
+  const diff = right - left;
+  const text = diff.toFixed(2);
+  if (diff > 0) return { text, tone: 'pos' };
+  if (diff < 0) return { text, tone: 'neg' };
+  return { text, tone: '' };
+}
+
+function isTotalRow(label) {
+  return /^total\b/i.test(String(label || ''));
+}
+
+function defaultSubtitle(header, sheets) {
+  const voy = [header?.voyageNo, header?.voyageName].filter(Boolean).join(' / ');
+  if (sheets.length <= 1) {
+    return voy ? `${voy} — one worksheet on this voyage` : 'One worksheet on this voyage';
+  }
+  const countLabel = `${sheets.length} worksheet${sheets.length === 1 ? '' : 's'}`;
+  return voy ? `${voy} — ${countLabel}` : countLabel;
+}
+
+function sheetLabel(sheet, index) {
+  if (!sheet) return `Sheet ${index + 1}`;
+  if (sheet.isFvf || sheet.isFixture) return sheet.name || 'FVF';
+  return sheet.name || `Sheet ${index + 1}`;
 }
 
 export default function CompareSheetsDialog({
@@ -63,8 +82,8 @@ export default function CompareSheetsDialog({
   error = '',
   data = null,
   onClose,
-  title = 'Compare Sheets',
-  docTitle = 'Voyage Financials — Compare Sheets',
+  title = 'Compare Working Sheets',
+  subtitle,
   headerFields = [],
   extraActions = null,
   onDownloadPdf,
@@ -72,38 +91,82 @@ export default function CompareSheetsDialog({
   renderLabel,
 }) {
   const sheets = data?.sheets || [];
-  const colCount = sheets.length + 2;
   const groups = useMemo(() => groupRows(data?.rows), [data?.rows]);
+  const [leftIdx, setLeftIdx] = useState(0);
+  const [rightIdx, setRightIdx] = useState(0);
+
+  useEffect(() => {
+    const last = Math.max(0, sheets.length - 1);
+    setLeftIdx(0);
+    setRightIdx(last);
+  }, [sheets.length, data?.comId]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (event) => {
+      if (event.key === 'Escape') onClose?.();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  const safeLeft = Math.min(leftIdx, Math.max(0, sheets.length - 1));
+  const safeRight = Math.min(rightIdx, Math.max(0, sheets.length - 1));
+  const usePickers = sheets.length > 2;
+  const header = data?.header || {};
+  const resolvedSubtitle = subtitle || defaultSubtitle(header, sheets);
+  const plRow = (data?.rows || []).find((row) => row.label === 'P/L' || row.label === 'P&L');
+  const showStrip = sheets.length > 2 && plRow;
+  const plDiff = sheets.length < 2 || !plRow
+    ? { text: 'N/A', tone: '' }
+    : pairDiff(plRow, safeLeft, safeRight);
 
   if (!open) return null;
 
+  const colSpan = 5;
+
   return createPortal(
-    <div className={styles.backdrop} role="presentation" onClick={onClose}>
+    <div className={styles.overlay} role="presentation" onClick={onClose}>
       <div
         className={styles.modal}
         role="dialog"
         aria-modal="true"
         aria-labelledby="compare-sheets-title"
-        style={{ '--cols': Math.max(colCount, 1) }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className={styles.chrome}>
-          <h4 id="compare-sheets-title" className={styles.chromeTitle}>
-            <i className="bi bi-columns-gap" /> {title}
-          </h4>
-          <div className={styles.chromeActions}>
+        <div className={styles.head}>
+          <div className={styles.titleWrap}>
+            <div className={styles.titleIco}>
+              <CompareIcon />
+            </div>
+            <div>
+              <div id="compare-sheets-title" className={styles.title}>{title}</div>
+              {resolvedSubtitle ? <div className={styles.subtitle}>{resolvedSubtitle}</div> : null}
+            </div>
+          </div>
+          <div className={styles.headRight}>
             {typeof onDownloadPdf === 'function' ? (
-              <Button
-                variant="outline"
-                icon="download"
-                ariaLabel={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
-                className={styles.pdfIconBtn}
+              <button
+                type="button"
+                className={styles.btnDownload}
+                title={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
+                aria-label={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
                 onClick={onDownloadPdf}
                 disabled={pdfLoading || loading || !data}
-              />
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 3v12" />
+                  <path d="M7 10l5 5 5-5" />
+                  <path d="M4 19h16" />
+                </svg>
+              </button>
             ) : null}
             {extraActions}
-            <button type="button" className="btn-close" aria-label="Close" onClick={onClose} />
+            <button type="button" className={styles.btnClose} aria-label="Close" onClick={onClose}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -111,130 +174,153 @@ export default function CompareSheetsDialog({
           {error ? <div className={styles.error}>{error}</div> : null}
           {loading ? <p className={styles.loading}>Please wait...</p> : null}
           {!loading && data ? (
-            <div className={styles.doc}>
-              <div className={styles.docInner}>
-                <div className={styles.docHeader}>
-                  <div>
-                    <p className={styles.eyebrow}>Seven Oceans PreFixture Platform</p>
-                    <h1 className={styles.docTitle}>{docTitle}</h1>
-                  </div>
-                  <div className={styles.soLogo}>
-                    <SoMark className={styles.soLogoMark} />
-                    <div className={styles.soLogoWord}>
-                      <b>SEVEN</b>
-                      <span>OCEANS</span>
-                    </div>
-                  </div>
-                </div>
-                <hr className={styles.headerRule} />
-
-                <div className={styles.overview}>
-                  <div className={styles.overviewLabel}>Main Particulars</div>
-                  <div className={styles.overviewBody}>
-                    {headerFields.length ? (
-                      <div className={styles.facts}>
-                        {headerFields.map((field) => (
-                          <div key={field.label}>
-                            <div className={styles.factLabel}>{field.label}</div>
-                            <div className={styles.factValue}>{field.value || '—'}</div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    <div
-                      className={`${styles.row} ${styles.voyagecard}`}
-                      style={{
-                        gridTemplateColumns: `var(--label-col) repeat(${Math.max(sheets.length, 1)}, 1fr)`,
-                      }}
-                    >
-                      <div className={styles.labelCell}>Sheets</div>
-                      {sheets.map((sheet, index) => (
-                        <div
-                          key={sheet.fcaId || sheet.tcOutId || sheet.name || index}
-                          className={`${styles.colCell} ${index % 2 === 0 ? styles.voy0 : styles.voy1}`}
-                        >
-                          <span className={styles.voyChip}>
-                            {sheet.isFvf || sheet.isFixture ? 'Fixture' : `Sheet ${index + 1}`}
-                          </span>
-                          <div className={styles.sheetName}>{sheet.name || '—'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className={`${styles.row}`}>
-                  <div className={styles.labelCell}>Sheet Name / Parameters</div>
-                  {sheets.map((sheet, index) => (
-                    <div
-                      key={`head-${sheet.fcaId || sheet.tcOutId || index}`}
-                      className={`${styles.colCell} ${styles.colHead} ${sheet.isFvf || sheet.isFixture ? styles.fixtureCol : styles.sheetCol}`}
-                    >
-                      {sheet.name}
+            <>
+              {headerFields.length ? (
+                <div className={styles.mpGrid}>
+                  {headerFields.map((field) => (
+                    <div key={field.label} className={styles.mpField}>
+                      <div className={styles.mpLabel}>{field.label}</div>
+                      <div className={styles.mpValue}>{liveValue(field.value) || '—'}</div>
                     </div>
                   ))}
-                  <div className={`${styles.colCell} ${styles.colHead}`}>Diff.</div>
-                  <div className={`${styles.colCell} ${styles.colHead}`}>Progressive</div>
                 </div>
+              ) : null}
 
-                {groups.map((group, groupIndex) => (
-                  <div
-                    key={group.section}
-                    className={`${styles.section} ${styles[THEMES[groupIndex % THEMES.length]]}`}
-                  >
-                    <SectionLabel>{group.section}</SectionLabel>
-                    {group.rows.map((row) => (
-                      <div key={`${group.section}-${row.label}`} className={styles.row}>
-                        <div className={styles.labelCell}>
-                          {renderLabel ? renderLabel(row) : row.label}
-                        </div>
-                        {(row.values || []).map((value, index) => {
-                          const empty = value === undefined || value === null || value === '';
-                          const sheet = sheets[index];
+              {showStrip ? (
+                <div className={styles.tpWrap}>
+                  <div className={styles.tpLabel}>Margin Movement — every touchpoint on this voyage</div>
+                  <div className={styles.tpStrip}>
+                    {sheets.map((sheet, index) => {
+                      const pl = displayValue(plRow.values?.[index]);
+                      const prev = index > 0 ? parseAmount(plRow.values?.[index - 1]) : null;
+                      const curr = parseAmount(plRow.values?.[index]);
+                      const delta = prev != null && curr != null ? curr - prev : null;
+                      const selected = index === safeLeft || index === safeRight;
+                      return (
+                        <React.Fragment key={sheet.fcaId || sheet.tcOutId || index}>
+                          {index > 0 ? (
+                            <span className={styles.tpArrow} aria-hidden>
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 6l6 6-6 6" />
+                              </svg>
+                            </span>
+                          ) : null}
+                          <div className={`${styles.tpCard} ${selected ? styles.tpCardSelected : ''}`}>
+                            <div className={styles.tpName}>{sheetLabel(sheet, index)}</div>
+                            <div className={styles.tpPlLabel}>P&amp;L</div>
+                            <div className={styles.tpPlValue}>{pl === 'N/A' ? '—' : pl}</div>
+                            {delta != null && delta !== 0 ? (
+                              <div className={`${styles.tpDelta} ${delta < 0 ? styles.tpDeltaDown : styles.tpDeltaUp}`}>
+                                {delta > 0 ? '+' : ''}{delta.toFixed(2)} vs prev.
+                              </div>
+                            ) : null}
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Worksheet No.</th>
+                      <th>
+                        {usePickers ? (
+                          <select
+                            className={styles.thSelect}
+                            value={safeLeft}
+                            aria-label="Left worksheet"
+                            onChange={(event) => setLeftIdx(Number(event.target.value))}
+                          >
+                            {sheets.map((sheet, index) => (
+                              <option key={`l-${sheet.fcaId || index}`} value={index}>
+                                {sheetLabel(sheet, index)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : sheetLabel(sheets[safeLeft], safeLeft)}
+                      </th>
+                      <th>
+                        {sheets.length < 2 ? '—' : usePickers ? (
+                          <select
+                            className={styles.thSelect}
+                            value={safeRight}
+                            aria-label="Right worksheet"
+                            onChange={(event) => setRightIdx(Number(event.target.value))}
+                          >
+                            {sheets.map((sheet, index) => (
+                              <option key={`r-${sheet.fcaId || index}`} value={index}>
+                                {sheetLabel(sheet, index)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : sheetLabel(sheets[safeRight], safeRight)}
+                      </th>
+                      <th>Diff.</th>
+                      <th>Progressive</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groups.map((group, groupIndex) => (
+                      <React.Fragment key={group.section}>
+                        <tr className={`${styles.section} ${groupIndex % 2 === 0 ? styles.sectionDark : styles.sectionLight}`}>
+                          <td colSpan={colSpan}>{group.section}</td>
+                        </tr>
+                        {group.rows.map((row) => {
+                          const leftVal = displayValue(row.values?.[safeLeft]);
+                          const rightVal = sheets.length < 2 ? 'N/A' : displayValue(row.values?.[safeRight]);
+                          const diff = sheets.length < 2
+                            ? { text: 'N/A', tone: '' }
+                            : pairDiff(row, safeLeft, safeRight);
+                          const progressive = displayValue(row.progressive);
                           return (
-                            <div
-                              key={`${row.label}-${index}`}
-                              className={`${styles.colCell} ${empty ? styles.colCellEmpty : ''} ${
-                                sheet?.isFvf || sheet?.isFixture ? styles.fixtureCol : styles.sheetCol
-                              }`.trim()}
-                            >
-                              {empty ? '—' : value}
-                            </div>
+                            <tr key={`${group.section}-${row.label}`} className={isTotalRow(row.label) ? styles.total : undefined}>
+                              <td>
+                                {renderLabel ? renderLabel(row) : row.label}
+                              </td>
+                              <td className={`${styles.num} ${styles.initial} ${leftVal === 'N/A' ? styles.na : ''}`}>
+                                {leftVal}
+                              </td>
+                              <td className={`${styles.num} ${styles.final} ${rightVal === 'N/A' ? styles.na : ''}`}>
+                                {rightVal}
+                              </td>
+                              <td className={`${styles.num} ${diff.tone === 'pos' ? styles.diffPos : ''} ${diff.tone === 'neg' ? styles.diffNeg : ''} ${diff.text === 'N/A' ? styles.na : ''}`}>
+                                {diff.text}
+                              </td>
+                              <td className={`${styles.num} ${progressive === 'N/A' ? styles.na : ''}`}>
+                                {progressive}
+                              </td>
+                            </tr>
                           );
                         })}
-                        <div className={cellClass(row.differenceTone)}>
-                          {row.difference || '—'}
-                        </div>
-                        <div className={`${styles.colCell} ${row.progressive ? '' : styles.colCellEmpty}`}>
-                          {row.progressive || '—'}
-                        </div>
-                      </div>
+                      </React.Fragment>
                     ))}
-                  </div>
-                ))}
-
-                <div className={`${styles.section} ${styles.themeNavy}`}>
-                  <SectionLabel>Result</SectionLabel>
-                  <div className={`${styles.row} ${styles.highlight}`}>
-                    <div className={styles.labelCell}>P/L Difference</div>
-                    {sheets.map((sheet, index) => (
-                      <div key={`pl-${sheet.fcaId || sheet.tcOutId || index}`} className={styles.colCell} />
-                    ))}
-                    <div className={styles.colCell}>{data.plDifference || '—'}</div>
-                    <div className={styles.colCell} />
-                  </div>
-                  <div className={`${styles.row} ${styles.highlight}`}>
-                    <div className={styles.labelCell}>Actual P/L (Calculated - Difference)</div>
-                    {sheets.map((sheet, index) => (
-                      <div key={`apl-${sheet.fcaId || sheet.tcOutId || index}`} className={styles.colCell} />
-                    ))}
-                    <div className={styles.colCell}>{data.actualPl || '—'}</div>
-                    <div className={styles.colCell} />
-                  </div>
-                </div>
+                    <tr className={`${styles.section} ${styles.sectionDark}`}>
+                      <td colSpan={colSpan}>Result</td>
+                    </tr>
+                    <tr className={styles.total}>
+                      <td>P/L Difference</td>
+                      <td className={`${styles.num} ${styles.initial}`}>—</td>
+                      <td className={`${styles.num} ${styles.final}`}>—</td>
+                      <td className={`${styles.num} ${plDiff.tone === 'pos' ? styles.diffPos : ''} ${plDiff.tone === 'neg' ? styles.diffNeg : ''} ${plDiff.text === 'N/A' ? styles.na : ''}`}>
+                        {plDiff.text}
+                      </td>
+                      <td className={`${styles.num} ${styles.na}`}>N/A</td>
+                    </tr>
+                    <tr className={styles.total}>
+                      <td>Actual P/L (Calculated - Difference)</td>
+                      <td className={`${styles.num} ${styles.initial}`}>—</td>
+                      <td className={`${styles.num} ${styles.final}`}>—</td>
+                      <td className={styles.num}>{displayValue(plRow?.values?.[sheets.length < 2 ? safeLeft : safeRight] ?? data.actualPl)}</td>
+                      <td className={`${styles.num} ${styles.na}`}>N/A</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-            </div>
+            </>
           ) : null}
           {!loading && !data && !error ? (
             <p className={styles.empty}>No compare sheet data.</p>
@@ -245,4 +331,3 @@ export default function CompareSheetsDialog({
     document.body,
   );
 }
-

@@ -4,8 +4,6 @@ import {
   Button,
   FilterField,
   LoadingOverlay,
-  SummaryCard,
-  SummaryCardGrid,
   TextInput,
   useAlert,
   useConfirm,
@@ -24,149 +22,40 @@ import {
   updateOpsVcCostSheetLayout,
   updateOpsVcOperator,
 } from '../../../services/opsVc.js';
-import SopfPagination from '../sopf/SopfPagination.jsx';
 import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
 import OpsVcCompareSheetsModal from './OpsVcCompareSheetsModal.jsx';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
+import {
+  AlertIcon,
+  ArrowIcon,
+  ChipLink,
+  CompareIcon,
+  DEFAULT_PAGE_SIZE,
+  EyeIcon,
+  OpsVcGlanceHeader,
+  OpsVcGlanceTable,
+  VoyDocsCell,
+  alertLabels,
+  formatLastUpdated,
+  glanceStats,
+  portLines,
+} from './OpsVcGlanceUi.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcInOpsGlancePage.module.css';
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50];
-const DEFAULT_PAGE_SIZE = 50;
 const FLASH = {
   6: { type: 'success', text: 'Nomination sent to "Post Ops".' },
   3: { type: 'success', text: 'Status changed successfully.' },
   4: { type: 'success', text: 'New sheet added successfully.' },
 };
 
-const STAT_ICONS = {
-  trades: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 12h4l2 7 4-14 2 7h6" />
-    </svg>
-  ),
-  vessels: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 14l1.3-5.2A2 2 0 0 1 8.2 7.3h7.6a2 2 0 0 1 1.9 1.5L19 14" />
-      <path d="M12 3v4.3" />
-      <path d="M12 3.5l3 1.2-3 1.1z" fill="currentColor" stroke="none" />
-      <path d="M3 17.5c1.4 1 3 1 4.4 0 1.4-1 3-1 4.4 0 1.4 1 3 1 4.4 0 1.4-1 3-1 4.4 0" />
-    </svg>
-  ),
-  worksheets: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 2.5h8l5 5v12.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15.5a2 2 0 0 1 2-2z" />
-      <path d="M14 2.5v4a1 1 0 0 0 1 1h4" />
-      <path d="M8 12h8" />
-      <path d="M8 15.5h8" />
-    </svg>
-  ),
-  alerts: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 9v4" />
-      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-      <path d="M12 17h.01" />
-    </svg>
-  ),
-};
-
-function DocFileIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 2.5h8l5 5v12.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15.5a2 2 0 0 1 2-2z" />
-      <path d="M14 2.5v4a1 1 0 0 0 1 1h4" />
-      <path d="M8 12h8" />
-      <path d="M8 15.5h8" />
-      <path d="M8 19h3" />
-    </svg>
-  );
-}
-
-function DocDownloadIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 3v12" />
-      <path d="M7 10l5 5 5-5" />
-      <path d="M4 19h16" />
-    </svg>
-  );
-}
-
-function DocReportIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="6" y="4" width="12" height="17" rx="2" />
-      <path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
-      <path d="M9 11h6" />
-      <path d="M9 15h6" />
-    </svg>
-  );
-}
-
-function DocFolderIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-9z" />
-    </svg>
-  );
-}
-
-function CompareIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 8h10" />
-      <path d="M10 5l3 3-3 3" />
-      <path d="M21 16H11" />
-      <path d="M14 19l-3-3 3-3" />
-    </svg>
-  );
-}
-
-function EyeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function AlertIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 9v4" />
-      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-      <path d="M12 17h.01" />
-    </svg>
-  );
-}
-
-function ArrowIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12h14" />
-      <path d="M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-
-function portLines(ports) {
-  if (!ports) return [];
-  return String(ports).split('\n').map((line) => line.trim()).filter(Boolean);
-}
-
-function alertLabels(row) {
-  const labels = [];
-  if (row.paymentNotReceived) labels.push('Payment not Received');
-  if (row.paymentNotPaid) labels.push('Payment not Paid');
-  return labels;
-}
-
-function formatLastUpdated(value) {
-  if (!value) return 'Not yet updated';
-  return String(value).replace(/\s+/, ' · ');
-}
+const CARDS = [
+  { key: 'trades', title: 'Trades in Operations', variant: 'fin', icon: 'trades' },
+  { key: 'vessels', title: 'Vessels in Operations', variant: 'count', icon: 'vessels' },
+  { key: 'worksheets', title: 'Worksheets', variant: 'fin', icon: 'worksheets' },
+  { key: 'alerts', title: 'Alerts', variant: 'count', icon: 'alerts' },
+];
 
 export default function OpsVcInOpsGlancePage() {
   const confirm = useConfirm();
@@ -235,17 +124,7 @@ export default function OpsVcInOpsGlancePage() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year, pageSize]);
 
-  const stats = useMemo(() => {
-    const uniqueVessels = new Set(rows.map((row) => row.vesselName).filter(Boolean)).size;
-    const worksheets = rows.reduce((sum, row) => sum + (row.costSheets?.length || 0), 0);
-    const alerts = rows.reduce((sum, row) => sum + alertLabels(row).length, 0);
-    return {
-      trades: total,
-      vessels: uniqueVessels,
-      worksheets,
-      alerts,
-    };
-  }, [rows, total]);
+  const stats = useMemo(() => glanceStats(rows, total), [rows, total]);
 
   const handleOperatorChange = async (row, operatorId) => {
     try {
@@ -382,36 +261,16 @@ export default function OpsVcInOpsGlancePage() {
         {flash ? <div className={pageStyles.flashSuccess}>{flash.text}</div> : null}
         {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-        <h2 className={styles.pageTitle}>Spot Operations</h2>
+        <OpsVcGlanceHeader
+          title="Spot Operations"
+          stats={stats}
+          cards={CARDS}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          showingLabel={`Showing ${rows.length} of ${total} operations`}
+        />
 
-        <SummaryCardGrid>
-          <SummaryCard title="Trades in Operations" value={stats.trades} variant="fin" icon={STAT_ICONS.trades} />
-          <SummaryCard title="Vessels in Operations" value={stats.vessels} variant="count" icon={STAT_ICONS.vessels} />
-          <SummaryCard title="Worksheets" value={stats.worksheets} variant="fin" icon={STAT_ICONS.worksheets} />
-          <SummaryCard title="Alerts" value={stats.alerts} variant="count" icon={STAT_ICONS.alerts} />
-        </SummaryCardGrid>
-
-        <div className={styles.actionRow}>
-          <div className={styles.actionRowLeft}>
-            <select
-              className={styles.rowsSelect}
-              value={pageSize}
-              aria-label="Rows per page"
-              onChange={(event) => setPageSize(Number(event.target.value))}
-            >
-              {PAGE_SIZE_OPTIONS.map((size) => (
-                <option key={size} value={size}>{size} / page</option>
-              ))}
-            </select>
-          </div>
-          <div className={styles.actionRowRight}>
-            Showing {rows.length} of {total} operations
-          </div>
-        </div>
-
-        <div className={styles.tableCard}>
-          <div className={styles.tableWrap}>
-            <table className={styles.grid}>
+        <OpsVcGlanceTable page={page} pageSize={pageSize} total={total} onPageChange={setPage}>
               <thead>
                 <tr>
                   <th style={{ width: 36 }}>#</th>
@@ -492,40 +351,12 @@ export default function OpsVcInOpsGlancePage() {
                         </div>
                       </td>
                       <td>
-                        <div className={styles.docCenter}>
-                          <div className={styles.docGroup}>
-                            <Link
-                              className={styles.docBtn}
-                              to={appPath(`/internal-user/sopf/viewestimate?id=${row.fcaId}&rttype=1`)}
-                              title="View FVF (Finalised Voyage Fixture)"
-                            >
-                              <DocFileIcon />
-                            </Link>
-                            <a
-                              className={styles.docBtn}
-                              href={`/api/internal-user/sopf/estimate/${encodeURIComponent(row.fcaId)}/pdf`}
-                              title="Download Voyage Docs"
-                            >
-                              <DocDownloadIcon />
-                            </a>
-                            {voyageReportHref ? (
-                              <Link className={styles.docBtn} to={voyageReportHref} title="Voyage Report">
-                                <DocReportIcon />
-                              </Link>
-                            ) : (
-                              <span className={`${styles.docBtn} ${styles.docBtnDisabled}`} title="Voyage Report">
-                                <DocReportIcon />
-                              </span>
-                            )}
-                            <Link
-                              className={styles.docBtn}
-                              to={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                              title="Documents"
-                            >
-                              <DocFolderIcon />
-                            </Link>
-                          </div>
-                        </div>
+                    <VoyDocsCell
+                      fcaId={row.fcaId}
+                      rttype={1}
+                      voyageReportHref={voyageReportHref}
+                      documentsHref={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                    />
                       </td>
                       <td>
                         <span className={styles.trunc} title={row.materialName || ''}>{row.materialName || '—'}</span>
@@ -568,54 +399,28 @@ export default function OpsVcInOpsGlancePage() {
                       </td>
                       <td>
                         <div className={styles.chipStack}>
-                          <Link
-                            className={styles.chipLink}
-                            to={appPath(`/internal-user/vc/ops/agency-letter?comid=${encodeURIComponent(row.comId)}&tab=1&page=1`)}
-                          >
+                          <ChipLink to={appPath(`/internal-user/vc/ops/agency-letter?comid=${encodeURIComponent(row.comId)}&tab=1&page=1`)}>
                             Port Letters
-                          </Link>
+                          </ChipLink>
                         </div>
                       </td>
                       <td>
                         <div className={styles.chipStack}>
-                          <Link
-                            className={styles.chipLink}
-                            to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                          >
+                          <ChipLink to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=1`)}>
                             Disbursements
-                          </Link>
+                          </ChipLink>
                         </div>
                       </td>
                       <td>
                         <div className={styles.chipStack}>
-                          <Link
-                            className={styles.chipLink}
-                            to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                          >
-                            SOF
-                          </Link>
-                          <Link
-                            className={styles.chipLink}
-                            to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                          >
-                            Laytime
-                          </Link>
+                          <ChipLink to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=1`)}>SOF</ChipLink>
+                          <ChipLink to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=1`)}>Laytime</ChipLink>
                         </div>
                       </td>
                       <td>
                         <div className={styles.chipStack}>
-                          <Link
-                            className={styles.chipLink}
-                            to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                          >
-                            Bunkers
-                          </Link>
-                          <Link
-                            className={styles.chipLink}
-                            to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                          >
-                            Cashflow
-                          </Link>
+                          <ChipLink to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=1`)}>Bunkers</ChipLink>
+                          <ChipLink to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=1`)}>Cashflow</ChipLink>
                         </div>
                       </td>
                       <td>
@@ -660,12 +465,7 @@ export default function OpsVcInOpsGlancePage() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
-          <div className={styles.tableFooter}>
-            <SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
-          </div>
-        </div>
+        </OpsVcGlanceTable>
 
         {sheetModal.open ? (
           <div className={pageStyles.modalBackdrop} role="dialog" aria-modal="true">

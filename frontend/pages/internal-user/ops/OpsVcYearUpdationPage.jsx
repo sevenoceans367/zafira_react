@@ -1,20 +1,35 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  DmyDateInput,
-  LoadingOverlay,
-} from '@bainbridge/shared-ui';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchYearUpdation, updateYearAddOnDate } from '../../../services/opsVc.js';
-import SopfPagination from '../sopf/SopfPagination.jsx';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
-import styles from './OpsPages.module.css';
+import {
+  DEFAULT_PAGE_SIZE,
+  OpsVcGlanceHeader,
+  OpsVcGlanceTable,
+} from './OpsVcGlanceUi.jsx';
+import pageStyles from './OpsPages.module.css';
+import styles from './OpsVcInOpsGlancePage.module.css';
 
-const PAGE_SIZE = 50;
+const CARDS = [
+  { key: 'trades', title: 'Voyages', variant: 'fin', icon: 'trades' },
+  { key: 'vessels', title: 'Vessels', variant: 'count', icon: 'vessels' },
+  { key: 'worksheets', title: 'Dates set', variant: 'fin', icon: 'worksheets' },
+  { key: 'alerts', title: 'Dates pending', variant: 'count', icon: 'alerts' },
+];
+
+function yearStats(rows, total) {
+  const uniqueVessels = new Set(rows.map((row) => row.vesselName).filter(Boolean)).size;
+  const dated = rows.filter((row) => row.addOnDate).length;
+  const pending = rows.filter((row) => !row.addOnDate).length;
+  return { trades: total, vessels: uniqueVessels, worksheets: dated, alerts: pending };
+}
 
 export default function OpsVcYearUpdationPage() {
   const [searchInput, setSearchInput] = useState('');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState('');
@@ -29,7 +44,7 @@ export default function OpsVcYearUpdationPage() {
       const data = await fetchYearUpdation({
         search: debouncedSearch,
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
       });
       setRows(data.records || []);
       setTotal(data.recordsTotal || 0);
@@ -38,10 +53,12 @@ export default function OpsVcYearUpdationPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, page]);
+  }, [debouncedSearch, page, pageSize]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, pageSize]);
+
+  const stats = useMemo(() => yearStats(rows, total), [rows, total]);
 
   const handleDateChange = async (row, value) => {
     setRows((prev) => prev.map((item) => (
@@ -86,18 +103,26 @@ export default function OpsVcYearUpdationPage() {
         searchPlaceholder="Search voyage no, vessel…"
       />
 
-      <div className={`zafira-page ${styles.page}`}>
-      {loading || savingId ? <LoadingOverlay active label={savingId ? 'Saving…' : 'Loading Year Updation…'} /> : null}
-      {flash ? <div className={styles.flashSuccess}>{flash}</div> : null}
-      {error ? <div className={styles.error}>{error}</div> : null}
+      <div className={`zafira-page ${pageStyles.page}`}>
+        {loading || savingId ? (
+          <LoadingOverlay active label={savingId ? 'Saving…' : 'Loading Year Updation…'} />
+        ) : null}
+        {flash ? <div className={pageStyles.flashSuccess}>{flash}</div> : null}
+        {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-      <h3 className={styles.title}>Year Updation</h3>
+        <OpsVcGlanceHeader
+          title="Year Updation"
+          stats={stats}
+          cards={CARDS}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          showingLabel={`Showing ${rows.length} of ${total} voyages`}
+        />
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
+        <OpsVcGlanceTable compact page={page} pageSize={pageSize} total={total} onPageChange={setPage}>
           <thead>
             <tr>
-              <th>Sr. No</th>
+              <th style={{ width: 36 }}>#</th>
               <th>Voyage No.</th>
               <th>Vessel</th>
               <th>CP Date</th>
@@ -112,14 +137,18 @@ export default function OpsVcYearUpdationPage() {
                   SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                 </td>
               </tr>
-            ) : rows.map((row) => (
+            ) : rows.map((row, index) => (
               <tr key={`${row.comId}-${row.voyageNo}`}>
-                <td>{row.index}.</td>
-                <td>{row.voyageNo || '—'}</td>
-                <td>{row.vesselName || '—'}</td>
+                <td className={styles.itemCell}>{(page - 1) * pageSize + index + 1}.</td>
+                <td>
+                  <span className={styles.primary}>{row.voyageNo || '—'}</span>
+                </td>
+                <td>
+                  <span className={styles.primary}>{row.vesselName || '—'}</span>
+                </td>
                 <td>{row.cpDate || '—'}</td>
                 <td>{row.date || '—'}</td>
-                <td>
+                <td className={styles.dateCell}>
                   <DmyDateInput
                     value={row.addOnDate || ''}
                     onChange={(value) => handleDateChange(row, value)}
@@ -129,10 +158,7 @@ export default function OpsVcYearUpdationPage() {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
-
-      <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        </OpsVcGlanceTable>
       </div>
     </>
   );

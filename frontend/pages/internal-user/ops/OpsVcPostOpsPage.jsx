@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
-  DownloadIcon,
   FilterField,
   LoadingOverlay,
   TextInput,
@@ -20,15 +19,31 @@ import {
   fetchOpsVcYears,
   fetchPostOpsAtGlance,
   moveOpsVcToHistory,
+  updateOpsVcCostSheetLayout,
   updateOpsVcOperator,
 } from '../../../services/opsVc.js';
-import SopfPagination from '../sopf/SopfPagination.jsx';
 import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
 import OpsVcCompareSheetsModal from './OpsVcCompareSheetsModal.jsx';
-import styles from './OpsPages.module.css';
+import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
+import {
+  AlertIcon,
+  ArrowIcon,
+  ChipLink,
+  CompareIcon,
+  DEFAULT_PAGE_SIZE,
+  EyeIcon,
+  OpsVcGlanceHeader,
+  OpsVcGlanceTable,
+  VoyDocsCell,
+  alertLabels,
+  formatLastUpdated,
+  glanceStats,
+  portLines,
+} from './OpsVcGlanceUi.jsx';
+import pageStyles from './OpsPages.module.css';
+import styles from './OpsVcInOpsGlancePage.module.css';
 
-const PAGE_SIZE = 50;
 const PAGE_CONTEXT = 2;
 const FLASH = {
   3: { type: 'success', text: 'Nomination sent to "History".' },
@@ -37,15 +52,12 @@ const FLASH = {
   4: { type: 'success', text: 'New sheet added successfully.' },
 };
 
-function Multiline({ value }) {
-  if (!value) return '—';
-  return String(value).split('\n').map((line, index) => (
-    <span key={`${line}-${index}`}>
-      {index > 0 ? <br /> : null}
-      {line}
-    </span>
-  ));
-}
+const CARDS = [
+  { key: 'trades', title: 'Trades in Post Ops', variant: 'fin', icon: 'trades' },
+  { key: 'vessels', title: 'Vessels in Post Ops', variant: 'count', icon: 'vessels' },
+  { key: 'worksheets', title: 'Worksheets', variant: 'fin', icon: 'worksheets' },
+  { key: 'alerts', title: 'Alerts', variant: 'count', icon: 'alerts' },
+];
 
 export default function OpsVcPostOpsPage() {
   const confirm = useConfirm();
@@ -59,6 +71,7 @@ export default function OpsVcPostOpsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [canEditOperator, setCanEditOperator] = useState(false);
   const [canCompareSheets, setCanCompareSheets] = useState(false);
@@ -92,7 +105,7 @@ export default function OpsVcPostOpsPage() {
           selYear: year,
           search: debouncedSearch,
           page,
-          pageSize: PAGE_SIZE,
+          pageSize,
         }),
       ]);
       setBusinessTypes(types);
@@ -100,7 +113,6 @@ export default function OpsVcPostOpsPage() {
       setOperators(Array.isArray(operatorOptions) ? operatorOptions : []);
       setRows(data.records || []);
       setTotal(data.recordsTotal || 0);
-      // PHP: $_SESSION['iutype'] == 'mgmt_user' shows operator <select>
       const loggedInIsMgmt = getUser()?.userType === 'mgmt_user';
       setCanEditOperator(loggedInIsMgmt || Boolean(data.canEditOperator));
       setCanCompareSheets(Boolean(data.canCompareSheets));
@@ -109,10 +121,12 @@ export default function OpsVcPostOpsPage() {
     } finally {
       setLoading(false);
     }
-  }, [businessType, debouncedSearch, page, year]);
+  }, [businessType, debouncedSearch, page, pageSize, year]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year]);
+  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year, pageSize]);
+
+  const stats = useMemo(() => glanceStats(rows, total), [rows, total]);
 
   const handleOperatorChange = async (row, operatorId) => {
     try {
@@ -175,6 +189,25 @@ export default function OpsVcPostOpsPage() {
     setSheetModal({ open: true, comId: row.comId, sheetName: '' });
   };
 
+  const handleWorksheetLayoutChange = async (row, sheets) => {
+    const previous = row.costSheets || [];
+    setRows((prev) => prev.map((item) => (
+      String(item.comId) === String(row.comId) ? { ...item, costSheets: sheets } : item
+    )));
+    try {
+      await updateOpsVcCostSheetLayout(row.comId, sheets.map((sheet) => ({
+        id: sheet.id,
+        pinned: Boolean(sheet.pinned),
+        sortOrder: sheet.sortOrder,
+      })));
+    } catch (err) {
+      setRows((prev) => prev.map((item) => (
+        String(item.comId) === String(row.comId) ? { ...item, costSheets: previous } : item
+      )));
+      setError(err.message || 'Failed to update worksheet layout.');
+    }
+  };
+
   const handleCreateSheet = async () => {
     const sheetName = String(sheetModal.sheetName || '').trim();
     if (!sheetName) {
@@ -199,11 +232,16 @@ export default function OpsVcPostOpsPage() {
     }
   };
 
+  const costSheetPath = (row, sheet) => (
+    appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${PAGE_CONTEXT}`)
+  );
+
   return (
     <>
       <OpsVcListHeaderActions
         search={searchInput}
         onSearchChange={setSearchInput}
+        searchPlaceholder="Search Voy No, vessel…"
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => {
@@ -218,264 +256,260 @@ export default function OpsVcPostOpsPage() {
         }}
       />
 
-      <div className={`zafira-page ${styles.page}`}>
-      {loading || savingSheet ? (
-        <LoadingOverlay active label={savingSheet ? 'Creating sheet…' : 'Loading Post Ops at a glance…'} />
-      ) : null}
-      {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
-      {error ? <div className={styles.error}>{error}</div> : null}
+      <div className={`zafira-page ${pageStyles.page}`}>
+        {loading || savingSheet ? (
+          <LoadingOverlay active label={savingSheet ? 'Creating sheet…' : 'Loading Post Ops at a glance…'} />
+        ) : null}
+        {flash ? <div className={pageStyles.flashSuccess}>{flash.text}</div> : null}
+        {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-      <h3 className={styles.title}>In Post Ops at a glance - VC</h3>
+        <OpsVcGlanceHeader
+          title="Post Ops"
+          stats={stats}
+          cards={CARDS}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          showingLabel={`Showing ${rows.length} of ${total} operations`}
+        />
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
+        <OpsVcGlanceTable page={page} pageSize={pageSize} total={total} onPageChange={setPage}>
           <thead>
             <tr>
-              <th>FVF /<br />Voyage Docs</th>
-              <th>Nom ID /<br />Voyage No.</th>
-              <th>Business<br />Type</th>
-              <th>Material<br />Name</th>
+              <th style={{ width: 36 }}>#</th>
+              <th>Voy No.</th>
+              <th>CP Date</th>
               <th>Vessel</th>
-              <th>LP/DP</th>
-              <th>Charterer</th>
-              <th>CP<br />Date</th>
-              <th>Voyage<br />Financials</th>
-              <th>PDA<br />Request</th>
-              <th>PDA/<br />FDA</th>
-              <th>Calculations</th>
-              <th>Payment<br />Grid</th>
-              <th className={styles.alertsCell}>Deactivate</th>
               <th>Operator</th>
-              <th>Last Updated<br />By/Time</th>
-              <th>Chartering<br />Team</th>
-              <th>Complete</th>
+              <th className={styles.iconTh}>Voy Docs</th>
+              <th>Cargo</th>
+              <th>LP / DP</th>
+              <th>CHRT DESK</th>
+              <th>Charterer</th>
+              <th>Worksheet</th>
+              <th className={styles.iconTh} title="Compare Working Sheets"><CompareIcon /></th>
+              <th>Port Letters</th>
+              <th>Disbursements</th>
+              <th>Port Activity</th>
+              <th>Calculations</th>
+              <th>Fin.</th>
+              <th>Alerts</th>
+              <th>Next</th>
             </tr>
           </thead>
           <tbody>
             {!rows.length && !loading ? (
               <tr>
-                <td colSpan={18} className={styles.emptyCell}>
+                <td colSpan={19} className={styles.emptyCell}>
                   SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                 </td>
               </tr>
-            ) : rows.map((row) => (
-              <tr key={row.comId}>
-                <td className={styles.actionsCell}>
-                  <Link to={appPath(`/internal-user/sopf/viewestimate?id=${row.fcaId}&rttype=3`)}>FVF</Link>
-                  <span className={styles.muted}> | </span>
-                  <a href={`/api/internal-user/sopf/estimate/${encodeURIComponent(row.fcaId)}/pdf`} title="Download PDF">
-                    <DownloadIcon size={16} title="" />
-                  </a>
-                  <div>
-                    <Link
-                      to={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                      title="Click me"
-                    >
-                      Docs
-                    </Link>
-                  </div>
-                </td>
-                <td>
-                  {row.message}
-                  <br />
-                  {row.voyageNo || '—'}
-                  <div>
-                    {row.vesselImoNo ? (
-                      <Link
-                        to={appPath(`/internal-user/vc/ops/voyage-report?vesselimono=${encodeURIComponent(row.vesselImoNo)}&comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}&type=VC&selYear=${encodeURIComponent(year)}`)}
-                      >
-                        Voyage Report
-                      </Link>
-                    ) : (
-                      <span className={styles.linkMuted}>Voyage Report</span>
-                    )}
-                  </div>
-                </td>
-                <td>{row.businessType || '—'}</td>
-                <td className={styles.wrapCell}>{row.materialName || '—'}</td>
-                <td className={row.isPeriod ? styles.periodVessel : undefined}>
-                  {row.vesselName || '—'}
-                  <br />
-                  {row.vesselType || '—'}
-                </td>
-                <td className={styles.wrapCell}><Multiline value={row.ports} /></td>
-                <td className={styles.wrapCell}>{row.charterer || '—'}</td>
-                <td>
-                  {row.cpDate || '—'}
-                  <br />
-                  {row.ownBusiness || ''}
-                </td>
-                <td className={styles.actionsCell}>
-                  {(row.costSheets || []).map((sheet) => (
-                    <div key={sheet.id}>
-                      <Link
-                        to={appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${PAGE_CONTEXT}`)}
-                      >
-                        {sheet.name}
-                      </Link>
+            ) : rows.map((row, index) => {
+              const sheets = row.costSheets || [];
+              const alerts = alertLabels(row);
+              const canCompare = canCompareSheets && sheets.length > 0;
+              const voyageReportHref = row.vesselImoNo
+                ? appPath(`/internal-user/vc/ops/voyage-report?vesselimono=${encodeURIComponent(row.vesselImoNo)}&comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}&type=VC&selYear=${encodeURIComponent(year)}`)
+                : '';
+              return (
+                <tr key={row.comId}>
+                  <td className={styles.itemCell}>{(page - 1) * pageSize + index + 1}.</td>
+                  <td>
+                    <div className={styles.opsCell}>
+                      <span className={styles.primary}>{row.voyageNo || '—'}</span>
+                      <span className={styles.sub}>{row.message || '—'}</span>
                     </div>
-                  ))}
-                  <div>
-                    <Button
-                      size="sm"
-                      label="A"
-                      title="Add New CS"
-                      onClick={() => handleAddSheetClick(row)}
+                  </td>
+                  <td>
+                    <div className={styles.opsCell}>
+                      <span className={styles.primary}>{row.cpDate || '—'}</span>
+                      <span className={styles.sub}>{row.ownBusiness || row.businessType || '—'}</span>
+                    </div>
+                  </td>
+                  <td className={row.isPeriod ? styles.periodVessel : undefined}>
+                    <div className={styles.opsCell}>
+                      <span className={styles.primary}>{row.vesselName || '—'}</span>
+                      <span className={styles.sub}>{row.vesselType || '—'}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.opCell}>
+                      {canEditOperator ? (
+                        <div className={`${pageStyles.operatorSelect} ${styles.opSelect}`}>
+                          <CoaCardSelect
+                            label="Operator"
+                            value={row.operatorId || ''}
+                            options={operators}
+                            placeholder="---Select from list---"
+                            onChange={(value) => handleOperatorChange(row, value)}
+                          />
+                        </div>
+                      ) : (
+                        <span className={styles.primary}>{row.operatorName || '—'}</span>
+                      )}
+                      <div className={styles.opStamp}>
+                        {row.lastUpdatedBy ? <span className={styles.opName}>{row.lastUpdatedBy}</span> : null}
+                        <span className={styles.opTime}>{formatLastUpdated(row.lastUpdatedAt)}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <VoyDocsCell
+                      fcaId={row.fcaId}
+                      rttype={3}
+                      voyageReportHref={voyageReportHref}
+                      documentsHref={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
                     />
-                  </div>
-                </td>
-                <td>
-                  <Link
-                    to={appPath(`/internal-user/vc/ops/agency-letter?comid=${encodeURIComponent(row.comId)}&tab=1&page=${PAGE_CONTEXT}`)}
-                  >
-                    Generate Port Related Letters
-                  </Link>
-                </td>
-                <td>
-                  <Link
-                    to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                  >
-                    PDA/FDA
-                  </Link>
-                </td>
-                <td className={styles.actionsCell}>
-                  <div>
-                    <Link
-                      className={styles.opsViewLink}
-                      to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                    >
-                      SOF
-                    </Link>
-                  </div>
-                  <div>
-                    <Link
-                      className={styles.opsViewLink}
-                      to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                    >
-                      Laytime
-                    </Link>
-                  </div>
-                  <div>
-                    <Link
-                      className={styles.opsViewLink}
-                      to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                    >
-                      Bunkers
-                    </Link>
-                  </div>
-                  <div>
-                    <Link
-                      className={styles.opsViewLink}
-                      to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                    >
-                      SOA
-                    </Link>
-                  </div>
-                </td>
-                <td>
-                  <Link
-                    className={styles.opsViewLink}
-                    to={appPath(`/internal-user/vc/ops/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                  >
-                    <strong>View</strong>
-                  </Link>
-                </td>
-                <td className={`${styles.actionsCell} ${styles.alertsCell}`}>
-                  {row.canDeactivate ? (
-                    <div className={styles.alertsBin}>
-                      <button type="button" className={styles.dangerIcon} title="Deactivate entry" onClick={() => handleDeactivate(row)}>
-                        <i className="bi bi-trash" aria-hidden />
+                  </td>
+                  <td>
+                    <span className={styles.trunc} title={row.materialName || ''}>{row.materialName || '—'}</span>
+                  </td>
+                  <td>
+                    {portLines(row.ports).length ? (
+                      <div className={styles.route}>
+                        {portLines(row.ports).map((line) => <span key={line}>{line}</span>)}
+                      </div>
+                    ) : (
+                      <span className={styles.muted}>—</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={styles.trunc} title={row.charteringTeam || ''}>{row.charteringTeam || '—'}</span>
+                  </td>
+                  <td>
+                    <span className={styles.trunc} title={row.charterer || ''}>{row.charterer || '—'}</span>
+                  </td>
+                  <td>
+                    <OpsVcWorksheetStack
+                      sheets={sheets}
+                      sheetHref={(sheet) => costSheetPath(row, sheet)}
+                      onAdd={() => handleAddSheetClick(row)}
+                      onLayoutChange={(nextSheets) => handleWorksheetLayoutChange(row, nextSheets)}
+                    />
+                  </td>
+                  <td>
+                    <div className={styles.docCenter}>
+                      <button
+                        type="button"
+                        className={`${styles.cmpBtn} ${canCompare ? '' : styles.cmpBtnDisabled}`}
+                        title={canCompare ? 'Compare Working Sheets' : 'No worksheet yet'}
+                        disabled={!canCompare}
+                        onClick={() => canCompare && setCompareModal({ open: true, comId: row.comId })}
+                      >
+                        <CompareIcon />
                       </button>
                     </div>
-                  ) : null}
-                  {canCompareSheets ? (
-                    <div>
-                      <Button
-                        size="sm"
-                        label="Compare Sheets"
-                        title="Compare Sheets"
-                        onClick={() => setCompareModal({ open: true, comId: row.comId })}
-                      />
+                  </td>
+                  <td>
+                    <div className={styles.chipStack}>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/agency-letter?comid=${encodeURIComponent(row.comId)}&tab=1&page=${PAGE_CONTEXT}`)}>
+                        Port Letters
+                      </ChipLink>
                     </div>
-                  ) : null}
-                </td>
-                <td>
-                  {canEditOperator ? (
-                    <div className={styles.operatorSelect}>
-                      <CoaCardSelect
-                        label="Operator"
-                        value={row.operatorId || ''}
-                        options={operators}
-                        placeholder="---Select from list---"
-                        onChange={(value) => handleOperatorChange(row, value)}
-                      />
+                  </td>
+                  <td>
+                    <div className={styles.chipStack}>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>
+                        Disbursements
+                      </ChipLink>
                     </div>
-                  ) : (row.operatorName || '—')}
-                </td>
-                <td>
-                  {row.lastUpdatedBy || '—'}
-                  {row.lastUpdatedAt ? (
-                    <>
-                      <br />
-                      {row.lastUpdatedAt}
-                    </>
-                  ) : null}
-                </td>
-                <td>{row.charteringTeam || '—'}</td>
-                <td>
-                  {row.canMoveToHistory ? (
-                    <Button size="sm" label="History" onClick={() => handleHistory(row)} />
-                  ) : null}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    <div className={styles.chipStack}>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>SOF</ChipLink>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Laytime</ChipLink>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.chipStack}>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Bunkers</ChipLink>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Cashflow</ChipLink>
+                    </div>
+                  </td>
+                  <td>
+                    <Link
+                      className={styles.iconBtn}
+                      to={appPath(`/internal-user/vc/ops/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                      title="View Financials"
+                    >
+                      <EyeIcon />
+                    </Link>
+                  </td>
+                  <td>
+                    <div className={styles.alertStack}>
+                      {alerts.map((label) => (
+                        <span key={label} className={styles.alertPill}>
+                          <AlertIcon />
+                          {label}
+                        </span>
+                      ))}
+                      {!alerts.length ? <span className={styles.muted}>—</span> : null}
+                      {row.canDeactivate ? (
+                        <button
+                          type="button"
+                          className={styles.deactivateBtn}
+                          title="Deactivate entry"
+                          onClick={() => handleDeactivate(row)}
+                        >
+                          <i className="bi bi-trash" aria-hidden />
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td>
+                    {row.canMoveToHistory ? (
+                      <button type="button" className={styles.pillAction} onClick={() => handleHistory(row)}>
+                        History
+                        <ArrowIcon />
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
-        </table>
-      </div>
+        </OpsVcGlanceTable>
 
-      <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-
-      {sheetModal.open ? (
-        <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <h4>Add Voyage Financials</h4>
-              <button
-                type="button"
-                className={styles.dangerIcon}
-                onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <p className={styles.muted}>Please enter Voyage Financials Name and Submit</p>
-            <FilterField id="ops-vc-post-sheet-name" label="Voyage Financials Name">
-              <TextInput
-                id="ops-vc-post-sheet-name"
-                value={sheetModal.sheetName}
-                onChange={(e) => setSheetModal((prev) => ({ ...prev, sheetName: e.target.value }))}
-                placeholder="Voyage Financials Name"
-              />
-            </FilterField>
-            <div className={styles.toolbarActions} style={{ marginTop: 12 }}>
-              <Button label={savingSheet ? 'Submitting…' : 'Submit'} onClick={handleCreateSheet} disabled={savingSheet} />
-              <Button
-                variant="outline"
-                label="Cancel"
-                onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
-                disabled={savingSheet}
-              />
+        {sheetModal.open ? (
+          <div className={pageStyles.modalBackdrop} role="dialog" aria-modal="true">
+            <div className={pageStyles.modal}>
+              <div className={pageStyles.modalHeader}>
+                <h4>Add Voyage Financials</h4>
+                <button
+                  type="button"
+                  className={pageStyles.dangerIcon}
+                  onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+              <p className={pageStyles.muted}>Please enter Voyage Financials Name and Submit</p>
+              <FilterField id="ops-vc-post-sheet-name" label="Voyage Financials Name">
+                <TextInput
+                  id="ops-vc-post-sheet-name"
+                  value={sheetModal.sheetName}
+                  onChange={(e) => setSheetModal((prev) => ({ ...prev, sheetName: e.target.value }))}
+                  placeholder="Voyage Financials Name"
+                />
+              </FilterField>
+              <div className={pageStyles.toolbarActions} style={{ marginTop: 12 }}>
+                <Button label={savingSheet ? 'Submitting…' : 'Submit'} onClick={handleCreateSheet} disabled={savingSheet} />
+                <Button
+                  variant="outline"
+                  label="Cancel"
+                  onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
+                  disabled={savingSheet}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <OpsVcCompareSheetsModal
-        open={compareModal.open}
-        comId={compareModal.comId}
-        onClose={() => setCompareModal({ open: false, comId: '' })}
-      />
+        <OpsVcCompareSheetsModal
+          open={compareModal.open}
+          comId={compareModal.comId}
+          onClose={() => setCompareModal({ open: false, comId: '' })}
+        />
       </div>
     </>
   );

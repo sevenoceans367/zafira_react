@@ -58,6 +58,11 @@
   min-width: 3050px;
 }
 
+.grid.gridCompact,
+.gridCompact {
+  min-width: 720px;
+}
+
 .grid thead th {
   text-align: left;
   font-size: 10.5px;
@@ -528,4 +533,26 @@
   text-align: center !important;
   color: #6b7280;
   white-space: normal !important;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 5px 12px;
+  border: 1.5px solid #d3e3fd;
+  background: #eaf1fe;
+  color: #274670;
+  white-space: nowrap;
+}
+
+.dateCell {
+  white-space: nowrap;
+}
+
+.dateCell :global(input) {
+  font-size: 13px;
+  min-width: 132px;
 }

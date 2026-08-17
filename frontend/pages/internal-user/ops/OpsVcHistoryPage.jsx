@@ -1,23 +1,43 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import {
-  DownloadIcon,
-  LoadingOverlay,
-} from '@bainbridge/shared-ui';
+import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
-import { fetchHistoryAtGlance } from '../../../services/opsVc.js';
-import SopfPagination from '../sopf/SopfPagination.jsx';
+import {
+  fetchHistoryAtGlance,
+  updateOpsVcCostSheetLayout,
+} from '../../../services/opsVc.js';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
-import styles from './OpsPages.module.css';
+import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
+import {
+  AlertIcon,
+  ChipLink,
+  DEFAULT_PAGE_SIZE,
+  EyeIcon,
+  OpsVcGlanceHeader,
+  OpsVcGlanceTable,
+  VoyDocsCell,
+  alertLabels,
+  formatLastUpdated,
+  glanceStats,
+  portLines,
+} from './OpsVcGlanceUi.jsx';
+import pageStyles from './OpsPages.module.css';
+import styles from './OpsVcInOpsGlancePage.module.css';
 
-const PAGE_SIZE = 50;
 const PAGE_CONTEXT = 3;
 const FLASH = {
   0: { type: 'success', text: 'Vessels in History added/updated successfully.' },
   2: { type: 'success', text: 'Status changed successfully.' },
 };
+
+const CARDS = [
+  { key: 'trades', title: 'Trades in History', variant: 'fin', icon: 'trades' },
+  { key: 'vessels', title: 'Vessels in History', variant: 'count', icon: 'vessels' },
+  { key: 'worksheets', title: 'Worksheets', variant: 'fin', icon: 'worksheets' },
+  { key: 'alerts', title: 'Alerts', variant: 'count', icon: 'alerts' },
+];
 
 export default function OpsVcHistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,6 +46,7 @@ export default function OpsVcHistoryPage() {
   const [searchInput, setSearchInput] = useState(searchParams.get('voy_no') || '');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -51,7 +72,7 @@ export default function OpsVcHistoryPage() {
           selBType: businessType,
           search: debouncedSearch,
           page,
-          pageSize: PAGE_SIZE,
+          pageSize,
         }),
       ]);
       setBusinessTypes(types);
@@ -62,16 +83,42 @@ export default function OpsVcHistoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [businessType, debouncedSearch, page]);
+  }, [businessType, debouncedSearch, page, pageSize]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [businessType, debouncedSearch]);
+  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, pageSize]);
+
+  const stats = useMemo(() => glanceStats(rows, total), [rows, total]);
+
+  const handleWorksheetLayoutChange = async (row, sheets) => {
+    const previous = row.costSheets || [];
+    setRows((prev) => prev.map((item) => (
+      String(item.comId) === String(row.comId) ? { ...item, costSheets: sheets } : item
+    )));
+    try {
+      await updateOpsVcCostSheetLayout(row.comId, sheets.map((sheet) => ({
+        id: sheet.id,
+        pinned: Boolean(sheet.pinned),
+        sortOrder: sheet.sortOrder,
+      })));
+    } catch (err) {
+      setRows((prev) => prev.map((item) => (
+        String(item.comId) === String(row.comId) ? { ...item, costSheets: previous } : item
+      )));
+      setError(err.message || 'Failed to update worksheet layout.');
+    }
+  };
+
+  const costSheetPath = (row, sheet) => (
+    appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${PAGE_CONTEXT}`)
+  );
 
   return (
     <>
       <OpsVcListHeaderActions
         search={searchInput}
         onSearchChange={setSearchInput}
+        searchPlaceholder="Search Voy No, vessel…"
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => {
@@ -80,150 +127,173 @@ export default function OpsVcHistoryPage() {
         }}
       />
 
-      <div className={`zafira-page ${styles.page}`}>
-      {loading ? <LoadingOverlay active label="Loading Vessels in History…" /> : null}
-      {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
-      {error ? <div className={styles.error}>{error}</div> : null}
+      <div className={`zafira-page ${pageStyles.page}`}>
+        {loading ? <LoadingOverlay active label="Loading Vessels in History…" /> : null}
+        {flash ? <div className={pageStyles.flashSuccess}>{flash.text}</div> : null}
+        {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-      <h3 className={styles.title}>Vessels in History - VC</h3>
+        <OpsVcGlanceHeader
+          title="History"
+          stats={stats}
+          cards={CARDS}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          showingLabel={`Showing ${rows.length} of ${total} operations`}
+        />
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
+        <OpsVcGlanceTable page={page} pageSize={pageSize} total={total} onPageChange={setPage}>
           <thead>
             <tr>
-              <th>VF<br />View</th>
-              <th>Business Type /<br />Nom ID / Voyage No.</th>
-              <th>Material<br />Name</th>
+              <th style={{ width: 36 }}>#</th>
+              <th>Voy No.</th>
+              <th>CP Date</th>
               <th>Vessel</th>
-              <th>CP<br />Date</th>
-              <th>Voyage<br />Financials</th>
-              <th>FDA</th>
-              <th>Calculations</th>
-              <th>Payment /<br />Invoice</th>
               <th>Operator</th>
-              <th>Chartering<br />PIC</th>
+              <th className={styles.iconTh}>Voy Docs</th>
+              <th>Cargo</th>
+              <th>LP / DP</th>
+              <th>CHRT DESK</th>
+              <th>Charterer</th>
+              <th>Worksheet</th>
+              <th>Port Letters</th>
+              <th>Disbursements</th>
+              <th>Port Activity</th>
+              <th>Calculations</th>
+              <th>Fin.</th>
+              <th>Alerts</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {!rows.length && !loading ? (
               <tr>
-                <td colSpan={12} className={styles.emptyCell}>
+                <td colSpan={18} className={styles.emptyCell}>
                   SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                 </td>
               </tr>
-            ) : rows.map((row) => (
-              <tr key={row.comId}>
-                <td className={styles.actionsCell}>
-                  <Link to={appPath(`/internal-user/sopf/viewestimate?id=${row.fcaId}&rttype=4`)}>FVF</Link>
-                  <span className={styles.muted}> | </span>
-                  <a href={`/api/internal-user/sopf/estimate/${encodeURIComponent(row.fcaId)}/pdf`} title="Download PDF">
-                    <DownloadIcon size={16} title="" />
-                  </a>
-                  <div>
-                    <Link
-                      to={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                      title="Click me"
-                    >
-                      Docs
-                    </Link>
-                  </div>
-                </td>
-                <td className={styles.wrapCell}>
-                  {row.businessType || '—'}
-                  <br />
-                  <br />
-                  {row.message}
-                  <br />
-                  {row.voyageNo || '—'}
-                  <div>
-                    {row.vesselImoNo ? (
-                      <Link
-                        to={appPath(`/internal-user/vc/ops/voyage-report?vesselimono=${encodeURIComponent(row.vesselImoNo)}&comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}&type=VC`)}
-                      >
-                        Voyage Report
-                      </Link>
-                    ) : (
-                      <span className={styles.linkMuted}>Voyage Report</span>
-                    )}
-                  </div>
-                </td>
-                <td className={styles.wrapCell}>{row.materialName || '—'}</td>
-                <td className={row.isPeriod ? styles.periodVessel : undefined}>
-                  {row.vesselName || '—'}
-                  <br />
-                  {row.vesselType || '—'}
-                </td>
-                <td>
-                  {row.cpDate || '—'}
-                  <br />
-                  {row.ownBusiness || ''}
-                </td>
-                <td className={styles.actionsCell}>
-                  {(row.costSheets || []).map((sheet) => (
-                    <div key={sheet.id}>
-                      <Link
-                        to={appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${PAGE_CONTEXT}`)}
-                      >
-                        {sheet.name}
-                      </Link>
+            ) : rows.map((row, index) => {
+              const sheets = row.costSheets || [];
+              const alerts = alertLabels(row);
+              const voyageReportHref = row.vesselImoNo
+                ? appPath(`/internal-user/vc/ops/voyage-report?vesselimono=${encodeURIComponent(row.vesselImoNo)}&comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}&type=VC`)
+                : '';
+              return (
+                <tr key={row.comId}>
+                  <td className={styles.itemCell}>{(page - 1) * pageSize + index + 1}.</td>
+                  <td>
+                    <div className={styles.opsCell}>
+                      <span className={styles.primary}>{row.voyageNo || '—'}</span>
+                      <span className={styles.sub}>{row.message || '—'}</span>
                     </div>
-                  ))}
-                </td>
-                <td>
-                  <Link
-                    to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                  >
-                    FDA
-                  </Link>
-                </td>
-                <td className={styles.actionsCell}>
-                  <div>
+                  </td>
+                  <td>
+                    <div className={styles.opsCell}>
+                      <span className={styles.primary}>{row.cpDate || '—'}</span>
+                      <span className={styles.sub}>{row.ownBusiness || row.businessType || '—'}</span>
+                    </div>
+                  </td>
+                  <td className={row.isPeriod ? styles.periodVessel : undefined}>
+                    <div className={styles.opsCell}>
+                      <span className={styles.primary}>{row.vesselName || '—'}</span>
+                      <span className={styles.sub}>{row.vesselType || '—'}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.opCell}>
+                      <span className={styles.primary}>{row.operatorName || '—'}</span>
+                      <div className={styles.opStamp}>
+                        {row.lastUpdatedBy ? <span className={styles.opName}>{row.lastUpdatedBy}</span> : null}
+                        <span className={styles.opTime}>{formatLastUpdated(row.lastUpdatedAt)}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <VoyDocsCell
+                      fcaId={row.fcaId}
+                      rttype={4}
+                      voyageReportHref={voyageReportHref}
+                      documentsHref={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                    />
+                  </td>
+                  <td>
+                    <span className={styles.trunc} title={row.materialName || ''}>{row.materialName || '—'}</span>
+                  </td>
+                  <td>
+                    {portLines(row.ports).length ? (
+                      <div className={styles.route}>
+                        {portLines(row.ports).map((line) => <span key={line}>{line}</span>)}
+                      </div>
+                    ) : (
+                      <span className={styles.muted}>—</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={styles.trunc} title={row.charteringTeam || ''}>{row.charteringTeam || '—'}</span>
+                  </td>
+                  <td>
+                    <span className={styles.trunc} title={row.charterer || ''}>{row.charterer || '—'}</span>
+                  </td>
+                  <td>
+                    <OpsVcWorksheetStack
+                      sheets={sheets}
+                      sheetHref={(sheet) => costSheetPath(row, sheet)}
+                      onLayoutChange={(nextSheets) => handleWorksheetLayoutChange(row, nextSheets)}
+                    />
+                  </td>
+                  <td>
+                    <div className={styles.chipStack}>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/agency-letter?comid=${encodeURIComponent(row.comId)}&tab=1&page=${PAGE_CONTEXT}`)}>
+                        Port Letters
+                      </ChipLink>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.chipStack}>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>
+                        Disbursements
+                      </ChipLink>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.chipStack}>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>SOF</ChipLink>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Laytime</ChipLink>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.chipStack}>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Bunkers</ChipLink>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Cashflow</ChipLink>
+                    </div>
+                  </td>
+                  <td>
                     <Link
-                      className={styles.opsViewLink}
-                      to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                    >
-                      Laytime
-                    </Link>
-                  </div>
-                  <div>
-                    <Link
-                      className={styles.opsViewLink}
-                      to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                    >
-                      Bunkers
-                    </Link>
-                  </div>
-                  <div>
-                    <Link
-                      className={styles.opsViewLink}
-                      to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                    >
-                      SOA
-                    </Link>
-                  </div>
-                </td>
-                <td className={styles.actionsCell}>
-                  <div>
-                    <Link
-                      className={styles.opsViewLink}
+                      className={styles.iconBtn}
                       to={appPath(`/internal-user/vc/ops/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                      title="View Financials"
                     >
-                      <strong>View</strong>
+                      <EyeIcon />
                     </Link>
-                  </div>
-                  <div><span className={styles.linkMuted}>P &amp; I Club Declaration</span></div>
-                </td>
-                <td>{row.operatorName || '—'}</td>
-                <td>{row.charteringTeam || '—'}</td>
-                <td>{row.statusLabel || 'History'}</td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    <div className={styles.alertStack}>
+                      {alerts.map((label) => (
+                        <span key={label} className={styles.alertPill}>
+                          <AlertIcon />
+                          {label}
+                        </span>
+                      ))}
+                      {!alerts.length ? <span className={styles.muted}>—</span> : null}
+                    </div>
+                  </td>
+                  <td>
+                    <span className={styles.statusPill}>{row.statusLabel || 'History'}</span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
-        </table>
-      </div>
-
-      <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        </OpsVcGlanceTable>
       </div>
     </>
   );

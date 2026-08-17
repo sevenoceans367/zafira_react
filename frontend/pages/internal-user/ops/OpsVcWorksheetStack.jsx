@@ -159,18 +159,22 @@ export default function OpsVcWorksheetStack({
               </span>
             </div>
           ))}
-          <button type="button" className={styles.wchipAdd} title="Add New CS" onClick={onAdd}>
-            <PlusIcon /> Add
-          </button>
+          {onAdd ? (
+            <button type="button" className={styles.wchipAdd} title="Add New CS" onClick={onAdd}>
+              <PlusIcon /> Add
+            </button>
+          ) : null}
         </div>
       ) : (
         <>
           <span className={styles.muted}>No sheets yet</span>
-          <div style={{ marginTop: 5 }}>
-            <button type="button" className={styles.wchipAdd} title="Add New CS" onClick={onAdd}>
-              <PlusIcon /> Add
-            </button>
-          </div>
+          {onAdd ? (
+            <div style={{ marginTop: 5 }}>
+              <button type="button" className={styles.wchipAdd} title="Add New CS" onClick={onAdd}>
+                <PlusIcon /> Add
+              </button>
+            </div>
+          ) : null}
         </>
       )}
     </>

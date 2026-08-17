@@ -1346,6 +1346,16 @@
   color: var(--dash-blue);
 }
 
+.coaChip {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--dash-orange-tint);
+  color: var(--dash-orange);
+  flex: none;
+}
+
 .periodStatusChip.upcoming {
   background: var(--dash-field-grey);
   color: var(--dash-text-mid);
@@ -1567,6 +1577,21 @@
   font-size: 11.5px;
   font-weight: 700;
   color: var(--dash-text-mid);
+}
+
+.hedgexUpsell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--dash-blue);
+  text-decoration: none;
+}
+
+.hedgexUpsell:hover {
+  color: #2563d6;
 }
 
 .mtmDelta em {

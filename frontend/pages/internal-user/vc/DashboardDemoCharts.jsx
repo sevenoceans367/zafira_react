@@ -54,7 +54,7 @@ export function SparklineSummaryCard({ label, count, valueLabel, marginPct, tone
       </div>
       <div className={styles.sparkValue}>{count}</div>
       <p className={styles.sparkSub}>
-        Value placed <b>{valueLabel}</b>
+        <b>{valueLabel}</b> value placed
       </p>
       <DemoBadge />
     </article>
@@ -161,7 +161,10 @@ export function PaceCard({ item }) {
           <span className={styles.paceId}>{item.id}</span>
           {item.no ? <span className={styles.paceMeta}>COA No. {item.no} · {item.charterer}</span> : null}
         </div>
-        <DemoBadge />
+        <div className={styles.cardHeadRight}>
+          <span className={styles.coaChip}>Running COA</span>
+          <DemoBadge />
+        </div>
       </div>
       <div className={styles.routeChips}>
         <span>{item.from}</span>
@@ -349,6 +352,10 @@ export function MarkToMarketCard({ data }) {
           <b>${data.market.toLocaleString()}</b>
         </div>
       </div>
+      <a className={styles.hedgexUpsell} href="#" onClick={(event) => event.preventDefault()}>
+        See more on Hedgex
+        <i className="bi bi-box-arrow-up-right" aria-hidden />
+      </a>
     </div>
   );
 }
@@ -515,7 +522,7 @@ export function RevenueByContractCard() {
   const data = rtype === 'all' ? REVENUE_BY_TYPE : REVENUE_DRILL[rtype];
   const sub = rtype === 'all'
     ? 'In-progress + completed value, all types'
-    : `${rtype} · by ${rtype === 'COA' || rtype === 'Periods' ? 'contract' : 'office'}`;
+    : `${rtype} · by ${rtype === 'COA' || rtype === 'Periods' ? 'contract' : 'chartering desk'}`;
 
   return (
     <ChartCard

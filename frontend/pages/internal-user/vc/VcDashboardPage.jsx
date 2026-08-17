@@ -72,8 +72,8 @@ import {
 import styles from './VcDashboardPage.module.css';
 
 const TABS = [
-  { id: 'vc', label: 'VC Business', toneClass: 'tabVc' },
-  { id: 'tc', label: 'TC Business', toneClass: 'tabTc' },
+  { id: 'vc', label: 'Spot', toneClass: 'tabVc' },
+  { id: 'tc', label: 'TC', toneClass: 'tabTc' },
   { id: 'coas', label: 'COAs', toneClass: 'tabCoas' },
   { id: 'periods', label: 'Periods', toneClass: 'tabPeriods' },
   { id: 'all', label: 'All Contracts', toneClass: 'tabNavy' },
@@ -83,7 +83,7 @@ function SectionHead({ title, showUsd = false }) {
   return (
     <div className={styles.secHead}>
       <h3 className={styles.sectionTitle}>{title}</h3>
-      {showUsd ? <span className={styles.usdTag}>Values in USD</span> : null}
+      {showUsd ? <span className={styles.usdTag}>Values in USD (mil)</span> : null}
     </div>
   );
 }
@@ -393,10 +393,10 @@ export default function VcDashboardPage() {
 
   const vcCompletedColumns = [
     { key: 'vessel', label: 'Vessels' },
-    { key: 'voyageNo', label: 'Voyage No.' },
-    { key: 'cpDate', label: 'CP date' },
+    { key: 'voyageNo', label: 'Voy No.' },
+    { key: 'cpDate', label: 'CP Date' },
     { key: 'voyage', label: 'Voyage' },
-    { key: 'deliveryRedelivery', label: 'Delivery - Re-Delivery' },
+    { key: 'deliveryRedelivery', label: 'Delivery – Re-delivery' },
   ];
 
   const vcFixtureColumns = [
@@ -407,7 +407,7 @@ export default function VcDashboardPage() {
   ];
 
   const freightColumns = [
-    { key: 'voyage', label: 'Voyage No' },
+    { key: 'voyage', label: 'Voyage No.' },
     { key: 'vessel', label: 'Vessels' },
     { key: 'charterer', label: 'Customer' },
     { key: 'initialFreight', label: 'Initial Freight (USD)' },
@@ -417,8 +417,8 @@ export default function VcDashboardPage() {
   const tcCompletedColumns = [
     { key: 'tcNo', label: 'TC No.' },
     { key: 'vessel', label: 'Vessels' },
-    { key: 'cpDate', label: 'CP date' },
-    { key: 'deliveryRedelivery', label: 'Delivery - Re-Delivery' },
+    { key: 'cpDate', label: 'CP Date' },
+    { key: 'deliveryRedelivery', label: 'Delivery – Re-delivery' },
   ];
 
   const tcFixtureColumns = [
@@ -445,18 +445,16 @@ export default function VcDashboardPage() {
 
   const coaColumns = [
     { key: 'index', label: '#' },
-    { key: 'coaRoute', label: 'COA Route' },
-    { key: 'coaIdentity', label: 'COA ID' },
+    { key: 'coaRoute', label: 'Route' },
     { key: 'coaNo', label: 'COA No.' },
     { key: 'coaDate', label: 'COA Date' },
-    { key: 'vesselType', label: 'Vessel Type' },
     { key: 'charterer', label: 'Charterer' },
     { key: 'cargo', label: 'Cargo' },
-    { key: 'minQty', label: 'Min Qty(MT)' },
+    { key: 'minQty', label: 'Min Qty (MT)' },
     { key: 'duration', label: 'Duration' },
     { key: 'totalShipments', label: 'Total Shipments' },
     { key: 'shipmentsPerformed', label: 'Shipments Performed' },
-    { key: 'balanceCargo', label: 'Balance Cargo(MT)' },
+    { key: 'balanceCargo', label: 'Balance Cargo (MT)' },
     {
       key: 'details',
       label: 'Details',
@@ -473,10 +471,9 @@ export default function VcDashboardPage() {
 
   const periodColumns = [
     { key: 'index', label: '#' },
-    { key: 'contractId', label: 'Contract ID' },
     { key: 'contractNo', label: 'Contract No.' },
     { key: 'contractDate', label: 'Contract Date' },
-    { key: 'vesselName', label: 'Vessel Name' },
+    { key: 'vesselName', label: 'Vessel' },
     { key: 'ownBusinessAccount', label: 'Own Business Account' },
     { key: 'workingCurrency', label: 'Working Currency' },
     {
@@ -484,7 +481,7 @@ export default function VcDashboardPage() {
       label: 'Total / Performed / Balance Days',
       render: (row) => `${row.totalDays} / ${row.performedDays} / ${row.balanceDays}`,
     },
-    { key: 'vcShipments', label: 'Total Shipment (VC)' },
+    { key: 'vcShipments', label: 'Total Shipment (Spot)' },
     { key: 'tcShipments', label: 'Total Shipment (TC)' },
   ];
 
@@ -526,7 +523,65 @@ export default function VcDashboardPage() {
       <div className={styles.tabPanel}>
         {activeTab === 'vc' ? (
           <>
-            <h3 className={styles.sectionTitle}>Dashboard</h3>
+            <section className={styles.secBlock}>
+              <SectionHead title="Spot Business Overview" showUsd />
+              <div className={styles.sparkRow}>
+                {VC_SPARK.map((card) => (
+                  <SparklineSummaryCard key={card.label} {...card} />
+                ))}
+              </div>
+              <div className={styles.shellGrid}>
+                <ChartCard title="Trades by Chartering Desk" sub="By office · YTD">
+                  <VerticalBars data={DESK_OFFICE_VC} colors={OFFICE_SHADES} />
+                </ChartCard>
+                <ChartCard title="Trades by Vessel Type" sub="YTD">
+                  <VerticalBars data={VESSEL_TYPE_VC} colors={VC_VESSEL_SHADES} />
+                </ChartCard>
+                <ChartCard title="Cargo Handled" sub="YTD · Metric Tons">
+                  <PieLegend data={CARGO_OFFICE} colors={OFFICE_SHADES} valueFmt={(v) => `${v.toLocaleString()} MT`} />
+                </ChartCard>
+                <ChartCard title="Cargo Traded Breakdown" sub="By category · YTD · Metric Tons">
+                  <PieLegend data={CARGO_BREAKDOWN} colors={CARGO_CATEGORY_COLORS} valueFmt={(v) => `${v.toLocaleString()} MT`} />
+                </ChartCard>
+              </div>
+              <div className={styles.shellStack}>
+                <ChartCard title="Trades per Quarter" sub="Calendar year, Q1–Q4">
+                  <VerticalBars data={QUARTER_TRADES} colors={['#274670', '#3E5F8F', '#8FA1C2', '#C5CEDB']} />
+                </ChartCard>
+              </div>
+              <div className={styles.shellGrid}>
+                <ChartCard title="Business with Top Owners" sub="YTD · USD (millions)">
+                  <HorizontalBars data={OWNERS_OPERATOR} colors={OWNER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
+                  <FleetMixBar owned={FLEET_MIX.owned} charteredIn={FLEET_MIX.charteredIn} />
+                </ChartCard>
+                <ChartCard title="Business with Top Cargo Owners" sub="Billed-to party · YTD · USD (millions)">
+                  <HorizontalBars data={CHARTERERS} colors={CHARTERER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
+                </ChartCard>
+              </div>
+              <ChartCard title="Vessel Redelivery Zones" sub="YTD · open positions">
+                <HorizontalBars data={ZONES_VC} />
+                <SopFCta />
+              </ChartCard>
+              <ChartCard title="Performing Vessels">
+                <DataTable
+                  columns={[
+                    { key: 'vessel', label: 'Vessels' },
+                    { key: 'voy', label: 'Voy No.' },
+                    { key: 'cpDate', label: 'CP Date' },
+                    {
+                      key: 'status',
+                      label: 'Activity Status',
+                      render: (row) => <ActivityBadge status={row.status} label={row.statusLabel} />,
+                    },
+                    { key: 'route', label: 'Delivery – Re-delivery' },
+                  ]}
+                  rows={PERFORMING_VC.map((row) => ({ ...row, id: `${row.vessel}-${row.voy}` }))}
+                />
+                <p className={styles.drillHint}>Activity Status is sourced from Daily Position Report triggers.</p>
+              </ChartCard>
+            </section>
+
+            <SectionHead title="Dashboard" />
             <DataTable
               columns={vcCompletedColumns}
               rows={(vcData?.completedRows ?? []).map((row, index) => ({
@@ -558,7 +613,7 @@ export default function VcDashboardPage() {
             ) : null}
 
             <section className={styles.secBlock}>
-              <SectionHead title="Unsettled Freight" showUsd />
+              <SectionHead title="Unsettled Freight & Demurrage" showUsd />
               <div className={styles.card}>
                 <DataTable
                   columns={freightColumns}
@@ -586,7 +641,59 @@ export default function VcDashboardPage() {
 
         {activeTab === 'tc' ? (
           <>
-            <h3 className={styles.sectionTitle}>Dashboard</h3>
+            <section className={styles.secBlock}>
+              <SectionHead title="TC Business Overview" showUsd />
+              <div className={styles.sparkRow}>
+                {TC_SPARK.map((card) => (
+                  <SparklineSummaryCard key={card.label} {...card} />
+                ))}
+              </div>
+              <div className={styles.shellGrid}>
+                <ChartCard title="Trades by Chartering Desk" sub="By office · TC · YTD">
+                  <VerticalBars data={DESK_OFFICE_TC} colors={OFFICE_SHADES} />
+                </ChartCard>
+                <ChartCard title="Trades by Vessel Type" sub="TC · YTD">
+                  <VerticalBars data={VESSEL_TYPE_TC} colors={TC_VESSEL_SHADES} />
+                </ChartCard>
+              </div>
+              <div className={styles.shellStack}>
+                <ChartCard title="Average Hire by Vessel Type" sub="TC · YTD · not cut by office — mixes tanker classes otherwise">
+                  <HorizontalBars data={AVG_HIRE_BY_TYPE} valueFmt={(v) => `$${v.toLocaleString('en-US')}/day`} />
+                </ChartCard>
+              </div>
+              <div className={styles.shellGrid}>
+                <ChartCard title="Chartered-In Business" sub="TC · YTD · USD (millions)">
+                  <HorizontalBars data={OWNERS_TC} colors={OWNER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
+                  <FleetMixBar owned={FLEET_MIX.owned} charteredIn={FLEET_MIX.charteredIn} />
+                </ChartCard>
+                <ChartCard title="Chartered-Out Business" sub="TC · YTD · USD (millions)">
+                  <HorizontalBars data={CHARTERERS_TC} colors={CHARTERER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
+                </ChartCard>
+              </div>
+              <ChartCard title="Vessel Redelivery Zones" sub="TC · YTD">
+                <HorizontalBars data={ZONES_TC} />
+                <SopFCta />
+              </ChartCard>
+              <ChartCard title="Performing Vessels">
+                <DataTable
+                  columns={[
+                    { key: 'tcNo', label: 'TC No.' },
+                    { key: 'vessel', label: 'Vessels' },
+                    { key: 'cpDate', label: 'CP Date' },
+                    {
+                      key: 'status',
+                      label: 'Activity Status',
+                      render: (row) => <ActivityBadge status={row.status} label={row.statusLabel} />,
+                    },
+                    { key: 'route', label: 'Delivery – Re-delivery' },
+                  ]}
+                  rows={PERFORMING_TC.map((row) => ({ ...row, id: `${row.tcNo}-${row.vessel}` }))}
+                />
+                <p className={styles.drillHint}>Activity Status is sourced from Daily Position Report triggers.</p>
+              </ChartCard>
+            </section>
+
+            <SectionHead title="Dashboard" />
             <DataTable
               columns={tcCompletedColumns}
               rows={(tcData?.completedRows ?? []).map((row, index) => ({
@@ -701,15 +808,15 @@ export default function VcDashboardPage() {
               ))}
             </div>
             <div className={styles.shellStack}>
-              <ChartCard title="Redelivery & Option Pipeline" sub="Next 90 days · sample">
+              <ChartCard title="Redelivery & Option Pipeline" sub="Next 90 days">
                 <PipelineList items={PIPELINE} />
               </ChartCard>
             </div>
             <div className={styles.shellGrid}>
-              <ChartCard title="On-Hire vs. Off-Hire" sub="Days & USD impact by reason · sample">
+              <ChartCard title="On-Hire vs. Off-Hire" sub="Days & USD impact by reason, per period contract">
                 <OffHirePanel records={PERIOD_RECORDS} />
               </ChartCard>
-              <ChartCard title="Revenue Due vs Received" sub="Days performed, with value impact · sample">
+              <ChartCard title="Revenue Due vs Received" sub="Days performed, with value impact">
                 <HireDuePanel records={PERIOD_RECORDS} />
               </ChartCard>
             </div>

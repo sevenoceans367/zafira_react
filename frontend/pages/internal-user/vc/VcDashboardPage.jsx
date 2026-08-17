@@ -251,7 +251,7 @@ export default function VcDashboardPage() {
           break;
       }
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard.');
+      setError(err.message || 'Failed to load commercial performance.');
     } finally {
       setLoading(false);
     }
@@ -263,7 +263,7 @@ export default function VcDashboardPage() {
     try {
       await Promise.all([loadVc(), loadTc(), loadCoas(), loadPeriods()]);
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard.');
+      setError(err.message || 'Failed to load commercial performance.');
     } finally {
       setLoading(false);
     }
@@ -278,7 +278,7 @@ export default function VcDashboardPage() {
         setBusinessType(defaultType);
         await loadBusinessTypes(defaultType);
       } catch (err) {
-        setError(err.message || 'Failed to initialize dashboard.');
+        setError(err.message || 'Failed to initialize commercial performance.');
       }
     })();
   }, [loadBusinessTypes]);
@@ -433,7 +433,7 @@ export default function VcDashboardPage() {
       />
 
       <div className={`zafira-page ${styles.page}`}>
-      {loading ? <LoadingOverlay active label="Loading dashboard…" /> : null}
+      {loading ? <LoadingOverlay active label="Loading commercial performance…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <div className={styles.tabs}>
@@ -452,7 +452,7 @@ export default function VcDashboardPage() {
       <div className={styles.tabPanel}>
         {activeTab === 'vc' ? (
           <>
-            <h3 className={styles.sectionTitle}>Dashboard</h3>
+            <h3 className={styles.sectionTitle}>Commercial Performance</h3>
             <DataTable
               columns={vcCompletedColumns}
               rows={(vcData?.completedRows ?? []).map((row, index) => ({
@@ -501,7 +501,7 @@ export default function VcDashboardPage() {
 
         {activeTab === 'tc' ? (
           <>
-            <h3 className={styles.sectionTitle}>Dashboard</h3>
+            <h3 className={styles.sectionTitle}>Commercial Performance</h3>
             <DataTable
               columns={tcCompletedColumns}
               rows={(tcData?.completedRows ?? []).map((row, index) => ({

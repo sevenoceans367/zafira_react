@@ -83,7 +83,7 @@ const USER_GUIDES_LINK = {
 
 const TODO_LIST_LINK = {
   icon: 'bi-check2-square',
-  label: 'To - Do List',
+  label: 'Financial Transactions',
 };
 
 const HELP_DESK_HREF = '/internal-user/sopf/support_ticket';
@@ -144,7 +144,7 @@ export default function InternalUserSidebar({ isOpen }) {
             <SidebarLink
               to={appPath('/internal-user/vc')}
               icon="bi-speedometer2"
-              label="Dashboard"
+              label="Commercial Performance"
               active={currentPath === '/internal-user/vc'}
             />
             <SidebarLink

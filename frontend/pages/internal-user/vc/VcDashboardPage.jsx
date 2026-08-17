@@ -526,89 +526,14 @@ export default function VcDashboardPage() {
       <div className={styles.tabPanel}>
         {activeTab === 'vc' ? (
           <>
-            <section className={styles.secBlock}>
-              <SectionHead title="Spot Business Overview" showUsd />
-              <div className={styles.sparkRow}>
-                {VC_SPARK.map((card) => (
-                  <SparklineSummaryCard key={card.label} {...card} />
-                ))}
-              </div>
-              <div className={styles.shellGrid}>
-                <ChartCard title="Trades by Chartering Desk" sub="By office · YTD · sample">
-                  <VerticalBars data={DESK_OFFICE_VC} colors={OFFICE_SHADES} />
-                </ChartCard>
-                <ChartCard title="Trades by Vessel Type" sub="YTD · sample">
-                  <VerticalBars data={VESSEL_TYPE_VC} colors={VC_VESSEL_SHADES} />
-                </ChartCard>
-                <ChartCard title="Cargo Handled" sub="YTD · Metric Tons by office · sample">
-                  <PieLegend data={CARGO_OFFICE} colors={OFFICE_SHADES} valueFmt={(v) => `${v.toLocaleString()} MT`} />
-                </ChartCard>
-                <ChartCard title="Cargo Traded Breakdown" sub="By category · YTD · Metric Tons · sample">
-                  <PieLegend data={CARGO_BREAKDOWN} colors={CARGO_CATEGORY_COLORS} valueFmt={(v) => `${v.toLocaleString()} MT`} />
-                </ChartCard>
-              </div>
-              <div className={styles.shellStack}>
-                <ChartCard title="Trades per Quarter" sub="Calendar year, Q1–Q4 · sample">
-                  <VerticalBars data={QUARTER_TRADES} colors={OFFICE_SHADES} />
-                </ChartCard>
-              </div>
-              <div className={styles.shellGrid}>
-                <ChartCard title="Business with Top Owners" sub="YTD · USD (millions) · sample">
-                  <PieLegend data={OWNERS_OPERATOR} colors={OWNER_SHADES} valueFmt={(v) => `${v} mil`} />
-                  <FleetMixBar owned={FLEET_MIX.owned} charteredIn={FLEET_MIX.charteredIn} />
-                </ChartCard>
-                <ChartCard title="Business with Top Cargo Owners" sub="Billed-to party · YTD · USD (millions) · sample">
-                  <PieLegend data={CHARTERERS} colors={CHARTERER_SHADES} valueFmt={(v) => `${v} mil`} />
-                </ChartCard>
-              </div>
-              <div className={styles.shellStack}>
-                <ChartCard title="Vessel Redelivery Zones" sub="YTD · open positions · sample">
-                  <HorizontalBars data={ZONES_VC} valueFmt={(v) => String(v)} />
-                  <SopFCta />
-                </ChartCard>
-              </div>
-            </section>
-
-            <section className={styles.secBlock}>
-              <SectionHead title="Performing Vessels" />
-              <div className={styles.card}>
-                <div className={styles.cardHead}>
-                  <h4 className={styles.cardTitle}>Active voyages</h4>
-                  <span className={styles.demoBadge}>Sample data</span>
-                </div>
-                <DataTable
-                  columns={[
-                    { key: 'vessel', label: 'Vessels' },
-                    { key: 'voy', label: 'Voy No.' },
-                    { key: 'cpDate', label: 'CP Date' },
-                    { key: 'activity', label: 'Activity Status' },
-                    { key: 'route', label: 'Delivery – Re-delivery' },
-                  ]}
-                  rows={PERFORMING_VC.map((row, index) => ({
-                    id: `pvc-${index}`,
-                    vessel: row.vessel,
-                    voy: row.voy,
-                    cpDate: row.cpDate,
-                    activity: <ActivityBadge status={row.status} label={row.statusLabel} />,
-                    route: row.route,
-                  }))}
-                />
-                <p className={styles.drillHint}>Activity Status is sourced from Daily Position Report triggers.</p>
-              </div>
-            </section>
-
-            <section className={styles.secBlock}>
-              <SectionHead title="Commercial Performance" showUsd />
-              <div className={styles.card}>
-                <DataTable
-                  columns={vcCompletedColumns}
-                  rows={(vcData?.completedRows ?? []).map((row, index) => ({
-                    ...row,
-                    id: `${row.voyageNo}-${index}`,
-                  }))}
-                />
-              </div>
-            </section>
+            <h3 className={styles.sectionTitle}>Dashboard</h3>
+            <DataTable
+              columns={vcCompletedColumns}
+              rows={(vcData?.completedRows ?? []).map((row, index) => ({
+                ...row,
+                id: `${row.voyageNo}-${index}`,
+              }))}
+            />
 
             {isMgmtUser ? (
               <section className={styles.secBlock}>
@@ -661,83 +586,14 @@ export default function VcDashboardPage() {
 
         {activeTab === 'tc' ? (
           <>
-            <section className={styles.secBlock}>
-              <SectionHead title="TC Business Overview" showUsd />
-              <div className={styles.sparkRow}>
-                {TC_SPARK.map((card) => (
-                  <SparklineSummaryCard key={card.label} {...card} />
-                ))}
-              </div>
-              <div className={styles.shellGrid}>
-                <ChartCard title="Trades by Chartering Desk" sub="By office · TC · YTD · sample">
-                  <VerticalBars data={DESK_OFFICE_TC} colors={OFFICE_SHADES} />
-                </ChartCard>
-                <ChartCard title="Trades by Vessel Type" sub="TC · YTD · sample">
-                  <VerticalBars data={VESSEL_TYPE_TC} colors={TC_VESSEL_SHADES} />
-                </ChartCard>
-              </div>
-              <div className={styles.shellStack}>
-                <ChartCard title="Average Hire by Vessel Type" sub="TC · YTD · USD / day · sample">
-                  <HorizontalBars data={AVG_HIRE_BY_TYPE} valueFmt={(v) => `$${v.toLocaleString()}/day`} />
-                </ChartCard>
-              </div>
-              <div className={styles.shellGrid}>
-                <ChartCard title="Chartered-In Business" sub="TC · YTD · USD (millions) · sample">
-                  <PieLegend data={OWNERS_TC} colors={OWNER_SHADES} valueFmt={(v) => `${v} mil`} />
-                  <FleetMixBar owned={FLEET_MIX.owned} charteredIn={FLEET_MIX.charteredIn} />
-                </ChartCard>
-                <ChartCard title="Chartered-Out Business" sub="TC · YTD · USD (millions) · sample">
-                  <PieLegend data={CHARTERERS_TC} colors={TC_VESSEL_SHADES} valueFmt={(v) => `${v} mil`} />
-                </ChartCard>
-              </div>
-              <div className={styles.shellStack}>
-                <ChartCard title="Vessel Redelivery Zones" sub="TC · YTD · sample">
-                  <HorizontalBars data={ZONES_TC} valueFmt={(v) => String(v)} />
-                  <SopFCta />
-                </ChartCard>
-              </div>
-            </section>
-
-            <section className={styles.secBlock}>
-              <SectionHead title="Performing Vessels" />
-              <div className={styles.card}>
-                <div className={styles.cardHead}>
-                  <h4 className={styles.cardTitle}>Active TCs</h4>
-                  <span className={styles.demoBadge}>Sample data</span>
-                </div>
-                <DataTable
-                  columns={[
-                    { key: 'tcNo', label: 'TC No.' },
-                    { key: 'vessel', label: 'Vessels' },
-                    { key: 'cpDate', label: 'CP Date' },
-                    { key: 'activity', label: 'Activity Status' },
-                    { key: 'route', label: 'Delivery – Re-delivery' },
-                  ]}
-                  rows={PERFORMING_TC.map((row, index) => ({
-                    id: `ptc-${index}`,
-                    tcNo: row.tcNo,
-                    vessel: row.vessel,
-                    cpDate: row.cpDate,
-                    activity: <ActivityBadge status={row.status} label={row.statusLabel} />,
-                    route: row.route,
-                  }))}
-                />
-                <p className={styles.drillHint}>Activity Status is sourced from Daily Position Report triggers.</p>
-              </div>
-            </section>
-
-            <section className={styles.secBlock}>
-              <SectionHead title="Commercial Performance" showUsd />
-              <div className={styles.card}>
-                <DataTable
-                  columns={tcCompletedColumns}
-                  rows={(tcData?.completedRows ?? []).map((row, index) => ({
-                    ...row,
-                    id: `${row.tcNo}-${index}`,
-                  }))}
-                />
-              </div>
-            </section>
+            <h3 className={styles.sectionTitle}>Dashboard</h3>
+            <DataTable
+              columns={tcCompletedColumns}
+              rows={(tcData?.completedRows ?? []).map((row, index) => ({
+                ...row,
+                id: `${row.tcNo}-${index}`,
+              }))}
+            />
 
             {isMgmtUser ? (
               <section className={styles.secBlock}>

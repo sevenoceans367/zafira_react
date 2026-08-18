@@ -90,6 +90,8 @@ export async function fetchPeriodContractList({
   search,
   sortColumn,
   sortDir,
+  periodFrom,
+  periodTo,
 } = {}) {
   const params = new URLSearchParams();
   if (selBType) params.set('selBType', selBType);
@@ -99,6 +101,8 @@ export async function fetchPeriodContractList({
   if (search) params.set('search', search);
   if (sortColumn != null) params.set('sortColumn', String(sortColumn));
   if (sortDir) params.set('sortDir', sortDir);
+  if (periodFrom) params.set('periodFrom', periodFrom);
+  if (periodTo) params.set('periodTo', periodTo);
   const query = params.toString();
   const response = await fetch(`${BASE}${query ? `?${query}` : ''}`);
   return parseJson(response, 'Failed to load period contract list.');

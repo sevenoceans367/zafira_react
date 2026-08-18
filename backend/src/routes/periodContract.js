@@ -44,6 +44,8 @@ router.get('/', async (req, res) => {
       search: req.query.search || '',
       sortColumn: Number(req.query.sortColumn) || 1,
       sortDir: req.query.sortDir || 'desc',
+      periodFrom: req.query.periodFrom || '',
+      periodTo: req.query.periodTo || '',
     });
     res.json(data);
   } catch (error) {

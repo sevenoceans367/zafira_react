@@ -1,6 +1,6 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
-import { formatDateDMY } from './estimateListMappers.js';
+import { formatDateDMY, parsePeriodDate } from './estimateListMappers.js';
 
 const VC_MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || '6';
 
@@ -157,28 +157,27 @@ function mapStatus(updateStatus, tab) {
   return 'Closed Period Contract';
 }
 
-export async function dbGetPeriodContractList({
+function buildPeriodContractFilters({
   selBType,
   status = 'open',
-  page = 1,
-  pageSize = 10,
   search = '',
-  sortColumn = 1,
-  sortDir = 'desc',
+  periodFrom = '',
+  periodTo = '',
 }) {
-  const pool = getPool();
   const businessType = selBType || '2';
-  const updateStatus = status === 'closed' ? '2' : '1';
-  const offset = (Math.max(1, page) - 1) * pageSize;
-  const sortColumns = [
-    'pcm.PERIODID', 'pcm.CONTRACT_ID', 'pcm.CONTRACT_NO', 'pcm.CONTRACT_DATE',
-    'vim.VESSEL_NAME', 'vt.VesselType', 'vim.DWT', 'pcm.HIRE', 'pcm.OWN_BUSINESS_ACCOUNT',
-  ];
-  const orderCol = sortColumns[sortColumn] || 'pcm.PERIODID';
-  const orderDir = sortDir?.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
-
   const conditions = ['pcm.MCOMPANYID = ?', 'pcm.BUSINESSTYPE = ?', 'pcm.UPDATE_STATUS = ?'];
-  const params = [appContext.companyId, businessType, updateStatus];
+  const params = [appContext.companyId, businessType, status === 'closed' ? '2' : '1'];
+
+  const from = parsePeriodDate(periodFrom);
+  const to = parsePeriodDate(periodTo);
+  if (from) {
+    conditions.push('DATE(pcm.CONTRACT_DATE) >= ?');
+    params.push(from);
+  }
+  if (to) {
+    conditions.push('DATE(pcm.CONTRACT_DATE) <= ?');
+    params.push(to);
+  }
 
   if (search) {
     conditions.push(`(
@@ -190,7 +189,93 @@ export async function dbGetPeriodContractList({
     params.push(like, like, like, like, like, like);
   }
 
-  const where = conditions.join(' AND ');
+  return { where: conditions.join(' AND '), params, businessType };
+}
+
+const IN_OPS_SQL = `(
+  EXISTS (
+    SELECT 1
+    FROM freight_cost_estimete_master m
+    INNER JOIN freight_cost_estimate_compare c ON c.FCAID = m.FCAID
+    WHERE m.PERIODID = pcm.PERIODID AND c.FINAL_ID != '' AND m.FIXED = 1
+  )
+  OR EXISTS (
+    SELECT 1
+    FROM chartering_estimate_tc_master m
+    INNER JOIN chartering_estimate_tc_compare c ON c.TCOUTID = m.TCOUTID
+    WHERE m.PERIODID = pcm.PERIODID AND c.FINAL_ID != '' AND m.FIXED = 1
+  )
+)`;
+
+export async function dbGetPeriodBusinessStats({
+  selBType,
+  periodFrom = '',
+  periodTo = '',
+} = {}) {
+  const pool = getPool();
+  const { where, params } = buildPeriodContractFilters({
+    selBType,
+    status: 'open',
+    periodFrom,
+    periodTo,
+  });
+
+  const [[openRow]] = await pool.query(
+    `SELECT COUNT(*) AS total,
+            COUNT(DISTINCT CASE
+              WHEN pcm.VESSEL_IMO_ID IS NOT NULL AND pcm.VESSEL_IMO_ID != 0
+              THEN pcm.VESSEL_IMO_ID END) AS vessels
+     FROM period_contract_master pcm
+     LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = pcm.VESSEL_IMO_ID
+     WHERE ${where}`,
+    params,
+  );
+
+  const [[opsRow]] = await pool.query(
+    `SELECT COUNT(*) AS total,
+            COUNT(DISTINCT CASE
+              WHEN pcm.VESSEL_IMO_ID IS NOT NULL AND pcm.VESSEL_IMO_ID != 0
+              THEN pcm.VESSEL_IMO_ID END) AS vessels
+     FROM period_contract_master pcm
+     LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = pcm.VESSEL_IMO_ID
+     WHERE ${where} AND ${IN_OPS_SQL}`,
+    params,
+  );
+
+  return {
+    openTrades: Number(openRow?.total || 0),
+    vesselsOnSubs: Number(openRow?.vessels || 0),
+    tradesInOperations: Number(opsRow?.total || 0),
+    vesselsOnWater: Number(opsRow?.vessels || 0),
+  };
+}
+
+export async function dbGetPeriodContractList({
+  selBType,
+  status = 'open',
+  page = 1,
+  pageSize = 10,
+  search = '',
+  sortColumn = 1,
+  sortDir = 'desc',
+  periodFrom = '',
+  periodTo = '',
+}) {
+  const pool = getPool();
+  const offset = (Math.max(1, page) - 1) * pageSize;
+  const sortColumns = [
+    'pcm.PERIODID', 'pcm.CONTRACT_ID', 'pcm.CONTRACT_NO', 'pcm.CONTRACT_DATE',
+    'vim.VESSEL_NAME', 'vt.VesselType', 'vim.DWT', 'pcm.HIRE', 'pcm.OWN_BUSINESS_ACCOUNT',
+  ];
+  const orderCol = sortColumns[sortColumn] || 'pcm.PERIODID';
+  const orderDir = sortDir?.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const { where, params } = buildPeriodContractFilters({
+    selBType,
+    status,
+    search,
+    periodFrom,
+    periodTo,
+  });
 
   const [[countRow]] = await pool.query(
     `SELECT COUNT(*) AS total
@@ -254,9 +339,12 @@ export async function dbGetPeriodContractList({
     });
   }
 
+  const stats = await dbGetPeriodBusinessStats({ selBType, periodFrom, periodTo });
+
   return {
     records,
     recordsTotal: Number(countRow?.total || 0),
+    stats,
     page,
     pageSize,
     status,
@@ -402,7 +490,7 @@ export async function dbGetPeriodNominations(periodId, { businessType } = {}) {
 
   const [tcRows] = await pool.query(
     `SELECT m.TCOUTID, m.COMID, m.VESSEL_IMO_ID, m.TC_NO, m.CP_DATE1,
-            m.DWT_SUMMER_CP, m.DEL_RANGE_PORT, m.RE_DEL_RANGE, m.EXCHANGE_RATE,
+            m.DWT_SUMMER_CP, m.DEL_RANGE_PORT, m.RE_DEL_RANGE, m.EXCHANGE_RATE, m.HIRE_IN,
             v.VESSEL_NAME,
             (SELECT SUM(TC_DAYS_EST) FROM chartering_tc_estimate_slave1 s1
              WHERE s1.TCOUTID = m.TCOUTID) AS TC_DAYS_EST,
@@ -432,6 +520,8 @@ export async function dbGetPeriodNominations(periodId, { businessType } = {}) {
     delPort: row.DEL_RANGE_PORT || '',
     reDelPort: row.RE_DEL_RANGE || '',
     tcDays: row.TC_DAYS_EST != null ? String(row.TC_DAYS_EST) : '',
+    hireIn: row.HIRE_IN != null && String(row.HIRE_IN).trim() !== '' ? String(row.HIRE_IN) : '',
+    hireOut: row.TC_RATE != null ? Number(row.TC_RATE).toFixed(2) : '',
     dailyGrossHire: row.TC_RATE != null ? Number(row.TC_RATE).toFixed(2) : '',
   }));
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { CardSelect, HeaderFilterControls, PageHeaderSearch } from '@bainbridge/shared-ui';
+import { CardSelect, HeaderFilterControls, PageHeaderSearch, PeriodCardPicker } from '@bainbridge/shared-ui';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 
 export default function PeriodContractHeaderActions({
@@ -8,8 +8,12 @@ export default function PeriodContractHeaderActions({
   businessTypes,
   businessType,
   onBusinessTypeChange,
+  periodFrom,
+  periodTo,
+  onPeriodChange,
 }) {
   const searchRef = useRef(null);
+  const showPeriod = typeof onPeriodChange === 'function';
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -27,14 +31,22 @@ export default function PeriodContractHeaderActions({
   }, []);
 
   return (
-    <PageHeaderActions deps={[search, businessType, businessTypes, onSearchChange, onBusinessTypeChange]}>
+    <PageHeaderActions deps={[search, businessType, businessTypes, periodFrom, periodTo, onSearchChange, onBusinessTypeChange, onPeriodChange]}>
       <HeaderFilterControls>
         <PageHeaderSearch
           ref={searchRef}
           value={search}
           onChange={onSearchChange}
-          placeholder="Search period contracts"
+          placeholder="Search"
         />
+        {showPeriod ? (
+          <PeriodCardPicker
+            from={periodFrom}
+            to={periodTo}
+            onChange={onPeriodChange}
+            label="Select Period"
+          />
+        ) : null}
         {businessTypes.length > 1 ? (
           <CardSelect
             options={businessTypes}

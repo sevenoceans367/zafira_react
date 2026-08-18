@@ -84,6 +84,17 @@ const MOCK_RECORDS = [
   },
 ];
 
+function mockPeriodStats(records) {
+  const open = records.filter((row) => row.status === 'Saved & Open Period Contract');
+  const vessels = new Set(open.map((row) => row.vesselName).filter(Boolean));
+  return {
+    openTrades: open.length,
+    vesselsOnSubs: vessels.size,
+    tradesInOperations: 0,
+    vesselsOnWater: 0,
+  };
+}
+
 export async function getPeriodContractList(params = {}) {
   if (!isDbConfigured()) {
     const status = params.status === 'closed' ? 'closed' : 'open';
@@ -98,6 +109,7 @@ export async function getPeriodContractList(params = {}) {
       page: params.page || 1,
       pageSize: params.pageSize || 10,
       status,
+      stats: mockPeriodStats(MOCK_RECORDS),
     };
   }
 

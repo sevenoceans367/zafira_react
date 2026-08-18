@@ -30,12 +30,12 @@ export function resolvePeriodContractHeader(pathname) {
 
   if (isAdd) {
     return {
-      title: 'Period Contract',
+      title: module === 'sopf' ? 'Period Business' : 'Period Contract',
       currentPage: 'Add New',
       breadcrumbs: [
         HOME,
         moduleBreadcrumb(module),
-        { label: 'Period Contract', href: listHref },
+        { label: module === 'sopf' ? 'Period Business' : 'Period Contract', href: listHref },
         { label: 'Add New' },
       ],
     };
@@ -43,13 +43,25 @@ export function resolvePeriodContractHeader(pathname) {
 
   if (isEdit) {
     return {
-      title: 'Period Contract',
+      title: module === 'sopf' ? 'Period Business' : 'Period Contract',
       currentPage: 'Edit Details',
       breadcrumbs: [
         HOME,
         moduleBreadcrumb(module),
-        { label: 'Period Contract', href: listHref },
+        { label: module === 'sopf' ? 'Period Business' : 'Period Contract', href: listHref },
         { label: 'Edit Details' },
+      ],
+    };
+  }
+
+  if (module === 'sopf') {
+    return {
+      title: 'Period Business',
+      currentPage: 'Period Business',
+      breadcrumbs: [
+        HOME,
+        moduleBreadcrumb(module),
+        { label: 'Period Business' },
       ],
     };
   }

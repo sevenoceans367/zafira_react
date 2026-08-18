@@ -249,7 +249,10 @@ export default function TcFixtureFormPage({
   const tcOutId = overrideTcOutId || paramTcOutId;
   const [searchParams] = useSearchParams();
   const [lookups, setLookups] = useState(null);
-  const [form, setForm] = useState(() => emptyForm(searchParams.get('selBType') || '2'));
+  const [form, setForm] = useState(() => ({
+    ...emptyForm(searchParams.get('selBType') || '2'),
+    periodId: searchParams.get('periodId') || searchParams.get('periodid') || '',
+  }));
   const [loading, setLoading] = useState(mode !== 'add');
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);

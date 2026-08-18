@@ -3,6 +3,8 @@ import { Button } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { getUser } from '@bainbridge/shared-auth';
 import { getVisibleModules } from '../../constants/internalUserModules.js';
+import ModuleTintIcon from '../../components/ModuleTintIcon.jsx';
+import tintStyles from '../../components/ModuleTintIcon.module.css';
 import styles from './ModuleHomePage.module.css';
 
 export default function ModuleHomePage() {
@@ -16,10 +18,10 @@ export default function ModuleHomePage() {
         {modules.map((module) => (
           <article key={module.id} className={styles.card}>
             {module.iconSrc ? (
-              <img
+              <ModuleTintIcon
                 src={module.iconSrc}
                 alt={module.iconAlt || module.subtitle || ''}
-                className={styles.iconImg}
+                className={`${tintStyles.icon} ${styles.iconImg}`}
               />
             ) : (
               <i className={`bi ${module.icon} ${styles.icon}`} aria-hidden />

@@ -57,6 +57,29 @@ const CARDS = [
   { key: 'alerts', title: 'Alerts', variant: 'count', icon: 'alerts' },
 ];
 
+function currentUserOperator(operators = []) {
+  const user = getUser();
+  const userId = user?.id != null ? String(user.id) : '';
+  if (!userId) return { id: '', name: user?.name || '' };
+  const match = operators.find((opt) => String(opt.id) === userId);
+  return {
+    id: match ? String(match.id) : userId,
+    name: match?.name || user?.name || '',
+  };
+}
+
+function resolveOperator(row, operators = []) {
+  if (row?.operatorId) {
+    return {
+      id: String(row.operatorId),
+      name: row.operatorName
+        || operators.find((opt) => String(opt.id) === String(row.operatorId))?.name
+        || '',
+    };
+  }
+  return currentUserOperator(operators);
+}
+
 export default function OpsVcInOpsGlancePage() {
   const confirm = useConfirm();
   const alert = useAlert();
@@ -111,8 +134,7 @@ export default function OpsVcInOpsGlancePage() {
       setOperators(Array.isArray(operatorOptions) ? operatorOptions : []);
       setRows(data.records || []);
       setTotal(data.recordsTotal || 0);
-      const loggedInIsMgmt = getUser()?.userType === 'mgmt_user';
-      setCanEditOperator(loggedInIsMgmt || Boolean(data.canEditOperator));
+      setCanEditOperator(true);
       setCanCompareSheets(Boolean(data.canCompareSheets));
     } catch (err) {
       setError(err.message || 'Failed to load In Ops at a glance.');
@@ -275,8 +297,8 @@ export default function OpsVcInOpsGlancePage() {
                 <tr>
                   <th style={{ width: 36 }}>#</th>
                   <th>Voy No.</th>
-                  <th>CP Date</th>
                   <th>Vessel</th>
+                  <th>CP Date</th>
                   <th>Operator</th>
                   <th className={styles.iconTh}>Voy Docs</th>
                   <th>Cargo</th>
@@ -305,6 +327,7 @@ export default function OpsVcInOpsGlancePage() {
                   const sheets = row.costSheets || [];
                   const alerts = alertLabels(row);
                   const canCompare = canCompareSheets && sheets.length > 0;
+                  const operator = resolveOperator(row, operators);
                   const voyageReportHref = row.vesselImoNo
                     ? appPath(`/internal-user/vc/ops/voyage-report?vesselimono=${encodeURIComponent(row.vesselImoNo)}&comid=${encodeURIComponent(row.comId)}&page=1&type=VC&selYear=${encodeURIComponent(year)}`)
                     : '';
@@ -317,12 +340,6 @@ export default function OpsVcInOpsGlancePage() {
                           <span className={styles.sub}>{row.message || '—'}</span>
                         </div>
                       </td>
-                      <td>
-                        <div className={styles.opsCell}>
-                          <span className={styles.primary}>{row.cpDate || '—'}</span>
-                          <span className={styles.sub}>{row.ownBusiness || row.businessType || '—'}</span>
-                        </div>
-                      </td>
                       <td className={row.isPeriod ? styles.periodVessel : undefined}>
                         <div className={styles.opsCell}>
                           <span className={styles.primary}>{row.vesselName || '—'}</span>
@@ -330,22 +347,25 @@ export default function OpsVcInOpsGlancePage() {
                         </div>
                       </td>
                       <td>
+                        <span className={styles.cpDate}>{row.cpDate || '—'}</span>
+                      </td>
+                      <td>
                         <div className={styles.opCell}>
                           {canEditOperator ? (
                             <div className={`${pageStyles.operatorSelect} ${styles.opSelect}`}>
                               <CoaCardSelect
                                 label="Operator"
-                                value={row.operatorId || ''}
+                                value={operator.id}
                                 options={operators}
                                 placeholder="---Select from list---"
                                 onChange={(value) => handleOperatorChange(row, value)}
                               />
                             </div>
                           ) : (
-                            <span className={styles.primary}>{row.operatorName || '—'}</span>
+                            <span className={styles.primary}>{operator.name || '—'}</span>
                           )}
                           <div className={styles.opStamp}>
-                            {row.lastUpdatedBy ? <span className={styles.opName}>{row.lastUpdatedBy}</span> : null}
+                            <span className={styles.opName}>{row.lastUpdatedBy || operator.name || '—'}</span>
                             <span className={styles.opTime}>{formatLastUpdated(row.lastUpdatedAt)}</span>
                           </div>
                         </div>

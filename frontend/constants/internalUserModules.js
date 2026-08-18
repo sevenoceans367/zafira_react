@@ -1,5 +1,5 @@
-import sopfIcon from '../assets/icons/sopf-icon.svg';
-import socIcon from '../assets/icons/soc-icon.svg';
+import sopfIcon from '../assets/SOPF Icon 1.png';
+import socIcon from '../assets/SOC Product Icon.png';
 import vesselPositionIcon from '../assets/vesselPosition.svg';
 import {
   LIVE_VESSEL_MAP_ENABLED,

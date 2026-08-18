@@ -2327,7 +2327,7 @@ async function finalizeCoaEstimateCompare(connection, fcaId, payload) {
       appContext.moduleId,
       appContext.companyId,
       coaId,
-      payload.operatorId || null,
+      payload.operatorId || appContext.userId || null,
     ],
   );
 

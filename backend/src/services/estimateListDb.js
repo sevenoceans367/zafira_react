@@ -481,9 +481,9 @@ export async function dbSubmitDecisionChart({ selection }) {
 
     const [compareResult] = await connection.query(
       `INSERT INTO freight_cost_estimate_compare
-        (FCAID, FINAL_ID, MESSAGE_NO, USERID, REMARKS, ADD_ON_DATE, MESSAGE, MODULEID, MCOMPANYID, COAAID, STATUS)
-       VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, 1)`,
-      [id, id, padded, appContext.userId, remarks, message, appContext.moduleId, appContext.companyId, coaId],
+        (FCAID, FINAL_ID, MESSAGE_NO, USERID, REMARKS, ADD_ON_DATE, MESSAGE, MODULEID, MCOMPANYID, COAAID, OPERATOR, STATUS)
+       VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, 1)`,
+      [id, id, padded, appContext.userId, remarks, message, appContext.moduleId, appContext.companyId, coaId, appContext.userId],
     );
 
     // Ops VC / In Ops requires FIXED=1 (same as COA nominate / fixture finalise).

@@ -6,6 +6,8 @@ import {
   getActiveModuleId,
   getVisibleModules,
 } from '../constants/internalUserModules.js';
+import ModuleTintIcon from './ModuleTintIcon.jsx';
+import tintStyles from './ModuleTintIcon.module.css';
 import styles from './ModuleSwitcherRail.module.css';
 
 function ModuleRailButton({
@@ -27,7 +29,11 @@ function ModuleRailButton({
     >
       <span className={styles.iconWrap}>
         {iconSrc ? (
-          <img src={iconSrc} alt="" className={styles.iconImg} aria-hidden />
+          <ModuleTintIcon
+            src={iconSrc}
+            alt={iconAlt}
+            className={`${tintStyles.icon} ${styles.iconTint}`}
+          />
         ) : (
           <i className={`bi ${icon}`} aria-hidden />
         )}

@@ -11,6 +11,7 @@
   z-index: 1000;
   height: 100vh;
   --sidebar-link-color: rgba(0, 0, 0, 0.65);
+  --sidebar-icon-color: #8a93a2;
   --sidebar-link-color-active: #274670;
   --sidebar-link-bg-hover: #e6e6e6;
   --sidebar-link-radius: 8px;
@@ -103,9 +104,20 @@
 }
 
 .sidebar-menu > li > a .icon,
-.sidebar-menu > li > a i,
+.sidebar-menu > li > a i:not([class*='bi-chevron-']),
 .sidebar-menu > li > a svg {
-  color: inherit;
+  color: var(--sidebar-icon-color);
+}
+
+.sidebar-menu > li > a:hover .icon,
+.sidebar-menu > li > a:hover i:not([class*='bi-chevron-']),
+.sidebar-menu > li > a:focus .icon,
+.sidebar-menu > li > a:focus i:not([class*='bi-chevron-']),
+.sidebar-menu > li > a:focus-visible .icon,
+.sidebar-menu > li > a:focus-visible i:not([class*='bi-chevron-']),
+.sidebar-menu > li > a.active .icon,
+.sidebar-menu > li > a.active i:not([class*='bi-chevron-']) {
+  color: var(--sidebar-link-color-active);
 }
 
 .sidebar-wrapper.closed .sidebar-nav {
@@ -167,6 +179,17 @@
   object-fit: contain;
   display: inline-block;
   vertical-align: middle;
+  opacity: 0.55;
+}
+
+.sidebar-menu > li > a:hover img.icon,
+.sidebar-menu > li > a:focus img.icon,
+.sidebar-menu > li > a:focus-visible img.icon,
+.sidebar-menu > li > a.active img.icon,
+.sidebar-menu > li.treeview > button:hover img.icon,
+.sidebar-menu > li.treeview > button:focus img.icon,
+.sidebar-menu > li.treeview > button:focus-visible img.icon {
+  opacity: 0.85;
 }
 
 .sidebar-wrapper.closed .sidebar-menu > li > a > .icon,
@@ -236,9 +259,27 @@
 }
 
 .treeview-menu > li > a .icon,
-.treeview-menu > li > a i,
+.treeview-menu > li > a i:not([class*='bi-chevron-']),
 .treeview-menu > li > a svg {
-  color: inherit;
+  color: var(--sidebar-icon-color);
+}
+
+.treeview-menu > li > a:hover .icon,
+.treeview-menu > li > a:hover i:not([class*='bi-chevron-']),
+.treeview-menu > li > a:focus .icon,
+.treeview-menu > li > a:focus i:not([class*='bi-chevron-']),
+.treeview-menu > li > a:focus-visible .icon,
+.treeview-menu > li > a:focus-visible i:not([class*='bi-chevron-']),
+.treeview-menu > li > a.active .icon,
+.treeview-menu > li > a.active i:not([class*='bi-chevron-']) {
+  color: var(--sidebar-link-color-active);
+}
+
+.treeview-menu > li > a:hover img.icon,
+.treeview-menu > li > a:focus img.icon,
+.treeview-menu > li > a:focus-visible img.icon,
+.treeview-menu > li > a.active img.icon {
+  opacity: 0.85;
 }
 
 .treeview-menu > li > a .icon {

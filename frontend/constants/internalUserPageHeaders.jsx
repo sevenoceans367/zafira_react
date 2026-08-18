@@ -13,6 +13,11 @@ import { resolveOpsVcHeader } from './opsVcPageHeaders.js';
 import { resolveOpsTcHeader } from './opsTcPageHeaders.js';
 import { resolveTcHeader } from './tcPageHeaders.js';
 import { resolveReportsHeader } from './reportsPageHeaders.js';
+import {
+  LIVE_VESSEL_MAP_ENABLED,
+  LIVE_VESSEL_MAP_PATH,
+  LIVE_VESSEL_MAP_TITLE,
+} from '../pages/internal-user/live-vessel-map/liveVesselMap.feature.js';
 
 const STATIC_HEADERS = {
   '/': {
@@ -39,6 +44,14 @@ const STATIC_HEADERS = {
 };
 
 export function resolveInternalUserHeader(pathname, search = '') {
+  if (LIVE_VESSEL_MAP_ENABLED && pathname === LIVE_VESSEL_MAP_PATH) {
+    return {
+      title: LIVE_VESSEL_MAP_TITLE,
+      currentPage: LIVE_VESSEL_MAP_TITLE,
+      breadcrumbs: [{ label: 'Home', href: appPath('/') }],
+    };
+  }
+
   if (STATIC_HEADERS[pathname]) {
     return STATIC_HEADERS[pathname];
   }

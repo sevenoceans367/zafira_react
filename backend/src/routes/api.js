@@ -12,6 +12,7 @@ import genericFinancesRoutes from './genericFinances.js';
 import mastersRoutes from './masters.js';
 import reportsRoutes from './reports.js';
 import elibraryRoutes from './elibrary.js';
+import liveVesselMapRoutes from './liveVesselMap.js';
 import { pingDb } from '../db.js';
 import { isDbConfigured } from '../config.js';
 import { getRequestUser } from '../services/authService.js';
@@ -85,5 +86,6 @@ router.use('/internal-user/generic-finances', genericFinancesRoutes);
 router.use('/internal-user/masters', mastersRoutes);
 router.use('/internal-user/reports', reportsRoutes);
 router.use('/internal-user/elibrary', elibraryRoutes);
+router.use('/internal-user/live-vessels', liveVesselMapRoutes);
 
 export default router;

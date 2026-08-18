@@ -81,6 +81,11 @@ import AddEstimatePage from '../pages/internal-user/sopf/AddEstimatePage.jsx';
 import ViewEstimatePage from '../pages/internal-user/sopf/ViewEstimatePage.jsx';
 import VesselPositionPage from '../pages/internal-user/sopf/VesselPositionPage.jsx';
 import SupportTicketPage from '../pages/internal-user/sopf/SupportTicketPage.jsx';
+import LiveVesselMapPage from '../pages/internal-user/live-vessel-map/LiveVesselMapPage.jsx';
+import {
+  LIVE_VESSEL_MAP_ENABLED,
+  LIVE_VESSEL_MAP_PATH,
+} from '../pages/internal-user/live-vessel-map/liveVesselMap.feature.js';
 import SopfComingSoonPage from '../pages/internal-user/sopf/SopfComingSoonPage.jsx';
 
 installBasePathGlobals();
@@ -103,6 +108,9 @@ export default function App() {
             )}
           >
             <Route path="/" element={<ModuleHomePage />} />
+            {LIVE_VESSEL_MAP_ENABLED ? (
+              <Route path={LIVE_VESSEL_MAP_PATH} element={<LiveVesselMapPage />} />
+            ) : null}
             <Route path="/reports" element={<ReportsPage />} />
             <Route
               path="/internal-user/vc/reports"

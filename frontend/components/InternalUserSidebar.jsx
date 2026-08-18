@@ -20,6 +20,12 @@ import OpsVcSidebarTree from './ops/OpsVcSidebarTree.jsx';
 import OpsTcSidebarTree from './ops/OpsTcSidebarTree.jsx';
 import MastersSidebarTree from './masters/MastersSidebarTree.jsx';
 import ReportsSidebarTree from './reports/ReportsSidebarTree.jsx';
+import vesselPositionIcon from '../assets/vesselPosition.svg';
+import {
+  LIVE_VESSEL_MAP_ENABLED,
+  LIVE_VESSEL_MAP_PATH,
+  LIVE_VESSEL_MAP_TITLE,
+} from '../pages/internal-user/live-vessel-map/liveVesselMap.feature.js';
 
 function isSidebarItemActive(pathname, item) {
   if (typeof item.isActive === 'function') {
@@ -93,6 +99,8 @@ export default function InternalUserSidebar({ isOpen }) {
   const inSopf = currentPath.startsWith('/internal-user/sopf');
   const inVc = currentPath.startsWith('/internal-user/vc');
   const inTc = currentPath.startsWith('/internal-user/tc');
+  const inLiveVessels = LIVE_VESSEL_MAP_ENABLED
+    && currentPath.startsWith(LIVE_VESSEL_MAP_PATH);
 
   return (
     <AppSidebar isOpen={isOpen}>
@@ -105,6 +113,19 @@ export default function InternalUserSidebar({ isOpen }) {
           label="Help Desk"
           active={currentPath.includes(HELP_DESK_HREF)}
         />
+
+        {inLiveVessels ? (
+          <>
+            <SidebarSection label="LIVE MAP" />
+            <SidebarLink
+              to={appPath(LIVE_VESSEL_MAP_PATH)}
+              iconSrc={vesselPositionIcon}
+              iconAlt={LIVE_VESSEL_MAP_TITLE}
+              label={LIVE_VESSEL_MAP_TITLE}
+              active
+            />
+          </>
+        ) : null}
 
         {inSopf ? (
           <>

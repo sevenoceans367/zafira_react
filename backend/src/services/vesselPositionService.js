@@ -37,17 +37,30 @@ const MOCK_VESSEL_NAMES = [
   'Western Wind',
 ];
 
+const MOCK_VOYAGE_LEGS = [
+  { origin: 'Singapore', destination: 'Rotterdam' },
+  { origin: 'Fujairah', destination: 'Houston' },
+  { origin: 'Shanghai', destination: 'Yokohama' },
+  { origin: 'Rotterdam', destination: 'Gibraltar' },
+  { origin: 'Houston', destination: 'Singapore' },
+  { origin: 'Suez', destination: 'Fujairah' },
+  { origin: 'Singapore', destination: 'Shanghai' },
+];
+
+let mockVesselSeq = 0;
+
 function buildMockVessel(index, lat, lng) {
   const offsetLat = lat + (Math.random() - 0.5) * 0.8;
   const offsetLng = lng + (Math.random() - 0.5) * 0.8;
+  const leg = MOCK_VOYAGE_LEGS[index % MOCK_VOYAGE_LEGS.length];
 
   return {
-    DestDeclared: 'Rotterdam',
+    DestDeclared: leg.destination,
     EtaDeclared: '2026-08-12',
     ImoNumber: `IMO${9310000 + index}`,
     MmsiNumber: `${636000000 + index}`,
     ShipName: MOCK_VESSEL_NAMES[index % MOCK_VESSEL_NAMES.length],
-    OriginDeclared: 'Singapore',
+    OriginDeclared: leg.origin,
     PositionLastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' '),
     Latitude: Number(offsetLat.toFixed(5)),
     Longitude: Number(offsetLng.toFixed(5)),
@@ -77,8 +90,10 @@ export async function fetchVesselsWithinRange({ lat, lng, radius, navstatus }) {
   }
 
   const count = Math.min(7, Math.max(2, Math.floor(Number(radius) / 100) + 2));
-  const vessels = Array.from({ length: count }, (_, index) => {
-    const bearing = (360 / count) * index + Math.random() * 20;
+  const vessels = Array.from({ length: count }, (_, slot) => {
+    const index = mockVesselSeq;
+    mockVesselSeq += 1;
+    const bearing = (360 / count) * slot + Math.random() * 20;
     const distanceKm = Math.random() * Number(radius);
     const [vLat, vLng] = destinationPoint(Number(lat), Number(lng), bearing, distanceKm);
     const vessel = buildMockVessel(index, vLat, vLng);

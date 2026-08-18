@@ -9,6 +9,10 @@ import {
   getVcDashboard,
 } from '../services/vcDashboardService.js';
 import {
+  getOpsChecklist,
+  listPerformingVessels,
+} from '../services/opsChecklistService.js';
+import {
   deactivateOpsVcEntry,
   listHistoryAtGlance,
   listInOpsAtGlance,
@@ -224,6 +228,13 @@ router.get('/vc_dashboard', async (req, res) => {
     res.status(500).json({ message: error.message || 'Failed to load VC dashboard.' });
   }
 });
+
+router.get('/performing-vessels', asyncHandler(async (req, res) => {
+  res.json(await listPerformingVessels({
+    kind: req.query.kind || 'all',
+    selBType: req.query.selBType || '2',
+  }));
+}));
 
 router.get('/tc_dashboard', async (req, res) => {
   try {
@@ -818,6 +829,11 @@ router.get('/ops/sof', asyncHandler(async (req, res) => {
   res.json(await getSofForm(comId));
 }));
 
+router.get('/ops/checklist', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  res.json(await getOpsChecklist(comId, req.query.kind || ''));
+}));
+
 router.post('/ops/sof', asyncHandler(async (req, res) => {
   res.json(await saveSof(req.body || {}));
 }));
@@ -1063,7 +1079,11 @@ router.get('/ops-tc/fixture-note', asyncHandler(async (req, res) => {
 
 router.get('/ops-tc/checklist', asyncHandler(async (req, res) => {
   const comId = req.query.comId || req.query.comid;
-  res.json(await getTcChecklist(comId));
+  const [form, timeline] = await Promise.all([
+    getTcChecklist(comId),
+    getOpsChecklist(comId, 'tc').catch(() => null),
+  ]);
+  res.json({ ...form, timeline });
 }));
 
 router.post('/ops-tc/checklist', asyncHandler(async (req, res) => {

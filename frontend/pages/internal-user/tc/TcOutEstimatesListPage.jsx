@@ -339,7 +339,7 @@ export default function TcOutEstimatesListPage() {
           <table className={styles.grid}>
             <thead>
               <tr>
-                <th>Item</th>
+                <th>#</th>
                 <th>Vessel</th>
                 <th>TC No.</th>
                 <th>CP Date</th>

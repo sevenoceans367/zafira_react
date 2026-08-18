@@ -66,6 +66,7 @@ const MOCK_VC = {
     },
   ],
   freightTotals: { initial: '45000.00', final: '47500.00' },
+  overview: { onSubs: 0, inProgress: 0, completed: 0 },
 };
 
 const MOCK_TC = {

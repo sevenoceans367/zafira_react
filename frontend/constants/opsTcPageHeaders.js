@@ -10,7 +10,7 @@ const PAGES = {
   'post-ops': 'Vessels in Post Ops TC',
   history: 'Vessels in History TC',
   'year-updation': 'Year Updation-TC',
-  checklist: 'Check List',
+  checklist: 'Ops Checklist',
   'fixture-note': 'Fixture Note',
   'cost-sheet': 'TC Cost Sheet',
   'agency-letter': 'Generate Agency Letter',

@@ -21,6 +21,7 @@ const PAGES = {
   'clubbed-hire': 'Payment Clubbed',
   'request-port-cost': 'Operational Costs Payment',
   sof: 'SOF',
+  checklist: 'Ops Checklist',
   laytime: 'Laytime',
   bunker: 'Bunker Calculations',
   'soa-report': 'SOA',
@@ -43,6 +44,7 @@ const FROM_IN_OPS = new Set([
   'documents',
   'payment-grid',
   'sof',
+  'checklist',
   'laytime',
   'bunker',
   'soa-report',
@@ -54,6 +56,7 @@ function header(title, breadcrumbs) {
 }
 
 export function resolveOpsVcHeader(pathname) {
+  if (pathname.startsWith('/internal-user/vc/ops-tc')) return null;
   if (!pathname.startsWith('/internal-user/vc/ops')) return null;
 
   const match = pathname.match(/^\/internal-user\/vc\/ops\/([^/]+)/);

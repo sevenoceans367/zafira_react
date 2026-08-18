@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
-import { getUser } from '@bainbridge/shared-auth';
+import { appPath } from '@bainbridge/shared-routing';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import {
   fetchCoaList,
   fetchCoaShipments,
   fetchPeriodList,
+  fetchPerformingVessels,
   fetchTcBusinessDashboard,
   fetchVcBusinessDashboard,
   fetchVcBusinessTypes,
@@ -31,8 +33,6 @@ import {
   OWNER_SHADES,
   OWNERS_OPERATOR,
   OWNERS_TC,
-  PERFORMING_TC,
-  PERFORMING_VC,
   PERIOD_CARDS,
   PERIOD_RECORDS,
   PIPELINE,
@@ -41,7 +41,6 @@ import {
   REVENUE_QUARTERLY,
   TC_SPARK,
   TC_VESSEL_SHADES,
-  VC_SPARK,
   VC_VESSEL_SHADES,
   VESSEL_TYPE_TC,
   VESSEL_TYPE_VC,
@@ -88,12 +87,21 @@ function SectionHead({ title, showUsd = false }) {
   );
 }
 
+const SPOT_OVERVIEW_CARDS = [
+  { key: 'onSubs', label: 'On Subs', hint: 'SOPF pipeline', tone: 'sparkCardNavy', color: '#274670' },
+  { key: 'inProgress', label: 'In Progress', hint: 'In Ops + Post Ops', tone: 'sparkCardOrange', color: '#F4652C' },
+  { key: 'completed', label: 'Completed', hint: 'History', tone: 'sparkCardTeal', color: '#22B8CF' },
+];
+
+function spotOverviewCards(overview) {
+  return SPOT_OVERVIEW_CARDS.map((card) => ({
+    ...card,
+    count: String(overview?.[card.key] ?? 0),
+    live: true,
+  }));
+}
+
 const PAGE_SIZE = 10;
-const CHART_COLORS = {
-  fixture: '#86a948',
-  interim: '#999898',
-  completion: '#367fa9',
-};
 
 function DataTable({ columns, rows, emptyMessage = 'No records found.' }) {
   return (
@@ -126,61 +134,49 @@ function DataTable({ columns, rows, emptyMessage = 'No records found.' }) {
   );
 }
 
-function FixtureChart({ rows, categoryKey = 'vessel' }) {
-  const maxValue = useMemo(() => {
-    const values = rows.flatMap((row) => [
-      Number(row.fixtureValue || 0),
-      Number(row.interimValue || 0),
-      Number(row.completionValue || 0),
-    ]);
-    return Math.max(...values, 1);
-  }, [rows]);
-
-  if (!rows.length) {
-    return <p className={styles.chartEmpty}>No chart data available.</p>;
-  }
-
+function PerformingVesselsCard({ title = 'Performing Vessels', rows, columns, loading }) {
   return (
-    <div className={styles.chartPanel}>
-      <div className={styles.chartLegend}>
-        <span><i className={styles.legendSwatch} style={{ background: CHART_COLORS.fixture }} /> Fixture</span>
-        <span><i className={styles.legendSwatch} style={{ background: CHART_COLORS.interim }} /> Interim</span>
-        <span><i className={styles.legendSwatch} style={{ background: CHART_COLORS.completion }} /> Completion</span>
-        <span className={styles.chartAxisLabel}>USD &apos;000</span>
-      </div>
-      <div className={styles.chartScroll}>
-        <div className={styles.chartGrid}>
-          {rows.map((row) => {
-            const label = row[categoryKey] || row.vessel || row.tcNo;
-            return (
-              <div key={`${label}-${row.voyageNo || row.tcNo || ''}`} className={styles.chartGroup}>
-                <div className={styles.chartBars}>
-                  {[
-                    { key: 'fixture', field: 'fixtureValue' },
-                    { key: 'interim', field: 'interimValue' },
-                    { key: 'completion', field: 'completionValue' },
-                  ].map((bar) => {
-                    const value = Number(row[bar.field] || 0);
-                    const height = value > 0 ? `${(value / maxValue) * 100}%` : '0';
-                    return (
-                      <div key={bar.key} className={styles.chartBarWrap} title={`${bar.key}: ${value}`}>
-                        <div
-                          className={styles.chartBar}
-                          style={{ height, background: CHART_COLORS[bar.key] }}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className={styles.chartLabel}>{label}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+    <ChartCard title={title}>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        emptyMessage={loading ? 'Loading…' : 'No vessels in ops.'}
+      />
+      <p className={styles.drillHint}>
+        Activity Status is derived from Ops Checklist (WIP), auto-updated from Voyage Financials and reports.
+      </p>
+    </ChartCard>
   );
 }
+
+function activityCell(row) {
+  if (!row.statusLabel || row.statusLabel === '—') return '—';
+  return <ActivityBadge status={row.status} label={row.statusLabel} />;
+}
+
+function vesselCell(row) {
+  const label = row.vessel || '—';
+  if (!row.checklistHref) return label;
+  return <Link to={appPath(row.checklistHref)}>{label}</Link>;
+}
+
+const PERFORMING_ALL_COLUMNS = [
+  { key: 'vessel', label: 'Vessels', render: vesselCell },
+  { key: 'voy', label: 'Voy No.' },
+  { key: 'cpDate', label: 'CP Date' },
+  { key: 'status', label: 'Activity Status', render: activityCell },
+  { key: 'route', label: 'Delivery – Re-delivery' },
+];
+
+const PERFORMING_VC_COLUMNS = PERFORMING_ALL_COLUMNS;
+
+const PERFORMING_TC_COLUMNS = [
+  { key: 'tcNo', label: 'TC No.' },
+  { key: 'vessel', label: 'Vessels', render: vesselCell },
+  { key: 'cpDate', label: 'CP Date' },
+  { key: 'status', label: 'Activity Status', render: activityCell },
+  { key: 'route', label: 'Delivery – Re-delivery' },
+];
 
 function CoaShipmentsModal({ open, title, rows, loading, onClose }) {
   if (!open) return null;
@@ -226,9 +222,6 @@ function CoaShipmentsModal({ open, title, rows, loading, onClose }) {
 }
 
 export default function VcDashboardPage() {
-  const user = getUser();
-  const isMgmtUser = user?.userType === 'mgmt_user';
-
   const [activeTab, setActiveTab] = useState('vc');
   const [businessTypes, setBusinessTypes] = useState([]);
   const [businessType, setBusinessType] = useState('2');
@@ -240,6 +233,10 @@ export default function VcDashboardPage() {
 
   const [vcData, setVcData] = useState(null);
   const [tcData, setTcData] = useState(null);
+  const [performingVc, setPerformingVc] = useState([]);
+  const [performingTc, setPerformingTc] = useState([]);
+  const [performingAll, setPerformingAll] = useState([]);
+  const [performingLoading, setPerformingLoading] = useState(false);
   const [coaRows, setCoaRows] = useState([]);
   const [coaTotal, setCoaTotal] = useState(0);
   const [coaPage, setCoaPage] = useState(1);
@@ -297,16 +294,33 @@ export default function VcDashboardPage() {
     setPeriodTotal(data.recordsTotal ?? 0);
   }, [businessType, periodPage]);
 
+  const loadPerforming = useCallback(async (kind) => {
+    setPerformingLoading(true);
+    try {
+      const data = await fetchPerformingVessels({ kind, selBType: businessType });
+      const records = data.records ?? [];
+      if (kind === 'vc') setPerformingVc(records);
+      if (kind === 'tc') setPerformingTc(records);
+      if (kind === 'all') setPerformingAll(records);
+    } catch {
+      if (kind === 'vc') setPerformingVc([]);
+      if (kind === 'tc') setPerformingTc([]);
+      if (kind === 'all') setPerformingAll([]);
+    } finally {
+      setPerformingLoading(false);
+    }
+  }, [businessType]);
+
   const loadActiveTab = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       switch (activeTab) {
         case 'vc':
-          await loadVc();
+          await Promise.all([loadVc(), loadPerforming('vc')]);
           break;
         case 'tc':
-          await loadTc();
+          await Promise.all([loadTc(), loadPerforming('tc')]);
           break;
         case 'coas':
           await loadCoas();
@@ -315,7 +329,7 @@ export default function VcDashboardPage() {
           await loadPeriods();
           break;
         case 'all':
-          await Promise.all([loadVc(), loadTc(), loadCoas(), loadPeriods()]);
+          await Promise.all([loadVc(), loadTc(), loadCoas(), loadPeriods(), loadPerforming('all')]);
           break;
         default:
           break;
@@ -325,19 +339,28 @@ export default function VcDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, loadVc, loadTc, loadCoas, loadPeriods]);
+  }, [activeTab, loadVc, loadTc, loadCoas, loadPeriods, loadPerforming]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      await Promise.all([loadVc(), loadTc(), loadCoas(), loadPeriods()]);
+      const performingKind = activeTab === 'tc' || activeTab === 'vc' || activeTab === 'all'
+        ? (activeTab === 'all' ? 'all' : activeTab)
+        : null;
+      await Promise.all([
+        loadVc(),
+        loadTc(),
+        loadCoas(),
+        loadPeriods(),
+        performingKind ? loadPerforming(performingKind) : Promise.resolve(),
+      ]);
     } catch (err) {
       setError(err.message || 'Failed to load commercial performance.');
     } finally {
       setLoading(false);
     }
-  }, [loadVc, loadTc, loadCoas, loadPeriods]);
+  }, [activeTab, loadVc, loadTc, loadCoas, loadPeriods, loadPerforming]);
 
   useEffect(() => {
     (async () => {
@@ -390,44 +413,6 @@ export default function VcDashboardPage() {
       setCoaModalLoading(false);
     }
   };
-
-  const vcCompletedColumns = [
-    { key: 'vessel', label: 'Vessels' },
-    { key: 'voyageNo', label: 'Voy No.' },
-    { key: 'cpDate', label: 'CP Date' },
-    { key: 'voyage', label: 'Voyage' },
-    { key: 'deliveryRedelivery', label: 'Delivery – Re-delivery' },
-  ];
-
-  const vcFixtureColumns = [
-    { key: 'vessel', label: 'Vessels', render: (row) => `${row.vessel} (${row.voyageNo})` },
-    { key: 'fixture', label: 'Fixture' },
-    { key: 'interim', label: 'Interim' },
-    { key: 'completion', label: 'Completion' },
-  ];
-
-  const freightColumns = [
-    { key: 'voyage', label: 'Voyage No.' },
-    { key: 'vessel', label: 'Vessels' },
-    { key: 'charterer', label: 'Customer' },
-    { key: 'initialFreight', label: 'Initial Freight (USD)' },
-    { key: 'finalFreight', label: 'Final Freight (USD)' },
-  ];
-
-  const tcCompletedColumns = [
-    { key: 'tcNo', label: 'TC No.' },
-    { key: 'vessel', label: 'Vessels' },
-    { key: 'cpDate', label: 'CP Date' },
-    { key: 'deliveryRedelivery', label: 'Delivery – Re-delivery' },
-  ];
-
-  const tcFixtureColumns = [
-    { key: 'tcNo', label: 'TC No.' },
-    { key: 'vessel', label: 'Vessels' },
-    { key: 'fixture', label: 'Fixture' },
-    { key: 'interim', label: 'Interim' },
-    { key: 'completion', label: 'Completion' },
-  ];
 
   const hireColumns = [
     { key: 'tcNo', label: 'TC No.' },
@@ -524,9 +509,9 @@ export default function VcDashboardPage() {
         {activeTab === 'vc' ? (
           <>
             <section className={styles.secBlock}>
-              <SectionHead title="Spot Business Overview" showUsd />
+              <SectionHead title="Spot Business Overview" />
               <div className={styles.sparkRow}>
-                {VC_SPARK.map((card) => (
+                {spotOverviewCards(vcData?.overview).map((card) => (
                   <SparklineSummaryCard key={card.label} {...card} />
                 ))}
               </div>
@@ -562,79 +547,11 @@ export default function VcDashboardPage() {
                 <HorizontalBars data={ZONES_VC} />
                 <SopFCta />
               </ChartCard>
-              <ChartCard title="Performing Vessels">
-                <DataTable
-                  columns={[
-                    { key: 'vessel', label: 'Vessels' },
-                    { key: 'voy', label: 'Voy No.' },
-                    { key: 'cpDate', label: 'CP Date' },
-                    {
-                      key: 'status',
-                      label: 'Activity Status',
-                      render: (row) => <ActivityBadge status={row.status} label={row.statusLabel} />,
-                    },
-                    { key: 'route', label: 'Delivery – Re-delivery' },
-                  ]}
-                  rows={PERFORMING_VC.map((row) => ({ ...row, id: `${row.vessel}-${row.voy}` }))}
-                />
-                <p className={styles.drillHint}>Activity Status is sourced from Daily Position Report triggers.</p>
-              </ChartCard>
-            </section>
-
-            <SectionHead title="Dashboard" />
-            <DataTable
-              columns={vcCompletedColumns}
-              rows={(vcData?.completedRows ?? []).map((row, index) => ({
-                ...row,
-                id: `${row.voyageNo}-${index}`,
-              }))}
-            />
-
-            {isMgmtUser ? (
-              <section className={styles.secBlock}>
-                <SectionHead title="Fixtures" showUsd />
-                <div className={styles.splitPanel}>
-                  <div className={styles.card}>
-                    <h4 className={styles.cardTitle}>Fixture detail</h4>
-                    <DataTable
-                      columns={vcFixtureColumns}
-                      rows={(vcData?.chartRows ?? []).map((row, index) => ({
-                        ...row,
-                        id: `${row.voyageNo}-${index}`,
-                      }))}
-                    />
-                  </div>
-                  <div className={styles.card}>
-                    <h4 className={styles.cardTitle}>Fixture chart</h4>
-                    <FixtureChart rows={vcData?.chartRows ?? []} />
-                  </div>
-                </div>
-              </section>
-            ) : null}
-
-            <section className={styles.secBlock}>
-              <SectionHead title="Unsettled Freight & Demurrage" showUsd />
-              <div className={styles.card}>
-                <DataTable
-                  columns={freightColumns}
-                  rows={[
-                    ...(vcData?.freightRows ?? []).map((row, index) => ({
-                      ...row,
-                      id: `freight-${index}`,
-                    })),
-                    ...(vcData?.freightRows?.length
-                      ? [{
-                        id: 'freight-total',
-                        voyage: '',
-                        vessel: '',
-                        charterer: 'Total',
-                        initialFreight: vcData.freightTotals?.initial ?? '',
-                        finalFreight: vcData.freightTotals?.final ?? '',
-                      }]
-                      : []),
-                  ]}
-                />
-              </div>
+              <PerformingVesselsCard
+                rows={performingVc}
+                columns={PERFORMING_VC_COLUMNS}
+                loading={performingLoading}
+              />
             </section>
           </>
         ) : null}
@@ -674,55 +591,12 @@ export default function VcDashboardPage() {
                 <HorizontalBars data={ZONES_TC} />
                 <SopFCta />
               </ChartCard>
-              <ChartCard title="Performing Vessels">
-                <DataTable
-                  columns={[
-                    { key: 'tcNo', label: 'TC No.' },
-                    { key: 'vessel', label: 'Vessels' },
-                    { key: 'cpDate', label: 'CP Date' },
-                    {
-                      key: 'status',
-                      label: 'Activity Status',
-                      render: (row) => <ActivityBadge status={row.status} label={row.statusLabel} />,
-                    },
-                    { key: 'route', label: 'Delivery – Re-delivery' },
-                  ]}
-                  rows={PERFORMING_TC.map((row) => ({ ...row, id: `${row.tcNo}-${row.vessel}` }))}
-                />
-                <p className={styles.drillHint}>Activity Status is sourced from Daily Position Report triggers.</p>
-              </ChartCard>
+              <PerformingVesselsCard
+                rows={performingTc}
+                columns={PERFORMING_TC_COLUMNS}
+                loading={performingLoading}
+              />
             </section>
-
-            <SectionHead title="Dashboard" />
-            <DataTable
-              columns={tcCompletedColumns}
-              rows={(tcData?.completedRows ?? []).map((row, index) => ({
-                ...row,
-                id: `${row.tcNo}-${index}`,
-              }))}
-            />
-
-            {isMgmtUser ? (
-              <section className={styles.secBlock}>
-                <SectionHead title="Fixtures" showUsd />
-                <div className={styles.splitPanel}>
-                  <div className={styles.card}>
-                    <h4 className={styles.cardTitle}>Fixture detail</h4>
-                    <DataTable
-                      columns={tcFixtureColumns}
-                      rows={(tcData?.chartRows ?? []).map((row, index) => ({
-                        ...row,
-                        id: `${row.tcNo}-${index}`,
-                      }))}
-                    />
-                  </div>
-                  <div className={styles.card}>
-                    <h4 className={styles.cardTitle}>Fixture chart</h4>
-                    <FixtureChart rows={tcData?.chartRows ?? []} categoryKey="vessel" />
-                  </div>
-                </div>
-              </section>
-            ) : null}
 
             <section className={styles.secBlock}>
               <SectionHead title="Receivables" showUsd />
@@ -860,6 +734,14 @@ export default function VcDashboardPage() {
               <ChartCard title="Needs Attention">
                 <AttentionList items={ATTENTION_ITEMS} />
               </ChartCard>
+            </section>
+            <section className={styles.secBlock}>
+              <PerformingVesselsCard
+                title="Performing Vessels (All)"
+                rows={performingAll}
+                columns={PERFORMING_ALL_COLUMNS}
+                loading={performingLoading}
+              />
             </section>
             <section className={styles.secBlock}>
               <ChartCard title="Receivable vs Invoiced" sub="USD (millions)">

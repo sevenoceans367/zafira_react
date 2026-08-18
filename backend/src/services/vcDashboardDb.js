@@ -240,6 +240,13 @@ export async function dbGetVcDashboard({ selBType, fromDate, toDate }) {
 
   completedRows.sort((a, b) => b.cpDateSort - a.cpDateSort);
 
+  let overview = { onSubs: 0, inProgress: 0, completed: 0 };
+  try {
+    overview = await dbGetSpotBusinessOverview({ selBType: businessType, fromDate, toDate });
+  } catch (error) {
+    console.error(error);
+  }
+
   return {
     recordCount: rows.length,
     chartRows,
@@ -249,6 +256,69 @@ export async function dbGetVcDashboard({ selBType, fromDate, toDate }) {
       initial: formatNumber(freightInitialTotal),
       final: formatNumber(freightFinalTotal),
     },
+    overview,
+  };
+}
+
+/**
+ * Spot Business Overview counts (voyage counts, not invented USD).
+ * On Subs: SOPF estimate grid rows that still have Replicate + Send to Ops (no COMID).
+ * In Progress: Ops VC In Ops (STATUS=1) + Post Ops (STATUS=2).
+ * Completed: Ops VC History (STATUS 3 or 4).
+ */
+export async function dbGetSpotBusinessOverview({ selBType, fromDate, toDate } = {}) {
+  const pool = getPool();
+  const businessType = selBType || '2';
+  const moduleId = VC_MODULE_ID;
+  const companyId = appContext.companyId;
+  const from = fromDate ? parsePeriodDate(fromDate) : null;
+  const to = toDate ? parsePeriodDate(toDate) : null;
+
+  const subsParams = [moduleId, companyId, businessType];
+  let subsPeriod = '';
+  if (from) {
+    subsPeriod += ' AND DATE(m.TRANS_DATE) >= ?';
+    subsParams.push(from);
+  }
+  if (to) {
+    subsPeriod += ' AND DATE(m.TRANS_DATE) <= ?';
+    subsParams.push(to);
+  }
+
+  const [[subsRow]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM freight_cost_estimete_master m
+     WHERE m.MODULEID = ?
+       AND m.MCOMPANYID = ?
+       AND m.ESTIMATE_TYPE = ?
+       AND m.COAID IS NULL
+       AND m.FIXED = 0
+       AND (m.COMID IS NULL OR m.COMID = '' OR m.COMID = 0)
+       ${subsPeriod}`,
+    subsParams,
+  );
+
+  const opsParams = [moduleId, companyId, businessType];
+  const [[opsRow]] = await pool.query(
+    `SELECT
+       SUM(CASE WHEN c.STATUS IN (1, 2) THEN 1 ELSE 0 END) AS inProgress,
+       SUM(CASE WHEN c.STATUS IN (3, 4) THEN 1 ELSE 0 END) AS completed
+     FROM freight_cost_estimate_compare c
+     INNER JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
+     WHERE c.MODULEID = ?
+       AND c.MCOMPANYID = ?
+       AND c.FINAL_ID != ''
+       AND m.FIXED = 1
+       AND m.ESTIMATE_TYPE = ?
+       AND c.COAAID IS NULL
+       AND c.STATUS IN (1, 2, 3, 4)`,
+    opsParams,
+  );
+
+  return {
+    onSubs: Number(subsRow?.total || 0),
+    inProgress: Number(opsRow?.inProgress || 0),
+    completed: Number(opsRow?.completed || 0),
   };
 }
 

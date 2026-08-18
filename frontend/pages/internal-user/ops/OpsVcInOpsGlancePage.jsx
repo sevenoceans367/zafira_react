@@ -413,6 +413,7 @@ export default function OpsVcInOpsGlancePage() {
                       </td>
                       <td>
                         <div className={styles.chipStack}>
+                          <ChipLink to={appPath(`/internal-user/vc/ops/checklist?comid=${encodeURIComponent(row.comId)}&page=1`)}>Checklist</ChipLink>
                           <ChipLink to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=1`)}>SOF</ChipLink>
                           <ChipLink to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=1`)}>Laytime</ChipLink>
                         </div>

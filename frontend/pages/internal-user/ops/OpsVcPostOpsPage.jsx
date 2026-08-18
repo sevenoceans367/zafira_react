@@ -415,6 +415,7 @@ export default function OpsVcPostOpsPage() {
                   </td>
                   <td>
                     <div className={styles.chipStack}>
+                      <ChipLink to={appPath(`/internal-user/vc/ops/checklist?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Checklist</ChipLink>
                       <ChipLink to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>SOF</ChipLink>
                       <ChipLink to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Laytime</ChipLink>
                     </div>

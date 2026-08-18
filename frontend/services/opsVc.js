@@ -367,6 +367,11 @@ export async function fetchSofForm(comId) {
   return parseJson(response, 'Failed to load SOF.');
 }
 
+export async function fetchOpsChecklist(comId, kind = '') {
+  const response = await fetch(`${BASE}/ops/checklist${toQuery({ comId, kind })}`);
+  return parseJson(response, 'Failed to load Ops Checklist.');
+}
+
 export async function saveSof(payload) {
   const response = await fetch(`${BASE}/ops/sof`, {
     method: 'POST',

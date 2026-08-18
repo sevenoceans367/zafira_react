@@ -160,7 +160,7 @@ export default function OpsTcHistoryPage() {
                       to={appPath(`/internal-user/vc/ops-tc/checklist?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
                       style={{ color: '#b42318' }}
                     >
-                      Check List
+                      Ops Checklist
                     </Link>
                   </td>
                   <td>{row.hireDays || '—'}</td>

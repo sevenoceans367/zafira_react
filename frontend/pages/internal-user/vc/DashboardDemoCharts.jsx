@@ -26,7 +26,17 @@ export function ChartCard({ title, sub, children, actions = null, className = ''
   );
 }
 
-export function SparklineSummaryCard({ label, count, valueLabel, marginPct, tone, series, color }) {
+export function SparklineSummaryCard({
+  label,
+  count,
+  valueLabel,
+  marginPct,
+  tone,
+  series,
+  color,
+  live = false,
+  hint,
+}) {
   const path = useMemo(() => {
     if (!series?.length) return '';
     const max = Math.max(...series, 1);
@@ -34,7 +44,7 @@ export function SparklineSummaryCard({ label, count, valueLabel, marginPct, tone
     const h = 54;
     return series
       .map((v, i) => {
-        const x = (i / (series.length - 1)) * w;
+        const x = (i / Math.max(series.length - 1, 1)) * w;
         const y = h - (v / max) * (h - 6) - 2;
         return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
       })
@@ -43,20 +53,28 @@ export function SparklineSummaryCard({ label, count, valueLabel, marginPct, tone
 
   return (
     <article className={`${styles.sparkCard} ${styles.sparkCardTall} ${styles[tone]}`}>
-      <div className={styles.sparkChartWrap} aria-hidden>
-        <svg viewBox="0 0 160 54" preserveAspectRatio="none">
-          <path d={path} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-        </svg>
-      </div>
+      {path ? (
+        <div className={styles.sparkChartWrap} aria-hidden>
+          <svg viewBox="0 0 160 54" preserveAspectRatio="none">
+            <path d={path} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+          </svg>
+        </div>
+      ) : null}
       <div className={styles.sparkHead}>
         <span className={styles.sparkLabel}>{label}</span>
-        <span className={styles.sparkDelta}>↑ {marginPct}%</span>
+        {marginPct != null && marginPct !== '' ? (
+          <span className={styles.sparkDelta}>↑ {marginPct}%</span>
+        ) : null}
       </div>
       <div className={styles.sparkValue}>{count}</div>
-      <p className={styles.sparkSub}>
-        <b>{valueLabel}</b> value placed
-      </p>
-      <DemoBadge />
+      {valueLabel ? (
+        <p className={styles.sparkSub}>
+          <b>{valueLabel}</b> value placed
+        </p>
+      ) : (
+        <p className={styles.sparkSub}>{hint || 'voyages'}</p>
+      )}
+      {live ? null : <DemoBadge />}
     </article>
   );
 }

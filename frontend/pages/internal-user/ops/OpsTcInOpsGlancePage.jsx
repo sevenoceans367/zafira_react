@@ -280,7 +280,7 @@ export default function OpsTcInOpsGlancePage() {
                       to={appPath(`/internal-user/vc/ops-tc/checklist?comid=${encodeURIComponent(row.comId)}&page=1`)}
                       style={{ color: '#b42318' }}
                     >
-                      Check List
+                      Ops Checklist
                     </Link>
                   </td>
                   <td>

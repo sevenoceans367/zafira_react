@@ -13,6 +13,7 @@ import {
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchTcChecklist, saveTcChecklist } from '../../../services/opsTc.js';
+import OpsChecklistTimeline from './OpsChecklistTimeline.jsx';
 import styles from './OpsPages.module.css';
 
 const BACK_BY_PAGE = {
@@ -87,6 +88,7 @@ export default function OpsTcChecklistPage() {
 
   const [fixture, setFixture] = useState(null);
   const [form, setForm] = useState(null);
+  const [timeline, setTimeline] = useState(null);
   const [pniVendors, setPniVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -104,6 +106,7 @@ export default function OpsTcChecklistPage() {
       const data = await fetchTcChecklist(comId);
       setFixture(data.fixture);
       setForm(data.form);
+      setTimeline(data.timeline || null);
       setPniVendors(data.pniVendors || []);
     } catch (err) {
       setError(err.message || 'Failed to load TC Checklist.');
@@ -123,20 +126,6 @@ export default function OpsTcChecklistPage() {
 
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const setDelivery = (key, value) => {
-    setForm((prev) => ({
-      ...prev,
-      delivery: { ...prev.delivery, [key]: value },
-    }));
-  };
-
-  const setRedelivery = (key, value) => {
-    setForm((prev) => ({
-      ...prev,
-      redelivery: { ...prev.redelivery, [key]: value },
-    }));
   };
 
   const patchEta = (side, index, patch) => {
@@ -207,7 +196,7 @@ export default function OpsTcChecklistPage() {
         )}
       />
 
-      <h3 className={styles.title}>TC CHECKLIST</h3>
+      <h3 className={styles.title}>Ops Checklist</h3>
 
       <div className={styles.section}>
         <h4 className={styles.sectionTitle}>FIXTURE DETAILS</h4>
@@ -218,6 +207,14 @@ export default function OpsTcChecklistPage() {
           <ReadField label="Charterer" value={fixture?.charterer} />
         </div>
       </div>
+
+      {timeline ? (
+        <OpsChecklistTimeline
+          steps={timeline.steps || []}
+          wipId={timeline.wipId}
+          statusLabel={timeline.statusLabel}
+        />
+      ) : null}
 
       <div className={styles.section}>
         <h4 className={styles.sectionTitle}>VSL DETAILS</h4>
@@ -320,22 +317,6 @@ export default function OpsTcChecklistPage() {
         onRemove={(index) => removeEta('del', index)}
       />
 
-      <div className={styles.section}>
-        <h4 className={styles.sectionTitle}>ARRIVAL (Delivery)</h4>
-        <div className={styles.formGrid}>
-          <TextInput value={form.delivery.actualArrivalText || ''} onChange={(e) => setDelivery('actualArrivalText', e.target.value)} />
-          <DmyDateInput enableTime value={form.delivery.actualArrivalDate || ''} onChange={(v) => setDelivery('actualArrivalDate', v)} />
-          <TextInput value={form.delivery.norTenderedText || ''} onChange={(e) => setDelivery('norTenderedText', e.target.value)} />
-          <DmyDateInput enableTime value={form.delivery.norTenderedDate || ''} onChange={(v) => setDelivery('norTenderedDate', v)} />
-          <TextInput value={form.delivery.placePortText || ''} onChange={(e) => setDelivery('placePortText', e.target.value)} />
-          <TextInput value={form.delivery.placePortData || ''} readOnly />
-          <TextInput value={form.delivery.foDoText || ''} onChange={(e) => setDelivery('foDoText', e.target.value)} />
-          <TextInput value={form.delivery.foDoData || ''} onChange={(e) => setDelivery('foDoData', e.target.value)} />
-          <TextInput value={form.delivery.dateTimeText || ''} onChange={(e) => setDelivery('dateTimeText', e.target.value)} />
-          <TextInput value={form.delivery.dateTimeData || ''} readOnly />
-        </div>
-      </div>
-
       <EtaRows
         title="ETA NOTICES (Re-delivery)"
         rows={form.redeliveryEtas}
@@ -343,22 +324,6 @@ export default function OpsTcChecklistPage() {
         onAdd={() => addEta('redel')}
         onRemove={(index) => removeEta('redel', index)}
       />
-
-      <div className={styles.section}>
-        <h4 className={styles.sectionTitle}>ARRIVAL (Re-delivery)</h4>
-        <div className={styles.formGrid}>
-          <TextInput value={form.redelivery.actualArrivalText || ''} onChange={(e) => setRedelivery('actualArrivalText', e.target.value)} />
-          <DmyDateInput enableTime value={form.redelivery.actualArrivalDate || ''} onChange={(v) => setRedelivery('actualArrivalDate', v)} />
-          <TextInput value={form.redelivery.norTenderedText || ''} onChange={(e) => setRedelivery('norTenderedText', e.target.value)} />
-          <DmyDateInput enableTime value={form.redelivery.norTenderedDate || ''} onChange={(v) => setRedelivery('norTenderedDate', v)} />
-          <TextInput value={form.redelivery.placePortText || ''} onChange={(e) => setRedelivery('placePortText', e.target.value)} />
-          <TextInput value={form.redelivery.placePortData || ''} readOnly />
-          <TextInput value={form.redelivery.foDoText || ''} onChange={(e) => setRedelivery('foDoText', e.target.value)} />
-          <TextInput value={form.redelivery.foDoData || ''} onChange={(e) => setRedelivery('foDoData', e.target.value)} />
-          <TextInput value={form.redelivery.dateTimeText || ''} onChange={(e) => setRedelivery('dateTimeText', e.target.value)} />
-          <TextInput value={form.redelivery.dateTimeData || ''} readOnly />
-        </div>
-      </div>
 
       <div className={styles.section}>
         <h4 className={styles.sectionTitle}>REMARKS</h4>

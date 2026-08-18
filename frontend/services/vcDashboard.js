@@ -87,3 +87,12 @@ export async function fetchCoaShipments(coaId) {
   const response = await fetch(`${BASE}/coas/${encodeURIComponent(coaId)}/shipments`);
   return parseJson(response, 'Failed to load COA shipments.');
 }
+
+export async function fetchPerformingVessels({ kind = 'all', selBType } = {}) {
+  const params = new URLSearchParams();
+  if (kind) params.set('kind', kind);
+  if (selBType) params.set('selBType', selBType);
+  const query = params.toString();
+  const response = await fetch(`${BASE}/performing-vessels${query ? `?${query}` : ''}`);
+  return parseJson(response, 'Failed to load performing vessels.');
+}

@@ -6,7 +6,7 @@ export const PERIOD_CONTRACT_MODULE_IDS = FLEET_MODULE_IDS;
 export const PERIOD_CONTRACT_NAV_ITEM = {
   id: 'period-contracts',
   segment: 'period-contracts',
-  label: 'Period Contract',
+  label: 'Period',
   icon: 'bi-journal-text',
 };
 

@@ -12,7 +12,7 @@ import periodContractIcon from '../assets/Period contact.svg';
 import poolsIcon from '../assets/pools.svg';
 import userGuidesIcon from '../assets/user-guides.svg';
 
-/** Links under the SOPF section (above Chartering Desk). */
+/** Links under the SOPF section (above Chartering). */
 export const SOPF_TOP_SIDEBAR_ITEMS = [
   {
     id: 'vessel_position',
@@ -32,7 +32,7 @@ export const SOPF_TOP_SIDEBAR_ITEMS = [
   },
 ];
 
-/** Links under CHARTERING DESK. */
+/** Links under Chartering. */
 export const SOPF_CHARTERING_SIDEBAR_ITEMS = [
   {
     id: 'spot',
@@ -69,6 +69,7 @@ export const SOPF_CHARTERING_SIDEBAR_ITEMS = [
     label: 'Pools',
     iconSrc: poolsIcon,
     iconAlt: 'Pools',
+    disabled: true,
     isActive: (pathname) => pathname.includes('/internal-user/sopf/pools'),
   },
   {

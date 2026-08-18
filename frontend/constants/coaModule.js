@@ -10,6 +10,15 @@ export const COA_ITEMS = [
   { id: 'post-ops', label: 'COA - Post Ops' },
 ];
 
+const SOPF_COA_ITEM_IDS = new Set(['running', 'cargo-relet']);
+
+export function coaSidebarItems(module) {
+  if (module === 'sopf') {
+    return COA_ITEMS.filter((item) => SOPF_COA_ITEM_IDS.has(item.id));
+  }
+  return COA_ITEMS;
+}
+
 export function isCoaModule(module) {
   return COA_MODULE_IDS.includes(module);
 }

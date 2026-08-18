@@ -43,9 +43,7 @@ export default function MastersSidebarTree({ isOpen }) {
       >
         <i className="bi bi-folder icon" aria-hidden />
         {isOpen ? <span>Masters</span> : null}
-        {isOpen ? (
-          <i className="bi bi-chevron-down master-chevron" aria-hidden />
-        ) : null}
+        {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>
       <ul className="treeview-menu">
         {MASTERS_MODULES.map((master) => {

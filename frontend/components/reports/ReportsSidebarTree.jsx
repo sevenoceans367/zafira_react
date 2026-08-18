@@ -101,9 +101,7 @@ export default function ReportsSidebarTree({ isOpen }) {
       >
         <i className="bi bi-file-earmark-bar-graph icon" aria-hidden />
         {isOpen ? <span>Reports</span> : null}
-        {isOpen ? (
-          <i className="bi bi-chevron-down master-chevron" aria-hidden />
-        ) : null}
+        {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>
 
       <ul

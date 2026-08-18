@@ -1,6 +1,6 @@
 import React from 'react';
 
-/** Iconly Arrow Right — used on left-nav flyout items. */
+/** Iconly Arrow Right — used for all left-nav expand and flyout arrows. */
 export default function SidebarSubmenuArrow({ className = 'icon submenuArrow' }) {
   return (
     <svg

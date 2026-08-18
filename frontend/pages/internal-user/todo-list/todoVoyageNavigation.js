@@ -1,17 +1,19 @@
 import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
 
-/** Excel columns matching PHP DataTables export (cols 0–9). */
+/** Excel columns matching the Financial Transactions grid. */
 export const TODO_EXCEL_COLUMNS = [
-  { key: 'index', label: '#' },
+  { key: 'date', label: 'Date' },
   { key: 'vessel', label: 'Vessel' },
   { key: 'voyageNo', label: 'Voyage No' },
-  { key: 'formName', label: 'Form Name' },
-  { key: 'invoiceNo', label: 'Invoice/Advice No./SOA No.' },
-  { key: 'payType', label: 'Type' },
-  { key: 'holdBy', label: 'Hold by' },
-  { key: 'vendor', label: 'Vendor Name' },
-  { key: 'statusLabel', label: 'Status' },
-  { key: 'date', label: 'Date' },
+  { key: 'formName', label: 'TXN' },
+  { key: 'invoiceNo', label: 'TXN No.' },
+  { key: 'statement', label: 'Statement' },
+  { key: 'amountLabel', label: 'Amount' },
+  { key: 'moneyTypeLabel', label: 'Type' },
+  { key: 'holdBy', label: 'PIC' },
+  { key: 'vendor', label: 'Customer' },
+  { key: 'statusShort', label: 'Status' },
+  { key: 'alRem', label: 'Accruals' },
 ];
 
 /**

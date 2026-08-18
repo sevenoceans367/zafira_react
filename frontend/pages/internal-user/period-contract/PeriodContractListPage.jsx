@@ -446,7 +446,7 @@ export default function PeriodContractListPage() {
           </div>
         ) : null}
         {error ? <div className={legacyStyles.error}>{error}</div> : null}
-        <h3 className={legacyStyles.title}>Period Contract List</h3>
+        <h3 className={legacyStyles.title}>Period</h3>
         <div className={legacyStyles.tabs}>
           {LEGACY_TABS.map((tab) => (
             <button

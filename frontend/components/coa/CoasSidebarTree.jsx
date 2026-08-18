@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { COA_ITEMS, coaAppPath, parseCoaModuleFromPath } from '../../constants/coaModule.js';
+import { coaAppPath, coaSidebarItems, parseCoaModuleFromPath } from '../../constants/coaModule.js';
 import coaIcon from '../../assets/COA.svg';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 
@@ -9,7 +9,8 @@ export default function CoasSidebarTree({ isOpen }) {
   const [expanded, setExpanded] = useState(false);
   const rootRef = useRef(null);
   const module = parseCoaModuleFromPath(pathname);
-  const firstHref = coaAppPath(module, COA_ITEMS[0].id);
+  const menuItems = coaSidebarItems(module);
+  const firstHref = coaAppPath(module, menuItems[0].id);
   const branchActive = pathname.includes(`/internal-user/${module}/coas`);
 
   useEffect(() => {
@@ -43,12 +44,10 @@ export default function CoasSidebarTree({ isOpen }) {
       >
         <img src={coaIcon} alt="" className="icon" aria-hidden />
         {isOpen ? <span>COAs</span> : null}
-        {isOpen ? (
-          <i className="bi bi-chevron-down master-chevron" aria-hidden />
-        ) : null}
+        {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>
       <ul className="treeview-menu">
-        {COA_ITEMS.map((item) => {
+        {menuItems.map((item) => {
           const href = coaAppPath(module, item.id);
           const active = pathname.includes(`/internal-user/${module}/coas/${item.id}`);
           return (

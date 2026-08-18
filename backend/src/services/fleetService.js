@@ -29,6 +29,12 @@ const MOCK_FLEET = {
   recordsTotal: 2,
   page: 1,
   pageSize: 10,
+  stats: {
+    vessels: 2,
+    vesselTypes: 2,
+    avgDwt: 147500,
+    newestBuilt: '2018',
+  },
 };
 
 const MOCK_COMPARE = {

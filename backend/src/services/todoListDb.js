@@ -50,6 +50,17 @@ function isHoldStatus(status) {
   return status === 'payment_hold';
 }
 
+function deriveMoneyType(identify, formName, payType) {
+  const pay = String(payType || '').toLowerCase();
+  if (pay === 'receivable') return 'receivable';
+  if (pay === 'payable') return 'payable';
+  const hay = `${identify || ''} ${formName || ''}`.toLowerCase();
+  if (hay.includes('invoice') || hay.includes('freight payment') || hay.includes('laytime')) {
+    return 'receivable';
+  }
+  return 'payable';
+}
+
 function daysSince(dateValue) {
   if (!dateValue) return 0;
   const start = new Date(dateValue);
@@ -520,6 +531,8 @@ async function buildTodoRecords({ mode, accountType, search = '' }) {
       formName: details.formName,
       invoiceNo: details.invoiceNo,
       payType: details.payType,
+      invoiceType: details.invoiceType ?? '',
+      moneyType: deriveMoneyType(alert.IDENTIFY, details.formName, details.payType),
       holdBy,
       vendor,
       ...status,

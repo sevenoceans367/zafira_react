@@ -1,0 +1,164 @@
+.typeWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.typeDot {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.typeWrap :global(button) {
+  padding-left: 24px;
+}
+
+.filterWrap {
+  position: relative;
+}
+
+.filterBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  border: 1.5px solid #d8dce3;
+  color: #57626f;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.filterBtn svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.filterBtn:hover,
+.filterBtnOn {
+  border-color: #274670;
+  color: #274670;
+}
+
+.filterBtnOn {
+  background: #e6eaf1;
+}
+
+.filterPanel {
+  width: 300px;
+  background: #fff;
+  border: 1px solid #d8dce3;
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(20, 30, 50, 0.14);
+  padding: 16px;
+}
+
+.fpField {
+  margin-bottom: 12px;
+}
+
+.fpField label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #8a93a0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 5px;
+}
+
+.fpField select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #dee1e6;
+  border-radius: 8px;
+  background: #f8f9fa;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: #1b2733;
+}
+
+.fpField select:focus {
+  outline: none;
+  border-color: #f4652c;
+  background: #fff;
+}
+
+.fpActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.fpBtn {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.fpBtnOutline {
+  background: #fff;
+  border: 1.5px solid #d8dce3;
+  color: #57626f;
+}
+
+.fpBtnNavy {
+  background: #274670;
+  border: 1.5px solid #274670;
+  color: #fff;
+}
+
+.btnRun {
+  background: #274670;
+  border: 1.5px solid #274670;
+  color: #fff;
+  border-radius: 999px;
+  padding: 9px 24px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnRun:hover {
+  background: #1b3358;
+  border-color: #1b3358;
+}
+
+.runFlash {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0b7a28;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.runFlashShow {
+  opacity: 1;
+}
+
+.runFlash svg {
+  width: 12px;
+  height: 12px;
+}

@@ -202,9 +202,12 @@
 }
 
 .sidebar-menu .master-chevron {
+  width: 12px;
+  height: 12px;
   margin-left: auto;
   margin-right: 10px;
   color: inherit;
+  flex-shrink: 0;
 }
 
 .sidebar-menu > li.treeview {

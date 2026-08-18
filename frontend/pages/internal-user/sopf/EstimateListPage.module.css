@@ -113,10 +113,17 @@ th.itemColumn {
 }
 
 .compareHeaderIcon {
-  display: block;
-  width: 22px;
-  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a93a2;
   flex-shrink: 0;
+}
+
+.compareHeaderIcon svg {
+  width: 15px;
+  height: 15px;
+  display: block;
 }
 
 .compareHeader {

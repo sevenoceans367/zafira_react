@@ -21,7 +21,7 @@ import {
   sendEstimateToOps,
   submitDecisionChart,
 } from '../../../services/estimateList.js';
-import compareHeaderIcon from '../../../assets/compare_3.svg';
+import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import EstimateListHeaderActions from './EstimateListHeaderActions.jsx';
 import EstimateListTableToolbar from './EstimateListTableToolbar.jsx';
 import SensitivityAnalysisModal from './SensitivityAnalysisModal.jsx';
@@ -469,12 +469,9 @@ export default function EstimateListPage() {
                       <th className={styles.actionColumn} aria-label="Replicate" />
                       <th className={styles.compareColumn}>
                         <div className={styles.compareHeader}>
-                          <img
-                            src={compareHeaderIcon}
-                            alt="Compare"
-                            title="Compare"
-                            className={styles.compareHeaderIcon}
-                          />
+                          <span className={styles.compareHeaderIcon} title="Compare">
+                            <CompareIcon />
+                          </span>
                           <input
                             type="checkbox"
                             className={styles.compareCheckbox}

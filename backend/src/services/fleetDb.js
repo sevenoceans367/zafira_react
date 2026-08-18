@@ -223,7 +223,14 @@ export async function dbGetFleetList({
   const where = conditions.join(' AND ');
 
   const [[countRow]] = await pool.query(
-    `SELECT COUNT(*) AS total FROM vessel_imo_master WHERE ${where}`,
+    `SELECT COUNT(*) AS total,
+            COUNT(DISTINCT VESSEL_TYPE) AS types,
+            AVG(CASE
+              WHEN TRIM(DWT) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+              THEN CAST(TRIM(DWT) AS DECIMAL(18,4))
+            END) AS avgDwt,
+            MAX(NULLIF(TRIM(YEARBUILT), '')) AS newestBuilt
+     FROM vessel_imo_master WHERE ${where}`,
     params,
   );
 
@@ -258,6 +265,12 @@ export async function dbGetFleetList({
     recordsTotal: Number(countRow?.total || 0),
     page,
     pageSize,
+    stats: {
+      vessels: Number(countRow?.total || 0),
+      vesselTypes: Number(countRow?.types || 0),
+      avgDwt: countRow?.avgDwt != null ? Number(countRow.avgDwt) : 0,
+      newestBuilt: countRow?.newestBuilt != null ? String(countRow.newestBuilt) : '—',
+    },
   };
 }
 

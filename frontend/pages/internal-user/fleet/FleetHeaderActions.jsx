@@ -33,17 +33,15 @@ export default function FleetHeaderActions({
           ref={searchRef}
           value={search}
           onChange={onSearchChange}
-          placeholder="Search fleet"
+          placeholder="Search"
         />
-        {businessTypes.length > 1 ? (
-          <CardSelect
-            options={businessTypes}
-            value={businessType}
-            onChange={onBusinessTypeChange}
-            placeholder="Select type"
-            ariaLabel="Business type"
-          />
-        ) : null}
+        <CardSelect
+          options={businessTypes}
+          value={businessType}
+          onChange={onBusinessTypeChange}
+          placeholder="Select type"
+          ariaLabel="Business type"
+        />
       </HeaderFilterControls>
     </PageHeaderActions>
   );

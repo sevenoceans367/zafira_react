@@ -34,16 +34,32 @@ function isSidebarItemActive(pathname, item) {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-function SidebarLink({ to, icon, iconSrc, iconAlt, label, active }) {
+function SidebarLink({ to, icon, iconSrc, iconAlt, label, active, disabled }) {
+  const content = (
+    <>
+      {iconSrc ? (
+        <img src={iconSrc} alt={iconAlt || ''} className="icon" aria-hidden={!iconAlt} />
+      ) : (
+        <i className={`bi ${icon} icon`} aria-hidden />
+      )}
+      <span>{label}</span>
+    </>
+  );
+
+  if (disabled) {
+    return (
+      <li>
+        <span className="disabled" aria-disabled="true" title="Coming soon">
+          {content}
+        </span>
+      </li>
+    );
+  }
+
   return (
     <li>
       <Link to={to} className={active ? 'active' : ''}>
-        {iconSrc ? (
-          <img src={iconSrc} alt={iconAlt || ''} className="icon" aria-hidden={!iconAlt} />
-        ) : (
-          <i className={`bi ${icon} icon`} aria-hidden />
-        )}
-        <span>{label}</span>
+        {content}
       </Link>
     </li>
   );
@@ -65,8 +81,8 @@ const FLEET_LINK = {
 
 const PERIOD_CONTRACT_LINK = {
   iconSrc: periodContractIcon,
-  iconAlt: 'Period Contract',
-  label: 'Period Contract',
+  iconAlt: 'Period',
+  label: 'Period',
 };
 
 const TIME_CHARTER_LINK = {
@@ -140,7 +156,7 @@ export default function InternalUserSidebar({ isOpen }) {
                 active={isSidebarItemActive(currentPath, item)}
               />
             ))}
-            <SidebarSection label="COMMERCIAL OPERATIONS" />
+            <SidebarSection label="Chartering" />
             {SOPF_CHARTERING_SIDEBAR_ITEMS.map((item) => (
               <React.Fragment key={item.id}>
                 <SidebarLink
@@ -150,6 +166,7 @@ export default function InternalUserSidebar({ isOpen }) {
                   iconAlt={item.iconAlt}
                   label={item.label}
                   active={isSidebarItemActive(currentPath, item)}
+                  disabled={item.disabled}
                 />
                 {item.id === 'period' ? (
                   <CoasSidebarTree isOpen={isOpen} />

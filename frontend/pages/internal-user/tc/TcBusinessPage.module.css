@@ -384,10 +384,11 @@
 }
 
 .compareHeader svg {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   color: #8a93a2;
   display: block;
+  margin-bottom: 4px;
 }
 
 @media (max-width: 1100px) {

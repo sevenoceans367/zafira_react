@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -520,10 +521,15 @@ export default function RunningCoasListPage() {
           </div>
         </div>
 
-        {modal ? (
-          <>
-            <div className={styles.modalScrim} role="presentation" onClick={closeModal} />
-            <div className={styles.assignModal} role="dialog" aria-modal="true" aria-labelledby="coa-shipment-title">
+        {modal ? createPortal(
+          <div className={styles.modalScrim} role="presentation" onClick={closeModal}>
+            <div
+              className={styles.assignModal}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="coa-shipment-title"
+              onClick={(event) => event.stopPropagation()}
+            >
               <div className={styles.amHead}>
                 <div className={styles.amTitleRow}>
                   <span id="coa-shipment-title" className={styles.amTitle}>Shipment Details</span>
@@ -760,7 +766,8 @@ export default function RunningCoasListPage() {
                 )}
               </div>
             </div>
-          </>
+          </div>,
+          document.body,
         ) : null}
       </div>
     </>

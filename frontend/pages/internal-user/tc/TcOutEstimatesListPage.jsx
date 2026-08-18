@@ -11,6 +11,7 @@ import {
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import TcDecisionChartModal from './TcDecisionChartModal.jsx';
 import TcListHeaderActions from './TcListHeaderActions.jsx';
+import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import styles from './TcBusinessPage.module.css';
 
 const PAGE_SIZE = 10;
@@ -349,8 +350,8 @@ export default function TcOutEstimatesListPage() {
                 <th>Hire In</th>
                 <th>Hire Out</th>
                 <th>Total Rev</th>
-                <th className={styles.compareHeader}>
-                  <DocIcon />
+                <th className={styles.compareHeader} title="Compare">
+                  <CompareIcon />
                   <input
                     type="checkbox"
                     checked={allComparableSelected}

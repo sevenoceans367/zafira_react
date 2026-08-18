@@ -19,23 +19,28 @@ function moduleBreadcrumb(module) {
   return { label: PERIOD_CONTRACT_MODULE_LABELS.vc, href: appPath('/internal-user/vc') };
 }
 
+function periodPageLabel(module) {
+  return module === 'sopf' ? 'Period Business' : 'Period';
+}
+
 export function resolvePeriodContractHeader(pathname) {
   const module = parsePeriodContractModuleFromPath(pathname);
   if (!PERIOD_CONTRACT_MODULE_IDS.includes(module)) return null;
   if (!pathname.includes('/period-contracts')) return null;
 
   const listHref = periodContractAppPath(module);
+  const listLabel = periodPageLabel(module);
   const isAdd = pathname.includes('/period-contracts/add');
   const isEdit = /\/period-contracts\/edit\//.test(pathname);
 
   if (isAdd) {
     return {
-      title: module === 'sopf' ? 'Period Business' : 'Period Contract',
+      title: listLabel,
       currentPage: 'Add New',
       breadcrumbs: [
         HOME,
         moduleBreadcrumb(module),
-        { label: module === 'sopf' ? 'Period Business' : 'Period Contract', href: listHref },
+        { label: listLabel, href: listHref },
         { label: 'Add New' },
       ],
     };
@@ -43,12 +48,12 @@ export function resolvePeriodContractHeader(pathname) {
 
   if (isEdit) {
     return {
-      title: module === 'sopf' ? 'Period Business' : 'Period Contract',
+      title: listLabel,
       currentPage: 'Edit Details',
       breadcrumbs: [
         HOME,
         moduleBreadcrumb(module),
-        { label: module === 'sopf' ? 'Period Business' : 'Period Contract', href: listHref },
+        { label: listLabel, href: listHref },
         { label: 'Edit Details' },
       ],
     };
@@ -67,12 +72,12 @@ export function resolvePeriodContractHeader(pathname) {
   }
 
   return {
-    title: 'Period Contract',
-    currentPage: 'Period Contract List',
+    title: 'Period',
+    currentPage: 'Period',
     breadcrumbs: [
       HOME,
       moduleBreadcrumb(module),
-      { label: 'Period Contract' },
+      { label: 'Period' },
     ],
   };
 }

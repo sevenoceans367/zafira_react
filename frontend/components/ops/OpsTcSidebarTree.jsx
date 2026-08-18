@@ -49,9 +49,7 @@ export default function OpsTcSidebarTree({ isOpen }) {
       >
         <i className="bi bi-geo-alt icon" aria-hidden />
         {isOpen ? <span>Ops - TC</span> : null}
-        {isOpen ? (
-          <i className="bi bi-chevron-down master-chevron" aria-hidden />
-        ) : null}
+        {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>
       <ul className="treeview-menu">
         {OPS_TC_ITEMS.map((item) => {

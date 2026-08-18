@@ -2,28 +2,12 @@
   position: relative;
 }
 
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.toolbarActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-left: auto;
-}
-
 .flashSuccess,
 .flashError,
 .error {
   margin-bottom: 16px;
   padding: 12px 14px;
-  font-size: var(--font-size-body, 12px);
+  font-size: 12px;
 }
 
 .flashSuccess {
@@ -39,99 +23,268 @@
   color: #842029;
 }
 
-.tableWrap {
-  overflow: auto;
+.hcardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
 }
 
-.table {
-  width: 100%;
+.hcard {
+  border-radius: 16px;
+  padding: 18px 20px 20px;
+  border: 1px solid;
+}
+
+.hcardFin {
+  background: linear-gradient(135deg, #fff3ec 0%, #ffffff 65%);
+  border-color: #fbd9c9;
+}
+
+.hcardCnt {
+  background: linear-gradient(135deg, #ecf1f8 0%, #ffffff 65%);
+  border-color: #d3dae7;
+}
+
+.hcardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  min-height: 34px;
+}
+
+.hcardIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: #fff;
+}
+
+.hcardFin .hcardIcon {
+  background: linear-gradient(135deg, #ff8a50, #f4652c);
+}
+
+.hcardCnt .hcardIcon {
+  background: linear-gradient(135deg, #3e5f8f, #274670);
+}
+
+.hcardIcon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.hcardLabel {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #5b6472;
+}
+
+.hcardValue {
   margin: 0;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: var(--font-size-body, 12px);
-  line-height: 1.5;
+  font-family: var(--font-family-heading, inherit);
+  font-weight: 700;
+  font-size: 29px;
+  line-height: 1;
+  color: #2b3444;
 }
 
-.table th,
-.table td {
-  padding: 10px 10px;
+.actionRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.btnAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
   border: none;
-  border-bottom: 1px solid var(--color-border-light, #f3f4f6);
+  border-radius: 9px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnAdd:hover {
+  background: #2f6fe0;
+}
+
+.btnAdd svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btnCompare {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #f1f2f4;
+  color: #8a93a2;
+  font-weight: 700;
+  font-size: 13px;
+  border: 1px solid #dfe2e7;
+  border-radius: 9px;
+  padding: 10px 16px;
+  cursor: not-allowed;
+  font-family: inherit;
+}
+
+.btnCompare svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btnCompareEnabled {
+  background: #fff;
+  color: #274670;
+  cursor: pointer;
+  border-color: #d3dae7;
+}
+
+.btnCompareEnabled:hover {
+  background: #e6eaf1;
+}
+
+.tableCard {
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+}
+
+.grid thead th {
   text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  background: #fafbfc;
+  padding: 12px 14px;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: nowrap;
+}
+
+.grid tbody td {
+  padding: 14px;
+  border-bottom: 1px solid #eceef2;
+  font-size: 13px;
+  color: #1b2430;
+  white-space: nowrap;
   vertical-align: middle;
 }
 
-.table thead th {
-  background: #f8fafc;
-  font-size: var(--font-size-small, 11px);
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: #4b5563;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
-  white-space: normal;
-  line-height: 1.25;
-  text-align: center;
-  vertical-align: bottom;
-  max-width: 88px;
+.grid tbody tr:last-child td {
+  border-bottom: none;
 }
 
-.headerLine2 {
-  display: block;
-  font-size: inherit;
-  font-weight: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  color: inherit;
-}
-
-.table tbody tr:nth-child(even) {
+.grid tbody tr:hover {
   background: #fafbfc;
 }
 
-.table tbody tr:hover {
-  background: #f0f7ff;
+.cellItem {
+  color: #8a93a2;
+  font-weight: 600;
 }
 
-.emptyCell {
-  padding: 24px;
+.cellVessel {
+  font-weight: 700;
+  color: #1b2430;
+  white-space: normal;
+  min-width: 140px;
+}
+
+.cellVessel .vesselType {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #8a93a2;
+}
+
+.cellNum {
+  font-variant-numeric: tabular-nums;
+}
+
+.center {
   text-align: center;
-  color: var(--color-text-light, #6b7280);
 }
 
-.actionCell {
-  white-space: nowrap;
+.empty {
   text-align: center;
+  color: #8a93a2;
+  padding: 28px 14px !important;
 }
 
-.actionIcon {
+.iconPair {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.iconBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
+  color: #8a93a2;
+  background: none;
   border: none;
-  background: transparent;
-  color: var(--color-primary, #175c84);
-  text-decoration: none;
+  padding: 0;
   cursor: pointer;
+  text-decoration: none;
 }
 
-.actionIcon:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.iconBtn:hover {
+  background: #f1f2f4;
+  color: #5b6472;
 }
 
-.actionDivider {
-  margin: 0 6px;
-  color: #9ca3af;
+.iconBtn svg {
+  width: 14px;
+  height: 14px;
 }
 
-.sectionRow td {
-  background: #eef2f7;
-  font-weight: 700;
-  text-align: center;
+.compareHeader {
+  width: 36px;
+}
+
+.compareHeader svg {
+  width: 14px;
+  height: 14px;
+  color: #8a93a2;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.tableFooter {
+  padding: 8px 14px 10px;
+  border-top: 1px solid #eceef2;
 }
 
 .modalBackdrop {
@@ -142,7 +295,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(20, 26, 40, 0.5);
 }
 
 .modal {
@@ -150,9 +303,12 @@
   width: min(95vw, 1200px);
   max-height: 90vh;
   overflow: hidden;
-  border-radius: var(--border-radius-md, 8px);
+  border-radius: 16px;
   background: #fff;
-  box-shadow: var(--shadow-default, 0 8px 24px rgba(0, 0, 0, 0.15));
+  border: 1px solid #dfe2e7;
+  box-shadow: 0 24px 60px rgba(20, 20, 40, 0.24);
+  display: flex;
+  flex-direction: column;
 }
 
 .modalHeader {
@@ -160,8 +316,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--color-border, #d9dee8);
+  padding: 16px 22px;
+  border-bottom: 1px solid #eceef2;
 }
 
 .modalHeaderActions {
@@ -174,16 +330,52 @@
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: var(--color-primary, #175c84);
+  color: #1b2430;
+}
+
+.btnPdf {
+  display: inline-flex;
+  align-items: center;
+  background: #fff;
+  color: #274670;
+  font-weight: 700;
+  font-size: 12.5px;
+  border: 1px solid #d3dae7;
+  border-radius: 9px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnPdf:hover:not(:disabled) {
+  background: #e6eaf1;
+}
+
+.btnPdf:disabled {
+  color: #8a93a2;
+  cursor: not-allowed;
 }
 
 .modalClose {
+  width: 32px;
+  height: 32px;
   border: none;
+  border-radius: 8px;
   background: transparent;
-  color: #6b7280;
-  font-size: 24px;
-  line-height: 1;
+  color: #5b6472;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+}
+
+.modalClose:hover {
+  background: #f1f2f4;
+}
+
+.modalClose svg {
+  width: 16px;
+  height: 16px;
 }
 
 .modalBody {
@@ -193,10 +385,20 @@
   padding: 16px 18px 20px;
 }
 
-@media (max-width: 960px) {
-  .toolbarActions {
-    width: 100%;
-    margin-left: 0;
-    justify-content: flex-end;
+.sectionRow td {
+  background: #eef2f7;
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .hcardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .hcardGrid {
+    grid-template-columns: 1fr;
   }
 }

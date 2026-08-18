@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useFleetModule } from '../../../hooks/useFleetModule.js';
 import { fetchFleetCompare, downloadFleetComparePdf, fetchFleetList } from '../../../services/fleet.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
+import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import FleetHeaderActions from './FleetHeaderActions.jsx';
 import styles from './FleetPage.module.css';
@@ -15,6 +16,90 @@ const FLASH_MESSAGES = {
   0: { type: 'success', text: 'Congratulations! Fleet added/updated successfully.' },
   1: { type: 'error', text: 'Sorry! there was an error while adding/updating Fleet.' },
 };
+
+function liveValue(value) {
+  if (value == null) return '—';
+  const text = String(value).trim();
+  return text === '' ? '—' : text;
+}
+
+function formatDwt(value) {
+  const num = Number(value) || 0;
+  if (!num) return '—';
+  return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+function HighlightIcon({ name }) {
+  if (name === 'vessels') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5 14l1.3-5.2A2 2 0 0 1 8.2 7.3h7.6a2 2 0 0 1 1.9 1.5L19 14" />
+        <path d="M12 3v4.3" />
+        <path d="M12 3.5l3 1.2-3 1.1z" fill="currentColor" stroke="none" />
+        <path d="M3 17.5c1.4 1 3 1 4.4 0 1.4-1 3-1 4.4 0 1.4 1 3 1 4.4 0 1.4-1 3-1 4.4 0" />
+      </svg>
+    );
+  }
+  if (name === 'types') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v13" />
+        <path d="M8 10h8" />
+        <path d="M5 14a7 7 0 0 0 14 0" />
+      </svg>
+    );
+  }
+  if (name === 'avgDwt') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3v18" />
+        <path d="M16.5 7.5c0-2-2-3-4.5-3s-4.5 1.2-4.5 3.2c0 4.3 9 2 9 6.3 0 2-2 3.2-4.5 3.2s-4.5-1-4.5-3" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="16" rx="2" />
+      <path d="M8 3v4M16 3v4M3.5 10h17" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  );
+}
+
+function DocIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M6 3h9l5 5v13H6z" />
+      <path d="M15 3v5h5" />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
 
 function FleetCompareModal({ open, loading, data, vesselIds, onClose }) {
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -47,29 +132,27 @@ function FleetCompareModal({ open, loading, data, vesselIds, onClose }) {
         onClick={(event) => event.stopPropagation()}
       >
         <div className={styles.modalHeader}>
-          <h4 id="fleet-compare-title">
-            <i className="bi bi-file-text" aria-hidden /> Compare Vessels
-          </h4>
+          <h4 id="fleet-compare-title">Compare Vessels</h4>
           <div className={styles.modalHeaderActions}>
-            <Button
+            <button
               type="button"
-              variant="outline"
-              label={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
-              icon="download"
+              className={styles.btnPdf}
               onClick={handlePdf}
               disabled={loading || pdfLoading || !vessels.length}
-            />
+            >
+              {pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
+            </button>
             <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close">
-              &times;
+              <CloseIcon />
             </button>
           </div>
         </div>
         <div className={styles.modalBody}>
-          {loading ? <LoadingOverlay active label="Loading comparison…" /> : null}
+          {loading ? <LoadingOverlay show label="Loading comparison…" /> : null}
           {pdfError ? <div className={styles.error}>{pdfError}</div> : null}
           {!loading && vessels.length ? (
             <div className={styles.tableWrap}>
-              <table className={styles.table}>
+              <table className={styles.grid}>
                 <thead>
                   <tr>
                     <th>Vessel Name / Commercial Parameters</th>
@@ -110,22 +193,8 @@ function FleetCompareModal({ open, loading, data, vesselIds, onClose }) {
   );
 }
 
-function ActionIcon({ icon, title, to }) {
-  if (to) {
-    return (
-      <Link to={to} className={styles.actionIcon} title={title} aria-label={title}>
-        <i className={`bi ${icon}`} aria-hidden />
-      </Link>
-    );
-  }
-  return (
-    <button type="button" className={styles.actionIcon} title={title} aria-label={title} disabled>
-      <i className={`bi ${icon}`} aria-hidden />
-    </button>
-  );
-}
-
 export default function FleetPage() {
+  const navigate = useNavigate();
   const { fleetPath, vesselPath } = useFleetModule();
   const alert = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -134,6 +203,12 @@ export default function FleetPage() {
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState({
+    vessels: 0,
+    vesselTypes: 0,
+    avgDwt: 0,
+    newestBuilt: '—',
+  });
   const [searchInput, setSearchInput] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -146,6 +221,7 @@ export default function FleetPage() {
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flashMsg = searchParams.get('msg');
   const flash = flashMsg != null ? FLASH_MESSAGES[Number(flashMsg)] : null;
+  const compareEnabled = selectedIds.length > 0;
 
   const loadBusinessTypes = useCallback(async (selectedId) => {
     const types = await fetchVcBusinessTypes(selectedId);
@@ -164,6 +240,12 @@ export default function FleetPage() {
       });
       setRows(data.records ?? []);
       setTotal(data.recordsTotal ?? 0);
+      setStats({
+        vessels: data.stats?.vessels ?? data.recordsTotal ?? 0,
+        vesselTypes: data.stats?.vesselTypes ?? 0,
+        avgDwt: data.stats?.avgDwt ?? 0,
+        newestBuilt: data.stats?.newestBuilt ?? '—',
+      });
       setSelectedIds([]);
     } catch (err) {
       setError(err.message || 'Failed to load fleet list.');
@@ -202,6 +284,21 @@ export default function FleetPage() {
     ));
   };
 
+  const allSelected = rows.length > 0 && rows.every((row) => selectedIds.includes(String(row.vesselImoId)));
+
+  const toggleAll = () => {
+    if (allSelected) {
+      const pageIds = new Set(rows.map((row) => String(row.vesselImoId)));
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      rows.forEach((row) => next.add(String(row.vesselImoId)));
+      return [...next];
+    });
+  };
+
   const handleCompare = async () => {
     if (!selectedIds.length) {
       await alert({
@@ -234,6 +331,13 @@ export default function FleetPage() {
       : vesselPath(row.vesselImoId, 'particulars-tanker/edit')
   );
 
+  const cards = useMemo(() => ([
+    { key: 'vessels', title: 'Vessels in Fleet', value: stats.vessels, variant: 'cnt' },
+    { key: 'types', title: 'Vessel Types', value: stats.vesselTypes, variant: 'cnt' },
+    { key: 'avgDwt', title: 'Avg Summer DWT', value: formatDwt(stats.avgDwt), variant: 'fin' },
+    { key: 'newest', title: 'Newest Built', value: liveValue(stats.newestBuilt), variant: 'cnt' },
+  ]), [stats]);
+
   return (
     <div className={`zafira-page ${styles.page}`}>
       <FleetHeaderActions
@@ -244,130 +348,167 @@ export default function FleetPage() {
         onBusinessTypeChange={handleBusinessTypeChange}
       />
 
-      {loading ? <LoadingOverlay active label="Loading fleet…" /> : null}
+      {loading ? <LoadingOverlay show label="Loading fleet…" /> : null}
 
       {flash ? (
-        <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
-          {flash.text}
+        <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError} role="alert">
+          <strong>{flash.type === 'success' ? 'Success!' : 'Error!'}</strong> {flash.text}
         </div>
       ) : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarActions}>
-          <Button variant="outline" label="Compare Vessels" onClick={handleCompare} />
-          <Button
-            variant="add"
-            label="Add"
-            to={`${fleetPath}/add?selBType=${encodeURIComponent(businessType)}`}
+      <div className={styles.hcardGrid}>
+        {cards.map((card) => (
+          <article
+            key={card.key}
+            className={`${styles.hcard} ${card.variant === 'cnt' ? styles.hcardCnt : styles.hcardFin}`}
+          >
+            <div className={styles.hcardHead}>
+              <div className={styles.hcardIcon}>
+                <HighlightIcon name={card.key} />
+              </div>
+            </div>
+            <span className={styles.hcardLabel}>{card.title}</span>
+            <div className={styles.hcardValue}>{card.value}</div>
+          </article>
+        ))}
+      </div>
+
+      <div className={styles.actionRow}>
+        <button
+          type="button"
+          className={styles.btnAdd}
+          onClick={() => navigate(`${fleetPath}/add?selBType=${encodeURIComponent(businessType)}`)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Add
+        </button>
+        <button
+          type="button"
+          className={`${styles.btnCompare} ${compareEnabled ? styles.btnCompareEnabled : ''}`}
+          disabled={!compareEnabled}
+          title={compareEnabled ? 'Compare selected vessels' : 'Select a row to enable'}
+          onClick={handleCompare}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 19V5" />
+            <path d="M8 19v-7" />
+            <path d="M12 19V9" />
+            <path d="M16 19v-4" />
+            <path d="M20 19V6" />
+          </svg>
+          Compare Vessels
+        </button>
+      </div>
+
+      <div className={styles.tableCard}>
+        <div className={styles.tableWrap}>
+          <table className={styles.grid}>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Vessel</th>
+                <th>Business Type</th>
+                <th>IMO No.</th>
+                <th>Summer DWT</th>
+                <th>Built</th>
+                <th>Primary</th>
+                <th>Particulars</th>
+                <th>Commercial</th>
+                <th className={styles.compareHeader} title="Compare">
+                  <CompareIcon />
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    disabled={!rows.length}
+                    aria-label="Select all to compare"
+                  />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className={styles.empty}>
+                    {loading ? 'Loading vessels…' : 'No operated vessels for the selected business type.'}
+                  </td>
+                </tr>
+              ) : rows.map((row) => (
+                <tr key={row.vesselImoId}>
+                  <td className={styles.cellItem}>{row.index}.</td>
+                  <td className={styles.cellVessel}>
+                    <span>{liveValue(row.vesselName)}</span>
+                    <span className={styles.vesselType}>{liveValue(row.vesselType)}</span>
+                  </td>
+                  <td>{liveValue(row.businessType)}</td>
+                  <td className={styles.cellNum}>{liveValue(row.imoNo)}</td>
+                  <td className={styles.cellNum}>{liveValue(row.dwt)}</td>
+                  <td className={styles.cellNum}>{liveValue(row.yearBuilt)}</td>
+                  <td>
+                    <div className={styles.iconPair}>
+                      <Link
+                        to={vesselPath(row.vesselImoId, 'primary')}
+                        className={styles.iconBtn}
+                        title="Edit Details"
+                      >
+                        <PencilIcon />
+                      </Link>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.iconPair}>
+                      <Link
+                        to={particularsViewPath(row)}
+                        className={styles.iconBtn}
+                        title="View Vessel Particulars"
+                      >
+                        <EyeIcon />
+                      </Link>
+                      <Link
+                        to={particularsEditPath(row)}
+                        className={styles.iconBtn}
+                        title="Edit Vessel Particulars"
+                      >
+                        <PencilIcon />
+                      </Link>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.iconPair}>
+                      <Link
+                        to={vesselPath(row.vesselImoId, 'commercial')}
+                        className={styles.iconBtn}
+                        title="Commercial Parameters"
+                      >
+                        <DocIcon />
+                      </Link>
+                    </div>
+                  </td>
+                  <td className={styles.center}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(String(row.vesselImoId))}
+                      onChange={() => toggleSelected(row.vesselImoId)}
+                      aria-label={`Select ${row.vesselName} to compare`}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className={styles.tableFooter}>
+          <SopfPagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
           />
         </div>
       </div>
-
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>
-                Vessel
-                <span className={styles.headerLine2}>Type</span>
-              </th>
-              <th>Vessel</th>
-              <th>
-                Business
-                <span className={styles.headerLine2}>Type</span>
-              </th>
-              <th>
-                IMO
-                <span className={styles.headerLine2}>No.</span>
-              </th>
-              <th>
-                Summer
-                <span className={styles.headerLine2}>DWT(MT)</span>
-              </th>
-              <th>Built</th>
-              <th>
-                Primary
-                <span className={styles.headerLine2}>Details</span>
-              </th>
-              <th>
-                Vessel
-                <span className={styles.headerLine2}>Particulars</span>
-              </th>
-              <th>
-                Commercial
-                <span className={styles.headerLine2}>Parameters</span>
-              </th>
-              <th>
-                Select to
-                <span className={styles.headerLine2}>Compare</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={11} className={styles.emptyCell}>
-                  SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
-                </td>
-              </tr>
-            ) : rows.map((row) => (
-              <tr key={row.vesselImoId}>
-                <td>{row.index}</td>
-                <td>{row.vesselType}</td>
-                <td>{row.vesselName}</td>
-                <td>{row.businessType}</td>
-                <td>{row.imoNo}</td>
-                <td>{row.dwt}</td>
-                <td>{row.yearBuilt}</td>
-                <td className={styles.actionCell}>
-                  <ActionIcon
-                    icon="bi-pencil"
-                    title="Edit Details"
-                    to={vesselPath(row.vesselImoId, 'primary')}
-                  />
-                </td>
-                <td className={styles.actionCell}>
-                  <ActionIcon
-                    icon="bi-file-text"
-                    title="View Vessel Particulars"
-                    to={particularsViewPath(row)}
-                  />
-                  <span className={styles.actionDivider}>|</span>
-                  <ActionIcon
-                    icon="bi-pencil-square"
-                    title="Edit Vessel Particulars"
-                    to={particularsEditPath(row)}
-                  />
-                </td>
-                <td className={styles.actionCell}>
-                  <ActionIcon
-                    icon="bi-pencil-square"
-                    title="Commercial Parameters"
-                    to={vesselPath(row.vesselImoId, 'commercial')}
-                  />
-                </td>
-                <td className={styles.actionCell}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(String(row.vesselImoId))}
-                    onChange={() => toggleSelected(row.vesselImoId)}
-                    aria-label={`Select ${row.vesselName} to compare`}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <SopfPagination
-        page={page}
-        pageSize={PAGE_SIZE}
-        total={total}
-        onPageChange={setPage}
-      />
 
       <FleetCompareModal
         open={compareOpen}

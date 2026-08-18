@@ -488,9 +488,10 @@ export async function dbGetPeriodNominations(periodId, { businessType } = {}) {
     });
   }
 
+  const hireIn = await getInitialHire(pool, id);
   const [tcRows] = await pool.query(
     `SELECT m.TCOUTID, m.COMID, m.VESSEL_IMO_ID, m.TC_NO, m.CP_DATE1,
-            m.DWT_SUMMER_CP, m.DEL_RANGE_PORT, m.RE_DEL_RANGE, m.EXCHANGE_RATE, m.HIRE_IN,
+            m.DWT_SUMMER_CP, m.DEL_RANGE_PORT, m.RE_DEL_RANGE, m.EXCHANGE_RATE, m.HIRE_FIX_PER,
             v.VESSEL_NAME,
             (SELECT SUM(TC_DAYS_EST) FROM chartering_tc_estimate_slave1 s1
              WHERE s1.TCOUTID = m.TCOUTID) AS TC_DAYS_EST,
@@ -509,21 +510,27 @@ export async function dbGetPeriodNominations(periodId, { businessType } = {}) {
     [VC_MODULE_ID, appContext.companyId, id],
   );
 
-  const tcEstimates = tcRows.map((row, index) => ({
-    index: index + 1,
-    tcOutId: String(row.TCOUTID),
-    comId: row.COMID != null ? String(row.COMID) : '',
-    vesselName: row.VESSEL_NAME || '',
-    tcNo: row.TC_NO || '',
-    cpDate: formatDateDMY(row.CP_DATE1),
-    dwt: row.DWT_SUMMER_CP != null ? String(row.DWT_SUMMER_CP) : '',
-    delPort: row.DEL_RANGE_PORT || '',
-    reDelPort: row.RE_DEL_RANGE || '',
-    tcDays: row.TC_DAYS_EST != null ? String(row.TC_DAYS_EST) : '',
-    hireIn: row.HIRE_IN != null && String(row.HIRE_IN).trim() !== '' ? String(row.HIRE_IN) : '',
-    hireOut: row.TC_RATE != null ? Number(row.TC_RATE).toFixed(2) : '',
-    dailyGrossHire: row.TC_RATE != null ? Number(row.TC_RATE).toFixed(2) : '',
-  }));
+  const tcEstimates = tcRows.map((row, index) => {
+    const exchange = Number(row.EXCHANGE_RATE);
+    const hireOut = row.HIRE_FIX_PER != null && String(row.HIRE_FIX_PER).trim() !== ''
+      ? formatNumber(Number(row.HIRE_FIX_PER) * (Number.isFinite(exchange) && exchange !== 0 ? exchange : 1))
+      : (row.TC_RATE != null ? formatNumber(row.TC_RATE) : '');
+    return {
+      index: index + 1,
+      tcOutId: String(row.TCOUTID),
+      comId: row.COMID != null ? String(row.COMID) : '',
+      vesselName: row.VESSEL_NAME || '',
+      tcNo: row.TC_NO || '',
+      cpDate: formatDateDMY(row.CP_DATE1),
+      dwt: row.DWT_SUMMER_CP != null ? String(row.DWT_SUMMER_CP) : '',
+      delPort: row.DEL_RANGE_PORT || '',
+      reDelPort: row.RE_DEL_RANGE || '',
+      tcDays: row.TC_DAYS_EST != null ? String(row.TC_DAYS_EST) : '',
+      hireIn,
+      hireOut,
+      dailyGrossHire: hireOut,
+    };
+  });
 
   return {
     periodId: id,

@@ -48,9 +48,7 @@ export default function OpsVcSidebarTree({ isOpen }) {
       >
         <i className="bi bi-geo-alt icon" aria-hidden />
         {isOpen ? <span>Ops - VC</span> : null}
-        {isOpen ? (
-          <i className="bi bi-chevron-down master-chevron" aria-hidden />
-        ) : null}
+        {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>
       <ul className="treeview-menu">
         {OPS_VC_ITEMS.map((item) => {

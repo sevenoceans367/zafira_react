@@ -2,15 +2,15 @@ export const EXPORT_FIELDS = [
   { key: 'date', label: 'Date' },
   { key: 'vessel', label: 'Vessel' },
   { key: 'voyageNo', label: 'Voyage No' },
-  { key: 'formName', label: 'TXN' },
+  { key: 'formName', label: 'TXN Type' },
   { key: 'invoiceNo', label: 'TXN No.' },
-  { key: 'statement', label: 'Statement' },
+  { key: 'statement', label: 'Stage' },
   { key: 'amountLabel', label: 'Amount' },
   { key: 'moneyTypeLabel', label: 'Type' },
   { key: 'holdBy', label: 'PIC' },
   { key: 'vendor', label: 'Customer' },
   { key: 'statusShort', label: 'Status' },
-  { key: 'alRem', label: 'Accruals' },
+  { key: 'alRem', label: 'Remarks' },
 ];
 
 export function deriveMoneyType(row) {

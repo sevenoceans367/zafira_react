@@ -100,9 +100,9 @@ export async function getTodoList(params = {}) {
   return dbGetTodoList(params);
 }
 
-export async function inactiveTodoAlert(alertId) {
+export async function inactiveTodoAlert(alertId, userId) {
   if (!isDbConfigured()) return { msg: 0 };
-  return dbInactiveTodoAlert(alertId);
+  return dbInactiveTodoAlert(alertId, userId);
 }
 
 export async function updateTodoAlRem(payload) {
@@ -122,6 +122,7 @@ export async function holdTodoPayment(payload) {
     identify: payload.identify,
     identifyId: payload.identifyId,
     status: 'payment_hold',
+    userId: payload.userId,
   });
 }
 
@@ -134,6 +135,7 @@ export async function unholdTodoPayment(payload) {
     identify: payload.identify,
     identifyId: payload.identifyId,
     status: 'payment_payable',
+    userId: payload.userId,
   });
 }
 

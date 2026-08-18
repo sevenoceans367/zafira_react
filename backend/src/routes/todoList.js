@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getRequestUser } from '../services/authService.js';
 import {
   getTodoList,
   holdTodoPayment,
@@ -11,12 +12,17 @@ import {
 
 const router = Router();
 
+function requestUserId(req) {
+  return getRequestUser(req)?.id;
+}
+
 router.get('/', async (req, res) => {
   try {
     const data = await getTodoList({
       tab: req.query.tab || 'hold',
       accountType: req.query.accountType || '',
       search: req.query.search || '',
+      userId: requestUserId(req),
     });
     res.json(data);
   } catch (error) {
@@ -55,7 +61,7 @@ router.post('/search-voyage-by-vessel', async (req, res) => {
 
 router.post('/inactive/:alertId', async (req, res) => {
   try {
-    const result = await inactiveTodoAlert(req.params.alertId);
+    const result = await inactiveTodoAlert(req.params.alertId, requestUserId(req));
     res.json(result);
   } catch (error) {
     console.error(error);
@@ -82,6 +88,7 @@ router.post('/hold', async (req, res) => {
     const result = await holdTodoPayment({
       identify: req.body.identify,
       identifyId: req.body.identifyId,
+      userId: requestUserId(req),
     });
     res.json(result);
   } catch (error) {
@@ -95,6 +102,7 @@ router.post('/unhold', async (req, res) => {
     const result = await unholdTodoPayment({
       identify: req.body.identify,
       identifyId: req.body.identifyId,
+      userId: requestUserId(req),
     });
     res.json(result);
   } catch (error) {

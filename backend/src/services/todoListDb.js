@@ -136,10 +136,14 @@ async function getTcMeta(pool, comid) {
   };
 }
 
-async function getPaymentUnlock(pool) {
+function resolveUserId(userId) {
+  return userId != null && userId !== '' ? String(userId) : String(appContext.userId || '');
+}
+
+async function getPaymentUnlock(pool, userId) {
   const [[row]] = await pool.query(
-    'SELECT PAYMENT_UNLOCK FROM approval_matrix WHERE LOGINID = ? LIMIT 1',
-    [appContext.userId],
+    'SELECT PAYMENT_UNLOCK FROM approval_matrix WHERE CAST(LOGINID AS CHAR) = CAST(? AS CHAR) LIMIT 1',
+    [resolveUserId(userId)],
   );
   return Number(row?.PAYMENT_UNLOCK) === 1;
 }
@@ -476,15 +480,16 @@ function buildEditHref(alert, comid) {
   return `payment_grid.php?comid=${comid || ''}&alertid=${alert.ALERTID}`;
 }
 
-async function buildTodoRecords({ mode, accountType, search = '' }) {
+async function buildTodoRecords({ mode, accountType, search = '', userId } = {}) {
   const pool = getPool();
-  const paymentUnlock = await getPaymentUnlock(pool);
+  const loginId = resolveUserId(userId);
+  const paymentUnlock = await getPaymentUnlock(pool, loginId);
   const [alerts] = await pool.query(
     `SELECT ALERTID, IDENTIFY, IDENTIFYID, ADDONDATE, REDIRECTTO, ALTERED_BY, AL_REM
      FROM alert_master
-     WHERE SHOW_STATUS = 1 AND SENDTO = ?
+     WHERE SHOW_STATUS = 1 AND CAST(SENDTO AS CHAR) = CAST(? AS CHAR)
      ORDER BY ADDONDATE DESC`,
-    [appContext.userId],
+    [loginId],
   );
 
   const records = [];
@@ -555,16 +560,16 @@ async function buildTodoRecords({ mode, accountType, search = '' }) {
   };
 }
 
-export async function dbGetTodoList({ tab = 'hold', accountType = '', search = '' } = {}) {
+export async function dbGetTodoList({ tab = 'hold', accountType = '', search = '', userId } = {}) {
   const mode = tab === 'payable' ? 'payable' : 'hold';
-  return buildTodoRecords({ mode, accountType, search });
+  return buildTodoRecords({ mode, accountType, search, userId });
 }
 
-export async function dbInactiveTodoAlert(alertId) {
+export async function dbInactiveTodoAlert(alertId, userId) {
   const pool = getPool();
   const [result] = await pool.query(
-    'UPDATE alert_master SET SHOW_STATUS = 0 WHERE ALERTID = ? AND SENDTO = ?',
-    [alertId, appContext.userId],
+    'UPDATE alert_master SET SHOW_STATUS = 0 WHERE ALERTID = ? AND CAST(SENDTO AS CHAR) = CAST(? AS CHAR)',
+    [alertId, resolveUserId(userId)],
   );
   if (!result.affectedRows) throw new Error('Alert not found.');
   return { msg: 0 };
@@ -580,14 +585,14 @@ export async function dbUpdateTodoAlRem({ identify, identifyId, value }) {
   return { msg: 0 };
 }
 
-export async function dbSetTodoPaymentStatus({ identify, identifyId, status }) {
+export async function dbSetTodoPaymentStatus({ identify, identifyId, status, userId }) {
   const mapping = HOLD_STATUS_TABLE[identify];
   if (!mapping) throw new Error('Unsupported payment type.');
 
   const pool = getPool();
   await pool.query(
     'UPDATE alert_master SET ALTERED_BY = ? WHERE IDENTIFYID = ?',
-    [appContext.userId, identifyId],
+    [resolveUserId(userId), identifyId],
   );
   const [result] = await pool.query(
     `UPDATE ${mapping.table} SET PAYMENT_STATUS = ? WHERE ${mapping.idCol} = ?`,

@@ -425,7 +425,7 @@ export default function ToDoListPage() {
                   <th>Date</th>
                   <th>Vessel</th>
                   <th>Voyage No</th>
-                  <th>TXN</th>
+                  <th>TXN Type</th>
                   <th>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                       TXN No.
@@ -448,13 +448,13 @@ export default function ToDoListPage() {
                       </span>
                     </span>
                   </th>
-                  <th>Statement</th>
+                  <th>Stage</th>
                   <th>Amount</th>
                   <th className={styles.colTight}>Activity</th>
                   <th>PIC</th>
                   <th>Customer</th>
                   <th>Status</th>
-                  <th>Accruals</th>
+                  <th>Remarks</th>
                   <th className={styles.colTight}>Deactivate</th>
                 </tr>
               </thead>
@@ -595,9 +595,9 @@ export default function ToDoListPage() {
               <div className={styles.dmGrid}>
                 <div className={styles.dmField}><label>Vessel</label><div className={styles.dmVal}>{detailRow.vessel || '—'}</div></div>
                 <div className={styles.dmField}><label>Voyage No</label><div className={styles.dmVal}>{detailRow.voyageNo || '—'}</div></div>
-                <div className={styles.dmField}><label>TXN</label><div className={styles.dmVal}>{detailRow.formName || '—'}</div></div>
+                <div className={styles.dmField}><label>TXN Type</label><div className={styles.dmVal}>{detailRow.formName || '—'}</div></div>
                 <div className={styles.dmField}><label>TXN No.</label><div className={styles.dmVal}>{detailRow.invoiceNo || '—'}</div></div>
-                <div className={styles.dmField}><label>Statement</label><div className={styles.dmVal}>{detailRow.statement}</div></div>
+                <div className={styles.dmField}><label>Stage</label><div className={styles.dmVal}>{detailRow.statement}</div></div>
                 <div className={styles.dmField}><label>Amount</label><div className={`${styles.dmVal} ${styles.dmMoney}`}>{detailRow.amountLabel}</div></div>
                 <div className={styles.dmField}><label>Desk</label><div className={styles.dmVal}>{detailRow.desk || '—'}</div></div>
                 <div className={styles.dmField}><label>PIC</label><div className={styles.dmVal}>{detailRow.holdBy || '—'}</div></div>

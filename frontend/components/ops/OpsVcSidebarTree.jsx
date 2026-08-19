@@ -4,10 +4,10 @@ import { appPath } from '@bainbridge/shared-routing';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 
 export const OPS_VC_ITEMS = [
-  { id: 'in-ops-glance', label: 'In Ops at a glance VC' },
-  { id: 'post-ops', label: 'Vessels in Post Ops VC' },
-  { id: 'history', label: 'Vessels in History VC' },
-  { id: 'year-updation', label: 'Year Updation-VC/COA' },
+  { id: 'in-ops-glance', label: 'Spot Ops' },
+  { id: 'post-ops', label: 'Post-Ops' },
+  { id: 'history', label: 'Voyage History' },
+  { id: 'year-updation', label: 'Year Updation-VC/COA', hidden: true },
 ];
 
 export default function OpsVcSidebarTree({ isOpen }) {
@@ -51,7 +51,7 @@ export default function OpsVcSidebarTree({ isOpen }) {
         {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>
       <ul className="treeview-menu">
-        {OPS_VC_ITEMS.map((item) => {
+        {OPS_VC_ITEMS.filter((item) => !item.hidden).map((item) => {
           const href = `/internal-user/vc/ops/${item.id}`;
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (

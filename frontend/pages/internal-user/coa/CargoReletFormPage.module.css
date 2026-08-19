@@ -1,0 +1,304 @@
+.page {
+  position: relative;
+  padding-bottom: 24px;
+}
+
+.error {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  font-size: 12px;
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+}
+
+.metaBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: flex-end;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: #f4f8fb;
+  border: 1px solid #d7e4ee;
+  color: #175c84;
+  font-size: 12px;
+}
+
+.metaField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.metaFieldGrow {
+  flex: 1 1 160px;
+  min-width: 160px;
+}
+
+.metaLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #175c84;
+  white-space: nowrap;
+}
+
+.metaValue {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+}
+
+.metaField input,
+.metaField :global(.form-control) {
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.readonly {
+  background: #e1e1e1;
+  color: #175c84;
+}
+
+.tabs {
+  border: 1px solid #d7e4ee;
+  background: #fff;
+}
+
+.tabList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 8px 0;
+  border-bottom: 1px solid #d7e4ee;
+  background: #f8fafc;
+}
+
+.tabButton {
+  margin: 0;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tabButtonActive {
+  border-color: #d7e4ee;
+  background: #fff;
+  color: #175c84;
+}
+
+.tabPanel {
+  padding: 12px;
+}
+
+.estimateTop {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.estimateTopWide {
+  grid-column: 1 / -1;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  border: 1px solid #0077b0;
+}
+
+@media (min-width: 1100px) {
+  .split {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.column {
+  min-width: 0;
+  padding: 8px;
+}
+
+.column + .column {
+  border-top: 1px solid #0077b0;
+}
+
+@media (min-width: 1100px) {
+  .column + .column {
+    border-top: none;
+    border-left: 1px solid #0077b0;
+  }
+}
+
+.columnTitle {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #175c84;
+}
+
+.blockTitle {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.field label,
+.inlineLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.field input,
+.field select,
+.field textarea,
+.nestedTable input,
+.nestedTable select,
+.nestedTable textarea,
+.field :global(.form-control) {
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.field textarea,
+.nestedTable textarea {
+  min-height: 56px;
+  resize: vertical;
+}
+
+.nestedTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.nestedTable th,
+.nestedTable td {
+  border: 1px solid #e5e7eb;
+  padding: 5px 6px;
+  vertical-align: top;
+}
+
+.nestedTable th {
+  background: #f8fafc;
+  font-size: 11px;
+  text-align: left;
+}
+
+.addRow {
+  margin: 0 0 10px;
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.paramGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 12px;
+  margin-bottom: 14px;
+}
+
+.speedTable,
+.consumeTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+
+.speedTable th,
+.speedTable td,
+.consumeTable th,
+.consumeTable td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+}
+
+.speedTable th,
+.consumeTable th {
+  background: #f8fafc;
+  color: #1b77a6;
+  font-weight: 700;
+}
+
+.rowLabel {
+  color: #1f2937;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sectionAccent {
+  margin: 4px 0 8px;
+  color: #dc631e;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.plannedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 12px;
+  margin-bottom: 16px;
+}
+
+.actionIcon {
+  border: none;
+  background: transparent;
+  color: #1b77a6;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 15px;
+}
+
+.actionIcon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

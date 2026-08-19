@@ -584,7 +584,7 @@ export default function RunningCoasListPage() {
                             className={`${styles.btnAddTrade} ${styles.btnAddSpot}`}
                             disabled={modal.cancelled}
                             title={modal.cancelled ? 'Not available — this COA is cancelled' : 'Add Spot Voyage'}
-                            onClick={() => navigate(appPath(`/internal-user/sopf/addestimate?coaid=${modal.coaId}&selBType=${businessType}`))}
+                            onClick={() => navigate(`${coaPath('cargo-relet/add')}?coaId=${modal.coaId}&selBType=${businessType}&from=running`)}
                           >
                             <PlusIcon />
                             Add
@@ -696,7 +696,7 @@ export default function RunningCoasListPage() {
                             className={`${styles.btnAddTrade} ${styles.btnAddRelet}`}
                             disabled={modal.cancelled}
                             title={modal.cancelled ? 'Not available — this COA is cancelled' : 'Add Cargo Relet'}
-                            onClick={() => navigate(`${coaPath('cargo-relet/add')}?coaId=${modal.coaId}&selBType=${businessType}`)}
+                            onClick={() => navigate(`${coaPath('cargo-relet/add')}?coaId=${modal.coaId}&selBType=${businessType}&from=running`)}
                           >
                             <PlusIcon />
                             Add

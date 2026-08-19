@@ -1,3 +1,37 @@
+.headerBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+}
+
+.searchGrow {
+  flex: 1 1 0;
+  min-width: 180px;
+  max-width: none;
+  display: flex;
+  align-items: center;
+}
+
+.searchGrow :global(label) {
+  display: flex;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.controlsCluster {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
 .typeWrap {
   position: relative;
   display: inline-flex;
@@ -143,7 +177,16 @@
   border-color: #1b3358;
 }
 
+.runWrap {
+  position: relative;
+  flex: none;
+}
+
 .runFlash {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -151,6 +194,8 @@
   font-weight: 700;
   color: #0b7a28;
   opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
   transition: opacity 0.25s ease;
 }
 

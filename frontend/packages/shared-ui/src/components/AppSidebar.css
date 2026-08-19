@@ -251,6 +251,22 @@
   font-weight: normal;
 }
 
+.sidebar-menu > li.treeview > a.active,
+.sidebar-menu > li.treeview > button.active {
+  color: var(--sidebar-link-color-active);
+  font-weight: bold;
+  background-color: #e6e6e6;
+  border-radius: var(--sidebar-link-radius);
+  outline: none;
+}
+
+.sidebar-menu > li.treeview > a.active .icon,
+.sidebar-menu > li.treeview > a.active i:not([class*='bi-chevron-']),
+.sidebar-menu > li.treeview > button.active .icon,
+.sidebar-menu > li.treeview > button.active i:not([class*='bi-chevron-']) {
+  color: var(--sidebar-link-color-active);
+}
+
 .sidebar-menu > li.treeview > a > span,
 .sidebar-menu > li.treeview > button > span {
   flex: 1;
@@ -286,6 +302,7 @@
 .sidebar-menu > li.treeview > a.expanded:focus img.icon,
 .sidebar-menu > li.treeview > a.expanded:focus-visible img.icon,
 .sidebar-menu > li.treeview > a.expanded.active img.icon,
+.sidebar-menu > li.treeview > a.active img.icon,
 .sidebar-menu > li.treeview > button:hover img.icon,
 .sidebar-menu > li.treeview > button:focus img.icon,
 .sidebar-menu > li.treeview > button:focus-visible img.icon,

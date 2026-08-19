@@ -167,6 +167,14 @@
   font-weight: normal;
 }
 
+.sidebar-menu > li.treeview > a.active {
+  color: var(--sidebar-link-color-active);
+  font-weight: bold;
+  background-color: #e6e6e6;
+  border-radius: var(--sidebar-link-radius);
+  outline: none;
+}
+
 .sidebar-menu .icon {
   width: 20px;
   height: 20px;

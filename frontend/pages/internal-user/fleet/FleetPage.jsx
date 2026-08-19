@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
@@ -21,49 +21,6 @@ function liveValue(value) {
   if (value == null) return '—';
   const text = String(value).trim();
   return text === '' ? '—' : text;
-}
-
-function formatDwt(value) {
-  const num = Number(value) || 0;
-  if (!num) return '—';
-  return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
-
-function HighlightIcon({ name }) {
-  if (name === 'vessels') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M5 14l1.3-5.2A2 2 0 0 1 8.2 7.3h7.6a2 2 0 0 1 1.9 1.5L19 14" />
-        <path d="M12 3v4.3" />
-        <path d="M12 3.5l3 1.2-3 1.1z" fill="currentColor" stroke="none" />
-        <path d="M3 17.5c1.4 1 3 1 4.4 0 1.4-1 3-1 4.4 0 1.4 1 3 1 4.4 0 1.4-1 3-1 4.4 0" />
-      </svg>
-    );
-  }
-  if (name === 'types') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="5" r="2" />
-        <path d="M12 7v13" />
-        <path d="M8 10h8" />
-        <path d="M5 14a7 7 0 0 0 14 0" />
-      </svg>
-    );
-  }
-  if (name === 'avgDwt') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 3v18" />
-        <path d="M16.5 7.5c0-2-2-3-4.5-3s-4.5 1.2-4.5 3.2c0 4.3 9 2 9 6.3 0 2-2 3.2-4.5 3.2s-4.5-1-4.5-3" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3.5" y="5" width="17" height="16" rx="2" />
-      <path d="M8 3v4M16 3v4M3.5 10h17" />
-    </svg>
-  );
 }
 
 function PencilIcon() {
@@ -203,12 +160,6 @@ export default function FleetPage() {
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [stats, setStats] = useState({
-    vessels: 0,
-    vesselTypes: 0,
-    avgDwt: 0,
-    newestBuilt: '—',
-  });
   const [searchInput, setSearchInput] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -240,12 +191,6 @@ export default function FleetPage() {
       });
       setRows(data.records ?? []);
       setTotal(data.recordsTotal ?? 0);
-      setStats({
-        vessels: data.stats?.vessels ?? data.recordsTotal ?? 0,
-        vesselTypes: data.stats?.vesselTypes ?? 0,
-        avgDwt: data.stats?.avgDwt ?? 0,
-        newestBuilt: data.stats?.newestBuilt ?? '—',
-      });
       setSelectedIds([]);
     } catch (err) {
       setError(err.message || 'Failed to load fleet list.');
@@ -331,13 +276,6 @@ export default function FleetPage() {
       : vesselPath(row.vesselImoId, 'particulars-tanker/edit')
   );
 
-  const cards = useMemo(() => ([
-    { key: 'vessels', title: 'Vessels in Fleet', value: stats.vessels, variant: 'cnt' },
-    { key: 'types', title: 'Vessel Types', value: stats.vesselTypes, variant: 'cnt' },
-    { key: 'avgDwt', title: 'Avg Summer DWT', value: formatDwt(stats.avgDwt), variant: 'fin' },
-    { key: 'newest', title: 'Newest Built', value: liveValue(stats.newestBuilt), variant: 'cnt' },
-  ]), [stats]);
-
   return (
     <div className={`zafira-page ${styles.page}`}>
       <FleetHeaderActions
@@ -356,23 +294,6 @@ export default function FleetPage() {
         </div>
       ) : null}
       {error ? <div className={styles.error}>{error}</div> : null}
-
-      <div className={styles.hcardGrid}>
-        {cards.map((card) => (
-          <article
-            key={card.key}
-            className={`${styles.hcard} ${card.variant === 'cnt' ? styles.hcardCnt : styles.hcardFin}`}
-          >
-            <div className={styles.hcardHead}>
-              <div className={styles.hcardIcon}>
-                <HighlightIcon name={card.key} />
-              </div>
-            </div>
-            <span className={styles.hcardLabel}>{card.title}</span>
-            <div className={styles.hcardValue}>{card.value}</div>
-          </article>
-        ))}
-      </div>
 
       <div className={styles.actionRow}>
         <button

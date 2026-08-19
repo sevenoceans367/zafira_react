@@ -69,7 +69,7 @@ export function resolveInternalUserHeader(pathname, search = '') {
     if (userGuidesHeader) return userGuidesHeader;
     const fleetHeader = resolveFleetHeader(pathname);
     if (fleetHeader) return fleetHeader;
-    const coaHeader = resolveCoaHeader(pathname);
+    const coaHeader = resolveCoaHeader(pathname, search);
     if (coaHeader) return coaHeader;
     const sopfTcHeader = resolveTcHeader(pathname);
     if (sopfTcHeader) return sopfTcHeader;
@@ -100,7 +100,7 @@ export function resolveInternalUserHeader(pathname, search = '') {
   const fleetHeader = resolveFleetHeader(pathname);
   if (fleetHeader) return fleetHeader;
 
-  const coaHeader = resolveCoaHeader(pathname);
+  const coaHeader = resolveCoaHeader(pathname, search);
   if (coaHeader) return coaHeader;
 
   const opsVcHeader = resolveOpsVcHeader(pathname);

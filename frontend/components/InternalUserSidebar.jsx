@@ -121,7 +121,7 @@ export default function InternalUserSidebar({ isOpen }) {
   return (
     <AppSidebar isOpen={isOpen}>
       <ul className="sidebar-menu">
-        <SidebarSection label="SOPF" />
+        <SidebarSection label={inVc || inTc ? 'SOC' : 'SOPF'} />
         <SidebarLink
           to={appPath(HELP_DESK_HREF)}
           iconSrc={helpIcon}
@@ -129,6 +129,14 @@ export default function InternalUserSidebar({ isOpen }) {
           label="Help Desk"
           active={currentPath.includes(HELP_DESK_HREF)}
         />
+        {inVc ? (
+          <SidebarLink
+            to={appPath('/internal-user/vc')}
+            icon="bi-speedometer2"
+            label="Commercial Performance"
+            active={currentPath === '/internal-user/vc'}
+          />
+        ) : null}
 
         {inLiveVessels ? (
           <>
@@ -156,7 +164,7 @@ export default function InternalUserSidebar({ isOpen }) {
                 active={isSidebarItemActive(currentPath, item)}
               />
             ))}
-            <SidebarSection label="Chartering" />
+            <SidebarSection label="Chartering activities" />
             {SOPF_CHARTERING_SIDEBAR_ITEMS.map((item) => (
               <React.Fragment key={item.id}>
                 <SidebarLink
@@ -178,13 +186,7 @@ export default function InternalUserSidebar({ isOpen }) {
 
         {inVc ? (
           <>
-            <SidebarSection label="SOC" />
-            <SidebarLink
-              to={appPath('/internal-user/vc')}
-              icon="bi-speedometer2"
-              label="Commercial Performance"
-              active={currentPath === '/internal-user/vc'}
-            />
+            <SidebarSection label="Commercial Operations" />
             <SidebarLink
               to={fleetAppPath('vc')}
               iconSrc={FLEET_LINK.iconSrc}
@@ -261,7 +263,7 @@ export default function InternalUserSidebar({ isOpen }) {
 
         {inTc ? (
           <>
-            <SidebarSection label="SOC" />
+            <SidebarSection label="Commercial Operations" />
             <SidebarLink
               to={appPath('/internal-user/tc')}
               iconSrc={TIME_CHARTER_LINK.iconSrc}

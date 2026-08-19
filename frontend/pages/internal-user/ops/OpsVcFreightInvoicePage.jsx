@@ -23,6 +23,7 @@ import {
   saveFreightInvoice,
 } from '../../../services/opsVc.js';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
+import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
 import styles from './OpsVcFreightInvoicePage.module.css';
 
 const EMPTY_LINE = () => ({
@@ -1493,6 +1494,7 @@ export default function OpsVcFreightInvoicePage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
+      <OpsVcBackHeaderActions backHref={backHref} disabled={saving} />
       {(loading || saving) ? (
         <LoadingOverlay show label={saving ? 'Saving invoice…' : 'Loading invoice…'} />
       ) : null}
@@ -1533,7 +1535,6 @@ export default function OpsVcFreightInvoicePage() {
             </>
           ) : null}
         </div>
-        <Button variant="outline" label="Back" href={backHref} disabled={saving} />
       </div>
 
       {error ? <div className={styles.error}>{error}</div> : null}

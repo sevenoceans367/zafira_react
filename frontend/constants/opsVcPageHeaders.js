@@ -5,9 +5,9 @@ const SOC = { label: 'SOC', href: appPath('/internal-user/vc') };
 const OPS_VC = { label: 'Ops - VC', href: appPath('/internal-user/vc/ops/in-ops-glance') };
 
 const PAGES = {
-  'in-ops-glance': 'Spot Operations',
-  'post-ops': 'Post Ops',
-  history: 'History',
+  'in-ops-glance': 'Spot Ops',
+  'post-ops': 'Post-Ops',
+  history: 'Voyage History',
   'year-updation': 'Year Updation',
   'voyage-report': 'Voyage Report',
   'agency-letter': 'Generate Port Related Letters',

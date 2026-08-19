@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CardSelect, HeaderFilterControls, PageHeaderSearch } from '@bainbridge/shared-ui';
+import { CardSelect, PageHeaderSearch } from '@bainbridge/shared-ui';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 import styles from './ToDoListHeaderActions.module.css';
 
@@ -144,31 +144,34 @@ export default function ToDoListHeaderActions({
         filterOpen,
       ]}
     >
-      <HeaderFilterControls>
-        <PageHeaderSearch
-          ref={searchRef}
-          value={search}
-          onChange={onSearchChange}
-          placeholder={searchPlaceholder}
-        />
-        <CardSelect
-          options={DESK_OPTIONS}
-          value={accountType}
-          onChange={onAccountTypeChange}
-          placeholder="Desk"
-          ariaLabel="Desk"
-        />
-        <div className={styles.typeWrap}>
-          <span className={styles.typeDot} style={{ background: TYPE_COLORS[moneyType] || TYPE_COLORS[''] }} />
-          <CardSelect
-            options={TYPE_OPTIONS}
-            value={moneyType}
-            onChange={onMoneyTypeChange}
-            placeholder="Type"
-            ariaLabel="Type"
+      <div className={styles.headerBar}>
+        <div className={styles.searchGrow}>
+          <PageHeaderSearch
+            ref={searchRef}
+            value={search}
+            onChange={onSearchChange}
+            placeholder={searchPlaceholder}
           />
         </div>
-        <div className={styles.filterWrap}>
+        <div className={styles.controlsCluster}>
+          <CardSelect
+            options={DESK_OPTIONS}
+            value={accountType}
+            onChange={onAccountTypeChange}
+            placeholder="Desk"
+            ariaLabel="Desk"
+          />
+          <div className={styles.typeWrap}>
+            <span className={styles.typeDot} style={{ background: TYPE_COLORS[moneyType] || TYPE_COLORS[''] }} />
+            <CardSelect
+              options={TYPE_OPTIONS}
+              value={moneyType}
+              onChange={onMoneyTypeChange}
+              placeholder="Type"
+              ariaLabel="Type"
+            />
+          </div>
+          <div className={styles.filterWrap}>
           <button
             ref={filterBtnRef}
             className={`${styles.filterBtn} ${filterActive ? styles.filterBtnOn : ''}`}
@@ -243,17 +246,20 @@ export default function ToDoListHeaderActions({
               document.body,
             )
             : null}
+          </div>
+          <div className={styles.runWrap}>
+            <button className={styles.btnRun} type="button" onClick={onRun}>
+              Run
+            </button>
+            <span className={`${styles.runFlash} ${runFlash ? styles.runFlashShow : ''}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+              Applied
+            </span>
+          </div>
         </div>
-        <button className={styles.btnRun} type="button" onClick={onRun}>
-          Run
-        </button>
-        <span className={`${styles.runFlash} ${runFlash ? styles.runFlashShow : ''}`}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M20 6L9 17l-5-5" />
-          </svg>
-          Applied
-        </span>
-      </HeaderFilterControls>
+      </div>
     </PageHeaderActions>
   );
 }

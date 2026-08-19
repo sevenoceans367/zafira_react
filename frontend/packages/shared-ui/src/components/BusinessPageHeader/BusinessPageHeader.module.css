@@ -17,6 +17,26 @@
   font-weight: 700;
   line-height: 1.15;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.titleIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #e6eaf1;
+  color: #274670;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.titleIcon svg {
+  width: 17px;
+  height: 17px;
 }
 
 .actions {

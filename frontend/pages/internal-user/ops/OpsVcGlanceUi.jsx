@@ -121,7 +121,12 @@ export function ArrowIcon() {
 
 export function portLines(ports) {
   if (!ports) return [];
-  return String(ports).split('\n').map((line) => line.trim()).filter(Boolean);
+  return String(ports)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.split('/')[0].trim())
+    .filter(Boolean);
 }
 
 export function alertLabels(row) {

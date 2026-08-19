@@ -12,6 +12,7 @@ const BusinessPageHeader = ({
   homeHref,
   breadcrumbs = [],
   actions = null,
+  icon = null,
 }) => {
   const resolvedHomeHref = homeHref ?? appPath('/');
   const trail = Array.isArray(breadcrumbs) ? breadcrumbs : [];
@@ -32,7 +33,10 @@ const BusinessPageHeader = ({
 
   return (
     <header className={styles.header}>
-      <h1 className={styles.title}>{title}</h1>
+      <h1 className={styles.title}>
+        {icon ? <span className={styles.titleIcon}>{icon}</span> : null}
+        {title}
+      </h1>
       <div className={styles.actions} data-page-header-actions>
         {actions}
       </div>

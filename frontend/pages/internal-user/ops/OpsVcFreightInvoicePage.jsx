@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -24,7 +24,28 @@ import {
 } from '../../../services/opsVc.js';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
 import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
+import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import styles from './OpsVcFreightInvoicePage.module.css';
+
+const FREIGHT_INVOICE_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <g transform="translate(3.5,2)">
+      <path d="M11.2378,0.761771171 L4.5848,0.761771171 C2.5048,0.7538 0.7998,2.4118 0.7508,4.4908 L0.7508,15.2038 C0.7048,17.3168 2.3798,19.0678 4.4928,19.1148 C4.5238,19.1148 4.5538,19.1158 4.5848,19.1148 L12.5738,19.1148 C14.6678,19.0298 16.3178,17.2998 16.3029015,15.2038 L16.3029015,6.0378 L11.2378,0.761771171 Z" />
+      <path d="M10.9751,0.75 L10.9751,3.659 C10.9751,5.079 12.1231,6.23 13.5431,6.234 L16.2981,6.234" />
+      <line x1="10.7881" y1="13.3585" x2="5.3881" y2="13.3585" />
+      <line x1="8.7432" y1="9.606" x2="5.3872" y2="9.606" />
+    </g>
+  </svg>
+);
+
+function FreightInvoiceHeading({ title }) {
+  const setHeading = usePageHeaderHeading();
+  useLayoutEffect(() => {
+    setHeading({ title, icon: FREIGHT_INVOICE_ICON });
+  }, [setHeading, title]);
+  useEffect(() => () => setHeading(null), [setHeading]);
+  return null;
+}
 
 const EMPTY_LINE = () => ({
   id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -113,6 +134,8 @@ function splitLocChips(value) {
   return String(value || '')
     .split(/[,;\n]+/)
     .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.split('/')[0].trim())
     .filter(Boolean);
 }
 
@@ -577,7 +600,7 @@ function LineSection({
         <span>Amount</span>
         <span />
       </div>
-      {rows.map((row) => (
+      {rows.map((row, index) => (
         <div key={row.id} className={`${rowClass} ${styles.adjGridFields}`}>
           <div className={styles.cardSelect}>
             <CardSelect
@@ -625,32 +648,35 @@ function LineSection({
             placeholder="Amount"
             onChange={(event) => onUpdate(row.id, { amount: event.target.value })}
           />
-          <button
-            type="button"
-            className={styles.adjRowX}
-            aria-label={`Delete ${title} row`}
-            onClick={() => onRemove(row.id)}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
+          <div className={styles.adjRowActions}>
+            <button
+              type="button"
+              className={styles.adjRowX}
+              aria-label={`Delete ${title} row`}
+              onClick={() => onRemove(row.id)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+            {index === rows.length - 1 ? (
+              <button
+                type="button"
+                className={styles.adjRowAdd}
+                title="Add row"
+                aria-label={`Add ${title} row`}
+                onClick={onAdd}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            ) : (
+              <span className={styles.adjRowActionSlot} aria-hidden />
+            )}
+          </div>
         </div>
       ))}
-      <div className={rowClass}>
-        <span className={styles.adjGridAddSpacer} />
-        <button
-          type="button"
-          className={styles.adjRowAdd}
-          title="Add row"
-          aria-label={`Add ${title} row`}
-          onClick={onAdd}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
-      </div>
     </div>
   );
 }
@@ -1253,7 +1279,7 @@ export default function OpsVcFreightInvoicePage() {
     if (isSendForApproval && Number(status) === 1 && !(form.selApprovers || []).length) {
       await alertThenFocus(alert, {
         title: 'Missing Information',
-        message: 'Please select Level 1 Approvers first.',
+        message: 'Please select 1st Approver first.',
         confirmLabel: 'OK',
       }, 'selApprovers');
       return false;
@@ -1437,6 +1463,7 @@ export default function OpsVcFreightInvoicePage() {
           <Button
             variant="accent"
             label="Send for Approval"
+            className={styles.sendApprovalBtn}
             onClick={() => handleSubmit(auth.sendForApprovalStatus)}
             disabled={loading || saving || !context}
           />
@@ -1494,48 +1521,34 @@ export default function OpsVcFreightInvoicePage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
+      <FreightInvoiceHeading title={pageTitleText} />
       <OpsVcBackHeaderActions backHref={backHref} disabled={saving} />
       {(loading || saving) ? (
         <LoadingOverlay show label={saving ? 'Saving invoice…' : 'Loading invoice…'} />
       ) : null}
 
-      <div className={styles.pageHead}>
-        <div className={styles.pageHeadTitleRow}>
-          <div className={styles.pageHeadIcon} aria-hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <g transform="translate(3.5,2)">
-                <path d="M11.2378,0.761771171 L4.5848,0.761771171 C2.5048,0.7538 0.7998,2.4118 0.7508,4.4908 L0.7508,15.2038 C0.7048,17.3168 2.3798,19.0678 4.4928,19.1148 C4.5238,19.1148 4.5538,19.1158 4.5848,19.1148 L12.5738,19.1148 C14.6678,19.0298 16.3178,17.2998 16.3029015,15.2038 L16.3029015,6.0378 L11.2378,0.761771171 Z" />
-                <path d="M10.9751,0.75 L10.9751,3.659 C10.9751,5.079 12.1231,6.23 13.5431,6.234 L16.2981,6.234" />
-                <line x1="10.7881" y1="13.3585" x2="5.3881" y2="13.3585" />
-                <line x1="8.7432" y1="9.606" x2="5.3872" y2="9.606" />
-              </g>
-            </svg>
+      {context ? (
+        <div className={styles.pageHead}>
+          <div className={styles.pageSub}>
+            <span>
+              {context.voyageNo || '—'} · <b>{context.vesselName || '—'}</b>
+              {context.cpDate ? <> · CP <b>{context.cpDate}</b></> : null}
+            </span>
+            {loadChips.map((port) => (
+              <span key={`load-${port}`} className={styles.locChip}>{port}</span>
+            ))}
+            {loadChips.length > 0 && dischargeChips.length > 0 ? (
+              <svg className={styles.locArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                <path d="M5 12h14" />
+                <path d="M13 6l6 6-6 6" />
+              </svg>
+            ) : null}
+            {dischargeChips.map((port) => (
+              <span key={`dis-${port}`} className={styles.locChip}>{port}</span>
+            ))}
           </div>
-          <h2 className={styles.pageTitle}>{pageTitleText}</h2>
         </div>
-        <div className={styles.pageSub}>
-          {context ? (
-            <>
-              <span>
-                {context.voyageNo || '—'} · <b>{context.vesselName || '—'}</b>
-                {context.cpDate ? <> · CP <b>{context.cpDate}</b></> : null}
-              </span>
-              {loadChips.map((port) => (
-                <span key={`load-${port}`} className={styles.locChip}>{port}</span>
-              ))}
-              {loadChips.length > 0 && dischargeChips.length > 0 ? (
-                <svg className={styles.locArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
-                  <path d="M5 12h14" />
-                  <path d="M13 6l6 6-6 6" />
-                </svg>
-              ) : null}
-              {dischargeChips.map((port) => (
-                <span key={`dis-${port}`} className={styles.locChip}>{port}</span>
-              ))}
-            </>
-          ) : null}
-        </div>
-      </div>
+      ) : null}
 
       {error ? <div className={styles.error}>{error}</div> : null}
 
@@ -2046,29 +2059,29 @@ export default function OpsVcFreightInvoicePage() {
               existingUpload={existingUpload}
               onFiles={setAttachFiles}
             />
-            <div className={`${styles.field} ${styles.mb14}`} data-field="paymentStatus" id="paymentStatus">
-              <label className={styles.fieldLabel}>Invoice Status</label>
-              <div className={`${styles.statusToggle} ${form.paymentStatus === 'payment_hold' ? styles.statusHold : ''}`}>
-                <div className={styles.stThumb} />
-                <button
-                  type="button"
-                  className={`${styles.stOpt} ${form.paymentStatus === 'payment_payable' ? styles.stActive : ''}`}
-                  onClick={() => updateField('paymentStatus', 'payment_payable')}
-                >
-                  Payable
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.stOpt} ${form.paymentStatus === 'payment_hold' ? styles.stActive : ''}`}
-                  onClick={() => updateField('paymentStatus', 'payment_hold')}
-                >
-                  On Hold
-                </button>
+            <div className={`${styles.grid2} ${styles.mb14}`}>
+              <div className={styles.field} data-field="paymentStatus" id="paymentStatus">
+                <label className={styles.fieldLabel}>Invoice Status</label>
+                <div className={`${styles.statusToggle} ${form.paymentStatus === 'payment_hold' ? styles.statusHold : ''}`}>
+                  <div className={styles.stThumb} />
+                  <button
+                    type="button"
+                    className={`${styles.stOpt} ${form.paymentStatus === 'payment_payable' ? styles.stActive : ''}`}
+                    onClick={() => updateField('paymentStatus', 'payment_payable')}
+                  >
+                    Payable
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.stOpt} ${form.paymentStatus === 'payment_hold' ? styles.stActive : ''}`}
+                    onClick={() => updateField('paymentStatus', 'payment_hold')}
+                  >
+                    On Hold
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className={styles.approverRow} data-field="selApprovers" id="selApprovers">
-              <div className={`${styles.field} ${styles.approverField}`}>
-                <label className={styles.fieldLabel}>Level 1 Approver</label>
+              <div className={`${styles.field} ${styles.approverField}`} data-field="selApprovers" id="selApprovers">
+                <label className={styles.fieldLabel}>1st Approver</label>
                 <CountryMultiSelect
                   options={context.approvers || []}
                   value={form.selApprovers || []}

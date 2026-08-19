@@ -6,12 +6,13 @@ import { usePageHeaderState } from './PageHeaderContext.jsx';
 
 export default function InternalUserPageHeader() {
   const { pathname, search } = useLocation();
-  const { actions } = usePageHeaderState();
+  const { actions, heading } = usePageHeaderState();
   const config = resolveInternalUserHeader(pathname, search);
 
   return (
     <BusinessPageHeader
-      title={config.title}
+      title={heading?.title ?? config.title}
+      icon={heading?.icon ?? null}
       breadcrumbs={config.breadcrumbs}
       currentPage={config.currentPage}
       actions={actions}

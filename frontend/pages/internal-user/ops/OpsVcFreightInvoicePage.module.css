@@ -485,7 +485,6 @@
   border-radius: 999px;
   padding: 3px;
   width: 190px;
-  margin-top: 9px;
 }
 
 .stThumb {
@@ -546,7 +545,7 @@
 }
 
 .adjBlock {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .adjBlock:last-child {
@@ -557,7 +556,7 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--fi-num-grey);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -588,28 +587,28 @@
   color: var(--fi-text-light);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  margin-bottom: 16px;
+  margin-bottom: 6px;
 }
 
 .adjGridAdj,
 .adjGridSimple {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   width: 100%;
   min-width: 0;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .adjGridAdj {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 52px;
 }
 
 .adjGridAdj.adjGridHead,
 .adjGridAdj.adjGridFields {
   grid-template-areas:
-    "cost fixture vessel del"
-    "desc desc amount del";
+    "cost fixture vessel actions"
+    "desc desc amount actions";
 }
 
 .adjGridAdj.adjGridHead > :nth-child(1),
@@ -623,18 +622,18 @@
 .adjGridAdj.adjGridHead > :nth-child(5),
 .adjGridAdj.adjGridFields > :nth-child(5) { grid-area: amount; }
 .adjGridAdj.adjGridHead > :nth-child(6),
-.adjGridAdj.adjGridFields > :nth-child(6) { grid-area: del; }
+.adjGridAdj.adjGridFields > :nth-child(6) { grid-area: actions; }
 
 .adjGridSimple {
   grid-template-columns:
     minmax(0, 1.2fr)
     minmax(0, 1.6fr)
     minmax(0, 0.9fr)
-    28px;
+    52px;
 }
 
 .adjGridHead {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .adjGridHead span {
@@ -643,10 +642,6 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--fi-text-light);
-}
-
-.adjGridAddSpacer {
-  grid-column: 1 / -2;
 }
 
 .adjGridAdj .cardSelect,
@@ -662,6 +657,21 @@
 .adjGridSimple .cardSelect :global(button) {
   padding: 7px 9px;
   height: 34px;
+}
+
+.adjRowActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  align-self: start;
+  height: 34px;
+}
+
+.adjRowActionSlot {
+  width: 22px;
+  height: 22px;
+  flex: none;
 }
 
 .adjRowX,
@@ -692,7 +702,6 @@
 .adjRowAdd {
   background: var(--fi-line-strong);
   color: var(--fi-num-grey);
-  margin-top: 4px;
 }
 
 .adjRowAdd:hover {
@@ -834,21 +843,8 @@
   display: none;
 }
 
-.approverRow {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 14px;
-}
-
 .approverField {
-  max-width: 280px;
-  width: 100%;
   min-width: 0;
-}
-
-.approverField :global(label) {
-  text-align: right;
-  display: block;
 }
 
 .actionRow {
@@ -857,6 +853,18 @@
   gap: 10px;
   margin-top: 4px;
   flex-wrap: wrap;
+}
+
+.sendApprovalBtn {
+  background: rgba(244, 101, 44, 0.2);
+  border-color: #f4652c;
+  color: #f4652c;
+}
+
+.sendApprovalBtn:hover:not(:disabled) {
+  background: rgba(244, 101, 44, 0.35);
+  border-color: #f4652c;
+  color: #f4652c;
 }
 
 .tableWrap {
@@ -1237,9 +1245,5 @@
 
   .card {
     padding: 16px;
-  }
-
-  .approverField {
-    max-width: 100%;
   }
 }

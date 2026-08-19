@@ -145,7 +145,6 @@ export default function OpsVcWorksheetStack({
               <Link className={styles.wchipName} to={sheetHref(sheet)} title={sheet.name}>
                 {sheet.name}
               </Link>
-              <span className={styles.wchipBadge} title="Actual">A</span>
               <Link className={styles.editIco} to={sheetHref(sheet)} title="Edit this worksheet">
                 <EditIcon />
               </Link>

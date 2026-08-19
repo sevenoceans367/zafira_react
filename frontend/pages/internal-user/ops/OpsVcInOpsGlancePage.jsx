@@ -383,8 +383,8 @@ export default function OpsVcInOpsGlancePage() {
                       </td>
                       <td>
                         {portLines(row.ports).length ? (
-                          <div className={styles.route}>
-                            {portLines(row.ports).map((line) => <span key={line}>{line}</span>)}
+                          <div className={styles.route} title={row.ports || ''}>
+                            {portLines(row.ports).map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}
                           </div>
                         ) : (
                           <span className={styles.muted}>—</span>

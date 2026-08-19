@@ -142,6 +142,10 @@
   text-align: center;
 }
 
+.grid thead th.iconTh {
+  text-align: center;
+}
+
 .iconTh svg {
   width: 15px;
   height: 15px;
@@ -397,20 +401,6 @@
 
 .wchipName:hover {
   text-decoration: underline;
-}
-
-.wchipBadge {
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  background: #e6eaf1;
-  color: #274670;
-  font-weight: 700;
-  font-size: 9.5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
 }
 
 .wchipAdd {

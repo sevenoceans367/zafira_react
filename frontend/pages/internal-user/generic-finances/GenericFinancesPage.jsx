@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
   DmyDateInput,
@@ -7,7 +7,7 @@ import {
   StatusBadge,
   useConfirm,
 } from '@bainbridge/shared-ui';
-import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
+import { appPath, getLegacyDryoutHref } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import {
   cancelGenericFinanceInvoice,
@@ -16,11 +16,22 @@ import {
   fetchGenericFinancesList,
   receiveGenericFinancePayment,
 } from '../../../services/genericFinances.js';
-import SopfPagination from '../sopf/SopfPagination.jsx';
 import GenericFinancesHeaderActions from './GenericFinancesHeaderActions.jsx';
+import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import styles from './GenericFinancesPage.module.css';
 
 const PAGE_SIZE = 50;
+
+const GENERIC_FINANCES_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <g transform="translate(3.5,2)">
+      <path d="M11.2378,0.761771171 L4.5848,0.761771171 C2.5048,0.7538 0.7998,2.4118 0.7508,4.4908 L0.7508,15.2038 C0.7048,17.3168 2.3798,19.0678 4.4928,19.1148 C4.5238,19.1148 4.5538,19.1158 4.5848,19.1148 L12.5738,19.1148 C14.6678,19.0298 16.3178,17.2998 16.3029015,15.2038 L16.3029015,6.0378 L11.2378,0.761771171 Z" />
+      <path d="M10.9751,0.75 L10.9751,3.659 C10.9751,5.079 12.1231,6.23 13.5431,6.234 L16.2981,6.234" />
+      <line x1="10.7881" y1="13.3585" x2="5.3881" y2="13.3585" />
+      <line x1="8.7432" y1="9.606" x2="5.3872" y2="9.606" />
+    </g>
+  </svg>
+);
 
 const DEFAULT_BUSINESS_TYPES = [
   { id: '2', name: 'Tankers' },
@@ -37,17 +48,62 @@ function defaultYearOptions(selectedYear) {
 }
 
 const FLASH = {
-  0: { type: 'success', text: 'Generic Finances added/updated successfully.' },
+  0: { type: 'success', text: 'Record successfully added.' },
   1: { type: 'error', text: 'Sorry! there was an error while adding/updating Generic Finances.' },
   2: { type: 'success', text: 'Payment received successfully.' },
-  3: { type: 'success', text: 'Invoice Cancelled successfully.' },
+  3: { type: 'success', text: 'Invoice cancelled successfully.' },
+  4: { type: 'success', text: 'Record successfully updated.' },
 };
 
 function statusVariant(tone) {
   if (tone === 'success') return 'success';
-  if (tone === 'info') return 'info';
+  if (tone === 'info') return 'neutral';
   if (tone === 'danger') return 'warning';
   return 'warning';
+}
+
+function GenericFinancesHeading() {
+  const setHeading = usePageHeaderHeading();
+  useLayoutEffect(() => {
+    setHeading({ title: 'Generic Finances', icon: GENERIC_FINANCES_ICON });
+  }, [setHeading]);
+  useEffect(() => () => setHeading(null), [setHeading]);
+  return null;
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  );
+}
+
+function PdfIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M6 3h9l5 5v13H6z" />
+      <path d="M15 3v5h5" />
+    </svg>
+  );
+}
+
+function CashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.4" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
 }
 
 function LegacyIconLink({ href, title, children, className }) {
@@ -63,6 +119,42 @@ function LegacyIconLink({ href, title, children, className }) {
     >
       {children}
     </a>
+  );
+}
+
+function GridPager({ page, pageSize, total, onPageChange }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  return (
+    <div className={styles.tableFooter}>
+      <span>Showing {start} to {end} of {total} entries</span>
+      <div className={styles.pager}>
+        <button
+          type="button"
+          className={styles.pgArrow}
+          disabled={page <= 1}
+          aria-label="Previous page"
+          onClick={() => onPageChange(page - 1)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+            <path d="M15 6l-6 6 6 6" />
+          </svg>
+        </button>
+        <span className={styles.pgNum}>{page}</span>
+        <button
+          type="button"
+          className={styles.pgArrow}
+          disabled={page >= totalPages}
+          aria-label="Next page"
+          onClick={() => onPageChange(page + 1)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -141,7 +233,7 @@ export default function GenericFinancesPage() {
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState('');
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || 'all');
   const [year, setYear] = useState(searchParams.get('selYear') || String(new Date().getFullYear()));
   const [businessTypes, setBusinessTypes] = useState(DEFAULT_BUSINESS_TYPES);
   const [years, setYears] = useState(() => defaultYearOptions(searchParams.get('selYear')));
@@ -240,6 +332,7 @@ export default function GenericFinancesPage() {
 
   return (
     <>
+      <GenericFinancesHeading />
       <GenericFinancesHeaderActions
         search={searchInput}
         onSearchChange={setSearchInput}
@@ -253,15 +346,14 @@ export default function GenericFinancesPage() {
       />
 
       <div className={`zafira-page ${styles.page}`}>
-      {loading ? <LoadingOverlay active label="Loading GENERIC FINANCES…" /> : null}
+      {loading ? <LoadingOverlay active label="Loading Generic Finances…" /> : null}
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
-          {flash.type === 'success' ? 'Success! ' : 'Error! '}
-          {flash.text}
+          <span>{flash.text}</span>
           <button
             type="button"
-            style={{ marginLeft: 12, border: 'none', background: 'transparent', cursor: 'pointer' }}
+            className={styles.toastClose}
             aria-label="Close"
             onClick={() => updateQuery({ msg: '' })}
           >
@@ -271,83 +363,89 @@ export default function GenericFinancesPage() {
       ) : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Invoice No</th>
-              <th>Invoice Date</th>
-              <th>Vendor</th>
-              <th>Type</th>
-              <th>Amount</th>
-              <th>Net Amount</th>
-              <th>Creator</th>
-              <th>Status</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!rows.length && !loading ? (
+      <div className={styles.tableCard}>
+        <div className={styles.tableWrap}>
+          <table className={styles.grid}>
+            <thead>
               <tr>
-                <td colSpan={10} className={styles.emptyCell}>
-                  SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
-                </td>
+                <th>#</th>
+                <th>Invoice No</th>
+                <th>Date</th>
+                <th>Vendor</th>
+                <th>TXN Type</th>
+                <th>Amount</th>
+                <th>Net Amount</th>
+                <th>PIC</th>
+                <th>Status</th>
+                <th>Details</th>
               </tr>
-            ) : rows.map((row) => (
-              <tr key={row.invoiceId}>
-                <td>{row.index}</td>
-                <td>{row.invoiceNo || '—'}</td>
-                <td>{row.invoiceDate || '—'}</td>
-                <td>{row.vendor || '—'}</td>
-                <td>{row.invoiceType || row.recordType || '—'}</td>
-                <td className={styles.amountCell}>{row.amount || '—'}</td>
-                <td className={styles.amountCell}>{row.netAmount || '—'}</td>
-                <td>{row.creator || '—'}</td>
-                <td>
-                  <StatusBadge variant={statusVariant(row.statusTone)}>
-                    {row.statusLabel || '—'}
-                  </StatusBadge>
-                </td>
-                <td className={styles.detailsCell}>
-                  {row.canEdit ? (
-                    <LegacyIconLink href={row.editHref} title="Edit Details">
-                      <i className="bi bi-pencil-square" aria-hidden />
+            </thead>
+            <tbody>
+              {!rows.length && !loading ? (
+                <tr>
+                  <td colSpan={10} className={styles.emptyCell}>
+                    No matching records
+                  </td>
+                </tr>
+              ) : rows.map((row) => (
+                <tr key={row.invoiceId}>
+                  <td className={styles.numCell}>{row.index}</td>
+                  <td className={styles.invoiceNo}>{row.invoiceNo || '—'}</td>
+                  <td>{row.invoiceDate || '—'}</td>
+                  <td>{row.vendor || '—'}</td>
+                  <td>{row.invoiceType || row.recordType || '—'}</td>
+                  <td className={styles.amountCell}>{row.amount || '—'}</td>
+                  <td className={styles.amountCell}>{row.netAmount || '—'}</td>
+                  <td>{row.creator || '—'}</td>
+                  <td>
+                    <StatusBadge variant={statusVariant(row.statusTone)}>
+                      {row.statusLabel || '—'}
+                    </StatusBadge>
+                  </td>
+                  <td className={styles.detailsCell}>
+                    {row.canEdit ? (
+                      <Link
+                        className={styles.iconBtn}
+                        to={appPath(`/internal-user/vc/generic-finances/${row.invoiceId}/edit`)}
+                        title="Edit Details"
+                        aria-label="Edit Details"
+                      >
+                        <PencilIcon />
+                      </Link>
+                    ) : null}
+                    <LegacyIconLink href={row.pdfHref} title="PDF">
+                      <PdfIcon />
                     </LegacyIconLink>
-                  ) : null}
-                  <LegacyIconLink href={row.pdfHref} title="PDF">
-                    <i className="bi bi-file-earmark-pdf" aria-hidden />
-                  </LegacyIconLink>
-                  {row.canReceivePayment ? (
-                    <button
-                      type="button"
-                      className={styles.iconBtn}
-                      title="Payment Received"
-                      aria-label="Payment Received"
-                      onClick={() => setPaymentInvoice(row)}
-                    >
-                      <i className="bi bi-cash-coin" aria-hidden />
-                    </button>
-                  ) : null}
-                  {row.canCancel ? (
-                    <button
-                      type="button"
-                      className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                      title="Cancel Invoice"
-                      aria-label="Cancel Invoice"
-                      onClick={() => handleCancel(row)}
-                    >
-                      <i className="bi bi-x-circle" aria-hidden />
-                    </button>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    {row.canReceivePayment ? (
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        title="Payment Received"
+                        aria-label="Payment Received"
+                        onClick={() => setPaymentInvoice(row)}
+                      >
+                        <CashIcon />
+                      </button>
+                    ) : null}
+                    {row.canCancel ? (
+                      <button
+                        type="button"
+                        className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                        title="Cancel Invoice"
+                        aria-label="Cancel Invoice"
+                        onClick={() => handleCancel(row)}
+                      >
+                        <CloseIcon />
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <GridPager page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
       </div>
-
-      <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
 
       {paymentInvoice ? (
         <PaymentModal

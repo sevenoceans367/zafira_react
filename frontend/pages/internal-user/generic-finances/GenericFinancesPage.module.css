@@ -2,82 +2,123 @@
   position: relative;
 }
 
-.tableWrap {
-  overflow: auto;
-  border: 1px solid var(--color-border, #d9dee8);
-  border-radius: 8px;
-  background: #fff;
+.flashSuccess,
+.flashError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
-.table {
+.flashSuccess {
+  background: #e8f8ec;
+  color: #0b7a28;
+  border: 1px solid #bfe8c9;
+}
+
+.flashError,
+.error {
+  margin-bottom: 14px;
+  padding: 11px 16px;
+  border-radius: 10px;
+  background: #fdecea;
+  color: #b4291f;
+  border: 1px solid #f7c4bf;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.toastClose {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.toastClose:hover {
+  background: rgba(15, 168, 54, 0.14);
+}
+
+.tableCard {
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.grid {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--font-size-body, 12px);
+  min-width: 960px;
 }
 
-.table th,
-.table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+.grid thead th {
   text-align: left;
-  vertical-align: middle;
-}
-
-.table th {
-  background: #f3f6fa;
+  font-size: 10.5px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  background: #fafbfc;
+  padding: 12px 14px;
+  border-bottom: 1px solid #d8dce3;
   white-space: nowrap;
 }
 
-.table tbody tr:hover {
-  background: #fafbfd;
+.grid tbody td {
+  padding: 13px 14px;
+  border-bottom: 1px solid #eceef2;
+  font-size: 12.5px;
+  color: #1b2733;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.grid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.grid tbody tr:hover td {
+  background: #fafbfc;
+}
+
+.numCell {
+  font-weight: 600;
+  color: #454c54;
+}
+
+.invoiceNo {
+  font-weight: 700;
+  color: #1b2733;
 }
 
 .emptyCell {
   text-align: center;
-  padding: 32px 12px;
-  color: #6b7280;
-}
-
-.flashSuccess {
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  background: #ecfdf3;
-  color: #067647;
-  border: 1px solid #abefc6;
-}
-
-.flashError {
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  background: #fef3f2;
-  color: #b42318;
-  border: 1px solid #fecdca;
-}
-
-.error {
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  background: #fef3f2;
-  color: #b42318;
-}
-
-.link {
-  color: var(--color-primary, #1b77a6);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.link:hover {
-  text-decoration: underline;
+  padding: 30px 14px !important;
+  color: #8a93a0;
+  font-style: italic;
+  white-space: normal !important;
 }
 
 .amountCell {
   text-align: right;
   white-space: nowrap;
+  font-weight: 600;
+  color: #454c54;
 }
 
 .detailsCell {
@@ -92,23 +133,82 @@
   height: 28px;
   margin-right: 4px;
   border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-primary, #1b77a6);
+  border-radius: 7px;
+  background: #f8f9fa;
+  color: #57626f;
   cursor: pointer;
   text-decoration: none;
 }
 
+.iconBtn svg {
+  width: 13px;
+  height: 13px;
+}
+
 .iconBtn:hover {
-  background: #eef6fb;
+  background: #e6eaf1;
+  color: #274670;
 }
 
 .iconBtnDanger {
-  color: #b42318;
+  color: #e4483b;
 }
 
 .iconBtnDanger:hover {
-  background: #fef3f2;
+  background: #fdecea;
+  color: #b4291f;
+}
+
+.tableFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  font-size: 12.5px;
+  color: #57626f;
+  border-top: 1px solid #eceef2;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pgArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #57626f;
+  cursor: pointer;
+}
+
+.pgArrow svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pgArrow:hover:not(:disabled) {
+  background: #f8f9fa;
+  color: #1b2733;
+}
+
+.pgArrow:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pgNum {
+  background: #dfe2e7;
+  color: #1b2733;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-weight: 700;
 }
 
 .modalBackdrop {

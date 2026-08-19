@@ -55,6 +55,12 @@ function mapRedirectToReact(redirectTo, alertId) {
     if (params.has('invtype') && !params.has('invType')) {
       params.set('invType', params.get('invtype'));
     }
+    if (file === 'updateginvoice.php') {
+      const invoiceId = params.get('id') || params.get('invoiceId');
+      if (invoiceId) {
+        return `/internal-user/vc/generic-finances/${encodeURIComponent(invoiceId)}/edit`;
+      }
+    }
     const qs = params.toString();
     const reactPath = PHP_TO_REACT[file];
     if (reactPath) return qs ? `${reactPath}?${qs}` : reactPath;

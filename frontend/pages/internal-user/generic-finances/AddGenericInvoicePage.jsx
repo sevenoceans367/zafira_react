@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Button,
   CardSelect,
@@ -14,8 +14,10 @@ import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx
 import {
   createGenericInvoice,
   fetchBankingDetail,
+  fetchGenericInvoice,
   fetchGenericInvoiceLookups,
   fetchVendorBanking,
+  updateGenericInvoice,
 } from '../../../services/genericFinances.js';
 import styles from './AddGenericInvoicePage.module.css';
 
@@ -91,9 +93,11 @@ function BankingPanel({ detail }) {
 
 export default function AddGenericInvoicePage() {
   const navigate = useNavigate();
+  const { invoiceId } = useParams();
   const [searchParams] = useSearchParams();
   const alert = useAlert();
   const confirm = useConfirm();
+  const isEdit = Boolean(invoiceId);
 
   const listPath = appPath('/internal-user/vc/generic-finances');
 
@@ -108,7 +112,7 @@ export default function AddGenericInvoicePage() {
   const [addRows, setAddRows] = useState([EMPTY_LINE()]);
   const [subRows, setSubRows] = useState([EMPTY_LINE()]);
   const [files, setFiles] = useState([]);
-  const [bankingOptions, setBankingOptions] = useState([]);
+  const [vendorBanks, setVendorBanks] = useState([]);
   const [bankingDetail, setBankingDetail] = useState(null);
   const [vendorBankMode, setVendorBankMode] = useState(false);
 
@@ -118,20 +122,59 @@ export default function AddGenericInvoicePage() {
     return (parseAmount(form.txtMainAmount) + add - sub).toFixed(2);
   }, [form.txtMainAmount, addRows, subRows]);
 
+  const companyBanks = useMemo(
+    () => (lookups?.bankingDetails || []).map((row) => ({
+      id: String(row.id ?? row.BD_ID ?? ''),
+      name: row.name || row.NAME || String(row.id ?? ''),
+    })).filter((row) => row.id),
+    [lookups],
+  );
+
+  const bankingOptions = useMemo(
+    () => (vendorBankMode && vendorBanks.length ? vendorBanks : companyBanks),
+    [vendorBankMode, vendorBanks, companyBanks],
+  );
+
   const loadLookups = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const data = await fetchGenericInvoiceLookups();
-      setLookups(data.lookups || {});
-      setBankingOptions(data.lookups?.bankingDetails || []);
+      const nextLookups = data.lookups || data || {};
+      setLookups(nextLookups);
       setVendorBankMode(false);
+      setVendorBanks([]);
+      if (!invoiceId) return;
+
+      const invoice = await fetchGenericInvoice(invoiceId);
+      const nextForm = { ...EMPTY_FORM, ...(invoice.form || {}) };
+      setForm(nextForm);
+      const mappedAdd = (invoice.addRows || []).map((row) => ({
+        ...EMPTY_LINE(),
+        description: row.description || '',
+        amount: row.amount || '',
+      }));
+      const mappedSub = (invoice.subRows || []).map((row) => ({
+        ...EMPTY_LINE(),
+        description: row.description || '',
+        amount: row.amount || '',
+      }));
+      setAddRows(mappedAdd.length ? [...mappedAdd, EMPTY_LINE()] : [EMPTY_LINE()]);
+      setSubRows(mappedSub.length ? [...mappedSub, EMPTY_LINE()] : [EMPTY_LINE()]);
+      if (nextForm.selNOB) {
+        try {
+          const detail = await fetchBankingDetail(nextForm.selNOB);
+          setBankingDetail(detail);
+        } catch {
+          setBankingDetail(null);
+        }
+      }
     } catch (err) {
       setError(err.message || 'Failed to load invoice form.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [invoiceId]);
 
   useEffect(() => {
     loadLookups();
@@ -146,32 +189,40 @@ export default function AddGenericInvoicePage() {
     return vendors.find((row) => String(row.id) === String(form.selVendor));
   }, [lookups, form.selVendor]);
 
-  const refreshBankingForVendor = useCallback(async (vendor, type, companyBanks) => {
-    if (type !== 'payment' || !vendor?.vendorId) {
+  const refreshBankingForVendor = useCallback(async (vendor, type) => {
+    if (String(type || '').toLowerCase() !== 'payment' || !vendor?.vendorId) {
       setVendorBankMode(false);
-      setBankingOptions(companyBanks || []);
+      setVendorBanks([]);
       return;
     }
     try {
       const data = await fetchVendorBanking(vendor.vendorId);
-      const rows = data.records || [];
-      setVendorBankMode(true);
-      setBankingOptions(rows.map((row) => ({
-        id: row.id,
+      const rows = data.records || data || [];
+      const mapped = rows.map((row) => ({
+        id: String(row.id),
         name: row.name || row.bank || `Bank ${row.id}`,
         detail: row,
-      })));
-      setForm((current) => ({ ...current, selNOB: '' }));
-      setBankingDetail(null);
+      }));
+      setVendorBankMode(true);
+      setVendorBanks(mapped);
+      setForm((current) => {
+        const match = mapped.find((row) => String(row.id) === String(current.selNOB));
+        if (match) {
+          if (match.detail) setBankingDetail(match.detail);
+          return current;
+        }
+        setBankingDetail(null);
+        return { ...current, selNOB: '' };
+      });
     } catch {
       setVendorBankMode(false);
-      setBankingOptions(companyBanks || []);
+      setVendorBanks([]);
     }
   }, []);
 
   useEffect(() => {
     if (!lookups) return;
-    refreshBankingForVendor(selectedVendor, form.type, lookups.bankingDetails || []);
+    refreshBankingForVendor(selectedVendor, form.type);
   }, [lookups, selectedVendor, form.type, refreshBankingForVendor]);
 
   const handleBankingChange = async (value) => {
@@ -297,13 +348,18 @@ export default function AddGenericInvoicePage() {
       (form.selApprovers || []).forEach((id) => payload.append('selApprovers', id));
       files.forEach((file) => payload.append('attach_file', file));
 
-      await createGenericInvoice(payload);
-      navigate(`${listPath}?msg=0&selBType=${encodeURIComponent(form.selBType || '2')}`, { replace: true });
+      if (isEdit) {
+        await updateGenericInvoice(invoiceId, payload);
+        navigate(`${listPath}?msg=4&selBType=${encodeURIComponent(form.selBType || '2')}`, { replace: true });
+      } else {
+        await createGenericInvoice(payload);
+        navigate(`${listPath}?msg=0&selBType=${encodeURIComponent(form.selBType || '2')}`, { replace: true });
+      }
     } catch (err) {
-      setError(err.message || 'Failed to create invoice.');
+      setError(err.message || (isEdit ? 'Failed to update invoice.' : 'Failed to create invoice.'));
       await alert({
         title: 'Error',
-        message: err.message || 'Failed to create invoice.',
+        message: err.message || (isEdit ? 'Failed to update invoice.' : 'Failed to create invoice.'),
         confirmLabel: 'OK',
       });
     } finally {
@@ -466,6 +522,7 @@ export default function AddGenericInvoicePage() {
               <label htmlFor="gfBank">Banking Details *</label>
               <div className={styles.cardSelect}>
                 <CardSelect
+                  id="gfBank"
                   value={form.selNOB}
                   options={bankingOptions}
                   placeholder="----Select From List----"
@@ -647,7 +704,7 @@ export default function AddGenericInvoicePage() {
         <Button
           type="button"
           variant="primary"
-          label="Submit to edit"
+          label={isEdit ? 'Save' : 'Submit to edit'}
           disabled={saving}
           onClick={() => handleSubmit(0)}
         />

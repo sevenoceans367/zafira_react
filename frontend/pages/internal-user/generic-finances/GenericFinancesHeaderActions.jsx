@@ -1,8 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, CardSelect, HeaderFilterControls, PageHeaderSearch } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import PageHeaderActions from '../PageHeaderActions.jsx';
+
+const ALL_BUSINESS_TYPES = { id: 'all', name: 'All Business Types' };
+const ALL_YEARS = { id: 'all', name: 'All Years' };
 
 export default function GenericFinancesHeaderActions({
   search,
@@ -17,6 +20,14 @@ export default function GenericFinancesHeaderActions({
 }) {
   const navigate = useNavigate();
   const searchRef = useRef(null);
+  const typeOptions = useMemo(
+    () => [ALL_BUSINESS_TYPES, ...businessTypes.filter((item) => item.id !== 'all')],
+    [businessTypes],
+  );
+  const yearOptions = useMemo(
+    () => [ALL_YEARS, ...years.filter((item) => item.id !== 'all')],
+    [years],
+  );
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -38,40 +49,40 @@ export default function GenericFinancesHeaderActions({
       deps={[
         search,
         onSearchChange,
-        businessTypes,
+        typeOptions,
         businessType,
         onBusinessTypeChange,
-        years,
+        yearOptions,
         year,
         onYearChange,
         canCreate,
       ]}
     >
       <HeaderFilterControls>
+        <PageHeaderSearch
+          ref={searchRef}
+          value={search}
+          onChange={onSearchChange}
+          placeholder="Search invoice or vendor…"
+        />
         <CardSelect
-          options={businessTypes}
+          options={typeOptions}
           value={businessType}
           onChange={onBusinessTypeChange}
           placeholder="Business type"
           ariaLabel="Business type"
         />
         <CardSelect
-          options={years}
+          options={yearOptions}
           value={year}
           onChange={onYearChange}
           placeholder="Year"
           ariaLabel="Year"
         />
-        <PageHeaderSearch
-          ref={searchRef}
-          value={search}
-          onChange={onSearchChange}
-          placeholder="Search invoice, vendor, creator…"
-        />
         {canCreate ? (
           <Button
             type="button"
-            variant="primary"
+            variant="add"
             label="Add New"
             onClick={() => {
               navigate(appPath('/internal-user/vc/generic-finances/add'));

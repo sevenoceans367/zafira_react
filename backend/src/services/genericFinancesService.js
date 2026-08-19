@@ -3,11 +3,13 @@ import {
   dbCancelGenericInvoice,
   dbCreateGenericInvoice,
   dbGetBankingDetail,
+  dbGetGenericInvoice,
   dbGetGenericInvoiceLookups,
   dbGetVendorBanking,
   dbListGenericFinanceYears,
   dbListGenericFinances,
   dbReceiveGenericPayment,
+  dbUpdateGenericInvoice,
   listGenericFinanceBusinessTypes,
   mapGenericFinanceStatus,
 } from './genericFinancesDb.js';
@@ -31,7 +33,7 @@ const MOCK_ROWS = [
     statusCode: 5,
     statusLabel: 'Pending for Payment',
     statusTone: 'danger',
-    editHref: 'updateginvoice.php?id=501',
+    editHref: `/internal-user/vc/generic-finances/501/edit`,
     pdfHref: 'allPdf.php?id=83&im_id=501',
     canEdit: true,
     canCancel: true,
@@ -55,7 +57,7 @@ const MOCK_ROWS = [
     statusCode: 6,
     statusLabel: 'Paid',
     statusTone: 'success',
-    editHref: 'updateginvoice.php?id=502',
+    editHref: `/internal-user/vc/generic-finances/502/edit`,
     pdfHref: 'allPdf.php?id=83&im_id=502',
     canEdit: true,
     canCancel: true,
@@ -63,14 +65,18 @@ const MOCK_ROWS = [
   },
 ];
 
+function isAllFilter(value) {
+  return !value || String(value) === 'all';
+}
+
 function filterMockRows(params = {}) {
   const search = String(params.search || '').toLowerCase();
-  const businessType = String(params.selBType || '2');
+  const businessType = String(params.selBType || 'all');
   const year = String(params.selYear || new Date().getFullYear());
   let rows = MOCK_ROWS.filter((row) => {
-    if (row.businessTypeId && row.businessTypeId !== businessType) return false;
+    if (!isAllFilter(businessType) && row.businessTypeId && row.businessTypeId !== businessType) return false;
     const rowYear = String(row.invoiceDate || '').slice(-4);
-    if (rowYear && rowYear !== year) return false;
+    if (!isAllFilter(year) && rowYear && rowYear !== year) return false;
     return true;
   });
   if (search) {
@@ -217,6 +223,57 @@ export async function getVendorBanking(vendorId) {
   return [];
 }
 
+export async function getGenericInvoice(invoiceId) {
+  if (isDbConfigured()) {
+    return dbGetGenericInvoice(invoiceId);
+  }
+  const row = MOCK_ROWS.find((item) => String(item.invoiceId) === String(invoiceId));
+  if (!row) return null;
+  return {
+    invoiceId: String(row.invoiceId),
+    form: {
+      type: String(row.recordType || 'invoice').toLowerCase() === 'payment' ? 'payment' : 'invoice',
+      selFromOwner: 'OWN1',
+      selContractType: 'Spot',
+      selVendor: 'V001',
+      txtContractDetails: 'Mock contract',
+      selBType: row.businessTypeId || '2',
+      selIType: row.invoiceType || '',
+      txtAttenName: '',
+      txtInvoiceNo: row.invoiceNo || '',
+      txtInvoiceDate: row.invoiceDate || '',
+      txtDueDate: row.invoiceDate || '',
+      selExchangeCurrency: 'USD',
+      txtPaymentTerms: 'Immediate',
+      txtDesc: 'Mock invoice',
+      selNOB: '1',
+      txtAmountDesc: 'Fee',
+      txtMainAmount: row.amount || '',
+      payment_status: '',
+      selApprovers: [],
+    },
+    addRows: [],
+    subRows: [],
+    statusCode: row.statusCode,
+  };
+}
+
+export async function updateGenericInvoice(invoiceId, payload, options = {}) {
+  if (isDbConfigured()) {
+    return dbUpdateGenericInvoice(invoiceId, payload, options);
+  }
+  const row = MOCK_ROWS.find((item) => String(item.invoiceId) === String(invoiceId));
+  if (!row) throw new Error('Invoice not found.');
+  row.invoiceNo = payload.txtInvoiceNo || row.invoiceNo;
+  row.invoiceDate = payload.txtInvoiceDate || row.invoiceDate;
+  row.invoiceType = payload.selIType || row.invoiceType;
+  row.vendor = payload.selVendor || row.vendor;
+  row.amount = Number(payload.txtMainAmount || row.amount || 0).toFixed(2);
+  row.netAmount = Number(payload.txtMainAmount || row.netAmount || 0).toFixed(2);
+  row.statusCode = Number(payload.txtStatus) || row.statusCode;
+  return { msg: 4, invoiceId: row.invoiceId };
+}
+
 export async function createGenericInvoice(payload, options = {}) {
   if (isDbConfigured()) {
     return dbCreateGenericInvoice(payload, options);
@@ -240,7 +297,7 @@ export async function createGenericInvoice(payload, options = {}) {
     statusCode: Number(payload.txtStatus) || 0,
     statusLabel: 'Submit to Edit',
     statusTone: 'info',
-    editHref: `updateginvoice.php?id=${invoiceId}`,
+    editHref: `/internal-user/vc/generic-finances/${invoiceId}/edit`,
     pdfHref: `allPdf.php?id=83&im_id=${invoiceId}`,
     canEdit: true,
     canCancel: true,

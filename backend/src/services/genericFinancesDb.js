@@ -60,7 +60,7 @@ function mapRow(row, index, offset = 0) {
     paymentDate: formatDateDMY(row.P_DATE),
     paymentRemarks: row.P_REMARKS ?? '',
     ...status,
-    editHref: cancelled ? '' : `updateginvoice.php?id=${invoiceId}`,
+    editHref: cancelled ? '' : `/internal-user/vc/generic-finances/${invoiceId}/edit`,
     pdfHref: `allPdf.php?id=83&im_id=${invoiceId}`,
     canEdit: !cancelled,
     canCancel: !cancelled,
@@ -93,23 +93,31 @@ export async function dbListGenericFinances({
   search = '',
   page = 1,
   pageSize = 50,
-  selBType = '2',
+  selBType = 'all',
   selYear = String(new Date().getFullYear()),
 } = {}) {
   const pool = getPool();
   const safePage = Math.max(1, Number(page) || 1);
   const safeSize = Math.max(1, Math.min(200, Number(pageSize) || 50));
   const offset = (safePage - 1) * safeSize;
-  const businessType = String(selBType || '2');
-  const year = String(selYear || new Date().getFullYear());
+  const businessType = String(selBType || 'all');
+  const year = String(selYear || 'all');
+  const filterAllTypes = !businessType || businessType === 'all';
+  const filterAllYears = !year || year === 'all';
 
   const conditions = [
     'm.MODULEID = ?',
     'm.MCOMPANYID = ?',
-    'm.BUSINESSTYPEID = ?',
-    'YEAR(m.INVOICE_DATE) = ?',
   ];
-  const params = [MODULE_ID, COMPANY_ID, businessType, year];
+  const params = [MODULE_ID, COMPANY_ID];
+  if (!filterAllTypes) {
+    conditions.push('m.BUSINESSTYPEID = ?');
+    params.push(businessType);
+  }
+  if (!filterAllYears) {
+    conditions.push('YEAR(m.INVOICE_DATE) = ?');
+    params.push(year);
+  }
 
   if (search) {
     const like = `%${String(search).trim()}%`;
@@ -245,6 +253,70 @@ function parseLineRows(raw) {
   return [];
 }
 
+export async function dbGetGenericInvoice(invoiceId) {
+  const pool = getPool();
+  const [[row]] = await pool.query(
+    `SELECT *
+     FROM generic_invoice_master
+     WHERE INVOICEID = ? AND MODULEID = ? AND MCOMPANYID = ?
+     LIMIT 1`,
+    [invoiceId, MODULE_ID, COMPANY_ID],
+  );
+  if (!row) return null;
+
+  const [slaves] = await pool.query(
+    `SELECT DESCRIPTION, AMOUNT, IDENTIFY
+     FROM generic_invoice_slave
+     WHERE INVOICEID = ?`,
+    [invoiceId],
+  );
+
+  const addRows = [];
+  const subRows = [];
+  (slaves || []).forEach((item) => {
+    const kind = String(item.IDENTIFY || '').toLowerCase();
+    const mapped = {
+      description: item.DESCRIPTION ?? '',
+      amount: formatAmount(item.AMOUNT),
+    };
+    if (kind === 'sub' || kind === 'less') subRows.push(mapped);
+    else addRows.push(mapped);
+  });
+
+  const approvers = String(row.APPROVERS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return {
+    invoiceId: String(row.INVOICEID),
+    form: {
+      type: String(row.TYPE || 'invoice').toLowerCase() === 'payment' ? 'payment' : 'invoice',
+      selFromOwner: row.SHIP_OWNER != null ? String(row.SHIP_OWNER) : '',
+      selContractType: row.CONTRACT_TYPE != null ? String(row.CONTRACT_TYPE) : '',
+      selVendor: row.VENDOR != null ? String(row.VENDOR) : '',
+      txtContractDetails: row.CONTRACT_DETAILS ?? '',
+      selBType: row.BUSINESSTYPEID != null ? String(row.BUSINESSTYPEID) : '2',
+      selIType: row.I_TYPE ?? '',
+      txtAttenName: row.ATTEN ?? '',
+      txtInvoiceNo: row.INVOICE_NO ?? '',
+      txtInvoiceDate: formatDateDMY(row.INVOICE_DATE),
+      txtDueDate: formatDateDMY(row.DUE_DATE),
+      selExchangeCurrency: row.EXCHANGE_CURRENCY || 'USD',
+      txtPaymentTerms: row.PAYMENT_TERMS ?? '',
+      txtDesc: row.REMARKS ?? '',
+      selNOB: row.NOB != null ? String(row.NOB) : '',
+      txtAmountDesc: row.AMOUNT_DESC ?? '',
+      txtMainAmount: formatAmount(row.AMOUNT),
+      payment_status: row.PAYMENT_STATUS ?? '',
+      selApprovers: approvers,
+    },
+    addRows,
+    subRows,
+    statusCode: Number(row.STATUS) || 0,
+  };
+}
+
 const DEFAULT_INVOICE_TYPES = [
   { id: 'Agency Fee', name: 'Agency Fee' },
   { id: 'Survey Fee', name: 'Survey Fee' },
@@ -306,7 +378,10 @@ export async function dbGetGenericInvoiceLookups(userId = appContext.userId) {
       `SELECT BD_ID AS id, CONCAT(NAME, ' - ', BANK) AS name
        FROM banking_details
        WHERE STATUS = 1
+         AND (MCOMPANYID IS NULL OR MCOMPANYID = 0 OR MCOMPANYID = ?)
+         AND (MODULEID IS NULL OR MODULEID = 0 OR MODULEID = ?)
        ORDER BY NAME`,
+      [COMPANY_ID, MODULE_ID],
     ).catch(() => [[]]),
     pool.query(
       `SELECT am.LOGINID AS id, l.CONTACT_PERSON AS name
@@ -362,7 +437,10 @@ export async function dbGetGenericInvoiceLookups(userId = appContext.userId) {
     invoiceTypes: resolvedInvoiceTypes,
     businessTypes: listGenericFinanceBusinessTypes('2'),
     currencies: CURRENCY_OPTIONS,
-    bankingDetails: bankingDetails.map((row) => ({ id: String(row.id), name: row.name })),
+    bankingDetails: (bankingDetails || []).map((row) => ({
+      id: String(row.id ?? row.BD_ID ?? ''),
+      name: row.name || row.NAME || String(row.id ?? row.BD_ID ?? ''),
+    })).filter((row) => row.id),
     approvers: approver1Rows.map((row) => ({ id: String(row.id), name: row.name })),
     approversLevel2: approver2Rows.map((row) => ({ id: String(row.id), name: row.name })),
     canCreate: Number(authRow?.creator) === 1 || !authRow,
@@ -429,9 +507,7 @@ export async function dbGetVendorBanking(vendorId) {
   }));
 }
 
-export async function dbCreateGenericInvoice(payload = {}, { userId = appContext.userId } = {}) {
-  const pool = getPool();
-
+async function collectInvoiceFields(payload = {}, userId) {
   const type = String(payload.type || 'invoice').toLowerCase() === 'payment' ? 'payment' : 'invoice';
   const shipOwner = String(payload.selFromOwner || payload.shipOwner || '').trim();
   const vendor = String(payload.selVendor || payload.vendor || '').trim();
@@ -495,8 +571,42 @@ export async function dbCreateGenericInvoice(payload = {}, { userId = appContext
     if (!ok) throw new Error(message);
   }
 
-  const upload = String(payload.upload || payload.UPLOAD || '').trim();
-  const uploadName = String(payload.uploadName || payload.UPLOAD_NAME || '').trim();
+  return {
+    type,
+    shipOwner,
+    vendor,
+    contractDetails,
+    invoiceType,
+    invoiceNo,
+    invoiceDate,
+    dueDate,
+    currency,
+    paymentTerms,
+    description,
+    amountDesc,
+    bankingId,
+    businessTypeId,
+    contractType,
+    atten,
+    paymentStatus,
+    mainAmount,
+    addRows,
+    subRows,
+    netAmount,
+    status,
+    approvers,
+    upload: String(payload.upload || payload.UPLOAD || '').trim(),
+    uploadName: String(payload.uploadName || payload.UPLOAD_NAME || '').trim(),
+  };
+}
+
+export async function dbCreateGenericInvoice(payload = {}, { userId = appContext.userId } = {}) {
+  const pool = getPool();
+  const {
+    type, shipOwner, vendor, contractDetails, invoiceType, invoiceNo, invoiceDate, dueDate,
+    currency, paymentTerms, description, amountDesc, bankingId, businessTypeId, contractType,
+    atten, paymentStatus, mainAmount, addRows, subRows, netAmount, status, approvers, upload, uploadName,
+  } = await collectInvoiceFields(payload, userId);
 
   const connection = await pool.getConnection();
   try {
@@ -559,6 +669,101 @@ export async function dbCreateGenericInvoice(payload = {}, { userId = appContext
 
     await connection.commit();
     return { msg: 0, invoiceId };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+export async function dbUpdateGenericInvoice(invoiceId, payload = {}, { userId = appContext.userId } = {}) {
+  const existing = await dbGetGenericInvoice(invoiceId);
+  if (!existing) throw new Error('Invoice not found.');
+  if (Number(existing.statusCode) === 99) {
+    throw new Error('Cancelled invoices cannot be edited.');
+  }
+
+  const fields = await collectInvoiceFields(payload, userId);
+  const pool = getPool();
+  const [[current]] = await pool.query(
+    `SELECT UPLOAD, UPLOAD_NAME, ATTACHMENTS, ATTACHMENTS_NAME
+     FROM generic_invoice_master
+     WHERE INVOICEID = ? AND MODULEID = ? AND MCOMPANYID = ?
+     LIMIT 1`,
+    [invoiceId, MODULE_ID, COMPANY_ID],
+  );
+  const upload = fields.upload || current?.UPLOAD || '';
+  const uploadName = fields.uploadName || current?.UPLOAD_NAME || '';
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = await connection.query(
+      `UPDATE generic_invoice_master SET
+         INVOICE_DATE = ?, I_TYPE = ?, INVOICE_NO = ?, NOB = ?, STATUS = ?,
+         VENDOR = ?, AMOUNT = ?, NET_AMOUNT = ?, REMARKS = ?, PAYMENT_TERMS = ?,
+         ATTEN = ?, DUE_DATE = ?, EXCHANGE_CURRENCY = ?, SHIP_OWNER = ?,
+         CONTRACT_DETAILS = ?, CONTRACT_TYPE = ?, BUSINESSTYPEID = ?, AMOUNT_DESC = ?,
+         TYPE = ?, APPROVERS = ?, PAYMENT_STATUS = ?,
+         UPLOAD = ?, UPLOAD_NAME = ?, ATTACHMENTS = ?, ATTACHMENTS_NAME = ?
+       WHERE INVOICEID = ? AND MODULEID = ? AND MCOMPANYID = ?`,
+      [
+        fields.invoiceDate,
+        fields.invoiceType,
+        fields.invoiceNo,
+        fields.bankingId,
+        fields.status,
+        fields.vendor,
+        fields.mainAmount,
+        fields.netAmount,
+        fields.description,
+        fields.paymentTerms,
+        fields.atten,
+        fields.dueDate,
+        fields.currency,
+        fields.shipOwner,
+        fields.contractDetails,
+        fields.contractType,
+        fields.businessTypeId,
+        fields.amountDesc,
+        fields.type,
+        fields.approvers.join(','),
+        fields.paymentStatus || null,
+        upload,
+        uploadName,
+        upload,
+        uploadName,
+        invoiceId,
+        MODULE_ID,
+        COMPANY_ID,
+      ],
+    );
+    if (!result.affectedRows) {
+      throw new Error('Invoice not found.');
+    }
+
+    await connection.query(
+      `DELETE FROM generic_invoice_slave WHERE INVOICEID = ?`,
+      [invoiceId],
+    );
+    for (const row of fields.addRows) {
+      await connection.query(
+        `INSERT INTO generic_invoice_slave (INVOICEID, DESCRIPTION, AMOUNT, IDENTIFY)
+         VALUES (?, ?, ?, 'add')`,
+        [invoiceId, String(row.description || '').trim(), parseAmount(row.amount)],
+      );
+    }
+    for (const row of fields.subRows) {
+      await connection.query(
+        `INSERT INTO generic_invoice_slave (INVOICEID, DESCRIPTION, AMOUNT, IDENTIFY)
+         VALUES (?, ?, ?, 'sub')`,
+        [invoiceId, String(row.description || '').trim(), parseAmount(row.amount)],
+      );
+    }
+
+    await connection.commit();
+    return { msg: 4, invoiceId: Number(invoiceId) || invoiceId };
   } catch (error) {
     await connection.rollback();
     throw error;

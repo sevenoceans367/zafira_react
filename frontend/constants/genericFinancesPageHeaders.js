@@ -28,8 +28,19 @@ export function resolveGenericFinancesHeader(pathname = '') {
     };
   }
 
+  if (/\/generic-finances\/[^/]+\/edit/.test(path)) {
+    return {
+      title: 'EDIT GENERIC INVOICE',
+      currentPage: 'EDIT INVOICE',
+      breadcrumbs: [
+        SOC,
+        { label: 'GENERIC FINANCES', href: genericFinancesAppPath() },
+      ],
+    };
+  }
+
   return {
-    title: 'GENERIC FINANCES',
+    title: 'Generic Finances',
     currentPage: 'GENERIC FINANCES',
     breadcrumbs: [SOC],
   };

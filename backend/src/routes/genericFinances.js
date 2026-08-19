@@ -5,11 +5,13 @@ import {
   createGenericInvoice,
   getBankingDetail,
   getGenericFinanceBusinessTypes,
+  getGenericInvoice,
   getGenericInvoiceLookups,
   getVendorBanking,
   listGenericFinanceYears,
   listGenericFinances,
   receiveGenericPayment,
+  updateGenericInvoice,
 } from '../services/genericFinancesService.js';
 import { mergeVesselAttachments, vesselUpload } from '../utils/vesselAttachments.js';
 
@@ -95,13 +97,50 @@ router.get('/', async (req, res) => {
       search: req.query.search || '',
       page: Number(req.query.page) || 1,
       pageSize: Number(req.query.pageSize) || 50,
-      selBType: req.query.selBType || '2',
+      selBType: req.query.selBType || 'all',
       selYear: req.query.selYear || String(new Date().getFullYear()),
     });
     res.json({ ...data, canCreate: true });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message || 'Failed to load Generic Finances list.' });
+  }
+});
+
+router.get('/:invoiceId', async (req, res) => {
+  try {
+    getRequestUser(req);
+    const data = await getGenericInvoice(req.params.invoiceId);
+    if (!data) {
+      res.status(404).json({ message: 'Invoice not found.' });
+      return;
+    }
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to load invoice.' });
+  }
+});
+
+router.put('/:invoiceId', vesselUpload, async (req, res) => {
+  try {
+    const user = getRequestUser(req);
+    const { attachment, attachmentName } = mergeVesselAttachments([], [], req.files || []);
+    const payload = {
+      ...req.body,
+      upload: attachment,
+      uploadName: attachmentName,
+      selApprovers: req.body.selApprovers
+        ? (Array.isArray(req.body.selApprovers)
+          ? req.body.selApprovers
+          : String(req.body.selApprovers).split(',').filter(Boolean))
+        : [],
+    };
+    const data = await updateGenericInvoice(req.params.invoiceId, payload, { userId: user?.id });
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message || 'Failed to update invoice.' });
   }
 });
 

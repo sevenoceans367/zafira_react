@@ -56,6 +56,19 @@ export async function createGenericInvoice(formData) {
   return parseJson(response, 'Failed to create invoice.');
 }
 
+export async function fetchGenericInvoice(invoiceId) {
+  const response = await fetch(`${BASE}/${encodeURIComponent(invoiceId)}`);
+  return parseJson(response, 'Failed to load invoice.');
+}
+
+export async function updateGenericInvoice(invoiceId, formData) {
+  const response = await fetch(`${BASE}/${encodeURIComponent(invoiceId)}`, {
+    method: 'PUT',
+    body: formData,
+  });
+  return parseJson(response, 'Failed to update invoice.');
+}
+
 export async function cancelGenericFinanceInvoice(invoiceId) {
   const response = await fetch(`${BASE}/${encodeURIComponent(invoiceId)}/cancel`, {
     method: 'POST',

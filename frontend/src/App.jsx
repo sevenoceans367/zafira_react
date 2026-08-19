@@ -202,6 +202,10 @@ export default function App() {
               path="/internal-user/vc/generic-finances/add"
               element={<AddGenericInvoicePage />}
             />
+            <Route
+              path="/internal-user/vc/generic-finances/:invoiceId/edit"
+              element={<AddGenericInvoicePage />}
+            />
             <Route path="/internal-user/vc/decision-chart-tc" element={<TcDecisionChartsListPage />} />
             <Route path="/internal-user/vc/tc" element={<TcOutEstimatesListPage />} />
             <Route path="/internal-user/vc/tc/add" element={<TcFixtureFormPage mode="add" />} />

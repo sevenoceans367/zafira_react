@@ -96,13 +96,27 @@ function mapVariousRow(row, index) {
   };
 }
 
-function buildAtSeaDbRow(row, commercialParameterId) {
+function identifyForBunker(bunkerId, bunkers = []) {
+  const bunker = (bunkers || []).find((item) => String(item.id) === String(bunkerId));
+  const name = String(bunker?.name || '').toUpperCase();
+  if (
+    name.includes('LSMGO')
+    || name.includes('MDO')
+    || (name.includes('MGO') && !name.includes('VLSFO'))
+    || name === 'DO'
+  ) {
+    return 'DO';
+  }
+  return 'FO';
+}
+
+function buildAtSeaDbRow(row, commercialParameterId, identify = 'FO') {
   const isSeca = row.zone === 'Seca';
   return {
     COMMERCIAL_PARAMETERID: commercialParameterId,
     FO_TYPE: 'AT SEA',
     BUNKERID: row.bunkerId,
-    IDENTIFY: 'FO',
+    IDENTIFY: identify,
     ZONE: row.zone || 'Non Seca',
     FO_BALAST_ATSEA_SECA_CONSP_FS: isSeca ? str(row.ballastFull) : '',
     FO_LADEN_ATSEA_SECA_CONSP_FS: isSeca ? str(row.ladenFull) : '',
@@ -119,13 +133,13 @@ function buildAtSeaDbRow(row, commercialParameterId) {
   };
 }
 
-function buildInPortDbRow(row, commercialParameterId) {
+function buildInPortDbRow(row, commercialParameterId, identify = 'FO') {
   const isSeca = row.zone === 'Seca';
   return {
     COMMERCIAL_PARAMETERID: commercialParameterId,
     FO_TYPE: 'IN PORT',
     BUNKERID: row.bunkerId,
-    IDENTIFY: 'FO',
+    IDENTIFY: identify,
     ZONE: row.zone || 'Non Seca',
     FO_INPORT_SECA_CONSP_WORKING_LP: isSeca ? str(row.workingLp) : '',
     FO_INPORT_NONSECA_CONSP_WORKING_LP: isSeca ? '' : str(row.workingLp),
@@ -138,13 +152,13 @@ function buildInPortDbRow(row, commercialParameterId) {
   };
 }
 
-function buildVariousDbRow(row, commercialParameterId) {
+function buildVariousDbRow(row, commercialParameterId, identify = 'FO') {
   const isSeca = row.zone === 'Seca';
   return {
     COMMERCIAL_PARAMETERID: commercialParameterId,
     FO_TYPE: 'VARIOUS',
     BUNKERID: row.bunkerId,
-    IDENTIFY: 'FO',
+    IDENTIFY: identify,
     ZONE: row.zone || 'Non Seca',
     FO_OTHER_SECA_CONSP_TK: isSeca ? str(row.coldWash) : '',
     FO_OTHER_NONSECA_CONSP_TK: isSeca ? '' : str(row.coldWash),
@@ -400,17 +414,32 @@ export async function dbSaveCommercialParameters(vesselId, payload) {
       );
     }
 
+    const lookups = await dbGetCommercialParametersLookups();
+    const bunkers = lookups.bunkers || [];
+
     for (const row of payload.bunkersAtSea ?? []) {
       if (!row.bunkerId) continue;
-      await insertSlaveRow(connection, buildAtSeaDbRow(row, commercialParameterId));
+      await insertSlaveRow(connection, buildAtSeaDbRow(
+        row,
+        commercialParameterId,
+        identifyForBunker(row.bunkerId, bunkers),
+      ));
     }
     for (const row of payload.bunkersInPort ?? []) {
       if (!row.bunkerId) continue;
-      await insertSlaveRow(connection, buildInPortDbRow(row, commercialParameterId));
+      await insertSlaveRow(connection, buildInPortDbRow(
+        row,
+        commercialParameterId,
+        identifyForBunker(row.bunkerId, bunkers),
+      ));
     }
     for (const row of payload.bunkersVarious ?? []) {
       if (!row.bunkerId) continue;
-      await insertSlaveRow(connection, buildVariousDbRow(row, commercialParameterId));
+      await insertSlaveRow(connection, buildVariousDbRow(
+        row,
+        commercialParameterId,
+        identifyForBunker(row.bunkerId, bunkers),
+      ));
     }
 
     await connection.commit();

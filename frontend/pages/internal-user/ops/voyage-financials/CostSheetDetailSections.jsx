@@ -1205,8 +1205,12 @@ export default function EstimateDetailSections({
             : speedDataType === 'eco'
               ? 'lEcoSpeed2'
               : 'lFullSpeed';
-          const foRows = (form.consumptionRows || []).filter((row) => row.identify === 'FO');
-          const doRows = (form.consumptionRows || []).filter((row) => row.identify === 'DO');
+          const foRows = (form.consumptionRows || []).filter((row) => (
+            String(row.identify || 'FO').toUpperCase() === 'FO'
+          ));
+          const doRows = (form.consumptionRows || []).filter((row) => (
+            String(row.identify || '').toUpperCase() === 'DO'
+          ));
           const gradeName = (id) => (
             (lookups.bunkerGrades || []).find((g) => String(g.id) === String(id))?.name || id || '—'
           );

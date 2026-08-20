@@ -1905,6 +1905,46 @@ function pickConsRate(...values) {
   return '';
 }
 
+const DO_BUNKER_TYPES = new Set(['MDO', 'DO', 'MGO', 'LSDO', 'ULSDO', 'LSMGO']);
+
+function normalizeFoType(value) {
+  return String(value || '').toUpperCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function zoneKind(zone) {
+  const z = String(zone || '').toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (z === 'seca') return 'seca';
+  if (z === 'non seca' || z === 'nonseca') return 'nonSeca';
+  return '';
+}
+
+/**
+ * Live PHP commercial params often store LSMGO/MGO with IDENTIFY='FO'.
+ * Local NavAPI seed uses IDENTIFY='DO'. Classify by grade name/type too.
+ */
+function resolveConsumptionIdentify(identify, bunkerType, bunkerName) {
+  const id = String(identify || '').toUpperCase();
+  if (id === 'DO') return 'DO';
+  const name = String(bunkerName || '').toUpperCase();
+  const type = String(bunkerType || '').toUpperCase();
+  if (
+    name.includes('LSMGO')
+    || name.includes('MDO')
+    || (name.includes('MGO') && !name.includes('VLSFO'))
+    || name === 'DO'
+    || DO_BUNKER_TYPES.has(type)
+  ) {
+    return 'DO';
+  }
+  return 'FO';
+}
+
+function assignRate(target, key, value) {
+  const next = pickConsRate(value);
+  if (!next || target[key]) return;
+  target[key] = next;
+}
+
 /**
  * Prefill estimate header / speed / consumption from fleet vessel + commercial parameters.
  * Mirrors PHP options.php?id=42 used by addestimate.php getData().
@@ -1978,20 +2018,32 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
        ORDER BY BUNKERID, FO_TYPE, ZONE`,
       [commercialParameterId],
     );
-    atSea = slaveRows.filter((row) => row.FO_TYPE === 'AT SEA');
-    inPort = slaveRows.filter((row) => row.FO_TYPE === 'IN PORT');
-    various = slaveRows.filter((row) => row.FO_TYPE === 'VARIOUS');
+    atSea = slaveRows.filter((row) => normalizeFoType(row.FO_TYPE) === 'AT SEA');
+    inPort = slaveRows.filter((row) => {
+      const foType = normalizeFoType(row.FO_TYPE);
+      return foType === 'IN PORT' || foType === 'INPORT';
+    });
+    various = slaveRows.filter((row) => {
+      const foType = normalizeFoType(row.FO_TYPE);
+      return foType === 'VARIOUS' || foType === 'OTHER';
+    });
   }
 
-  const variousBunkerIds = [...new Set(various.map((row) => row.BUNKERID).filter(Boolean))];
+  const allBunkerIds = [...new Set(
+    [...atSea, ...inPort, ...various].map((row) => row.BUNKERID).filter(Boolean),
+  )];
   let bunkerNameById = {};
-  if (variousBunkerIds.length) {
+  let bunkerTypeById = {};
+  if (allBunkerIds.length) {
     const [gradeRows] = await pool.query(
-      `SELECT BUNKERGRADEID, NAME FROM bunker_grade_master WHERE BUNKERGRADEID IN (?)`,
-      [variousBunkerIds],
+      `SELECT BUNKERGRADEID, NAME, BUNKERTYPE FROM bunker_grade_master WHERE BUNKERGRADEID IN (?)`,
+      [allBunkerIds],
     );
     bunkerNameById = Object.fromEntries(
       gradeRows.map((row) => [String(row.BUNKERGRADEID), row.NAME || '']),
+    );
+    bunkerTypeById = Object.fromEntries(
+      gradeRows.map((row) => [String(row.BUNKERGRADEID), row.BUNKERTYPE || '']),
     );
   }
 
@@ -2012,14 +2064,20 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
     heatingRaise: strOrEmpty(row.FO_OTHER_NONSECA_CONSP_HEAT_1),
   }));
 
-  // Merge Non-Seca + Seca AT SEA / IN PORT by bunker+identify (PHP laden_balast_consp + working_idle_consp).
+  // Merge Non-Seca + Seca AT SEA / IN PORT / VARIOUS by bunker + FO/DO.
   const bunkerKeys = new Map();
-  for (const row of [...atSea, ...inPort]) {
-    const key = `${row.BUNKERID || ''}|${row.IDENTIFY || 'FO'}`;
+  for (const row of [...atSea, ...inPort, ...various]) {
+    const bunkerId = row.BUNKERID != null ? String(row.BUNKERID) : '';
+    const identify = resolveConsumptionIdentify(
+      row.IDENTIFY,
+      bunkerTypeById[bunkerId],
+      bunkerNameById[bunkerId],
+    );
+    const key = `${bunkerId}|${identify}`;
     if (!bunkerKeys.has(key)) {
       bunkerKeys.set(key, {
-        bunkerGradeId: row.BUNKERID != null ? String(row.BUNKERID) : '',
-        identify: row.IDENTIFY || 'FO',
+        bunkerGradeId: bunkerId,
+        identify,
         balSecaFs: '',
         ladSecaFs: '',
         balNonSecaFs: '',
@@ -2038,54 +2096,86 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
         inPortNonSecaWorkingDp: '',
         inPortSecaIdle: '',
         inPortNonSecaIdle: '',
+        otherSecaTk: '',
+        otherNonSecaTk: '',
+        otherSecaInert: '',
+        otherNonSecaInert: '',
+        otherSecaGf: '',
+        otherNonSecaGf: '',
+        otherSecaHeat: '',
+        otherNonSecaHeat: '',
+        otherSecaHeat1: '',
+        otherNonSecaHeat1: '',
       });
     }
     const target = bunkerKeys.get(key);
-    const isSeca = String(row.ZONE || '').toLowerCase() === 'seca';
-    if (row.FO_TYPE === 'AT SEA') {
-      if (isSeca) {
-        target.balSecaFs = strOrEmpty(row.FO_BALAST_ATSEA_SECA_CONSP_FS);
-        target.ladSecaFs = strOrEmpty(row.FO_LADEN_ATSEA_SECA_CONSP_FS);
-        target.balSecaSs = strOrEmpty(row.FO_BALAST_ATSEA_SECA_CONSP_SS);
-        target.ladSecaSs = strOrEmpty(row.FO_LADEN_ATSEA_SECA_CONSP_SS);
-        target.balSecaMes = strOrEmpty(row.FO_BALAST_ATSEA_SECA_CONSP_MES);
-        target.ladSecaMes = strOrEmpty(row.FO_LADEN_ATSEA_SECA_CONSP_MES);
-      } else {
-        target.balNonSecaFs = strOrEmpty(row.FO_BALAST_ATSEA_NONSECA_CONSP_FS);
-        target.ladNonSecaFs = strOrEmpty(row.FO_LADEN_ATSEA_NONSECA_CONSP_FS);
-        target.balNonSecaSs = strOrEmpty(row.FO_BALAST_ATSEA_NONSECA_CONSP_SS);
-        target.ladNonSecaSs = strOrEmpty(row.FO_LADEN_ATSEA_NONSECA_CONSP_SS);
-        target.balNonSecaMes = strOrEmpty(row.FO_BALAST_ATSEA_NONSECA_CONSP_MES);
-        target.ladNonSecaMes = strOrEmpty(row.FO_LADEN_ATSEA_NONSECA_CONSP_MES);
+    const zone = zoneKind(row.ZONE);
+    const fillSeca = zone !== 'nonSeca';
+    const fillNonSeca = zone !== 'seca';
+    const foType = normalizeFoType(row.FO_TYPE);
+
+    if (foType === 'AT SEA') {
+      if (fillSeca) {
+        assignRate(target, 'balSecaFs', row.FO_BALAST_ATSEA_SECA_CONSP_FS);
+        assignRate(target, 'ladSecaFs', row.FO_LADEN_ATSEA_SECA_CONSP_FS);
+        assignRate(target, 'balSecaSs', row.FO_BALAST_ATSEA_SECA_CONSP_SS);
+        assignRate(target, 'ladSecaSs', row.FO_LADEN_ATSEA_SECA_CONSP_SS);
+        assignRate(target, 'balSecaMes', row.FO_BALAST_ATSEA_SECA_CONSP_MES);
+        assignRate(target, 'ladSecaMes', row.FO_LADEN_ATSEA_SECA_CONSP_MES);
+      }
+      if (fillNonSeca) {
+        assignRate(target, 'balNonSecaFs', row.FO_BALAST_ATSEA_NONSECA_CONSP_FS);
+        assignRate(target, 'ladNonSecaFs', row.FO_LADEN_ATSEA_NONSECA_CONSP_FS);
+        assignRate(target, 'balNonSecaSs', row.FO_BALAST_ATSEA_NONSECA_CONSP_SS);
+        assignRate(target, 'ladNonSecaSs', row.FO_LADEN_ATSEA_NONSECA_CONSP_SS);
+        assignRate(target, 'balNonSecaMes', row.FO_BALAST_ATSEA_NONSECA_CONSP_MES);
+        assignRate(target, 'ladNonSecaMes', row.FO_LADEN_ATSEA_NONSECA_CONSP_MES);
       }
     }
-    if (row.FO_TYPE === 'IN PORT') {
-      if (isSeca) {
-        target.inPortSecaWorking = pickConsRate(
+    if (foType === 'IN PORT' || foType === 'INPORT') {
+      if (fillSeca) {
+        assignRate(target, 'inPortSecaWorking', pickConsRate(
           row.FO_INPORT_SECA_CONSP_WORKING_LP,
           row.FO_INPORT_SECA_CONSP_WORKING,
-        );
-        target.inPortSecaWorkingDp = pickConsRate(
+        ));
+        assignRate(target, 'inPortSecaWorkingDp', pickConsRate(
           row.FO_INPORT_SECA_CONSP_WORKING_DP,
           row.FO_INPORT_SECA_CONSP_OTHER,
-        );
-        target.inPortSecaIdle = pickConsRate(
+        ));
+        assignRate(target, 'inPortSecaIdle', pickConsRate(
           row.FO_INPORT_SECA_CONSP_IDLE_BALLAST,
           row.FO_INPORT_SECA_CONSP_IDLE,
-        );
-      } else {
-        target.inPortNonSecaWorking = pickConsRate(
+        ));
+      }
+      if (fillNonSeca) {
+        assignRate(target, 'inPortNonSecaWorking', pickConsRate(
           row.FO_INPORT_NONSECA_CONSP_WORKING_LP,
           row.FO_INPORT_NONSECA_CONSP_WORKING,
-        );
-        target.inPortNonSecaWorkingDp = pickConsRate(
+        ));
+        assignRate(target, 'inPortNonSecaWorkingDp', pickConsRate(
           row.FO_INPORT_NONSECA_CONSP_WORKING_DP,
           row.FO_INPORT_NONSECA_CONSP_OTHER,
-        );
-        target.inPortNonSecaIdle = pickConsRate(
+        ));
+        assignRate(target, 'inPortNonSecaIdle', pickConsRate(
           row.FO_INPORT_NONSECA_CONSP_IDLE_BALLAST,
           row.FO_INPORT_NONSECA_CONSP_IDLE,
-        );
+        ));
+      }
+    }
+    if (foType === 'VARIOUS' || foType === 'OTHER') {
+      if (fillSeca) {
+        assignRate(target, 'otherSecaTk', row.FO_OTHER_SECA_CONSP_TK);
+        assignRate(target, 'otherSecaInert', row.FO_OTHER_SECA_CONSP_INERT);
+        assignRate(target, 'otherSecaGf', row.FO_OTHER_SECA_CONSP_GF);
+        assignRate(target, 'otherSecaHeat', row.FO_OTHER_SECA_CONSP_HEAT);
+        assignRate(target, 'otherSecaHeat1', row.FO_OTHER_SECA_CONSP_HEAT_1);
+      }
+      if (fillNonSeca) {
+        assignRate(target, 'otherNonSecaTk', row.FO_OTHER_NONSECA_CONSP_TK);
+        assignRate(target, 'otherNonSecaInert', row.FO_OTHER_NONSECA_CONSP_INERT);
+        assignRate(target, 'otherNonSecaGf', row.FO_OTHER_NONSECA_CONSP_GF);
+        assignRate(target, 'otherNonSecaHeat', row.FO_OTHER_NONSECA_CONSP_HEAT);
+        assignRate(target, 'otherNonSecaHeat1', row.FO_OTHER_NONSECA_CONSP_HEAT_1);
       }
     }
   }
@@ -2095,8 +2185,10 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
     ...row,
   }));
 
-  const foRow = consumptionRows.find((row) => row.identify === 'FO') || consumptionRows[0] || null;
-  const doRow = consumptionRows.find((row) => row.identify === 'DO') || null;
+  const foRow = consumptionRows.find((row) => String(row.identify || '').toUpperCase() === 'FO')
+    || consumptionRows[0]
+    || null;
+  const doRow = consumptionRows.find((row) => String(row.identify || '').toUpperCase() === 'DO') || null;
 
   let gnrt = strOrEmpty(vessel.GRT_NRT);
   let nrt = strOrEmpty(vessel.NRT);

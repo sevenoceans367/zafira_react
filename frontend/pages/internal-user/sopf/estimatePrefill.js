@@ -59,6 +59,23 @@ function hasPositiveRate(value) {
   return Number.isFinite(n) && n !== 0;
 }
 
+function isDoGrade(identify, bunkerType, bunkerName) {
+  const id = String(identify || '').toUpperCase();
+  if (id === 'DO') return true;
+  const name = String(bunkerName || '').toUpperCase();
+  const type = String(bunkerType || '').toUpperCase();
+  return name.includes('LSMGO')
+    || name.includes('MDO')
+    || (name.includes('MGO') && !name.includes('VLSFO'))
+    || name === 'DO'
+    || ['MDO', 'DO', 'MGO', 'LSDO', 'ULSDO', 'LSMGO'].includes(type);
+}
+
+export function classifyConsumptionIdentify(row, bunkerGrades = []) {
+  const grade = (bunkerGrades || []).find((item) => String(item.id) === String(row?.bunkerGradeId));
+  return isDoGrade(row?.identify, grade?.bunkerType, grade?.name) ? 'DO' : 'FO';
+}
+
 function resolveGradeOption(bunkerName) {
   const upper = String(bunkerName || '').toUpperCase();
   if (upper.includes('LSMGO') || (upper.includes('MGO') && !upper.includes('VLSFO'))) {
@@ -171,9 +188,13 @@ export function applyVesselPrefillToForm(current, prefill, lookups = {}) {
   // Always rebuild on vessel select (PHP addBunkerVariousItems after commercial load).
   const bunkerActivityRows = buildBunkerActivityRowsFromVariousRates(variousRates, market);
 
-  const consumptionRows = Array.isArray(prefill.consumptionRows) && prefill.consumptionRows.length
+  const consumptionRows = (Array.isArray(prefill.consumptionRows) && prefill.consumptionRows.length
     ? prefill.consumptionRows
-    : current.consumptionRows;
+    : current.consumptionRows
+  ).map((row) => ({
+    ...row,
+    identify: classifyConsumptionIdentify(row, lookups.bunkerGrades || current._bunkerGrades || []),
+  }));
   const portBunkerGrades = derivePortBunkerGrades(
     consumptionRows,
     lookups.bunkerGrades || current._bunkerGrades || [],

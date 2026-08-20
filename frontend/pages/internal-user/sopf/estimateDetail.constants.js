@@ -371,16 +371,32 @@ export function createEmptyBunkerActivityRow(defaults = {}) {
   };
 }
 
-export function createEmptyOrcRow() {
+/** PHP addestimate default ORC select: getOwnerRelatedCostList(5) — Miscellaneous Expense. */
+export const DEFAULT_ORC_COST_ID = '5';
+
+export function createEmptyOrcRow(defaults = {}) {
   return {
     id: newRowId('orc'),
-    costId: '',
-    costName: '',
-    amount: '',
-    amountMt: '',
-    vendorId: '',
-    portFlag: '',
+    costId: defaults.costId != null ? String(defaults.costId) : '',
+    costName: defaults.costName || '',
+    amount: defaults.amount != null ? String(defaults.amount) : '',
+    amountMt: defaults.amountMt != null ? String(defaults.amountMt) : '',
+    vendorId: defaults.vendorId != null ? String(defaults.vendorId) : '',
+    portFlag: defaults.portFlag != null ? String(defaults.portFlag) : '',
   };
+}
+
+/** Seed one ORC row like PHP (cost id 5 / name match Miscellaneous). */
+export function createDefaultOrcRow(ownerCosts = []) {
+  const list = Array.isArray(ownerCosts) ? ownerCosts : [];
+  const byId = list.find((c) => String(c.id) === DEFAULT_ORC_COST_ID);
+  const byName = list.find((c) => /misc/i.test(String(c.name || '')));
+  const match = byId || byName;
+  return createEmptyOrcRow({
+    costId: match ? String(match.id) : DEFAULT_ORC_COST_ID,
+    costName: match?.name || '',
+    amount: '0',
+  });
 }
 
 export function createEmptyOtherIncomeRow() {
@@ -628,7 +644,7 @@ export function createEmptyDetail(estimateType = 2) {
     overageCargoRows: [],
     deadfreightCargoRows: [],
     bunkerRows: [],
-    orcRows: [],
+    orcRows: [createDefaultOrcRow()],
     otherIncomeRows: [],
     hireRows: [],
     secaBunkerRows: [],
@@ -855,7 +871,7 @@ export function toFormState(detail = {}) {
       vendorId: row.vendorId != null ? String(row.vendorId) : '',
       portFlag: row.portFlag != null ? String(row.portFlag) : '',
     }))
-    : [createEmptyOrcRow()];
+    : [createDefaultOrcRow()];
 
   const oiSeen = new Set();
   const otherIncomeRows = Array.isArray(detail.otherIncomeRows) && detail.otherIncomeRows.length

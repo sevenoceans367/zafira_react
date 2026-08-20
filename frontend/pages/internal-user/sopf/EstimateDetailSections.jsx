@@ -23,6 +23,7 @@ import {
   createEmptyCargoRow,
   createEmptyHireRow,
   createEmptyOrcRow,
+  createDefaultOrcRow,
   createEmptyOtherIncomeRow,
   createEmptyPortLeg,
   createEmptyProfitSharingRow,
@@ -242,7 +243,7 @@ export default function EstimateDetailSections({
             portFlag,
           });
         }
-        nextOrcs = remaining.length ? remaining : [createEmptyOrcRow()];
+        nextOrcs = remaining.length ? remaining : [createDefaultOrcRow(lookups.ownerCosts)];
         applyPatch({
           portLegs: nextLegs,
           orcRows: nextOrcs,
@@ -1111,7 +1112,7 @@ export default function EstimateDetailSections({
                 const cargoLookup = (lookups.cargos || [])
                   .map((c) => ({
                     id: String(c.id ?? c.MATERIALID ?? ''),
-                    name: String(c.name ?? c.MATERIAL_CODE_DESC ?? '').trim(),
+                    name: String(c.name ?? c.MATERIAL_TYPE ?? '').trim(),
                   }))
                   .filter((c) => c.id);
 
@@ -1349,6 +1350,81 @@ export default function EstimateDetailSections({
                   <input
                     id="totalDemmCommCargo"
                     value={totalDemmComm ? totalDemmComm.toFixed(2) : ''}
+                    readOnly
+                    placeholder="0.00"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </CollapsiblePanel>
+
+      <CollapsiblePanel
+        title="Owner Related Costs"
+        defaultOpen
+        actions={editable ? (
+          <AddCircleButton
+            onClick={() => addRow('orcRows', () => createDefaultOrcRow(lookups.ownerCosts))}
+          />
+        ) : null}
+      >
+        <div className={styles.tableWrap}>
+          <table className={styles.portTable}>
+            <thead>
+              <tr>
+                {editable ? <th style={{ width: 36 }} /> : null}
+                <th>Cost</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(form.orcRows || []).map((row) => (
+                <tr key={row.id}>
+                  {editable ? (
+                    <td>
+                      <RowRemoveButton onClick={() => removeRow('orcRows', row.id)} />
+                    </td>
+                  ) : null}
+                  <td>
+                    <select
+                      value={row.costId || ''}
+                      disabled={readOnly}
+                      onChange={(e) => {
+                        const costId = e.target.value;
+                        const match = (lookups.ownerCosts || []).find(
+                          (c) => String(c.id) === String(costId),
+                        );
+                        updateRow('orcRows', row.id, {
+                          costId,
+                          costName: match?.name || '',
+                        });
+                      }}
+                    >
+                      <option value="">— Select —</option>
+                      {(lookups.ownerCosts || []).map((cost) => (
+                        <option key={cost.id} value={cost.id}>{cost.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      value={row.amount || ''}
+                      readOnly={readOnly}
+                      placeholder="0.00"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      onChange={(e) => updateRow('orcRows', row.id, { amount: e.target.value })}
+                    />
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <td colSpan={editable ? 2 : 1} />
+                <td>
+                  <input
+                    id="totalOrcCost"
+                    value={form.totalOrcCost || ''}
                     readOnly
                     placeholder="0.00"
                   />

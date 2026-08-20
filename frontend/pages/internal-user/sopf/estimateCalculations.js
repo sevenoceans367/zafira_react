@@ -1604,6 +1604,17 @@ export function computeEstimateTotals(form) {
   if (fromConsumption) {
     Object.assign(bunkerMt, fromConsumption.bunkerMt);
     Object.assign(etsMt, fromConsumption.etsMt);
+    // Additional Bunker Consumption Qty (MT) → Bunkers Qty by grade
+    // (only on live consumption path so stored/seca fallbacks are not double-counted).
+    for (const row of bunkerActivities) {
+      const keyRaw = classifyBunkerGradeName(row.bunkerGrade);
+      if (!keyRaw) continue;
+      const key = keyRaw === 'HSFO+SCRUBBER' ? 'HSFO' : keyRaw;
+      if (!Object.prototype.hasOwnProperty.call(bunkerMt, key)) continue;
+      const q = num(row.qty);
+      if (!q) continue;
+      bunkerMt[key] = round2(num(bunkerMt[key]) + q);
+    }
   } else if (storedSum > 0 || storedEtsSum > 0) {
     for (const g of ['HSFO', 'VLSFO', 'LSMGO']) {
       bunkerMt[g] = pickEstimateQtyFromSecaRows(form, g, classify) || storedTotals[g];
@@ -1657,11 +1668,13 @@ export function computeEstimateTotals(form) {
   // Sync bunker estimate qty/cost from live consumption (PHP: amount = qty × SECA price)
   let secaBunkersSynced = secaBunkers;
   if (fromConsumption) {
+    // bunkerMt already includes Additional Bunker Consumption; keep rawTotals only for
+    // scrubber-grade keys, then overwrite display grades so activity qty is not dropped.
     const mtByKey = {
+      ...(fromConsumption.rawTotals || {}),
       HSFO: bunkerMt.HSFO,
       VLSFO: bunkerMt.VLSFO,
       LSMGO: bunkerMt.LSMGO,
-      ...(fromConsumption.rawTotals || {}),
     };
     const rowsByKey = {};
     for (const row of secaBunkers) {

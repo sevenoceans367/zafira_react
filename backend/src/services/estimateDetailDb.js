@@ -968,21 +968,22 @@ export async function dbGetEstimateLookups(estimateType = 2) {
   const pool = getPool();
   const type = Number(estimateType) || 2;
 
-  // PHP getCargoNameListForMultiple: MATERIAL_TYPEID = estimate type (1 Gas / 2 Tanker / 3 Dry)
+  // Cargo Name = Material Name column (cargo_master.MATERIAL_TYPE).
+  // Filtered by MATERIAL_TYPEID = estimate type (1 Gas / 2 Tanker / 3 Dry).
   const [cargos] = await pool.query(
-    `SELECT MATERIALID AS id, MATERIAL_CODE_DESC AS name
+    `SELECT MATERIALID AS id, MATERIAL_TYPE AS name
      FROM cargo_master
      WHERE CAST(MATERIAL_TYPEID AS CHAR) = ?
-     ORDER BY MATERIAL_CODE_DESC`,
+     ORDER BY MATERIAL_TYPE`,
     [String(type)],
   );
 
   let cargoRows = cargos;
   if (!cargoRows.length) {
     const [allCargos] = await pool.query(
-      `SELECT MATERIALID AS id, MATERIAL_CODE_DESC AS name
+      `SELECT MATERIALID AS id, MATERIAL_TYPE AS name
        FROM cargo_master
-       ORDER BY MATERIAL_CODE_DESC
+       ORDER BY MATERIAL_TYPE
        LIMIT 1000`,
     );
     cargoRows = allCargos;
@@ -990,7 +991,7 @@ export async function dbGetEstimateLookups(estimateType = 2) {
 
   const mapCargoOption = (row) => ({
     id: String(row.id ?? row.MATERIALID ?? row.materialid ?? ''),
-    name: String(row.name ?? row.MATERIAL_CODE_DESC ?? row.material_code_desc ?? '').trim()
+    name: String(row.name ?? row.MATERIAL_TYPE ?? row.material_type ?? '').trim()
       || String(row.id ?? row.MATERIALID ?? row.materialid ?? ''),
   });
 
@@ -1354,7 +1355,7 @@ export async function dbGetEstimateDetail(id) {
   );
 
   const [cargos] = await pool.query(
-    `SELECT s.*, cm.MATERIAL_CODE_DESC AS CARGO_NAME
+    `SELECT s.*, cm.MATERIAL_TYPE AS CARGO_NAME
      FROM freight_cost_estimete_slave10 s
      LEFT JOIN cargo_master cm ON cm.MATERIALID = s.CARGOID
      WHERE s.FCAID = ?

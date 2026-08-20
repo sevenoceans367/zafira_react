@@ -664,6 +664,10 @@ export function createEmptyDetail(estimateType = 2) {
     dailyEarning: '',
     profitLoss: '',
     freightGross: '',
+    // PHP / UI defaults: Single cargo + Lump Sum calc (tanker); Gas lumpsum mode
+    tankType: '1',
+    chkLumpsum: true,
+    gasMarket: '2',
   };
 }
 
@@ -1224,7 +1228,8 @@ export function toFormState(detail = {}) {
 
     lumpsumQty: detail.lumpsumQty != null ? String(detail.lumpsumQty) : '',
     lumpsum: detail.lumpsum != null ? String(detail.lumpsum) : '',
-    chkLumpsum: !!detail.chkLumpsum,
+    // New estimates: Lump Sum on; loaded rows keep saved CHK_LUMPSUM / inferred flag
+    chkLumpsum: detail.chkLumpsum != null ? !!detail.chkLumpsum : true,
     lumpsumVendor: detail.lumpsumVendor != null ? String(detail.lumpsumVendor) : '',
     marketRate: detail.marketRate != null ? String(detail.marketRate) : '',
     tankerFreightRate: detail.tankerFreightRate != null
@@ -1261,7 +1266,7 @@ export function toFormState(detail = {}) {
     gasBaseRate: detail.gasBaseRate != null ? String(detail.gasBaseRate) : '',
     gasMarket: detail.gasMarket != null && String(detail.gasMarket) !== '0'
       ? String(detail.gasMarket)
-      : '1',
+      : '2',
     gasLumsum: detail.gasLumsum != null
       ? String(detail.gasLumsum)
       : (detail.lumpsum != null && Number(detail.estimateType) === 1 ? String(detail.lumpsum) : ''),

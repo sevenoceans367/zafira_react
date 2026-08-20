@@ -23,7 +23,7 @@ export function GasFreightModeSection({
   applyPatch,
   onRecalc,
 }) {
-  const gasMarket = String(form.gasMarket || '1');
+  const gasMarket = String(form.gasMarket || '2');
   const isBaseFreight = gasMarket !== '2';
 
   const setGasMarket = (next) => {

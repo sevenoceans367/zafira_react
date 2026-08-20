@@ -176,7 +176,7 @@ export default function TankerFreightModeSection({
 }) {
   const alert = useAlert();
   const tankType = String(form.tankType || '1');
-  const chkLumpsum = !!form.chkLumpsum;
+  const chkLumpsum = form.chkLumpsum != null ? !!form.chkLumpsum : true;
   const isSingle = tankType === '1';
   const isDistributed = tankType === '2';
 

@@ -977,7 +977,8 @@ export function computeEstimateTotals(form) {
     return {
       ...leg,
       seaDays: formatDays(days),
-      seaMargin: leg.seaMargin != null && leg.seaMargin !== '' ? String(leg.seaMargin) : String(margin),
+      // Keep cleared Wx(%) empty in the input; only treat blank as 0 for sea-day math above.
+      seaMargin: leg.seaMargin == null ? '0' : String(leg.seaMargin),
       // DAP or date-driven: keep stored. Else qty/rate (2dp).
       loadPortWorkDays: String(leg.loadPortTerms) === '4' || hasLpDates
         ? (leg.loadPortWorkDays ?? '')

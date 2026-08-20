@@ -1078,7 +1078,7 @@ export default function EstimateDetailSections({
                       <tr>
                         <td>
                           <input
-                            value={leg.seaMargin ?? '0'}
+                            value={leg.seaMargin ?? ''}
                             readOnly={readOnly}
                             onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
                           />
@@ -1606,8 +1606,15 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
+      <PortLaytimeSections
+        form={form}
+        readOnly={readOnly}
+        lookups={lookups}
+        updateRow={updateRow}
+      />
+
       <CollapsiblePanel
-        title="Owner Related Costs"
+        title="OPEX"
         defaultOpen
         actions={editable ? (
           <AddCircleButton
@@ -1681,12 +1688,6 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
-      <PortLaytimeSections
-        form={form}
-        readOnly={readOnly}
-        lookups={lookups}
-        updateRow={updateRow}
-      />
 {estimateType === 1 || estimateType === 2 ? (
         <CollapsiblePanel
           title="Additional Bunker Consumption"

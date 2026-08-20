@@ -3,3 +3,4 @@ dist/
 php/
 .DS_Store
 backend/.dev-sessions.json
+.env

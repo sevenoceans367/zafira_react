@@ -1030,9 +1030,13 @@ export function computeEstimateTotals(form) {
     return { ...row, cost: cost ? String(cost) : row.cost };
   });
   const bunkerActivities = bunkerActivityRows.map((row) => {
-    const computed = calcBunkerCost(row.qty, row.price);
-    const amount = (num(row.qty) || num(row.price)) ? computed : num(row.amount);
-    return { ...row, amount: amount ? String(amount) : (row.amount || '') };
+    const qtyEmpty = row.qty == null || String(row.qty).trim() === '';
+    const priceEmpty = row.price == null || String(row.price).trim() === '';
+    // Don't keep stale amount when Qty or Price is cleared (empty ≠ keep previous).
+    if (qtyEmpty || priceEmpty) {
+      return { ...row, amount: '' };
+    }
+    return { ...row, amount: String(calcBunkerCost(row.qty, row.price)) };
   });
 
   // PHP getBunkerCalculation: always sum SECA + NON-SECA amounts (calc flag only gates price edit / FO-DO mt)

@@ -1,5 +1,6 @@
 import {
   BUNKER_ACTIVITY_SEED_FIELDS,
+  PORT_BUNKER_GRADE_OPTIONS,
   createEmptyBunkerActivityRow,
   createEmptyDeliveryBunkerRow,
   createEmptyHireRow,
@@ -7,6 +8,43 @@ import {
   createEmptyPortLeg,
   createEmptySecaBunkerRow,
 } from './estimateDetail.constants.js';
+import { classifyBunkerGradeName } from './estimateCalculations.js';
+
+const PORT_BUNKER_GRADE_ORDER = PORT_BUNKER_GRADE_OPTIONS.map((option) => option.value);
+
+/**
+ * PHP vessel select (options.php?id=42): Port Details bunker grades follow FO/DO
+ * consumption rows from commercial parameters — typically VLSFO + LSMGO.
+ */
+export function derivePortBunkerGrades(consumptionRows = [], bunkerGrades = []) {
+  const gradeById = Object.fromEntries(
+    (bunkerGrades || []).map((grade) => [String(grade.id), grade.name || '']),
+  );
+  const seen = new Set();
+
+  const addGrade = (rawKey) => {
+    const key = rawKey === 'HSFO+SCRUBBER' ? 'HSFO+SCRUBBER' : rawKey;
+    if (!key || seen.has(key)) return;
+    if (!PORT_BUNKER_GRADE_ORDER.includes(key)) return;
+    seen.add(key);
+  };
+
+  for (const row of consumptionRows || []) {
+    const name = gradeById[String(row.bunkerGradeId)] || '';
+    let key = classifyBunkerGradeName(name);
+    const identify = String(row.identify || 'FO').toUpperCase();
+    if (!key) key = identify === 'DO' ? 'LSMGO' : 'VLSFO';
+    addGrade(key);
+  }
+
+  const hasFo = (consumptionRows || []).some((row) => String(row.identify || 'FO').toUpperCase() === 'FO');
+  const hasDo = (consumptionRows || []).some((row) => String(row.identify || '').toUpperCase() === 'DO');
+  if (hasFo) addGrade('VLSFO');
+  if (hasDo) addGrade('LSMGO');
+
+  if (!seen.size) return ['VLSFO', 'LSMGO'];
+  return PORT_BUNKER_GRADE_ORDER.filter((grade) => seen.has(grade));
+}
 
 function resolveActivityPrice(bunkerGrade, market = {}) {
   const upper = String(bunkerGrade || '').toUpperCase();
@@ -133,6 +171,20 @@ export function applyVesselPrefillToForm(current, prefill, lookups = {}) {
   // Always rebuild on vessel select (PHP addBunkerVariousItems after commercial load).
   const bunkerActivityRows = buildBunkerActivityRowsFromVariousRates(variousRates, market);
 
+  const consumptionRows = Array.isArray(prefill.consumptionRows) && prefill.consumptionRows.length
+    ? prefill.consumptionRows
+    : current.consumptionRows;
+  const portBunkerGrades = derivePortBunkerGrades(
+    consumptionRows,
+    lookups.bunkerGrades || current._bunkerGrades || [],
+  );
+  const portLegsWithBunkerGrades = portLegs.map((leg) => ({
+    ...leg,
+    lpBunkerGrades: portBunkerGrades,
+    dpBunkerGrades: portBunkerGrades,
+    tpBunkerGrades: portBunkerGrades,
+  }));
+
   return {
     ...current,
     vesselImoId: prefill.vesselImoId || current.vesselImoId,
@@ -165,12 +217,10 @@ export function applyVesselPrefillToForm(current, prefill, lookups = {}) {
     pWfoFullSpeed: prefill.pWfoFullSpeed || current.pWfoFullSpeed,
     pIdoFullSpeed: prefill.pIdoFullSpeed || current.pIdoFullSpeed,
     pWdoFullSpeed: prefill.pWdoFullSpeed || current.pWdoFullSpeed,
-    consumptionRows: Array.isArray(prefill.consumptionRows) && prefill.consumptionRows.length
-      ? prefill.consumptionRows
-      : current.consumptionRows,
+    consumptionRows,
     variousBunkerRates: variousRates.length ? variousRates : (current.variousBunkerRates || []),
     bunkerActivityRows,
-    portLegs,
+    portLegs: portLegsWithBunkerGrades,
     secaBunkerRows,
     euaPrice: current.euaPrice || market.euaPrice || '',
     sdrToUsd: current.sdrToUsd || market.sdrToUsd || '',

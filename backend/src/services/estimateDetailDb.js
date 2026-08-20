@@ -313,13 +313,13 @@ function mapPortLeg(row, index) {
     })(),
     lpBunkerGrades: (row.BUNKER_GRADE_LP || row.LOAD_PORT_BUNKER_GRADE)
       ? String(row.BUNKER_GRADE_LP || row.LOAD_PORT_BUNKER_GRADE).split(',').map((s) => s.trim()).filter(Boolean)
-      : ['VLSFO'],
+      : ['VLSFO', 'LSMGO'],
     dpBunkerGrades: (row.BUNKER_GRADE_DP || row.DISC_PORT_BUNKER_GRADE)
       ? String(row.BUNKER_GRADE_DP || row.DISC_PORT_BUNKER_GRADE).split(',').map((s) => s.trim()).filter(Boolean)
-      : ['VLSFO'],
+      : ['VLSFO', 'LSMGO'],
     tpBunkerGrades: (row.BUNKER_GRADE_TP || row.TRANSIT_PORT_BUNKER_GRADE)
       ? String(row.BUNKER_GRADE_TP || row.TRANSIT_PORT_BUNKER_GRADE).split(',').map((s) => s.trim()).filter(Boolean)
-      : ['VLSFO'],
+      : ['VLSFO', 'LSMGO'],
     chartererAccountDays: row.CHARTERERACCOUNT ?? row.CHARTERER_ACCOUNT_DAYS ?? row.CA_DAYS ?? '',
     portFunction: row.PORT_FUNCTION ?? row.PORT_FUN ?? row.CHK_MAND ?? '',
     tpPortVendorId: row.PORT_COSTTP_VENDOR != null && String(row.PORT_COSTTP_VENDOR).trim() !== ''

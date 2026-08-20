@@ -313,9 +313,9 @@ export function createEmptyPortLeg() {
     chkTpSeca: false,
     lpCargoId: '',
     dpCargoId: '',
-    lpBunkerGrades: ['VLSFO'],
-    dpBunkerGrades: ['VLSFO'],
-    tpBunkerGrades: ['VLSFO'],
+    lpBunkerGrades: ['VLSFO', 'LSMGO'],
+    dpBunkerGrades: ['VLSFO', 'LSMGO'],
+    tpBunkerGrades: ['VLSFO', 'LSMGO'],
     bgNonSeca: 'VLSFO',
     bgSeca: 'LSMGO',
     chartererAccountDays: '',
@@ -791,13 +791,13 @@ export function toFormState(detail = {}) {
       dpCargoId: normalizeCargoId(row.dpCargoId),
       lpBunkerGrades: Array.isArray(row.lpBunkerGrades) && row.lpBunkerGrades.length
         ? row.lpBunkerGrades
-        : ['VLSFO'],
+        : ['VLSFO', 'LSMGO'],
       dpBunkerGrades: Array.isArray(row.dpBunkerGrades) && row.dpBunkerGrades.length
         ? row.dpBunkerGrades
-        : ['VLSFO'],
+        : ['VLSFO', 'LSMGO'],
       tpBunkerGrades: Array.isArray(row.tpBunkerGrades) && row.tpBunkerGrades.length
         ? row.tpBunkerGrades
-        : ['VLSFO'],
+        : ['VLSFO', 'LSMGO'],
       bgNonSeca: row.bgNonSeca || 'VLSFO',
       bgSeca: row.bgSeca || 'LSMGO',
       chartererAccountDays: formatIdleDays(row.chartererAccountDays),

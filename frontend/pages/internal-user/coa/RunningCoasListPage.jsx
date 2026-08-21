@@ -6,6 +6,7 @@ import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
+import { coaBasePath } from '../../../constants/coaModule.js';
 import {
   cancelCoa,
   fetchCargoRelets,
@@ -198,7 +199,7 @@ function statusLabel(tab) {
 
 export default function RunningCoasListPage() {
   const navigate = useNavigate();
-  const { coaPath } = useCoaModule();
+  const { coaPath, module } = useCoaModule();
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -220,6 +221,7 @@ export default function RunningCoasListPage() {
   const [reletShow, setReletShow] = useState(10);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const openedLinkFromQuery = useRef(false);
 
   const isReletsTab = statusTab === 'relets';
   const debouncedSearch = useDebouncedValue(searchInput, 300);
@@ -435,7 +437,7 @@ export default function RunningCoasListPage() {
     return () => document.removeEventListener('keydown', onKey);
   }, [modal, closeModal]);
 
-  const openNominations = async (row) => {
+  const openNominations = useCallback(async (row) => {
     const tab = rowTab(row);
     const chip = row.coaNo || row.coaIdentity || '';
     setModal({
@@ -464,7 +466,26 @@ export default function RunningCoasListPage() {
       setModal(null);
       setError(err.message || 'Failed to load nominations.');
     }
-  };
+  }, []);
+
+  // Re-open Link Spot/Relet after returning from COA Add Estimate
+  useEffect(() => {
+    if (openedLinkFromQuery.current || loading) return;
+    if (searchParams.get('openLink') !== '1') return;
+    const linkCoaId = searchParams.get('coaId');
+    if (!linkCoaId) return;
+
+    openedLinkFromQuery.current = true;
+    const row = allRows.find((item) => String(item.coaId) === String(linkCoaId))
+      || { coaId: linkCoaId, coaNo: '', coaIdentity: '', status: 1 };
+    openNominations(row);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openLink');
+      next.delete('coaId');
+      return next;
+    }, { replace: true });
+  }, [allRows, loading, openNominations, searchParams, setSearchParams]);
 
   const visibleVoyages = useMemo(() => {
     const voyages = modal?.voyages || [];
@@ -830,7 +851,14 @@ export default function RunningCoasListPage() {
                             className={`${styles.btnAddTrade} ${styles.btnAddSpot}`}
                             disabled={modal.cancelled}
                             title={modal.cancelled ? 'Not available — this COA is cancelled' : 'Add Spot Voyage'}
-                            onClick={() => navigate(`${coaPath('cargo-relet/add')}?coaId=${modal.coaId}&selBType=${businessType}&from=running`)}
+                            onClick={() => {
+                              const returnTo = encodeURIComponent(
+                                `${coaBasePath(module)}/running?selBType=${businessType}&openLink=1&coaId=${modal.coaId}`,
+                              );
+                              navigate(appPath(
+                                `/internal-user/sopf/addestimate?coaId=${encodeURIComponent(modal.coaId)}&selBType=${encodeURIComponent(businessType)}&estimatetype=${encodeURIComponent(businessType)}&returnTo=${returnTo}`,
+                              ));
+                            }}
                           >
                             <PlusIcon />
                             Add

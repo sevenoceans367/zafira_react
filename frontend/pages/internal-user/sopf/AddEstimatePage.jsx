@@ -11,6 +11,7 @@ import {
   fetchPeriodPrefill,
   fetchVesselEstimatePrefill,
 } from '../../../services/estimateDetail.js';
+import { fetchCoa } from '../../../services/coas.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
 import EstimateDetailHeaderActions from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
@@ -34,6 +35,17 @@ export default function AddEstimatePage() {
   const replicateFrom = searchParams.get('replicateFrom') || '';
   const useTestData = import.meta.env.DEV && searchParams.get('testdata') === '1';
   const resolvedEstimateType = Number(estimateType) || 2;
+  const returnToRaw = searchParams.get('returnTo') || '';
+  const returnTo = (() => {
+    if (!returnToRaw) return '';
+    try {
+      const decoded = decodeURIComponent(returnToRaw);
+      if (decoded.startsWith('/internal-user/')) return appPath(decoded);
+    } catch {
+      /* ignore bad returnTo */
+    }
+    return '';
+  })();
 
   const [form, setForm] = useState(() => toFormState({ estimateType: resolvedEstimateType }));
   const detail = useMemo(
@@ -51,10 +63,16 @@ export default function AddEstimatePage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [coaMeta, setCoaMeta] = useState(null);
 
-  const listHref = appPath(
+  const listHref = returnTo || appPath(
     `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
   );
+  const formTitle = coaId
+    ? 'COA-VC Out Estimates'
+    : periodId
+      ? 'Nominate Voyage (New Estimate)'
+      : 'Add Estimate';
 
   useEffect(() => {
     let cancelled = false;
@@ -64,12 +82,22 @@ export default function AddEstimatePage() {
       setError('');
       try {
         const sourceTypeHint = estimateType;
-        const [lookupData, periodData, sourceDetail] = await Promise.all([
+        const [lookupData, periodData, sourceDetail, coaData] = await Promise.all([
           fetchEstimateLookups(sourceTypeHint),
           periodId ? fetchPeriodPrefill(periodId) : Promise.resolve(null),
           replicateFrom ? fetchEstimateDetail(replicateFrom) : Promise.resolve(null),
+          coaId ? fetchCoa(coaId) : Promise.resolve(null),
         ]);
         if (cancelled) return;
+
+        if (coaData) {
+          setCoaMeta({
+            coaIdentity: coaData.coaIdentity || '',
+            coaNo: coaData.coaNo || '',
+          });
+        } else {
+          setCoaMeta(null);
+        }
 
         const resolvedType = sourceDetail?.estimateType || sourceTypeHint;
         const lookupsForType = String(resolvedType) === String(sourceTypeHint)
@@ -128,14 +156,18 @@ export default function AddEstimatePage() {
             const coaMatch = (lookupsForType.coaContracts || []).find(
               (item) => String(item.id) === String(coaId),
             );
+            const shipments = coaData?.totalShipments != null
+              ? String(coaData.totalShipments)
+              : (coaMatch?.noOfShipment != null ? String(coaMatch.noOfShipment) : '');
             next = {
               ...next,
               coaSpot: '2',
               coaNumber: String(coaId),
-              coaNumberLabel: coaMatch?.name || next.coaNumberLabel || '',
-              coaNumberLift: coaMatch?.noOfShipment != null
-                ? String(coaMatch.noOfShipment)
-                : next.coaNumberLift || '',
+              coaNumberLabel: coaData?.coaIdentity || coaMatch?.name || next.coaNumberLabel || '',
+              coaNumberLift: shipments || next.coaNumberLift || '',
+              noOfShipment: shipments || next.noOfShipment || '',
+              fixtureBroker: coaData?.broker || coaMatch?.broker || next.fixtureBroker || '',
+              ownerId: coaData?.owner || coaMatch?.owner || next.ownerId || '',
             };
           }
           if (periodData) {
@@ -374,7 +406,7 @@ export default function AddEstimatePage() {
         message: 'Congratulations! Estimate added successfully.',
         confirmLabel: 'OK',
       });
-      navigate(`${listHref}&msg=0`, { replace: true });
+      navigate(returnTo || `${listHref}&msg=0`, { replace: true });
     } catch (err) {
       setSaving(false);
       const message = err.message || 'Failed to create estimate.';
@@ -398,9 +430,27 @@ export default function AddEstimatePage() {
 
       {!loading ? (
         <form onSubmit={handleSubmit}>
-          <h2 className={styles.formTitle}>
-            {periodId ? 'Nominate Voyage (New Estimate)' : 'Add Estimate'}
-          </h2>
+          <h2 className={styles.formTitle}>{formTitle}</h2>
+          {coaId ? (
+            <div className={styles.coaMetaRow}>
+              <label className={styles.coaMetaField}>
+                <span>COA ID.:</span>
+                <input
+                  type="text"
+                  value={coaMeta?.coaIdentity || ''}
+                  readOnly
+                />
+              </label>
+              <label className={styles.coaMetaField}>
+                <span>COA No.:</span>
+                <input
+                  type="text"
+                  value={coaMeta?.coaNo || ''}
+                  readOnly
+                />
+              </label>
+            </div>
+          ) : null}
           <EstimateDetailSections
             detail={detail}
             form={form}

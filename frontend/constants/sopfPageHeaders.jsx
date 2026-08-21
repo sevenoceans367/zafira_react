@@ -1,10 +1,16 @@
 import { matchPath } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
+import {
+  COA_MODULE_LABELS,
+  coaAppPath,
+  parseCoaModuleFromPath,
+} from './coaModule.js';
 import { SOPF_ENTRY_ROUTE } from './sopfSidebarMenu.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
 const SOPF = { label: 'SOPF', href: appPath(SOPF_ENTRY_ROUTE) };
 const SPOT_BUSINESS = 'Spot Business';
+const COA_VC_OUT = 'COA-VC Out Estimates';
 
 export const SOPF_PAGE_HEADERS = {
   estimate_list: {
@@ -41,6 +47,37 @@ const SOPF_ROUTE_PATTERNS = Object.keys(SOPF_PAGE_HEADERS).map(
 export function resolveSopfHeader(pathname, search = '') {
   if (pathname.includes('/addestimate')) {
     const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    const isCoa = Boolean(params.get('coaId') || params.get('coaid'));
+    if (isCoa) {
+      let runningHref = coaAppPath('sopf', 'running');
+      let moduleCrumb = SOPF;
+      const returnToRaw = params.get('returnTo') || '';
+      if (returnToRaw) {
+        try {
+          const decoded = decodeURIComponent(returnToRaw);
+          if (decoded.startsWith('/internal-user/')) {
+            const pathOnly = decoded.split('?')[0];
+            const coaModule = parseCoaModuleFromPath(pathOnly);
+            runningHref = coaAppPath(coaModule, 'running');
+            moduleCrumb = coaModule === 'sopf'
+              ? SOPF
+              : { label: COA_MODULE_LABELS.vc, href: appPath('/internal-user/vc') };
+          }
+        } catch {
+          /* ignore bad returnTo */
+        }
+      }
+      return {
+        title: COA_VC_OUT,
+        currentPage: COA_VC_OUT,
+        breadcrumbs: [
+          HOME,
+          moduleCrumb,
+          { label: 'Running COA Business', href: runningHref },
+          { label: COA_VC_OUT },
+        ],
+      };
+    }
     const isNominate = Boolean(params.get('periodid'));
     const pageLabel = isNominate ? 'Nominate' : 'Add Estimate';
     return {

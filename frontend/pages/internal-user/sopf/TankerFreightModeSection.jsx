@@ -284,28 +284,6 @@ export default function TankerFreightModeSection({
               Multiple
             </button>
           </div>
-          {isDistributed ? (
-            <label className={styles.tankerRateField} htmlFor="tankerFreightRate">
-              Freight Rate / MT
-              <input
-                id="tankerFreightRate"
-                value={form.tankerFreightRate || ''}
-                readOnly={readOnly}
-                placeholder="0.00"
-                inputMode="decimal"
-                autoComplete="off"
-                onChange={(e) => {
-                  const value = sanitizeFieldDecimal('tankerFreightRate', e.target.value);
-                  if (onRecalc) {
-                    onRecalc('tankerFreightRate', value);
-                    onRecalc('marketRate', value);
-                    return;
-                  }
-                  applyPatch({ tankerFreightRate: value, marketRate: value });
-                }}
-              />
-            </label>
-          ) : null}
         </div>
 
         <div className={styles.tankerModeRow}>
@@ -314,7 +292,8 @@ export default function TankerFreightModeSection({
             <button
               type="button"
               className={`${styles.segmentedBtn} ${chkLumpsum ? styles.segmentedBtnActive : ''}`}
-              disabled={readOnly}
+              disabled={readOnly || isDistributed}
+              title={isDistributed ? 'Lump Sum is only available for Single cargo type' : undefined}
               aria-pressed={chkLumpsum}
               onClick={() => setCalculationMethod('lumpsum')}
             >

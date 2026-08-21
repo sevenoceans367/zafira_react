@@ -81,6 +81,54 @@
   cursor: help;
 }
 
+/* Match Time Charter Business estimate table card / grid */
+.tableCard {
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1180px;
+}
+
+.grid thead th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  background: #fafbfc;
+  padding: 12px 14px;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: nowrap;
+}
+
+.grid tbody td {
+  padding: 14px;
+  border-bottom: 1px solid #eceef2;
+  font-size: 13px;
+  color: #1b2430;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.grid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.grid tbody tr:hover {
+  background: #fafbfc;
+}
+
 .benchmarkRow {
   background: #fff8eb !important;
 }
@@ -89,209 +137,111 @@
   background: #fff3d6 !important;
 }
 
-.itemColumn {
-  text-align: center;
-  width: 1%;
-  white-space: nowrap;
-}
-
-th.itemColumn {
-  color: rgba(60, 60, 67, 0.8) !important;
-}
-
-.selectCell {
-  text-align: center;
-  white-space: nowrap;
-  font-size: 11px;
-  width: 1%;
-}
-
-.compareColumn {
-  text-align: center;
-  white-space: nowrap;
-  width: 1%;
-}
-
-.compareHeaderIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.cellItem {
   color: #8a93a2;
-  flex-shrink: 0;
+  font-weight: 600;
 }
 
-.compareHeaderIcon svg {
-  width: 15px;
-  height: 15px;
-  display: block;
+.cellVessel {
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.cellNum {
+  font-variant-numeric: tabular-nums;
+}
+
+.cellRoute {
+  color: #5b6472;
+}
+
+.center {
+  text-align: center;
+}
+
+.empty {
+  text-align: center;
+  color: #8a93a2;
+  padding: 28px 14px !important;
 }
 
 .compareHeader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
+  width: 36px;
+  text-align: center;
+}
+
+.compareHeader svg {
+  width: 15px;
+  height: 15px;
+  color: #8a93a2;
+  display: block;
+  margin: 0 auto 4px;
 }
 
 .compareCheckbox {
   display: block;
-  margin: 0;
+  margin: 0 auto;
 }
 
-.actionColumn {
-  text-align: center;
-  white-space: nowrap;
-  width: 1%;
+.actionStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
 }
 
-/* Spot Business list — compact header; left-align labels (except Voy Days / Cargo / TCE / P&L) */
-:global(#fce_list.zafira-data-table) thead th {
-  text-align: left;
-  padding-top: 4px;
-  padding-bottom: 4px;
-  font-size: calc(var(--font-size-small, 11px) * 1);
-  line-height: 1.2;
+.iconPair {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
-:global(#fce_list.zafira-data-table) thead th.voyDaysColumn,
-:global(#fce_list.zafira-data-table) thead th.cargoQtyColumn,
-:global(#fce_list.zafira-data-table) thead th.tceColumn,
-:global(#fce_list.zafira-data-table) thead th.pnlColumn,
-:global(#fce_list.zafira-data-table) thead th.detailsColumn {
-  text-align: center;
-}
-
-.cargoQtyColumn,
-.tceColumn {
-  width: 1%;
-  white-space: nowrap;
-  text-align: center;
-  line-height: 1.2;
-}
-
-.vesselColumn {
-  line-height: 1.25;
-  white-space: normal;
-  min-width: 120px;
-}
-
-.voyageColumn {
-  white-space: nowrap;
-  min-width: 90px;
-}
-
-.voyDaysColumn {
-  width: 1%;
-  white-space: nowrap;
-  text-align: center;
-  padding-left: 6px;
-  padding-right: 6px;
-}
-
-.cargoQtyColumn {
-  min-width: 4.5rem;
-  max-width: none;
-  padding-left: 8px;
-  padding-right: 8px;
-}
-
-.tceColumn {
-  max-width: 64px;
-}
-
-th.tceColumn,
-th.pnlColumn {
-  color: #274670;
-  font-weight: 700;
-}
-
-.pnlColumn {
-  width: 1%;
-  white-space: nowrap;
-  text-align: center;
-}
-
-.actionCell {
-  text-align: center;
-  white-space: nowrap;
-  vertical-align: middle;
-  width: 1%;
-}
-
-.emptyState {
-  text-align: center;
-  padding: 2rem !important;
-  color: #6b7280;
-}
-
-.actions {
-  text-align: center;
-  vertical-align: middle;
-}
-
-.detailsColumn {
-  text-align: center;
-  white-space: nowrap;
-}
-
-.rowActions {
-  display: inline-flex;
+.iconBtn {
+  min-width: 26px !important;
+  min-height: 26px !important;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px !important;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-}
-
-.rowActionBtn {
-  min-width: 28px !important;
-  min-height: 28px !important;
-  width: 28px;
-  height: 28px;
   padding: 0 !important;
-  justify-content: center;
-  font-size: 13px !important;
-  border: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.rowActionBtn:hover,
-.rowActionBtn:focus {
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
   text-decoration: none !important;
 }
 
-.rowActionBtn :global(i),
-.rowActionBtn :global(svg) {
-  font-size: 1rem !important;
-  width: 1rem;
-  height: 1rem;
+.iconBtn:hover,
+.iconBtn:focus {
+  background: #f1f2f4 !important;
+  border: none !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
 }
 
-.rowActionEdit {
-  color: #6b7280 !important;
+.iconBtn :global(i),
+.iconBtn :global(svg) {
+  font-size: 14px !important;
+  width: 14px;
+  height: 14px;
 }
 
-.rowActionEdit:hover {
-  color: #4b5563 !important;
+.iconMuted {
+  color: #8a93a2 !important;
 }
 
-.rowActionDelete {
-  color: #dd4b39 !important;
+.iconMuted:hover {
+  color: #5b6472 !important;
 }
 
-.rowActionDelete:hover {
-  color: #c0392b !important;
+.iconDanger {
+  color: #8a93a2 !important;
 }
 
-.rowActionView {
-  color: #6b7280 !important;
-}
-
-.rowActionView:hover {
-  color: #4b5563 !important;
+.iconDanger:hover {
+  color: #e4483b !important;
+  background: #fdecea !important;
 }
 
 .modalBackdrop {

@@ -136,13 +136,14 @@ export default function CountryMultiSelect({
         <button
           type="button"
           className={styles.closeBtn}
+          aria-label="Close"
           onClick={(event) => {
             event.stopPropagation();
             setOpen(false);
             setQuery('');
           }}
         >
-          Close
+          ×
         </button>
       </div>
     </div>,

@@ -442,153 +442,153 @@ export default function EstimateListPage() {
           ))}
         </SummaryCardGrid>
 
-        <div className="zafira-card">
-          <div className="zafira-card-body">
-            <EstimateListTableToolbar
-                  addHref={`/internal-user/sopf/addestimate?estimatetype=${estimateType}&selBType=${businessType}`}
-                  onSensitivityAnalysis={handleSensitivityAnalysis}
-                  sensitivityDisabled={selectedIds.length === 0}
-                  onDownloadCsv={handleDownloadCsv}
-                  onDownloadPdf={handleDownloadPdf}
-                  onEmailAttachment={handleEmailAttachment}
-                />
-                <div className="zafira-table-wrap">
-                <table className="zafira-data-table" id="fce_list">
-                  <thead>
-                    <tr>
-                      <th className={styles.itemColumn}>Item</th>
-                      <th className={styles.vesselColumn}>Vessel</th>
-                      <th className={styles.voyageColumn}>VOY NO</th>
-                      <th>CP Date</th>
-                      <th>DWT</th>
-                      <th>LP - DP</th>
-                      <th className={styles.voyDaysColumn}>Voy Days</th>
-                      <th className={styles.cargoQtyColumn}>Cargo</th>
-                      <th className={styles.tceColumn}>TCE</th>
-                      <th className={styles.pnlColumn}>P&L</th>
-                      <th className={styles.actionColumn} aria-label="Replicate" />
-                      <th className={styles.compareColumn}>
-                        <div className={styles.compareHeader}>
-                          <span className={styles.compareHeaderIcon} title="Compare">
-                            <CompareIcon />
-                          </span>
-                          <input
-                            type="checkbox"
-                            className={styles.compareCheckbox}
-                            checked={allSelected}
-                            onChange={toggleAll}
-                            aria-label="Select all"
-                          />
-                        </div>
-                      </th>
-                      <th className={styles.detailsColumn}>Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr>
-                        <td colSpan={13} className={styles.emptyState}>
-                          Loading estimates...
-                        </td>
-                      </tr>
-                    ) : rows.length === 0 ? (
-                      <tr>
-                        <td colSpan={13} className={styles.emptyState}>
-                          No open trades for the selected business type.
-                        </td>
-                      </tr>
-                    ) : filteredRows.length === 0 ? (
-                      <tr>
-                        <td colSpan={13} className={styles.emptyState}>
-                          No estimates match your search.
-                        </td>
-                      </tr>
-                    ) : (
-                      pagedRows.map((row) => (
-                        <tr
-                          key={row.id}
-                          className={row.isBenchmark ? styles.benchmarkRow : undefined}
-                        >
-                          <td>{row.rowNum}.</td>
-                          <td className={styles.vesselColumn}>{row.vesselName}</td>
-                          <td className={styles.voyageColumn}>{row.voyageNo || '—'}</td>
-                          <td>{row.cpDate}</td>
-                          <td>{row.dwt}</td>
-                          <td><TruncatedText text={row.lpDp} /></td>
-                          <td className={styles.voyDaysColumn}>{row.duration}</td>
-                          <td className={styles.cargoQtyColumn}>{row.cargoQuantity}</td>
-                          <td className={styles.tceColumn}>{row.tce}</td>
-                          <td>{row.profitLoss}</td>
-                          <td className={styles.actionCell}>
-                            <ActionButtonStack>
-                              <SecondaryActionButton
-                                onClick={() => handleReplicate(row.id)}
-                                ariaLabel={`Replicate ${row.sheetName}`}
-                              />
-                              {row.selectable ? (
-                                <SendToOpsButton
-                                  type="button"
-                                  onClick={() => handleSendToOps(row.id, row.sheetName)}
-                                  ariaLabel={`Send to Ops ${row.sheetName}`}
-                                />
-                              ) : null}
-                            </ActionButtonStack>
-                          </td>
-                          <td className={styles.selectCell}>
-                            <input
-                              type="checkbox"
-                              checked={selectedIds.includes(row.id)}
-                              onChange={() => toggleRow(row.id)}
-                              aria-label={`Select ${row.sheetName}`}
+        <EstimateListTableToolbar
+          addHref={`/internal-user/sopf/addestimate?estimatetype=${estimateType}&selBType=${businessType}`}
+          onSensitivityAnalysis={handleSensitivityAnalysis}
+          sensitivityDisabled={selectedIds.length === 0}
+          onDownloadCsv={handleDownloadCsv}
+          onDownloadPdf={handleDownloadPdf}
+          onEmailAttachment={handleEmailAttachment}
+        />
+
+        <div className={styles.tableCard}>
+          <div className={styles.tableWrap}>
+            <table className={styles.grid} id="fce_list">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Vessel</th>
+                  <th>VOY NO</th>
+                  <th>CP Date</th>
+                  <th>DWT</th>
+                  <th>LP - DP</th>
+                  <th>Voy Days</th>
+                  <th>Cargo</th>
+                  <th>TCE</th>
+                  <th>P&L</th>
+                  <th aria-label="Actions" />
+                  <th className={styles.compareHeader} title="Compare">
+                    <CompareIcon />
+                    <input
+                      type="checkbox"
+                      className={styles.compareCheckbox}
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      aria-label="Select all"
+                    />
+                  </th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={13} className={styles.empty}>
+                      Loading estimates...
+                    </td>
+                  </tr>
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className={styles.empty}>
+                      No open trades for the selected business type.
+                    </td>
+                  </tr>
+                ) : filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className={styles.empty}>
+                      No estimates match your search.
+                    </td>
+                  </tr>
+                ) : (
+                  pagedRows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className={row.isBenchmark ? styles.benchmarkRow : undefined}
+                    >
+                      <td className={styles.cellItem}>{row.rowNum}.</td>
+                      <td className={styles.cellVessel}>{row.vesselName}</td>
+                      <td className={styles.cellNum}>{row.voyageNo || '—'}</td>
+                      <td className={styles.cellNum}>{row.cpDate}</td>
+                      <td className={styles.cellNum}>{row.dwt}</td>
+                      <td className={styles.cellRoute}>
+                        <TruncatedText text={row.lpDp} />
+                      </td>
+                      <td className={styles.cellNum}>{row.duration}</td>
+                      <td className={styles.cellNum}>{row.cargoQuantity}</td>
+                      <td className={styles.cellNum}>{row.tce}</td>
+                      <td className={styles.cellNum}>{row.profitLoss}</td>
+                      <td>
+                        <div className={styles.actionStack}>
+                          <ActionButtonStack>
+                            <SecondaryActionButton
+                              onClick={() => handleReplicate(row.id)}
+                              ariaLabel={`Replicate ${row.sheetName}`}
                             />
-                          </td>
-                          <td className={styles.actions}>
-                            <div className={styles.rowActions}>
-                              {row.selectable ? (
-                                <>
-                                  <Button
-                                    variant="link"
-                                    size="sm"
-                                    icon="pencil"
-                                    className={`${styles.rowActionBtn} ${styles.rowActionEdit}`}
-                                    href={`/internal-user/sopf/updateestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}`}
-                                    ariaLabel={`Edit ${row.sheetName}`}
-                                  />
-                                  <Button
-                                    variant="link"
-                                    size="sm"
-                                    icon="trash"
-                                    className={`${styles.rowActionBtn} ${styles.rowActionDelete}`}
-                                    onClick={() => handleDelete(row.id)}
-                                    ariaLabel={`Delete ${row.sheetName}`}
-                                  />
-                                </>
-                              ) : (
-                                <Button
-                                  variant="link"
-                                  size="sm"
-                                  icon="file-earmark"
-                                  className={`${styles.rowActionBtn} ${styles.rowActionView}`}
-                                  href={`/internal-user/sopf/viewestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}`}
-                                  ariaLabel={`View ${row.sheetName}`}
-                                />
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-                </div>
-                <SopfPagination
-                  page={safePage}
-                  pageSize={PAGE_SIZE}
-                  total={filteredRows.length}
-                  onPageChange={setPage}
-                />
+                            {row.selectable ? (
+                              <SendToOpsButton
+                                type="button"
+                                onClick={() => handleSendToOps(row.id, row.sheetName)}
+                                ariaLabel={`Send to Ops ${row.sheetName}`}
+                              />
+                            ) : null}
+                          </ActionButtonStack>
+                        </div>
+                      </td>
+                      <td className={styles.center}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(row.id)}
+                          onChange={() => toggleRow(row.id)}
+                          aria-label={`Select ${row.sheetName}`}
+                        />
+                      </td>
+                      <td>
+                        <div className={styles.iconPair}>
+                          {row.selectable ? (
+                            <>
+                              <Button
+                                variant="link"
+                                size="sm"
+                                icon="pencil"
+                                className={`${styles.iconBtn} ${styles.iconMuted}`}
+                                href={`/internal-user/sopf/updateestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}`}
+                                ariaLabel={`Edit ${row.sheetName}`}
+                              />
+                              <Button
+                                variant="link"
+                                size="sm"
+                                icon="trash"
+                                className={`${styles.iconBtn} ${styles.iconDanger}`}
+                                onClick={() => handleDelete(row.id)}
+                                ariaLabel={`Delete ${row.sheetName}`}
+                              />
+                            </>
+                          ) : (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              icon="file-earmark"
+                              className={`${styles.iconBtn} ${styles.iconMuted}`}
+                              href={`/internal-user/sopf/viewestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}`}
+                              ariaLabel={`View ${row.sheetName}`}
+                            />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
+
+        <SopfPagination
+          page={safePage}
+          pageSize={PAGE_SIZE}
+          total={filteredRows.length}
+          onPageChange={setPage}
+        />
       </div>
 
       {modalOpen ? (

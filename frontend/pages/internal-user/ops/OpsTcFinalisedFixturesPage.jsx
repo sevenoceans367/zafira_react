@@ -13,10 +13,10 @@ import {
   finaliseVoyageFixturesTc,
 } from '../../../services/opsTc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable, { DEFAULT_PAGE_SIZE } from '../sopf/ScrollableTable.jsx';
 import OpsTcFinalisedFixturesHeaderActions from './OpsTcFinalisedFixturesHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
-const PAGE_SIZE = 50;
 const FLASH = {
   1: { type: 'success', text: 'Fixtures Finalised successfully.' },
 };
@@ -28,6 +28,7 @@ export default function OpsTcFinalisedFixturesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [selectedIds, setSelectedIds] = useState([]);
   const [operatorById, setOperatorById] = useState({});
@@ -46,7 +47,7 @@ export default function OpsTcFinalisedFixturesPage() {
         fetchFinalisedVoyageFixturesTc({
           search: debouncedSearch,
           page,
-          pageSize: PAGE_SIZE,
+          pageSize,
         }),
       ]);
       setOperators(operatorOptions);
@@ -67,10 +68,10 @@ export default function OpsTcFinalisedFixturesPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, page]);
+  }, [debouncedSearch, page, pageSize]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, pageSize]);
 
   const finalisableIds = useMemo(
     () => rows.filter((row) => row.canFinalise).map((row) => String(row.tcOutId)),
@@ -150,7 +151,11 @@ export default function OpsTcFinalisedFixturesPage() {
 
       <h3 className={styles.title}>Finalised TC Fixtures List</h3>
 
-      <div className={styles.tableWrap}>
+      <ScrollableTable
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
+      >
         <table className={styles.table}>
           <thead>
             <tr>
@@ -252,9 +257,7 @@ export default function OpsTcFinalisedFixturesPage() {
             })}
           </tbody>
         </table>
-      </div>
-
-      <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+      </ScrollableTable>
     </div>
     </>
   );

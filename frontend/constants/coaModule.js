@@ -5,18 +5,15 @@ export const COA_MODULE_IDS = ['sopf', 'vc'];
 
 export const COA_ITEMS = [
   { id: 'running', label: 'Running COAs' },
-  { id: 'cargo-relet', label: 'COA - Cargo Relet' },
-  { id: 'in-ops', label: 'COA - In Ops' },
-  { id: 'post-ops', label: 'COA - Post Ops' },
+  { id: 'in-ops', label: 'COA Ops' },
 ];
 
-const SOPF_COA_ITEM_IDS = new Set(['running', 'cargo-relet']);
-
-export function coaSidebarItems(module) {
-  if (module === 'sopf') {
-    return COA_ITEMS.filter((item) => SOPF_COA_ITEM_IDS.has(item.id));
-  }
+export function coaSidebarItems(_module) {
   return COA_ITEMS;
+}
+
+export function isCoaOpsPath(pathname = '') {
+  return pathname.includes('/coas/in-ops') || pathname.includes('/coas/post-ops');
 }
 
 export function isCoaModule(module) {

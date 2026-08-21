@@ -26,6 +26,7 @@ import EstimateListHeaderActions from './EstimateListHeaderActions.jsx';
 import EstimateListTableToolbar from './EstimateListTableToolbar.jsx';
 import SensitivityAnalysisModal from './SensitivityAnalysisModal.jsx';
 import SopfPagination from './SopfPagination.jsx';
+import ScrollableTable from './ScrollableTable.jsx';
 import {
   buildEstimateListEmailUrl,
   buildEstimateListPdfUrl,
@@ -92,7 +93,6 @@ const STAT_CARDS = [
 
 /** Gas=1, Tanker=2, Dry Cargo=3 — legacy PHP default is Tanker */
 const DEFAULT_BUSINESS_TYPE = '2';
-const PAGE_SIZE = 10;
 
 function TruncatedText({ text, maxLength = 10 }) {
   const value = String(text ?? '');
@@ -129,6 +129,7 @@ export default function EstimateListPage() {
   const [saData, setSaData] = useState({ columns: [], sections: [] });
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const selBTypeInUrl = searchParams.get('selBType');
   const businessType = selBTypeInUrl && selBTypeInUrl !== '' ? selBTypeInUrl : DEFAULT_BUSINESS_TYPE;
@@ -206,7 +207,7 @@ export default function EstimateListPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, businessType, periodFrom, periodTo]);
+  }, [search, businessType, periodFrom, periodTo, pageSize]);
 
   useEffect(() => {
     const ids = searchParams.get('ids');
@@ -273,11 +274,11 @@ export default function EstimateListPage() {
     ].some((value) => String(value ?? '').toLowerCase().includes(query));
   });
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const pagedRows = filteredRows.slice(
-    (safePage - 1) * PAGE_SIZE,
-    safePage * PAGE_SIZE,
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
   );
 
   const allSelected =
@@ -453,8 +454,18 @@ export default function EstimateListPage() {
           onEmailAttachment={handleEmailAttachment}
         />
 
-        <div className={styles.tableCard}>
-          <div className={styles.tableWrap}>
+        <ScrollableTable
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          footer={(
+            <SopfPagination
+              page={safePage}
+              pageSize={pageSize}
+              total={filteredRows.length}
+              onPageChange={setPage}
+            />
+          )}
+        >
             <table className={styles.grid} id="fce_list">
               <thead>
                 <tr>
@@ -590,15 +601,7 @@ export default function EstimateListPage() {
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-
-        <SopfPagination
-          page={safePage}
-          pageSize={PAGE_SIZE}
-          total={filteredRows.length}
-          onPageChange={setPage}
-        />
+        </ScrollableTable>
       </div>
 
       {modalOpen ? (

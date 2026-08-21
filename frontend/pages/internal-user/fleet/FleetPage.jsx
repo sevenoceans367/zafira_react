@@ -7,10 +7,9 @@ import { fetchFleetCompare, downloadFleetComparePdf, fetchFleetList } from '../.
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import FleetHeaderActions from './FleetHeaderActions.jsx';
 import styles from './FleetPage.module.css';
-
-const PAGE_SIZE = 10;
 
 const FLASH_MESSAGES = {
   0: { type: 'success', text: 'Congratulations! Fleet added/updated successfully.' },
@@ -159,6 +158,7 @@ export default function FleetPage() {
   const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
@@ -186,7 +186,7 @@ export default function FleetPage() {
       const data = await fetchFleetList({
         selBType: businessType,
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         search: debouncedSearch,
       });
       setRows(data.records ?? []);
@@ -197,7 +197,7 @@ export default function FleetPage() {
     } finally {
       setLoading(false);
     }
-  }, [businessType, page, debouncedSearch]);
+  }, [businessType, page, pageSize, debouncedSearch]);
 
   useEffect(() => {
     loadBusinessTypes(businessType);
@@ -209,7 +209,7 @@ export default function FleetPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, businessType]);
+  }, [debouncedSearch, businessType, pageSize]);
 
   const handleBusinessTypeChange = (value) => {
     setBusinessType(value);
@@ -324,8 +324,18 @@ export default function FleetPage() {
         </button>
       </div>
 
-      <div className={styles.tableCard}>
-        <div className={styles.tableWrap}>
+      <ScrollableTable
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        footer={(
+          <SopfPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+          />
+        )}
+      >
           <table className={styles.grid}>
             <thead>
               <tr>
@@ -420,16 +430,7 @@ export default function FleetPage() {
               ))}
             </tbody>
           </table>
-        </div>
-        <div className={styles.tableFooter}>
-          <SopfPagination
-            page={page}
-            pageSize={PAGE_SIZE}
-            total={total}
-            onPageChange={setPage}
-          />
-        </div>
-      </div>
+      </ScrollableTable>
 
       <FleetCompareModal
         open={compareOpen}

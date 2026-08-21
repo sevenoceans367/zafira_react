@@ -16,34 +16,31 @@ function moduleBreadcrumb(module) {
   return { label: COA_MODULE_LABELS.vc, href: appPath('/internal-user/vc') };
 }
 
-export function resolveCoaHeader(pathname, search = '') {
+export function resolveCoaHeader(pathname, _search = '') {
   if (!pathname.includes('/coas')) return null;
   const module = parseCoaModuleFromPath(pathname);
   if (!COA_MODULE_IDS.includes(module)) return null;
   if (!pathname.startsWith(`/internal-user/${module}/coas`)) return null;
 
   const runningHref = coaAppPath(module, 'running');
-  const reletHref = coaAppPath(module, 'cargo-relet');
   const moduleCrumb = moduleBreadcrumb(module);
-  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
-  const fromRunning = params.get('from') === 'running';
 
   if (pathname.includes('/coas/running/add')) {
     return {
-      title: 'Running COAs',
-      currentPage: 'Add COA',
+      title: 'New COA',
+      currentPage: 'New COA',
       breadcrumbs: [
         HOME,
         moduleCrumb,
         { label: 'Running COA Business', href: runningHref },
-        { label: 'Add COA' },
+        { label: 'New COA' },
       ],
     };
   }
 
   if (/\/coas\/running\/[^/]+$/.test(pathname)) {
     return {
-      title: 'Running COAs',
+      title: 'Update COA',
       currentPage: 'Update COA',
       breadcrumbs: [
         HOME,
@@ -63,38 +60,26 @@ export function resolveCoaHeader(pathname, search = '') {
   }
 
   if (pathname.includes('/coas/cargo-relet/add')) {
-    if (fromRunning) {
-      return {
-        title: 'COA',
-        currentPage: 'Add Cargo Relet',
-        breadcrumbs: [
-          HOME,
-          moduleCrumb,
-          { label: 'Running COA Business', href: runningHref },
-          { label: 'Add Cargo Relet' },
-        ],
-      };
-    }
     return {
-      title: 'COA - Cargo Relet',
-      currentPage: 'Add Cargo Relet',
+      title: 'New Cargo Relet',
+      currentPage: 'New Cargo Relet',
       breadcrumbs: [
         HOME,
         moduleCrumb,
-        { label: 'COA - Cargo Relet', href: reletHref },
-        { label: 'Add Cargo Relet' },
+        { label: 'Running COA Business', href: runningHref },
+        { label: 'New Cargo Relet' },
       ],
     };
   }
 
   if (/\/coas\/cargo-relet\/[^/]+$/.test(pathname)) {
     return {
-      title: 'COA - Cargo Relet',
+      title: 'Update Cargo Relet',
       currentPage: 'Update Cargo Relet',
       breadcrumbs: [
         HOME,
         moduleCrumb,
-        { label: 'COA - Cargo Relet', href: reletHref },
+        { label: 'Running COA Business', href: runningHref },
         { label: 'Update Cargo Relet' },
       ],
     };
@@ -102,25 +87,22 @@ export function resolveCoaHeader(pathname, search = '') {
 
   if (pathname.endsWith('/coas/cargo-relet') || pathname.endsWith('/coas/cargo-relet/')) {
     return {
-      title: 'COA - Cargo Relet',
-      currentPage: 'COA - Cargo Relet',
-      breadcrumbs: [HOME, moduleCrumb, { label: 'COA - Cargo Relet' }],
+      title: 'Running COA Business',
+      currentPage: 'Cargo Relets',
+      breadcrumbs: [
+        HOME,
+        moduleCrumb,
+        { label: 'Running COA Business', href: `${runningHref}?status=relets` },
+        { label: 'Cargo Relets' },
+      ],
     };
   }
 
-  if (pathname.includes('/coas/in-ops')) {
+  if (pathname.includes('/coas/in-ops') || pathname.includes('/coas/post-ops')) {
     return {
-      title: 'COA - In Ops',
-      currentPage: 'COA - In Ops',
-      breadcrumbs: [HOME, moduleCrumb, { label: 'COA - In Ops' }],
-    };
-  }
-
-  if (pathname.includes('/coas/post-ops')) {
-    return {
-      title: 'COA - Post Ops',
-      currentPage: 'COA - Post Ops',
-      breadcrumbs: [HOME, moduleCrumb, { label: 'COA - Post Ops' }],
+      title: 'COA Ops',
+      currentPage: 'COA Ops',
+      breadcrumbs: [HOME, moduleCrumb, { label: 'COA Ops' }],
     };
   }
 

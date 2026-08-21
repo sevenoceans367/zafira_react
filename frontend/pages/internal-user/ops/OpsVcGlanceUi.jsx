@@ -1,12 +1,15 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { SummaryCard, SummaryCardGrid } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable, {
+  DEFAULT_PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
+} from '../sopf/ScrollableTable.jsx';
 import styles from './OpsVcInOpsGlancePage.module.css';
 
-export const PAGE_SIZE_OPTIONS = [10, 25, 50];
-export const DEFAULT_PAGE_SIZE = 50;
+export { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS };
 
 export const STAT_ICONS = {
   trades: (
@@ -171,37 +174,6 @@ export function OpsVcGlanceHeader({
   );
 }
 
-function HScrollButtons({ canLeft, canRight, onScroll }) {
-  return (
-    <div className={styles.hScrollGroup} role="group" aria-label="Scroll table">
-      <button
-        type="button"
-        className={styles.hScrollBtn}
-        aria-label="Scroll table left"
-        title="Scroll left"
-        disabled={!canLeft}
-        onClick={() => onScroll(-1)}
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M15 6l-6 6 6 6" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        className={styles.hScrollBtn}
-        aria-label="Scroll table right"
-        title="Scroll right"
-        disabled={!canRight}
-        onClick={() => onScroll(1)}
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-      </button>
-    </div>
-  );
-}
-
 export function OpsVcGlanceTable({
   children,
   compact = false,
@@ -212,73 +184,20 @@ export function OpsVcGlanceTable({
   onPageSizeChange,
   showingLabel,
 }) {
-  const wrapRef = useRef(null);
-  const [canLeft, setCanLeft] = useState(false);
-  const [canRight, setCanRight] = useState(false);
-
-  const updateScroll = useCallback(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const max = el.scrollWidth - el.clientWidth;
-    const overflow = max > 4;
-    setCanLeft(overflow && el.scrollLeft > 2);
-    setCanRight(overflow && el.scrollLeft < max - 2);
-  }, []);
-
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return undefined;
-    updateScroll();
-    el.addEventListener('scroll', updateScroll, { passive: true });
-    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(updateScroll) : null;
-    observer?.observe(el);
-    if (el.firstElementChild) observer?.observe(el.firstElementChild);
-    window.addEventListener('resize', updateScroll);
-    return () => {
-      el.removeEventListener('scroll', updateScroll);
-      observer?.disconnect();
-      window.removeEventListener('resize', updateScroll);
-    };
-  }, [updateScroll, children]);
-
-  const scrollByDir = (dir) => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const amount = Math.max(320, Math.round(el.clientWidth * 0.5));
-    el.scrollBy({ left: dir * amount, behavior: 'smooth' });
-  };
-
   return (
-    <>
-      <div className={styles.actionRow}>
-        <div className={styles.actionRowLeft}>
-          <select
-            className={styles.rowsSelect}
-            value={pageSize}
-            aria-label="Rows per page"
-            onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          >
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>{size} / page</option>
-            ))}
-          </select>
-          <HScrollButtons canLeft={canLeft} canRight={canRight} onScroll={scrollByDir} />
-        </div>
-        <div className={styles.actionRowRight}>{showingLabel}</div>
-      </div>
-      <div className={styles.tableCard}>
-        <div className={`${styles.tableScroll} ${canLeft ? styles.fadeLeft : ''} ${canRight ? styles.fadeRight : ''}`.trim()}>
-          <div className={styles.tableWrap} ref={wrapRef}>
-            <table className={`${styles.grid} ${compact ? styles.gridCompact : ''}`.trim()}>
-              {children}
-            </table>
-          </div>
-        </div>
-        <div className={styles.tableFooter}>
-          <SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} />
-        </div>
-      </div>
-    </>
+    <ScrollableTable
+      pageSize={pageSize}
+      onPageSizeChange={onPageSizeChange}
+      pageSizeOptions={PAGE_SIZE_OPTIONS}
+      toolbarRight={showingLabel}
+      footer={(
+        <SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} />
+      )}
+    >
+      <table className={`${styles.grid} ${compact ? styles.gridCompact : ''}`.trim()}>
+        {children}
+      </table>
+    </ScrollableTable>
   );
 }
 
@@ -323,3 +242,4 @@ export function VoyDocsCell({
     </div>
   );
 }
+

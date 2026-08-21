@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import {
   fetchCoaList,
   fetchCoaShipments,
@@ -103,33 +104,56 @@ function spotOverviewCards(overview) {
 
 const PAGE_SIZE = 10;
 
-function DataTable({ columns, rows, emptyMessage = 'No records found.' }) {
-  return (
-    <div className={styles.tableWrap}>
-      <table className={styles.table}>
-        <thead>
+function DataTable({
+  columns,
+  rows,
+  emptyMessage = 'No records found.',
+  footer = null,
+  pageSize = null,
+  onPageSizeChange = null,
+}) {
+  const table = (
+    <table className={styles.table}>
+      <thead>
+        <tr>
+          {columns.map((column) => (
+            <th key={column.key} className={column.className}>{column.label}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length === 0 ? (
           <tr>
+            <td colSpan={columns.length} className={styles.emptyCell}>{emptyMessage}</td>
+          </tr>
+        ) : rows.map((row) => (
+          <tr key={row.id}>
             {columns.map((column) => (
-              <th key={column.key} className={column.className}>{column.label}</th>
+              <td key={column.key} className={column.className}>
+                {column.render ? column.render(row) : row[column.key]}
+              </td>
             ))}
           </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length} className={styles.emptyCell}>{emptyMessage}</td>
-            </tr>
-          ) : rows.map((row) => (
-            <tr key={row.id}>
-              {columns.map((column) => (
-                <td key={column.key} className={column.className}>
-                  {column.render ? column.render(row) : row[column.key]}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  if (footer) {
+    return (
+      <ScrollableTable
+        footer={footer}
+        pageSize={pageSize}
+        onPageSizeChange={onPageSizeChange}
+      >
+        {table}
+      </ScrollableTable>
+    );
+  }
+
+  return (
+    <div className={styles.tableWrap}>
+      {table}
     </div>
   );
 }
@@ -240,9 +264,11 @@ export default function VcDashboardPage() {
   const [coaRows, setCoaRows] = useState([]);
   const [coaTotal, setCoaTotal] = useState(0);
   const [coaPage, setCoaPage] = useState(1);
+  const [coaPageSize, setCoaPageSize] = useState(PAGE_SIZE);
   const [periodRows, setPeriodRows] = useState([]);
   const [periodTotal, setPeriodTotal] = useState(0);
   const [periodPage, setPeriodPage] = useState(1);
+  const [periodPageSize, setPeriodPageSize] = useState(PAGE_SIZE);
 
   const [coaModalOpen, setCoaModalOpen] = useState(false);
   const [coaModalTitle, setCoaModalTitle] = useState('');
@@ -278,21 +304,21 @@ export default function VcDashboardPage() {
       fromDate: periodFrom,
       toDate: periodTo,
       page: coaPage,
-      pageSize: PAGE_SIZE,
+      pageSize: coaPageSize,
     });
     setCoaRows(data.records ?? []);
     setCoaTotal(data.recordsTotal ?? 0);
-  }, [businessType, periodFrom, periodTo, coaPage]);
+  }, [businessType, periodFrom, periodTo, coaPage, coaPageSize]);
 
   const loadPeriods = useCallback(async () => {
     const data = await fetchPeriodList({
       selBType: businessType,
       page: periodPage,
-      pageSize: PAGE_SIZE,
+      pageSize: periodPageSize,
     });
     setPeriodRows(data.records ?? []);
     setPeriodTotal(data.recordsTotal ?? 0);
-  }, [businessType, periodPage]);
+  }, [businessType, periodPage, periodPageSize]);
 
   const loadPerforming = useCallback(async (kind) => {
     setPerformingLoading(true);
@@ -379,6 +405,14 @@ export default function VcDashboardPage() {
   useEffect(() => {
     loadActiveTab();
   }, [loadActiveTab]);
+
+  useEffect(() => {
+    setCoaPage(1);
+  }, [coaPageSize]);
+
+  useEffect(() => {
+    setPeriodPage(1);
+  }, [periodPageSize]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -657,19 +691,21 @@ export default function VcDashboardPage() {
               ))}
             </div>
             <SectionHead title="Contracts" />
-            <div className={styles.card}>
-              <DataTable
-                columns={coaColumns}
-                rows={coaRows.map((row) => ({ ...row, id: row.coaId }))}
-                emptyMessage="SORRY CURRENTLY THERE ARE ZERO(0) RECORDS"
-              />
-              <SopfPagination
-                page={coaPage}
-                pageSize={PAGE_SIZE}
-                total={coaTotal}
-                onPageChange={setCoaPage}
-              />
-            </div>
+            <DataTable
+              columns={coaColumns}
+              rows={coaRows.map((row) => ({ ...row, id: row.coaId }))}
+              emptyMessage="SORRY CURRENTLY THERE ARE ZERO(0) RECORDS"
+              pageSize={coaPageSize}
+              onPageSizeChange={setCoaPageSize}
+              footer={(
+                <SopfPagination
+                  page={coaPage}
+                  pageSize={coaPageSize}
+                  total={coaTotal}
+                  onPageChange={setCoaPage}
+                />
+              )}
+            />
           </section>
         ) : null}
 
@@ -698,19 +734,21 @@ export default function VcDashboardPage() {
               <MarkToMarketCard data={MARK_TO_MARKET} />
             </div>
             <SectionHead title="Contracts" />
-            <div className={styles.card}>
-              <DataTable
-                columns={periodColumns}
-                rows={periodRows.map((row) => ({ ...row, id: row.periodId }))}
-                emptyMessage="SORRY CURRENTLY THERE ARE ZERO(0) RECORDS"
-              />
-              <SopfPagination
-                page={periodPage}
-                pageSize={PAGE_SIZE}
-                total={periodTotal}
-                onPageChange={setPeriodPage}
-              />
-            </div>
+            <DataTable
+              columns={periodColumns}
+              rows={periodRows.map((row) => ({ ...row, id: row.periodId }))}
+              emptyMessage="SORRY CURRENTLY THERE ARE ZERO(0) RECORDS"
+              pageSize={periodPageSize}
+              onPageSizeChange={setPeriodPageSize}
+              footer={(
+                <SopfPagination
+                  page={periodPage}
+                  pageSize={periodPageSize}
+                  total={periodTotal}
+                  onPageChange={setPeriodPage}
+                />
+              )}
+            />
           </section>
         ) : null}
 

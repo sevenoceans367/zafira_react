@@ -16,6 +16,7 @@ export default function CardSelect({
   align = 'end',
   disabled = false,
   id,
+  leadingDot = null,
 }) {
   const wrapRef = useRef(null);
   const triggerRef = useRef(null);
@@ -155,13 +156,20 @@ export default function CardSelect({
         ref={triggerRef}
         id={id}
         type="button"
-        className={styles.trigger}
+        className={`${styles.trigger} ${leadingDot ? styles.triggerWithDot : ''}`.trim()}
         aria-label={ariaLabel}
         aria-expanded={menuOpen}
         aria-haspopup="listbox"
         disabled={disabled}
         onClick={() => setMenuOpen((open) => !open)}
       >
+        {leadingDot ? (
+          <span
+            className={styles.leadingDot}
+            style={{ background: leadingDot }}
+            aria-hidden
+          />
+        ) : null}
         <span className={styles.triggerLabel}>{selectedLabel}</span>
         <i
           className={`bi bi-chevron-${menuOpen ? 'up' : 'down'} ${styles.chevron}`}

@@ -8,15 +8,15 @@ import {
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchYearUpdationTc, updateTcUpdateOnDate } from '../../../services/opsTc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable, { DEFAULT_PAGE_SIZE } from '../sopf/ScrollableTable.jsx';
 import OpsTcInOpsGlanceHeaderActions from './OpsTcInOpsGlanceHeaderActions.jsx';
 import styles from './OpsPages.module.css';
-
-const PAGE_SIZE = 50;
 
 export default function OpsTcYearUpdationPage() {
   const [searchInput, setSearchInput] = useState('');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState('');
@@ -31,7 +31,7 @@ export default function OpsTcYearUpdationPage() {
       const data = await fetchYearUpdationTc({
         search: debouncedSearch,
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
       });
       setRows(data.records || []);
       setTotal(data.recordsTotal || 0);
@@ -40,10 +40,10 @@ export default function OpsTcYearUpdationPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, page]);
+  }, [debouncedSearch, page, pageSize]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, pageSize]);
 
   const handleDateChange = async (row, value) => {
     setRows((prev) => prev.map((item) => (
@@ -100,7 +100,11 @@ export default function OpsTcYearUpdationPage() {
           actions={<Button variant="primary" label="Load" onClick={load} disabled={loading} />}
         />
 
-        <div className={styles.tableWrap}>
+        <ScrollableTable
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
+        >
           <table className={styles.table}>
             <thead>
               <tr>
@@ -137,9 +141,7 @@ export default function OpsTcYearUpdationPage() {
               ))}
             </tbody>
           </table>
-        </div>
-
-        <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        </ScrollableTable>
       </div>
     </>
   );

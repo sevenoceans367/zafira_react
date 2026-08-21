@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
@@ -8,14 +8,15 @@ import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import {
   cancelCoa,
+  fetchCargoRelets,
   fetchCoaNominations,
   fetchRunningCoas,
 } from '../../../services/coas.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable, { DEFAULT_PAGE_SIZE } from '../sopf/ScrollableTable.jsx';
 import CoaListHeaderActions from './CoaListHeaderActions.jsx';
 import styles from './RunningCoasPage.module.css';
 
-const PAGE_SIZE = 50;
 const FETCH_PAGE_SIZE = 200;
 const SHOW_OPTIONS = [5, 10, 25];
 
@@ -27,6 +28,7 @@ const FLASH = {
 
 const STATUS_TABS = [
   { id: 'active', label: 'Active' },
+  { id: 'relets', label: 'Cargo Relets' },
   { id: 'completed', label: 'Completed' },
   { id: 'cancelled', label: 'Cancelled' },
 ];
@@ -61,6 +63,7 @@ function rowTab(row) {
 function parseStatusTab(value) {
   if (value === '2' || value === 'cancelled') return 'cancelled';
   if (value === 'completed') return 'completed';
+  if (value === 'relets' || value === 'cargo-relets') return 'relets';
   return 'active';
 }
 
@@ -101,6 +104,17 @@ function HighlightIcon({ name }) {
 }
 
 function TabIcon({ id }) {
+  if (id === 'relets') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="16 3 21 3 21 8" />
+        <line x1="4" y1="20" x2="21" y2="3" />
+        <polyline points="21 16 21 21 16 21" />
+        <line x1="15" y1="15" x2="21" y2="21" />
+        <line x1="4" y1="4" x2="9" y2="9" />
+      </svg>
+    );
+  }
   if (id === 'completed') {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -138,6 +152,16 @@ function PlusIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="5" r="1.9" />
+      <circle cx="12" cy="12" r="1.9" />
+      <circle cx="12" cy="19" r="1.9" />
     </svg>
   );
 }
@@ -181,16 +205,23 @@ export default function RunningCoasListPage() {
   const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
   const [statusTab, setStatusTab] = useState(parseStatusTab(searchParams.get('status')));
   const [allRows, setAllRows] = useState([]);
+  const [reletRows, setReletRows] = useState([]);
+  const [reletTotal, setReletTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(true);
+  const [reletLoading, setReletLoading] = useState(false);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null);
   const [spotFilter, setSpotFilter] = useState('all');
   const [reletFilter, setReletFilter] = useState('all');
   const [spotShow, setSpotShow] = useState(10);
   const [reletShow, setReletShow] = useState(10);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
+  const isReletsTab = statusTab === 'relets';
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flashMsg = searchParams.get('msg');
   const flash = flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null;
@@ -218,8 +249,41 @@ export default function RunningCoasListPage() {
     }
   }, [businessType, debouncedSearch]);
 
+  const loadRelets = useCallback(async () => {
+    setReletLoading(true);
+    setError('');
+    try {
+      const data = await fetchCargoRelets({
+        selBType: businessType,
+        page,
+        pageSize,
+        search: debouncedSearch,
+      });
+      setReletRows(data.records ?? []);
+      setReletTotal(data.recordsTotal ?? 0);
+    } catch (err) {
+      setError(err.message || 'Failed to load cargo relets.');
+    } finally {
+      setReletLoading(false);
+    }
+  }, [businessType, debouncedSearch, page, pageSize]);
+
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [debouncedSearch, businessType, statusTab]);
+  useEffect(() => {
+    if (isReletsTab) loadRelets();
+  }, [isReletsTab, loadRelets]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, businessType, statusTab, pageSize]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onPointer = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointer);
+    return () => document.removeEventListener('mousedown', onPointer);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!flash) return undefined;
@@ -256,16 +320,92 @@ export default function RunningCoasListPage() {
   }, [allRows]);
 
   const filteredRows = useMemo(
-    () => allRows.filter((row) => rowTab(row) === statusTab),
-    [allRows, statusTab],
+    () => (isReletsTab ? [] : allRows.filter((row) => rowTab(row) === statusTab)),
+    [allRows, statusTab, isReletsTab],
   );
 
   const pageRows = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filteredRows.slice(start, start + PAGE_SIZE);
-  }, [filteredRows, page]);
+    if (isReletsTab) return reletRows;
+    const start = (page - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, page, pageSize, isReletsTab, reletRows]);
 
-  const showingLabel = `Showing ${filteredRows.length} ${statusTab} COA${filteredRows.length === 1 ? '' : 's'}`;
+  const listTotal = isReletsTab ? reletTotal : filteredRows.length;
+
+  const showingLabel = isReletsTab
+    ? `Showing ${reletTotal} relet${reletTotal === 1 ? '' : 's'}`
+    : `Showing ${filteredRows.length} ${statusTab} COA${filteredRows.length === 1 ? '' : 's'}`;
+
+  const coaById = useMemo(() => {
+    const map = new Map();
+    allRows.forEach((row) => map.set(String(row.coaId), row));
+    return map;
+  }, [allRows]);
+
+  const downloadCsv = () => {
+    if (isReletsTab) {
+      const headers = [
+        '#', 'No.', 'Date', 'QTY (MT)', 'LP/DP', 'Frt-In ($/MT)', 'Frt-In',
+        'FO Surcharge', 'Frt-Out ($/MT)', 'Frt-Out', 'Profit', 'Vessel',
+      ];
+      const lines = [
+        headers.join(','),
+        ...reletRows.map((row, index) => ([
+          (page - 1) * pageSize + index + 1,
+          row.reletNo || '',
+          row.coaDate || '',
+          row.cargoQty || '',
+          row.ports || '',
+          row.freightInPerMt || '',
+          row.freightInAmt || '',
+          row.foSurcharge || '',
+          row.freightOutPerMt || '',
+          row.freightOutAmt || '',
+          row.profit || '',
+          coaById.get(String(row.coaId))?.vesselType || '',
+        ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))),
+      ];
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'cargo-relets.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+      setMenuOpen(false);
+      return;
+    }
+    const headers = [
+      '#', 'No.', 'Route', 'Date', 'Status', 'Vessel Type', 'Charterer', 'Cargo',
+      'QTY (MT)', 'Dur', 'Total Shipments', 'Performed Shipments', 'Bal Cargo (MT)',
+    ];
+    const lines = [
+      headers.join(','),
+      ...filteredRows.map((row, index) => ([
+        index + 1,
+        row.coaNo || row.coaIdentity || '',
+        row.coaRoute || '',
+        row.coaDate || '',
+        statusLabel(rowTab(row)),
+        row.vesselType || '',
+        row.charterer || '',
+        row.cargo || '',
+        row.minQty || '',
+        row.duration || '',
+        row.totalShipments || '',
+        row.shipmentsPerformed || '',
+        row.balanceCargo || '',
+      ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `running-coas-${statusTab}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setMenuOpen(false);
+  };
 
   const handleCancel = async (row) => {
     const ok = await confirm({
@@ -367,7 +507,11 @@ export default function RunningCoasListPage() {
       />
 
       <div className={`zafira-page ${styles.page}`}>
-        <LoadingOverlay show={loading} fullScreen={false} label="Loading running COAs…" />
+        <LoadingOverlay
+          show={(loading && !isReletsTab) || (reletLoading && isReletsTab)}
+          fullScreen={false}
+          label={isReletsTab ? 'Loading cargo relets…' : 'Loading running COAs…'}
+        />
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -411,22 +555,132 @@ export default function RunningCoasListPage() {
           ))}
         </div>
 
-        <div className={styles.actionRow}>
-          <div className={styles.actionRowLeft}>
-            <button
-              type="button"
-              className={styles.btnAdd}
-              onClick={() => navigate(`${coaPath('running/add')}?selBType=${businessType}`)}
-            >
-              <PlusIcon />
-              Add New
-            </button>
-          </div>
-          <div className={styles.actionRowRight}>{showingLabel}</div>
-        </div>
-
-        <div className={styles.tableCard}>
-          <div className={styles.tableWrap}>
+        <ScrollableTable
+          flushTop
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          toolbarLeft={(
+            <>
+              <button
+                type="button"
+                className={styles.btnAdd}
+                onClick={() => navigate(
+                  isReletsTab
+                    ? `${coaPath('cargo-relet/add')}?selBType=${businessType}&from=running`
+                    : `${coaPath('running/add')}?selBType=${businessType}`,
+                )}
+              >
+                <PlusIcon />
+                {isReletsTab ? 'Add New Relet' : 'Add New'}
+              </button>
+              <div className={styles.menuWrap} ref={menuRef}>
+                <button
+                  type="button"
+                  className={styles.btnMore}
+                  aria-label="More options"
+                  aria-expanded={menuOpen}
+                  aria-haspopup="menu"
+                  title="Download"
+                  onClick={() => setMenuOpen((open) => !open)}
+                >
+                  <MoreIcon />
+                </button>
+                {menuOpen ? (
+                  <div className={styles.menuDropdown} role="menu">
+                    <button type="button" role="menuitem" className={styles.menuItem} onClick={downloadCsv}>
+                      Download as Excel
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
+          toolbarRight={showingLabel}
+          footer={(
+            <SopfPagination
+              page={page}
+              pageSize={pageSize}
+              total={listTotal}
+              onPageChange={setPage}
+            />
+          )}
+        >
+          {isReletsTab ? (
+            <table className={`${styles.grid} ${styles.reletGrid}`}>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>No.</th>
+                  <th>Date</th>
+                  <th>QTY (MT)</th>
+                  <th>LP/DP</th>
+                  <th>Frt-In ($/MT)</th>
+                  <th>Frt-In</th>
+                  <th>FO Surcharge</th>
+                  <th>Frt-Out ($/MT)</th>
+                  <th>Frt-Out</th>
+                  <th>Profit</th>
+                  <th>Vessel</th>
+                  <th>Recap</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className={styles.emptyCell}>
+                      No cargo relets for this segment.
+                    </td>
+                  </tr>
+                ) : pageRows.map((row, index) => {
+                  const parent = coaById.get(String(row.coaId));
+                  const parentNo = row.coaNo || row.coaIdentity || parent?.coaNo || parent?.coaIdentity;
+                  return (
+                    <tr key={row.fcaId}>
+                      <td>{(page - 1) * pageSize + index + 1}.</td>
+                      <td>
+                        <div className={styles.reletCell}>
+                          <span className={styles.reletNo}>{liveValue(row.reletNo)}</span>
+                          {parentNo ? (
+                            <button
+                              type="button"
+                              className={styles.coaLinkChip}
+                              onClick={() => {
+                                const target = parent || { coaId: row.coaId, coaNo: parentNo, coaIdentity: row.coaIdentity };
+                                openNominations(target);
+                              }}
+                            >
+                              {parentNo}
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className={styles.cellNum}>{liveValue(row.coaDate)}</td>
+                      <td className={styles.cellNum}>{liveValue(row.cargoQty)}</td>
+                      <td>
+                        <span className={styles.trunc} title={liveValue(row.ports)}>{liveValue(row.ports)}</span>
+                      </td>
+                      <td className={styles.cellNum}>{liveValue(row.freightInPerMt)}</td>
+                      <td className={styles.cellNum}>{liveValue(row.freightInAmt)}</td>
+                      <td className={styles.cellNum}>{liveValue(row.foSurcharge)}</td>
+                      <td className={styles.cellNum}>{liveValue(row.freightOutPerMt)}</td>
+                      <td className={styles.cellNum}>{liveValue(row.freightOutAmt)}</td>
+                      <td className={styles.cellNum}>{liveValue(row.profit)}</td>
+                      <td className={styles.cellVessel}>{liveValue(parent?.vesselType)}</td>
+                      <td>
+                        <Link
+                          className={styles.iconBtn}
+                          to={coaPath(`cargo-relet/${row.fcaId}`)}
+                          title="Recap"
+                        >
+                          <RecapIcon />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
             <table className={styles.grid}>
               <thead>
                 <tr>
@@ -458,7 +712,7 @@ export default function RunningCoasListPage() {
                   const coaNo = row.coaNo || row.coaIdentity;
                   return (
                     <tr key={row.coaId}>
-                      <td>{(page - 1) * PAGE_SIZE + index + 1}.</td>
+                      <td>{(page - 1) * pageSize + index + 1}.</td>
                       <td>
                         <div className={styles.coaCell}>
                           <span className={styles.coaId}>{liveValue(coaNo)}</span>
@@ -467,7 +721,7 @@ export default function RunningCoasListPage() {
                             className={styles.pillAction}
                             onClick={() => openNominations(row)}
                           >
-                            Assign Spot/Relet
+                            Link Spot/Relet
                           </button>
                         </div>
                       </td>
@@ -476,7 +730,7 @@ export default function RunningCoasListPage() {
                       <td>
                         <span className={statusBadgeClass(tab)}>{statusLabel(tab)}</span>
                       </td>
-                      <td>{liveValue(row.vesselType)}</td>
+                      <td className={styles.cellVessel}>{liveValue(row.vesselType)}</td>
                       <td>{liveValue(row.charterer)}</td>
                       <td>{liveValue(row.cargo)}</td>
                       <td className={styles.cellNum}>{liveValue(row.minQty)}</td>
@@ -510,16 +764,8 @@ export default function RunningCoasListPage() {
                 })}
               </tbody>
             </table>
-          </div>
-          <div className={styles.tableFooter}>
-            <SopfPagination
-              page={page}
-              pageSize={PAGE_SIZE}
-              total={filteredRows.length}
-              onPageChange={setPage}
-            />
-          </div>
-        </div>
+          )}
+        </ScrollableTable>
 
         {modal ? createPortal(
           <div className={styles.modalScrim} role="presentation" onClick={closeModal}>
@@ -534,7 +780,7 @@ export default function RunningCoasListPage() {
                 <div className={styles.amTitleRow}>
                   <span id="coa-shipment-title" className={styles.amTitle}>Shipment Details</span>
                   {modal.chip ? <span className={styles.cttChip}>{modal.chip}</span> : null}
-                  <span className={styles.usdChip}>All values in USD</span>
+                  <span className={styles.usdChip}>usd</span>
                 </div>
                 <button type="button" className={styles.btnClose} aria-label="Close" onClick={closeModal}>
                   <CloseIcon />
@@ -552,7 +798,7 @@ export default function RunningCoasListPage() {
                             <circle cx="12" cy="12" r="9" />
                             <path d="M12 7v5l3.5 2" />
                           </svg>
-                          <span className={`${styles.amSectionTitle} ${styles.spotTitle}`}>Spot Voyages</span>
+                          <span className={`${styles.amSectionTitle} ${styles.spotTitle}`}>Voyages</span>
                         </div>
                         <div className={styles.amSectionControls}>
                           <select

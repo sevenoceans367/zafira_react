@@ -18,9 +18,9 @@ import {
 } from '../../../services/genericFinances.js';
 import GenericFinancesHeaderActions from './GenericFinancesHeaderActions.jsx';
 import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
+import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable, { DEFAULT_PAGE_SIZE } from '../sopf/ScrollableTable.jsx';
 import styles from './GenericFinancesPage.module.css';
-
-const PAGE_SIZE = 50;
 
 const GENERIC_FINANCES_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -122,42 +122,6 @@ function LegacyIconLink({ href, title, children, className }) {
   );
 }
 
-function GridPager({ page, pageSize, total, onPageChange }) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const end = Math.min(page * pageSize, total);
-  return (
-    <div className={styles.tableFooter}>
-      <span>Showing {start} to {end} of {total} entries</span>
-      <div className={styles.pager}>
-        <button
-          type="button"
-          className={styles.pgArrow}
-          disabled={page <= 1}
-          aria-label="Previous page"
-          onClick={() => onPageChange(page - 1)}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
-            <path d="M15 6l-6 6 6 6" />
-          </svg>
-        </button>
-        <span className={styles.pgNum}>{page}</span>
-        <button
-          type="button"
-          className={styles.pgArrow}
-          disabled={page >= totalPages}
-          aria-label="Next page"
-          onClick={() => onPageChange(page + 1)}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
-            <path d="M9 6l6 6-6 6" />
-          </svg>
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function PaymentModal({ invoice, onClose, onSubmit }) {
   const [amount, setAmount] = useState(invoice?.netAmount || invoice?.amount || '');
   const [paymentDate, setPaymentDate] = useState('');
@@ -239,6 +203,7 @@ export default function GenericFinancesPage() {
   const [years, setYears] = useState(() => defaultYearOptions(searchParams.get('selYear')));
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [canCreate, setCanCreate] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -288,7 +253,7 @@ export default function GenericFinancesPage() {
       const data = await fetchGenericFinancesList({
         search: debouncedSearch,
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         selBType: businessType,
         selYear: year,
       });
@@ -301,11 +266,11 @@ export default function GenericFinancesPage() {
     } finally {
       setLoading(false);
     }
-  }, [businessType, debouncedSearch, page, year]);
+  }, [businessType, debouncedSearch, page, pageSize, year]);
 
   useEffect(() => { loadLookups(); }, [loadLookups]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year]);
+  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year, pageSize]);
 
   const handleCancel = async (row) => {
     const ok = await confirm({
@@ -363,8 +328,13 @@ export default function GenericFinancesPage() {
       ) : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.tableCard}>
-        <div className={styles.tableWrap}>
+      <ScrollableTable
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        footer={(
+          <SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
+        )}
+      >
           <table className={styles.grid}>
             <thead>
               <tr>
@@ -443,9 +413,7 @@ export default function GenericFinancesPage() {
               ))}
             </tbody>
           </table>
-        </div>
-        <GridPager page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-      </div>
+      </ScrollableTable>
 
       {paymentInvoice ? (
         <PaymentModal

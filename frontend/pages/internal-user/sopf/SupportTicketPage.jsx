@@ -10,6 +10,7 @@ import {
   updateSupportTicket,
 } from '../../../services/supportTickets.js';
 import SopfPagination from './SopfPagination.jsx';
+import ScrollableTable from './ScrollableTable.jsx';
 import SupportTicketHeaderActions from './SupportTicketHeaderActions.jsx';
 import {
   TICKET_MSG_COPY,
@@ -18,13 +19,13 @@ import {
 } from './supportTicket.constants.js';
 import styles from './SupportTicketPage.module.css';
 
-const PAGE_SIZE = 10;
 const POLL_INTERVAL_MS = 15000;
 
 export default function SupportTicketPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [today, setToday] = useState('');
@@ -54,7 +55,7 @@ export default function SupportTicketPage() {
     try {
       const data = await fetchSupportTickets({
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         search: debouncedSearch,
       });
       setRows(data.records ?? []);
@@ -66,7 +67,7 @@ export default function SupportTicketPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch]);
+  }, [page, pageSize, debouncedSearch]);
 
   useEffect(() => {
     loadTickets();
@@ -74,7 +75,7 @@ export default function SupportTicketPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, pageSize]);
 
   const applyTicketUpdate = useCallback((ticket, messages) => {
     if (ticket) {
@@ -291,7 +292,18 @@ export default function SupportTicketPage() {
             </div>
           </form>
 
-          <div className="zafira-table-wrap">
+          <ScrollableTable
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            footer={(
+              <SopfPagination
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={setPage}
+              />
+            )}
+          >
             <table className="zafira-data-table" id="Ticket_list">
               <thead>
                 <tr>
@@ -357,14 +369,7 @@ export default function SupportTicketPage() {
                 )}
               </tbody>
             </table>
-          </div>
-
-          <SopfPagination
-            page={page}
-            pageSize={PAGE_SIZE}
-            total={total}
-            onPageChange={setPage}
-          />
+          </ScrollableTable>
         </div>
       </div>
 

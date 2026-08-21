@@ -8,10 +8,9 @@ import {
 } from '../../../services/tcEstimates.js';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import TcDecisionChartDetailsModal from './TcDecisionChartDetailsModal.jsx';
 import styles from './TcPages.module.css';
-
-const PAGE_SIZE = 10;
 
 const FLASH = {
   1: { type: 'success', text: 'Decision Chart added successfully.' },
@@ -22,6 +21,7 @@ export default function TcDecisionChartsListPage() {
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,7 @@ export default function TcDecisionChartsListPage() {
     try {
       const data = await fetchTcDecisionCharts({
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         search: debouncedSearch,
       });
       setRows(data.records || []);
@@ -47,10 +47,10 @@ export default function TcDecisionChartsListPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, page]);
+  }, [debouncedSearch, page, pageSize]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, pageSize]);
 
   const handleGeneratePdf = async (message = '') => {
     setPdfLoading(true);
@@ -84,7 +84,11 @@ export default function TcDecisionChartsListPage() {
 
       <h3 className={styles.title}>Decision Chart List</h3>
 
-      <div className={styles.tableWrap}>
+      <ScrollableTable
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
+      >
         <table className={styles.table}>
           <thead>
             <tr>
@@ -130,9 +134,8 @@ export default function TcDecisionChartsListPage() {
             ) : null}
           </tbody>
         </table>
-      </div>
+      </ScrollableTable>
 
-      <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
       <TcDecisionChartDetailsModal
         message={selectedMessage}
         onClose={() => setSelectedMessage('')}

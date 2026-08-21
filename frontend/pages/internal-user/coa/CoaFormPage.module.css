@@ -1,0 +1,310 @@
+.page {
+  position: relative;
+  padding-bottom: 28px;
+}
+
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  font-size: 12px;
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+}
+
+.cardTitle {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #1b2430;
+  margin: 0 0 16px;
+}
+
+.gridFields {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+@media (max-width: 1300px) {
+  .gridFields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .gridFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  position: relative;
+}
+
+.span2 {
+  grid-column: span 2;
+}
+
+.span3 {
+  grid-column: span 3;
+}
+
+.span6 {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1300px) {
+  .span2,
+  .span3 {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 760px) {
+  .span2,
+  .span3 {
+    grid-column: span 2;
+  }
+}
+
+.field label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #5b6472;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field input,
+.field select,
+.field textarea,
+.field :global(.form-control) {
+  width: 100%;
+  border: 1px solid #dfe2e7;
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: #1b2430;
+  font-family: inherit;
+  background: #fff;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.readonly {
+  background: #f1f2f4 !important;
+  color: #5b6472;
+}
+
+.divider {
+  height: 1px;
+  background: #eceef2;
+  margin: 18px 0;
+  border: none;
+}
+
+.miniWrap {
+  margin-bottom: 4px;
+}
+
+.miniTable {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.miniTable thead th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  padding: 0 8px 6px 0;
+  white-space: nowrap;
+}
+
+.miniTable tbody td {
+  padding: 0 8px 8px 0;
+  vertical-align: top;
+}
+
+.miniTable input,
+.miniTable select {
+  width: 100%;
+  min-width: 140px;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.rowDel {
+  width: 26px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #b4291f;
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  padding: 0;
+}
+
+.rowDel:hover {
+  background: #fde8e6;
+}
+
+.rowDel:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dashedAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1.5px dashed #dfe2e7;
+  color: #5b6472;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dashedAdd:hover {
+  border-color: #1e3a5f;
+  color: #1e3a5f;
+}
+
+.dashedAdd svg {
+  width: 12px;
+  height: 12px;
+}
+
+.periodField :global(button) {
+  width: 100%;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 26px 14px;
+  background: #f1f2f4;
+  border-radius: 9px;
+  border: 1.5px dashed #dfe2e7;
+  max-width: 520px;
+}
+
+.dropzone svg {
+  width: 22px;
+  height: 22px;
+  color: #8a93a2;
+}
+
+.dzText {
+  font-size: 12px;
+  color: #5b6472;
+}
+
+.dzSub {
+  font-size: 10.5px;
+  color: #8a93a2;
+}
+
+.attachBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  margin-top: 4px;
+}
+
+.attachBtn:hover {
+  background: #265dc7;
+}
+
+.attachBtn input {
+  display: none;
+}
+
+.sectionTitle {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.formFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 4px 4px;
+}
+
+.btnSave {
+  background: #1e3a5f;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 22px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btnSave:hover {
+  background: #162c49;
+}
+
+.btnSave:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnSave svg {
+  width: 15px;
+  height: 15px;
+}

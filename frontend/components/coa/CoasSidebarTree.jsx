@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { coaAppPath, coaSidebarItems, parseCoaModuleFromPath } from '../../constants/coaModule.js';
+import {
+  coaAppPath,
+  coaSidebarItems,
+  isCoaOpsPath,
+  parseCoaModuleFromPath,
+} from '../../constants/coaModule.js';
 import coaIcon from '../../assets/COA.svg';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 
@@ -49,7 +54,9 @@ export default function CoasSidebarTree({ isOpen }) {
       <ul className="treeview-menu">
         {menuItems.map((item) => {
           const href = coaAppPath(module, item.id);
-          const active = pathname.includes(`/internal-user/${module}/coas/${item.id}`);
+          const active = item.id === 'in-ops'
+            ? isCoaOpsPath(pathname)
+            : pathname.includes(`/internal-user/${module}/coas/${item.id}`);
           return (
             <li key={item.id}>
               <Link

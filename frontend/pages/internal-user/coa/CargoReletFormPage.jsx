@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Button, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
+import { DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { fetchCommercialParameters } from '../../../services/commercialParameters.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
@@ -16,7 +16,6 @@ import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
 import { calcCargoIntake, calcCargoReletTotals } from './cargoReletTotals.js';
 import CoaCardSelect from './CoaCardSelect.jsx';
 import CoaFormHeaderActions from './CoaFormHeaderActions.jsx';
-import pageStyles from './CoaPages.module.css';
 import styles from './CargoReletFormPage.module.css';
 
 const TABS = [
@@ -24,6 +23,68 @@ const TABS = [
   { id: 'commercial', label: 'Commercial Parameters' },
   { id: 'planned', label: 'Planned Cargo/Intake' },
 ];
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function ReletIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="16 3 21 3 21 8" />
+      <line x1="4" y1="20" x2="21" y2="3" />
+      <polyline points="21 16 21 21 16 21" />
+      <line x1="15" y1="15" x2="21" y2="21" />
+      <line x1="4" y1="4" x2="9" y2="9" />
+    </svg>
+  );
+}
+
+function TabIcon({ id }) {
+  if (id === 'commercial') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M3 10h18" />
+      </svg>
+    );
+  }
+  if (id === 'planned') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3v18" />
+        <path d="M16.5 7.5c0-2-2-3-4.5-3s-4.5 1.2-4.5 3.2c0 4.3 9 2 9 6.3 0 2-2 3.2-4.5 3.2s-4.5-1-4.5-3" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 12h4l2 7 4-14 2 7h6" />
+    </svg>
+  );
+}
+
+function PanelArrow({ down = true }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {down ? (
+        <>
+          <path d="M12 5v14" />
+          <path d="M19 12l-7 7-7-7" />
+        </>
+      ) : (
+        <>
+          <path d="M12 19V5" />
+          <path d="M5 12l7-7 7 7" />
+        </>
+      )}
+    </svg>
+  );
+}
 
 function todayDmy() {
   const date = new Date();
@@ -431,7 +492,8 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
       setError('Please select a COA.');
       return;
     }
-    if (!form.reletNo) {
+    const reletNo = form.reletNo?.trim() || (isAdd ? `RL-${Date.now().toString().slice(-6)}` : '');
+    if (!reletNo) {
       setError('Cargo Relet No. is required.');
       return;
     }
@@ -439,12 +501,12 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     setError('');
     try {
       const totals = calcCargoReletTotals(form);
-      const payload = { ...form, ...totals, updateStatus };
+      const payload = { ...form, ...totals, reletNo, updateStatus };
       if (isAdd) await createCargoRelet(payload);
       else await updateCargoRelet(fcaId, payload);
       navigate(fromRunning
         ? `${coaPath('running')}?selBType=${form.businessTypeId}&msg=0`
-        : `${coaPath('cargo-relet')}?selBType=${form.businessTypeId}`);
+        : `${coaPath('running')}?selBType=${form.businessTypeId}&status=relets`);
     } catch (err) {
       setError(err.message || 'Failed to save cargo relet.');
     } finally {
@@ -464,16 +526,16 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   };
 
   const renderPartyTable = (key) => (
-    <>
+    <div>
       <div className={styles.blockTitle}>Parties/Entities</div>
       <table className={styles.nestedTable}>
         <thead>
           <tr>
-            <th>#</th>
+            <th style={{ width: 26 }}>#</th>
             <th>Charterer</th>
             <th>Owner</th>
             <th>Broker</th>
-            <th />
+            <th style={{ width: 30 }} />
           </tr>
         </thead>
         <tbody>
@@ -496,10 +558,11 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                 <button
                   type="button"
                   className={styles.actionIcon}
+                  title="Remove row"
                   disabled={(form[key] || []).length <= 1}
                   onClick={() => patch(key, form[key].filter((_, i) => i !== index))}
                 >
-                  <i className="bi bi-trash" aria-hidden />
+                  <i className="bi bi-x-lg" aria-hidden />
                 </button>
               </td>
             </tr>
@@ -507,21 +570,28 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
         </tbody>
       </table>
       <div className={styles.addRow}>
-        <Button variant="outline" size="sm" label="Add" onClick={() => patch(key, [...(form[key] || []), partyRow()])} />
+        <button
+          type="button"
+          className={styles.dashedAdd}
+          onClick={() => patch(key, [...(form[key] || []), partyRow()])}
+        >
+          <PlusIcon />
+          Add
+        </button>
       </div>
-    </>
+    </div>
   );
 
   const renderPortTable = (key, heading) => (
-    <>
+    <div>
       <div className={styles.blockTitle}>{heading}</div>
       <table className={styles.nestedTable}>
         <thead>
           <tr>
-            <th>#</th>
+            <th style={{ width: 26 }}>#</th>
             <th>{heading === 'Dis Port' ? 'Dis Port' : 'Load Port'}</th>
             <th>Comments</th>
-            <th />
+            <th style={{ width: 30 }} />
           </tr>
         </thead>
         <tbody>
@@ -536,7 +606,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                 />
               </td>
               <td>
-                <textarea
+                <input
                   value={row.comments}
                   placeholder="Comments"
                   onChange={(event) => updateRows(key, index, { comments: event.target.value })}
@@ -546,10 +616,11 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                 <button
                   type="button"
                   className={styles.actionIcon}
+                  title="Remove row"
                   disabled={(form[key] || []).length <= 1}
                   onClick={() => patch(key, form[key].filter((_, i) => i !== index))}
                 >
-                  <i className="bi bi-trash" aria-hidden />
+                  <i className="bi bi-x-lg" aria-hidden />
                 </button>
               </td>
             </tr>
@@ -557,9 +628,16 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
         </tbody>
       </table>
       <div className={styles.addRow}>
-        <Button variant="outline" size="sm" label="Add" onClick={() => patch(key, [...(form[key] || []), portRow()])} />
+        <button
+          type="button"
+          className={styles.dashedAdd}
+          onClick={() => patch(key, [...(form[key] || []), portRow()])}
+        >
+          <PlusIcon />
+          Add
+        </button>
       </div>
-    </>
+    </div>
   );
 
   const renderFreight = (side) => {
@@ -573,7 +651,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     const demId = out ? 'demRateOut' : 'demRate';
     const desId = out ? 'desRateOut' : 'desRate';
     return (
-      <>
+      <div>
         <div className={styles.blockTitle}>Freight</div>
         <div className={styles.fieldGrid}>
           <Field id={rateId} label={`Frt Rate (${currency}/MT)`}>
@@ -623,44 +701,46 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             <textarea id={out ? 'bunkerClauseOut' : 'bunkerClause'} value={form[out ? 'bunkerClauseOut' : 'bunkerClause']} onChange={(event) => patch(out ? 'bunkerClauseOut' : 'bunkerClause', event.target.value)} />
           </Field>
         </div>
-      </>
+      </div>
     );
   };
 
   const renderResult = (side) => {
     const out = side === 'out';
     return (
-      <>
+      <div>
         <div className={styles.blockTitle}>Result</div>
-        <div className={styles.fieldGrid}>
-          <Field id={out ? 'freightAmtOut' : 'freightAmt'} label={`Freight (${currency})`}>
-            <input className={styles.readonly} readOnly value={form[out ? 'freightAmtOut' : 'freightAmt']} placeholder="0.00" />
-          </Field>
-          <Field id={out ? 'bunkerSurchargeAmtOut' : 'bunkerSurchargeAmt'} label={`Bunker Surcharge (${currency})`}>
-            <input className={styles.readonly} readOnly value={form[out ? 'bunkerSurchargeAmtOut' : 'bunkerSurchargeAmt']} placeholder="0.00" />
-          </Field>
-          <Field id={out ? 'demmurageAmtOut' : 'demmurageAmt'} label={`Dem (${currency})`}>
-            <input value={form[out ? 'demmurageAmtOut' : 'demmurageAmt']} placeholder="0.00" onChange={(event) => patch(out ? 'demmurageAmtOut' : 'demmurageAmt', event.target.value)} onBlur={recalculate} />
-          </Field>
-          <Field id={out ? 'despatchAmtOut' : 'despatchAmt'} label={`Despatch (${currency})`}>
-            <input value={form[out ? 'despatchAmtOut' : 'despatchAmt']} placeholder="0.00" onChange={(event) => patch(out ? 'despatchAmtOut' : 'despatchAmt', event.target.value)} onBlur={recalculate} />
-          </Field>
-          <Field id={out ? 'addCommAmtOut' : 'addCommAmt'} label={`Add Comm (${currency})`}>
-            <input className={styles.readonly} readOnly value={form[out ? 'addCommAmtOut' : 'addCommAmt']} placeholder="0.00" />
-          </Field>
-          <Field id={out ? 'brokerageAmtOut' : 'brokerageAmt'} label={`Brokerage (${currency})`}>
-            <input className={styles.readonly} readOnly value={form[out ? 'brokerageAmtOut' : 'brokerageAmt']} placeholder="0.00" />
-          </Field>
-          <Field id={out ? 'totalAmtOut' : 'totalAmt'} label={`Total (${currency})`}>
-            <input className={styles.readonly} readOnly value={form[out ? 'totalAmtOut' : 'totalAmt']} placeholder="0.00" />
-          </Field>
-          {!out ? (
-            <Field id="profit" label={`Profit (${currency})`}>
-              <input className={styles.readonly} readOnly value={form.profit} placeholder="0.00" />
+        <div className={styles.resultStrip}>
+          <div className={styles.fieldGrid}>
+            <Field id={out ? 'freightAmtOut' : 'freightAmt'} label={`Freight (${currency})`}>
+              <input className={styles.readonly} readOnly value={form[out ? 'freightAmtOut' : 'freightAmt']} placeholder="0.00" />
             </Field>
-          ) : null}
+            <Field id={out ? 'bunkerSurchargeAmtOut' : 'bunkerSurchargeAmt'} label={`Bunker Surcharge (${currency})`}>
+              <input className={styles.readonly} readOnly value={form[out ? 'bunkerSurchargeAmtOut' : 'bunkerSurchargeAmt']} placeholder="0.00" />
+            </Field>
+            <Field id={out ? 'demmurageAmtOut' : 'demmurageAmt'} label={`Dem (${currency})`}>
+              <input value={form[out ? 'demmurageAmtOut' : 'demmurageAmt']} placeholder="0.00" onChange={(event) => patch(out ? 'demmurageAmtOut' : 'demmurageAmt', event.target.value)} onBlur={recalculate} />
+            </Field>
+            <Field id={out ? 'despatchAmtOut' : 'despatchAmt'} label={`Despatch (${currency})`}>
+              <input value={form[out ? 'despatchAmtOut' : 'despatchAmt']} placeholder="0.00" onChange={(event) => patch(out ? 'despatchAmtOut' : 'despatchAmt', event.target.value)} onBlur={recalculate} />
+            </Field>
+            <Field id={out ? 'addCommAmtOut' : 'addCommAmt'} label={`Add Comm (${currency})`}>
+              <input className={styles.readonly} readOnly value={form[out ? 'addCommAmtOut' : 'addCommAmt']} placeholder="0.00" />
+            </Field>
+            <Field id={out ? 'brokerageAmtOut' : 'brokerageAmt'} label={`Brokerage (${currency})`}>
+              <input className={styles.readonly} readOnly value={form[out ? 'brokerageAmtOut' : 'brokerageAmt']} placeholder="0.00" />
+            </Field>
+            <Field id={out ? 'totalAmtOut' : 'totalAmt'} label={`Total (${currency})`}>
+              <input className={styles.readonly} readOnly value={form[out ? 'totalAmtOut' : 'totalAmt']} placeholder="0.00" />
+            </Field>
+            {!out ? (
+              <Field id="profit" label={`Profit (${currency})`}>
+                <input className={styles.readonly} readOnly value={form.profit} placeholder="0.00" />
+              </Field>
+            ) : null}
+          </div>
         </div>
-      </>
+      </div>
     );
   };
 
@@ -711,8 +791,8 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
 
   if (loading) {
     return (
-      <div className={`zafira-page ${pageStyles.page}`}>
-        <LoadingOverlay active label="Loading cargo relet…" />
+      <div className={`zafira-page ${styles.page}`}>
+        <LoadingOverlay show label="Loading cargo relet…" />
       </div>
     );
   }
@@ -720,118 +800,153 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   return (
     <div className={`zafira-page ${styles.page}`}>
       <CoaFormHeaderActions listHref={listHref} disabled={saving} />
-      {saving ? <LoadingOverlay active label="Saving cargo relet…" /> : null}
+      {saving ? <LoadingOverlay show fullScreen={false} label="Saving cargo relet…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <form onSubmit={handleSave}>
-        <div className={styles.metaBar}>
-          <MetaField id="fixtureType" label="Fixture Type">
-            <div className={styles.metaValue}>Cargo Relet</div>
-          </MetaField>
-          <MetaField id="coaId" label="COA ID." grow>
-            {lockedCoaId ? (
-              <input id="coaId" className={styles.readonly} readOnly value={form.coaIdentity || lockedCoaId} />
-            ) : (
+        <div className={styles.card}>
+          <div className={styles.cardHead}>
+            <div className={styles.cardHeadIcon}>
+              <ReletIcon />
+            </div>
+            <span className={styles.cardTitle}>Cargo Relet Details</span>
+          </div>
+          <div className={styles.gridFields}>
+            <MetaField id="fixtureType" label="Fixture Type">
+              <div className={styles.metaValue}>Cargo Relet</div>
+            </MetaField>
+            <MetaField id="coaId" label="COA ID" grow>
+              {lockedCoaId ? (
+                <input id="coaId" className={styles.readonly} readOnly value={form.coaIdentity || lockedCoaId} />
+              ) : (
+                <CoaCardSelect
+                  label="COA"
+                  value={form.coaId}
+                  options={coaOptions}
+                  placeholder="Select COA..."
+                  onChange={(value) => patch('coaId', value)}
+                />
+              )}
+            </MetaField>
+            <MetaField id="vesselImoId" label="Vessel" grow>
               <CoaCardSelect
-                label="COA"
-                value={form.coaId}
-                options={coaOptions}
-                placeholder="---Select COA---"
-                onChange={(value) => patch('coaId', value)}
+                label="Vessel"
+                value={form.vesselImoId}
+                options={vessels}
+                onChange={handleVesselChange}
               />
-            )}
-          </MetaField>
-          <MetaField id="vesselImoId" label="Vessel" grow>
-            <CoaCardSelect
-              label="Vessel"
-              value={form.vesselImoId}
-              options={vessels}
-              onChange={handleVesselChange}
-            />
-          </MetaField>
-          <MetaField id="vesselType" label="Vessel Type">
-            <input id="vesselType" className={styles.readonly} readOnly value={form.vesselType} />
-          </MetaField>
-          <MetaField id="transDate" label="Date">
-            <DmyDateInput id="transDate" value={form.transDate} onChange={(value) => patch('transDate', value)} />
-          </MetaField>
-          <MetaField id="reletNo" label="Cargo Relet No.">
-            <input id="reletNo" value={form.reletNo} onChange={(event) => patch('reletNo', event.target.value)} required />
-          </MetaField>
-          <MetaField id="reletName" label="Cargo Relet Sheet Name" grow>
-            <input id="reletName" value={form.reletName} onChange={(event) => patch('reletName', event.target.value)} />
-          </MetaField>
+            </MetaField>
+            <MetaField id="vesselType" label="Vessel Type">
+              <input id="vesselType" className={styles.readonly} readOnly value={form.vesselType} placeholder="—" />
+            </MetaField>
+            <MetaField id="transDate" label="Date">
+              <DmyDateInput id="transDate" value={form.transDate} onChange={(value) => patch('transDate', value)} />
+            </MetaField>
+            <MetaField id="reletNo" label="Cargo Relet No.">
+              <input
+                id="reletNo"
+                value={form.reletNo}
+                placeholder={isAdd ? 'Auto-generated on Save' : undefined}
+                onChange={(event) => patch('reletNo', event.target.value)}
+                required={!isAdd}
+              />
+            </MetaField>
+            <MetaField id="reletName" label="Cargo Relet Sheet Name" grow>
+              <input
+                id="reletName"
+                value={form.reletName}
+                placeholder="e.g. RLT-1041 Working Sheet"
+                onChange={(event) => patch('reletName', event.target.value)}
+              />
+            </MetaField>
+          </div>
         </div>
 
-        <div className={styles.tabs}>
-          <div className={styles.tabList} role="tablist" aria-label="Cargo relet sections">
-            {TABS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === item.id}
-                className={`${styles.tabButton} ${tab === item.id ? styles.tabButtonActive : ''}`}
-                onClick={() => setTab(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+        <div className={styles.statusTabs} role="tablist" aria-label="Cargo relet sections">
+          {TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              className={`${styles.tabButton} ${tab === item.id ? styles.tabButtonActive : ''}`}
+              onClick={() => setTab(item.id)}
+            >
+              <TabIcon id={item.id} />
+              {item.label}
+            </button>
+          ))}
+        </div>
 
+        <div className={styles.tabPanelCard}>
           {tab === 'estimate' ? (
-            <div className={styles.tabPanel} role="tabpanel">
-              <div className={styles.estimateTop}>
-                <Field id="cargoType" label="Cargo Type">
-                  <div className={styles.metaValue}>{cargoTypeLabel || '—'}</div>
-                </Field>
-                <div className={styles.estimateTopWide}>
-                  <Field id="txtCargoPlanDetails" label="Planned Cargo">
-                    <textarea id="txtCargoPlanDetails" className={styles.readonly} readOnly value={form.cargoPlanDetails} placeholder="Cargo Planning Details..." />
-                  </Field>
+            <div role="tabpanel">
+              <div className={styles.cargoStrip}>
+                <div className={styles.cargoStripBlock}>
+                  <span className={styles.cargoStripLabel}>Cargo Type</span>
+                  <div className={styles.cargoStripValue}>{cargoTypeLabel || '—'}</div>
                 </div>
-                <div>
-                  <Button type="button" variant="primary" size="sm" label="Search Cargo" onClick={() => setTab('planned')} />
+                <div className={`${styles.cargoStripBlock} ${styles.cargoStripBlockWide}`}>
+                  <span className={styles.cargoStripLabel}>Planned Cargo</span>
+                  <div className={styles.plannedCargoBox}>
+                    {form.cargoPlanDetails || 'Cargo Planning Details...'}
+                  </div>
                 </div>
+              </div>
+
+              <div className={styles.cargoSearchRow}>
+                <button type="button" className={styles.btnNavySm} onClick={() => setTab('planned')}>
+                  Search Cargo
+                </button>
                 <Field id="cargoName" label="Cargo">
-                  <div className={styles.metaValue}>{form.cargoName || '—'}</div>
+                  <input className={styles.readonly} readOnly value={form.cargoName || '—'} />
                 </Field>
                 <Field id="cargoQty" label="Cargo Qty (MT)">
                   <input
                     id="cargoQty"
                     value={form.cargoQty}
-                    placeholder=""
+                    placeholder="0.00"
                     onChange={(event) => patch('cargoQty', event.target.value)}
                     onBlur={recalculate}
                   />
                 </Field>
               </div>
 
-              <div className={styles.split}>
-                <div className={styles.column}>
-                  <h3 className={styles.columnTitle}>Cargo IN</h3>
-                  {renderPartyTable('partiesIn')}
-                  {renderPortTable('loadPortsIn', 'Load Port')}
-                  {renderPortTable('dischargePortsIn', 'Dis Port')}
-                  {renderFreight('in')}
-                  {renderResult('in')}
-                  {renderNotes('in')}
+              <div className={styles.twinGrid}>
+                <div className={`${styles.panel} ${styles.panelIn}`}>
+                  <div className={styles.panelHead}>
+                    <PanelArrow down />
+                    Cargo IN
+                  </div>
+                  <div className={styles.panelBody}>
+                    {renderPartyTable('partiesIn')}
+                    {renderPortTable('loadPortsIn', 'Load Port')}
+                    {renderPortTable('dischargePortsIn', 'Dis Port')}
+                    {renderFreight('in')}
+                    {renderResult('in')}
+                    {renderNotes('in')}
+                  </div>
                 </div>
-                <div className={styles.column}>
-                  <h3 className={styles.columnTitle}>Cargo OUT</h3>
-                  {renderPartyTable('partiesOut')}
-                  {renderPortTable('loadPortsOut', 'Load Port')}
-                  {renderPortTable('dischargePortsOut', 'Dis Port')}
-                  {renderFreight('out')}
-                  {renderResult('out')}
-                  {renderNotes('out')}
+                <div className={`${styles.panel} ${styles.panelOut}`}>
+                  <div className={styles.panelHead}>
+                    <PanelArrow down={false} />
+                    Cargo OUT
+                  </div>
+                  <div className={styles.panelBody}>
+                    {renderPartyTable('partiesOut')}
+                    {renderPortTable('loadPortsOut', 'Load Port')}
+                    {renderPortTable('dischargePortsOut', 'Dis Port')}
+                    {renderFreight('out')}
+                    {renderResult('out')}
+                    {renderNotes('out')}
+                  </div>
                 </div>
               </div>
             </div>
           ) : null}
 
           {tab === 'commercial' ? (
-            <div className={styles.tabPanel} role="tabpanel">
+            <div role="tabpanel">
               <div className={styles.paramGrid}>
                 <Field id="dwtSummer" label="DWT (Summer)">
                   <input id="dwtSummer" className={styles.readonly} readOnly value={form.dwtSummer} placeholder="0.00" />
@@ -958,7 +1073,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           ) : null}
 
           {tab === 'planned' ? (
-            <div className={styles.tabPanel} role="tabpanel">
+            <div role="tabpanel">
               <div className={styles.blockTitle}>Planned Cargo</div>
               <div className={styles.plannedGrid}>
                 <Field id="openCargoId" label="CP ID">
@@ -993,7 +1108,6 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                     className={styles.readonly}
                     readOnly
                     value={form.plannedCargoQty}
-                    onChange={(event) => patch('plannedCargoQty', event.target.value)}
                   />
                 </Field>
                 <Field id="toleranceCp" label="Tolerance (+/- %)">
@@ -1109,16 +1223,33 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           ) : null}
         </div>
 
-        <div className={styles.formActions}>
-          <Button type="button" variant="outline" label="Calculate" onClick={recalculate} />
-          <Button type="submit" variant="primary" label={isAdd ? 'Submit to Edit' : 'Update Draft'} disabled={saving} />
-          <Button
+        <div className={styles.formFooter}>
+          <button type="button" className={styles.btnNavy} onClick={recalculate}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polygon points="6 3 20 12 6 21 6 3" />
+            </svg>
+            Run
+          </button>
+          <button type="submit" className={styles.btnOutline} disabled={saving}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+              <path d="M17 21v-8H7v8" />
+              <path d="M7 3v5h8" />
+            </svg>
+            Save
+          </button>
+          <button
             type="button"
-            variant="warning"
-            label="Send to Checker"
+            className={styles.btnOrange}
             disabled={saving || form.fixed}
             onClick={() => persist('2')}
-          />
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M22 2 11 13" />
+              <path d="M22 2 15 22l-4-9-9-4Z" />
+            </svg>
+            Submit for Review
+          </button>
         </div>
       </form>
     </div>

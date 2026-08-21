@@ -22,12 +22,12 @@ import {
   updateOpsTcOperator,
 } from '../../../services/opsTc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable, { DEFAULT_PAGE_SIZE } from '../sopf/ScrollableTable.jsx';
 import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsTcCompareSheetsModal from './OpsTcCompareSheetsModal.jsx';
 import OpsTcInOpsGlanceHeaderActions from './OpsTcInOpsGlanceHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
-const PAGE_SIZE = 50;
 const PAGE_CONTEXT = 2;
 const FLASH = {
   0: { type: 'success', text: 'In Post Ops at a glance added/updated successfully.' },
@@ -48,6 +48,7 @@ export default function OpsTcPostOpsPage() {
   const [searchInput, setSearchInput] = useState(searchParams.get('voy_no') || '');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [canEditOperator, setCanEditOperator] = useState(false);
   const [canCompareSheets, setCanCompareSheets] = useState(false);
@@ -81,7 +82,7 @@ export default function OpsTcPostOpsPage() {
           selYear: year,
           search: debouncedSearch,
           page,
-          pageSize: PAGE_SIZE,
+          pageSize,
         }),
       ]);
       setBusinessTypes(types);
@@ -97,10 +98,10 @@ export default function OpsTcPostOpsPage() {
     } finally {
       setLoading(false);
     }
-  }, [businessType, debouncedSearch, page, year]);
+  }, [businessType, debouncedSearch, page, pageSize, year]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year]);
+  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year, pageSize]);
 
   const handleOperatorChange = async (row, operatorId) => {
     try {
@@ -215,7 +216,12 @@ export default function OpsTcPostOpsPage() {
 
         <h3 className={styles.title}>Vessels In Post Ops - TC</h3>
 
-        <div className={`${styles.tableWrap} ${styles.wideTableWrap}`}>
+        <ScrollableTable
+          className={styles.wideTableWrap}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
+        >
           <table className={styles.table}>
             <thead>
               <tr>
@@ -376,9 +382,7 @@ export default function OpsTcPostOpsPage() {
               ))}
             </tbody>
           </table>
-        </div>
-
-        <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        </ScrollableTable>
 
         {sheetModal.open ? (
           <div className={styles.modalBackdrop} role="dialog" aria-modal="true">

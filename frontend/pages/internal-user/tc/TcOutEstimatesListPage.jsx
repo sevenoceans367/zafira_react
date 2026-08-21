@@ -9,12 +9,12 @@ import {
   fetchTcEstimates,
 } from '../../../services/tcEstimates.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import TcDecisionChartModal from './TcDecisionChartModal.jsx';
 import TcListHeaderActions from './TcListHeaderActions.jsx';
 import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import styles from './TcBusinessPage.module.css';
 
-const PAGE_SIZE = 10;
 const DEFAULT_BUSINESS_TYPE = '2';
 
 const FLASH = {
@@ -97,6 +97,7 @@ export default function TcOutEstimatesListPage() {
     vesselsOnWater: 0,
   });
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [selectedIds, setSelectedIds] = useState([]);
   const [searchInput, setSearchInput] = useState('');
@@ -136,7 +137,7 @@ export default function TcOutEstimatesListPage() {
           periodTo,
           search: debouncedSearch,
           page,
-          pageSize: PAGE_SIZE,
+          pageSize,
         }),
       ]);
       setBusinessTypes(types);
@@ -154,10 +155,10 @@ export default function TcOutEstimatesListPage() {
     } finally {
       setLoading(false);
     }
-  }, [businessType, debouncedSearch, page, periodFrom, periodTo]);
+  }, [businessType, debouncedSearch, page, pageSize, periodFrom, periodTo]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [debouncedSearch, businessType, periodFrom, periodTo]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, businessType, periodFrom, periodTo, pageSize]);
 
   useEffect(() => {
     if (!flash) return undefined;
@@ -335,8 +336,18 @@ export default function TcOutEstimatesListPage() {
         </div>
       </div>
 
-      <div className={styles.tableCard}>
-        <div className={styles.tableWrap}>
+      <ScrollableTable
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        footer={(
+          <SopfPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+          />
+        )}
+      >
           <table className={styles.grid}>
             <thead>
               <tr>
@@ -460,15 +471,7 @@ export default function TcOutEstimatesListPage() {
               ) : null}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <SopfPagination
-        page={page}
-        pageSize={PAGE_SIZE}
-        total={total}
-        onPageChange={setPage}
-      />
+      </ScrollableTable>
 
       <TcDecisionChartModal
         open={compareOpen}

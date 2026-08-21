@@ -11,11 +11,11 @@ import {
 } from '../../../services/periodContracts.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import PeriodContractHeaderActions from './PeriodContractHeaderActions.jsx';
 import legacyStyles from './PeriodContractListPage.module.css';
 import styles from './PeriodBusinessPage.module.css';
 
-const PAGE_SIZE = 10;
 const SHOW_OPTIONS = [5, 10, 25];
 const EXPORT_PAGE_SIZE = 5000;
 
@@ -203,6 +203,7 @@ export default function PeriodContractListPage() {
     vesselsOnWater: 0,
   });
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -247,7 +248,7 @@ export default function PeriodContractListPage() {
         selBType: businessType,
         status: activeTab,
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         search: debouncedSearch,
         periodFrom: isSopf ? periodFrom : '',
         periodTo: isSopf ? periodTo : '',
@@ -265,7 +266,7 @@ export default function PeriodContractListPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, businessType, debouncedSearch, isSopf, page, periodFrom, periodTo]);
+  }, [activeTab, businessType, debouncedSearch, isSopf, page, pageSize, periodFrom, periodTo]);
 
   useEffect(() => {
     loadBusinessTypes(businessType);
@@ -277,7 +278,7 @@ export default function PeriodContractListPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, businessType, activeTab, periodFrom, periodTo]);
+  }, [debouncedSearch, businessType, activeTab, periodFrom, periodTo, pageSize]);
 
   useEffect(() => {
     if (!flash) return undefined;
@@ -468,7 +469,11 @@ export default function PeriodContractListPage() {
             />
           </div>
         </div>
-        <div className={legacyStyles.tableWrap}>
+        <ScrollableTable
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
+        >
           <table className={legacyStyles.table}>
             <thead>
               <tr>
@@ -543,8 +548,7 @@ export default function PeriodContractListPage() {
               ))}
             </tbody>
           </table>
-        </div>
-        <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        </ScrollableTable>
         {modal ? (
           <div className={legacyStyles.modalBackdrop} role="presentation" onClick={closeModal}>
             <div
@@ -730,44 +734,46 @@ export default function PeriodContractListPage() {
         ))}
       </div>
 
-      <div className={styles.actionRow}>
-        <div className={styles.actionRowLeft}>
-          <button
-            type="button"
-            className={styles.btnAdd}
-            onClick={() => navigate(`/internal-user/${module}/period-contracts/add`)}
-          >
-            <PlusIcon />
-            Add New
-          </button>
-          <div className={styles.menuWrap} ref={menuRef}>
+      <ScrollableTable
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        toolbarLeft={(
+          <>
             <button
               type="button"
-              className={styles.btnMore}
-              aria-label="More options"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={() => setMenuOpen((open) => !open)}
+              className={styles.btnAdd}
+              onClick={() => navigate(`/internal-user/${module}/period-contracts/add`)}
             >
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="12" cy="5" r="1.8" />
-                <circle cx="12" cy="12" r="1.8" />
-                <circle cx="12" cy="19" r="1.8" />
-              </svg>
+              <PlusIcon />
+              Add New
             </button>
-            {menuOpen ? (
-              <div className={styles.menuDropdown} role="menu">
-                <button type="button" role="menuitem" className={styles.menuItem} onClick={handleDownloadExcel}>
-                  Download Excel
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.tableCard}>
-        <div className={styles.tableWrap}>
+            <div className={styles.menuWrap} ref={menuRef}>
+              <button
+                type="button"
+                className={styles.btnMore}
+                aria-label="More options"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="5" r="1.8" />
+                  <circle cx="12" cy="12" r="1.8" />
+                  <circle cx="12" cy="19" r="1.8" />
+                </svg>
+              </button>
+              {menuOpen ? (
+                <div className={styles.menuDropdown} role="menu">
+                  <button type="button" role="menuitem" className={styles.menuItem} onClick={handleDownloadExcel}>
+                    Download Excel
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </>
+        )}
+        footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
+      >
           <table className={styles.grid}>
             <thead>
               <tr>
@@ -856,11 +862,7 @@ export default function PeriodContractListPage() {
               ))}
             </tbody>
           </table>
-        </div>
-        <div className={styles.tableFooter}>
-          <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-        </div>
-      </div>
+      </ScrollableTable>
 
       {modal ? (
         <>

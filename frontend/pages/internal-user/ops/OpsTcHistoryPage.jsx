@@ -6,11 +6,11 @@ import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { fetchHistoryAtGlanceTc, fetchOpsTcYears } from '../../../services/opsTc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
+import ScrollableTable, { DEFAULT_PAGE_SIZE } from '../sopf/ScrollableTable.jsx';
 import OpsTcCompareSheetsModal from './OpsTcCompareSheetsModal.jsx';
 import OpsTcInOpsGlanceHeaderActions from './OpsTcInOpsGlanceHeaderActions.jsx';
 import styles from './OpsPages.module.css';
 
-const PAGE_SIZE = 50;
 const PAGE_CONTEXT = 3;
 const FLASH = {
   0: { type: 'success', text: 'Vessels in History added/updated successfully.' },
@@ -26,6 +26,7 @@ export default function OpsTcHistoryPage() {
   const [searchInput, setSearchInput] = useState(searchParams.get('voy_no') || '');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -54,7 +55,7 @@ export default function OpsTcHistoryPage() {
           selYear: year,
           search: debouncedSearch,
           page,
-          pageSize: PAGE_SIZE,
+          pageSize,
         }),
       ]);
       setBusinessTypes(types);
@@ -66,10 +67,10 @@ export default function OpsTcHistoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [businessType, debouncedSearch, page, year]);
+  }, [businessType, debouncedSearch, page, pageSize, year]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year]);
+  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year, pageSize]);
 
   return (
     <>
@@ -98,7 +99,11 @@ export default function OpsTcHistoryPage() {
 
         <h3 className={styles.title}>Vessels in History - TC</h3>
 
-        <div className={styles.tableWrap}>
+        <ScrollableTable
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
+        >
           <table className={styles.table}>
             <thead>
               <tr>
@@ -205,9 +210,7 @@ export default function OpsTcHistoryPage() {
               ))}
             </tbody>
           </table>
-        </div>
-
-        <SopfPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        </ScrollableTable>
 
         <OpsTcCompareSheetsModal
           open={compareModal.open}

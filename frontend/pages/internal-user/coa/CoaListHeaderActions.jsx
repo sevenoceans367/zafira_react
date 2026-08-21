@@ -22,6 +22,8 @@ export default function CoaListHeaderActions({
   periodTo,
   onPeriodChange,
   primaryAction,
+  extra = null,
+  extraKey = '',
 }) {
   const searchRef = useRef(null);
   const showBusinessType = typeof onBusinessTypeChange === 'function';
@@ -59,6 +61,7 @@ export default function CoaListHeaderActions({
         periodTo,
         onPeriodChange,
         primaryAction,
+        extraKey,
       ]}
     >
       <HeaderFilterControls>
@@ -85,6 +88,7 @@ export default function CoaListHeaderActions({
             ariaLabel="Business type"
           />
         ) : null}
+        {extra}
         {showStatus ? (
           <CardSelect
             options={statusOptions}

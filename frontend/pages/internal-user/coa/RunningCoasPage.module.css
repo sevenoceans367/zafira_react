@@ -184,6 +184,66 @@
   height: 15px;
 }
 
+.menuWrap {
+  position: relative;
+}
+
+.btnMore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #fff;
+  color: #5b6472;
+  border: 1px solid #dfe2e7;
+  border-radius: 9px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btnMore:hover {
+  background: #f1f2f4;
+  color: #1b2430;
+}
+
+.btnMore svg {
+  width: 16px;
+  height: 16px;
+}
+
+.menuDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 170px;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(20, 30, 50, 0.12);
+  overflow: hidden;
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #5b6472;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.menuItem:hover {
+  background: #f1f2f4;
+  color: #1b2430;
+}
+
 .tableCard {
   background: #fff;
   border: 1px solid #eceef2;
@@ -246,6 +306,44 @@
 .coaId {
   font-weight: 700;
   color: #1b2430;
+}
+
+.reletCell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.reletNo {
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.coaLinkChip {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #6c47ff;
+  background: #efeaff;
+  border: 1px solid #ddd2ff;
+  border-radius: 999px;
+  padding: 3px 9px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.coaLinkChip:hover {
+  background: #ddd2ff;
+}
+
+.cellVessel {
+  font-weight: 400;
+  color: #1b2430;
+}
+
+.reletGrid {
+  min-width: 1600px;
 }
 
 .pillAction {

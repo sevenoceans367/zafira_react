@@ -17,6 +17,8 @@ export default function CardSelect({
   disabled = false,
   id,
   leadingDot = null,
+  /** "default" (navy) | "muted" (app grey #5b6472) */
+  tone = 'default',
 }) {
   const wrapRef = useRef(null);
   const triggerRef = useRef(null);
@@ -156,7 +158,11 @@ export default function CardSelect({
         ref={triggerRef}
         id={id}
         type="button"
-        className={`${styles.trigger} ${leadingDot ? styles.triggerWithDot : ''}`.trim()}
+        className={[
+          styles.trigger,
+          leadingDot ? styles.triggerWithDot : '',
+          tone === 'muted' ? styles.triggerMuted : '',
+        ].filter(Boolean).join(' ')}
         aria-label={ariaLabel}
         aria-expanded={menuOpen}
         aria-haspopup="listbox"

@@ -98,7 +98,7 @@ async function sumCargoMtForCoa(pool, row) {
   if (row.COMID_RELET) {
     for (const comid of String(row.COMID_RELET).split(',').filter(Boolean)) {
       const [[fcaRow]] = await pool.query(
-        `SELECT FCAID FROM cargo_relet_estimate_masster
+        `SELECT cargo_relet_estimate_masster.FCAID AS FCAID FROM cargo_relet_estimate_masster
          INNER JOIN cargo_relet_estimate_compare c ON c.FCAID = cargo_relet_estimate_masster.FCAID
          WHERE c.COMID = ? ORDER BY cargo_relet_estimate_masster.FCAID DESC LIMIT 1`,
         [comid],

@@ -176,13 +176,13 @@ export default function CoaOpsListPage() {
           if (yearFilter === 'all') return true;
           return yearFromDate(row.coaDate) === Number(yearFilter);
         });
-        const active = all.filter((row) => !row.fixed);
-        const closed = all.filter((row) => row.fixed);
-        const revenue = active.reduce((sum, row) => sum + (Number(String(row.profit ?? '').replace(/,/g, '')) || 0), 0);
+        // FIXED=1 means submitted to ops (PHP finalize), not "closed/history".
+        const submitted = all.filter((row) => row.fixed);
+        const revenue = submitted.reduce((sum, row) => sum + (Number(String(row.profit ?? '').replace(/,/g, '')) || 0), 0);
         setCounts({
-          ops: active.length,
+          ops: all.length,
           postops: 0,
-          history: closed.length,
+          history: 0,
           revenue,
         });
         return;
@@ -233,7 +233,9 @@ export default function CoaOpsListPage() {
       setBusinessTypes(types);
 
       if (isRelet) {
-        if (statusTab === 'postops') {
+        // Cargo relets: In Ops lists working sheets (draft + submitted).
+        // History/Post Ops are spot-voyage stages — empty for relets.
+        if (statusTab === 'postops' || statusTab === 'history') {
           setRows([]);
           setTotal(0);
           return;
@@ -244,9 +246,7 @@ export default function CoaOpsListPage() {
           pageSize: 200,
           search: debouncedSearch,
         });
-        const wantClosed = statusTab === 'history';
         const filtered = (data.records ?? []).filter((row) => {
-          if (Boolean(row.fixed) !== wantClosed) return false;
           if (yearFilter !== 'all' && yearFromDate(row.coaDate) !== Number(yearFilter)) return false;
           return true;
         });
@@ -365,6 +365,7 @@ export default function CoaOpsListPage() {
               options={TRADE_TYPES.map((item) => ({ id: item.id, name: item.label }))}
               value={tradeType}
               leadingDot={tradeMeta.color}
+              tone="muted"
               ariaLabel="Contract trade type"
               placeholder="Trade type"
               onChange={(value) => {
@@ -380,6 +381,7 @@ export default function CoaOpsListPage() {
             <CardSelect
               options={yearOptions}
               value={yearFilter}
+              tone="muted"
               ariaLabel="Year"
               placeholder="All Years"
               onChange={(value) => {
@@ -485,8 +487,8 @@ export default function CoaOpsListPage() {
                     <td className={styles.cellNum}>{liveValue(row.freightOutAmt)}</td>
                     <td className={styles.cellNum}>{liveValue(row.profit)}</td>
                     <td>
-                      <span className={`${styles.statusPill} ${row.fixed ? styles.statusClosed : styles.statusActive}`}>
-                        {row.fixed ? 'Closed' : 'Active'}
+                      <span className={`${styles.statusPill} ${row.fixed ? styles.statusActive : styles.statusDraft}`}>
+                        {row.fixed ? 'Ops' : 'Draft'}
                       </span>
                     </td>
                     <td>

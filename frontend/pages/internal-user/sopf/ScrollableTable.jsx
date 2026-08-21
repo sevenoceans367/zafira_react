@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import rightArrowIcon from '../../../assets/right_arrow.png';
+import rightScrollIcon from '../../../assets/right_scroll.png';
 import styles from './ScrollableTable.module.css';
 
 export const PAGE_SIZE_OPTIONS = [10, 25, 50];
@@ -17,7 +17,7 @@ function HScrollButtons({ canLeft, canRight, onScroll }) {
         onClick={() => onScroll(-1)}
       >
         <img
-          src={rightArrowIcon}
+          src={rightScrollIcon}
           alt=""
           className={`${styles.hScrollIcon} ${styles.hScrollIconMirror}`}
           aria-hidden="true"
@@ -31,7 +31,7 @@ function HScrollButtons({ canLeft, canRight, onScroll }) {
         disabled={!canRight}
         onClick={() => onScroll(1)}
       >
-        <img src={rightArrowIcon} alt="" className={styles.hScrollIcon} aria-hidden="true" />
+        <img src={rightScrollIcon} alt="" className={styles.hScrollIcon} aria-hidden="true" />
       </button>
     </div>
   );

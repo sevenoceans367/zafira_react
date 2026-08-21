@@ -245,6 +245,11 @@
   color: #0b7a28;
 }
 
+.statusDraft {
+  background: #eef0f3;
+  color: #5b6472;
+}
+
 .statusClosed {
   background: #dfe2e7;
   color: #5b6472;

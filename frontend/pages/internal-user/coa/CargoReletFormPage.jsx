@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
+import { DmyDateInput, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { fetchCommercialParameters } from '../../../services/commercialParameters.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
@@ -14,15 +14,21 @@ import {
 } from '../../../services/coas.js';
 import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
 import { calcCargoIntake, calcCargoReletTotals } from './cargoReletTotals.js';
+import {
+  focusCargoReletValidationField,
+  validateCargoReletForm,
+} from './cargoReletValidation.js';
 import CoaCardSelect from './CoaCardSelect.jsx';
 import CoaFormHeaderActions from './CoaFormHeaderActions.jsx';
 import styles from './CargoReletFormPage.module.css';
 
-const TABS = [
+const ALL_TABS = [
   { id: 'estimate', label: 'Cargo Relet: Estimate' },
   { id: 'commercial', label: 'Commercial Parameters' },
   { id: 'planned', label: 'Planned Cargo/Intake' },
 ];
+
+const NEW_RELET_TABS = ALL_TABS.filter((item) => item.id === 'estimate');
 
 function PlusIcon() {
   return (
@@ -349,10 +355,13 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   const { fcaId } = useParams();
   const navigate = useNavigate();
   const { coaPath } = useCoaModule();
+  const alert = useAlert();
+  const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const isAdd = mode === 'add' || !fcaId;
   const fromRunning = searchParams.get('from') === 'running';
   const lockedCoaId = searchParams.get('coaId') || '';
+  const tabs = isAdd ? NEW_RELET_TABS : ALL_TABS;
   const [tab, setTab] = useState('estimate');
   const [lookups, setLookups] = useState(null);
   const [coaOptions, setCoaOptions] = useState([]);
@@ -450,9 +459,10 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   );
 
   const currency = form.currency || 'USD';
+  const opsListHref = `${coaPath('in-ops')}?selBType=${form.businessTypeId || '2'}&tradeType=relet`;
   const listHref = fromRunning
     ? `${coaPath('running')}?selBType=${form.businessTypeId || '2'}`
-    : `${coaPath('cargo-relet')}?selBType=${form.businessTypeId || '2'}`;
+    : opsListHref;
 
   const patch = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -488,15 +498,30 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   };
 
   const persist = async (updateStatus) => {
-    if (!form.coaId) {
-      setError('Please select a COA.');
+    const validation = validateCargoReletForm(form);
+    if (validation) {
+      setError(validation.message);
+      if (validation.tab && validation.tab !== tab) setTab(validation.tab);
+      await alert({
+        title: 'Validation',
+        message: validation.message,
+        confirmLabel: 'OK',
+      });
+      focusCargoReletValidationField(validation.fieldId);
       return;
     }
-    const reletNo = form.reletNo?.trim() || (isAdd ? `RL-${Date.now().toString().slice(-6)}` : '');
-    if (!reletNo) {
-      setError('Cargo Relet No. is required.');
-      return;
-    }
+
+    const confirmed = await confirm({
+      title: 'Confirmation',
+      message: updateStatus === '2'
+        ? 'Are you sure you want to send this estimate to ops?'
+        : 'Are you sure you have checked each entry?',
+      confirmLabel: 'OK',
+      cancelLabel: 'Cancel',
+    });
+    if (!confirmed) return;
+
+    const reletNo = form.reletNo.trim();
     setSaving(true);
     setError('');
     try {
@@ -506,7 +531,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
       else await updateCargoRelet(fcaId, payload);
       navigate(fromRunning
         ? `${coaPath('running')}?selBType=${form.businessTypeId}&msg=0`
-        : `${coaPath('running')}?selBType=${form.businessTypeId}&status=relets`);
+        : `${coaPath('in-ops')}?selBType=${form.businessTypeId}&tradeType=relet`);
     } catch (err) {
       setError(err.message || 'Failed to save cargo relet.');
     } finally {
@@ -543,8 +568,9 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             <tr key={`${key}-${index}`}>
               <td>{index + 1}</td>
               {['charterer', 'owner', 'broker'].map((field) => (
-                <td key={field}>
+                <td key={field} data-relet-field-wrap>
                   <CoaCardSelect
+                    id={`${key}-${index}-${field}`}
                     label={field}
                     value={row[field]}
                     options={
@@ -598,15 +624,17 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           {(form[key] || []).map((row, index) => (
             <tr key={`${key}-${index}`}>
               <td>{index + 1}</td>
-              <td>
+              <td data-relet-field-wrap>
                 <PortSearchSelect
+                  id={`${key}-${index}-port`}
                   value={row.portId}
                   label={row.portName}
                   onChange={(portId, portName) => updateRows(key, index, { portId, portName })}
                 />
               </td>
-              <td>
+              <td data-relet-field-wrap>
                 <input
+                  id={`${key}-${index}-comments`}
                   value={row.comments}
                   placeholder="Comments"
                   onChange={(event) => updateRows(key, index, { comments: event.target.value })}
@@ -820,6 +848,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                 <input id="coaId" className={styles.readonly} readOnly value={form.coaIdentity || lockedCoaId} />
               ) : (
                 <CoaCardSelect
+                  id="coaId"
                   label="COA"
                   value={form.coaId}
                   options={coaOptions}
@@ -830,6 +859,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             </MetaField>
             <MetaField id="vesselImoId" label="Vessel" grow>
               <CoaCardSelect
+                id="vesselImoId"
                 label="Vessel"
                 value={form.vesselImoId}
                 options={vessels}
@@ -846,9 +876,8 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
               <input
                 id="reletNo"
                 value={form.reletNo}
-                placeholder={isAdd ? 'Auto-generated on Save' : undefined}
+                placeholder="Required"
                 onChange={(event) => patch('reletNo', event.target.value)}
-                required={!isAdd}
               />
             </MetaField>
             <MetaField id="reletName" label="Cargo Relet Sheet Name" grow>
@@ -863,7 +892,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
         </div>
 
         <div className={styles.statusTabs} role="tablist" aria-label="Cargo relet sections">
-          {TABS.map((item) => (
+          {tabs.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -895,9 +924,11 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
               </div>
 
               <div className={styles.cargoSearchRow}>
-                <button type="button" className={styles.btnNavySm} onClick={() => setTab('planned')}>
-                  Search Cargo
-                </button>
+                {!isAdd ? (
+                  <button type="button" className={styles.btnNavySm} onClick={() => setTab('planned')}>
+                    Search Cargo
+                  </button>
+                ) : null}
                 <Field id="cargoName" label="Cargo">
                   <input className={styles.readonly} readOnly value={form.cargoName || '—'} />
                 </Field>
@@ -945,7 +976,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             </div>
           ) : null}
 
-          {tab === 'commercial' ? (
+          {tab === 'commercial' && !isAdd ? (
             <div role="tabpanel">
               <div className={styles.paramGrid}>
                 <Field id="dwtSummer" label="DWT (Summer)">
@@ -1072,7 +1103,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             </div>
           ) : null}
 
-          {tab === 'planned' ? (
+          {tab === 'planned' && !isAdd ? (
             <div role="tabpanel">
               <div className={styles.blockTitle}>Planned Cargo</div>
               <div className={styles.plannedGrid}>

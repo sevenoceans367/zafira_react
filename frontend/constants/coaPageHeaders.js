@@ -16,14 +16,20 @@ function moduleBreadcrumb(module) {
   return { label: COA_MODULE_LABELS.vc, href: appPath('/internal-user/vc') };
 }
 
-export function resolveCoaHeader(pathname, _search = '') {
+export function resolveCoaHeader(pathname, search = '') {
   if (!pathname.includes('/coas')) return null;
   const module = parseCoaModuleFromPath(pathname);
   if (!COA_MODULE_IDS.includes(module)) return null;
   if (!pathname.startsWith(`/internal-user/${module}/coas`)) return null;
 
   const runningHref = coaAppPath(module, 'running');
+  const opsReletHref = `${coaAppPath(module, 'in-ops')}?tradeType=relet`;
   const moduleCrumb = moduleBreadcrumb(module);
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  const fromRunning = params.get('from') === 'running';
+  const reletParent = fromRunning
+    ? { label: 'Running COA Business', href: runningHref }
+    : { label: 'COA Ops', href: opsReletHref };
 
   if (pathname.includes('/coas/running/add')) {
     return {
@@ -66,7 +72,7 @@ export function resolveCoaHeader(pathname, _search = '') {
       breadcrumbs: [
         HOME,
         moduleCrumb,
-        { label: 'Running COA Business', href: runningHref },
+        reletParent,
         { label: 'New Cargo Relet' },
       ],
     };
@@ -79,7 +85,7 @@ export function resolveCoaHeader(pathname, _search = '') {
       breadcrumbs: [
         HOME,
         moduleCrumb,
-        { label: 'Running COA Business', href: runningHref },
+        reletParent,
         { label: 'Update Cargo Relet' },
       ],
     };
@@ -87,13 +93,13 @@ export function resolveCoaHeader(pathname, _search = '') {
 
   if (pathname.endsWith('/coas/cargo-relet') || pathname.endsWith('/coas/cargo-relet/')) {
     return {
-      title: 'Running COA Business',
-      currentPage: 'Cargo Relets',
+      title: 'COA Ops',
+      currentPage: 'Cargo Relet',
       breadcrumbs: [
         HOME,
         moduleCrumb,
-        { label: 'Running COA Business', href: `${runningHref}?status=relets` },
-        { label: 'Cargo Relets' },
+        { label: 'COA Ops', href: opsReletHref },
+        { label: 'Cargo Relet' },
       ],
     };
   }

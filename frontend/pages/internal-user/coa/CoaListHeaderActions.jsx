@@ -79,6 +79,7 @@ export default function CoaListHeaderActions({
             label="Select Period"
           />
         ) : null}
+        {extra}
         {showBusinessType ? (
           <CardSelect
             options={businessTypes}
@@ -88,7 +89,6 @@ export default function CoaListHeaderActions({
             ariaLabel="Business type"
           />
         ) : null}
-        {extra}
         {showStatus ? (
           <CardSelect
             options={statusOptions}

@@ -11,14 +11,16 @@ export default function CoaCardSelect({
   includeEmpty = true,
   disabled = false,
   align = 'start',
+  id,
 }) {
   const selectOptions = includeEmpty
     ? [{ id: '', name: placeholder }, ...options]
     : options;
 
   return (
-    <div className={styles.cardSelect}>
+    <div className={styles.cardSelect} data-relet-field-wrap={id || undefined}>
       <CardSelect
+        id={id}
         value={value ?? ''}
         options={selectOptions}
         placeholder={placeholder}

@@ -224,7 +224,7 @@ export default function TcOutEstimatesListPage() {
 
   const cards = [
     { key: 'open', title: 'Open Trades', value: formatOpenTrade(stats.openTrade), variant: 'fin' },
-    { key: 'subs', title: 'Vessels in Subs', value: stats.vesselsInSubs ?? 0, variant: 'cnt' },
+    { key: 'subs', title: 'Vessels on Subs', value: stats.vesselsInSubs ?? 0, variant: 'cnt' },
     { key: 'ops', title: 'Trades in Operations', value: formatOpenTrade(stats.tradesInOperations), variant: 'fin' },
     { key: 'water', title: 'Vessels on Water', value: stats.vesselsOnWater ?? 0, variant: 'cnt' },
   ];

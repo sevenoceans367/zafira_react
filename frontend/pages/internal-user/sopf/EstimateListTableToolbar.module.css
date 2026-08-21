@@ -1,67 +1,116 @@
-.toolbar {
+/* Match Time Charter Business action row (Add / Sensitivity / ⋯). */
+
+.actionRow {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
 }
 
-.actions {
-  display: flex;
+.btnAdd {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 7px;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  border-radius: 9px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+}
+
+.btnAdd:hover {
+  background: #2f6fe0;
+  color: #fff;
+}
+
+.btnAdd svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btnSensitivity {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #f1f2f4;
+  color: #8a93a2;
+  font-weight: 700;
+  font-size: 13px;
+  border: 1px solid #dfe2e7;
+  border-radius: 9px;
+  padding: 10px 16px;
+  cursor: not-allowed;
+  font-family: inherit;
+}
+
+.btnSensitivity svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btnSensitivityEnabled {
+  background: #fff;
+  color: #274670;
+  cursor: pointer;
+  border-color: #d3dae7;
+}
+
+.btnSensitivityEnabled:hover {
+  background: #e6eaf1;
 }
 
 .menuWrap {
   position: relative;
 }
 
-.menuTrigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.btnMore {
   width: 36px;
   height: 36px;
-  padding: 0;
-  border: 1px solid #d1d5db;
-  border-radius: 50%;
+  border-radius: 9px;
+  border: 1px solid #dfe2e7;
   background: #fff;
-  color: #374151;
+  color: #5b6472;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  flex: none;
+  padding: 0;
 }
 
-.menuTrigger:hover,
-.menuTrigger[aria-expanded='true'] {
-  background: #f9fafb;
-  border-color: #9ca3af;
+.btnMore:hover,
+.btnMore[aria-expanded='true'] {
+  background: #f1f2f4;
 }
 
-.menuTrigger:focus,
-.menuTrigger:active,
+.btnMore svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btnMore:focus,
+.btnMore:active,
 .menuItem:focus,
 .menuItem:active {
   outline: none;
 }
 
-.menuTrigger:focus-visible,
+.btnMore:focus-visible,
 .menuItem:focus-visible {
   outline: 2px solid #376eb8;
   outline-offset: 2px;
 }
 
-.menuTrigger i,
-.menuTrigger svg {
-  font-size: 18px;
-  line-height: 1;
-  display: block;
-}
-
 .menuDropdown {
   position: absolute;
   top: calc(100% + 6px);
-  right: 0;
+  left: 0;
   z-index: 20;
   min-width: 210px;
   padding: 6px;

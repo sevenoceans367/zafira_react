@@ -9,7 +9,6 @@ import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import { coaBasePath } from '../../../constants/coaModule.js';
 import {
   cancelCoa,
-  fetchCargoRelets,
   fetchCoaNominations,
   fetchRunningCoas,
 } from '../../../services/coas.js';
@@ -29,7 +28,6 @@ const FLASH = {
 
 const STATUS_TABS = [
   { id: 'active', label: 'Active' },
-  { id: 'relets', label: 'Cargo Relets' },
   { id: 'completed', label: 'Completed' },
   { id: 'cancelled', label: 'Cancelled' },
 ];
@@ -64,7 +62,6 @@ function rowTab(row) {
 function parseStatusTab(value) {
   if (value === '2' || value === 'cancelled') return 'cancelled';
   if (value === 'completed') return 'completed';
-  if (value === 'relets' || value === 'cargo-relets') return 'relets';
   return 'active';
 }
 
@@ -105,17 +102,6 @@ function HighlightIcon({ name }) {
 }
 
 function TabIcon({ id }) {
-  if (id === 'relets') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="16 3 21 3 21 8" />
-        <line x1="4" y1="20" x2="21" y2="3" />
-        <polyline points="21 16 21 21 16 21" />
-        <line x1="15" y1="15" x2="21" y2="21" />
-        <line x1="4" y1="4" x2="9" y2="9" />
-      </svg>
-    );
-  }
   if (id === 'completed') {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -206,13 +192,10 @@ export default function RunningCoasListPage() {
   const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
   const [statusTab, setStatusTab] = useState(parseStatusTab(searchParams.get('status')));
   const [allRows, setAllRows] = useState([]);
-  const [reletRows, setReletRows] = useState([]);
-  const [reletTotal, setReletTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(true);
-  const [reletLoading, setReletLoading] = useState(false);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null);
   const [spotFilter, setSpotFilter] = useState('all');
@@ -223,7 +206,6 @@ export default function RunningCoasListPage() {
   const menuRef = useRef(null);
   const openedLinkFromQuery = useRef(false);
 
-  const isReletsTab = statusTab === 'relets';
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flashMsg = searchParams.get('msg');
   const flash = flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null;
@@ -251,29 +233,7 @@ export default function RunningCoasListPage() {
     }
   }, [businessType, debouncedSearch]);
 
-  const loadRelets = useCallback(async () => {
-    setReletLoading(true);
-    setError('');
-    try {
-      const data = await fetchCargoRelets({
-        selBType: businessType,
-        page,
-        pageSize,
-        search: debouncedSearch,
-      });
-      setReletRows(data.records ?? []);
-      setReletTotal(data.recordsTotal ?? 0);
-    } catch (err) {
-      setError(err.message || 'Failed to load cargo relets.');
-    } finally {
-      setReletLoading(false);
-    }
-  }, [businessType, debouncedSearch, page, pageSize]);
-
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    if (isReletsTab) loadRelets();
-  }, [isReletsTab, loadRelets]);
   useEffect(() => { setPage(1); }, [debouncedSearch, businessType, statusTab, pageSize]);
 
   useEffect(() => {
@@ -322,61 +282,20 @@ export default function RunningCoasListPage() {
   }, [allRows]);
 
   const filteredRows = useMemo(
-    () => (isReletsTab ? [] : allRows.filter((row) => rowTab(row) === statusTab)),
-    [allRows, statusTab, isReletsTab],
+    () => allRows.filter((row) => rowTab(row) === statusTab),
+    [allRows, statusTab],
   );
 
   const pageRows = useMemo(() => {
-    if (isReletsTab) return reletRows;
     const start = (page - 1) * pageSize;
     return filteredRows.slice(start, start + pageSize);
-  }, [filteredRows, page, pageSize, isReletsTab, reletRows]);
+  }, [filteredRows, page, pageSize]);
 
-  const listTotal = isReletsTab ? reletTotal : filteredRows.length;
+  const listTotal = filteredRows.length;
 
-  const showingLabel = isReletsTab
-    ? `Showing ${reletTotal} relet${reletTotal === 1 ? '' : 's'}`
-    : `Showing ${filteredRows.length} ${statusTab} COA${filteredRows.length === 1 ? '' : 's'}`;
-
-  const coaById = useMemo(() => {
-    const map = new Map();
-    allRows.forEach((row) => map.set(String(row.coaId), row));
-    return map;
-  }, [allRows]);
+  const showingLabel = `Showing ${filteredRows.length} ${statusTab} COA${filteredRows.length === 1 ? '' : 's'}`;
 
   const downloadCsv = () => {
-    if (isReletsTab) {
-      const headers = [
-        '#', 'No.', 'Date', 'QTY (MT)', 'LP/DP', 'Frt-In ($/MT)', 'Frt-In',
-        'FO Surcharge', 'Frt-Out ($/MT)', 'Frt-Out', 'Profit', 'Vessel',
-      ];
-      const lines = [
-        headers.join(','),
-        ...reletRows.map((row, index) => ([
-          (page - 1) * pageSize + index + 1,
-          row.reletNo || '',
-          row.coaDate || '',
-          row.cargoQty || '',
-          row.ports || '',
-          row.freightInPerMt || '',
-          row.freightInAmt || '',
-          row.foSurcharge || '',
-          row.freightOutPerMt || '',
-          row.freightOutAmt || '',
-          row.profit || '',
-          coaById.get(String(row.coaId))?.vesselType || '',
-        ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))),
-      ];
-      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'cargo-relets.csv';
-      link.click();
-      URL.revokeObjectURL(url);
-      setMenuOpen(false);
-      return;
-    }
     const headers = [
       '#', 'No.', 'Route', 'Date', 'Status', 'Vessel Type', 'Charterer', 'Cargo',
       'QTY (MT)', 'Dur', 'Total Shipments', 'Performed Shipments', 'Bal Cargo (MT)',
@@ -529,9 +448,9 @@ export default function RunningCoasListPage() {
 
       <div className={`zafira-page ${styles.page}`}>
         <LoadingOverlay
-          show={(loading && !isReletsTab) || (reletLoading && isReletsTab)}
+          show={loading}
           fullScreen={false}
-          label={isReletsTab ? 'Loading cargo relets…' : 'Loading running COAs…'}
+          label="Loading running COAs…"
         />
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
@@ -585,14 +504,10 @@ export default function RunningCoasListPage() {
               <button
                 type="button"
                 className={styles.btnAdd}
-                onClick={() => navigate(
-                  isReletsTab
-                    ? `${coaPath('cargo-relet/add')}?selBType=${businessType}&from=running`
-                    : `${coaPath('running/add')}?selBType=${businessType}`,
-                )}
+                onClick={() => navigate(`${coaPath('running/add')}?selBType=${businessType}`)}
               >
                 <PlusIcon />
-                {isReletsTab ? 'Add New Relet' : 'Add New'}
+                Add New
               </button>
               <div className={styles.menuWrap} ref={menuRef}>
                 <button
@@ -626,83 +541,7 @@ export default function RunningCoasListPage() {
             />
           )}
         >
-          {isReletsTab ? (
-            <table className={`${styles.grid} ${styles.reletGrid}`}>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>No.</th>
-                  <th>Date</th>
-                  <th>QTY (MT)</th>
-                  <th>LP/DP</th>
-                  <th>Frt-In ($/MT)</th>
-                  <th>Frt-In</th>
-                  <th>FO Surcharge</th>
-                  <th>Frt-Out ($/MT)</th>
-                  <th>Frt-Out</th>
-                  <th>Profit</th>
-                  <th>Vessel</th>
-                  <th>Recap</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={13} className={styles.emptyCell}>
-                      No cargo relets for this segment.
-                    </td>
-                  </tr>
-                ) : pageRows.map((row, index) => {
-                  const parent = coaById.get(String(row.coaId));
-                  const parentNo = row.coaNo || row.coaIdentity || parent?.coaNo || parent?.coaIdentity;
-                  return (
-                    <tr key={row.fcaId}>
-                      <td>{(page - 1) * pageSize + index + 1}.</td>
-                      <td>
-                        <div className={styles.reletCell}>
-                          <span className={styles.reletNo}>{liveValue(row.reletNo)}</span>
-                          {parentNo ? (
-                            <button
-                              type="button"
-                              className={styles.coaLinkChip}
-                              onClick={() => {
-                                const target = parent || { coaId: row.coaId, coaNo: parentNo, coaIdentity: row.coaIdentity };
-                                openNominations(target);
-                              }}
-                            >
-                              {parentNo}
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className={styles.cellNum}>{liveValue(row.coaDate)}</td>
-                      <td className={styles.cellNum}>{liveValue(row.cargoQty)}</td>
-                      <td>
-                        <span className={styles.trunc} title={liveValue(row.ports)}>{liveValue(row.ports)}</span>
-                      </td>
-                      <td className={styles.cellNum}>{liveValue(row.freightInPerMt)}</td>
-                      <td className={styles.cellNum}>{liveValue(row.freightInAmt)}</td>
-                      <td className={styles.cellNum}>{liveValue(row.foSurcharge)}</td>
-                      <td className={styles.cellNum}>{liveValue(row.freightOutPerMt)}</td>
-                      <td className={styles.cellNum}>{liveValue(row.freightOutAmt)}</td>
-                      <td className={styles.cellNum}>{liveValue(row.profit)}</td>
-                      <td className={styles.cellVessel}>{liveValue(parent?.vesselType)}</td>
-                      <td>
-                        <Link
-                          className={styles.iconBtn}
-                          to={coaPath(`cargo-relet/${row.fcaId}`)}
-                          title="Recap"
-                        >
-                          <RecapIcon />
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <table className={styles.grid}>
+          <table className={styles.grid}>
               <thead>
                 <tr>
                   <th>#</th>
@@ -785,7 +624,6 @@ export default function RunningCoasListPage() {
                 })}
               </tbody>
             </table>
-          )}
         </ScrollableTable>
 
         {modal ? createPortal(

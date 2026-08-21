@@ -217,16 +217,21 @@
 
 .cardSelect {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .cardSelect > div {
   display: flex;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .cardSelect > div > button:first-child {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   flex: 1;
   height: 30px;
   min-height: 30px;

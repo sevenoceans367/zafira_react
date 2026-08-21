@@ -137,9 +137,13 @@ export function getTce(row) {
   return '';
 }
 
-export function mapListRow(row, index, portLegs = {}) {
+export function mapListRow(row, index, portLegs = {}, { voyageLocked = false } = {}) {
   const ports = resolvePorts(row.fcaId, portLegs);
   const sentToDecisionChart = Boolean(row.comid);
+  const estimateNo = Number(row.estimateNo) > 0 ? Number(row.estimateNo) : 1;
+  const voyageLabel = row.voyageNo
+    ? `${row.voyageNo}-Est${estimateNo}`
+    : '';
 
   return {
     id: row.fcaId,
@@ -147,13 +151,15 @@ export function mapListRow(row, index, portLegs = {}) {
     vesselName: row.vesselName,
     vesselType: row.vesselType,
     voyageNo: row.voyageNo || '',
+    estimateNo,
+    voyageLabel,
     vesselDisplay: [
       `${row.vesselName || ''}/ ${row.vesselType || ''}`.trim(),
-      row.voyageNo ? String(row.voyageNo) : '',
+      voyageLabel,
     ].filter(Boolean).join(' / '),
     businessType: ESTIMATE_TYPE_LABELS[row.estimateType],
     estimateType: row.estimateType,
-    sheetName: row.voyageName,
+    sheetName: voyageLabel || row.voyageName,
     cpDate: formatDateDMY(row.transDate),
     dwt: row.dwt,
     loadPorts: ports.loadPorts,
@@ -165,7 +171,10 @@ export function mapListRow(row, index, portLegs = {}) {
     dailyTimeCharter: row.dailyVesselOperationExp,
     profitLoss: row.profitLoss,
     charteringPic: row.charteringPicName,
-    selectable: !sentToDecisionChart,
+    // Send to Ops disabled when this row was sent OR a sibling on same voyage was sent.
+    selectable: !sentToDecisionChart && !voyageLocked,
+    sendToOpsDisabled: voyageLocked && !sentToDecisionChart,
+    voyageLocked,
     sentToDecisionChart,
     sentToOps: sentToDecisionChart,
     isBenchmark: row.ifBenchmark === 1,
@@ -177,12 +186,16 @@ export function mapCompareRow(row, index, portLegs = {}) {
   const ports = resolvePorts(row.fcaId, portLegs);
   const dailyNetTce =
     row.totalDays > 0 ? Number((row.profitLoss / row.totalDays).toFixed(2)) : 0;
+  const estimateNo = Number(row.estimateNo) > 0 ? Number(row.estimateNo) : 1;
+  const voyageLabel = row.voyageNo
+    ? `${row.voyageNo}-Est${estimateNo}`
+    : '';
 
   return {
     id: row.fcaId,
     rowNum: index + 1,
     vesselName: row.vesselName,
-    sheetName: row.voyageName,
+    sheetName: voyageLabel || row.voyageName,
     dwt: row.dwt,
     freight: getFreightLabel(row),
     deliveryPort: ports.deliveryPort,

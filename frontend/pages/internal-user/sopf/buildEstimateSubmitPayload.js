@@ -1,6 +1,11 @@
+import { formatVoyageEstimateLabel, normalizeEstimateNo } from './estimateVoyage.js';
+
 /** Shared Add/Update estimate API payload from computed form state. */
 export function buildEstimateSubmitPayload(form, estimateType, periodId = null) {
   const filterCargo = (rows) => (rows || []).filter((row) => row.cargoId || row.cargoMt);
+  const estimateNo = normalizeEstimateNo(form.estimateNo);
+  const voyageNo = String(form.voyageNo || '').trim();
+  const voyageLabel = formatVoyageEstimateLabel(voyageNo, estimateNo);
 
   return {
     fixtureTypeId: form.fixtureTypeId != null && String(form.fixtureTypeId).trim() !== ''
@@ -12,8 +17,12 @@ export function buildEstimateSubmitPayload(form, estimateType, periodId = null) 
     vesselType: form.vesselType,
     flag: form.flag,
     transDate: form.transDate,
-    voyageNo: form.voyageNo,
-    voyageName: form.voyageName || form.voyageNo,
+    voyageNo,
+    estimateNo,
+    replicateFrom: form.replicateFrom || null,
+    allowSameVoyage: Boolean(form.allowSameVoyage || form.replicateFrom),
+    // Persist display label in VOYAGE_NAME (replaces free-text Sheet Name).
+    voyageName: voyageLabel || voyageNo,
     dwtSummer: form.dwtSummer,
     dwtTropical: form.dwtTropical,
     gnrt: form.gnrt,

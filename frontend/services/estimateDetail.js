@@ -121,10 +121,20 @@ export async function createEstimateDetail(payload, files = []) {
 }
 
 /** PHP options.php?id=149 — returns true when voyage/TC number already exists. */
-export async function checkVoyageNoExists(voyageNo, { excludeId } = {}) {
+export async function checkVoyageNoExists(voyageNo, {
+  excludeId,
+  estimateNo,
+  allowSameVoyage = false,
+} = {}) {
   const params = new URLSearchParams({ vno: String(voyageNo || '') });
   if (excludeId != null && excludeId !== '') {
     params.set('excludeId', String(excludeId));
+  }
+  if (estimateNo != null && estimateNo !== '') {
+    params.set('estimateNo', String(estimateNo));
+  }
+  if (allowSameVoyage) {
+    params.set('allowSameVoyage', '1');
   }
   const response = await fetch(`${BASE}/estimates/voyage-exists?${params}`);
   const data = await response.json().catch(() => ({}));
@@ -132,6 +142,17 @@ export async function checkVoyageNoExists(voyageNo, { excludeId } = {}) {
     throw new Error(data.message || 'Failed to check voyage number.');
   }
   return Boolean(data.exists);
+}
+
+/** Next EstN for a voyage (used by replicate). */
+export async function fetchNextEstimateNo(voyageNo) {
+  const params = new URLSearchParams({ vno: String(voyageNo || '') });
+  const response = await fetch(`${BASE}/estimates/next-estimate-no?${params}`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to resolve next estimate number.');
+  }
+  return Number(data.estimateNo) > 0 ? Number(data.estimateNo) : 1;
 }
 
 export async function updateEstimateDetail(id, payload, files = []) {

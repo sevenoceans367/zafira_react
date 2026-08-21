@@ -6,9 +6,40 @@ import {
   loadCommercialParameterRow,
 } from './commercialParametersNavApiSeed.js';
 import { CANAL_ORC_IDS, getSuezScnt } from './canalOrcService.js';
+import { normalizeEstimateNo } from './estimateVoyage.js';
 
 /** PHP often stores INT_MAX as a placeholder RANDOMID for new/unsaved rows. */
 const PLACEHOLDER_RANDOM_ID = '2147483647';
+
+let estimateMasterColumnsPromise = null;
+let estimateNoColumnReady = false;
+
+async function getEstimateMasterColumns(pool) {
+  if (!estimateMasterColumnsPromise) {
+    estimateMasterColumnsPromise = pool.query('SHOW COLUMNS FROM freight_cost_estimete_master')
+      .then(([rows]) => new Set(rows.map((row) => row.Field)));
+  }
+  return estimateMasterColumnsPromise;
+}
+
+/** Multi-estimate per voyage: VOYAGE_NO + ESTIMATE_NO (Est1, Est2, …). */
+export async function ensureEstimateNoColumn(pool = getPool()) {
+  const columns = await getEstimateMasterColumns(pool);
+  if (estimateNoColumnReady) return columns.has('ESTIMATE_NO');
+  try {
+    if (!columns.has('ESTIMATE_NO')) {
+      await pool.query(
+        `ALTER TABLE freight_cost_estimete_master
+         ADD COLUMN ESTIMATE_NO INT NOT NULL DEFAULT 1`,
+      );
+      columns.add('ESTIMATE_NO');
+    }
+  } catch (error) {
+    console.warn('[estimateDetailDb] Could not add ESTIMATE_NO column:', error.message);
+  }
+  estimateNoColumnReady = true;
+  return columns.has('ESTIMATE_NO');
+}
 
 function pickRowId(...candidates) {
   for (const candidate of candidates) {
@@ -735,6 +766,7 @@ function mapEstimateDetail(
     // Prefer CP_DATE for charter-party date; fall back to TRANS_DATE
     cpDate: formatDateDMY(master.CP_DATE) || formatDateDMY(master.TRANS_DATE),
     voyageNo: master.VOYAGE_NO ?? '',
+    estimateNo: normalizeEstimateNo(master.ESTIMATE_NO ?? 1),
     voyageName: master.VOYAGE_NAME ?? '',
     dwtSummer: master.DWT_SUMMER ?? master.VESSEL_DWT ?? '',
     dwtTropical: master.DWT_TOPICAL ?? '',
@@ -1319,6 +1351,7 @@ function formatPeriodDate(value) {
 
 export async function dbGetEstimateDetail(id) {
   const pool = getPool();
+  await ensureEstimateNoColumn(pool);
   const [rows] = await pool.query(
     `SELECT m.*, v.VESSEL_NAME, v.IMO_NO, v.DWT AS VESSEL_DWT,
             l.CONTACT_PERSON AS CHARTERING_PIC_NAME,
@@ -2283,9 +2316,11 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
 
 export async function dbCreateEstimateDetail(payload, upload = {}) {
   const pool = getPool();
+  await ensureEstimateNoColumn(pool);
   const connection = await pool.getConnection();
   const transDate = toDbDate(payload.transDate) || new Date().toISOString().slice(0, 10);
   const estimateType = Number(payload.estimateType) || 2;
+  const estimateNo = normalizeEstimateNo(payload.estimateNo ?? 1);
   const now = new Date();
   const attachment = upload.attachment || '';
   const attachmentName = upload.attachmentName || '';
@@ -2298,7 +2333,7 @@ export async function dbCreateEstimateDetail(payload, upload = {}) {
       `INSERT INTO freight_cost_estimete_master (
         FIXTURETYPEID, TRANS_DATE, MODULEID, MCOMPANYID, ADDED_BY, ADD_ON_DATE,
         L_UPDATED_BY, L_UP_TIME,
-        VESSEL_IMO_ID, VESSEL_TYPE, FLAG, VOYAGE_NO, VOYAGE_NAME,
+        VESSEL_IMO_ID, VESSEL_TYPE, FLAG, VOYAGE_NO, VOYAGE_NAME, ESTIMATE_NO,
         DWT_SUMMER, DWT_TOPICAL, GNRT, LOA, TPC, ESTIMATE_TYPE, FIXED, CP_DATE,
         GROSS_BREAKDOWN, BREAKDOWN_MT, SEL_BUSI_TYPE, PERIODID,
         QUANTITY, TOTAL_DAYS, TOTAL_DISTANCE, DAILY_EARNING, PROFIT_LOSS, FREIGHT_GROSS,
@@ -2308,7 +2343,7 @@ export async function dbCreateEstimateDetail(payload, upload = {}) {
         ADDRESS_COMMISSION_PER, REMARKS, OWNER, DISPONENT_OWNER,
         ATTACHMENT, ATTACHMENT_NAME
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0', ?, 0, 0, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0', ?, 0, 0, ?, ?,
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       )`,
       [
@@ -2325,6 +2360,7 @@ export async function dbCreateEstimateDetail(payload, upload = {}) {
         payload.flag || null,
         payload.voyageNo || null,
         payload.voyageName || null,
+        estimateNo,
         payload.dwtSummer || null,
         payload.dwtTropical || null,
         payload.gnrt || null,
@@ -2474,6 +2510,7 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     'FLAG = ?',
     'VOYAGE_NO = ?',
     'VOYAGE_NAME = ?',
+    'ESTIMATE_NO = ?',
     'DWT_SUMMER = ?',
     'DWT_TOPICAL = ?',
     'GNRT = ?',
@@ -2601,6 +2638,7 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     payload.flag || null,
     payload.voyageNo || null,
     payload.voyageName || null,
+    normalizeEstimateNo(payload.estimateNo ?? 1),
     payload.dwtSummer || null,
     payload.dwtTropical || null,
     payload.gnrt || null,
@@ -3440,14 +3478,29 @@ export async function dbUpdateEstimateDetail(id, payload, upload = {}) {
   }
 }
 
-/** PHP options.php id=149 checkVoyageno() ? voyage/TC number uniqueness. */
-export async function dbCheckVoyageNoExists(voyageNo, { excludeFcaId = null } = {}) {
+/**
+ * Voyage uniqueness.
+ * - allowSameVoyage=false (new estimate): any row with this VOYAGE_NO blocks.
+ * - allowSameVoyage=true (replicate / update / Ops): only (VOYAGE_NO, ESTIMATE_NO) pair blocks.
+ * TC_NO collision still always blocks the base voyage number.
+ */
+export async function dbCheckVoyageNoExists(voyageNo, {
+  excludeFcaId = null,
+  estimateNo = 1,
+  allowSameVoyage = false,
+} = {}) {
   const value = String(voyageNo || '').trim();
   if (!value) return false;
 
   const pool = getPool();
+  await ensureEstimateNoColumn(pool);
+  const est = normalizeEstimateNo(estimateNo);
   const params = [value];
   let voyageSql = `SELECT FCAID FROM freight_cost_estimete_master WHERE VOYAGE_NO = ?`;
+  if (allowSameVoyage) {
+    voyageSql += ' AND ESTIMATE_NO = ?';
+    params.push(est);
+  }
   if (excludeFcaId != null && excludeFcaId !== '') {
     voyageSql += ' AND FCAID <> ?';
     params.push(Number(excludeFcaId));
@@ -3462,4 +3515,23 @@ export async function dbCheckVoyageNoExists(voyageNo, { excludeFcaId = null } = 
     [value],
   );
   return tcRows.length > 0;
+}
+
+/** Next EstN for a voyage (replicate). Missing voyage → 1. */
+export async function dbNextEstimateNo(voyageNo) {
+  const value = String(voyageNo || '').trim();
+  if (!value) return 1;
+  const pool = getPool();
+  await ensureEstimateNoColumn(pool);
+  const [rows] = await pool.query(
+    `SELECT MAX(ESTIMATE_NO) AS maxEst
+     FROM freight_cost_estimete_master
+     WHERE VOYAGE_NO = ?
+       AND MODULEID = ?
+       AND MCOMPANYID = ?`,
+    [value, appContext.moduleId, appContext.companyId],
+  );
+  const maxEst = Number(rows[0]?.maxEst);
+  if (!Number.isFinite(maxEst) || maxEst < 1) return 1;
+  return maxEst + 1;
 }

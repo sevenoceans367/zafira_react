@@ -6,9 +6,11 @@ import {
   dbGetEstimateLookups,
   dbGetPeriodPrefill,
   dbGetVesselEstimatePrefill,
+  dbNextEstimateNo,
   dbSearchVessels,
   dbUpdateEstimateDetail,
 } from './estimateDetailDb.js';
+import { normalizeEstimateNo } from './estimateVoyage.js';
 
 export async function getEstimateDetail(id) {
   if (isDbConfigured()) {
@@ -27,6 +29,7 @@ export async function getEstimateDetail(id) {
     flag: 'MH',
     transDate: '01-03-2026',
     voyageNo: 'V001',
+    estimateNo: 1,
     voyageName: 'VC Gas Q1-2026',
     dwtSummer: '85000',
     gnrt: '45000',
@@ -74,11 +77,16 @@ export async function updateEstimateDetail(id, payload, upload = {}) {
   assertEstimateRequiredFields(payload);
 
   if (isDbConfigured()) {
-    const exists = await dbCheckVoyageNoExists(payload.voyageNo, { excludeFcaId: id });
+    const estimateNo = normalizeEstimateNo(payload.estimateNo ?? 1);
+    const exists = await dbCheckVoyageNoExists(payload.voyageNo, {
+      excludeFcaId: id,
+      estimateNo,
+      allowSameVoyage: true,
+    });
     if (exists) {
       throw new Error('Voyage number already exists');
     }
-    return dbUpdateEstimateDetail(id, payload, upload);
+    return dbUpdateEstimateDetail(id, { ...payload, estimateNo }, upload);
   }
   return { msg: 0 };
 }
@@ -201,15 +209,34 @@ export async function checkVoyageNoExists(voyageNo, options = {}) {
   return dbCheckVoyageNoExists(voyageNo, options);
 }
 
+export async function nextEstimateNo(voyageNo) {
+  if (!isDbConfigured()) {
+    return 1;
+  }
+  return dbNextEstimateNo(voyageNo);
+}
+
 export async function createEstimateDetail(payload, upload = {}) {
   assertEstimateRequiredFields(payload);
 
   if (isDbConfigured()) {
-    const exists = await dbCheckVoyageNoExists(payload.voyageNo);
-    if (exists) {
-      throw new Error('Voyage number already exists');
+    const isReplicate = Boolean(payload.replicateFrom || payload.allowSameVoyage);
+    let estimateNo = normalizeEstimateNo(payload.estimateNo ?? 1);
+    if (isReplicate) {
+      estimateNo = await dbNextEstimateNo(payload.voyageNo);
     }
-    return dbCreateEstimateDetail(payload, upload);
+    const exists = await dbCheckVoyageNoExists(payload.voyageNo, {
+      estimateNo,
+      allowSameVoyage: isReplicate,
+    });
+    if (exists) {
+      throw new Error(
+        isReplicate
+          ? 'Voyage / estimate number combination already exists'
+          : 'Voyage number already exists',
+      );
+    }
+    return dbCreateEstimateDetail({ ...payload, estimateNo }, upload);
   }
 
   return { msg: 0, id: '999' };

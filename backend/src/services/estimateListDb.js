@@ -9,6 +9,7 @@ import {
   mapListRow,
   parsePeriodDate,
 } from './estimateListMappers.js';
+import { ensureEstimateNoColumn } from './estimateDetailDb.js';
 
 const SLAVE_TABLES = [
   'freight_cost_estimete_slave1',
@@ -139,6 +140,7 @@ function normalizeMasterRow(row) {
     vesselType: row.VESSEL_TYPE || '',
     voyageName: row.VOYAGE_NAME || '',
     voyageNo: row.VOYAGE_NO != null ? String(row.VOYAGE_NO) : '',
+    estimateNo: Number(row.ESTIMATE_NO) > 0 ? Number(row.ESTIMATE_NO) : 1,
     transDate: row.TRANS_DATE,
     dwt: row.DWT ?? '',
     totalDays: Number(row.TOTAL_DAYS || 0),
@@ -187,6 +189,7 @@ function buildPeriodFilter(periodFrom, periodTo) {
 
 async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = false, periodFrom, periodTo } = {}) {
   const pool = getPool();
+  await ensureEstimateNoColumn(pool);
   const params = [appContext.moduleId, appContext.companyId, selBType];
   let idFilter = '';
   const comidFilter = excludeSentToChart
@@ -199,7 +202,7 @@ async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = f
   }
 
   const [rows] = await pool.query(
-    `SELECT m.FCAID, m.VESSEL_IMO_ID, m.VOYAGE_NAME, m.VOYAGE_NO, m.VESSEL_TYPE, m.FREIGHT_GROSS,
+    `SELECT m.FCAID, m.VESSEL_IMO_ID, m.VOYAGE_NAME, m.VOYAGE_NO, m.ESTIMATE_NO, m.VESSEL_TYPE, m.FREIGHT_GROSS,
             m.TOTAL_DAYS, m.QUANTITY, m.DAILY_EARNING, m.NET_DAILY_EARNING,
             m.DAILY_VESSEL_OPERATION_EXP,
             m.PROFIT_LOSS, m.TRANS_DATE, m.QTY_TYPE_RADIO, m.ESTIMATE_TYPE,
@@ -282,7 +285,12 @@ export async function dbGetEstimateList({ selBType, periodFrom, periodTo }) {
   const portLegs = await loadPortLegs(fcaIds);
 
   const normalized = masterRows.map(normalizeMasterRow);
-  const rows = normalized.map((row, index) => mapListRow(row, index, portLegs));
+  const lockedVoyages = await fetchVoyagesWithSentSibling(
+    normalized.map((row) => row.voyageNo).filter(Boolean),
+  );
+  const rows = normalized.map((row, index) => mapListRow(row, index, portLegs, {
+    voyageLocked: lockedVoyages.has(String(row.voyageNo || '').trim()),
+  }));
 
   return {
     estimateType: Number(selBType),
@@ -290,6 +298,27 @@ export async function dbGetEstimateList({ selBType, periodFrom, periodTo }) {
     rows,
     stats,
   };
+}
+
+/** Voyages where any sibling estimate was already sent to Ops / decision chart. */
+async function fetchVoyagesWithSentSibling(voyageNos = []) {
+  const unique = [...new Set(voyageNos.map((v) => String(v || '').trim()).filter(Boolean))];
+  if (!unique.length) return new Set();
+  const pool = getPool();
+  await ensureEstimateNoColumn(pool);
+  const [rows] = await pool.query(
+    `SELECT DISTINCT VOYAGE_NO
+     FROM freight_cost_estimete_master
+     WHERE MODULEID = ?
+       AND MCOMPANYID = ?
+       AND VOYAGE_NO IN (${unique.map(() => '?').join(',')})
+       AND (
+         (COMID IS NOT NULL AND COMID != '' AND COMID != 0)
+         OR FIXED = 1
+       )`,
+    [appContext.moduleId, appContext.companyId, ...unique],
+  );
+  return new Set(rows.map((row) => String(row.VOYAGE_NO || '').trim()).filter(Boolean));
 }
 
 export async function dbDeleteEstimate(id) {

@@ -1149,6 +1149,7 @@ export function toFormState(detail = {}) {
     // CP Date field prefers charter-party date
     cpDate: detail.cpDate || detail.transDate || (!detail.id ? formatTodayDmy() : ''),
     voyageNo: detail.voyageNo ?? '',
+    estimateNo: detail.estimateNo != null ? Number(detail.estimateNo) || 1 : 1,
     comid: detail.comid != null ? String(detail.comid) : '',
     voyageName: detail.voyageName ?? '',
     dwtSummer: detail.dwtSummer != null ? String(detail.dwtSummer) : '',
@@ -1365,16 +1366,18 @@ export function toFormState(detail = {}) {
   };
 }
 
-/** Prefill Add Estimate from a source row without persisting until Submit. */
+/** Prefill Add Estimate from a source row without persisting until Submit.
+ * Keeps voyage number; next EstN is assigned on load/save (replicate only).
+ */
 export function toReplicateFormState(detail = {}) {
   const form = toFormState(detail);
-  const sheetName = String(form.voyageName || '').trim();
   return {
     ...form,
-    voyageNo: '',
-    voyageName: sheetName
-      ? (sheetName.endsWith('(Copy)') ? sheetName : `${sheetName} (Copy)`)
-      : '',
+    voyageNo: form.voyageNo || '',
+    estimateNo: '',
+    replicateFrom: detail.id != null ? String(detail.id) : '',
+    allowSameVoyage: true,
+    voyageName: '',
     attachments: [],
     attachmentFiles: [],
   };

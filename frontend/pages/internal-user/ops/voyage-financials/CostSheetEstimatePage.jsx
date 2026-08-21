@@ -280,11 +280,15 @@ export default function CostSheetEstimatePage({
     }
 
     try {
-      const voyageExists = await checkVoyageNoExists(form.voyageNo, { excludeId: estimateId });
+      const voyageExists = await checkVoyageNoExists(form.voyageNo, {
+        excludeId: estimateId,
+        estimateNo: form.estimateNo || 1,
+        allowSameVoyage: true,
+      });
       if (voyageExists) {
         await alert({
           title: 'Alert',
-          message: 'Voyage number already exists',
+          message: 'Voyage / estimate number combination already exists',
           confirmLabel: 'OK',
         });
         focusEstimateValidationField('voyageNo');

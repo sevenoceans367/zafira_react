@@ -387,12 +387,19 @@ export default function EstimateDetailSections({
     if (readOnly) return;
     const voyageNo = String(form.voyageNo || '').trim();
     if (!voyageNo) return;
+    const isReplicate = Boolean(isAdd && (form.replicateFrom || form.allowSameVoyage));
     try {
-      const exists = await checkVoyageNoExists(voyageNo, { excludeId: voyageExcludeId });
+      const exists = await checkVoyageNoExists(voyageNo, {
+        excludeId: voyageExcludeId,
+        estimateNo: form.estimateNo || 1,
+        allowSameVoyage: isReplicate || !isAdd,
+      });
       if (!exists) return;
       await alert({
         title: 'Alert',
-        message: 'Voyage number already exists',
+        message: isReplicate || !isAdd
+          ? 'Voyage / estimate number combination already exists'
+          : 'Voyage number already exists',
         confirmLabel: 'OK',
       });
       updateField('voyageNo', '');
@@ -564,8 +571,15 @@ export default function EstimateDetailSections({
                 onBlur={handleVoyageNoBlur}
               />
             </Field>
-            <Field id="voyageName" label="Sheet Name">
-              <input {...inputProps('voyageName')} />
+            <Field id="estimateNo" label="Estimate No.">
+              <input
+                id="estimateNo"
+                value={form.voyageNo
+                  ? `Est${Number(form.estimateNo) > 0 ? Number(form.estimateNo) : 1}`
+                  : ''}
+                readOnly
+                placeholder="Est1"
+              />
             </Field>
             <Field id="estimateType" label="Estimate Type">
               <input id="estimateType" value={detail.estimateTypeLabel} readOnly />

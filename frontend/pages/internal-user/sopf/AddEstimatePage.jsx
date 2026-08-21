@@ -7,6 +7,7 @@ import {
   createEstimateDetail,
   fetchEstimateDetail,
   fetchEstimateLookups,
+  fetchNextEstimateNo,
   fetchPeriodPrefill,
   fetchVesselEstimatePrefill,
 } from '../../../services/estimateDetail.js';
@@ -95,7 +96,18 @@ export default function AddEstimatePage() {
         setLookups(nextLookups);
 
         if (sourceDetail) {
-          setForm(applyEstimateCalculations(toReplicateFormState(sourceDetail), nextLookups));
+          const replicated = toReplicateFormState(sourceDetail);
+          if (replicated.voyageNo) {
+            try {
+              replicated.estimateNo = await fetchNextEstimateNo(replicated.voyageNo);
+            } catch {
+              replicated.estimateNo = 2;
+            }
+          } else {
+            replicated.estimateNo = 1;
+          }
+          if (cancelled) return;
+          setForm(applyEstimateCalculations(replicated, nextLookups));
           return;
         }
 
@@ -313,11 +325,17 @@ export default function AddEstimatePage() {
     }
 
     try {
-      const voyageExists = await checkVoyageNoExists(form.voyageNo);
+      const isReplicate = Boolean(form.replicateFrom || form.allowSameVoyage);
+      const voyageExists = await checkVoyageNoExists(form.voyageNo, {
+        estimateNo: form.estimateNo || 1,
+        allowSameVoyage: isReplicate,
+      });
       if (voyageExists) {
         await alert({
           title: 'Alert',
-          message: 'Voyage number already exists',
+          message: isReplicate
+            ? 'Voyage / estimate number combination already exists'
+            : 'Voyage number already exists',
           confirmLabel: 'OK',
         });
         focusEstimateValidationField('voyageNo');

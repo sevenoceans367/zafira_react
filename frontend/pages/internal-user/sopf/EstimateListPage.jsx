@@ -265,6 +265,8 @@ export default function EstimateListPage() {
       row.vesselName,
       row.vesselType,
       row.voyageNo,
+      row.voyageLabel,
+      row.estimateNo,
       row.sheetName,
       row.charteringPic,
       row.lpDp,
@@ -458,7 +460,7 @@ export default function EstimateListPage() {
                 <tr>
                   <th>#</th>
                   <th>Vessel</th>
-                  <th>VOY NO</th>
+                  <th>Voyage</th>
                   <th>CP Date</th>
                   <th>DWT</th>
                   <th>LP - DP</th>
@@ -507,7 +509,11 @@ export default function EstimateListPage() {
                     >
                       <td className={styles.cellItem}>{row.rowNum}.</td>
                       <td className={styles.cellVessel}>{row.vesselName}</td>
-                      <td className={styles.cellNum}>{row.voyageNo || '—'}</td>
+                      <td className={styles.cellNum}>
+                        {row.voyageLabel || (row.voyageNo
+                          ? `${row.voyageNo}-Est${row.estimateNo || 1}`
+                          : '—')}
+                      </td>
                       <td className={styles.cellNum}>{row.cpDate}</td>
                       <td className={styles.cellNum}>{row.dwt}</td>
                       <td className={styles.cellRoute}>
@@ -530,6 +536,10 @@ export default function EstimateListPage() {
                                 onClick={() => handleSendToOps(row.id, row.sheetName)}
                                 ariaLabel={`Send to Ops ${row.sheetName}`}
                               />
+                            ) : row.sendToOpsDisabled || row.voyageLocked ? (
+                              <span className={styles.sentSiblingHint} title="Another estimate for this voyage was sent to Ops">
+                                Locked
+                              </span>
                             ) : null}
                           </ActionButtonStack>
                         </div>
@@ -626,7 +636,7 @@ export default function EstimateListPage() {
                       <tr>
                         <th>#</th>
                         <th>Vessel Name</th>
-                        <th>Sheet Name</th>
+                        <th>Estimate No.</th>
                         <th>DWT</th>
                         <th>Freight</th>
                         <th>Delivery Port</th>
@@ -644,7 +654,12 @@ export default function EstimateListPage() {
                         <tr key={fixture.id}>
                           <td>{fixture.rowNum}.</td>
                           <td>{fixture.vesselName}</td>
-                          <td>{fixture.sheetName}</td>
+                          <td>
+                            {fixture.sheetName
+                              || (fixture.voyageNo
+                                ? `${fixture.voyageNo}-Est${fixture.estimateNo || 1}`
+                                : '—')}
+                          </td>
                           <td>{fixture.dwt}</td>
                           <td>{fixture.freight}</td>
                           <td>{fixture.deliveryPort}</td>

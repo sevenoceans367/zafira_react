@@ -15,6 +15,7 @@ import {
   getEstimateLookups,
   getPeriodPrefill,
   getVesselEstimatePrefill,
+  nextEstimateNo,
   searchVessels,
   updateEstimateDetail,
 } from '../services/estimateDetailService.js';
@@ -160,11 +161,30 @@ router.get('/estimates/voyage-exists', async (req, res) => {
   try {
     const voyageNo = req.query.vno || req.query.Vno || req.query.voyageNo || '';
     const excludeId = req.query.excludeId || req.query.excludeFcaId || null;
-    const exists = await checkVoyageNoExists(voyageNo, { excludeFcaId: excludeId });
+    const estimateNo = req.query.estimateNo != null ? Number(req.query.estimateNo) : 1;
+    const allowSameVoyage = String(req.query.allowSameVoyage || '') === '1'
+      || String(req.query.allowSameVoyage || '').toLowerCase() === 'true';
+    const exists = await checkVoyageNoExists(voyageNo, {
+      excludeFcaId: excludeId,
+      estimateNo,
+      allowSameVoyage,
+    });
     res.json({ exists: Boolean(exists) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message || 'Failed to check voyage number.' });
+  }
+});
+
+/** Next EstN for replicate (same voyage, new estimate number). */
+router.get('/estimates/next-estimate-no', async (req, res) => {
+  try {
+    const voyageNo = req.query.vno || req.query.voyageNo || '';
+    const estimateNo = await nextEstimateNo(voyageNo);
+    res.json({ estimateNo });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to resolve next estimate number.' });
   }
 });
 

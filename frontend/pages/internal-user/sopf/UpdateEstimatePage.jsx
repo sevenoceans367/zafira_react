@@ -90,6 +90,7 @@ export default function UpdateEstimatePage() {
         charteringPics: lookupsForType.charteringPics ?? [],
         periodContracts: lookupsForType.periodContracts ?? [],
         zones: lookupsForType.zones ?? [],
+        balticRoutes: lookupsForType.balticRoutes ?? [],
         fixtureBrokers: lookupsForType.fixtureBrokers ?? [],
         coaContracts: lookupsForType.coaContracts ?? [],
         complianceFactors: lookupsForType.complianceFactors ?? {},

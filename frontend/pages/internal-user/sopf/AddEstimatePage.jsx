@@ -115,6 +115,7 @@ export default function AddEstimatePage() {
           charteringPics: lookupsForType.charteringPics ?? [],
           periodContracts: lookupsForType.periodContracts ?? [],
           zones: lookupsForType.zones ?? [],
+          balticRoutes: lookupsForType.balticRoutes ?? [],
           fixtureBrokers: lookupsForType.fixtureBrokers ?? [],
           coaContracts: lookupsForType.coaContracts ?? [],
           complianceFactors: lookupsForType.complianceFactors ?? {},

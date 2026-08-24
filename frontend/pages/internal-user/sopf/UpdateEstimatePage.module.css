@@ -1506,6 +1506,105 @@
   border-bottom: none;
 }
 
+/* Vessel OPEX — hire / totals / CVE tables (PHP hire_tbl parity) */
+.vesselOpexWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vesselOpexHireTable {
+  table-layout: fixed;
+}
+
+.vesselOpexHireTable .vesselOpexColHire {
+  width: 12%;
+}
+
+.vesselOpexHireTable .vesselOpexColIndex {
+  width: 34%;
+}
+
+.vesselOpexHireTable .vesselOpexColTotal {
+  width: 12%;
+}
+
+.vesselOpexThCheck {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 0 6px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.vesselOpexThCheck input[type='checkbox'] {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #274670;
+}
+
+.vesselOpexIndexCell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.vesselOpexIndexCell select {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.vesselOpexIndexPct {
+  flex: none;
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.vesselOpexIndexPctInput {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+}
+
+.vesselOpexIndexRate {
+  flex: 0 0 64px;
+  width: 64px;
+  min-width: 64px;
+}
+
+.vesselOpexTotalsTable th,
+.vesselOpexTotalsTable td {
+  width: 25%;
+}
+
+.vesselOpexCveTable td {
+  vertical-align: middle;
+}
+
+.vesselOpexLabelCell {
+  width: 1%;
+  padding-right: 6px !important;
+  font-size: 10px;
+  font-weight: 600;
+  color: #4b5563;
+  white-space: nowrap;
+  text-transform: none;
+  background: transparent;
+}
+
+.vesselOpexCveTable td:not(.vesselOpexLabelCell) {
+  width: 10%;
+  min-width: 72px;
+}
+
+.vesselOpexCveTable td:not(.vesselOpexLabelCell) input {
+  max-width: 96px;
+}
+
 .tankerWsRowLabel {
   text-align: left;
   font-weight: 600;

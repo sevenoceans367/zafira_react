@@ -116,6 +116,11 @@ export default function EstimateDetailSections({
   const isGas = estimateType === 1;
   const isTanker = estimateType === 2;
   const isDry = estimateType === 3;
+  const fixtureType = String(form.fixtureTypeId ?? '');
+  // PHP makeFieldManD: hire table for TCIN/VCIN (1|2); Vessel Daily Ops for VCOUT (3)
+  const showHireSection = fixtureType === '1' || fixtureType === '2';
+  const showVesselDailyOps = fixtureType === '3';
+  const showIndexLinked = isDry && showHireSection;
   const editable = !readOnly;
   const alert = useAlert();
   const [searchParams] = useSearchParams();
@@ -518,7 +523,22 @@ export default function EstimateDetailSections({
                 <select
                   id="fixtureTypeId"
                   value={String(form.fixtureTypeId ?? '')}
-                  onChange={(e) => updateField('fixtureTypeId', e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const patch = { fixtureTypeId: value };
+                    // PHP makeFieldManD: VCOUT hides hire / clears index; TCIN/VCIN clear Vessel Daily Ops
+                    if (value === '3') {
+                      patch.chkHire = false;
+                      patch.chkIndex = false;
+                      patch.balticIndex = '';
+                      patch.balticPercent = '100';
+                      patch.balticRate = '';
+                      patch.totalHireRate = '';
+                    } else if (value === '1' || value === '2') {
+                      patch.vesselDailyOps = '';
+                    }
+                    applyPatch(patch);
+                  }}
                 >
                   <option value="">Select from list</option>
                   {FIXTURE_TYPE_OPTIONS.map((option) => (
@@ -1866,133 +1886,287 @@ export default function EstimateDetailSections({
       </CollapsiblePanel>
 
       <CollapsiblePanel title="Vessel OPEX" defaultOpen={false}>
-        <div className={styles.headerGrid}>
-          <Field id="hireRate" label="Vessel OPEX">
-            <input
-              id="hireRate"
-              value={form.hireRate || ''}
-              readOnly={readOnly || estimateType === 3}
-              inputMode="decimal"
-              autoComplete="off"
-              onChange={(e) => {
-                const value = sanitizeFieldDecimal('hireRate', e.target.value);
-                // Cleared field must stay empty; otherwise hire row rate re-seeds and inflates TCE wrongly when missing.
-                applyPatch({
-                  hireRate: value,
-                  _hireRateCleared: value === '' || value == null,
-                });
-              }}
-            />
-          </Field>
-          <Field id="addCommPercent" label="Add Comm (%)">
-            <input
-              id="addCommPercent"
-              value={form.addCommPercent || ''}
-              readOnly={readOnly}
-              inputMode="decimal"
-              autoComplete="off"
-              onChange={(e) => {
-                const value = sanitizeFieldDecimal('addCommPercent', e.target.value);
-                // PHP setCveAmtInTcDet: dummyAdcom → txtHireargePercent
-                applyPatch({ addCommPercent: value, hireagePercent: value });
-              }}
-            />
-          </Field>
-          <Field id="addressCommAmt" label="Add Comm Amt">
-            <input id="addressCommAmt" value={form.addressCommAmt || ''} readOnly />
-          </Field>
-          <Field id="ballastBonus" label="Ballast Bonus">
-            <input {...inputProps('ballastBonus', { recalc: true })} />
-          </Field>
-          <Field id="hireagePercent" label="Hireage Add Comm (%)">
-            <input {...inputProps('hireagePercent', { recalc: true })} placeholder="0.00" />
-          </Field>
-          <Field id="hireageBroPercent" label="Hireage Brokerage (%)">
-            <input {...inputProps('hireageBroPercent', { recalc: true })} placeholder="0.00" />
-          </Field>
-          <Field id="hireAmt" label="Hire Amt">
-            <input
-              id="hireAmt"
-              value={form.hireAmt || ''}
-              readOnly
-              placeholder="0.00"
-            />
-          </Field>
-          <Field id="lessOffHire" label="Less Off Hire">
-            <input id="lessOffHire" value={form.lessOffHire || form.totalOffHireAmt || ''} readOnly placeholder="0.00" />
-          </Field>
-          <Field id="vesselDailyOps" label="Vessel Daily Ops">
-            <input {...inputProps('vesselDailyOps', { recalc: true })} />
-          </Field>
-        </div>
-        <div className={styles.headerGrid} style={{ marginTop: 8 }}>
-          <Field id="cvePerMonth" label="CVE (/Month)">
-            <input {...inputProps('cvePerMonth', { recalc: true })} />
-          </Field>
-          <Field id="cveAmt" label="CVE">
-            <input id="cveAmt" value={form.cveAmt || ''} readOnly placeholder="0.00" />
-          </Field>
-          <Field id="offHireCve" label="CVE Off Hire (/Month)">
-            <input {...inputProps('offHireCve', { recalc: true })} placeholder="0.00" />
-          </Field>
-          <Field id="offHireCveAmt" label="CVE Off Hire Amt">
-            <input id="offHireCveAmt" value={form.offHireCveAmt || ''} readOnly placeholder="0.00" />
-          </Field>
+        <div className={styles.vesselOpexWrap}>
+          {showHireSection ? (
+            <>
+              <div className={styles.tableWrap}>
+                {showIndexLinked ? (
+                  <table className={`${styles.portTable} ${styles.vesselOpexHireTable}`}>
+                    <thead>
+                      <tr>
+                        <th className={styles.vesselOpexColHire}>
+                          Hire / Day ($)
+                          <label className={styles.vesselOpexThCheck} htmlFor="chkHire">
+                            <input
+                              type="checkbox"
+                              id="chkHire"
+                              checked={!!form.chkHire}
+                              disabled={readOnly}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                applyPatch(checked
+                                  ? { chkHire: true }
+                                  : { chkHire: false, hireRate: '', _hireRateCleared: true });
+                              }}
+                            />
+                          </label>
+                        </th>
+                        <th className={styles.vesselOpexColIndex}>
+                          Index Linked
+                          <label className={styles.vesselOpexThCheck} htmlFor="chkIndex">
+                            <input
+                              type="checkbox"
+                              id="chkIndex"
+                              checked={!!form.chkIndex}
+                              disabled={readOnly}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                if (!checked) {
+                                  applyPatch({
+                                    chkIndex: false,
+                                    balticIndex: '',
+                                    balticPercent: '100',
+                                    balticRate: '',
+                                    totalHireRate: '',
+                                  });
+                                  return;
+                                }
+                                applyPatch({ chkIndex: true, balticPercent: form.balticPercent || '100' });
+                              }}
+                            />
+                          </label>
+                        </th>
+                        <th className={styles.vesselOpexColTotal}>Total Hire / Day ($)</th>
+                        <th>Add Comm (%)</th>
+                        <th>Brokerage (%)</th>
+                        <th>BB ($)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <input
+                            id="hireRate"
+                            value={form.hireRate || ''}
+                            readOnly={readOnly || !form.chkHire}
+                            inputMode="decimal"
+                            autoComplete="off"
+                            placeholder="0.00"
+                            onChange={(e) => {
+                              const value = sanitizeFieldDecimal('hireRate', e.target.value);
+                              applyPatch({
+                                hireRate: value,
+                                _hireRateCleared: value === '' || value == null,
+                              });
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <div className={styles.vesselOpexIndexCell}>
+                            <select
+                              id="balticIndex"
+                              value={form.balticIndex || ''}
+                              disabled={readOnly || !form.chkIndex}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                const match = (lookups.balticRoutes || []).find((row) => String(row.id) === String(value));
+                                const daily = Number(match?.dailyRate) || 0;
+                                const pct = Number(form.balticPercent) || 100;
+                                const nextBalticRate = daily > 0 ? ((pct * daily) / 100).toFixed(2) : '';
+                                applyPatch({ balticIndex: value, balticRate: nextBalticRate });
+                              }}
+                            >
+                              <option value="">— Select route —</option>
+                              {(lookups.balticRoutes || []).map((row) => (
+                                <option key={row.id} value={row.id}>
+                                  {row.label || row.code || row.name}
+                                </option>
+                              ))}
+                            </select>
+                            <span className={styles.vesselOpexIndexPct}>%</span>
+                            <input
+                              id="balticPercent"
+                              className={styles.vesselOpexIndexPctInput}
+                              value={form.balticPercent || ''}
+                              readOnly={readOnly || !form.chkIndex}
+                              inputMode="decimal"
+                              autoComplete="off"
+                              placeholder="100"
+                              title="Index percentage"
+                              onChange={(e) => {
+                                const value = sanitizeFieldDecimal('balticPercent', e.target.value);
+                                const match = (lookups.balticRoutes || []).find(
+                                  (row) => String(row.id) === String(form.balticIndex),
+                                );
+                                const daily = Number(match?.dailyRate) || 0;
+                                const pct = Number(value) || 0;
+                                const nextBalticRate = daily > 0 ? ((pct * daily) / 100).toFixed(2) : '';
+                                applyPatch({ balticPercent: value, balticRate: nextBalticRate });
+                              }}
+                            />
+                            <input
+                              id="balticRate"
+                              className={styles.vesselOpexIndexRate}
+                              value={form.balticRate || ''}
+                              readOnly
+                              placeholder="0.00"
+                              title="Calculated index rate"
+                            />
+                          </div>
+                        </td>
+                        <td>
+                          <input id="totalHireRate" value={form.totalHireRate || ''} readOnly placeholder="0.00" />
+                        </td>
+                        <td>
+                          <input
+                            id="addCommPercent"
+                            value={form.addCommPercent || ''}
+                            readOnly={readOnly}
+                            inputMode="decimal"
+                            autoComplete="off"
+                            placeholder="0.00"
+                            onChange={(e) => {
+                              const value = sanitizeFieldDecimal('addCommPercent', e.target.value);
+                              applyPatch({ addCommPercent: value, hireagePercent: value });
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <input {...inputProps('hireageBroPercent', { recalc: true })} placeholder="0.00" />
+                        </td>
+                        <td>
+                          <input {...inputProps('ballastBonus', { recalc: true })} placeholder="0.00" />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className={`${styles.portTable} ${styles.vesselOpexHireTable}`}>
+                    <thead>
+                      <tr>
+                        <th>Hire / Day ($)</th>
+                        <th>Add Comm (%)</th>
+                        <th>Brokerage (%)</th>
+                        <th>BB ($)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <input
+                            id="hireRate"
+                            value={form.hireRate || ''}
+                            readOnly={readOnly}
+                            inputMode="decimal"
+                            autoComplete="off"
+                            placeholder="0.00"
+                            onChange={(e) => {
+                              const value = sanitizeFieldDecimal('hireRate', e.target.value);
+                              applyPatch({
+                                hireRate: value,
+                                _hireRateCleared: value === '' || value == null,
+                              });
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            id="addCommPercent"
+                            value={form.addCommPercent || ''}
+                            readOnly={readOnly}
+                            inputMode="decimal"
+                            autoComplete="off"
+                            placeholder="0.00"
+                            onChange={(e) => {
+                              const value = sanitizeFieldDecimal('addCommPercent', e.target.value);
+                              applyPatch({ addCommPercent: value, hireagePercent: value });
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <input {...inputProps('hireageBroPercent', { recalc: true })} placeholder="0.00" />
+                        </td>
+                        <td>
+                          <input {...inputProps('ballastBonus', { recalc: true })} placeholder="0.00" />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <div className={styles.tableWrap}>
+                <table className={`${styles.portTable} ${styles.vesselOpexTotalsTable}`}>
+                  <thead>
+                    <tr>
+                      <th>Add Comm Amt</th>
+                      <th>Hireage Add Comm (%)</th>
+                      <th>Hire Amt</th>
+                      <th>Less Off Hire</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <input id="addressCommAmt" value={form.addressCommAmt || ''} readOnly placeholder="0.00" />
+                      </td>
+                      <td>
+                        <input {...inputProps('hireagePercent', { recalc: true })} placeholder="0.00" />
+                      </td>
+                      <td>
+                        <input id="hireAmt" value={form.hireAmt || ''} readOnly placeholder="0.00" />
+                      </td>
+                      <td>
+                        <input
+                          id="lessOffHire"
+                          value={form.lessOffHire || form.totalOffHireAmt || ''}
+                          readOnly
+                          placeholder="0.00"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
+          <div className={styles.tableWrap}>
+            <table className={`${styles.portTable} ${styles.vesselOpexCveTable}`}>
+              <tbody>
+                <tr>
+                  <td className={styles.vesselOpexLabelCell}>CVE (/Month)</td>
+                  <td>
+                    <input {...inputProps('cvePerMonth', { recalc: true })} placeholder="0.00" />
+                  </td>
+                  <td className={styles.vesselOpexLabelCell}>CVE ($)</td>
+                  <td>
+                    <input id="cveAmt" value={form.cveAmt || ''} readOnly placeholder="0.00" />
+                  </td>
+                  {showVesselDailyOps ? (
+                    <>
+                      <td className={styles.vesselOpexLabelCell}>Vessel Daily Ops</td>
+                      <td>
+                        <input {...inputProps('vesselDailyOps', { recalc: true })} placeholder="0.00" />
+                      </td>
+                    </>
+                  ) : null}
+                  {showHireSection ? (
+                    <>
+                      <td className={styles.vesselOpexLabelCell}>CVE Off Hire (/Month)</td>
+                      <td>
+                        <input {...inputProps('offHireCve', { recalc: true })} placeholder="0.00" />
+                      </td>
+                      <td className={styles.vesselOpexLabelCell}>CVE Off Hire Amt</td>
+                      <td>
+                        <input id="offHireCveAmt" value={form.offHireCveAmt || ''} readOnly placeholder="0.00" />
+                      </td>
+                    </>
+                  ) : null}
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </CollapsiblePanel>
-
-
-{estimateType === 3 ? (
-        <CollapsiblePanel title="Dry Cargo — Floating / Fixed / Average" defaultOpen={false}>
-            <div className={styles.headerGrid}>
-              <Field id="gasBaltic" label="Baltic Rate">
-                <input {...inputProps('gasBaltic', { recalc: true })} />
-              </Field>
-              <Field id="gasBaseRate" label="Base Rate">
-                <input {...inputProps('gasBaseRate')} />
-              </Field>
-              <Field id="addnlPremium" label="Addnl Premium">
-                <input {...inputProps('addnlPremium')} />
-              </Field>
-              <Field id="baseRateFloat" label="Base Float">
-                <input {...inputProps('baseRateFloat')} />
-              </Field>
-              <Field id="baseRateFixed" label="Base Fixed">
-                <input {...inputProps('baseRateFixed')} />
-              </Field>
-              <Field id="baseRateAverage" label="Base Average">
-                <input {...inputProps('baseRateAverage')} />
-              </Field>
-              <Field id="grossFreightFloat" label="Gross Float">
-                <input {...inputProps('grossFreightFloat')} />
-              </Field>
-              <Field id="grossFreightFixed" label="Gross Fixed">
-                <input {...inputProps('grossFreightFixed')} />
-              </Field>
-              <Field id="grossFreightAverage" label="Gross Average">
-                <input {...inputProps('grossFreightAverage')} />
-              </Field>
-              <Field id="netFreightFloat" label="Net Float">
-                <input {...inputProps('netFreightFloat')} />
-              </Field>
-              <Field id="netFreightFixed" label="Net Fixed">
-                <input {...inputProps('netFreightFixed')} />
-              </Field>
-              <Field id="netFreightAverage" label="Net Average">
-                <input {...inputProps('netFreightAverage')} />
-              </Field>
-              <Field id="tceFloat" label="TCE Float">
-                <input {...inputProps('tceFloat')} />
-              </Field>
-              <Field id="tceFixed" label="TCE Fixed">
-                <input {...inputProps('tceFixed')} />
-              </Field>
-              <Field id="tceAverage" label="TCE Average">
-                <input {...inputProps('tceAverage')} />
-              </Field>
-            </div>
-        </CollapsiblePanel>
-      ) : null}
 
       
       </div>

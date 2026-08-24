@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import Button from '../Button/Button.jsx';
 import { useAlert } from '../ConfirmDialog/ConfirmContext.jsx';
 import styles from './PeriodCardPicker.module.css';
 
@@ -449,9 +448,18 @@ export default function PeriodCardPicker({
                 : 'No period selected'}
             </span>
             <div className={styles.footerActions}>
-              <Button variant="sensitivity" size="sm" label="Apply" onClick={handleApply} />
-              <Button variant="outline" size="sm" label="Clear" onClick={handleClear} />
-              <Button variant="outline" size="sm" label="Cancel" onClick={() => setOpen(false)} />
+              <button type="button" className={styles.footerBtn} onClick={handleClear}>
+                <i className={`bi bi-trash3 ${styles.footerBtnIcon}`} aria-hidden />
+                Clear
+              </button>
+              <button type="button" className={styles.footerBtn} onClick={() => setOpen(false)}>
+                <i className={`bi bi-x-lg ${styles.footerBtnIcon}`} aria-hidden />
+                Cancel
+              </button>
+              <button type="button" className={styles.footerBtn} onClick={handleApply}>
+                <i className={`bi bi-check-lg ${styles.footerBtnIcon}`} aria-hidden />
+                Apply
+              </button>
             </div>
           </div>
         </div>

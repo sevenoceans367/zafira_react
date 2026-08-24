@@ -302,14 +302,39 @@
 
 .footerActions {
   display: flex;
-  gap: 8px;
+  gap: 28px;
   align-items: center;
 }
 
-.footerActions :global(button):last-child:hover:not(:disabled) {
-  background: #274670 !important;
-  border-color: #274670 !important;
-  color: #ffffff !important;
+.footerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #5b6472;
+  font-family: var(--font-family-body);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.footerBtn:hover {
+  color: #3f4654;
+}
+
+.footerBtn:focus-visible {
+  outline: 2px solid rgba(91, 100, 114, 0.35);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.footerBtnIcon {
+  font-size: 14px;
+  line-height: 1;
 }
 
 @media (max-width: 720px) {

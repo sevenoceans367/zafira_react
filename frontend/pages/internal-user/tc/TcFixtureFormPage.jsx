@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button, CardSelect, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
+import { appPath } from '@bainbridge/shared-routing';
 import { useTcModule } from '../../../hooks/useTcModule.js';
 import {
   createTcEstimate,
@@ -259,8 +260,20 @@ export default function TcFixtureFormPage({
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('fixture');
 
+  const returnToRaw = searchParams.get('returnTo') || '';
+  const returnTo = (() => {
+    if (!returnToRaw) return '';
+    try {
+      const decoded = decodeURIComponent(returnToRaw);
+      if (decoded.startsWith('/internal-user/')) return appPath(decoded);
+    } catch {
+      /* ignore bad returnTo */
+    }
+    return '';
+  })();
+
   const readOnly = mode === 'view';
-  const listHref = backHref || tcPath();
+  const listHref = backHref || returnTo || tcPath();
   const isDry = String(form.businessTypeId) === '3';
 
   const title = mode === 'add'
@@ -390,10 +403,14 @@ export default function TcFixtureFormPage({
       const payload = { ...form, fixtureType: form.fixtureType || '1' };
       if (mode === 'add') {
         const created = await createTcEstimate(payload);
-        navigate(`${tcPath(`${created.tcOutId}/edit`)}?msg=0`);
+        if (returnTo) {
+          navigate(returnTo, { replace: true });
+        } else {
+          navigate(`${tcPath(`${created.tcOutId}/edit`)}?msg=0`);
+        }
       } else {
         await updateTcEstimate(tcOutId, payload);
-        navigate(`${tcPath()}?msg=0`);
+        navigate(returnTo || `${tcPath()}?msg=0`);
       }
     } catch (err) {
       setError(err.message || 'Failed to save fixture note.');

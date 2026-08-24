@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, CardSelect, LoadingOverlay } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.js';
 import { periodContractBasePath } from '../../../constants/periodContractModule.js';
@@ -157,16 +157,6 @@ function DocIcon() {
   );
 }
 
-function RowsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3.5" y="4.5" width="17" height="4" rx="1" />
-      <rect x="3.5" y="10.5" width="17" height="4" rx="1" />
-      <rect x="3.5" y="16.5" width="17" height="4" rx="1" />
-    </svg>
-  );
-}
-
 function MultilineCell({ value, className }) {
   const text = liveValue(value);
   if (text === '—') return <span className={styles.cellBlank}>—</span>;
@@ -216,6 +206,7 @@ export default function PeriodContractListPage() {
   const [tcShow, setTcShow] = useState(10);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const openedLinkFromQuery = useRef(false);
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const periodFrom = searchParams.get('periodFrom') || '';
@@ -313,7 +304,7 @@ export default function PeriodContractListPage() {
     updateQuery({ selBType: value || '' });
   };
 
-  const openNominations = async (row, { allowAdd }) => {
+  const openNominations = useCallback(async (row, { allowAdd }) => {
     setLinkKind('all');
     setSpotFilter('all');
     setTcFilter('all');
@@ -341,7 +332,27 @@ export default function PeriodContractListPage() {
       setModal(null);
       setError(err.message || 'Failed to load period nominations.');
     }
-  };
+  }, [businessType]);
+
+  // Re-open Link Spot/TC after returning from Add Spot / Add TC
+  useEffect(() => {
+    if (openedLinkFromQuery.current || loading) return;
+    if (searchParams.get('openLink') !== '1') return;
+    const linkPeriodId = searchParams.get('periodId') || searchParams.get('periodid');
+    if (!linkPeriodId) return;
+
+    openedLinkFromQuery.current = true;
+    const row = rows.find((item) => String(item.periodId) === String(linkPeriodId))
+      || { periodId: linkPeriodId, contractNo: '' };
+    openNominations(row, { allowAdd: activeTab === 'open' });
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openLink');
+      next.delete('periodId');
+      next.delete('periodid');
+      return next;
+    }, { replace: true });
+  }, [activeTab, loading, openNominations, rows, searchParams, setSearchParams]);
 
   const handleDownloadExcel = async () => {
     setMenuOpen(false);
@@ -417,8 +428,11 @@ export default function PeriodContractListPage() {
     { key: 'water', title: 'Vessels on Water', value: stats.vesselsOnWater ?? 0, variant: 'cnt' },
   ];
 
-  const addSpotHref = `/internal-user/sopf/addestimate?periodid=${encodeURIComponent(modal?.periodId || '')}&selBType=${encodeURIComponent(businessType)}&estimatetype=${encodeURIComponent(businessType)}`;
-  const addTcHref = `${tcAppPath(tcHost, 'add')}?periodId=${encodeURIComponent(modal?.periodId || '')}&selBType=${encodeURIComponent(businessType)}`;
+  const linkReturnTo = encodeURIComponent(
+    `${listPath}?selBType=${businessType}&status=${activeTab === 'closed' ? 'completed' : 'active'}&openLink=1&periodId=${modal?.periodId || ''}`,
+  );
+  const addSpotHref = `/internal-user/sopf/addestimate?periodid=${encodeURIComponent(modal?.periodId || '')}&selBType=${encodeURIComponent(businessType)}&estimatetype=${encodeURIComponent(businessType)}&returnTo=${linkReturnTo}`;
+  const addTcHref = `${tcAppPath(tcHost, 'add')}?periodId=${encodeURIComponent(modal?.periodId || '')}&selBType=${encodeURIComponent(businessType)}&returnTo=${linkReturnTo}`;
   const editHref = (periodId) => `/internal-user/${module}/period-contracts/edit/${periodId}`;
 
   const headerActions = (
@@ -865,25 +879,32 @@ export default function PeriodContractListPage() {
       </ScrollableTable>
 
       {modal ? (
-        <>
-          <div className={styles.modalScrim} role="presentation" onClick={closeModal} />
-          <div className={styles.assignModal} role="dialog" aria-modal="true" aria-labelledby="period-linked-title">
+        <div className={styles.modalScrim} role="presentation" onClick={closeModal}>
+          <div
+            className={styles.assignModal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="period-linked-title"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className={styles.amHead}>
               <div className={styles.amTitleRow}>
                 <span id="period-linked-title" className={styles.amTitle}>Period Business - Linked Contracts</span>
                 {modal.contractNo ? <span className={styles.cttChip}>{modal.contractNo}</span> : null}
               </div>
               <div className={styles.amHeadRight}>
-                <select
-                  className={styles.amFilterPill}
+                <CardSelect
+                  options={[
+                    { id: 'all', name: 'All' },
+                    { id: 'spot', name: 'Spot' },
+                    { id: 'tc', name: 'TC' },
+                  ]}
                   value={linkKind}
-                  aria-label="Filter linked contracts"
-                  onChange={(event) => setLinkKind(event.target.value)}
-                >
-                  <option value="all">All</option>
-                  <option value="spot">Spot</option>
-                  <option value="tc">TC</option>
-                </select>
+                  tone="muted"
+                  ariaLabel="Filter linked contracts"
+                  placeholder="All"
+                  onChange={(value) => setLinkKind(value || 'all')}
+                />
                 <button type="button" className={styles.btnClose} aria-label="Close" onClick={closeModal}>
                   <CloseIcon />
                 </button>
@@ -899,30 +920,28 @@ export default function PeriodContractListPage() {
                       <div className={styles.amSectionHead}>
                         <span className={`${styles.amSectionTitle} ${styles.spotTitle}`}>Spot</span>
                         <div className={styles.amSectionControls}>
-                          <select
-                            className={styles.amSelect}
+                          <CardSelect
+                            options={[
+                              { id: 'all', name: 'All vessels' },
+                              ...vesselOptions.map((name) => ({ id: name, name })),
+                            ]}
                             value={spotFilter}
-                            aria-label="Filter vessels"
-                            onChange={(event) => setSpotFilter(event.target.value)}
-                          >
-                            <option value="all">All vessels</option>
-                            {vesselOptions.map((name) => (
-                              <option key={name} value={name}>{name}</option>
-                            ))}
-                          </select>
-                          <div className={styles.amShowCtrl}>
-                            <RowsIcon />
-                            <select
-                              className={styles.amSelect}
-                              value={spotShow}
-                              aria-label="Spot rows to show"
-                              onChange={(event) => setSpotShow(Number(event.target.value))}
-                            >
-                              {SHOW_OPTIONS.map((size) => (
-                                <option key={size} value={size}>Show {size}</option>
-                              ))}
-                            </select>
-                          </div>
+                            tone="muted"
+                            ariaLabel="Filter vessels"
+                            placeholder="All vessels"
+                            onChange={(value) => setSpotFilter(value || 'all')}
+                          />
+                          <CardSelect
+                            options={SHOW_OPTIONS.map((size) => ({
+                              id: String(size),
+                              name: `Show ${size}`,
+                            }))}
+                            value={String(spotShow)}
+                            tone="muted"
+                            ariaLabel="Spot rows to show"
+                            placeholder="Show 10"
+                            onChange={(value) => setSpotShow(Number(value) || 10)}
+                          />
                           <button
                             type="button"
                             className={`${styles.btnAddTrade} ${styles.btnAddSpot}`}
@@ -991,30 +1010,28 @@ export default function PeriodContractListPage() {
                       <div className={styles.amSectionHead}>
                         <span className={`${styles.amSectionTitle} ${styles.tcTitle}`}>TC</span>
                         <div className={styles.amSectionControls}>
-                          <select
-                            className={styles.amSelect}
+                          <CardSelect
+                            options={[
+                              { id: 'all', name: 'All TC' },
+                              ...tcOptions.map((name) => ({ id: name, name })),
+                            ]}
                             value={tcFilter}
-                            aria-label="Filter TC"
-                            onChange={(event) => setTcFilter(event.target.value)}
-                          >
-                            <option value="all">All TC</option>
-                            {tcOptions.map((name) => (
-                              <option key={name} value={name}>{name}</option>
-                            ))}
-                          </select>
-                          <div className={styles.amShowCtrl}>
-                            <RowsIcon />
-                            <select
-                              className={styles.amSelect}
-                              value={tcShow}
-                              aria-label="TC rows to show"
-                              onChange={(event) => setTcShow(Number(event.target.value))}
-                            >
-                              {SHOW_OPTIONS.map((size) => (
-                                <option key={size} value={size}>Show {size}</option>
-                              ))}
-                            </select>
-                          </div>
+                            tone="muted"
+                            ariaLabel="Filter TC"
+                            placeholder="All TC"
+                            onChange={(value) => setTcFilter(value || 'all')}
+                          />
+                          <CardSelect
+                            options={SHOW_OPTIONS.map((size) => ({
+                              id: String(size),
+                              name: `Show ${size}`,
+                            }))}
+                            value={String(tcShow)}
+                            tone="muted"
+                            ariaLabel="TC rows to show"
+                            placeholder="Show 10"
+                            onChange={(value) => setTcShow(Number(value) || 10)}
+                          />
                           <button
                             type="button"
                             className={`${styles.btnAddTrade} ${styles.btnAddTc}`}
@@ -1085,7 +1102,7 @@ export default function PeriodContractListPage() {
               )}
             </div>
           </div>
-        </>
+        </div>
       ) : null}
     </div>
   );

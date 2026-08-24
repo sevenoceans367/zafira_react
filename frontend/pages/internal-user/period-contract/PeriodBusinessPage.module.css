@@ -429,21 +429,21 @@
 .modalScrim {
   position: fixed;
   inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
   background: rgba(20, 26, 40, 0.5);
-  z-index: 60;
+  box-sizing: border-box;
 }
 
 .assignModal {
   display: flex;
   flex-direction: column;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   width: 1080px;
-  max-width: 94vw;
+  max-width: 100%;
   max-height: 88vh;
-  z-index: 61;
   background: #fff;
   border-radius: 16px;
   border: 1px solid #dfe2e7;

@@ -33,7 +33,7 @@ export function resolveCoaHeader(pathname, search = '') {
 
   if (pathname.includes('/coas/running/add')) {
     return {
-      title: 'New COA',
+      title: 'Add a new COA',
       currentPage: 'New COA',
       breadcrumbs: [
         HOME,

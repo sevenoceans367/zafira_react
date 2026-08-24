@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DmyDateInput, LoadingOverlay, PeriodCardPicker } from '@bainbridge/shared-ui';
-import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import {
   createCoa,
@@ -31,6 +30,7 @@ function emptyForm(businessTypeId = '2', nextCoaId = '') {
     tolerance: '',
     coaNotice: '',
     minGuaranteedQty: '',
+    minQtyPerShipment: '',
     lpEtaNotices: '',
     vesselSubstitute: '1',
     duration: '',
@@ -44,20 +44,39 @@ function emptyForm(businessTypeId = '2', nextCoaId = '') {
     updateStatus: '1',
     currency: 'USD',
     businessTypeId,
+    freightUsd: '',
     foPrice: '',
     bafAmt: '',
     attachment: '',
     attachmentName: '',
-    exclusions: [{ minGuaranteed: '', exPort: '' }],
+    exclusions: [{ minGuaranteed: '', ports: [] }],
     monthlyRemarks: [{ remarkDate: '', remarks: '' }],
   };
 }
 
-function Field({ id, label, children, className = '' }) {
+function parsePorts(exPort) {
+  if (Array.isArray(exPort)) return exPort.map(String).filter(Boolean);
+  if (!exPort) return [];
+  return String(exPort)
+    .split(/\s*\|\s*|\s*,\s*/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+function normalizeExclusions(rows) {
+  if (!rows?.length) return [{ minGuaranteed: '', ports: [] }];
+  return rows.map((row) => ({
+    minGuaranteed: row.minGuaranteed || '',
+    ports: parsePorts(row.ports || row.exPort),
+  }));
+}
+
+function Field({ id, label, children, className = '', hint = '' }) {
   return (
     <div className={`${styles.field} ${className}`.trim()}>
       <label htmlFor={id}>{label}</label>
       {children}
+      {hint ? <span className={styles.fieldHint}>{hint}</span> : null}
     </div>
   );
 }
@@ -66,6 +85,14 @@ function PlusIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
 }
@@ -88,7 +115,6 @@ export default function CoaFormPage({ mode = 'edit' }) {
   const fileRef = useRef(null);
   const isAdd = mode === 'add' || !coaId;
   const [lookups, setLookups] = useState(null);
-  const [businessTypes, setBusinessTypes] = useState([]);
   const [form, setForm] = useState(() => emptyForm(searchParams.get('selBType') || '2'));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -100,13 +126,9 @@ export default function CoaFormPage({ mode = 'edit' }) {
       setLoading(true);
       setError('');
       try {
-        const [lookupData, types] = await Promise.all([
-          fetchCoaLookups(),
-          fetchVcBusinessTypes(searchParams.get('selBType') || '2'),
-        ]);
+        const lookupData = await fetchCoaLookups();
         if (cancelled) return;
         setLookups(lookupData);
-        setBusinessTypes(types);
         if (isAdd) {
           setForm(emptyForm(searchParams.get('selBType') || '2', lookupData.nextCoaId));
         } else {
@@ -116,9 +138,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
           setForm({
             ...emptyForm(detail.businessTypeId),
             ...detail,
-            exclusions: detail.exclusions?.length
-              ? detail.exclusions
-              : [{ minGuaranteed: '', exPort: '' }],
+            exclusions: normalizeExclusions(detail.exclusions),
             monthlyRemarks: detail.monthlyRemarks?.length
               ? detail.monthlyRemarks
               : [{ remarkDate: '', remarks: '' }],
@@ -151,7 +171,12 @@ export default function CoaFormPage({ mode = 'edit' }) {
     try {
       const payload = {
         ...form,
-        exclusions: (form.exclusions || []).filter((row) => row.minGuaranteed || row.exPort),
+        exclusions: (form.exclusions || [])
+          .filter((row) => row.minGuaranteed || (row.ports || []).length)
+          .map((row) => ({
+            minGuaranteed: row.minGuaranteed || '',
+            exPort: (row.ports || []).join(' | '),
+          })),
       };
       const result = isAdd
         ? await createCoa(payload)
@@ -193,11 +218,10 @@ export default function CoaFormPage({ mode = 'edit' }) {
             <Field id="coaIdentity" label="COA No.">
               <input
                 id="coaIdentity"
-                className={!isAdd ? styles.readonly : undefined}
-                readOnly={!isAdd}
+                className={styles.readonly}
+                readOnly
                 value={form.coaIdentity}
-                onChange={(e) => patch('coaIdentity', e.target.value)}
-                required
+                placeholder="Auto-generated on Save"
               />
             </Field>
             <Field id="coaDate" label="Date">
@@ -240,9 +264,13 @@ export default function CoaFormPage({ mode = 'edit' }) {
               />
             </Field>
 
-            <Field id="vesselType" label="Vessel Type">
+            <Field
+              id="vesselType"
+              label="Trade Type"
+              hint="Filters which vessels are available when assigning a Spot voyage or Cargo Relet to this COA."
+            >
               <CoaCardSelect
-                label="Vessel Type"
+                label="Trade Type"
                 value={form.vesselType}
                 options={vesselTypes}
                 onChange={(value) => patch('vesselType', value)}
@@ -265,20 +293,57 @@ export default function CoaFormPage({ mode = 'edit' }) {
               />
             </Field>
             <Field id="totalShipments" label="Total Shipments (Count)">
-              <input id="totalShipments" value={form.totalShipments} onChange={(e) => patch('totalShipments', e.target.value)} />
+              <input
+                id="totalShipments"
+                type="number"
+                placeholder="0"
+                value={form.totalShipments}
+                onChange={(e) => patch('totalShipments', e.target.value)}
+              />
             </Field>
             <Field id="tolerance" label="Tolerance (%)">
-              <input id="tolerance" value={form.tolerance} onChange={(e) => patch('tolerance', e.target.value)} />
+              <input
+                id="tolerance"
+                type="number"
+                placeholder="0.00"
+                value={form.tolerance}
+                onChange={(e) => patch('tolerance', e.target.value)}
+              />
             </Field>
             <Field id="coaNotice" label="COA Notice Days">
-              <input id="coaNotice" value={form.coaNotice} onChange={(e) => patch('coaNotice', e.target.value)} />
+              <input
+                id="coaNotice"
+                type="number"
+                placeholder="0"
+                value={form.coaNotice}
+                onChange={(e) => patch('coaNotice', e.target.value)}
+              />
             </Field>
 
-            <Field id="minGuaranteedQty" label="Min Qty Guaranteed (MT)">
-              <input id="minGuaranteedQty" value={form.minGuaranteedQty} onChange={(e) => patch('minGuaranteedQty', e.target.value)} />
+            <Field id="minGuaranteedQty" label="Minimum Quantity Guaranteed (MT)">
+              <input
+                id="minGuaranteedQty"
+                type="number"
+                placeholder="0.00"
+                value={form.minGuaranteedQty}
+                onChange={(e) => patch('minGuaranteedQty', e.target.value)}
+              />
+            </Field>
+            <Field id="minQtyPerShipment" label="Minimum Quantity per Shipment (MT)">
+              <input
+                id="minQtyPerShipment"
+                type="number"
+                placeholder="0.00"
+                value={form.minQtyPerShipment}
+                onChange={(e) => patch('minQtyPerShipment', e.target.value)}
+              />
             </Field>
             <Field id="lpEtaNotices" label="Load Port ETA Notices">
-              <input id="lpEtaNotices" value={form.lpEtaNotices} onChange={(e) => patch('lpEtaNotices', e.target.value)} />
+              <input
+                id="lpEtaNotices"
+                value={form.lpEtaNotices}
+                onChange={(e) => patch('lpEtaNotices', e.target.value)}
+              />
             </Field>
             <Field id="vesselSubstitute" label="Vessel Substitutions">
               <CoaCardSelect
@@ -289,8 +354,14 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(value) => patch('vesselSubstitute', value)}
               />
             </Field>
-            <Field id="duration" label="COA Duration">
-              <input id="duration" value={form.duration} onChange={(e) => patch('duration', e.target.value)} />
+            <Field id="duration" label="COA Duration (Days)">
+              <input
+                id="duration"
+                type="number"
+                placeholder="e.g. 365"
+                value={form.duration}
+                onChange={(e) => patch('duration', e.target.value)}
+              />
             </Field>
             <Field id="period" label="Select Period" className={`${styles.span2} ${styles.periodField}`}>
               <PeriodCardPicker
@@ -311,18 +382,6 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(value) => patch('currency', value)}
               />
             </Field>
-            <Field id="businessTypeId" label="Business Type">
-              <CoaCardSelect
-                label="Business Type"
-                value={form.businessTypeId}
-                options={businessTypes}
-                includeEmpty={false}
-                onChange={(value) => patch('businessTypeId', value)}
-              />
-            </Field>
-            <Field id="coaNo" label="Internal COA No.">
-              <input id="coaNo" value={form.coaNo} onChange={(e) => patch('coaNo', e.target.value)} />
-            </Field>
           </div>
 
           <hr className={styles.divider} />
@@ -331,27 +390,45 @@ export default function CoaFormPage({ mode = 'edit' }) {
             <table className={styles.miniTable}>
               <thead>
                 <tr>
-                  <th style={{ width: 24 }} />
+                  <th style={{ width: 56 }} />
                   <th>Min Qty Guaranteed (CBM/MT)</th>
-                  <th>Ex-Port</th>
+                  <th>Load Port</th>
                 </tr>
               </thead>
               <tbody>
                 {(form.exclusions || []).map((row, index) => (
                   <tr key={`ex-${index}`}>
                     <td>
-                      <button
-                        type="button"
-                        className={styles.rowDel}
-                        title="Remove row"
-                        disabled={(form.exclusions || []).length <= 1}
-                        onClick={() => patch('exclusions', form.exclusions.filter((_, i) => i !== index))}
-                      >
-                        <i className="bi bi-x-lg" aria-hidden />
-                      </button>
+                      <div className={styles.rowActions}>
+                        <button
+                          type="button"
+                          className={styles.rowAdd}
+                          title="Add row"
+                          onClick={() => patch(
+                            'exclusions',
+                            [
+                              ...(form.exclusions || []).slice(0, index + 1),
+                              { minGuaranteed: '', ports: [] },
+                              ...(form.exclusions || []).slice(index + 1),
+                            ],
+                          )}
+                        >
+                          <PlusIcon />
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.rowDel}
+                          title="Remove row"
+                          disabled={(form.exclusions || []).length <= 1}
+                          onClick={() => patch('exclusions', form.exclusions.filter((_, i) => i !== index))}
+                        >
+                          <XIcon />
+                        </button>
+                      </div>
                     </td>
                     <td>
                       <input
+                        placeholder="0.00"
                         value={row.minGuaranteed}
                         onChange={(e) => {
                           const next = [...form.exclusions];
@@ -361,27 +438,54 @@ export default function CoaFormPage({ mode = 'edit' }) {
                       />
                     </td>
                     <td>
-                      <input
-                        value={row.exPort}
-                        onChange={(e) => {
-                          const next = [...form.exclusions];
-                          next[index] = { ...next[index], exPort: e.target.value };
-                          patch('exclusions', next);
-                        }}
-                      />
+                      <div className={styles.lpChipField}>
+                        {(row.ports || []).length ? (
+                          <div className={styles.lpChips}>
+                            {(row.ports || []).map((port) => (
+                              <span key={port} className={styles.lpChip}>
+                                {port}
+                                <button
+                                  type="button"
+                                  className={styles.lpChipX}
+                                  title="Remove port"
+                                  onClick={() => {
+                                    const next = [...form.exclusions];
+                                    next[index] = {
+                                      ...next[index],
+                                      ports: (next[index].ports || []).filter((p) => p !== port),
+                                    };
+                                    patch('exclusions', next);
+                                  }}
+                                >
+                                  <XIcon />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        <input
+                          className={styles.lpAddInput}
+                          placeholder="+ Add port"
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            const value = e.currentTarget.value.trim();
+                            if (!value) return;
+                            const next = [...form.exclusions];
+                            const ports = next[index].ports || [];
+                            if (!ports.includes(value)) {
+                              next[index] = { ...next[index], ports: [...ports, value] };
+                              patch('exclusions', next);
+                            }
+                            e.currentTarget.value = '';
+                          }}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <button
-              type="button"
-              className={styles.dashedAdd}
-              onClick={() => patch('exclusions', [...(form.exclusions || []), { minGuaranteed: '', exPort: '' }])}
-            >
-              <PlusIcon />
-              Add
-            </button>
           </div>
 
           <hr className={styles.divider} />
@@ -396,11 +500,35 @@ export default function CoaFormPage({ mode = 'edit' }) {
             <Field id="dpDetails" label="Discharge Port Details" className={styles.span3}>
               <textarea id="dpDetails" value={form.dpDetails} placeholder="Discharge Port Details" onChange={(e) => patch('dpDetails', e.target.value)} />
             </Field>
+            <Field id="freightUsd" label="Freight (USD/MT)">
+              <input
+                id="freightUsd"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={form.freightUsd}
+                onChange={(e) => patch('freightUsd', e.target.value)}
+              />
+            </Field>
             <Field id="foPrice" label="Contract FO Price (USD/MT)">
-              <input id="foPrice" value={form.foPrice} onChange={(e) => patch('foPrice', e.target.value)} />
+              <input
+                id="foPrice"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={form.foPrice}
+                onChange={(e) => patch('foPrice', e.target.value)}
+              />
             </Field>
             <Field id="bafAmt" label="BAF">
-              <input id="bafAmt" value={form.bafAmt} onChange={(e) => patch('bafAmt', e.target.value)} />
+              <input
+                id="bafAmt"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={form.bafAmt}
+                onChange={(e) => patch('bafAmt', e.target.value)}
+              />
             </Field>
             <Field id="demmLaytime" label="Demurrage & Laytime" className={styles.span3}>
               <textarea id="demmLaytime" value={form.demmLaytime} placeholder="Demurrage & Laytime" onChange={(e) => patch('demmLaytime', e.target.value)} />
@@ -410,78 +538,109 @@ export default function CoaFormPage({ mode = 'edit' }) {
             </Field>
           </div>
 
+          {!isAdd ? (
+            <>
+              <hr className={styles.divider} />
+              <div className={styles.sectionTitle}>Monthly Remarks</div>
+              <div className={styles.miniWrap}>
+                <table className={styles.miniTable}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 56 }} />
+                      <th>Date</th>
+                      <th>Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(form.monthlyRemarks || []).map((row, index) => (
+                      <tr key={`mr-${index}`}>
+                        <td>
+                          <div className={styles.rowActions}>
+                            <button
+                              type="button"
+                              className={styles.rowAdd}
+                              title="Add row"
+                              onClick={() => patch(
+                                'monthlyRemarks',
+                                [
+                                  ...(form.monthlyRemarks || []).slice(0, index + 1),
+                                  { remarkDate: '', remarks: '' },
+                                  ...(form.monthlyRemarks || []).slice(index + 1),
+                                ],
+                              )}
+                            >
+                              <PlusIcon />
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.rowDel}
+                              title="Remove row"
+                              disabled={(form.monthlyRemarks || []).length <= 1}
+                              onClick={() => patch('monthlyRemarks', form.monthlyRemarks.filter((_, i) => i !== index))}
+                            >
+                              <XIcon />
+                            </button>
+                          </div>
+                        </td>
+                        <td>
+                          <DmyDateInput
+                            value={row.remarkDate || ''}
+                            onChange={(value) => {
+                              const next = [...form.monthlyRemarks];
+                              next[index] = { ...next[index], remarkDate: value };
+                              patch('monthlyRemarks', next);
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={row.remarks}
+                            onChange={(e) => {
+                              const next = [...form.monthlyRemarks];
+                              next[index] = { ...next[index], remarks: e.target.value };
+                              patch('monthlyRemarks', next);
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
+
           <hr className={styles.divider} />
 
-          <div className={styles.sectionTitle}>Monthly Remarks</div>
-          <div className={styles.miniWrap}>
-            <table className={styles.miniTable}>
-              <thead>
-                <tr>
-                  <th style={{ width: 24 }} />
-                  <th>Date</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(form.monthlyRemarks || []).map((row, index) => (
-                  <tr key={`mr-${index}`}>
-                    <td>
-                      <button
-                        type="button"
-                        className={styles.rowDel}
-                        title="Remove row"
-                        onClick={() => patch('monthlyRemarks', form.monthlyRemarks.filter((_, i) => i !== index))}
-                      >
-                        <i className="bi bi-x-lg" aria-hidden />
-                      </button>
-                    </td>
-                    <td>
-                      <DmyDateInput
-                        value={row.remarkDate || ''}
-                        onChange={(value) => {
-                          const next = [...form.monthlyRemarks];
-                          next[index] = { ...next[index], remarkDate: value };
-                          patch('monthlyRemarks', next);
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        value={row.remarks}
-                        onChange={(e) => {
-                          const next = [...form.monthlyRemarks];
-                          next[index] = { ...next[index], remarks: e.target.value };
-                          patch('monthlyRemarks', next);
-                        }}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <button
-              type="button"
-              className={styles.dashedAdd}
-              onClick={() => patch('monthlyRemarks', [...(form.monthlyRemarks || []), { remarkDate: '', remarks: '' }])}
+          <Field id="attachment" label="Attach Documents" className={styles.span6}>
+            <div
+              className={styles.dropzone}
+              onDragEnter={(e) => { e.preventDefault(); e.currentTarget.classList.add(styles.dragOver); }}
+              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add(styles.dragOver); }}
+              onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove(styles.dragOver); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove(styles.dragOver);
+                const file = e.dataTransfer?.files?.[0];
+                if (file) patch('attachmentName', file.name);
+              }}
             >
-              <PlusIcon />
-              Add
-            </button>
-          </div>
-
-          <hr className={styles.divider} />
-
-          <Field id="attachment" label="Attach COA Recap">
-            <div className={styles.dropzone}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
                 <path d="M21 12.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9.5" />
                 <path d="M16 3l5 5-9 9H7v-5z" />
               </svg>
-              <div className={styles.dzText}>Drag & drop files here, or browse</div>
+              <div className={styles.dzText}>
+                Drag & drop files here, or
+                {' '}
+                <b>browse</b>
+              </div>
               <div className={styles.dzSub}>
-                {form.attachmentName || 'No file attached'}
+                {form.attachmentName || 'No documents attached yet'}
               </div>
               <label className={styles.attachBtn}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+                  <path d="M21 12.5l-8.4 8.4a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3l7.7-7.7" />
+                </svg>
                 Attach
                 <input
                   ref={fileRef}

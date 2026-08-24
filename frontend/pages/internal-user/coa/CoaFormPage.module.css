@@ -108,7 +108,7 @@
 
 .field textarea {
   resize: vertical;
-  min-height: 72px;
+  min-height: 44px;
 }
 
 .readonly {
@@ -123,13 +123,19 @@
   border: none;
 }
 
+.fieldHint {
+  font-size: 10.5px;
+  color: #8a93a2;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
 .miniWrap {
   margin-bottom: 4px;
 }
 
 .miniTable {
   border-collapse: collapse;
-  width: 100%;
 }
 
 .miniTable thead th {
@@ -150,22 +156,28 @@
 
 .miniTable input,
 .miniTable select {
-  width: 100%;
-  min-width: 140px;
+  width: 170px;
   border: 1px solid #dfe2e7;
   border-radius: 8px;
   padding: 7px 9px;
   font-size: 12px;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rowAdd,
 .rowDel {
   width: 26px;
   height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #b4291f;
   cursor: pointer;
   border: none;
   background: none;
@@ -173,8 +185,20 @@
   padding: 0;
 }
 
+.rowAdd {
+  color: #2e6fe8;
+}
+
+.rowAdd:hover {
+  background: #eaf1fe;
+}
+
+.rowDel {
+  color: #e4483b;
+}
+
 .rowDel:hover {
-  background: #fde8e6;
+  background: #fdecea;
 }
 
 .rowDel:disabled {
@@ -182,29 +206,66 @@
   cursor: not-allowed;
 }
 
-.dashedAdd {
+.rowAdd svg,
+.rowDel svg {
+  width: 13px;
+  height: 13px;
+}
+
+.lpChipField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 230px;
+}
+
+.lpChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.lpChip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: none;
-  border: 1.5px dashed #dfe2e7;
-  color: #5b6472;
-  font-size: 11.5px;
-  font-weight: 700;
-  border-radius: 8px;
-  padding: 7px 14px;
+  gap: 5px;
+  background: #f1f2f4;
+  border: 1px solid #dfe2e7;
+  border-radius: 999px;
+  padding: 3px 6px 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1b2430;
+  white-space: nowrap;
+}
+
+.lpChipX {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  color: #8a93a2;
   cursor: pointer;
-  font-family: inherit;
+  flex: none;
 }
 
-.dashedAdd:hover {
-  border-color: #1e3a5f;
-  color: #1e3a5f;
+.lpChipX:hover {
+  background: #fdecea;
+  color: #e4483b;
 }
 
-.dashedAdd svg {
-  width: 12px;
-  height: 12px;
+.lpChipX svg {
+  width: 9px;
+  height: 9px;
+}
+
+.lpAddInput {
+  width: 170px !important;
 }
 
 .periodField :global(button) {
@@ -222,7 +283,13 @@
   background: #f1f2f4;
   border-radius: 9px;
   border: 1.5px dashed #dfe2e7;
-  max-width: 520px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+  width: 100%;
+}
+
+.dropzone.dragOver {
+  background: #eaf1fe;
+  border-color: #2e6fe8;
 }
 
 .dropzone svg {
@@ -236,6 +303,12 @@
   color: #5b6472;
 }
 
+.dzText b {
+  color: #2e6fe8;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .dzSub {
   font-size: 10.5px;
   color: #8a93a2;
@@ -245,7 +318,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #3b82f6;
+  background: #2e6fe8;
   color: #fff;
   border: none;
   border-radius: 7px;
@@ -259,6 +332,11 @@
 
 .attachBtn:hover {
   background: #265dc7;
+}
+
+.attachBtn svg {
+  width: 12px;
+  height: 12px;
 }
 
 .attachBtn input {
@@ -281,7 +359,7 @@
 }
 
 .btnSave {
-  background: #1e3a5f;
+  background: #274670;
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -296,7 +374,7 @@
 }
 
 .btnSave:hover {
-  background: #162c49;
+  background: #1e3a5f;
 }
 
 .btnSave:disabled {

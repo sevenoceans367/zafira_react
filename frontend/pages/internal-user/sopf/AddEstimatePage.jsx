@@ -72,7 +72,7 @@ export default function AddEstimatePage() {
     ? 'COA-VC Out Estimates'
     : periodId
       ? 'Nominate Voyage (New Estimate)'
-      : 'Add Estimate';
+      : 'New Spot Estimate';
 
   useEffect(() => {
     let cancelled = false;
@@ -431,7 +431,9 @@ export default function AddEstimatePage() {
 
       {!loading ? (
         <form onSubmit={handleSubmit}>
-          <h2 className={styles.formTitle}>{formTitle}</h2>
+          {coaId || periodId ? (
+            <h2 className={styles.formTitle}>{formTitle}</h2>
+          ) : null}
           {coaId ? (
             <div className={styles.coaMetaRow}>
               <label className={styles.coaMetaField}>

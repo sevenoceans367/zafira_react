@@ -79,9 +79,9 @@ export function resolveSopfHeader(pathname, search = '') {
       };
     }
     const isNominate = Boolean(params.get('periodid'));
-    const pageLabel = isNominate ? 'Nominate' : 'Add Estimate';
+    const pageLabel = isNominate ? 'Nominate' : 'New Spot Estimate';
     return {
-      title: SPOT_BUSINESS,
+      title: pageLabel,
       currentPage: pageLabel,
       breadcrumbs: [
         HOME,

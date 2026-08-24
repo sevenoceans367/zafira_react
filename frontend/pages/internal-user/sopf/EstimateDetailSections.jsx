@@ -55,6 +55,20 @@ function BunkerPriceInput({ value, readOnly, onCommit }) {
   const [draft, setDraft] = useState(null);
   const editing = draft !== null;
 
+  const commitPrice = (raw, { normalize = false } = {}) => {
+    const cleaned = sanitizeDecimalInput(raw ?? '');
+    const next = normalize
+      ? (cleaned === '' || cleaned === '.'
+        ? ''
+        : Number.isFinite(Number(cleaned))
+          ? Number(cleaned).toFixed(2)
+          : '')
+      : cleaned;
+    if (String(next) !== String(value || '')) {
+      onCommit(next);
+    }
+  };
+
   return (
     <input
       value={editing ? draft : (value || '')}
@@ -66,19 +80,15 @@ function BunkerPriceInput({ value, readOnly, onCommit }) {
         setDraft(value || '');
         requestAnimationFrame(() => e.target.select());
       }}
-      onChange={(e) => setDraft(sanitizeDecimalInput(e.target.value))}
+      onChange={(e) => {
+        const next = sanitizeDecimalInput(e.target.value);
+        setDraft(next);
+        commitPrice(next);
+      }}
       onBlur={() => {
         const raw = draft ?? '';
         setDraft(null);
-        const cleaned = sanitizeDecimalInput(raw);
-        const normalized = cleaned === '' || cleaned === '.'
-          ? ''
-          : Number.isFinite(Number(cleaned))
-            ? Number(cleaned).toFixed(2)
-            : '';
-        if (String(normalized) !== String(value || '')) {
-          onCommit(normalized);
-        }
+        commitPrice(raw, { normalize: true });
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
@@ -656,6 +666,39 @@ export default function EstimateDetailSections({
                 ))}
               </select>
             </Field>
+            <Field id="charteringTeam" label="Chartering Team">
+              <select
+                id="charteringTeam"
+                value={form.charteringTeam || ''}
+                disabled={readOnly}
+                onChange={(e) => updateField('charteringTeam', e.target.value)}
+              >
+                <option value="">— Select —</option>
+                {(lookups.charteringTeams || []).map((row) => (
+                  <option key={row.id} value={row.id}>{row.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field id="charteringPic" label="Chartering PIC">
+              <select
+                id="charteringPic"
+                value={form.charteringPic || ''}
+                disabled={readOnly}
+                onChange={(e) => updateField('charteringPic', e.target.value)}
+              >
+                <option value="">— Select —</option>
+                {(() => {
+                  const options = [...(lookups.charteringPics || [])];
+                  const id = form.charteringPic != null ? String(form.charteringPic) : '';
+                  if (id && !options.some((row) => String(row.id) === id)) {
+                    options.unshift({ id, name: form.charteringPicName || id });
+                  }
+                  return options.map((row) => (
+                    <option key={row.id} value={row.id}>{row.name}</option>
+                  ));
+                })()}
+              </select>
+            </Field>
           </div>
       </CollapsiblePanel>
 
@@ -1217,39 +1260,6 @@ export default function EstimateDetailSections({
             </div>
           </Field>
           ) : null}
-          <Field id="charteringTeam" label="Chartering Team">
-            <select
-              id="charteringTeam"
-              value={form.charteringTeam || ''}
-              disabled={readOnly}
-              onChange={(e) => updateField('charteringTeam', e.target.value)}
-            >
-              <option value="">— Select —</option>
-              {(lookups.charteringTeams || []).map((row) => (
-                <option key={row.id} value={row.id}>{row.name}</option>
-              ))}
-            </select>
-          </Field>
-          <Field id="charteringPic" label="Chartering PIC">
-            <select
-              id="charteringPic"
-              value={form.charteringPic || ''}
-              disabled={readOnly}
-              onChange={(e) => updateField('charteringPic', e.target.value)}
-            >
-              <option value="">— Select —</option>
-              {(() => {
-                const options = [...(lookups.charteringPics || [])];
-                const id = form.charteringPic != null ? String(form.charteringPic) : '';
-                if (id && !options.some((row) => String(row.id) === id)) {
-                  options.unshift({ id, name: form.charteringPicName || id });
-                }
-                return options.map((row) => (
-                  <option key={row.id} value={row.id}>{row.name}</option>
-                ));
-              })()}
-            </select>
-          </Field>
           <Field id="freightGrossCargoHeader" label="Total Freight">
             <input id="freightGrossCargoHeader" value={form.freightGross || ''} readOnly />
           </Field>

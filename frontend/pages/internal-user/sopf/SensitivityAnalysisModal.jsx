@@ -400,21 +400,19 @@ export default function SensitivityAnalysisModal({
                               {column.voyageNo || '—'}
                             </span>
                             <div className={styles.vessel}>{column.vesselName || '—'}</div>
-                            <div className={styles.qrChipsWrap}>
-                              <div className={styles.qrChips}>
-                                <div className={`${styles.qrChip} ${tce >= 0 ? styles.qrPos : styles.qrNeg}`}>
-                                  <div className={styles.qrLabel}>TCE</div>
-                                  <div className={styles.qrValue}>
-                                    $
-                                    {formatMoney(tce, 0)}
-                                  </div>
+                            <div className={styles.qrChips}>
+                              <div className={`${styles.qrChip} ${tce >= 0 ? styles.qrPos : styles.qrNeg}`}>
+                                <div className={styles.qrLabel}>TCE</div>
+                                <div className={styles.qrValue}>
+                                  $
+                                  {formatMoney(tce, 0)}
                                 </div>
-                                <div className={`${styles.qrChip} ${pnl >= 0 ? styles.qrPos : styles.qrNeg}`}>
-                                  <div className={styles.qrLabel}>P&amp;L</div>
-                                  <div className={styles.qrValue}>
-                                    $
-                                    {formatMoney(pnl, 0)}
-                                  </div>
+                              </div>
+                              <div className={`${styles.qrChip} ${pnl >= 0 ? styles.qrPos : styles.qrNeg}`}>
+                                <div className={styles.qrLabel}>P&amp;L</div>
+                                <div className={styles.qrValue}>
+                                  $
+                                  {formatMoney(pnl, 0)}
                                 </div>
                               </div>
                             </div>

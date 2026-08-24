@@ -30,7 +30,7 @@
   --brown-tint: #f3eae0;
   --brown-tint-strong: #e9d8c6;
   --brown-tint-pale: #faf6f2;
-  --page-bg: #ebedf0;
+  --page-bg: #ffffff;
   --card-bg: #ffffff;
   --line: #eceef2;
   --line-strong: #d8dce3;
@@ -76,7 +76,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 600;
 }
 
@@ -123,15 +123,13 @@
 }
 
 .doc {
-  background: var(--card-bg);
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  box-shadow: 0 1px 3px rgba(20, 30, 50, 0.06);
-  overflow: hidden;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .docInner {
-  padding: 30px 36px 22px;
+  padding: 8px 8px 8px;
 }
 
 .docHeader {
@@ -152,7 +150,7 @@
 
 .docTitle {
   margin: 0;
-  font-size: 23px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--navy);
@@ -520,6 +518,7 @@
 .groupHeader {
   border-bottom: none;
   margin-top: 4px;
+  align-items: center;
 }
 
 .groupHeader .labelCell {
@@ -530,7 +529,14 @@
   color: var(--sc);
   background: var(--sc-tint-pale);
   border-radius: 4px;
-  padding: 4px 6px;
+  padding: 2px 6px;
+}
+
+.groupHeader .colCell,
+.groupHeader .spacer {
+  min-height: 0;
+  padding: 0;
+  margin: 0;
 }
 
 .sub .labelCell {

@@ -139,7 +139,8 @@ export function getTce(row) {
 
 export function mapListRow(row, index, portLegs = {}, { voyageLocked = false } = {}) {
   const ports = resolvePorts(row.fcaId, portLegs);
-  const sentToDecisionChart = Boolean(row.comid);
+  const fixed = Boolean(row.fixed) || Number(row.FIXED) === 1;
+  const sentToDecisionChart = Boolean(row.comid) || fixed;
   const estimateNo = Number(row.estimateNo) > 0 ? Number(row.estimateNo) : 1;
   const voyageLabel = row.voyageNo
     ? `${row.voyageNo}-Est${estimateNo}`
@@ -171,12 +172,16 @@ export function mapListRow(row, index, portLegs = {}, { voyageLocked = false } =
     dailyTimeCharter: row.dailyVesselOperationExp,
     profitLoss: row.profitLoss,
     charteringPic: row.charteringPicName,
-    // Send to Ops disabled when this row was sent OR a sibling on same voyage was sent.
-    selectable: !sentToDecisionChart && !voyageLocked,
+    // Compare checkbox stays available for all Active rows (including locked / already sent).
+    selectable: !fixed,
+    // Send to Ops / edit only when this voyage is still open.
+    canSendToOps: !sentToDecisionChart && !voyageLocked && !fixed,
     sendToOpsDisabled: voyageLocked && !sentToDecisionChart,
     voyageLocked,
     sentToDecisionChart,
     sentToOps: sentToDecisionChart,
+    fixed,
+    statusTab: fixed ? 'completed' : 'active',
     isBenchmark: row.ifBenchmark === 1,
     comid: row.comid || null,
   };

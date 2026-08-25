@@ -5,11 +5,11 @@ import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 import spotIcon from '../../assets/010-pie-chart.png';
 
 export const OPS_TC_ITEMS = [
-  { id: 'finalised-fixtures', label: 'Finalised Voyage Fixtures TC' },
-  { id: 'in-ops-glance', label: 'In Ops at a glance TC' },
+  { id: 'in-ops-glance', label: 'TC Ops' },
   { id: 'post-ops', label: 'Vessels in Post Ops TC' },
   { id: 'history', label: 'Vessels in History TC' },
   { id: 'year-updation', label: 'Year Updation-TC' },
+  { id: 'finalised-fixtures', label: 'Finalised Voyage Fixtures TC', hidden: true },
 ];
 
 export default function OpsTcSidebarTree({ isOpen }) {
@@ -53,7 +53,7 @@ export default function OpsTcSidebarTree({ isOpen }) {
         {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>
       <ul className="treeview-menu">
-        {OPS_TC_ITEMS.map((item) => {
+        {OPS_TC_ITEMS.filter((item) => !item.hidden).map((item) => {
           const href = `/internal-user/vc/ops-tc/${item.id}`;
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (

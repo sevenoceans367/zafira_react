@@ -94,6 +94,39 @@ const STAT_CARDS = [
 /** Gas=1, Tanker=2, Dry Cargo=3 — legacy PHP default is Tanker */
 const DEFAULT_BUSINESS_TYPE = '2';
 
+const STATUS_TABS = [
+  { id: 'active', label: 'Active' },
+  { id: 'completed', label: 'In Ops' },
+];
+
+function parseStatusTab(value) {
+  if (value === 'completed') return 'completed';
+  return 'active';
+}
+
+function rowStatusTab(row) {
+  if (row.statusTab === 'completed' || row.fixed || row.sentToOps) return 'completed';
+  return 'active';
+}
+
+/** Same icons as Running COA Active / Completed (In Ops uses completed check). */
+function TabIcon({ id }) {
+  if (id === 'completed') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12.5l2.5 2.5L16 9.5" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function TruncatedText({ text, maxLength = 10 }) {
   const value = String(text ?? '');
   if (value.length <= maxLength) return value;
@@ -142,6 +175,8 @@ export default function EstimateListPage() {
   const flash = flashMsg != null ? MSG_COPY[Number(flashMsg)] : null;
   const periodFrom = searchParams.get('periodFrom') ?? '';
   const periodTo = searchParams.get('periodTo') ?? '';
+  const statusTab = parseStatusTab(searchParams.get('status'));
+  const isCompletedTab = statusTab === 'completed';
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -207,7 +242,7 @@ export default function EstimateListPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, businessType, periodFrom, periodTo, pageSize]);
+  }, [search, businessType, periodFrom, periodTo, pageSize, statusTab]);
 
   useEffect(() => {
     const ids = searchParams.get('ids');
@@ -258,6 +293,8 @@ export default function EstimateListPage() {
   };
 
   const filteredRows = rows.filter((row) => {
+    if (rowStatusTab(row) !== statusTab) return false;
+
     const query = search.trim().toLowerCase();
     if (!query) return true;
 
@@ -281,19 +318,20 @@ export default function EstimateListPage() {
     safePage * pageSize,
   );
 
+  const selectablePaged = pagedRows.filter((row) => row.selectable);
   const allSelected =
-    pagedRows.length > 0
-    && pagedRows.every((row) => selectedIds.includes(row.id));
+    selectablePaged.length > 0
+    && selectablePaged.every((row) => selectedIds.includes(row.id));
 
   const toggleAll = () => {
     if (allSelected) {
-      const pageIds = new Set(pagedRows.map((row) => row.id));
+      const pageIds = new Set(selectablePaged.map((row) => row.id));
       setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
       return;
     }
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      pagedRows.forEach((row) => next.add(row.id));
+      selectablePaged.forEach((row) => next.add(row.id));
       return [...next];
     });
   };
@@ -445,14 +483,34 @@ export default function EstimateListPage() {
           ))}
         </SummaryCardGrid>
 
+        <div className={styles.statusTabs} role="tablist" aria-label="Spot Business status">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={statusTab === tab.id}
+              className={`${styles.statusTab} ${statusTab === tab.id ? styles.statusTabActive : ''}`}
+              onClick={() => {
+                setSelectedIds([]);
+                updateParams({ status: tab.id === 'active' ? null : tab.id });
+              }}
+            >
+              <TabIcon id={tab.id} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <ScrollableTable
+          flushTop
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
           toolbarLeft={(
             <EstimateListTableToolbar
               addHref={`/internal-user/sopf/addestimate?estimatetype=${estimateType}&selBType=${businessType}`}
               onSensitivityAnalysis={handleSensitivityAnalysis}
-              sensitivityDisabled={selectedIds.length === 0}
+              sensitivityDisabled={selectedIds.length === 0 || isCompletedTab}
               onDownloadCsv={handleDownloadCsv}
               onDownloadPdf={handleDownloadPdf}
               onEmailAttachment={handleEmailAttachment}
@@ -488,6 +546,7 @@ export default function EstimateListPage() {
                       className={styles.compareCheckbox}
                       checked={allSelected}
                       onChange={toggleAll}
+                      disabled={isCompletedTab || pagedRows.every((row) => !row.selectable)}
                       aria-label="Select all"
                     />
                   </th>
@@ -510,16 +569,20 @@ export default function EstimateListPage() {
                 ) : filteredRows.length === 0 ? (
                   <tr>
                     <td colSpan={13} className={styles.empty}>
-                      No estimates match your search.
+                      {isCompletedTab
+                        ? 'No In Ops estimates for the selected filters.'
+                        : 'No active estimates match your search.'}
                     </td>
                   </tr>
                 ) : (
-                  pagedRows.map((row) => (
+                  pagedRows.map((row, index) => (
                     <tr
                       key={row.id}
                       className={row.isBenchmark ? styles.benchmarkRow : undefined}
                     >
-                      <td className={styles.cellItem}>{row.rowNum}.</td>
+                      <td className={styles.cellItem}>
+                        {(safePage - 1) * pageSize + index + 1}.
+                      </td>
                       <td className={styles.cellVessel}>{row.vesselName}</td>
                       <td className={styles.cellNum}>
                         {row.voyageLabel || (row.voyageNo
@@ -536,37 +599,38 @@ export default function EstimateListPage() {
                       <td className={styles.cellNum}>{row.tce}</td>
                       <td className={styles.cellNum}>{row.profitLoss}</td>
                       <td>
-                        <div className={styles.actionStack}>
-                          <ActionButtonStack>
-                            <SecondaryActionButton
-                              onClick={() => handleReplicate(row.id)}
-                              ariaLabel={`Replicate ${row.sheetName}`}
+                        <ActionButtonStack className={styles.rowActions}>
+                          <SecondaryActionButton
+                            label="Replicate"
+                            className={`${styles.pillAction} ${styles.pillReplicate}`}
+                            onClick={() => handleReplicate(row.id)}
+                            ariaLabel={`Replicate ${row.sheetName}`}
+                          />
+                          {row.canSendToOps ? (
+                            <SendToOpsButton
+                              className={`${styles.pillAction} ${styles.pillSendOps}`}
+                              onClick={() => handleSendToOps(row.id, row.sheetName)}
+                              ariaLabel={`Send to Ops ${row.sheetName}`}
                             />
-                            {row.selectable ? (
-                              <SendToOpsButton
-                                type="button"
-                                onClick={() => handleSendToOps(row.id, row.sheetName)}
-                                ariaLabel={`Send to Ops ${row.sheetName}`}
-                              />
-                            ) : row.sendToOpsDisabled || row.voyageLocked ? (
-                              <span className={styles.sentSiblingHint} title="Another estimate for this voyage was sent to Ops">
-                                Locked
-                              </span>
-                            ) : null}
-                          </ActionButtonStack>
-                        </div>
+                          ) : row.sendToOpsDisabled || row.voyageLocked ? (
+                            <span className={styles.sentSiblingHint} title="Another estimate for this voyage was sent to Ops">
+                              Locked
+                            </span>
+                          ) : null}
+                        </ActionButtonStack>
                       </td>
                       <td className={styles.center}>
                         <input
                           type="checkbox"
                           checked={selectedIds.includes(row.id)}
                           onChange={() => toggleRow(row.id)}
+                          disabled={isCompletedTab || !row.selectable}
                           aria-label={`Select ${row.sheetName}`}
                         />
                       </td>
                       <td>
                         <div className={styles.iconPair}>
-                          {row.selectable ? (
+                          {row.canSendToOps ? (
                             <>
                               <Button
                                 variant="link"

@@ -155,6 +155,7 @@ function normalizeMasterRow(row) {
     charteringPicName: row.CHARTERING_PIC_NAME || '',
     ifBenchmark: Number(row.IF_BENCHMARK || 0),
     comid: row.COMID ? String(row.COMID) : '',
+    fixed: Number(row.FIXED) === 1,
     gasMarket: Number(row.GAS_MARKET || 0),
     gasBaseRate: row.GAS_BASE_RATE,
     gasLumsum: row.GAS_LUMSUM,
@@ -206,7 +207,7 @@ async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = f
             m.TOTAL_DAYS, m.QUANTITY, m.DAILY_EARNING, m.NET_DAILY_EARNING,
             m.DAILY_VESSEL_OPERATION_EXP,
             m.PROFIT_LOSS, m.TRANS_DATE, m.QTY_TYPE_RADIO, m.ESTIMATE_TYPE,
-            m.GAS_QUANTITY, m.TANK_QUANTITY, m.IF_BENCHMARK, m.COMID,
+            m.GAS_QUANTITY, m.TANK_QUANTITY, m.IF_BENCHMARK, m.COMID, m.FIXED,
             m.GAS_MARKET, m.GAS_BASE_RATE, m.GAS_LUMSUM, m.TANKER_RADIO_SINGLE_DIS,
             m.CHK_LUMPSUM, m.LUMPSUMAMT,
             v.VESSEL_NAME, v.DWT,
@@ -222,7 +223,7 @@ async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = f
        AND m.MCOMPANYID = ?
        AND m.ESTIMATE_TYPE = ?
        AND m.COAID IS NULL
-       AND m.FIXED = 0
+       AND (m.FIXED = 0 OR m.FIXED = 1)
        ${comidFilter}
        ${periodFilter.sql}
        ${idFilter}

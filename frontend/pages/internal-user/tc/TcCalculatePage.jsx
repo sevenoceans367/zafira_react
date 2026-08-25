@@ -239,7 +239,7 @@ export default function TcCalculatePage({
 
   const listHref = listHrefProp
     || (searchParams.get('from') === 'ops-tc'
-      ? appPath('/internal-user/vc/ops-tc/finalised-fixtures')
+      ? appPath('/internal-user/vc/ops-tc/in-ops-glance')
       : tcPath());
 
   useEffect(() => {

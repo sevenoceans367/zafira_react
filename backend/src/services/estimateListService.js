@@ -82,8 +82,9 @@ export async function getEstimateList({ selBType, periodFrom, periodTo } = {}) {
   const scoped = estimates
     .filter((row) => row.estimateType === type)
     .filter((row) => isDateWithinPeriod(row.transDate, periodFrom, periodTo));
-  const inSubs = scoped.filter((row) => !row.comid);
-  const inOps = scoped.filter((row) => row.comid);
+  const activeScoped = scoped.filter((row) => !row.fixed);
+  const inSubs = activeScoped.filter((row) => !row.comid);
+  const inOps = activeScoped.filter((row) => row.comid);
   const openTradePl = inSubs.reduce((sum, row) => sum + Number(row.profitLoss || 0), 0);
   const opsPl = inOps.reduce((sum, row) => sum + Number(row.profitLoss || 0), 0);
 
@@ -95,7 +96,7 @@ export async function getEstimateList({ selBType, periodFrom, periodTo } = {}) {
       openTrade: openTradePl / 1000,
       vesselsInSubs: inSubs.length,
       tradesInOperations: opsPl / 1000,
-      vesselsOnWater: scoped.length,
+      vesselsOnWater: activeScoped.length,
     },
   };
 }

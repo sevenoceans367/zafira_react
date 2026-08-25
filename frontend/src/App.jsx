@@ -40,7 +40,6 @@ import OpsVcBunkerPage from '../pages/internal-user/ops/OpsVcBunkerPage.jsx';
 import OpsVcSoaReportPage from '../pages/internal-user/ops/OpsVcSoaReportPage.jsx';
 import OpsVcCostSheetPage from '../pages/internal-user/ops/OpsVcCostSheetPage.jsx';
 import OpsVcChecklistPage from '../pages/internal-user/ops/OpsVcChecklistPage.jsx';
-import OpsTcFinalisedFixturesPage from '../pages/internal-user/ops/OpsTcFinalisedFixturesPage.jsx';
 import OpsTcInOpsGlancePage from '../pages/internal-user/ops/OpsTcInOpsGlancePage.jsx';
 import OpsTcChecklistPage from '../pages/internal-user/ops/OpsTcChecklistPage.jsx';
 import OpsTcFixtureNotePage from '../pages/internal-user/ops/OpsTcFixtureNotePage.jsx';
@@ -144,7 +143,7 @@ export default function App() {
             <Route path="/internal-user/vc/ops/year-updation" element={<OpsVcYearUpdationPage />} />
             <Route
               path="/internal-user/vc/ops-tc/finalised-fixtures"
-              element={<OpsTcFinalisedFixturesPage />}
+              element={<Navigate to="/internal-user/vc/ops-tc/in-ops-glance" replace />}
             />
             <Route
               path="/internal-user/vc/ops-tc/in-ops-glance"

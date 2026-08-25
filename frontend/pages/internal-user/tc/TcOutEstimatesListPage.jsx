@@ -23,7 +23,7 @@ const DEFAULT_BUSINESS_TYPE = '2';
 
 const STATUS_TABS = [
   { id: 'active', label: 'Active' },
-  { id: 'activeInOps', label: 'Active in Ops' },
+  { id: 'activeInOps', label: 'In Ops' },
 ];
 
 const FLASH = {
@@ -91,10 +91,8 @@ function TabIcon({ id }) {
   if (id === 'activeInOps') {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="5" r="2.4" />
-        <path d="M12 7.4V21" />
-        <path d="M5 13a7 7 0 0 0 14 0" />
-        <path d="M3.5 13h3M17.5 13h3" />
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12.5l2.5 2.5L16 9.5" />
       </svg>
     );
   }

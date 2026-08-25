@@ -2,11 +2,11 @@ import { appPath } from '@bainbridge/shared-routing';
 
 const HOME = { label: 'Home', href: appPath('/') };
 const SOC = { label: 'SOC', href: appPath('/internal-user/vc') };
-const OPS_TC = { label: 'TC Ops', href: appPath('/internal-user/vc/ops-tc/finalised-fixtures') };
+const OPS_TC = { label: 'TC Ops', href: appPath('/internal-user/vc/ops-tc/in-ops-glance') };
 
 const PAGES = {
   'finalised-fixtures': 'Finalised Voyage Fixtures TC',
-  'in-ops-glance': 'In Ops at a glance TC',
+  'in-ops-glance': 'TC Ops',
   'post-ops': 'Vessels in Post Ops TC',
   history: 'Vessels in History TC',
   'year-updation': 'Year Updation-TC',
@@ -40,7 +40,7 @@ export function resolveOpsTcHeader(pathname) {
         HOME,
         SOC,
         OPS_TC,
-        { label: 'In Ops at a glance TC', href: appPath('/internal-user/vc/ops-tc/in-ops-glance') },
+        { label: 'TC Ops', href: appPath('/internal-user/vc/ops-tc/in-ops-glance') },
         { label },
       ],
     };

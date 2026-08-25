@@ -41,6 +41,51 @@
   padding: 0 2px;
 }
 
+/* Match Running COA Business status tabs */
+.statusTabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  background: #eef0f3;
+  border-radius: 10px 10px 0 0;
+  padding: 6px 8px 0;
+  margin: 4px 0 0;
+}
+
+.statusTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  border: 1.5px solid transparent;
+  margin-bottom: -1px;
+  color: #1b2430;
+  background: none;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.statusTab svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.statusTab:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.statusTabActive {
+  background: #fff;
+  border: 1.5px solid #dfe2e7;
+  border-bottom-color: #fff;
+  color: #1b2430;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -183,11 +228,47 @@
   margin: 0 auto;
 }
 
-.actionStack {
+.rowActions {
   display: flex;
   flex-direction: column;
   gap: 6px;
   align-items: flex-start;
+}
+
+.pillAction {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px !important;
+  padding: 5px 12px !important;
+  min-height: auto !important;
+  border: 1.5px solid;
+  cursor: pointer;
+  white-space: nowrap;
+  background: #fff !important;
+  font-family: inherit;
+  box-shadow: none !important;
+}
+
+.pillReplicate {
+  color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+}
+
+.pillReplicate:hover:not(:disabled) {
+  background: #eff6ff !important;
+  color: #3b82f6 !important;
+}
+
+.pillSendOps {
+  color: #f4652c !important;
+  border-color: #f4652c !important;
+}
+
+.pillSendOps:hover:not(:disabled) {
+  background: #fdece4 !important;
+  color: #f4652c !important;
 }
 
 .sentSiblingHint {

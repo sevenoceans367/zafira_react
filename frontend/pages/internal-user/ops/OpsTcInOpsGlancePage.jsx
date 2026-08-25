@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -21,12 +21,22 @@ import {
   moveOpsTcToPostOps,
   updateOpsTcOperator,
 } from '../../../services/opsTc.js';
-import SopfPagination from '../sopf/SopfPagination.jsx';
-import ScrollableTable, { DEFAULT_PAGE_SIZE } from '../sopf/ScrollableTable.jsx';
 import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsTcCompareSheetsModal from './OpsTcCompareSheetsModal.jsx';
 import OpsTcInOpsGlanceHeaderActions from './OpsTcInOpsGlanceHeaderActions.jsx';
-import styles from './OpsPages.module.css';
+import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
+import {
+  ArrowIcon,
+  ChipLink,
+  CompareIcon,
+  DEFAULT_PAGE_SIZE,
+  DocFileIcon,
+  OpsVcGlanceHeader,
+  OpsVcGlanceTable,
+  formatLastUpdated,
+} from './OpsVcGlanceUi.jsx';
+import pageStyles from './OpsPages.module.css';
+import styles from './OpsVcInOpsGlancePage.module.css';
 
 const FLASH = {
   0: { type: 'success', text: 'In Ops at a glance added/updated successfully.' },
@@ -34,6 +44,58 @@ const FLASH = {
   3: { type: 'success', text: 'Status changed successfully.' },
   4: { type: 'success', text: 'New sheet added successfully.' },
 };
+
+const CARDS = [
+  { key: 'fixtures', title: 'Fixtures in TC Ops', variant: 'fin', icon: 'trades' },
+  { key: 'vessels', title: 'Vessels in TC Ops', variant: 'count', icon: 'vessels' },
+  { key: 'financials', title: 'TC Financials', variant: 'fin', icon: 'worksheets' },
+  { key: 'alerts', title: 'Alerts', variant: 'count', icon: 'alerts' },
+];
+
+function currentUserOperator(operators = []) {
+  const user = getUser();
+  const userId = user?.id != null ? String(user.id) : '';
+  if (!userId) return { id: '', name: user?.name || '' };
+  const match = operators.find((opt) => String(opt.id) === userId);
+  return {
+    id: match ? String(match.id) : userId,
+    name: match?.name || user?.name || '',
+  };
+}
+
+function resolveOperator(row, operators = []) {
+  if (row?.operatorId) {
+    return {
+      id: String(row.operatorId),
+      name: row.operatorName
+        || operators.find((opt) => String(opt.id) === String(row.operatorId))?.name
+        || '',
+    };
+  }
+  return currentUserOperator(operators);
+}
+
+function tcGlanceStats(rows, total) {
+  const uniqueVessels = new Set(rows.map((row) => row.vesselName).filter(Boolean)).size;
+  const financials = rows.reduce((sum, row) => sum + (row.costSheets?.length || 0), 0);
+  return { fixtures: total, vessels: uniqueVessels, financials, alerts: 0 };
+}
+
+function delReDelLines(row) {
+  const del = row.delPort || '';
+  const reDel = row.reDelPort || '';
+  const lines = [];
+  if (del || row.cpDate) {
+    lines.push(`Del – ${del || '—'}${row.cpDate ? ` · ${row.cpDate}` : ''}`);
+  }
+  if (reDel || row.reDelDate) {
+    lines.push(`Re-Del – ${reDel || '—'}${row.reDelDate ? ` · ${row.reDelDate}` : ''}`);
+  }
+  if (!lines.length && row.ports) {
+    return String(row.ports).split(/\s*\/\s*/).filter(Boolean);
+  }
+  return lines;
+}
 
 export default function OpsTcInOpsGlancePage() {
   const confirm = useConfirm();
@@ -58,6 +120,7 @@ export default function OpsTcInOpsGlancePage() {
   const [savingSheet, setSavingSheet] = useState(false);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flash = FLASH[Number(searchParams.get('msg'))];
+  const stats = useMemo(() => tcGlanceStats(rows, total), [rows, total]);
 
   const updateQuery = (patch) => {
     const next = new URLSearchParams(searchParams);
@@ -93,7 +156,7 @@ export default function OpsTcInOpsGlancePage() {
       setCanEditOperator(loggedInIsMgmt || Boolean(data.canEditOperator));
       setCanCompareSheets(Boolean(data.canCompareSheets));
     } catch (err) {
-      setError(err.message || 'Failed to load In Ops at a glance TC.');
+      setError(err.message || 'Failed to load TC Ops.');
     } finally {
       setLoading(false);
     }
@@ -187,11 +250,16 @@ export default function OpsTcInOpsGlancePage() {
     }
   };
 
+  const costSheetPath = (row, sheet) => (
+    appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=1`)
+  );
+
   return (
     <>
       <OpsTcInOpsGlanceHeaderActions
         search={searchInput}
         onSearchChange={setSearchInput}
+        searchPlaceholder="Search Voy No, vessel..."
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => {
@@ -206,198 +274,224 @@ export default function OpsTcInOpsGlancePage() {
         }}
       />
 
-      <div className={`zafira-page ${styles.page}`}>
+      <div className={`zafira-page ${pageStyles.page}`}>
         {loading || savingSheet ? (
-          <LoadingOverlay active label={savingSheet ? 'Creating sheet…' : 'Loading In Ops at a glance TC…'} />
+          <LoadingOverlay active label={savingSheet ? 'Creating sheet…' : 'Loading TC Ops…'} />
         ) : null}
-        {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
-        {error ? <div className={styles.error}>{error}</div> : null}
+        {flash ? <div className={pageStyles.flashSuccess}>{flash.text}</div> : null}
+        {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-        <h3 className={styles.title}>In Ops at a glance - TC</h3>
+        <OpsVcGlanceHeader stats={stats} cards={CARDS} />
 
-        <ScrollableTable
-          className={styles.wideTableWrap}
+        <OpsVcGlanceTable
+          page={page}
           pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
           onPageSizeChange={setPageSize}
-          footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
+          showingLabel={`Showing ${rows.length} of ${total} operations`}
         >
-          <table className={styles.table}>
-            <thead>
+          <thead>
+            <tr>
+              <th style={{ width: 36 }}>#</th>
+              <th>TC Number</th>
+              <th>CP Date</th>
+              <th>Vessel</th>
+              <th>Operator</th>
+              <th>Del / Re-Del</th>
+              <th>CHRT DESK</th>
+              <th>Charterer</th>
+              <th>TC Financials</th>
+              <th className={styles.iconTh} title="Compare TC Financials"><CompareIcon /></th>
+              <th>Finance</th>
+              <th style={{ textAlign: 'center' }}>Fixture Note</th>
+              <th>Agency Letters</th>
+              <th>Checklist</th>
+              <th>Alerts</th>
+              <th>Next</th>
+            </tr>
+          </thead>
+          <tbody>
+            {!rows.length && !loading ? (
               <tr>
-                <th>Final TC Est /<br />Docs</th>
-                <th>Nom ID /<br />TC No.</th>
-                <th>Business<br />Type</th>
-                <th>Vessel</th>
-                <th>Charterer</th>
-                <th>CP<br />Date</th>
-                <th>Port Del /<br />Port Re-Del</th>
-                <th>Checklist</th>
-                <th>TC days /<br />Fixture Note</th>
-                <th>TC<br />Financials</th>
-                <th>Agency<br />Letters</th>
-                <th>Payment /<br />Invoices</th>
-                <th className={styles.alertsCell}>De-activate /<br />Compare</th>
-                <th>Operator</th>
-                <th>Re-Del<br />Date</th>
-                <th>Chartering<br />Team</th>
-                <th>Change TC<br />Status</th>
+                <td colSpan={16} className={styles.emptyCell}>
+                  SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {!rows.length && !loading ? (
-                <tr>
-                  <td colSpan={17} className={styles.emptyCell}>
-                    SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
-                  </td>
-                </tr>
-              ) : rows.map((row) => (
+            ) : rows.map((row, index) => {
+              const sheets = row.costSheets || [];
+              const canCompare = canCompareSheets && sheets.length > 0;
+              const operator = resolveOperator(row, operators);
+              const routeLines = delReDelLines(row);
+              return (
                 <tr key={row.comId}>
-                  <td className={styles.actionsCell}>
-                    <Link
-                      to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/calculate?mode=view&from=ops-tc`)}
-                    >
-                      TC
-                    </Link>
-                    <div>
+                  <td className={styles.itemCell}>{(page - 1) * pageSize + index + 1}.</td>
+                  <td>
+                    <div className={styles.opsCell}>
                       <Link
-                        to={appPath(`/internal-user/vc/ops-tc/documents?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                        title="Click me"
+                        className={styles.primary}
+                        to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/calculate?mode=view&from=ops-tc`)}
+                        title="View TC estimate"
                       >
-                        Docs
+                        {row.tcNo || '—'}
                       </Link>
+                      <span className={styles.sub}>
+                        {row.message ? `Nom ID ${row.message}` : '—'}
+                      </span>
                     </div>
                   </td>
                   <td>
-                    {row.message || '—'}
-                    <br />
-                    <span className={styles.alertText}>{row.tcNo || '—'}</span>
+                    <span className={styles.cpDate} title={row.cpDate || ''}>{row.cpDate || '—'}</span>
                   </td>
-                  <td>{row.businessType || '—'}</td>
                   <td className={row.isPeriod ? styles.periodVessel : undefined}>
-                    {row.vesselName || '—'}
-                    <br />
-                    {row.vesselType || '—'}
-                  </td>
-                  <td className={styles.wrapCell}>{row.charterer || '—'}</td>
-                  <td>{row.cpDate || '—'}</td>
-                  <td className={styles.wrapCell}>{row.ports || '—'}</td>
-                  <td>
-                    <Link
-                      to={appPath(`/internal-user/vc/ops-tc/checklist?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                      style={{ color: '#b42318' }}
-                    >
-                      Ops Checklist
-                    </Link>
+                    <div className={styles.opsCell}>
+                      <span className={styles.primary}>{row.vesselName || '—'}</span>
+                      <span className={styles.sub}>{row.vesselType || '—'}</span>
+                    </div>
                   </td>
                   <td>
-                    {row.hireDays || '—'}
-                    <br />
-                    <Link
-                      to={appPath(`/internal-user/vc/ops-tc/fixture-note?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                    >
-                      Fixture Note
-                    </Link>
+                    <div className={styles.opCell}>
+                      {canEditOperator ? (
+                        <div className={`${pageStyles.operatorSelect} ${styles.opSelect}`}>
+                          <CoaCardSelect
+                            label="Operator"
+                            value={operator.id}
+                            options={operators}
+                            placeholder="---Select from list---"
+                            onChange={(value) => handleOperatorChange(row, value)}
+                          />
+                        </div>
+                      ) : (
+                        <span className={styles.primary}>{operator.name || '—'}</span>
+                      )}
+                      <div className={styles.opStamp}>
+                        <span className={styles.opName}>{row.lastUpdatedBy || operator.name || '—'}</span>
+                        <span className={styles.opTime}>{formatLastUpdated(row.lastUpdatedAt)}</span>
+                      </div>
+                    </div>
                   </td>
-                  <td className={styles.actionsCell}>
-                    {(row.costSheets || []).map((sheet) => (
-                      <div key={sheet.id}>
+                  <td>
+                    {routeLines.length ? (
+                      <div className={styles.route} title={row.ports || ''}>
+                        {routeLines.map((line) => <span key={line}>{line}</span>)}
+                      </div>
+                    ) : (
+                      <span className={styles.muted}>—</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={styles.trunc} title={row.charteringTeam || ''}>{row.charteringTeam || '—'}</span>
+                  </td>
+                  <td>
+                    <span className={styles.trunc} title={row.charterer || ''}>{row.charterer || '—'}</span>
+                  </td>
+                  <td>
+                    <OpsVcWorksheetStack
+                      sheets={sheets}
+                      sheetHref={(sheet) => costSheetPath(row, sheet)}
+                      onAdd={() => handleAddSheetClick(row)}
+                    />
+                  </td>
+                  <td>
+                    <div className={styles.docCenter}>
+                      <button
+                        type="button"
+                        className={`${styles.cmpBtn} ${canCompare ? '' : styles.cmpBtnDisabled}`}
+                        title={canCompare ? 'Compare TC Financials' : 'No TC financials yet'}
+                        disabled={!canCompare}
+                        onClick={() => canCompare && setCompareModal({ open: true, comId: row.comId })}
+                      >
+                        <CompareIcon />
+                      </button>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.chipStack}>
+                      <ChipLink
+                        to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                      >
+                        Invoices
+                      </ChipLink>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.docCenter}>
+                      <span className={styles.sub} style={{ display: 'block', marginBottom: 3 }}>
+                        TC Days: {row.hireDays || '—'}
+                      </span>
+                      <div className={styles.docGroup}>
                         <Link
-                          to={appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=1`)}
+                          className={styles.docBtn}
+                          to={appPath(`/internal-user/vc/ops-tc/fixture-note?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                          title="View Fixture Note"
                         >
-                          {sheet.name}
+                          <DocFileIcon />
                         </Link>
                       </div>
-                    ))}
-                    <div>
-                      <Button
-                        size="sm"
-                        label="A"
-                        title="Add New CS"
-                        onClick={() => handleAddSheetClick(row)}
-                      />
                     </div>
                   </td>
                   <td>
-                    <Link
-                      to={appPath(`/internal-user/vc/ops-tc/agency-letter?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                    >
-                      Generate Agency Letter
-                    </Link>
+                    <div className={styles.chipStack}>
+                      <ChipLink
+                        to={appPath(`/internal-user/vc/ops-tc/agency-letter?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                      >
+                        Generate Agency Letter
+                      </ChipLink>
+                    </div>
                   </td>
                   <td>
-                    <Link
-                      className={styles.opsViewLink}
-                      to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                      title="Payment / Invoice Grid"
-                    >
-                      <strong>View</strong>
-                    </Link>
+                    <div className={styles.chipStack}>
+                      <ChipLink
+                        to={appPath(`/internal-user/vc/ops-tc/checklist?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                      >
+                        Ops Checklist
+                      </ChipLink>
+                    </div>
                   </td>
-                  <td className={`${styles.actionsCell} ${styles.alertsCell}`}>
-                    {row.canDeactivate ? (
-                      <div className={styles.alertsBin}>
+                  <td>
+                    <div className={styles.alertStack}>
+                      <span className={styles.muted}>—</span>
+                      {row.canDeactivate ? (
                         <button
                           type="button"
-                          className={styles.dangerIcon}
+                          className={styles.deactivateBtn}
                           title="Deactivate entry"
                           onClick={() => handleDeactivate(row)}
                         >
                           <i className="bi bi-trash" aria-hidden />
                         </button>
-                      </div>
-                    ) : null}
-                    {canCompareSheets ? (
-                      <div>
-                        <Button
-                          size="sm"
-                          label="Compare"
-                          title="Compare Sheets"
-                          onClick={() => setCompareModal({ open: true, comId: row.comId })}
-                        />
-                      </div>
-                    ) : null}
+                      ) : null}
+                    </div>
                   </td>
-                  <td>
-                    {canEditOperator ? (
-                      <div className={styles.operatorSelect}>
-                        <CoaCardSelect
-                          label="Operator"
-                          value={row.operatorId || ''}
-                          options={operators}
-                          placeholder="---Select from list---"
-                          onChange={(value) => handleOperatorChange(row, value)}
-                        />
-                      </div>
-                    ) : (row.operatorName || '—')}
-                  </td>
-                  <td>{row.reDelDate || '—'}</td>
-                  <td>{row.charteringTeam || '—'}</td>
                   <td>
                     {row.canMoveToPostOps ? (
-                      <Button size="sm" label="Post Ops" onClick={() => handlePostOps(row)} />
+                      <button type="button" className={styles.pillAction} onClick={() => handlePostOps(row)}>
+                        Post Ops
+                        <ArrowIcon />
+                      </button>
                     ) : null}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </ScrollableTable>
+              );
+            })}
+          </tbody>
+        </OpsVcGlanceTable>
 
         {sheetModal.open ? (
-          <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
-            <div className={styles.modal}>
-              <div className={styles.modalHeader}>
+          <div className={pageStyles.modalBackdrop} role="dialog" aria-modal="true">
+            <div className={pageStyles.modal}>
+              <div className={pageStyles.modalHeader}>
                 <h4>Add TC Sheet</h4>
                 <button
                   type="button"
-                  className={styles.dangerIcon}
+                  className={pageStyles.dangerIcon}
                   onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
                   aria-label="Close"
                 >
                   ×
                 </button>
               </div>
-              <p className={styles.muted}>
+              <p className={pageStyles.muted}>
                 In the Ops side, enter any desired TC Sheet Name. This is then also possible after every Submit to Close.
               </p>
               <FilterField id="ops-tc-sheet-name" label="TC Sheet Name">
@@ -408,7 +502,7 @@ export default function OpsTcInOpsGlancePage() {
                   placeholder="TC Sheet Name"
                 />
               </FilterField>
-              <div className={styles.toolbarActions} style={{ marginTop: 12 }}>
+              <div className={pageStyles.toolbarActions} style={{ marginTop: 12 }}>
                 <Button label={savingSheet ? 'Submitting…' : 'Submit'} onClick={handleCreateSheet} disabled={savingSheet} />
                 <Button
                   variant="outline"

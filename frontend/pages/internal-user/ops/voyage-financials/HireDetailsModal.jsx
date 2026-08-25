@@ -371,7 +371,7 @@ export default function HireDetailsModal({
                     placeholder="%"
                     onChange={(e) => {
                       const value = sanitizeFieldDecimal('hireagePercent', e.target.value);
-                      applyPatch({ hireagePercent: value, addCommPercent: value });
+                      applyPatch({ hireagePercent: value });
                     }}
                   />
                   <input value={form.hireagePercentAmt || ''} readOnly placeholder="0.00" />

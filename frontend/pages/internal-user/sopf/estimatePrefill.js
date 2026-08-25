@@ -300,8 +300,11 @@ export function applyPeriodPrefillToForm(current, periodData) {
   return {
     ...current,
     periodId: periodData.periodId || current.periodId,
-    brokeragePercent: periodData.brokeragePercent || current.brokeragePercent,
-    addCommPercent: periodData.addCommPercent || current.addCommPercent,
+    // PHP periodAdComm / periodBComm fill dummyAdcom / dummyBrokerage → hireage only.
+    // Freight ADCOM (addCommPercent / txtFrAdjPerAC) stays independent.
+    hireagePercent: periodData.hireagePercent || periodData.addCommPercent || current.hireagePercent,
+    hireageBroPercent:
+      periodData.hireageBroPercent || periodData.brokeragePercent || current.hireageBroPercent,
     hireRate: periodData.hireRate || current.hireRate,
     hireRows,
     offHireRows,

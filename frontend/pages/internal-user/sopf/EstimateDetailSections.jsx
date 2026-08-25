@@ -2028,16 +2028,17 @@ export default function EstimateDetailSections({
                           <input id="totalHireRate" value={form.totalHireRate || ''} readOnly placeholder="0.00" />
                         </td>
                         <td>
+                          {/* PHP dummyAdcom → txtHireargePercent only (not freight ADCOM) */}
                           <input
-                            id="addCommPercent"
-                            value={form.addCommPercent || ''}
+                            id="dummyAdcom"
+                            value={form.hireagePercent || ''}
                             readOnly={readOnly}
                             inputMode="decimal"
                             autoComplete="off"
                             placeholder="0.00"
                             onChange={(e) => {
-                              const value = sanitizeFieldDecimal('addCommPercent', e.target.value);
-                              applyPatch({ addCommPercent: value, hireagePercent: value });
+                              const value = sanitizeFieldDecimal('hireagePercent', e.target.value);
+                              applyPatch({ hireagePercent: value });
                             }}
                           />
                         </td>
@@ -2080,16 +2081,17 @@ export default function EstimateDetailSections({
                           />
                         </td>
                         <td>
+                          {/* PHP dummyAdcom → txtHireargePercent only (not freight ADCOM) */}
                           <input
-                            id="addCommPercent"
-                            value={form.addCommPercent || ''}
+                            id="dummyAdcom"
+                            value={form.hireagePercent || ''}
                             readOnly={readOnly}
                             inputMode="decimal"
                             autoComplete="off"
                             placeholder="0.00"
                             onChange={(e) => {
-                              const value = sanitizeFieldDecimal('addCommPercent', e.target.value);
-                              applyPatch({ addCommPercent: value, hireagePercent: value });
+                              const value = sanitizeFieldDecimal('hireagePercent', e.target.value);
+                              applyPatch({ hireagePercent: value });
                             }}
                           />
                         </td>
@@ -2117,7 +2119,12 @@ export default function EstimateDetailSections({
                   <tbody>
                     <tr>
                       <td>
-                        <input id="addressCommAmt" value={form.addressCommAmt || ''} readOnly placeholder="0.00" />
+                        <input
+                          id="hireagePercentAmt"
+                          value={form.hireagePercentAmt || ''}
+                          readOnly
+                          placeholder="0.00"
+                        />
                       </td>
                       <td>
                         <input {...inputProps('hireagePercent', { recalc: true })} placeholder="0.00" />

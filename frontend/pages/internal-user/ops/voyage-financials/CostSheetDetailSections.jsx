@@ -2409,22 +2409,22 @@ export default function EstimateDetailSections({
                 </Field>
               </>
             ) : null}
-            <Field id="addCommPercent" label="Add Comm (%)">
+            <Field id="dummyAdcom" label="Add Comm (%)">
               <input
-                id="addCommPercent"
-                value={form.addCommPercent || ''}
+                id="dummyAdcom"
+                value={form.hireagePercent || ''}
                 readOnly={readOnly}
                 inputMode="decimal"
                 autoComplete="off"
                 onChange={(e) => {
-                  const value = sanitizeFieldDecimal('addCommPercent', e.target.value);
-                  // PHP setCveAmtInTcDet: dummyAdcom → txtHireargePercent
-                  applyPatch({ addCommPercent: value, hireagePercent: value });
+                  const value = sanitizeFieldDecimal('hireagePercent', e.target.value);
+                  // PHP setCveAmtInTcDet: dummyAdcom → txtHireargePercent only (not freight ADCOM)
+                  applyPatch({ hireagePercent: value });
                 }}
               />
             </Field>
-            <Field id="addressCommAmt" label="Add Comm Amt">
-              <input id="addressCommAmt" value={form.addressCommAmt || ''} readOnly />
+            <Field id="hireagePercentAmt" label="Add Comm Amt">
+              <input id="hireagePercentAmt" value={form.hireagePercentAmt || ''} readOnly />
             </Field>
             <Field id="ballastBonus" label="Ballast Bonus">
               <input {...inputProps('ballastBonus', { recalc: true })} />

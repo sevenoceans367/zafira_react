@@ -1375,7 +1375,8 @@ export function computeEstimateTotals(form) {
     : 0;
 
   // PHP: empty hireage % → 0 (dummyAdcom/dummyBrokerage only copy when setCveAmtInTcDet runs).
-  // Add Comm % on (hire + ballast); Brokerage % on hire amt only.
+  // Hireage Add Comm % on (hire + ballast); Brokerage % on hire amt only.
+  // Freight ADCOM (addCommPercent / txtFrAdjPerAC) is independent of hireagePercent.
   const hireageAddCommPct = num(form.hireagePercent);
   const hireageBroPct = num(form.hireageBroPercent);
   const grossHireargeAmt = round2(ballastBonus + hireAmt);

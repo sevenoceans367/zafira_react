@@ -2,7 +2,7 @@ import { appPath } from '@bainbridge/shared-routing';
 
 const HOME = { label: 'Home', href: appPath('/') };
 const SOC = { label: 'SOC', href: appPath('/internal-user/vc') };
-const OPS_VC = { label: 'Ops - VC', href: appPath('/internal-user/vc/ops/in-ops-glance') };
+const OPS_VC = { label: 'Spot Ops', href: appPath('/internal-user/vc/ops/in-ops-glance') };
 
 const PAGES = {
   'in-ops-glance': 'Spot Ops',
@@ -83,5 +83,5 @@ export function resolveOpsVcHeader(pathname) {
     return header(label, [HOME, SOC, OPS_VC, { label }]);
   }
 
-  return header('Ops - VC', [HOME, SOC, { label: 'Ops - VC' }]);
+  return header('Spot Ops', [HOME, SOC, { label: 'Spot Ops' }]);
 }

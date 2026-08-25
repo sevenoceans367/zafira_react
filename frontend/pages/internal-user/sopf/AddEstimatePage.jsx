@@ -69,7 +69,7 @@ export default function AddEstimatePage() {
     `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
   );
   const formTitle = coaId
-    ? 'COA-VC Out Estimates'
+    ? 'New Spot Estimate'
     : periodId
       ? 'Nominate Voyage (New Estimate)'
       : 'New Spot Estimate';
@@ -431,27 +431,14 @@ export default function AddEstimatePage() {
 
       {!loading ? (
         <form onSubmit={handleSubmit}>
-          {coaId || periodId ? (
+          {periodId && !coaId ? (
             <h2 className={styles.formTitle}>{formTitle}</h2>
           ) : null}
-          {coaId ? (
+          {coaId && (coaMeta?.coaNo || coaMeta?.coaIdentity) ? (
             <div className={styles.coaMetaRow}>
-              <label className={styles.coaMetaField}>
-                <span>COA ID.:</span>
-                <input
-                  type="text"
-                  value={coaMeta?.coaIdentity || ''}
-                  readOnly
-                />
-              </label>
-              <label className={styles.coaMetaField}>
-                <span>COA No.:</span>
-                <input
-                  type="text"
-                  value={coaMeta?.coaNo || ''}
-                  readOnly
-                />
-              </label>
+              <span className={styles.coaChip}>
+                {`COA No: ${coaMeta.coaNo || coaMeta.coaIdentity}`}
+              </span>
             </div>
           ) : null}
           <EstimateDetailSections

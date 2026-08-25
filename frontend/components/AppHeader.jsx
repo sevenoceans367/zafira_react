@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchRecentWork } from '../services/recentWork.js';
 import { fetchUserAlerts } from '../services/userAlerts.js';
+import hamburgerIcon from '../assets/hamburger.png';
 import styles from './AppHeader.module.css';
 
 const AppHeader = ({
@@ -133,7 +134,7 @@ const AppHeader = ({
             aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
           >
-            <i className="bi bi-layout-sidebar-inset"></i>
+            <img src={hamburgerIcon} alt="" className={styles.toggleIcon} aria-hidden="true" />
           </button>
           {pageTrail && (
             <nav className={styles.headerBreadcrumbWrap} aria-label="Breadcrumb">

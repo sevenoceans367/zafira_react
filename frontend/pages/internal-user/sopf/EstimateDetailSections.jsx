@@ -591,7 +591,7 @@ export default function EstimateDetailSections({
                 />
               )}
             </Field>
-            <Field id="voyageNo" label="Voyage No.">
+            <Field id="voyageNo" label="Voyage No." className={styles.voyageNoField}>
               <input
                 id="voyageNo"
                 value={form.voyageNo}
@@ -649,7 +649,7 @@ export default function EstimateDetailSections({
                 />
               )}
             </Field>
-            <Field id="periodId" label="Period Contract">
+            <Field id="periodId" label="Link Period Contract">
               <select
                 id="periodId"
                 value={form.periodId || ''}

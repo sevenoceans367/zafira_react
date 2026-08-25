@@ -6,6 +6,7 @@ import {
   getDefaultReportPath,
   reportAppPath,
 } from '../../constants/reportsMenu.js';
+import reportsIcon from '../../assets/Reports new.png';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 import styles from './ReportsSidebarTree.module.css';
 
@@ -99,7 +100,7 @@ export default function ReportsSidebarTree({ isOpen }) {
         onClick={closeAll}
         aria-haspopup="true"
       >
-        <i className="bi bi-file-earmark-bar-graph icon" aria-hidden />
+        <img src={reportsIcon} alt="" className="icon" aria-hidden />
         {isOpen ? <span>Reports</span> : null}
         {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>

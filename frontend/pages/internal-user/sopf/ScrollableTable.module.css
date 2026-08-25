@@ -40,16 +40,6 @@
   color: #8a93a2;
 }
 
-.rowsSelect {
-  font-size: 12px;
-  font-weight: 600;
-  color: #5b6472;
-  background: #fff;
-  border: 1px solid #dfe2e7;
-  border-radius: 7px;
-  padding: 5px 8px;
-}
-
 .hScrollGroup {
   display: inline-flex;
   align-items: center;
@@ -57,9 +47,9 @@
 }
 
 .hScrollBtn {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   border: 1px solid #dfe2e7;
   background: #fff;
   color: #5b6472;
@@ -68,16 +58,17 @@
   justify-content: center;
   cursor: pointer;
   padding: 0;
+  box-sizing: border-box;
 }
 
 .hScrollBtn svg {
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
 }
 
 .hScrollIcon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
   display: block;
   pointer-events: none;

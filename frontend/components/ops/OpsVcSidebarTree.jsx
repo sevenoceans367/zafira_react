@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
+import spotIcon from '../../assets/010-pie-chart.png';
 
 export const OPS_VC_ITEMS = [
   { id: 'in-ops-glance', label: 'Spot Ops' },
@@ -46,8 +47,8 @@ export default function OpsVcSidebarTree({ isOpen }) {
         onClick={() => setExpanded(false)}
         aria-haspopup="true"
       >
-        <i className="bi bi-geo-alt icon" aria-hidden />
-        {isOpen ? <span>Ops - VC</span> : null}
+        <img src={spotIcon} alt="" className="icon" aria-hidden />
+        {isOpen ? <span>Spot Ops</span> : null}
         {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>
       <ul className="treeview-menu">

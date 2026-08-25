@@ -20,7 +20,7 @@ function listMeta(module) {
   if (module === 'sopf') {
     return {
       title: 'Time Charter Business',
-      currentPage: 'Time Charter Business : Estimate',
+      currentPage: 'Time Charter Business : Recap',
       listHref,
       listLabel: 'Time Charter Business',
     };
@@ -47,9 +47,9 @@ export function resolveTcHeader(pathname) {
 
   if (path.endsWith('/add')) {
     return {
-      title: meta.title,
-      currentPage: 'Add Fixture Note',
-      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Add Fixture Note' }],
+      title: 'Add TC Recap',
+      currentPage: 'Add TC Recap',
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Add TC Recap' }],
     };
   }
 
@@ -63,9 +63,9 @@ export function resolveTcHeader(pathname) {
 
   if (/\/[^/]+\/edit$/.test(path)) {
     return {
-      title: meta.title,
-      currentPage: 'Edit Fixture Note',
-      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Edit Fixture Note' }],
+      title: 'Edit TC Recap',
+      currentPage: 'Edit TC Recap',
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Edit TC Recap' }],
     };
   }
 
@@ -79,9 +79,9 @@ export function resolveTcHeader(pathname) {
 
   if (/\/[^/]+\/view$/.test(path)) {
     return {
-      title: meta.title,
-      currentPage: 'View Estimate',
-      breadcrumbs: [HOME, crumb, listCrumb, { label: 'View Estimate' }],
+      title: 'View TC Recap',
+      currentPage: 'View TC Recap',
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'View TC Recap' }],
     };
   }
 

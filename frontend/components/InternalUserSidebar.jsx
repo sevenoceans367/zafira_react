@@ -9,7 +9,10 @@ import { userGuidesAppPath } from '../constants/userGuidesModule.js';
 import { todoListAppPath } from '../constants/todoListPageHeaders.js';
 import { combinedSoaPayableAppPath, combinedSoaPayableTcAppPath } from '../constants/combinedSoaPayablePageHeaders.js';
 import { SOPF_TOP_SIDEBAR_ITEMS, SOPF_CHARTERING_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
-import helpIcon from '../assets/help-icon.svg';
+import helpDeskIcon from '../assets/help desk.png';
+import commercialPerformanceIcon from '../assets/commercial performance.png';
+import genericFinancesIcon from '../assets/generic finances.png';
+import financialTransactionsIcon from '../assets/financial transactions.png';
 import fleetIcon from '../assets/vessel.png';
 import elibraryIcon from '../assets/elibrary.svg';
 import timeCharterIcon from '../assets/TIME CHARTER.png';
@@ -104,7 +107,8 @@ const USER_GUIDES_LINK = {
 };
 
 const TODO_LIST_LINK = {
-  icon: 'bi-check2-square',
+  iconSrc: financialTransactionsIcon,
+  iconAlt: 'Financial Transactions',
   label: 'Financial Transactions',
 };
 
@@ -124,7 +128,7 @@ export default function InternalUserSidebar({ isOpen }) {
         <SidebarSection label={inVc || inTc ? 'SOC' : 'SOPF'} />
         <SidebarLink
           to={appPath(HELP_DESK_HREF)}
-          iconSrc={helpIcon}
+          iconSrc={helpDeskIcon}
           iconAlt="Help Desk"
           label="Help Desk"
           active={currentPath.includes(HELP_DESK_HREF)}
@@ -132,7 +136,8 @@ export default function InternalUserSidebar({ isOpen }) {
         {inVc ? (
           <SidebarLink
             to={appPath('/internal-user/vc')}
-            icon="bi-speedometer2"
+            iconSrc={commercialPerformanceIcon}
+            iconAlt="Commercial Performance"
             label="Commercial Performance"
             active={currentPath === '/internal-user/vc'}
           />
@@ -217,7 +222,8 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to={todoListAppPath('vc')}
-              icon={TODO_LIST_LINK.icon}
+              iconSrc={TODO_LIST_LINK.iconSrc}
+              iconAlt={TODO_LIST_LINK.iconAlt}
               label={TODO_LIST_LINK.label}
               active={currentPath.startsWith('/internal-user/vc/todo-list')}
             />
@@ -236,22 +242,10 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to="/internal-user/vc/generic-finances"
-              icon="bi-cash-stack"
+              iconSrc={genericFinancesIcon}
+              iconAlt="Generic Finances"
               label="GENERIC FINANCES"
               active={currentPath.startsWith('/internal-user/vc/generic-finances')}
-            />
-            <SidebarLink
-              to={appPath('/internal-user/vc/tc')}
-              icon="bi-file-earmark-text"
-              label="TC Out Estimates"
-              active={currentPath === '/internal-user/vc/tc'
-                || currentPath.startsWith('/internal-user/vc/tc/')}
-            />
-            <SidebarLink
-              to={appPath('/internal-user/vc/decision-chart-tc')}
-              icon="bi-bar-chart-line"
-              label="TC Decision Charts"
-              active={currentPath === '/internal-user/vc/decision-chart-tc'}
             />
             <CoasSidebarTree isOpen={isOpen} />
             <OpsVcSidebarTree isOpen={isOpen} />

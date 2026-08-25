@@ -1,0 +1,47 @@
+---
+description: Use Zafira shared-ui theme/components for new frontend UI
+globs: frontend/**/*.{jsx,js,css}
+alwaysApply: false
+---
+
+# Frontend UI theme
+
+When adding or editing UI in `frontend/`, reuse `@bainbridge/shared-ui` — do not invent one-off chrome.
+
+## Source of truth
+
+- Tokens: `frontend/packages/shared-ui/src/theme.js` + `global.css` (`--color-*`, `--font-*`)
+- Import UI from `@bainbridge/shared-ui`
+
+## Prefer these components
+
+| Need | Use |
+|------|-----|
+| Header filter / compact picker dropdown | `CardSelect` |
+| Form field native select | `Select` |
+| Text input / textarea / labeled field | `TextInput`, `Textarea`, `Field` |
+| List filters | `FilterBar`, `FilterField`, `HeaderFilterControls` |
+| Buttons / CTAs | `Button` / `GlobalButton` (variants already themed) |
+| Search in page header | `PageHeaderSearch` |
+| Dates | `DmyDateInput`, `PeriodCardPicker` |
+| Status | `StatusBadge` (+ resolve* helpers) |
+| Confirm / alert | `useConfirm`, `useAlert` |
+| Loading | `LoadingOverlay` |
+
+## Do / don't
+
+```jsx
+// ❌ BAD — custom native select / local input chrome
+<select className={styles.mySelect}>...</select>
+<input className={styles.input} />
+
+// ✅ GOOD — shared theme
+<CardSelect options={opts} value={value} onChange={setValue} ariaLabel="…" />
+<Select value={value} onChange={onChange}>{children}</Select>
+<TextInput value={value} onChange={onChange} />
+```
+
+- Do not redeclare `.input`, `.select`, button/pill chrome in page CSS modules when a shared component exists.
+- Page CSS modules: layout/spacing only; colors/fonts via CSS variables from the theme.
+- Modals/popups: same rules as pages (filters → `CardSelect`, forms → FormControls).
+- New reusable chrome belongs in `frontend/packages/shared-ui`, not copied into a page.

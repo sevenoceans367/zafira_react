@@ -326,6 +326,8 @@
 
 .bunkerBlock {
   margin-bottom: 16px;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .bunkerBlock strong {
@@ -567,7 +569,9 @@
   user-select: text;
 }
 
-.viewModeLock .viewModeAllow {
+.viewModeLock .viewModeAllow,
+.viewModeLock .viewModeAllow *,
+.viewModeLock :global(button[aria-expanded]) {
   pointer-events: auto;
 }
 
@@ -587,5 +591,333 @@
   .table th,
   .table td {
     padding: 8px 10px;
+  }
+}
+
+/* ---- TC Recap (Add / Edit) Spot-style shell ---- */
+.estLayout {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  width: 100%;
+  min-width: 0;
+}
+
+.estLhs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.estLhs :global(section) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.estRhs {
+  width: 300px;
+  max-width: 100%;
+  flex: none;
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-self: flex-start;
+}
+
+.denseGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px 16px;
+  width: 100%;
+  min-width: 0;
+}
+
+.dense7 {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px 10px;
+}
+
+.dense9 {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px 10px;
+}
+
+.denseGrid .field,
+.dense7 .field,
+.dense9 .field {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.denseGrid .field > *,
+.dense7 .field > *,
+.dense9 .field > * {
+  max-width: 100%;
+}
+
+.denseGrid .field input,
+.denseGrid .field select,
+.denseGrid .field textarea,
+.dense7 .field input,
+.dense7 .field select,
+.dense7 .field textarea,
+.dense9 .field input,
+.dense9 .field select,
+.dense9 .field textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.dense7 .field label,
+.dense9 .field label {
+  font-size: 9.5px;
+}
+
+.span2 {
+  grid-column: span 2;
+  min-width: 0;
+}
+
+.spanFull {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.subBlockLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary, #274670);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 22px 0 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+.subBlockLabelFirst {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.subCharterBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  background: #fdecea;
+  color: #c22a20;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.resultsBlock {
+  background: #fff;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.resultsHead {
+  background: var(--color-primary, #274670);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13.5px;
+  padding: 13px 18px;
+}
+
+.resultsBody {
+  padding: 6px 18px 14px;
+}
+
+.resRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.resRow:last-child {
+  border-bottom: none;
+}
+
+.resRowLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.resRowVal {
+  background: #f3f4f6;
+  border-radius: 7px;
+  padding: 7px 12px;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #4b5563;
+  font-variant-numeric: tabular-nums;
+  min-width: 96px;
+  text-align: right;
+}
+
+.resRowAccent .resRowLabel {
+  color: var(--color-primary, #274670);
+  font-weight: 700;
+}
+
+.resRowAccent .resRowVal {
+  background: #e8eef5;
+  color: var(--color-primary, #274670);
+}
+
+.formFooter {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 0;
+  width: 100%;
+}
+
+.formFooter :global(a),
+.formFooter :global(button) {
+  flex: 0 0 calc((100% - 16px) / 3);
+  width: calc((100% - 16px) / 3);
+  max-width: calc((100% - 16px) / 3);
+  min-width: 0;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.btnCancel {
+  background: #fff;
+  color: #c22a20;
+  border: 1.5px solid #f5c2c7;
+  border-radius: 9px;
+  padding: 11px 30px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btnCancel:hover {
+  background: #fdecea;
+}
+
+.miniTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 12.5px;
+  table-layout: fixed;
+}
+
+.miniTable th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.miniTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  color: #374151;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.miniTable tfoot td {
+  font-weight: 700;
+  background: #f3f4f6;
+  border-bottom: none;
+  border-top: 2px solid var(--color-border, #e5e7eb);
+}
+
+.addRowBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  background: #fff;
+  border: 1px dashed var(--color-border, #d9dee8);
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.addRowBtnSubCharter {
+  border: 1px dashed #c22a20;
+  color: #c22a20;
+}
+
+.miniTable input,
+.miniTable select,
+.miniTable textarea {
+  width: 100%;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: 6px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.miniTableWrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.dateRangePair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .span2 {
+    grid-column: 1 / -1;
+  }
+
+  .dateRangePair {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  .estLayout {
+    flex-direction: column;
+  }
+
+  .estRhs {
+    width: 100%;
+    position: static;
   }
 }

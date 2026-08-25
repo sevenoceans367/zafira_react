@@ -1,10 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import {
+  ActionButtonStack,
+  LoadingOverlay,
+  SecondaryActionButton,
+  SendToOpsButton,
+} from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useTcModule } from '../../../hooks/useTcModule.js';
 import {
-  deleteTcEstimate,
   fetchTcBusinessTypes,
   fetchTcEstimates,
 } from '../../../services/tcEstimates.js';
@@ -16,6 +20,11 @@ import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import styles from './TcBusinessPage.module.css';
 
 const DEFAULT_BUSINESS_TYPE = '2';
+
+const STATUS_TABS = [
+  { id: 'active', label: 'Active' },
+  { id: 'activeInOps', label: 'Active in Ops' },
+];
 
 const FLASH = {
   0: { type: 'success', text: 'TC Out Estimate saved successfully.' },
@@ -36,6 +45,10 @@ function liveValue(value) {
   if (value == null) return '—';
   const text = String(value).trim();
   return text === '' ? '—' : text;
+}
+
+function isInOps(row) {
+  return Boolean(row.sentToDecisionChart);
 }
 
 function HighlightIcon({ name }) {
@@ -74,6 +87,25 @@ function HighlightIcon({ name }) {
   );
 }
 
+function TabIcon({ id }) {
+  if (id === 'activeInOps') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="5" r="2.4" />
+        <path d="M12 7.4V21" />
+        <path d="M5 13a7 7 0 0 0 14 0" />
+        <path d="M3.5 13h3M17.5 13h3" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function DocIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -83,9 +115,23 @@ function DocIcon() {
   );
 }
 
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function stageForRow(row) {
+  const raw = String(row.opsStage || row.stage || '').toLowerCase();
+  if (raw.includes('post')) return 'postops';
+  return 'ops';
+}
+
 export default function TcOutEstimatesListPage() {
   const navigate = useNavigate();
-  const confirm = useConfirm();
   const { tcPath } = useTcModule();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -112,6 +158,7 @@ export default function TcOutEstimatesListPage() {
   const businessType = searchParams.get('selBType') || DEFAULT_BUSINESS_TYPE;
   const periodFrom = searchParams.get('periodFrom') || '';
   const periodTo = searchParams.get('periodTo') || '';
+  const statusTab = searchParams.get('status') === 'activeInOps' ? 'activeInOps' : 'active';
   const flashMsg = searchParams.get('msg');
   const flash = flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null;
 
@@ -158,7 +205,7 @@ export default function TcOutEstimatesListPage() {
   }, [businessType, debouncedSearch, page, pageSize, periodFrom, periodTo]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [debouncedSearch, businessType, periodFrom, periodTo, pageSize]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, businessType, periodFrom, periodTo, pageSize, statusTab]);
 
   useEffect(() => {
     if (!flash) return undefined;
@@ -183,7 +230,13 @@ export default function TcOutEstimatesListPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  const comparableIds = rows.filter((row) => row.canCompare).map((row) => String(row.tcOutId));
+  const activeRows = useMemo(() => rows.filter((row) => !isInOps(row)), [rows]);
+  const opsRows = useMemo(() => rows.filter((row) => isInOps(row)), [rows]);
+  const visibleRows = statusTab === 'activeInOps' ? opsRows : activeRows;
+
+  const comparableIds = activeRows
+    .filter((row) => row.canCompare)
+    .map((row) => String(row.tcOutId));
   const allComparableSelected = comparableIds.length > 0
     && comparableIds.every((id) => selectedIds.includes(id));
   const sensitivityEnabled = selectedIds.length > 0;
@@ -193,25 +246,9 @@ export default function TcOutEstimatesListPage() {
   };
 
   const toggleOne = (row) => {
-    if (!row.canCompare) return;
+    if (!row.canCompare || isInOps(row)) return;
     const id = String(row.tcOutId);
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  const handleDelete = async (row) => {
-    const ok = await confirm({
-      title: 'Delete TC Out Estimate',
-      message: `Delete ${row.tcNo || row.tcOutId}? This cannot be undone.`,
-      confirmLabel: 'Delete',
-    });
-    if (!ok) return;
-    try {
-      await deleteTcEstimate(row.tcOutId);
-      updateQuery({ msg: 2 });
-      load();
-    } catch (err) {
-      setError(err.message || 'Failed to delete estimate.');
-    }
   };
 
   const openDecisionChart = (ids = selectedIds) => {
@@ -222,12 +259,97 @@ export default function TcOutEstimatesListPage() {
     setCompareOpen(true);
   };
 
+  const handleReplicate = (row) => {
+    navigate(
+      `${tcPath('add')}?replicateFrom=${encodeURIComponent(row.tcOutId)}&selBType=${encodeURIComponent(businessType)}`,
+    );
+  };
+
   const cards = [
     { key: 'open', title: 'Open Trades', value: formatOpenTrade(stats.openTrade), variant: 'fin' },
     { key: 'subs', title: 'Vessels on Subs', value: stats.vesselsInSubs ?? 0, variant: 'cnt' },
     { key: 'ops', title: 'Trades in Operations', value: formatOpenTrade(stats.tradesInOperations), variant: 'fin' },
     { key: 'water', title: 'Vessels on Water', value: stats.vesselsOnWater ?? 0, variant: 'cnt' },
   ];
+
+  const toolbarActions = statusTab === 'active' ? (
+    <div className={styles.toolbarActions}>
+      <button
+        type="button"
+        className={styles.btnAdd}
+        onClick={() => navigate(`${tcPath('add')}?selBType=${businessType}`)}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        Add
+      </button>
+      <button
+        type="button"
+        className={`${styles.btnSensitivity} ${sensitivityEnabled ? styles.btnSensitivityEnabled : ''}`}
+        disabled={!sensitivityEnabled}
+        title={sensitivityEnabled ? 'Open Sensitivity Analysis for selected estimates' : 'Select a row to enable'}
+        onClick={() => openDecisionChart()}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M4 19V5" />
+          <path d="M8 19v-7" />
+          <path d="M12 19V9" />
+          <path d="M16 19v-4" />
+          <path d="M20 19V6" />
+        </svg>
+        Sensitivity Analysis
+      </button>
+      <div className={styles.menuWrap} ref={menuRef}>
+        <button
+          type="button"
+          className={styles.btnMore}
+          aria-label="More options"
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="12" cy="5" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="12" cy="19" r="1.8" />
+          </svg>
+        </button>
+        {menuOpen ? (
+          <div className={styles.menuDropdown} role="menu">
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.menuItem}
+              disabled={!sensitivityEnabled}
+              onClick={() => openDecisionChart()}
+            >
+              Decision Chart
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.menuItem}
+              onClick={() => {
+                setMenuOpen(false);
+                navigate(tcPath('decision-charts'));
+              }}
+            >
+              Decision Chart List
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  ) : (
+    <div className={styles.viewOnlyNoteInline}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+      View only — fixtures already sent to Ops
+    </div>
+  );
 
   return (
     <div className={`zafira-page ${styles.page}`}>
@@ -242,7 +364,7 @@ export default function TcOutEstimatesListPage() {
         onPeriodChange={({ from, to }) => updateQuery({ periodFrom: from || '', periodTo: to || '' })}
       />
 
-      {loading ? <LoadingOverlay active label="Loading Time Charter Business…" /> : null}
+      {loading ? <LoadingOverlay show label="Loading Time Charter Business…" /> : null}
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
           {flash.text}
@@ -267,78 +389,30 @@ export default function TcOutEstimatesListPage() {
         ))}
       </div>
 
-      <div className={styles.actionRow}>
-        <button
-          type="button"
-          className={styles.btnAdd}
-          onClick={() => navigate(`${tcPath('add')}?selBType=${businessType}`)}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          Add
-        </button>
-        <button
-          type="button"
-          className={`${styles.btnSensitivity} ${sensitivityEnabled ? styles.btnSensitivityEnabled : ''}`}
-          disabled={!sensitivityEnabled}
-          title={sensitivityEnabled ? 'Open Decision Chart for selected estimates' : 'Select a row to enable'}
-          onClick={() => openDecisionChart()}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M4 19V5" />
-            <path d="M8 19v-7" />
-            <path d="M12 19V9" />
-            <path d="M16 19v-4" />
-            <path d="M20 19V6" />
-          </svg>
-          Sensitivity Analysis
-        </button>
-        <div className={styles.menuWrap} ref={menuRef}>
+      <div className={styles.statusTabs} role="tablist" aria-label="TC Business status">
+        {STATUS_TABS.map((tab) => (
           <button
+            key={tab.id}
             type="button"
-            className={styles.btnMore}
-            aria-label="More options"
-            aria-expanded={menuOpen}
-            aria-haspopup="menu"
-            onClick={() => setMenuOpen((open) => !open)}
+            role="tab"
+            aria-selected={statusTab === tab.id}
+            className={`${styles.statusTab} ${statusTab === tab.id ? styles.statusTabActive : ''}`}
+            onClick={() => {
+              setSelectedIds([]);
+              updateQuery({ status: tab.id === 'active' ? '' : tab.id });
+            }}
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <circle cx="12" cy="5" r="1.8" />
-              <circle cx="12" cy="12" r="1.8" />
-              <circle cx="12" cy="19" r="1.8" />
-            </svg>
+            <TabIcon id={tab.id} />
+            {tab.label}
           </button>
-          {menuOpen ? (
-            <div className={styles.menuDropdown} role="menu">
-              <button
-                type="button"
-                role="menuitem"
-                className={styles.menuItem}
-                disabled={!sensitivityEnabled}
-                onClick={() => openDecisionChart()}
-              >
-                Decision Chart
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className={styles.menuItem}
-                onClick={() => {
-                  setMenuOpen(false);
-                  navigate(tcPath('decision-charts'));
-                }}
-              >
-                Decision Chart List
-              </button>
-            </div>
-          ) : null}
-        </div>
+        ))}
       </div>
 
       <ScrollableTable
+        flushTop
         pageSize={pageSize}
         onPageSizeChange={setPageSize}
+        toolbarLeft={toolbarActions}
         footer={(
           <SopfPagination
             page={page}
@@ -348,10 +422,11 @@ export default function TcOutEstimatesListPage() {
           />
         )}
       >
+        {statusTab === 'active' ? (
           <table className={styles.grid}>
             <thead>
               <tr>
-                <th>#</th>
+                <th>Item</th>
                 <th>Vessel</th>
                 <th>TC No.</th>
                 <th>CP Date</th>
@@ -361,10 +436,11 @@ export default function TcOutEstimatesListPage() {
                 <th>Hire In</th>
                 <th>Hire Out</th>
                 <th>Total Rev</th>
-                <th className={styles.compareHeader} title="Compare">
+                <th className={styles.compareHeader} title="Select rows for Sensitivity Analysis">
                   <CompareIcon />
                   <input
                     type="checkbox"
+                    className={styles.rowChk}
                     checked={allComparableSelected}
                     onChange={toggleAll}
                     disabled={!comparableIds.length}
@@ -376,9 +452,9 @@ export default function TcOutEstimatesListPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {visibleRows.map((row, index) => (
                 <tr key={row.tcOutId}>
-                  <td className={styles.cellItem}>{row.index}.</td>
+                  <td className={styles.cellItem}>{(page - 1) * pageSize + index + 1}.</td>
                   <td className={styles.cellVessel}>{liveValue(row.vesselName)}</td>
                   <td className={styles.cellNum}>{liveValue(row.tcNo)}</td>
                   <td className={styles.cellNum}>{liveValue(row.cpDate)}</td>
@@ -388,12 +464,11 @@ export default function TcOutEstimatesListPage() {
                   <td className={styles.cellNum}>{liveValue(row.hireIn)}</td>
                   <td className={styles.cellNum}>{liveValue(row.hireOut || row.dailyGrossHire)}</td>
                   <td className={styles.cellNum}>{liveValue(row.totalRev)}</td>
-                  <td>
-                    {row.sentToDecisionChart ? (
-                      <span className={styles.sentLabel}>Sent</span>
-                    ) : row.canCompare ? (
+                  <td className={styles.center}>
+                    {row.canCompare ? (
                       <input
                         type="checkbox"
+                        className={styles.rowChk}
                         checked={selectedIds.includes(String(row.tcOutId))}
                         onChange={() => toggleOne(row)}
                         aria-label={`Select ${row.tcNo || row.vesselName}`}
@@ -403,74 +478,96 @@ export default function TcOutEstimatesListPage() {
                     )}
                   </td>
                   <td>
-                    <div className={styles.rowActions}>
+                    <ActionButtonStack className={styles.rowActions}>
+                      <SecondaryActionButton
+                        label="Replicate"
+                        className={`${styles.pillAction} ${styles.pillReplicate}`}
+                        onClick={() => handleReplicate(row)}
+                      />
                       {row.canCompare ? (
-                        <button
-                          type="button"
+                        <SendToOpsButton
                           className={`${styles.pillAction} ${styles.pillSendOps}`}
                           onClick={() => openDecisionChart([row.tcOutId])}
-                        >
-                          Send to Ops
-                        </button>
+                        />
                       ) : null}
-                    </div>
+                    </ActionButtonStack>
                   </td>
                   <td>
-                    <div className={styles.iconPair}>
-                      <Link
-                        className={styles.iconBtn}
-                        to={tcPath(`${row.tcOutId}/edit`)}
-                        title="Edit fixture note"
-                      >
-                        <DocIcon />
-                      </Link>
-                      {row.sentToDecisionChart ? (
-                        <Link
-                          className={styles.iconBtn}
-                          to={tcPath(`${row.tcOutId}/view`)}
-                          title="View estimate"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                        </Link>
-                      ) : (
-                        <Link
-                          className={styles.iconBtn}
-                          to={tcPath(`${row.tcOutId}/calculate`)}
-                          title="Calculate estimate"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                            <rect x="4" y="3" width="16" height="18" rx="2" />
-                            <path d="M8 7h8M8 12h8M8 17h5" />
-                          </svg>
-                        </Link>
-                      )}
-                      <button
-                        type="button"
-                        className={`${styles.iconBtn} ${styles.iconDanger}`}
-                        title="Delete"
-                        onClick={() => handleDelete(row)}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                          <path d="M4 7h16" />
-                          <path d="M10 11v6M14 11v6" />
-                          <path d="M6 7l1 14h10l1-14" />
-                          <path d="M9 7V4h6v3" />
-                        </svg>
-                      </button>
-                    </div>
+                    <Link
+                      className={styles.iconBtn}
+                      to={tcPath(`${row.tcOutId}/edit`)}
+                      title="Edit TC Recap"
+                    >
+                      <DocIcon />
+                    </Link>
                   </td>
                 </tr>
               ))}
-              {!rows.length && !loading ? (
+              {!visibleRows.length && !loading ? (
                 <tr>
-                  <td colSpan={13} className={styles.empty}>No TC Out Estimates found.</td>
+                  <td colSpan={13} className={styles.empty}>No active TC recaps found.</td>
                 </tr>
               ) : null}
             </tbody>
           </table>
+        ) : (
+          <table className={styles.grid}>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Vessel</th>
+                <th>TC No.</th>
+                <th>CP Date</th>
+                <th>DWT</th>
+                <th>Del-Redel</th>
+                <th>TC Days</th>
+                <th>Hire In</th>
+                <th>Hire Out</th>
+                <th>Total Rev</th>
+                <th>Stage</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRows.map((row, index) => {
+                const stage = stageForRow(row);
+                return (
+                  <tr key={row.tcOutId}>
+                    <td className={styles.cellItem}>{(page - 1) * pageSize + index + 1}.</td>
+                    <td className={styles.cellVessel}>{liveValue(row.vesselName)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.tcNo)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.cpDate)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.dwt)}</td>
+                    <td className={styles.cellRoute}>{liveValue(row.delRedel || [row.delPort, row.reDelPort].filter(Boolean).join(' - '))}</td>
+                    <td className={styles.cellNum}>{liveValue(row.tcDays)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.hireIn)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.hireOut || row.dailyGrossHire)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.totalRev)}</td>
+                    <td>
+                      <span className={`${styles.stageChip} ${stage === 'postops' ? styles.stagePostOps : styles.stageOps}`}>
+                        {stage === 'postops' ? 'Post Ops' : 'Ops'}
+                      </span>
+                    </td>
+                    <td>
+                      <Link
+                        className={styles.iconBtn}
+                        to={tcPath(`${row.tcOutId}/view`)}
+                        title="View TC Recap"
+                      >
+                        <EyeIcon />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!visibleRows.length && !loading ? (
+                <tr>
+                  <td colSpan={12} className={styles.empty}>No fixtures in Ops yet.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        )}
       </ScrollableTable>
 
       <TcDecisionChartModal

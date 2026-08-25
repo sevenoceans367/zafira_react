@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { CardSelect, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
@@ -18,7 +18,11 @@ import CoaListHeaderActions from './CoaListHeaderActions.jsx';
 import styles from './RunningCoasPage.module.css';
 
 const FETCH_PAGE_SIZE = 200;
-const SHOW_OPTIONS = [5, 10, 25];
+const SHOW_OPTIONS = [
+  { id: '5', name: 'Show 5' },
+  { id: '10', name: 'Show 10' },
+  { id: '25', name: 'Show 25' },
+];
 
 const FLASH = {
   0: { type: 'success', text: 'COA saved successfully.' },
@@ -422,15 +426,17 @@ export default function RunningCoasListPage() {
     return filtered.slice(0, reletShow);
   }, [modal, reletFilter, reletShow]);
 
-  const vesselOptions = useMemo(() => {
-    const names = [...new Set((modal?.voyages || []).map((row) => row.vesselName).filter(Boolean))];
-    return names;
-  }, [modal]);
+  const vesselFilterOptions = useMemo(() => ([
+    { id: 'all', name: 'All vessels' },
+    ...[...new Set((modal?.voyages || []).map((row) => row.vesselName).filter(Boolean))]
+      .map((name) => ({ id: name, name })),
+  ]), [modal]);
 
-  const reletOptions = useMemo(() => {
-    const names = [...new Set((modal?.relets || []).map((row) => row.reletNo).filter(Boolean))];
-    return names;
-  }, [modal]);
+  const reletFilterOptions = useMemo(() => ([
+    { id: 'all', name: 'All relets' },
+    ...[...new Set((modal?.relets || []).map((row) => row.reletNo).filter(Boolean))]
+      .map((name) => ({ id: name, name })),
+  ]), [modal]);
 
   return (
     <>
@@ -660,29 +666,26 @@ export default function RunningCoasListPage() {
                           <span className={`${styles.amSectionTitle} ${styles.spotTitle}`}>Voyages</span>
                         </div>
                         <div className={styles.amSectionControls}>
-                          <select
-                            className={styles.amSelect}
+                          <CardSelect
+                            options={vesselFilterOptions}
                             value={spotFilter}
-                            aria-label="Filter vessels"
-                            onChange={(event) => setSpotFilter(event.target.value)}
-                          >
-                            <option value="all">All vessels</option>
-                            {vesselOptions.map((name) => (
-                              <option key={name} value={name}>{name}</option>
-                            ))}
-                          </select>
+                            onChange={setSpotFilter}
+                            placeholder="All vessels"
+                            ariaLabel="Filter vessels"
+                            align="start"
+                            tone="muted"
+                          />
                           <div className={styles.amShowCtrl}>
                             <RowsIcon />
-                            <select
-                              className={styles.amSelect}
-                              value={spotShow}
-                              aria-label="Spot voyages to show"
-                              onChange={(event) => setSpotShow(Number(event.target.value))}
-                            >
-                              {SHOW_OPTIONS.map((size) => (
-                                <option key={size} value={size}>Show {size}</option>
-                              ))}
-                            </select>
+                            <CardSelect
+                              options={SHOW_OPTIONS}
+                              value={String(spotShow)}
+                              onChange={(next) => setSpotShow(Number(next))}
+                              placeholder="Show 5"
+                              ariaLabel="Spot voyages to show"
+                              align="start"
+                              tone="muted"
+                            />
                           </div>
                           <button
                             type="button"
@@ -779,29 +782,26 @@ export default function RunningCoasListPage() {
                           <span className={`${styles.amSectionTitle} ${styles.reletTitle}`}>Cargo Relets</span>
                         </div>
                         <div className={styles.amSectionControls}>
-                          <select
-                            className={styles.amSelect}
+                          <CardSelect
+                            options={reletFilterOptions}
                             value={reletFilter}
-                            aria-label="Filter relets"
-                            onChange={(event) => setReletFilter(event.target.value)}
-                          >
-                            <option value="all">All relets</option>
-                            {reletOptions.map((name) => (
-                              <option key={name} value={name}>{name}</option>
-                            ))}
-                          </select>
+                            onChange={setReletFilter}
+                            placeholder="All relets"
+                            ariaLabel="Filter relets"
+                            align="start"
+                            tone="muted"
+                          />
                           <div className={styles.amShowCtrl}>
                             <RowsIcon />
-                            <select
-                              className={styles.amSelect}
-                              value={reletShow}
-                              aria-label="Cargo relets to show"
-                              onChange={(event) => setReletShow(Number(event.target.value))}
-                            >
-                              {SHOW_OPTIONS.map((size) => (
-                                <option key={size} value={size}>Show {size}</option>
-                              ))}
-                            </select>
+                            <CardSelect
+                              options={SHOW_OPTIONS}
+                              value={String(reletShow)}
+                              onChange={(next) => setReletShow(Number(next))}
+                              placeholder="Show 5"
+                              ariaLabel="Cargo relets to show"
+                              align="start"
+                              tone="muted"
+                            />
                           </div>
                           <button
                             type="button"

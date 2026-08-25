@@ -10,7 +10,6 @@ import { SOPF_ENTRY_ROUTE } from './sopfSidebarMenu.js';
 const HOME = { label: 'Home', href: appPath('/') };
 const SOPF = { label: 'SOPF', href: appPath(SOPF_ENTRY_ROUTE) };
 const SPOT_BUSINESS = 'Spot Business';
-const COA_VC_OUT = 'COA-VC Out Estimates';
 
 export const SOPF_PAGE_HEADERS = {
   estimate_list: {
@@ -30,7 +29,7 @@ export const SOPF_PAGE_HEADERS = {
   },
   'time-charter': {
     title: 'Time Charter Business',
-    currentPage: 'Time Charter Business : Estimate',
+    currentPage: 'Time Charter Business : Recap',
     breadcrumbs: [HOME, SOPF, { label: 'Time Charter Business' }],
   },
   support_ticket: {
@@ -68,13 +67,13 @@ export function resolveSopfHeader(pathname, search = '') {
         }
       }
       return {
-        title: COA_VC_OUT,
-        currentPage: COA_VC_OUT,
+        title: 'New Spot Estimate',
+        currentPage: 'New Spot Estimate',
         breadcrumbs: [
           HOME,
           moduleCrumb,
           { label: 'Running COA Business', href: runningHref },
-          { label: COA_VC_OUT },
+          { label: 'New Spot Estimate' },
         ],
       };
     }
@@ -107,7 +106,7 @@ export function resolveSopfHeader(pathname, search = '') {
         breadcrumbs: [
           HOME,
           { label: 'SOC', href: appPath('/internal-user/vc') },
-          { label: 'Ops - VC', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+          { label: 'Spot Ops', href: appPath('/internal-user/vc/ops/in-ops-glance') },
           opsBack,
           { label: 'View Estimate' },
         ],

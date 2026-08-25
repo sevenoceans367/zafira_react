@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CardSelect } from '@bainbridge/shared-ui';
 import rightScrollIcon from '../../../assets/right_scroll.png';
 import styles from './ScrollableTable.module.css';
 
@@ -42,18 +43,22 @@ function RowsPerPageSelect({
   onPageSizeChange,
   options = PAGE_SIZE_OPTIONS,
 }) {
+  const selectOptions = useMemo(
+    () => options.map((size) => ({ id: String(size), name: `${size} / page` })),
+    [options],
+  );
+
   if (typeof onPageSizeChange !== 'function' || pageSize == null) return null;
   return (
-    <select
-      className={styles.rowsSelect}
-      value={pageSize}
-      aria-label="Rows per page"
-      onChange={(event) => onPageSizeChange(Number(event.target.value))}
-    >
-      {options.map((size) => (
-        <option key={size} value={size}>{size} / page</option>
-      ))}
-    </select>
+    <CardSelect
+      options={selectOptions}
+      value={String(pageSize)}
+      onChange={(next) => onPageSizeChange(Number(next))}
+      placeholder="Rows / page"
+      ariaLabel="Rows per page"
+      align="start"
+      tone="muted"
+    />
   );
 }
 

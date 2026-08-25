@@ -95,24 +95,110 @@
   color: #2b3444;
 }
 
+.statusTabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  background: #eef0f3;
+  border-radius: 10px 10px 0 0;
+  padding: 6px 8px 0;
+  margin: 4px 0 0;
+}
+
+.statusTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  border: 1.5px solid transparent;
+  margin-bottom: -1px;
+  color: #1b2430;
+  background: none;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.statusTab svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.statusTab:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.statusTabActive {
+  background: #fff;
+  border: 1.5px solid #dfe2e7;
+  border-bottom-color: #fff;
+  color: #1b2430;
+}
+
+.statusTabActive svg {
+  color: inherit;
+}
+
+.viewOnlyNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #e6eaf1;
+  color: #274670;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 9px;
+  padding: 10px 14px;
+  margin: 14px 0;
+}
+
+.viewOnlyNote svg,
+.viewOnlyNoteInline svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.viewOnlyNoteInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #5b6472;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
 .actionRow {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 14px;
+  margin: 14px 0;
+}
+
+.toolbarActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .btnAdd {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  height: 36px;
+  box-sizing: border-box;
   background: #3b82f6;
   color: #fff;
   font-weight: 700;
   font-size: 13px;
   border: none;
   border-radius: 9px;
-  padding: 10px 16px;
+  padding: 0 16px;
   cursor: pointer;
   font-family: inherit;
 }
@@ -130,13 +216,15 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  height: 36px;
+  box-sizing: border-box;
   background: #f1f2f4;
   color: #8a93a2;
   font-weight: 700;
   font-size: 13px;
   border: 1px solid #dfe2e7;
   border-radius: 9px;
-  padding: 10px 16px;
+  padding: 0 16px;
   cursor: not-allowed;
   font-family: inherit;
 }
@@ -223,17 +311,6 @@
   cursor: not-allowed;
 }
 
-.tableCard {
-  background: #fff;
-  border: 1px solid #eceef2;
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-.tableWrap {
-  overflow-x: auto;
-}
-
 .grid {
   width: 100%;
   border-collapse: collapse;
@@ -310,31 +387,35 @@
   align-items: center;
   font-size: 11px;
   font-weight: 700;
-  border-radius: 999px;
-  padding: 5px 12px;
+  border-radius: 999px !important;
+  padding: 5px 12px !important;
+  min-height: auto !important;
   border: 1.5px solid;
   cursor: pointer;
   white-space: nowrap;
-  background: #fff;
+  background: #fff !important;
   font-family: inherit;
+  box-shadow: none !important;
 }
 
 .pillReplicate {
-  color: #3b82f6;
-  border-color: #3b82f6;
+  color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
 }
 
-.pillReplicate:hover {
-  background: #eff6ff;
+.pillReplicate:hover:not(:disabled) {
+  background: #eff6ff !important;
+  color: #3b82f6 !important;
 }
 
 .pillSendOps {
-  color: #f4652c;
-  border-color: #f4652c;
+  color: #f4652c !important;
+  border-color: #f4652c !important;
 }
 
-.pillSendOps:hover {
-  background: #fdece4;
+.pillSendOps:hover:not(:disabled) {
+  background: #fdece4 !important;
+  color: #f4652c !important;
 }
 
 .sentLabel {
@@ -343,10 +424,32 @@
   color: #8a93a2;
 }
 
-.iconPair {
-  display: flex;
+.rowChk {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  accent-color: #274670;
+}
+
+.stageChip {
+  display: inline-flex;
   align-items: center;
-  gap: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+.stageOps {
+  background: #e3f4f4;
+  color: #14919b;
+}
+
+.stagePostOps {
+  background: #e6eaf1;
+  color: #274670;
 }
 
 .iconBtn {
@@ -374,13 +477,9 @@
   height: 14px;
 }
 
-.iconDanger:hover {
-  color: #e4483b;
-  background: #fdecea;
-}
-
 .compareHeader {
-  width: 36px;
+  width: 44px;
+  text-align: center;
 }
 
 .compareHeader svg {
@@ -388,7 +487,7 @@
   height: 15px;
   color: #8a93a2;
   display: block;
-  margin-bottom: 4px;
+  margin: 0 auto 4px;
 }
 
 @media (max-width: 1100px) {

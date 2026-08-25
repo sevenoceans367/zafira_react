@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { MASTERS_MODULES } from '../../constants/mastersModules.js';
 import { masterAppPath, parseMastersModuleFromPath } from '../../constants/mastersModule.js';
+import mastersIcon from '../../assets/masters.png';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 
 export default function MastersSidebarTree({ isOpen }) {
@@ -41,7 +42,7 @@ export default function MastersSidebarTree({ isOpen }) {
         onClick={() => setExpanded(false)}
         aria-haspopup="true"
       >
-        <i className="bi bi-folder icon" aria-hidden />
+        <img src={mastersIcon} alt="" className="icon" aria-hidden />
         {isOpen ? <span>Masters</span> : null}
         {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>

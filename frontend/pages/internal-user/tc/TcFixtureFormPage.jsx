@@ -6,16 +6,120 @@ import { useTcModule } from '../../../hooks/useTcModule.js';
 import {
   createTcEstimate,
   downloadTcEstimatePdf,
+  fetchPeriodTcInDetails,
+  fetchTcBusinessTypes,
   fetchTcEstimate,
   fetchTcLookups,
+  saveTcCalculation,
   updateTcEstimate,
 } from '../../../services/tcEstimates.js';
 import { fetchVesselEstimatePrefill } from '../../../services/estimateDetail.js';
 import VesselSearchSelect from '../sopf/VesselSearchSelect.jsx';
+import CollapsiblePanel from '../sopf/CollapsiblePanel.jsx';
 import TcFormHeaderActions from './TcFormHeaderActions.jsx';
+import TcInExpensesModal, {
+  EMPTY_TC_IN_BUNKER,
+  EMPTY_TC_IN_HIRE,
+  EMPTY_TC_IN_OFF,
+} from './TcInExpensesModal.jsx';
 import styles from './TcPages.module.css';
 
 const EMPTY_BUNKER = { bunkerId: '', qty: '', price: '', amount: '', bunkerDate: '' };
+const EMPTY_ITIN_EXP = { expenseType: '', description: '', amount: '', notes: '' };
+const EMPTY_ITINERARY = {
+  from: { place: '', date: '', notes: '' },
+  to: { place: '', date: '', notes: '' },
+};
+
+function emptyTcIn(detail = {}, calc = {}) {
+  return {
+    cpDate: calc.tcCpDate || detail.cpDate || '',
+    contractRef: calc.tcCpNumber || detail.tcNo || '',
+    deliveryPort: calc.tcDeliveryPort || detail.delRangePort || '',
+    redeliveryPort: calc.tcRedeliveryPort || detail.reDelRange || '',
+    hires: [{
+      ...EMPTY_TC_IN_HIRE,
+      deliveryDate: detail.delDate || '',
+      redeliveryDate: detail.reDelDate || '',
+      dailyHire: detail.hireFixPer || '',
+      addCommPct: detail.addComm || '',
+    }],
+    deliveryBunkers: [{ ...EMPTY_TC_IN_BUNKER }],
+    redeliveryBunkers: [{ ...EMPTY_TC_IN_BUNKER }],
+    offHires: [{ ...EMPTY_TC_IN_OFF }],
+    offHireCveMonth: calc.tcOffHireCveMonth || '',
+    bunkerOnOwner: calc.tcBunkerOnOwner || '',
+    ilohc: calc.tcIlohc || detail.ilohcUsd || '',
+    awrpCost: calc.awrpCost || '',
+    finalVendor: calc.tcFinalVendor || '',
+    finalHireage: calc.tcFinalHireage || '0.00',
+  };
+}
+
+function hasSavedTcInHires(tcIn) {
+  return Boolean(tcIn?.hires?.some((row) => (
+    (row.dailyHire != null && String(row.dailyHire).trim() !== '')
+    || (row.deliveryDate != null && String(row.deliveryDate).trim() !== '')
+    || (row.hireage != null && String(row.hireage).trim() !== '' && Number(row.hireage) !== 0)
+  )));
+}
+
+function applyPeriodTcIn(baseTcIn, periodData) {
+  if (!periodData) return baseTcIn;
+  const hires = (periodData.hires || []).map((row) => ({ ...EMPTY_TC_IN_HIRE, ...row }));
+  const deliveryBunkers = (periodData.deliveryBunkers || []).map((row) => ({ ...EMPTY_TC_IN_BUNKER, ...row }));
+  const redeliveryBunkers = (periodData.redeliveryBunkers || []).map((row) => ({ ...EMPTY_TC_IN_BUNKER, ...row }));
+  const offHires = (periodData.offHires || []).map((row) => ({ ...EMPTY_TC_IN_OFF, ...row }));
+  return {
+    ...baseTcIn,
+    hires: hires.length ? hires : baseTcIn.hires,
+    deliveryBunkers: deliveryBunkers.length ? deliveryBunkers : baseTcIn.deliveryBunkers,
+    redeliveryBunkers: redeliveryBunkers.length ? redeliveryBunkers : baseTcIn.redeliveryBunkers,
+    offHires: offHires.length ? offHires : baseTcIn.offHires,
+    bunkerOnOwner: periodData.bunkerOnOwner || baseTcIn.bunkerOnOwner || '',
+  };
+}
+
+function normalizeCapexFields(detail = {}) {
+  const calc = detail.calc || {};
+  return {
+    itinerary: {
+      from: { ...EMPTY_ITINERARY.from, ...(detail.itinerary?.from || {}) },
+      to: { ...EMPTY_ITINERARY.to, ...(detail.itinerary?.to || {}) },
+    },
+    itineraryExpenses: detail.itineraryExpenses?.length
+      ? detail.itineraryExpenses.map((row) => ({ ...EMPTY_ITIN_EXP, ...row }))
+      : [{ ...EMPTY_ITIN_EXP }],
+    hirePeriods: detail.hirePeriods || [],
+    otherIncome: detail.otherIncome || [],
+    otherExpenses: detail.otherExpenses || [],
+    offHires: detail.offHires || [],
+    tcInExpenses: detail.tcInExpenses
+      ? {
+          ...emptyTcIn(detail, calc),
+          ...detail.tcInExpenses,
+          hires: detail.tcInExpenses.hires?.length
+            ? detail.tcInExpenses.hires.map((row) => ({ ...EMPTY_TC_IN_HIRE, ...row }))
+            : emptyTcIn(detail, calc).hires,
+          deliveryBunkers: detail.tcInExpenses.deliveryBunkers?.length
+            ? detail.tcInExpenses.deliveryBunkers.map((row) => ({ ...EMPTY_TC_IN_BUNKER, ...row }))
+            : [{ ...EMPTY_TC_IN_BUNKER }],
+          redeliveryBunkers: detail.tcInExpenses.redeliveryBunkers?.length
+            ? detail.tcInExpenses.redeliveryBunkers.map((row) => ({ ...EMPTY_TC_IN_BUNKER, ...row }))
+            : [{ ...EMPTY_TC_IN_BUNKER }],
+          offHires: detail.tcInExpenses.offHires?.length
+            ? detail.tcInExpenses.offHires.map((row) => ({ ...EMPTY_TC_IN_OFF, ...row }))
+            : [{ ...EMPTY_TC_IN_OFF }],
+        }
+      : emptyTcIn(detail, calc),
+  };
+}
+
+function updateRow(list, index, patch) {
+  const next = [...list];
+  next[index] = { ...next[index], ...patch };
+  return next;
+}
 
 function emptyForm(businessTypeId = '2') {
   return {
@@ -140,21 +244,18 @@ function emptyForm(businessTypeId = '2') {
     doConsumptions: [],
     deliveryBunkers: [{ ...EMPTY_BUNKER }],
     redeliveryBunkers: [{ ...EMPTY_BUNKER }],
+    calc: null,
+    itinerary: {
+      from: { ...EMPTY_ITINERARY.from },
+      to: { ...EMPTY_ITINERARY.to },
+    },
+    itineraryExpenses: [{ ...EMPTY_ITIN_EXP }],
+    hirePeriods: [],
+    otherIncome: [],
+    otherExpenses: [],
+    offHires: [],
+    tcInExpenses: emptyTcIn(),
   };
-}
-
-const FIXTURE_TABS = [
-  { id: 'fixture', label: 'TC Fixture Note' },
-  { id: 'commercial', label: 'Commercial Parameters' },
-  { id: 'tcpTerms', label: 'TC/CP Terms' },
-];
-
-function ConsCell({ value }) {
-  return (
-    <td>
-      <input value={value || ''} readOnly className={styles.inputReadonly} />
-    </td>
-  );
 }
 
 function Field({ label, children, className = '' }) {
@@ -173,9 +274,10 @@ function TextInput({
   readOnly = false,
   placeholder = '',
   type = 'text',
+  className = '',
 }) {
   return (
-    <Field label={label}>
+    <Field label={label} className={className}>
       <input
         type={type}
         value={value ?? ''}
@@ -211,6 +313,18 @@ function sumBunkerAmounts(rows = []) {
   return rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0).toFixed(2);
 }
 
+function isSubCharterBusinessType(businessTypes, businessTypeId) {
+  const match = (businessTypes || []).find((opt) => String(opt.id) === String(businessTypeId));
+  const label = String(match?.name || match?.label || '').toLowerCase();
+  return /in\s*\/?\s*out|sub[\s-]?charter/.test(label);
+}
+
+function formatResult(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0.00';
+  return n.toFixed(2);
+}
+
 function applyVesselPrefill(prev, prefill, vesselMeta = {}) {
   if (!prefill && !vesselMeta.id) return prev;
   return {
@@ -237,8 +351,7 @@ function applyVesselPrefill(prev, prefill, vesselMeta = {}) {
   };
 }
 
-/** Mirrors php/updatetcestimate.php — TC Fixture Note update/edit form.
- *  mode=view mirrors php/viewtcfixturenote.php (Ops read-only). */
+/** TC Recap add/edit/view form (Spot-style LHS accordion + RHS results). */
 export default function TcFixtureFormPage({
   mode = 'add',
   overrideTcOutId,
@@ -250,6 +363,7 @@ export default function TcFixtureFormPage({
   const tcOutId = overrideTcOutId || paramTcOutId;
   const [searchParams] = useSearchParams();
   const [lookups, setLookups] = useState(null);
+  const [businessTypes, setBusinessTypes] = useState([]);
   const [form, setForm] = useState(() => ({
     ...emptyForm(searchParams.get('selBType') || '2'),
     periodId: searchParams.get('periodId') || searchParams.get('periodid') || '',
@@ -258,7 +372,7 @@ export default function TcFixtureFormPage({
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('fixture');
+  const [tcInOpen, setTcInOpen] = useState(false);
 
   const returnToRaw = searchParams.get('returnTo') || '';
   const returnTo = (() => {
@@ -275,12 +389,13 @@ export default function TcFixtureFormPage({
   const readOnly = mode === 'view';
   const listHref = backHref || returnTo || tcPath();
   const isDry = String(form.businessTypeId) === '3';
+  const showSubCharter = isSubCharterBusinessType(businessTypes, form.businessTypeId)
+    || Boolean(form.periodId);
 
-  const title = mode === 'add'
-    ? 'Add TC Fixture Note'
-    : mode === 'view'
-      ? 'View TC Fixture Note'
-      : 'Update TC Fixture Note';
+  const itineraryExpenseTotal = useMemo(
+    () => (form.itineraryExpenses || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+    [form.itineraryExpenses],
+  );
 
   const dailyHireUsd = useMemo(() => {
     const hire = Number(form.hireFixPer) || 0;
@@ -289,17 +404,32 @@ export default function TcFixtureFormPage({
     return (hire * exchange).toFixed(2);
   }, [form.exchangeRate, form.hireFixPer]);
 
+  const tcResults = useMemo(() => {
+    const calc = form.calc || {};
+    return {
+      totalRev: formatResult(calc.totalRev),
+      voyageEarn: formatResult(calc.voyageEarn),
+      profitPerDay: formatResult(calc.profitPerDay),
+    };
+  }, [form.calc]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await fetchTcLookups();
-        if (!cancelled) setLookups(data);
+        const [data, types] = await Promise.all([
+          fetchTcLookups(),
+          fetchTcBusinessTypes(form.businessTypeId),
+        ]);
+        if (cancelled) return;
+        setLookups(data);
+        setBusinessTypes(types?.businessTypes || types || []);
       } catch (err) {
         if (!cancelled) setError(err.message || 'Failed to load lookups.');
       }
     })();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load lookups once on mount
   }, []);
 
   useEffect(() => {
@@ -318,9 +448,24 @@ export default function TcFixtureFormPage({
           redeliveryBunkers: detail.redeliveryBunkers?.length ? detail.redeliveryBunkers : [{ ...EMPTY_BUNKER }],
           foConsumptions: detail.foConsumptions || [],
           doConsumptions: detail.doConsumptions || [],
+          calc: detail.calc || null,
+          ...normalizeCapexFields(detail),
         });
+        if (detail?.periodId && !hasSavedTcInHires(detail.tcInExpenses)) {
+          try {
+            const periodTcIn = await fetchPeriodTcInDetails(detail.periodId);
+            if (!cancelled && periodTcIn) {
+              setForm((prev) => ({
+                ...prev,
+                tcInExpenses: applyPeriodTcIn(prev.tcInExpenses, periodTcIn),
+              }));
+            }
+          } catch {
+            // Keep fixture-seeded TC In if period lookup fails.
+          }
+        }
       } catch (err) {
-        if (!cancelled) setError(err.message || 'Failed to load fixture note.');
+        if (!cancelled) setError(err.message || 'Failed to load TC Recap.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -401,21 +546,110 @@ export default function TcFixtureFormPage({
     setError('');
     try {
       const payload = { ...form, fixtureType: form.fixtureType || '1' };
+      let savedId = tcOutId;
       if (mode === 'add') {
         const created = await createTcEstimate(payload);
+        savedId = created.tcOutId;
+      } else {
+        await updateTcEstimate(tcOutId, payload);
+      }
+
+      // Capex/itinerary/tcIn persist only via calculate endpoint — merge existing calc children.
+      let existing = null;
+      try {
+        existing = await fetchTcEstimate(savedId);
+      } catch {
+        existing = null;
+      }
+      await saveTcCalculation(savedId, {
+        calc: {
+          ...(existing?.calc || form.calc || {}),
+          tcCpDate: form.tcInExpenses?.cpDate || '',
+          tcCpNumber: form.tcInExpenses?.contractRef || form.tcNo || '',
+          tcDeliveryPort: form.tcInExpenses?.deliveryPort || form.delRangePort || '',
+          tcRedeliveryPort: form.tcInExpenses?.redeliveryPort || form.reDelRange || '',
+          tcFinalVendor: form.tcInExpenses?.finalVendor || '',
+          tcOffHireCveMonth: form.tcInExpenses?.offHireCveMonth || '',
+          tcBunkerOnOwner: form.tcInExpenses?.bunkerOnOwner || '',
+          tcIlohc: form.tcInExpenses?.ilohc || '',
+          awrpCost: form.tcInExpenses?.awrpCost || '',
+        },
+        hirePeriods: form.hirePeriods?.length ? form.hirePeriods : (existing?.hirePeriods || []),
+        otherIncome: form.otherIncome?.length ? form.otherIncome : (existing?.otherIncome || []),
+        otherExpenses: form.otherExpenses?.length ? form.otherExpenses : (existing?.otherExpenses || []),
+        offHires: form.offHires?.length ? form.offHires : (existing?.offHires || []),
+        itinerary: form.itinerary,
+        itineraryExpenses: form.itineraryExpenses,
+        tcInExpenses: form.tcInExpenses,
+      });
+
+      if (mode === 'add') {
         if (returnTo) {
           navigate(returnTo, { replace: true });
         } else {
-          navigate(`${tcPath(`${created.tcOutId}/edit`)}?msg=0`);
+          navigate(`${tcPath(`${savedId}/edit`)}?msg=0`);
         }
       } else {
-        await updateTcEstimate(tcOutId, payload);
         navigate(returnTo || `${tcPath()}?msg=0`);
       }
     } catch (err) {
-      setError(err.message || 'Failed to save fixture note.');
+      setError(err.message || 'Failed to save TC Recap.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const patchItinerary = (side, key, value) => {
+    if (readOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      itinerary: {
+        ...prev.itinerary,
+        [side]: { ...prev.itinerary[side], [key]: value },
+      },
+    }));
+  };
+
+  const patchItinExpense = (index, patch) => {
+    if (readOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      itineraryExpenses: updateRow(prev.itineraryExpenses || [], index, patch),
+    }));
+  };
+
+  const addItinExpense = () => {
+    if (readOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      itineraryExpenses: [...(prev.itineraryExpenses || []), { ...EMPTY_ITIN_EXP }],
+    }));
+  };
+
+  const removeItinExpense = (index) => {
+    if (readOnly) return;
+    setForm((prev) => {
+      const rows = [...(prev.itineraryExpenses || [])];
+      rows.splice(index, 1);
+      return { ...prev, itineraryExpenses: rows.length ? rows : [{ ...EMPTY_ITIN_EXP }] };
+    });
+  };
+
+  const handlePeriodChange = async (periodId) => {
+    if (readOnly) return;
+    setForm((prev) => ({ ...prev, periodId }));
+    if (!periodId || hasSavedTcInHires(form.tcInExpenses)) return;
+    try {
+      const periodTcIn = await fetchPeriodTcInDetails(periodId);
+      if (periodTcIn) {
+        setForm((prev) => ({
+          ...prev,
+          periodId,
+          tcInExpenses: applyPeriodTcIn(prev.tcInExpenses, periodTcIn),
+        }));
+      }
+    } catch {
+      // Ignore period TC In seed failures.
     }
   };
 
@@ -426,7 +660,7 @@ export default function TcFixtureFormPage({
     try {
       await downloadTcEstimatePdf(tcOutId);
     } catch (err) {
-      setError(err.message || 'Failed to generate TC fixture PDF.');
+      setError(err.message || 'Failed to generate TC Recap PDF.');
     } finally {
       setPdfLoading(false);
     }
@@ -434,7 +668,7 @@ export default function TcFixtureFormPage({
 
   const renderBunkerTable = (kind, label) => (
     <div className={styles.bunkerBlock}>
-      <strong>{label}</strong>
+      <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>{label}</div>
       <table className={styles.rowTable}>
         <thead>
           <tr>
@@ -516,103 +750,10 @@ export default function TcFixtureFormPage({
     </div>
   );
 
-  const renderAtSeaTable = (rows, title) => (
-    <div className={styles.consBlock}>
-      <h4 className={styles.consTitle}>{title}</h4>
-      <div className={styles.consTableWrap}>
-        <table className={styles.consTable}>
-          <thead>
-            <tr>
-              <th rowSpan={2}>Bunker</th>
-              <th colSpan={4}>Full Speed</th>
-              <th colSpan={4}>Service Speed</th>
-              <th colSpan={4}>Most Eco Speed</th>
-            </tr>
-            <tr>
-              <th>SECA (Ballast)</th>
-              <th>SECA (Laden)</th>
-              <th>NON-SECA (Ballast)</th>
-              <th>NON-SECA (Laden)</th>
-              <th>SECA (Ballast)</th>
-              <th>SECA (Laden)</th>
-              <th>NON-SECA (Ballast)</th>
-              <th>NON-SECA (Laden)</th>
-              <th>SECA (Ballast)</th>
-              <th>SECA (Laden)</th>
-              <th>NON-SECA (Ballast)</th>
-              <th>NON-SECA (Laden)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(rows || []).length ? (rows || []).map((row, index) => (
-              <tr key={`${title}-${row.bunkerId || index}`}>
-                <td>{row.bunkerName || `Grade #${row.bunkerId || '—'}`}</td>
-                <ConsCell value={row.balSecaFs} />
-                <ConsCell value={row.ladSecaFs} />
-                <ConsCell value={row.balNonSecaFs} />
-                <ConsCell value={row.ladNonSecaFs} />
-                <ConsCell value={row.balSecaSs} />
-                <ConsCell value={row.ladSecaSs} />
-                <ConsCell value={row.balNonSecaSs} />
-                <ConsCell value={row.ladNonSecaSs} />
-                <ConsCell value={row.balSecaMes} />
-                <ConsCell value={row.ladSecaMes} />
-                <ConsCell value={row.balNonSecaMes} />
-                <ConsCell value={row.ladNonSecaMes} />
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={13} className={styles.center}>No records</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  const renderInPortTable = (rows, title) => (
-    <div className={styles.consBlock}>
-      <h4 className={styles.consTitle}>{title}</h4>
-      <div className={styles.consTableWrap}>
-        <table className={styles.consTable}>
-          <thead>
-            <tr>
-              <th rowSpan={2}>Bunker</th>
-              <th colSpan={2}>Working</th>
-              <th colSpan={2}>Idle</th>
-              <th colSpan={2}>Others</th>
-            </tr>
-            <tr>
-              <th>SECA</th>
-              <th>NON-SECA</th>
-              <th>SECA</th>
-              <th>NON-SECA</th>
-              <th>SECA</th>
-              <th>NON-SECA</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(rows || []).length ? (rows || []).map((row, index) => (
-              <tr key={`${title}-${row.bunkerId || index}`}>
-                <td>{row.bunkerName || `Grade #${row.bunkerId || '—'}`}</td>
-                <ConsCell value={row.inPortSecaWorking} />
-                <ConsCell value={row.inPortNonSecaWorking} />
-                <ConsCell value={row.inPortSecaIdle} />
-                <ConsCell value={row.inPortNonSecaIdle} />
-                <ConsCell value={row.inPortSecaOther} />
-                <ConsCell value={row.inPortNonSecaOther} />
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={7} className={styles.center}>No records</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  const businessTypeOptions = (Array.isArray(businessTypes) ? businessTypes : []).map((opt) => ({
+    id: String(opt.id),
+    name: opt.name || opt.label || String(opt.id),
+  }));
 
   return (
     <div className={`zafira-page ${styles.page}`}>
@@ -622,385 +763,516 @@ export default function TcFixtureFormPage({
         onGeneratePdf={mode !== 'add' ? handleGeneratePdf : undefined}
         pdfLoading={pdfLoading}
       />
-      {loading ? <LoadingOverlay active label="Loading fixture note…" /> : null}
+      {loading ? <LoadingOverlay active label="Loading TC Recap…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
-      <h3 className={styles.title}>{title}</h3>
 
       <form onSubmit={handleSubmit}>
-        <fieldset disabled={readOnly} className={styles.viewFieldset}>
-        <div className={styles.headerBar}>
-          <div className={styles.headerItem}>
-            <strong>Fixture Type:</strong> TC Out
-            <input type="hidden" value={form.fixtureType || '1'} readOnly />
-          </div>
-          <Field label="Period Contract">
-            <CardSelect
-              options={lookups?.periodContracts || []}
-              value={form.periodId}
-              onChange={(v) => setField('periodId', v)}
-              placeholder="Select period contract"
-              ariaLabel="Period contract"
-            />
-          </Field>
-          <Field label="Vessel">
-            {readOnly ? (
-              <input
-                value={form.vesselName || ''}
-                readOnly
-                className={styles.inputReadonly}
-              />
-            ) : (
-              <VesselSearchSelect
-                value={form.vesselImoId}
-                label={form.vesselName}
-                onSelect={handleSelectVessel}
-              />
-            )}
-          </Field>
-          <TextInput label="Vessel Type" value={form.vesselType} readOnly />
-          <TextInput label="Flag" value={form.flag} readOnly />
-          <DateField label="Date" value={form.tcDate} onChange={(v) => setField('tcDate', v)} />
-          <TextInput label="TC No." value={form.tcNo} onChange={(v) => setField('tcNo', v)} readOnly={mode === 'edit' || readOnly} />
-        </div>
-        </fieldset>
-
-        <div className={styles.tabs} role="tablist" aria-label="Fixture note tabs">
-          {FIXTURE_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              className={activeTab === tab.id ? styles.tabActive : styles.tab}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <fieldset disabled={readOnly} className={styles.viewFieldset}>
-        {activeTab === 'fixture' ? (
-        <div className={styles.fixtureLayout}>
-          <div className={styles.fixtureLeft}>
-            <div className={styles.section}>
-              <h4 className={styles.sectionTitle}>CP / Parties</h4>
-              <div className={styles.formGrid}>
-                <DateField label="CP Date" value={form.cpDate} onChange={(v) => setField('cpDate', v)} />
-                <Field label="CP Type">
-                  <CardSelect
-                    options={lookups?.cpTypes || []}
-                    value={form.cpType}
-                    onChange={(v) => setField('cpType', v)}
-                    placeholder="Select CP type"
-                    ariaLabel="CP type"
+          <div className={`${styles.estLayout} ${readOnly ? styles.viewModeLock : ''}`.trim()}>
+            <div className={styles.estLhs}>
+              <CollapsiblePanel title="Estimate Identifier" defaultOpen>
+                <div className={`${styles.denseGrid} ${styles.dense7}`}>
+                  <Field label="Business Type">
+                    <CardSelect
+                      options={businessTypeOptions}
+                      value={form.businessTypeId}
+                      onChange={(v) => setField('businessTypeId', v)}
+                      placeholder="Select business type"
+                      ariaLabel="Business type"
+                    />
+                  </Field>
+                  <Field label="CP Type">
+                    <CardSelect
+                      options={lookups?.cpTypes || []}
+                      value={form.cpType}
+                      onChange={(v) => setField('cpType', v)}
+                      placeholder="Select CP type"
+                      ariaLabel="CP type"
+                    />
+                  </Field>
+                  <Field label="Link Period Contract">
+                    <CardSelect
+                      options={lookups?.periodContracts || []}
+                      value={form.periodId}
+                      onChange={handlePeriodChange}
+                      placeholder="Select period contract"
+                      ariaLabel="Period contract"
+                    />
+                  </Field>
+                  <Field label="Vessel">
+                    {readOnly ? (
+                      <input
+                        value={form.vesselName || ''}
+                        readOnly
+                        className={styles.inputReadonly}
+                      />
+                    ) : (
+                      <VesselSearchSelect
+                        value={form.vesselImoId}
+                        label={form.vesselName}
+                        onSelect={handleSelectVessel}
+                      />
+                    )}
+                  </Field>
+                  <TextInput label="Vessel Type" value={form.vesselType} readOnly />
+                  <DateField label="CP Date" value={form.cpDate} onChange={(v) => setField('cpDate', v)} />
+                  <TextInput
+                    label="TC No."
+                    value={form.tcNo}
+                    onChange={(v) => setField('tcNo', v)}
+                    readOnly={mode === 'edit' || readOnly}
                   />
-                </Field>
-                <Field label="Charterers">
-                  <CardSelect
-                    options={lookups?.charterers || []}
-                    value={form.charterer}
-                    onChange={(v) => setField('charterer', v)}
-                    placeholder="Select charterer"
-                    ariaLabel="Charterer"
-                  />
-                </Field>
-                <Field label="Charterers Operations">
-                  <CardSelect
-                    options={lookups?.vendors || []}
-                    value={form.charOperation}
-                    onChange={(v) => setField('charOperation', v)}
-                    placeholder="Select"
-                    ariaLabel="Charterers operations"
-                  />
-                </Field>
-                <Field label="Chartering Team">
-                  <CardSelect
-                    options={lookups?.charteringTeams || []}
-                    value={form.charteringTeam}
-                    onChange={(v) => setField('charteringTeam', v)}
-                    placeholder="Select chartering team"
-                    ariaLabel="Chartering team"
-                  />
-                </Field>
-                <Field label="Chartering PIC 1">
-                  <CardSelect
-                    options={lookups?.charteringPics || []}
-                    value={form.charteringPic1}
-                    onChange={(v) => setField('charteringPic1', v)}
-                    placeholder="Select PIC 1"
-                    ariaLabel="Chartering PIC 1"
-                  />
-                </Field>
-                <Field label="Chartering PIC 2">
-                  <CardSelect
-                    options={lookups?.charteringPics || []}
-                    value={form.charteringPic2}
-                    onChange={(v) => setField('charteringPic2', v)}
-                    placeholder="Select PIC 2"
-                    ariaLabel="Chartering PIC 2"
-                  />
-                </Field>
-                <Field label="Law / Arbitration">
-                  <CardSelect
-                    options={lookups?.lawArbitration || []}
-                    value={form.lawArbit}
-                    onChange={(v) => setField('lawArbit', v)}
-                    placeholder="Select"
-                    ariaLabel="Law arbitration"
-                  />
-                </Field>
-                <Field label="Address" className={styles.fullWidth}>
-                  <textarea
-                    value={form.charOperAdd || ''}
-                    onChange={(e) => setField('charOperAdd', e.target.value)}
-                    readOnly
-                    className={styles.inputReadonly}
-                    placeholder="Address"
-                  />
-                </Field>
-              </div>
-            </div>
-
-            <div className={styles.section}>
-              <h4 className={styles.sectionTitle}>
-                Vessel Details{form.vesselName ? `: ${form.vesselName}` : ''}
-              </h4>
-              <div className={styles.formGrid}>
-                <TextInput label="Build Yard" value={form.buildYard} readOnly />
-                <TextInput label="Year Built" value={form.yearBuild} readOnly />
-                <TextInput label="Flag" value={form.flag1} readOnly />
-                <TextInput label="Port of Registry" value={form.portOfReg} readOnly />
-                <TextInput label="IMO No." value={form.imoNo} readOnly />
-                <TextInput label="Class ID" value={form.classId} readOnly />
-                <TextInput label="Last Special Survey" value={form.lastSpSurvey} readOnly />
-                <TextInput label="Last DD" value={form.lastDd} readOnly />
-                <TextInput label="Owners P&I" value={form.ownersPi} readOnly />
-                <TextInput label="Master's Name" value={form.mastersName} onChange={(v) => setField('mastersName', v)} />
-                <TextInput label="Call Sign" value={form.callSign} readOnly />
-                <TextInput label="Inmarsat Tel" value={form.inmarsatTel} readOnly />
-                <TextInput label="Inmarsat Email" value={form.inmarsatMail} readOnly />
-                <TextInput label="LOA" value={form.loa1} readOnly />
-                <TextInput label="Breadth" value={form.breadth} readOnly />
-                <TextInput label="Summer DWT" value={form.summerDwt} readOnly />
-                <TextInput label="Summer Draft" value={form.summerDraft} readOnly />
-                <TextInput label="TPC" value={form.tpc1} readOnly />
-                <TextInput label="Gross Tonnage" value={form.grossTonn} readOnly />
-                <TextInput label="Net Tonnage" value={form.netTonn} readOnly />
-                <TextInput label="Suez GRT" value={form.suezGrt} readOnly />
-                <TextInput label="Suez NRT" value={form.suezNrt} readOnly />
-                <TextInput label="Panama NRT" value={form.panamaNrt} readOnly />
-                <TextInput label="Grain Cap" value={form.grainCap} readOnly />
-                <TextInput label="Bale Cap" value={form.baleCap} readOnly />
-                <TextInput label="Cranes" value={form.cranes} readOnly />
-                <TextInput label="Grabs" value={form.grabs} readOnly />
-                <TextInput label="Keel to Top of Mast" value={form.keelTopMast} readOnly />
-                <TextInput label="Waterline to Top of Mast" value={form.waterlineTopMast} readOnly />
-                {!isDry ? (
-                  <>
-                    <TextInput label="Cargo Tank Cap" value={form.cargoTankCap} readOnly />
-                    <TextInput label="No. of Grades" value={form.noOfGrades} readOnly />
-                    <TextInput label="Cargo Pump Cap" value={form.cargoPumpCap} readOnly />
-                    <TextInput label="Total SBT Cap" value={form.totalSbtCap} readOnly />
-                  </>
+                </div>
+                {showSubCharter ? (
+                  <div className={styles.subCharterBadge} aria-live="polite">
+                    Sub-Charter
+                  </div>
                 ) : null}
-              </div>
-            </div>
+                <input type="hidden" value={form.fixtureType || '1'} readOnly />
+              </CollapsiblePanel>
 
-            <div className={styles.section}>
-              <h4 className={styles.sectionTitle}>Delivery / Hire Terms</h4>
-              <div className={styles.formGrid}>
-                <TextInput label="Delivery Range / Port" value={form.delRangePort} onChange={(v) => setField('delRangePort', v)} />
-                <TextInput label="Trip TC" value={form.tripTc} onChange={(v) => setField('tripTc', v)} />
-                <TextInput label="Period" value={form.period} onChange={(v) => setField('period', v)} />
-                <TextInput label="No. of Trips" value={form.noOfTrip} onChange={(v) => setField('noOfTrip', v)} />
-                <DateField label="Delivery Date" value={form.delDate} onChange={(v) => setField('delDate', v)} enableTime />
-                <DateField label="Redelivery Date" value={form.reDelDate} onChange={(v) => setField('reDelDate', v)} enableTime />
-                <TextInput label="Duration Optional Period" value={form.durOptPer} onChange={(v) => setField('durOptPer', v)} />
-                <TextInput label="Commencement Optional Period" value={form.commOptPer} onChange={(v) => setField('commOptPer', v)} />
-                <DateField label="Laycan From" value={form.laycanFrom} onChange={(v) => setField('laycanFrom', v)} enableTime />
-                <DateField label="Laycan To" value={form.laycanTo} onChange={(v) => setField('laycanTo', v)} enableTime />
-                <TextInput label="Laycan Narrowing" value={form.laycanNarr} onChange={(v) => setField('laycanNarr', v)} />
-                <TextInput label="Redelivery Range" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
-                <Field label="Hire PDPR Currency">
-                  <CardSelect
-                    options={lookups?.currencies || []}
-                    value={form.exchangeCurrency}
-                    onChange={(v) => setField('exchangeCurrency', v)}
-                    placeholder="Currency"
-                    ariaLabel="Currency"
+              <CollapsiblePanel title="CP Information" defaultOpen={false}>
+                <div className={styles.denseGrid}>
+                  <Field label="Chartering Team">
+                    <CardSelect
+                      options={lookups?.charteringTeams || []}
+                      value={form.charteringTeam}
+                      onChange={(v) => setField('charteringTeam', v)}
+                      placeholder="Select chartering team"
+                      ariaLabel="Chartering team"
+                    />
+                  </Field>
+                  <Field label="Chartering PIC">
+                    <CardSelect
+                      options={lookups?.charteringPics || []}
+                      value={form.charteringPic1}
+                      onChange={(v) => setField('charteringPic1', v)}
+                      placeholder="Select PIC 1"
+                      ariaLabel="Chartering PIC 1"
+                    />
+                  </Field>
+                  <Field label="Operator">
+                    <CardSelect
+                      options={lookups?.vendors || []}
+                      value={form.charOperation}
+                      onChange={(v) => setField('charOperation', v)}
+                      placeholder="Select"
+                      ariaLabel="Operator"
+                    />
+                  </Field>
+                  <Field label="Charterers">
+                    <CardSelect
+                      options={lookups?.charterers || []}
+                      value={form.charterer}
+                      onChange={(v) => setField('charterer', v)}
+                      placeholder="Select charterer"
+                      ariaLabel="Charterer"
+                    />
+                  </Field>
+                  <Field label="Law / Arbitration">
+                    <CardSelect
+                      options={lookups?.lawArbitration || []}
+                      value={form.lawArbit}
+                      onChange={(v) => setField('lawArbit', v)}
+                      placeholder="Select"
+                      ariaLabel="Law arbitration"
+                    />
+                  </Field>
+                  <Field label="Chartering PIC 2">
+                    <CardSelect
+                      options={lookups?.charteringPics || []}
+                      value={form.charteringPic2}
+                      onChange={(v) => setField('charteringPic2', v)}
+                      placeholder="Select PIC 2"
+                      ariaLabel="Chartering PIC 2"
+                    />
+                  </Field>
+                  <Field label="Address" className={styles.spanFull}>
+                    <textarea
+                      value={form.charOperAdd || ''}
+                      onChange={(e) => setField('charOperAdd', e.target.value)}
+                      readOnly
+                      className={styles.inputReadonly}
+                      placeholder="Address"
+                    />
+                  </Field>
+                </div>
+              </CollapsiblePanel>
+
+              <CollapsiblePanel title="Vessel Particulars" defaultOpen={false}>
+                <div className={`${styles.denseGrid} ${styles.dense9}`}>
+                  <TextInput label="Master's Name" value={form.mastersName} onChange={(v) => setField('mastersName', v)} />
+                  <TextInput label="Build Yard" value={form.buildYard} readOnly />
+                  <TextInput label="Year Built" value={form.yearBuild} readOnly />
+                  <TextInput label="Flag" value={form.flag1 || form.flag} readOnly />
+                  <TextInput label="Port of Registry" value={form.portOfReg} readOnly />
+                  <TextInput label="IMO No." value={form.imoNo} readOnly />
+                  <TextInput label="Class ID" value={form.classId} readOnly />
+                  <TextInput label="Last Special Survey" value={form.lastSpSurvey} readOnly />
+                  <TextInput label="Last DD" value={form.lastDd} readOnly />
+                  <TextInput label="Owners P&I" value={form.ownersPi} readOnly />
+                  <TextInput label="Call Sign" value={form.callSign} readOnly />
+                  <TextInput label="Inmarsat Tel" value={form.inmarsatTel} readOnly />
+                  <TextInput label="Inmarsat Email" value={form.inmarsatMail} readOnly />
+                  <TextInput label="LOA" value={form.loa1} readOnly />
+                  <TextInput label="Breadth" value={form.breadth} readOnly />
+                  <TextInput label="Summer DWT" value={form.summerDwt} readOnly />
+                  <TextInput label="Summer Draft" value={form.summerDraft} readOnly />
+                  <TextInput label="TPC" value={form.tpc1} readOnly />
+                  <TextInput label="Gross Tonnage" value={form.grossTonn} readOnly />
+                  <TextInput label="Net Tonnage" value={form.netTonn} readOnly />
+                  <TextInput label="Keel to Top of Mast" value={form.keelTopMast} readOnly />
+                  <TextInput label="Waterline to Top of Mast" value={form.waterlineTopMast} readOnly />
+                  {!isDry ? (
+                    <>
+                      <TextInput label="Cargo Tank Cap" value={form.cargoTankCap} readOnly />
+                      <TextInput label="No. of Grades" value={form.noOfGrades} readOnly />
+                      <TextInput label="Cargo Pump Cap" value={form.cargoPumpCap} readOnly />
+                      <TextInput label="Total SBT Cap" value={form.totalSbtCap} readOnly />
+                    </>
+                  ) : null}
+                </div>
+              </CollapsiblePanel>
+
+              <CollapsiblePanel title="Trip Details" defaultOpen>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Delivery &amp; Re-Delivery</div>
+                <div className={styles.denseGrid}>
+                  <Field label="Delivery – Redelivery Period" className={styles.span2}>
+                    <div className={styles.dateRangePair}>
+                      <DmyDateInput
+                        value={form.delDate || ''}
+                        onChange={(v) => setField('delDate', v)}
+                        enableTime
+                        disabled={readOnly}
+                      />
+                      <DmyDateInput
+                        value={form.reDelDate || ''}
+                        onChange={(v) => setField('reDelDate', v)}
+                        enableTime
+                        disabled={readOnly}
+                      />
+                    </div>
+                  </Field>
+                  <TextInput label="Delivery Range / Port" value={form.delRangePort} onChange={(v) => setField('delRangePort', v)} />
+                  <TextInput label="Redelivery Range" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
+                </div>
+
+                <div className={styles.subBlockLabel}>Trip Details</div>
+                <div className={styles.denseGrid}>
+                  <TextInput label="Trip TC" value={form.tripTc} onChange={(v) => setField('tripTc', v)} />
+                  <TextInput label="Period" value={form.period} onChange={(v) => setField('period', v)} />
+                  <TextInput label="No. of Trips" value={form.noOfTrip} onChange={(v) => setField('noOfTrip', v)} />
+                  <TextInput label="Duration Optional Period" value={form.durOptPer} onChange={(v) => setField('durOptPer', v)} />
+                  <TextInput label="Commencement Optional Period" value={form.commOptPer} onChange={(v) => setField('commOptPer', v)} />
+                  <Field label="Laycan" className={styles.span2}>
+                    <div className={styles.dateRangePair}>
+                      <DmyDateInput
+                        value={form.laycanFrom || ''}
+                        onChange={(v) => setField('laycanFrom', v)}
+                        enableTime
+                        disabled={readOnly}
+                      />
+                      <DmyDateInput
+                        value={form.laycanTo || ''}
+                        onChange={(v) => setField('laycanTo', v)}
+                        enableTime
+                        disabled={readOnly}
+                      />
+                    </div>
+                  </Field>
+                  <TextInput label="TC Days" value={form.durFixPer} onChange={(v) => setField('durFixPer', v)} />
+                  <Field label="Hire PDPR Currency">
+                    <CardSelect
+                      options={lookups?.currencies || []}
+                      value={form.exchangeCurrency}
+                      onChange={(v) => setField('exchangeCurrency', v)}
+                      placeholder="Currency"
+                      ariaLabel="Currency"
+                    />
+                  </Field>
+                  <TextInput label="X-rate to USD" value={form.exchangeRate} onChange={(v) => setField('exchangeRate', v)} />
+                  <TextInput
+                    label={`Hire Rate ($/day)`}
+                    value={form.hireFixPer}
+                    onChange={(v) => setField('hireFixPer', v)}
                   />
-                </Field>
-                <TextInput label="Exchange Rate To USD" value={form.exchangeRate} onChange={(v) => setField('exchangeRate', v)} />
-                <TextInput label={`Hire Fixed Period PDPR (${form.exchangeCurrency || 'USD'})`} value={form.hireFixPer} onChange={(v) => setField('hireFixPer', v)} />
-                <TextInput label="Hire Fixed Period PDPR (USD)" value={dailyHireUsd} readOnly />
-                <TextInput label="Hire Optional Period" value={form.hireOptPer} onChange={(v) => setField('hireOptPer', v)} />
-                <TextInput label="Fuel Specs" value={form.fuelSpecs} onChange={(v) => setField('fuelSpecs', v)} />
-                <TextInput label="CVE/Month (USD)" value={form.cveMonth} onChange={(v) => setField('cveMonth', v)} />
-                {isDry ? (
-                  <>
-                    <TextInput label="Supercargo and meals (USD)" value={form.supercargoMeals} onChange={(v) => setField('supercargoMeals', v)} />
-                    <TextInput label="Hold Cleaning Intermediate (USD)" value={form.holdCleanInter} onChange={(v) => setField('holdCleanInter', v)} />
-                    <TextInput label="ILOHC (USD)" value={form.ilohcUsd} onChange={(v) => setField('ilohcUsd', v)} />
-                    <TextInput label="ILOHC - Remarks from CP" value={form.ilohcRemarks} onChange={(v) => setField('ilohcRemarks', v)} />
-                  </>
-                ) : null}
-                <Field label="Brokerage Comm. payable by">
-                  <CardSelect
-                    options={lookups?.payableBy || []}
-                    value={form.broCommPayable}
-                    onChange={(v) => setField('broCommPayable', v)}
-                    placeholder="Select"
-                    ariaLabel="Payable by"
-                  />
-                </Field>
-                <TextInput label="Add. Comm %" value={form.addComm} onChange={(v) => setField('addComm', v)} />
-                <TextInput label="Broker's Comm. %" value={form.brokerComm} onChange={(v) => setField('brokerComm', v)} />
-                <Field label="Owner's Banking Details">
-                  <CardSelect
-                    options={lookups?.bankingDetails || []}
-                    value={form.ownersBankDet}
-                    onChange={(v) => setField('ownersBankDet', v)}
-                    placeholder="Select banking details"
-                    ariaLabel="Banking details"
-                  />
-                </Field>
-                <TextInput label="Document created by" value={form.docCreatBy} readOnly />
-                <Field label="Additional Information" className={styles.fullWidth}>
-                  <textarea value={form.additInform || ''} onChange={(e) => setField('additInform', e.target.value)} />
-                </Field>
-              </div>
-            </div>
-          </div>
+                  <TextInput label="Hire Amount" value={dailyHireUsd} readOnly />
+                  <TextInput label="Hire Optional Period" value={form.hireOptPer} onChange={(v) => setField('hireOptPer', v)} />
+                  <TextInput label="Fuel Specs" value={form.fuelSpecs} onChange={(v) => setField('fuelSpecs', v)} />
+                  <TextInput label="CVE/Month ($)" value={form.cveMonth} onChange={(v) => setField('cveMonth', v)} />
+                  {isDry ? (
+                    <>
+                      <TextInput label="Supercargo and meals (USD)" value={form.supercargoMeals} onChange={(v) => setField('supercargoMeals', v)} />
+                      <TextInput label="Hold Cleaning Intermediate (USD)" value={form.holdCleanInter} onChange={(v) => setField('holdCleanInter', v)} />
+                      <TextInput label="ILOHC (USD)" value={form.ilohcUsd} onChange={(v) => setField('ilohcUsd', v)} />
+                      <TextInput label="ILOHC - Remarks from CP" value={form.ilohcRemarks} onChange={(v) => setField('ilohcRemarks', v)} />
+                    </>
+                  ) : null}
+                  <Field label="Brokerage Comm. Payable By">
+                    <CardSelect
+                      options={lookups?.payableBy || []}
+                      value={form.broCommPayable}
+                      onChange={(v) => setField('broCommPayable', v)}
+                      placeholder="Select"
+                      ariaLabel="Payable by"
+                    />
+                  </Field>
+                  <TextInput label="Add. Comm %" value={form.addComm} onChange={(v) => setField('addComm', v)} />
+                  <TextInput label="Broker's Comm %" value={form.brokerComm} onChange={(v) => setField('brokerComm', v)} />
+                  <TextInput label="Laycan Narrowing" value={form.laycanNarr} onChange={(v) => setField('laycanNarr', v)} />
+                  <DateField label="Date" value={form.tcDate} onChange={(v) => setField('tcDate', v)} />
+                </div>
+              </CollapsiblePanel>
 
-          <div className={styles.fixtureRight}>
-            <div className={styles.section}>
-              <h4 className={styles.sectionTitle}>Bunker Details</h4>
-              {renderBunkerTable('deliveryBunkers', 'Delivery')}
-              {renderBunkerTable('redeliveryBunkers', 'Re-Delivery')}
-            </div>
+              <CollapsiblePanel title="Bunkers" defaultOpen={false}>
+                {renderBunkerTable('deliveryBunkers', 'Bunker Grades — Delivery')}
+                {renderBunkerTable('redeliveryBunkers', 'Bunker Grades — Re-Delivery')}
+              </CollapsiblePanel>
 
-            <div className={styles.section}>
-              <h4 className={styles.sectionTitle}>Baltic Route Details</h4>
-              <div className={styles.formGrid}>
-                <Field label="Baltic Route">
-                  <CardSelect
-                    options={lookups?.balticRoutes || []}
-                    value={form.balticRoute}
-                    onChange={(v) => setField('balticRoute', v)}
-                    placeholder="Select route"
-                    ariaLabel="Baltic route"
-                  />
-                </Field>
-                <DateField label="Baltic Route Date" value={form.balticDate} onChange={(v) => setField('balticDate', v)} />
-                <TextInput label="Baltic Route Value" value={form.balticRate} onChange={(v) => setField('balticRate', v)} />
-              </div>
-            </div>
-          </div>
-        </div>
-        ) : null}
+              <CollapsiblePanel title="TC Terms" defaultOpen={false}>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Sea Passage</div>
+                <div className={styles.denseGrid}>
+                  <TextInput label="Wind Force" value={form.windForce} onChange={(v) => setField('windForce', v)} />
+                  <TextInput label="Speed Laden (Kts)" value={form.speedLaden} onChange={(v) => setField('speedLaden', v)} />
+                  <TextInput label="Speed Ballast (Kts)" value={form.speedBallast} onChange={(v) => setField('speedBallast', v)} />
+                  <TextInput label="CP Speed" value={form.cpSpeed} onChange={(v) => setField('cpSpeed', v)} />
+                  <TextInput label="FO Cons Laden (MT/Day)" value={form.foConsLaden} onChange={(v) => setField('foConsLaden', v)} />
+                  <TextInput label="DO Cons Laden (MT/Day)" value={form.doConsLaden} onChange={(v) => setField('doConsLaden', v)} />
+                  <TextInput label="FO Cons Ballast (MT/Day)" value={form.foConsBallast} onChange={(v) => setField('foConsBallast', v)} />
+                  <TextInput label="DO Cons Ballast (MT/Day)" value={form.doConsBallast} onChange={(v) => setField('doConsBallast', v)} />
+                </div>
+                <div className={styles.subBlockLabel}>Port</div>
+                <div className={styles.denseGrid}>
+                  <TextInput label="FO Cons Ldg (MT/Day)" value={form.foConsLdg} onChange={(v) => setField('foConsLdg', v)} />
+                  <TextInput label="DO Cons Ldg (MT/Day)" value={form.doConsLdg} onChange={(v) => setField('doConsLdg', v)} />
+                  <TextInput label="FO Cons Disch (MT/Day)" value={form.foConsDisch} onChange={(v) => setField('foConsDisch', v)} />
+                  <TextInput label="DO Cons Disch (MT/Day)" value={form.doConsDisch} onChange={(v) => setField('doConsDisch', v)} />
+                  <TextInput label="FO Cons Idle (MT/Day)" value={form.foConsIdle} onChange={(v) => setField('foConsIdle', v)} />
+                  <TextInput label="DO Cons Idle (MT/Day)" value={form.doConsIdle} onChange={(v) => setField('doConsIdle', v)} />
+                  <TextInput label="Load Rate (MT/Day)" value={form.loadRate} onChange={(v) => setField('loadRate', v)} />
+                  <TextInput label="Disch Rate (MT/Day)" value={form.dischRate} onChange={(v) => setField('dischRate', v)} />
+                  <Field label="Owner's Banking Details">
+                    <CardSelect
+                      options={lookups?.bankingDetails || []}
+                      value={form.ownersBankDet}
+                      onChange={(v) => setField('ownersBankDet', v)}
+                      placeholder="Select banking details"
+                      ariaLabel="Banking details"
+                    />
+                  </Field>
+                  <TextInput label="Document Created By" value={form.docCreatBy} readOnly />
+                  <Field label="Additional Information" className={styles.spanFull}>
+                    <textarea
+                      value={form.additInform || ''}
+                      onChange={(e) => setField('additInform', e.target.value)}
+                    />
+                  </Field>
+                </div>
+              </CollapsiblePanel>
 
-        {activeTab === 'commercial' ? (
-          <div className={styles.tabPanel}>
-            <div className={styles.section}>
-              <div className={styles.formGrid}>
-                <TextInput label="DWT (Summer)" value={form.dwtSummerCp} readOnly />
-                <TextInput label="DWT (Tropical)" value={form.dwtTropicalCp} readOnly />
-                <TextInput label="Grain Cap (CBM)" value={form.grainCapCp} readOnly />
-                <TextInput label="Bale Cap (CBM)" value={form.baleCapCp} readOnly />
-                <TextInput label="SF (ft3/lt)" value={form.sfCp} readOnly />
-                <TextInput label="Loadable (MT)" value={form.loadableCp} readOnly />
-                <TextInput label="GRT/NRT" value={form.grtNrtCp} readOnly />
-                <TextInput label="LOA" value={form.loaCp} readOnly />
-                <TextInput label="Gear" value={form.gearCp} readOnly />
-                <TextInput label="Built Year" value={form.builtYearCp} readOnly />
-                <TextInput label="B.E.A.M. (m)" value={form.beamCp} readOnly />
-                <TextInput label="TPC" value={form.tpcCp} readOnly />
-              </div>
-            </div>
-
-            <div className={styles.section}>
-              <h4 className={styles.sectionTitle}>Speed Data</h4>
-              <div className={styles.consTableWrap}>
-                <table className={styles.consTable}>
+              <CollapsiblePanel title="Contract CAPEX & OPEX" defaultOpen={false}>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Itinerary, Expenses &amp; Capex</div>
+                <div className={styles.miniTableWrap}>
+                <table className={styles.miniTable}>
                   <thead>
                     <tr>
-                      <th>Speed Data</th>
-                      <th>Full Speed</th>
-                      <th>Service Speed</th>
-                      <th>Most Eco Speed</th>
+                      <th>From</th>
+                      <th>Date</th>
+                      <th>Notes</th>
+                      <th>To</th>
+                      <th>Date</th>
+                      <th>Notes</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td>Ballast Speed (Knots)</td>
-                      <ConsCell value={form.bFullSpeedCp} />
-                      <ConsCell value={form.bEcoSpeed1Cp} />
-                      <ConsCell value={form.bEcoSpeed2Cp} />
-                    </tr>
-                    <tr>
-                      <td>Laden Speed (Knots)</td>
-                      <ConsCell value={form.lFullSpeedCp} />
-                      <ConsCell value={form.lEcoSpeed1Cp} />
-                      <ConsCell value={form.lEcoSpeed2Cp} />
+                      <td>
+                        <input
+                          value={form.itinerary?.from?.place || ''}
+                          onChange={(e) => patchItinerary('from', 'place', e.target.value)}
+                          readOnly={readOnly}
+                          className={readOnly ? styles.inputReadonly : undefined}
+                        />
+                      </td>
+                      <td>
+                        <DmyDateInput
+                          value={form.itinerary?.from?.date || ''}
+                          onChange={(v) => patchItinerary('from', 'date', v)}
+                          disabled={readOnly}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={form.itinerary?.from?.notes || ''}
+                          onChange={(e) => patchItinerary('from', 'notes', e.target.value)}
+                          readOnly={readOnly}
+                          className={readOnly ? styles.inputReadonly : undefined}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={form.itinerary?.to?.place || ''}
+                          onChange={(e) => patchItinerary('to', 'place', e.target.value)}
+                          readOnly={readOnly}
+                          className={readOnly ? styles.inputReadonly : undefined}
+                        />
+                      </td>
+                      <td>
+                        <DmyDateInput
+                          value={form.itinerary?.to?.date || ''}
+                          onChange={(v) => patchItinerary('to', 'date', v)}
+                          disabled={readOnly}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={form.itinerary?.to?.notes || ''}
+                          onChange={(e) => patchItinerary('to', 'notes', e.target.value)}
+                          readOnly={readOnly}
+                          className={readOnly ? styles.inputReadonly : undefined}
+                        />
+                      </td>
                     </tr>
                   </tbody>
                 </table>
-              </div>
+                </div>
+
+                <div className={styles.miniTableWrap}>
+                <table className={styles.miniTable}>
+                  <thead>
+                    <tr>
+                      <th />
+                      <th>Expense Type</th>
+                      <th>Description</th>
+                      <th>Amount</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(form.itineraryExpenses || []).map((row, index) => (
+                      <tr key={`itin-exp-${index}`}>
+                        <td>
+                          {!readOnly ? (
+                            <button
+                              type="button"
+                              className={`${styles.linkBtn} ${styles.linkBtnDanger}`}
+                              onClick={() => removeItinExpense(index)}
+                            >
+                              ×
+                            </button>
+                          ) : (
+                            index + 1
+                          )}
+                        </td>
+                        <td>
+                          <input
+                            value={row.expenseType || ''}
+                            onChange={(e) => patchItinExpense(index, { expenseType: e.target.value })}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={row.description || ''}
+                            onChange={(e) => patchItinExpense(index, { description: e.target.value })}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={row.amount || ''}
+                            onChange={(e) => patchItinExpense(index, { amount: e.target.value })}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={row.notes || ''}
+                            onChange={(e) => patchItinExpense(index, { notes: e.target.value })}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={3}>Total (USD)</td>
+                      <td>{itineraryExpenseTotal.toFixed(2)}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+                </div>
+
+                {!readOnly ? (
+                  <Button variant="outline" label="Add Expense" onClick={addItinExpense} />
+                ) : null}
+
+                <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
+                  <button
+                    type="button"
+                    className={`${styles.addRowBtn} ${showSubCharter ? styles.addRowBtnSubCharter : ''}`}
+                    onClick={() => setTcInOpen(true)}
+                  >
+                    {showSubCharter ? '+ Add Sub-Charter Expense' : '+ TC In Expenses'}
+                  </button>
+                </div>
+              </CollapsiblePanel>
             </div>
 
-            {renderAtSeaTable(form.foConsumptions, 'FO Consp/day(MT) - At Sea')}
-            {renderAtSeaTable(form.doConsumptions, 'DO Consp/day(MT) - At Sea')}
-            {renderInPortTable(form.foConsumptions, 'FO Consp/day(MT)- In Port')}
-            {renderInPortTable(form.doConsumptions, 'DO Consp/day(MT)- In Port')}
-          </div>
-        ) : null}
+            <aside className={styles.estRhs}>
+              <div className={styles.resultsBlock}>
+                <div className={styles.resultsHead}>TC Results</div>
+                <div className={styles.resultsBody}>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Total TC Revenue</span>
+                    <span className={styles.resRowVal}>{tcResults.totalRev}</span>
+                  </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>TC Earnings</span>
+                    <span className={styles.resRowVal}>{tcResults.voyageEarn}</span>
+                  </div>
+                  <div className={`${styles.resRow} ${styles.resRowAccent}`}>
+                    <span className={styles.resRowLabel}>Profit Per Day</span>
+                    <span className={styles.resRowVal}>{tcResults.profitPerDay}</span>
+                  </div>
+                </div>
+              </div>
 
-        {activeTab === 'tcpTerms' ? (
-        <div className={styles.tabPanel}>
-        <div className={styles.section}>
-          <h4 className={styles.sectionTitle}>TC/CP Terms : Sea Passage</h4>
-          <div className={styles.formGrid}>
-            <TextInput label="Wind Force" value={form.windForce} onChange={(v) => setField('windForce', v)} />
-            <TextInput label="Speed Laden (Kts)" value={form.speedLaden} onChange={(v) => setField('speedLaden', v)} />
-            <TextInput label="Speed Ballast (Kts)" value={form.speedBallast} onChange={(v) => setField('speedBallast', v)} />
-            <TextInput label="CP Speed" value={form.cpSpeed} onChange={(v) => setField('cpSpeed', v)} />
-            <TextInput label="FO Cons Laden (MT/Day)" value={form.foConsLaden} onChange={(v) => setField('foConsLaden', v)} />
-            <TextInput label="DO Cons Laden (MT/Day)" value={form.doConsLaden} onChange={(v) => setField('doConsLaden', v)} />
-            <TextInput label="FO Cons Ballast (MT/Day)" value={form.foConsBallast} onChange={(v) => setField('foConsBallast', v)} />
-            <TextInput label="DO Cons Ballast (MT/Day)" value={form.doConsBallast} onChange={(v) => setField('doConsBallast', v)} />
+              <div className={`${styles.formFooter} ${styles.viewModeAllow}`}>
+                <Button variant="danger" label="Cancel" href={listHref} disabled={saving} />
+                {mode === 'edit' ? (
+                  <Button
+                    variant="outline"
+                    label="Calculate"
+                    href={tcPath(`${tcOutId}/calculate`)}
+                    disabled={saving}
+                  />
+                ) : null}
+                {!readOnly ? (
+                  <Button type="submit" label={saving ? 'Saving…' : 'Save'} disabled={saving} />
+                ) : null}
+              </div>
+            </aside>
           </div>
-          <h4 className={styles.sectionTitle}>TC/CP Terms : Port</h4>
-          <div className={styles.formGrid}>
-            <TextInput label="FO Cons Ldg (MT/Day)" value={form.foConsLdg} onChange={(v) => setField('foConsLdg', v)} />
-            <TextInput label="DO Cons Ldg (MT/Day)" value={form.doConsLdg} onChange={(v) => setField('doConsLdg', v)} />
-            <TextInput label="FO Cons Disch (MT/Day)" value={form.foConsDisch} onChange={(v) => setField('foConsDisch', v)} />
-            <TextInput label="DO Cons Disch (MT/Day)" value={form.doConsDisch} onChange={(v) => setField('doConsDisch', v)} />
-            <TextInput label="FO Cons Idle (MT/Day)" value={form.foConsIdle} onChange={(v) => setField('foConsIdle', v)} />
-            <TextInput label="DO Cons Idle (MT/Day)" value={form.doConsIdle} onChange={(v) => setField('doConsIdle', v)} />
-            <TextInput label="Load Rate (MT/Day)" value={form.loadRate} onChange={(v) => setField('loadRate', v)} />
-            <TextInput label="Disch Rate (MT/Day)" value={form.dischRate} onChange={(v) => setField('dischRate', v)} />
-          </div>
-        </div>
-        </div>
-        ) : null}
-        </fieldset>
-
-        <div className={styles.formActions}>
-          {!readOnly ? (
-            <Button type="submit" label={saving ? 'Saving…' : 'Submit'} disabled={saving} />
-          ) : null}
-          {mode === 'edit' ? (
-            <Button
-              variant="outline"
-              label="Calculate"
-              href={tcPath(`${tcOutId}/calculate`)}
-              disabled={saving}
-            />
-          ) : null}
-          <Button variant="outline" label="Back" href={listHref} disabled={saving} />
-        </div>
       </form>
+
+      <TcInExpensesModal
+        open={tcInOpen}
+        value={form.tcInExpenses}
+        detail={form}
+        lookups={lookups}
+        readOnly={readOnly}
+        onClose={() => setTcInOpen(false)}
+        onApply={(next) => {
+          setForm((prev) => ({ ...prev, tcInExpenses: next }));
+          setTcInOpen(false);
+        }}
+      />
     </div>
   );
 }

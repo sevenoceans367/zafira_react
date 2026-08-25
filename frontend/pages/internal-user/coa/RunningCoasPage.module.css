@@ -164,13 +164,15 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  height: 36px;
+  box-sizing: border-box;
   background: #3b82f6;
   color: #fff;
   font-weight: 700;
   font-size: 13px;
   border: none;
   border-radius: 9px;
-  padding: 10px 16px;
+  padding: 0 16px;
   cursor: pointer;
   font-family: inherit;
 }
@@ -601,18 +603,6 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.amSelect {
-  font-size: 12px;
-  font-weight: 600;
-  color: #5b6472;
-  background: #fff;
-  border: 1px solid #dfe2e7;
-  border-radius: 8px;
-  padding: 6px 9px;
-  font-family: inherit;
-  cursor: pointer;
 }
 
 .amShowCtrl {

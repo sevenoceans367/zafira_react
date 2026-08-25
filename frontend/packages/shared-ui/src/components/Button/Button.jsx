@@ -9,6 +9,8 @@ const VARIANT_CLASS = {
   outline: styles.outline,
   'outline-secondary': styles.outline,
   secondary: styles.secondary,
+  /** PHP Update_COA `.btn-outline-sm` back control */
+  back: styles.back,
   primary: styles.primary,
   accent: styles.accent,
   outlineAccent: styles.outlineAccent,
@@ -22,10 +24,33 @@ const VARIANT_CLASS = {
   link: styles.link,
 };
 
+function isBackLabel(label) {
+  return typeof label === 'string' && /^Back\b/i.test(label.trim());
+}
+
+function BackChevronIcon() {
+  return (
+    <svg
+      className={styles.backSvg}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  );
+}
+
 /**
  * Design-system button.
  * When `label` is "+", renders the shared circular AddCircleButton.
  * When `icon` is "download", uses the brand DownloadIcon (gloablDownload.svg).
+ * Labels starting with "Back" (with outline/secondary) use the Update COA
+ * outline-sm style (+ chevron). Pass `variant="back"` to force that look.
  */
 const Button = ({
   href,
@@ -54,11 +79,17 @@ const Button = ({
     );
   }
 
-  const variantClass = VARIANT_CLASS[variant] || VARIANT_CLASS.outline;
+  const useBackStyle = variant === 'back' || (
+    isBackLabel(label)
+    && (variant === 'outline' || variant === 'secondary' || variant === 'outline-secondary')
+  );
+  const resolvedVariant = useBackStyle ? 'back' : variant;
+  const variantClass = VARIANT_CLASS[resolvedVariant] || VARIANT_CLASS.outline;
+  const sizeClass = useBackStyle ? '' : (styles[size] || styles.md);
   const baseClass = [
     styles.button,
     variantClass,
-    styles[size] || styles.md,
+    sizeClass,
     className,
   ]
     .filter(Boolean)
@@ -70,7 +101,9 @@ const Button = ({
   const iconSize = size === 'sm' ? 14 : 16;
 
   let iconNode = null;
-  if (iconSrc) {
+  if (useBackStyle && !icon && !iconSrc) {
+    iconNode = <BackChevronIcon />;
+  } else if (iconSrc) {
     iconNode = (
       <img
         src={iconSrc}

@@ -55,6 +55,35 @@
   font-size: 12px;
 }
 
+.back {
+  background: #fff;
+  border: 1.5px solid #dfe2e7;
+  border-radius: 9px;
+  color: #5b6472;
+  font-weight: 700;
+  font-size: 12.5px;
+  gap: 7px;
+  min-height: auto;
+  padding: 8px 15px;
+}
+
+.back:hover:not(:disabled) {
+  background: #f1f2f4;
+  border-color: #dfe2e7;
+  color: #1b2430;
+}
+
+.back .icon {
+  font-size: 14px;
+}
+
+.backSvg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  flex-shrink: 0;
+}
+
 .outline {
   background: transparent;
   border: 1px solid #376eb8;

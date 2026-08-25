@@ -445,18 +445,19 @@ export default function EstimateListPage() {
           ))}
         </SummaryCardGrid>
 
-        <EstimateListTableToolbar
-          addHref={`/internal-user/sopf/addestimate?estimatetype=${estimateType}&selBType=${businessType}`}
-          onSensitivityAnalysis={handleSensitivityAnalysis}
-          sensitivityDisabled={selectedIds.length === 0}
-          onDownloadCsv={handleDownloadCsv}
-          onDownloadPdf={handleDownloadPdf}
-          onEmailAttachment={handleEmailAttachment}
-        />
-
         <ScrollableTable
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
+          toolbarLeft={(
+            <EstimateListTableToolbar
+              addHref={`/internal-user/sopf/addestimate?estimatetype=${estimateType}&selBType=${businessType}`}
+              onSensitivityAnalysis={handleSensitivityAnalysis}
+              sensitivityDisabled={selectedIds.length === 0}
+              onDownloadCsv={handleDownloadCsv}
+              onDownloadPdf={handleDownloadPdf}
+              onEmailAttachment={handleEmailAttachment}
+            />
+          )}
           footer={(
             <SopfPagination
               page={safePage}

@@ -160,13 +160,15 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  height: 36px;
+  box-sizing: border-box;
   background: #3b82f6;
   color: #fff;
   font-weight: 700;
   font-size: 13px;
   border: none;
   border-radius: 9px;
-  padding: 10px 16px;
+  padding: 0 16px;
   cursor: pointer;
   font-family: inherit;
 }

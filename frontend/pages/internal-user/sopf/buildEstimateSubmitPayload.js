@@ -1,11 +1,30 @@
 import { formatVoyageEstimateLabel, normalizeEstimateNo } from './estimateVoyage.js';
 
+/**
+ * CARGO_RATE persistence: dry single edits `marketRate`; tanker / dry-multiple use
+ * `tankerFreightRate`. Preferring tankerFreightRate always left dry updates stuck on
+ * the stale rate loaded into both fields.
+ */
+function resolveCargoRateFields(form, estimateType) {
+  const type = Number(estimateType ?? form.estimateType);
+  if (type === 3 && String(form.dryMarket || '1') === '2') {
+    return { marketRate: '', tankerFreightRate: '' };
+  }
+  if (type === 3) {
+    const rate = form.marketRate || form.tankerFreightRate || '';
+    return { marketRate: rate, tankerFreightRate: rate };
+  }
+  const rate = form.tankerFreightRate || form.marketRate || '';
+  return { marketRate: rate, tankerFreightRate: rate };
+}
+
 /** Shared Add/Update estimate API payload from computed form state. */
 export function buildEstimateSubmitPayload(form, estimateType, periodId = null) {
   const filterCargo = (rows) => (rows || []).filter((row) => row.cargoId || row.cargoMt);
   const estimateNo = normalizeEstimateNo(form.estimateNo);
   const voyageNo = String(form.voyageNo || '').trim();
   const voyageLabel = formatVoyageEstimateLabel(voyageNo, estimateNo);
+  const cargoRates = resolveCargoRateFields(form, estimateType);
 
   return {
     fixtureTypeId: form.fixtureTypeId != null && String(form.fixtureTypeId).trim() !== ''
@@ -73,8 +92,8 @@ export function buildEstimateSubmitPayload(form, estimateType, periodId = null) 
     lumpsumQty: form.lumpsumQty,
     chkLumpsum: !!form.chkLumpsum,
     lumpsumVendor: form.lumpsumVendor || '',
-    marketRate: form.tankerFreightRate || form.marketRate,
-    tankerFreightRate: form.tankerFreightRate || form.marketRate,
+    marketRate: cargoRates.marketRate,
+    tankerFreightRate: cargoRates.tankerFreightRate,
     tankType: form.tankType || '1',
     addCommPercent: form.addCommPercent,
     addressCommAmt: form.addressCommAmt,

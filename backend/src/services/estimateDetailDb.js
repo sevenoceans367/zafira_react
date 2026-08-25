@@ -2691,7 +2691,7 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     numOrNull(payload.brokerageAmt),
     numOrNull(payload.addCommPercent),
     numOrNull(payload.addressCommAmt),
-    numOrNull(payload.tankerFreightRate || payload.marketRate),
+    numOrNull(payload.marketRate || payload.tankerFreightRate),
     Array.isArray(payload.cargoIds) && payload.cargoIds.length
       ? payload.cargoIds.join(',')
       : (payload.cargoIds || null),

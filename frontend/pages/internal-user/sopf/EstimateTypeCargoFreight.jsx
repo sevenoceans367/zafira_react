@@ -137,11 +137,18 @@ export function DryFreightModeSection({
   const setDryMarket = (next) => {
     const patch = { dryMarket: String(next) };
     if (String(next) === '2') {
+      // LS mode — clear both rate fields so submit does not keep stale CARGO_RATE
       patch.marketRate = '';
+      patch.tankerFreightRate = '';
     } else {
       patch.lumpsum = '';
     }
     applyPatch(patch);
+  };
+
+  const setDryFreightRate = (raw) => {
+    const value = sanitizeFieldDecimal('marketRate', raw);
+    applyPatch({ marketRate: value, tankerFreightRate: value });
   };
 
   return (
@@ -182,11 +189,6 @@ export function DryFreightModeSection({
                 autoComplete="off"
                 onChange={(e) => {
                   const value = sanitizeFieldDecimal('tankerFreightRate', e.target.value);
-                  if (onRecalc) {
-                    onRecalc('tankerFreightRate', value);
-                    onRecalc('marketRate', value);
-                    return;
-                  }
                   applyPatch({ tankerFreightRate: value, marketRate: value });
                 }}
               />
@@ -270,11 +272,34 @@ export function DryFreightModeSection({
           <div className={styles.headerGrid}>
             {isFreightRate ? (
               <Field id="marketRateDry" label="Freight ($/MT)">
-                <input {...inputProps('marketRate', { recalc: true })} id="marketRateDry" placeholder="0.00" />
+                <input
+                  id="marketRateDry"
+                  value={form.marketRate || ''}
+                  readOnly={readOnly}
+                  placeholder="0.00"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  onChange={(e) => setDryFreightRate(e.target.value)}
+                />
               </Field>
             ) : (
               <Field id="lumpsumDry" label="LS ($)">
-                <input {...inputProps('lumpsum', { recalc: true })} id="lumpsumDry" placeholder="0.00" />
+                <input
+                  id="lumpsumDry"
+                  value={form.lumpsum || ''}
+                  readOnly={readOnly}
+                  placeholder="0.00"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  onChange={(e) => {
+                    const value = sanitizeFieldDecimal('lumpsum', e.target.value);
+                    if (onRecalc) {
+                      onRecalc('lumpsum', value);
+                      return;
+                    }
+                    applyPatch({ lumpsum: value });
+                  }}
+                />
               </Field>
             )}
             <Field id="cargoQuantityDry" label="QTY (MT)">

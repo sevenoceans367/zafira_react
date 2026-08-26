@@ -9,8 +9,8 @@ import styles from './OpsPages.module.css';
 
 const BACK_BY_PAGE = {
   1: '/internal-user/vc/ops-tc/in-ops-glance',
-  2: '/internal-user/vc/ops-tc/post-ops',
-  3: '/internal-user/vc/ops-tc/history',
+  2: '/internal-user/vc/ops-tc/in-ops-glance?tab=post-ops',
+  3: '/internal-user/vc/ops-tc/in-ops-glance?tab=history',
 };
 
 /** Map cost-sheet GET payload into TcCalculatePage / initFromDetail shape. */

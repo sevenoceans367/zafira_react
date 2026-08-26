@@ -149,12 +149,11 @@ export default function OpsVcHistoryPage() {
               <th>CP Date</th>
               <th>Vessel</th>
               <th>Operator</th>
-              <th className={styles.iconTh}>Voy Docs</th>
               <th>Cargo</th>
+              <th>Worksheet</th>
               <th>LP / DP</th>
               <th>CHRT DESK</th>
               <th>Charterer</th>
-              <th>Worksheet</th>
               <th>Port Letters</th>
               <th>Disbursements</th>
               <th>Port Activity</th>
@@ -167,7 +166,7 @@ export default function OpsVcHistoryPage() {
           <tbody>
             {!rows.length && !loading ? (
               <tr>
-                <td colSpan={18} className={styles.emptyCell}>
+                <td colSpan={17} className={styles.emptyCell}>
                   SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                 </td>
               </tr>
@@ -196,6 +195,13 @@ export default function OpsVcHistoryPage() {
                     <div className={styles.opsCell}>
                       <span className={styles.primary}>{row.vesselName || '—'}</span>
                       <span className={styles.sub}>{row.vesselType || '—'}</span>
+                      <VoyDocsCell
+                        className={styles.vesselDocs}
+                        fcaId={row.fcaId}
+                        rttype={4}
+                        voyageReportHref={voyageReportHref}
+                        documentsHref={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                      />
                     </div>
                   </td>
                   <td>
@@ -208,15 +214,14 @@ export default function OpsVcHistoryPage() {
                     </div>
                   </td>
                   <td>
-                    <VoyDocsCell
-                      fcaId={row.fcaId}
-                      rttype={4}
-                      voyageReportHref={voyageReportHref}
-                      documentsHref={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                    />
+                    <span className={styles.trunc} title={row.materialName || ''}>{row.materialName || '—'}</span>
                   </td>
                   <td>
-                    <span className={styles.trunc} title={row.materialName || ''}>{row.materialName || '—'}</span>
+                    <OpsVcWorksheetStack
+                      sheets={sheets}
+                      sheetHref={(sheet) => costSheetPath(row, sheet)}
+                      onLayoutChange={(nextSheets) => handleWorksheetLayoutChange(row, nextSheets)}
+                    />
                   </td>
                   <td>
                     {portLines(row.ports).length ? (
@@ -232,13 +237,6 @@ export default function OpsVcHistoryPage() {
                   </td>
                   <td>
                     <span className={styles.trunc} title={row.charterer || ''}>{row.charterer || '—'}</span>
-                  </td>
-                  <td>
-                    <OpsVcWorksheetStack
-                      sheets={sheets}
-                      sheetHref={(sheet) => costSheetPath(row, sheet)}
-                      onLayoutChange={(nextSheets) => handleWorksheetLayoutChange(row, nextSheets)}
-                    />
                   </td>
                   <td>
                     <div className={styles.chipStack}>

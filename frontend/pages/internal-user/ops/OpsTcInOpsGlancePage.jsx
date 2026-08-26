@@ -15,9 +15,12 @@ import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
   createOpsTcCostSheet,
   deactivateOpsTcEntry,
+  fetchHistoryAtGlanceTc,
   fetchInOpsAtGlanceTc,
   fetchOpsTcOperators,
   fetchOpsTcYears,
+  fetchPostOpsAtGlanceTc,
+  moveOpsTcToHistory,
   moveOpsTcToPostOps,
   updateOpsTcOperator,
 } from '../../../services/opsTc.js';
@@ -31,26 +34,103 @@ import {
   CompareIcon,
   DEFAULT_PAGE_SIZE,
   DocFileIcon,
-  OpsVcGlanceHeader,
   OpsVcGlanceTable,
   formatLastUpdated,
 } from './OpsVcGlanceUi.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcInOpsGlancePage.module.css';
 
+const STATUS_TABS = [
+  { id: 'ops', label: 'Ops' },
+  { id: 'post-ops', label: 'Post Ops' },
+  { id: 'history', label: 'History' },
+];
+
 const FLASH = {
-  0: { type: 'success', text: 'In Ops at a glance added/updated successfully.' },
+  0: { type: 'success', text: 'TC Ops updated successfully.' },
   6: { type: 'success', text: 'Nomination sent to "Post Ops".' },
-  3: { type: 'success', text: 'Status changed successfully.' },
+  3: { type: 'success', text: 'Nomination sent to "History".' },
+  2: { type: 'success', text: 'Status changed successfully.' },
   4: { type: 'success', text: 'New sheet added successfully.' },
 };
 
-const CARDS = [
-  { key: 'fixtures', title: 'Fixtures in TC Ops', variant: 'fin', icon: 'trades' },
-  { key: 'vessels', title: 'Vessels in TC Ops', variant: 'count', icon: 'vessels' },
-  { key: 'financials', title: 'TC Financials', variant: 'fin', icon: 'worksheets' },
-  { key: 'alerts', title: 'Alerts', variant: 'count', icon: 'alerts' },
-];
+const WIDGET_ICONS = {
+  fixtures: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 12h4l2 7 4-14 2 7h6" />
+    </svg>
+  ),
+  vessels: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="5" r="2" />
+      <path d="M12 7v13" />
+      <path d="M8 10h8" />
+      <path d="M5 14a7 7 0 0 0 14 0" />
+    </svg>
+  ),
+  financials: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M6 3h9l5 5v13H6z" />
+      <path d="M15 3v5h5" />
+    </svg>
+  ),
+  alerts: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 9v4" />
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <path d="M12 17h.01" />
+    </svg>
+  ),
+};
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+function parseTab(value) {
+  if (value === 'post-ops' || value === 'postops' || value === '2') return 'post-ops';
+  if (value === 'history' || value === '3') return 'history';
+  return 'ops';
+}
+
+function pageContextForTab(tab) {
+  if (tab === 'post-ops') return 2;
+  if (tab === 'history') return 3;
+  return 1;
+}
+
+function TabIcon({ id }) {
+  if (id === 'post-ops') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5 12h13" />
+        <path d="M13 6l6 6-6 6" />
+        <path d="M3 6v12" />
+      </svg>
+    );
+  }
+  if (id === 'history') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 12a9 9 0 1 0 3-6.7" />
+        <path d="M3 4v5h5" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
 
 function currentUserOperator(operators = []) {
   const user = getUser();
@@ -77,9 +157,86 @@ function resolveOperator(row, operators = []) {
 
 function tcGlanceStats(rows, total) {
   const uniqueVessels = new Set(rows.map((row) => row.vesselName).filter(Boolean)).size;
-  const financials = rows.reduce((sum, row) => sum + (row.costSheets?.length || 0), 0);
-  return { fixtures: total, vessels: uniqueVessels, financials, alerts: 0 };
+  const financials = rows.filter((row) => (row.costSheets || []).length > 0).length;
+  const alerts = rows.filter((row) => row.alertLabel).length;
+  return { fixtures: total, vessels: uniqueVessels, financials, alerts };
 }
+
+function fixtureHref(row) {
+  if (!row?.tcOutId) return null;
+  return appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/calculate?mode=view&from=ops-tc`);
+}
+
+function buildWidgetItems(kind, rows) {
+  if (kind === 'fixtures') {
+    return rows.map((row) => ({
+      key: row.comId,
+      id: row.message || row.tcNo || '—',
+      detail: [row.vesselName, row.charterer].filter(Boolean).join(' · ') || '—',
+      due: row.cpDate ? `CP ${row.cpDate}` : '—',
+      href: fixtureHref(row),
+    }));
+  }
+  if (kind === 'vessels') {
+    return rows.map((row) => ({
+      key: row.comId,
+      id: row.message || row.tcNo || '—',
+      detail: [row.vesselName, row.vesselType].filter(Boolean).join(' · ') || '—',
+      due: row.delPort ? `Del ${row.delPort}` : '—',
+      href: fixtureHref(row),
+    }));
+  }
+  if (kind === 'financials') {
+    return rows
+      .filter((row) => (row.costSheets || []).length > 0)
+      .map((row) => {
+        const sheetNames = (row.costSheets || []).map((sheet) => sheet.name).filter(Boolean).join(', ');
+        return {
+          key: row.comId,
+          id: row.message || row.tcNo || '—',
+          detail: [row.vesselName, sheetNames].filter(Boolean).join(' · ') || '—',
+          due: 'TC Financials',
+          href: fixtureHref(row),
+        };
+      });
+  }
+  return rows
+    .filter((row) => row.alertLabel)
+    .map((row) => ({
+      key: row.comId,
+      id: row.message || row.tcNo || '—',
+      detail: [row.vesselName, row.alertLabel].filter(Boolean).join(' · ') || '—',
+      due: row.cpDate ? `Since ${row.cpDate}` : '—',
+      href: fixtureHref(row),
+    }));
+}
+
+const WIDGETS = [
+  {
+    key: 'fixtures',
+    title: 'Fixtures in TC Ops',
+    subtitle: (count) => `${count} TC fixture${count === 1 ? '' : 's'} currently active`,
+    variant: 'finTeal',
+  },
+  {
+    key: 'vessels',
+    title: 'Vessels in TC Ops',
+    subtitle: (count) => `${count} vessel${count === 1 ? '' : 's'} on active TC fixtures`,
+    variant: 'cnt',
+  },
+  {
+    key: 'financials',
+    title: 'TC Financials',
+    subtitle: (count) => `${count} fixture${count === 1 ? '' : 's'} with a TC financials sheet raised`,
+    variant: 'finTeal',
+  },
+  {
+    key: 'alerts',
+    title: 'Alerts',
+    subtitle: (count) => `${count} fixture${count === 1 ? '' : 's'} with an open alert`,
+    variant: 'cnt',
+  },
+];
 
 function delReDelLines(row) {
   const del = row.delPort || '';
@@ -101,6 +258,7 @@ export default function OpsTcInOpsGlancePage() {
   const confirm = useConfirm();
   const alert = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [statusTab, setStatusTab] = useState(() => parseTab(searchParams.get('tab')));
   const [businessTypes, setBusinessTypes] = useState([]);
   const [years, setYears] = useState([]);
   const [operators, setOperators] = useState([]);
@@ -117,10 +275,20 @@ export default function OpsTcInOpsGlancePage() {
   const [error, setError] = useState('');
   const [sheetModal, setSheetModal] = useState({ open: false, comId: '', sheetName: '' });
   const [compareModal, setCompareModal] = useState({ open: false, comId: '' });
+  const [widgetModal, setWidgetModal] = useState(null);
   const [savingSheet, setSavingSheet] = useState(false);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flash = FLASH[Number(searchParams.get('msg'))];
   const stats = useMemo(() => tcGlanceStats(rows, total), [rows, total]);
+  const pageContext = pageContextForTab(statusTab);
+  const isHistory = statusTab === 'history';
+  const isPostOps = statusTab === 'post-ops';
+  const lastColumnLabel = isHistory ? 'Status' : (isPostOps ? 'History' : 'Next');
+  const activeWidget = WIDGETS.find((widget) => widget.key === widgetModal) || null;
+  const widgetItems = useMemo(
+    () => (widgetModal ? buildWidgetItems(widgetModal, rows) : []),
+    [widgetModal, rows],
+  );
 
   const updateQuery = (patch) => {
     const next = new URLSearchParams(searchParams);
@@ -131,15 +299,24 @@ export default function OpsTcInOpsGlancePage() {
     setSearchParams(next, { replace: true });
   };
 
+  useEffect(() => {
+    setStatusTab(parseTab(searchParams.get('tab')));
+  }, [searchParams]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
+      const fetchRows = statusTab === 'post-ops'
+        ? fetchPostOpsAtGlanceTc
+        : statusTab === 'history'
+          ? fetchHistoryAtGlanceTc
+          : fetchInOpsAtGlanceTc;
       const [types, yearOptions, operatorOptions, data] = await Promise.all([
         fetchVcBusinessTypes(businessType),
         fetchOpsTcYears(),
         fetchOpsTcOperators(),
-        fetchInOpsAtGlanceTc({
+        fetchRows({
           selBType: businessType,
           selYear: year,
           search: debouncedSearch,
@@ -153,17 +330,17 @@ export default function OpsTcInOpsGlancePage() {
       setRows(data.records || []);
       setTotal(data.recordsTotal || 0);
       const loggedInIsMgmt = getUser()?.userType === 'mgmt_user';
-      setCanEditOperator(loggedInIsMgmt || Boolean(data.canEditOperator));
+      setCanEditOperator(!isHistory && (loggedInIsMgmt || Boolean(data.canEditOperator)));
       setCanCompareSheets(Boolean(data.canCompareSheets));
     } catch (err) {
       setError(err.message || 'Failed to load TC Ops.');
     } finally {
       setLoading(false);
     }
-  }, [businessType, debouncedSearch, page, pageSize, year]);
+  }, [businessType, debouncedSearch, isHistory, page, pageSize, statusTab, year]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year, pageSize]);
+  useEffect(() => { setPage(1); }, [businessType, debouncedSearch, statusTab, year, pageSize]);
 
   const handleOperatorChange = async (row, operatorId) => {
     try {
@@ -191,7 +368,7 @@ export default function OpsTcInOpsGlancePage() {
     if (!ok) return;
     try {
       await deactivateOpsTcEntry(row.comId);
-      updateQuery({ msg: 3 });
+      updateQuery({ msg: 2 });
       load();
     } catch (err) {
       setError(err.message || 'Failed to deactivate nomination.');
@@ -211,6 +388,22 @@ export default function OpsTcInOpsGlancePage() {
       load();
     } catch (err) {
       setError(err.message || 'Failed to move nomination to Post Ops.');
+    }
+  };
+
+  const handleHistory = async (row) => {
+    const ok = await confirm({
+      title: 'Push to History',
+      message: `Are you sure to send Nom ID ${row.message} to history?`,
+      confirmLabel: 'History',
+    });
+    if (!ok) return;
+    try {
+      await moveOpsTcToHistory(row.comId);
+      updateQuery({ msg: 3 });
+      load();
+    } catch (err) {
+      setError(err.message || 'Failed to move nomination to History.');
     }
   };
 
@@ -251,8 +444,14 @@ export default function OpsTcInOpsGlancePage() {
   };
 
   const costSheetPath = (row, sheet) => (
-    appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=1`)
+    appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${pageContext}`)
   );
+
+  const selectTab = (tabId) => {
+    setStatusTab(tabId);
+    setPage(1);
+    updateQuery({ tab: tabId === 'ops' ? '' : tabId, msg: '' });
+  };
 
   return (
     <>
@@ -281,9 +480,51 @@ export default function OpsTcInOpsGlancePage() {
         {flash ? <div className={pageStyles.flashSuccess}>{flash.text}</div> : null}
         {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-        <OpsVcGlanceHeader stats={stats} cards={CARDS} />
+        <div className={styles.widgetRow}>
+          {WIDGETS.map((widget) => {
+            const count = stats[widget.key] ?? 0;
+            const variantClass = widget.variant === 'finTeal'
+              ? styles.taskWidgetFinTeal
+              : styles.taskWidgetCnt;
+            return (
+              <button
+                key={widget.key}
+                type="button"
+                className={`${styles.taskWidget} ${variantClass}`}
+                onClick={() => setWidgetModal(widget.key)}
+              >
+                <span className={styles.twIcon}>{WIDGET_ICONS[widget.key]}</span>
+                <span className={styles.twBody}>
+                  <span className={styles.twCount}>{count}</span>
+                  <span className={styles.twLabel}>{widget.title}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className={styles.statusTabs} role="tablist" aria-label="TC Ops status">
+          {STATUS_TABS.map((tab) => {
+            const active = statusTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`${styles.statusTab} ${active ? styles.statusTabActive : ''}`}
+                onClick={() => selectTab(tab.id)}
+              >
+                <TabIcon id={tab.id} />
+                {active ? <span className={styles.tabDot} aria-hidden="true" /> : null}
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
         <OpsVcGlanceTable
+          flushTop
           page={page}
           pageSize={pageSize}
           total={total}
@@ -308,7 +549,7 @@ export default function OpsTcInOpsGlancePage() {
               <th>Agency Letters</th>
               <th>Checklist</th>
               <th>Alerts</th>
-              <th>Next</th>
+              <th>{lastColumnLabel}</th>
             </tr>
           </thead>
           <tbody>
@@ -386,11 +627,25 @@ export default function OpsTcInOpsGlancePage() {
                     <span className={styles.trunc} title={row.charterer || ''}>{row.charterer || '—'}</span>
                   </td>
                   <td>
-                    <OpsVcWorksheetStack
-                      sheets={sheets}
-                      sheetHref={(sheet) => costSheetPath(row, sheet)}
-                      onAdd={() => handleAddSheetClick(row)}
-                    />
+                    {isHistory ? (
+                      sheets.length ? (
+                        <div className={styles.chipStack}>
+                          {sheets.map((sheet) => (
+                            <ChipLink key={sheet.id} to={costSheetPath(row, sheet)}>
+                              {sheet.name}
+                            </ChipLink>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className={styles.muted}>No financials yet</span>
+                      )
+                    ) : (
+                      <OpsVcWorksheetStack
+                        sheets={sheets}
+                        sheetHref={(sheet) => costSheetPath(row, sheet)}
+                        onAdd={() => handleAddSheetClick(row)}
+                      />
+                    )}
                   </td>
                   <td>
                     <div className={styles.docCenter}>
@@ -408,7 +663,7 @@ export default function OpsTcInOpsGlancePage() {
                   <td>
                     <div className={styles.chipStack}>
                       <ChipLink
-                        to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                        to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
                       >
                         Invoices
                       </ChipLink>
@@ -422,7 +677,7 @@ export default function OpsTcInOpsGlancePage() {
                       <div className={styles.docGroup}>
                         <Link
                           className={styles.docBtn}
-                          to={appPath(`/internal-user/vc/ops-tc/fixture-note?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                          to={appPath(`/internal-user/vc/ops-tc/fixture-note?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
                           title="View Fixture Note"
                         >
                           <DocFileIcon />
@@ -433,7 +688,7 @@ export default function OpsTcInOpsGlancePage() {
                   <td>
                     <div className={styles.chipStack}>
                       <ChipLink
-                        to={appPath(`/internal-user/vc/ops-tc/agency-letter?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                        to={appPath(`/internal-user/vc/ops-tc/agency-letter?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
                       >
                         Generate Agency Letter
                       </ChipLink>
@@ -442,7 +697,7 @@ export default function OpsTcInOpsGlancePage() {
                   <td>
                     <div className={styles.chipStack}>
                       <ChipLink
-                        to={appPath(`/internal-user/vc/ops-tc/checklist?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                        to={appPath(`/internal-user/vc/ops-tc/checklist?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
                       >
                         Ops Checklist
                       </ChipLink>
@@ -451,7 +706,7 @@ export default function OpsTcInOpsGlancePage() {
                   <td>
                     <div className={styles.alertStack}>
                       <span className={styles.muted}>—</span>
-                      {row.canDeactivate ? (
+                      {!isHistory && row.canDeactivate ? (
                         <button
                           type="button"
                           className={styles.deactivateBtn}
@@ -464,12 +719,32 @@ export default function OpsTcInOpsGlancePage() {
                     </div>
                   </td>
                   <td>
-                    {row.canMoveToPostOps ? (
-                      <button type="button" className={styles.pillAction} onClick={() => handlePostOps(row)}>
-                        Post Ops
-                        <ArrowIcon />
-                      </button>
-                    ) : null}
+                    {isHistory ? (
+                      <span className={styles.statusChip}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                        {row.statusLabel || 'History'}
+                      </span>
+                    ) : isPostOps ? (
+                      row.canMoveToHistory ? (
+                        <button
+                          type="button"
+                          className={`${styles.pillAction} ${styles.pillActionNavy}`}
+                          onClick={() => handleHistory(row)}
+                        >
+                          History
+                          <ArrowIcon />
+                        </button>
+                      ) : null
+                    ) : (
+                      row.canMoveToPostOps ? (
+                        <button type="button" className={styles.pillAction} onClick={() => handlePostOps(row)}>
+                          Post Ops
+                          <ArrowIcon />
+                        </button>
+                      ) : null
+                    )}
                   </td>
                 </tr>
               );
@@ -510,6 +785,77 @@ export default function OpsTcInOpsGlancePage() {
                   onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
                   disabled={savingSheet}
                 />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {activeWidget ? (
+          <div
+            className={styles.widgetOverlay}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tc-ops-widget-title"
+            onClick={() => setWidgetModal(null)}
+          >
+            <div
+              className={styles.widgetModal}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className={styles.widgetModalHead}>
+                <div className={styles.widgetModalTitleWrap}>
+                  <div
+                    className={`${styles.widgetModalIco} ${
+                      activeWidget.variant === 'finTeal' ? styles.widgetModalIcoTeal : ''
+                    }`}
+                  >
+                    {WIDGET_ICONS[activeWidget.key]}
+                  </div>
+                  <div>
+                    <div id="tc-ops-widget-title" className={styles.widgetModalTitle}>
+                      {activeWidget.title}
+                    </div>
+                    <div className={styles.widgetModalSubtitle}>
+                      {activeWidget.subtitle(widgetItems.length)}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={styles.widgetClose}
+                  onClick={() => setWidgetModal(null)}
+                  aria-label="Close"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+              <div className={styles.widgetModalBody}>
+                {widgetItems.length ? (
+                  <div className={styles.widgetList}>
+                    {widgetItems.map((item) => (
+                      item.href ? (
+                        <Link
+                          key={item.key}
+                          className={styles.widgetListItem}
+                          to={item.href}
+                          onClick={() => setWidgetModal(null)}
+                        >
+                          <span className={styles.wliId}>{item.id}</span>
+                          <span className={styles.wliDetail}>{item.detail}</span>
+                          <span className={styles.wliDue}>{item.due}</span>
+                        </Link>
+                      ) : (
+                        <div key={item.key} className={styles.widgetListItem}>
+                          <span className={styles.wliId}>{item.id}</span>
+                          <span className={styles.wliDetail}>{item.detail}</span>
+                          <span className={styles.wliDue}>{item.due}</span>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.widgetEmpty}>No matching fixtures on this page.</div>
+                )}
               </div>
             </div>
           </div>

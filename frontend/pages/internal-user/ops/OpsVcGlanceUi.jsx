@@ -177,6 +177,7 @@ export function OpsVcGlanceHeader({
 export function OpsVcGlanceTable({
   children,
   compact = false,
+  flushTop = false,
   page,
   pageSize,
   total,
@@ -186,6 +187,7 @@ export function OpsVcGlanceTable({
 }) {
   return (
     <ScrollableTable
+      flushTop={flushTop}
       pageSize={pageSize}
       onPageSizeChange={onPageSizeChange}
       pageSizeOptions={PAGE_SIZE_OPTIONS}
@@ -206,9 +208,10 @@ export function VoyDocsCell({
   rttype,
   documentsHref,
   voyageReportHref,
+  className = '',
 }) {
   return (
-    <div className={styles.docCenter}>
+    <div className={[styles.docCenter, className].filter(Boolean).join(' ')}>
       <div className={styles.docGroup}>
         <Link
           className={styles.docBtn}

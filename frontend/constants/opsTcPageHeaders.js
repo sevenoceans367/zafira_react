@@ -5,10 +5,10 @@ const SOC = { label: 'SOC', href: appPath('/internal-user/vc') };
 const OPS_TC = { label: 'TC Ops', href: appPath('/internal-user/vc/ops-tc/in-ops-glance') };
 
 const PAGES = {
-  'finalised-fixtures': 'Finalised Voyage Fixtures TC',
+  'finalised-fixtures': 'TC Ops',
   'in-ops-glance': 'TC Ops',
-  'post-ops': 'Vessels in Post Ops TC',
-  history: 'Vessels in History TC',
+  'post-ops': 'TC Ops',
+  history: 'TC Ops',
   'year-updation': 'Year Updation-TC',
   checklist: 'Ops Checklist',
   'fixture-note': 'Fixture Note',
@@ -40,7 +40,6 @@ export function resolveOpsTcHeader(pathname) {
         HOME,
         SOC,
         OPS_TC,
-        { label: 'TC Ops', href: appPath('/internal-user/vc/ops-tc/in-ops-glance') },
         { label },
       ],
     };
@@ -50,7 +49,7 @@ export function resolveOpsTcHeader(pathname) {
     return {
       title: label,
       currentPage: label,
-      breadcrumbs: [HOME, SOC, OPS_TC, { label }],
+      breadcrumbs: [HOME, SOC, { label }],
     };
   }
 

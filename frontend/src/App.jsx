@@ -47,8 +47,6 @@ import OpsTcCostSheetPage from '../pages/internal-user/ops/OpsTcCostSheetPage.js
 import OpsTcAgencyLetterPage from '../pages/internal-user/ops/OpsTcAgencyLetterPage.jsx';
 import OpsTcDocumentsPage from '../pages/internal-user/ops/OpsTcDocumentsPage.jsx';
 import OpsTcPaymentGridPage from '../pages/internal-user/ops/OpsTcPaymentGridPage.jsx';
-import OpsTcPostOpsPage from '../pages/internal-user/ops/OpsTcPostOpsPage.jsx';
-import OpsTcHistoryPage from '../pages/internal-user/ops/OpsTcHistoryPage.jsx';
 import OpsTcYearUpdationPage from '../pages/internal-user/ops/OpsTcYearUpdationPage.jsx';
 import CombinedSoaPayablePage from '../pages/internal-user/combined-soa-payable/CombinedSoaPayablePage.jsx';
 import CombinedSoaPayableTcPage from '../pages/internal-user/combined-soa-payable/CombinedSoaPayableTcPage.jsx';
@@ -176,11 +174,11 @@ export default function App() {
             />
             <Route
               path="/internal-user/vc/ops-tc/post-ops"
-              element={<OpsTcPostOpsPage />}
+              element={<Navigate to="/internal-user/vc/ops-tc/in-ops-glance?tab=post-ops" replace />}
             />
             <Route
               path="/internal-user/vc/ops-tc/history"
-              element={<OpsTcHistoryPage />}
+              element={<Navigate to="/internal-user/vc/ops-tc/in-ops-glance?tab=history" replace />}
             />
             <Route
               path="/internal-user/vc/ops-tc/year-updation"

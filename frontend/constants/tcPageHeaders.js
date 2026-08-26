@@ -47,9 +47,9 @@ export function resolveTcHeader(pathname) {
 
   if (path.endsWith('/add')) {
     return {
-      title: 'Add TC Recap',
-      currentPage: 'Add TC Recap',
-      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Add TC Recap' }],
+      title: 'Add Time Charter Recap',
+      currentPage: 'Add Time Charter Recap',
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Add Time Charter Recap' }],
     };
   }
 
@@ -63,9 +63,9 @@ export function resolveTcHeader(pathname) {
 
   if (/\/[^/]+\/edit$/.test(path)) {
     return {
-      title: 'Edit TC Recap',
-      currentPage: 'Edit TC Recap',
-      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Edit TC Recap' }],
+      title: 'Edit Time Charter Recap',
+      currentPage: 'Edit Time Charter Recap',
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'Edit Time Charter Recap' }],
     };
   }
 
@@ -79,9 +79,9 @@ export function resolveTcHeader(pathname) {
 
   if (/\/[^/]+\/view$/.test(path)) {
     return {
-      title: 'View TC Recap',
-      currentPage: 'View TC Recap',
-      breadcrumbs: [HOME, crumb, listCrumb, { label: 'View TC Recap' }],
+      title: 'View Time Charter Recap',
+      currentPage: 'View Time Charter Recap',
+      breadcrumbs: [HOME, crumb, listCrumb, { label: 'View Time Charter Recap' }],
     };
   }
 

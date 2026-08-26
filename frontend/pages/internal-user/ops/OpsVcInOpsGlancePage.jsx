@@ -300,13 +300,12 @@ export default function OpsVcInOpsGlancePage() {
                   <th>Vessel</th>
                   <th>CP Date</th>
                   <th>Operator</th>
-                  <th className={styles.iconTh}>Voy Docs</th>
                   <th>Cargo</th>
+                  <th>Worksheet</th>
+                  <th className={styles.iconTh} title="Compare Working Sheets"><CompareIcon /></th>
                   <th>LP / DP</th>
                   <th>CHRT DESK</th>
                   <th>Charterer</th>
-                  <th>Worksheet</th>
-                  <th className={styles.iconTh} title="Compare Working Sheets"><CompareIcon /></th>
                   <th>Port Letters</th>
                   <th>Disbursements</th>
                   <th>Port Activity</th>
@@ -319,7 +318,7 @@ export default function OpsVcInOpsGlancePage() {
               <tbody>
                 {!rows.length && !loading ? (
                   <tr>
-                    <td colSpan={19} className={styles.emptyCell}>
+                    <td colSpan={18} className={styles.emptyCell}>
                       SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                     </td>
                   </tr>
@@ -344,6 +343,13 @@ export default function OpsVcInOpsGlancePage() {
                         <div className={styles.opsCell}>
                           <span className={styles.primary}>{row.vesselName || '—'}</span>
                           <span className={styles.sub}>{row.vesselType || '—'}</span>
+                          <VoyDocsCell
+                            className={styles.vesselDocs}
+                            fcaId={row.fcaId}
+                            rttype={1}
+                            voyageReportHref={voyageReportHref}
+                            documentsHref={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                          />
                         </div>
                       </td>
                       <td>
@@ -371,30 +377,7 @@ export default function OpsVcInOpsGlancePage() {
                         </div>
                       </td>
                       <td>
-                    <VoyDocsCell
-                      fcaId={row.fcaId}
-                      rttype={1}
-                      voyageReportHref={voyageReportHref}
-                      documentsHref={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                    />
-                      </td>
-                      <td>
                         <span className={styles.trunc} title={row.materialName || ''}>{row.materialName || '—'}</span>
-                      </td>
-                      <td>
-                        {portLines(row.ports).length ? (
-                          <div className={styles.route} title={row.ports || ''}>
-                            {portLines(row.ports).map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}
-                          </div>
-                        ) : (
-                          <span className={styles.muted}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={styles.trunc} title={row.charteringTeam || ''}>{row.charteringTeam || '—'}</span>
-                      </td>
-                      <td>
-                        <span className={styles.trunc} title={row.charterer || ''}>{row.charterer || '—'}</span>
                       </td>
                       <td>
                         <OpsVcWorksheetStack
@@ -416,6 +399,21 @@ export default function OpsVcInOpsGlancePage() {
                             <CompareIcon />
                           </button>
                         </div>
+                      </td>
+                      <td>
+                        {portLines(row.ports).length ? (
+                          <div className={styles.route} title={row.ports || ''}>
+                            {portLines(row.ports).map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}
+                          </div>
+                        ) : (
+                          <span className={styles.muted}>—</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={styles.trunc} title={row.charteringTeam || ''}>{row.charteringTeam || '—'}</span>
+                      </td>
+                      <td>
+                        <span className={styles.trunc} title={row.charterer || ''}>{row.charterer || '—'}</span>
                       </td>
                       <td>
                         <div className={styles.chipStack}>

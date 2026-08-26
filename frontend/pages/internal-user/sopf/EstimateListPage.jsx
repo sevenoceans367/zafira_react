@@ -530,7 +530,7 @@ export default function EstimateListPage() {
                 <tr>
                   <th>#</th>
                   <th>Vessel</th>
-                  <th>Voyage</th>
+                  <th>Voyage no.</th>
                   <th>CP Date</th>
                   <th>DWT</th>
                   <th>LP - DP</th>

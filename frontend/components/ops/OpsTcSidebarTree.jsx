@@ -6,9 +6,9 @@ import spotIcon from '../../assets/010-pie-chart.png';
 
 export const OPS_TC_ITEMS = [
   { id: 'in-ops-glance', label: 'TC Ops' },
-  { id: 'post-ops', label: 'Vessels in Post Ops TC' },
-  { id: 'history', label: 'Vessels in History TC' },
   { id: 'year-updation', label: 'Year Updation-TC' },
+  { id: 'post-ops', label: 'Vessels in Post Ops TC', hidden: true },
+  { id: 'history', label: 'Vessels in History TC', hidden: true },
   { id: 'finalised-fixtures', label: 'Finalised Voyage Fixtures TC', hidden: true },
 ];
 

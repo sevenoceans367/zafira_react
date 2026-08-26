@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, CardSelect, DmyDateInput } from '@bainbridge/shared-ui';
+import { CardSelect, DmyDateInput } from '@bainbridge/shared-ui';
 import { daysBetween } from '../../../services/tcEstimates.js';
 import styles from './TcPages.module.css';
 
@@ -188,333 +188,554 @@ export default function TcInExpensesModal({
   };
 
   return (
-    <div className={styles.modalBackdrop} role="dialog" aria-modal="true">
+    <div className={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="tc-hire-details-title">
       <div className={`${styles.modal} ${styles.tcInModal}`}>
-        <div className={styles.modalHeader}>
-          <h3>{readOnly ? 'View TC Hire Details' : 'TC Hire Details'}</h3>
-          <Button variant="close" label="Close" onClick={onClose} />
+        <div className={styles.thdHead}>
+          <div className={styles.thdTitleWrap}>
+            <div className={styles.thdTitleIco} aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 8h13" />
+                <path d="M12 4l4 4-4 4" />
+                <path d="M21 16H8" />
+                <path d="M12 20l-4-4 4-4" />
+              </svg>
+            </div>
+            <div>
+              <div id="tc-hire-details-title" className={styles.thdTitle}>
+                {readOnly ? 'View TC Hire Details' : 'TC Hire Details'}
+              </div>
+              <div className={styles.thdSubtitle}>Sub-charter hire terms for the linked TC In leg — 4 steps</div>
+            </div>
+          </div>
+          <button type="button" className={styles.thdClose} title="Close" onClick={onClose} aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
 
-        <div className={readOnly ? styles.viewModeLock : undefined}>
-        <div className={styles.formGrid}>
-          <div className={styles.field}>
-            <label>Vessel</label>
-            <input className={styles.inputReadonly} readOnly value={detail?.vesselName || ''} />
+        <div className={`${styles.thdBody} ${readOnly ? styles.viewModeLock : ''}`.trim()}>
+          <div className={`${styles.thdSection} ${styles.thdSectionFirst}`}>
+            <div className={styles.thdStepHead}>
+              <span className={styles.thdStepIcon} aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="5" r="2.4" />
+                  <path d="M12 7.4V21" />
+                  <path d="M5 13a7 7 0 0 0 14 0" />
+                  <path d="M3.5 13h3M17.5 13h3" />
+                </svg>
+              </span>
+              <div>
+                <div className={styles.thdStepTitle}>Vessel &amp; Contract</div>
+                <div className={styles.thdStepSub}>Which vessel and contract this sub-charter belongs to</div>
+              </div>
+            </div>
+            <div className={styles.denseGrid}>
+              <div className={styles.field}>
+                <label>Vessel</label>
+                <input className={styles.inputReadonly} readOnly value={detail?.vesselName || 'Same as Recap Identifiers'} />
+              </div>
+              <div className={styles.field}>
+                <label>CP Date</label>
+                <DmyDateInput value={draft.cpDate || ''} onChange={(v) => patch({ cpDate: v })} disabled={readOnly} />
+              </div>
+              <div className={styles.field}>
+                <label>Contract Ref.</label>
+                <input
+                  value={draft.contractRef || ''}
+                  onChange={(e) => patch({ contractRef: e.target.value })}
+                  placeholder="Contract Ref."
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
+              </div>
+              <div className={styles.field}>
+                <label>Port/Region of Delivery</label>
+                <input
+                  value={draft.deliveryPort || ''}
+                  onChange={(e) => patch({ deliveryPort: e.target.value })}
+                  placeholder="Search port / region"
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
+              </div>
+              <div className={styles.field}>
+                <label>Port/Region of Re-Delivery</label>
+                <input
+                  value={draft.redeliveryPort || ''}
+                  onChange={(e) => patch({ redeliveryPort: e.target.value })}
+                  placeholder="Search port / region"
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
+              </div>
+            </div>
           </div>
-          <div className={styles.field}>
-            <label>CP Date</label>
-            <DmyDateInput value={draft.cpDate || ''} onChange={(v) => patch({ cpDate: v })} />
-          </div>
-          <div className={styles.field}>
-            <label>Contract Ref.</label>
-            <input value={draft.contractRef || ''} onChange={(e) => patch({ contractRef: e.target.value })} />
-          </div>
-          <div className={styles.field}>
-            <label>Port/Region of Delivery</label>
-            <input value={draft.deliveryPort || ''} onChange={(e) => patch({ deliveryPort: e.target.value })} />
-          </div>
-          <div className={styles.field}>
-            <label>Port/Region of Re-Delivery</label>
-            <input value={draft.redeliveryPort || ''} onChange={(e) => patch({ redeliveryPort: e.target.value })} />
-          </div>
-        </div>
 
-        <h4 className={styles.subsectionTitle}>Hire Periods</h4>
-        {(draft.hires || []).map((row, index) => {
-          const resolved = calc.hires[index] || resolveHireRow(row);
-          return (
-            <div key={`tc-in-hire-${index}`} className={styles.tcInHireBlock}>
-              <div className={styles.tcInHireToolbar}>
-                <strong>Trip / Period {index + 1}</strong>
-                <button
-                  type="button"
-                  className={styles.linkBtnDanger}
-                  onClick={() => setDraft((prev) => ({
+          <div className={styles.thdSection}>
+            <div className={styles.thdStepHead}>
+              <span className={styles.thdStepIcon} aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
+                  <path d="M3.5 9.5h17" />
+                  <path d="M8 3v3M16 3v3" />
+                </svg>
+              </span>
+              <div>
+                <div className={styles.thdStepTitle}>Hire Periods</div>
+                <div className={styles.thdStepSub}>One or more trip/period legs with their hire rate and commission terms</div>
+              </div>
+            </div>
+            {(draft.hires || []).map((row, index) => {
+              const resolved = calc.hires[index] || resolveHireRow(row);
+              return (
+                <div key={`tc-in-hire-${index}`} className={styles.thdTripCard}>
+                  <div className={styles.thdTripHead}>
+                    <span>Trip / Period {index + 1}</span>
+                    {!readOnly ? (
+                      <button
+                        type="button"
+                        className={styles.thdRemoveBtn}
+                        onClick={() => setDraft((prev) => ({
+                          ...prev,
+                          hires: prev.hires.length > 1
+                            ? prev.hires.filter((_, i) => i !== index)
+                            : [{ ...EMPTY_HIRE }],
+                        }))}
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className={styles.denseGrid}>
+                    <div className={styles.field}>
+                      <label>Date of Delivery</label>
+                      <DmyDateInput enableTime value={row.deliveryDate} onChange={(v) => patchHire(index, { deliveryDate: v })} disabled={readOnly} />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Date of Re-Delivery</label>
+                      <DmyDateInput enableTime value={row.redeliveryDate} onChange={(v) => patchHire(index, { redeliveryDate: v })} disabled={readOnly} />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Total Voyage Days</label>
+                      <input className={styles.inputReadonly} readOnly value={resolved.voyageDays} />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Daily Hire (USD/day)</label>
+                      <input
+                        value={row.dailyHire}
+                        onChange={(e) => patchHire(index, { dailyHire: e.target.value })}
+                        readOnly={readOnly}
+                        className={readOnly ? styles.inputReadonly : undefined}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Hireage (USD)</label>
+                      <input className={styles.inputReadonly} readOnly value={resolved.hireage} />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Ballast Bonus (USD)</label>
+                      <input
+                        value={row.ballastBonus}
+                        onChange={(e) => patchHire(index, { ballastBonus: e.target.value })}
+                        readOnly={readOnly}
+                        className={readOnly ? styles.inputReadonly : undefined}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Gross Hire-age (USD)</label>
+                      <input className={styles.inputReadonly} readOnly value={resolved.grossHireage} />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Add Comm (%)</label>
+                      <input
+                        value={row.addCommPct}
+                        onChange={(e) => patchHire(index, { addCommPct: e.target.value })}
+                        readOnly={readOnly}
+                        className={readOnly ? styles.inputReadonly : undefined}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Add Comm Vendor</label>
+                      <CardSelect
+                        options={lookups?.vendors || []}
+                        value={row.addCommVendor}
+                        onChange={(v) => patchHire(index, { addCommVendor: v })}
+                        placeholder="Select"
+                        ariaLabel="Add commission vendor"
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Owners Side Brokerage (%)</label>
+                      <input
+                        value={row.brokerCommPct}
+                        onChange={(e) => patchHire(index, { brokerCommPct: e.target.value })}
+                        readOnly={readOnly}
+                        className={readOnly ? styles.inputReadonly : undefined}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Broker</label>
+                      <CardSelect
+                        options={lookups?.vendors || []}
+                        value={row.brokerVendor}
+                        onChange={(v) => patchHire(index, { brokerVendor: v })}
+                        placeholder="Select"
+                        ariaLabel="Broker vendor"
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Net Hire-age (USD)</label>
+                      <input className={styles.inputReadonly} readOnly value={resolved.nettHireage} />
+                    </div>
+                    <div className={styles.field}>
+                      <label>CVE (Per Month)</label>
+                      <input
+                        value={row.cveMonth}
+                        onChange={(e) => patchHire(index, { cveMonth: e.target.value })}
+                        readOnly={readOnly}
+                        className={readOnly ? styles.inputReadonly : undefined}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>CVE (USD)</label>
+                      <input className={styles.inputReadonly} readOnly value={resolved.cveAmt} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {!readOnly ? (
+              <button
+                type="button"
+                className={styles.thdAddBtn}
+                onClick={() => setDraft((prev) => ({
+                  ...prev,
+                  hires: [...(prev.hires || []), {
+                    ...EMPTY_HIRE,
+                    dailyHire: detail?.hireFixPer || '',
+                    addCommPct: detail?.addComm || '',
+                  }],
+                }))}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Add New Trip/Period
+              </button>
+            ) : null}
+          </div>
+
+          <div className={styles.thdSection}>
+            <div className={styles.thdStepHead}>
+              <span className={styles.thdStepIcon} aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2s7 7.58 7 12a7 7 0 0 1-14 0c0-4.42 7-12 7-12z" />
+                </svg>
+              </span>
+              <div>
+                <div className={styles.thdStepTitle}>Bunkers</div>
+                <div className={styles.thdStepSub}>Bunker grades and quantities on delivery and re-delivery</div>
+              </div>
+            </div>
+            <div className={styles.thdBunkerGrid}>
+              <div>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Delivery Bunkers</div>
+                <BunkerRows
+                  rows={draft.deliveryBunkers || []}
+                  bunkers={lookups?.bunkers}
+                  readOnly={readOnly}
+                  onChange={(i, f) => patchBunker('del', i, f)}
+                  onAdd={() => setDraft((prev) => ({
                     ...prev,
-                    hires: prev.hires.length > 1
-                      ? prev.hires.filter((_, i) => i !== index)
-                      : [{ ...EMPTY_HIRE }],
+                    deliveryBunkers: [...(prev.deliveryBunkers || []), { ...EMPTY_BUNKER }],
                   }))}
-                >
-                  Remove
-                </button>
+                  onRemove={(i) => setDraft((prev) => ({
+                    ...prev,
+                    deliveryBunkers: prev.deliveryBunkers.length > 1
+                      ? prev.deliveryBunkers.filter((_, idx) => idx !== i)
+                      : [{ ...EMPTY_BUNKER }],
+                  }))}
+                />
               </div>
-              <div className={styles.formGrid}>
-                <div className={styles.field}>
-                  <label>Date of Delivery</label>
-                  <DmyDateInput enableTime value={row.deliveryDate} onChange={(v) => patchHire(index, { deliveryDate: v })} />
-                </div>
-                <div className={styles.field}>
-                  <label>Date of Re-Delivery</label>
-                  <DmyDateInput enableTime value={row.redeliveryDate} onChange={(v) => patchHire(index, { redeliveryDate: v })} />
-                </div>
-                <div className={styles.field}>
-                  <label>Total Voyage Days</label>
-                  <input className={styles.inputReadonly} readOnly value={resolved.voyageDays} />
-                </div>
-                <div className={styles.field}>
-                  <label>Daily Hire (USD/Day)</label>
-                  <input value={row.dailyHire} onChange={(e) => patchHire(index, { dailyHire: e.target.value })} />
-                </div>
-                <div className={styles.field}>
-                  <label>Hireage (USD)</label>
-                  <input className={styles.inputReadonly} readOnly value={resolved.hireage} />
-                </div>
-                <div className={styles.field}>
-                  <label>Ballast Bonus (USD)</label>
-                  <input value={row.ballastBonus} onChange={(e) => patchHire(index, { ballastBonus: e.target.value })} />
-                </div>
-                <div className={styles.field}>
-                  <label>Gross Hire-age (USD)</label>
-                  <input className={styles.inputReadonly} readOnly value={resolved.grossHireage} />
-                </div>
-                <div className={styles.field}>
-                  <label>Add Comm (%)</label>
-                  <div className={styles.pairFields}>
-                    <input value={row.addCommPct} onChange={(e) => patchHire(index, { addCommPct: e.target.value })} />
-                    <input className={styles.inputReadonly} readOnly value={resolved.addCommAmt} />
-                  </div>
-                </div>
-                <div className={styles.field}>
-                  <label>Add Comm Vendor</label>
-                  <CardSelect
-                    options={lookups?.vendors || []}
-                    value={row.addCommVendor}
-                    onChange={(v) => patchHire(index, { addCommVendor: v })}
-                    placeholder="Select vendor"
-                    ariaLabel="Add commission vendor"
-                  />
-                </div>
-                <div className={styles.field}>
-                  <label>Owners side Brokerage (%)</label>
-                  <div className={styles.pairFields}>
-                    <input value={row.brokerCommPct} onChange={(e) => patchHire(index, { brokerCommPct: e.target.value })} />
-                    <input className={styles.inputReadonly} readOnly value={resolved.brokerCommAmt} />
-                  </div>
-                </div>
-                <div className={styles.field}>
-                  <label>Broker</label>
-                  <CardSelect
-                    options={lookups?.vendors || []}
-                    value={row.brokerVendor}
-                    onChange={(v) => patchHire(index, { brokerVendor: v })}
-                    placeholder="Select broker"
-                    ariaLabel="Broker vendor"
-                  />
-                </div>
-                <div className={styles.field}>
-                  <label>Net Hire-age (USD)</label>
-                  <input className={styles.inputReadonly} readOnly value={resolved.nettHireage} />
-                </div>
-                <div className={styles.field}>
-                  <label>CVE (Per Month)</label>
-                  <div className={styles.pairFields}>
-                    <input value={row.cveMonth} onChange={(e) => patchHire(index, { cveMonth: e.target.value })} />
-                    <input className={styles.inputReadonly} readOnly value={resolved.cveAmt} />
-                  </div>
-                </div>
+              <div>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Re-Delivery Bunkers</div>
+                <BunkerRows
+                  rows={draft.redeliveryBunkers || []}
+                  bunkers={lookups?.bunkers}
+                  readOnly={readOnly}
+                  onChange={(i, f) => patchBunker('redel', i, f)}
+                  onAdd={() => setDraft((prev) => ({
+                    ...prev,
+                    redeliveryBunkers: [...(prev.redeliveryBunkers || []), { ...EMPTY_BUNKER }],
+                  }))}
+                  onRemove={(i) => setDraft((prev) => ({
+                    ...prev,
+                    redeliveryBunkers: prev.redeliveryBunkers.length > 1
+                      ? prev.redeliveryBunkers.filter((_, idx) => idx !== i)
+                      : [{ ...EMPTY_BUNKER }],
+                  }))}
+                />
               </div>
             </div>
-          );
-        })}
-        <Button
-          variant="outline"
-          label="Add New Trip/Period"
-          onClick={() => setDraft((prev) => ({
-            ...prev,
-            hires: [...(prev.hires || []), {
-              ...EMPTY_HIRE,
-              dailyHire: detail?.hireFixPer || '',
-              addCommPct: detail?.addComm || '',
-            }],
-          }))}
-        />
-
-        <div className={styles.fixtureLayout} style={{ marginTop: 16 }}>
-          <div>
-            <h4 className={styles.subsectionTitle}>Delivery Bunkers</h4>
-            <BunkerRows
-              rows={draft.deliveryBunkers || []}
-              bunkers={lookups?.bunkers}
-              onChange={(i, f) => patchBunker('del', i, f)}
-              onAdd={() => setDraft((prev) => ({
-                ...prev,
-                deliveryBunkers: [...(prev.deliveryBunkers || []), { ...EMPTY_BUNKER }],
-              }))}
-              onRemove={(i) => setDraft((prev) => ({
-                ...prev,
-                deliveryBunkers: prev.deliveryBunkers.length > 1
-                  ? prev.deliveryBunkers.filter((_, idx) => idx !== i)
-                  : [{ ...EMPTY_BUNKER }],
-              }))}
-            />
           </div>
-          <div>
-            <h4 className={styles.subsectionTitle}>Redelivery Bunkers</h4>
-            <BunkerRows
-              rows={draft.redeliveryBunkers || []}
-              bunkers={lookups?.bunkers}
-              onChange={(i, f) => patchBunker('redel', i, f)}
-              onAdd={() => setDraft((prev) => ({
-                ...prev,
-                redeliveryBunkers: [...(prev.redeliveryBunkers || []), { ...EMPTY_BUNKER }],
-              }))}
-              onRemove={(i) => setDraft((prev) => ({
-                ...prev,
-                redeliveryBunkers: prev.redeliveryBunkers.length > 1
-                  ? prev.redeliveryBunkers.filter((_, idx) => idx !== i)
-                  : [{ ...EMPTY_BUNKER }],
-              }))}
-            />
-          </div>
-        </div>
 
-        <h4 className={styles.subsectionTitle}>Off Hire</h4>
-        <table className={styles.rowTable}>
-          <thead>
-            <tr>
-              <th />
-              <th>Reason</th>
-              <th>From</th>
-              <th>To</th>
-              <th>Days</th>
-              <th>Rate/Day</th>
-              <th>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(draft.offHires || []).map((row, index) => (
-              <tr key={`tc-in-off-${index}`}>
-                <td>
-                  <button
-                    type="button"
-                    className={styles.linkBtnDanger}
-                    onClick={() => setDraft((prev) => ({
-                      ...prev,
-                      offHires: prev.offHires.length > 1
-                        ? prev.offHires.filter((_, i) => i !== index)
-                        : [{ ...EMPTY_OFF }],
-                    }))}
-                  >
-                    ×
-                  </button>
-                </td>
-                <td><textarea rows={2} value={row.reason} onChange={(e) => patchOff(index, { reason: e.target.value })} /></td>
-                <td><DmyDateInput enableTime value={row.from} onChange={(v) => patchOff(index, { from: v })} /></td>
-                <td><DmyDateInput enableTime value={row.to} onChange={(v) => patchOff(index, { to: v })} /></td>
-                <td><input value={row.days} onChange={(e) => patchOff(index, { days: e.target.value })} /></td>
-                <td><input value={row.hireRate} onChange={(e) => patchOff(index, { hireRate: e.target.value })} /></td>
-                <td><input className={styles.inputReadonly} readOnly value={row.amount} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <Button
-          variant="outline"
-          label="Add Off-Hire"
-          onClick={() => setDraft((prev) => ({
-            ...prev,
-            offHires: [...(prev.offHires || []), { ...EMPTY_OFF }],
-          }))}
-        />
+          <div className={styles.thdSection}>
+            <div className={styles.thdStepHead}>
+              <span className={styles.thdStepIcon} aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M10 9v6M14 9v6" />
+                </svg>
+              </span>
+              <div>
+                <div className={styles.thdStepTitle}>Off Hire &amp; Other Costs</div>
+                <div className={styles.thdStepSub}>Off-hire periods plus the remaining cost adjustments</div>
+              </div>
+            </div>
+            <div className={styles.miniTableWrap}>
+              <table className={styles.miniTable}>
+                <thead>
+                  <tr>
+                    <th>Reason</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Days</th>
+                    <th>Rate/Day</th>
+                    <th>Amount</th>
+                    <th style={{ width: 44 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {(draft.offHires || []).map((row, index) => (
+                    <tr key={`tc-in-off-${index}`}>
+                      <td>
+                        <input
+                          value={row.reason}
+                          onChange={(e) => patchOff(index, { reason: e.target.value })}
+                          placeholder="Description"
+                          readOnly={readOnly}
+                          className={readOnly ? styles.inputReadonly : undefined}
+                        />
+                      </td>
+                      <td><DmyDateInput enableTime value={row.from} onChange={(v) => patchOff(index, { from: v })} disabled={readOnly} /></td>
+                      <td><DmyDateInput enableTime value={row.to} onChange={(v) => patchOff(index, { to: v })} disabled={readOnly} /></td>
+                      <td>
+                        <input
+                          value={row.days}
+                          onChange={(e) => patchOff(index, { days: e.target.value })}
+                          readOnly={readOnly}
+                          className={readOnly ? styles.inputReadonly : undefined}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={row.hireRate}
+                          onChange={(e) => patchOff(index, { hireRate: e.target.value })}
+                          readOnly={readOnly}
+                          className={readOnly ? styles.inputReadonly : undefined}
+                        />
+                      </td>
+                      <td><input className={styles.inputReadonly} readOnly value={row.amount} /></td>
+                      <td>
+                        {!readOnly ? (
+                          <button
+                            type="button"
+                            className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                            title="Remove row"
+                            onClick={() => setDraft((prev) => ({
+                              ...prev,
+                              offHires: prev.offHires.length > 1
+                                ? prev.offHires.filter((_, i) => i !== index)
+                                : [{ ...EMPTY_OFF }],
+                            }))}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                              <path d="M6 6l12 12M18 6L6 18" />
+                            </svg>
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {!readOnly ? (
+              <button
+                type="button"
+                className={styles.thdAddBtn}
+                onClick={() => setDraft((prev) => ({
+                  ...prev,
+                  offHires: [...(prev.offHires || []), { ...EMPTY_OFF }],
+                }))}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Add Off-Hire
+              </button>
+            ) : null}
 
-        <div className={styles.formGrid} style={{ marginTop: 16 }}>
-          <div className={styles.field}>
-            <label>CVE Off Hire (Per Month)</label>
-            <div className={styles.pairFields}>
-              <input value={draft.offHireCveMonth || ''} onChange={(e) => patch({ offHireCveMonth: e.target.value })} />
-              <input className={styles.inputReadonly} readOnly value={calc.offHireCveAmt} />
+            <div className={styles.denseGrid} style={{ marginTop: 22 }}>
+              <div className={styles.field}>
+                <label>CVE Off Hire (Per Month)</label>
+                <input
+                  value={draft.offHireCveMonth || ''}
+                  onChange={(e) => patch({ offHireCveMonth: e.target.value })}
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
+              </div>
+              <div className={styles.field}>
+                <label>Bunker on Owner&apos;s Account (USD)</label>
+                <input
+                  value={draft.bunkerOnOwner || ''}
+                  onChange={(e) => patch({ bunkerOnOwner: e.target.value })}
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
+              </div>
+              <div className={styles.field}>
+                <label>Off Hire (USD)</label>
+                <input className={styles.inputReadonly} readOnly value={calc.lessOffHire} />
+              </div>
+              <div className={styles.field}>
+                <label>ILOHC</label>
+                <input
+                  value={draft.ilohc || ''}
+                  onChange={(e) => patch({ ilohc: e.target.value })}
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
+              </div>
+              <div className={styles.field}>
+                <label>AWRP &amp; Other Costs</label>
+                <input
+                  value={draft.awrpCost || ''}
+                  onChange={(e) => patch({ awrpCost: e.target.value })}
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
+              </div>
+              <div className={styles.field}>
+                <label>Final Hire-age (USD)</label>
+                <input className={styles.inputReadonly} readOnly value={calc.finalHireage} />
+              </div>
+              <div className={styles.field}>
+                <label>Vendor</label>
+                <CardSelect
+                  options={lookups?.vendors || []}
+                  value={draft.finalVendor || ''}
+                  onChange={(v) => patch({ finalVendor: v })}
+                  placeholder="Select"
+                  ariaLabel="Final hireage vendor"
+                />
+              </div>
             </div>
           </div>
-          <div className={styles.field}>
-            <label>Bunker on Owner&apos;s Account</label>
-            <input value={draft.bunkerOnOwner || ''} onChange={(e) => patch({ bunkerOnOwner: e.target.value })} />
-          </div>
-          <div className={styles.field}>
-            <label>Off Hire</label>
-            <input className={styles.inputReadonly} readOnly value={calc.lessOffHire} />
-          </div>
-          <div className={styles.field}>
-            <label>ILOHC</label>
-            <input value={draft.ilohc || ''} onChange={(e) => patch({ ilohc: e.target.value })} />
-          </div>
-          <div className={styles.field}>
-            <label>AWRP & Other Costs</label>
-            <input value={draft.awrpCost || ''} onChange={(e) => patch({ awrpCost: e.target.value })} />
-          </div>
-          <div className={styles.field}>
-            <label>Final Hire-age</label>
-            <input className={styles.inputReadonly} readOnly value={calc.finalHireage} />
-          </div>
-          <div className={styles.field}>
-            <label>Vendor</label>
-            <CardSelect
-              options={lookups?.vendors || []}
-              value={draft.finalVendor || ''}
-              onChange={(v) => patch({ finalVendor: v })}
-              placeholder="Select vendor"
-              ariaLabel="Final hireage vendor"
-            />
-          </div>
-        </div>
         </div>
 
-        <div className={styles.formActions}>
-          {!readOnly ? <Button label="Apply" onClick={handleApply} /> : null}
-          <Button variant="close" label="Close" onClick={onClose} />
+        <div className={`${styles.thdFooter} ${styles.viewModeAllow}`}>
+          <button type="button" className={styles.thdCloseBtn} onClick={onClose}>Close</button>
+          {!readOnly ? (
+            <button type="button" className={styles.thdApplyBtn} onClick={handleApply}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+              Apply
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
-function BunkerRows({ rows, bunkers, onChange, onAdd, onRemove }) {
+function BunkerRows({ rows, bunkers, onChange, onAdd, onRemove, readOnly = false }) {
   return (
     <>
-      <table className={styles.rowTable}>
-        <thead>
-          <tr>
-            <th />
-            <th>Bunker Grade</th>
-            <th>Qty</th>
-            <th>Date</th>
-            <th>Price</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={`tc-in-bunker-${index}`}>
-              <td>
-                <button type="button" className={styles.linkBtnDanger} onClick={() => onRemove(index)}>×</button>
-              </td>
-              <td>
-                <select
-                  value={row.bunkerId != null ? String(row.bunkerId) : ''}
-                  onChange={(e) => onChange(index, { bunkerId: e.target.value })}
-                >
-                  <option value="">Select</option>
-                  {(bunkers || []).map((opt) => (
-                    <option key={String(opt.id)} value={String(opt.id)}>{opt.name}</option>
-                  ))}
-                  {row.bunkerId != null
-                    && String(row.bunkerId).trim() !== ''
-                    && !(bunkers || []).some((opt) => String(opt.id) === String(row.bunkerId))
-                    ? (
-                      <option value={String(row.bunkerId)}>{`Grade #${row.bunkerId}`}</option>
-                    )
-                    : null}
-                </select>
-              </td>
-              <td><input value={row.qty || ''} onChange={(e) => onChange(index, { qty: e.target.value })} /></td>
-              <td><DmyDateInput value={row.bunkerDate || ''} onChange={(v) => onChange(index, { bunkerDate: v })} /></td>
-              <td><input value={row.price || ''} onChange={(e) => onChange(index, { price: e.target.value })} /></td>
-              <td><input className={styles.inputReadonly} readOnly value={row.amount || ''} /></td>
+      <div className={styles.miniTableWrap}>
+        <table className={styles.miniTable}>
+          <thead>
+            <tr>
+              <th>Bunker Grade</th>
+              <th>Qty (MT)</th>
+              <th>Bunker Date</th>
+              <th>Price (USD/MT)</th>
+              <th>Amount (USD)</th>
+              <th style={{ width: 44 }} />
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <Button variant="outline" label="Add" onClick={onAdd} />
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={`tc-in-bunker-${index}`}>
+                <td>
+                  <select
+                    value={row.bunkerId != null ? String(row.bunkerId) : ''}
+                    onChange={(e) => onChange(index, { bunkerId: e.target.value })}
+                    disabled={readOnly}
+                  >
+                    <option value="">Select</option>
+                    {(bunkers || []).map((opt) => (
+                      <option key={String(opt.id)} value={String(opt.id)}>{opt.name}</option>
+                    ))}
+                    {row.bunkerId != null
+                      && String(row.bunkerId).trim() !== ''
+                      && !(bunkers || []).some((opt) => String(opt.id) === String(row.bunkerId))
+                      ? (
+                        <option value={String(row.bunkerId)}>{`Grade #${row.bunkerId}`}</option>
+                      )
+                      : null}
+                  </select>
+                </td>
+                <td>
+                  <input
+                    value={row.qty || ''}
+                    onChange={(e) => onChange(index, { qty: e.target.value })}
+                    placeholder="0.00"
+                    readOnly={readOnly}
+                    className={readOnly ? styles.inputReadonly : undefined}
+                  />
+                </td>
+                <td><DmyDateInput value={row.bunkerDate || ''} onChange={(v) => onChange(index, { bunkerDate: v })} disabled={readOnly} /></td>
+                <td>
+                  <input
+                    value={row.price || ''}
+                    onChange={(e) => onChange(index, { price: e.target.value })}
+                    placeholder="0.00"
+                    readOnly={readOnly}
+                    className={readOnly ? styles.inputReadonly : undefined}
+                  />
+                </td>
+                <td><input className={styles.inputReadonly} readOnly value={row.amount || ''} placeholder="0.00" /></td>
+                <td>
+                  {!readOnly ? (
+                    <button
+                      type="button"
+                      className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                      title="Remove row"
+                      onClick={() => onRemove(index)}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6L6 18" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!readOnly ? (
+        <button type="button" className={styles.thdAddBtn} onClick={onAdd}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Add Bunkers
+        </button>
+      ) : null}
     </>
   );
 }

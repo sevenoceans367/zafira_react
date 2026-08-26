@@ -9,8 +9,8 @@ import styles from './OpsPages.module.css';
 /** PHP payment_grid_tc.php page=1|2|3 → In Ops / Post Ops / History */
 const BACK_PATHS = {
   1: '/internal-user/vc/ops-tc/in-ops-glance',
-  2: '/internal-user/vc/ops-tc/post-ops',
-  3: '/internal-user/vc/ops-tc/history',
+  2: '/internal-user/vc/ops-tc/in-ops-glance?tab=post-ops',
+  3: '/internal-user/vc/ops-tc/in-ops-glance?tab=history',
 };
 
 const VARIANT_CLASS = {

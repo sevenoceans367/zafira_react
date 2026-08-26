@@ -172,8 +172,8 @@ export function mapListRow(row, index, portLegs = {}, { voyageLocked = false } =
     dailyTimeCharter: row.dailyVesselOperationExp,
     profitLoss: row.profitLoss,
     charteringPic: row.charteringPicName,
-    // Compare checkbox stays available for all Active rows (including locked / already sent).
-    selectable: !fixed,
+    // Compare checkbox available on Active and In Ops (including locked / already sent).
+    selectable: true,
     // Send to Ops / edit only when this voyage is still open.
     canSendToOps: !sentToDecisionChart && !voyageLocked && !fixed,
     sendToOpsDisabled: voyageLocked && !sentToDecisionChart,

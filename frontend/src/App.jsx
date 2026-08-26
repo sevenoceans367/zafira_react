@@ -52,6 +52,7 @@ import OpsTcHistoryPage from '../pages/internal-user/ops/OpsTcHistoryPage.jsx';
 import OpsTcYearUpdationPage from '../pages/internal-user/ops/OpsTcYearUpdationPage.jsx';
 import CombinedSoaPayablePage from '../pages/internal-user/combined-soa-payable/CombinedSoaPayablePage.jsx';
 import CombinedSoaPayableTcPage from '../pages/internal-user/combined-soa-payable/CombinedSoaPayableTcPage.jsx';
+import AddGroupPaymentPage from '../pages/internal-user/combined-soa-payable/AddGroupPaymentPage.jsx';
 import GenericFinancesPage from '../pages/internal-user/generic-finances/GenericFinancesPage.jsx';
 import AddGenericInvoicePage from '../pages/internal-user/generic-finances/AddGenericInvoicePage.jsx';
 import FleetPage from '../pages/internal-user/fleet/FleetPage.jsx';
@@ -186,12 +187,32 @@ export default function App() {
               element={<OpsTcYearUpdationPage />}
             />
             <Route
-              path="/internal-user/vc/combined-soa-payable"
+              path="/internal-user/vc/group-payments"
               element={<CombinedSoaPayablePage />}
+            />
+            <Route
+              path="/internal-user/vc/group-payments/add"
+              element={<AddGroupPaymentPage />}
+            />
+            <Route
+              path="/internal-user/vc/group-payments/add-tc"
+              element={<Navigate to="/internal-user/vc/group-payments/add?contractType=tc" replace />}
+            />
+            <Route
+              path="/internal-user/vc/combined-soa-payable"
+              element={<Navigate to="/internal-user/vc/group-payments" replace />}
             />
             <Route
               path="/internal-user/vc/combined-soa-payable-tc"
               element={<CombinedSoaPayableTcPage />}
+            />
+            <Route
+              path="/internal-user/vc/combined-soa-payable/add"
+              element={<Navigate to="/internal-user/vc/group-payments/add" replace />}
+            />
+            <Route
+              path="/internal-user/vc/combined-soa-payable-tc/add"
+              element={<Navigate to="/internal-user/vc/group-payments/add?contractType=tc" replace />}
             />
             <Route
               path="/internal-user/vc/generic-finances"

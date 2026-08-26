@@ -2,39 +2,80 @@
   position: relative;
 }
 
-.title {
-  margin: 0 0 16px;
-  text-align: center;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-text, #1f2937);
+.typeSelectWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
 }
 
-.tableWrap {
-  overflow: auto;
-  border: 1px solid var(--color-border, #d9dee8);
-  border-radius: 8px;
-  background: #fff;
+.typeDot {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.typeSelectWrap :global(button) {
+  padding-left: 24px;
+}
+
+.btnAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  box-sizing: border-box;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  border-radius: 9px;
+  padding: 0 16px;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btnAdd:hover {
+  background: #2f6fe0;
+  color: #fff;
+}
+
+.btnAdd svg {
+  width: 15px;
+  height: 15px;
 }
 
 .table {
   width: 100%;
+  min-width: 980px;
   border-collapse: collapse;
-  font-size: var(--font-size-body, 12px);
+  font-size: 12.5px;
 }
 
 .table th,
 .table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  padding: 12px 14px;
+  border-bottom: 1px solid #eceef2;
   text-align: left;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .table th {
-  background: #f3f6fa;
+  background: #fafbfc;
+  font-size: 10.5px;
   font-weight: 700;
-  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
 }
 
 .table tbody tr:hover {
@@ -45,6 +86,7 @@
   text-align: center;
   padding: 32px 12px;
   color: #6b7280;
+  white-space: normal;
 }
 
 .flashSuccess {
@@ -65,6 +107,16 @@
   border: 1px solid #fecdca;
 }
 
+.flashClose {
+  margin-left: 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: inherit;
+}
+
 .error {
   margin-bottom: 12px;
   padding: 10px 12px;
@@ -81,10 +133,6 @@
 
 .link:hover {
   text-decoration: underline;
-}
-
-.addLink {
-  text-decoration: none;
 }
 
 .editIcon {
@@ -106,9 +154,29 @@
 
 .amountCell {
   text-align: right;
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .detailsCell {
   text-align: center;
+}
+
+.tradeChip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tradeSpot {
+  background: #eaf1fe;
+  color: #2e6fe8;
+}
+
+.tradeTc {
+  background: #fdece4;
+  color: #db4f1a;
 }

@@ -9,19 +9,12 @@ export function todoListAppPath(module = 'vc') {
 export function resolveTodoListHeader(pathname) {
   if (!pathname.includes('/todo-list')) return null;
 
-  const moduleMatch = pathname.match(/\/internal-user\/(sopf|vc|tc)\//);
-  const module = moduleMatch?.[1] ?? 'vc';
-  const moduleLabel = module === 'sopf' ? 'SOPF' : 'SOC';
-  const moduleHref = appPath(
-    module === 'sopf' ? '/internal-user/sopf/estimate_list' : '/internal-user/vc',
-  );
-
   return {
     title: 'Financial Transactions',
     currentPage: 'Financial Transactions',
-    // Middle crumbs only — AppHeader adds Home + currentPage
+    // Middle crumbs only — AppHeader appends currentPage → SOC / Financial Transactions
     breadcrumbs: [
-      { label: moduleLabel, href: moduleHref },
+      { label: 'SOC', href: appPath('/internal-user/vc') },
     ],
   };
 }

@@ -11,7 +11,7 @@ const DESK_OPTIONS = [
 ];
 
 const TYPE_OPTIONS = [
-  { id: '', name: 'All Transactions' },
+  { id: '', name: 'All' },
   { id: 'receivable', name: 'Receivable' },
   { id: 'payable', name: 'Payable' },
 ];
@@ -176,10 +176,11 @@ export default function ToDoListHeaderActions({
             ref={filterBtnRef}
             className={`${styles.filterBtn} ${filterActive ? styles.filterBtnOn : ''}`}
             type="button"
+            aria-label="Filter"
+            title="Filter"
             onClick={() => setFilterOpen((open) => !open)}
           >
             <FilterIcon />
-            Filter
           </button>
           {filterOpen && panelStyle
             ? createPortal(

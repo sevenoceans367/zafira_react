@@ -20,6 +20,8 @@
   display: flex;
   align-items: center;
   gap: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .titleIcon {

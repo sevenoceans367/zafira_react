@@ -1,0 +1,459 @@
+.page {
+  padding: 8px 24px 40px;
+  position: relative;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.btnBack {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1.5px solid #d8dce3;
+  border-radius: 8px;
+  background: #fff;
+  color: #274670;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btnBack:hover {
+  background: #f8fafc;
+  color: #1b3358;
+}
+
+.btnBack svg {
+  width: 14px;
+  height: 14px;
+}
+
+.error {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.card {
+  margin-bottom: 16px;
+  border: 1px solid #eceef2;
+  background: #fff;
+  border-radius: 12px;
+  overflow: visible;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eceef2;
+  background: #fafbfc;
+}
+
+.cardNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #274670;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  flex: none;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #274670;
+}
+
+.cardBody {
+  padding: 16px;
+}
+
+.grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #57626f;
+}
+
+.req {
+  color: #e4483b;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #dee1e6;
+  border-radius: 7px;
+  background: #f8f9fa;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1b2733;
+  box-sizing: border-box;
+}
+
+.field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.cardSelect {
+  width: 100%;
+}
+
+.cardSelect > div {
+  display: block;
+  width: 100%;
+}
+
+.cardSelect > div > button:first-child {
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+  background: #f8f9fa;
+  border-color: #dee1e6;
+}
+
+.costWrap {
+  overflow-x: auto;
+}
+
+.costTable {
+  width: 100%;
+  min-width: 1280px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.costTable th,
+.costTable td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #eceef2;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.costTable th {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a0;
+  background: #fafbfc;
+  white-space: nowrap;
+}
+
+.costTable input,
+.costTable select {
+  width: 100%;
+  min-width: 72px;
+  padding: 7px 8px;
+  border: 1px solid #dee1e6;
+  border-radius: 6px;
+  background: #f8f9fa;
+  font-size: 12px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.costTable tfoot td {
+  font-weight: 700;
+  color: #274670;
+  background: #f8fafc;
+}
+
+.numCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.checkCell {
+  width: 30px;
+  text-align: center;
+}
+
+.checkCell input {
+  width: auto;
+  min-width: 0;
+}
+
+.stickyAttach,
+.stickyDel {
+  position: sticky;
+  right: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+.stickyDel {
+  right: 0;
+  width: 36px;
+}
+
+.stickyAttach {
+  right: 36px;
+  width: 40px;
+  text-align: center;
+}
+
+.costTable thead .stickyAttach,
+.costTable thead .stickyDel,
+.costTable tfoot .stickyAttach,
+.costTable tfoot .stickyDel {
+  background: #fafbfc;
+}
+
+.attachBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #57626f;
+  cursor: pointer;
+  padding: 0;
+}
+
+.attachBtn:hover {
+  background: #eaf1fe;
+  color: #2e6fe8;
+}
+
+.attachBtn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.rowDel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: #fdecea;
+  color: #e4483b;
+  cursor: pointer;
+  padding: 0;
+}
+
+.rowDel:hover {
+  background: #fbd9c9;
+}
+
+.rowDel svg {
+  width: 12px;
+  height: 12px;
+}
+
+.addRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 9px 14px;
+  border: 1.5px dashed #d8dce3;
+  border-radius: 8px;
+  background: transparent;
+  color: #274670;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.addRow:hover {
+  border-color: #2e6fe8;
+  background: #eaf1fe;
+  color: #2e6fe8;
+}
+
+.addRow svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 26px 14px;
+  margin-bottom: 16px;
+  background: #f8f9fa;
+  border-radius: 9px;
+  border: 1.5px dashed #dee1e6;
+  cursor: pointer;
+}
+
+.dropzoneDrag {
+  background: #eaf1fe;
+  border-color: #2e6fe8;
+}
+
+.dropzone svg {
+  width: 22px;
+  height: 22px;
+  color: #8a93a0;
+}
+
+.dzText {
+  font-size: 12px;
+  color: #57626f;
+}
+
+.dzText b {
+  color: #2e6fe8;
+  font-weight: 700;
+}
+
+.dzSub {
+  font-size: 10.5px;
+  color: #8a93a0;
+}
+
+.fileList {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: #57626f;
+}
+
+.fileList li {
+  padding: 4px 0;
+}
+
+.actionRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btnCancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  color: #e4483b;
+  border: 1.5px solid #f5c2c7;
+  border-radius: 9px;
+  padding: 11px 20px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+}
+
+.btnCancel:hover {
+  background: #fdecea;
+}
+
+.btnCancel svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btnSave {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #274670;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 11px 30px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnSave:hover {
+  background: #1d3757;
+}
+
+.btnSave:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnSaveIcon {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.bankPanel {
+  margin-top: 14px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 12px;
+}
+
+.bankPanel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.bankPanel td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+.bankPanel td:first-child {
+  width: 42%;
+  color: #4b5563;
+  font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+  .grid4 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .grid4 {
+    grid-template-columns: 1fr;
+  }
+}

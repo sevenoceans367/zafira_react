@@ -697,7 +697,7 @@
   letter-spacing: 0.04em;
   margin: 22px 0 10px;
   padding-top: 16px;
-  border-top: 1px solid var(--color-border, #e5e7eb);
+  border-top: 1px dotted var(--color-border, #d1d5db);
 }
 
 .subBlockLabelFirst {
@@ -783,19 +783,19 @@
 .formFooter {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 0;
+  gap: 12px;
+  margin-top: 20px;
   width: 100%;
 }
 
 .formFooter :global(a),
 .formFooter :global(button) {
-  flex: 0 0 calc((100% - 16px) / 3);
-  width: calc((100% - 16px) / 3);
-  max-width: calc((100% - 16px) / 3);
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
   min-width: 0;
   justify-content: center;
   box-sizing: border-box;
@@ -814,10 +814,144 @@
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
+  font-family: inherit;
+}
+
+.btnCancel svg {
+  width: 14px;
+  height: 14px;
 }
 
 .btnCancel:hover {
   background: #fdecea;
+}
+
+.btnSave {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-primary, #274670);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 11px 30px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnSave:hover {
+  background: #1d3757;
+}
+
+.btnSave:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnSaveIcon {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.btnCalculate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: var(--color-primary, #274670);
+  border: 1.5px solid #c9d4e4;
+  border-radius: 9px;
+  padding: 11px 24px;
+  font-weight: 700;
+  font-size: 13.5px;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.btnCalculate:hover {
+  background: #f3f6fa;
+}
+
+.tcInRecapBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #c22a20;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 10px 18px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  font-family: inherit;
+}
+
+.tcInRecapBtn:hover {
+  background: #a82c22;
+}
+
+.tcInRecapBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tcInRecapBtn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 28px 16px;
+  border: 1.5px dashed #c9d4e4;
+  border-radius: 12px;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: center;
+  color: #6b7280;
+}
+
+.dropzoneIcon {
+  width: 28px;
+  height: 28px;
+  color: var(--color-primary, #274670);
+}
+
+.dropzoneIcon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.dropzoneText {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.dropzoneFile {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-primary, #274670);
+  font-weight: 600;
+}
+
+.dropzoneInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .miniTable {
@@ -836,7 +970,7 @@
   letter-spacing: 0.03em;
   color: #6b7280;
   background: #f3f4f6;
-  padding: 8px 10px;
+  padding: 12px 10px;
   border-bottom: 1px solid var(--color-border, #e5e7eb);
 }
 
@@ -850,9 +984,10 @@
 
 .miniTable tfoot td {
   font-weight: 700;
-  background: #f3f4f6;
+  background: #e8eef5;
   border-bottom: none;
   border-top: 2px solid var(--color-border, #e5e7eb);
+  color: var(--color-primary, #274670);
 }
 
 .addRowBtn {

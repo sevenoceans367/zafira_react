@@ -7,7 +7,7 @@ import { periodContractAppPath } from '../constants/periodContractModule.js';
 import { elibraryAppPath } from '../constants/elibraryModule.js';
 import { userGuidesAppPath } from '../constants/userGuidesModule.js';
 import { todoListAppPath } from '../constants/todoListPageHeaders.js';
-import { combinedSoaPayableAppPath, combinedSoaPayableTcAppPath } from '../constants/combinedSoaPayablePageHeaders.js';
+import { groupPaymentsAppPath } from '../constants/combinedSoaPayablePageHeaders.js';
 import { SOPF_TOP_SIDEBAR_ITEMS, SOPF_CHARTERING_SIDEBAR_ITEMS } from '../constants/sopfSidebarMenu.js';
 import helpDeskIcon from '../assets/help desk.png';
 import commercialPerformanceIcon from '../assets/commercial performance.png';
@@ -228,17 +228,11 @@ export default function InternalUserSidebar({ isOpen }) {
               active={currentPath.startsWith('/internal-user/vc/todo-list')}
             />
             <SidebarLink
-              to={combinedSoaPayableAppPath()}
+              to={groupPaymentsAppPath()}
               icon="bi-currency-dollar"
-              label="Combined SOA Payable"
-              active={currentPath === '/internal-user/vc/combined-soa-payable'
-                || currentPath.startsWith('/internal-user/vc/combined-soa-payable/')}
-            />
-            <SidebarLink
-              to={combinedSoaPayableTcAppPath()}
-              icon="bi-cash-coin"
-              label="Combined SOA Payable TC"
-              active={currentPath.startsWith('/internal-user/vc/combined-soa-payable-tc')}
+              label="Group Payments"
+              active={currentPath.includes('/group-payments')
+                || currentPath.includes('/combined-soa-payable')}
             />
             <SidebarLink
               to="/internal-user/vc/generic-finances"

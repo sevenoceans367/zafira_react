@@ -510,7 +510,7 @@ export default function EstimateListPage() {
             <EstimateListTableToolbar
               addHref={`/internal-user/sopf/addestimate?estimatetype=${estimateType}&selBType=${businessType}`}
               onSensitivityAnalysis={handleSensitivityAnalysis}
-              sensitivityDisabled={selectedIds.length === 0 || isCompletedTab}
+              sensitivityDisabled={selectedIds.length === 0}
               onDownloadCsv={handleDownloadCsv}
               onDownloadPdf={handleDownloadPdf}
               onEmailAttachment={handleEmailAttachment}
@@ -546,7 +546,7 @@ export default function EstimateListPage() {
                       className={styles.compareCheckbox}
                       checked={allSelected}
                       onChange={toggleAll}
-                      disabled={isCompletedTab || pagedRows.every((row) => !row.selectable)}
+                      disabled={pagedRows.every((row) => !row.selectable)}
                       aria-label="Select all"
                     />
                   </th>
@@ -624,7 +624,7 @@ export default function EstimateListPage() {
                           type="checkbox"
                           checked={selectedIds.includes(row.id)}
                           onChange={() => toggleRow(row.id)}
-                          disabled={isCompletedTab || !row.selectable}
+                          disabled={!row.selectable}
                           aria-label={`Select ${row.sheetName}`}
                         />
                       </td>

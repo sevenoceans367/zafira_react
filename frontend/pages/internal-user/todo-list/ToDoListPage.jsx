@@ -13,6 +13,7 @@ import {
 import { downloadReportExcel, downloadReportPdf } from '../reports/reportExports.js';
 import ToDoListHeaderActions from './ToDoListHeaderActions.jsx';
 import { enrichTodoRow, EXPORT_FIELDS } from './todoListDisplay.js';
+import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import styles from './ToDoListPage.module.css';
 
 const EMPTY_FILTER = { businessType: 'all', voyageType: 'all', vessel: '' };
@@ -363,61 +364,49 @@ export default function ToDoListPage() {
           ))}
         </div>
 
-        <div className={styles.actionRow}>
-          <div className={styles.actionRowLeft}>
-            <span className={styles.usdChip}>Values in USD</span>
-            <div className={styles.menuWrap} ref={downloadRef}>
-              <button
-                className={styles.btnDownload}
-                type="button"
-                title="Download"
-                aria-expanded={downloadOpen}
-                onClick={() => setDownloadOpen((open) => !open)}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <circle cx="12" cy="5" r="1.9" />
-                  <circle cx="12" cy="12" r="1.9" />
-                  <circle cx="12" cy="19" r="1.9" />
-                </svg>
-              </button>
-              {downloadOpen ? (
-                <div className={styles.downloadMenu}>
-                  <button type="button" onClick={handlePdf}>Download as PDF</button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDownloadOpen(false);
-                      setExportOpen(true);
-                    }}
-                  >
-                    Download as Excel…
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div className={styles.actionRowRight}>
-            <span className={styles.showCtrl}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-              <select
-                className={styles.showSelect}
-                value={showCount}
-                onChange={(event) => setShowCount(Number(event.target.value))}
-                title="Rows to show"
-              >
-                <option value={10}>Show 10</option>
-                <option value={20}>Show 20</option>
-                <option value={30}>Show 30</option>
-              </select>
-            </span>
+        <ScrollableTable
+          flushTop
+          pageSize={showCount}
+          onPageSizeChange={setShowCount}
+          pageSizeOptions={[10, 20, 30]}
+          toolbarLeft={(
+            <>
+              <span className={styles.usdChip}>USD</span>
+              <div className={styles.menuWrap} ref={downloadRef}>
+                <button
+                  className={styles.btnDownload}
+                  type="button"
+                  title="Download"
+                  aria-expanded={downloadOpen}
+                  onClick={() => setDownloadOpen((open) => !open)}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <circle cx="12" cy="5" r="1.9" />
+                    <circle cx="12" cy="12" r="1.9" />
+                    <circle cx="12" cy="19" r="1.9" />
+                  </svg>
+                </button>
+                {downloadOpen ? (
+                  <div className={styles.downloadMenu}>
+                    <button type="button" onClick={handlePdf}>Download as PDF</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDownloadOpen(false);
+                        setExportOpen(true);
+                      }}
+                    >
+                      Download as Excel…
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
+          toolbarRight={(
             <span>Showing {visibleRows.length} of {matchedRows.length} transactions</span>
-          </div>
-        </div>
-
-        <div className={styles.tableCard}>
-          <div className={styles.tableWrap}>
+          )}
+        >
             <table className={styles.grid}>
               <thead>
                 <tr>
@@ -570,8 +559,7 @@ export default function ToDoListPage() {
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
+        </ScrollableTable>
       </div>
 
       {detailRow ? createPortal(

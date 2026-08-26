@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button, CardSelect, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { useTcModule } from '../../../hooks/useTcModule.js';
@@ -14,6 +14,7 @@ import {
   updateTcEstimate,
 } from '../../../services/tcEstimates.js';
 import { fetchVesselEstimatePrefill } from '../../../services/estimateDetail.js';
+import saveIcon from '../../../assets/Save.png';
 import VesselSearchSelect from '../sopf/VesselSearchSelect.jsx';
 import CollapsiblePanel from '../sopf/CollapsiblePanel.jsx';
 import TcFormHeaderActions from './TcFormHeaderActions.jsx';
@@ -23,6 +24,14 @@ import TcInExpensesModal, {
   EMPTY_TC_IN_OFF,
 } from './TcInExpensesModal.jsx';
 import styles from './TcPages.module.css';
+
+function CancelIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
 
 const EMPTY_BUNKER = { bunkerId: '', qty: '', price: '', amount: '', bunkerDate: '' };
 const EMPTY_ITIN_EXP = { expenseType: '', description: '', amount: '', notes: '' };
@@ -202,6 +211,7 @@ function emptyForm(businessTypeId = '2') {
     ownersBankDet: '',
     docCreatBy: '',
     additInform: '',
+    attachmentName: '',
     windForce: '',
     speedLaden: '',
     speedBallast: '',
@@ -399,19 +409,32 @@ export default function TcFixtureFormPage({
 
   const dailyHireUsd = useMemo(() => {
     const hire = Number(form.hireFixPer) || 0;
+    const days = Number(form.durFixPer) || 0;
     const rate = Number(form.exchangeRate);
     const exchange = Number.isFinite(rate) && rate !== 0 ? rate : 1;
+    if (days > 0) return (hire * days * exchange).toFixed(2);
     return (hire * exchange).toFixed(2);
-  }, [form.exchangeRate, form.hireFixPer]);
+  }, [form.durFixPer, form.exchangeRate, form.hireFixPer]);
 
   const tcResults = useMemo(() => {
     const calc = form.calc || {};
+    const totalRev = Number(calc.totalRev) || 0;
+    const lessOffHire = Number(calc.lessOffHire) || 0;
+    const nettTcRev = Number(calc.nettHireInvoice ?? calc.nettRev) || Math.max(totalRev - lessOffHire, 0);
+    const totalExp = Number(calc.totalExp) || itineraryExpenseTotal;
+    const profit = Number(calc.voyageEarn) || (totalRev - totalExp);
+    const profitAdjPreTc = profit - itineraryExpenseTotal;
     return {
-      totalRev: formatResult(calc.totalRev),
-      voyageEarn: formatResult(calc.voyageEarn),
-      profitPerDay: formatResult(calc.profitPerDay),
+      totalRev: formatResult(calc.totalRev ?? totalRev),
+      lessOffHire: formatResult(calc.lessOffHire ?? lessOffHire),
+      nettTcRev: formatResult(nettTcRev),
+      refCharterers: formatResult(calc.refCharterers),
+      refOwners: formatResult(calc.refOwners),
+      totalExp: formatResult(calc.totalExp ?? totalExp),
+      profit: formatResult(calc.voyageEarn ?? profit),
+      profitAdjPreTc: formatResult(profitAdjPreTc),
     };
-  }, [form.calc]);
+  }, [form.calc, itineraryExpenseTotal]);
 
   useEffect(() => {
     let cancelled = false;
@@ -762,6 +785,8 @@ export default function TcFixtureFormPage({
         disabled={saving || loading}
         onGeneratePdf={mode !== 'add' ? handleGeneratePdf : undefined}
         pdfLoading={pdfLoading}
+        showTcInRecap={showSubCharter && !readOnly}
+        onTcInRecap={() => setTcInOpen(true)}
       />
       {loading ? <LoadingOverlay active label="Loading TC Recap…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
@@ -769,7 +794,7 @@ export default function TcFixtureFormPage({
       <form onSubmit={handleSubmit}>
           <div className={`${styles.estLayout} ${readOnly ? styles.viewModeLock : ''}`.trim()}>
             <div className={styles.estLhs}>
-              <CollapsiblePanel title="Estimate Identifier" defaultOpen>
+              <CollapsiblePanel title="Recap Identifiers" defaultOpen>
                 <div className={`${styles.denseGrid} ${styles.dense7}`}>
                   <Field label="Business Type">
                     <CardSelect
@@ -779,24 +804,11 @@ export default function TcFixtureFormPage({
                       placeholder="Select business type"
                       ariaLabel="Business type"
                     />
-                  </Field>
-                  <Field label="CP Type">
-                    <CardSelect
-                      options={lookups?.cpTypes || []}
-                      value={form.cpType}
-                      onChange={(v) => setField('cpType', v)}
-                      placeholder="Select CP type"
-                      ariaLabel="CP type"
-                    />
-                  </Field>
-                  <Field label="Link Period Contract">
-                    <CardSelect
-                      options={lookups?.periodContracts || []}
-                      value={form.periodId}
-                      onChange={handlePeriodChange}
-                      placeholder="Select period contract"
-                      ariaLabel="Period contract"
-                    />
+                    {showSubCharter ? (
+                      <div className={styles.subCharterBadge} aria-live="polite">
+                        Sub-Charter
+                      </div>
+                    ) : null}
                   </Field>
                   <Field label="Vessel">
                     {readOnly ? (
@@ -821,17 +833,7 @@ export default function TcFixtureFormPage({
                     onChange={(v) => setField('tcNo', v)}
                     readOnly={mode === 'edit' || readOnly}
                   />
-                </div>
-                {showSubCharter ? (
-                  <div className={styles.subCharterBadge} aria-live="polite">
-                    Sub-Charter
-                  </div>
-                ) : null}
-                <input type="hidden" value={form.fixtureType || '1'} readOnly />
-              </CollapsiblePanel>
-
-              <CollapsiblePanel title="CP Information" defaultOpen={false}>
-                <div className={styles.denseGrid}>
+                  <TextInput label="Est No." value={mode === 'add' ? 'Auto' : (form.tcNo || '')} readOnly />
                   <Field label="Chartering Team">
                     <CardSelect
                       options={lookups?.charteringTeams || []}
@@ -846,26 +848,41 @@ export default function TcFixtureFormPage({
                       options={lookups?.charteringPics || []}
                       value={form.charteringPic1}
                       onChange={(v) => setField('charteringPic1', v)}
-                      placeholder="Select PIC 1"
-                      ariaLabel="Chartering PIC 1"
+                      placeholder="Select PIC"
+                      ariaLabel="Chartering PIC"
                     />
                   </Field>
-                  <Field label="Operator">
+                  <Field label="Ops PIC">
                     <CardSelect
                       options={lookups?.vendors || []}
                       value={form.charOperation}
                       onChange={(v) => setField('charOperation', v)}
                       placeholder="Select"
-                      ariaLabel="Operator"
+                      ariaLabel="Ops PIC"
                     />
                   </Field>
-                  <Field label="Charterers">
+                  <Field label="Link Period CTT">
                     <CardSelect
-                      options={lookups?.charterers || []}
-                      value={form.charterer}
-                      onChange={(v) => setField('charterer', v)}
-                      placeholder="Select charterer"
-                      ariaLabel="Charterer"
+                      options={lookups?.periodContracts || []}
+                      value={form.periodId}
+                      onChange={handlePeriodChange}
+                      placeholder="Select contract"
+                      ariaLabel="Period contract"
+                    />
+                  </Field>
+                </div>
+                <input type="hidden" value={form.fixtureType || '1'} readOnly />
+              </CollapsiblePanel>
+
+              <CollapsiblePanel title="CP Information" defaultOpen={false}>
+                <div className={styles.denseGrid}>
+                  <Field label="CP Type">
+                    <CardSelect
+                      options={lookups?.cpTypes || []}
+                      value={form.cpType}
+                      onChange={(v) => setField('cpType', v)}
+                      placeholder="Select CP type"
+                      ariaLabel="CP type"
                     />
                   </Field>
                   <Field label="Law / Arbitration">
@@ -877,6 +894,24 @@ export default function TcFixtureFormPage({
                       ariaLabel="Law arbitration"
                     />
                   </Field>
+                  <Field label="Charterers">
+                    <CardSelect
+                      options={lookups?.charterers || []}
+                      value={form.charterer}
+                      onChange={(v) => setField('charterer', v)}
+                      placeholder="Select charterer"
+                      ariaLabel="Charterer"
+                    />
+                  </Field>
+                  <Field label="Charterers' Address" className={styles.span2}>
+                    <input
+                      value={form.charOperAdd || ''}
+                      onChange={(e) => setField('charOperAdd', e.target.value)}
+                      readOnly
+                      className={styles.inputReadonly}
+                      placeholder="Display from master data"
+                    />
+                  </Field>
                   <Field label="Chartering PIC 2">
                     <CardSelect
                       options={lookups?.charteringPics || []}
@@ -884,15 +919,6 @@ export default function TcFixtureFormPage({
                       onChange={(v) => setField('charteringPic2', v)}
                       placeholder="Select PIC 2"
                       ariaLabel="Chartering PIC 2"
-                    />
-                  </Field>
-                  <Field label="Address" className={styles.spanFull}>
-                    <textarea
-                      value={form.charOperAdd || ''}
-                      onChange={(e) => setField('charOperAdd', e.target.value)}
-                      readOnly
-                      className={styles.inputReadonly}
-                      placeholder="Address"
                     />
                   </Field>
                 </div>
@@ -933,37 +959,9 @@ export default function TcFixtureFormPage({
                 </div>
               </CollapsiblePanel>
 
-              <CollapsiblePanel title="Trip Details" defaultOpen>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Delivery &amp; Re-Delivery</div>
+              <CollapsiblePanel title="TC Details" defaultOpen>
                 <div className={styles.denseGrid}>
-                  <Field label="Delivery – Redelivery Period" className={styles.span2}>
-                    <div className={styles.dateRangePair}>
-                      <DmyDateInput
-                        value={form.delDate || ''}
-                        onChange={(v) => setField('delDate', v)}
-                        enableTime
-                        disabled={readOnly}
-                      />
-                      <DmyDateInput
-                        value={form.reDelDate || ''}
-                        onChange={(v) => setField('reDelDate', v)}
-                        enableTime
-                        disabled={readOnly}
-                      />
-                    </div>
-                  </Field>
-                  <TextInput label="Delivery Range / Port" value={form.delRangePort} onChange={(v) => setField('delRangePort', v)} />
-                  <TextInput label="Redelivery Range" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
-                </div>
-
-                <div className={styles.subBlockLabel}>Trip Details</div>
-                <div className={styles.denseGrid}>
-                  <TextInput label="Trip TC" value={form.tripTc} onChange={(v) => setField('tripTc', v)} />
-                  <TextInput label="Period" value={form.period} onChange={(v) => setField('period', v)} />
-                  <TextInput label="No. of Trips" value={form.noOfTrip} onChange={(v) => setField('noOfTrip', v)} />
-                  <TextInput label="Duration Optional Period" value={form.durOptPer} onChange={(v) => setField('durOptPer', v)} />
-                  <TextInput label="Commencement Optional Period" value={form.commOptPer} onChange={(v) => setField('commOptPer', v)} />
-                  <Field label="Laycan" className={styles.span2}>
+                  <Field label="Laycan From/To" className={styles.span2}>
                     <div className={styles.dateRangePair}>
                       <DmyDateInput
                         value={form.laycanFrom || ''}
@@ -979,77 +977,139 @@ export default function TcFixtureFormPage({
                       />
                     </div>
                   </Field>
-                  <TextInput label="TC Days" value={form.durFixPer} onChange={(v) => setField('durFixPer', v)} />
-                  <Field label="Hire PDPR Currency">
+                  <Field label="Hire Currency">
                     <CardSelect
                       options={lookups?.currencies || []}
                       value={form.exchangeCurrency}
                       onChange={(v) => setField('exchangeCurrency', v)}
                       placeholder="Currency"
-                      ariaLabel="Currency"
+                      ariaLabel="Hire currency"
                     />
                   </Field>
                   <TextInput label="X-rate to USD" value={form.exchangeRate} onChange={(v) => setField('exchangeRate', v)} />
-                  <TextInput
-                    label={`Hire Rate ($/day)`}
-                    value={form.hireFixPer}
-                    onChange={(v) => setField('hireFixPer', v)}
-                  />
-                  <TextInput label="Hire Amount" value={dailyHireUsd} readOnly />
-                  <TextInput label="Hire Optional Period" value={form.hireOptPer} onChange={(v) => setField('hireOptPer', v)} />
-                  <TextInput label="Fuel Specs" value={form.fuelSpecs} onChange={(v) => setField('fuelSpecs', v)} />
+                  <TextInput label="Del Port/Range" value={form.delRangePort} onChange={(v) => setField('delRangePort', v)} />
+                  <TextInput label="Re-Del Port/Range" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
                   <TextInput label="CVE/Month ($)" value={form.cveMonth} onChange={(v) => setField('cveMonth', v)} />
-                  {isDry ? (
-                    <>
-                      <TextInput label="Supercargo and meals (USD)" value={form.supercargoMeals} onChange={(v) => setField('supercargoMeals', v)} />
-                      <TextInput label="Hold Cleaning Intermediate (USD)" value={form.holdCleanInter} onChange={(v) => setField('holdCleanInter', v)} />
-                      <TextInput label="ILOHC (USD)" value={form.ilohcUsd} onChange={(v) => setField('ilohcUsd', v)} />
-                      <TextInput label="ILOHC - Remarks from CP" value={form.ilohcRemarks} onChange={(v) => setField('ilohcRemarks', v)} />
-                    </>
-                  ) : null}
-                  <Field label="Brokerage Comm. Payable By">
+                  <TextInput label="ILOHC" value={form.ilohcUsd} onChange={(v) => setField('ilohcUsd', v)} />
+                  <TextInput label="AD Comm (%)" value={form.addComm} onChange={(v) => setField('addComm', v)} />
+                  <TextInput label="Brokerage (%)" value={form.brokerComm} onChange={(v) => setField('brokerComm', v)} />
+                  <Field label="Brokerage Paid By">
                     <CardSelect
                       options={lookups?.payableBy || []}
                       value={form.broCommPayable}
                       onChange={(v) => setField('broCommPayable', v)}
                       placeholder="Select"
-                      ariaLabel="Payable by"
+                      ariaLabel="Brokerage paid by"
                     />
                   </Field>
-                  <TextInput label="Add. Comm %" value={form.addComm} onChange={(v) => setField('addComm', v)} />
-                  <TextInput label="Broker's Comm %" value={form.brokerComm} onChange={(v) => setField('brokerComm', v)} />
+                </div>
+              </CollapsiblePanel>
+
+              <CollapsiblePanel title="Trip Details" defaultOpen>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Trip Schedule</div>
+                <div className={styles.miniTableWrap}>
+                  <table className={styles.miniTable}>
+                    <thead>
+                      <tr>
+                        <th>Del Date (From)</th>
+                        <th>Del Date (To)</th>
+                        <th>Days</th>
+                        <th>Hire ($/day)</th>
+                        <th>Hire Amt ($)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <DmyDateInput
+                            value={form.delDate || ''}
+                            onChange={(v) => setField('delDate', v)}
+                            enableTime
+                            disabled={readOnly}
+                          />
+                        </td>
+                        <td>
+                          <DmyDateInput
+                            value={form.reDelDate || ''}
+                            onChange={(v) => setField('reDelDate', v)}
+                            enableTime
+                            disabled={readOnly}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={form.durFixPer || ''}
+                            onChange={(e) => setField('durFixPer', e.target.value)}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                            placeholder="0"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={form.hireFixPer || ''}
+                            onChange={(e) => setField('hireFixPer', e.target.value)}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                            placeholder="0.00"
+                          />
+                        </td>
+                        <td>
+                          <input value={dailyHireUsd} readOnly className={styles.inputReadonly} placeholder="0.00" />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className={styles.subBlockLabel}>Additional Trip Fields</div>
+                <div className={styles.denseGrid}>
+                  <TextInput label="Trip TC" value={form.tripTc} onChange={(v) => setField('tripTc', v)} />
+                  <TextInput label="Period" value={form.period} onChange={(v) => setField('period', v)} />
+                  <TextInput label="No. of Trips" value={form.noOfTrip} onChange={(v) => setField('noOfTrip', v)} />
+                  <TextInput label="Duration Optional Period" value={form.durOptPer} onChange={(v) => setField('durOptPer', v)} />
+                  <TextInput label="Commencement Optional Period" value={form.commOptPer} onChange={(v) => setField('commOptPer', v)} />
+                  <TextInput label="Hire Optional Period" value={form.hireOptPer} onChange={(v) => setField('hireOptPer', v)} />
+                  <TextInput label="Fuel Specs" value={form.fuelSpecs} onChange={(v) => setField('fuelSpecs', v)} />
+                  {isDry ? (
+                    <>
+                      <TextInput label="Supercargo and meals (USD)" value={form.supercargoMeals} onChange={(v) => setField('supercargoMeals', v)} />
+                      <TextInput label="Hold Cleaning Intermediate (USD)" value={form.holdCleanInter} onChange={(v) => setField('holdCleanInter', v)} />
+                      <TextInput label="ILOHC - Remarks from CP" value={form.ilohcRemarks} onChange={(v) => setField('ilohcRemarks', v)} />
+                    </>
+                  ) : null}
                   <TextInput label="Laycan Narrowing" value={form.laycanNarr} onChange={(v) => setField('laycanNarr', v)} />
                   <DateField label="Date" value={form.tcDate} onChange={(v) => setField('tcDate', v)} />
                 </div>
               </CollapsiblePanel>
 
               <CollapsiblePanel title="Bunkers" defaultOpen={false}>
-                {renderBunkerTable('deliveryBunkers', 'Bunker Grades — Delivery')}
-                {renderBunkerTable('redeliveryBunkers', 'Bunker Grades — Re-Delivery')}
+                {renderBunkerTable('deliveryBunkers', 'Bunker Grades → Delivery')}
+                {renderBunkerTable('redeliveryBunkers', 'Bunker Grades → Re-Delivery')}
               </CollapsiblePanel>
 
-              <CollapsiblePanel title="TC Terms" defaultOpen={false}>
+              <CollapsiblePanel title="TC Terms for Voyage" defaultOpen={false}>
                 <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Sea Passage</div>
                 <div className={styles.denseGrid}>
                   <TextInput label="Wind Force" value={form.windForce} onChange={(v) => setField('windForce', v)} />
-                  <TextInput label="Speed Laden (Kts)" value={form.speedLaden} onChange={(v) => setField('speedLaden', v)} />
-                  <TextInput label="Speed Ballast (Kts)" value={form.speedBallast} onChange={(v) => setField('speedBallast', v)} />
+                  <TextInput label="Speed Laden (kts)" value={form.speedLaden} onChange={(v) => setField('speedLaden', v)} />
+                  <TextInput label="Speed Ballast (kts)" value={form.speedBallast} onChange={(v) => setField('speedBallast', v)} />
                   <TextInput label="CP Speed" value={form.cpSpeed} onChange={(v) => setField('cpSpeed', v)} />
-                  <TextInput label="FO Cons Laden (MT/Day)" value={form.foConsLaden} onChange={(v) => setField('foConsLaden', v)} />
-                  <TextInput label="DO Cons Laden (MT/Day)" value={form.doConsLaden} onChange={(v) => setField('doConsLaden', v)} />
-                  <TextInput label="FO Cons Ballast (MT/Day)" value={form.foConsBallast} onChange={(v) => setField('foConsBallast', v)} />
-                  <TextInput label="DO Cons Ballast (MT/Day)" value={form.doConsBallast} onChange={(v) => setField('doConsBallast', v)} />
+                  <TextInput label="FO Cons Laden (MT/day)" value={form.foConsLaden} onChange={(v) => setField('foConsLaden', v)} />
+                  <TextInput label="DO Cons Laden (MT/day)" value={form.doConsLaden} onChange={(v) => setField('doConsLaden', v)} />
+                  <TextInput label="FO Cons Ballast (MT/day)" value={form.foConsBallast} onChange={(v) => setField('foConsBallast', v)} />
+                  <TextInput label="DO Cons Ballast (MT/day)" value={form.doConsBallast} onChange={(v) => setField('doConsBallast', v)} />
                 </div>
                 <div className={styles.subBlockLabel}>Port</div>
                 <div className={styles.denseGrid}>
-                  <TextInput label="FO Cons Ldg (MT/Day)" value={form.foConsLdg} onChange={(v) => setField('foConsLdg', v)} />
-                  <TextInput label="DO Cons Ldg (MT/Day)" value={form.doConsLdg} onChange={(v) => setField('doConsLdg', v)} />
-                  <TextInput label="FO Cons Disch (MT/Day)" value={form.foConsDisch} onChange={(v) => setField('foConsDisch', v)} />
-                  <TextInput label="DO Cons Disch (MT/Day)" value={form.doConsDisch} onChange={(v) => setField('doConsDisch', v)} />
-                  <TextInput label="FO Cons Idle (MT/Day)" value={form.foConsIdle} onChange={(v) => setField('foConsIdle', v)} />
-                  <TextInput label="DO Cons Idle (MT/Day)" value={form.doConsIdle} onChange={(v) => setField('doConsIdle', v)} />
-                  <TextInput label="Load Rate (MT/Day)" value={form.loadRate} onChange={(v) => setField('loadRate', v)} />
-                  <TextInput label="Disch Rate (MT/Day)" value={form.dischRate} onChange={(v) => setField('dischRate', v)} />
+                  <TextInput label="FO Cons Ldg (MT/day)" value={form.foConsLdg} onChange={(v) => setField('foConsLdg', v)} />
+                  <TextInput label="DO Cons Ldg (MT/day)" value={form.doConsLdg} onChange={(v) => setField('doConsLdg', v)} />
+                  <TextInput label="FO Cons Disch (MT/day)" value={form.foConsDisch} onChange={(v) => setField('foConsDisch', v)} />
+                  <TextInput label="DO Cons Disch (MT/day)" value={form.doConsDisch} onChange={(v) => setField('doConsDisch', v)} />
+                  <TextInput label="FO Cons Idle (MT/day)" value={form.foConsIdle} onChange={(v) => setField('foConsIdle', v)} />
+                  <TextInput label="DO Cons Idle (MT/day)" value={form.doConsIdle} onChange={(v) => setField('doConsIdle', v)} />
+                  <TextInput label="Load Rate (MT/day)" value={form.loadRate} onChange={(v) => setField('loadRate', v)} />
+                  <TextInput label="Disch Rate (MT/day)" value={form.dischRate} onChange={(v) => setField('dischRate', v)} />
                   <Field label="Owner's Banking Details">
                     <CardSelect
                       options={lookups?.bankingDetails || []}
@@ -1060,17 +1120,24 @@ export default function TcFixtureFormPage({
                     />
                   </Field>
                   <TextInput label="Document Created By" value={form.docCreatBy} readOnly />
-                  <Field label="Additional Information" className={styles.spanFull}>
-                    <textarea
-                      value={form.additInform || ''}
-                      onChange={(e) => setField('additInform', e.target.value)}
-                    />
-                  </Field>
                 </div>
               </CollapsiblePanel>
 
-              <CollapsiblePanel title="Contract CAPEX & OPEX" defaultOpen={false}>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Itinerary, Expenses &amp; Capex</div>
+              <CollapsiblePanel title="TC Expenses" defaultOpen={false}>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>TC Expense</div>
+                <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
+                  <button
+                    type="button"
+                    className={`${styles.addRowBtn} ${showSubCharter ? styles.addRowBtnSubCharter : ''}`}
+                    onClick={() => setTcInOpen(true)}
+                  >
+                    {showSubCharter ? '+ Add Sub-Charter Expense' : '+ TC In Expenses'}
+                  </button>
+                </div>
+              </CollapsiblePanel>
+
+              <CollapsiblePanel title="Pre-TC Details" defaultOpen={false}>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Itinerary</div>
                 <div className={styles.miniTableWrap}>
                 <table className={styles.miniTable}>
                   <thead>
@@ -1136,6 +1203,7 @@ export default function TcFixtureFormPage({
                 </table>
                 </div>
 
+                <div className={styles.subBlockLabel}>Expenses</div>
                 <div className={styles.miniTableWrap}>
                 <table className={styles.miniTable}>
                   <thead>
@@ -1211,53 +1279,125 @@ export default function TcFixtureFormPage({
                 {!readOnly ? (
                   <Button variant="outline" label="Add Expense" onClick={addItinExpense} />
                 ) : null}
+              </CollapsiblePanel>
 
-                <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
-                  <button
-                    type="button"
-                    className={`${styles.addRowBtn} ${showSubCharter ? styles.addRowBtnSubCharter : ''}`}
-                    onClick={() => setTcInOpen(true)}
-                  >
-                    {showSubCharter ? '+ Add Sub-Charter Expense' : '+ TC In Expenses'}
-                  </button>
+              <CollapsiblePanel title="Additional Info and Documents" defaultOpen={false}>
+                <div className={styles.denseGrid}>
+                  <Field label="Addnl Info" className={styles.span2}>
+                    <input
+                      value={form.additInform || ''}
+                      onChange={(e) => setField('additInform', e.target.value)}
+                      placeholder="Description"
+                      readOnly={readOnly}
+                      className={readOnly ? styles.inputReadonly : undefined}
+                    />
+                  </Field>
                 </div>
+                <label className={`${styles.dropzone} ${readOnly ? styles.inputReadonly : ''}`.trim()}>
+                  <div className={styles.dropzoneIcon} aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 16V4" />
+                      <path d="M6 10l6-6 6 6" />
+                      <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                    </svg>
+                  </div>
+                  <div className={styles.dropzoneText}>
+                    <b>Drag &amp; drop files here</b>, or click to browse
+                    {form.attachmentName ? <span className={styles.dropzoneFile}> — {form.attachmentName}</span> : null}
+                  </div>
+                  {!readOnly ? (
+                    <input
+                      type="file"
+                      className={styles.dropzoneInput}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        setField('attachmentName', file?.name || '');
+                      }}
+                    />
+                  ) : null}
+                </label>
               </CollapsiblePanel>
             </div>
 
             <aside className={styles.estRhs}>
               <div className={styles.resultsBlock}>
-                <div className={styles.resultsHead}>TC Results</div>
+                <div className={styles.resultsHead}>TC Revenue</div>
                 <div className={styles.resultsBody}>
-                  <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Total TC Revenue</span>
+                  <div className={`${styles.resRow} ${styles.resRowAccent}`}>
+                    <span className={styles.resRowLabel}>Total TC Rev</span>
                     <span className={styles.resRowVal}>{tcResults.totalRev}</span>
                   </div>
                   <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>TC Earnings</span>
-                    <span className={styles.resRowVal}>{tcResults.voyageEarn}</span>
+                    <span className={styles.resRowLabel}>Less Off Hire (Incl. Bunkers)</span>
+                    <span className={styles.resRowVal}>{tcResults.lessOffHire}</span>
                   </div>
-                  <div className={`${styles.resRow} ${styles.resRowAccent}`}>
-                    <span className={styles.resRowLabel}>Profit Per Day</span>
-                    <span className={styles.resRowVal}>{tcResults.profitPerDay}</span>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Nett TC Rev</span>
+                    <span className={styles.resRowVal}>{tcResults.nettTcRev}</span>
                   </div>
                 </div>
               </div>
 
-              <div className={`${styles.formFooter} ${styles.viewModeAllow}`}>
-                <Button variant="danger" label="Cancel" href={listHref} disabled={saving} />
-                {mode === 'edit' ? (
-                  <Button
-                    variant="outline"
-                    label="Calculate"
-                    href={tcPath(`${tcOutId}/calculate`)}
-                    disabled={saving}
-                  />
-                ) : null}
-                {!readOnly ? (
-                  <Button type="submit" label={saving ? 'Saving…' : 'Save'} disabled={saving} />
-                ) : null}
+              <div className={styles.resultsBlock}>
+                <div className={styles.resultsHead}>TC Expenses</div>
+                <div className={styles.resultsBody}>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Ref Charterers</span>
+                    <span className={styles.resRowVal}>{tcResults.refCharterers}</span>
+                  </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Ref Owners</span>
+                    <span className={styles.resRowVal}>{tcResults.refOwners}</span>
+                  </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Total Exp (Incl. Pre TC)</span>
+                    <span className={styles.resRowVal}>{tcResults.totalExp}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.resultsBlock}>
+                <div className={styles.resultsHead}>TC P&amp;L</div>
+                <div className={styles.resultsBody}>
+                  <div className={`${styles.resRow} ${styles.resRowAccent}`}>
+                    <span className={styles.resRowLabel}>Profit</span>
+                    <span className={styles.resRowVal}>{tcResults.profit}</span>
+                  </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Profit (Adj. Pre TC)</span>
+                    <span className={styles.resRowVal}>{tcResults.profitAdjPreTc}</span>
+                  </div>
+                </div>
               </div>
             </aside>
+          </div>
+
+          <div className={`${styles.formFooter} ${styles.viewModeAllow}`}>
+            <Link
+              to={listHref}
+              className={styles.btnCancel}
+              onClick={(e) => {
+                if (saving) e.preventDefault();
+              }}
+            >
+              <CancelIcon />
+              Cancel
+            </Link>
+            {mode === 'edit' ? (
+              <Link
+                to={tcPath(`${tcOutId}/calculate`)}
+                className={styles.btnCalculate}
+                aria-disabled={saving || undefined}
+              >
+                Calculate
+              </Link>
+            ) : null}
+            {!readOnly ? (
+              <button type="submit" className={styles.btnSave} disabled={saving}>
+                <img src={saveIcon} alt="" className={styles.btnSaveIcon} />
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            ) : null}
           </div>
       </form>
 

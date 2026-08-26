@@ -27,7 +27,6 @@
   min-width: 0;
   margin: 0;
   box-sizing: border-box;
-  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -721,6 +720,67 @@
   min-width: 0;
 }
 
+.payableSummaryInPlaceHead {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex-shrink: 0;
+  margin-bottom: -18px; /* cancel .page gap so title sits on the sticky card */
+  padding: 18px 22px 8px;
+  background: #fff;
+  border: 1px solid var(--fi-line);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.stickyPayableSummary {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  margin-top: 0;
+  padding: 8px 18px 16px;
+  border-radius: 0 0 12px 12px;
+  border: 1px solid var(--fi-line);
+  border-top: none;
+  box-shadow: none;
+  background: #fff;
+  /* Flex item must not shrink; sticky needs room within .page */
+  flex-shrink: 0;
+  align-self: stretch;
+  transition:
+    box-shadow 0.18s ease,
+    border-radius 0.18s ease,
+    border-color 0.18s ease;
+}
+
+/* Floating footer: border + lift shadow */
+.stickyPayableSummaryStuck {
+  border-radius: 12px 12px 0 0 !important;
+  border: 1px solid var(--fi-line-strong) !important;
+  border-bottom-color: transparent !important;
+  padding-top: 14px;
+  box-shadow:
+    0 -1px 0 rgba(27, 39, 51, 0.06),
+    0 -8px 24px rgba(27, 39, 51, 0.16),
+    0 -16px 40px rgba(27, 39, 51, 0.1) !important;
+}
+
+.stickyPayableSummary .summaryTiles {
+  gap: 10px;
+}
+
+.stickyPayableSummary .summaryTile {
+  padding: 12px 14px;
+}
+
+.stickyPayableSummary .stValue {
+  font-size: 19px;
+}
+
 .summaryTile {
   border-radius: 10px;
   padding: 14px 16px;
@@ -1208,6 +1268,10 @@
   }
 
   .summaryTiles {
+    grid-template-columns: 1fr;
+  }
+
+  .stickyPayableSummary .summaryTiles {
     grid-template-columns: 1fr;
   }
 

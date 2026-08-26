@@ -113,21 +113,36 @@ function FormSelect({ id, label, value, options, onChange, required = false, cla
   );
 }
 
-function InvoiceCard({ num, title, sub, children }) {
+function InvoiceCard({ num, title, sub, children, className = '', cardRef = null, hideHead = false }) {
   return (
-    <section className={styles.card}>
-      <div className={styles.cardHead}>
-        <div className={styles.cardTitleRow}>
-          <span className={styles.cardNum}>{num}</span>
-          <div className={styles.cardTitle}>
-            {title}
-            {sub ? <span className={styles.cardTitleSub}>{sub}</span> : null}
+    <section ref={cardRef} className={`${styles.card}${className ? ` ${className}` : ''}`}>
+      {hideHead ? null : (
+        <div className={styles.cardHead}>
+          <div className={styles.cardTitleRow}>
+            <span className={styles.cardNum}>{num}</span>
+            <div className={styles.cardTitle}>
+              {title}
+              {sub ? <span className={styles.cardTitleSub}>{sub}</span> : null}
+            </div>
           </div>
         </div>
-      </div>
+      )}
       {children}
     </section>
   );
+}
+
+function getScrollParent(node) {
+  let current = node?.parentElement || null;
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const overflowY = style.overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
 }
 
 function splitLocChips(value) {
@@ -717,6 +732,9 @@ export default function OpsVcFreightInvoicePage() {
   const [bankingDetail, setBankingDetail] = useState(null);
   const [paymentInvoice, setPaymentInvoice] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [summaryStuck, setSummaryStuck] = useState(false);
+  const summaryRef = useRef(null);
+  const summaryHeadRef = useRef(null);
 
   const backHref = useMemo(() => {
     const comId = context?.comId || id.split(',')[0] || '';
@@ -1450,6 +1468,35 @@ export default function OpsVcFreightInvoicePage() {
   // PHP invoice.php: $('#frm1').hide() when a STATUS=5 Final row exists and the voyage is not COA.
   const showInvoiceForm = isCoaVoyage || !hasApprovedFinal;
 
+  useEffect(() => {
+    if (!showInvoiceForm) {
+      setSummaryStuck(false);
+      return undefined;
+    }
+
+    const el = summaryRef.current;
+    const head = summaryHeadRef.current;
+    if (!el || !head) return undefined;
+
+    const root = getScrollParent(el);
+    const rootIsDocument = root === document.scrollingElement || root === document.documentElement;
+    const ioRoot = rootIsDocument ? null : root;
+
+    // Floating = in-place title has left the scrollport (scrolled away).
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const floating = !entry.isIntersecting;
+        setSummaryStuck((prev) => (prev === floating ? prev : floating));
+      },
+      { root: ioRoot, threshold: 0, rootMargin: '0px' },
+    );
+    observer.observe(head);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [showInvoiceForm, loading, context]);
+
   const formActions = showInvoiceForm ? (
     <div className={styles.actionRow}>
       {showCreatorActions ? (
@@ -2030,7 +2077,19 @@ export default function OpsVcFreightInvoicePage() {
             </Field>
           </InvoiceCard>
 
-          <InvoiceCard num="6" title="Payable Summary">
+          {/* Title scrolls away with the page; sticky bar is tiles-only (no "Payable Summary"). */}
+          <div ref={summaryHeadRef} className={styles.payableSummaryInPlaceHead}>
+            <span className={styles.cardNum}>6</span>
+            <div className={styles.cardTitle}>Payable Summary</div>
+          </div>
+          <InvoiceCard
+            hideHead
+            cardRef={summaryRef}
+            className={[
+              styles.stickyPayableSummary,
+              summaryStuck ? styles.stickyPayableSummaryStuck : '',
+            ].filter(Boolean).join(' ')}
+          >
             <div className={styles.summaryTiles}>
               <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
                 <div className={styles.stLabel}>Amount Payable</div>

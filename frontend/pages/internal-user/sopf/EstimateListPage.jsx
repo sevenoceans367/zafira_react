@@ -96,7 +96,7 @@ const DEFAULT_BUSINESS_TYPE = '2';
 
 const STATUS_TABS = [
   { id: 'active', label: 'Active' },
-  { id: 'completed', label: 'In Ops' },
+  { id: 'completed', label: 'Performing' },
 ];
 
 function parseStatusTab(value) {
@@ -109,7 +109,7 @@ function rowStatusTab(row) {
   return 'active';
 }
 
-/** Same icons as Running COA Active / Completed (In Ops uses completed check). */
+/** Same icons as Running COA Active / Completed (Performing uses completed check). */
 function TabIcon({ id }) {
   if (id === 'completed') {
     return (
@@ -570,7 +570,7 @@ export default function EstimateListPage() {
                   <tr>
                     <td colSpan={13} className={styles.empty}>
                       {isCompletedTab
-                        ? 'No In Ops estimates for the selected filters.'
+                        ? 'No Performing estimates for the selected filters.'
                         : 'No active estimates match your search.'}
                     </td>
                   </tr>

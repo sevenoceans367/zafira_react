@@ -23,7 +23,7 @@ const DEFAULT_BUSINESS_TYPE = '2';
 
 const STATUS_TABS = [
   { id: 'active', label: 'Active' },
-  { id: 'activeInOps', label: 'In Ops' },
+  { id: 'activeInOps', label: 'Performing' },
 ];
 
 const FLASH = {
@@ -560,7 +560,7 @@ export default function TcOutEstimatesListPage() {
               })}
               {!visibleRows.length && !loading ? (
                 <tr>
-                  <td colSpan={12} className={styles.empty}>No fixtures in Ops yet.</td>
+                  <td colSpan={12} className={styles.empty}>No Performing fixtures yet.</td>
                 </tr>
               ) : null}
             </tbody>

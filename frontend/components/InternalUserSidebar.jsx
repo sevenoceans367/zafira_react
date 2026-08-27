@@ -12,6 +12,7 @@ import { SOPF_TOP_SIDEBAR_ITEMS, SOPF_CHARTERING_SIDEBAR_ITEMS } from '../consta
 import helpDeskIcon from '../assets/help desk.png';
 import commercialPerformanceIcon from '../assets/commercial performance.png';
 import genericFinancesIcon from '../assets/generic finances.png';
+import groupPaymentsIcon from '../assets/GroupPayments.png';
 import financialTransactionsIcon from '../assets/financial transactions.png';
 import fleetIcon from '../assets/vessel.png';
 import elibraryIcon from '../assets/elibrary.svg';
@@ -23,7 +24,7 @@ import OpsVcSidebarTree from './ops/OpsVcSidebarTree.jsx';
 import OpsTcSidebarTree from './ops/OpsTcSidebarTree.jsx';
 import MastersSidebarTree from './masters/MastersSidebarTree.jsx';
 import ReportsSidebarTree from './reports/ReportsSidebarTree.jsx';
-import vesselPositionIcon from '../assets/vesselPosition.svg';
+import mapIcon from '../assets/map.png';
 import {
   LIVE_VESSEL_MAP_ENABLED,
   LIVE_VESSEL_MAP_PATH,
@@ -148,7 +149,7 @@ export default function InternalUserSidebar({ isOpen }) {
             <SidebarSection label="LIVE MAP" />
             <SidebarLink
               to={appPath(LIVE_VESSEL_MAP_PATH)}
-              iconSrc={vesselPositionIcon}
+              iconSrc={mapIcon}
               iconAlt={LIVE_VESSEL_MAP_TITLE}
               label={LIVE_VESSEL_MAP_TITLE}
               active
@@ -229,7 +230,8 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <SidebarLink
               to={groupPaymentsAppPath()}
-              icon="bi-currency-dollar"
+              iconSrc={groupPaymentsIcon}
+              iconAlt="Group Payments"
               label="Group Payments"
               active={currentPath.includes('/group-payments')
                 || currentPath.includes('/combined-soa-payable')}
@@ -238,7 +240,7 @@ export default function InternalUserSidebar({ isOpen }) {
               to="/internal-user/vc/generic-finances"
               iconSrc={genericFinancesIcon}
               iconAlt="Generic Finances"
-              label="GENERIC FINANCES"
+              label="Generic Finances"
               active={currentPath.startsWith('/internal-user/vc/generic-finances')}
             />
             <CoasSidebarTree isOpen={isOpen} />

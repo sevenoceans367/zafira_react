@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import useTimedFlash, { useFlashState } from '../../../hooks/useTimedFlash.js';
 import { useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay, StatusBadge } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
@@ -35,7 +36,7 @@ export default function SupportTicketPage() {
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState([]);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [success, setSuccess] = useFlashState('');
 
   const [chatTicket, setChatTicket] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
@@ -47,7 +48,7 @@ export default function SupportTicketPage() {
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flashMsg = searchParams.get('msg');
-  const flash = flashMsg != null ? TICKET_MSG_COPY[Number(flashMsg)] : null;
+  const flash = useTimedFlash(flashMsg != null ? TICKET_MSG_COPY[Number(flashMsg)] : null);
 
   const loadTickets = useCallback(async () => {
     setLoading(true);

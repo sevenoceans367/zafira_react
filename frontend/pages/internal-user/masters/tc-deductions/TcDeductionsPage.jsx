@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFlashState } from '../../../../hooks/useTimedFlash.js';
 import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import {
   createTcDeduction,
@@ -39,7 +40,7 @@ export default function TcDeductionsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [flash, setFlash] = useState(null);
+  const [flash, setFlash] = useFlashState();
   const [searchInput, setSearchInput] = useState('');
 
   const filteredRows = useMemo(

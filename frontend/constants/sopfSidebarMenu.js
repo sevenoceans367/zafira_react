@@ -6,7 +6,7 @@ import { periodContractAppPath } from './periodContractModule.js';
 import { userGuidesAppPath } from './userGuidesModule.js';
 import spotIcon from '../assets/010-pie-chart.png';
 import fleetIcon from '../assets/vessel.png';
-import vesselPositionIcon from '../assets/vesselPosition.svg';
+import vesselsOnWaterIcon from '../assets/VesselsonWater.png';
 import timeCharterIcon from '../assets/TIME CHARTER.png';
 import periodContractIcon from '../assets/Period contact.svg';
 import poolsIcon from '../assets/pools.svg';
@@ -18,7 +18,7 @@ export const SOPF_TOP_SIDEBAR_ITEMS = [
     id: 'vessel_position',
     href: '/internal-user/sopf/vessel_position',
     label: 'Vessels on Water',
-    iconSrc: vesselPositionIcon,
+    iconSrc: vesselsOnWaterIcon,
     iconAlt: 'Vessels on Water',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/vessel_position'),
   },

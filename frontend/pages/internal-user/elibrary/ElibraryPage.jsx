@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
@@ -36,7 +37,7 @@ export default function ElibraryPage() {
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flashMsg = searchParams.get('msg');
-  const flash = flashMsg != null ? FLASH_MESSAGES[Number(flashMsg)] : null;
+  const flash = useTimedFlash(flashMsg != null ? FLASH_MESSAGES[Number(flashMsg)] : null);
 
   const loadLookups = useCallback(async () => {
     try {

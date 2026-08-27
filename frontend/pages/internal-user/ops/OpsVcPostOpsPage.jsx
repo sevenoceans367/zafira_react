@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -25,6 +26,7 @@ import {
 import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
 import OpsVcCompareSheetsModal from './OpsVcCompareSheetsModal.jsx';
+import OpsVoyageStatusModal, { VoyageStatusButton } from './OpsVoyageStatusModal.jsx';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
 import {
   AlertIcon,
@@ -33,14 +35,13 @@ import {
   CompareIcon,
   DEFAULT_PAGE_SIZE,
   EyeIcon,
-  OpsVcGlanceHeader,
   OpsVcGlanceTable,
   VoyDocsCell,
   alertLabels,
   formatLastUpdated,
-  glanceStats,
   portLines,
 } from './OpsVcGlanceUi.jsx';
+import OpsVcTaskWidgets from './OpsVcTaskWidgets.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcInOpsGlancePage.module.css';
 
@@ -51,13 +52,6 @@ const FLASH = {
   0: { type: 'success', text: 'In Post Ops at a glance added/updated successfully.' },
   4: { type: 'success', text: 'New sheet added successfully.' },
 };
-
-const CARDS = [
-  { key: 'trades', title: 'Trades in Post Ops', variant: 'fin', icon: 'trades' },
-  { key: 'vessels', title: 'Vessels in Post Ops', variant: 'count', icon: 'vessels' },
-  { key: 'worksheets', title: 'Worksheets', variant: 'fin', icon: 'worksheets' },
-  { key: 'alerts', title: 'Alerts', variant: 'count', icon: 'alerts' },
-];
 
 export default function OpsVcPostOpsPage() {
   const confirm = useConfirm();
@@ -80,9 +74,10 @@ export default function OpsVcPostOpsPage() {
   const [error, setError] = useState('');
   const [sheetModal, setSheetModal] = useState({ open: false, comId: '', sheetName: '' });
   const [compareModal, setCompareModal] = useState({ open: false, comId: '' });
+  const [voyageStatusRow, setVoyageStatusRow] = useState(null);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const flash = FLASH[Number(searchParams.get('msg'))];
-
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const updateQuery = (patch) => {
     const next = new URLSearchParams(searchParams);
     Object.entries(patch).forEach(([key, value]) => {
@@ -125,8 +120,6 @@ export default function OpsVcPostOpsPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year, pageSize]);
-
-  const stats = useMemo(() => glanceStats(rows, total), [rows, total]);
 
   const handleOperatorChange = async (row, operatorId) => {
     try {
@@ -263,7 +256,7 @@ export default function OpsVcPostOpsPage() {
         {flash ? <div className={pageStyles.flashSuccess}>{flash.text}</div> : null}
         {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-        <OpsVcGlanceHeader stats={stats} cards={CARDS} />
+        <OpsVcTaskWidgets rows={rows} pageContext={PAGE_CONTEXT} />
 
         <OpsVcGlanceTable
           page={page}
@@ -314,7 +307,13 @@ export default function OpsVcPostOpsPage() {
                   <td className={styles.itemCell}>{(page - 1) * pageSize + index + 1}.</td>
                   <td>
                     <div className={styles.opsCell}>
-                      <span className={styles.primary}>{row.voyageNo || '—'}</span>
+                      <span className={styles.primary}>
+                        <span>{row.voyageNo || '—'}</span>
+                        <VoyageStatusButton
+                          enabled={sheets.length > 0}
+                          onClick={() => setVoyageStatusRow(row)}
+                        />
+                      </span>
                       <span className={styles.sub}>{row.message || '—'}</span>
                     </div>
                   </td>
@@ -413,7 +412,6 @@ export default function OpsVcPostOpsPage() {
                   </td>
                   <td>
                     <div className={styles.chipStack}>
-                      <ChipLink to={appPath(`/internal-user/vc/ops/checklist?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Checklist</ChipLink>
                       <ChipLink to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>SOF</ChipLink>
                       <ChipLink to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Laytime</ChipLink>
                     </div>
@@ -442,25 +440,27 @@ export default function OpsVcPostOpsPage() {
                         </span>
                       ))}
                       {!alerts.length ? <span className={styles.muted}>—</span> : null}
-                      {row.canDeactivate ? (
-                        <button
-                          type="button"
-                          className={styles.deactivateBtn}
-                          title="Deactivate entry"
-                          onClick={() => handleDeactivate(row)}
-                        >
-                          <i className="bi bi-trash" aria-hidden />
-                        </button>
-                      ) : null}
                     </div>
                   </td>
                   <td>
-                    {row.canMoveToHistory ? (
-                      <button type="button" className={styles.pillAction} onClick={() => handleHistory(row)}>
-                        History
-                        <ArrowIcon />
-                      </button>
-                    ) : null}
+                    <div className={styles.nextActions}>
+                      {row.canDeactivate ? (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          icon="trash"
+                          className={`${styles.deleteIconBtn} ${styles.deleteIconDanger}`}
+                          onClick={() => handleDeactivate(row)}
+                          ariaLabel="Deactivate entry"
+                        />
+                      ) : null}
+                      {row.canMoveToHistory ? (
+                        <button type="button" className={styles.pillAction} onClick={() => handleHistory(row)}>
+                          History
+                          <ArrowIcon />
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               );
@@ -508,6 +508,13 @@ export default function OpsVcPostOpsPage() {
           open={compareModal.open}
           comId={compareModal.comId}
           onClose={() => setCompareModal({ open: false, comId: '' })}
+        />
+        <OpsVoyageStatusModal
+          open={Boolean(voyageStatusRow)}
+          row={voyageStatusRow}
+          mode="vc"
+          pageContext={PAGE_CONTEXT}
+          onClose={() => setVoyageStatusRow(null)}
         />
       </div>
     </>

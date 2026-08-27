@@ -1,6 +1,6 @@
 import sopfIcon from '../assets/SOPF Icon 1.png';
 import socIcon from '../assets/SOC Product Icon.png';
-import vesselPositionIcon from '../assets/vesselPosition.svg';
+import mapIcon from '../assets/map.png';
 import {
   LIVE_VESSEL_MAP_ENABLED,
   LIVE_VESSEL_MAP_PATH,
@@ -39,7 +39,7 @@ export const INTERNAL_USER_MODULES = [
     subtitle: 'MAP',
     description: 'Standalone live AIS map. Separate from SOPF and SOC screens.',
     href: LIVE_VESSEL_MAP_PATH,
-    iconSrc: vesselPositionIcon,
+    iconSrc: mapIcon,
     iconAlt: LIVE_VESSEL_MAP_TITLE,
     visibleFor: () => LIVE_VESSEL_MAP_ENABLED,
   },

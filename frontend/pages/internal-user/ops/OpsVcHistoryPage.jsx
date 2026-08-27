@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -10,19 +11,19 @@ import {
 } from '../../../services/opsVc.js';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
+import OpsVoyageStatusModal, { VoyageStatusButton } from './OpsVoyageStatusModal.jsx';
 import {
   AlertIcon,
   ChipLink,
   DEFAULT_PAGE_SIZE,
   EyeIcon,
-  OpsVcGlanceHeader,
   OpsVcGlanceTable,
   VoyDocsCell,
   alertLabels,
   formatLastUpdated,
-  glanceStats,
   portLines,
 } from './OpsVcGlanceUi.jsx';
+import OpsVcTaskWidgets from './OpsVcTaskWidgets.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcInOpsGlancePage.module.css';
 
@@ -31,13 +32,6 @@ const FLASH = {
   0: { type: 'success', text: 'Vessels in History added/updated successfully.' },
   2: { type: 'success', text: 'Status changed successfully.' },
 };
-
-const CARDS = [
-  { key: 'trades', title: 'Trades in History', variant: 'fin', icon: 'trades' },
-  { key: 'vessels', title: 'Vessels in History', variant: 'count', icon: 'vessels' },
-  { key: 'worksheets', title: 'Worksheets', variant: 'fin', icon: 'worksheets' },
-  { key: 'alerts', title: 'Alerts', variant: 'count', icon: 'alerts' },
-];
 
 export default function OpsVcHistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,9 +44,10 @@ export default function OpsVcHistoryPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [voyageStatusRow, setVoyageStatusRow] = useState(null);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const flash = FLASH[Number(searchParams.get('msg'))];
-
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const updateQuery = (patch) => {
     const next = new URLSearchParams(searchParams);
     Object.entries(patch).forEach(([key, value]) => {
@@ -87,8 +82,6 @@ export default function OpsVcHistoryPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [businessType, debouncedSearch, pageSize]);
-
-  const stats = useMemo(() => glanceStats(rows, total), [rows, total]);
 
   const handleWorksheetLayoutChange = async (row, sheets) => {
     const previous = row.costSheets || [];
@@ -132,7 +125,7 @@ export default function OpsVcHistoryPage() {
         {flash ? <div className={pageStyles.flashSuccess}>{flash.text}</div> : null}
         {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-        <OpsVcGlanceHeader stats={stats} cards={CARDS} />
+        <OpsVcTaskWidgets rows={rows} pageContext={PAGE_CONTEXT} />
 
         <OpsVcGlanceTable
           page={page}
@@ -181,7 +174,13 @@ export default function OpsVcHistoryPage() {
                   <td className={styles.itemCell}>{(page - 1) * pageSize + index + 1}.</td>
                   <td>
                     <div className={styles.opsCell}>
-                      <span className={styles.primary}>{row.voyageNo || '—'}</span>
+                      <span className={styles.primary}>
+                        <span>{row.voyageNo || '—'}</span>
+                        <VoyageStatusButton
+                          enabled={sheets.length > 0}
+                          onClick={() => setVoyageStatusRow(row)}
+                        />
+                      </span>
                       <span className={styles.sub}>{row.message || '—'}</span>
                     </div>
                   </td>
@@ -254,7 +253,6 @@ export default function OpsVcHistoryPage() {
                   </td>
                   <td>
                     <div className={styles.chipStack}>
-                      <ChipLink to={appPath(`/internal-user/vc/ops/checklist?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Checklist</ChipLink>
                       <ChipLink to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>SOF</ChipLink>
                       <ChipLink to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Laytime</ChipLink>
                     </div>
@@ -293,6 +291,14 @@ export default function OpsVcHistoryPage() {
             })}
           </tbody>
         </OpsVcGlanceTable>
+
+        <OpsVoyageStatusModal
+          open={Boolean(voyageStatusRow)}
+          row={voyageStatusRow}
+          mode="vc"
+          pageContext={PAGE_CONTEXT}
+          onClose={() => setVoyageStatusRow(null)}
+        />
       </div>
     </>
   );

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -58,8 +59,8 @@ export default function OpsTcPostOpsPage() {
   const [compareModal, setCompareModal] = useState({ open: false, comId: '' });
   const [savingSheet, setSavingSheet] = useState(false);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const flash = FLASH[Number(searchParams.get('msg'))];
-
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const updateQuery = (patch) => {
     const next = new URLSearchParams(searchParams);
     Object.entries(patch).forEach(([key, value]) => {

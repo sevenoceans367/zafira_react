@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -173,8 +174,8 @@ export default function OpsVcSofPage() {
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const page = searchParams.get('page') || '1';
   const tabParam = Number(searchParams.get('tabs') || searchParams.get('tab') || 1);
-  const flash = FLASH[Number(searchParams.get('msg'))];
-
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const [form, setForm] = useState(null);
   const [activeKey, setActiveKey] = useState('');
   const [drafts, setDrafts] = useState({});

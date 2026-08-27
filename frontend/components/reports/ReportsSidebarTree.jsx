@@ -6,7 +6,7 @@ import {
   getDefaultReportPath,
   reportAppPath,
 } from '../../constants/reportsMenu.js';
-import reportsIcon from '../../assets/Reports new.png';
+import reportsIcon from '../../assets/reports 2.png';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 import styles from './ReportsSidebarTree.module.css';
 

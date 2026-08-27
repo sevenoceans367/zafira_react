@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -32,8 +33,8 @@ export default function OpsTcHistoryPage() {
   const [error, setError] = useState('');
   const [compareModal, setCompareModal] = useState({ open: false, comId: '' });
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const flash = FLASH[Number(searchParams.get('msg'))];
-
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const updateQuery = (patch) => {
     const next = new URLSearchParams(searchParams);
     Object.entries(patch).forEach(([key, value]) => {

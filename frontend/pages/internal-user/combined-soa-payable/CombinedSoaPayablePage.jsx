@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useSearchParams } from 'react-router-dom';
 import { LoadingOverlay, StatusBadge } from '@bainbridge/shared-ui';
 import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
@@ -98,7 +99,8 @@ export default function CombinedSoaPayablePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const flash = FLASH[Number(searchParams.get('msg'))];
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const yearOptions = useMemo(() => defaultYearOptions(), []);
 
   const updateQuery = (patch) => {

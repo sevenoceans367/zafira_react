@@ -14,6 +14,10 @@
   margin: 0 0 20px;
 }
 
+.widgetRowThree {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .taskWidget {
   display: flex;
   align-items: center;
@@ -31,6 +35,11 @@
 
 .taskWidget:hover {
   box-shadow: 0 6px 16px rgba(20, 30, 50, 0.08);
+}
+
+.taskWidgetFin {
+  background: linear-gradient(135deg, #fff3ec 0%, #ffffff 65%);
+  border-color: #ffd4c2;
 }
 
 .taskWidgetFinTeal {
@@ -52,6 +61,10 @@
   justify-content: center;
   flex: none;
   color: #fff;
+}
+
+.taskWidgetFin .twIcon {
+  background: linear-gradient(135deg, #ff8a50, #f4652c);
 }
 
 .taskWidgetFinTeal .twIcon {
@@ -139,6 +152,10 @@
   flex: none;
   color: #fff;
   background: linear-gradient(135deg, #3e5f8f, #274670);
+}
+
+.widgetModalIcoFin {
+  background: linear-gradient(135deg, #ff8a50, #f4652c);
 }
 
 .widgetModalIcoTeal {
@@ -247,13 +264,15 @@
 }
 
 @media (max-width: 1100px) {
-  .widgetRow {
+  .widgetRow,
+  .widgetRowThree {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
-  .widgetRow {
+  .widgetRow,
+  .widgetRowThree {
     grid-template-columns: 1fr;
   }
 }
@@ -494,6 +513,20 @@
 .primary {
   font-weight: 700;
   color: #1b2430;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.primary a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: inherit;
+}
+
+.primary a:hover {
+  color: #3b82f6;
+  text-decoration: underline;
 }
 
 .cpDate {
@@ -585,6 +618,19 @@
 .docBtn svg {
   width: 14px;
   height: 14px;
+}
+
+.docFolderIcon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
 }
 
 .chipStack {
@@ -774,26 +820,43 @@
 }
 
 .iconBtn {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #8a93a2;
-  background: #f1f2f4;
-  border: 1px solid #dfe2e7;
+  color: #274670;
+  background: #e6eaf1;
+  border: 1px solid #d3dae7;
+  padding: 0;
   text-decoration: none;
+  line-height: 0;
+  flex: none;
+  /* Match Voyage Status: navy icon in the tinted chip */
 }
 
 .iconBtn:hover {
-  background: #fff;
-  color: #274670;
+  background: #274670;
+  color: #fff;
+  border-color: #274670;
 }
 
-.iconBtn svg {
-  width: 14px;
-  height: 14px;
+.iconBtn svg,
+.iconBtn img {
+  width: 18px;
+  height: 18px;
+  display: block;
+  object-fit: contain;
+  /* brand navy #274670 */
+  filter: brightness(0) saturate(100%) invert(23%) sepia(32%) saturate(1450%) hue-rotate(186deg) brightness(92%) contrast(92%);
+  transition: filter 0.15s ease;
+}
+
+.iconBtn:hover svg,
+.iconBtn:hover img {
+  /* white on navy hover, same as Voyage Status */
+  filter: brightness(0) invert(1);
 }
 
 .alertPill {
@@ -824,6 +887,55 @@
   height: 11px;
   flex: none;
   margin-top: 1px;
+}
+
+.nextActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Match Spot Business (Estimate list) delete control */
+.deleteIconBtn {
+  min-width: 26px !important;
+  min-height: 26px !important;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+.deleteIconBtn:hover,
+.deleteIconBtn:focus {
+  background: #f1f2f4 !important;
+  border: none !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+}
+
+.deleteIconBtn :global(i),
+.deleteIconBtn :global(svg) {
+  font-size: 14px !important;
+  width: 14px;
+  height: 14px;
+}
+
+.deleteIconDanger {
+  color: #8a93a2 !important;
+}
+
+.deleteIconDanger:hover {
+  color: #e4483b !important;
+  background: #fdecea !important;
 }
 
 .pillAction {
@@ -908,15 +1020,6 @@
 .opTime {
   font-size: 10px;
   color: #8a93a2;
-}
-
-.deactivateBtn {
-  border: none;
-  background: transparent;
-  color: #b42318;
-  cursor: pointer;
-  padding: 0;
-  font-size: 14px;
 }
 
 .tableFooter {

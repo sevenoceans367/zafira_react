@@ -7,6 +7,8 @@ import ScrollableTable, {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
 } from '../sopf/ScrollableTable.jsx';
+import viewFinanceIcon from '../../../assets/view finance final.png';
+import folderDocsIcon from '../../../assets/folder icon for DOCs link.png';
 import styles from './OpsVcInOpsGlancePage.module.css';
 
 export { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS };
@@ -41,6 +43,15 @@ export const STAT_ICONS = {
     </svg>
   ),
 };
+
+export function DocEyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
 
 export function DocFileIcon() {
   return (
@@ -77,9 +88,14 @@ export function DocReportIcon() {
 
 export function DocFolderIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-9z" />
-    </svg>
+    <span
+      className={styles.docFolderIcon}
+      style={{
+        WebkitMaskImage: `url(${folderDocsIcon})`,
+        maskImage: `url(${folderDocsIcon})`,
+      }}
+      aria-hidden="true"
+    />
   );
 }
 
@@ -96,10 +112,7 @@ export function CompareIcon() {
 
 export function EyeIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
+    <img src={viewFinanceIcon} alt="" width={18} height={18} aria-hidden="true" />
   );
 }
 
@@ -218,7 +231,7 @@ export function VoyDocsCell({
           to={appPath(`/internal-user/sopf/viewestimate?id=${fcaId}&rttype=${rttype}`)}
           title="View FVF (Finalised Voyage Fixture)"
         >
-          <DocFileIcon />
+          <DocEyeIcon />
         </Link>
         <a
           className={styles.docBtn}
@@ -229,11 +242,11 @@ export function VoyDocsCell({
         </a>
         {voyageReportHref ? (
           <Link className={styles.docBtn} to={voyageReportHref} title="Voyage Report">
-            <DocReportIcon />
+            <DocFileIcon />
           </Link>
         ) : (
           <span className={`${styles.docBtn} ${styles.docBtnDisabled}`} title="Voyage Report">
-            <DocReportIcon />
+            <DocFileIcon />
           </span>
         )}
         {documentsHref ? (

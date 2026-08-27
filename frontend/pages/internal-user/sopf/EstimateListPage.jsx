@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ActionButtonStack,
@@ -172,7 +173,7 @@ export default function EstimateListPage() {
       || DEFAULT_BUSINESS_TYPE,
   );
   const flashMsg = searchParams.get('msg');
-  const flash = flashMsg != null ? MSG_COPY[Number(flashMsg)] : null;
+  const flash = useTimedFlash(flashMsg != null ? MSG_COPY[Number(flashMsg)] : null);
   const periodFrom = searchParams.get('periodFrom') ?? '';
   const periodTo = searchParams.get('periodTo') ?? '';
   const statusTab = parseStatusTab(searchParams.get('status'));

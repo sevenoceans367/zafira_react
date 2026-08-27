@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ActionButtonStack,
@@ -158,7 +159,7 @@ export default function TcOutEstimatesListPage() {
   const periodTo = searchParams.get('periodTo') || '';
   const statusTab = searchParams.get('status') === 'activeInOps' ? 'activeInOps' : 'active';
   const flashMsg = searchParams.get('msg');
-  const flash = flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null;
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
 
   const updateQuery = (patch) => {
     const next = new URLSearchParams(searchParams);

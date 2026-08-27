@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CardSelect, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
@@ -212,7 +213,7 @@ export default function RunningCoasListPage() {
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flashMsg = searchParams.get('msg');
-  const flash = flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null;
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
 
   const load = useCallback(async () => {
     setLoading(true);

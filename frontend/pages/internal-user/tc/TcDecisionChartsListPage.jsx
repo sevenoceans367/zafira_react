@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay, PageHeaderSearch, HeaderFilterControls } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
@@ -29,8 +30,8 @@ export default function TcDecisionChartsListPage() {
   const [selectedMessage, setSelectedMessage] = useState('');
   const [error, setError] = useState('');
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const flash = FLASH[Number(searchParams.get('msg'))];
-
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const load = useCallback(async () => {
     setLoading(true);
     setError('');

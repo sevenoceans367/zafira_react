@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -26,6 +27,7 @@ import {
 } from '../../../services/opsTc.js';
 import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsTcCompareSheetsModal from './OpsTcCompareSheetsModal.jsx';
+import OpsVoyageStatusModal, { VoyageStatusButton } from './OpsVoyageStatusModal.jsx';
 import OpsTcInOpsGlanceHeaderActions from './OpsTcInOpsGlanceHeaderActions.jsx';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
 import {
@@ -275,10 +277,12 @@ export default function OpsTcInOpsGlancePage() {
   const [error, setError] = useState('');
   const [sheetModal, setSheetModal] = useState({ open: false, comId: '', sheetName: '' });
   const [compareModal, setCompareModal] = useState({ open: false, comId: '' });
+  const [voyageStatusRow, setVoyageStatusRow] = useState(null);
   const [widgetModal, setWidgetModal] = useState(null);
   const [savingSheet, setSavingSheet] = useState(false);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const flash = FLASH[Number(searchParams.get('msg'))];
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const stats = useMemo(() => tcGlanceStats(rows, total), [rows, total]);
   const pageContext = pageContextForTab(statusTab);
   const isHistory = statusTab === 'history';
@@ -569,13 +573,18 @@ export default function OpsTcInOpsGlancePage() {
                   <td className={styles.itemCell}>{(page - 1) * pageSize + index + 1}.</td>
                   <td>
                     <div className={styles.opsCell}>
-                      <Link
-                        className={styles.primary}
-                        to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/calculate?mode=view&from=ops-tc`)}
-                        title="View TC estimate"
-                      >
-                        {row.tcNo || '—'}
-                      </Link>
+                      <span className={styles.primary}>
+                        <Link
+                          to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/calculate?mode=view&from=ops-tc`)}
+                          title="View TC estimate"
+                        >
+                          {row.tcNo || '—'}
+                        </Link>
+                        <VoyageStatusButton
+                          enabled={sheets.length > 0}
+                          onClick={() => setVoyageStatusRow(row)}
+                        />
+                      </span>
                       <span className={styles.sub}>
                         {row.message ? `Nom ID ${row.message}` : '—'}
                       </span>
@@ -706,45 +715,47 @@ export default function OpsTcInOpsGlancePage() {
                   <td>
                     <div className={styles.alertStack}>
                       <span className={styles.muted}>—</span>
-                      {!isHistory && row.canDeactivate ? (
-                        <button
-                          type="button"
-                          className={styles.deactivateBtn}
-                          title="Deactivate entry"
-                          onClick={() => handleDeactivate(row)}
-                        >
-                          <i className="bi bi-trash" aria-hidden />
-                        </button>
-                      ) : null}
                     </div>
                   </td>
                   <td>
-                    {isHistory ? (
-                      <span className={styles.statusChip}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M20 6L9 17l-5-5" />
-                        </svg>
-                        {row.statusLabel || 'History'}
-                      </span>
-                    ) : isPostOps ? (
-                      row.canMoveToHistory ? (
-                        <button
-                          type="button"
-                          className={`${styles.pillAction} ${styles.pillActionNavy}`}
-                          onClick={() => handleHistory(row)}
-                        >
-                          History
-                          <ArrowIcon />
-                        </button>
-                      ) : null
-                    ) : (
-                      row.canMoveToPostOps ? (
-                        <button type="button" className={styles.pillAction} onClick={() => handlePostOps(row)}>
-                          Post Ops
-                          <ArrowIcon />
-                        </button>
-                      ) : null
-                    )}
+                    <div className={styles.nextActions}>
+                      {!isHistory && row.canDeactivate ? (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          icon="trash"
+                          className={`${styles.deleteIconBtn} ${styles.deleteIconDanger}`}
+                          onClick={() => handleDeactivate(row)}
+                          ariaLabel="Deactivate entry"
+                        />
+                      ) : null}
+                      {isHistory ? (
+                        <span className={styles.statusChip}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                          {row.statusLabel || 'History'}
+                        </span>
+                      ) : isPostOps ? (
+                        row.canMoveToHistory ? (
+                          <button
+                            type="button"
+                            className={`${styles.pillAction} ${styles.pillActionNavy}`}
+                            onClick={() => handleHistory(row)}
+                          >
+                            History
+                            <ArrowIcon />
+                          </button>
+                        ) : null
+                      ) : (
+                        row.canMoveToPostOps ? (
+                          <button type="button" className={styles.pillAction} onClick={() => handlePostOps(row)}>
+                            Post Ops
+                            <ArrowIcon />
+                          </button>
+                        ) : null
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -865,6 +876,13 @@ export default function OpsTcInOpsGlancePage() {
           open={compareModal.open}
           comId={compareModal.comId}
           onClose={() => setCompareModal({ open: false, comId: '' })}
+        />
+        <OpsVoyageStatusModal
+          open={Boolean(voyageStatusRow)}
+          row={voyageStatusRow}
+          mode="tc"
+          pageContext={pageContext}
+          onClose={() => setVoyageStatusRow(null)}
         />
       </div>
     </>

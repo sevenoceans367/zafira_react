@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   LoadingOverlay,
@@ -36,8 +37,8 @@ export default function OpsTcFinalisedFixturesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const flash = FLASH[Number(searchParams.get('msg'))];
-
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const load = useCallback(async () => {
     setLoading(true);
     setError('');

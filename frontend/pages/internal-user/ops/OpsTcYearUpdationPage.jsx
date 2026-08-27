@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useFlashState } from '../../../hooks/useTimedFlash.js';
 import {
   Button,
   DmyDateInput,
@@ -21,7 +22,7 @@ export default function OpsTcYearUpdationPage() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState('');
   const [error, setError] = useState('');
-  const [flash, setFlash] = useState('');
+  const [flash, setFlash] = useFlashState('');
   const debouncedSearch = useDebouncedValue(searchInput, 300);
 
   const load = useCallback(async () => {

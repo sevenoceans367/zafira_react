@@ -19,29 +19,29 @@ export function resolveGenericFinancesHeader(pathname = '') {
 
   if (path.includes(`/${GENERIC_FINANCES_SEGMENT}/add`)) {
     return {
-      title: 'ADD GENERIC INVOICE',
+      title: 'Add Generic Invoice',
       currentPage: 'ADD INVOICE',
       breadcrumbs: [
         SOC,
-        { label: 'GENERIC FINANCES', href: genericFinancesAppPath() },
+        { label: 'Generic Finances', href: genericFinancesAppPath() },
       ],
     };
   }
 
   if (/\/generic-finances\/[^/]+\/edit/.test(path)) {
     return {
-      title: 'EDIT GENERIC INVOICE',
+      title: 'Update Generic Invoice',
       currentPage: 'EDIT INVOICE',
       breadcrumbs: [
         SOC,
-        { label: 'GENERIC FINANCES', href: genericFinancesAppPath() },
+        { label: 'Generic Finances', href: genericFinancesAppPath() },
       ],
     };
   }
 
   return {
     title: 'Generic Finances',
-    currentPage: 'GENERIC FINANCES',
+    currentPage: 'Generic Finances',
     breadcrumbs: [SOC],
   };
 }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
@@ -171,7 +172,7 @@ export default function FleetPage() {
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flashMsg = searchParams.get('msg');
-  const flash = flashMsg != null ? FLASH_MESSAGES[Number(flashMsg)] : null;
+  const flash = useTimedFlash(flashMsg != null ? FLASH_MESSAGES[Number(flashMsg)] : null);
   const compareEnabled = selectedIds.length > 0;
 
   const loadBusinessTypes = useCallback(async (selectedId) => {

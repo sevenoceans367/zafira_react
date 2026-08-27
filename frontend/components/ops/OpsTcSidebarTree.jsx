@@ -5,7 +5,7 @@ import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 import spotIcon from '../../assets/010-pie-chart.png';
 
 export const OPS_TC_ITEMS = [
-  { id: 'in-ops-glance', label: 'TC Ops' },
+  { id: 'in-ops-glance', label: 'Time Charter Ops' },
   { id: 'year-updation', label: 'Year Updation-TC' },
   { id: 'post-ops', label: 'Vessels in Post Ops TC', hidden: true },
   { id: 'history', label: 'Vessels in History TC', hidden: true },
@@ -49,7 +49,7 @@ export default function OpsTcSidebarTree({ isOpen }) {
         aria-haspopup="true"
       >
         <img src={spotIcon} alt="" className="icon" aria-hidden />
-        {isOpen ? <span>TC Ops</span> : null}
+        {isOpen ? <span>Time Charter Ops</span> : null}
         {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>
       <ul className="treeview-menu">

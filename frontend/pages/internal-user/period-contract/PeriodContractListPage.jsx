@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, CardSelect, LoadingOverlay } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
@@ -212,7 +213,7 @@ export default function PeriodContractListPage() {
   const periodFrom = searchParams.get('periodFrom') || '';
   const periodTo = searchParams.get('periodTo') || '';
   const flashMsg = searchParams.get('msg');
-  const flash = flashMsg != null ? FLASH_MESSAGES[Number(flashMsg)] : null;
+  const flash = useTimedFlash(flashMsg != null ? FLASH_MESSAGES[Number(flashMsg)] : null);
   const tcHost = module === 'sopf' ? 'sopf' : 'vc';
   const listPath = periodContractBasePath(module);
 
@@ -476,11 +477,13 @@ export default function PeriodContractListPage() {
         </div>
         <div className={legacyStyles.toolbar}>
           <div className={legacyStyles.toolbarActions}>
-            <Button
-              variant="add"
-              label="Add New"
-              onClick={() => navigate(`/internal-user/${module}/period-contracts/add`)}
-            />
+            {activeTab !== 'closed' ? (
+              <Button
+                variant="add"
+                label="Add New"
+                onClick={() => navigate(`/internal-user/${module}/period-contracts/add`)}
+              />
+            ) : null}
           </div>
         </div>
         <ScrollableTable
@@ -753,14 +756,16 @@ export default function PeriodContractListPage() {
         onPageSizeChange={setPageSize}
         toolbarLeft={(
           <>
-            <button
-              type="button"
-              className={styles.btnAdd}
-              onClick={() => navigate(`/internal-user/${module}/period-contracts/add`)}
-            >
-              <PlusIcon />
-              Add New
-            </button>
+            {activeTab !== 'closed' ? (
+              <button
+                type="button"
+                className={styles.btnAdd}
+                onClick={() => navigate(`/internal-user/${module}/period-contracts/add`)}
+              >
+                <PlusIcon />
+                Add New
+              </button>
+            ) : null}
             <div className={styles.menuWrap} ref={menuRef}>
               <button
                 type="button"

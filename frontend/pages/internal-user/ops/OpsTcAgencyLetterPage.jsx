@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -52,8 +53,8 @@ export default function OpsTcAgencyLetterPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const page = searchParams.get('page') || '1';
-  const flash = FLASH[Number(searchParams.get('msg'))];
-
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const [form, setForm] = useState(null);
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);

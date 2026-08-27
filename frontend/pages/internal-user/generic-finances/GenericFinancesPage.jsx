@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -210,8 +211,6 @@ export default function GenericFinancesPage() {
   const [error, setError] = useState('');
   const [paymentInvoice, setPaymentInvoice] = useState(null);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const flash = FLASH[Number(searchParams.get('msg'))];
-
   const updateQuery = useCallback((patch) => {
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
@@ -222,6 +221,12 @@ export default function GenericFinancesPage() {
       return next;
     }, { replace: true });
   }, [setSearchParams]);
+
+  const flashMsg = searchParams.get('msg');
+  const flash = useTimedFlash(
+    flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null,
+    { onDismiss: () => updateQuery({ msg: '' }) },
+  );
 
   const handleBusinessTypeChange = useCallback((value) => {
     setBusinessType(value);

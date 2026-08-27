@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFlashState } from '../../../hooks/useTimedFlash.js';
 import { DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchYearUpdation, updateYearAddOnDate } from '../../../services/opsVc.js';
@@ -34,7 +35,7 @@ export default function OpsVcYearUpdationPage() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState('');
   const [error, setError] = useState('');
-  const [flash, setFlash] = useState('');
+  const [flash, setFlash] = useFlashState('');
   const debouncedSearch = useDebouncedValue(searchInput, 300);
 
   const load = useCallback(async () => {

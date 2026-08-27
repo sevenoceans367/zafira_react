@@ -370,39 +370,37 @@ export default function ToDoListPage() {
           onPageSizeChange={setShowCount}
           pageSizeOptions={[10, 20, 30]}
           toolbarLeft={(
-            <>
-              <span className={styles.usdChip}>USD</span>
-              <div className={styles.menuWrap} ref={downloadRef}>
-                <button
-                  className={styles.btnDownload}
-                  type="button"
-                  title="Download"
-                  aria-expanded={downloadOpen}
-                  onClick={() => setDownloadOpen((open) => !open)}
-                >
-                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <circle cx="12" cy="5" r="1.9" />
-                    <circle cx="12" cy="12" r="1.9" />
-                    <circle cx="12" cy="19" r="1.9" />
-                  </svg>
-                </button>
-                {downloadOpen ? (
-                  <div className={styles.downloadMenu}>
-                    <button type="button" onClick={handlePdf}>Download as PDF</button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDownloadOpen(false);
-                        setExportOpen(true);
-                      }}
-                    >
-                      Download as Excel…
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </>
+            <div className={styles.menuWrap} ref={downloadRef}>
+              <button
+                className={styles.btnDownload}
+                type="button"
+                title="Download"
+                aria-expanded={downloadOpen}
+                onClick={() => setDownloadOpen((open) => !open)}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="5" r="1.9" />
+                  <circle cx="12" cy="12" r="1.9" />
+                  <circle cx="12" cy="19" r="1.9" />
+                </svg>
+              </button>
+              {downloadOpen ? (
+                <div className={styles.downloadMenu}>
+                  <button type="button" onClick={handlePdf}>Download as PDF</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDownloadOpen(false);
+                      setExportOpen(true);
+                    }}
+                  >
+                    Download as Excel…
+                  </button>
+                </div>
+              ) : null}
+            </div>
           )}
+          toolbarAfterScroll={<span className={styles.usdChip}>USD</span>}
           toolbarRight={(
             <span>Showing {visibleRows.length} of {matchedRows.length} transactions</span>
           )}

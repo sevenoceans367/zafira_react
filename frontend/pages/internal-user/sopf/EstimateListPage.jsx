@@ -595,7 +595,7 @@ export default function EstimateListPage() {
                         <TruncatedText text={row.lpDp} />
                       </td>
                       <td className={styles.cellNum}>{row.duration}</td>
-                      <td className={styles.cellNum}>{row.cargoQuantity}</td>
+                      <td className={styles.cellNum}>{row.cargoQuantity || '—'}</td>
                       <td className={styles.cellNum}>{row.tce}</td>
                       <td className={styles.cellNum}>{row.profitLoss}</td>
                       <td>
@@ -733,7 +733,7 @@ export default function EstimateListPage() {
                           <td>{fixture.deliveryPort}</td>
                           <td><TruncatedText text={fixture.lpDp} /></td>
                           <td>{fixture.duration}</td>
-                          <td>{fixture.cargoQuantity}</td>
+                          <td>{fixture.cargoQuantity || '—'}</td>
                           <td>{fixture.dailyNetTce}</td>
                           <td>{fixture.profitLoss}</td>
                           <td>

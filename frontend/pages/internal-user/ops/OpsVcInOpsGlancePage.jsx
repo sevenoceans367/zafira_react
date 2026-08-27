@@ -306,7 +306,7 @@ export default function OpsVcInOpsGlancePage() {
                   <th>LP / DP</th>
                   <th>CHRT DESK</th>
                   <th>Charterer</th>
-                  <th>Port Letters</th>
+                  <th>Voyage Letters</th>
                   <th>Disbursements</th>
                   <th>Port Activity</th>
                   <th>Calculations</th>
@@ -418,7 +418,7 @@ export default function OpsVcInOpsGlancePage() {
                       <td>
                         <div className={styles.chipStack}>
                           <ChipLink to={appPath(`/internal-user/vc/ops/agency-letter?comid=${encodeURIComponent(row.comId)}&tab=1&page=1`)}>
-                            Port Letters
+                            Voyage Letters
                           </ChipLink>
                         </div>
                       </td>

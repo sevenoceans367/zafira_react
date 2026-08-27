@@ -1055,9 +1055,27 @@ export function computeEstimateTotals(form) {
   const overageCargoRows = mapAmount(form.overageCargoRows);
   const deadfreightCargoRows = mapAmount(form.deadfreightCargoRows);
   const allCargos = [...cargoRows, ...overageCargoRows, ...deadfreightCargoRows];
+  // PHP getFinalCalculation: txtTankQuantity = sum(txtTotalTankQty_) = Min + Overage per WS row
+  const tankerWsQtyTotal = round2(
+    (form.tankerWsRows || []).reduce(
+      (sum, row) => sum + num(row.minCargoQty) + num(row.oveCargoQty),
+      0,
+    ),
+  );
+  // Tanker: Lumpsum → txtLumpsumQty; World Scale → Min+Ove (do not fall back across modes)
+  const cargoFromCargoRows = round2(
+    allCargos.reduce((sum, row) => sum + num(row.cargoMt), 0),
+  );
+  const estimateTypeForCargoQty = Number(form.estimateType) || 2;
+  const tankerCargoQty = estimateTypeForCargoQty === 2
+    ? (form.chkLumpsum ? num(form.lumpsumQty) : tankerWsQtyTotal)
+    : 0;
   const cargoQuantity = round2(
-    allCargos.reduce((sum, row) => sum + num(row.cargoMt), 0)
-    || num(form.lumpsumQty)
+    cargoFromCargoRows
+    || tankerCargoQty
+    || (estimateTypeForCargoQty !== 2
+      ? (num(form.lumpsumQty) || num(form.cargoQuantity))
+      : 0)
     || num(form.cargoQuantity),
   );
 
@@ -1190,8 +1208,11 @@ export function computeEstimateTotals(form) {
       ? (gasMarket === '2' ? gasLumsum : 0)
       : num(form.lumpsum);
   const cargoQtyTotal = round2(
-    allCargos.reduce((sum, row) => sum + num(row.cargoMt), 0)
-    || num(form.lumpsumQty)
+    cargoFromCargoRows
+    || tankerCargoQty
+    || (estimateType !== 2
+      ? (num(form.lumpsumQty) || num(form.cargoQuantity))
+      : 0)
     || num(form.cargoQuantity),
   );
   // PHP: tankType 1 = Single → lumpsum OR WS (qty×flat×WS/100); tankType 2 = Distributed → cargo MT×rate

@@ -59,6 +59,21 @@ function BunkerPriceInput({ value, readOnly, onCommit }) {
   const [draft, setDraft] = useState(null);
   const editing = draft !== null;
 
+  // PHP txtSECABunkerPrice onKeyUp — commit on each change so Amount recalculates live.
+  const commitPrice = (raw, { normalize = false } = {}) => {
+    const cleaned = sanitizeDecimalInput(raw ?? '');
+    const next = normalize
+      ? (cleaned === '' || cleaned === '.'
+        ? ''
+        : Number.isFinite(Number(cleaned))
+          ? Number(cleaned).toFixed(2)
+          : '')
+      : cleaned;
+    if (String(next) !== String(value || '')) {
+      onCommit(next);
+    }
+  };
+
   return (
     <input
       value={editing ? draft : (value || '')}
@@ -70,19 +85,15 @@ function BunkerPriceInput({ value, readOnly, onCommit }) {
         setDraft(value || '');
         requestAnimationFrame(() => e.target.select());
       }}
-      onChange={(e) => setDraft(sanitizeDecimalInput(e.target.value))}
+      onChange={(e) => {
+        const next = sanitizeDecimalInput(e.target.value);
+        setDraft(next);
+        commitPrice(next);
+      }}
       onBlur={() => {
         const raw = draft ?? '';
         setDraft(null);
-        const cleaned = sanitizeDecimalInput(raw);
-        const normalized = cleaned === '' || cleaned === '.'
-          ? ''
-          : Number.isFinite(Number(cleaned))
-            ? Number(cleaned).toFixed(2)
-            : '';
-        if (String(normalized) !== String(value || '')) {
-          onCommit(normalized);
-        }
+        commitPrice(raw, { normalize: true });
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
@@ -387,19 +398,24 @@ export default function EstimateDetailSections({
         next.fromPortId = prev.toPortId;
         next.fromPortName = prev.toPortName || '';
       }
-      // Mirror PHP: carry previous To Port departure ROB onto new From Port
-      if (prev) {
-        next.fromRobFoArrival = prev.toRobFoDeparture || '';
-        next.fromRobDoArrival = prev.toRobDoDeparture || '';
-        next.fromRobFoDeparture = prev.toRobFoDeparture || '';
-        next.fromRobDoDeparture = prev.toRobDoDeparture || '';
+      // PHP addPortRotationDetails: from_arrival / from_departure = previous to_departure
+      // ROB is NOT copied on add (PHP leaves new-leg ROB blank; setROB only while typing).
+      if (prev?.toDeparture) {
+        next.fromArrival = prev.toDeparture;
+        next.fromDeparture = prev.toDeparture;
       }
       const seeded = seedPortLegsFromFirstCargo(
         [next],
         form.cargoRows,
         form.lumpsumQty,
       )[0] || next;
-      updateField(collection, [...(form.portLegs || []), seeded]);
+      const rows = [...(form.portLegs || []), seeded];
+      // Run date cascade so To Port dates follow when sea/portstay days exist
+      applyPatch({
+        portLegs: rows,
+        _portScheduleMode: 'fromArrival',
+        _portScheduleLegId: seeded.id,
+      });
       return;
     }
     updateField(collection, [...(form[collection] || []), factory()]);

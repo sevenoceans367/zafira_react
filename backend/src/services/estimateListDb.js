@@ -103,33 +103,71 @@ async function enrichDryCargoQuantity(rows) {
   const dryRows = rows.filter(
     (row) => Number(row.ESTIMATE_TYPE) === 3 && Number(row.QTY_TYPE_RADIO) !== 1,
   );
-  if (!dryRows.length) return rows;
+  const tankerRows = rows.filter((row) => Number(row.ESTIMATE_TYPE) === 2);
+  if (!dryRows.length && !tankerRows.length) return rows;
 
-  const ids = dryRows.map((row) => row.FCAID);
-  const placeholders = ids.map(() => '?').join(',');
-  const [sums] = await pool.query(
-    `SELECT FCAID, SUM(QUANTITY) AS sumQty, SUM(GROSS_FREIGHT) AS sumFreight
-     FROM freight_cost_estimete_slave7
-     WHERE FCAID IN (${placeholders})
-     GROUP BY FCAID`,
-    ids,
-  );
+  let next = rows;
 
-  const sumById = Object.fromEntries(
-    sums.map((row) => [String(row.FCAID), row]),
-  );
+  if (dryRows.length) {
+    const ids = dryRows.map((row) => row.FCAID);
+    const placeholders = ids.map(() => '?').join(',');
+    const [sums] = await pool.query(
+      `SELECT FCAID, SUM(QUANTITY) AS sumQty, SUM(GROSS_FREIGHT) AS sumFreight
+       FROM freight_cost_estimete_slave7
+       WHERE FCAID IN (${placeholders})
+       GROUP BY FCAID`,
+      ids,
+    );
 
-  return rows.map((row) => {
-    if (Number(row.ESTIMATE_TYPE) === 3 && Number(row.QTY_TYPE_RADIO) !== 1) {
+    const sumById = Object.fromEntries(
+      sums.map((row) => [String(row.FCAID), row]),
+    );
+
+    next = next.map((row) => {
+      if (Number(row.ESTIMATE_TYPE) === 3 && Number(row.QTY_TYPE_RADIO) !== 1) {
+        const extra = sumById[String(row.FCAID)];
+        return {
+          ...row,
+          // Keep null when no slave7 rows so list can fall back to master QUANTITY
+          slave7SumQty: extra?.sumQty != null ? Number(extra.sumQty) : null,
+          slave7SumFreight: extra?.sumFreight != null ? Number(extra.sumFreight) : null,
+        };
+      }
+      return row;
+    });
+  }
+
+  // World Scale: Total Cargo Qty lives on slave12 (MIN + OVE / TOTAL_QTY), not always TANK_QUANTITY.
+  if (tankerRows.length) {
+    const ids = tankerRows.map((row) => row.FCAID);
+    const placeholders = ids.map(() => '?').join(',');
+    const [sums] = await pool.query(
+      `SELECT FCAID,
+              SUM(COALESCE(TOTAL_QTY, 0)) AS sumTotalQty,
+              SUM(COALESCE(MIN_CARGO_QTY, 0) + COALESCE(OVE_CARGO_QTY, 0)) AS sumMinOveQty
+       FROM freight_cost_estimete_slave12
+       WHERE FCAID IN (${placeholders})
+       GROUP BY FCAID`,
+      ids,
+    );
+    const sumById = Object.fromEntries(
+      sums.map((row) => [String(row.FCAID), row]),
+    );
+    next = next.map((row) => {
+      if (Number(row.ESTIMATE_TYPE) !== 2) return row;
       const extra = sumById[String(row.FCAID)];
+      if (!extra) return row;
+      const fromTotal = Number(extra.sumTotalQty || 0);
+      const fromParts = Number(extra.sumMinOveQty || 0);
+      const slave12SumQty = fromTotal > 0 ? fromTotal : fromParts;
       return {
         ...row,
-        slave7SumQty: extra?.sumQty ?? 0,
-        slave7SumFreight: extra?.sumFreight ?? 0,
+        slave12SumQty: slave12SumQty > 0 ? slave12SumQty : null,
       };
-    }
-    return row;
-  });
+    });
+  }
+
+  return next;
 }
 
 function normalizeMasterRow(row) {
@@ -146,6 +184,8 @@ function normalizeMasterRow(row) {
     totalDays: Number(row.TOTAL_DAYS || 0),
     gasQuantity: Number(row.GAS_QUANTITY || 0),
     tankQuantity: Number(row.TANK_QUANTITY || 0),
+    // Tanker Cargo Qty (MT) — PHP/React lumpsum qty column
+    wsQty: Number(row.WS_QTY || 0),
     quantity: Number(row.QUANTITY || 0),
     qtyTypeRadio: Number(row.QTY_TYPE_RADIO || 1),
     dailyEarning: row.DAILY_EARNING,
@@ -167,6 +207,7 @@ function normalizeMasterRow(row) {
     slave10Sum: row.slave10Sum,
     slave7SumQty: row.slave7SumQty,
     slave7SumFreight: row.slave7SumFreight,
+    slave12SumQty: row.slave12SumQty,
   };
 }
 
@@ -207,7 +248,7 @@ async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = f
             m.TOTAL_DAYS, m.QUANTITY, m.DAILY_EARNING, m.NET_DAILY_EARNING,
             m.DAILY_VESSEL_OPERATION_EXP,
             m.PROFIT_LOSS, m.TRANS_DATE, m.QTY_TYPE_RADIO, m.ESTIMATE_TYPE,
-            m.GAS_QUANTITY, m.TANK_QUANTITY, m.IF_BENCHMARK, m.COMID, m.FIXED,
+            m.GAS_QUANTITY, m.TANK_QUANTITY, m.WS_QTY, m.IF_BENCHMARK, m.COMID, m.FIXED,
             m.GAS_MARKET, m.GAS_BASE_RATE, m.GAS_LUMSUM, m.TANKER_RADIO_SINGLE_DIS,
             m.CHK_LUMPSUM, m.LUMPSUMAMT,
             v.VESSEL_NAME, v.DWT,

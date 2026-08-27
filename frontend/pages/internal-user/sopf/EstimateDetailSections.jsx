@@ -371,12 +371,22 @@ export default function EstimateDetailSections({
         next.fromPortId = prev.toPortId;
         next.fromPortName = prev.toPortName || '';
       }
+      // PHP addPortRotationDetails: from_arrival / from_departure = previous to_departure
+      if (prev?.toDeparture) {
+        next.fromArrival = prev.toDeparture;
+        next.fromDeparture = prev.toDeparture;
+      }
       const seeded = seedPortLegsFromFirstCargo(
         [next],
         form.cargoRows,
         form.lumpsumQty,
       )[0] || next;
-      updateField(collection, [...(form.portLegs || []), seeded]);
+      const rows = [...(form.portLegs || []), seeded];
+      applyPatch({
+        portLegs: rows,
+        _portScheduleMode: 'fromArrival',
+        _portScheduleLegId: seeded.id,
+      });
       return;
     }
     updateField(collection, [...(form[collection] || []), factory()]);

@@ -79,11 +79,28 @@ export function isDateWithinPeriod(value, periodFrom, periodTo) {
 }
 
 export function getCargoQuantity(row) {
-  // List historically used type-specific columns; fall back to QUANTITY for React saves.
-  if (row.estimateType === 1) return row.gasQuantity || row.quantity || 0;
-  if (row.estimateType === 2) return row.tankQuantity || row.quantity || 0;
-  if (row.qtyTypeRadio === 1) return row.quantity || 0;
-  return row.slave7SumQty ?? row.quantity ?? 0;
+  // Prefer first positive qty across type-specific + fallback columns.
+  // Tankers often store qty in WS_QTY (React lumpsumQty) while TANK_QUANTITY is 0.
+  // Dry distributed (qtyTypeRadio≠1) uses slave7; fall back to master QUANTITY when slave7 is empty.
+  const candidates = (() => {
+    if (row.estimateType === 1) return [row.gasQuantity, row.quantity];
+    // Tanker: Lumpsum → WS_QTY; World Scale → slave12 Min+Ove (not leftover lumpsum WS_QTY)
+    if (row.estimateType === 2) {
+      if (row.chkLumpsum === 1) {
+        return [row.wsQty, row.tankQuantity, row.quantity];
+      }
+      return [row.slave12SumQty, row.tankQuantity, row.quantity];
+    }
+    if (row.qtyTypeRadio === 1) return [row.quantity];
+    return [row.slave7SumQty, row.quantity];
+  })();
+
+  for (const value of candidates) {
+    if (value == null || value === '') continue;
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return '';
 }
 
 export function getFreightLabel(row) {

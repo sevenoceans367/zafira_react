@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -12,6 +12,7 @@ import {
 } from '../../../../services/estimateDetail.js';
 import EstimateDetailSections from './CostSheetDetailSections.jsx';
 import EstimateDetailHeaderActions from '../../sopf/EstimateDetailHeaderActions.jsx';
+import { usePageHeaderHeading } from '../../PageHeaderContext.jsx';
 import { applyEstimateCalculations } from '../../sopf/estimateCalculations.js';
 import { buildEstimateSubmitPayload } from '../../sopf/buildEstimateSubmitPayload.js';
 import { toFormState } from '../../sopf/estimateDetail.constants.js';
@@ -21,6 +22,20 @@ import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } 
 import styles from './CostSheetEstimatePage.module.css';
 
 const EMPTY_FORM = toFormState({});
+
+function VoyageFinancialsHeading({ title }) {
+  const setHeading = usePageHeaderHeading();
+  useLayoutEffect(() => {
+    if (!title) {
+      setHeading(null);
+      return undefined;
+    }
+    setHeading({ title });
+    return undefined;
+  }, [setHeading, title]);
+  useEffect(() => () => setHeading(null), [setHeading]);
+  return null;
+}
 
 /**
  * Ops VC Voyage Financials form (PHP updatecost_sheet_tci).
@@ -272,6 +287,22 @@ export default function CostSheetEstimatePage({
     if (!estimateId) return;
     setError('');
 
+    const sheetAlreadyClosed = isCostSheet
+      && Number(detail?.finalStatus ?? initialFinalStatus) === 1;
+    const finalStatus = isCostSheet
+      ? (finalStatusOverride != null ? Number(finalStatusOverride) : 0)
+      : null;
+
+    // Closed sheets are read-only; only Submit to Edit (reopen) is allowed.
+    if (sheetAlreadyClosed && finalStatus === 1) {
+      await alert({
+        title: 'Alert',
+        message: 'This Voyage Financials sheet is already closed.',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+
     const validationError = validateEstimateForm(form);
     if (validationError) {
       await alert({ title: 'Missing Information', message: validationError.message, confirmLabel: 'OK' });
@@ -305,15 +336,13 @@ export default function CostSheetEstimatePage({
 
     const confirmed = await confirm({
       title: 'Confirmation',
-      message: 'Are you sure you have checked each entry ?',
+      message: sheetAlreadyClosed && finalStatus === 0
+        ? 'Re-open this Voyage Financials sheet for editing?'
+        : 'Are you sure you have checked each entry ?',
       confirmLabel: 'OK',
       cancelLabel: 'Cancel',
     });
     if (!confirmed) return;
-
-    const finalStatus = isCostSheet
-      ? (finalStatusOverride != null ? Number(finalStatusOverride) : 0)
-      : null;
 
     setSaving(true);
     try {
@@ -332,7 +361,9 @@ export default function CostSheetEstimatePage({
         message: isCostSheet
           ? (finalStatus === 1
             ? 'Voyage Financials submitted to Close successfully.'
-            : 'Voyage Financials saved successfully.')
+            : sheetAlreadyClosed
+              ? 'Voyage Financials re-opened for editing.'
+              : 'Voyage Financials saved successfully.')
           : 'Congratulations! Estimate updated successfully.',
         confirmLabel: 'OK',
       });
@@ -361,6 +392,9 @@ export default function CostSheetEstimatePage({
     && Number(detail?.finalStatus ?? initialFinalStatus) === 1;
   const sheetLabel = sheetNameProp
     || (costSheetIdProp ? `Sheet ${costSheetIdProp}` : '');
+  const pageHeading = sheetLabel
+    ? `${sheetClosed ? 'Closed Voyage Financials' : 'Voyage Financials'} — ${sheetLabel}`
+    : (sheetClosed ? 'Closed Voyage Financials' : 'Voyage Financials');
 
   // Ensure Passage & Ports SOF links see comid/page (PHP updatecost_sheet_tci).
   const sectionsDetail = detail && isCostSheet
@@ -373,25 +407,27 @@ export default function CostSheetEstimatePage({
 
   return (
     <div className={`zafira-page ${styles.page}`}>
+      <VoyageFinancialsHeading title={pageHeading} />
       <LoadingOverlay show={loading || saving} />
       <EstimateDetailHeaderActions listHref={listHref} disabled={saving} />
-
-      {isCostSheet && sheetLabel ? (
-        <h3 className={styles.formTitle}>
-          {sheetClosed ? 'Closed Voyage Financials' : 'Voyage Financials'}
-          {` — ${sheetLabel}`}
-        </h3>
-      ) : null}
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
       {!loading && detail ? (
-        <form onSubmit={(event) => handleSubmit(event, isCostSheet ? 0 : null)}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            // Closed sheets: Enter must not save; use Submit to Edit to reopen.
+            if (sheetClosed) return;
+            handleSubmit(event, isCostSheet ? 0 : null);
+          }}
+        >
           <EstimateDetailSections
             detail={sectionsDetail}
             form={form}
             lookups={lookups}
             voyageExcludeId={estimateId}
+            readOnly={sheetClosed}
             onFieldChange={updateField}
             onVesselSelect={handleVesselSelect}
             onPeriodContractChange={handlePeriodContractChange}
@@ -408,13 +444,15 @@ export default function CostSheetEstimatePage({
                   disabled={saving}
                   onClick={() => handleSubmit(null, 0)}
                 />
-                <Button
-                  type="button"
-                  variant="primary"
-                  label="Submit to Close"
-                  disabled={saving}
-                  onClick={() => handleSubmit(null, 1)}
-                />
+                {!sheetClosed ? (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    label="Submit to Close"
+                    disabled={saving}
+                    onClick={() => handleSubmit(null, 1)}
+                  />
+                ) : null}
               </>
             ) : (
               <Button type="submit" variant="primary" label="Submit" disabled={saving} />

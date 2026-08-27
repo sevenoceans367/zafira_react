@@ -845,9 +845,11 @@ function mapEstimateDetail(
     hireageBroPercent: master.HIERAGE_BROKER_PERCENT ?? '',
     lumpsum: master.LUMPSUMAMT ?? master.LUMSUM ?? master.LUMPSUM ?? '',
     lumpsumQty: master.WS_QTY ?? master.LUMPSUM_QTY ?? '',
-    chkLumpsum: Number(master.CHK_LUMPSUM) === 1
-      || !!(master.LUMPSUMAMT ?? master.LUMSUM ?? master.LUMPSUM)
-      || !!(master.WS_QTY ?? master.LUMPSUM_QTY),
+    // Trust CHK_LUMPSUM when present. Do not infer from WS_QTY (cargo qty for both modes)
+    // or leftover LUMPSUMAMT — that forced World Scale back to Lump Sum on reopen.
+    chkLumpsum: master.CHK_LUMPSUM != null && master.CHK_LUMPSUM !== ''
+      ? Number(master.CHK_LUMPSUM) === 1
+      : !!(master.LUMPSUMAMT ?? master.LUMSUM ?? master.LUMPSUM),
     lumpsumVendor: master.LUMP_VENDOR != null ? String(master.LUMP_VENDOR) : '',
     marketRate: master.CARGO_RATE ?? master.MARKET_RATE ?? '',
     tankerFreightRate: master.CARGO_RATE ?? master.MARKET_RATE ?? '',

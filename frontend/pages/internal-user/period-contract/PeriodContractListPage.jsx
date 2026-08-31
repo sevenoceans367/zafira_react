@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, CardSelect, LoadingOverlay } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
@@ -17,7 +18,11 @@ import PeriodContractHeaderActions from './PeriodContractHeaderActions.jsx';
 import legacyStyles from './PeriodContractListPage.module.css';
 import styles from './PeriodBusinessPage.module.css';
 
-const SHOW_OPTIONS = [5, 10, 25];
+const SHOW_OPTIONS = [
+  { id: '5', name: 'Show 5' },
+  { id: '10', name: 'Show 10' },
+  { id: '25', name: 'Show 25' },
+];
 const EXPORT_PAGE_SIZE = 5000;
 
 const FLASH_MESSAGES = {
@@ -140,6 +145,16 @@ function CloseIcon() {
   );
 }
 
+function RowsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3.5" y="4.5" width="17" height="4" rx="1" />
+      <rect x="3.5" y="10.5" width="17" height="4" rx="1" />
+      <rect x="3.5" y="16.5" width="17" height="4" rx="1" />
+    </svg>
+  );
+}
+
 function PencilIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -200,7 +215,6 @@ export default function PeriodContractListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null);
-  const [linkKind, setLinkKind] = useState('all');
   const [spotFilter, setSpotFilter] = useState('all');
   const [tcFilter, setTcFilter] = useState('all');
   const [spotShow, setSpotShow] = useState(10);
@@ -306,7 +320,6 @@ export default function PeriodContractListPage() {
   };
 
   const openNominations = useCallback(async (row, { allowAdd }) => {
-    setLinkKind('all');
     setSpotFilter('all');
     setTcFilter('all');
     setSpotShow(10);
@@ -883,7 +896,7 @@ export default function PeriodContractListPage() {
           </table>
       </ScrollableTable>
 
-      {modal ? (
+      {modal ? createPortal(
         <div className={styles.modalScrim} role="presentation" onClick={closeModal}>
           <div
             className={styles.assignModal}
@@ -896,218 +909,229 @@ export default function PeriodContractListPage() {
               <div className={styles.amTitleRow}>
                 <span id="period-linked-title" className={styles.amTitle}>Period Business - Linked Contracts</span>
                 {modal.contractNo ? <span className={styles.cttChip}>{modal.contractNo}</span> : null}
+                <span className={styles.usdChip}>usd</span>
               </div>
-              <div className={styles.amHeadRight}>
-                <CardSelect
-                  options={[
-                    { id: 'all', name: 'All' },
-                    { id: 'spot', name: 'Spot' },
-                    { id: 'tc', name: 'TC' },
-                  ]}
-                  value={linkKind}
-                  tone="muted"
-                  ariaLabel="Filter linked contracts"
-                  placeholder="All"
-                  onChange={(value) => setLinkKind(value || 'all')}
-                />
-                <button type="button" className={styles.btnClose} aria-label="Close" onClick={closeModal}>
-                  <CloseIcon />
-                </button>
-              </div>
+              <button type="button" className={styles.btnClose} aria-label="Close" onClick={closeModal}>
+                <CloseIcon />
+              </button>
             </div>
             <div className={styles.amBody}>
               {modal.loading ? (
                 <p className={styles.amLoading}>Loading…</p>
               ) : (
                 <>
-                  {linkKind !== 'tc' ? (
-                    <section className={styles.amSection}>
-                      <div className={styles.amSectionHead}>
+                  <section className={styles.amSection}>
+                    <div className={styles.amSectionHead}>
+                      <div className={styles.amSectionTitleWrap}>
+                        <svg className={`${styles.amSectionIcon} ${styles.spotIcon}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <circle cx="12" cy="12" r="9" />
+                          <path d="M12 7v5l3.5 2" />
+                        </svg>
                         <span className={`${styles.amSectionTitle} ${styles.spotTitle}`}>Spot</span>
-                        <div className={styles.amSectionControls}>
+                      </div>
+                      <div className={styles.amSectionControls}>
+                        <CardSelect
+                          options={[
+                            { id: 'all', name: 'All vessels' },
+                            ...vesselOptions.map((name) => ({ id: name, name })),
+                          ]}
+                          value={spotFilter}
+                          onChange={(value) => setSpotFilter(value || 'all')}
+                          placeholder="All vessels"
+                          ariaLabel="Filter vessels"
+                          align="start"
+                          tone="muted"
+                        />
+                        <div className={styles.amShowCtrl}>
+                          <RowsIcon />
                           <CardSelect
-                            options={[
-                              { id: 'all', name: 'All vessels' },
-                              ...vesselOptions.map((name) => ({ id: name, name })),
-                            ]}
-                            value={spotFilter}
-                            tone="muted"
-                            ariaLabel="Filter vessels"
-                            placeholder="All vessels"
-                            onChange={(value) => setSpotFilter(value || 'all')}
-                          />
-                          <CardSelect
-                            options={SHOW_OPTIONS.map((size) => ({
-                              id: String(size),
-                              name: `Show ${size}`,
-                            }))}
+                            options={SHOW_OPTIONS}
                             value={String(spotShow)}
-                            tone="muted"
-                            ariaLabel="Spot rows to show"
-                            placeholder="Show 10"
                             onChange={(value) => setSpotShow(Number(value) || 10)}
+                            placeholder="Show 5"
+                            ariaLabel="Spot rows to show"
+                            align="start"
+                            tone="muted"
                           />
-                          <button
-                            type="button"
-                            className={`${styles.btnAddTrade} ${styles.btnAddSpot}`}
-                            disabled={!modal.allowAdd}
-                            title={modal.allowAdd ? 'Add Spot' : 'Not available for completed contracts'}
-                            onClick={() => navigate(addSpotHref)}
-                          >
-                            <PlusIcon />
-                            Add
-                          </button>
                         </div>
+                        <button
+                          type="button"
+                          className={`${styles.btnAddTrade} ${styles.btnAddSpot}`}
+                          disabled={!modal.allowAdd}
+                          title={modal.allowAdd ? 'Add Spot' : 'Not available for completed contracts'}
+                          onClick={() => navigate(addSpotHref)}
+                        >
+                          <PlusIcon />
+                          Add
+                        </button>
                       </div>
-                      <div className={styles.tableWrap}>
-                        <table className={styles.mini}>
-                          <thead>
+                    </div>
+                    <div className={styles.tableWrap}>
+                      <table className={styles.mini}>
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Vessel</th>
+                            <th>Voy</th>
+                            <th>CP Date</th>
+                            <th>DWT</th>
+                            <th>LP/DP</th>
+                            <th>Days</th>
+                            <th>QTY</th>
+                            <th>TC</th>
+                            <th>Fixture</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleVoyages.length === 0 ? (
                             <tr>
-                              <th>#</th>
-                              <th>Vessel</th>
-                              <th>Voy</th>
-                              <th>CP Date</th>
-                              <th>DWT</th>
-                              <th>LP/DP</th>
-                              <th>Days</th>
-                              <th>QTY</th>
-                              <th>TC</th>
-                              <th>Fixture</th>
+                              <td colSpan={10} className={styles.amEmptyNote}>No spot voyages match this filter.</td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {visibleVoyages.length === 0 ? (
-                              <tr>
-                                <td colSpan={10} className={styles.amEmptyNote}>No voyages</td>
-                              </tr>
-                            ) : visibleVoyages.map((voyage) => (
-                              <tr key={voyage.fcaId}>
-                                <td>{voyage.index}.</td>
-                                <td className={styles.cellVessel}>{liveValue(voyage.vesselName)}</td>
-                                <td>{liveValue(voyage.voyageNo)}</td>
-                                <td>{liveValue(voyage.cpDate)}</td>
-                                <td>{liveValue(voyage.dwt)}</td>
-                                <td>
-                                  <span className={styles.trunc} title={voyage.lpDp}>{liveValue(voyage.lpDp)}</span>
-                                </td>
-                                <td>{liveValue(voyage.duration)}</td>
-                                <td>{liveValue(voyage.cargoQuantity)}</td>
-                                <td>{liveValue(voyage.netTce)}</td>
-                                <td>
-                                  <Link
-                                    className={styles.iconBtn}
-                                    to={`/internal-user/sopf/viewestimate?id=${encodeURIComponent(voyage.fcaId)}&estimatetype=${encodeURIComponent(businessType)}&selBType=${encodeURIComponent(businessType)}&returnTo=${encodeURIComponent(listPath)}`}
-                                    title="Fixture"
-                                  >
-                                    <DocIcon />
-                                  </Link>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </section>
-                  ) : null}
+                          ) : visibleVoyages.map((voyage) => (
+                            <tr key={voyage.fcaId}>
+                              <td>{voyage.index}.</td>
+                              <td>
+                                <div className={styles.vesselName}>{liveValue(voyage.vesselName)}</div>
+                                {voyage.vesselType ? (
+                                  <div className={styles.vesselType}>{liveValue(voyage.vesselType)}</div>
+                                ) : null}
+                              </td>
+                              <td>{liveValue(voyage.voyageNo)}</td>
+                              <td className={styles.cellNum}>{liveValue(voyage.cpDate)}</td>
+                              <td className={styles.cellNum}>{liveValue(voyage.dwt)}</td>
+                              <td>
+                                <span className={styles.trunc} title={voyage.lpDp}>{liveValue(voyage.lpDp)}</span>
+                              </td>
+                              <td className={styles.cellNum}>{liveValue(voyage.duration)}</td>
+                              <td className={styles.cellNum}>{liveValue(voyage.cargoQuantity)}</td>
+                              <td className={styles.cellNum}>{liveValue(voyage.netTce)}</td>
+                              <td>
+                                <Link
+                                  className={styles.iconBtn}
+                                  to={`/internal-user/sopf/viewestimate?id=${encodeURIComponent(voyage.fcaId)}&estimatetype=${encodeURIComponent(businessType)}&selBType=${encodeURIComponent(businessType)}&returnTo=${encodeURIComponent(listPath)}`}
+                                  title="Fixture"
+                                >
+                                  <DocIcon />
+                                </Link>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
 
-                  {linkKind !== 'spot' ? (
-                    <section className={styles.amSection}>
-                      <div className={styles.amSectionHead}>
+                  <section className={styles.amSection}>
+                    <div className={styles.amSectionHead}>
+                      <div className={styles.amSectionTitleWrap}>
+                        <svg className={`${styles.amSectionIcon} ${styles.tcIcon}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <rect x="3" y="5" width="18" height="14" rx="2" />
+                          <path d="M3 10h18" />
+                          <path d="M8 15h3" />
+                        </svg>
                         <span className={`${styles.amSectionTitle} ${styles.tcTitle}`}>TC</span>
-                        <div className={styles.amSectionControls}>
+                      </div>
+                      <div className={styles.amSectionControls}>
+                        <CardSelect
+                          options={[
+                            { id: 'all', name: 'All TC' },
+                            ...tcOptions.map((name) => ({ id: name, name })),
+                          ]}
+                          value={tcFilter}
+                          onChange={(value) => setTcFilter(value || 'all')}
+                          placeholder="All TC"
+                          ariaLabel="Filter TC"
+                          align="start"
+                          tone="muted"
+                        />
+                        <div className={styles.amShowCtrl}>
+                          <RowsIcon />
                           <CardSelect
-                            options={[
-                              { id: 'all', name: 'All TC' },
-                              ...tcOptions.map((name) => ({ id: name, name })),
-                            ]}
-                            value={tcFilter}
-                            tone="muted"
-                            ariaLabel="Filter TC"
-                            placeholder="All TC"
-                            onChange={(value) => setTcFilter(value || 'all')}
-                          />
-                          <CardSelect
-                            options={SHOW_OPTIONS.map((size) => ({
-                              id: String(size),
-                              name: `Show ${size}`,
-                            }))}
+                            options={SHOW_OPTIONS}
                             value={String(tcShow)}
-                            tone="muted"
-                            ariaLabel="TC rows to show"
-                            placeholder="Show 10"
                             onChange={(value) => setTcShow(Number(value) || 10)}
+                            placeholder="Show 5"
+                            ariaLabel="TC rows to show"
+                            align="start"
+                            tone="muted"
                           />
-                          <button
-                            type="button"
-                            className={`${styles.btnAddTrade} ${styles.btnAddTc}`}
-                            disabled={!modal.allowAdd}
-                            title={modal.allowAdd ? 'Add TC' : 'Not available for completed contracts'}
-                            onClick={() => navigate(addTcHref)}
-                          >
-                            <PlusIcon />
-                            Add
-                          </button>
                         </div>
+                        <button
+                          type="button"
+                          className={`${styles.btnAddTrade} ${styles.btnAddTc}`}
+                          disabled={!modal.allowAdd}
+                          title={modal.allowAdd ? 'Add TC' : 'Not available for completed contracts'}
+                          onClick={() => navigate(addTcHref)}
+                        >
+                          <PlusIcon />
+                          Add
+                        </button>
                       </div>
-                      <div className={styles.tableWrap}>
-                        <table className={styles.mini}>
-                          <thead>
+                    </div>
+                    <div className={styles.tableWrap}>
+                      <table className={styles.mini}>
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Vessel</th>
+                            <th>TC</th>
+                            <th>CP Date</th>
+                            <th>DWT</th>
+                            <th>Del</th>
+                            <th>Redel</th>
+                            <th>Days</th>
+                            <th>Hire In</th>
+                            <th>Hire Out</th>
+                            <th>Fixture</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleTcs.length === 0 ? (
                             <tr>
-                              <th>#</th>
-                              <th>Vessel</th>
-                              <th>TC</th>
-                              <th>CP Date</th>
-                              <th>DWT</th>
-                              <th>Del</th>
-                              <th>Redel</th>
-                              <th>Days</th>
-                              <th>Hire In</th>
-                              <th>Hire Out</th>
-                              <th>Fixture</th>
+                              <td colSpan={11} className={styles.amEmptyNote}>No TC estimates match this filter.</td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {visibleTcs.length === 0 ? (
-                              <tr>
-                                <td colSpan={11} className={styles.amEmptyNote}>No TC estimates</td>
-                              </tr>
-                            ) : visibleTcs.map((tc) => (
-                              <tr key={tc.tcOutId}>
-                                <td>{tc.index}.</td>
-                                <td className={styles.cellVessel}>{liveValue(tc.vesselName)}</td>
-                                <td>{liveValue(tc.tcNo)}</td>
-                                <td>{liveValue(tc.cpDate)}</td>
-                                <td>{liveValue(tc.dwt)}</td>
-                                <td>
-                                  <span className={styles.trunc} title={tc.delPort}>{liveValue(tc.delPort)}</span>
-                                </td>
-                                <td>
-                                  <span className={styles.trunc} title={tc.reDelPort}>{liveValue(tc.reDelPort)}</span>
-                                </td>
-                                <td>{liveValue(tc.tcDays)}</td>
-                                <td className={styles.cellNum}>{liveValue(tc.hireIn)}</td>
-                                <td className={styles.cellNum}>{liveValue(tc.hireOut || tc.dailyGrossHire)}</td>
-                                <td>
-                                  <Link
-                                    className={styles.iconBtn}
-                                    to={tcAppPath(tcHost, `${tc.tcOutId}/view`)}
-                                    title="Fixture"
-                                  >
-                                    <DocIcon />
-                                  </Link>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </section>
-                  ) : null}
+                          ) : visibleTcs.map((tc) => (
+                            <tr key={tc.tcOutId}>
+                              <td>{tc.index}.</td>
+                              <td>
+                                <div className={styles.vesselName}>{liveValue(tc.vesselName)}</div>
+                                {tc.vesselType ? (
+                                  <div className={styles.vesselType}>{liveValue(tc.vesselType)}</div>
+                                ) : null}
+                              </td>
+                              <td>{liveValue(tc.tcNo)}</td>
+                              <td className={styles.cellNum}>{liveValue(tc.cpDate)}</td>
+                              <td className={styles.cellNum}>{liveValue(tc.dwt)}</td>
+                              <td>
+                                <span className={styles.trunc} title={tc.delPort}>{liveValue(tc.delPort)}</span>
+                              </td>
+                              <td>
+                                <span className={styles.trunc} title={tc.reDelPort}>{liveValue(tc.reDelPort)}</span>
+                              </td>
+                              <td className={styles.cellNum}>{liveValue(tc.tcDays)}</td>
+                              <td className={styles.cellNum}>{liveValue(tc.hireIn)}</td>
+                              <td className={styles.cellNum}>{liveValue(tc.hireOut || tc.dailyGrossHire)}</td>
+                              <td>
+                                <Link
+                                  className={styles.iconBtn}
+                                  to={tcAppPath(tcHost, `${tc.tcOutId}/view`)}
+                                  title="Fixture"
+                                >
+                                  <DocIcon />
+                                </Link>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
                 </>
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   );

@@ -481,29 +481,24 @@
 .cttChip {
   font-size: 11.5px;
   font-weight: 700;
-  color: #5b6472;
-  background: #f1f2f4;
-  border: 1px solid #dfe2e7;
+  color: #6c47ff;
+  background: #efeaff;
+  border: 1px solid #ddd2ff;
   border-radius: 999px;
   padding: 4px 12px;
 }
 
-.amHeadRight {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.amFilterPill {
-  font-size: 12.5px;
-  font-weight: 600;
+.usdChip {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   color: #5b6472;
-  background: #fff;
+  background: #f1f2f4;
   border: 1px solid #dfe2e7;
-  border-radius: 9px;
-  padding: 7px 12px;
-  font-family: inherit;
-  cursor: pointer;
+  border-radius: 999px;
+  padding: 4px 11px;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .btnClose {
@@ -553,9 +548,29 @@
   flex-wrap: wrap;
 }
 
+.amSectionTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .amSectionTitle {
   font-size: 14px;
   font-weight: 700;
+}
+
+.amSectionIcon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.spotIcon {
+  color: #f4652c;
+}
+
+.tcIcon {
+  color: #14919b;
 }
 
 .spotTitle {
@@ -571,18 +586,6 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.amSelect {
-  font-size: 12px;
-  font-weight: 600;
-  color: #5b6472;
-  background: #fff;
-  border: 1px solid #dfe2e7;
-  border-radius: 8px;
-  padding: 6px 9px;
-  font-family: inherit;
-  cursor: pointer;
 }
 
 .amShowCtrl {
@@ -647,7 +650,7 @@
 .mini {
   width: 100%;
   border-collapse: collapse;
-  min-width: 820px;
+  min-width: 980px;
 }
 
 .mini thead th {
@@ -673,6 +676,15 @@
 
 .mini tbody tr:last-child td {
   border-bottom: none;
+}
+
+.vesselName {
+  color: #1b2430;
+}
+
+.vesselType {
+  font-size: 11px;
+  color: #8a93a2;
 }
 
 .amEmptyNote {

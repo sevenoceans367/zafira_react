@@ -223,7 +223,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
 
       <form onSubmit={handleSave}>
         <div className={styles.card}>
-          <div className={styles.cardTitle}>COA Details</div>
+          <div className={styles.cardTitle}>Contract Information</div>
 
           <div className={styles.gridFields}>
             <Field id="coaIdentity" label="COA No.">

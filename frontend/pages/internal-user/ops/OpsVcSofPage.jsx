@@ -27,6 +27,86 @@ const FLASH = {
   1: { type: 'error', text: 'Sorry! this SOF already exists for this port.' },
 };
 
+const SOF_MANDATORY_FIELDS = [
+  { key: 'stowageQty', label: 'STOWAGE PLAN QUANTITY' },
+  { key: 'vesselArrived', label: 'VESSEL ARRIVED' },
+  { key: 'norTendered', label: 'NOR TENDERED' },
+  { key: 'loadCommenced', label: 'LOAD/DISCH COMMENCED' },
+  { key: 'loadCompleted', label: 'LOAD/DISCH COMPLETED' },
+  { key: 'vesselSailed', label: 'VESSEL SAILED' },
+];
+
+function focusMandatoryField(fieldId) {
+  if (!fieldId || typeof document === 'undefined') return false;
+
+  const byId = document.getElementById(fieldId);
+  const byData = document.querySelector(`[data-field="${CSS.escape(fieldId)}"]`);
+  const byLabel = document.querySelector(`label[for="${CSS.escape(fieldId)}"]`);
+  const container = byData
+    || byId?.closest('[class*="field"]')
+    || byLabel?.parentElement
+    || byId;
+
+  let focusable = null;
+  if (byId && typeof byId.focus === 'function' && !byId.disabled) {
+    focusable = byId;
+  } else if (byData) {
+    focusable = byData.querySelector(
+      'button:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
+    );
+  }
+  if (!focusable && container) {
+    focusable = container.querySelector(
+      'button:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
+    );
+  }
+
+  const scrollTarget = focusable || container || byData || byId;
+  if (!scrollTarget) return false;
+
+  scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+
+  if (container?.classList && styles.fieldHighlight) {
+    container.classList.add(styles.fieldHighlight);
+    window.setTimeout(() => container.classList.remove(styles.fieldHighlight), 2500);
+  }
+
+  const applyFocus = () => {
+    const el = focusable || document.getElementById(fieldId);
+    if (!el || typeof el.focus !== 'function') return;
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
+    if (typeof el.select === 'function' && el.tagName === 'INPUT') {
+      try { el.select(); } catch { /* ignore */ }
+    }
+  };
+
+  applyFocus();
+  window.requestAnimationFrame(() => {
+    applyFocus();
+    window.setTimeout(applyFocus, 50);
+    window.setTimeout(applyFocus, 150);
+    window.setTimeout(applyFocus, 300);
+  });
+  return true;
+}
+
+async function alertThenFocus(alertFn, alertOpts, fieldId) {
+  focusMandatoryField(fieldId);
+  await alertFn(alertOpts);
+  await new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        focusMandatoryField(fieldId);
+        resolve();
+      }, 80);
+    });
+  });
+}
+
 function isRobActivity(activity) {
   return activity === 'EOSP' || activity === 'Full away on passage';
 }
@@ -278,18 +358,14 @@ export default function OpsVcSofPage() {
   const handleSubmit = async (submitId) => {
     if (!activePort || !draft) return;
 
-    const missing = [];
-    if (!String(draft.stowageQty || '').trim()) missing.push('STOWAGE PLAN QUANTITY');
-    if (!String(draft.vesselArrived || '').trim()) missing.push('VESSEL ARRIVED');
-    if (!String(draft.norTendered || '').trim()) missing.push('NOR TENDERED');
-    if (!String(draft.loadCommenced || '').trim()) missing.push('LOAD/DISCH COMMENCED');
-    if (!String(draft.loadCompleted || '').trim()) missing.push('LOAD/DISCH COMPLETED');
-    if (!String(draft.vesselSailed || '').trim()) missing.push('VESSEL SAILED');
+    const missing = SOF_MANDATORY_FIELDS.filter(
+      ({ key }) => !String(draft[key] || '').trim(),
+    );
     if (missing.length) {
-      await alert({
+      await alertThenFocus(alert, {
         title: 'Alert',
-        message: `Please fill the ${missing.join(', ')}.`,
-      });
+        message: `Please fill the ${missing.map(({ label }) => label).join(', ')}.`,
+      }, missing[0].key);
       return;
     }
 
@@ -488,8 +564,9 @@ export default function OpsVcSofPage() {
                       <tr>
                         <td>10.</td>
                         <td>STOWAGE PLAN QUANTITY (MT)</td>
-                        <td>
+                        <td data-field="stowageQty">
                           <TextInput
+                            id="stowageQty"
                             value={draft.stowageQty}
                             onChange={(e) => patchDraft({ stowageQty: e.target.value })}
                             disabled={locked}
@@ -499,8 +576,9 @@ export default function OpsVcSofPage() {
                       <tr>
                         <td>11.</td>
                         <td>VESSEL ARRIVED</td>
-                        <td>
+                        <td data-field="vesselArrived">
                           <DmyDateInput
+                            id="vesselArrived"
                             enableTime
                             value={draft.vesselArrived}
                             onChange={(v) => patchDraft({ vesselArrived: v })}
@@ -511,8 +589,9 @@ export default function OpsVcSofPage() {
                       <tr>
                         <td>12.</td>
                         <td>NOR TENDERED</td>
-                        <td>
+                        <td data-field="norTendered">
                           <DmyDateInput
+                            id="norTendered"
                             enableTime
                             value={draft.norTendered}
                             onChange={(v) => patchDraft({ norTendered: v })}
@@ -535,8 +614,9 @@ export default function OpsVcSofPage() {
                       <tr>
                         <td>14.</td>
                         <td>LOAD/DISCH COMMENCED</td>
-                        <td>
+                        <td data-field="loadCommenced">
                           <DmyDateInput
+                            id="loadCommenced"
                             enableTime
                             value={draft.loadCommenced}
                             onChange={(v) => patchDraft({ loadCommenced: v })}
@@ -547,8 +627,9 @@ export default function OpsVcSofPage() {
                       <tr>
                         <td>15.</td>
                         <td>LOAD/DISCH COMPLETED</td>
-                        <td>
+                        <td data-field="loadCompleted">
                           <DmyDateInput
+                            id="loadCompleted"
                             enableTime
                             value={draft.loadCompleted}
                             onChange={(v) => patchDraft({ loadCompleted: v })}
@@ -559,8 +640,9 @@ export default function OpsVcSofPage() {
                       <tr>
                         <td>16.</td>
                         <td>VESSEL SAILED</td>
-                        <td>
+                        <td data-field="vesselSailed">
                           <DmyDateInput
+                            id="vesselSailed"
                             enableTime
                             value={draft.vesselSailed}
                             onChange={(v) => patchDraft({ vesselSailed: v })}

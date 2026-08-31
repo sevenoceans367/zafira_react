@@ -30,6 +30,86 @@ const FLASH = {
   2: { type: 'success', text: 'Laytime opened successfully.' },
 };
 
+const LAYTIME_MANDATORY_FIELDS = [
+  { key: 'stowageQty', label: 'STOWAGE PLAN QUANTITY' },
+  { key: 'vesselArrived', label: 'VESSEL ARRIVED' },
+  { key: 'norTendered', label: 'NOR TENDERED' },
+  { key: 'loadCommenced', label: 'LOAD/DISCH COMMENCED' },
+  { key: 'loadCompleted', label: 'LOAD/DISCH COMPLETED' },
+  { key: 'vesselSailed', label: 'VESSEL SAILED' },
+];
+
+function focusMandatoryField(fieldId) {
+  if (!fieldId || typeof document === 'undefined') return false;
+
+  const byId = document.getElementById(fieldId);
+  const byData = document.querySelector(`[data-field="${CSS.escape(fieldId)}"]`);
+  const byLabel = document.querySelector(`label[for="${CSS.escape(fieldId)}"]`);
+  const container = byData
+    || byId?.closest('[class*="field"]')
+    || byLabel?.parentElement
+    || byId;
+
+  let focusable = null;
+  if (byId && typeof byId.focus === 'function' && !byId.disabled) {
+    focusable = byId;
+  } else if (byData) {
+    focusable = byData.querySelector(
+      'button:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
+    );
+  }
+  if (!focusable && container) {
+    focusable = container.querySelector(
+      'button:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
+    );
+  }
+
+  const scrollTarget = focusable || container || byData || byId;
+  if (!scrollTarget) return false;
+
+  scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+
+  if (container?.classList && styles.fieldHighlight) {
+    container.classList.add(styles.fieldHighlight);
+    window.setTimeout(() => container.classList.remove(styles.fieldHighlight), 2500);
+  }
+
+  const applyFocus = () => {
+    const el = focusable || document.getElementById(fieldId);
+    if (!el || typeof el.focus !== 'function') return;
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
+    if (typeof el.select === 'function' && el.tagName === 'INPUT') {
+      try { el.select(); } catch { /* ignore */ }
+    }
+  };
+
+  applyFocus();
+  window.requestAnimationFrame(() => {
+    applyFocus();
+    window.setTimeout(applyFocus, 50);
+    window.setTimeout(applyFocus, 150);
+    window.setTimeout(applyFocus, 300);
+  });
+  return true;
+}
+
+async function alertThenFocus(alertFn, alertOpts, fieldId) {
+  focusMandatoryField(fieldId);
+  await alertFn(alertOpts);
+  await new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        focusMandatoryField(fieldId);
+        resolve();
+      }, 80);
+    });
+  });
+}
+
 function emptyEntityRow() {
   return { name: '', value: '' };
 }
@@ -292,18 +372,36 @@ export default function OpsVcLaytimePage() {
   const handleSubmit = async (submitId) => {
     if (!activePort || !draft) return;
 
+    const missingMandatory = LAYTIME_MANDATORY_FIELDS.filter(
+      ({ key }) => !String(draft[key] || '').trim(),
+    );
+    if (missingMandatory.length) {
+      await alertThenFocus(alert, {
+        title: 'Alert',
+        message: `Please fill the ${missingMandatory.map(({ label }) => label).join(', ')}.`,
+      }, missingMandatory[0].key);
+      return;
+    }
+
     if (!draft.detention) {
       const qty = Number(draft.loadedQty);
       const rate = Number(draft.loadedRate);
-      if (!String(draft.loadedQty || '').trim() || !String(draft.loadedRate || '').trim()
-        || !(qty > 0) || !(rate > 0)) {
-        await alert({ title: 'Alert', message: 'Please Check Load Rate Or Quantity' });
+      const missingQty = !String(draft.loadedQty || '').trim() || !(qty > 0);
+      const missingRate = !String(draft.loadedRate || '').trim() || !(rate > 0);
+      if (missingQty || missingRate) {
+        await alertThenFocus(alert, {
+          title: 'Alert',
+          message: 'Please Check Load Rate Or Quantity',
+        }, missingQty ? 'loadedQty' : 'loadedRate');
         return;
       }
     }
 
     if (submitId === 1 && !(draft.approvers || []).length) {
-      await alert({ title: 'Alert', message: 'Please select Level 1 Approvers first.' });
+      await alertThenFocus(alert, {
+        title: 'Alert',
+        message: 'Please select Level 1 Approvers first.',
+      }, 'approvers');
       return;
     }
 
@@ -488,9 +586,10 @@ export default function OpsVcLaytimePage() {
                         <tr key={key}>
                           <td>{4 + idx}.</td>
                           <td>{label}</td>
-                          <td>
+                          <td data-field={key}>
                             {kind === 'datetime' ? (
                               <DmyDateInput
+                                id={key}
                                 enableTime
                                 value={draft[key]}
                                 onChange={(v) => patchDraft({ [key]: v })}
@@ -498,6 +597,7 @@ export default function OpsVcLaytimePage() {
                               />
                             ) : (
                               <TextInput
+                                id={key}
                                 value={draft[key]}
                                 onChange={(e) => patchDraft({ [key]: e.target.value })}
                                 disabled={locked}
@@ -598,18 +698,21 @@ export default function OpsVcLaytimePage() {
                     <TextInput value={form.message || ''} disabled />
                   </Field>
                   {summaryFields.map((field) => (
-                    <Field key={field.key} label={field.label}>
-                      <TextInput
-                        value={draft[field.key] ?? ''}
-                        onChange={(e) => patchDraft(
-                          { [field.key]: e.target.value },
-                          {
-                            recompute: Boolean(field.recompute || field.refreshAllowed),
-                            refreshAllowed: Boolean(field.refreshAllowed),
-                          },
-                        )}
-                        disabled={locked || field.readOnly}
-                      />
+                    <Field key={field.key} label={field.label} id={field.key}>
+                      <div data-field={field.key}>
+                        <TextInput
+                          id={field.key}
+                          value={draft[field.key] ?? ''}
+                          onChange={(e) => patchDraft(
+                            { [field.key]: e.target.value },
+                            {
+                              recompute: Boolean(field.recompute || field.refreshAllowed),
+                              refreshAllowed: Boolean(field.refreshAllowed),
+                            },
+                          )}
+                          disabled={locked || field.readOnly}
+                        />
+                      </div>
                     </Field>
                   ))}
                 </div>
@@ -812,17 +915,19 @@ export default function OpsVcLaytimePage() {
 
                 <h4 className={styles.sectionTitle}>Level 1 Approver</h4>
                 {approverOptions.length ? (
-                  <Field label="Approvers">
-                    <select
-                      multiple
-                      disabled={locked}
-                      value={draft.approvers || []}
-                      onChange={(e) => {
-                        const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                        setApprovers(selected);
-                      }}
-                      style={{ minHeight: 96, width: '100%', maxWidth: 420 }}
-                    >
+                  <Field label="Approvers" id="approvers">
+                    <div data-field="approvers">
+                      <select
+                        id="approvers"
+                        multiple
+                        disabled={locked}
+                        value={draft.approvers || []}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
+                          setApprovers(selected);
+                        }}
+                        style={{ minHeight: 96, width: '100%', maxWidth: 420 }}
+                      >
                       {approverOptions.map((opt) => {
                         const id = String(opt.id ?? opt.value ?? '');
                         const name = opt.name ?? opt.label ?? id;
@@ -830,16 +935,20 @@ export default function OpsVcLaytimePage() {
                           <option key={id} value={id}>{name}</option>
                         );
                       })}
-                    </select>
+                      </select>
+                    </div>
                   </Field>
                 ) : (
-                  <Field label="Approver IDs (comma-separated)">
-                    <TextInput
-                      value={(draft.approvers || []).join(', ')}
-                      onChange={(e) => setApprovers(e.target.value)}
-                      disabled={locked}
-                      placeholder="e.g. 12, 34"
-                    />
+                  <Field label="Approver IDs (comma-separated)" id="approvers">
+                    <div data-field="approvers">
+                      <TextInput
+                        id="approvers"
+                        value={(draft.approvers || []).join(', ')}
+                        onChange={(e) => setApprovers(e.target.value)}
+                        disabled={locked}
+                        placeholder="e.g. 12, 34"
+                      />
+                    </div>
                   </Field>
                 )}
 

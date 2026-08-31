@@ -24,12 +24,25 @@ const MOCK_LOOKUPS = {
   vesselSubstitutes: [{ id: '1', name: 'Yes' }, { id: '2', name: 'No' }],
   routes: [{ id: '1', name: 'Asia-Europe' }],
   loadOptions: [{ id: '1', name: 'FOB' }],
-  vesselTypes: [{ id: '1', name: 'Capesize', businessTypeId: '3' }],
-  cargos: [{ id: '1', name: 'Iron Ore(IO01)' }],
-  charterers: [{ id: 'C001', name: 'Steel Corp ( C001 )' }],
-  owners: [{ id: 'O001', name: 'Owner Co ( O001 )' }],
-  brokers: [{ id: 'B001', name: 'Broker Co ( B001 )' }],
-  vessels: [{ id: '100', name: 'Atlantic Star', businessTypeId: '3' }],
+  vesselTypes: [{ id: '1', name: 'Aframax', businessTypeId: '2' }],
+  cargos: [
+    { id: '1', name: 'Crude Oil', materialTypeId: '2' },
+    { id: '2', name: 'Gasoil', materialTypeId: '2' },
+    { id: '3', name: 'Iron Ore', materialTypeId: '3' },
+  ],
+  charterers: [
+    { id: 'C001', name: 'Steel Corp (C001)' },
+    { id: 'C002', name: 'Trafigura Pte Ltd (C002)' },
+  ],
+  owners: [
+    { id: 'O001', name: 'Owner Co (O001)' },
+    { id: 'O002', name: 'Seven Oceans Shipping (O002)' },
+  ],
+  brokers: [
+    { id: 'B001', name: 'Broker Co (B001)' },
+    { id: 'B002', name: 'Braemar (B002)' },
+  ],
+  vessels: [{ id: '100', name: 'Atlantic Star', businessTypeId: '2' }],
 };
 
 const MOCK_RUNNING = {

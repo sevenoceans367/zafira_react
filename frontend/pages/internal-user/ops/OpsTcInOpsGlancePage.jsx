@@ -549,7 +549,11 @@ export default function OpsTcInOpsGlancePage() {
               <th>TC Financials</th>
               <th className={styles.iconTh} title="Compare TC Financials"><CompareIcon /></th>
               <th>Finance</th>
-              <th style={{ textAlign: 'center' }}>Fixture Note</th>
+              <th style={{ textAlign: 'center' }}>
+                TC Days
+                <br />
+                Fixture Note
+              </th>
               <th>Agency Letters</th>
               <th>Checklist</th>
               <th>Alerts</th>
@@ -679,8 +683,8 @@ export default function OpsTcInOpsGlancePage() {
                     </div>
                   </td>
                   <td>
-                    <div className={styles.docCenter}>
-                      <span className={styles.sub} style={{ display: 'block', marginBottom: 3 }}>
+                    <div className={styles.fixtureNoteCell}>
+                      <span className={styles.sub}>
                         TC Days: {row.hireDays || '—'}
                       </span>
                       <div className={styles.docGroup}>

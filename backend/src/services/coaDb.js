@@ -171,30 +171,41 @@ export async function dbGetCoaLookups() {
   );
   const [cargos] = await pool.query(
     `SELECT MATERIALID AS id,
-            CONCAT(MATERIAL_CODE_DESC, '(', MATERIAL_CODE, ')') AS name
+            COALESCE(NULLIF(TRIM(MATERIAL_TYPE), ''), MATERIAL_CODE_DESC) AS name,
+            MATERIAL_TYPEID AS materialTypeId
      FROM cargo_master
      WHERE STATUS = 1 AND MCOMPANYID = ?
-     ORDER BY MATERIAL_CODE_DESC`,
+     ORDER BY COALESCE(NULLIF(TRIM(MATERIAL_TYPE), ''), MATERIAL_CODE_DESC)`,
     [appContext.companyId],
   );
+  // Vendor masters (same CODE ids stored on coa_master.CHARTERER / OWNER / BROKER).
   const [charterers] = await pool.query(
     `SELECT CODE AS id, CONCAT(NAME, ' (', CODE, ')') AS name
      FROM vendor_master
-     WHERE STATUS = 1 AND VENDOR_TYPEID IN (1, 2, 3, 11) AND MCOMPANYID = ?
+     WHERE STATUS = 1
+       AND MCOMPANYID = ?
+       AND VENDOR_TYPEID IN (1, 2, 3, 7, 10, 11)
+       AND CODE IS NOT NULL AND CODE != ''
      ORDER BY NAME`,
     [appContext.companyId],
   );
   const [owners] = await pool.query(
     `SELECT CODE AS id, CONCAT(NAME, ' (', CODE, ')') AS name
      FROM vendor_master
-     WHERE STATUS = 1 AND VENDOR_TYPEID IN (11) AND MCOMPANYID = ?
+     WHERE STATUS = 1
+       AND MCOMPANYID = ?
+       AND VENDOR_TYPEID IN (11)
+       AND CODE IS NOT NULL AND CODE != ''
      ORDER BY NAME`,
     [appContext.companyId],
   );
   const [brokers] = await pool.query(
     `SELECT CODE AS id, CONCAT(NAME, ' (', CODE, ')') AS name
      FROM vendor_master
-     WHERE STATUS = 1 AND VENDOR_TYPEID IN (12) AND MCOMPANYID = ?
+     WHERE STATUS = 1
+       AND MCOMPANYID = ?
+       AND VENDOR_TYPEID IN (12)
+       AND CODE IS NOT NULL AND CODE != ''
      ORDER BY NAME`,
     [appContext.companyId],
   );
@@ -237,7 +248,11 @@ export async function dbGetCoaLookups() {
       name: r.name,
       businessTypeId: r.businessTypeId != null ? String(r.businessTypeId) : '',
     })),
-    cargos: cargos.map((r) => ({ id: String(r.id), name: r.name })),
+    cargos: cargos.map((r) => ({
+      id: String(r.id),
+      name: r.name || String(r.id),
+      materialTypeId: r.materialTypeId != null ? String(r.materialTypeId) : '',
+    })),
     charterers: charterers.map((r) => ({ id: String(r.id), name: r.name })),
     owners: owners.map((r) => ({ id: String(r.id), name: r.name })),
     brokers: brokers.map((r) => ({ id: String(r.id), name: r.name })),
@@ -299,7 +314,7 @@ export async function dbListRunningCoas({
             route.COAROUTE_NAME AS COA_ROUTE,
             vt.VesselType AS VESSEL_TYPE,
             CONCAT(charterer.NAME, '(', charterer.CODE, ')') AS CHARTERER,
-            CONCAT(cargo.MATERIAL_CODE_DESC, '(', cargo.MATERIAL_CODE, ')') AS CARGO,
+            COALESCE(NULLIF(TRIM(cargo.MATERIAL_TYPE), ''), cargo.MATERIAL_CODE_DESC) AS CARGO,
             (SELECT COUNT(*) FROM freight_cost_estimate_compare c WHERE c.COAAID = m.COAID) AS LEGS_VC,
             (SELECT COUNT(*) FROM cargo_relet_estimate_compare c WHERE c.COAAID = m.COAID) AS LEGS_RELET,
             (SELECT GROUP_CONCAT(COMID) FROM freight_cost_estimate_compare c WHERE c.COAAID = m.COAID) AS COMID_VC,
@@ -1195,7 +1210,7 @@ export async function dbListCoaOpsVoyages({
             m.DAILY_EARNING, m.PROFIT_LOSS, m.VESSEL_TYPE,
             coa.COA_ID, coa.COA_NO, vim.VESSEL_NAME,
             CONCAT(charterer.NAME, '(', charterer.CODE, ')') AS CHARTERER,
-            CONCAT(cargo.MATERIAL_CODE_DESC, '(', cargo.MATERIAL_CODE, ')') AS CARGO
+            COALESCE(NULLIF(TRIM(cargo.MATERIAL_TYPE), ''), cargo.MATERIAL_CODE_DESC) AS CARGO
      FROM freight_cost_estimate_compare c
      INNER JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
      LEFT JOIN coa_master coa ON coa.COAID = c.COAAID

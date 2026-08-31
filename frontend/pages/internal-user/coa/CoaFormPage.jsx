@@ -158,6 +158,17 @@ export default function CoaFormPage({ mode = 'edit' }) {
     return all.filter((item) => !item.businessTypeId || item.businessTypeId === form.businessTypeId);
   }, [form.businessTypeId, lookups]);
 
+  // Cargo Name = cargo_master.MATERIAL_TYPE; Tanker/Gas/Dry via MATERIAL_TYPEID (= business type).
+  const cargos = useMemo(() => {
+    const all = lookups?.cargos || [];
+    const bType = String(form.businessTypeId || '');
+    const filtered = all.filter((item) => {
+      if (!item.materialTypeId) return true;
+      return String(item.materialTypeId) === bType;
+    });
+    return filtered.length ? filtered : all;
+  }, [form.businessTypeId, lookups]);
+
   const patch = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleSave = async (event) => {
@@ -277,18 +288,19 @@ export default function CoaFormPage({ mode = 'edit' }) {
               />
             </Field>
             <Field id="loadOptions" label="Load Options">
-              <CoaCardSelect
-                label="Load Options"
+              <input
+                id="loadOptions"
+                type="text"
+                placeholder="Enter load options"
                 value={form.loadOptions}
-                options={lookups?.loadOptions || []}
-                onChange={(value) => patch('loadOptions', value)}
+                onChange={(e) => patch('loadOptions', e.target.value)}
               />
             </Field>
             <Field id="cargo" label="Cargo">
               <CoaCardSelect
                 label="Cargo"
                 value={form.cargo}
-                options={lookups?.cargos || []}
+                options={cargos}
                 onChange={(value) => patch('cargo', value)}
               />
             </Field>
@@ -391,7 +403,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
               <thead>
                 <tr>
                   <th style={{ width: 56 }} />
-                  <th>Min Qty Guaranteed (CBM/MT)</th>
+                  <th>Min Qty/ Shipment(MT)</th>
                   <th>Load Port</th>
                 </tr>
               </thead>

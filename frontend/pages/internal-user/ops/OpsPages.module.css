@@ -632,6 +632,14 @@
   font-size: 13px;
 }
 
+.attachRow {
+  margin-top: 10px;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
 .fieldHighlight {
   outline: 2px solid #dc2626;
   outline-offset: 3px;

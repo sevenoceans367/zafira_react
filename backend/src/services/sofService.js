@@ -162,6 +162,9 @@ export async function saveSof(payload = {}) {
   port.dailyQty = payload.dailyQty || port.dailyQty;
   port.keyOperations = payload.keyOperations || port.keyOperations;
   port.cargoRows = payload.cargoRows || port.cargoRows;
+  if (Array.isArray(payload.keepFiles)) {
+    port.uploads = payload.keepFiles.map(String).filter(Boolean);
+  }
   port.submitId = Number(payload.submitId || 1);
   port.locked = port.submitId === 2;
   port.canEdit = !port.locked;

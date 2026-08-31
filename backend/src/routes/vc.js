@@ -834,8 +834,32 @@ router.get('/ops/checklist', asyncHandler(async (req, res) => {
   res.json(await getOpsChecklist(comId, req.query.kind || ''));
 }));
 
-router.post('/ops/sof', asyncHandler(async (req, res) => {
-  res.json(await saveSof(req.body || {}));
+router.post('/ops/sof', (req, res, next) => {
+  const ct = String(req.headers['content-type'] || '');
+  if (!ct.includes('multipart/form-data')) {
+    next();
+    return;
+  }
+  ticketUpload(req, res, (err) => {
+    if (err) {
+      next(err);
+      return;
+    }
+    next();
+  });
+}, asyncHandler(async (req, res) => {
+  const body = req.body?.payload ? JSON.parse(req.body.payload) : (req.body || {});
+  const keepFiles = Array.isArray(body.keepFiles)
+    ? body.keepFiles.map(String).filter(Boolean)
+    : [];
+  const { attachment } = mapUploadedFiles(req.files || []);
+  const newFiles = attachment
+    ? attachment.split(',').map((part) => part.trim()).filter(Boolean)
+    : [];
+  res.json(await saveSof({
+    ...body,
+    keepFiles: newFiles.length ? [...keepFiles, ...newFiles] : keepFiles,
+  }));
 }));
 
 router.get('/ops/laytime', asyncHandler(async (req, res) => {

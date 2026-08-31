@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Button,
   DmyDateInput,
   Field,
   LoadingOverlay,
@@ -14,7 +13,8 @@ import {
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchSofForm, saveSof } from '../../../services/opsVc.js';
 import OpsVcSofHeaderActions from './OpsVcSofHeaderActions.jsx';
-import styles from './OpsPages.module.css';
+import pageStyles from './OpsPages.module.css';
+import styles from './OpsVcSofPage.module.css';
 
 const BACK_PATHS = {
   1: '/internal-user/vc/ops/in-ops-glance',
@@ -26,6 +26,64 @@ const FLASH = {
   0: { type: 'success', text: 'SOF added/updated successfully.' },
   1: { type: 'error', text: 'Sorry! this SOF already exists for this port.' },
 };
+
+/** Hidden until pre-arrival / daily-qty UI is ready for production. Data still loads and saves. */
+const SHOW_PRE_ARRIVAL_AND_DAILY_QTY = false;
+
+function PortTypeIcon({ portType }) {
+  if (portType === 'DP') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 22V9" />
+        <path d="M18 15l-6-6-6 6" />
+        <path d="M4 4h16" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 2v13" />
+      <path d="M6 9l6 6 6-6" />
+      <path d="M4 20h16" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5.5" />
+      <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function SofInfoPopup() {
+  return (
+    <div className={styles.infoPop}>
+      <div className={styles.infoPopTitle}>How this page works</div>
+      <ol className={styles.infoPopSteps}>
+        <li>Complete the numbered <b>Particulars</b> for this port call.</li>
+        <li>Add BL, activity, key operations and cargo figures as they occur.</li>
+        <li><b>Submit</b> saves your entries; <b>Submit &amp; Close</b> locks the SOF when sailing entries are complete.</li>
+        <li>Attach supporting documents in the sidebar before submitting.</li>
+      </ol>
+    </div>
+  );
+}
+
+function AddRowButton({ onClick, disabled }) {
+  if (disabled) return null;
+  return (
+    <button type="button" className={styles.addRowBtn} onClick={onClick}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+      Add
+    </button>
+  );
+}
 
 const SOF_MANDATORY_FIELDS = [
   { key: 'stowageQty', label: 'STOWAGE PLAN QUANTITY' },
@@ -66,9 +124,9 @@ function focusMandatoryField(fieldId) {
 
   scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
 
-  if (container?.classList && styles.fieldHighlight) {
-    container.classList.add(styles.fieldHighlight);
-    window.setTimeout(() => container.classList.remove(styles.fieldHighlight), 2500);
+  if (container?.classList && pageStyles.fieldHighlight) {
+    container.classList.add(pageStyles.fieldHighlight);
+    window.setTimeout(() => container.classList.remove(pageStyles.fieldHighlight), 2500);
   }
 
   const applyFocus = () => {
@@ -216,6 +274,17 @@ function computeDurationHours(fromStr, toStr) {
   return hours.toFixed(4);
 }
 
+function displayStoredFileName(stored) {
+  const raw = String(stored || '').trim();
+  const match = raw.match(/^\d+_(.+)$/);
+  return match ? match[1] : raw;
+}
+
+function attachmentHref(stored) {
+  const file = String(stored || '').trim();
+  return file ? `/attachment/${encodeURIComponent(file)}` : '';
+}
+
 function draftFromPort(port) {
   return {
     terminal: port.terminal || '',
@@ -262,6 +331,8 @@ export default function OpsVcSofPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [pendingFilesByKey, setPendingFilesByKey] = useState({});
+  const attachInputRef = useRef(null);
 
   const backHref = useMemo(() => {
     const path = BACK_PATHS[Number(page)] || BACK_PATHS[1];
@@ -279,6 +350,7 @@ export default function OpsVcSofPage() {
         nextDrafts[port.key] = draftFromPort(port);
       });
       setDrafts(nextDrafts);
+      setPendingFilesByKey({});
       const preferred = preferredKey
         || data.ports?.[Math.max(0, tabParam - 1)]?.key
         || data.ports?.[0]?.key
@@ -304,6 +376,7 @@ export default function OpsVcSofPage() {
 
   const activePort = form?.ports?.find((port) => port.key === activeKey) || null;
   const draft = activeKey ? drafts[activeKey] : null;
+  const pendingFiles = pendingFilesByKey[activeKey] || [];
   const locked = Boolean(activePort && !activePort.canEdit);
   const vesselParticulars = form?.vesselParticulars || {};
 
@@ -355,6 +428,23 @@ export default function OpsVcSofPage() {
     addListRow('portActivities', () => emptyActivityRow(seedFrom));
   };
 
+  const addPendingFiles = (fileList) => {
+    const next = Array.from(fileList || []).filter(Boolean);
+    if (!next.length || !activeKey) return;
+    setPendingFilesByKey((current) => ({
+      ...current,
+      [activeKey]: [...(current[activeKey] || []), ...next],
+    }));
+  };
+
+  const removePendingFile = (index) => {
+    if (!activeKey) return;
+    setPendingFilesByKey((current) => ({
+      ...current,
+      [activeKey]: (current[activeKey] || []).filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSubmit = async (submitId) => {
     if (!activePort || !draft) return;
 
@@ -402,7 +492,12 @@ export default function OpsVcSofPage() {
         keyOperations: draft.keyOperations,
         cargoRows: draft.cargoRows,
         keepFiles: draft.keepFiles,
-      });
+      }, pendingFiles);
+
+      setPendingFilesByKey((current) => ({
+        ...current,
+        [activeKey]: [],
+      }));
 
       if (result.closed) {
         navigate(`${backHref}?msg=3`);
@@ -446,7 +541,6 @@ export default function OpsVcSofPage() {
   const numBl = 17 + entityCount;
   const numActivity = numBl + 1;
   const numRemarks = numActivity + 1;
-  const numDocuments = numRemarks + 1;
 
   return (
     <>
@@ -455,59 +549,75 @@ export default function OpsVcSofPage() {
         disabled={loading || saving}
       />
 
-      <div className={`zafira-page ${styles.page}`}>
+      <div className={`zafira-page ${pageStyles.page}`}>
         {(loading || saving) ? <LoadingOverlay active label={saving ? 'Saving SOF…' : 'Loading SOF…'} /> : null}
         {flash ? (
-          <div className={flash.type === 'error' ? styles.error : styles.flashSuccess}>{flash.text}</div>
+          <div className={flash.type === 'error' ? pageStyles.error : pageStyles.flashSuccess}>{flash.text}</div>
         ) : null}
-        {error ? <div className={styles.error}>{error}</div> : null}
-
-        <h3 className={styles.title}>SOF</h3>
-        {(form?.voyageNo || form?.vesselName) ? (
-          <p className={styles.muted} style={{ marginTop: 0 }}>
-            {form.vesselName || ''}
-            {form.voyageNo ? ` · Voyage ${form.voyageNo}` : ''}
-            {form.message ? ` · Nom ${form.message}` : ''}
-          </p>
-        ) : null}
+        {error ? <div className={pageStyles.error}>{error}</div> : null}
 
         {!loading && !form?.ports?.length ? (
-          <div className={styles.empty}>
+          <div className={pageStyles.empty}>
             No load/discharge/transit ports found on the cost sheet for SOF.
           </div>
         ) : null}
 
         {form?.ports?.length ? (
           <>
-            <div className={styles.tabs}>
+            {(form?.message || form?.vesselName) ? (
+              <div className={styles.voyChip}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="5" r="2.2" />
+                  <path d="M12 7.2V21" />
+                  <path d="M8 10h8" />
+                  <path d="M4 13a8 8 0 0 0 16 0" />
+                </svg>
+                {form.message || '—'}
+                {form.vesselName ? (
+                  <>
+                    <span className={styles.vcSep}>·</span>
+                    {form.vesselName}
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className={styles.portTabs}>
               {form.ports.map((port) => (
                 <button
                   key={port.key}
                   type="button"
-                  className={port.key === activeKey ? styles.tabActive : styles.tab}
+                  className={port.key === activeKey ? `${styles.portTab} ${styles.portTabActive}` : styles.portTab}
                   onClick={() => setActiveKey(port.key)}
                 >
+                  <span className={styles.ptIco}>
+                    <PortTypeIcon portType={port.portType} />
+                  </span>
                   {port.tabLabel}
                 </button>
               ))}
             </div>
 
             {activePort && draft ? (
-              <div className={styles.letterPanel}>
-                <div className={styles.tripHeader}>
-                  <span />
-                  <span
-                    className={styles.linkMuted}
-                    title="PDF generation is not migrated yet."
-                  >
-                    <Button variant="outline" label="Generate PDF" disabled />
-                  </span>
-                </div>
-
-                {/* A. Numbered particulars table */}
-                <h4 className={styles.sectionTitle}>Particulars</h4>
-                <div className={styles.tableWrap}>
-                  <table className={`zafira-data-table ${styles.nestedTable}`}>
+              <div className={styles.gprlLayout}>
+                <div className={styles.gprlMain}>
+                  <div className={styles.formCard}>
+                    <div className={styles.sectionBlock}>
+                      <div className={styles.sectionHead}>
+                        <div
+                          className={`${styles.sectionIco} ${styles.sectionIcoNavy} ${styles.infoTrigger}`}
+                          tabIndex={0}
+                        >
+                          <InfoIcon />
+                          <SofInfoPopup />
+                        </div>
+                        <div className={styles.sectionTitles}>
+                          <div className={styles.sectionTitle}>Particulars</div>
+                          <div className={styles.sectionSub}>Vessel and port call details</div>
+                        </div>
+                      </div>
+                <div className={pageStyles.tableWrap}>
+                  <table className={`zafira-data-table ${pageStyles.nestedTable}`}>
                     <tbody>
                       <tr>
                         <td width="4%">1.</td>
@@ -662,7 +772,7 @@ export default function OpsVcSofPage() {
                             />
                           </td>
                           <td>
-                            <div className={styles.inlineFields}>
+                            <div className={pageStyles.inlineFields}>
                               <TextInput
                                 value={row.value}
                                 onChange={(e) => updateListRow('entityRows', index, { value: e.target.value })}
@@ -672,7 +782,7 @@ export default function OpsVcSofPage() {
                               {!locked ? (
                                 <button
                                   type="button"
-                                  className={styles.dangerIcon}
+                                  className={pageStyles.dangerIcon}
                                   title="Delete"
                                   onClick={() => removeListRow('entityRows', index, emptyEntityRow, false)}
                                 >
@@ -687,17 +797,15 @@ export default function OpsVcSofPage() {
                   </table>
                 </div>
                 {!locked ? (
-                  <Button
-                    variant="primary"
-                    label="Add"
-                    onClick={() => addListRow('entityRows', emptyEntityRow)}
-                  />
+                  <AddRowButton onClick={() => addListRow('entityRows', emptyEntityRow)} disabled={locked} />
                 ) : null}
+                    </div>
 
+                    <div className={styles.sectionBlock}>
                 {/* B. BL table */}
-                <h4 className={styles.sectionTitle}>{numBl}. Bill of Lading</h4>
-                <div className={styles.tableWrap}>
-                  <table className={`zafira-data-table ${styles.table}`}>
+                <h4 className={styles.blockTitle}>{numBl}. Bill of Lading</h4>
+                <div className={pageStyles.tableWrap}>
+                  <table className={`zafira-data-table ${pageStyles.table}`}>
                     <thead>
                       <tr>
                         <th width="30%">BL Date</th>
@@ -734,7 +842,7 @@ export default function OpsVcSofPage() {
                             {!locked ? (
                               <button
                                 type="button"
-                                className={styles.dangerIcon}
+                                className={pageStyles.dangerIcon}
                                 title="Delete"
                                 onClick={() => removeListRow('blRows', index, emptyBlRow)}
                               >
@@ -748,15 +856,17 @@ export default function OpsVcSofPage() {
                   </table>
                 </div>
                 {!locked ? (
-                  <Button variant="primary" label="Add" onClick={() => addListRow('blRows', emptyBlRow)} />
+                  <AddRowButton onClick={() => addListRow('blRows', emptyBlRow)} disabled={locked} />
                 ) : null}
+                    </div>
 
+                    <div className={styles.sectionBlock}>
                 {/* C. Activity in Port */}
-                <h4 className={styles.sectionTitle}>
+                <h4 className={styles.blockTitle}>
                   {numActivity}. Activity in Port
                 </h4>
-                <div className={styles.tableWrap}>
-                  <table className={`zafira-data-table ${styles.table}`}>
+                <div className={pageStyles.tableWrap}>
+                  <table className={`zafira-data-table ${pageStyles.table}`}>
                     <thead>
                       <tr>
                         <th width="20%">Activity</th>
@@ -812,7 +922,7 @@ export default function OpsVcSofPage() {
                             {!locked ? (
                               <button
                                 type="button"
-                                className={styles.dangerIcon}
+                                className={pageStyles.dangerIcon}
                                 title="Delete"
                                 onClick={() => removeListRow('portActivities', index, emptyActivityRow)}
                               >
@@ -826,13 +936,15 @@ export default function OpsVcSofPage() {
                   </table>
                 </div>
                 {!locked ? (
-                  <Button variant="primary" label="Add" onClick={addActivityRow} />
+                  <AddRowButton onClick={addActivityRow} disabled={locked} />
                 ) : null}
+                    </div>
 
+                    <div className={styles.sectionBlock}>
                 {/* H. Key operations (sof_slave_6) */}
-                <h4 className={styles.sectionTitle}>Key operations</h4>
-                <div className={styles.tableWrap}>
-                  <table className={`zafira-data-table ${styles.table}`}>
+                <h4 className={styles.blockTitle}>Key operations</h4>
+                <div className={pageStyles.tableWrap}>
+                  <table className={`zafira-data-table ${pageStyles.table}`}>
                     <thead>
                       <tr>
                         <th width="4%">#</th>
@@ -848,7 +960,7 @@ export default function OpsVcSofPage() {
                             {!locked ? (
                               <button
                                 type="button"
-                                className={styles.dangerIcon}
+                                className={pageStyles.dangerIcon}
                                 title="Delete"
                                 onClick={() => removeListRow('keyOperations', index, emptyKeyOp, false)}
                               >
@@ -874,7 +986,7 @@ export default function OpsVcSofPage() {
                           </td>
                           <td>
                             {isRobActivity(row.activity) ? (
-                              <div className={styles.inlineFields}>
+                              <div className={pageStyles.inlineFields}>
                                 <label>
                                   ROB IFO
                                   <TextInput
@@ -909,16 +1021,14 @@ export default function OpsVcSofPage() {
                   </table>
                 </div>
                 {!locked ? (
-                  <Button
-                    variant="primary"
-                    label="Add"
-                    onClick={() => addListRow('keyOperations', emptyKeyOp)}
-                  />
+                  <AddRowButton onClick={() => addListRow('keyOperations', emptyKeyOp)} disabled={locked} />
                 ) : null}
+                    </div>
 
-                <h4 className={styles.sectionTitle}>Cargo / figures</h4>
-                <div className={styles.tableWrap}>
-                  <table className={`zafira-data-table ${styles.table}`}>
+                    <div className={styles.sectionBlock}>
+                <h4 className={styles.blockTitle}>Cargo / figures</h4>
+                <div className={pageStyles.tableWrap}>
+                  <table className={`zafira-data-table ${pageStyles.table}`}>
                     <tbody>
                       {(draft.cargoRows || []).map((row, index) => (
                         <tr key={`cargo-${index}`}>
@@ -926,7 +1036,7 @@ export default function OpsVcSofPage() {
                             {!locked ? (
                               <button
                                 type="button"
-                                className={styles.dangerIcon}
+                                className={pageStyles.dangerIcon}
                                 title="Delete"
                                 onClick={() => removeListRow('cargoRows', index, emptyCargoRow, false)}
                               >
@@ -993,54 +1103,29 @@ export default function OpsVcSofPage() {
                   </table>
                 </div>
                 {!locked ? (
-                  <Button
-                    variant="primary"
-                    label="Add"
-                    onClick={() => addListRow('cargoRows', emptyCargoRow)}
-                  />
+                  <AddRowButton onClick={() => addListRow('cargoRows', emptyCargoRow)} disabled={locked} />
                 ) : null}
+                    </div>
 
+                    <div className={styles.sectionBlock}>
                 {/* D. Agent's remarks */}
-                <h4 className={styles.sectionTitle}>{numRemarks}. AGENT&apos;S REMARKS (If Any)</h4>
+                <h4 className={styles.blockTitle}>{numRemarks}. AGENT&apos;S REMARKS (If Any)</h4>
                 <Textarea
                   rows={3}
                   value={draft.agentRemarks}
                   onChange={(e) => patchDraft({ agentRemarks: e.target.value })}
                   disabled={locked}
                 />
+                    </div>
 
-                {/* E. Documents */}
-                <h4 className={styles.sectionTitle}>{numDocuments}. DOCUMENT&apos;S UPLOAD</h4>
-                {(draft.keepFiles || []).length ? (
-                  <ul className={styles.fileList}>
-                    {(draft.keepFiles || []).map((file) => (
-                      <li key={file}>
-                        <span>{file}</span>
-                        {!locked ? (
-                          <button
-                            type="button"
-                            className={styles.dangerIcon}
-                            title="Remove from list"
-                            onClick={() => patchDraft({
-                              keepFiles: draft.keepFiles.filter((name) => name !== file),
-                            })}
-                          >
-                            <i className="bi bi-x-lg" aria-hidden />
-                          </button>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={styles.muted}>No documents uploaded yet.</p>
-                )}
-                <p className={styles.muted}>File upload will be available in a follow-up; existing attachments can be kept or removed from the list.</p>
-
+                    {SHOW_PRE_ARRIVAL_AND_DAILY_QTY ? (
+                    <>
+                    <div className={styles.sectionBlock}>
                 {/* F. Pre arrival & other */}
-                <h4 className={styles.sectionTitle}>PRE ARRIVAL &amp; OTHER</h4>
-                <div className={styles.section}>
-                  <div className={styles.checkGrid}>
-                    <label className={styles.checkItem}>
+                <h4 className={styles.blockTitle}>PRE ARRIVAL &amp; OTHER</h4>
+                <div className={pageStyles.section}>
+                  <div className={pageStyles.checkGrid}>
+                    <label className={pageStyles.checkItem}>
                       <input
                         type="checkbox"
                         checked={Boolean(draft.preArrival.cargoDecl)}
@@ -1050,7 +1135,7 @@ export default function OpsVcSofPage() {
                       <span>{preArrivalLabels.decl}</span>
                     </label>
                   </div>
-                  <div className={styles.formGrid} style={{ marginTop: 12 }}>
+                  <div className={pageStyles.formGrid} style={{ marginTop: 12 }}>
                     <Field label={preArrivalLabels.qty}>
                       <TextInput
                         value={draft.preArrival.stowPlanQty}
@@ -1073,7 +1158,7 @@ export default function OpsVcSofPage() {
                       />
                     </Field>
                   </div>
-                  <div className={styles.formGrid} style={{ marginTop: 12 }}>
+                  <div className={pageStyles.formGrid} style={{ marginTop: 12 }}>
                     {[
                       ['eta30', 'ETA 30 DAYS'],
                       ['eta25', 'ETA 25 DAYS'],
@@ -1099,11 +1184,13 @@ export default function OpsVcSofPage() {
                     ))}
                   </div>
                 </div>
+                    </div>
 
+                    <div className={styles.sectionBlock}>
                 {/* G. Daily qty */}
-                <h4 className={styles.sectionTitle}>DAILY QTY</h4>
-                <div className={styles.tableWrap}>
-                  <table className={`zafira-data-table ${styles.table}`}>
+                <h4 className={styles.blockTitle}>DAILY QTY</h4>
+                <div className={pageStyles.tableWrap}>
+                  <table className={`zafira-data-table ${pageStyles.table}`}>
                     <thead>
                       <tr>
                         <th width="14%">Date (every N/N or on completion)</th>
@@ -1173,7 +1260,7 @@ export default function OpsVcSofPage() {
                             {!locked ? (
                               <button
                                 type="button"
-                                className={styles.dangerIcon}
+                                className={pageStyles.dangerIcon}
                                 title="Delete"
                                 onClick={() => removeListRow('dailyQty', index, emptyDailyQtyRow)}
                               >
@@ -1187,18 +1274,164 @@ export default function OpsVcSofPage() {
                   </table>
                 </div>
                 {!locked ? (
-                  <Button variant="primary" label="Add" onClick={() => addListRow('dailyQty', emptyDailyQtyRow)} />
+                  <AddRowButton onClick={() => addListRow('dailyQty', emptyDailyQtyRow)} disabled={locked} />
                 ) : null}
-
-                {/* I. Submit */}
-                {!locked ? (
-                  <div className={styles.footerActions}>
-                    <Button variant="primary" label="Submit" onClick={() => handleSubmit(1)} disabled={saving} />
-                    <Button variant="primary" label="Submit & Close" onClick={() => handleSubmit(2)} disabled={saving} />
+                    </div>
+                    </>
+                    ) : null}
                   </div>
-                ) : (
-                  <p className={styles.muted}>This SOF was closed and is read-only.</p>
-                )}
+                </div>
+
+                <div className={styles.gprlSide}>
+                  <div className={styles.sidePdf}>
+                    <button
+                      type="button"
+                      className={styles.btnPdfOutline}
+                      disabled
+                      title="PDF generation is not migrated yet."
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M6 2.5h8l5 5v12.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15.5a2 2 0 0 1 2-2z" />
+                        <path d="M14 2.5v4a1 1 0 0 0 1 1h4" />
+                        <path d="M8 12h8" />
+                        <path d="M8 15.5h8" />
+                      </svg>
+                      Generate PDF
+                    </button>
+                  </div>
+
+                  <div className={styles.sideCard}>
+                    <div className={styles.sideCardHead}>
+                      <div className={styles.sideIco}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        </svg>
+                      </div>
+                      <div className={styles.sideTitle}>Documents</div>
+                      <div className={styles.sideCount}>
+                        {(draft.keepFiles || []).length + pendingFiles.length}
+                      </div>
+                    </div>
+                    <div className={styles.sideCardBody}>
+                      {(draft.keepFiles || []).length || pendingFiles.length ? (
+                        <>
+                          {(draft.keepFiles || []).map((file) => (
+                            <div key={file} className={styles.docRow}>
+                              <a
+                                href={attachmentHref(file)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {displayStoredFileName(file)}
+                              </a>
+                              {!locked ? (
+                                <button
+                                  type="button"
+                                  className={pageStyles.dangerIcon}
+                                  title="Remove from list"
+                                  onClick={() => patchDraft({
+                                    keepFiles: draft.keepFiles.filter((name) => name !== file),
+                                  })}
+                                >
+                                  <i className="bi bi-x-lg" aria-hidden />
+                                </button>
+                              ) : null}
+                            </div>
+                          ))}
+                          {pendingFiles.map((file, index) => (
+                            <div key={`pending-${file.name}-${index}`} className={styles.docRow}>
+                              <span>{file.name}</span>
+                              <span className={pageStyles.muted}>(pending)</span>
+                              {!locked ? (
+                                <button
+                                  type="button"
+                                  className={pageStyles.dangerIcon}
+                                  title="Remove"
+                                  onClick={() => removePendingFile(index)}
+                                >
+                                  <i className="bi bi-x-lg" aria-hidden />
+                                </button>
+                              ) : null}
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <div className={styles.sideEmpty}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                          </svg>
+                          <div>No documents uploaded yet.</div>
+                        </div>
+                      )}
+                      {!locked ? (
+                        <div className={styles.attachRow}>
+                          <input
+                            ref={attachInputRef}
+                            className={styles.hiddenFileInput}
+                            type="file"
+                            multiple
+                            onChange={(event) => {
+                              addPendingFiles(event.target.files);
+                              event.target.value = '';
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className={styles.addRowBtn}
+                            onClick={() => attachInputRef.current?.click()}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+                              <path d="M12 5v14M5 12h14" />
+                            </svg>
+                            Add Attachment
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {!locked ? (
+                    <div className={styles.gprlBottomActions}>
+                      <div className={styles.gprlNote}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M12 9v4" />
+                          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                          <path d="M12 17h.01" />
+                        </svg>
+                        Use &quot;Submit &amp; Close&quot; only when all entries prior to sailing are complete.
+                      </div>
+                      <div className={styles.gprlFooterActions}>
+                        <button
+                          type="button"
+                          className={styles.btnSaveOutline}
+                          onClick={() => handleSubmit(1)}
+                          disabled={saving}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <path d="M17 21v-8H7v8" />
+                            <path d="M7 3v5h8" />
+                          </svg>
+                          Submit
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.btnSubmitClose}
+                          onClick={() => handleSubmit(2)}
+                          disabled={saving}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="m22 2-7 20-4-9-9-4Z" />
+                            <path d="M22 2 11 13" />
+                          </svg>
+                          Submit &amp; Close
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className={styles.lockedNote}>This SOF was closed and is read-only.</p>
+                  )}
+                </div>
               </div>
             ) : null}
           </>

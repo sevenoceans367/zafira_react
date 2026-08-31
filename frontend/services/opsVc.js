@@ -372,7 +372,20 @@ export async function fetchOpsChecklist(comId, kind = '') {
   return parseJson(response, 'Failed to load Ops Checklist.');
 }
 
-export async function saveSof(payload) {
+/** POST multipart FormData when files are present — do not set Content-Type (browser sets boundary). */
+export async function saveSof(payload, files = []) {
+  const pending = Array.isArray(files) ? files.filter(Boolean) : [];
+  if (pending.length) {
+    const formData = new FormData();
+    formData.append('payload', JSON.stringify(payload));
+    pending.forEach((file) => formData.append('mul_file', file));
+    const response = await fetch(`${BASE}/ops/sof`, {
+      method: 'POST',
+      body: formData,
+    });
+    return parseJson(response, 'Failed to save SOF.');
+  }
+
   const response = await fetch(`${BASE}/ops/sof`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

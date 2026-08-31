@@ -852,7 +852,7 @@ async function replaceDailyQty(connection, {
 
 /**
  * PHP updationSOFRecords — sof_master (items 9-16 + remarks) + slave_1/3/4/5/6/(slave GROUP_NAME=1)/7.
- * File upload deferred; existing UPLOAD list is preserved / filtered by keepFiles.
+ * UPLOAD list is preserved / filtered by keepFiles; new files are merged in the route handler.
  */
 export async function dbSaveSof(payload = {}) {
   const pool = getPool();

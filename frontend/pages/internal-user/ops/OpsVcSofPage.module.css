@@ -1,0 +1,481 @@
+.voyChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fdece4;
+  color: #f4652c;
+  border: 1px solid #fbd9c9;
+  border-radius: 9px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 18px;
+}
+
+.voyChip svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.vcSep {
+  opacity: 0.5;
+  font-weight: 600;
+}
+
+.portTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.portTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 16px;
+  border-radius: 11px;
+  border: 1.5px solid #dfe2e7;
+  background: #fff;
+  color: #5b6472;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.portTab:hover {
+  background: #f1f2f4;
+}
+
+.portTabActive {
+  background: #e6eaf1;
+  border-color: #274670;
+  color: #274670;
+}
+
+.ptIco {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #f1f2f4;
+  color: #5b6472;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ptIco svg {
+  width: 14px;
+  height: 14px;
+}
+
+.portTabActive .ptIco {
+  background: #274670;
+  color: #fff;
+}
+
+.gprlLayout {
+  display: flex;
+  align-items: flex-start;
+  gap: 22px;
+}
+
+.gprlMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.gprlSide {
+  width: 320px;
+  flex: none;
+  position: sticky;
+  top: 24px;
+}
+
+.formCard {
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-radius: 14px;
+  padding: 24px 24px 8px;
+}
+
+.sectionBlock {
+  padding: 22px 0;
+  border-top: 1.5px dotted #dfe2e7;
+}
+
+.sectionBlock:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.sectionBlock:last-child {
+  padding-bottom: 16px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sectionIco {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.sectionIco svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sectionIcoNavy {
+  background: #e6eaf1;
+  color: #274670;
+}
+
+.sectionIcoTeal {
+  background: #e3f4f4;
+  color: #14919b;
+}
+
+.sectionTitles .sectionTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.sectionTitles .sectionSub {
+  font-size: 11.5px;
+  color: #8a93a2;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.blockTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1b2430;
+  margin: 0 0 12px;
+}
+
+.infoTrigger {
+  position: relative;
+  cursor: help;
+}
+
+.infoPop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 236px;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 11px;
+  box-shadow: 0 14px 32px rgba(20, 30, 50, 0.16);
+  padding: 12px 13px;
+  z-index: 40;
+}
+
+.infoTrigger:hover .infoPop,
+.infoTrigger:focus-within .infoPop {
+  display: block;
+}
+
+.infoPopTitle {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #1b2430;
+  margin-bottom: 7px;
+}
+
+.infoPopSteps {
+  list-style: decimal;
+  margin: 0;
+  padding-left: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.infoPopSteps li {
+  font-size: 10.5px;
+  color: #5b6472;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.addRowBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  background: #fff;
+  border: 1px dashed #dfe2e7;
+  color: #5b6472;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.addRowBtn:hover {
+  background: #f1f2f4;
+}
+
+.addRowBtn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.sideCard {
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.sideCardHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #eceef2;
+}
+
+.sideIco {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #e6eaf1;
+  color: #274670;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.sideIco svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sideTitle {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.sideCount {
+  margin-left: auto;
+  background: #f1f2f4;
+  color: #5b6472;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.sideCardBody {
+  padding: 12px 14px 14px;
+}
+
+.sideEmpty {
+  text-align: center;
+  padding: 28px 12px;
+  color: #8a93a2;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sideEmpty svg {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.docRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.docRow a {
+  color: #274670;
+  font-weight: 700;
+  text-decoration: none;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docRow a:hover {
+  text-decoration: underline;
+}
+
+.attachRow {
+  margin-top: 12px;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
+.sidePdf {
+  margin-bottom: 14px;
+}
+
+.btnPdfOutline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  background: #fff;
+  border: 1.5px solid #dfe2e7;
+  color: #5b6472;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: 10px;
+  padding: 10px 18px;
+  cursor: not-allowed;
+  opacity: 0.65;
+  font-family: inherit;
+}
+
+.btnPdfOutline svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.gprlBottomActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.gprlFooterActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.btnSaveOutline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  border: 1.5px solid #dfe2e7;
+  color: #5b6472;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: 10px;
+  padding: 10px 18px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnSaveOutline:hover:not(:disabled) {
+  background: #f1f2f4;
+}
+
+.btnSaveOutline:disabled,
+.btnSubmitClose:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnSaveOutline svg,
+.btnSubmitClose svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.btnSubmitClose {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #274670;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnSubmitClose:hover:not(:disabled) {
+  background: #1e3a63;
+}
+
+.gprlNote {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fcf1dd;
+  color: #b9760a;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 9px;
+  padding: 8px 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.gprlNote svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 1px;
+}
+
+.lockedNote {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #8a93a2;
+  font-weight: 600;
+  text-align: center;
+  padding: 12px;
+  background: #f1f2f4;
+  border-radius: 10px;
+}
+
+@media (max-width: 1150px) {
+  .gprlLayout {
+    flex-direction: column;
+  }
+
+  .gprlSide {
+    width: 100%;
+    position: static;
+  }
+}

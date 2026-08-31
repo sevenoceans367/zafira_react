@@ -146,10 +146,6 @@ export default function AccountingGroupPage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit Accounting Group' : 'Add Accounting Group'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -192,8 +188,6 @@ export default function AccountingGroupPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading accounting groups…" /> : null}
-
-      <h3 className={styles.title}>Accounting Group List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

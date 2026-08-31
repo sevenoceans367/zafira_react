@@ -146,10 +146,6 @@ export default function VcDeductionsPage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit VC Deduction' : 'Add VC Deduction'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -192,8 +188,6 @@ export default function VcDeductionsPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading VC deductions…" /> : null}
-
-      <h3 className={styles.title}>VC Deduction List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

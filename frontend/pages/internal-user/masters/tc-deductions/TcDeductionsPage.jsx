@@ -146,10 +146,6 @@ export default function TcDeductionsPage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit TC Deduction' : 'Add TC Deduction'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -192,8 +188,6 @@ export default function TcDeductionsPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading TC deductions…" /> : null}
-
-      <h3 className={styles.title}>TC Deduction List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

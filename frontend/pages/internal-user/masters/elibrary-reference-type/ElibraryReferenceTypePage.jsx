@@ -152,10 +152,6 @@ export default function ElibraryReferenceTypePage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit E-Library Reference Type' : 'Add E-Library Reference Type'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -199,8 +195,6 @@ export default function ElibraryReferenceTypePage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading E-Library reference types…" /> : null}
-
-      <h3 className={styles.title}>E-Library Reference Type Master</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

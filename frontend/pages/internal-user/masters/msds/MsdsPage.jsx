@@ -192,9 +192,6 @@ export default function MsdsPage() {
             <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
           </div>
 
-          <h3 className={styles.title}>
-            {editId ? 'Update Material Safety Data Sheet' : 'Add New Material Safety Data Sheet'}
-          </h3>
           {error ? <div className={styles.error}>{error}</div> : null}
 
           <form className={styles.form} onSubmit={handleSubmit}>
@@ -304,8 +301,6 @@ export default function MsdsPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading Material Safety Data Sheets…" /> : null}
-
-      <h3 className={styles.title}>Material Safety Data Sheets</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

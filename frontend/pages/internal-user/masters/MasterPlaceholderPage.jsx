@@ -9,7 +9,6 @@ export default function MasterPlaceholderPage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
-      <h2 className={styles.title}>{master?.label || 'Master'}</h2>
       <p className={styles.lead}>
         This master screen will be implemented here.
       </p>

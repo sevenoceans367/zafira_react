@@ -202,10 +202,6 @@ export default function PortCostTypePage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Update Port Cost Type' : 'Add Port Cost Type'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -291,8 +287,6 @@ export default function PortCostTypePage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading port cost types…" /> : null}
-
-      <h3 className={styles.title}>Port Cost Type List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

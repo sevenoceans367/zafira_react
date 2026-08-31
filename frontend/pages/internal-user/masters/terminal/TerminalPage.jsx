@@ -200,10 +200,6 @@ export default function TerminalPage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit Terminal' : 'Add Terminal'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -266,8 +262,6 @@ export default function TerminalPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading terminals…" /> : null}
-
-      <h3 className={styles.title}>Terminal List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

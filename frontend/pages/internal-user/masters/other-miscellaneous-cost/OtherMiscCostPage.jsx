@@ -166,11 +166,7 @@ export default function OtherMiscCostPage() {
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
 
-        <h3 className={styles.title}>
-          {editId ? 'Edit Other Miscellaneous Cost' : 'Add New Other Miscellaneous Cost'}
-        </h3>
-
-        {flash ? (
+{flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
           </div>
@@ -292,8 +288,6 @@ export default function OtherMiscCostPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading other miscellaneous costs…" /> : null}
-
-      <h3 className={styles.title}>Other Miscellaneous Cost List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

@@ -220,11 +220,7 @@ export default function BunkerGradePage() {
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
 
-        <h3 className={styles.title}>
-          {editId ? 'UPDATE BUNKER GRADE' : 'ADD BUNKER GRADE'}
-        </h3>
-
-        {flash ? (
+{flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
           </div>
@@ -355,8 +351,6 @@ export default function BunkerGradePage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading bunker grades…" /> : null}
-
-      <h3 className={styles.title}>Bunker Grade List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

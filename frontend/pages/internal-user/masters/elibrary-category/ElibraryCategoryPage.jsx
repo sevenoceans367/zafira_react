@@ -152,10 +152,6 @@ export default function ElibraryCategoryPage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit E-Library Category' : 'Add E-Library Category'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -199,8 +195,6 @@ export default function ElibraryCategoryPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading E-Library categories…" /> : null}
-
-      <h3 className={styles.title}>E-Library Category Master</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

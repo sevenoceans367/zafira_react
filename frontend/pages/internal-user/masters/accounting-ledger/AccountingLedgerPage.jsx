@@ -168,10 +168,6 @@ export default function AccountingLedgerPage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit Accounting Ledger' : 'Add Accounting Ledger'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -242,8 +238,6 @@ export default function AccountingLedgerPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading accounting ledgers…" /> : null}
-
-      <h3 className={styles.title}>Accounting Ledger List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

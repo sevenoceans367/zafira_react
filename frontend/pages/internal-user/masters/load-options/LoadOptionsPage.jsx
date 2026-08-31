@@ -152,10 +152,6 @@ export default function LoadOptionsPage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit Load Options' : 'Add Load Options'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -199,8 +195,6 @@ export default function LoadOptionsPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading Load Options…" /> : null}
-
-      <h3 className={styles.title}>Load Options List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

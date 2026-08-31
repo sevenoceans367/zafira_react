@@ -152,10 +152,6 @@ export default function VesselCategoryPage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit Vessel Category' : 'Add Vessel Category'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -220,8 +216,6 @@ export default function VesselCategoryPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading vessel categories…" /> : null}
-
-      <h3 className={styles.title}>Vessel Category List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

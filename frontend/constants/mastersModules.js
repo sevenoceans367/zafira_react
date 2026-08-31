@@ -1,5 +1,5 @@
 /**
- * Master data modules shown under the Masters sidebar tree (SOC only: VC / TC).
+ * Master data modules shown under the Masters sidebar tree (SOPF + SOC VC / TC).
  * PHP file names are placeholders until legacy pages are ported.
  */
 export const MASTERS_MODULES = [

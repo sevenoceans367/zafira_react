@@ -187,6 +187,7 @@ export default function InternalUserSidebar({ isOpen }) {
                 ) : null}
               </React.Fragment>
             ))}
+            <MastersSidebarTree isOpen={isOpen} />
           </>
         ) : null}
 

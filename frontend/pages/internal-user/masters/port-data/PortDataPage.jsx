@@ -231,9 +231,6 @@ export default function PortDataPage() {
             <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
           </div>
 
-          <h3 className={styles.title}>
-            {editId ? 'Update Port Data' : 'Add Port Data'}
-          </h3>
           {error ? <div className={styles.error}>{error}</div> : null}
 
           <form className={styles.form} onSubmit={handleSubmit}>
@@ -367,8 +364,6 @@ export default function PortDataPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading Port Data…" /> : null}
-
-      <h3 className={styles.title}>Port Data List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

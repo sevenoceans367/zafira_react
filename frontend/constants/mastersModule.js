@@ -1,10 +1,12 @@
 import { appPath } from '@bainbridge/shared-routing';
 import { FLEET_MODULE_LABELS } from './fleetModule.js';
+import { SOPF_ENTRY_ROUTE } from './sopfSidebarMenu.js';
 
-/** Masters is SOC-only (VC / TC). Not shown under SOPF. */
-export const MASTERS_MODULE_IDS = ['vc', 'tc'];
+/** Masters host modules (SOPF + SOC VC / TC). */
+export const MASTERS_MODULE_IDS = ['sopf', 'vc', 'tc'];
 
 export const MASTERS_MODULE_LABELS = {
+  sopf: FLEET_MODULE_LABELS.sopf,
   vc: FLEET_MODULE_LABELS.vc,
   tc: FLEET_MODULE_LABELS.tc,
   soc: FLEET_MODULE_LABELS.soc,
@@ -17,7 +19,7 @@ export function isMastersHostModule(module) {
 }
 
 export function parseMastersModuleFromPath(pathname) {
-  const match = pathname.match(/\/internal-user\/(vc|tc)(?:\/|$)/);
+  const match = pathname.match(/\/internal-user\/(sopf|vc|tc)(?:\/|$)/);
   return match?.[1] ?? 'vc';
 }
 
@@ -31,6 +33,9 @@ export function masterAppPath(module, masterId) {
 }
 
 export function moduleBreadcrumb(module) {
+  if (module === 'sopf') {
+    return { label: MASTERS_MODULE_LABELS.sopf, href: appPath(SOPF_ENTRY_ROUTE) };
+  }
   if (module === 'tc') {
     return { label: MASTERS_MODULE_LABELS.tc, href: appPath('/internal-user/tc') };
   }

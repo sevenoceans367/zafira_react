@@ -20,8 +20,7 @@ export function resolveMastersHeader(pathname) {
   if (!master) return null;
 
   return {
-    title: 'Masters',
-    currentPage: master.label,
+    title: master.label,
     breadcrumbs: [
       HOME,
       moduleBreadcrumb(module),

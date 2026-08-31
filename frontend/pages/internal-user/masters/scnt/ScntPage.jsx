@@ -188,10 +188,6 @@ export default function ScntPage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit SCNT as a % of DWT' : 'Add SCNT as a % of DWT'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -298,8 +294,6 @@ export default function ScntPage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading SCNT…" /> : null}
-
-      <h3 className={styles.title}>SCNT as a % of DWT List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

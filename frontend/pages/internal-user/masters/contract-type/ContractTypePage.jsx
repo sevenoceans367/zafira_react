@@ -150,10 +150,6 @@ export default function ContractTypePage() {
         <div className={styles.formHeader}>
           <Button type="button" variant="outline" label="Back" onClick={backToList} disabled={saving} />
         </div>
-        <h3 className={styles.title}>
-          {editId ? 'Edit Contract Type' : 'Add Contract Type'}
-        </h3>
-
         {flash ? (
           <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
             {flash.text}
@@ -206,8 +202,6 @@ export default function ContractTypePage() {
       />
 
       {loading ? <LoadingOverlay active label="Loading contract types…" /> : null}
-
-      <h3 className={styles.title}>Contract Type List</h3>
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>

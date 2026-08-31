@@ -1,6 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { usePageHeaderActions } from './PageHeaderContext.jsx';
 
+let nextHeaderActionsOwnerId = 0;
+
 /**
  * Injects controls into the layout BusinessPageHeader actions slot.
  * Clears only on unmount so the header does not flash empty while
@@ -9,11 +11,19 @@ import { usePageHeaderActions } from './PageHeaderContext.jsx';
  * Sync only when `deps` change — do not depend on `children` identity, or any
  * page that also consumes PageHeaderContext (e.g. setHeading) will loop:
  * setActions → parent re-render → new children → setActions again.
+ *
+ * Clear is owner-scoped: a previous page's unmount must not wipe the next
+ * page's Back button when cleanup runs after the next mount's layout effect.
  */
 export default function PageHeaderActions({ children, deps = [] }) {
-  const setActions = usePageHeaderActions();
+  const { setActions, clearActions } = usePageHeaderActions();
   const childrenRef = useRef(children);
   childrenRef.current = children;
+  const ownerIdRef = useRef(null);
+  if (ownerIdRef.current == null) {
+    nextHeaderActionsOwnerId += 1;
+    ownerIdRef.current = nextHeaderActionsOwnerId;
+  }
 
   const depsKey = deps.map((value) => {
     if (value == null || typeof value !== 'object') return String(value);
@@ -25,10 +35,13 @@ export default function PageHeaderActions({ children, deps = [] }) {
   }).join('|');
 
   useLayoutEffect(() => {
-    setActions(childrenRef.current);
+    setActions(childrenRef.current, ownerIdRef.current);
   }, [setActions, depsKey]);
 
-  useEffect(() => () => setActions(null), [setActions]);
+  useEffect(() => {
+    const ownerId = ownerIdRef.current;
+    return () => clearActions(ownerId);
+  }, [clearActions]);
 
   return null;
 }

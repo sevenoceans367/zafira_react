@@ -123,6 +123,10 @@ const MOCK_OPS = {
       duration: '42',
       cargoQty: '65000',
       worksheet: '26-006',
+      costSheets: [
+        { id: 1, name: 'Working Sheet 1', fcaId: 901, estimateType: '2', pinned: false, sortOrder: 0 },
+      ],
+      canAddCostSheet: true,
       alert: null,
       tce: '48500',
       profitLoss: '306600',
@@ -135,6 +139,7 @@ const MOCK_OPS = {
   recordsTotal: 1,
   page: 1,
   pageSize: 10,
+  canCompareSheets: true,
 };
 
 /** In-memory Direct Fixtures until a DB table exists (no PHP predecessor). */
@@ -470,11 +475,13 @@ export async function listCoaOpsVoyages(params) {
     return {
       ...MOCK_OPS,
       page: params.page || 1,
+      canCompareSheets: MOCK_OPS.canCompareSheets,
       records: MOCK_OPS.records.map((row) => ({
         ...row,
         status: statusCode === 1 ? 'In Ops' : 'Post Ops',
         statusCode,
         canMoveToPostOps: statusCode === 1,
+        canAddCostSheet: statusCode === 1 && row.canAddCostSheet,
       })),
     };
   }

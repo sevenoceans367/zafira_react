@@ -1,18 +1,22 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  /* Above AppSidebar (z-index 1000); match OpsPages / task-widget modals */
+  z-index: 1200;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 34px 20px;
+  overflow-x: hidden;
   overflow-y: auto;
+  box-sizing: border-box;
   background: rgba(20, 26, 40, 0.55);
 }
 
 .modal {
-  width: 1180px;
+  width: min(1180px, 100%);
   max-width: 100%;
+  box-sizing: border-box;
   background: #fff;
   border-radius: 16px;
   border: 1px solid #dfe2e7;

@@ -68,7 +68,7 @@ export function applyCostSheetLayout(sheets, layoutRows = []) {
   return withMeta;
 }
 
-async function loadSheetLayouts(pool, comIds) {
+export async function loadSheetLayouts(pool, comIds) {
   await ensureSheetLayoutTable(pool);
   const ids = [...new Set((comIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id)))];
   if (!ids.length) return new Map();

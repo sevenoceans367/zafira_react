@@ -1,13 +1,39 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 const PageHeaderContext = createContext(null);
 
+/**
+ * Header actions/heading slot for BusinessPageHeader.
+ * setActions(node, ownerId) / clearActions(ownerId) so route transitions cannot
+ * wipe the next page's Back button (previous page unmount cleanup racing after
+ * the next page's layout effect).
+ */
 export function PageHeaderProvider({ children }) {
-  const [actions, setActions] = useState(null);
+  const [actions, setActionsState] = useState(null);
   const [heading, setHeading] = useState(null);
+  const actionsOwnerRef = useRef(null);
+
+  const setActions = useCallback((node, ownerId = null) => {
+    actionsOwnerRef.current = ownerId;
+    setActionsState(node);
+  }, []);
+
+  const clearActions = useCallback((ownerId = null) => {
+    if (ownerId != null && actionsOwnerRef.current !== ownerId) return;
+    actionsOwnerRef.current = null;
+    setActionsState(null);
+  }, []);
+
   const value = useMemo(
-    () => ({ actions, setActions, heading, setHeading }),
-    [actions, heading],
+    () => ({ actions, setActions, clearActions, heading, setHeading }),
+    [actions, setActions, clearActions, heading],
   );
 
   return <PageHeaderContext.Provider value={value}>{children}</PageHeaderContext.Provider>;
@@ -22,7 +48,8 @@ export function usePageHeaderState() {
 }
 
 export function usePageHeaderActions() {
-  return usePageHeaderState().setActions;
+  const { setActions, clearActions } = usePageHeaderState();
+  return { setActions, clearActions };
 }
 
 export function usePageHeaderHeading() {

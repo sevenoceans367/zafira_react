@@ -1,6 +1,7 @@
-import { appContext } from '../config.js';
+import { appContext, compareSheetsEnabled } from '../config.js';
 import { getPool } from '../db.js';
 import { formatDateDMY, parsePeriodDate } from './estimateListMappers.js';
+import { applyCostSheetLayout, loadSheetLayouts } from './opsVcDb.js';
 
 const COA_MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 
@@ -1249,6 +1250,30 @@ export async function dbListCoaOpsVoyages({
       )
       : [[{ SUM: null }]];
 
+    const [costSheets] = await pool.query(
+      `SELECT m.COST_SHEETID, m.SHEET_NAME, e.FCAID, e.ESTIMATE_TYPE
+       FROM cost_sheet_name_master m
+       LEFT JOIN freight_cost_estimete_master e
+         ON e.COMID = m.COMID AND e.SHEET_NO = m.COST_SHEETID
+       WHERE m.COMID = ? AND m.MODULEID = ? AND m.MCOMPANYID = ?
+       ORDER BY m.COST_SHEETID`,
+      [row.COMID, COA_MODULE_ID, appContext.companyId],
+    );
+
+    const [[latestEst]] = await pool.query(
+      `SELECT FCAID, FINAL_STATUS
+       FROM freight_cost_estimete_master
+       WHERE COMID = ? AND MODULEID = ?
+       ORDER BY FCAID DESC
+       LIMIT 1`,
+      [row.COMID, COA_MODULE_ID],
+    );
+    const latestSheet = costSheets.length ? costSheets[costSheets.length - 1] : null;
+    const latestSheetHasEstimate = !latestSheet || latestSheet.FCAID != null;
+    const canAddCostSheet = opsStatus === '1'
+      && Number(latestEst?.FINAL_STATUS) === 1
+      && latestSheetHasEstimate;
+
     records.push({
       index,
       comId: row.COMID,
@@ -1267,6 +1292,13 @@ export async function dbListCoaOpsVoyages({
       duration: row.TOTAL_DAYS ?? '',
       cargoQty: qtyRow?.SUM ?? '',
       worksheet: row.MESSAGE ?? '',
+      costSheets: costSheets.map((sheetRow) => ({
+        id: sheetRow.COST_SHEETID,
+        name: sheetRow.SHEET_NAME || `Sheet ${sheetRow.COST_SHEETID}`,
+        fcaId: sheetRow.FCAID || null,
+        estimateType: sheetRow.ESTIMATE_TYPE != null ? String(sheetRow.ESTIMATE_TYPE) : '',
+      })),
+      canAddCostSheet,
       alert: null,
       tce: row.DAILY_EARNING ?? '',
       profitLoss: row.PROFIT_LOSS ?? '',
@@ -1277,11 +1309,24 @@ export async function dbListCoaOpsVoyages({
     });
   }
 
+  try {
+    const layoutByComId = await loadSheetLayouts(pool, records.map((record) => record.comId));
+    records.forEach((record) => {
+      record.costSheets = applyCostSheetLayout(
+        record.costSheets,
+        layoutByComId.get(String(record.comId)) || [],
+      );
+    });
+  } catch {
+    // Keep natural sheet order when layout prefs are unavailable.
+  }
+
   return {
     records,
     recordsTotal: Number(countRow?.total || 0),
     page,
     pageSize,
+    canCompareSheets: compareSheetsEnabled(),
   };
 }
 

@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { LoadingOverlay, useConfirm, CardSelect } from '@bainbridge/shared-ui';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  Button,
+  CardSelect,
+  FilterField,
+  LoadingOverlay,
+  TextInput,
+  useAlert,
+  useConfirm,
+} from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
@@ -13,8 +21,17 @@ import {
   fetchDirectFixtures,
   moveVoyageToPostOps,
 } from '../../../services/coas.js';
+import {
+  createOpsVcCostSheet,
+  updateOpsVcCostSheetLayout,
+} from '../../../services/opsVc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
+import OpsVcCompareSheetsModal from '../ops/OpsVcCompareSheetsModal.jsx';
+import OpsVcWorksheetStack from '../ops/OpsVcWorksheetStack.jsx';
+import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
+import pageStyles from '../ops/OpsPages.module.css';
+import glanceStyles from '../ops/OpsVcInOpsGlancePage.module.css';
 import CoaListHeaderActions from './CoaListHeaderActions.jsx';
 import styles from './CoaOpsPage.module.css';
 
@@ -127,8 +144,8 @@ function HighlightIcon({ name }) {
 }
 
 export default function CoaOpsListPage() {
-  const navigate = useNavigate();
   const confirm = useConfirm();
+  const alert = useAlert();
   const { coaPath, module } = useCoaModule();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -144,6 +161,10 @@ export default function CoaOpsListPage() {
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [canCompareSheets, setCanCompareSheets] = useState(false);
+  const [compareModal, setCompareModal] = useState({ open: false, comId: '' });
+  const [sheetModal, setSheetModal] = useState({ open: false, comId: '', sheetName: '' });
+  const [savingSheet, setSavingSheet] = useState(false);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const isRelet = tradeType === 'relet';
   const isDirect = tradeType === 'direct';
@@ -325,6 +346,7 @@ export default function CoaOpsListPage() {
       if (isHistoryTab) {
         setRows([]);
         setTotal(0);
+        setCanCompareSheets(false);
         return;
       }
 
@@ -335,6 +357,7 @@ export default function CoaOpsListPage() {
         pageSize: 200,
         search: debouncedSearch,
       });
+      setCanCompareSheets(Boolean(data.canCompareSheets));
       const filtered = (data.records ?? []).filter((row) => {
         if (yearFilter === 'all') return true;
         return yearFromDate(row.cpDate) === Number(yearFilter);
@@ -349,6 +372,7 @@ export default function CoaOpsListPage() {
       setError(err.message || 'Failed to load COA operations.');
       setRows([]);
       setTotal(0);
+      setCanCompareSheets(false);
     } finally {
       setLoading(false);
     }
@@ -444,6 +468,66 @@ export default function CoaOpsListPage() {
     return appPath(`${path}?id=${encodeURIComponent(fcaId)}&returnTo=${returnTo}`);
   }, [opsReturnTo]);
 
+  const costSheetPage = statusTab === 'postops' ? 2 : 1;
+
+  const costSheetPath = useCallback((row, sheet) => (
+    appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${costSheetPage}`)
+  ), [costSheetPage]);
+
+  const handleAddSheetClick = async (row) => {
+    if (!row.canAddCostSheet) {
+      await alert({
+        title: 'Alert',
+        message: 'Please make sure the last Voyage Financials is Submit to Close',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+    setSheetModal({ open: true, comId: row.comId, sheetName: '' });
+  };
+
+  const handleWorksheetLayoutChange = async (row, sheets) => {
+    const previous = row.costSheets || [];
+    setRows((prev) => prev.map((item) => (
+      String(item.comId) === String(row.comId) ? { ...item, costSheets: sheets } : item
+    )));
+    try {
+      await updateOpsVcCostSheetLayout(row.comId, sheets.map((sheet) => ({
+        id: sheet.id,
+        pinned: Boolean(sheet.pinned),
+        sortOrder: sheet.sortOrder,
+      })));
+    } catch (err) {
+      setRows((prev) => prev.map((item) => (
+        String(item.comId) === String(row.comId) ? { ...item, costSheets: previous } : item
+      )));
+      setError(err.message || 'Failed to update worksheet layout.');
+    }
+  };
+
+  const handleCreateSheet = async () => {
+    const sheetName = String(sheetModal.sheetName || '').trim();
+    if (!sheetName) {
+      await alert({
+        title: 'Alert',
+        message: 'Please fill the file name',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+    setSavingSheet(true);
+    setError('');
+    try {
+      await createOpsVcCostSheet(sheetModal.comId, sheetName);
+      setSheetModal({ open: false, comId: '', sheetName: '' });
+      load();
+    } catch (err) {
+      setError(err.message || 'Failed to create Voyage Financials sheet.');
+    } finally {
+      setSavingSheet(false);
+    }
+  };
+
   return (
     <>
       <CoaListHeaderActions
@@ -499,7 +583,11 @@ export default function CoaOpsListPage() {
       />
 
       <div className={`zafira-page ${styles.page}`}>
-        <LoadingOverlay show={loading} fullScreen={false} label="Loading COA operations…" />
+        <LoadingOverlay
+          show={loading || savingSheet}
+          fullScreen={false}
+          label={savingSheet ? 'Creating sheet…' : 'Loading COA operations…'}
+        />
         {error ? <div className={styles.error}>{error}</div> : null}
 
         <div className={styles.hcardGrid}>
@@ -699,7 +787,7 @@ export default function CoaOpsListPage() {
                   <th>LP / DP</th>
                   <th>QTY (MT)</th>
                   <th>Worksheet</th>
-                  <th className={styles.cellCenter}>Compare</th>
+                  <th className={glanceStyles.iconTh} title="Compare Working Sheets"><CompareIcon /></th>
                   <th className={styles.cellCenter}>Fin.</th>
                   <th>Alerts</th>
                   <th>Next</th>
@@ -710,7 +798,10 @@ export default function CoaOpsListPage() {
                   <tr>
                     <td colSpan={14} className={styles.emptyCell}>{emptyMessage}</td>
                   </tr>
-                ) : rows.map((row) => (
+                ) : rows.map((row) => {
+                  const sheets = row.costSheets || [];
+                  const canCompare = canCompareSheets && sheets.length > 0;
+                  return (
                   <tr key={`${row.comId}-${row.fcaId}`}>
                     <td className={`${styles.accentCell} ${styles.accentSpot}`}>{row.index}</td>
                     <td>
@@ -732,28 +823,25 @@ export default function CoaOpsListPage() {
                     </td>
                     <td className={styles.cellNum}>{liveValue(row.cargoQty)}</td>
                     <td>
-                      <Link
-                        className={styles.iconBtn}
-                        to={estimateHref('/internal-user/sopf/viewestimate', row.fcaId)}
-                        title={row.worksheet ? `Worksheet ${row.worksheet}` : 'Worksheet'}
-                      >
-                        <i className="bi bi-eye" aria-hidden />
-                      </Link>
+                      <OpsVcWorksheetStack
+                        sheets={sheets}
+                        sheetHref={(sheet) => costSheetPath(row, sheet)}
+                        onAdd={statusTab === 'ops' ? () => handleAddSheetClick(row) : undefined}
+                        onLayoutChange={(nextSheets) => handleWorksheetLayoutChange(row, nextSheets)}
+                      />
                     </td>
-                    <td className={styles.cellCenter}>
-                      <button
-                        type="button"
-                        className={styles.iconBtn}
-                        title="Compare Working Sheets"
-                        onClick={() => navigate(estimateHref('/internal-user/sopf/updateestimate', row.fcaId))}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M8 3H5a2 2 0 0 0-2 2v3" />
-                          <path d="M16 3h3a2 2 0 0 1 2 2v3" />
-                          <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
-                          <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
-                        </svg>
-                      </button>
+                    <td>
+                      <div className={glanceStyles.docCenter}>
+                        <button
+                          type="button"
+                          className={`${glanceStyles.cmpBtn} ${canCompare ? '' : glanceStyles.cmpBtnDisabled}`}
+                          title={canCompare ? 'Compare Working Sheets' : 'No worksheet yet'}
+                          disabled={!canCompare}
+                          onClick={() => canCompare && setCompareModal({ open: true, comId: row.comId })}
+                        >
+                          <CompareIcon />
+                        </button>
+                      </div>
                     </td>
                     <td className={styles.cellCenter}>
                       <Link
@@ -788,11 +876,54 @@ export default function CoaOpsListPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
         </ScrollableTable>
+
+        {sheetModal.open ? (
+          <div className={pageStyles.modalBackdrop} role="dialog" aria-modal="true">
+            <div className={pageStyles.modal}>
+              <div className={pageStyles.modalHeader}>
+                <h4>Add Voyage Financials</h4>
+                <button
+                  type="button"
+                  className={pageStyles.dangerIcon}
+                  onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+              <p className={pageStyles.muted}>Please enter Voyage Financials Name and Submit</p>
+              <FilterField id="coa-ops-sheet-name" label="Voyage Financials Name">
+                <TextInput
+                  id="coa-ops-sheet-name"
+                  value={sheetModal.sheetName}
+                  onChange={(e) => setSheetModal((prev) => ({ ...prev, sheetName: e.target.value }))}
+                  placeholder="Voyage Financials Name"
+                />
+              </FilterField>
+              <div className={pageStyles.toolbarActions} style={{ marginTop: 12 }}>
+                <Button label={savingSheet ? 'Submitting…' : 'Submit'} onClick={handleCreateSheet} disabled={savingSheet} />
+                <Button
+                  variant="outline"
+                  label="Cancel"
+                  onClick={() => setSheetModal({ open: false, comId: '', sheetName: '' })}
+                  disabled={savingSheet}
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <OpsVcCompareSheetsModal
+          open={compareModal.open}
+          comId={compareModal.comId}
+          onClose={() => setCompareModal({ open: false, comId: '' })}
+        />
       </div>
     </>
   );

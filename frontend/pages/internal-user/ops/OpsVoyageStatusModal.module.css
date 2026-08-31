@@ -1,12 +1,15 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 85;
+  /* Above AppSidebar (z-index 1000); match OpsPages / compare-sheet modals */
+  z-index: 1200;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 34px 20px;
+  overflow-x: hidden;
   overflow-y: auto;
+  box-sizing: border-box;
   background: rgba(20, 26, 40, 0.55);
 }
 

@@ -110,7 +110,8 @@ function DetailRow({ label, value }) {
 
 export default function LiveVesselMapPage() {
   const alert = useAlert();
-  const setHeaderActions = usePageHeaderActions();
+  const { setActions, clearActions } = usePageHeaderActions();
+  const headerOwnerIdRef = useRef(`live-vessel-map-${Math.random().toString(36).slice(2)}`);
   const mapContainerRef = useRef(null);
   const mapWrapRef = useRef(null);
   const mapRef = useRef(null);
@@ -337,11 +338,13 @@ export default function LiveVesselMapPage() {
   loadFleetRef.current = loadFleet;
 
   useEffect(() => {
-    setHeaderActions(
+    const ownerId = headerOwnerIdRef.current;
+    setActions(
       <Button variant="primary" label="Refresh" onClick={() => loadFleetRef.current()} />,
+      ownerId,
     );
-    return () => setHeaderActions(null);
-  }, [setHeaderActions]);
+    return () => clearActions(ownerId);
+  }, [setActions, clearActions]);
 
   const handleMapClick = useCallback(() => {
     clearSelection();

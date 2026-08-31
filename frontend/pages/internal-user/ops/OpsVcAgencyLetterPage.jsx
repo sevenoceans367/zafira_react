@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  Button,
   CardSelect,
   DmyDateInput,
   LoadingOverlay,
@@ -918,31 +919,20 @@ export default function OpsVcAgencyLetterPage() {
                         Click on &quot;Submit&quot; to ensure that the agent fills the assigned data correctly.
                       </div>
                       <div className={styles.gprlFooterActions}>
-                        <button
+                        <Button
                           type="button"
-                          className={styles.btnSaveOutline}
+                          variant="saveOutline"
+                          label="Save"
                           onClick={() => handleSubmit(1)}
                           disabled={saving}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                            <path d="M17 21v-8H7v8" />
-                            <path d="M7 3v5h8" />
-                          </svg>
-                          Save
-                        </button>
-                        <button
+                        />
+                        <Button
                           type="button"
-                          className={styles.btnSubmitClose}
+                          variant="submit"
+                          label="Submit"
                           onClick={() => handleSubmit(2)}
                           disabled={saving}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="m22 2-7 20-4-9-9-4Z" />
-                            <path d="M22 2 11 13" />
-                          </svg>
-                          Submit
-                        </button>
+                        />
                       </div>
                     </div>
                   ) : null}

@@ -55,8 +55,16 @@ export default function CoasSidebarTree({ isOpen }) {
         {menuItems.map((item) => {
           const href = coaAppPath(module, item.id);
           const active = item.id === 'in-ops'
-            ? isCoaOpsPath(pathname)
-            : pathname.includes(`/internal-user/${module}/coas/${item.id}`);
+            ? (
+              isCoaOpsPath(pathname)
+              || (/\/coas\/direct-fixture\/[^/]+$/.test(pathname) && !pathname.includes('/direct-fixture/add'))
+            )
+            : item.id === 'running'
+              ? (
+                pathname.includes(`/internal-user/${module}/coas/running`)
+                || pathname.includes(`/internal-user/${module}/coas/direct-fixture/add`)
+              )
+              : pathname.includes(`/internal-user/${module}/coas/${item.id}`);
           return (
             <li key={item.id}>
               <Link

@@ -1,0 +1,39 @@
+---
+description: Use shared Button variant=submit for form Submit CTAs (SOF-style navy)
+globs: frontend/**/*.{jsx,js,css}
+alwaysApply: false
+---
+
+# Global Submit button
+
+Form primary submit actions must use the shared SOF-style Submit button from `@bainbridge/shared-ui` — do not invent navy submit chrome in page CSS modules.
+
+## Use
+
+| Need | Use |
+|------|-----|
+| Primary form Submit / Submit & Close | `Button` `variant="submit"` |
+| Secondary form action beside Submit (Save / draft Submit) | `Button` `variant="saveOutline"` |
+
+```jsx
+// ❌ BAD — page-local navy submit
+<button className={styles.btnSubmitClose}>Submit</button>
+<button className={styles.submitBtn}>Submit</button>
+
+// ✅ GOOD — shared global Submit
+import { Button } from '@bainbridge/shared-ui';
+
+<Button type="submit" variant="submit" label="Submit" disabled={saving} />
+<Button type="button" variant="submit" label="Submit & Close" onClick={…} />
+
+// Secondary next to Submit (optional)
+<Button type="button" variant="saveOutline" label="Save" onClick={…} />
+```
+
+## Rules
+
+- Prefer `variant="submit"` for any primary form CTA labeled Submit / Submit & Close / Saving…
+- Do not redeclare `.btnSubmit*`, `.submitBtn`, or navy fill submit styles in page CSS when `Button` exists
+- Default send icon is included for `submit`; floppy icon for `saveOutline` — pass `icon` only to override
+- Labels starting with `Submit` + `variant="primary"` also resolve to submit style; still prefer explicit `variant="submit"`
+- Source: `frontend/packages/shared-ui/src/components/Button/`

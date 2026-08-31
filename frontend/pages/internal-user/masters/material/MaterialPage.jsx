@@ -9,13 +9,14 @@ import {
   updateMaterial,
   updateMaterialStatus,
 } from '../../../../services/materials.js';
+import { usePageHeaderHeading } from '../../PageHeaderContext.jsx';
 import MastersHeaderActions from '../MastersHeaderActions.jsx';
 import { filterMasterRows } from '../filterMasterRows.js';
 import styles from './MaterialPage.module.css';
 
 const FLASH_MESSAGES = {
-  0: { type: 'success', text: 'Congratulations! Material added/updated successfully.' },
-  1: { type: 'error', text: 'Sorry! there was an error while adding/updating Material.' },
+  0: { type: 'success', text: 'Congratulations! Cargo added/updated successfully.' },
+  1: { type: 'error', text: 'Sorry! there was an error while adding/updating Cargo.' },
   2: { type: 'success', text: 'Congratulations! Status changed successfully.' },
 };
 
@@ -24,6 +25,8 @@ const MATERIAL_TYPES = [
   { id: '2', label: 'Tanker' },
   { id: '3', label: 'Dry Cargo' },
 ];
+
+const DRY_CARGO_TYPE_ID = '3';
 
 const EMPTY_FORM = {
   materialName: '',
@@ -48,6 +51,7 @@ function StatusToggle({ checked, onChange }) {
 
 export default function MaterialPage() {
   const confirm = useConfirm();
+  const setHeading = usePageHeaderHeading();
   const [view, setView] = useState('list');
   const [editId, setEditId] = useState(null);
   const [rows, setRows] = useState([]);
@@ -63,10 +67,21 @@ export default function MaterialPage() {
       'materialName',
       'materialTypeLabel',
       'materialCode',
-      'materialCodeDesc',
+      'materialGroup',
     ]),
     [rows, searchInput],
   );
+
+  const showStowageFactors = form.materialTypeId === DRY_CARGO_TYPE_ID;
+
+  useEffect(() => {
+    if (view === 'form') {
+      setHeading({ title: editId ? 'Edit Cargo' : 'Add Cargo' });
+    } else {
+      setHeading(null);
+    }
+    return () => setHeading(null);
+  }, [view, editId, setHeading]);
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -189,103 +204,83 @@ export default function MaterialPage() {
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.field}>
-            <span className={styles.label}>Material Name</span>
+            <span className={styles.label}>Cargo Name</span>
             <input
               className={styles.input}
               type="text"
               value={form.materialName}
               required
-              placeholder="Material Name"
+              placeholder="Cargo Name"
               autoComplete="off"
               onChange={(e) => setForm((prev) => ({ ...prev, materialName: e.target.value }))}
             />
           </label>
 
           <label className={styles.field}>
-            <span className={styles.label}>Material Type Description</span>
-            <input
-              className={styles.input}
-              type="text"
-              value={form.materialTypeDesc}
-              placeholder="Material Type Description"
-              autoComplete="off"
-              onChange={(e) => setForm((prev) => ({ ...prev, materialTypeDesc: e.target.value }))}
-            />
-          </label>
-
-          <label className={styles.field}>
-            <span className={styles.label}>Material Group</span>
+            <span className={styles.label}>Cargo Group</span>
             <input
               className={styles.input}
               type="text"
               value={form.materialGroup}
-              placeholder="Material Group"
+              placeholder="Cargo Group"
               autoComplete="off"
               onChange={(e) => setForm((prev) => ({ ...prev, materialGroup: e.target.value }))}
             />
           </label>
 
           <label className={styles.field}>
-            <span className={styles.label}>Material Group Description</span>
-            <input
-              className={styles.input}
-              type="text"
-              value={form.materialGroupDesc}
-              placeholder="Material Group Description"
-              autoComplete="off"
-              onChange={(e) => setForm((prev) => ({ ...prev, materialGroupDesc: e.target.value }))}
-            />
-          </label>
-
-          <label className={styles.field}>
-            <span className={styles.label}>Material Code</span>
+            <span className={styles.label}>Cargo Code</span>
             <input
               className={styles.input}
               type="text"
               value={form.materialCode}
-              placeholder="Material Code"
+              placeholder="Cargo Code"
               autoComplete="off"
               onChange={(e) => setForm((prev) => ({ ...prev, materialCode: e.target.value }))}
             />
           </label>
 
-          <label className={styles.field}>
-            <span className={styles.label}>Stowage Factor (Cu. M / MT)</span>
-            <input
-              className={styles.input}
-              type="text"
-              value={form.stowFacMMt}
-              placeholder="Stowage Factor(Cu. M / MT)"
-              autoComplete="off"
-              onChange={(e) => setForm((prev) => ({ ...prev, stowFacMMt: e.target.value }))}
-            />
-          </label>
+          {showStowageFactors ? (
+            <>
+              <label className={styles.field}>
+                <span className={styles.label}>Stowage Factor (Cu. M / MT)</span>
+                <input
+                  className={styles.input}
+                  type="text"
+                  value={form.stowFacMMt}
+                  placeholder="Stowage Factor(Cu. M / MT)"
+                  autoComplete="off"
+                  onChange={(e) => setForm((prev) => ({ ...prev, stowFacMMt: e.target.value }))}
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.label}>Stowage Factor (Cu. Ft / MT)</span>
+                <input
+                  className={styles.input}
+                  type="text"
+                  value={form.stowFacFtMt}
+                  placeholder="Stowage Factor(Cu. Ft / MT)"
+                  autoComplete="off"
+                  onChange={(e) => setForm((prev) => ({ ...prev, stowFacFtMt: e.target.value }))}
+                />
+              </label>
+            </>
+          ) : null}
 
           <label className={styles.field}>
-            <span className={styles.label}>Stowage Factor (Cu. Ft / MT)</span>
-            <input
-              className={styles.input}
-              type="text"
-              value={form.stowFacFtMt}
-              placeholder="Stowage Factor(Cu. Ft / MT)"
-              autoComplete="off"
-              onChange={(e) => setForm((prev) => ({ ...prev, stowFacFtMt: e.target.value }))}
-            />
-          </label>
-
-          <label className={styles.field}>
-            <span className={styles.label}>Material Code Description</span>
+            <span className={styles.label}>Cargo Description</span>
             <textarea
               className={styles.textarea}
               rows={3}
               value={form.materialCodeDesc}
-              placeholder="Material Code Description ..."
+              placeholder="Cargo Description ..."
               onChange={(e) => setForm((prev) => ({ ...prev, materialCodeDesc: e.target.value }))}
             />
           </label>
 
           <fieldset className={styles.field}>
-            <legend className={styles.label}>Material Type</legend>
+            <legend className={styles.label}>Trade Type</legend>
             <div className={styles.radioGroup}>
               {MATERIAL_TYPES.map((item) => (
                 <label key={item.id} className={styles.radioOption}>
@@ -294,7 +289,16 @@ export default function MaterialPage() {
                     name="materialTypeId"
                     value={item.id}
                     checked={form.materialTypeId === item.id}
-                    onChange={(e) => setForm((prev) => ({ ...prev, materialTypeId: e.target.value }))}
+                    onChange={(e) => {
+                      const materialTypeId = e.target.value;
+                      setForm((prev) => ({
+                        ...prev,
+                        materialTypeId,
+                        ...(materialTypeId === DRY_CARGO_TYPE_ID
+                          ? {}
+                          : { stowFacMMt: '', stowFacFtMt: '' }),
+                      }));
+                    }}
                   />
                   <strong>{item.label}</strong>
                 </label>
@@ -305,7 +309,7 @@ export default function MaterialPage() {
           <div className={styles.formActions}>
             <Button
               type="submit"
-              variant="primary"
+              variant="submit"
               label={saving ? 'Saving…' : 'Submit'}
               disabled={saving}
             />
@@ -320,12 +324,12 @@ export default function MaterialPage() {
       <MastersHeaderActions
         search={searchInput}
         onSearchChange={setSearchInput}
-        searchPlaceholder="Search materials"
+        searchPlaceholder="Search cargo"
         onAdd={openAdd}
         onExcel={handleExcel}
       />
 
-      {loading ? <LoadingOverlay active label="Loading materials…" /> : null}
+      {loading ? <LoadingOverlay active label="Loading cargo…" /> : null}
 
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
@@ -339,10 +343,10 @@ export default function MaterialPage() {
           <thead>
             <tr>
               <th>#</th>
-              <th>Material Name</th>
-              <th>Material Type</th>
-              <th>Material Code</th>
-              <th>Material Code Description</th>
+              <th>Cargo Name</th>
+              <th>Trade Type</th>
+              <th>Cargo Code</th>
+              <th>Cargo Group</th>
               <th>Status</th>
               <th>Details</th>
             </tr>
@@ -351,7 +355,7 @@ export default function MaterialPage() {
             {filteredRows.length === 0 && !loading ? (
               <tr>
                 <td className={styles.emptyCell} colSpan={7}>
-                  No material records found.
+                  No cargo records found.
                 </td>
               </tr>
             ) : null}
@@ -361,7 +365,7 @@ export default function MaterialPage() {
                 <td>{row.materialName || '—'}</td>
                 <td>{row.materialTypeLabel || '—'}</td>
                 <td>{row.materialCode || '—'}</td>
-                <td>{row.materialCodeDesc || '—'}</td>
+                <td>{row.materialGroup || '—'}</td>
                 <td>
                   <StatusToggle
                     checked={row.isActive}

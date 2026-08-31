@@ -1,12 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay, useConfirm, CardSelect } from '@bainbridge/shared-ui';
+import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
+import { coaBasePath } from '../../../constants/coaModule.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
+  completeDirectFixture,
   fetchCargoRelets,
   fetchCoaOpsVoyages,
+  fetchDirectFixtures,
   moveVoyageToPostOps,
 } from '../../../services/coas.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
@@ -23,6 +27,7 @@ const OPS_TABS = [
 const TRADE_TYPES = [
   { id: 'spot', label: 'Spot', color: '#e67e22' },
   { id: 'relet', label: 'Cargo Relet', color: '#7c5cff' },
+  { id: 'direct', label: 'Direct Fixture', color: '#3b82f6' },
 ];
 
 function parseTab(value) {
@@ -32,7 +37,9 @@ function parseTab(value) {
 }
 
 function parseTradeType(value) {
-  return value === 'relet' || value === 'cargo-relet' ? 'relet' : 'spot';
+  if (value === 'relet' || value === 'cargo-relet') return 'relet';
+  if (value === 'direct' || value === 'direct-fixture') return 'direct';
+  return 'spot';
 }
 
 function statusForTab(tab) {
@@ -122,7 +129,7 @@ function HighlightIcon({ name }) {
 export default function CoaOpsListPage() {
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const { coaPath } = useCoaModule();
+  const { coaPath, module } = useCoaModule();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
   const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
@@ -139,6 +146,8 @@ export default function CoaOpsListPage() {
   const [error, setError] = useState('');
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const isRelet = tradeType === 'relet';
+  const isDirect = tradeType === 'direct';
+  const postOpsDisabled = isRelet || isDirect;
   const isHistoryTab = statusTab === 'history';
 
   const updateQuery = useCallback((patch) => {
@@ -165,6 +174,37 @@ export default function CoaOpsListPage() {
 
   const loadCounts = useCallback(async () => {
     try {
+      if (isDirect) {
+        const [opsData, historyData] = await Promise.all([
+          fetchDirectFixtures({
+            selBType: businessType,
+            status: 'ops',
+            page: 1,
+            pageSize: 200,
+            search: debouncedSearch,
+          }),
+          fetchDirectFixtures({
+            selBType: businessType,
+            status: 'history',
+            page: 1,
+            pageSize: 200,
+            search: debouncedSearch,
+          }),
+        ]);
+        const filterYear = (list) => (list.records ?? []).filter((row) => {
+          if (yearFilter === 'all') return true;
+          return yearFromDate(row.coaDate) === Number(yearFilter);
+        });
+        const opsRows = filterYear(opsData);
+        const historyRows = filterYear(historyData);
+        const revenue = [...opsRows, ...historyRows].reduce(
+          (sum, row) => sum + (Number(String(row.grossRevenue ?? '').replace(/,/g, '')) || 0),
+          0,
+        );
+        setCounts({ ops: opsRows.length, postops: 0, history: historyRows.length, revenue });
+        return;
+      }
+
       if (isRelet) {
         const data = await fetchCargoRelets({
           selBType: businessType,
@@ -176,7 +216,6 @@ export default function CoaOpsListPage() {
           if (yearFilter === 'all') return true;
           return yearFromDate(row.coaDate) === Number(yearFilter);
         });
-        // FIXED=1 means submitted to ops (PHP finalize), not "closed/history".
         const submitted = all.filter((row) => row.fixed);
         const revenue = submitted.reduce((sum, row) => sum + (Number(String(row.profit ?? '').replace(/,/g, '')) || 0), 0);
         setCounts({
@@ -223,7 +262,7 @@ export default function CoaOpsListPage() {
     } catch {
       // keep previous counts on soft failure
     }
-  }, [businessType, debouncedSearch, isRelet, yearFilter]);
+  }, [businessType, debouncedSearch, isDirect, isRelet, yearFilter]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -232,9 +271,33 @@ export default function CoaOpsListPage() {
       const types = await fetchVcBusinessTypes(businessType);
       setBusinessTypes(types);
 
+      if (isDirect) {
+        if (statusTab === 'postops') {
+          setRows([]);
+          setTotal(0);
+          return;
+        }
+        const data = await fetchDirectFixtures({
+          selBType: businessType,
+          status: statusTab === 'history' ? 'history' : 'ops',
+          page: 1,
+          pageSize: 200,
+          search: debouncedSearch,
+        });
+        const filtered = (data.records ?? []).filter((row) => {
+          if (yearFilter !== 'all' && yearFromDate(row.coaDate) !== Number(yearFilter)) return false;
+          return true;
+        });
+        const start = (page - 1) * pageSize;
+        setTotal(filtered.length);
+        setRows(filtered.slice(start, start + pageSize).map((row, index) => ({
+          ...row,
+          index: start + index + 1,
+        })));
+        return;
+      }
+
       if (isRelet) {
-        // Cargo relets: In Ops lists working sheets (draft + submitted).
-        // History/Post Ops are spot-voyage stages — empty for relets.
         if (statusTab === 'postops' || statusTab === 'history') {
           setRows([]);
           setTotal(0);
@@ -292,6 +355,7 @@ export default function CoaOpsListPage() {
   }, [
     businessType,
     debouncedSearch,
+    isDirect,
     isHistoryTab,
     isRelet,
     page,
@@ -303,6 +367,13 @@ export default function CoaOpsListPage() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadCounts(); }, [loadCounts]);
   useEffect(() => { setPage(1); }, [debouncedSearch, businessType, statusTab, tradeType, yearFilter, pageSize]);
+
+  useEffect(() => {
+    if (postOpsDisabled && statusTab === 'postops') {
+      setStatusTab('ops');
+      updateQuery({ tab: 'ops' });
+    }
+  }, [postOpsDisabled, statusTab, updateQuery]);
 
   const handleMove = async (row) => {
     const nextLabel = statusTab === 'ops' ? 'Post Ops' : 'History';
@@ -325,6 +396,22 @@ export default function CoaOpsListPage() {
     }
   };
 
+  const handleCompleteDirect = async (row) => {
+    const ok = await confirm({
+      title: 'Complete fixture',
+      message: `Move ${row.fixtureNo} to History (Closed)?`,
+      confirmLabel: 'Complete',
+    });
+    if (!ok) return;
+    try {
+      await completeDirectFixture(row.fcaId);
+      load();
+      loadCounts();
+    } catch (err) {
+      setError(err.message || 'Failed to complete fixture.');
+    }
+  };
+
   const cards = [
     { title: 'Ops Revenue (YTD)', value: formatMoney(counts.revenue), variant: 'fin', icon: 'revenue' },
     { title: 'In Ops', value: String(counts.ops), variant: 'cnt', icon: 'ops' },
@@ -336,13 +423,26 @@ export default function CoaOpsListPage() {
     ? 'Showing 0 records'
     : `Showing ${Math.min((page - 1) * pageSize + 1, total)} to ${Math.min(page * pageSize, total)} of ${total} entries`;
 
-  const emptyMessage = isRelet && statusTab === 'postops'
-    ? 'Cargo relets skip Post Ops — complete a relet from In Ops to move it to History.'
-    : isHistoryTab && !isRelet
-      ? 'No completed history voyages yet.'
-      : 'SORRY CURRENTLY THERE ARE ZERO(0) RECORDS';
+  const emptyMessage = postOpsDisabled && statusTab === 'postops'
+    ? `${isDirect ? 'Direct fixtures' : 'Cargo relets'} skip Post Ops — use In Ops (Active) or History (Closed).`
+    : isHistoryTab && isDirect
+      ? 'No completed direct fixtures yet.'
+      : isHistoryTab && !isRelet && !isDirect
+        ? 'No completed history voyages yet.'
+        : 'SORRY CURRENTLY THERE ARE ZERO(0) RECORDS';
 
   const tradeMeta = TRADE_TYPES.find((item) => item.id === tradeType) || TRADE_TYPES[0];
+
+  const opsReturnTo = useMemo(() => {
+    const next = new URLSearchParams(searchParams);
+    const query = next.toString();
+    return `${coaBasePath(module)}/in-ops${query ? `?${query}` : ''}`;
+  }, [module, searchParams]);
+
+  const estimateHref = useCallback((path, fcaId) => {
+    const returnTo = encodeURIComponent(opsReturnTo);
+    return appPath(`${path}?id=${encodeURIComponent(fcaId)}&returnTo=${returnTo}`);
+  }, [opsReturnTo]);
 
   return (
     <>
@@ -371,10 +471,13 @@ export default function CoaOpsListPage() {
               onChange={(value) => {
                 const next = parseTradeType(value);
                 setTradeType(next);
-                if (next === 'relet' && statusTab === 'postops') setStatusTab('ops');
+                const nextTab = (next === 'relet' || next === 'direct') && statusTab === 'postops'
+                  ? 'ops'
+                  : statusTab;
+                if (nextTab !== statusTab) setStatusTab(nextTab);
                 updateQuery({
                   tradeType: next,
-                  tab: next === 'relet' && statusTab === 'postops' ? 'ops' : statusTab,
+                  tab: nextTab,
                 });
               }}
             />
@@ -417,23 +520,32 @@ export default function CoaOpsListPage() {
         </div>
 
         <div className={styles.statusTabs} role="tablist" aria-label="Ops status">
-          {OPS_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={statusTab === tab.id}
-              className={`${styles.statusTab} ${statusTab === tab.id ? styles.statusTabActive : ''}`}
-              onClick={() => {
-                setStatusTab(tab.id);
-                updateQuery({ tab: tab.id });
-              }}
-            >
-              <TabIcon id={tab.id} />
-              {tab.label}
-              <span className={styles.tabCount}>{counts[tab.id] ?? 0}</span>
-            </button>
-          ))}
+          {OPS_TABS.map((tab) => {
+            const disabled = tab.id === 'postops' && postOpsDisabled;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={statusTab === tab.id}
+                aria-disabled={disabled}
+                disabled={disabled}
+                title={disabled
+                  ? 'Post Ops is only available for Spot voyages'
+                  : undefined}
+                className={`${styles.statusTab} ${statusTab === tab.id ? styles.statusTabActive : ''} ${disabled ? styles.statusTabDisabled : ''}`}
+                onClick={() => {
+                  if (disabled) return;
+                  setStatusTab(tab.id);
+                  updateQuery({ tab: tab.id });
+                }}
+              >
+                <TabIcon id={tab.id} />
+                {tab.label}
+                <span className={styles.tabCount}>{counts[tab.id] ?? 0}</span>
+              </button>
+            );
+          })}
         </div>
 
         <ScrollableTable
@@ -443,7 +555,72 @@ export default function CoaOpsListPage() {
           toolbarRight={showingLabel}
           footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
         >
-          {isRelet ? (
+          {isDirect ? (
+            <table className={styles.grid}>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Fixture No.</th>
+                  <th>Date</th>
+                  <th>Vessel</th>
+                  <th>Charterer</th>
+                  <th>Cargo</th>
+                  <th>LP/DP</th>
+                  <th>QTY (MT)</th>
+                  <th>Frt Rate ($/MT)</th>
+                  <th>Gross Revenue</th>
+                  <th>Status</th>
+                  <th>Details</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className={styles.emptyCell}>{emptyMessage}</td>
+                  </tr>
+                ) : rows.map((row) => (
+                  <tr key={row.fcaId}>
+                    <td className={`${styles.accentCell} ${styles.accentDirect}`}>{row.index}</td>
+                    <td>
+                      <div className={styles.opsCell}>
+                        <span className={styles.noCoaBadge}>Direct Fixture</span>
+                        <span className={styles.subNo}>{liveValue(row.fixtureNo)}</span>
+                        <span className={`${styles.typeChip} ${styles.typeChipDirect}`}>Direct Fixture</span>
+                      </div>
+                    </td>
+                    <td>{liveValue(row.coaDate)}</td>
+                    <td>{liveValue(row.vesselName)}</td>
+                    <td>{liveValue(row.charterer)}</td>
+                    <td>{liveValue(row.cargo)}</td>
+                    <td>{liveValue(row.ports)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.cargoQty)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.freightUsd)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.grossRevenue)}</td>
+                    <td>
+                      <span className={`${styles.statusPill} ${row.statusCode === 'closed' ? styles.statusClosed : styles.statusActive}`}>
+                        {liveValue(row.status)}
+                      </span>
+                    </td>
+                    <td>
+                      <Link className={styles.iconBtn} to={coaPath(`direct-fixture/${row.fcaId}`)} title="Open fixture">
+                        <i className="bi bi-eye" aria-hidden />
+                      </Link>
+                    </td>
+                    <td>
+                      {row.canComplete ? (
+                        <button type="button" className={styles.pillComplete} onClick={() => handleCompleteDirect(row)}>
+                          Complete
+                        </button>
+                      ) : (
+                        <span className={styles.dash}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : isRelet ? (
             <table className={styles.grid}>
               <thead>
                 <tr>
@@ -458,14 +635,16 @@ export default function CoaOpsListPage() {
                   <th>Frt-Out ($/MT)</th>
                   <th>Frt-Out</th>
                   <th>Profit</th>
+                  <th>Vessel</th>
                   <th>Status</th>
+                  <th>Edit</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className={styles.emptyCell}>{emptyMessage}</td>
+                    <td colSpan={15} className={styles.emptyCell}>{emptyMessage}</td>
                   </tr>
                 ) : rows.map((row) => (
                   <tr key={row.fcaId}>
@@ -477,24 +656,30 @@ export default function CoaOpsListPage() {
                         <span className={`${styles.typeChip} ${styles.typeChipRelet}`}>Cargo Relet</span>
                       </div>
                     </td>
-                    <td>{liveValue(row.coaDate)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.coaDate)}</td>
                     <td className={styles.cellNum}>{liveValue(row.cargoQty)}</td>
-                    <td>{liveValue(row.ports)}</td>
+                    <td>
+                      <span className={styles.trunc} title={liveValue(row.ports)}>{liveValue(row.ports)}</span>
+                    </td>
                     <td className={styles.cellNum}>{liveValue(row.freightInPerMt)}</td>
                     <td className={styles.cellNum}>{liveValue(row.freightInAmt)}</td>
                     <td className={styles.cellNum}>{liveValue(row.foSurcharge)}</td>
                     <td className={styles.cellNum}>{liveValue(row.freightOutPerMt)}</td>
                     <td className={styles.cellNum}>{liveValue(row.freightOutAmt)}</td>
                     <td className={styles.cellNum}>{liveValue(row.profit)}</td>
+                    <td>{liveValue(row.vesselName)}</td>
                     <td>
                       <span className={`${styles.statusPill} ${row.fixed ? styles.statusActive : styles.statusDraft}`}>
-                        {row.fixed ? 'Ops' : 'Draft'}
+                        {row.fixed ? 'Active' : 'Draft'}
                       </span>
                     </td>
-                    <td>
-                      <Link className={styles.iconBtn} to={coaPath(`cargo-relet/${row.fcaId}`)} title="Open relet">
+                    <td className={styles.cellCenter}>
+                      <Link className={styles.iconBtn} to={coaPath(`cargo-relet/${row.fcaId}`)} title="Edit Cargo Relet">
                         <i className="bi bi-pencil-square" aria-hidden />
                       </Link>
+                    </td>
+                    <td>
+                      <span className={styles.dash}>—</span>
                     </td>
                   </tr>
                 ))}
@@ -508,19 +693,22 @@ export default function CoaOpsListPage() {
                   <th>Voy No.</th>
                   <th>CP Date</th>
                   <th>Vessel</th>
+                  <th>Operator</th>
+                  <th>Charterer</th>
+                  <th>Cargo</th>
                   <th>LP / DP</th>
                   <th>QTY (MT)</th>
-                  <th>TCE</th>
-                  <th>P/L</th>
-                  <th>Status</th>
                   <th>Worksheet</th>
+                  <th className={styles.cellCenter}>Compare</th>
+                  <th className={styles.cellCenter}>Fin.</th>
+                  <th>Alerts</th>
                   <th>Next</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className={styles.emptyCell}>{emptyMessage}</td>
+                    <td colSpan={14} className={styles.emptyCell}>{emptyMessage}</td>
                   </tr>
                 ) : rows.map((row) => (
                   <tr key={`${row.comId}-${row.fcaId}`}>
@@ -532,33 +720,59 @@ export default function CoaOpsListPage() {
                         <span className={`${styles.typeChip} ${styles.typeChipSpot}`}>Spot</span>
                       </div>
                     </td>
-                    <td>{liveValue(row.cpDate)}</td>
+                    <td className={styles.cellNum}>{liveValue(row.cpDate)}</td>
                     <td>{liveValue(row.vesselName)}</td>
-                    <td>{liveValue(row.ports)}</td>
-                    <td className={styles.cellNum}>{liveValue(row.cargoQty)}</td>
-                    <td className={styles.cellNum}>{liveValue(row.tce)}</td>
-                    <td className={styles.cellNum}>{liveValue(row.profitLoss)}</td>
+                    <td>{liveValue(row.operator)}</td>
                     <td>
-                      <span className={`${styles.statusPill} ${styles.statusActive}`}>{liveValue(row.status)}</span>
+                      <span className={styles.trunc} title={liveValue(row.charterer)}>{liveValue(row.charterer)}</span>
+                    </td>
+                    <td>{liveValue(row.cargo)}</td>
+                    <td>
+                      <span className={styles.trunc} title={liveValue(row.ports)}>{liveValue(row.ports)}</span>
+                    </td>
+                    <td className={styles.cellNum}>{liveValue(row.cargoQty)}</td>
+                    <td>
+                      <Link
+                        className={styles.iconBtn}
+                        to={estimateHref('/internal-user/sopf/viewestimate', row.fcaId)}
+                        title={row.worksheet ? `Worksheet ${row.worksheet}` : 'Worksheet'}
+                      >
+                        <i className="bi bi-eye" aria-hidden />
+                      </Link>
+                    </td>
+                    <td className={styles.cellCenter}>
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        title="Compare Working Sheets"
+                        onClick={() => navigate(estimateHref('/internal-user/sopf/updateestimate', row.fcaId))}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                          <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+                          <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+                          <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+                        </svg>
+                      </button>
+                    </td>
+                    <td className={styles.cellCenter}>
+                      <Link
+                        className={styles.iconBtn}
+                        to={estimateHref('/internal-user/sopf/viewestimate', row.fcaId)}
+                        title="Financials"
+                      >
+                        <i className="bi bi-eye" aria-hidden />
+                      </Link>
                     </td>
                     <td>
-                      <div className={styles.iconBtnRow}>
-                        <Link
-                          className={styles.iconBtn}
-                          to={`/internal-user/sopf/viewestimate?id=${row.fcaId}`}
-                          title="View estimate"
-                        >
-                          <i className="bi bi-eye" aria-hidden />
-                        </Link>
-                        <button
-                          type="button"
-                          className={styles.iconBtn}
-                          title="Edit estimate"
-                          onClick={() => navigate(`/internal-user/sopf/updateestimate?id=${row.fcaId}`)}
-                        >
-                          <i className="bi bi-pencil-square" aria-hidden />
-                        </button>
-                      </div>
+                      {row.alert ? (
+                        <span className={styles.alertPill} title={row.alert}>
+                          <i className="bi bi-exclamation-triangle" aria-hidden />
+                          <span className={styles.trunc}>{row.alert}</span>
+                        </span>
+                      ) : (
+                        <span className={styles.dash}>—</span>
+                      )}
                     </td>
                     <td>
                       {row.canMoveToPostOps ? (

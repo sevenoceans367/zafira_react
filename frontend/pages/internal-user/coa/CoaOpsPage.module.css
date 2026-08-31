@@ -131,6 +131,18 @@
   border-bottom-color: #fff;
 }
 
+.statusTabDisabled,
+.statusTab:disabled {
+  color: #8a93a2;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.statusTabDisabled:hover,
+.statusTab:disabled:hover {
+  background: none;
+}
+
 .tabCount {
   background: #dfe2e7;
   color: #1b2430;
@@ -142,7 +154,7 @@
 .grid {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1400px;
+  min-width: 1600px;
 }
 
 .grid thead th {
@@ -179,6 +191,37 @@
   font-variant-numeric: tabular-nums;
 }
 
+.cellCenter {
+  text-align: center;
+}
+
+.trunc {
+  display: inline-block;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.alertPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fdecea;
+  color: #b4291f;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.alertPill i {
+  font-size: 11px;
+}
+
 .accentCell {
   border-left: 3px solid transparent;
 }
@@ -191,6 +234,10 @@
   border-left-color: #7c5cff;
 }
 
+.accentDirect {
+  border-left-color: #3b82f6;
+}
+
 .opsCell {
   display: flex;
   flex-direction: column;
@@ -201,6 +248,17 @@
 .coaNo {
   font-weight: 700;
   color: #1b2430;
+}
+
+.noCoaBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #5b6472;
+  background: #eef0f3;
+  border-radius: 6px;
+  padding: 3px 8px;
 }
 
 .subNo {
@@ -228,6 +286,11 @@
 .typeChipRelet {
   background: #f0ebff;
   color: #7c5cff;
+}
+
+.typeChipDirect {
+  background: #eaf1fe;
+  color: #3b82f6;
 }
 
 .statusPill {
@@ -282,6 +345,12 @@
   color: #5b6472;
 }
 
+.iconBtn svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
 .pillNext {
   display: inline-flex;
   align-items: center;
@@ -305,6 +374,26 @@
 .pillNext svg {
   width: 11px;
   height: 11px;
+}
+
+.pillComplete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 6px 13px;
+  border: 1.5px solid #14919b;
+  background: #e3f4f4;
+  color: #0f6f76;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.pillComplete:hover {
+  background: #c6e8e9;
 }
 
 .dash {

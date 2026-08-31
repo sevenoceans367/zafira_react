@@ -1,20 +1,25 @@
 import { Router } from 'express';
 import {
   cancelCoa,
+  completeDirectFixture,
   createCargoRelet,
   createCoa,
+  createDirectFixture,
   deleteCargoRelet,
   getCargoRelet,
   getCoa,
   getCoaLookups,
   getCoaNominations,
+  getDirectFixture,
   listCargoRelets,
   listCoaOpsVoyages,
+  listDirectFixtures,
   listRunningCoas,
   moveVoyageToPostOps,
   saveMonthlyRemarks,
   updateCargoRelet,
   updateCoa,
+  updateDirectFixture,
 } from '../services/coaService.js';
 
 const router = Router();
@@ -114,6 +119,34 @@ router.get('/ops', asyncHandler(async (req, res) => {
 
 router.post('/ops/:comId/post-ops', asyncHandler(async (req, res) => {
   res.json(await moveVoyageToPostOps(req.params.comId));
+}));
+
+router.get('/direct-fixtures', asyncHandler(async (req, res) => {
+  res.json(await listDirectFixtures({
+    selBType: req.query.selBType,
+    status: req.query.status || '',
+    page: Number(req.query.page) || 1,
+    pageSize: Number(req.query.pageSize) || 10,
+    search: req.query.search || '',
+  }));
+}));
+
+router.get('/direct-fixtures/:fcaId', asyncHandler(async (req, res) => {
+  const data = await getDirectFixture(req.params.fcaId);
+  if (!data) return res.status(404).json({ message: 'Direct fixture not found.' });
+  return res.json(data);
+}));
+
+router.post('/direct-fixtures', asyncHandler(async (req, res) => {
+  res.json(await createDirectFixture(req.body || {}));
+}));
+
+router.put('/direct-fixtures/:fcaId', asyncHandler(async (req, res) => {
+  res.json(await updateDirectFixture(req.params.fcaId, req.body || {}));
+}));
+
+router.post('/direct-fixtures/:fcaId/complete', asyncHandler(async (req, res) => {
+  res.json(await completeDirectFixture(req.params.fcaId));
 }));
 
 export default router;

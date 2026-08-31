@@ -673,10 +673,11 @@ export async function dbListCargoRelets({
   const [rows] = await pool.query(
     `SELECT r.FCAID, r.COAID, r.CARGO_RELET_NO, r.CARGO_QMT_MT, r.FREIGHT_USD, r.FREIGHT_AMT,
             r.BUNKER_SURCHARGE_AMT, r.TOTAL_AMT, r.PROFIT, r.FREIGHT_USD_OUT, r.FREIGHT_AMT_OUT,
-            r.FIXED, r.COMID, r.UPDATE_STATUS, r.TRANS_DATE,
-            c.COA_ID, c.COA_NO, c.COA_DATE, c.CURRENCY
+            r.FIXED, r.COMID, r.UPDATE_STATUS, r.TRANS_DATE, r.VESSEL_IMO_ID,
+            c.COA_ID, c.COA_NO, c.COA_DATE, c.CURRENCY, vim.VESSEL_NAME
      FROM cargo_relet_estimate_masster r
      LEFT JOIN coa_master c ON c.COAID = r.COAID
+     LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = r.VESSEL_IMO_ID
      WHERE ${where}
      ORDER BY r.FCAID DESC
      LIMIT ? OFFSET ?`,
@@ -716,6 +717,7 @@ export async function dbListCargoRelets({
       freightOutPerMt: row.FREIGHT_USD_OUT ?? '',
       freightOutAmt: row.FREIGHT_AMT_OUT ?? '',
       profit: row.PROFIT ?? '',
+      vesselName: row.VESSEL_NAME ?? '',
       currency: row.CURRENCY || 'USD',
       fixed: Number(row.FIXED) === 1,
       updateStatus: row.UPDATE_STATUS != null ? Number(row.UPDATE_STATUS) : 0,
@@ -1191,11 +1193,15 @@ export async function dbListCoaOpsVoyages({
     `SELECT c.COMID, c.COAAID, c.MESSAGE, c.STATUS, c.FCAID,
             m.VESSEL_IMO_ID, m.VOYAGE_NO, m.TRANS_DATE, m.TOTAL_DAYS,
             m.DAILY_EARNING, m.PROFIT_LOSS, m.VESSEL_TYPE,
-            coa.COA_ID, coa.COA_NO, vim.VESSEL_NAME
+            coa.COA_ID, coa.COA_NO, vim.VESSEL_NAME,
+            CONCAT(charterer.NAME, '(', charterer.CODE, ')') AS CHARTERER,
+            CONCAT(cargo.MATERIAL_CODE_DESC, '(', cargo.MATERIAL_CODE, ')') AS CARGO
      FROM freight_cost_estimate_compare c
      INNER JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
      LEFT JOIN coa_master coa ON coa.COAID = c.COAAID
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+     LEFT JOIN vendor_master charterer ON charterer.CODE = coa.CHARTERER
+     LEFT JOIN cargo_master cargo ON cargo.MATERIALID = coa.CARGO
      WHERE ${where}
      ORDER BY DATE(m.TRANS_DATE) DESC, c.COMID DESC
      LIMIT ? OFFSET ?`,
@@ -1238,10 +1244,15 @@ export async function dbListCoaOpsVoyages({
       voyageNo: row.VOYAGE_NO ?? '',
       vesselName: row.VESSEL_NAME ?? '',
       vesselType: row.VESSEL_TYPE ?? '',
+      operator: '',
+      charterer: row.CHARTERER ?? '',
+      cargo: row.CARGO ?? '',
       cpDate: formatDateDMY(row.TRANS_DATE),
       ports: `${load.filter(Boolean).join(', ')} / ${discharge.filter(Boolean).join(', ')}`,
       duration: row.TOTAL_DAYS ?? '',
       cargoQty: qtyRow?.SUM ?? '',
+      worksheet: row.MESSAGE ?? '',
+      alert: null,
       tce: row.DAILY_EARNING ?? '',
       profitLoss: row.PROFIT_LOSS ?? '',
       message: row.MESSAGE ?? '',

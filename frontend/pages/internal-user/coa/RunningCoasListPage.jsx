@@ -302,7 +302,7 @@ export default function RunningCoasListPage() {
 
   const downloadCsv = () => {
     const headers = [
-      '#', 'No.', 'Route', 'Date', 'Status', 'Vessel Type', 'Charterer', 'Cargo',
+      '#', 'No.', 'Route', 'Date', 'Status', 'Vessel', 'Charterer', 'Cargo',
       'QTY (MT)', 'Dur', 'Total Shipments', 'Performed Shipments', 'Bal Cargo (MT)',
     ];
     const lines = [
@@ -516,6 +516,14 @@ export default function RunningCoasListPage() {
                 <PlusIcon />
                 Add New
               </button>
+              <button
+                type="button"
+                className={styles.btnAddDirect}
+                onClick={() => navigate(`${coaPath('direct-fixture/add')}?selBType=${businessType}`)}
+              >
+                <PlusIcon />
+                Add Direct Fixture
+              </button>
               <div className={styles.menuWrap} ref={menuRef}>
                 <button
                   type="button"
@@ -556,7 +564,7 @@ export default function RunningCoasListPage() {
                   <th>Route</th>
                   <th>Date</th>
                   <th>Status</th>
-                  <th>Vessel Type</th>
+                  <th>Vessel</th>
                   <th>Charterer</th>
                   <th>Cargo</th>
                   <th>QTY (MT)</th>

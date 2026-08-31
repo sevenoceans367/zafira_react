@@ -120,3 +120,38 @@ export async function moveVoyageToPostOps(comId) {
   });
   return parseJson(response, 'Failed to move voyage to Post Ops.');
 }
+
+export async function fetchDirectFixtures(params = {}) {
+  const response = await fetch(`${BASE}/direct-fixtures${toQuery(params)}`);
+  return parseJson(response, 'Failed to load direct fixtures.');
+}
+
+export async function fetchDirectFixture(fcaId) {
+  const response = await fetch(`${BASE}/direct-fixtures/${encodeURIComponent(fcaId)}`);
+  return parseJson(response, 'Failed to load direct fixture.');
+}
+
+export async function createDirectFixture(payload) {
+  const response = await fetch(`${BASE}/direct-fixtures`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJson(response, 'Failed to create direct fixture.');
+}
+
+export async function updateDirectFixture(fcaId, payload) {
+  const response = await fetch(`${BASE}/direct-fixtures/${encodeURIComponent(fcaId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJson(response, 'Failed to update direct fixture.');
+}
+
+export async function completeDirectFixture(fcaId) {
+  const response = await fetch(`${BASE}/direct-fixtures/${encodeURIComponent(fcaId)}/complete`, {
+    method: 'POST',
+  });
+  return parseJson(response, 'Failed to complete direct fixture.');
+}

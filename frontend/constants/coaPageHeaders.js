@@ -28,8 +28,34 @@ export function resolveCoaHeader(pathname, search = '') {
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
   const fromRunning = params.get('from') === 'running';
   const reletParent = fromRunning
-    ? { label: 'Running COA Business', href: runningHref }
+    ? { label: 'Running COAs', href: runningHref }
     : { label: 'COA Ops', href: opsReletHref };
+
+  if (pathname.includes('/coas/direct-fixture/add')) {
+    return {
+      title: 'New Direct Fixture',
+      currentPage: 'New Direct Fixture',
+      breadcrumbs: [
+        HOME,
+        moduleCrumb,
+        { label: 'Running COAs', href: runningHref },
+        { label: 'New Direct Fixture' },
+      ],
+    };
+  }
+
+  if (/\/coas\/direct-fixture\/[^/]+$/.test(pathname)) {
+    return {
+      title: 'Update Direct Fixture',
+      currentPage: 'Update Direct Fixture',
+      breadcrumbs: [
+        HOME,
+        moduleCrumb,
+        { label: 'COA Ops', href: `${coaAppPath(module, 'in-ops')}?tradeType=direct` },
+        { label: 'Update Direct Fixture' },
+      ],
+    };
+  }
 
   if (pathname.includes('/coas/running/add')) {
     return {
@@ -38,7 +64,7 @@ export function resolveCoaHeader(pathname, search = '') {
       breadcrumbs: [
         HOME,
         moduleCrumb,
-        { label: 'Running COA Business', href: runningHref },
+        { label: 'Running COAs', href: runningHref },
         { label: 'New COA' },
       ],
     };
@@ -51,7 +77,7 @@ export function resolveCoaHeader(pathname, search = '') {
       breadcrumbs: [
         HOME,
         moduleCrumb,
-        { label: 'Running COA Business', href: runningHref },
+        { label: 'Running COAs', href: runningHref },
         { label: 'Update COA' },
       ],
     };
@@ -59,9 +85,9 @@ export function resolveCoaHeader(pathname, search = '') {
 
   if (pathname.endsWith('/coas/running') || pathname.endsWith('/coas/running/')) {
     return {
-      title: 'Running COA Business',
-      currentPage: 'Running COA Business',
-      breadcrumbs: [HOME, moduleCrumb, { label: 'Running COA Business' }],
+      title: 'Running COAs',
+      currentPage: 'Running COAs',
+      breadcrumbs: [HOME, moduleCrumb, { label: 'Running COAs' }],
     };
   }
 

@@ -17,6 +17,7 @@ import RunningCoasListPage from '../pages/internal-user/coa/RunningCoasListPage.
 import CoaFormPage from '../pages/internal-user/coa/CoaFormPage.jsx';
 import CargoReletListPage from '../pages/internal-user/coa/CargoReletListPage.jsx';
 import CargoReletFormPage from '../pages/internal-user/coa/CargoReletFormPage.jsx';
+import DirectFixtureFormPage from '../pages/internal-user/coa/DirectFixtureFormPage.jsx';
 import CoaInOpsPage from '../pages/internal-user/coa/CoaInOpsPage.jsx';
 import CoaPostOpsPage from '../pages/internal-user/coa/CoaPostOpsPage.jsx';
 import OpsVcInOpsGlancePage from '../pages/internal-user/ops/OpsVcInOpsGlancePage.jsx';
@@ -239,6 +240,8 @@ export default function App() {
             <Route path="/internal-user/:module/coas/running/add" element={<CoaFormPage mode="add" />} />
             <Route path="/internal-user/:module/coas/running/:coaId" element={<CoaFormPage mode="edit" />} />
             <Route path="/internal-user/:module/coas/running" element={<RunningCoasListPage />} />
+            <Route path="/internal-user/:module/coas/direct-fixture/add" element={<DirectFixtureFormPage mode="add" />} />
+            <Route path="/internal-user/:module/coas/direct-fixture/:fcaId" element={<DirectFixtureFormPage mode="edit" />} />
             <Route path="/internal-user/:module/coas/cargo-relet/add" element={<CargoReletFormPage mode="add" />} />
             <Route path="/internal-user/:module/coas/cargo-relet/:fcaId" element={<CargoReletFormPage mode="edit" />} />
             <Route path="/internal-user/:module/coas/cargo-relet" element={<CargoReletListPage />} />

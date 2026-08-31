@@ -123,6 +123,62 @@
   color: #fff;
 }
 
+/**
+ * Global form Submit / Submit & Close CTA (SOF, masters, ops forms).
+ * Navy fill, bold label — prefer over one-off page CSS for primary submit.
+ */
+.submit {
+  background: #274670;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  gap: 7px;
+  min-height: auto;
+  padding: 10px 18px;
+}
+
+.submit:hover:not(:disabled) {
+  background: #1e3a63;
+  color: #fff;
+}
+
+.submitSvg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  flex-shrink: 0;
+}
+
+/**
+ * Secondary form action next to Submit (e.g. SOF draft Submit / Save outline).
+ */
+.saveOutline {
+  background: #fff;
+  border: 1.5px solid #dfe2e7;
+  border-radius: 10px;
+  color: #5b6472;
+  font-weight: 700;
+  font-size: 13px;
+  gap: 7px;
+  min-height: auto;
+  padding: 10px 18px;
+}
+
+.saveOutline:hover:not(:disabled) {
+  background: #f1f2f4;
+  border-color: #dfe2e7;
+  color: #5b6472;
+}
+
+.saveOutlineSvg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  flex-shrink: 0;
+}
+
 .danger {
   background: rgba(249, 147, 102, 0.6);
   border: 1px solid #f4652c;

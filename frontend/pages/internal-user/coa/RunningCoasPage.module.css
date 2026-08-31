@@ -186,6 +186,32 @@
   height: 15px;
 }
 
+.btnAddDirect {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  box-sizing: border-box;
+  background: #eaf1fe;
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 13px;
+  border: 1.5px solid #3b82f6;
+  border-radius: 999px;
+  padding: 0 16px 0 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnAddDirect:hover {
+  background: #d3e3fd;
+}
+
+.btnAddDirect svg {
+  width: 14px;
+  height: 14px;
+}
+
 .menuWrap {
   position: relative;
 }

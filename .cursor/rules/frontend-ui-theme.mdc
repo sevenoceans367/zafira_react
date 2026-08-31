@@ -22,6 +22,8 @@ When adding or editing UI in `frontend/`, reuse `@bainbridge/shared-ui` — do n
 | Text input / textarea / labeled field | `TextInput`, `Textarea`, `Field` |
 | List filters | `FilterBar`, `FilterField`, `HeaderFilterControls` |
 | Buttons / CTAs | `Button` / `GlobalButton` (variants already themed) |
+| Form Submit / Submit & Close | `Button` `variant="submit"` (navy SOF-style; see `frontend-submit-button` rule) |
+| Form secondary Save beside Submit | `Button` `variant="saveOutline"` |
 | Back navigation | `Button` with label starting with `Back` (Update COA outline-sm + chevron), or `variant="back"` |
 | Search in page header | `PageHeaderSearch` |
 | Dates | `DmyDateInput`, `PeriodCardPicker` |

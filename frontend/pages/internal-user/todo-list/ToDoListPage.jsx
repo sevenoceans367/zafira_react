@@ -547,9 +547,18 @@ export default function ToDoListPage() {
                         title="Deactivate"
                         onClick={() => handleInactive(row)}
                       >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <circle cx="12" cy="12" r="9.5" />
-                          <path d="M9 9l6 6M15 9l-6 6" />
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <g
+                            transform="translate(2 2)"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <line x1="12.3955" y1="7.5949" x2="7.6035" y2="12.3869" />
+                            <line x1="12.397" y1="12.3898" x2="7.601" y2="7.5928" />
+                            <path d="M14.3345,0.7502 L5.6655,0.7502 C2.6445,0.7502 0.7505,2.8892 0.7505,5.9162 L0.7505,14.0842 C0.7505,17.1112 2.6355,19.2502 5.6655,19.2502 L14.3335,19.2502 C17.3645,19.2502 19.2505,17.1112 19.2505,14.0842 L19.2505,5.9162 C19.2505,2.8892 17.3645,0.7502 14.3345,0.7502 Z" />
+                          </g>
                         </svg>
                       </button>
                     </td>

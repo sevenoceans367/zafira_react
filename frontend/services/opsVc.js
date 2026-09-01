@@ -408,7 +408,20 @@ export async function fetchLaytimeForm(comId) {
   return parseJson(response, 'Failed to load Laytime.');
 }
 
-export async function saveLaytime(payload) {
+/** POST multipart FormData when files are present — do not set Content-Type (browser sets boundary). */
+export async function saveLaytime(payload, files = []) {
+  const pending = Array.isArray(files) ? files.filter(Boolean) : [];
+  if (pending.length) {
+    const formData = new FormData();
+    formData.append('payload', JSON.stringify(payload));
+    pending.forEach((file) => formData.append('mul_file', file));
+    const response = await fetch(`${BASE}/ops/laytime`, {
+      method: 'POST',
+      body: formData,
+    });
+    return parseJson(response, 'Failed to save Laytime.');
+  }
+
   const response = await fetch(`${BASE}/ops/laytime`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

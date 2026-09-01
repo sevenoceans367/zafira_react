@@ -371,18 +371,24 @@
 .gprlBottomActions {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 10px;
   margin-top: 16px;
 }
 
 .gprlFooterActions {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
   flex: none;
   width: 100%;
-  justify-content: flex-end;
+}
+
+.gprlFooterActions > * {
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
 }
 
 .btnSaveOutline {

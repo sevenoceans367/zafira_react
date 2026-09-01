@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -12,11 +12,12 @@ import {
   useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
-import { appPath } from '@bainbridge/shared-routing';
+import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchLaytimeForm, openLaytime, saveLaytime } from '../../../services/opsVc.js';
 import OpsVcLaytimeHeaderActions from './OpsVcLaytimeHeaderActions.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
-import styles from './OpsPages.module.css';
+import pageStyles from './OpsPages.module.css';
+import layoutStyles from './OpsVcSofPage.module.css';
 
 const BACK_PATHS = {
   1: '/internal-user/vc/ops/in-ops-glance',
@@ -29,6 +30,67 @@ const FLASH = {
   1: { type: 'error', text: 'Sorry! this Laytime already exists for this port.' },
   2: { type: 'success', text: 'Laytime opened successfully.' },
 };
+
+function PortTypeIcon({ portType }) {
+  if (portType === 'DP') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 22V9" />
+        <path d="M18 15l-6-6-6 6" />
+        <path d="M4 4h16" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 2v13" />
+      <path d="M6 9l6 6 6-6" />
+      <path d="M4 20h16" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5.5" />
+      <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function LaytimeInfoPopup() {
+  return (
+    <div className={layoutStyles.infoPop}>
+      <div className={layoutStyles.infoPopTitle}>How this page works</div>
+      <ol className={layoutStyles.infoPopSteps}>
+        <li>Complete the numbered <b>Particulars</b> for this port call.</li>
+        <li>Enter laytime summary figures and record activities / deductions.</li>
+        <li><b>Submit to edit</b> saves drafts; <b>Send for Approval</b> or <b>Submit &amp; Close</b> when ready.</li>
+        <li>Attach supporting documents in the sidebar before submitting.</li>
+      </ol>
+    </div>
+  );
+}
+
+function AddRowButton({ onClick, disabled }) {
+  if (disabled) return null;
+  return (
+    <button type="button" className={layoutStyles.addRowBtn} onClick={onClick}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+      Add
+    </button>
+  );
+}
+
+function displayStoredFileName(stored) {
+  const raw = String(stored || '').trim();
+  const match = raw.match(/^\d+_(.+)$/);
+  return match ? match[1] : raw;
+}
 
 const LAYTIME_MANDATORY_FIELDS = [
   { key: 'stowageQty', label: 'STOWAGE PLAN QUANTITY' },
@@ -69,9 +131,9 @@ function focusMandatoryField(fieldId) {
 
   scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
 
-  if (container?.classList && styles.fieldHighlight) {
-    container.classList.add(styles.fieldHighlight);
-    window.setTimeout(() => container.classList.remove(styles.fieldHighlight), 2500);
+  if (container?.classList && pageStyles.fieldHighlight) {
+    container.classList.add(pageStyles.fieldHighlight);
+    window.setTimeout(() => container.classList.remove(pageStyles.fieldHighlight), 2500);
   }
 
   const applyFocus = () => {
@@ -242,6 +304,8 @@ export default function OpsVcLaytimePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [pendingFilesByKey, setPendingFilesByKey] = useState({});
+  const attachInputRef = useRef(null);
 
   const rateUnit = form?.rateUnit === 'hours' ? 'hours' : 'days';
   const unitLabel = rateUnit === 'hours' ? 'Hrs' : 'Days';
@@ -289,6 +353,7 @@ export default function OpsVcLaytimePage() {
 
   const activePort = form?.ports?.find((port) => port.key === activeKey) || null;
   const draft = activeKey ? drafts[activeKey] : null;
+  const pendingFiles = pendingFilesByKey[activeKey] || [];
   const locked = Boolean(activePort && !activePort.canEdit);
   const vesselParticulars = form?.vesselParticulars || {};
   const isLoadPort = activePort?.portType === 'LP';
@@ -369,6 +434,23 @@ export default function OpsVcLaytimePage() {
     patchDraft({ approvers: normalizeApprovers(ids) });
   };
 
+  const addPendingFiles = (fileList) => {
+    const next = Array.from(fileList || []).filter(Boolean);
+    if (!next.length || !activeKey) return;
+    setPendingFilesByKey((current) => ({
+      ...current,
+      [activeKey]: [...(current[activeKey] || []), ...next],
+    }));
+  };
+
+  const removePendingFile = (index) => {
+    if (!activeKey) return;
+    setPendingFilesByKey((current) => ({
+      ...current,
+      [activeKey]: (current[activeKey] || []).filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSubmit = async (submitId) => {
     if (!activePort || !draft) return;
 
@@ -425,7 +507,12 @@ export default function OpsVcLaytimePage() {
         sofId: activePort.sofId,
         submitId,
         ...draft,
-      });
+      }, pendingFiles);
+
+      setPendingFilesByKey((current) => ({
+        ...current,
+        [activeKey]: [],
+      }));
 
       if (result.closed) {
         navigate(`${backHref}?msg=3`);
@@ -515,57 +602,83 @@ export default function OpsVcLaytimePage() {
     <>
       <OpsVcLaytimeHeaderActions backHref={backHref} disabled={loading || saving} />
 
-      <div className={`zafira-page ${styles.page}`}>
+      <div className={`zafira-page ${pageStyles.page}`}>
         {(loading || saving) ? (
           <LoadingOverlay active label={saving ? 'Saving Laytime…' : 'Loading Laytime…'} />
         ) : null}
         {flash ? (
-          <div className={flash.type === 'error' ? styles.error : styles.flashSuccess}>{flash.text}</div>
+          <div className={flash.type === 'error' ? pageStyles.error : pageStyles.flashSuccess}>{flash.text}</div>
         ) : null}
-        {error ? <div className={styles.error}>{error}</div> : null}
-
-        <h3 className={styles.title}>Laytime</h3>
-        {(form?.voyageNo || form?.vesselName) ? (
-          <p className={styles.muted} style={{ marginTop: 0 }}>
-            {form.vesselName || ''}
-            {form.voyageNo ? ` · Voyage ${form.voyageNo}` : ''}
-            {form.message ? ` · Nom ${form.message}` : ''}
-          </p>
-        ) : null}
+        {error ? <div className={pageStyles.error}>{error}</div> : null}
 
         {!loading && !form?.ports?.length ? (
-          <div className={styles.empty}>
+          <div className={pageStyles.empty}>
             No load/discharge ports found on the cost sheet for Laytime.
           </div>
         ) : null}
 
         {form?.ports?.length ? (
           <>
-            <div className={styles.tabs}>
+            {(form?.message || form?.vesselName) ? (
+              <div className={layoutStyles.voyChip}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="5" r="2.2" />
+                  <path d="M12 7.2V21" />
+                  <path d="M8 10h8" />
+                  <path d="M4 13a8 8 0 0 0 16 0" />
+                </svg>
+                {form.message || '—'}
+                {form.vesselName ? (
+                  <>
+                    <span className={layoutStyles.vcSep}>|</span>
+                    {form.vesselName}
+                  </>
+                ) : null}
+                {form.voyageNo ? (
+                  <>
+                    <span className={layoutStyles.vcSep}>|</span>
+                    Voyage {form.voyageNo}
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className={layoutStyles.portTabs}>
               {form.ports.map((port) => (
                 <button
                   key={port.key}
                   type="button"
-                  className={port.key === activeKey ? styles.tabActive : styles.tab}
+                  className={port.key === activeKey ? `${layoutStyles.portTab} ${layoutStyles.portTabActive}` : layoutStyles.portTab}
                   onClick={() => setActiveKey(port.key)}
                 >
+                  <span className={layoutStyles.ptIco}>
+                    <PortTypeIcon portType={port.portType} />
+                  </span>
                   {port.tabLabel}
                 </button>
               ))}
             </div>
 
             {activePort && draft ? (
-              <div className={styles.letterPanel}>
-                <div className={styles.tripHeader}>
-                  <span />
-                  <span className={styles.linkMuted} title="PDF generation is not migrated yet.">
-                    <Button variant="outline" label="Generate PDF" disabled />
-                  </span>
-                </div>
-
-                <h4 className={styles.sectionTitle}>Particulars</h4>
-                <div className={styles.tableWrap}>
-                  <table className={`zafira-data-table ${styles.nestedTable}`}>
+              <div className={layoutStyles.gprlLayout}>
+                <div className={layoutStyles.gprlMain}>
+                  <div className={layoutStyles.formCard}>
+                    <div className={layoutStyles.sectionBlock}>
+                      <div className={layoutStyles.sectionHead}>
+                        <div
+                          className={`${layoutStyles.sectionIco} ${layoutStyles.sectionIcoNavy} ${layoutStyles.infoTrigger}`}
+                          tabIndex={0}
+                        >
+                          <InfoIcon />
+                          <LaytimeInfoPopup />
+                        </div>
+                        <div className={layoutStyles.sectionTitles}>
+                          <div className={layoutStyles.sectionTitle}>Particulars</div>
+                          <div className={layoutStyles.sectionSub}>Vessel and port call details</div>
+                        </div>
+                      </div>
+                <div className={pageStyles.tableWrap}>
+                  <table className={`zafira-data-table ${pageStyles.nestedTable}`}>
                     <tbody>
                       <tr>
                         <td width="4%">1.</td>
@@ -618,7 +731,7 @@ export default function OpsVcLaytimePage() {
                             />
                           </td>
                           <td>
-                            <div className={styles.inlineFields}>
+                            <div className={pageStyles.inlineFields}>
                               <DmyDateInput
                                 enableTime
                                 value={row.value}
@@ -628,7 +741,7 @@ export default function OpsVcLaytimePage() {
                               {!locked ? (
                                 <button
                                   type="button"
-                                  className={styles.dangerIcon}
+                                  className={pageStyles.dangerIcon}
                                   title="Delete"
                                   onClick={() => removeListRow('entityRows', index, emptyEntityRow, false)}
                                 >
@@ -643,14 +756,13 @@ export default function OpsVcLaytimePage() {
                   </table>
                 </div>
                 {!locked ? (
-                  <Button
-                    variant="primary"
-                    label="Add"
-                    onClick={() => addListRow('entityRows', emptyEntityRow)}
-                  />
+                  <AddRowButton onClick={() => addListRow('entityRows', emptyEntityRow)} disabled={locked} />
                 ) : null}
+                    </div>
 
-                <div className={styles.formGrid} style={{ marginTop: 16 }}>
+                    <div className={layoutStyles.sectionBlock}>
+                <h4 className={layoutStyles.blockTitle}>Laytime Options</h4>
+                <div className={pageStyles.formGrid}>
                   <Field label="Laytime Applicable">
                     <CardSelect
                       value={draft.laytimeApplicable}
@@ -672,7 +784,7 @@ export default function OpsVcLaytimePage() {
                       disabled={locked}
                     />
                   </Field>
-                  <label className={styles.checkItem}>
+                  <label className={pageStyles.checkItem}>
                     <input
                       type="checkbox"
                       checked={Boolean(draft.detention)}
@@ -681,7 +793,7 @@ export default function OpsVcLaytimePage() {
                     />
                     <span>Detention</span>
                   </label>
-                  <label className={styles.checkItem}>
+                  <label className={pageStyles.checkItem}>
                     <input
                       type="checkbox"
                       checked={Boolean(draft.reversible)}
@@ -691,9 +803,11 @@ export default function OpsVcLaytimePage() {
                     <span>Reversible</span>
                   </label>
                 </div>
+                    </div>
 
-                <h4 className={styles.sectionTitle}>Summary</h4>
-                <div className={styles.formGrid}>
+                    <div className={layoutStyles.sectionBlock}>
+                <h4 className={layoutStyles.blockTitle}>Summary</h4>
+                <div className={pageStyles.formGrid}>
                   <Field label="Nom ID">
                     <TextInput value={form.message || ''} disabled />
                   </Field>
@@ -716,10 +830,12 @@ export default function OpsVcLaytimePage() {
                     </Field>
                   ))}
                 </div>
+                    </div>
 
-                <h4 className={styles.sectionTitle}>Activities</h4>
-                <div className={styles.tableWrap}>
-                  <table className={`zafira-data-table ${styles.table}`}>
+                    <div className={layoutStyles.sectionBlock}>
+                <h4 className={layoutStyles.blockTitle}>Activities</h4>
+                <div className={pageStyles.tableWrap}>
+                  <table className={`zafira-data-table ${pageStyles.table}`}>
                     <thead>
                       <tr>
                         <th>Activity</th>
@@ -801,7 +917,7 @@ export default function OpsVcLaytimePage() {
                             {!locked ? (
                               <button
                                 type="button"
-                                className={styles.dangerIcon}
+                                className={pageStyles.dangerIcon}
                                 title="Delete"
                                 onClick={() => removeListRow('activities', index, emptyActivityRow)}
                               >
@@ -815,12 +931,14 @@ export default function OpsVcLaytimePage() {
                   </table>
                 </div>
                 {!locked ? (
-                  <Button variant="primary" label="Add" onClick={addActivityRow} />
+                  <AddRowButton onClick={addActivityRow} disabled={locked} />
                 ) : null}
+                    </div>
 
-                <h4 className={styles.sectionTitle}>Deductions</h4>
-                <div className={styles.tableWrap}>
-                  <table className={`zafira-data-table ${styles.table}`}>
+                    <div className={layoutStyles.sectionBlock}>
+                <h4 className={layoutStyles.blockTitle}>Deductions</h4>
+                <div className={pageStyles.tableWrap}>
+                  <table className={`zafira-data-table ${pageStyles.table}`}>
                     <thead>
                       <tr>
                         <th>Activity</th>
@@ -884,7 +1002,7 @@ export default function OpsVcLaytimePage() {
                             {!locked ? (
                               <button
                                 type="button"
-                                className={styles.dangerIcon}
+                                className={pageStyles.dangerIcon}
                                 title="Delete"
                                 onClick={() => removeListRow('deductions', index, emptyDeductionRow)}
                               >
@@ -898,22 +1016,22 @@ export default function OpsVcLaytimePage() {
                   </table>
                 </div>
                 {!locked ? (
-                  <Button
-                    variant="primary"
-                    label="Add"
-                    onClick={() => addListRow('deductions', emptyDeductionRow)}
-                  />
+                  <AddRowButton onClick={() => addListRow('deductions', emptyDeductionRow)} disabled={locked} />
                 ) : null}
+                    </div>
 
-                <h4 className={styles.sectionTitle}>Remarks</h4>
+                    <div className={layoutStyles.sectionBlock}>
+                <h4 className={layoutStyles.blockTitle}>Remarks</h4>
                 <Textarea
                   rows={3}
                   value={draft.remarks}
                   onChange={(e) => patchDraft({ remarks: e.target.value })}
                   disabled={locked}
                 />
+                    </div>
 
-                <h4 className={styles.sectionTitle}>Level 1 Approver</h4>
+                    <div className={layoutStyles.sectionBlock}>
+                <h4 className={layoutStyles.blockTitle}>Level 1 Approver</h4>
                 {approverOptions.length ? (
                   <Field label="Approvers" id="approvers">
                     <div data-field="approvers">
@@ -951,40 +1069,168 @@ export default function OpsVcLaytimePage() {
                     </div>
                   </Field>
                 )}
+                    </div>
+                  </div>
+                </div>
 
-                <div className={styles.footerActions}>
+                <div className={layoutStyles.gprlSide}>
+                  <div className={layoutStyles.sidePdf}>
+                    <button
+                      type="button"
+                      className={layoutStyles.btnPdfOutline}
+                      disabled
+                      title="PDF generation is not migrated yet."
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M6 2.5h8l5 5v12.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15.5a2 2 0 0 1 2-2z" />
+                        <path d="M14 2.5v4a1 1 0 0 0 1 1h4" />
+                        <path d="M8 12h8" />
+                        <path d="M8 15.5h8" />
+                      </svg>
+                      Generate PDF
+                    </button>
+                  </div>
+
+                  <div className={layoutStyles.sideCard}>
+                    <div className={layoutStyles.sideCardHead}>
+                      <div className={layoutStyles.sideIco}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        </svg>
+                      </div>
+                      <div className={layoutStyles.sideTitle}>Documents</div>
+                      <div className={layoutStyles.sideCount}>
+                        {(draft.keepFiles || []).length + pendingFiles.length}
+                      </div>
+                    </div>
+                    <div className={layoutStyles.sideCardBody}>
+                      {(draft.keepFiles || []).length || pendingFiles.length ? (
+                        <>
+                          {(draft.keepFiles || []).map((file) => (
+                            <div key={file} className={layoutStyles.docRow}>
+                              <a
+                                href={attachmentUrl(file)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {displayStoredFileName(file)}
+                              </a>
+                              {!locked ? (
+                                <button
+                                  type="button"
+                                  className={pageStyles.dangerIcon}
+                                  title="Remove from list"
+                                  onClick={() => patchDraft({
+                                    keepFiles: draft.keepFiles.filter((name) => name !== file),
+                                  })}
+                                >
+                                  <i className="bi bi-x-lg" aria-hidden />
+                                </button>
+                              ) : null}
+                            </div>
+                          ))}
+                          {pendingFiles.map((file, index) => (
+                            <div key={`pending-${file.name}-${index}`} className={layoutStyles.docRow}>
+                              <span>{file.name}</span>
+                              <span className={pageStyles.muted}>(pending)</span>
+                              {!locked ? (
+                                <button
+                                  type="button"
+                                  className={pageStyles.dangerIcon}
+                                  title="Remove"
+                                  onClick={() => removePendingFile(index)}
+                                >
+                                  <i className="bi bi-x-lg" aria-hidden />
+                                </button>
+                              ) : null}
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <div className={layoutStyles.sideEmpty}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                          </svg>
+                          <div>No documents uploaded yet.</div>
+                        </div>
+                      )}
+                      {!locked ? (
+                        <div className={layoutStyles.attachRow}>
+                          <input
+                            ref={attachInputRef}
+                            className={layoutStyles.hiddenFileInput}
+                            type="file"
+                            multiple
+                            onChange={(event) => {
+                              addPendingFiles(event.target.files);
+                              event.target.value = '';
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className={layoutStyles.addRowBtn}
+                            onClick={() => attachInputRef.current?.click()}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+                              <path d="M12 5v14M5 12h14" />
+                            </svg>
+                            Add Attachment
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
                   {!locked ? (
-                    <>
-                      <Button
-                        variant="primary"
-                        label="Submit to edit"
-                        onClick={() => handleSubmit(0)}
-                        disabled={saving}
-                      />
-                      <Button
-                        variant="primary"
-                        label="Send for Approval"
-                        onClick={() => handleSubmit(1)}
-                        disabled={saving}
-                      />
-                      <Button
-                        variant="primary"
-                        label="Submit & Close"
-                        onClick={() => handleSubmit(5)}
-                        disabled={saving}
-                      />
-                    </>
+                    <div className={layoutStyles.gprlBottomActions}>
+                      <div className={layoutStyles.gprlNote}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M12 9v4" />
+                          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                          <path d="M12 17h.01" />
+                        </svg>
+                        Select approvers before sending for approval. Use Submit &amp; Close when the laytime is final.
+                      </div>
+                      <div className={layoutStyles.gprlFooterActions}>
+                        <Button
+                          type="button"
+                          variant="saveOutline"
+                          label="Submit to edit"
+                          onClick={() => handleSubmit(0)}
+                          disabled={saving}
+                        />
+                        <Button
+                          type="button"
+                          variant="saveOutline"
+                          label="Send for Approval"
+                          onClick={() => handleSubmit(1)}
+                          disabled={saving}
+                        />
+                        <Button
+                          type="button"
+                          variant="submit"
+                          label="Submit & Close"
+                          onClick={() => handleSubmit(5)}
+                          disabled={saving}
+                        />
+                      </div>
+                    </div>
                   ) : (
-                    <p className={styles.muted}>This Laytime is locked / closed.</p>
+                    <>
+                      <p className={layoutStyles.lockedNote}>This Laytime is locked / closed.</p>
+                      {form?.canOpen ? (
+                        <div className={layoutStyles.gprlFooterActions} style={{ marginTop: 12 }}>
+                          <Button
+                            type="button"
+                            variant="submit"
+                            label="Open"
+                            onClick={handleOpen}
+                            disabled={saving}
+                          />
+                        </div>
+                      ) : null}
+                    </>
                   )}
-                  {locked && form?.canOpen ? (
-                    <Button
-                      variant="primary"
-                      label="Open"
-                      onClick={handleOpen}
-                      disabled={saving}
-                    />
-                  ) : null}
                 </div>
               </div>
             ) : null}

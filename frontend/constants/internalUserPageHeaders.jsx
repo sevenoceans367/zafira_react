@@ -103,7 +103,7 @@ export function resolveInternalUserHeader(pathname, search = '') {
   const coaHeader = resolveCoaHeader(pathname, search);
   if (coaHeader) return coaHeader;
 
-  const opsVcHeader = resolveOpsVcHeader(pathname);
+  const opsVcHeader = resolveOpsVcHeader(pathname, search);
   if (opsVcHeader) return opsVcHeader;
 
   const opsTcHeader = resolveOpsTcHeader(pathname);

@@ -7,7 +7,7 @@ import { OPS_VC_GLANCE_PATH, opsVcGlanceHref, parseOpsVcTab } from '../../pages/
 
 export const OPS_VC_ITEMS = [
   { id: 'ops', label: 'Spot Ops', to: OPS_VC_GLANCE_PATH },
-  { id: 'post-ops', label: 'Post-Ops', to: opsVcGlanceHref('post-ops') },
+  { id: 'post-ops', label: 'Spot Post Ops', to: opsVcGlanceHref('post-ops') },
   { id: 'history', label: 'Voyage History', to: opsVcGlanceHref('history') },
   { id: 'year-updation', label: 'Year Updation-VC/COA', to: '/internal-user/vc/ops/year-updation', hidden: true },
 ];

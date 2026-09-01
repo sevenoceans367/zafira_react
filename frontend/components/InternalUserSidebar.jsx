@@ -15,6 +15,7 @@ import genericFinancesIcon from '../assets/generic finances.png';
 import groupPaymentsIcon from '../assets/GroupPayments.png';
 import financialTransactionsIcon from '../assets/financial transactions.png';
 import fleetIcon from '../assets/vessel.png';
+import vesselsOnWaterIcon from '../assets/VesselsonWater.png';
 import elibraryIcon from '../assets/elibrary.svg';
 import timeCharterIcon from '../assets/TIME CHARTER.png';
 import periodContractIcon from '../assets/Period contact.svg';
@@ -103,8 +104,8 @@ const ELIBRARY_LINK = {
 
 const USER_GUIDES_LINK = {
   iconSrc: userGuidesIcon,
-  iconAlt: 'User Guides',
-  label: 'User Guides',
+  iconAlt: 'Guides',
+  label: 'Guides',
 };
 
 const TODO_LIST_LINK = {
@@ -122,11 +123,12 @@ export default function InternalUserSidebar({ isOpen }) {
   const inTc = currentPath.startsWith('/internal-user/tc');
   const inLiveVessels = LIVE_VESSEL_MAP_ENABLED
     && currentPath.startsWith(LIVE_VESSEL_MAP_PATH);
+  const showSocMenu = inVc || inLiveVessels;
 
   return (
     <AppSidebar isOpen={isOpen}>
       <ul className="sidebar-menu">
-        <SidebarSection label={inVc || inTc ? 'SOC' : 'SOPF'} />
+        <SidebarSection label={showSocMenu || inTc ? 'SOC' : 'SOPF'} />
         <SidebarLink
           to={appPath(HELP_DESK_HREF)}
           iconSrc={helpDeskIcon}
@@ -134,28 +136,6 @@ export default function InternalUserSidebar({ isOpen }) {
           label="Help Desk"
           active={currentPath.includes(HELP_DESK_HREF)}
         />
-        {inVc ? (
-          <SidebarLink
-            to={appPath('/internal-user/vc')}
-            iconSrc={commercialPerformanceIcon}
-            iconAlt="Commercial Performance"
-            label="Commercial Performance"
-            active={currentPath === '/internal-user/vc'}
-          />
-        ) : null}
-
-        {inLiveVessels ? (
-          <>
-            <SidebarSection label="LIVE MAP" />
-            <SidebarLink
-              to={appPath(LIVE_VESSEL_MAP_PATH)}
-              iconSrc={mapIcon}
-              iconAlt={LIVE_VESSEL_MAP_TITLE}
-              label={LIVE_VESSEL_MAP_TITLE}
-              active
-            />
-          </>
-        ) : null}
 
         {inSopf ? (
           <>
@@ -191,8 +171,40 @@ export default function InternalUserSidebar({ isOpen }) {
           </>
         ) : null}
 
-        {inVc ? (
+        {showSocMenu ? (
           <>
+            <SidebarLink
+              to={appPath('/internal-user/vc')}
+              iconSrc={commercialPerformanceIcon}
+              iconAlt="Commercial Performance"
+              label="Commercial Performance"
+              active={currentPath === '/internal-user/vc'}
+            />
+            {LIVE_VESSEL_MAP_ENABLED ? (
+              <SidebarLink
+                to={appPath(LIVE_VESSEL_MAP_PATH)}
+                iconSrc={mapIcon}
+                iconAlt={LIVE_VESSEL_MAP_TITLE}
+                label={LIVE_VESSEL_MAP_TITLE}
+                active={currentPath.startsWith(LIVE_VESSEL_MAP_PATH)}
+              />
+            ) : (
+              <SidebarLink
+                to={appPath('/internal-user/sopf/vessel_position')}
+                iconSrc={vesselsOnWaterIcon}
+                iconAlt="Vessels on Water"
+                label="Vessels on Water"
+                active={currentPath.includes('/internal-user/sopf/vessel_position')}
+              />
+            )}
+            <SidebarLink
+              to={todoListAppPath('vc')}
+              iconSrc={TODO_LIST_LINK.iconSrc}
+              iconAlt={TODO_LIST_LINK.iconAlt}
+              label={TODO_LIST_LINK.label}
+              active={currentPath.startsWith('/internal-user/vc/todo-list')}
+            />
+
             <SidebarSection label="Commercial Operations" />
             <SidebarLink
               to={fleetAppPath('vc')}
@@ -201,6 +213,8 @@ export default function InternalUserSidebar({ isOpen }) {
               label={FLEET_LINK.label}
               active={currentPath.startsWith('/internal-user/vc/fleet')}
             />
+            <OpsVcSidebarTree isOpen={isOpen} />
+            <OpsTcSidebarTree isOpen={isOpen} />
             <SidebarLink
               to={periodContractAppPath('vc')}
               iconSrc={PERIOD_CONTRACT_LINK.iconSrc}
@@ -208,27 +222,7 @@ export default function InternalUserSidebar({ isOpen }) {
               label={PERIOD_CONTRACT_LINK.label}
               active={currentPath.startsWith('/internal-user/vc/period-contracts')}
             />
-            <SidebarLink
-              to={elibraryAppPath('vc')}
-              iconSrc={ELIBRARY_LINK.iconSrc}
-              iconAlt={ELIBRARY_LINK.iconAlt}
-              label={ELIBRARY_LINK.label}
-              active={currentPath.startsWith('/internal-user/vc/elibrary')}
-            />
-            <SidebarLink
-              to={userGuidesAppPath('vc')}
-              iconSrc={USER_GUIDES_LINK.iconSrc}
-              iconAlt={USER_GUIDES_LINK.iconAlt}
-              label={USER_GUIDES_LINK.label}
-              active={currentPath.startsWith('/internal-user/vc/user-guides')}
-            />
-            <SidebarLink
-              to={todoListAppPath('vc')}
-              iconSrc={TODO_LIST_LINK.iconSrc}
-              iconAlt={TODO_LIST_LINK.iconAlt}
-              label={TODO_LIST_LINK.label}
-              active={currentPath.startsWith('/internal-user/vc/todo-list')}
-            />
+            <CoasSidebarTree isOpen={isOpen} />
             <SidebarLink
               to={groupPaymentsAppPath()}
               iconSrc={groupPaymentsIcon}
@@ -244,11 +238,22 @@ export default function InternalUserSidebar({ isOpen }) {
               label="Generic Finances"
               active={currentPath.startsWith('/internal-user/vc/generic-finances')}
             />
-            <CoasSidebarTree isOpen={isOpen} />
-            <OpsVcSidebarTree isOpen={isOpen} />
-            <OpsTcSidebarTree isOpen={isOpen} />
             <ReportsSidebarTree isOpen={isOpen} />
             <MastersSidebarTree isOpen={isOpen} />
+            <SidebarLink
+              to={elibraryAppPath('vc')}
+              iconSrc={ELIBRARY_LINK.iconSrc}
+              iconAlt={ELIBRARY_LINK.iconAlt}
+              label={ELIBRARY_LINK.label}
+              active={currentPath.startsWith('/internal-user/vc/elibrary')}
+            />
+            <SidebarLink
+              to={userGuidesAppPath('vc')}
+              iconSrc={USER_GUIDES_LINK.iconSrc}
+              iconAlt={USER_GUIDES_LINK.iconAlt}
+              label={USER_GUIDES_LINK.label}
+              active={currentPath.startsWith('/internal-user/vc/user-guides')}
+            />
           </>
         ) : null}
 

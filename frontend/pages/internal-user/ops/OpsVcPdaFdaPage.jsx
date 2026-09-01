@@ -161,7 +161,7 @@ export default function OpsVcPdaFdaPage() {
                 </>
               ) : (
                 <div className={styles.empty}>
-                  No nominated agent for this port. Nominate via Generate Port Related Letters.
+                  No nominated agent for this port. Nominate via Generate Voyage Letters.
                 </div>
               )}
             </div>

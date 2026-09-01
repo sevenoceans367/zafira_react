@@ -32,24 +32,24 @@ export function resolveUserGuidesHeader(pathname) {
 
   if (guide) {
     return {
-      title: 'User Guides',
+      title: 'Guides',
       currentPage: guide.title,
       breadcrumbs: [
         HOME,
         moduleBreadcrumb(module),
-        { label: 'User Guides', href: listHref },
+        { label: 'Guides', href: listHref },
         { label: guide.title },
       ],
     };
   }
 
   return {
-    title: 'User Guides',
-    currentPage: 'User Guides',
+    title: 'Guides',
+    currentPage: 'Guides',
     breadcrumbs: [
       HOME,
       moduleBreadcrumb(module),
-      { label: 'User Guides' },
+      { label: 'Guides' },
     ],
   };
 }

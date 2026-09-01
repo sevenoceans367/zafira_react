@@ -75,9 +75,9 @@ export const SOPF_CHARTERING_SIDEBAR_ITEMS = [
   {
     id: 'user_guides',
     href: userGuidesAppPath('sopf'),
-    label: 'User Guides',
+    label: 'Guides',
     iconSrc: userGuidesIcon,
-    iconAlt: 'User Guides',
+    iconAlt: 'Guides',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/user-guides'),
   },
 ];

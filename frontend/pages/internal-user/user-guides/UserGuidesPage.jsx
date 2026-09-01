@@ -10,7 +10,7 @@ export default function UserGuidesPage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
-      <h3 className={styles.title}>User Guides</h3>
+      <h3 className={styles.title}>Guides</h3>
 
       <div className={styles.guideList}>
         {USER_GUIDES.map((guide) => (

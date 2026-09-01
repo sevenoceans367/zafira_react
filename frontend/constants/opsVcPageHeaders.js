@@ -6,11 +6,11 @@ const OPS_VC = { label: 'Spot Ops', href: appPath('/internal-user/vc/ops/in-ops-
 
 const PAGES = {
   'in-ops-glance': 'Spot Ops',
-  'post-ops': 'Post-Ops',
+  'post-ops': 'Spot Post Ops',
   history: 'Voyage History',
   'year-updation': 'Year Updation',
   'voyage-report': 'Voyage Report',
-  'agency-letter': 'Generate Port Related Letters',
+  'agency-letter': 'Generate Voyage Letters',
   'pda-fda': 'PDA/FDA',
   documents: 'Documents',
   'payment-grid': 'Payment / Invoice Grid',
@@ -55,12 +55,22 @@ function header(title, breadcrumbs) {
   return { title, currentPage: title, breadcrumbs };
 }
 
-export function resolveOpsVcHeader(pathname) {
+export function resolveOpsVcHeader(pathname, search = '') {
   if (pathname.startsWith('/internal-user/vc/ops-tc')) return null;
   if (!pathname.startsWith('/internal-user/vc/ops')) return null;
 
   const match = pathname.match(/^\/internal-user\/vc\/ops\/([^/]+)/);
-  const pageId = match?.[1];
+  let pageId = match?.[1];
+
+  // Hub tabs share /ops/in-ops-glance; map ?tab= to the page title.
+  if (pageId === 'in-ops-glance') {
+    const tab = new URLSearchParams(
+      search.startsWith('?') ? search.slice(1) : search,
+    ).get('tab');
+    if (tab === 'post-ops' || tab === 'postops' || tab === '2') pageId = 'post-ops';
+    else if (tab === 'history' || tab === '3') pageId = 'history';
+  }
+
   const label = PAGES[pageId];
   const inOpsCrumb = {
     label: PAGES['in-ops-glance'],

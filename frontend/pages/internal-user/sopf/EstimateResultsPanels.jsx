@@ -4,17 +4,32 @@ import CollapsiblePanel from './CollapsiblePanel.jsx';
 import { sanitizeFieldDecimal, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import styles from './UpdateEstimatePage.module.css';
 
-function Row({ label, value, accent }) {
+function Row({ label, value, accent, empty = false }) {
   return (
     <div className={styles.resultCell}>
       <span className={accent ? styles.resultAccent : undefined}>{label}</span>
-      <input value={value || '0.00'} readOnly />
+      <input value={empty ? '' : (value || '0.00')} readOnly />
     </div>
   );
 }
 
+function parseBunkerPrice(value) {
+  const n = parseFloat(String(value ?? '').replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function hasBunkerGradePrice(bunkerSummaryRows, grade) {
+  const row = (bunkerSummaryRows || []).find((item) => item.grade === grade);
+  return parseBunkerPrice(row?.price) > 0;
+}
+
+function hasAnyBunkerGradePrice(bunkerSummaryRows) {
+  return (bunkerSummaryRows || []).some((row) => parseBunkerPrice(row.price) > 0);
+}
+
 export default function EstimateResultsPanels({
   form,
+  bunkerSummaryRows = [],
   readOnly = false,
   complianceYear = new Date().getFullYear(),
   onFieldChange,
@@ -29,6 +44,11 @@ export default function EstimateResultsPanels({
     if (onRecalc) onRecalc(key, next);
     else onFieldChange?.(key, next);
   };
+
+  const hsfoPriced = hasBunkerGradePrice(bunkerSummaryRows, 'HSFO');
+  const vlsfoPriced = hasBunkerGradePrice(bunkerSummaryRows, 'VLSFO');
+  const lsmgoPriced = hasBunkerGradePrice(bunkerSummaryRows, 'LSMGO');
+  const showBunkerTotalCost = hasAnyBunkerGradePrice(bunkerSummaryRows);
 
   return (
     <>
@@ -64,13 +84,18 @@ export default function EstimateResultsPanels({
 
       <CollapsiblePanel title="Bunker Results" defaultOpen={false} className={styles.panelInverse}>
         <div className={styles.resultsGrid}>
-          <Row label="Total HSFO (MT)" value={form.hsfoMt} />
-          <Row label="EU ETS/Fuel EU HSFO (MT)" value={form.etsHsfoMt} />
-          <Row label="Total VLSFO (MT)" value={form.vlsfoMt} />
-          <Row label="EU ETS/Fuel EU VLSFO (MT)" value={form.etsVlsfoMt} />
-          <Row label="Total LSMGO (MT)" value={form.lsmgoMt} />
-          <Row label="EU ETS/Fuel EU LSMGO (MT)" value={form.etsLsmgoMt} />
-          <Row label="Total Cost" value={form.bunkerResultsCost} accent />
+          <Row label="Total HSFO (MT)" value={form.hsfoMt} empty={!hsfoPriced} />
+          <Row label="EU ETS/Fuel EU HSFO (MT)" value={form.etsHsfoMt} empty={!hsfoPriced} />
+          <Row label="Total VLSFO (MT)" value={form.vlsfoMt} empty={!vlsfoPriced} />
+          <Row label="EU ETS/Fuel EU VLSFO (MT)" value={form.etsVlsfoMt} empty={!vlsfoPriced} />
+          <Row label="Total LSMGO (MT)" value={form.lsmgoMt} empty={!lsmgoPriced} />
+          <Row label="EU ETS/Fuel EU LSMGO (MT)" value={form.etsLsmgoMt} empty={!lsmgoPriced} />
+          <Row
+            label="Total Cost"
+            value={form.bunkerResultsCost}
+            accent
+            empty={!showBunkerTotalCost}
+          />
         </div>
       </CollapsiblePanel>
 

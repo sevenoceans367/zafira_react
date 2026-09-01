@@ -613,7 +613,7 @@ export default function EstimateListPage() {
                       <td className={styles.cellNum}>{row.tce}</td>
                       <td className={styles.cellNum}>{row.profitLoss}</td>
                       {isCompletedTab ? (
-                        <td className={`${styles.cellNum} ${displayLivePnl(row.liveProfitLoss) === 'pending' ? styles.pending : ''}`}>
+                        <td className={`${styles.cellNum} ${styles.livePnl} ${displayLivePnl(row.liveProfitLoss) === 'pending' ? styles.pending : ''}`}>
                           {displayLivePnl(row.liveProfitLoss)}
                         </td>
                       ) : null}

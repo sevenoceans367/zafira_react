@@ -738,6 +738,19 @@ function calcCostSheetBunkerExpenseTotal(form, classify, bunkerMt, priceByGrade,
   };
 }
 
+/** Compliance / ETS uses bunker MT only for grades with a Bunkers-panel price. */
+function bunkerMtForPricedGrades(bunkerMt, etsMt, priceByGrade) {
+  const complianceBunker = { HSFO: 0, VLSFO: 0, LSMGO: 0 };
+  const complianceEts = { HSFO: 0, VLSFO: 0, LSMGO: 0 };
+  for (const grade of ['HSFO', 'VLSFO', 'LSMGO']) {
+    if (num(priceByGrade?.[grade]) > 0) {
+      complianceBunker[grade] = bunkerMt[grade] || 0;
+      complianceEts[grade] = etsMt[grade] || 0;
+    }
+  }
+  return { complianceBunker, complianceEts };
+}
+
 /**
  * PHP Bunkers summary: qty from voyage calc MT, actual qty from ROB + supplied
  * (updatecost_sheet_tci getBunkerCalculation), price from SECA row (slave2 EST_PRICE).
@@ -1757,31 +1770,35 @@ export function computeEstimateTotals(form) {
     ? costSheetBunker.total
     : totalSecaBunkerCostSynced;
 
+  const { complianceBunker, complianceEts } = bunkerMtForPricedGrades(
+    bunkerMt,
+    etsMt,
+    priceByGrade,
+  );
+
   const factors = form._complianceFactors || {};
   const fac = (key) => factors[key] || { co2Fac: 0, penalty: 0, intensity: 0, ghgRate: 0, euaCo2Rate: 0 };
-  // PHP Fuel EU penalties use TOTAL bunker MT (txtHsfo / txtVlfoMT / txtLsmgo)
-  const hsfoPenal = round2(bunkerMt.HSFO * fac('HSFO').penalty);
-  const vlsfoPenal = round2(bunkerMt.VLSFO * fac('VLSFO').penalty);
-  const lsmgoPenal = round2(bunkerMt.LSMGO * fac('LSMGO').penalty);
+  // Fuel EU penalties and CO2 use bunker MT only when that grade has a Bunkers price.
+  const hsfoPenal = round2(complianceBunker.HSFO * fac('HSFO').penalty);
+  const vlsfoPenal = round2(complianceBunker.VLSFO * fac('VLSFO').penalty);
+  const lsmgoPenal = round2(complianceBunker.LSMGO * fac('LSMGO').penalty);
 
-  // PHP Total CO2 uses totals
   const co2mt = round2(
-    bunkerMt.HSFO * fac('HSFO').co2Fac
-    + bunkerMt.VLSFO * fac('VLSFO').co2Fac
-    + bunkerMt.LSMGO * fac('LSMGO').co2Fac,
+    complianceBunker.HSFO * fac('HSFO').co2Fac
+    + complianceBunker.VLSFO * fac('VLSFO').co2Fac
+    + complianceBunker.LSMGO * fac('LSMGO').co2Fac,
   );
   const co2Price = num(form.co2Price);
   const co2Cost = round2(co2mt * co2Price);
-  // PHP EEOI CO2 / EUA use ETS fields (txtEtsFuelHsfo / txtFuelVlsfo / txtEuEtslsmgo)
   const eeoiCo2 = round2(
-    etsMt.HSFO * fac('HSFO').co2Fac
-    + etsMt.VLSFO * fac('VLSFO').co2Fac
-    + etsMt.LSMGO * fac('LSMGO').co2Fac,
+    complianceEts.HSFO * fac('HSFO').co2Fac
+    + complianceEts.VLSFO * fac('VLSFO').co2Fac
+    + complianceEts.LSMGO * fac('LSMGO').co2Fac,
   );
   const euaCo2mtRaw =
-    etsMt.HSFO * fac('HSFO').co2Fac * (fac('HSFO').euaCo2Rate / 100)
-    + etsMt.VLSFO * fac('VLSFO').co2Fac * (fac('VLSFO').euaCo2Rate / 100)
-    + etsMt.LSMGO * fac('LSMGO').co2Fac * (fac('LSMGO').euaCo2Rate / 100);
+    complianceEts.HSFO * fac('HSFO').co2Fac * (fac('HSFO').euaCo2Rate / 100)
+    + complianceEts.VLSFO * fac('VLSFO').co2Fac * (fac('VLSFO').euaCo2Rate / 100)
+    + complianceEts.LSMGO * fac('LSMGO').co2Fac * (fac('LSMGO').euaCo2Rate / 100);
   // PHP: txtEuaCo2mt shows toFixed(2), but txteuaCo2Usd uses unrounded euaco2 × price
   const euaCo2mt = round2(euaCo2mtRaw);
   const euaPrice = num(form.euaPrice);
@@ -1790,8 +1807,7 @@ export function computeEstimateTotals(form) {
   const dwtQty = num(form.dwtSummer);
   let eeoi = 0;
   let cii = 0;
-  // PHP EEOI/CII formulas use TOTAL fuel MT (txtHsfo/Vlfo/Lsmgo), gated on ETS > 0
-  const hasEts = etsMt.HSFO > 0 || etsMt.VLSFO > 0 || etsMt.LSMGO > 0;
+  const hasEts = complianceEts.HSFO > 0 || complianceEts.VLSFO > 0 || complianceEts.LSMGO > 0;
   if (hasEts && co2mt > 0 && cargoQtyTotal > 0 && sailedDist > 0) {
     eeoi = round2((co2mt * 1e6) / (cargoQtyTotal * sailedDist));
   }

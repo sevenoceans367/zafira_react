@@ -198,6 +198,15 @@
   font-weight: 600;
 }
 
+.livePnl {
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.livePnl.pending {
+  font-weight: 700;
+}
+
 .cellRoute {
   color: #5b6472;
 }

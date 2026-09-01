@@ -2202,6 +2202,7 @@ export default function EstimateDetailSections({
         <div className={`${styles.estimateAsideInner} ${styles.resultsAside}`}>
           <EstimateResultsPanels
             form={form}
+            bunkerSummaryRows={bunkerSummaryRows}
             readOnly={readOnly}
             complianceYear={lookups.complianceYear || new Date().getFullYear()}
             onFieldChange={onFieldChange}

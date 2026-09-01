@@ -1,6 +1,14 @@
 /** App mount path, e.g. '' for root, '/admin' for a sub-path. Set VITE_APP_BASE in .env. */
 export const getAppBase = () => import.meta.env.VITE_APP_BASE || '';
 
+export const ATTACHMENT_URL_PREFIX = '/api/attachment';
+
+export function attachmentUrl(storedFile) {
+  const file = String(storedFile || '').trim();
+  if (!file) return '';
+  return `${ATTACHMENT_URL_PREFIX}/${encodeURIComponent(file)}`;
+}
+
 const EXTERNAL_PREFIXES = ['/api', '/attachment'];
 
 const usesExternalPath = (route) =>

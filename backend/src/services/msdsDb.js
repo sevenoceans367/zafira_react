@@ -3,6 +3,7 @@ import path from 'path';
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 import { attachmentDir } from '../utils/ticketAttachments.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 function parseUploads(upload) {
   return String(upload || '')
@@ -12,7 +13,7 @@ function parseUploads(upload) {
     .map((file) => ({
       file,
       name: file,
-      url: `/attachment/${file}`,
+      url: attachmentPublicUrl(file),
     }));
 }
 

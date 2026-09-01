@@ -1,9 +1,10 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ConfirmProvider } from '@bainbridge/shared-ui';
 import {
   installBasePathGlobals,
   installLinkInterceptor,
+  ATTACHMENT_URL_PREFIX,
 } from '@bainbridge/shared-routing';
 import RequireAuth from '../components/RequireAuth.jsx';
 import InternalUserLayout from '../components/Layout/InternalUserLayout.jsx';
@@ -89,6 +90,23 @@ import SopfComingSoonPage from '../pages/internal-user/sopf/SopfComingSoonPage.j
 
 installBasePathGlobals();
 installLinkInterceptor();
+
+function SpaFallback() {
+  const { pathname, search } = useLocation();
+
+  useEffect(() => {
+    if (pathname.startsWith('/attachment/')) {
+      const filePart = pathname.slice('/attachment/'.length);
+      window.location.replace(`${ATTACHMENT_URL_PREFIX}/${filePart}${search}`);
+    }
+  }, [pathname, search]);
+
+  if (pathname.startsWith('/attachment/') || pathname.startsWith(`${ATTACHMENT_URL_PREFIX}/`)) {
+    return null;
+  }
+
+  return <Navigate to="/" replace />;
+}
 
 export default function App() {
   const base = import.meta.env.VITE_APP_BASE || undefined;
@@ -289,7 +307,7 @@ export default function App() {
             <Route path="/internal-user/sopf/time-charter" element={<TcOutEstimatesListPage />} />
           </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<SpaFallback />} />
         </Routes>
       </BrowserRouter>
     </ConfirmProvider>

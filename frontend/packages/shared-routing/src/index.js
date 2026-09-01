@@ -1,5 +1,15 @@
 export { getLegacyDryoutBase, getLegacyDryoutHref } from './legacyDryout.js';
 
+/** Public URL prefix for uploaded files (served under /api on production). */
+export const ATTACHMENT_URL_PREFIX = '/api/attachment';
+
+/** Build a browser URL for a stored attachment filename. */
+export function attachmentUrl(storedFile) {
+  const file = String(storedFile || '').trim();
+  if (!file) return '';
+  return `${ATTACHMENT_URL_PREFIX}/${encodeURIComponent(file)}`;
+}
+
 /** App mount path, e.g. '' for portal, '/admin' for admin, '/ops' for internal-user. */
 export const getAppBase = () => import.meta.env.VITE_APP_BASE || '';
 

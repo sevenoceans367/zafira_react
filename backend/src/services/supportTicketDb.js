@@ -1,5 +1,6 @@
 import { appContext, isDbConfigured } from '../config.js';
 import { getPool } from '../db.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 const STATUS_LABELS = { 1: 'OPEN', 2: 'WIP', 3: 'CLOSED' };
 
@@ -20,7 +21,7 @@ function parseAttachments(attachment, attachmentName) {
   return files.map((file, index) => ({
     file,
     name: names[index] || file,
-    url: `/attachment/${file}`,
+    url: attachmentPublicUrl(file),
   }));
 }
 

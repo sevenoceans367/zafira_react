@@ -1,5 +1,7 @@
 /** User Guides from php/module_cbt.php + showguidepdf.php */
 
+import { attachmentUrl } from '@bainbridge/shared-routing';
+
 export const USER_GUIDES = [
   {
     id: '1',
@@ -23,5 +25,5 @@ export function getUserGuideById(id) {
 }
 
 export function getUserGuideAttachmentUrl(fileName) {
-  return `/attachment/${encodeURIComponent(fileName)}`;
+  return attachmentUrl(fileName);
 }

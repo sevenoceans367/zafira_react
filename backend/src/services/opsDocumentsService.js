@@ -4,6 +4,7 @@ import {
   dbDeleteOpsDocument,
   dbGetOpsDocuments,
 } from './opsDocumentsDb.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 const MOCK = {
   comId: '1001',
@@ -16,12 +17,12 @@ const MOCK = {
       fileName: 'Charter Party',
       storedFiles: 'mock_cp.pdf',
       attachments: [
-        { file: 'mock_cp.pdf', name: 'cp.pdf', url: '/attachment/mock_cp.pdf' },
+        { file: 'mock_cp.pdf', name: 'cp.pdf', url: attachmentPublicUrl('mock_cp.pdf') },
       ],
     },
   ],
   vesselAttachments: [
-    { file: 'mock_vessel.pdf', name: 'vessel.pdf', url: '/attachment/mock_vessel.pdf' },
+    { file: 'mock_vessel.pdf', name: 'vessel.pdf', url: attachmentPublicUrl('mock_vessel.pdf') },
   ],
   invoiceAttachments: [],
 };
@@ -58,7 +59,7 @@ export async function createOpsDocument(comId, payload = {}, files = {}) {
     attachments: String(stored).split(',').map((file, index) => ({
       file: file.trim(),
       name: String(names).split(',')[index]?.trim() || file.trim(),
-      url: `/attachment/${encodeURIComponent(file.trim())}`,
+      url: attachmentPublicUrl(file.trim()),
     })),
   });
   return { msg: 0, id };

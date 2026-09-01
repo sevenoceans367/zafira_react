@@ -36,6 +36,7 @@ export {
 
 export {
   appPath,
+  attachmentUrl,
   getAppBase,
   getAppRoute,
   navigateTo,

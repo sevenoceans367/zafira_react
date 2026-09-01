@@ -1,5 +1,6 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 function formatDateDisplay(value) {
   if (!value) return '';
@@ -34,7 +35,7 @@ function parseAttachments(upload, uploadName) {
   return files.map((file, index) => ({
     file,
     name: names[index] || file,
-    url: `/attachment/${encodeURIComponent(file)}`,
+    url: attachmentPublicUrl(file),
   }));
 }
 

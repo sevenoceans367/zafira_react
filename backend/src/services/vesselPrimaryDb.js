@@ -1,5 +1,6 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 function parseAttachments(attachment, attachmentName) {
   const files = String(attachment || '').split(',').map((part) => part.trim()).filter(Boolean);
@@ -7,7 +8,7 @@ function parseAttachments(attachment, attachmentName) {
   return files.map((file, index) => ({
     file,
     name: names[index] || file,
-    url: `/attachment/${file}`,
+    url: attachmentPublicUrl(file),
   }));
 }
 

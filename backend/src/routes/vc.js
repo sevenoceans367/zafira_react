@@ -47,6 +47,7 @@ import {
   saveAgencyLetterTc,
 } from '../services/agencyLetterTcService.js';
 import { getPaymentGridTc } from '../services/paymentGridTcService.js';
+import { getPaymentGridVc } from '../services/paymentGridVcService.js';
 import { getVoyageStatus } from '../services/voyageStatusService.js';
 import {
   cancelFreightInvoice,

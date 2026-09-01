@@ -7,6 +7,7 @@ import {
 } from './commercialParametersNavApiSeed.js';
 import { CANAL_ORC_IDS, getSuezScnt } from './canalOrcService.js';
 import { normalizeEstimateNo } from './estimateVoyage.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 /** PHP often stores INT_MAX as a placeholder RANDOMID for new/unsaved rows. */
 const PLACEHOLDER_RANDOM_ID = '2147483647';
@@ -667,7 +668,7 @@ function parseAttachments(upload, uploadName) {
   return files.map((file, i) => ({
     file,
     name: names[i] || file,
-    url: `/attachment/${file}`,
+    url: attachmentPublicUrl(file),
   }));
 }
 

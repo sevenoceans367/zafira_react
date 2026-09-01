@@ -1,5 +1,6 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -27,7 +28,7 @@ function parseAttachments(files, names) {
   return fileList.map((file, index) => ({
     file,
     name: nameList[index] || file,
-    url: `/attachment/${encodeURIComponent(file)}`,
+    url: attachmentPublicUrl(file),
   }));
 }
 

@@ -6,6 +6,7 @@ import {
   parseDMYDate,
   parseDMYDateTime,
 } from '../utils/periodContractDates.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 function nullOrNumber(value) {
   if (value == null || value === '') return null;
@@ -55,7 +56,7 @@ function parseAttachments(attachment, attachmentName) {
   return files.map((file, index) => ({
     file,
     name: names[index] || file,
-    url: `/attachment/${file}`,
+    url: attachmentPublicUrl(file),
   }));
 }
 

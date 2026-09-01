@@ -11,7 +11,7 @@ import {
   useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
-import { appPath } from '@bainbridge/shared-routing';
+import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchSofForm, saveSof } from '../../../services/opsVc.js';
 import OpsVcSofHeaderActions from './OpsVcSofHeaderActions.jsx';
 import pageStyles from './OpsPages.module.css';
@@ -246,8 +246,7 @@ function displayStoredFileName(stored) {
 }
 
 function attachmentHref(stored) {
-  const file = String(stored || '').trim();
-  return file ? `/attachment/${encodeURIComponent(file)}` : '';
+  return attachmentUrl(stored);
 }
 
 function draftFromPort(port) {

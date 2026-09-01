@@ -6,6 +6,7 @@ import {
   TANKER_RADIO_FIELDS,
   TANKER_SELECT_FIELDS,
 } from './tankerParticularsFieldMap.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 function formatDmyDate(value) {
   if (!value || value === '0000-00-00' || value === '1970-01-01') return '';
@@ -23,7 +24,7 @@ function parseAttachmentList(upload, uploadName) {
   return files.map((file, index) => ({
     file,
     name: names[index] || file,
-    url: `/attachment/${file}`,
+    url: attachmentPublicUrl(file),
   }));
 }
 

@@ -1,4 +1,5 @@
 import { isMgmtUser } from '../config.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 import {
   dbAddTicketMessage,
   dbCreateSupportTicket,
@@ -106,7 +107,7 @@ export async function createSupportTicket({ message, attachment = '', attachment
       ? attachment.split(',').map((file, index) => ({
         file,
         name: attachmentName.split(',')[index] || file,
-        url: `/attachment/${file}`,
+        url: attachmentPublicUrl(file),
       }))
       : [],
     reply: '',

@@ -40,17 +40,13 @@ function MoreIcon() {
   );
 }
 
-export default function EstimateListTableToolbar({
-  addHref,
-  onSensitivityAnalysis,
-  sensitivityDisabled = false,
+export function EstimateListDownloadMenu({
   onDownloadCsv,
   onDownloadPdf,
   onEmailAttachment,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
-  const sensitivityEnabled = !sensitivityDisabled;
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -82,6 +78,47 @@ export default function EstimateListTableToolbar({
     }
   };
 
+  return (
+    <div className={styles.menuWrap} ref={menuRef}>
+      <button
+        type="button"
+        className={styles.btnMore}
+        aria-label="More options"
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        <MoreIcon />
+      </button>
+      {menuOpen ? (
+        <div className={styles.menuDropdown} role="menu">
+          {DOWNLOAD_OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="menuitem"
+              className={styles.menuItem}
+              onClick={() => handleDownloadAction(option.id)}
+            >
+              <span className={styles.menuIcon} aria-hidden>
+                <DownloadIcon size={16} title="" />
+              </span>
+              <span>{option.label}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export default function EstimateListTableToolbar({
+  addHref,
+  onSensitivityAnalysis,
+  sensitivityDisabled = false,
+  showSensitivity = true,
+}) {
+  const sensitivityEnabled = !sensitivityDisabled;
   const resolvedAddHref = addHref?.startsWith('/') && !addHref.startsWith('http')
     ? appPath(addHref)
     : addHref;
@@ -92,46 +129,18 @@ export default function EstimateListTableToolbar({
         <PlusIcon />
         Add
       </Link>
-      <button
-        type="button"
-        className={`${styles.btnSensitivity} ${sensitivityEnabled ? styles.btnSensitivityEnabled : ''}`}
-        disabled={sensitivityDisabled}
-        title={sensitivityEnabled ? 'Open Sensitivity Analysis for selected estimates' : 'Select a row to enable'}
-        onClick={onSensitivityAnalysis}
-      >
-        <SensitivityIcon />
-        Sensitivity Analysis
-      </button>
-      <div className={styles.menuWrap} ref={menuRef}>
+      {showSensitivity ? (
         <button
           type="button"
-          className={styles.btnMore}
-          aria-label="More options"
-          aria-expanded={menuOpen}
-          aria-haspopup="menu"
-          onClick={() => setMenuOpen((open) => !open)}
+          className={`${styles.btnSensitivity} ${sensitivityEnabled ? styles.btnSensitivityEnabled : ''}`}
+          disabled={sensitivityDisabled}
+          title={sensitivityEnabled ? 'Open Sensitivity Analysis for selected estimates' : 'Select a row to enable'}
+          onClick={onSensitivityAnalysis}
         >
-          <MoreIcon />
+          <SensitivityIcon />
+          Sensitivity Analysis
         </button>
-        {menuOpen ? (
-          <div className={styles.menuDropdown} role="menu">
-            {DOWNLOAD_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                role="menuitem"
-                className={styles.menuItem}
-                onClick={() => handleDownloadAction(option.id)}
-              >
-                <span>{option.label}</span>
-                <span className={styles.menuIcon} aria-hidden>
-                  <DownloadIcon size={16} title="" />
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      ) : null}
     </div>
   );
 }

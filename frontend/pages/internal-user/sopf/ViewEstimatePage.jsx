@@ -12,8 +12,8 @@ import styles from './UpdateEstimatePage.module.css';
 /** PHP viewestimate.php $redirect from rttype (in_ops / post_ops / history). */
 const RTTYPE_BACK = {
   1: '/internal-user/vc/ops/in-ops-glance',
-  3: '/internal-user/vc/ops/post-ops',
-  4: '/internal-user/vc/ops/history',
+  3: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
+  4: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
 
 function resolveViewEstimateBackHref(searchParams, { businessType, estimateType }) {

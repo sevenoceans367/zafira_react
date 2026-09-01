@@ -155,7 +155,10 @@
 }
 
 .downloadMenu button {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
   width: 100%;
   text-align: left;
   padding: 10px 14px;
@@ -166,6 +169,12 @@
   border: none;
   cursor: pointer;
   font-family: inherit;
+}
+
+.menuIcon {
+  display: inline-flex;
+  color: #374151;
+  flex: none;
 }
 
 .downloadMenu button:hover {

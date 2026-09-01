@@ -279,11 +279,63 @@ async function loadPortTabs(pool, fcaId) {
   return tabs;
 }
 
+function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [], explicit = {}) {
+  const findFrom = (pattern) => {
+    const row = keyOperations.find((r) => pattern.test(String(r.activity || '').trim()));
+    const dt = str(row?.activityDateTime);
+    return dt || null;
+  };
+  const cargoLoaded = (cargoRows || []).find(
+    (r) => String(r.activity || '').trim().toLowerCase() === 'cargo loaded',
+  );
+  const stowageFromCargo = str(cargoLoaded?.shipFigure) || str(cargoLoaded?.blFigure) || '';
+  return {
+    terminal: str(explicit.terminal),
+    stowageQty: strOrNull(explicit.stowageQty) || stowageFromCargo || null,
+    vesselArrived: strOrNull(explicit.vesselArrived) || findFrom(/^eosp$/i),
+    norTendered: strOrNull(explicit.norTendered) || findFrom(/^nor tendered$/i),
+    pilotOnBoard: strOrNull(explicit.pilotOnBoard) || findFrom(/^pilot on board$/i),
+    loadCommenced: strOrNull(explicit.loadCommenced) || findFrom(/^commenced cargo operations$/i),
+    loadCompleted: strOrNull(explicit.loadCompleted) || findFrom(/^completed cargo operations$/i),
+    vesselSailed: strOrNull(explicit.vesselSailed) || findFrom(/^full away on passage$/i),
+  };
+}
+
+function applyMasterToKeyOperations(rows, record) {
+  const fallbacks = {
+    EOSP: record?.VAPS_1,
+    'NOR tendered': record?.NT_1,
+    'Commenced cargo operations': record?.LC,
+    'Completed cargo operations': record?.LC1,
+    'Full away on passage': record?.VS,
+  };
+  let pilotApplied = false;
+  return rows.map((row) => {
+    const activity = str(row.activity);
+    if (row.activityDateTime) return row;
+    if (activity === 'Pilot on board') {
+      if (pilotApplied || !record?.PBFB_1) return row;
+      pilotApplied = true;
+      return {
+        ...row,
+        activityDateTime: blankDateTime(record.PBFB_1) || str(record.PBFB_1),
+      };
+    }
+    const fallback = fallbacks[activity];
+    if (!fallback) return row;
+    return {
+      ...row,
+      activityDateTime: blankDateTime(fallback) || str(fallback),
+    };
+  });
+}
+
 function defaultKeyOperations(defaults = {}) {
   return DEFAULT_KEY_OPERATIONS.map((activity) => {
     const row = {
       activity,
       activityDateTime: '',
+      activityDateTimeTo: '',
       robIfo: '',
       robMdo: '',
       comments: '',
@@ -388,6 +440,7 @@ async function loadKeyOperations(pool, sofId, defaults) {
   return rows.map((row) => ({
     activity: str(row.ACTIVITY),
     activityDateTime: blankDateTime(row.ACTIVITYDATETIME),
+    activityDateTimeTo: blankDateTime(row.ACTIVITYDATETIMETO),
     robIfo: str(row.ROBIFO),
     robMdo: str(row.ROBMDO),
     comments: str(row.COMMENTS),
@@ -605,7 +658,8 @@ export async function dbGetSofForm(comId) {
     const sofId = record?.SOFID || null;
     const submitId = record?.SUBMITID != null ? Number(record.SUBMITID) : 0;
     const locked = submitId === 2 && String(record?.LOGIN || '') === 'INTERNAL_USER';
-    const keyOperations = await loadKeyOperations(pool, sofId, tab.defaults);
+    let keyOperations = await loadKeyOperations(pool, sofId, tab.defaults);
+    keyOperations = applyMasterToKeyOperations(keyOperations, record);
     const cargoRows = await loadCargoRows(pool, sofId);
     const entityRows = await loadEntityRows(pool, sofId);
     const blRows = await loadBlRows(pool, sofId);
@@ -671,14 +725,16 @@ async function replaceSlaveRows(connection, sofId, keyOperations, cargoRows) {
     const activity = String(row.activity || '').trim();
     if (!activity) continue;
     const activityDateTime = parseDmyDateTime(row.activityDateTime);
+    const activityDateTimeTo = parseDmyDateTime(row.activityDateTimeTo);
     await connection.query(
       `INSERT INTO sof_slave_6
-        (SOFID, ACTIVITY, ACTIVITYDATETIME, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (SOFID, ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sofId,
         activity,
         activityDateTime,
+        activityDateTimeTo,
         numOrNull(row.robIfo),
         numOrNull(row.robMdo),
         str(row.comments),
@@ -861,17 +917,18 @@ export async function dbSaveSof(payload = {}) {
   const portId = str(payload.portId || payload.portid);
   const randomId = str(payload.randomId || payload.randomid);
   const submitId = Number(payload.submitId || payload.submitid || 1);
-  const terminal = str(payload.terminal);
-  const stowageQty = strOrNull(payload.stowageQty);
-  const vesselArrived = strOrNull(payload.vesselArrived);
-  const norTendered = strOrNull(payload.norTendered);
-  const pilotOnBoard = strOrNull(payload.pilotOnBoard);
-  const loadCommenced = strOrNull(payload.loadCommenced);
-  const loadCompleted = strOrNull(payload.loadCompleted);
-  const vesselSailed = strOrNull(payload.vesselSailed);
-  const agentRemarks = str(payload.agentRemarks);
   const keyOperations = payload.keyOperations || [];
   const cargoRows = payload.cargoRows || [];
+  const derived = deriveMasterFieldsFromKeyOperations(keyOperations, cargoRows, payload);
+  const terminal = derived.terminal;
+  const stowageQty = derived.stowageQty;
+  const vesselArrived = derived.vesselArrived;
+  const norTendered = derived.norTendered;
+  const pilotOnBoard = derived.pilotOnBoard;
+  const loadCommenced = derived.loadCommenced;
+  const loadCompleted = derived.loadCompleted;
+  const vesselSailed = derived.vesselSailed;
+  const agentRemarks = str(payload.agentRemarks);
   const entityRows = payload.entityRows || [];
   const blRows = payload.blRows || [];
   const portActivities = payload.portActivities || [];

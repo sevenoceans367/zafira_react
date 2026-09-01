@@ -24,7 +24,7 @@ import {
 } from '../../../services/estimateList.js';
 import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import EstimateListHeaderActions from './EstimateListHeaderActions.jsx';
-import EstimateListTableToolbar from './EstimateListTableToolbar.jsx';
+import EstimateListTableToolbar, { EstimateListDownloadMenu } from './EstimateListTableToolbar.jsx';
 import SensitivityAnalysisModal from './SensitivityAnalysisModal.jsx';
 import SopfPagination from './SopfPagination.jsx';
 import ScrollableTable from './ScrollableTable.jsx';
@@ -126,6 +126,11 @@ function TabIcon({ id }) {
       <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
     </svg>
   );
+}
+
+function displayLivePnl(value) {
+  const text = String(value ?? '').trim();
+  return text === '' ? 'pending' : text;
 }
 
 function TruncatedText({ text, maxLength = 10 }) {
@@ -398,7 +403,7 @@ export default function EstimateListPage() {
       });
       return;
     }
-    downloadEstimateListCsv(filteredRows);
+    downloadEstimateListCsv(filteredRows, 'vc-out-estimates.csv', { performing: isCompletedTab });
   };
 
   const handleDownloadPdf = () => {
@@ -507,14 +512,19 @@ export default function EstimateListPage() {
           flushTop
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
+          toolbarStart={(
+            <EstimateListDownloadMenu
+              onDownloadCsv={handleDownloadCsv}
+              onDownloadPdf={handleDownloadPdf}
+              onEmailAttachment={handleEmailAttachment}
+            />
+          )}
           toolbarLeft={(
             <EstimateListTableToolbar
               addHref={`/internal-user/sopf/addestimate?estimatetype=${estimateType}&selBType=${businessType}`}
               onSensitivityAnalysis={handleSensitivityAnalysis}
               sensitivityDisabled={selectedIds.length === 0}
-              onDownloadCsv={handleDownloadCsv}
-              onDownloadPdf={handleDownloadPdf}
-              onEmailAttachment={handleEmailAttachment}
+              showSensitivity={!isCompletedTab}
             />
           )}
           footer={(
@@ -538,19 +548,22 @@ export default function EstimateListPage() {
                   <th>Voy Days</th>
                   <th>Cargo</th>
                   <th>TCE</th>
-                  <th>P&L</th>
+                  <th>Fixed P&L</th>
+                  {isCompletedTab ? <th>Live P&L</th> : null}
                   <th aria-label="Actions" />
-                  <th className={styles.compareHeader} title="Compare">
-                    <CompareIcon />
-                    <input
-                      type="checkbox"
-                      className={styles.compareCheckbox}
-                      checked={allSelected}
-                      onChange={toggleAll}
-                      disabled={pagedRows.every((row) => !row.selectable)}
-                      aria-label="Select all"
-                    />
-                  </th>
+                  {isCompletedTab ? null : (
+                    <th className={styles.compareHeader} title="Compare">
+                      <CompareIcon />
+                      <input
+                        type="checkbox"
+                        className={styles.compareCheckbox}
+                        checked={allSelected}
+                        onChange={toggleAll}
+                        disabled={pagedRows.every((row) => !row.selectable)}
+                        aria-label="Select all"
+                      />
+                    </th>
+                  )}
                   <th>Details</th>
                 </tr>
               </thead>
@@ -599,6 +612,11 @@ export default function EstimateListPage() {
                       <td className={styles.cellNum}>{row.cargoQuantity || '—'}</td>
                       <td className={styles.cellNum}>{row.tce}</td>
                       <td className={styles.cellNum}>{row.profitLoss}</td>
+                      {isCompletedTab ? (
+                        <td className={`${styles.cellNum} ${displayLivePnl(row.liveProfitLoss) === 'pending' ? styles.pending : ''}`}>
+                          {displayLivePnl(row.liveProfitLoss)}
+                        </td>
+                      ) : null}
                       <td>
                         <ActionButtonStack className={styles.rowActions}>
                           <SecondaryActionButton
@@ -620,15 +638,17 @@ export default function EstimateListPage() {
                           ) : null}
                         </ActionButtonStack>
                       </td>
-                      <td className={styles.center}>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(row.id)}
-                          onChange={() => toggleRow(row.id)}
-                          disabled={!row.selectable}
-                          aria-label={`Select ${row.sheetName}`}
-                        />
-                      </td>
+                      {isCompletedTab ? null : (
+                        <td className={styles.center}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(row.id)}
+                            onChange={() => toggleRow(row.id)}
+                            disabled={!row.selectable}
+                            aria-label={`Select ${row.sheetName}`}
+                          />
+                        </td>
+                      )}
                       <td>
                         <div className={styles.iconPair}>
                           {row.canSendToOps ? (
@@ -654,7 +674,7 @@ export default function EstimateListPage() {
                             <Button
                               variant="link"
                               size="sm"
-                              icon="file-earmark"
+                              icon="eye"
                               className={`${styles.iconBtn} ${styles.iconMuted}`}
                               href={`/internal-user/sopf/viewestimate?id=${row.id}&estimatetype=${estimateType}&selBType=${businessType}`}
                               ariaLabel={`View ${row.sheetName}`}

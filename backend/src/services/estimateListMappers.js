@@ -188,6 +188,7 @@ export function mapListRow(row, index, portLegs = {}, { voyageLocked = false } =
     tce: getTce(row),
     dailyTimeCharter: row.dailyVesselOperationExp,
     profitLoss: row.profitLoss,
+    liveProfitLoss: row.liveProfitLoss ?? '',
     charteringPic: row.charteringPicName,
     // Compare checkbox available on Active and In Ops (including locked / already sent).
     selectable: true,

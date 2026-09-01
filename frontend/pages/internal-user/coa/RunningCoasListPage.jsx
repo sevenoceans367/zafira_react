@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { CardSelect, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { CardSelect, DownloadIcon, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
@@ -506,6 +506,31 @@ export default function RunningCoasListPage() {
           flushTop
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
+          toolbarStart={(
+            <div className={styles.menuWrap} ref={menuRef}>
+              <button
+                type="button"
+                className={styles.btnMore}
+                aria-label="More options"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                title="Download"
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                <MoreIcon />
+              </button>
+              {menuOpen ? (
+                <div className={styles.menuDropdown} role="menu">
+                  <button type="button" role="menuitem" className={styles.menuItem} onClick={downloadCsv}>
+                    <span className={styles.menuIcon} aria-hidden>
+                      <DownloadIcon size={16} title="" />
+                    </span>
+                    Download as Excel
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
           toolbarLeft={(
             <>
               <button
@@ -524,26 +549,6 @@ export default function RunningCoasListPage() {
                 <PlusIcon />
                 Add Direct Fixture
               </button>
-              <div className={styles.menuWrap} ref={menuRef}>
-                <button
-                  type="button"
-                  className={styles.btnMore}
-                  aria-label="More options"
-                  aria-expanded={menuOpen}
-                  aria-haspopup="menu"
-                  title="Download"
-                  onClick={() => setMenuOpen((open) => !open)}
-                >
-                  <MoreIcon />
-                </button>
-                {menuOpen ? (
-                  <div className={styles.menuDropdown} role="menu">
-                    <button type="button" role="menuitem" className={styles.menuItem} onClick={downloadCsv}>
-                      Download as Excel
-                    </button>
-                  </div>
-                ) : null}
-              </div>
             </>
           )}
           toolbarRight={showingLabel}

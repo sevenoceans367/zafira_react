@@ -24,6 +24,7 @@ import {
   portLines,
 } from './OpsVcGlanceUi.jsx';
 import OpsVcTaskWidgets from './OpsVcTaskWidgets.jsx';
+import OpsVcStatusTabs from './OpsVcStatusTabs.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcInOpsGlancePage.module.css';
 
@@ -127,7 +128,10 @@ export default function OpsVcHistoryPage() {
 
         <OpsVcTaskWidgets rows={rows} pageContext={PAGE_CONTEXT} />
 
+        <OpsVcStatusTabs />
+
         <OpsVcGlanceTable
+          flushTop
           page={page}
           pageSize={pageSize}
           total={total}

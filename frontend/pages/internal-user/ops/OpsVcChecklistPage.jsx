@@ -9,8 +9,8 @@ import styles from './OpsPages.module.css';
 
 const BACK_BY_PAGE = {
   1: '/internal-user/vc/ops/in-ops-glance',
-  2: '/internal-user/vc/ops/post-ops',
-  3: '/internal-user/vc/ops/history',
+  2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
+  3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
 
 function ReadField({ label, value }) {

@@ -9,8 +9,8 @@ import styles from './OpsPages.module.css';
 /** PHP in_ops_at_glance page=1/2/3 → list return targets. */
 const BACK_BY_PAGE = {
   1: '/internal-user/vc/ops/in-ops-glance',
-  2: '/internal-user/vc/ops/post-ops',
-  3: '/internal-user/vc/ops/history',
+  2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
+  3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
 
 /**

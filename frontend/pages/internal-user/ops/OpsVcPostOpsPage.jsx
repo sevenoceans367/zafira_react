@@ -42,6 +42,7 @@ import {
   portLines,
 } from './OpsVcGlanceUi.jsx';
 import OpsVcTaskWidgets from './OpsVcTaskWidgets.jsx';
+import OpsVcStatusTabs from './OpsVcStatusTabs.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcInOpsGlancePage.module.css';
 
@@ -258,7 +259,10 @@ export default function OpsVcPostOpsPage() {
 
         <OpsVcTaskWidgets rows={rows} pageContext={PAGE_CONTEXT} />
 
+        <OpsVcStatusTabs />
+
         <OpsVcGlanceTable
+          flushTop
           page={page}
           pageSize={pageSize}
           total={total}
@@ -334,6 +338,7 @@ export default function OpsVcPostOpsPage() {
                         rttype={3}
                         voyageReportHref={voyageReportHref}
                         documentsHref={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                        onDeactivate={row.canDeactivate ? () => handleDeactivate(row) : undefined}
                       />
                     </div>
                   </td>
@@ -455,16 +460,6 @@ export default function OpsVcPostOpsPage() {
                   </td>
                   <td>
                     <div className={styles.nextActions}>
-                      {row.canDeactivate ? (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          icon="trash"
-                          className={`${styles.deleteIconBtn} ${styles.deleteIconDanger}`}
-                          onClick={() => handleDeactivate(row)}
-                          ariaLabel="Deactivate entry"
-                        />
-                      ) : null}
                       {row.canMoveToHistory ? (
                         <button type="button" className={styles.pillAction} onClick={() => handleHistory(row)}>
                           History

@@ -2,22 +2,37 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
-import spotIcon from '../../assets/010-pie-chart.png';
+import timeCharterIcon from '../../assets/TIME CHARTER.png';
+
+const OPS_TC_GLANCE_PATH = '/internal-user/vc/ops-tc/in-ops-glance';
+
+function parseOpsTcTab(value) {
+  if (value === 'post-ops' || value === 'postops' || value === '2') return 'post-ops';
+  if (value === 'history' || value === '3') return 'history';
+  return 'ops';
+}
+
+function opsTcGlanceHref(tab = 'ops') {
+  if (tab === 'post-ops') return `${OPS_TC_GLANCE_PATH}?tab=post-ops`;
+  if (tab === 'history') return `${OPS_TC_GLANCE_PATH}?tab=history`;
+  return OPS_TC_GLANCE_PATH;
+}
 
 export const OPS_TC_ITEMS = [
-  { id: 'in-ops-glance', label: 'Time Charter Ops' },
-  { id: 'year-updation', label: 'Year Updation-TC' },
-  { id: 'post-ops', label: 'Vessels in Post Ops TC', hidden: true },
-  { id: 'history', label: 'Vessels in History TC', hidden: true },
-  { id: 'finalised-fixtures', label: 'Finalised Voyage Fixtures TC', hidden: true },
+  { id: 'ops', label: 'TC Ops', to: opsTcGlanceHref('ops') },
+  { id: 'post-ops', label: 'Post Ops', to: opsTcGlanceHref('post-ops') },
+  { id: 'history', label: 'Voyage History', to: opsTcGlanceHref('history') },
 ];
 
 export default function OpsTcSidebarTree({ isOpen }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const [expanded, setExpanded] = useState(false);
   const rootRef = useRef(null);
-  const firstHref = appPath(`/internal-user/vc/ops-tc/${OPS_TC_ITEMS[0].id}`);
+  const firstHref = appPath(OPS_TC_GLANCE_PATH);
   const branchActive = pathname.includes('/internal-user/vc/ops-tc/');
+  const glanceTab = pathname.includes('/internal-user/vc/ops-tc/in-ops-glance')
+    ? parseOpsTcTab(new URLSearchParams(search).get('tab'))
+    : null;
 
   useEffect(() => {
     if (!expanded) return undefined;
@@ -48,18 +63,17 @@ export default function OpsTcSidebarTree({ isOpen }) {
         onClick={() => setExpanded(false)}
         aria-haspopup="true"
       >
-        <img src={spotIcon} alt="" className="icon" aria-hidden />
+        <img src={timeCharterIcon} alt="" className="icon" aria-hidden />
         {isOpen ? <span>Time Charter Ops</span> : null}
         {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>
       <ul className="treeview-menu">
-        {OPS_TC_ITEMS.filter((item) => !item.hidden).map((item) => {
-          const href = `/internal-user/vc/ops-tc/${item.id}`;
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+        {OPS_TC_ITEMS.map((item) => {
+          const active = glanceTab === item.id;
           return (
             <li key={item.id}>
               <Link
-                to={appPath(href)}
+                to={appPath(item.to)}
                 className={active ? 'active' : ''}
                 onClick={() => setExpanded(false)}
               >

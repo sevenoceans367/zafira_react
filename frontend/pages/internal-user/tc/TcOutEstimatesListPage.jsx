@@ -271,6 +271,49 @@ export default function TcOutEstimatesListPage() {
     { key: 'water', title: 'Vessels on Water', value: stats.vesselsOnWater ?? 0, variant: 'cnt' },
   ];
 
+  const moreMenu = (
+    <div className={styles.menuWrap} ref={menuRef}>
+      <button
+        type="button"
+        className={styles.btnMore}
+        aria-label="More options"
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <circle cx="12" cy="5" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="12" cy="19" r="1.8" />
+        </svg>
+      </button>
+      {menuOpen ? (
+        <div className={styles.menuDropdown} role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.menuItem}
+            disabled={!sensitivityEnabled}
+            onClick={() => openDecisionChart()}
+          >
+            Decision Chart
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.menuItem}
+            onClick={() => {
+              setMenuOpen(false);
+              navigate(tcPath('decision-charts'));
+            }}
+          >
+            Decision Chart List
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+
   const toolbarActions = statusTab === 'active' ? (
     <div className={styles.toolbarActions}>
       <button
@@ -299,46 +342,6 @@ export default function TcOutEstimatesListPage() {
         </svg>
         Sensitivity Analysis
       </button>
-      <div className={styles.menuWrap} ref={menuRef}>
-        <button
-          type="button"
-          className={styles.btnMore}
-          aria-label="More options"
-          aria-expanded={menuOpen}
-          aria-haspopup="menu"
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <circle cx="12" cy="5" r="1.8" />
-            <circle cx="12" cy="12" r="1.8" />
-            <circle cx="12" cy="19" r="1.8" />
-          </svg>
-        </button>
-        {menuOpen ? (
-          <div className={styles.menuDropdown} role="menu">
-            <button
-              type="button"
-              role="menuitem"
-              className={styles.menuItem}
-              disabled={!sensitivityEnabled}
-              onClick={() => openDecisionChart()}
-            >
-              Decision Chart
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className={styles.menuItem}
-              onClick={() => {
-                setMenuOpen(false);
-                navigate(tcPath('decision-charts'));
-              }}
-            >
-              Decision Chart List
-            </button>
-          </div>
-        ) : null}
-      </div>
     </div>
   ) : (
     <div className={styles.viewOnlyNoteInline}>
@@ -411,6 +414,7 @@ export default function TcOutEstimatesListPage() {
         flushTop
         pageSize={pageSize}
         onPageSizeChange={setPageSize}
+        toolbarStart={statusTab === 'active' ? moreMenu : null}
         toolbarLeft={toolbarActions}
         footer={(
           <SopfPagination

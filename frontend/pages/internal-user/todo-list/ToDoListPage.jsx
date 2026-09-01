@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { DownloadIcon, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import {
@@ -369,7 +369,7 @@ export default function ToDoListPage() {
           pageSize={showCount}
           onPageSizeChange={setShowCount}
           pageSizeOptions={[10, 20, 30]}
-          toolbarLeft={(
+          toolbarStart={(
             <div className={styles.menuWrap} ref={downloadRef}>
               <button
                 className={styles.btnDownload}
@@ -386,7 +386,12 @@ export default function ToDoListPage() {
               </button>
               {downloadOpen ? (
                 <div className={styles.downloadMenu}>
-                  <button type="button" onClick={handlePdf}>Download as PDF</button>
+                  <button type="button" onClick={handlePdf}>
+                    <span className={styles.menuIcon} aria-hidden>
+                      <DownloadIcon size={16} title="" />
+                    </span>
+                    Download as PDF
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -394,6 +399,9 @@ export default function ToDoListPage() {
                       setExportOpen(true);
                     }}
                   >
+                    <span className={styles.menuIcon} aria-hidden>
+                      <DownloadIcon size={16} title="" />
+                    </span>
                     Download as Excel…
                   </button>
                 </div>

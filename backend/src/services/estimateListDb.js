@@ -192,6 +192,7 @@ function normalizeMasterRow(row) {
     netDailyEarning: row.NET_DAILY_EARNING,
     dailyVesselOperationExp: row.DAILY_VESSEL_OPERATION_EXP,
     profitLoss: row.PROFIT_LOSS,
+    liveProfitLoss: row.liveProfitLoss ?? '',
     charteringPicName: row.CHARTERING_PIC_NAME || '',
     ifBenchmark: Number(row.IF_BENCHMARK || 0),
     comid: row.COMID ? String(row.COMID) : '',
@@ -209,6 +210,61 @@ function normalizeMasterRow(row) {
     slave7SumFreight: row.slave7SumFreight,
     slave12SumQty: row.slave12SumQty,
   };
+}
+
+function hasPnlValue(value) {
+  if (value == null) return false;
+  const text = String(value).trim();
+  return text !== '' && text.toLowerCase() !== 'null';
+}
+
+/** Latest Spot Ops worksheet P&L per COMID (ACTUAL_PL, else PROFIT_LOSS). */
+async function loadLivePnlByComId(comIds = []) {
+  const unique = [...new Set(comIds.map((id) => String(id || '').trim()).filter((id) => id && id !== '0'))];
+  if (!unique.length) return {};
+
+  const pool = getPool();
+  let rows;
+  try {
+    [rows] = await pool.query(
+      `SELECT m.COMID, m.ACTUAL_PL, m.PROFIT_LOSS, m.SHEET_NO, m.FCAID
+       FROM freight_cost_estimete_master m
+       WHERE m.MODULEID = ?
+         AND m.MCOMPANYID = ?
+         AND m.COMID IN (${unique.map(() => '?').join(',')})
+         AND m.SHEET_NO IS NOT NULL
+         AND m.SHEET_NO != ''
+         AND m.SHEET_NO != 0
+       ORDER BY m.COMID,
+                CAST(m.SHEET_NO AS UNSIGNED) DESC,
+                m.FCAID DESC`,
+      [appContext.moduleId, appContext.companyId, ...unique],
+    );
+  } catch {
+    [rows] = await pool.query(
+      `SELECT m.COMID, m.PROFIT_LOSS, m.SHEET_NO, m.FCAID
+       FROM freight_cost_estimete_master m
+       WHERE m.MODULEID = ?
+         AND m.MCOMPANYID = ?
+         AND m.COMID IN (${unique.map(() => '?').join(',')})
+         AND m.SHEET_NO IS NOT NULL
+         AND m.SHEET_NO != ''
+         AND m.SHEET_NO != 0
+       ORDER BY m.COMID,
+                CAST(m.SHEET_NO AS UNSIGNED) DESC,
+                m.FCAID DESC`,
+      [appContext.moduleId, appContext.companyId, ...unique],
+    );
+  }
+
+  const byCom = {};
+  for (const row of rows || []) {
+    const key = String(row.COMID);
+    if (Object.prototype.hasOwnProperty.call(byCom, key)) continue;
+    const live = hasPnlValue(row.ACTUAL_PL) ? row.ACTUAL_PL : row.PROFIT_LOSS;
+    byCom[key] = hasPnlValue(live) ? live : '';
+  }
+  return byCom;
 }
 
 function buildPeriodFilter(periodFrom, periodTo) {
@@ -326,7 +382,13 @@ export async function dbGetEstimateList({ selBType, periodFrom, periodTo }) {
   const fcaIds = masterRows.map((row) => row.FCAID);
   const portLegs = await loadPortLegs(fcaIds);
 
-  const normalized = masterRows.map(normalizeMasterRow);
+  const livePnlByCom = await loadLivePnlByComId(
+    masterRows.map((row) => row.COMID).filter(Boolean),
+  );
+  const normalized = masterRows.map((row) => normalizeMasterRow({
+    ...row,
+    liveProfitLoss: livePnlByCom[String(row.COMID)] ?? '',
+  }));
   const lockedVoyages = await fetchVoyagesWithSentSibling(
     normalized.map((row) => row.voyageNo).filter(Boolean),
   );

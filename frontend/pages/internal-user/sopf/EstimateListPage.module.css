@@ -192,8 +192,10 @@
   color: #1b2430;
 }
 
-.cellNum {
-  font-variant-numeric: tabular-nums;
+.pending {
+  color: #8a93a2;
+  font-style: italic;
+  font-weight: 600;
 }
 
 .cellRoute {

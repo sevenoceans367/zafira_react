@@ -70,6 +70,8 @@ export default function ScrollableTable({
   children,
   toolbarLeft = null,
   toolbarRight = null,
+  /** Rendered before the rows-per-page dropdown (e.g. ⋯ download). */
+  toolbarStart = null,
   /** Rendered after the ◀ ▶ scroll buttons on the left toolbar. */
   toolbarAfterScroll = null,
   footer = null,
@@ -125,13 +127,14 @@ export default function ScrollableTable({
       options={pageSizeOptions}
     />
   );
-  const hasToolbar = showToolbar || toolbarLeft || toolbarRight || toolbarAfterScroll || rowsSelect;
+  const hasToolbar = showToolbar || toolbarStart || toolbarLeft || toolbarRight || toolbarAfterScroll || rowsSelect;
 
   return (
     <div className={[styles.root, flushTop ? styles.flushTop : '', className].filter(Boolean).join(' ')}>
       {hasToolbar ? (
         <div className={[styles.actionRow, flushTop ? styles.actionRowFlush : ''].filter(Boolean).join(' ')}>
           <div className={styles.actionRowLeft}>
+            {toolbarStart}
             {rowsSelect}
             {toolbarLeft}
             <HScrollButtons canLeft={canLeft} canRight={canRight} onScroll={scrollByDir} />

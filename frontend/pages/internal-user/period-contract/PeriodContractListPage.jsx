@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, CardSelect, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, CardSelect, DownloadIcon, LoadingOverlay } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.js';
 import { periodContractBasePath } from '../../../constants/periodContractModule.js';
@@ -767,6 +767,34 @@ export default function PeriodContractListPage() {
       <ScrollableTable
         pageSize={pageSize}
         onPageSizeChange={setPageSize}
+        toolbarStart={(
+          <div className={styles.menuWrap} ref={menuRef}>
+            <button
+              type="button"
+              className={styles.btnMore}
+              aria-label="More options"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="12" cy="5" r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="12" cy="19" r="1.8" />
+              </svg>
+            </button>
+            {menuOpen ? (
+              <div className={styles.menuDropdown} role="menu">
+                <button type="button" role="menuitem" className={styles.menuItem} onClick={handleDownloadExcel}>
+                  <span className={styles.menuIcon} aria-hidden>
+                    <DownloadIcon size={16} title="" />
+                  </span>
+                  Download Excel
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
         toolbarLeft={(
           <>
             {activeTab !== 'closed' ? (
@@ -779,29 +807,6 @@ export default function PeriodContractListPage() {
                 Add New
               </button>
             ) : null}
-            <div className={styles.menuWrap} ref={menuRef}>
-              <button
-                type="button"
-                className={styles.btnMore}
-                aria-label="More options"
-                aria-expanded={menuOpen}
-                aria-haspopup="menu"
-                onClick={() => setMenuOpen((open) => !open)}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <circle cx="12" cy="5" r="1.8" />
-                  <circle cx="12" cy="12" r="1.8" />
-                  <circle cx="12" cy="19" r="1.8" />
-                </svg>
-              </button>
-              {menuOpen ? (
-                <div className={styles.menuDropdown} role="menu">
-                  <button type="button" role="menuitem" className={styles.menuItem} onClick={handleDownloadExcel}>
-                    Download Excel
-                  </button>
-                </div>
-              ) : null}
-            </div>
           </>
         )}
         footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}

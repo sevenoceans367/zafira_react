@@ -96,9 +96,9 @@ export function resolveSopfHeader(pathname, search = '') {
     const rttype = String(params.get('rttype') || '');
     if (rttype === '1' || rttype === '3' || rttype === '4') {
       const opsBack = rttype === '3'
-        ? { label: 'Post-Ops', href: appPath('/internal-user/vc/ops/post-ops') }
+        ? { label: 'Post-Ops', href: appPath('/internal-user/vc/ops/in-ops-glance?tab=post-ops') }
         : rttype === '4'
-          ? { label: 'Voyage History', href: appPath('/internal-user/vc/ops/history') }
+          ? { label: 'Voyage History', href: appPath('/internal-user/vc/ops/in-ops-glance?tab=history') }
           : { label: 'Spot Ops', href: appPath('/internal-user/vc/ops/in-ops-glance') };
       return {
         title: 'View Estimate',

@@ -225,7 +225,10 @@
 }
 
 .menuItem {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
   width: 100%;
   padding: 10px 12px;
   border: 0;
@@ -237,6 +240,12 @@
   font-weight: 600;
   text-align: left;
   cursor: pointer;
+}
+
+.menuIcon {
+  display: inline-flex;
+  color: #374151;
+  flex: none;
 }
 
 .menuItem:hover {

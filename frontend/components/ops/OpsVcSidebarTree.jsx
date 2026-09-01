@@ -3,20 +3,24 @@ import { Link, useLocation } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 import spotIcon from '../../assets/010-pie-chart.png';
+import { OPS_VC_GLANCE_PATH, opsVcGlanceHref, parseOpsVcTab } from '../../pages/internal-user/ops/OpsVcStatusTabs.jsx';
 
 export const OPS_VC_ITEMS = [
-  { id: 'in-ops-glance', label: 'Spot Ops' },
-  { id: 'post-ops', label: 'Post-Ops' },
-  { id: 'history', label: 'Voyage History' },
-  { id: 'year-updation', label: 'Year Updation-VC/COA', hidden: true },
+  { id: 'ops', label: 'Spot Ops', to: OPS_VC_GLANCE_PATH },
+  { id: 'post-ops', label: 'Post-Ops', to: opsVcGlanceHref('post-ops') },
+  { id: 'history', label: 'Voyage History', to: opsVcGlanceHref('history') },
+  { id: 'year-updation', label: 'Year Updation-VC/COA', to: '/internal-user/vc/ops/year-updation', hidden: true },
 ];
 
 export default function OpsVcSidebarTree({ isOpen }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const [expanded, setExpanded] = useState(false);
   const rootRef = useRef(null);
-  const firstHref = appPath(`/internal-user/vc/ops/${OPS_VC_ITEMS[0].id}`);
+  const firstHref = appPath(OPS_VC_GLANCE_PATH);
   const branchActive = pathname.includes('/internal-user/vc/ops/');
+  const glanceTab = pathname.includes('/internal-user/vc/ops/in-ops-glance')
+    ? parseOpsVcTab(new URLSearchParams(search).get('tab'))
+    : null;
 
   useEffect(() => {
     if (!expanded) return undefined;
@@ -39,6 +43,13 @@ export default function OpsVcSidebarTree({ isOpen }) {
     };
   }, [expanded]);
 
+  const itemActive = (item) => {
+    if (item.id === 'year-updation') {
+      return pathname.includes('/internal-user/vc/ops/year-updation');
+    }
+    return glanceTab === item.id;
+  };
+
   return (
     <li ref={rootRef} className={`treeview ${expanded ? 'open' : ''}`}>
       <Link
@@ -53,12 +64,11 @@ export default function OpsVcSidebarTree({ isOpen }) {
       </Link>
       <ul className="treeview-menu">
         {OPS_VC_ITEMS.filter((item) => !item.hidden).map((item) => {
-          const href = `/internal-user/vc/ops/${item.id}`;
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+          const active = itemActive(item);
           return (
             <li key={item.id}>
               <Link
-                to={appPath(href)}
+                to={appPath(item.to)}
                 className={active ? 'active' : ''}
                 onClick={() => setExpanded(false)}
               >

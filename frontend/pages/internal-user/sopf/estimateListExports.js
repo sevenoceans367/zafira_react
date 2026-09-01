@@ -8,7 +8,6 @@ const CSV_COLUMNS = [
   { key: 'duration', label: 'Voy Days' },
   { key: 'cargoQuantity', label: 'Cargo' },
   { key: 'tce', label: 'TCE' },
-  { key: 'profitLoss', label: 'P&L' },
 ];
 
 function escapeCsvValue(value) {
@@ -19,10 +18,30 @@ function escapeCsvValue(value) {
   return text;
 }
 
-export function downloadEstimateListCsv(rows, filename = 'vc-out-estimates.csv') {
-  const header = CSV_COLUMNS.map((column) => escapeCsvValue(column.label)).join(',');
+function csvDisplay(value, pendingEmpty = false) {
+  if (pendingEmpty) {
+    const text = String(value ?? '').trim();
+    return text === '' ? 'pending' : text;
+  }
+  return value;
+}
+
+export function downloadEstimateListCsv(rows, filename = 'vc-out-estimates.csv', { performing = false } = {}) {
+  const columns = performing
+    ? [
+      ...CSV_COLUMNS,
+      { key: 'profitLoss', label: 'Fixed P&L' },
+      { key: 'liveProfitLoss', label: 'Live P&L' },
+    ]
+    : [
+      ...CSV_COLUMNS,
+      { key: 'profitLoss', label: 'Fixed P&L' },
+    ];
+  const header = columns.map((column) => escapeCsvValue(column.label)).join(',');
   const body = rows.map((row) =>
-    CSV_COLUMNS.map((column) => escapeCsvValue(row[column.key])).join(','),
+    columns.map((column) => escapeCsvValue(
+      csvDisplay(row[column.key], performing && column.key === 'liveProfitLoss'),
+    )).join(','),
   );
   const csv = [header, ...body].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

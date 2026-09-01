@@ -21,9 +21,7 @@ import CargoReletFormPage from '../pages/internal-user/coa/CargoReletFormPage.js
 import DirectFixtureFormPage from '../pages/internal-user/coa/DirectFixtureFormPage.jsx';
 import CoaInOpsPage from '../pages/internal-user/coa/CoaInOpsPage.jsx';
 import CoaPostOpsPage from '../pages/internal-user/coa/CoaPostOpsPage.jsx';
-import OpsVcInOpsGlancePage from '../pages/internal-user/ops/OpsVcInOpsGlancePage.jsx';
-import OpsVcPostOpsPage from '../pages/internal-user/ops/OpsVcPostOpsPage.jsx';
-import OpsVcHistoryPage from '../pages/internal-user/ops/OpsVcHistoryPage.jsx';
+import OpsVcGlanceHubPage from '../pages/internal-user/ops/OpsVcGlanceHubPage.jsx';
 import OpsVcYearUpdationPage from '../pages/internal-user/ops/OpsVcYearUpdationPage.jsx';
 import OpsVcVoyageReportPage from '../pages/internal-user/ops/OpsVcVoyageReportPage.jsx';
 import OpsVcAgencyLetterPage from '../pages/internal-user/ops/OpsVcAgencyLetterPage.jsx';
@@ -138,7 +136,7 @@ export default function App() {
               element={<ReportModulePage />}
             />
             <Route path="/internal-user/vc" element={<VcDashboardPage />} />
-            <Route path="/internal-user/vc/ops/in-ops-glance" element={<OpsVcInOpsGlancePage />} />
+            <Route path="/internal-user/vc/ops/in-ops-glance" element={<OpsVcGlanceHubPage />} />
             <Route path="/internal-user/vc/ops/cost-sheet" element={<OpsVcCostSheetPage />} />
             <Route path="/internal-user/vc/ops/voyage-report" element={<OpsVcVoyageReportPage />} />
             <Route path="/internal-user/vc/ops/agency-letter" element={<OpsVcAgencyLetterPage />} />
@@ -156,8 +154,14 @@ export default function App() {
             <Route path="/internal-user/vc/ops/laytime" element={<OpsVcLaytimePage />} />
             <Route path="/internal-user/vc/ops/bunker" element={<OpsVcBunkerPage />} />
             <Route path="/internal-user/vc/ops/soa-report" element={<OpsVcSoaReportPage />} />
-            <Route path="/internal-user/vc/ops/post-ops" element={<OpsVcPostOpsPage />} />
-            <Route path="/internal-user/vc/ops/history" element={<OpsVcHistoryPage />} />
+            <Route
+              path="/internal-user/vc/ops/post-ops"
+              element={<Navigate to="/internal-user/vc/ops/in-ops-glance?tab=post-ops" replace />}
+            />
+            <Route
+              path="/internal-user/vc/ops/history"
+              element={<Navigate to="/internal-user/vc/ops/in-ops-glance?tab=history" replace />}
+            />
             <Route path="/internal-user/vc/ops/year-updation" element={<OpsVcYearUpdationPage />} />
             <Route
               path="/internal-user/vc/ops-tc/finalised-fixtures"

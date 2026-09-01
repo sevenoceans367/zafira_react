@@ -164,8 +164,23 @@ export function glanceStats(rows, total) {
   return { trades: total, vessels: uniqueVessels, worksheets, alerts };
 }
 
-export function ChipLink({ to, children }) {
-  return <Link className={styles.chipLink} to={to}>{children}</Link>;
+export function ChipLink({ to, children, disabled = false, title = '' }) {
+  if (disabled) {
+    return (
+      <span
+        className={`${styles.chipLink} ${styles.chipLinkDisabled}`}
+        title={title || 'No worksheet yet'}
+        aria-disabled="true"
+      >
+        {children}
+      </span>
+    );
+  }
+  return (
+    <Link className={styles.chipLink} to={to} title={title || undefined}>
+      {children}
+    </Link>
+  );
 }
 
 export function OpsVcGlanceHeader({

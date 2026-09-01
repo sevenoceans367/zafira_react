@@ -671,6 +671,15 @@
   background: #d3e3fd;
 }
 
+.chipLinkDisabled,
+.chipLinkDisabled:hover {
+  color: #9aa3b2;
+  background: #f1f2f4;
+  border-color: #e2e5ea;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .wsheetStack {
   display: flex;
   flex-direction: column;

@@ -166,6 +166,7 @@ export default function OpsVcHistoryPage() {
             ) : rows.map((row, index) => {
               const sheets = row.costSheets || [];
               const alerts = alertLabels(row);
+              const hasWorksheet = sheets.length > 0;
               const voyageReportHref = row.vesselImoNo
                 ? appPath(`/internal-user/vc/ops/voyage-report?vesselimono=${encodeURIComponent(row.vesselImoNo)}&comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}&type=VC`)
                 : '';
@@ -177,7 +178,7 @@ export default function OpsVcHistoryPage() {
                       <span className={styles.primary}>
                         <span>{row.voyageNo || '—'}</span>
                         <VoyageStatusButton
-                          enabled={sheets.length > 0}
+                          enabled={hasWorksheet}
                           onClick={() => setVoyageStatusRow(row)}
                         />
                       </span>
@@ -253,8 +254,18 @@ export default function OpsVcHistoryPage() {
                   </td>
                   <td>
                     <div className={styles.chipStack}>
-                      <ChipLink to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>SOF</ChipLink>
-                      <ChipLink to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Laytime</ChipLink>
+                      <ChipLink
+                        to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                        disabled={!hasWorksheet}
+                      >
+                        SOF
+                      </ChipLink>
+                      <ChipLink
+                        to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                        disabled={!hasWorksheet}
+                      >
+                        Laytime
+                      </ChipLink>
                     </div>
                   </td>
                   <td>

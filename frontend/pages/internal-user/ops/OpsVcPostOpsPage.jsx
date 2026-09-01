@@ -299,6 +299,7 @@ export default function OpsVcPostOpsPage() {
               const sheets = row.costSheets || [];
               const alerts = alertLabels(row);
               const canCompare = canCompareSheets && sheets.length > 0;
+              const hasWorksheet = sheets.length > 0;
               const voyageReportHref = row.vesselImoNo
                 ? appPath(`/internal-user/vc/ops/voyage-report?vesselimono=${encodeURIComponent(row.vesselImoNo)}&comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}&type=VC&selYear=${encodeURIComponent(year)}`)
                 : '';
@@ -310,7 +311,7 @@ export default function OpsVcPostOpsPage() {
                       <span className={styles.primary}>
                         <span>{row.voyageNo || '—'}</span>
                         <VoyageStatusButton
-                          enabled={sheets.length > 0}
+                          enabled={hasWorksheet}
                           onClick={() => setVoyageStatusRow(row)}
                         />
                       </span>
@@ -412,8 +413,18 @@ export default function OpsVcPostOpsPage() {
                   </td>
                   <td>
                     <div className={styles.chipStack}>
-                      <ChipLink to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>SOF</ChipLink>
-                      <ChipLink to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Laytime</ChipLink>
+                      <ChipLink
+                        to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                        disabled={!hasWorksheet}
+                      >
+                        SOF
+                      </ChipLink>
+                      <ChipLink
+                        to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                        disabled={!hasWorksheet}
+                      >
+                        Laytime
+                      </ChipLink>
                     </div>
                   </td>
                   <td>

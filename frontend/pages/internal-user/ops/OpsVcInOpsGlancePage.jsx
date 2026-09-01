@@ -321,6 +321,7 @@ export default function OpsVcInOpsGlancePage() {
                   const sheets = row.costSheets || [];
                   const alerts = alertLabels(row);
                   const canCompare = canCompareSheets && sheets.length > 0;
+                  const hasWorksheet = sheets.length > 0;
                   const operator = resolveOperator(row, operators);
                   const voyageReportHref = row.vesselImoNo
                     ? appPath(`/internal-user/vc/ops/voyage-report?vesselimono=${encodeURIComponent(row.vesselImoNo)}&comid=${encodeURIComponent(row.comId)}&page=1&type=VC&selYear=${encodeURIComponent(year)}`)
@@ -333,7 +334,7 @@ export default function OpsVcInOpsGlancePage() {
                           <span className={styles.primary}>
                             <span>{row.voyageNo || '—'}</span>
                             <VoyageStatusButton
-                              enabled={sheets.length > 0}
+                              enabled={hasWorksheet}
                               onClick={() => setVoyageStatusRow(row)}
                             />
                           </span>
@@ -432,8 +433,18 @@ export default function OpsVcInOpsGlancePage() {
                       </td>
                       <td>
                         <div className={styles.chipStack}>
-                          <ChipLink to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=1`)}>SOF</ChipLink>
-                          <ChipLink to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=1`)}>Laytime</ChipLink>
+                          <ChipLink
+                            to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                            disabled={!hasWorksheet}
+                          >
+                            SOF
+                          </ChipLink>
+                          <ChipLink
+                            to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                            disabled={!hasWorksheet}
+                          >
+                            Laytime
+                          </ChipLink>
                         </div>
                       </td>
                       <td>

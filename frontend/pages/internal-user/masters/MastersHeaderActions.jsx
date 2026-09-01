@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { Button, HeaderFilterControls, PageHeaderSearch } from '@bainbridge/shared-ui';
+import { Button, CardSelect, HeaderFilterControls, PageHeaderSearch } from '@bainbridge/shared-ui';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 
 /**
- * Shared Masters list header: search + "+ Add" (and optional Excel).
+ * Shared Masters list header: search + "+ Add" (and optional Excel / filter).
  * Use on every master list page so future masters stay consistent.
  */
 export default function MastersHeaderActions({
@@ -13,8 +13,14 @@ export default function MastersHeaderActions({
   onAdd,
   showAdd = true,
   onExcel = null,
+  filterOptions = null,
+  filterValue = '',
+  onFilterChange = null,
+  filterPlaceholder = 'Filter',
+  filterAriaLabel = 'Filter',
 }) {
   const searchRef = useRef(null);
+  const showFilter = Array.isArray(filterOptions) && typeof onFilterChange === 'function';
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -33,7 +39,19 @@ export default function MastersHeaderActions({
 
   return (
     <PageHeaderActions
-      deps={[search, onSearchChange, onAdd, showAdd, searchPlaceholder, onExcel]}
+      deps={[
+        search,
+        onSearchChange,
+        onAdd,
+        showAdd,
+        searchPlaceholder,
+        onExcel,
+        filterOptions,
+        filterValue,
+        onFilterChange,
+        filterPlaceholder,
+        filterAriaLabel,
+      ]}
     >
       <HeaderFilterControls>
         <PageHeaderSearch
@@ -42,6 +60,15 @@ export default function MastersHeaderActions({
           onChange={onSearchChange}
           placeholder={searchPlaceholder}
         />
+        {showFilter ? (
+          <CardSelect
+            options={filterOptions}
+            value={filterValue}
+            onChange={onFilterChange}
+            placeholder={filterPlaceholder}
+            ariaLabel={filterAriaLabel}
+          />
+        ) : null}
         {onExcel ? (
           <Button
             type="button"

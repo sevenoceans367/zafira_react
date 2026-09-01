@@ -17,15 +17,16 @@ export default function OpsVcSoaReportHeaderActions({
       <HeaderFilterControls>
         {pdfHref ? (
           <Button
-            variant="secondary"
+            variant="outline"
             label="Generate PDF"
+            icon="download"
             href={pdfHref}
             target="_blank"
             rel="noopener noreferrer"
             disabled={disabled}
           />
         ) : null}
-        <Button variant="secondary" label="Back" href={backHref} disabled={disabled} />
+        <Button variant="back" label="Back" href={backHref} disabled={disabled} />
       </HeaderFilterControls>
     </PageHeaderActions>
   );

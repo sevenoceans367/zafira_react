@@ -20,11 +20,11 @@ const PAGES = {
   'clubbed-invoice': 'Invoice Clubbed',
   'clubbed-hire': 'Payment Clubbed',
   'request-port-cost': 'Operational Costs Payment',
-  sof: 'SOF',
+  sof: 'Statement of Facts',
   checklist: 'Ops Checklist',
   laytime: 'Laytime',
   bunker: 'Bunker Calculations',
-  'soa-report': 'SOA',
+  'soa-report': 'Cashflow',
   'cost-sheet': 'Voyage Financials',
 };
 

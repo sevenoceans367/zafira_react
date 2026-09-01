@@ -10,6 +10,8 @@ import {
   updateMaterialStatus,
 } from '../../../../services/materials.js';
 import { usePageHeaderHeading } from '../../PageHeaderContext.jsx';
+import SopfPagination from '../../sopf/SopfPagination.jsx';
+import ScrollableTable, { DEFAULT_PAGE_SIZE } from '../../sopf/ScrollableTable.jsx';
 import MastersHeaderActions from '../MastersHeaderActions.jsx';
 import { filterMasterRows } from '../filterMasterRows.js';
 import styles from './MaterialPage.module.css';
@@ -24,6 +26,11 @@ const MATERIAL_TYPES = [
   { id: '1', label: 'Gas' },
   { id: '2', label: 'Tanker' },
   { id: '3', label: 'Dry Cargo' },
+];
+
+const TRADE_TYPE_FILTER_OPTIONS = [
+  { id: 'all', name: 'All Trade Types' },
+  ...MATERIAL_TYPES.map((item) => ({ id: item.id, name: item.label })),
 ];
 
 const DRY_CARGO_TYPE_ID = '3';
@@ -61,15 +68,30 @@ export default function MaterialPage() {
   const [error, setError] = useState('');
   const [flash, setFlash] = useFlashState();
   const [searchInput, setSearchInput] = useState('');
+  const [tradeTypeFilter, setTradeTypeFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-  const filteredRows = useMemo(
-    () => filterMasterRows(rows, searchInput, [
+  const filteredRows = useMemo(() => {
+    const bySearch = filterMasterRows(rows, searchInput, [
       'materialName',
       'materialTypeLabel',
       'materialCode',
       'materialGroup',
-    ]),
-    [rows, searchInput],
+    ]);
+    if (!tradeTypeFilter || tradeTypeFilter === 'all') return bySearch;
+    return bySearch.filter((row) => String(row.materialTypeId) === String(tradeTypeFilter));
+  }, [rows, searchInput, tradeTypeFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchInput, tradeTypeFilter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = filteredRows.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
   );
 
   const showStowageFactors = form.materialTypeId === DRY_CARGO_TYPE_ID;
@@ -325,6 +347,11 @@ export default function MaterialPage() {
         search={searchInput}
         onSearchChange={setSearchInput}
         searchPlaceholder="Search cargo"
+        filterOptions={TRADE_TYPE_FILTER_OPTIONS}
+        filterValue={tradeTypeFilter}
+        onFilterChange={setTradeTypeFilter}
+        filterPlaceholder="Trade Type"
+        filterAriaLabel="Trade Type"
         onAdd={openAdd}
         onExcel={handleExcel}
       />
@@ -338,7 +365,18 @@ export default function MaterialPage() {
       ) : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.tableWrap}>
+      <ScrollableTable
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+        footer={(
+          <SopfPagination
+            page={safePage}
+            pageSize={pageSize}
+            total={filteredRows.length}
+            onPageChange={setPage}
+          />
+        )}
+      >
         <table className={`zafira-data-table ${styles.table}`}>
           <thead>
             <tr>
@@ -352,16 +390,16 @@ export default function MaterialPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredRows.length === 0 && !loading ? (
+            {pagedRows.length === 0 && !loading ? (
               <tr>
                 <td className={styles.emptyCell} colSpan={7}>
                   No cargo records found.
                 </td>
               </tr>
             ) : null}
-            {filteredRows.map((row, index) => (
+            {pagedRows.map((row, index) => (
               <tr key={row.id}>
-                <td>{index + 1}.</td>
+                <td>{(safePage - 1) * pageSize + index + 1}.</td>
                 <td>{row.materialName || '—'}</td>
                 <td>{row.materialTypeLabel || '—'}</td>
                 <td>{row.materialCode || '—'}</td>
@@ -386,7 +424,7 @@ export default function MaterialPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollableTable>
     </div>
   );
 }

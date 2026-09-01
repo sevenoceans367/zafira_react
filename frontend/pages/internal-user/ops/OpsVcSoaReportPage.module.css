@@ -1,0 +1,463 @@
+.page {
+  position: relative;
+}
+
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+  font-size: var(--font-size-body, 12px);
+}
+
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: #8a93a2;
+  font-size: 13px;
+}
+
+.pageSubhead {
+  font-size: 13px;
+  color: #5b6472;
+  font-weight: 600;
+  margin: 0 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.tagSoft {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  background: #f1f2f4;
+  border: 1px solid #dfe2e7;
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.voyidCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.voyidLeft {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.voyChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fdece4;
+  color: #f4652c;
+  border: 1px solid #fbd9c9;
+  border-radius: 9px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.voyChip svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.vcSep {
+  opacity: 0.5;
+  font-weight: 600;
+}
+
+.voyidSpecs {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.voyidSpec {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.voyidSpec label {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+}
+
+.val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.cfKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+@media (max-width: 1100px) {
+  .cfKpiGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cfKpi {
+  border-radius: 14px;
+  padding: 17px 19px;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cfKpiReceivable {
+  background: linear-gradient(135deg, #e3f4f4 0%, #ffffff 65%);
+  border-color: #c6e8e9;
+}
+
+.cfKpiPayable {
+  background: linear-gradient(135deg, #fdece4 0%, #ffffff 65%);
+  border-color: #fbd9c9;
+}
+
+.cfKpiNet {
+  background: linear-gradient(135deg, #e6eaf1 0%, #ffffff 65%);
+  border-color: #d3dae7;
+}
+
+.cfKpiLabel {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5b6472;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cfKpiIco {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.cfKpiIco svg {
+  width: 14px;
+  height: 14px;
+}
+
+.cfKpiReceivable .cfKpiIco {
+  color: #14919b;
+}
+
+.cfKpiPayable .cfKpiIco {
+  color: #f4652c;
+}
+
+.cfKpiNet .cfKpiIco {
+  color: #274670;
+}
+
+.cfKpiValue {
+  font-weight: 700;
+  font-size: 27px;
+  line-height: 1;
+  color: #2b3444;
+}
+
+.cfKpiSub {
+  font-size: 11.5px;
+  color: #8a93a2;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.cfTrend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 7px;
+  padding: 4px 9px;
+  width: fit-content;
+}
+
+.cfTrend svg {
+  width: 11px;
+  height: 11px;
+}
+
+.cfTrendOwed {
+  background: #fdecea;
+  color: #e4483b;
+}
+
+.cfTrendSettled {
+  background: #eef0f3;
+  color: #8a93a2;
+}
+
+.cfTrendCredit {
+  background: #e8f8ec;
+  color: #0fa836;
+}
+
+.cfSection {
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 14px;
+  margin-bottom: 22px;
+  overflow: hidden;
+}
+
+.cfSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 17px 22px;
+  border-bottom: 1px solid #dfe2e7;
+}
+
+.cfSectionHeadReceivable {
+  background: #e3f4f4;
+}
+
+.cfSectionHeadPayable {
+  background: #fdece4;
+}
+
+.cfSectionTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sectionIco {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.sectionIco svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sectionIcoTeal {
+  color: #14919b;
+}
+
+.sectionIcoOrange {
+  color: #f4652c;
+}
+
+.cfSectionTitle {
+  font-size: 15.5px;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.cfSectionSub {
+  font-size: 11px;
+  color: #5b6472;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.cfProgressWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+}
+
+.cfProgress {
+  flex: 1;
+  height: 7px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.75);
+  overflow: hidden;
+}
+
+.cfProgressFill {
+  height: 100%;
+  border-radius: 99px;
+}
+
+.cfProgressFillReceivable {
+  background: #14919b;
+}
+
+.cfProgressFillPayable {
+  background: #f4652c;
+}
+
+.cfProgressLabel {
+  font-size: 11px;
+  font-weight: 800;
+  color: #1b2430;
+  white-space: nowrap;
+}
+
+.cfNoflow {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #5b6472;
+  font-style: italic;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.cfTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cfTable th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  background: #fafbfc;
+  padding: 11px 14px;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: nowrap;
+}
+
+.num {
+  text-align: right;
+}
+
+.cfTable td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #eceef2;
+  font-size: 12.5px;
+  color: #1b2430;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.desc {
+  color: #1b2430;
+  font-weight: 700;
+  white-space: normal;
+}
+
+.basis {
+  color: #8a93a2;
+  font-size: 11.5px;
+  white-space: normal;
+}
+
+.grpRow td {
+  background: #fafbfc;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  padding: 9px 14px;
+  white-space: normal;
+}
+
+.cfEmptyRow td {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #8a93a2;
+  font-style: italic;
+}
+
+.cfSubRow td {
+  font-weight: 800;
+  color: #1b2430;
+  background: #fcfcfd;
+  border-top: 1px dashed #dfe2e7;
+}
+
+.cfTotalRow td {
+  font-weight: 800;
+  color: #1b2430;
+  background: #f1f2f4;
+  border-top: 1.5px solid #dfe2e7;
+  border-bottom: none;
+  font-size: 13px;
+  padding: 14px;
+}
+
+.totLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 11px;
+  color: #5b6472;
+  font-weight: 800;
+}
+
+.balFlag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 800;
+}
+
+.balFlag svg {
+  width: 11px;
+  height: 11px;
+}
+
+.balFlagOwed {
+  color: #e4483b;
+}
+
+.balFlagSettled {
+  color: #8a93a2;
+  font-weight: 600;
+}
+
+.balFlagCredit {
+  color: #0fa836;
+}

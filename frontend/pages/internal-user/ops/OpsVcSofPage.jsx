@@ -2,16 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Button,
   DmyDateInput,
+  DownloadIcon,
   LoadingOverlay,
-  TextInput,
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchSofForm, saveSof } from '../../../services/opsVc.js';
 import OpsVcSofHeaderActions from './OpsVcSofHeaderActions.jsx';
-import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcSofPage.module.css';
 
 const BACK_PATHS = {
@@ -60,23 +58,41 @@ function SofInfoPopup() {
     <div className={styles.infoPop}>
       <div className={styles.infoPopTitle}>How this page works</div>
       <ol className={styles.infoPopSteps}>
-        <li>Fill in the port header and <b>Key operations</b> with From/To datetimes as events occur.</li>
-        <li>Complete <b>Cargo / figures</b> where applicable.</li>
-        <li><b>Submit</b> saves your entries; <b>Submit &amp; Close</b> locks the SOF when sailing entries are complete.</li>
-        <li>Key operations with From and To feed Laytime activities; timestamps also seed Laytime header fields.</li>
+        <li>Fill in the port header and <b>Key Operations</b> with From/To datetimes as events occur.</li>
+        <li>Complete <b>Cargo / Figures</b> where applicable.</li>
+        <li><b>Save</b> keeps a draft you can return to.</li>
+        <li><b>Submit</b> locks the SOF once all entries prior to sailing are complete.</li>
+        <li>Key Operations with From and To feed Laytime activities; timestamps also seed Laytime header fields.</li>
       </ol>
     </div>
   );
 }
 
-function AddRowButton({ onClick, disabled }) {
+function AddRowButton({ onClick, disabled, label = 'Add' }) {
   if (disabled) return null;
   return (
     <button type="button" className={styles.addRowBtn} onClick={onClick}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
         <path d="M12 5v14M5 12h14" />
       </svg>
-      Add
+      {label}
+    </button>
+  );
+}
+
+function CircleDeleteButton({ onClick, disabled }) {
+  if (disabled) return null;
+  return (
+    <button
+      type="button"
+      className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+      title="Remove row"
+      onClick={onClick}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+        <path d="M18 6 6 18" />
+        <path d="M6 6l12 12" />
+      </svg>
     </button>
   );
 }
@@ -103,10 +119,15 @@ function isDraftCargoActivity(activity) {
   return name === 'arrival draft' || name === 'departure draft';
 }
 
+function cargoActivityLabel(activity, portType) {
+  if (activity === 'Cargo Loaded' && portType === 'DP') return 'Cargo Discharged';
+  return activity || '';
+}
+
 function cargoFigureLabels(activity) {
   const name = String(activity || '');
   if (name === 'Cargo Loaded') return { col1: "Ship's Figures", col2: 'B/L Figures' };
-  if (name === 'Bunkers taken') return { col1: 'IFO', col2: 'MDO' };
+  if (name === 'Bunkers taken' || name === 'Bunkers Taken') return { col1: 'IFO', col2: 'MDO' };
   return { col1: 'F', col2: 'A' };
 }
 
@@ -172,6 +193,8 @@ export default function OpsVcSofPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pendingFilesByKey, setPendingFilesByKey] = useState({});
+  const [keyOpsSearch, setKeyOpsSearch] = useState('');
+  const [dropActive, setDropActive] = useState(false);
   const attachInputRef = useRef(null);
 
   const backHref = useMemo(() => {
@@ -218,6 +241,21 @@ export default function OpsVcSofPage() {
   const draft = activeKey ? drafts[activeKey] : null;
   const pendingFiles = pendingFilesByKey[activeKey] || [];
   const locked = Boolean(activePort && !activePort.canEdit);
+
+  useEffect(() => {
+    setKeyOpsSearch('');
+  }, [activeKey]);
+
+  const keyOpsRows = draft?.keyOperations || [];
+  const keyOpsTerm = keyOpsSearch.trim().toLowerCase();
+  const filteredKeyOps = useMemo(() => {
+    if (!keyOpsTerm) {
+      return keyOpsRows.map((row, index) => ({ row, index }));
+    }
+    return keyOpsRows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => String(row.activity || '').toLowerCase().includes(keyOpsTerm));
+  }, [keyOpsRows, keyOpsTerm]);
 
   const patchDraft = (patch) => {
     setDrafts((current) => ({
@@ -269,8 +307,10 @@ export default function OpsVcSofPage() {
 
     const ok = await confirm({
       title: 'Confirmation',
-      message: 'Are you sure all entries prior to sailing are made?',
-      confirmLabel: submitId === 2 ? 'Submit & Close' : 'Submit',
+      message: submitId === 2
+        ? 'Are you sure all entries prior to sailing are made? Submit will lock this SOF.'
+        : 'Save this SOF as a draft?',
+      confirmLabel: submitId === 2 ? 'Submit' : 'Save',
     });
     if (!ok) return;
 
@@ -315,6 +355,8 @@ export default function OpsVcSofPage() {
   };
 
   const cargoSummary = (form?.cargo || []).join(', ') || '—';
+  const voyLabelParts = [form?.voyageNo, form?.vesselName].filter(Boolean);
+  const docCount = (draft?.keepFiles?.length || 0) + pendingFiles.length;
 
   return (
     <>
@@ -323,22 +365,27 @@ export default function OpsVcSofPage() {
         disabled={loading || saving}
       />
 
-      <div className={`zafira-page ${pageStyles.page}`}>
+      <div className={`zafira-page ${styles.page}`}>
         {(loading || saving) ? <LoadingOverlay active label={saving ? 'Saving SOF…' : 'Loading SOF…'} /> : null}
         {flash ? (
-          <div className={flash.type === 'error' ? pageStyles.error : pageStyles.flashSuccess}>{flash.text}</div>
+          <div className={flash.type === 'error' ? styles.error : styles.flashSuccess}>{flash.text}</div>
         ) : null}
-        {error ? <div className={pageStyles.error}>{error}</div> : null}
+        {error ? <div className={styles.error}>{error}</div> : null}
 
         {!loading && !form?.ports?.length ? (
-          <div className={pageStyles.empty}>
+          <div className={styles.empty}>
             No load/discharge/transit ports found on the cost sheet for SOF.
           </div>
         ) : null}
 
         {form?.ports?.length ? (
           <>
-            {(form?.message || form?.vesselName) ? (
+            <div className={styles.pageSubhead}>
+              Port operations log and cargo figures for this voyage
+              <span className={styles.tagSoft}>SOF</span>
+            </div>
+
+            {voyLabelParts.length ? (
               <div className={styles.voyChip}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <circle cx="12" cy="5" r="2.2" />
@@ -346,7 +393,7 @@ export default function OpsVcSofPage() {
                   <path d="M8 10h8" />
                   <path d="M4 13a8 8 0 0 0 16 0" />
                 </svg>
-                {form.message || '—'}
+                {form.voyageNo || '—'}
                 {form.vesselName ? (
                   <>
                     <span className={styles.vcSep}>·</span>
@@ -375,9 +422,9 @@ export default function OpsVcSofPage() {
             {activePort && draft ? (
               <div className={styles.gprlLayout}>
                 <div className={styles.gprlMain}>
-                  <div className={styles.formCard}>
-                    <div className={styles.sectionBlock}>
-                      <div className={styles.sectionHead}>
+                  <div className={styles.cfSection}>
+                    <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadNavy}`}>
+                      <div className={styles.cfSectionTitleWrap}>
                         <div
                           className={`${styles.sectionIco} ${styles.sectionIcoNavy} ${styles.infoTrigger}`}
                           tabIndex={0}
@@ -385,223 +432,288 @@ export default function OpsVcSofPage() {
                           <InfoIcon />
                           <SofInfoPopup />
                         </div>
-                        <div className={styles.sectionTitles}>
-                          <div className={styles.sectionTitle}>Port call</div>
-                          <div className={styles.sectionSub}>Vessel, voyage and terminal details</div>
+                        <div>
+                          <div className={styles.cfSectionTitle}>Port Call</div>
+                          <div className={styles.cfSectionSub}>Vessel, voyage and terminal details</div>
                         </div>
                       </div>
-                      <div className={pageStyles.tableWrap}>
-                        <table className={`zafira-data-table ${pageStyles.nestedTable}`}>
-                          <tbody>
-                            <tr>
-                              <td width="25%"><b>Vessel</b></td>
-                              <td width="25%">{form.vesselName || '—'}</td>
-                              <td width="25%"><b>Port</b></td>
-                              <td width="25%">{activePort.portName || '—'}</td>
-                            </tr>
-                            <tr>
-                              <td><b>Voyage</b></td>
-                              <td>{form.voyageNo || '—'}</td>
-                              <td><b>Operation</b></td>
-                              <td>{activePort.operation || '—'}</td>
-                            </tr>
-                            <tr>
-                              <td><b>Cargo</b></td>
-                              <td>{cargoSummary}</td>
-                              <td><b>Terminal</b></td>
-                              <td>
-                                <TextInput
-                                  value={draft.terminal}
-                                  onChange={(e) => patchDraft({ terminal: e.target.value })}
+                    </div>
+                    <div className={styles.pcGrid}>
+                      <div className={styles.pcCell}>
+                        <span className={styles.pcLabel}>Vessel</span>
+                        <span className={styles.pcVal}>{form.vesselName || '—'}</span>
+                      </div>
+                      <div className={styles.pcCell}>
+                        <span className={styles.pcLabel}>Port</span>
+                        <span className={styles.pcVal}>{activePort.portName || '—'}</span>
+                      </div>
+                      <div className={styles.pcCell}>
+                        <span className={styles.pcLabel}>Voyage</span>
+                        <span className={styles.pcVal}>{form.voyageNo || '—'}</span>
+                      </div>
+                      <div className={styles.pcCell}>
+                        <span className={styles.pcLabel}>Operation</span>
+                        <span className={styles.pcVal}>{activePort.operation || '—'}</span>
+                      </div>
+                      <div className={styles.pcCell}>
+                        <span className={styles.pcLabel}>Cargo</span>
+                        <span className={styles.pcVal}>{cargoSummary}</span>
+                      </div>
+                      <div className={styles.pcCell}>
+                        <span className={styles.pcLabel}>Terminal</span>
+                        <input
+                          type="text"
+                          value={draft.terminal}
+                          onChange={(e) => patchDraft({ terminal: e.target.value })}
+                          disabled={locked}
+                          placeholder="Enter terminal here"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={styles.cfSection}>
+                    <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadOrange}`}>
+                      <div className={styles.cfSectionTitleWrap}>
+                        <div className={`${styles.sectionIco} ${styles.sectionIcoOrange}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <rect x="6" y="3.5" width="12" height="17" rx="2" />
+                            <path d="M9 3.5V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5" />
+                            <path d="M9 12.5l2 2 4-4.5" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className={styles.cfSectionTitle}>Key Operations</div>
+                          <div className={styles.cfSectionSub}>Log each event as it happens</div>
+                        </div>
+                      </div>
+                      <div className={styles.cfFilterWrap}>
+                        <div className={styles.cfFilterBox}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <circle cx="11" cy="11" r="7" />
+                            <path d="m21 21-4.3-4.3" />
+                          </svg>
+                          <input
+                            type="text"
+                            value={keyOpsSearch}
+                            onChange={(e) => setKeyOpsSearch(e.target.value)}
+                            placeholder="Search"
+                          />
+                        </div>
+                        <span className={styles.cfFilterCount}>
+                          {filteredKeyOps.length} of {keyOpsRows.length} shown
+                        </span>
+                      </div>
+                    </div>
+                    <div className={styles.tableWrap}>
+                      <table className={styles.cfTable}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: 34 }} />
+                            <th>Key Operation</th>
+                            <th>Date/Time From</th>
+                            <th>Date/Time To</th>
+                            <th colSpan={2}>Comments</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredKeyOps.map(({ row, index }) => (
+                            <tr key={`kop-${index}`}>
+                              <td style={{ width: 34 }}>
+                                <CircleDeleteButton
                                   disabled={locked}
-                                  placeholder="Enter terminal here"
+                                  onClick={() => removeListRow('keyOperations', index, emptyKeyOp, false)}
                                 />
                               </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className={styles.sectionBlock}>
-                      <h4 className={styles.blockTitle}>Key operations</h4>
-                      <div className={pageStyles.tableWrap}>
-                        <table className={`zafira-data-table ${pageStyles.table}`}>
-                          <thead>
-                            <tr>
-                              <th width="4%">#</th>
-                              <th width="24%">Key operation</th>
-                              <th width="16%">Date Time From</th>
-                              <th width="16%">Date Time To</th>
-                              <th width="40%" colSpan={2}>Comments</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(draft.keyOperations || []).map((row, index) => (
-                              <tr key={`kop-${index}`}>
-                                <td>
-                                  {!locked ? (
-                                    <button
-                                      type="button"
-                                      className={pageStyles.dangerIcon}
-                                      title="Delete"
-                                      onClick={() => removeListRow('keyOperations', index, emptyKeyOp, false)}
-                                    >
-                                      <i className="bi bi-x-lg" aria-hidden />
-                                    </button>
-                                  ) : null}
-                                </td>
-                                <td>
-                                  <TextInput
+                              <td className={styles.opName}>
+                                {Number(row.tDefault) === 1 ? (
+                                  row.activity || '—'
+                                ) : (
+                                  <input
+                                    className={styles.cfInp}
+                                    type="text"
                                     value={row.activity}
                                     onChange={(e) => updateListRow('keyOperations', index, { activity: e.target.value })}
-                                    disabled={locked || Number(row.tDefault) === 1}
+                                    disabled={locked}
                                     placeholder="Enter text here……"
                                   />
-                                </td>
-                                <td>
-                                  <DmyDateInput
-                                    enableTime
-                                    value={row.activityDateTime || ''}
-                                    onChange={(v) => updateListRow('keyOperations', index, { activityDateTime: v })}
-                                    disabled={locked}
-                                  />
-                                </td>
-                                <td>
-                                  <DmyDateInput
-                                    enableTime
-                                    value={row.activityDateTimeTo || ''}
-                                    onChange={(v) => updateListRow('keyOperations', index, { activityDateTimeTo: v })}
-                                    disabled={locked}
-                                  />
-                                </td>
-                                {isRobActivity(row.activity) ? (
-                                  <>
-                                    <td width="20%">
-                                      <label>
-                                        ROB IFO
-                                        <TextInput
-                                          value={row.robIfo}
-                                          onChange={(e) => updateListRow('keyOperations', index, { robIfo: e.target.value })}
-                                          disabled={locked}
-                                          placeholder="0.00"
-                                        />
-                                      </label>
-                                    </td>
-                                    <td width="20%">
-                                      <label>
-                                        ROB MDO
-                                        <TextInput
-                                          value={row.robMdo}
-                                          onChange={(e) => updateListRow('keyOperations', index, { robMdo: e.target.value })}
-                                          disabled={locked}
-                                          placeholder="0.00"
-                                        />
-                                      </label>
-                                    </td>
-                                  </>
-                                ) : (
-                                  <td colSpan={2}>
-                                    <TextInput
-                                      value={row.comments}
-                                      onChange={(e) => updateListRow('keyOperations', index, { comments: e.target.value })}
-                                      disabled={locked}
-                                      placeholder="Comments here…."
-                                    />
-                                  </td>
                                 )}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      {!locked ? (
-                        <AddRowButton onClick={() => addListRow('keyOperations', emptyKeyOp)} disabled={locked} />
-                      ) : null}
+                              </td>
+                              <td>
+                                <DmyDateInput
+                                  enableTime
+                                  value={row.activityDateTime || ''}
+                                  onChange={(v) => updateListRow('keyOperations', index, { activityDateTime: v })}
+                                  disabled={locked}
+                                />
+                              </td>
+                              <td>
+                                <DmyDateInput
+                                  enableTime
+                                  value={row.activityDateTimeTo || ''}
+                                  onChange={(v) => updateListRow('keyOperations', index, { activityDateTimeTo: v })}
+                                  disabled={locked}
+                                />
+                              </td>
+                              {isRobActivity(row.activity) ? (
+                                <td colSpan={2}>
+                                  <div className={styles.cfRobPair}>
+                                    <div className={styles.cfRob}>
+                                      <label>ROB IFO</label>
+                                      <input
+                                        className={styles.cfInp}
+                                        type="text"
+                                        value={row.robIfo}
+                                        onChange={(e) => updateListRow('keyOperations', index, { robIfo: e.target.value })}
+                                        disabled={locked}
+                                        placeholder="0.00"
+                                      />
+                                    </div>
+                                    <div className={styles.cfRob}>
+                                      <label>ROB MDO</label>
+                                      <input
+                                        className={styles.cfInp}
+                                        type="text"
+                                        value={row.robMdo}
+                                        onChange={(e) => updateListRow('keyOperations', index, { robMdo: e.target.value })}
+                                        disabled={locked}
+                                        placeholder="0.00"
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+                              ) : (
+                                <td colSpan={2}>
+                                  <input
+                                    className={styles.cfInp}
+                                    type="text"
+                                    value={row.comments}
+                                    onChange={(e) => updateListRow('keyOperations', index, { comments: e.target.value })}
+                                    disabled={locked}
+                                    placeholder="Comments"
+                                  />
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
+                    <div className={styles.tableFooter}>
+                      <AddRowButton
+                        label="Add Key Operation"
+                        onClick={() => addListRow('keyOperations', emptyKeyOp)}
+                        disabled={locked}
+                      />
+                    </div>
+                  </div>
 
-                    <div className={styles.sectionBlock}>
-                      <h4 className={styles.blockTitle}>Cargo / figures</h4>
-                      <div className={pageStyles.tableWrap}>
-                        <table className={`zafira-data-table ${pageStyles.table}`}>
-                          <tbody>
-                            {(draft.cargoRows || []).map((row, index) => {
-                              const labels = cargoFigureLabels(row.activity);
-                              return (
-                                <tr key={`cargo-${index}`}>
-                                  <td width="4%">
-                                    {!locked ? (
-                                      <button
-                                        type="button"
-                                        className={pageStyles.dangerIcon}
-                                        title="Delete"
-                                        onClick={() => removeListRow('cargoRows', index, emptyCargoRow, false)}
-                                      >
-                                        <i className="bi bi-x-lg" aria-hidden />
-                                      </button>
-                                    ) : null}
-                                  </td>
-                                  <td width="26%">
-                                    <TextInput
+                  <div className={styles.cfSection}>
+                    <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadTeal}`}>
+                      <div className={styles.cfSectionTitleWrap}>
+                        <div className={`${styles.sectionIco} ${styles.sectionIcoTeal}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M12 2s6 6.9 6 11.2A6 6 0 0 1 6 13.2C6 8.9 12 2 12 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className={styles.cfSectionTitle}>Cargo / Figures</div>
+                          <div className={styles.cfSectionSub}>Quantities, drafts and remarks for this port</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={styles.tableWrap}>
+                      <table className={styles.cfTable}>
+                        <tbody>
+                          {(draft.cargoRows || []).map((row, index) => {
+                            const labels = cargoFigureLabels(row.activity);
+                            const activityLabel = cargoActivityLabel(row.activity, activePort.portType);
+                            return (
+                              <tr key={`cargo-${index}`}>
+                                <td style={{ width: 34 }}>
+                                  <CircleDeleteButton
+                                    disabled={locked}
+                                    onClick={() => removeListRow('cargoRows', index, emptyCargoRow, false)}
+                                  />
+                                </td>
+                                <td className={styles.cffRowLabel}>
+                                  {Number(row.tDefault) === 1 ? (
+                                    activityLabel || '—'
+                                  ) : (
+                                    <input
+                                      className={styles.cfInp}
+                                      type="text"
                                       value={row.activity}
                                       onChange={(e) => updateListRow('cargoRows', index, { activity: e.target.value })}
-                                      disabled={locked || Number(row.tDefault) === 1}
+                                      disabled={locked}
                                       placeholder="Enter text here……"
                                     />
+                                  )}
+                                </td>
+                                {isRemarksCargoActivity(row.activity) ? (
+                                  <td colSpan={4}>
+                                    <input
+                                      className={styles.cfInp}
+                                      type="text"
+                                      value={row.remarks}
+                                      onChange={(e) => updateListRow('cargoRows', index, { remarks: e.target.value })}
+                                      disabled={locked}
+                                      placeholder="Text here"
+                                    />
                                   </td>
-                                  {isRemarksCargoActivity(row.activity) ? (
-                                    <td colSpan={4}>
-                                      <TextInput
-                                        value={row.remarks}
-                                        onChange={(e) => updateListRow('cargoRows', index, { remarks: e.target.value })}
-                                        disabled={locked}
-                                        placeholder="Text here........"
-                                      />
-                                    </td>
-                                  ) : (
-                                    <>
-                                      <td width="12%">{labels.col1}</td>
-                                      <td width="16%">
-                                        <TextInput
+                                ) : (
+                                  <td colSpan={4}>
+                                    <div className={styles.cffPairRow}>
+                                      <div className={styles.cffPair}>
+                                        <label>{labels.col1}</label>
+                                        <input
+                                          className={styles.cfInp}
+                                          type="text"
                                           value={row.shipFigure}
                                           onChange={(e) => updateListRow('cargoRows', index, { shipFigure: e.target.value })}
                                           disabled={locked}
                                           placeholder="0.00"
                                         />
-                                      </td>
-                                      <td width="12%">{labels.col2}</td>
-                                      <td width="16%">
-                                        <TextInput
+                                      </div>
+                                      <div className={styles.cffPair}>
+                                        <label>{labels.col2}</label>
+                                        <input
+                                          className={styles.cfInp}
+                                          type="text"
                                           value={row.blFigure}
                                           onChange={(e) => updateListRow('cargoRows', index, { blFigure: e.target.value })}
                                           disabled={locked}
                                           placeholder="0.00"
                                         />
-                                      </td>
+                                      </div>
                                       {isDraftCargoActivity(row.activity) ? (
-                                        <>
-                                          <td width="14%">Corresponding water density</td>
-                                          <td width="16%">
-                                            <TextInput
-                                              value={row.waterDensity}
-                                              onChange={(e) => updateListRow('cargoRows', index, { waterDensity: e.target.value })}
-                                              disabled={locked}
-                                              placeholder="0.00"
-                                            />
-                                          </td>
-                                        </>
+                                        <div className={styles.cffPair}>
+                                          <label>Water Density</label>
+                                          <input
+                                            className={styles.cfInp}
+                                            type="text"
+                                            value={row.waterDensity}
+                                            onChange={(e) => updateListRow('cargoRows', index, { waterDensity: e.target.value })}
+                                            disabled={locked}
+                                            placeholder="0.00"
+                                          />
+                                        </div>
                                       ) : null}
-                                    </>
-                                  )}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                      {!locked ? (
-                        <AddRowButton onClick={() => addListRow('cargoRows', emptyCargoRow)} disabled={locked} />
-                      ) : null}
+                                    </div>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className={styles.tableFooter}>
+                      <AddRowButton
+                        label="Add Line"
+                        onClick={() => addListRow('cargoRows', emptyCargoRow)}
+                        disabled={locked}
+                      />
                     </div>
                   </div>
                 </div>
@@ -614,81 +726,26 @@ export default function OpsVcSofPage() {
                       disabled
                       title="PDF generation is not migrated yet."
                     >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M6 2.5h8l5 5v12.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15.5a2 2 0 0 1 2-2z" />
-                        <path d="M14 2.5v4a1 1 0 0 0 1 1h4" />
-                        <path d="M8 12h8" />
-                        <path d="M8 15.5h8" />
-                      </svg>
-                      Generate PDF
+                      <DownloadIcon />
+                      PDF
                     </button>
                   </div>
 
-                  <div className={styles.sideCard}>
-                    <div className={styles.sideCardHead}>
-                      <div className={styles.sideIco}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                        </svg>
-                      </div>
-                      <div className={styles.sideTitle}>Documents</div>
-                      <div className={styles.sideCount}>
-                        {(draft.keepFiles || []).length + pendingFiles.length}
+                  <div className={styles.cfSection}>
+                    <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadGrey}`}>
+                      <div className={styles.cfSectionTitleWrap}>
+                        <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`} style={{ width: 28, height: 28 }}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                          </svg>
+                        </div>
+                        <div className={styles.cfSectionTitle} style={{ fontSize: 13.5 }}>Documents</div>
+                        {docCount ? <div className={styles.sideCount}>{docCount}</div> : null}
                       </div>
                     </div>
                     <div className={styles.sideCardBody}>
-                      {(draft.keepFiles || []).length || pendingFiles.length ? (
-                        <>
-                          {(draft.keepFiles || []).map((file) => (
-                            <div key={file} className={styles.docRow}>
-                              <a
-                                href={attachmentHref(file)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {displayStoredFileName(file)}
-                              </a>
-                              {!locked ? (
-                                <button
-                                  type="button"
-                                  className={pageStyles.dangerIcon}
-                                  title="Remove from list"
-                                  onClick={() => patchDraft({
-                                    keepFiles: draft.keepFiles.filter((name) => name !== file),
-                                  })}
-                                >
-                                  <i className="bi bi-x-lg" aria-hidden />
-                                </button>
-                              ) : null}
-                            </div>
-                          ))}
-                          {pendingFiles.map((file, index) => (
-                            <div key={`pending-${file.name}-${index}`} className={styles.docRow}>
-                              <span>{file.name}</span>
-                              <span className={pageStyles.muted}>(pending)</span>
-                              {!locked ? (
-                                <button
-                                  type="button"
-                                  className={pageStyles.dangerIcon}
-                                  title="Remove"
-                                  onClick={() => removePendingFile(index)}
-                                >
-                                  <i className="bi bi-x-lg" aria-hidden />
-                                </button>
-                              ) : null}
-                            </div>
-                          ))}
-                        </>
-                      ) : (
-                        <div className={styles.sideEmpty}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                          </svg>
-                          <div>No documents uploaded yet.</div>
-                        </div>
-                      )}
                       {!locked ? (
-                        <div className={styles.attachRow}>
+                        <>
                           <input
                             ref={attachInputRef}
                             className={styles.hiddenFileInput}
@@ -699,17 +756,75 @@ export default function OpsVcSofPage() {
                               event.target.value = '';
                             }}
                           />
-                          <button
-                            type="button"
-                            className={styles.addRowBtn}
+                          <div
+                            className={dropActive ? `${styles.dropzone} ${styles.dropzoneActive}` : styles.dropzone}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => attachInputRef.current?.click()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                attachInputRef.current?.click();
+                              }
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              setDropActive(true);
+                            }}
+                            onDragLeave={() => setDropActive(false)}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              setDropActive(false);
+                              addPendingFiles(e.dataTransfer?.files);
+                            }}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-                              <path d="M12 5v14M5 12h14" />
-                            </svg>
-                            Add Attachment
-                          </button>
+                            <div className={styles.dropzoneIcon}>
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <path d="M12 16V4" />
+                                <path d="M6 10l6-6 6 6" />
+                                <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                              </svg>
+                            </div>
+                            <div className={styles.dropzoneText}>
+                              <b>Drag &amp; drop files here</b>, or click to browse
+                            </div>
+                          </div>
+                        </>
+                      ) : null}
+
+                      {(draft.keepFiles || []).length || pendingFiles.length ? (
+                        <div className={styles.fileList}>
+                          {(draft.keepFiles || []).map((file) => (
+                            <div key={file} className={styles.fileRow}>
+                              <a
+                                className={styles.fileName}
+                                href={attachmentHref(file)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {displayStoredFileName(file)}
+                              </a>
+                              <CircleDeleteButton
+                                disabled={locked}
+                                onClick={() => patchDraft({
+                                  keepFiles: draft.keepFiles.filter((name) => name !== file),
+                                })}
+                              />
+                            </div>
+                          ))}
+                          {pendingFiles.map((file, index) => (
+                            <div key={`pending-${file.name}-${index}`} className={styles.fileRow}>
+                              <span className={styles.fileName}>{file.name}</span>
+                              <span className={styles.filePending}>(pending)</span>
+                              <CircleDeleteButton
+                                disabled={locked}
+                                onClick={() => removePendingFile(index)}
+                              />
+                            </div>
+                          ))}
                         </div>
+                      ) : locked ? (
+                        <div className={styles.sideEmpty}>No documents uploaded yet.</div>
                       ) : null}
                     </div>
                   </div>
@@ -722,23 +837,34 @@ export default function OpsVcSofPage() {
                           <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                           <path d="M12 17h.01" />
                         </svg>
-                        Use &quot;Submit &amp; Close&quot; only when all entries prior to sailing are complete.
+                        Use &quot;Submit&quot; only when all entries prior to sailing are complete.
                       </div>
                       <div className={styles.gprlFooterActions}>
-                        <Button
+                        <button
                           type="button"
-                          variant="saveOutline"
-                          label="Submit"
+                          className={styles.btnSaveOutline}
                           onClick={() => handleSubmit(1)}
                           disabled={saving}
-                        />
-                        <Button
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <path d="M17 21v-8H7v8" />
+                            <path d="M7 3v5h8" />
+                          </svg>
+                          Save
+                        </button>
+                        <button
                           type="button"
-                          variant="submit"
-                          label="Submit & Close"
+                          className={styles.btnSubmitClose}
                           onClick={() => handleSubmit(2)}
                           disabled={saving}
-                        />
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="m22 2-7 20-4-9-9-4Z" />
+                            <path d="M22 2 11 13" />
+                          </svg>
+                          Submit
+                        </button>
                       </div>
                     </div>
                   ) : (

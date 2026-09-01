@@ -47,7 +47,7 @@ import {
   saveAgencyLetterTc,
 } from '../services/agencyLetterTcService.js';
 import { getPaymentGridTc } from '../services/paymentGridTcService.js';
-import { getPaymentGridVc } from '../services/paymentGridVcService.js';
+import { getVoyageStatus } from '../services/voyageStatusService.js';
 import {
   cancelFreightInvoice,
   deleteFreightInvoice,
@@ -832,6 +832,14 @@ router.get('/ops/sof', asyncHandler(async (req, res) => {
 router.get('/ops/checklist', asyncHandler(async (req, res) => {
   const comId = req.query.comId || req.query.comid;
   res.json(await getOpsChecklist(comId, req.query.kind || ''));
+}));
+
+router.get('/ops/voyage-status', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  res.json(await getVoyageStatus(comId, {
+    kind: req.query.kind || req.query.mode || 'vc',
+    page: req.query.page || '1',
+  }));
 }));
 
 router.post('/ops/sof', (req, res, next) => {

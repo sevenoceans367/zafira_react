@@ -66,7 +66,7 @@ function SofInfoPopup() {
       <div className={styles.infoPopTitle}>How this page works</div>
       <ol className={styles.infoPopSteps}>
         <li>Complete the numbered <b>Particulars</b> for this port call.</li>
-        <li>Add BL, activity, key operations and cargo figures as they occur.</li>
+        <li>Add BL, activity and key operations as they occur.</li>
         <li><b>Submit</b> saves your entries; <b>Submit &amp; Close</b> locks the SOF when sailing entries are complete.</li>
         <li>Attach supporting documents in the sidebar before submitting.</li>
       </ol>
@@ -170,31 +170,6 @@ function isRobActivity(activity) {
   return activity === 'EOSP' || activity === 'Full away on passage';
 }
 
-function isRemarksCargoActivity(activity) {
-  const name = String(activity || '').toLowerCase();
-  return ![
-    'cargo loaded',
-    'bunkers taken',
-    'tugs used arrival',
-    'tugs used for shifting',
-    'tugs used for departure',
-    'arrival draft',
-    'departure draft',
-  ].includes(name);
-}
-
-function cargoLabelA(activity) {
-  if (activity === 'Cargo Loaded') return "Ship's Figures";
-  if (activity === 'Bunkers taken') return 'IFO';
-  return 'F';
-}
-
-function cargoLabelB(activity) {
-  if (activity === 'Cargo Loaded') return 'B/L Figures';
-  if (activity === 'Bunkers taken') return 'MDO';
-  return 'A';
-}
-
 function emptyKeyOp() {
   return {
     activity: '',
@@ -202,17 +177,6 @@ function emptyKeyOp() {
     robIfo: '',
     robMdo: '',
     comments: '',
-    tDefault: 0,
-  };
-}
-
-function emptyCargoRow() {
-  return {
-    activity: '',
-    shipFigure: '',
-    blFigure: '',
-    waterDensity: '',
-    remarks: '',
     tDefault: 0,
   };
 }
@@ -1023,88 +987,6 @@ export default function OpsVcSofPage() {
                 </div>
                 {!locked ? (
                   <AddRowButton onClick={() => addListRow('keyOperations', emptyKeyOp)} disabled={locked} />
-                ) : null}
-                    </div>
-
-                    <div className={styles.sectionBlock}>
-                <h4 className={styles.blockTitle}>Cargo / figures</h4>
-                <div className={pageStyles.tableWrap}>
-                  <table className={`zafira-data-table ${pageStyles.table}`}>
-                    <tbody>
-                      {(draft.cargoRows || []).map((row, index) => (
-                        <tr key={`cargo-${index}`}>
-                          <td width="4%">
-                            {!locked ? (
-                              <button
-                                type="button"
-                                className={pageStyles.dangerIcon}
-                                title="Delete"
-                                onClick={() => removeListRow('cargoRows', index, emptyCargoRow, false)}
-                              >
-                                <i className="bi bi-x-lg" aria-hidden />
-                              </button>
-                            ) : null}
-                          </td>
-                          <td width="22%">
-                            <TextInput
-                              value={row.activity}
-                              onChange={(e) => updateListRow('cargoRows', index, { activity: e.target.value })}
-                              disabled={locked || Number(row.tDefault) === 1}
-                              placeholder="Enter text here……"
-                            />
-                          </td>
-                          {isRemarksCargoActivity(row.activity) ? (
-                            <td colSpan={4}>
-                              <TextInput
-                                value={row.remarks}
-                                onChange={(e) => updateListRow('cargoRows', index, { remarks: e.target.value })}
-                                disabled={locked}
-                                placeholder="Text here…….."
-                              />
-                            </td>
-                          ) : (
-                            <>
-                              <td>
-                                <Field label={cargoLabelA(row.activity)}>
-                                  <TextInput
-                                    value={row.shipFigure}
-                                    onChange={(e) => updateListRow('cargoRows', index, { shipFigure: e.target.value })}
-                                    disabled={locked}
-                                    placeholder="0.00"
-                                  />
-                                </Field>
-                              </td>
-                              <td>
-                                <Field label={cargoLabelB(row.activity)}>
-                                  <TextInput
-                                    value={row.blFigure}
-                                    onChange={(e) => updateListRow('cargoRows', index, { blFigure: e.target.value })}
-                                    disabled={locked}
-                                    placeholder="0.00"
-                                  />
-                                </Field>
-                              </td>
-                              <td colSpan={2}>
-                                {(row.activity === 'Arrival draft' || row.activity === 'Departure draft') ? (
-                                  <Field label="Corresponding water density">
-                                    <TextInput
-                                      value={row.waterDensity}
-                                      onChange={(e) => updateListRow('cargoRows', index, { waterDensity: e.target.value })}
-                                      disabled={locked}
-                                      placeholder="0.00"
-                                    />
-                                  </Field>
-                                ) : null}
-                              </td>
-                            </>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {!locked ? (
-                  <AddRowButton onClick={() => addListRow('cargoRows', emptyCargoRow)} disabled={locked} />
                 ) : null}
                     </div>
 

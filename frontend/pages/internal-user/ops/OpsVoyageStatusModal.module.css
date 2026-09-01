@@ -1,7 +1,6 @@
 .overlay {
   position: fixed;
   inset: 0;
-  /* Above AppSidebar (z-index 1000); match OpsPages / compare-sheet modals */
   z-index: 1200;
   display: flex;
   align-items: flex-start;
@@ -14,7 +13,7 @@
 }
 
 .modal {
-  width: 720px;
+  width: 920px;
   max-width: 100%;
   background: linear-gradient(180deg, #edf3fe 0%, #ffffff 26%);
   border-radius: 16px;
@@ -97,6 +96,7 @@
 }
 
 .body {
+  position: relative;
   padding: 24px 28px 30px;
 }
 
@@ -147,6 +147,14 @@
   padding: 18px 20px 16px;
 }
 
+.accentNavy .blockHead {
+  background: #e6eaf1;
+}
+
+.accentNavy .blockIco {
+  color: #274670;
+}
+
 .accentOrange .blockHead {
   background: #fdece4;
 }
@@ -177,6 +185,200 @@
 
 .accentPurple .blockIco {
   color: #7b4fc9;
+}
+
+.fieldgrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 14px;
+}
+
+.fieldgridSpaced {
+  margin-top: 12px;
+}
+
+.fieldgridAgent {
+  margin-top: 12px;
+  max-width: 220px;
+}
+
+.field {
+  flex: 1 1 118px;
+  min-width: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.fieldWide {
+  flex: 1 1 100%;
+  min-width: 220px;
+}
+
+.field label {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+}
+
+.disp {
+  background: #f1f2f4;
+  border: 1px solid #eceef2;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1b2430;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field input {
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #1b2430;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 8px 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.field input:read-only {
+  background: #fff;
+  cursor: default;
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 22px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed #dfe2e7;
+}
+
+.checksSecondary {
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.checksFlush {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #5b6472;
+  cursor: default;
+}
+
+.chk input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 1.5px solid #dfe2e7;
+  background: #fff;
+  position: relative;
+  flex: none;
+  margin: 0;
+}
+
+.chk input[type="checkbox"]:checked {
+  background: #274670;
+  border-color: #274670;
+}
+
+.chk input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.chkSelect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #8a93a2;
+  margin-left: auto;
+}
+
+.chkSelect select {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: none;
+  color: #1b2430;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 6px 9px;
+}
+
+.subhead {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  margin: 18px 0 10px;
+}
+
+.subhead:first-child {
+  margin-top: 0;
+}
+
+.cwRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.cwRow .field {
+  flex: 1 1 100px;
+}
+
+.chipWrap {
+  padding-top: 2px;
+}
+
+.laytimeNote {
+  font-size: 11.5px;
+  color: #5b6472;
+  font-weight: 600;
+  background: #f1f2f4;
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+
+.laytimeMuted {
+  color: #8a93a2;
+  font-style: italic;
+  font-weight: 500;
 }
 
 .route {
@@ -293,35 +495,47 @@
   border-color: #274670;
 }
 
+.portPanel {
+  margin-bottom: 2px;
+}
+
+.fetchError {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff4f4;
+  color: #b42318;
+  font-size: 13px;
+}
+
 .plist {
   display: flex;
   flex-direction: column;
 }
 
-.prow,
-.prowLink {
+.srow,
+.srowLink {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 2px;
+  gap: 14px;
+  padding: 11px 2px;
   border-bottom: 1px solid #eceef2;
   text-decoration: none;
   color: inherit;
 }
 
-.prow:last-child,
-.prowLink:last-child,
-.check:last-child {
+.srow:last-child,
+.srowLink:last-child {
   border-bottom: none;
 }
 
-.prowLink:hover .nm {
+.srowLink:hover .srowNm {
   text-decoration: underline;
   color: #3b82f6;
 }
 
-.nm {
-  flex: 1;
+.srowNm {
+  flex: 1.1;
   font-size: 11.5px;
   font-weight: 700;
   text-transform: uppercase;
@@ -330,73 +544,128 @@
   min-width: 0;
 }
 
-.dt {
-  font-size: 13px;
-  font-weight: 700;
-  color: #1b2430;
-  flex: none;
+.remarks {
+  flex: 1.4;
+  font-size: 11.5px;
+  color: #5b6472;
+  font-style: italic;
   text-align: right;
 }
 
-.check {
-  display: flex;
+.remarksMuted {
+  color: #8a93a2;
+  opacity: 0.75;
+}
+
+.divider {
+  border-top: 1.5px dotted #dfe2e7;
+  margin: 4px 2px 6px;
+}
+
+.statusChip {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 2px;
-  border-bottom: 1px solid #eceef2;
-  text-decoration: none;
-  color: inherit;
-}
-
-.check:hover .checkNm {
-  text-decoration: underline;
-}
-
-.tick {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-}
-
-.tick svg {
-  width: 16px;
-  height: 16px;
-}
-
-.tickDone {
-  background: #e8f8ec;
-  color: #0b7a28;
-}
-
-.tickPending {
-  background: #f1f2f4;
-}
-
-.checkNm {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1b2430;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.st {
   font-size: 11px;
   font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
   flex: none;
+  white-space: nowrap;
 }
 
-.stDone {
+.chipGreen {
+  background: #e8f8ec;
   color: #0b7a28;
+  border-color: #c6e8d0;
 }
 
-.stPending {
+.chipAmber {
+  background: #fef3e2;
+  color: #b45309;
+  border-color: #fbd9a8;
+}
+
+.chipBlue {
+  background: #eaf1fe;
   color: #3b82f6;
+  border-color: #d3e3fd;
+}
+
+.chipGrey {
+  background: #f1f2f4;
+  color: #5b6472;
+  border-color: #dfe2e7;
+}
+
+.chipTeal {
+  background: #e3f4f4;
+  color: #14919b;
+  border-color: #c6e8e9;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  margin-top: 6px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  padding: 8px 5px;
+  border-bottom: 1px solid #dfe2e7;
+  background: #fafbfc;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 9px 5px;
+  font-size: 12px;
+  color: #1b2430;
+  font-weight: 600;
+  border-bottom: 1px solid #eceef2;
+  white-space: nowrap;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table th:last-child,
+.table td:last-child {
+  white-space: normal;
+  min-width: 150px;
+}
+
+.muted {
+  color: #8a93a2;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.tableNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #8a93a2;
+  font-style: italic;
+  margin-top: 10px;
+}
+
+.tableNote svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
 }
 
 .empty {
@@ -449,4 +718,11 @@
   font-weight: 700;
   color: #1b2430;
   max-width: 100%;
+}
+
+@media (max-width: 960px) {
+  .chkSelect {
+    margin-left: 0;
+    width: 100%;
+  }
 }

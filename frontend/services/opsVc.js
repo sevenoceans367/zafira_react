@@ -62,6 +62,15 @@ export async function fetchVoyageReports(params = {}) {
   return parseJson(response, 'Failed to load voyage reports.');
 }
 
+export async function fetchVoyageStatus(comId, options = {}) {
+  const response = await fetch(`${BASE}/ops/voyage-status${toQuery({
+    comId,
+    kind: options.mode || options.kind,
+    page: options.page,
+  })}`);
+  return parseJson(response, 'Failed to load voyage status.');
+}
+
 export async function fetchPaymentGridVc(comId, options = {}) {
   const response = await fetch(`${BASE}/ops/payment-grid${toQuery({
     comId,

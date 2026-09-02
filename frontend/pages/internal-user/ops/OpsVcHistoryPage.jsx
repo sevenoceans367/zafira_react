@@ -274,7 +274,12 @@ export default function OpsVcHistoryPage() {
                   </td>
                   <td>
                     <div className={styles.chipStack}>
-                      <ChipLink to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Bunkers</ChipLink>
+                      <ChipLink
+                        to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
+                        disabled={!hasWorksheet}
+                      >
+                        Bunkers
+                      </ChipLink>
                       <ChipLink to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>Cashflow</ChipLink>
                     </div>
                   </td>

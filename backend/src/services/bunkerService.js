@@ -4,6 +4,7 @@ import { dbGetBunkerForm, dbSaveBunker } from './bunkerDb.js';
 const MOCK_FORM = {
   comId: '8',
   fcaId: '100',
+  costSheetId: '11',
   voyageNo: 'V25001',
   vesselName: 'KALYMNOS DAWN',
   message: 'NOM-001',

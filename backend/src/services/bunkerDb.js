@@ -115,6 +115,19 @@ export async function getLatestCostSheetId(pool, comId) {
   return fallback?.FCAID || null;
 }
 
+/** Latest named Voyage Worksheet (COST_SHEETID) for this nomination — same source as Ops glance. */
+async function getLatestWorkingSheetId(pool, comId) {
+  const [[row]] = await pool.query(
+    `SELECT COST_SHEETID
+     FROM cost_sheet_name_master
+     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+     ORDER BY COST_SHEETID DESC
+     LIMIT 1`,
+    [comId, MODULE_ID, COMPANY_ID],
+  ).catch(() => [[null]]);
+  return row?.COST_SHEETID || null;
+}
+
 async function getVendorName(pool, code) {
   if (!code) return '';
   const [[row]] = await pool.query(
@@ -574,6 +587,7 @@ export async function dbGetBunkerForm(comId, prevComIdOverride) {
   }
 
   const fcaId = (await getLatestCostSheetId(pool, comId)) || compare.FCAID;
+  const costSheetId = await getLatestWorkingSheetId(pool, comId);
   let vesselImoId = compare.VESSEL_IMO_ID;
   let voyageNo = compare.VOYAGE_NO || '';
   let vesselName = compare.VESSEL_NAME || '';
@@ -667,6 +681,7 @@ export async function dbGetBunkerForm(comId, prevComIdOverride) {
   return {
     comId: str(comId),
     fcaId: fcaId != null ? str(fcaId) : '',
+    costSheetId: costSheetId != null ? str(costSheetId) : '',
     voyageNo: str(voyageNo),
     vesselName: str(vesselName),
     message: str(compare.MESSAGE),

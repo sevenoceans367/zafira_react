@@ -224,8 +224,9 @@ export default function OpsVcBunkerPage() {
     return appPath(path);
   }, [page]);
 
-  const worksheetHref = form?.fcaId
-    ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.fcaId)}&page=${encodeURIComponent(page)}`)
+  const workingSheetId = form?.costSheetId || '';
+  const worksheetHref = workingSheetId
+    ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(workingSheetId)}&page=${encodeURIComponent(page)}`)
     : null;
 
   const lookups = draft?.lookups || form?.lookups || {

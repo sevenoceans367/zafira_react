@@ -454,7 +454,12 @@ export default function OpsVcInOpsGlancePage() {
                       </td>
                       <td>
                         <div className={styles.chipStack}>
-                          <ChipLink to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=1`)}>Bunkers</ChipLink>
+                          <ChipLink
+                            to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                            disabled={!hasWorksheet}
+                          >
+                            Bunkers
+                          </ChipLink>
                           <ChipLink to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=1`)}>Cashflow</ChipLink>
                         </div>
                       </td>

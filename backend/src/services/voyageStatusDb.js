@@ -7,6 +7,7 @@ import { dbGetSofForm } from './sofDb.js';
 import { dbGetLaytimeForm } from './laytimeDb.js';
 import { dbGetBunkerForm } from './bunkerDb.js';
 import { dbListVoyageReports } from './opsVcDb.js';
+import { dbGetTcChecklist } from './tcChecklistDb.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -78,9 +79,31 @@ function buildCargoWork(dailyQty = [], totalQty = '') {
   };
 }
 
-function buildLaytimeNote(laytimePort) {
+function isChecked(value) {
+  return value === 1 || value === '1' || value === true;
+}
+
+function buildStatutoryCerts(checks = {}) {
+  return ['reg', 'class', 'pni', 'ism', 'doc'].every((key) => Boolean(checks[key]));
+}
+
+function pickEtbFromKeyOps(keyOperations = []) {
+  const patterns = [/^all fast$/i, /^first line$/i];
+  for (const pattern of patterns) {
+    const row = (keyOperations || []).find((item) => pattern.test(str(item?.activity)));
+    if (hasText(row?.activityDateTime)) return row.activityDateTime;
+  }
+  return '';
+}
+
+function buildLaytimeFields(laytimePort) {
   if (!laytimePort) {
-    return { laytimeNote: 'Not yet commenced', laytimeMuted: true };
+    return {
+      laytimeNote: 'Not yet commenced',
+      laytimeMuted: true,
+      laytimeStatus: 'Pending',
+      laytimeStatusTone: 'amber',
+    };
   }
   const allowed = str(laytimePort.laytimeAllowed);
   const actual = str(laytimePort.actualLaytime);
@@ -88,12 +111,148 @@ function buildLaytimeNote(laytimePort) {
     const note = allowed
       ? `Actual laytime: ${actual} days (allowed: ${allowed})`
       : `Actual laytime: ${actual} days`;
-    return { laytimeNote: note, laytimeMuted: false };
+    return {
+      laytimeNote: note,
+      laytimeMuted: false,
+      laytimeStatus: 'Completed',
+      laytimeStatusTone: 'green',
+    };
   }
   if (allowed) {
-    return { laytimeNote: `Laytime allowed: ${allowed} days`, laytimeMuted: false };
+    return {
+      laytimeNote: `Laytime allowed: ${allowed} days`,
+      laytimeMuted: false,
+      laytimeStatus: 'Pending',
+      laytimeStatusTone: 'amber',
+    };
   }
-  return { laytimeNote: 'Not yet commenced', laytimeMuted: true };
+  return {
+    laytimeNote: 'Not yet commenced',
+    laytimeMuted: true,
+    laytimeStatus: 'Pending',
+    laytimeStatusTone: 'amber',
+  };
+}
+
+async function loadChecklistContext(pool, comId, kind) {
+  if (kind === 'tc') {
+    const tcChecklist = await dbGetTcChecklist(comId).catch(() => null);
+    if (!tcChecklist?.form) return null;
+    const { form, fixture } = tcChecklist;
+    const charterersPi = form.chartererPni
+      ? await getVendorName(pool, form.chartererPni)
+      : '';
+    return {
+      checks: form.checks || {},
+      chartererPni: form.chartererPni || '',
+      charterersPi: charterersPi || '—',
+      lastPortAgent: form.lastPortAgent || '',
+      draftResAsPerCp: form.draftResAsPerCp || '',
+      masterSignedCargo: Boolean(form.checks?.cargoDeclMaster),
+      delivery: form.delivery || {},
+      redelivery: form.redelivery || {},
+      laycan: [form.laycanFrom, form.laycanTo].filter(hasText).join(' – '),
+      charterer: fixture?.charterer || '',
+      fixture,
+    };
+  }
+
+  const [[row]] = await pool.query(
+    `SELECT * FROM check_list_tc
+     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+     LIMIT 1`,
+    [comId, MODULE_ID, COMPANY_ID],
+  ).catch(() => [[null]]);
+  if (!row?.CHKLISTTC_ID) return null;
+
+  const checks = {
+    reg: isChecked(row.REG),
+    class: isChecked(row.CLASS),
+    pni: isChecked(row.PNI),
+    ism: isChecked(row.ISM),
+    doc: isChecked(row.DOC),
+    cargoDeclMaster: isChecked(row.CARGODECL_MASTER),
+    reqDocsSentToIns: isChecked(row.REQDOCSSENTTOINS),
+  };
+  const charterersPi = row.CHARTERER_PNI
+    ? await getVendorName(pool, row.CHARTERER_PNI)
+    : '';
+  return {
+    checks,
+    chartererPni: row.CHARTERER_PNI != null ? String(row.CHARTERER_PNI) : '',
+    charterersPi: charterersPi || '—',
+    lastPortAgent: row.LASTPORTAGENT || '',
+    draftResAsPerCp: row.DRFTRESASPERCP || '',
+    masterSignedCargo: checks.cargoDeclMaster,
+    delivery: null,
+    redelivery: null,
+    laycan: '',
+    charterer: '',
+    fixture: null,
+  };
+}
+
+function buildIdentifiersFromChecklist(checklistCtx, fallback = {}) {
+  if (!checklistCtx) {
+    return {
+      statutoryCerts: false,
+      insuranceDesk: false,
+      charterersPiIdentified: false,
+      charterersPi: '—',
+      lastPortAgent: fallback.lastPortAgent || '',
+      masterSignedCargo: fallback.masterSignedCargo || false,
+    };
+  }
+  return {
+    statutoryCerts: buildStatutoryCerts(checklistCtx.checks),
+    insuranceDesk: Boolean(checklistCtx.checks?.reqDocsSentToIns),
+    charterersPiIdentified: hasText(checklistCtx.chartererPni),
+    charterersPi: checklistCtx.charterersPi || '—',
+    lastPortAgent: checklistCtx.lastPortAgent || fallback.lastPortAgent || '',
+    masterSignedCargo: checklistCtx.masterSignedCargo || fallback.masterSignedCargo || false,
+  };
+}
+
+function buildTcChecklistPort(kind, name, section = {}, meta = {}) {
+  const emptyCargo = {
+    cwDate: '',
+    cwTotalQty: '',
+    cwLddSoFar: '',
+    cwBalance: '',
+    cwEtc: '',
+    cwStatus: 'Pending',
+    cwStatusTone: 'amber',
+  };
+  const laytime = buildLaytimeFields(null);
+  return {
+    key: `${kind}-${name}`,
+    kind,
+    name,
+    cargo: meta.cargo || '',
+    qty: '',
+    laycan: meta.laycan || '',
+    shipper: meta.charterer || '',
+    agent: meta.lastPortAgent || '',
+    draftRestriction: meta.draftResAsPerCp || '',
+    cargoRate: '',
+    arrDraft: '',
+    depDraft: '',
+    eta: section.actualArrivalDate || '',
+    etb: '',
+    etc: '',
+    arrived: section.actualArrivalDate || '',
+    nor: section.norTenderedDate || '',
+    commenced: '',
+    completed: '',
+    sailed: '',
+    dischargingFor: kind === 'Del' ? (meta.reDelPort || '') : '',
+    ...emptyCargo,
+    ...laytime,
+    masterSignedCargo: Boolean(meta.masterSignedCargo),
+    pdaStatus: 'Pending',
+    pdaRemarks: '—',
+    pdaTone: 'amber',
+  };
 }
 
 function computeRouteProgress(steps = []) {
@@ -206,20 +365,62 @@ async function loadLegMap(pool, fcaId) {
   return map;
 }
 
-async function loadAgencyStatusByPort(pool, comId) {
+async function loadAgencyMetaByPort(pool, comId) {
   const map = new Map();
   const [rows] = await pool.query(
-    `SELECT PORT, PORTID, RANDOMID, STATUS
-     FROM generate_agency_letter
-     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
-     ORDER BY GEN_AGENCY_ID DESC`,
+    `SELECT g.PORT, g.PORTID, g.RANDOMID, g.STATUS, vm.NAME AS vendorName
+     FROM generate_agency_letter g
+     LEFT JOIN vendor_master vm ON vm.CODE = g.VENDORID AND vm.MCOMPANYID = g.MCOMPANYID
+     WHERE g.COMID = ? AND g.MODULEID = ? AND g.MCOMPANYID = ?
+     ORDER BY g.GEN_AGENCY_ID DESC`,
     [comId, MODULE_ID, COMPANY_ID],
   ).catch(() => [[]]);
   for (const row of rows || []) {
     const key = `${str(row.PORT)}-${str(row.PORTID)}-${str(row.RANDOMID)}`;
-    if (!map.has(key)) map.set(key, Number(row.STATUS || 0));
+    if (!map.has(key)) {
+      map.set(key, {
+        status: Number(row.STATUS || 0),
+        agentName: str(row.vendorName),
+      });
+    }
   }
   return map;
+}
+
+async function loadAgencyStatusByPort(pool, comId) {
+  const meta = await loadAgencyMetaByPort(pool, comId);
+  const map = new Map();
+  for (const [key, value] of meta.entries()) {
+    map.set(key, value.status);
+  }
+  return map;
+}
+
+async function loadAgencyBunkers(pool, comId) {
+  const [rows] = await pool.query(
+    `SELECT s.GRADE, s.SUPPLIER, s.PHYSICAL, s.QUANTITY, g.PORT, g.PORTID, g.RANDOMID
+     FROM generate_agency_letter_slave2 s
+     INNER JOIN generate_agency_letter g ON g.GEN_AGENCY_ID = s.GEN_AGENCY_ID
+     WHERE g.COMID = ? AND g.MODULEID = ? AND g.MCOMPANYID = ?
+     ORDER BY g.GEN_AGENCY_ID DESC`,
+    [comId, MODULE_ID, COMPANY_ID],
+  ).catch(() => [[]]);
+  return rows || [];
+}
+
+function matchAgencyBunker(agencyBunkers, { portType, portId, grade }) {
+  const gradeKey = str(grade).toLowerCase();
+  if (!gradeKey) return null;
+  const portMatches = (agencyBunkers || []).filter((row) => (
+    str(row.PORT) === str(portType) && str(row.PORTID) === str(portId)
+  ));
+  const scoped = portMatches.length ? portMatches : (agencyBunkers || []);
+  return scoped.find((row) => str(row.GRADE).toLowerCase() === gradeKey)
+    || scoped.find((row) => (
+      gradeKey.includes(str(row.GRADE).toLowerCase())
+      || str(row.GRADE).toLowerCase().includes(gradeKey)
+    ))
+    || null;
 }
 
 async function buildPdaStatus(pool, comId, portType, legMeta = {}, agencyByPort = new Map()) {
@@ -275,7 +476,11 @@ async function buildPdaStatus(pool, comId, portType, legMeta = {}, agencyByPort 
   return { pdaStatus: chip, pdaRemarks: remarks, pdaTone: tone };
 }
 
-function buildBunkerPayload(bunkerForm) {
+function resolvePortType(portId, randomId, portTypeByLeg = new Map()) {
+  return portTypeByLeg.get(`${str(portId)}-${str(randomId)}`) || '';
+}
+
+function buildBunkerPayload(bunkerForm, agencyBunkers = [], portTypeByLeg = new Map()) {
   const nameById = new Map();
   for (const grade of bunkerForm?.lookups?.foGrades || []) {
     nameById.set(str(grade.id), str(grade.name));
@@ -291,13 +496,20 @@ function buildBunkerPayload(bunkerForm) {
     for (const row of rows) {
       if (!str(row.bunkerId)) continue;
       if (Number(row.qtyStemmed) > 0) stemmed = true;
+      const gradeName = nameById.get(str(row.bunkerId)) || str(row.bunkerId);
+      const portType = resolvePortType(port.portId, port.randomId, portTypeByLeg);
+      const agencyMatch = matchAgencyBunker(agencyBunkers, {
+        portType,
+        portId: port.portId,
+        grade: gradeName,
+      });
       grades.push({
-        grade: nameById.get(str(row.bunkerId)) || str(row.bunkerId),
+        grade: gradeName,
         date: port.sospDate || '',
         shipFig: row.robSosp || '',
-        rcptFig: row.qtyStemmed || '',
-        supplier: '—',
-        barge: '—',
+        rcptFig: row.qtyStemmed || agencyMatch?.QUANTITY || '',
+        supplier: agencyMatch?.SUPPLIER || '—',
+        barge: agencyMatch?.PHYSICAL || '—',
         price: row.supplyPrice || row.effectivePrice || '',
         remarks: row.remarks || '',
         muted: false,
@@ -363,7 +575,7 @@ async function loadFinancials(pool, comId) {
 function mapSofPort(port, legMeta, laytimePort, cargoName, charterer, laycan, poolMeta) {
   const preArrival = port.preArrival || {};
   const cargoWork = buildCargoWork(port.dailyQty, legMeta?.qty || port.stowageQty || '');
-  const laytime = buildLaytimeNote(laytimePort);
+  const laytime = buildLaytimeFields(laytimePort);
   const agent = str(port.entityRows?.[0]?.value)
     || str(port.entityRows?.[0]?.name)
     || poolMeta?.agentName
@@ -378,12 +590,13 @@ function mapSofPort(port, legMeta, laytimePort, cargoName, charterer, laycan, po
     laycan,
     shipper: charterer,
     agent,
-    draftRestriction: '',
+    draftRestriction: poolMeta?.draftRestriction || '',
     cargoRate: str(laytimePort?.loadedRate),
     arrDraft: preArrival.spArrDraft || '',
     depDraft: preArrival.spDeptDraft || '',
     eta: pickLatestEta(preArrival),
-    etb: '',
+    etb: pickEtbFromKeyOps(port.keyOperations),
+    etc: cargoWork.cwEtc || '',
     arrived: port.vesselArrived || preArrival.actualArrival || '',
     nor: port.norTendered || preArrival.norTendered || '',
     commenced: port.loadCommenced || '',
@@ -393,6 +606,18 @@ function mapSofPort(port, legMeta, laytimePort, cargoName, charterer, laycan, po
     ...laytime,
     masterSignedCargo: Boolean(preArrival.cargoDecl),
   };
+}
+
+function applyDischargingFor(ports) {
+  const dischargeName = [...ports].reverse().find((port) => (
+    port.kind === 'DP' || port.kind === 'Re-Del' || port.kind === 'Discharge'
+  ))?.name || '';
+  if (!dischargeName) return ports;
+  return ports.map((port) => {
+    const isLoad = port.kind === 'LP' || port.kind === 'Del' || port.kind === 'Load';
+    if (!isLoad || hasText(port.dischargingFor)) return port;
+    return { ...port, dischargingFor: dischargeName };
+  });
 }
 
 export async function dbGetVoyageStatus(comId, options = {}) {
@@ -447,13 +672,23 @@ export async function dbGetVoyageStatus(comId, options = {}) {
   const fcaId = sofForm?.fcaId || laytimeForm?.fcaId || bunkerForm?.fcaId || checklist?.fixture?.fcaId;
   const ownerBroker = await loadOwnerBroker(pool, fcaId);
   const legMap = await loadLegMap(pool, fcaId);
-  const agencyByPort = await loadAgencyStatusByPort(pool, comId);
-  const laycan = steps.find((step) => step.id === 'laycan')?.at || '';
+  const [agencyByPort, agencyMetaByPort, agencyBunkers, checklistCtx] = await Promise.all([
+    loadAgencyStatusByPort(pool, comId),
+    loadAgencyMetaByPort(pool, comId),
+    loadAgencyBunkers(pool, comId),
+    loadChecklistContext(pool, comId, kind),
+  ]);
+  const laycan = steps.find((step) => step.id === 'laycan')?.at
+    || checklistCtx?.laycan
+    || '';
 
   const cargoName = (sofForm?.cargo || laytimeForm?.cargo || []).join(', ')
     || checklist?.fixture?.cargo
     || '';
-  const charterer = bunkerForm?.charterer || laytimeForm?.charterer || checklist?.fixture?.charterer || '';
+  const charterer = bunkerForm?.charterer || laytimeForm?.charterer || checklist?.fixture?.charterer
+    || checklistCtx?.charterer
+    || checklistCtx?.fixture?.charterer
+    || '';
 
   const ports = [];
   const sofPorts = sofForm?.ports || [];
@@ -464,6 +699,8 @@ export async function dbGetVoyageStatus(comId, options = {}) {
         item.portType === port.portType && String(item.portId) === String(port.portId)
       ));
     const pda = await buildPdaStatus(pool, comId, port.portType, legMeta, agencyByPort);
+    const agencyKey = `${port.portType}-${port.portId}-${port.randomId}`;
+    const agencyMeta = agencyMetaByPort.get(agencyKey) || {};
     ports.push({
       ...mapSofPort(
         port,
@@ -472,13 +709,34 @@ export async function dbGetVoyageStatus(comId, options = {}) {
         cargoName,
         charterer,
         laycan,
-        { agentName: '' },
+        {
+          agentName: agencyMeta.agentName || '',
+          draftRestriction: checklistCtx?.draftResAsPerCp || '',
+        },
       ),
       ...pda,
     });
   }
 
-  if (!ports.length && kind === 'tc') {
+  if (!ports.length && kind === 'tc' && checklistCtx) {
+    const delName = checklistCtx.fixture?.delRangePort || checklist?.fixture?.loadPort || '';
+    const reDelName = checklistCtx.fixture?.reDelRange || checklist?.fixture?.dischargePort || '';
+    const tcMeta = {
+      cargo: cargoName,
+      charterer,
+      laycan,
+      lastPortAgent: checklistCtx.lastPortAgent,
+      draftResAsPerCp: checklistCtx.draftResAsPerCp,
+      masterSignedCargo: checklistCtx.masterSignedCargo,
+      reDelPort: reDelName,
+    };
+    if (delName) {
+      ports.push(buildTcChecklistPort('Del', delName, checklistCtx.delivery || {}, tcMeta));
+    }
+    if (reDelName) {
+      ports.push(buildTcChecklistPort('Re-Del', reDelName, checklistCtx.redelivery || {}, tcMeta));
+    }
+  } else if (!ports.length && kind === 'tc') {
     const delName = checklist?.fixture?.loadPort || '';
     const reDelName = checklist?.fixture?.dischargePort || '';
     if (delName) {
@@ -486,8 +744,7 @@ export async function dbGetVoyageStatus(comId, options = {}) {
         key: `Del-${delName}`,
         kind: 'Del',
         name: delName,
-        laytimeNote: 'Not yet commenced',
-        laytimeMuted: true,
+        ...buildLaytimeFields(null),
         pdaStatus: 'Pending',
         pdaRemarks: '—',
         pdaTone: 'amber',
@@ -498,8 +755,7 @@ export async function dbGetVoyageStatus(comId, options = {}) {
         key: `ReDel-${reDelName}`,
         kind: 'Re-Del',
         name: reDelName,
-        laytimeNote: 'Not yet commenced',
-        laytimeMuted: true,
+        ...buildLaytimeFields(null),
         pdaStatus: 'Pending',
         pdaRemarks: '—',
         pdaTone: 'amber',
@@ -507,39 +763,62 @@ export async function dbGetVoyageStatus(comId, options = {}) {
     }
   }
 
-  const bunkerPayload = kind === 'tc' ? { bunkersStemmed: false, bunkerGrades: [] } : buildBunkerPayload(bunkerForm);
+  const enrichedPorts = applyDischargingFor(ports);
+
+  const portTypeByLeg = new Map();
+  for (const [key, meta] of legMap.entries()) {
+    const portType = key.split('-')[0];
+    if (meta.portId != null) {
+      portTypeByLeg.set(`${str(meta.portId)}-${str(meta.randomId)}`, portType);
+    }
+  }
+
+  const bunkerPayload = kind === 'tc'
+    ? { bunkersStemmed: false, bunkerGrades: [] }
+    : buildBunkerPayload(bunkerForm, agencyBunkers, portTypeByLeg);
   const financials = await loadFinancials(pool, comId);
-  const dpPort = ports.find((port) => port.kind === 'DP');
-  const masterSignedCargo = dpPort?.masterSignedCargo || false;
+  const dpPort = enrichedPorts.find((port) => port.kind === 'DP');
+  const masterSignedCargo = dpPort?.masterSignedCargo
+    || checklistCtx?.masterSignedCargo
+    || false;
 
   const voyageLabel = kind === 'tc'
-    ? [checklist?.tcNo || checklist?.voy].filter(hasText).join(' / ')
+    ? [checklist?.tcNo || checklist?.voy, checklistCtx?.fixture?.tcNo].filter(hasText).join(' / ')
     : [checklist?.fixture?.voyageNo || checklist?.voy].filter(hasText).join(' / ');
+
+  const identifierFallback = {
+    lastPortAgent: enrichedPorts.length
+      ? (enrichedPorts[enrichedPorts.length - 1]?.agent || '')
+      : '',
+    masterSignedCargo,
+  };
+  const checklistIdentifiers = buildIdentifiersFromChecklist(checklistCtx, identifierFallback);
 
   return {
     comId: String(comId),
     kind,
     identifiers: {
-      vesselName: checklist?.fixture?.vesselName || checklist?.vessel || '',
+      vesselName: checklist?.fixture?.vesselName || checklist?.vessel || checklistCtx?.fixture?.vesselName || '',
       voyage: voyageLabel,
-      cpDate: checklist?.fixture?.cpDate || checklist?.cpDate || formatCpDate(checklist?.cpDate),
+      cpDate: checklist?.fixture?.cpDate || checklist?.cpDate || formatCpDate(checklist?.cpDate)
+        || checklistCtx?.fixture?.cpDate
+        || '',
       charterer,
       owner: ownerBroker.owner,
       broker: ownerBroker.broker,
-      lastPortAgent: ports.length ? (ports[ports.length - 1]?.agent || '') : '',
-      statutoryCerts: false,
-      insuranceDesk: false,
-      charterersPiIdentified: false,
-      masterSignedCargo,
-      charterersPi: '—',
+      ...checklistIdentifiers,
+      lastPortAgent: checklistIdentifiers.lastPortAgent || identifierFallback.lastPortAgent,
+      masterSignedCargo: checklistIdentifiers.masterSignedCargo || masterSignedCargo,
     },
     route: {
-      loadPort: ports[0]?.name || checklist?.fixture?.loadPort || '',
-      dischargePort: ports.length > 1 ? ports[ports.length - 1]?.name : (checklist?.fixture?.dischargePort || ''),
+      loadPort: enrichedPorts[0]?.name || checklist?.fixture?.loadPort || checklistCtx?.fixture?.delRangePort || '',
+      dischargePort: enrichedPorts.length > 1
+        ? enrichedPorts[enrichedPorts.length - 1]?.name
+        : (checklist?.fixture?.dischargePort || checklistCtx?.fixture?.reDelRange || ''),
       progressPercent,
       noonReport: formatNoonLine(noonReport),
     },
-    ports,
+    ports: enrichedPorts,
     bunkers: bunkerPayload,
     financials,
   };

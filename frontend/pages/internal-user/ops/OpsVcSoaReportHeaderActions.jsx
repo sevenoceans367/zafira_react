@@ -18,12 +18,13 @@ export default function OpsVcSoaReportHeaderActions({
         {pdfHref ? (
           <Button
             variant="outline"
-            label="Generate PDF"
+            label="PDF"
             icon="download"
             href={pdfHref}
             target="_blank"
             rel="noopener noreferrer"
             disabled={disabled}
+            ariaLabel="PDF"
           />
         ) : null}
         <Button variant="back" label="Back" href={backHref} disabled={disabled} />

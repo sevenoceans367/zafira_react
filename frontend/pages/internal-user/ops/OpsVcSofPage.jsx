@@ -5,6 +5,7 @@ import {
   DmyDateInput,
   DownloadIcon,
   LoadingOverlay,
+  useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
@@ -23,6 +24,95 @@ const FLASH = {
   1: { type: 'error', text: 'Sorry! this SOF already exists for this port.' },
 };
 
+const SOF_ROW_SIZE_OPTIONS = [5, 10, 15];
+const DEFAULT_SOF_ROW_SIZE = 10;
+
+function paginateRows(items, page, pageSize) {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * pageSize;
+  return {
+    items: items.slice(start, start + pageSize),
+    total,
+    totalPages,
+    safePage,
+  };
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
+function SectionFilterControls({
+  search,
+  onSearchChange,
+  rowSize,
+  onRowSizeChange,
+  filteredCount,
+  totalCount,
+  page,
+  totalPages,
+  onPageChange,
+}) {
+  return (
+    <div className={styles.cfFilterWrap}>
+      <div className={styles.cfFilterBox}>
+        <SearchIcon />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Search"
+        />
+      </div>
+      <label className={styles.rowsSelectWrap}>
+        <span className={styles.rowsSelectLabel}>Show</span>
+        <select
+          className={styles.rowsSelect}
+          value={rowSize}
+          onChange={(e) => onRowSizeChange(Number(e.target.value))}
+          aria-label="Rows to show"
+        >
+          {SOF_ROW_SIZE_OPTIONS.map((size) => (
+            <option key={size} value={size}>{size}</option>
+          ))}
+        </select>
+      </label>
+      {totalPages > 1 ? (
+        <div className={styles.cfPageNav}>
+          <button
+            type="button"
+            className={styles.cfPageBtn}
+            disabled={page <= 1}
+            onClick={() => onPageChange(page - 1)}
+            aria-label="Previous page"
+          >
+            ‹
+          </button>
+          <span className={styles.cfPageLabel}>{page} / {totalPages}</span>
+          <button
+            type="button"
+            className={styles.cfPageBtn}
+            disabled={page >= totalPages}
+            onClick={() => onPageChange(page + 1)}
+            aria-label="Next page"
+          >
+            ›
+          </button>
+        </div>
+      ) : null}
+      <span className={styles.cfFilterCount}>
+        {filteredCount} of {totalCount} shown
+      </span>
+    </div>
+  );
+}
 
 function PortTypeIcon({ portType }) {
   if (portType === 'DP') {
@@ -154,6 +244,18 @@ function emptyCargoRow() {
   };
 }
 
+function isBlankKeyOp(row) {
+  return Number(row?.tDefault) !== 1 && !String(row?.activity || '').trim();
+}
+
+function isBlankCargoRow(row) {
+  return Number(row?.tDefault) !== 1 && !String(row?.activity || '').trim();
+}
+
+function pageForIndex(index, pageSize) {
+  return Math.max(1, Math.floor(index / pageSize) + 1);
+}
+
 function displayStoredFileName(stored) {
   const raw = String(stored || '').trim();
   const match = raw.match(/^\d+_(.+)$/);
@@ -179,6 +281,7 @@ function draftFromPort(port) {
  */
 export default function OpsVcSofPage() {
   const confirm = useConfirm();
+  const alert = useAlert();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
@@ -194,8 +297,15 @@ export default function OpsVcSofPage() {
   const [error, setError] = useState('');
   const [pendingFilesByKey, setPendingFilesByKey] = useState({});
   const [keyOpsSearch, setKeyOpsSearch] = useState('');
+  const [keyOpsRowSize, setKeyOpsRowSize] = useState(DEFAULT_SOF_ROW_SIZE);
+  const [keyOpsPage, setKeyOpsPage] = useState(1);
+  const [cargoSearch, setCargoSearch] = useState('');
+  const [cargoRowSize, setCargoRowSize] = useState(DEFAULT_SOF_ROW_SIZE);
+  const [cargoPage, setCargoPage] = useState(1);
   const [dropActive, setDropActive] = useState(false);
   const attachInputRef = useRef(null);
+  const skipKeyOpsPageResetRef = useRef(false);
+  const skipCargoPageResetRef = useRef(false);
 
   const backHref = useMemo(() => {
     const path = BACK_PATHS[Number(page)] || BACK_PATHS[1];
@@ -244,18 +354,56 @@ export default function OpsVcSofPage() {
 
   useEffect(() => {
     setKeyOpsSearch('');
+    setKeyOpsPage(1);
+    setCargoSearch('');
+    setCargoPage(1);
   }, [activeKey]);
+
+  useEffect(() => {
+    if (skipKeyOpsPageResetRef.current) {
+      skipKeyOpsPageResetRef.current = false;
+      return;
+    }
+    setKeyOpsPage(1);
+  }, [keyOpsSearch, keyOpsRowSize]);
+
+  useEffect(() => {
+    if (skipCargoPageResetRef.current) {
+      skipCargoPageResetRef.current = false;
+      return;
+    }
+    setCargoPage(1);
+  }, [cargoSearch, cargoRowSize]);
 
   const keyOpsRows = draft?.keyOperations || [];
   const keyOpsTerm = keyOpsSearch.trim().toLowerCase();
   const filteredKeyOps = useMemo(() => {
-    if (!keyOpsTerm) {
-      return keyOpsRows.map((row, index) => ({ row, index }));
-    }
-    return keyOpsRows
-      .map((row, index) => ({ row, index }))
-      .filter(({ row }) => String(row.activity || '').toLowerCase().includes(keyOpsTerm));
+    const indexed = keyOpsRows.map((row, index) => ({ row, index }));
+    if (!keyOpsTerm) return indexed;
+    return indexed.filter(({ row }) => String(row.activity || '').toLowerCase().includes(keyOpsTerm));
   }, [keyOpsRows, keyOpsTerm]);
+
+  const paginatedKeyOps = useMemo(
+    () => paginateRows(filteredKeyOps, keyOpsPage, keyOpsRowSize),
+    [filteredKeyOps, keyOpsPage, keyOpsRowSize],
+  );
+
+  const cargoRows = draft?.cargoRows || [];
+  const cargoTerm = cargoSearch.trim().toLowerCase();
+  const filteredCargoRows = useMemo(() => {
+    const indexed = cargoRows.map((row, index) => ({ row, index }));
+    if (!cargoTerm) return indexed;
+    return indexed.filter(({ row }) => {
+      const label = cargoActivityLabel(row.activity, activePort?.portType);
+      const haystack = `${label} ${row.activity || ''}`.toLowerCase();
+      return haystack.includes(cargoTerm);
+    });
+  }, [cargoRows, cargoTerm, activePort?.portType]);
+
+  const paginatedCargoRows = useMemo(
+    () => paginateRows(filteredCargoRows, cargoPage, cargoRowSize),
+    [filteredCargoRows, cargoPage, cargoRowSize],
+  );
 
   const patchDraft = (patch) => {
     setDrafts((current) => ({
@@ -270,8 +418,56 @@ export default function OpsVcSofPage() {
     patchDraft({ [field]: rows });
   };
 
-  const addListRow = (field, factory) => {
-    patchDraft({ [field]: [...(draft[field] || []), factory()] });
+  const addKeyOperationRow = async () => {
+    const rows = draft?.keyOperations || [];
+    const blankIndex = rows.findIndex(isBlankKeyOp);
+    if (blankIndex >= 0) {
+      if (keyOpsSearch) {
+        skipKeyOpsPageResetRef.current = true;
+        setKeyOpsSearch('');
+      }
+      setKeyOpsPage(pageForIndex(blankIndex, keyOpsRowSize));
+      await alert({
+        title: 'Alert',
+        message: 'Please fill in the Key Operation name on the empty row before adding another.',
+      });
+      return;
+    }
+
+    const next = [...rows, emptyKeyOp()];
+    const lastPage = Math.max(1, Math.ceil(next.length / keyOpsRowSize));
+    if (keyOpsSearch) {
+      skipKeyOpsPageResetRef.current = true;
+      setKeyOpsSearch('');
+    }
+    patchDraft({ keyOperations: next });
+    setKeyOpsPage(lastPage);
+  };
+
+  const addCargoRow = async () => {
+    const rows = draft?.cargoRows || [];
+    const blankIndex = rows.findIndex(isBlankCargoRow);
+    if (blankIndex >= 0) {
+      if (cargoSearch) {
+        skipCargoPageResetRef.current = true;
+        setCargoSearch('');
+      }
+      setCargoPage(pageForIndex(blankIndex, cargoRowSize));
+      await alert({
+        title: 'Alert',
+        message: 'Please fill in the Cargo / Figures name on the empty row before adding another.',
+      });
+      return;
+    }
+
+    const next = [...rows, emptyCargoRow()];
+    const lastPage = Math.max(1, Math.ceil(next.length / cargoRowSize));
+    if (cargoSearch) {
+      skipCargoPageResetRef.current = true;
+      setCargoSearch('');
+    }
+    patchDraft({ cargoRows: next });
+    setCargoPage(lastPage);
   };
 
   const removeListRow = async (field, index, factory, keepMinOne = true) => {
@@ -487,23 +683,17 @@ export default function OpsVcSofPage() {
                           <div className={styles.cfSectionSub}>Log each event as it happens</div>
                         </div>
                       </div>
-                      <div className={styles.cfFilterWrap}>
-                        <div className={styles.cfFilterBox}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <circle cx="11" cy="11" r="7" />
-                            <path d="m21 21-4.3-4.3" />
-                          </svg>
-                          <input
-                            type="text"
-                            value={keyOpsSearch}
-                            onChange={(e) => setKeyOpsSearch(e.target.value)}
-                            placeholder="Search"
-                          />
-                        </div>
-                        <span className={styles.cfFilterCount}>
-                          {filteredKeyOps.length} of {keyOpsRows.length} shown
-                        </span>
-                      </div>
+                      <SectionFilterControls
+                        search={keyOpsSearch}
+                        onSearchChange={setKeyOpsSearch}
+                        rowSize={keyOpsRowSize}
+                        onRowSizeChange={setKeyOpsRowSize}
+                        filteredCount={filteredKeyOps.length}
+                        totalCount={keyOpsRows.length}
+                        page={paginatedKeyOps.safePage}
+                        totalPages={paginatedKeyOps.totalPages}
+                        onPageChange={setKeyOpsPage}
+                      />
                     </div>
                     <div className={styles.tableWrap}>
                       <table className={styles.cfTable}>
@@ -517,7 +707,7 @@ export default function OpsVcSofPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredKeyOps.map(({ row, index }) => (
+                          {paginatedKeyOps.items.map(({ row, index }) => (
                             <tr key={`kop-${index}`}>
                               <td style={{ width: 34 }}>
                                 <CircleDeleteButton
@@ -602,7 +792,7 @@ export default function OpsVcSofPage() {
                     <div className={styles.tableFooter}>
                       <AddRowButton
                         label="Add Key Operation"
-                        onClick={() => addListRow('keyOperations', emptyKeyOp)}
+                        onClick={addKeyOperationRow}
                         disabled={locked}
                       />
                     </div>
@@ -621,11 +811,22 @@ export default function OpsVcSofPage() {
                           <div className={styles.cfSectionSub}>Quantities, drafts and remarks for this port</div>
                         </div>
                       </div>
+                      <SectionFilterControls
+                        search={cargoSearch}
+                        onSearchChange={setCargoSearch}
+                        rowSize={cargoRowSize}
+                        onRowSizeChange={setCargoRowSize}
+                        filteredCount={filteredCargoRows.length}
+                        totalCount={cargoRows.length}
+                        page={paginatedCargoRows.safePage}
+                        totalPages={paginatedCargoRows.totalPages}
+                        onPageChange={setCargoPage}
+                      />
                     </div>
                     <div className={styles.tableWrap}>
                       <table className={styles.cfTable}>
                         <tbody>
-                          {(draft.cargoRows || []).map((row, index) => {
+                          {paginatedCargoRows.items.map(({ row, index }) => {
                             const labels = cargoFigureLabels(row.activity);
                             const activityLabel = cargoActivityLabel(row.activity, activePort.portType);
                             return (
@@ -711,7 +912,7 @@ export default function OpsVcSofPage() {
                     <div className={styles.tableFooter}>
                       <AddRowButton
                         label="Add Line"
-                        onClick={() => addListRow('cargoRows', emptyCargoRow)}
+                        onClick={addCargoRow}
                         disabled={locked}
                       />
                     </div>

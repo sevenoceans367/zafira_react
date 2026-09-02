@@ -321,6 +321,69 @@
   white-space: nowrap;
 }
 
+.rowsSelectWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rowsSelectLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8a93a2;
+  white-space: nowrap;
+}
+
+.rowsSelect {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b6472;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-family: inherit;
+}
+
+.cfPageNav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cfPageBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid #dfe2e7;
+  background: #fff;
+  color: #5b6472;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.cfPageBtn:hover:not(:disabled) {
+  background: #f1f2f4;
+  border-color: #274670;
+  color: #274670;
+}
+
+.cfPageBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cfPageLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #5b6472;
+  min-width: 42px;
+  text-align: center;
+}
+
 .pcGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -514,6 +577,10 @@
   background: #fdecea;
   color: #e4483b;
   border-color: #e4483b;
+}
+
+.tableFooter {
+  padding: 16px 22px 20px;
 }
 
 .tableFooter .addRowBtn {

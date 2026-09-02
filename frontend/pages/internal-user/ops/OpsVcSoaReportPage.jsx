@@ -402,8 +402,6 @@ export default function OpsVcSoaReportPage() {
     };
   }, [comId]);
 
-  const voyLabel = [data?.voyageNo, data?.vesselName].filter(Boolean).join(' · ') || '—';
-
   return (
     <div className={`zafira-page ${styles.page}`}>
       <OpsVcSoaReportHeaderActions
@@ -418,34 +416,27 @@ export default function OpsVcSoaReportPage() {
         <>
           <div className={styles.pageSubhead}>
             Consolidated statement of accounts
-            <span className={styles.tagSoft}>VC / COA</span>
           </div>
 
           <div className={styles.voyidCard}>
-            <div className={styles.voyidLeft}>
-              <div className={styles.voyChip}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="12" cy="5" r="2.2" />
-                  <path d="M12 7.2V21" />
-                  <path d="M8 10h8" />
-                  <path d="M4 13a8 8 0 0 0 16 0" />
-                </svg>
-                {voyLabel.includes(' · ') ? (
-                  <>
-                    {data.voyageNo || '—'}
-                    <span className={styles.vcSep}>·</span>
-                    {data.vesselName || '—'}
-                  </>
-                ) : (
-                  voyLabel
-                )}
-              </div>
+            <div className={styles.voyChip}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="5" r="2.2" />
+                <path d="M12 7.2V21" />
+                <path d="M8 10h8" />
+                <path d="M4 13a8 8 0 0 0 16 0" />
+              </svg>
+              {data.voyageNo || '—'}
+              {data.vesselName ? (
+                <>
+                  <span className={styles.vcSep}>·</span>
+                  {data.vesselName}
+                </>
+              ) : null}
             </div>
-            <div className={styles.voyidSpecs}>
-              <div className={styles.voyidSpec}>
-                <label>CP Date</label>
-                <span className={styles.val}>{data.cpDate || '—'}</span>
-              </div>
+            <div className={styles.voyidSpec}>
+              <label>CP Date</label>
+              <span className={styles.val}>{data.cpDate || '—'}</span>
             </div>
           </div>
 

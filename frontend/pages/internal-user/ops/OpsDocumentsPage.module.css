@@ -1,0 +1,586 @@
+.page {
+  position: relative;
+}
+
+.pageSubhead {
+  font-size: 13px;
+  color: #5b6472;
+  font-weight: 600;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.tagSoft {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  background: #f1f2f4;
+  border: 1px solid #dfe2e7;
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.voyChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fdece4;
+  color: #f4652c;
+  border: 1px solid #fbd9c9;
+  border-radius: 9px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 22px;
+}
+
+.voyChip svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.vcSep {
+  opacity: 0.5;
+  font-weight: 600;
+}
+
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #f6c6c1;
+  background: #fdecea;
+  color: #e4483b;
+  font-size: 12.5px;
+  border-radius: 10px;
+}
+
+.cfSection {
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 14px;
+  margin-bottom: 22px;
+  overflow: hidden;
+}
+
+.cfSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 17px 22px;
+  border-bottom: 1px solid #dfe2e7;
+}
+
+.cfSectionHeadNavy {
+  background: #e6eaf1;
+}
+
+.cfSectionHeadOrange {
+  background: #fdece4;
+}
+
+.cfSectionHeadTeal {
+  background: #e3f4f4;
+}
+
+.cfSectionHeadPurple {
+  background: #efeaFF;
+}
+
+.cfSectionTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sectionIco {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.sectionIco svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sectionIcoNavy {
+  background: #e6eaf1;
+  color: #274670;
+}
+
+.sectionIcoOrange {
+  background: #fdece4;
+  color: #f4652c;
+}
+
+.sectionIcoTeal {
+  background: #e3f4f4;
+  color: #14919b;
+}
+
+.sectionIcoPurple {
+  background: #efeaFF;
+  color: #6c47ff;
+}
+
+.cfSectionTitle {
+  font-size: 15.5px;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.cfSectionSub {
+  font-size: 11px;
+  color: #5b6472;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.docSectionNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fafbfc;
+  border-bottom: 1px solid #eceef2;
+  color: #5b6472;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 10px 22px;
+}
+
+.docSectionNote svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-top: 1px;
+  color: #8a93a2;
+}
+
+.docBody {
+  padding: 20px 22px 22px;
+}
+
+.docDzRow {
+  margin-bottom: 18px;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1.5px dashed #dfe2e7;
+  border-radius: 12px;
+  padding: 18px 16px;
+  background: #fafbfc;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dropzone:hover,
+.dropzoneActive {
+  background: #e6eaf1;
+  border-color: #274670;
+}
+
+.dropzoneDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dropzoneDisabled:hover {
+  background: #fafbfc;
+  border-color: #dfe2e7;
+}
+
+.dropzoneIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #e6eaf1;
+  color: #274670;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropzoneIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.dropzoneText {
+  font-size: 11.5px;
+  color: #5b6472;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.dropzoneText b {
+  color: #1b2430;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid #dfe2e7;
+  background: #fff;
+}
+
+.cfTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cfTable th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  background: #fafbfc;
+  padding: 11px 14px;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: nowrap;
+}
+
+.cfTable td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #eceef2;
+  font-size: 12.5px;
+  color: #1b2430;
+  vertical-align: middle;
+}
+
+.cfTable tbody tr:hover td {
+  background: #fafbfc;
+}
+
+.cfTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.accentCell {
+  border-left: 4px solid transparent;
+}
+
+.accentNavy {
+  border-left-color: #274670;
+}
+
+.accentOrange {
+  border-left-color: #f4652c;
+}
+
+.accentTeal {
+  border-left-color: #14919b;
+}
+
+.cfEmptyRow td {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #8a93a2;
+  font-style: italic;
+}
+
+.cfInp {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 12px;
+  color: #1b2430;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 7px 9px;
+}
+
+.rowNameInp {
+  font-weight: 700;
+}
+
+.rowInpSm {
+  min-width: 110px;
+}
+
+.docUploadChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0b7a28;
+  background: #e8f8ec;
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.docUploadChip svg {
+  width: 11px;
+  height: 11px;
+  flex: none;
+}
+
+.docUploadChip:hover {
+  background: #d4f0dc;
+}
+
+.docUploadStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fileNameLink {
+  font-weight: 700;
+  color: #1b2430;
+  text-decoration: none;
+}
+
+.fileNameLink:hover {
+  color: #274670;
+  text-decoration: underline;
+}
+
+.circleBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #dfe2e7;
+  background: #fff;
+  color: #8a93a2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+
+.circleBtn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.circleBtnDel:hover {
+  background: #fdecea;
+  color: #e4483b;
+  border-color: #e4483b;
+}
+
+.circleBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.invoiceGroup {
+  margin-bottom: 6px;
+}
+
+.invoiceGroup:last-child {
+  margin-bottom: 0;
+}
+
+.invoiceGroupLabel {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  margin-bottom: 4px;
+}
+
+.emailForwardBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #fafbfc;
+  border-bottom: 1px solid #eceef2;
+  padding: 12px 22px;
+}
+
+.emailForwardLabel {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  white-space: nowrap;
+}
+
+.emailForwardAddr {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1b2430;
+  font-family: inherit;
+}
+
+.emailCopyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: #6c47ff;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px;
+  font-family: inherit;
+}
+
+.emailCopyBtn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.emailCopyHint {
+  font-size: 11px;
+  color: #8a93a2;
+  font-weight: 600;
+}
+
+.emailRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid #eceef2;
+  transition: background 0.12s;
+}
+
+.emailRow:hover {
+  background: #fafbfc;
+}
+
+.emailRow:last-child {
+  border-bottom: none;
+}
+
+.emailIco {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #efeaFF;
+  color: #6c47ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.emailIco svg {
+  width: 16px;
+  height: 16px;
+}
+
+.emailMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.emailTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.emailSubject {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #1b2430;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emailDate {
+  font-size: 11px;
+  color: #8a93a2;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: none;
+}
+
+.emailFrom {
+  font-size: 11.5px;
+  color: #5b6472;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.emailSnippet {
+  font-size: 11.5px;
+  color: #8a93a2;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.emailMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.emailAttachChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #5b6472;
+  background: #f1f2f4;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.emailAttachChip svg {
+  width: 10px;
+  height: 10px;
+}
+
+.emailEmpty {
+  padding: 18px 22px 22px;
+  font-size: 12px;
+  color: #8a93a2;
+  font-style: italic;
+}
+
+.muted {
+  color: #8a93a2;
+}

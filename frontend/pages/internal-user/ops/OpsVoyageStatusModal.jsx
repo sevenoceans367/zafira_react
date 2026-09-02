@@ -110,6 +110,93 @@ function displayValue(value, fallback = '—') {
   return liveValue(value) || fallback;
 }
 
+/** Map backend PDA/FDA chips to SOC v5.0 display labels. */
+const PDA_STATUS_MAP = {
+  Pending: 'Not Initiated',
+  'PDA Draft': 'PDA Request Sent',
+  'PDA Rcvd': 'PDA Rcvd',
+  'FDA Pending': 'PDA Rcvd',
+  'FDA Rcvd': 'FDA Rcvd',
+  Paid: 'Closed',
+};
+
+function mapPdaStatus(status) {
+  const key = String(status || '').trim();
+  return PDA_STATUS_MAP[key] || key || 'Not Initiated';
+}
+
+function pdaToneForDisplay(displayStatus) {
+  switch (displayStatus) {
+    case 'FDA Rcvd':
+    case 'Closed':
+      return 'green';
+    case 'PDA Rcvd':
+    case 'PDA Request Sent':
+      return 'blue';
+    default:
+      return 'amber';
+  }
+}
+
+function mapFinancialStatus(name, chip) {
+  const key = String(chip || '').trim();
+  const isInvoice = name === 'Freight Invoice' || name === 'Demurrage Invoice';
+  if (isInvoice) {
+    if (key === 'Paid') return 'Received';
+    if (key === 'Raised' || key === 'Partial') return 'Sent';
+    if (key === 'Hold') return 'Hold';
+    return 'Draft';
+  }
+  if (key === 'Paid') return 'Paid';
+  if (key === 'Hold') return 'Hold';
+  if (key === 'Raised' || key === 'Partial') return 'Sent';
+  return 'Draft';
+}
+
+function financialToneForDisplay(displayStatus) {
+  switch (displayStatus) {
+    case 'Received':
+    case 'Paid':
+      return 'green';
+    case 'Sent':
+      return 'blue';
+    case 'Hold':
+      return 'amber';
+    default:
+      return 'grey';
+  }
+}
+
+function resolveLaytimeStatus(port) {
+  if (port?.laytimeStatus) {
+    return {
+      laytimeStatus: port.laytimeStatus,
+      laytimeStatusTone: port.laytimeStatusTone || (port.laytimeStatus === 'Completed' ? 'green' : 'amber'),
+    };
+  }
+  const note = String(port?.laytimeNote || '');
+  if (!port?.laytimeMuted && /actual laytime/i.test(note)) {
+    return { laytimeStatus: 'Completed', laytimeStatusTone: 'green' };
+  }
+  return { laytimeStatus: 'Pending', laytimeStatusTone: 'amber' };
+}
+
+function enrichPortDetails(ports) {
+  const dischargeName = [...ports].reverse().find((p) => (
+    p.kind === 'DP' || p.kind === 'Re-Del' || p.kind === 'Discharge'
+  ))?.name || '';
+
+  return ports.map((port) => {
+    const isLoad = port.kind === 'LP' || port.kind === 'Del' || port.kind === 'Load';
+    return {
+      ...port,
+      etc: liveValue(port.etc) || liveValue(port.cwEtc) || liveValue(port.etb) || '',
+      dischargingFor: liveValue(port.dischargingFor) || (isLoad ? dischargeName : ''),
+      ...resolveLaytimeStatus(port),
+    };
+  });
+}
+
 export function buildVoyageStatusPorts(row, mode = 'vc') {
   if (mode === 'tc') {
     const ports = [];
@@ -210,11 +297,13 @@ function CheckField({ label, checked = false }) {
 
 function StatusRow({ name, chip, chipTone = 'grey', remarks, remarksMuted = false }) {
   return (
-    <div className={styles.srow}>
+    <>
       <span className={styles.srowNm}>{name}</span>
-      <StatusChip tone={chipTone}>{chip}</StatusChip>
+      <span className={styles.srowChip}>
+        <StatusChip tone={chipTone}>{chip}</StatusChip>
+      </span>
       <span className={`${styles.remarks} ${remarksMuted ? styles.remarksMuted : ''}`}>{remarks}</span>
-    </div>
+    </>
   );
 }
 
@@ -239,6 +328,7 @@ function PortPanel({ port }) {
         <ReadonlyField label="Dep Draft" value={port?.depDraft} />
         <ReadonlyField label="ETA" value={port?.eta} />
         <ReadonlyField label="ETB" value={port?.etb} />
+        <ReadonlyField label="ETC" value={port?.etc} />
       </div>
       <div className={`${styles.fieldgrid} ${styles.fieldgridSpaced}`}>
         <ReadonlyField label="Arrived" value={port?.arrived} />
@@ -254,7 +344,9 @@ function PortPanel({ port }) {
         <ReadonlyField label="Total Qty (MT)" value={port?.cwTotalQty} />
         <ReadonlyField label="LDD So Far (MT)" value={port?.cwLddSoFar} />
         <ReadonlyField label="Balance (MT)" value={port?.cwBalance} />
-        <ReadonlyField label="ETC" value={port?.cwEtc} />
+        {isLoad ? (
+          <ReadonlyField label="Discharging for Discharge Port" value={port?.dischargingFor} wide />
+        ) : null}
         <div className={styles.field}>
           <label>Status</label>
           <div className={styles.chipWrap}>
@@ -264,8 +356,18 @@ function PortPanel({ port }) {
       </div>
 
       <div className={styles.subhead}>Laytime</div>
-      <div className={`${styles.laytimeNote} ${port?.laytimeMuted ? styles.laytimeMuted : ''}`}>
-        {port?.laytimeNote || 'Not yet commenced'}
+      <div className={styles.laytimeRow}>
+        <div className={`${styles.field} ${styles.laytimeStatusField}`}>
+          <label>Status</label>
+          <div className={styles.chipWrap}>
+            <StatusChip tone={port?.laytimeStatusTone || 'amber'}>
+              {port?.laytimeStatus || 'Pending'}
+            </StatusChip>
+          </div>
+        </div>
+        {port?.laytimeNote && !port?.laytimeMuted ? (
+          <p className={styles.laytimeDetail}>{port.laytimeNote}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -300,8 +402,8 @@ function buildPortDetails(port, row, index) {
     cwStatusTone: 'amber',
     laytimeNote: index === 0 ? 'Not yet commenced' : 'Not yet commenced',
     laytimeMuted: true,
-    pdaStatus: 'PDA Rcvd',
-    pdaRemarks: 'FDA pending',
+    pdaStatus: 'Pending',
+    pdaRemarks: '—',
   };
 }
 
@@ -336,16 +438,16 @@ function buildIdentifiers(row, mode, apiIdentifiers = null) {
 }
 
 function mergePortDetails(basePorts, apiPorts, row) {
-  return basePorts.map((port, index) => {
+  const merged = basePorts.map((port, index) => {
     const apiPort = apiPorts?.find((item) => (
       item.kind === port.kind && item.name === port.name
     )) || apiPorts?.[index];
-    const merged = {
+    return {
       ...buildPortDetails(port, row, index),
       ...(apiPort || {}),
     };
-    return merged;
   });
+  return enrichPortDetails(merged);
 }
 
 function buildFinancialRows(links, apiFinancials) {
@@ -579,7 +681,12 @@ export default function OpsVoyageStatusModal({
               <div className={styles.blockTitle}>PDA / FDA</div>
             </div>
             <div className={styles.blockBody}>
-              <div className={styles.plist}>
+              <div className={styles.statusGrid}>
+                <div className={styles.statusGridHead}>
+                  <span>Port</span>
+                  <span>Status</span>
+                  <span>Remarks</span>
+                </div>
                 {(portDetails.length ? portDetails : [{ kind: 'Port', name: 'Voyage' }]).map((port, index) => (
                   <Link
                     key={`pda-${port.kind}-${port.name}`}
@@ -589,8 +696,8 @@ export default function OpsVoyageStatusModal({
                   >
                     <StatusRow
                       name={portTabLabel(port)}
-                      chip={port.pdaStatus || 'Pending'}
-                      chipTone={port.pdaTone || 'amber'}
+                      chip={mapPdaStatus(port.pdaStatus || 'Pending')}
+                      chipTone={pdaToneForDisplay(mapPdaStatus(port.pdaStatus || 'Pending'))}
                       remarks={port.pdaRemarks || '—'}
                     />
                   </Link>
@@ -613,9 +720,9 @@ export default function OpsVoyageStatusModal({
                   <thead>
                     <tr>
                       <th>Grade</th>
-                      <th>Date</th>
                       <th>Ship Fig (MT)</th>
                       <th>Rcpt Fig (MT)</th>
+                      <th>Date</th>
                       <th>Supplier</th>
                       <th>Barge Name</th>
                       <th>Price</th>
@@ -626,9 +733,9 @@ export default function OpsVoyageStatusModal({
                     {bunkerRows.map((item, index) => (
                       <tr key={`${item.grade}-${index}`}>
                         <td className={item.muted ? styles.muted : undefined}>{item.grade}</td>
-                        <td className={item.muted ? styles.muted : undefined}>{item.date}</td>
                         <td className={item.muted ? styles.muted : undefined}>{item.shipFig}</td>
                         <td className={item.muted ? styles.muted : undefined}>{item.rcptFig}</td>
+                        <td className={item.muted ? styles.muted : undefined}>{item.date}</td>
                         <td className={item.muted ? styles.muted : undefined}>{item.supplier}</td>
                         <td className={item.muted ? styles.muted : undefined}>{item.barge}</td>
                         <td className={item.muted ? styles.muted : undefined}>{item.price}</td>
@@ -651,10 +758,15 @@ export default function OpsVoyageStatusModal({
               <div className={styles.blockTitle}>Financials</div>
             </div>
             <div className={styles.blockBody}>
-              <div className={styles.plist}>
+              <div className={styles.statusGrid}>
+                <div className={styles.statusGridHead}>
+                  <span>Item</span>
+                  <span>Status</span>
+                  <span>Remarks</span>
+                </div>
                 {financialRows.map((item, index) => (
                   item.divider ? (
-                    <div key={`div-${index}`} className={styles.divider} />
+                    <div key={`div-${index}`} className={styles.statusGridDivider} />
                   ) : (
                     <Link
                       key={item.name}
@@ -664,8 +776,8 @@ export default function OpsVoyageStatusModal({
                     >
                       <StatusRow
                         name={item.name}
-                        chip={item.chip}
-                        chipTone={item.tone}
+                        chip={mapFinancialStatus(item.name, item.chip)}
+                        chipTone={financialToneForDisplay(mapFinancialStatus(item.name, item.chip))}
                         remarks={item.remarks}
                         remarksMuted={item.remarksMuted}
                       />

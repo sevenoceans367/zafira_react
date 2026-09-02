@@ -1,0 +1,734 @@
+.page {
+  position: relative;
+}
+
+.error,
+.flashSuccess {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  border-radius: 10px;
+}
+
+.error {
+  border: 1px solid #f6c6c1;
+  background: #fdecea;
+  color: #e4483b;
+}
+
+.flashSuccess {
+  border: 1px solid #bfe6c6;
+  background: #e8f8ec;
+  color: #0b7a28;
+}
+
+.empty {
+  padding: 28px 18px;
+  text-align: center;
+  color: #8a93a2;
+  font-size: 13px;
+  font-weight: 600;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 14px;
+}
+
+.wsheetBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: #e6eaf1;
+  border: 1px solid #d3dae7;
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin-bottom: 18px;
+}
+
+.wsheetBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #274670;
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+}
+
+.wsheetBarLeft svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.wsheetLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  border: 1px solid #d3dae7;
+  color: #274670;
+  font-weight: 700;
+  font-size: 12px;
+  border-radius: 9px;
+  padding: 8px 13px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.wsheetLink:hover {
+  background: #274670;
+  color: #fff;
+}
+
+.wsheetLink svg {
+  width: 13px;
+  height: 13px;
+}
+
+.voyIdRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.voyChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fdece4;
+  color: #f4652c;
+  border: 1px solid #fbd9c9;
+  border-radius: 9px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.voyChip svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.vcSep {
+  opacity: 0.5;
+  font-weight: 600;
+}
+
+.chartererChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #eef0f3;
+  color: #5b6472;
+  font-weight: 700;
+  font-size: 12.5px;
+  border-radius: 999px;
+  padding: 8px 14px;
+  border: 1px solid #dfe2e7;
+}
+
+.chartererChip svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.chartererChip b {
+  color: #1b2430;
+  font-weight: 800;
+}
+
+.bunkLayout {
+  display: flex;
+  align-items: flex-start;
+  gap: 22px;
+}
+
+.bunkMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.bunkSide {
+  width: 300px;
+  flex: none;
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cfSection {
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 14px;
+  margin-bottom: 22px;
+  overflow: hidden;
+}
+
+.cfSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 17px 22px;
+  border-bottom: 1px solid #dfe2e7;
+}
+
+.cfSectionHeadNavy {
+  background: #e6eaf1;
+}
+
+.cfSectionHeadOrange {
+  background: #fdece4;
+}
+
+.cfSectionHeadTeal {
+  background: #e3f4f4;
+}
+
+.cfSectionTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sectionIco {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.sectionIco svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sectionIcoNavy {
+  background: #e6eaf1;
+  color: #274670;
+}
+
+.sectionIcoOrange {
+  background: #fdece4;
+  color: #f4652c;
+}
+
+.sectionIcoTeal {
+  background: #e3f4f4;
+  color: #14919b;
+}
+
+.cfSectionTitle {
+  font-size: 15.5px;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.cfSectionSub {
+  font-size: 11px;
+  color: #5b6472;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.sectionInfoBar {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fafbfc;
+  border-bottom: 1px solid #eceef2;
+  color: #5b6472;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 10px 22px;
+}
+
+.sectionInfoBar svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-top: 1px;
+  color: #8a93a2;
+}
+
+.bunkBody {
+  padding: 20px 22px 22px;
+}
+
+.prevVoyageField {
+  min-width: 200px;
+}
+
+.thMain {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+}
+
+.thSub {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #8a93a2;
+  margin-top: 2px;
+  white-space: normal;
+}
+
+.bunkTableWrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid #dfe2e7;
+  background: #fff;
+}
+
+.cfTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cfTable th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  background: #fafbfc;
+  padding: 11px 14px;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: nowrap;
+}
+
+.cfTable td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #eceef2;
+  font-size: 12.5px;
+  color: #1b2430;
+  vertical-align: middle;
+}
+
+.cfTable tbody tr:hover td {
+  background: #fafbfc;
+}
+
+.cfTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.grpRow td {
+  background: #fafbfc;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  padding: 9px 14px;
+}
+
+.gradeName {
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.cfEmptyRow td {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #8a93a2;
+  font-style: italic;
+}
+
+.cfInp {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.bunkPortAcc {
+  border: 1px solid #dfe2e7;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.bunkPortAcc:last-child {
+  margin-bottom: 0;
+}
+
+.bunkPortHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  background: #fff;
+  border: none;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.bunkPortHead:hover {
+  background: #fafbfc;
+}
+
+.bunkPortHeadLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bunkPortChevron {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5b6472;
+  transition: transform 0.18s;
+  flex: none;
+  background: #f1f2f4;
+}
+
+.bunkPortChevron svg {
+  width: 13px;
+  height: 13px;
+}
+
+.bunkPortAccOpen .bunkPortChevron {
+  transform: rotate(180deg);
+}
+
+.portChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fdece4;
+  color: #f4652c;
+  font-weight: 700;
+  font-size: 12.5px;
+  border-radius: 999px;
+  padding: 6px 13px;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.portChip svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.bunkPortSosp {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+}
+
+.bunkPortSosp label {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  white-space: nowrap;
+}
+
+.bunkPortSospField {
+  min-width: 190px;
+}
+
+.bunkPortBody {
+  border-top: 1px solid #eceef2;
+  padding: 18px 16px;
+  background: #fcfcfd;
+}
+
+.bunkGradeGroup {
+  margin-bottom: 16px;
+}
+
+.bunkGradeGroup:last-child {
+  margin-bottom: 0;
+}
+
+.bunkGradeLabel {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  margin-bottom: 8px;
+}
+
+.bunkTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1180px;
+}
+
+.bunkTable th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  background: #fafbfc;
+  padding: 9px 10px;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: nowrap;
+}
+
+.bunkTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #eceef2;
+  vertical-align: middle;
+}
+
+.bunkTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.bunkTable tbody tr:hover td {
+  background: #f4f6f8;
+}
+
+.deleteCell {
+  width: 36px;
+}
+
+.circleBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid #dfe2e7;
+  background: #fff;
+  color: #8a93a2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+
+.circleBtn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.circleBtn:hover {
+  background: #fdecea;
+  color: #e4483b;
+  border-color: #e4483b;
+}
+
+.addRowBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  background: #fff;
+  border: 1px dashed #dfe2e7;
+  color: #5b6472;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.addRowBtn:hover {
+  background: #f1f2f4;
+}
+
+.addRowBtn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.bunkWidget {
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.bunkWidgetHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eceef2;
+}
+
+.bunkWidgetIco {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.bunkWidgetIco svg {
+  width: 15px;
+  height: 15px;
+}
+
+.bunkWidgetCharterer .bunkWidgetIco {
+  background: #eaf1fe;
+  color: #3b82f6;
+}
+
+.bunkWidgetOwner .bunkWidgetIco {
+  background: #efEAff;
+  color: #6c47ff;
+}
+
+.bunkWidgetTitle {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.bunkWidgetSub {
+  font-size: 10.5px;
+  color: #8a93a2;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.bunkWidgetBody {
+  padding: 6px 16px 14px;
+}
+
+.bunkWidgetRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px dashed #eceef2;
+}
+
+.bunkWidgetRow:last-child {
+  border-bottom: none;
+}
+
+.bunkWidgetGrade {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.bunkWidgetVals {
+  text-align: right;
+}
+
+.bunkWidgetQty {
+  font-size: 12px;
+  font-weight: 800;
+  color: #2b3444;
+}
+
+.bunkWidgetUsd {
+  font-size: 10.5px;
+  color: #8a93a2;
+  font-weight: 600;
+}
+
+.sideActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btnSaveOutline,
+.btnSubmitClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: 10px;
+  padding: 10px 18px;
+  cursor: pointer;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.btnSaveOutline {
+  background: #fff;
+  border: 1.5px solid #dfe2e7;
+  color: #5b6472;
+}
+
+.btnSaveOutline:hover:not(:disabled) {
+  background: #f1f2f4;
+}
+
+.btnSubmitClose {
+  background: #274670;
+  color: #fff;
+  border: none;
+}
+
+.btnSubmitClose:hover:not(:disabled) {
+  background: #1e3a63;
+}
+
+.btnSaveOutline:disabled,
+.btnSubmitClose:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.btnSaveOutline svg,
+.btnSubmitClose svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+@media (max-width: 1150px) {
+  .bunkLayout {
+    flex-direction: column;
+  }
+
+  .bunkSide {
+    width: 100%;
+    position: static;
+  }
+}

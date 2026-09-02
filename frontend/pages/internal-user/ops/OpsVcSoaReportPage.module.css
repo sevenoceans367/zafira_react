@@ -29,36 +29,17 @@
   flex-wrap: wrap;
 }
 
-.tagSoft {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #8a93a2;
-  background: #f1f2f4;
-  border: 1px solid #dfe2e7;
-  border-radius: 999px;
-  padding: 2px 9px;
-}
-
 .voyidCard {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 16px;
-  background: #fff;
-  border: 1px solid #dfe2e7;
-  border-radius: 14px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-}
-
-.voyidLeft {
-  display: flex;
-  align-items: center;
   gap: 18px;
-  flex-wrap: wrap;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 20px;
 }
 
 .voyChip {
@@ -84,13 +65,6 @@
 .vcSep {
   opacity: 0.5;
   font-weight: 600;
-}
-
-.voyidSpecs {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  flex-wrap: wrap;
 }
 
 .voyidSpec {
@@ -266,6 +240,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: none;
 }
 
 .sectionIco {
@@ -309,7 +284,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 200px;
+  flex: 1 1 auto;
+  min-width: 280px;
+  max-width: 480px;
+  margin-left: auto;
 }
 
 .cfProgress {
@@ -354,6 +332,7 @@
 .cfTable {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .cfTable th {
@@ -369,7 +348,31 @@
   white-space: nowrap;
 }
 
+.cfTable th:nth-child(1),
+.cfTable td:nth-child(1) {
+  width: 22%;
+}
+
+.cfTable th:nth-child(2),
+.cfTable td:nth-child(2) {
+  width: 22%;
+}
+
+.cfTable th:nth-child(n+3),
+.cfTable td:nth-child(n+3) {
+  width: 14%;
+}
+
 .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cfTable th.num {
+  text-align: right;
+}
+
+.cfTable td.num {
   text-align: right;
 }
 
@@ -440,8 +443,10 @@
 .balFlag {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 4px;
   font-weight: 800;
+  width: 100%;
 }
 
 .balFlag svg {

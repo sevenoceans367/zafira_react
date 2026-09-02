@@ -95,25 +95,26 @@
   color: #2b3444;
 }
 
-.actionRow {
+.toolbarActions {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
   gap: 10px;
-  margin-bottom: 14px;
+  flex-wrap: wrap;
 }
 
 .btnAdd {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  height: 36px;
+  box-sizing: border-box;
   background: #3b82f6;
   color: #fff;
   font-weight: 700;
   font-size: 13px;
   border: none;
   border-radius: 9px;
-  padding: 10px 16px;
+  padding: 0 16px;
   cursor: pointer;
   font-family: inherit;
 }
@@ -131,13 +132,15 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  height: 36px;
+  box-sizing: border-box;
   background: #f1f2f4;
   color: #8a93a2;
   font-weight: 700;
   font-size: 13px;
   border: 1px solid #dfe2e7;
   border-radius: 9px;
-  padding: 10px 16px;
+  padding: 0 16px;
   cursor: not-allowed;
   font-family: inherit;
 }

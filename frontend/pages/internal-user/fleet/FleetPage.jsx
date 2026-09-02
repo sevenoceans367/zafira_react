@@ -296,38 +296,39 @@ export default function FleetPage() {
       ) : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <div className={styles.actionRow}>
-        <button
-          type="button"
-          className={styles.btnAdd}
-          onClick={() => navigate(`${fleetPath}/add?selBType=${encodeURIComponent(businessType)}`)}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          Add
-        </button>
-        <button
-          type="button"
-          className={`${styles.btnCompare} ${compareEnabled ? styles.btnCompareEnabled : ''}`}
-          disabled={!compareEnabled}
-          title={compareEnabled ? 'Compare selected vessels' : 'Select a row to enable'}
-          onClick={handleCompare}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M4 19V5" />
-            <path d="M8 19v-7" />
-            <path d="M12 19V9" />
-            <path d="M16 19v-4" />
-            <path d="M20 19V6" />
-          </svg>
-          Compare Vessels
-        </button>
-      </div>
-
       <ScrollableTable
         pageSize={pageSize}
         onPageSizeChange={setPageSize}
+        toolbarLeft={(
+          <div className={styles.toolbarActions}>
+            <button
+              type="button"
+              className={styles.btnAdd}
+              onClick={() => navigate(`${fleetPath}/add?selBType=${encodeURIComponent(businessType)}`)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Add
+            </button>
+            <button
+              type="button"
+              className={`${styles.btnCompare} ${compareEnabled ? styles.btnCompareEnabled : ''}`}
+              disabled={!compareEnabled}
+              title={compareEnabled ? 'Compare selected vessels' : 'Select a row to enable'}
+              onClick={handleCompare}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 19V5" />
+                <path d="M8 19v-7" />
+                <path d="M12 19V9" />
+                <path d="M16 19v-4" />
+                <path d="M20 19V6" />
+              </svg>
+              Compare Vessels
+            </button>
+          </div>
+        )}
         footer={(
           <SopfPagination
             page={page}

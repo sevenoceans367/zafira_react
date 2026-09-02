@@ -578,7 +578,6 @@ export default function OpsVcSofPage() {
           <>
             <div className={styles.pageSubhead}>
               Port operations log and cargo figures for this voyage
-              <span className={styles.tagSoft}>SOF</span>
             </div>
 
             {voyLabelParts.length ? (
@@ -1069,7 +1068,7 @@ export default function OpsVcSofPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className={styles.lockedNote}>This SOF was closed and is read-only.</p>
+                    <p className={styles.lockedNote}>This SOF has been closed. It is now read-only.</p>
                   )}
                 </div>
               </div>

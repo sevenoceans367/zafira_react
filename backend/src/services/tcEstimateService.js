@@ -9,6 +9,7 @@ import {
   dbGetTcLookups,
   dbListTcDecisionCharts,
   dbListTcEstimates,
+  dbNextTcEstimateNo,
   dbSaveTcCalculation,
   dbSubmitTcDecisionChart,
   dbSendTcEstimatesToOps,
@@ -73,6 +74,7 @@ let mockStore = [
     FLAG: 'Liberia',
     TC_DATE: '2026-01-10',
     TC_NO: 'TC-OUT-001',
+    ESTIMATE_NO: 1,
     CP_DATE1: '2026-01-15',
     SEL_CP_TYPE: '1',
     SEL_CHARTERER: 'C001',
@@ -295,6 +297,16 @@ export async function getTcLookups() {
   return MOCK_LOOKUPS;
 }
 
+export async function nextTcEstimateNo(tcNo) {
+  if (isDbConfigured()) return dbNextTcEstimateNo(tcNo);
+  const value = String(tcNo || '').trim().toLowerCase();
+  if (!value) return 1;
+  const maxEst = mockStore
+    .filter((row) => String(row.TC_NO || '').trim().toLowerCase() === value && row.SHEET_NO == null)
+    .reduce((max, row) => Math.max(max, Number(row.ESTIMATE_NO) || 1), 0);
+  return maxEst > 0 ? maxEst + 1 : 1;
+}
+
 export async function listTcEstimates(params = {}) {
   if (isDbConfigured()) return dbListTcEstimates(params);
 
@@ -377,6 +389,7 @@ export async function createTcEstimate(body = {}) {
     FLAG: body.flag || '',
     TC_DATE: parseDmy(body.tcDate) || '1970-01-01',
     TC_NO: body.tcNo || `TC-${id}`,
+    ESTIMATE_NO: Number(body.estimateNo) > 0 ? Number(body.estimateNo) : 1,
     CP_DATE1: parseDmy(body.cpDate) || '1970-01-01',
     SEL_CP_TYPE: body.cpType || '',
     SEL_CHARTERER: body.charterer || '',
@@ -504,6 +517,9 @@ export async function updateTcEstimate(tcOutId, body = {}) {
     FLAG: body.flag ?? current.FLAG,
     TC_DATE: parseDmy(body.tcDate) || current.TC_DATE,
     TC_NO: body.tcNo ?? current.TC_NO,
+    ESTIMATE_NO: body.estimateNo != null
+      ? (Number(body.estimateNo) > 0 ? Number(body.estimateNo) : 1)
+      : (current.ESTIMATE_NO || 1),
     CP_DATE1: parseDmy(body.cpDate) || current.CP_DATE1,
     SEL_CP_TYPE: body.cpType ?? current.SEL_CP_TYPE,
     SEL_CHARTERER: body.charterer ?? current.SEL_CHARTERER,

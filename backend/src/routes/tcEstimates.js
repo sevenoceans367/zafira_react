@@ -10,6 +10,7 @@ import {
   getTcLookups,
   listTcDecisionCharts,
   listTcEstimates,
+  nextTcEstimateNo,
   saveTcCalculation,
   submitTcDecisionChart,
   sendTcEstimatesToOps,
@@ -42,6 +43,10 @@ router.get('/business-types', asyncHandler(async (req, res) => {
 
 router.get('/lookups', asyncHandler(async (_req, res) => {
   res.json(await getTcLookups());
+}));
+
+router.get('/next-estimate-no', asyncHandler(async (req, res) => {
+  res.json({ estimateNo: await nextTcEstimateNo(req.query.tcNo || '') });
 }));
 
 router.get('/', asyncHandler(async (req, res) => {

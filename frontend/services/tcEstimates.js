@@ -28,6 +28,12 @@ export async function fetchTcLookups() {
   return parseJson(response, 'Failed to load TC lookups.');
 }
 
+export async function fetchNextTcEstimateNo(tcNo) {
+  const response = await fetch(`${BASE}/next-estimate-no${toQuery({ tcNo })}`);
+  const data = await parseJson(response, 'Failed to load next Est No.');
+  return Number(data?.estimateNo) > 0 ? Number(data.estimateNo) : 1;
+}
+
 export async function fetchTcEstimates(params = {}) {
   const response = await fetch(`${BASE}${toQuery(params)}`);
   return parseJson(response, 'Failed to load TC Out Estimates.');

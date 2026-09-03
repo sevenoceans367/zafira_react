@@ -652,6 +652,9 @@ export async function dbListCargoRelets({
   pageSize = 10,
   search = '',
   coaId,
+  status = '',
+  view = 'business',
+  standaloneOnly = false,
 } = {}) {
   const pool = getPool();
   const businessType = selBType || '2';
@@ -668,28 +671,54 @@ export async function dbListCargoRelets({
     conditions.push('r.COAID = ?');
     params.push(coaId);
   }
+  if (standaloneOnly) {
+    conditions.push('(r.COAID IS NULL OR r.COAID = 0)');
+  }
   if (search) {
     conditions.push(`(
       r.CARGO_RELET_NO LIKE ? OR c.COA_ID LIKE ? OR c.COA_NO LIKE ?
-      OR r.CARGO_RELET_NAME LIKE ?
+      OR r.CARGO_RELET_NAME LIKE ? OR vim.VESSEL_NAME LIKE ?
     )`);
     const like = `%${search}%`;
-    params.push(like, like, like, like);
+    params.push(like, like, like, like, like);
   }
+
+  const statusKey = String(status || '').toLowerCase();
+  if (view === 'ops') {
+    if (statusKey === 'postops' || statusKey === 'post-ops') {
+      // Reserved for post-ops workflow; no distinct flag yet.
+      conditions.push('1 = 0');
+    } else if (statusKey === 'history') {
+      conditions.push('r.UPDATE_STATUS = 3');
+    } else {
+      // In Ops (default): submitted / fixed relets still live.
+      conditions.push('r.FIXED = 1');
+      conditions.push('(r.UPDATE_STATUS IS NULL OR r.UPDATE_STATUS <> 3)');
+    }
+  } else if (statusKey === 'completed' || statusKey === 'closed') {
+    // Reserved until a dedicated completed flag exists.
+    conditions.push('1 = 0');
+  } else if (statusKey === 'cancelled') {
+    conditions.push('r.UPDATE_STATUS = 3');
+  } else if (statusKey === 'active' || statusKey === 'open' || statusKey === '1') {
+    conditions.push('(r.UPDATE_STATUS IS NULL OR r.UPDATE_STATUS <> 3)');
+  }
+
   const where = conditions.join(' AND ');
 
   const [[countRow]] = await pool.query(
     `SELECT COUNT(*) AS total
      FROM cargo_relet_estimate_masster r
      LEFT JOIN coa_master c ON c.COAID = r.COAID
+     LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = r.VESSEL_IMO_ID
      WHERE ${where}`,
     params,
   );
 
   const [rows] = await pool.query(
-    `SELECT r.FCAID, r.COAID, r.CARGO_RELET_NO, r.CARGO_QMT_MT, r.FREIGHT_USD, r.FREIGHT_AMT,
+    `SELECT r.FCAID, r.COAID, r.CARGO_RELET_NO, r.CARGO_RELET_NAME, r.CARGO_QMT_MT, r.FREIGHT_USD, r.FREIGHT_AMT,
             r.BUNKER_SURCHARGE_AMT, r.TOTAL_AMT, r.PROFIT, r.FREIGHT_USD_OUT, r.FREIGHT_AMT_OUT,
-            r.FIXED, r.COMID, r.UPDATE_STATUS, r.TRANS_DATE, r.VESSEL_IMO_ID,
+            r.FIXED, r.COMID, r.UPDATE_STATUS, r.FINAL_STATUS, r.TRANS_DATE, r.VESSEL_IMO_ID,
             c.COA_ID, c.COA_NO, c.COA_DATE, c.CURRENCY, vim.VESSEL_NAME
      FROM cargo_relet_estimate_masster r
      LEFT JOIN coa_master c ON c.COAID = r.COAID
@@ -717,6 +746,27 @@ export async function dbListCargoRelets({
       if (port.PORT_TYPE === 'DP') discharge.push(name);
     }
 
+    let chartererName = '';
+    try {
+      const [[party]] = await pool.query(
+        `SELECT s.CHARTERER, v.NAME AS VENDOR_NAME
+         FROM cargo_relet_estimate_slave1 s
+         LEFT JOIN vendor_master v ON v.CODE = s.CHARTERER
+         WHERE s.FCAID = ? AND s.IDENTIFY = 'IN'
+         LIMIT 1`,
+        [row.FCAID],
+      );
+      chartererName = party?.VENDOR_NAME || '';
+    } catch {
+      chartererName = '';
+    }
+
+    const fixed = Number(row.FIXED) === 1;
+    const updateStatus = row.UPDATE_STATUS != null ? Number(row.UPDATE_STATUS) : 0;
+    let statusLabel = 'Draft';
+    if (updateStatus === 3) statusLabel = 'Cancelled';
+    else if (fixed) statusLabel = 'Active';
+
     records.push({
       index,
       fcaId: row.FCAID,
@@ -724,7 +774,9 @@ export async function dbListCargoRelets({
       coaIdentity: row.COA_ID ?? '',
       coaNo: row.COA_NO ?? '',
       reletNo: row.CARGO_RELET_NO ?? '',
-      coaDate: formatDateDMY(row.COA_DATE),
+      cargo: row.CARGO_RELET_NAME ?? '',
+      coaDate: formatDateDMY(row.COA_DATE || row.TRANS_DATE),
+      transDate: formatDateDMY(row.TRANS_DATE),
       cargoQty: row.CARGO_QMT_MT ?? '',
       ports: `${load.filter(Boolean).join(', ')} / ${discharge.filter(Boolean).join(', ')}`,
       freightInPerMt: row.FREIGHT_USD ?? '',
@@ -734,10 +786,13 @@ export async function dbListCargoRelets({
       freightOutAmt: row.FREIGHT_AMT_OUT ?? '',
       profit: row.PROFIT ?? '',
       vesselName: row.VESSEL_NAME ?? '',
+      charterer: chartererName,
       currency: row.CURRENCY || 'USD',
-      fixed: Number(row.FIXED) === 1,
-      updateStatus: row.UPDATE_STATUS != null ? Number(row.UPDATE_STATUS) : 0,
-      canDelete: Number(row.FIXED) !== 1,
+      fixed,
+      updateStatus,
+      finalStatus: row.FINAL_STATUS != null ? Number(row.FINAL_STATUS) : 0,
+      status: statusLabel,
+      canDelete: !fixed && updateStatus !== 3,
     });
   }
 
@@ -983,7 +1038,9 @@ function reletMasterValues(payload, includeMeta = false) {
 }
 
 export async function dbCreateCargoRelet(payload) {
-  if (!payload.coaId) throw new Error('COA is required for cargo relet.');
+  if (!payload.coaId && !payload.standalone) {
+    throw new Error('COA is required for cargo relet.');
+  }
   const pool = getPool();
   const connection = await pool.getConnection();
   try {
@@ -1033,7 +1090,9 @@ async function finalizeCargoReletCompare(connection, fcaId, payload) {
   // Legacy: txtStatus == 2 creates cargo_relet_estimate_compare with COAAID and fixes the relet.
   if (String(payload.updateStatus) !== '2') return;
   const coaId = nullIfEmpty(payload.coaId);
-  if (!coaId) throw new Error('COA is required to submit cargo relet.');
+  if (!coaId && !payload.standalone) {
+    throw new Error('COA is required to submit cargo relet.');
+  }
 
   const [[existing]] = await connection.query(
     `SELECT COMID, FIXED FROM cargo_relet_estimate_masster WHERE FCAID = ? LIMIT 1`,
@@ -1045,7 +1104,7 @@ async function finalizeCargoReletCompare(connection, fcaId, payload) {
   const [maxRows] = await connection.query(
     `SELECT (MAX(MESSAGE_NO) + 1) AS MESSAGE_NO
      FROM cargo_relet_estimate_compare
-     WHERE YEAR(ADD_ON_DATE) = ? AND MCOMPANYID = ? AND COAAID IS NOT NULL`,
+     WHERE YEAR(ADD_ON_DATE) = ? AND MCOMPANYID = ? AND ${coaId ? 'COAAID IS NOT NULL' : 'COAAID IS NULL'}`,
     [year, appContext.companyId],
   );
   let messageNo = maxRows[0]?.MESSAGE_NO;

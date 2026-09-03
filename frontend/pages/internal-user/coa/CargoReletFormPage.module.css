@@ -53,6 +53,25 @@
   flex: none;
 }
 
+.standalone .cardHeadIcon {
+  background: #f7e6e9;
+  color: #9e1b32;
+}
+
+.standalone .panelIn .panelHead {
+  background: linear-gradient(135deg, #6b121f, #9e1b32);
+}
+
+.standalone .panelIn .resultStrip {
+  background: linear-gradient(160deg, #f7e6e9 0%, #ffffff 75%);
+  border-color: #efc7ce;
+}
+
+.standalone .panelOut .resultStrip {
+  background: linear-gradient(160deg, #dfe2e7 0%, #ffffff 75%);
+  border: 1.5px solid #5b6472;
+}
+
 .cardHeadIcon svg {
   width: 15px;
   height: 15px;

@@ -18,6 +18,28 @@ const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContex
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
 const USER_ID = process.env.USER_ID || appContext.userId;
 
+let tcEstimateNoColumnReady = false;
+
+async function ensureTcEstimateNoColumn(pool) {
+  if (tcEstimateNoColumnReady) return true;
+  try {
+    const [cols] = await pool.query(
+      `SHOW COLUMNS FROM chartering_estimate_tc_master LIKE 'ESTIMATE_NO'`,
+    );
+    if (!cols.length) {
+      await pool.query(
+        `ALTER TABLE chartering_estimate_tc_master
+         ADD COLUMN ESTIMATE_NO INT NOT NULL DEFAULT 1`,
+      );
+    }
+    tcEstimateNoColumnReady = true;
+    return true;
+  } catch (error) {
+    console.warn('[tcEstimateDb] Could not ensure ESTIMATE_NO column:', error.message);
+    return false;
+  }
+}
+
 function masterPayload(body = {}) {
   return {
     ESTIMATE_TYPE: nullIfEmpty(body.businessTypeId) || '2',
@@ -133,6 +155,41 @@ function masterPayload(body = {}) {
     BALTIC_RATE: nullIfEmpty(body.balticRate),
     PERIODID: nullIfEmpty(body.periodId),
   };
+}
+
+function withEstimateNo(payload, body = {}, include = false) {
+  if (!include) return payload;
+  const estimateNo = Number(body.estimateNo);
+  return {
+    ...payload,
+    ESTIMATE_NO: Number.isFinite(estimateNo) && estimateNo > 0 ? Math.floor(estimateNo) : 1,
+  };
+}
+
+export async function dbNextTcEstimateNo(tcNo) {
+  const value = String(tcNo || '').trim();
+  if (!value) return 1;
+  const pool = getPool();
+  const hasColumn = await ensureTcEstimateNoColumn(pool);
+  if (hasColumn) {
+    const [rows] = await pool.query(
+      `SELECT MAX(ESTIMATE_NO) AS maxEst
+       FROM chartering_estimate_tc_master
+       WHERE MODULEID = ? AND MCOMPANYID = ? AND TC_NO = ? AND SHEET_NO IS NULL`,
+      [MODULE_ID, COMPANY_ID, value],
+    );
+    const maxEst = Number(rows[0]?.maxEst);
+    if (!Number.isFinite(maxEst) || maxEst < 1) return 1;
+    return maxEst + 1;
+  }
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS cnt
+     FROM chartering_estimate_tc_master
+     WHERE MODULEID = ? AND MCOMPANYID = ? AND TC_NO = ? AND SHEET_NO IS NULL`,
+    [MODULE_ID, COMPANY_ID, value],
+  );
+  const count = Number(rows[0]?.cnt) || 0;
+  return count + 1;
 }
 
 function bunkerIdentity(row = {}) {
@@ -766,10 +823,11 @@ export async function dbGetTcEstimate(tcOutId) {
 
 export async function dbCreateTcEstimate(body = {}) {
   const pool = getPool();
+  const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const payload = masterPayload(body);
+    const payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
     const columns = Object.keys(payload);
     const values = Object.values(payload);
     const [result] = await connection.query(
@@ -797,6 +855,7 @@ export async function dbCreateTcEstimate(body = {}) {
 
 export async function dbUpdateTcEstimate(tcOutId, body = {}) {
   const pool = getPool();
+  const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -809,7 +868,7 @@ export async function dbUpdateTcEstimate(tcOutId, body = {}) {
       await connection.rollback();
       return null;
     }
-    const payload = masterPayload(body);
+    const payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
     const sets = Object.keys(payload).map((col) => `${col} = ?`).join(', ');
     await connection.query(
       `UPDATE chartering_estimate_tc_master

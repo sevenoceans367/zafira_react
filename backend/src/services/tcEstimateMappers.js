@@ -161,6 +161,7 @@ export function mapTcDetail(row, extras = {}) {
     flag: row.FLAG ?? '',
     tcDate: formatDateDMY(row.TC_DATE),
     tcNo: row.TC_NO ?? '',
+    estimateNo: Number(row.ESTIMATE_NO) > 0 ? Number(row.ESTIMATE_NO) : 1,
     cpDate: formatDateDMY(row.CP_DATE1),
     cpType: row.SEL_CP_TYPE != null ? String(row.SEL_CP_TYPE) : '',
     charterer: row.SEL_CHARTERER != null ? String(row.SEL_CHARTERER) : '',

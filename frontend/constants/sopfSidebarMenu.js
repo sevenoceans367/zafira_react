@@ -1,5 +1,6 @@
 /**
  * SOPF module sidebar — keep in sync with App.jsx routes and sopfPageHeaders.jsx.
+ * Cargo Relet tree is injected after Time Charter via CargoReletSidebarTree in InternalUserSidebar.
  */
 import { fleetAppPath } from './fleetModule.js';
 import { periodContractAppPath } from './periodContractModule.js';

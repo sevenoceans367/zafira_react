@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CardSelect, DmyDateInput, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
+import { getUser } from '@bainbridge/shared-auth';
 import { useTcModule } from '../../../hooks/useTcModule.js';
 import {
   createTcEstimate,
   daysBetween,
   downloadTcEstimatePdf,
+  fetchNextTcEstimateNo,
   fetchPeriodTcInDetails,
   fetchTcBusinessTypes,
   fetchTcEstimate,
@@ -379,6 +381,7 @@ function emptyForm(businessTypeId = '2') {
     flag: '',
     tcDate: '',
     tcNo: '',
+    estimateNo: 1,
     cpDate: '',
     cpType: '',
     charterer: '',
@@ -710,9 +713,25 @@ export default function TcFixtureFormPage({
         setLookups(data);
         setBusinessTypes(types?.businessTypes || types || []);
         setForm((prev) => {
+          let next = prev;
           const hasFilledOffBunker = (prev.offHireBunkers || []).some((row) => row.qty || row.price || row.bunkerId);
-          if (hasFilledOffBunker) return prev;
-          return { ...prev, offHireBunkers: defaultOffHireBunkers(data?.bunkers) };
+          if (!hasFilledOffBunker) {
+            next = { ...next, offHireBunkers: defaultOffHireBunkers(data?.bunkers) };
+          }
+          if (mode === 'add') {
+            const sessionUser = getUser();
+            const sessionId = sessionUser?.id != null ? String(sessionUser.id) : '';
+            const pics = data?.charteringPics || [];
+            const inList = sessionId && pics.some((pic) => String(pic.id) === sessionId);
+            if (inList && !next.charteringPic1) {
+              next = {
+                ...next,
+                charteringPic1: sessionId,
+                charOperation: next.charOperation || sessionId,
+              };
+            }
+          }
+          return next;
         });
       } catch (err) {
         if (!cancelled) setError(err.message || 'Failed to load lookups.');
@@ -721,6 +740,29 @@ export default function TcFixtureFormPage({
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load lookups once on mount
   }, []);
+
+  useEffect(() => {
+    if (mode !== 'add' || readOnly) return undefined;
+    const tcNo = String(form.tcNo || '').trim();
+    if (!tcNo) {
+      setForm((prev) => (Number(prev.estimateNo) === 1 ? prev : { ...prev, estimateNo: 1 }));
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const nextNo = await fetchNextTcEstimateNo(tcNo);
+        if (cancelled) return;
+        const estimateNo = Number(nextNo) > 0 ? Number(nextNo) : 1;
+        setForm((prev) => (Number(prev.estimateNo) === estimateNo ? prev : { ...prev, estimateNo }));
+      } catch {
+        if (!cancelled) {
+          setForm((prev) => (Number(prev.estimateNo) === 1 ? prev : { ...prev, estimateNo: 1 }));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [form.tcNo, mode, readOnly]);
 
   useEffect(() => {
     if (mode === 'add' || !tcOutId) return undefined;
@@ -1264,6 +1306,7 @@ export default function TcFixtureFormPage({
                       onChange={(v) => setField('contractType', v || 'tcout')}
                       placeholder="Select contract type"
                       ariaLabel="Contract type"
+                      tone="default"
                     />
                     {showSubCharter ? (
                       <div className={styles.subCharterBadge} aria-live="polite">
@@ -1303,7 +1346,11 @@ export default function TcFixtureFormPage({
                     onChange={(v) => setField('tcNo', v)}
                     readOnly={mode === 'edit' || readOnly}
                   />
-                  <TextInput label="Est No." value={mode === 'add' ? 'Auto' : (form.tcNo || '')} readOnly />
+                  <TextInput
+                    label="Est No."
+                    value={`EST${Number(form.estimateNo) > 0 ? Number(form.estimateNo) : 1}`}
+                    readOnly
+                  />
                   <Field label="Chartering Team" id="charteringTeam">
                     <CardSelect
                       id="charteringTeam"
@@ -1319,17 +1366,24 @@ export default function TcFixtureFormPage({
                       id="charteringPic1"
                       options={lookups?.charteringPics || []}
                       value={form.charteringPic1}
-                      onChange={(v) => setField('charteringPic1', v)}
+                      onChange={(v) => {
+                        if (readOnly) return;
+                        setForm((prev) => ({
+                          ...prev,
+                          charteringPic1: v,
+                          charOperation: v,
+                        }));
+                      }}
                       placeholder="Select PIC"
                       ariaLabel="Chartering PIC"
                     />
                   </Field>
                   <Field label="Ops PIC">
                     <CardSelect
-                      options={lookups?.vendors || []}
+                      options={lookups?.charteringPics || []}
                       value={form.charOperation}
                       onChange={(v) => setField('charOperation', v)}
-                      placeholder="Select"
+                      placeholder="Select Ops PIC"
                       ariaLabel="Ops PIC"
                     />
                   </Field>
@@ -1760,10 +1814,10 @@ export default function TcFixtureFormPage({
                 </div>
               </CollapsiblePanel>
 
-              <CollapsiblePanel title="TC Expenses" defaultOpen={false}>
+              <CollapsiblePanel title="Expenses" defaultOpen={false}>
                 <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>TC Expense</div>
                 <div className={styles.miniTableWrap}>
-                  <table className={styles.miniTable}>
+                  <table className={`${styles.miniTable} ${styles.miniTableCenter}`}>
                     <thead>
                       <tr>
                         <th>Expense Desc.</th>
@@ -1816,9 +1870,10 @@ export default function TcFixtureFormPage({
                               className={readOnly ? styles.inputReadonly : undefined}
                             />
                           </td>
-                          <td style={{ textAlign: 'center' }}>
+                          <td>
                             <input
                               type="checkbox"
+                              className={styles.expenseChk}
                               checked={row.addToTotal !== false}
                               onChange={(e) => patchOtherExpense(index, { addToTotal: e.target.checked })}
                               disabled={readOnly}
@@ -2063,32 +2118,32 @@ export default function TcFixtureFormPage({
 
             <aside className={styles.estRhs}>
               <div className={styles.resultsBlock}>
-                <div className={styles.resultsHead}>TC Revenue</div>
+                <div className={styles.resultsHead}>Revenue</div>
                 <div className={styles.resultsBody}>
                   <div className={`${styles.resRow} ${styles.resRowAccent}`}>
                     <span className={styles.resRowLabel}>Total TC Rev</span>
                     <span className={styles.resRowVal}>{tcResults.totalRev}</span>
                   </div>
                   <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Less Off Hire (Incl. Bunkers)</span>
+                    <span className={styles.resRowLabel}>Less - Off Hire (Incl. Bunkers)</span>
                     <span className={styles.resRowVal}>{tcResults.lessOffHire}</span>
                   </div>
                   <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Nett TC Rev</span>
+                    <span className={styles.resRowLabel}>Net TC Rev</span>
                     <span className={styles.resRowVal}>{tcResults.nettTcRev}</span>
                   </div>
                 </div>
               </div>
 
               <div className={styles.resultsBlock}>
-                <div className={styles.resultsHead}>TC Expenses</div>
+                <div className={styles.resultsHead}>Expenses</div>
                 <div className={styles.resultsBody}>
                   <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Ref Charterers</span>
+                    <span className={styles.resRowLabel}>Charterer's Acc</span>
                     <span className={styles.resRowVal}>{tcResults.refCharterers}</span>
                   </div>
                   <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Ref Owners</span>
+                    <span className={styles.resRowLabel}>Owner's Acc</span>
                     <span className={styles.resRowVal}>{tcResults.refOwners}</span>
                   </div>
                   <div className={styles.resRow}>
@@ -2099,10 +2154,10 @@ export default function TcFixtureFormPage({
               </div>
 
               <div className={styles.resultsBlock}>
-                <div className={styles.resultsHead}>TC P&amp;L</div>
+                <div className={styles.resultsHead}>P&amp;L</div>
                 <div className={styles.resultsBody}>
                   <div className={`${styles.resRow} ${styles.resRowAccent}`}>
-                    <span className={styles.resRowLabel}>Profit</span>
+                    <span className={styles.resRowLabel}>Total Profit</span>
                     <span className={styles.resRowVal}>{tcResults.profit}</span>
                   </div>
                   <div className={styles.resRow}>

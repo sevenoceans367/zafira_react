@@ -1,0 +1,291 @@
+/* Cargo Relet list — colors from php/Cargo_Relets_Business.html & Cargo_Relet_Ops.html */
+.page {
+  --relet-red: #9e1b32;
+  --relet-red-tint: #f7e6e9;
+  --relet-red-tint-strong: #efc7ce;
+  --grey-tint: #eef0f3;
+  --grey-tint-strong: #dfe2e7;
+  --text-dark: #1b2430;
+  --text-mid: #5b6472;
+  --text-light: #8a93a2;
+  --num-grey: #2b3444;
+  --line: #eceef2;
+  --line-strong: #dfe2e7;
+  --green: #0fa836;
+  --green-tint: #e8f8ec;
+  --blue: #2e6fe8;
+  position: relative;
+}
+
+.error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  font-size: 12px;
+  border: 1px solid #f5c2c7;
+  background: #f8d7da;
+  color: #842029;
+}
+
+.hcardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 1100px) {
+  .hcardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.hcard {
+  border-radius: 16px;
+  padding: 18px 20px 20px;
+  border: 1px solid;
+}
+
+.hcardRed {
+  background: linear-gradient(135deg, #f7e6e9 0%, #ffffff 65%);
+  border-color: var(--relet-red-tint-strong);
+}
+
+.hcardCnt {
+  background: linear-gradient(135deg, #f1f2f4 0%, #ffffff 65%);
+  border-color: var(--grey-tint-strong);
+}
+
+.hcardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  min-height: 34px;
+}
+
+.hcardIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: #fff;
+}
+
+.hcardRed .hcardIcon {
+  background: linear-gradient(135deg, #c43d54, var(--relet-red));
+}
+
+.hcardCnt .hcardIcon {
+  background: linear-gradient(135deg, #8a93a2, #5b6472);
+}
+
+.hcardIcon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.hcardLabel {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-mid);
+}
+
+.hcardValue {
+  margin: 0;
+  font-family: var(--font-family-heading, inherit);
+  font-weight: 700;
+  font-size: 29px;
+  line-height: 1;
+  color: var(--num-grey);
+}
+
+.statusTabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  background: var(--grey-tint);
+  border-radius: 10px 10px 0 0;
+  padding: 6px 8px 0;
+}
+
+.statusTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  border: 1.5px solid transparent;
+  margin-bottom: -1px;
+  color: var(--text-dark);
+  background: none;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.statusTab svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.statusTab:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.statusTabActive {
+  background: #fff;
+  border: 1.5px solid var(--line-strong);
+  border-bottom-color: #fff;
+}
+
+.tabCount {
+  background: var(--grey-tint-strong);
+  color: var(--text-dark);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.btnAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  box-sizing: border-box;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  border-radius: 9px;
+  padding: 0 16px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnAdd:hover {
+  background: #265dc7;
+}
+
+.btnAdd svg {
+  width: 15px;
+  height: 15px;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.grid thead th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-light);
+  background: #fafbfc;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+
+.grid tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--text-dark);
+  vertical-align: middle;
+}
+
+.grid tbody tr:hover {
+  background: #fafbfc;
+}
+
+.emptyCell {
+  text-align: center;
+  color: var(--text-light);
+  padding: 28px 14px !important;
+}
+
+.iconBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-light);
+  cursor: pointer;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  text-decoration: none;
+}
+
+.iconBtn:hover {
+  background: #f1f2f4;
+  color: var(--text-mid);
+}
+
+.iconBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Status pills — Business.html */
+.statusActive {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--green-tint);
+  color: #0b7a28;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.statusCompleted {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--relet-red-tint);
+  color: var(--relet-red);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.statusCancelled {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--grey-tint-strong);
+  color: var(--text-mid);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.statusDraft {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--grey-tint);
+  color: var(--text-mid);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.accentCell {
+  border-left: 3px solid var(--relet-red);
+}

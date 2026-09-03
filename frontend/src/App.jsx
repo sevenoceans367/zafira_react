@@ -18,6 +18,7 @@ import RunningCoasListPage from '../pages/internal-user/coa/RunningCoasListPage.
 import CoaFormPage from '../pages/internal-user/coa/CoaFormPage.jsx';
 import CargoReletListPage from '../pages/internal-user/coa/CargoReletListPage.jsx';
 import CargoReletFormPage from '../pages/internal-user/coa/CargoReletFormPage.jsx';
+import StandaloneCargoReletListPage from '../pages/internal-user/cargo-relet/CargoReletListPage.jsx';
 import DirectFixtureFormPage from '../pages/internal-user/coa/DirectFixtureFormPage.jsx';
 import CoaInOpsPage from '../pages/internal-user/coa/CoaInOpsPage.jsx';
 import CoaPostOpsPage from '../pages/internal-user/coa/CoaPostOpsPage.jsx';
@@ -280,6 +281,10 @@ export default function App() {
             <Route path="/internal-user/:module/period-contracts/add" element={<AddPeriodContractPage />} />
             <Route path="/internal-user/:module/period-contracts/edit/:id" element={<AddPeriodContractPage />} />
             <Route path="/internal-user/:module/period-contracts" element={<PeriodContractListPage />} />
+            <Route path="/internal-user/:module/cargo-relets/add" element={<CargoReletFormPage mode="add" />} />
+            <Route path="/internal-user/:module/cargo-relets/ops" element={<StandaloneCargoReletListPage variant="ops" />} />
+            <Route path="/internal-user/:module/cargo-relets/:fcaId" element={<CargoReletFormPage mode="edit" />} />
+            <Route path="/internal-user/:module/cargo-relets" element={<StandaloneCargoReletListPage variant="business" />} />
             <Route path="/internal-user/:module/elibrary/add" element={<ElibraryFormPage />} />
             <Route path="/internal-user/:module/elibrary/edit/:id" element={<ElibraryFormPage />} />
             <Route path="/internal-user/:module/elibrary" element={<ElibraryPage />} />

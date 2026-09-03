@@ -19,7 +19,6 @@ import {
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import TcListHeaderActions from './TcListHeaderActions.jsx';
-import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import styles from './TcBusinessPage.module.css';
 
 const DEFAULT_BUSINESS_TYPE = '2';
@@ -138,7 +137,6 @@ export default function TcOutEstimatesListPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
-  const [selectedIds, setSelectedIds] = useState([]);
   const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -186,7 +184,6 @@ export default function TcOutEstimatesListPage() {
         tradesInOperations: 0,
         vesselsOnWater: 0,
       });
-      setSelectedIds([]);
     } catch (err) {
       setError(err.message || 'Failed to load TC Out Estimates.');
     } finally {
@@ -213,24 +210,7 @@ export default function TcOutEstimatesListPage() {
   const opsRows = useMemo(() => rows.filter((row) => isInOps(row)), [rows]);
   const visibleRows = statusTab === 'activeInOps' ? opsRows : activeRows;
 
-  const comparableIds = activeRows
-    .filter((row) => row.canCompare)
-    .map((row) => String(row.tcOutId));
-  const allComparableSelected = comparableIds.length > 0
-    && comparableIds.every((id) => selectedIds.includes(id));
-  const batchSendEnabled = selectedIds.length > 0;
-
-  const toggleAll = () => {
-    setSelectedIds(allComparableSelected ? [] : comparableIds);
-  };
-
-  const toggleOne = (row) => {
-    if (!row.canCompare || isInOps(row)) return;
-    const id = String(row.tcOutId);
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  const handleSendToOps = async (ids = selectedIds) => {
+  const handleSendToOps = async (ids = []) => {
     const next = [...new Set((ids || []).map(String).filter(Boolean))];
     if (!next.length || sending) return;
 
@@ -249,7 +229,6 @@ export default function TcOutEstimatesListPage() {
     setError('');
     try {
       await sendTcEstimatesToOps(next);
-      setSelectedIds([]);
       updateQuery({ msg: 3, status: 'activeInOps' });
       await load();
     } catch (err) {
@@ -283,19 +262,6 @@ export default function TcOutEstimatesListPage() {
           <path d="M12 5v14M5 12h14" />
         </svg>
         Add
-      </button>
-      <button
-        type="button"
-        className={`${styles.btnSensitivity} ${batchSendEnabled ? styles.btnSensitivityEnabled : ''}`}
-        disabled={!batchSendEnabled || sending}
-        title={batchSendEnabled ? 'Send selected estimates to TC Ops' : 'Select a row to enable'}
-        onClick={() => handleSendToOps()}
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M5 12h13" />
-          <path d="M13 6l6 6-6 6" />
-        </svg>
-        Send to Ops
       </button>
     </div>
   ) : (
@@ -360,7 +326,6 @@ export default function TcOutEstimatesListPage() {
             aria-selected={statusTab === tab.id}
             className={`${styles.statusTab} ${statusTab === tab.id ? styles.statusTabActive : ''}`}
             onClick={() => {
-              setSelectedIds([]);
               updateQuery({ status: tab.id === 'active' ? '' : tab.id });
             }}
           >
@@ -399,17 +364,6 @@ export default function TcOutEstimatesListPage() {
                 <th>Hire In</th>
                 <th>Hire Out</th>
                 <th>Total Rev</th>
-                <th className={styles.compareHeader} title="Select rows to send to TC Ops">
-                  <CompareIcon />
-                  <input
-                    type="checkbox"
-                    className={styles.rowChk}
-                    checked={allComparableSelected}
-                    onChange={toggleAll}
-                    disabled={!comparableIds.length}
-                    aria-label="Select all sendable estimates"
-                  />
-                </th>
                 <th>TC Recap</th>
                 <th>Details</th>
               </tr>
@@ -427,19 +381,6 @@ export default function TcOutEstimatesListPage() {
                   <td className={styles.cellNum}>{liveValue(row.hireIn)}</td>
                   <td className={styles.cellNum}>{liveValue(row.hireOut || row.dailyGrossHire)}</td>
                   <td className={styles.cellNum}>{liveValue(row.totalRev)}</td>
-                  <td className={styles.center}>
-                    {row.canCompare ? (
-                      <input
-                        type="checkbox"
-                        className={styles.rowChk}
-                        checked={selectedIds.includes(String(row.tcOutId))}
-                        onChange={() => toggleOne(row)}
-                        aria-label={`Select ${row.tcNo || row.vesselName}`}
-                      />
-                    ) : (
-                      <span className={styles.sentLabel}>{row.compareLabel || '—'}</span>
-                    )}
-                  </td>
                   <td>
                     <ActionButtonStack className={styles.rowActions}>
                       <SecondaryActionButton
@@ -469,7 +410,7 @@ export default function TcOutEstimatesListPage() {
               ))}
               {!visibleRows.length && !loading ? (
                 <tr>
-                  <td colSpan={13} className={styles.empty}>No active TC recaps found.</td>
+                  <td colSpan={12} className={styles.empty}>No active TC recaps found.</td>
                 </tr>
               ) : null}
             </tbody>

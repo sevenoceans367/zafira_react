@@ -17,8 +17,8 @@ export default function CardSelect({
   disabled = false,
   id,
   leadingDot = null,
-  /** "default" (navy) | "muted" (app grey #5b6472) */
-  tone = 'default',
+  /** "muted" (app grey #5b6472, default) | "default" (navy — e.g. Contract Type) */
+  tone = 'muted',
 }) {
   const wrapRef = useRef(null);
   const triggerRef = useRef(null);

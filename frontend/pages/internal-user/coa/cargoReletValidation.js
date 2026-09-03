@@ -50,8 +50,9 @@ function firstPortIssue(rows, label, fieldPrefix) {
   return null;
 }
 
-export function validateCargoReletForm(form = {}) {
-  if (!filled(form.coaId)) {
+export function validateCargoReletForm(form = {}, options = {}) {
+  const requireCoa = options.requireCoa !== false;
+  if (requireCoa && !filled(form.coaId)) {
     return { message: 'Please select a COA', fieldId: 'coaId', tab: 'estimate' };
   }
   if (!filled(form.vesselImoId)) {

@@ -21,6 +21,7 @@ import timeCharterIcon from '../assets/TIME CHARTER.png';
 import periodContractIcon from '../assets/Period contact.svg';
 import userGuidesIcon from '../assets/user-guides.svg';
 import CoasSidebarTree from './coa/CoasSidebarTree.jsx';
+import CargoReletSidebarTree from './cargoRelet/CargoReletSidebarTree.jsx';
 import OpsVcSidebarTree from './ops/OpsVcSidebarTree.jsx';
 import OpsTcSidebarTree from './ops/OpsTcSidebarTree.jsx';
 import MastersSidebarTree from './masters/MastersSidebarTree.jsx';
@@ -162,6 +163,9 @@ export default function InternalUserSidebar({ isOpen }) {
                   active={isSidebarItemActive(currentPath, item)}
                   disabled={item.disabled}
                 />
+                {item.id === 'time_charter' ? (
+                  <CargoReletSidebarTree isOpen={isOpen} module="sopf" />
+                ) : null}
                 {item.id === 'period' ? (
                   <CoasSidebarTree isOpen={isOpen} />
                 ) : null}
@@ -215,6 +219,7 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <OpsVcSidebarTree isOpen={isOpen} />
             <OpsTcSidebarTree isOpen={isOpen} />
+            <CargoReletSidebarTree isOpen={isOpen} module="vc" />
             <SidebarLink
               to={periodContractAppPath('vc')}
               iconSrc={PERIOD_CONTRACT_LINK.iconSrc}

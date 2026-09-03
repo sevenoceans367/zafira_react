@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DmyDateInput, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { fetchCommercialParameters } from '../../../services/commercialParameters.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
+import { useCargoReletModule } from '../../../hooks/useCargoReletModule.js';
+import { isCargoReletPath } from '../../../constants/cargoReletModule.js';
 import {
   createCargoRelet,
   fetchCargoRelet,
@@ -12,6 +14,11 @@ import {
   fetchRunningCoas,
   updateCargoRelet,
 } from '../../../services/coas.js';
+import {
+  createStandaloneCargoRelet,
+  fetchStandaloneCargoRelet,
+  updateStandaloneCargoRelet,
+} from '../../../services/cargoRelets.js';
 import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
 import { calcCargoIntake, calcCargoReletTotals } from './cargoReletTotals.js';
 import {
@@ -354,7 +361,10 @@ function SpeedInput({ id, value, onChange, readOnly = true }) {
 export default function CargoReletFormPage({ mode = 'edit' }) {
   const { fcaId } = useParams();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { coaPath } = useCoaModule();
+  const { cargoReletPath } = useCargoReletModule();
+  const standalone = isCargoReletPath(pathname);
   const alert = useAlert();
   const confirm = useConfirm();
   const [searchParams] = useSearchParams();
@@ -396,7 +406,9 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
         })));
 
         if (!isAdd) {
-          const detail = await fetchCargoRelet(fcaId);
+          const detail = standalone
+            ? await fetchStandaloneCargoRelet(fcaId)
+            : await fetchCargoRelet(fcaId);
           if (cancelled) return;
           if (!detail) throw new Error('Cargo relet not found.');
           setForm({
@@ -436,7 +448,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [fcaId, isAdd, searchParams]);
+  }, [fcaId, isAdd, searchParams, standalone]);
 
   const vessels = useMemo(
     () => (lookups?.vessels || []).filter(
@@ -460,9 +472,11 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
 
   const currency = form.currency || 'USD';
   const opsListHref = `${coaPath('in-ops')}?selBType=${form.businessTypeId || '2'}&tradeType=relet`;
-  const listHref = fromRunning
-    ? `${coaPath('running')}?selBType=${form.businessTypeId || '2'}`
-    : opsListHref;
+  const listHref = standalone
+    ? `${cargoReletPath}?selBType=${form.businessTypeId || '2'}`
+    : fromRunning
+      ? `${coaPath('running')}?selBType=${form.businessTypeId || '2'}`
+      : opsListHref;
 
   const patch = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -498,7 +512,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   };
 
   const persist = async (updateStatus) => {
-    const validation = validateCargoReletForm(form);
+    const validation = validateCargoReletForm(form, { requireCoa: !standalone });
     if (validation) {
       setError(validation.message);
       if (validation.tab && validation.tab !== tab) setTab(validation.tab);
@@ -526,12 +540,18 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     setError('');
     try {
       const totals = calcCargoReletTotals(form);
-      const payload = { ...form, ...totals, reletNo, updateStatus };
-      if (isAdd) await createCargoRelet(payload);
-      else await updateCargoRelet(fcaId, payload);
-      navigate(fromRunning
-        ? `${coaPath('running')}?selBType=${form.businessTypeId}&msg=0`
-        : `${coaPath('in-ops')}?selBType=${form.businessTypeId}&tradeType=relet`);
+      const payload = { ...form, ...totals, reletNo, updateStatus, standalone };
+      if (standalone) {
+        if (isAdd) await createStandaloneCargoRelet(payload);
+        else await updateStandaloneCargoRelet(fcaId, payload);
+        navigate(`${cargoReletPath}?selBType=${form.businessTypeId}&msg=0`);
+      } else {
+        if (isAdd) await createCargoRelet(payload);
+        else await updateCargoRelet(fcaId, payload);
+        navigate(fromRunning
+          ? `${coaPath('running')}?selBType=${form.businessTypeId}&msg=0`
+          : `${coaPath('in-ops')}?selBType=${form.businessTypeId}&tradeType=relet`);
+      }
     } catch (err) {
       setError(err.message || 'Failed to save cargo relet.');
     } finally {
@@ -819,14 +839,14 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
 
   if (loading) {
     return (
-      <div className={`zafira-page ${styles.page}`}>
+      <div className={`zafira-page ${styles.page}${standalone ? ` ${styles.standalone}` : ''}`}>
         <LoadingOverlay show label="Loading cargo relet…" />
       </div>
     );
   }
 
   return (
-    <div className={`zafira-page ${styles.page}`}>
+    <div className={`zafira-page ${styles.page}${standalone ? ` ${styles.standalone}` : ''}`}>
       <CoaFormHeaderActions listHref={listHref} disabled={saving} />
       {saving ? <LoadingOverlay show fullScreen={false} label="Saving cargo relet…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
@@ -841,22 +861,34 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           </div>
           <div className={styles.gridFields}>
             <MetaField id="fixtureType" label="Fixture Type">
-              <div className={styles.metaValue}>Cargo Relet</div>
+              <div className={styles.metaValue}>{standalone ? 'Standalone Cargo Relet' : 'Cargo Relet'}</div>
             </MetaField>
-            <MetaField id="coaId" label="COA ID" grow>
-              {lockedCoaId ? (
-                <input id="coaId" className={styles.readonly} readOnly value={form.coaIdentity || lockedCoaId} />
-              ) : (
+            {standalone ? (
+              <MetaField id="businessTypeId" label="Business Type">
                 <CoaCardSelect
-                  id="coaId"
-                  label="COA"
-                  value={form.coaId}
-                  options={coaOptions}
-                  placeholder="Select COA..."
-                  onChange={(value) => patch('coaId', value)}
+                  id="businessTypeId"
+                  label="Business Type"
+                  value={form.businessTypeId}
+                  options={businessTypes}
+                  onChange={(value) => patch('businessTypeId', value || '2')}
                 />
-              )}
-            </MetaField>
+              </MetaField>
+            ) : (
+              <MetaField id="coaId" label="COA ID" grow>
+                {lockedCoaId ? (
+                  <input id="coaId" className={styles.readonly} readOnly value={form.coaIdentity || lockedCoaId} />
+                ) : (
+                  <CoaCardSelect
+                    id="coaId"
+                    label="COA"
+                    value={form.coaId}
+                    options={coaOptions}
+                    placeholder="Select COA..."
+                    onChange={(value) => patch('coaId', value)}
+                  />
+                )}
+              </MetaField>
+            )}
             <MetaField id="vesselImoId" label="Vessel" grow>
               <CoaCardSelect
                 id="vesselImoId"

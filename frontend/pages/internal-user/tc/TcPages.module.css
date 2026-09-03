@@ -154,6 +154,7 @@
   border: 1px solid var(--color-border, #d9dee8);
   border-radius: 4px;
   font-size: 12px;
+  color: #5b6472;
 }
 
 .field textarea {
@@ -952,7 +953,7 @@
 .connectBtn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 7px;
   width: 100%;
   background: #fff;
@@ -960,12 +961,13 @@
   border-radius: 8px;
   padding: 9px 11px;
   font-size: 12.5px;
-  font-weight: 700;
-  color: var(--color-primary, #274670);
+  font-weight: 600;
+  color: #5b6472;
   cursor: pointer;
   font-family: inherit;
   box-sizing: border-box;
   min-height: 36px;
+  text-align: left;
 }
 
 .connectBtn svg {
@@ -975,7 +977,8 @@
 }
 
 .connectBtn:hover:not(:disabled) {
-  background: #e8eef5;
+  background: #f8fafc;
+  color: #4a5260;
 }
 
 .connectBtn:disabled {
@@ -1428,6 +1431,22 @@
   word-break: break-word;
 }
 
+.miniTableCenter th,
+.miniTableCenter td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.miniTableCenter .rowIconActions {
+  justify-content: center;
+}
+
+.miniTableCenter input:not([type='checkbox']),
+.miniTableCenter select,
+.miniTableCenter textarea {
+  text-align: center;
+}
+
 .miniTable tfoot td {
   font-weight: 700;
   background: #e8eef5;
@@ -1467,6 +1486,21 @@
   border-radius: 6px;
   font-size: 12px;
   box-sizing: border-box;
+}
+
+.miniTable input[type='checkbox'],
+.expenseChk {
+  width: 14px;
+  height: 14px;
+  max-width: none;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  transform: none;
+  cursor: pointer;
+  accent-color: #274670;
+  vertical-align: middle;
 }
 
 .miniTableWrap {

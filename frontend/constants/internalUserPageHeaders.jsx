@@ -12,6 +12,7 @@ import { resolveCoaHeader } from './coaPageHeaders.js';
 import { resolveOpsVcHeader } from './opsVcPageHeaders.js';
 import { resolveOpsTcHeader } from './opsTcPageHeaders.js';
 import { resolveTcHeader } from './tcPageHeaders.js';
+import { resolveCargoReletHeader } from './cargoReletPageHeaders.js';
 import { resolveReportsHeader } from './reportsPageHeaders.js';
 import {
   LIVE_VESSEL_MAP_ENABLED,
@@ -63,6 +64,8 @@ export function resolveInternalUserHeader(pathname, search = '') {
     if (todoListHeader) return todoListHeader;
     const periodContractHeader = resolvePeriodContractHeader(pathname);
     if (periodContractHeader) return periodContractHeader;
+    const cargoReletHeader = resolveCargoReletHeader(pathname);
+    if (cargoReletHeader) return cargoReletHeader;
     const elibraryHeader = resolveElibraryHeader(pathname);
     if (elibraryHeader) return elibraryHeader;
     const userGuidesHeader = resolveUserGuidesHeader(pathname);
@@ -90,6 +93,9 @@ export function resolveInternalUserHeader(pathname, search = '') {
 
   const periodContractHeader = resolvePeriodContractHeader(pathname);
   if (periodContractHeader) return periodContractHeader;
+
+  const cargoReletHeader = resolveCargoReletHeader(pathname);
+  if (cargoReletHeader) return cargoReletHeader;
 
   const elibraryHeader = resolveElibraryHeader(pathname);
   if (elibraryHeader) return elibraryHeader;

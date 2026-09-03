@@ -84,6 +84,8 @@ router.get('/cargo-relets', asyncHandler(async (req, res) => {
     pageSize: Number(req.query.pageSize) || 10,
     search: req.query.search || '',
     coaId: req.query.coaId || '',
+    status: req.query.status || '',
+    view: req.query.view || 'business',
   }));
 }));
 

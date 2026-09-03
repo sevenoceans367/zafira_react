@@ -22,7 +22,7 @@ const PAGES = {
   'request-port-cost': 'Operational Costs Payment',
   sof: 'Statement of Facts',
   checklist: 'Ops Checklist',
-  laytime: 'Laytime',
+  laytime: 'Laytime Calculations',
   bunker: 'Bunker Calculations',
   'soa-report': 'Cashflow',
   'cost-sheet': 'Voyage Financials',

@@ -1,0 +1,799 @@
+/* Laytime Calculations — layout extras on top of OpsVcSofPage.module.css */
+
+.page {
+  padding-bottom: 48px;
+}
+
+.ltSide {
+  width: 336px;
+  flex: none;
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 1150px) {
+  .ltSide {
+    width: 100%;
+    position: static;
+  }
+}
+
+.cfSectionHeadBlue {
+  background: #eaf1fe;
+}
+
+.cfSectionHeadPurple {
+  background: #efeaff;
+}
+
+.cfSectionHeadAmber {
+  background: #fcf1dd;
+}
+
+.sectionIcoBlue {
+  background: #eaf1fe;
+  color: #3b82f6;
+}
+
+.sectionIcoPurple {
+  background: #efeaff;
+  color: #6c47ff;
+}
+
+.sectionIcoGrey {
+  background: #eef0f3;
+  color: #5b6472;
+}
+
+.sectionIcoAmber {
+  background: #fcf1dd;
+  color: #b9760a;
+}
+
+.ptIcoLp {
+  color: #14919b;
+}
+
+.ptIcoDp {
+  color: #f4652c;
+}
+
+.ltBody {
+  padding: 20px 22px 22px;
+}
+
+.ltOptionsRow {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 16px 18px;
+}
+
+.ltOptionsRow .ltOptItem {
+  flex: 1 1 160px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ltOptionsRow .ltOptGrow {
+  flex: 1.4 1 180px;
+}
+
+.ltOptionsRow label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+}
+
+.ltOptionsRow select,
+.ltOptionsRow textarea {
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #1b2430;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 9px;
+  padding: 9px 11px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ltOptionsRow textarea {
+  min-height: 42px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.ltOptionsRow select:focus,
+.ltOptionsRow textarea:focus {
+  outline: none;
+  border-color: #d3dae7;
+  box-shadow: 0 0 0 3px #e6eaf1;
+}
+
+.ltOptionsRow select:disabled,
+.ltOptionsRow textarea:disabled {
+  background: #f1f2f4;
+  color: #5b6472;
+}
+
+@media (max-width: 1150px) {
+  .ltOptionsRow {
+    flex-wrap: wrap;
+  }
+}
+
+.ltPillgroup {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 1px;
+}
+
+.ltPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1.5px solid #dfe2e7;
+  background: #fff;
+  color: #5b6472;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 8px 15px;
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+}
+
+.ltPill:hover:not(:disabled) {
+  background: #f1f2f4;
+}
+
+.ltPill:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.ltPillCheck {
+  width: 15px;
+  height: 15px;
+  border-radius: 5px;
+  border: 1.5px solid #dfe2e7;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+}
+
+.ltPillCheck svg {
+  width: 10px;
+  height: 10px;
+}
+
+.ltPillActive {
+  background: #eaf1fe;
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.ltPillActive .ltPillCheck {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.ltActdedGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .ltActdedGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ltActdedCol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ltActdedColLeft {
+  border-right: 1px solid #eceef2;
+}
+
+@media (max-width: 1100px) {
+  .ltActdedColLeft {
+    border-right: none;
+    border-bottom: 1px solid #eceef2;
+  }
+}
+
+.ltActdedCol :global([class*="tableWrap"]) {
+  overflow-x: auto;
+}
+
+.ltActdedCol :global(table) {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+.ltActdedCol :global(table) th,
+.ltActdedCol :global(table) td {
+  padding: 8px 10px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.ltActdedCol :global(table) th:first-child,
+.ltActdedCol :global(table) td:first-child {
+  padding-left: 16px;
+  width: 52px;
+}
+
+/* Keep Activity / Start / End / Notes readable — compact date+time columns */
+.ltActdedCol :global(table) th:nth-child(2),
+.ltActdedCol :global(table) td:nth-child(2) {
+  min-width: 180px;
+}
+
+.ltActdedCol :global(table) th:nth-child(3),
+.ltActdedCol :global(table) td:nth-child(3),
+.ltActdedCol :global(table) th:nth-child(4),
+.ltActdedCol :global(table) td:nth-child(4) {
+  width: 158px;
+  min-width: 158px;
+  max-width: 158px;
+}
+
+.ltActdedCol :global(table) th:nth-child(5),
+.ltActdedCol :global(table) td:nth-child(5) {
+  width: 88px;
+  min-width: 88px;
+  max-width: 96px;
+}
+
+.ltActdedCol :global(table) th:nth-child(6),
+.ltActdedCol :global(table) td:nth-child(6) {
+  min-width: 120px;
+}
+
+.ltActdedCol :global(table) td input,
+.ltActdedCol :global(table) td textarea {
+  box-sizing: border-box;
+}
+
+.ltActdedCol :global(table) td:nth-child(2) .cfInp,
+.ltActdedCol :global(table) td:nth-child(2) input:not([class*="ltDate"]) {
+  width: 100%;
+  min-width: 160px;
+}
+
+.ltActdedCol :global(table) td:nth-child(5) input {
+  width: 100%;
+  min-width: 72px;
+}
+
+/* Compact datetime control — calendar icon + dd-mm-yyyy HH:MM */
+.ltDateField {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 152px;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.ltDateFieldIco {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: #8a93a2;
+  pointer-events: none;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ltDateFieldIco svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ltDateFieldHasValue .ltDateFieldIco {
+  color: #274670;
+}
+
+.ltDateFieldInput {
+  display: block !important;
+  width: 152px !important;
+  min-width: 152px !important;
+  max-width: 152px !important;
+  min-height: 30px;
+  padding: 6px 8px 6px 28px !important;
+  border: 1px solid #dfe2e7 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #1b2430;
+  font-family: inherit;
+  font-size: 12px !important;
+  font-weight: 600;
+  line-height: 1.35;
+  box-sizing: border-box !important;
+}
+
+.ltDateFieldInput::placeholder {
+  color: #8a93a2;
+  font-weight: 500;
+  font-style: italic;
+}
+
+.ltDateFieldInput:hover:not(:disabled) {
+  border-color: #5b6472 !important;
+  background: #f1f2f4 !important;
+}
+
+.ltDateFieldInput:focus {
+  outline: none;
+  border-color: #d3dae7 !important;
+  box-shadow: 0 0 0 3px #e6eaf1;
+}
+
+.ltDateFieldInput:disabled {
+  background: #f1f2f4 !important;
+  color: #5b6472;
+  cursor: not-allowed;
+}
+
+.pcDateWide {
+  width: 100%;
+  display: flex;
+}
+
+.pcDateWide .ltDateFieldInput {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.ltCountBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  color: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.rowNumWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rowNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.rowNumOrange {
+  background: #fdece4;
+  color: #f4652c;
+}
+
+.rowNumPurple {
+  background: #efeaff;
+  color: #6c47ff;
+}
+
+.ltNotesSm {
+  font-family: inherit;
+  font-size: 11.5px;
+  color: #1b2430;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  padding: 6px 8px;
+  width: 100%;
+  min-width: 120px;
+  height: 30px;
+  min-height: 30px;
+  max-height: 70px;
+  resize: vertical;
+  line-height: 1.3;
+  box-sizing: border-box;
+}
+
+.ltNotesSm:disabled {
+  background: #f1f2f4;
+  color: #5b6472;
+}
+
+.ltNotesSm::placeholder {
+  color: #8a93a2;
+  font-style: italic;
+}
+
+.cfEmptyRow td {
+  text-align: center;
+  color: #8a93a2;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 18px 14px !important;
+}
+
+.addRowWrap {
+  padding: 8px 14px 14px;
+}
+
+.cfInp {
+  font-family: inherit;
+  font-size: 12px;
+  color: #1b2430;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 7px 9px;
+  width: 100%;
+  min-width: 130px;
+  box-sizing: border-box;
+}
+
+.cfInp:focus {
+  outline: none;
+  border-color: #d3dae7;
+  box-shadow: 0 0 0 3px #e6eaf1;
+}
+
+.cfInp:disabled {
+  background: #f1f2f4;
+  color: #5b6472;
+}
+
+.ltHighlightCard {
+  background: #fff;
+  border: 1px solid #c6e8e9;
+  border-top: 4px solid #14919b;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(20, 145, 155, 0.1);
+}
+
+.ltHlHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #e3f4f4;
+}
+
+.ltHlIco {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #fff;
+  color: #14919b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.ltHlIco svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ltHlTitle {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.ltHlSub {
+  font-size: 10px;
+  color: #8a93a2;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.ltHlBody {
+  padding: 14px 16px 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 10px;
+}
+
+.ltSumItem {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ltSumIco {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: #e3f4f4;
+  color: #14919b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  margin-top: 1px;
+}
+
+.ltSumIco svg {
+  width: 12px;
+  height: 12px;
+}
+
+.ltSumItemNeg .ltSumIco {
+  background: #fdecea;
+  color: #e4483b;
+}
+
+.ltSumText {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ltSumText label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #8a93a2;
+}
+
+.ltSumVal {
+  font-size: 15px;
+  font-weight: 800;
+  color: #2b3444;
+}
+
+.ltSumUnit {
+  font-size: 10.5px;
+  color: #8a93a2;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.ltSumItemHi .ltSumVal {
+  color: #14919b;
+}
+
+.ltSumItemNeg .ltSumVal {
+  color: #e4483b;
+}
+
+.ltSumInput {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #2b3444;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  padding: 4px 7px;
+  width: 100%;
+  max-width: 110px;
+  box-sizing: border-box;
+}
+
+.ltSumInput:disabled {
+  background: #f1f2f4;
+}
+
+.ltApprovalBody {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ltApprovalLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+}
+
+.ltApprovalInput,
+.ltApprovalSelect {
+  width: 100%;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #1b2430;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 9px;
+  padding: 9px 11px;
+  box-sizing: border-box;
+}
+
+.ltApprovalSelect {
+  min-height: 88px;
+}
+
+.ltApprovalInput::placeholder {
+  color: #8a93a2;
+  font-style: italic;
+}
+
+.ltApprovalHint {
+  font-size: 10.5px;
+  color: #8a93a2;
+  font-style: italic;
+}
+
+.ltRemarksBody {
+  padding: 16px 18px 18px;
+}
+
+.ltRemarksLeglabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  margin-bottom: 8px;
+}
+
+.ltRemarksBox {
+  width: 100%;
+  min-height: 56px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #1b2430;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 9px;
+  padding: 12px;
+  resize: vertical;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.ltRemarksBox:disabled {
+  background: #f1f2f4;
+  color: #5b6472;
+}
+
+.ltDocsDivider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  margin: 16px 0 12px;
+  padding-top: 14px;
+  border-top: 1px dashed #dfe2e7;
+}
+
+.ltDocsDivider svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ltBtnRow {
+  display: flex;
+  gap: 10px;
+}
+
+.ltBtnRow > * {
+  flex: 1 1 0;
+  width: auto;
+  justify-content: center;
+}
+
+.btnSubmitClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: #274670;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnSubmitClose:hover:not(:disabled) {
+  background: #1e3a63;
+}
+
+.btnSubmitClose:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnSubmitClose svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.btnCloseLaytime {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: #f4652c;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
+}
+
+.btnCloseLaytime:hover:not(:disabled) {
+  background: #d9531f;
+}
+
+.btnCloseLaytime:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnCloseLaytime svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.lockedNote {
+  font-size: 12.5px;
+  color: #5b6472;
+  font-weight: 600;
+  line-height: 1.45;
+  padding: 10px 12px;
+  background: #f1f2f4;
+  border-radius: 10px;
+}

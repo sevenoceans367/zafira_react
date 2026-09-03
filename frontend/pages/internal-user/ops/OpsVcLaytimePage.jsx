@@ -2,13 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Button,
-  CardSelect,
   DmyDateInput,
-  Field,
   LoadingOverlay,
-  Textarea,
-  TextInput,
   useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
@@ -17,7 +12,8 @@ import { fetchLaytimeForm, openLaytime, saveLaytime } from '../../../services/op
 import OpsVcLaytimeHeaderActions from './OpsVcLaytimeHeaderActions.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
 import pageStyles from './OpsPages.module.css';
-import layoutStyles from './OpsVcSofPage.module.css';
+import sofStyles from './OpsVcSofPage.module.css';
+import styles from './OpsVcLaytimePage.module.css';
 
 const BACK_PATHS = {
   1: '/internal-user/vc/ops/in-ops-glance',
@@ -50,39 +46,94 @@ function PortTypeIcon({ portType }) {
   );
 }
 
-function InfoIcon() {
+function AddRowButton({ onClick, disabled, label = 'Add' }) {
+  if (disabled) return null;
+  return (
+    <button type="button" className={sofStyles.addRowBtn} onClick={onClick}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+      {label}
+    </button>
+  );
+}
+
+function PillOption({ active, disabled, onClick, children }) {
+  return (
+    <button
+      type="button"
+      className={`${styles.ltPill} ${active ? styles.ltPillActive : ''}`}
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+    >
+      <span className={styles.ltPillCheck} aria-hidden>
+        {active ? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        ) : null}
+      </span>
+      {children}
+    </button>
+  );
+}
+
+function SumIconClock() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v5.5" />
-      <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
+      <path d="M12 7v5l3 2" />
     </svg>
   );
 }
 
-function LaytimeInfoPopup() {
+function SumIconCash() {
   return (
-    <div className={layoutStyles.infoPop}>
-      <div className={layoutStyles.infoPopTitle}>How this page works</div>
-      <ol className={layoutStyles.infoPopSteps}>
-        <li>Complete the numbered <b>Particulars</b> for this port call.</li>
-        <li>Enter laytime summary figures and record activities / deductions.</li>
-        <li><b>Submit to edit</b> saves drafts; <b>Send for Approval</b> or <b>Submit &amp; Close</b> when ready.</li>
-        <li>Attach supporting documents in the sidebar before submitting.</li>
-      </ol>
-    </div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 2v20" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
   );
 }
 
-function AddRowButton({ onClick, disabled }) {
-  if (disabled) return null;
+function CalendarIco() {
   return (
-    <button type="button" className={layoutStyles.addRowBtn} onClick={onClick}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-      Add
-    </button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
+      <path d="M3 9.5h18" />
+      <path d="M8 2.5v4" />
+      <path d="M16 2.5v4" />
+    </svg>
+  );
+}
+
+/** Compact datetime field matching the Laytime mockup (calendar icon + dd-mm-yyyy HH:MM). */
+function LtDateField({
+  id,
+  value,
+  onChange,
+  disabled,
+  enableTime = true,
+  className = '',
+}) {
+  const hasValue = Boolean(String(value || '').trim());
+  return (
+    <div
+      className={`${styles.ltDateField} ${hasValue ? styles.ltDateFieldHasValue : ''} ${className}`.trim()}
+    >
+      <span className={styles.ltDateFieldIco}>
+        <CalendarIco />
+      </span>
+      <DmyDateInput
+        id={id}
+        enableTime={enableTime}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        className={styles.ltDateFieldInput}
+      />
+    </div>
   );
 }
 
@@ -172,19 +223,16 @@ async function alertThenFocus(alertFn, alertOpts, fieldId) {
   });
 }
 
-function emptyEntityRow() {
-  return { name: '', value: '' };
-}
-
 function emptyActivityRow(seedFrom = '') {
   return {
     activity: '',
     start: seedFrom,
     end: '',
     duration: '',
-    ltCounts: false,
+    // Simplified Activities UI hides LT Counts columns; default so used-time still computes.
+    ltCounts: true,
     ltNoCounts: false,
-    ltPartial: '',
+    ltPartial: '100',
     cumulative: '',
     notes: '',
   };
@@ -248,17 +296,20 @@ function draftFromPort(port, rateUnit = 'days') {
     remarks: port.remarks || '',
     entityRows: (port.entityRows || []).map((row) => ({ ...row })),
     activities: (port.activities?.length ? port.activities : [emptyActivityRow()])
-      .map((row) => ({
-        activity: row.activity || '',
-        start: row.start || '',
-        end: row.end || '',
-        duration: row.duration || '',
-        ltCounts: Boolean(row.ltCounts),
-        ltNoCounts: Boolean(row.ltNoCounts),
-        ltPartial: row.ltPartial ?? '',
-        cumulative: row.cumulative ?? '',
-        notes: row.notes || '',
-      })),
+      .map((row) => {
+        const hasCountFlag = Boolean(row.ltCounts) || Boolean(row.ltNoCounts);
+        return {
+          activity: row.activity || '',
+          start: row.start || '',
+          end: row.end || '',
+          duration: row.duration || '',
+          ltCounts: hasCountFlag ? Boolean(row.ltCounts) : true,
+          ltNoCounts: Boolean(row.ltNoCounts),
+          ltPartial: row.ltPartial ?? (hasCountFlag && !row.ltCounts ? '' : '100'),
+          cumulative: row.cumulative ?? '',
+          notes: row.notes || '',
+        };
+      }),
     deductions: (port.deductions?.length ? port.deductions : [emptyDeductionRow()])
       .map((row) => ({
         activity: row.activity || '',
@@ -410,20 +461,6 @@ export default function OpsVcLaytimePage() {
     updateListRow('deductions', index, { [key]: value }, true);
   };
 
-  const handleLtCountsChange = (index, checked) => {
-    const patch = checked
-      ? { ltCounts: true, ltNoCounts: false, ltPartial: '100' }
-      : { ltCounts: false, ltPartial: '0' };
-    updateListRow('activities', index, patch, true);
-  };
-
-  const handleLtNoCountsChange = (index, checked) => {
-    const patch = checked
-      ? { ltNoCounts: true, ltCounts: false, ltPartial: '0' }
-      : { ltNoCounts: false, ltPartial: '100' };
-    updateListRow('activities', index, patch, true);
-  };
-
   const addActivityRow = () => {
     const rows = draft.activities || [];
     const seedFrom = rows.length ? (rows[rows.length - 1].end || '') : '';
@@ -491,7 +528,7 @@ export default function OpsVcLaytimePage() {
       const ok = await confirm({
         title: 'Confirmation',
         message: 'Are you sure you want to Submit?',
-        confirmLabel: submitId === 5 ? 'Submit & Close' : 'Submit',
+        confirmLabel: submitId === 5 ? 'Close Laytime' : 'Submit',
       });
       if (!ok) return;
     }
@@ -566,43 +603,42 @@ export default function OpsVcLaytimePage() {
     }
   };
 
-  const summaryFields = [
-    { key: 'loadedQty', label: qtyLabel, refreshAllowed: true },
-    { key: 'loadedRate', label: rateLabel, refreshAllowed: true },
-    { key: 'turnTimeToAdd', label: 'Turn Time (To Add) Hours', refreshAllowed: true },
-    { key: 'laytimeAllowed', label: `Laytime Allowed (${unitLabel})`, recompute: true },
-    { key: 'actualLaytime', label: `Actual Laytime (${unitLabel})`, readOnly: true },
-    { key: 'turnTime', label: 'Turn Time' },
-    { key: 'timeToDemurrage', label: `Time to demurrage (${unitLabel})`, readOnly: true },
-    { key: 'demurrageRate', label: `Demurrage Rate (${currency}/Day)`, recompute: true },
-    { key: 'ttlDemurrage', label: `TTL Demurrage (${currency})` },
-    { key: 'ttlDemurrageManual', label: `Manual Demurrage (${currency})` },
-    { key: 'timeToDespatch', label: `Time to despatch (${unitLabel})`, readOnly: true },
-    { key: 'despatchRate', label: `Despatch Rate (${currency}/Day)`, recompute: true },
-    { key: 'ttlDespatch', label: `TTL Despatch (${currency})` },
-    { key: 'ttlDespatchManual', label: `Manual Despatch (${currency})` },
-    { key: 'totalDaysAtPort', label: 'Total Days At Port' },
-    { key: 'loadedTerms', label: 'Terms' },
-  ];
+  const activityCount = (draft?.activities || []).filter((r) => String(r.activity || r.start || r.end || '').trim()).length
+    || (draft?.activities || []).length;
+  const deductionCount = (draft?.deductions || []).filter((r) => String(r.activity || r.start || r.end || '').trim()).length
+    || (draft?.deductions || []).length;
+  const cargoSummary = (form?.cargo || []).join(', ') || '—';
+  const demVal = Number(draft?.timeToDemurrage) || 0;
+  const desVal = Number(draft?.timeToDespatch) || 0;
+  const showTimeSaved = desVal > demVal;
+  const summarySub = activePort
+    ? `${activePort.portName || '—'} · ${activePort.portType || ''}`
+    : '';
+  const unitShort = rateUnit === 'hours' ? 'hrs' : 'days';
+  const docCount = (draft?.keepFiles || []).length + pendingFiles.length;
 
-  const particularDates = [
-    ['terminal', 'PORT/TERMINAL/BERTH/ANCHORAGE', 'text'],
-    ['stowageQty', 'STOWAGE PLAN QUANTITY (MT)', 'text'],
-    ['vesselArrived', 'VESSEL ARRIVED', 'datetime'],
-    ['norTendered', 'NOR TENDERED', 'datetime'],
-    ['norAccepted', 'NOR ACCEPTED / VALIDATED', 'datetime'],
-    ['startCounting', 'LAYTIME TO START COUNTING', 'datetime'],
-    ['pilotOnBoard', 'PILOT ON BOARD / SAILING TIME', 'datetime'],
-    ['loadCommenced', 'LOAD/DISCH COMMENCED', 'datetime'],
-    ['loadCompleted', 'LOAD/DISCH COMPLETED', 'datetime'],
-    ['vesselSailed', 'VESSEL SAILED', 'datetime'],
-  ];
+  const renderCircleDelete = (onClick) => {
+    if (locked) return null;
+    return (
+      <button
+        type="button"
+        className={`${sofStyles.circleBtn} ${sofStyles.circleBtnDel}`}
+        title="Remove row"
+        onClick={onClick}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+          <path d="M18 6 6 18" />
+          <path d="M6 6l12 12" />
+        </svg>
+      </button>
+    );
+  };
 
   return (
     <>
       <OpsVcLaytimeHeaderActions backHref={backHref} disabled={loading || saving} />
 
-      <div className={`zafira-page ${pageStyles.page}`}>
+      <div className={`zafira-page ${pageStyles.page} ${styles.page}`}>
         {(loading || saving) ? (
           <LoadingOverlay active label={saving ? 'Saving Laytime…' : 'Loading Laytime…'} />
         ) : null}
@@ -619,39 +655,38 @@ export default function OpsVcLaytimePage() {
 
         {form?.ports?.length ? (
           <>
-            {(form?.message || form?.vesselName) ? (
-              <div className={layoutStyles.voyChip}>
+            <div className={sofStyles.pageSubhead}>
+              Laytime, demurrage and dispatch working for this voyage&apos;s port calls
+              <span className={sofStyles.tagSoft}>LAYTIME</span>
+            </div>
+
+            {(form.voyageNo || form.vesselName) ? (
+              <div className={sofStyles.voyChip}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <circle cx="12" cy="5" r="2.2" />
                   <path d="M12 7.2V21" />
                   <path d="M8 10h8" />
                   <path d="M4 13a8 8 0 0 0 16 0" />
                 </svg>
-                {form.message || '—'}
+                {form.voyageNo || '—'}
                 {form.vesselName ? (
                   <>
-                    <span className={layoutStyles.vcSep}>|</span>
+                    <span className={sofStyles.vcSep}>·</span>
                     {form.vesselName}
-                  </>
-                ) : null}
-                {form.voyageNo ? (
-                  <>
-                    <span className={layoutStyles.vcSep}>|</span>
-                    Voyage {form.voyageNo}
                   </>
                 ) : null}
               </div>
             ) : null}
 
-            <div className={layoutStyles.portTabs}>
+            <div className={sofStyles.portTabs}>
               {form.ports.map((port) => (
                 <button
                   key={port.key}
                   type="button"
-                  className={port.key === activeKey ? `${layoutStyles.portTab} ${layoutStyles.portTabActive}` : layoutStyles.portTab}
+                  className={port.key === activeKey ? `${sofStyles.portTab} ${sofStyles.portTabActive}` : sofStyles.portTab}
                   onClick={() => setActiveKey(port.key)}
                 >
-                  <span className={layoutStyles.ptIco}>
+                  <span className={`${sofStyles.ptIco} ${port.portType === 'DP' ? styles.ptIcoDp : styles.ptIcoLp}`}>
                     <PortTypeIcon portType={port.portType} />
                   </span>
                   {port.tabLabel}
@@ -660,505 +695,643 @@ export default function OpsVcLaytimePage() {
             </div>
 
             {activePort && draft ? (
-              <div className={layoutStyles.gprlLayout}>
-                <div className={layoutStyles.gprlMain}>
-                  <div className={layoutStyles.formCard}>
-                    <div className={layoutStyles.sectionBlock}>
-                      <div className={layoutStyles.sectionHead}>
-                        <div
-                          className={`${layoutStyles.sectionIco} ${layoutStyles.sectionIcoNavy} ${layoutStyles.infoTrigger}`}
-                          tabIndex={0}
-                        >
-                          <InfoIcon />
-                          <LaytimeInfoPopup />
+              <div className={sofStyles.gprlLayout}>
+                <div className={sofStyles.gprlMain}>
+                  <div className={sofStyles.cfSection}>
+                    <div className={`${sofStyles.cfSectionHead} ${sofStyles.cfSectionHeadNavy}`}>
+                      <div className={sofStyles.cfSectionTitleWrap}>
+                        <div className={`${sofStyles.sectionIco} ${sofStyles.sectionIcoNavy}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <rect x="4" y="3" width="16" height="18" rx="2" />
+                            <path d="M8 7h8" />
+                            <path d="M8 11h8" />
+                            <path d="M8 15h5" />
+                          </svg>
                         </div>
-                        <div className={layoutStyles.sectionTitles}>
-                          <div className={layoutStyles.sectionTitle}>Particulars</div>
-                          <div className={layoutStyles.sectionSub}>Vessel and port call details</div>
+                        <div>
+                          <div className={sofStyles.cfSectionTitle}>Details</div>
+                          <div className={sofStyles.cfSectionSub}>Port, vessel and NOR identifying data</div>
                         </div>
                       </div>
-                <div className={pageStyles.tableWrap}>
-                  <table className={`zafira-data-table ${pageStyles.nestedTable}`}>
-                    <tbody>
-                      <tr>
-                        <td width="4%">1.</td>
-                        <td width="46%">NAME OF VESSEL</td>
-                        <td width="50%">{vesselParticulars.vesselName || '—'}</td>
-                      </tr>
-                      <tr>
-                        <td>2.</td>
-                        <td>BUILT</td>
-                        <td>{vesselParticulars.built || '—'}</td>
-                      </tr>
-                      <tr>
-                        <td>3.</td>
-                        <td>GRT/NRT</td>
-                        <td>{vesselParticulars.grtNrt || '—'}</td>
-                      </tr>
-                      {particularDates.map(([key, label, kind], idx) => (
-                        <tr key={key}>
-                          <td>{4 + idx}.</td>
-                          <td>{label}</td>
-                          <td data-field={key}>
-                            {kind === 'datetime' ? (
-                              <DmyDateInput
-                                id={key}
-                                enableTime
-                                value={draft[key]}
-                                onChange={(v) => patchDraft({ [key]: v })}
-                                disabled={locked}
-                              />
-                            ) : (
-                              <TextInput
-                                id={key}
-                                value={draft[key]}
-                                onChange={(e) => patchDraft({ [key]: e.target.value })}
-                                disabled={locked}
-                              />
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {(draft.entityRows || []).map((row, index) => (
-                        <tr key={`entity-${index}`}>
-                          <td>{14 + index}.</td>
-                          <td>
-                            <TextInput
-                              value={row.name}
-                              onChange={(e) => updateListRow('entityRows', index, { name: e.target.value })}
-                              disabled={locked}
-                              placeholder="Enter text here……"
-                            />
-                          </td>
-                          <td>
-                            <div className={pageStyles.inlineFields}>
-                              <DmyDateInput
-                                enableTime
-                                value={row.value}
-                                onChange={(v) => updateListRow('entityRows', index, { value: v })}
-                                disabled={locked}
-                              />
-                              {!locked ? (
-                                <button
-                                  type="button"
-                                  className={pageStyles.dangerIcon}
-                                  title="Delete"
-                                  onClick={() => removeListRow('entityRows', index, emptyEntityRow, false)}
-                                >
-                                  <i className="bi bi-x-lg" aria-hidden />
-                                </button>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {!locked ? (
-                  <AddRowButton onClick={() => addListRow('entityRows', emptyEntityRow)} disabled={locked} />
-                ) : null}
                     </div>
-
-                    <div className={layoutStyles.sectionBlock}>
-                <h4 className={layoutStyles.blockTitle}>Laytime Options</h4>
-                <div className={pageStyles.formGrid}>
-                  <Field label="Laytime Applicable">
-                    <CardSelect
-                      value={draft.laytimeApplicable}
-                      options={[
-                        { id: '1', name: 'Yes' },
-                        { id: '0', name: 'No' },
-                      ]}
-                      onChange={(v) => patchDraft({ laytimeApplicable: String(v) })}
-                      disabled={locked}
-                      align="start"
-                      ariaLabel="Laytime Applicable"
-                    />
-                  </Field>
-                  <Field label="Port Name (Manual)">
-                    <Textarea
-                      rows={2}
-                      value={draft.portNameManual}
-                      onChange={(e) => patchDraft({ portNameManual: e.target.value })}
-                      disabled={locked}
-                    />
-                  </Field>
-                  <label className={pageStyles.checkItem}>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(draft.detention)}
-                      onChange={(e) => patchDraft({ detention: e.target.checked })}
-                      disabled={locked}
-                    />
-                    <span>Detention</span>
-                  </label>
-                  <label className={pageStyles.checkItem}>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(draft.reversible)}
-                      onChange={(e) => patchDraft({ reversible: e.target.checked })}
-                      disabled={locked}
-                    />
-                    <span>Reversible</span>
-                  </label>
-                </div>
-                    </div>
-
-                    <div className={layoutStyles.sectionBlock}>
-                <h4 className={layoutStyles.blockTitle}>Summary</h4>
-                <div className={pageStyles.formGrid}>
-                  <Field label="Nom ID">
-                    <TextInput value={form.message || ''} disabled />
-                  </Field>
-                  {summaryFields.map((field) => (
-                    <Field key={field.key} label={field.label} id={field.key}>
-                      <div data-field={field.key}>
-                        <TextInput
-                          id={field.key}
-                          value={draft[field.key] ?? ''}
-                          onChange={(e) => patchDraft(
-                            { [field.key]: e.target.value },
-                            {
-                              recompute: Boolean(field.recompute || field.refreshAllowed),
-                              refreshAllowed: Boolean(field.refreshAllowed),
-                            },
-                          )}
-                          disabled={locked || field.readOnly}
+                    <div className={sofStyles.pcGrid}>
+                      <div className={sofStyles.pcCell}>
+                        <span className={sofStyles.pcLabel}>Vessel</span>
+                        <span className={sofStyles.pcVal}>{form.vesselName || vesselParticulars.vesselName || '—'}</span>
+                      </div>
+                      <div className={sofStyles.pcCell}>
+                        <span className={sofStyles.pcLabel}>Port</span>
+                        <span className={sofStyles.pcVal}>{activePort.portName || '—'}</span>
+                      </div>
+                      <div className={sofStyles.pcCell}>
+                        <span className={sofStyles.pcLabel}>Voyage</span>
+                        <span className={sofStyles.pcVal}>{form.voyageNo || '—'}</span>
+                      </div>
+                      <div className={sofStyles.pcCell}>
+                        <span className={sofStyles.pcLabel}>Cargo</span>
+                        <span className={sofStyles.pcVal}>{cargoSummary}</span>
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="terminal">
+                        <span className={sofStyles.pcLabel}>Terminal</span>
+                        <input
+                          id="terminal"
+                          type="text"
+                          value={draft.terminal}
+                          onChange={(e) => patchDraft({ terminal: e.target.value })}
+                          disabled={locked}
+                          placeholder="Enter terminal here"
                         />
                       </div>
-                    </Field>
-                  ))}
-                </div>
+                      <div className={sofStyles.pcCell} data-field="stowageQty">
+                        <span className={sofStyles.pcLabel}>Stowage Qty</span>
+                        <input
+                          id="stowageQty"
+                          type="text"
+                          value={draft.stowageQty}
+                          onChange={(e) => patchDraft({ stowageQty: e.target.value })}
+                          disabled={locked}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="norTendered">
+                        <span className={sofStyles.pcLabel}>NOR Tendered</span>
+                        <LtDateField
+                          id="norTendered"
+                          className={styles.pcDateWide}
+                          value={draft.norTendered}
+                          onChange={(v) => patchDraft({ norTendered: v })}
+                          disabled={locked}
+                        />
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="norAccepted">
+                        <span className={sofStyles.pcLabel}>NOR Accepted</span>
+                        <LtDateField
+                          id="norAccepted"
+                          className={styles.pcDateWide}
+                          value={draft.norAccepted}
+                          onChange={(v) => patchDraft({ norAccepted: v })}
+                          disabled={locked}
+                        />
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="startCounting">
+                        <span className={sofStyles.pcLabel}>Laytime Commences</span>
+                        <LtDateField
+                          id="startCounting"
+                          className={styles.pcDateWide}
+                          value={draft.startCounting}
+                          onChange={(v) => patchDraft({ startCounting: v })}
+                          disabled={locked}
+                        />
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="vesselArrived">
+                        <span className={sofStyles.pcLabel}>Vessel Arrived</span>
+                        <LtDateField
+                          id="vesselArrived"
+                          className={styles.pcDateWide}
+                          value={draft.vesselArrived}
+                          onChange={(v) => patchDraft({ vesselArrived: v })}
+                          disabled={locked}
+                        />
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="loadCommenced">
+                        <span className={sofStyles.pcLabel}>Load/Disch Commenced</span>
+                        <LtDateField
+                          id="loadCommenced"
+                          className={styles.pcDateWide}
+                          value={draft.loadCommenced}
+                          onChange={(v) => patchDraft({ loadCommenced: v })}
+                          disabled={locked}
+                        />
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="loadCompleted">
+                        <span className={sofStyles.pcLabel}>Load/Disch Completed</span>
+                        <LtDateField
+                          id="loadCompleted"
+                          className={styles.pcDateWide}
+                          value={draft.loadCompleted}
+                          onChange={(v) => patchDraft({ loadCompleted: v })}
+                          disabled={locked}
+                        />
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="vesselSailed">
+                        <span className={sofStyles.pcLabel}>Vessel Sailed</span>
+                        <LtDateField
+                          id="vesselSailed"
+                          className={styles.pcDateWide}
+                          value={draft.vesselSailed}
+                          onChange={(v) => patchDraft({ vesselSailed: v })}
+                          disabled={locked}
+                        />
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="loadedQty">
+                        <span className={sofStyles.pcLabel}>{qtyLabel}</span>
+                        <input
+                          id="loadedQty"
+                          type="text"
+                          value={draft.loadedQty ?? ''}
+                          onChange={(e) => patchDraft(
+                            { loadedQty: e.target.value },
+                            { recompute: true, refreshAllowed: true },
+                          )}
+                          disabled={locked}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="loadedRate">
+                        <span className={sofStyles.pcLabel}>{rateLabel}</span>
+                        <input
+                          id="loadedRate"
+                          type="text"
+                          value={draft.loadedRate ?? ''}
+                          onChange={(e) => patchDraft(
+                            { loadedRate: e.target.value },
+                            { recompute: true, refreshAllowed: true },
+                          )}
+                          disabled={locked}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className={sofStyles.pcCell} data-field="turnTimeToAdd">
+                        <span className={sofStyles.pcLabel}>Turn Time (To Add) Hours</span>
+                        <input
+                          id="turnTimeToAdd"
+                          type="text"
+                          value={draft.turnTimeToAdd ?? ''}
+                          onChange={(e) => patchDraft(
+                            { turnTimeToAdd: e.target.value },
+                            { recompute: true, refreshAllowed: true },
+                          )}
+                          disabled={locked}
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
+                  </div>
 
-                    <div className={layoutStyles.sectionBlock}>
-                <h4 className={layoutStyles.blockTitle}>Activities</h4>
-                <div className={pageStyles.tableWrap}>
-                  <table className={`zafira-data-table ${pageStyles.table}`}>
-                    <thead>
-                      <tr>
-                        <th>Activity</th>
-                        <th>Start</th>
-                        <th>End</th>
-                        <th>Duration</th>
-                        <th>LT Counts</th>
-                        <th>LT No Counts</th>
-                        <th>LT Partial %</th>
-                        <th>Cumulative</th>
-                        <th>Notes</th>
-                        <th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(draft.activities || []).map((row, index) => (
-                        <tr key={`act-${index}`}>
-                          <td>
-                            <TextInput
-                              value={row.activity}
-                              onChange={(e) => updateListRow('activities', index, { activity: e.target.value })}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            <DmyDateInput
-                              enableTime
-                              value={row.start}
-                              onChange={(v) => handleActivityDateChange(index, 'start', v)}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            <DmyDateInput
-                              enableTime
-                              value={row.end}
-                              onChange={(v) => handleActivityDateChange(index, 'end', v)}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            <TextInput value={row.duration} disabled />
-                          </td>
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={Boolean(row.ltCounts)}
-                              onChange={(e) => handleLtCountsChange(index, e.target.checked)}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={Boolean(row.ltNoCounts)}
-                              onChange={(e) => handleLtNoCountsChange(index, e.target.checked)}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            <TextInput
-                              value={row.ltPartial}
-                              onChange={(e) => updateListRow('activities', index, { ltPartial: e.target.value }, true)}
-                              disabled={locked || row.ltNoCounts || !row.ltCounts}
-                            />
-                          </td>
-                          <td>
-                            <TextInput value={row.cumulative} disabled />
-                          </td>
-                          <td>
-                            <Textarea
-                              rows={1}
-                              value={row.notes}
-                              onChange={(e) => updateListRow('activities', index, { notes: e.target.value })}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            {!locked ? (
-                              <button
-                                type="button"
-                                className={pageStyles.dangerIcon}
-                                title="Delete"
-                                onClick={() => removeListRow('activities', index, emptyActivityRow)}
-                              >
-                                <i className="bi bi-x-lg" aria-hidden />
-                              </button>
-                            ) : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {!locked ? (
-                  <AddRowButton onClick={addActivityRow} disabled={locked} />
-                ) : null}
+                  <div className={sofStyles.cfSection}>
+                    <div className={`${sofStyles.cfSectionHead} ${styles.cfSectionHeadBlue}`}>
+                      <div className={sofStyles.cfSectionTitleWrap}>
+                        <div className={`${sofStyles.sectionIco} ${styles.sectionIcoBlue}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M4 6h10" />
+                            <path d="M18 6h2" />
+                            <path d="M4 12h4" />
+                            <path d="M12 12h8" />
+                            <path d="M4 18h13" />
+                            <circle cx="17" cy="6" r="2" />
+                            <circle cx="8" cy="12" r="2" />
+                            <circle cx="19" cy="18" r="2" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className={sofStyles.cfSectionTitle}>Laytime Options</div>
+                          <div className={sofStyles.cfSectionSub}>Applicable terms and multi-select options</div>
+                        </div>
+                      </div>
                     </div>
+                    <div className={styles.ltBody}>
+                      <div className={styles.ltOptionsRow}>
+                        <div className={styles.ltOptItem}>
+                          <label htmlFor="laytimeApplicable">Laytime Applicable</label>
+                          <select
+                            id="laytimeApplicable"
+                            value={String(draft.laytimeApplicable ?? '1')}
+                            onChange={(e) => patchDraft({ laytimeApplicable: e.target.value })}
+                            disabled={locked}
+                          >
+                            <option value="1">Yes</option>
+                            <option value="0">No</option>
+                            <option value="2">N.A.</option>
+                          </select>
+                        </div>
+                        <div className={`${styles.ltOptItem} ${styles.ltOptGrow}`}>
+                          <label htmlFor="portNameManual">Port Name (Manual)</label>
+                          <textarea
+                            id="portNameManual"
+                            rows={2}
+                            value={draft.portNameManual}
+                            onChange={(e) => patchDraft({ portNameManual: e.target.value })}
+                            disabled={locked}
+                            placeholder="Enter manual port name if different from CP nomination"
+                          />
+                        </div>
+                        <div className={styles.ltOptItem}>
+                          <label>Options</label>
+                          <div className={styles.ltPillgroup}>
+                            <PillOption
+                              active={Boolean(draft.detention)}
+                              disabled={locked}
+                              onClick={() => patchDraft({ detention: !draft.detention })}
+                            >
+                              Detention
+                            </PillOption>
+                            <PillOption
+                              active={Boolean(draft.reversible)}
+                              disabled={locked}
+                              onClick={() => patchDraft({ reversible: !draft.reversible })}
+                            >
+                              Reversible
+                            </PillOption>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-                    <div className={layoutStyles.sectionBlock}>
-                <h4 className={layoutStyles.blockTitle}>Deductions</h4>
-                <div className={pageStyles.tableWrap}>
-                  <table className={`zafira-data-table ${pageStyles.table}`}>
-                    <thead>
-                      <tr>
-                        <th>Activity</th>
-                        <th>Start</th>
-                        <th>End</th>
-                        <th>Duration</th>
-                        <th>LT Partial %</th>
-                        <th>Cumulative Duration</th>
-                        <th>Notes</th>
-                        <th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(draft.deductions || []).map((row, index) => (
-                        <tr key={`ded-${index}`}>
-                          <td>
-                            <TextInput
-                              value={row.activity}
-                              onChange={(e) => updateListRow('deductions', index, { activity: e.target.value })}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            <DmyDateInput
-                              enableTime
-                              value={row.start}
-                              onChange={(v) => handleDeductionDateChange(index, 'start', v)}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            <DmyDateInput
-                              enableTime
-                              value={row.end}
-                              onChange={(v) => handleDeductionDateChange(index, 'end', v)}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            <TextInput value={row.duration} disabled />
-                          </td>
-                          <td>
-                            <TextInput
-                              value={row.ltPartial}
-                              onChange={(e) => updateListRow('deductions', index, { ltPartial: e.target.value }, true)}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            <TextInput value={row.cumulative} disabled />
-                          </td>
-                          <td>
-                            <Textarea
-                              rows={1}
-                              value={row.notes}
-                              onChange={(e) => updateListRow('deductions', index, { notes: e.target.value })}
-                              disabled={locked}
-                            />
-                          </td>
-                          <td>
-                            {!locked ? (
-                              <button
-                                type="button"
-                                className={pageStyles.dangerIcon}
-                                title="Delete"
-                                onClick={() => removeListRow('deductions', index, emptyDeductionRow)}
-                              >
-                                <i className="bi bi-x-lg" aria-hidden />
-                              </button>
-                            ) : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {!locked ? (
-                  <AddRowButton onClick={() => addListRow('deductions', emptyDeductionRow)} disabled={locked} />
-                ) : null}
-                    </div>
+                  <div className={sofStyles.cfSection} style={{ marginBottom: 0 }}>
+                    <div className={styles.ltActdedGrid}>
+                      <div className={`${styles.ltActdedCol} ${styles.ltActdedColLeft}`}>
+                        <div className={`${sofStyles.cfSectionHead} ${sofStyles.cfSectionHeadOrange}`}>
+                          <div className={sofStyles.cfSectionTitleWrap}>
+                            <div className={`${sofStyles.sectionIco} ${sofStyles.sectionIcoOrange}`}>
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <path d="M3 12h4l2 6 4-14 2 8h6" />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className={sofStyles.cfSectionTitle}>
+                                Activities
+                                <span className={styles.ltCountBadge}>{activityCount}</span>
+                              </div>
+                              <div className={sofStyles.cfSectionSub}>Laytime-counting events logged for this port call</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className={sofStyles.tableWrap}>
+                          <table className={sofStyles.cfTable}>
+                            <thead>
+                              <tr>
+                                <th style={{ width: 52 }} />
+                                <th>Activity</th>
+                                <th>Start</th>
+                                <th>End</th>
+                                <th>Duration</th>
+                                <th>Notes</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(draft.activities || []).length ? (draft.activities || []).map((row, index) => (
+                                <tr key={`act-${index}`}>
+                                  <td style={{ width: 52 }}>
+                                    <div className={styles.rowNumWrap}>
+                                      <span className={`${styles.rowNum} ${styles.rowNumOrange}`}>{index + 1}</span>
+                                      {renderCircleDelete(() => removeListRow('activities', index, emptyActivityRow))}
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <input
+                                      className={styles.cfInp}
+                                      type="text"
+                                      value={row.activity}
+                                      onChange={(e) => updateListRow('activities', index, { activity: e.target.value })}
+                                      disabled={locked}
+                                      placeholder="Activity"
+                                    />
+                                  </td>
+                                  <td>
+                                    <LtDateField
+                                      value={row.start}
+                                      onChange={(v) => handleActivityDateChange(index, 'start', v)}
+                                      disabled={locked}
+                                    />
+                                  </td>
+                                  <td>
+                                    <LtDateField
+                                      value={row.end}
+                                      onChange={(v) => handleActivityDateChange(index, 'end', v)}
+                                      disabled={locked}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input className={styles.cfInp} type="text" value={row.duration} disabled placeholder="Auto" />
+                                  </td>
+                                  <td>
+                                    <textarea
+                                      className={styles.ltNotesSm}
+                                      value={row.notes}
+                                      onChange={(e) => updateListRow('activities', index, { notes: e.target.value })}
+                                      disabled={locked}
+                                      placeholder="Notes"
+                                    />
+                                  </td>
+                                </tr>
+                              )) : (
+                                <tr className={styles.cfEmptyRow}>
+                                  <td colSpan={6}>No activities yet.</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className={styles.addRowWrap}>
+                          <AddRowButton label="Add Activity" onClick={addActivityRow} disabled={locked} />
+                        </div>
+                      </div>
 
-                    <div className={layoutStyles.sectionBlock}>
-                <h4 className={layoutStyles.blockTitle}>Remarks</h4>
-                <Textarea
-                  rows={3}
-                  value={draft.remarks}
-                  onChange={(e) => patchDraft({ remarks: e.target.value })}
-                  disabled={locked}
-                />
-                    </div>
-
-                    <div className={layoutStyles.sectionBlock}>
-                <h4 className={layoutStyles.blockTitle}>Level 1 Approver</h4>
-                {approverOptions.length ? (
-                  <Field label="Approvers" id="approvers">
-                    <div data-field="approvers">
-                      <select
-                        id="approvers"
-                        multiple
-                        disabled={locked}
-                        value={draft.approvers || []}
-                        onChange={(e) => {
-                          const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                          setApprovers(selected);
-                        }}
-                        style={{ minHeight: 96, width: '100%', maxWidth: 420 }}
-                      >
-                      {approverOptions.map((opt) => {
-                        const id = String(opt.id ?? opt.value ?? '');
-                        const name = opt.name ?? opt.label ?? id;
-                        return (
-                          <option key={id} value={id}>{name}</option>
-                        );
-                      })}
-                      </select>
-                    </div>
-                  </Field>
-                ) : (
-                  <Field label="Approver IDs (comma-separated)" id="approvers">
-                    <div data-field="approvers">
-                      <TextInput
-                        id="approvers"
-                        value={(draft.approvers || []).join(', ')}
-                        onChange={(e) => setApprovers(e.target.value)}
-                        disabled={locked}
-                        placeholder="e.g. 12, 34"
-                      />
-                    </div>
-                  </Field>
-                )}
+                      <div className={styles.ltActdedCol}>
+                        <div className={`${sofStyles.cfSectionHead} ${styles.cfSectionHeadPurple}`}>
+                          <div className={sofStyles.cfSectionTitleWrap}>
+                            <div className={`${sofStyles.sectionIco} ${styles.sectionIcoPurple}`}>
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <path d="M12 5v14" />
+                                <path d="M5 12h14" />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className={sofStyles.cfSectionTitle}>
+                                Deductions
+                                <span className={styles.ltCountBadge}>{deductionCount}</span>
+                              </div>
+                              <div className={sofStyles.cfSectionSub}>Time carved out of the activities log</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className={sofStyles.tableWrap}>
+                          <table className={sofStyles.cfTable}>
+                            <thead>
+                              <tr>
+                                <th style={{ width: 52 }} />
+                                <th>Deduction</th>
+                                <th>Start</th>
+                                <th>End</th>
+                                <th>Duration</th>
+                                <th>Notes</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(draft.deductions || []).length ? (draft.deductions || []).map((row, index) => (
+                                <tr key={`ded-${index}`}>
+                                  <td style={{ width: 52 }}>
+                                    <div className={styles.rowNumWrap}>
+                                      <span className={`${styles.rowNum} ${styles.rowNumPurple}`}>{index + 1}</span>
+                                      {renderCircleDelete(() => removeListRow('deductions', index, emptyDeductionRow))}
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <input
+                                      className={styles.cfInp}
+                                      type="text"
+                                      value={row.activity}
+                                      onChange={(e) => updateListRow('deductions', index, { activity: e.target.value })}
+                                      disabled={locked}
+                                      placeholder="Deduction"
+                                    />
+                                  </td>
+                                  <td>
+                                    <LtDateField
+                                      value={row.start}
+                                      onChange={(v) => handleDeductionDateChange(index, 'start', v)}
+                                      disabled={locked}
+                                    />
+                                  </td>
+                                  <td>
+                                    <LtDateField
+                                      value={row.end}
+                                      onChange={(v) => handleDeductionDateChange(index, 'end', v)}
+                                      disabled={locked}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input className={styles.cfInp} type="text" value={row.duration} disabled placeholder="Auto" />
+                                  </td>
+                                  <td>
+                                    <textarea
+                                      className={styles.ltNotesSm}
+                                      value={row.notes}
+                                      onChange={(e) => updateListRow('deductions', index, { notes: e.target.value })}
+                                      disabled={locked}
+                                      placeholder="Notes"
+                                    />
+                                  </td>
+                                </tr>
+                              )) : (
+                                <tr className={styles.cfEmptyRow}>
+                                  <td colSpan={6}>No deductions yet.</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className={styles.addRowWrap}>
+                          <AddRowButton
+                            label="Add Deduction"
+                            onClick={() => addListRow('deductions', emptyDeductionRow)}
+                            disabled={locked}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className={layoutStyles.gprlSide}>
-                  <div className={layoutStyles.sidePdf}>
-                    <button
-                      type="button"
-                      className={layoutStyles.btnPdfOutline}
-                      disabled
-                      title="PDF generation is not migrated yet."
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M6 2.5h8l5 5v12.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-15.5a2 2 0 0 1 2-2z" />
-                        <path d="M14 2.5v4a1 1 0 0 0 1 1h4" />
-                        <path d="M8 12h8" />
-                        <path d="M8 15.5h8" />
-                      </svg>
-                      Generate PDF
-                    </button>
-                  </div>
-
-                  <div className={layoutStyles.sideCard}>
-                    <div className={layoutStyles.sideCardHead}>
-                      <div className={layoutStyles.sideIco}>
+                <div className={styles.ltSide}>
+                  <div className={styles.ltHighlightCard}>
+                    <div className={styles.ltHlHead}>
+                      <div className={styles.ltHlIco}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                          <path d="M4 19V5" />
+                          <path d="M4 19h16" />
+                          <path d="M8 15v-4" />
+                          <path d="M12 15V7" />
+                          <path d="M16 15v-6" />
                         </svg>
                       </div>
-                      <div className={layoutStyles.sideTitle}>Documents</div>
-                      <div className={layoutStyles.sideCount}>
-                        {(draft.keepFiles || []).length + pendingFiles.length}
+                      <div>
+                        <div className={styles.ltHlTitle}>Summary</div>
+                        <div className={styles.ltHlSub}>{summarySub}</div>
                       </div>
                     </div>
-                    <div className={layoutStyles.sideCardBody}>
-                      {(draft.keepFiles || []).length || pendingFiles.length ? (
-                        <>
-                          {(draft.keepFiles || []).map((file) => (
-                            <div key={file} className={layoutStyles.docRow}>
-                              <a
-                                href={attachmentUrl(file)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {displayStoredFileName(file)}
-                              </a>
-                              {!locked ? (
-                                <button
-                                  type="button"
-                                  className={pageStyles.dangerIcon}
-                                  title="Remove from list"
-                                  onClick={() => patchDraft({
-                                    keepFiles: draft.keepFiles.filter((name) => name !== file),
-                                  })}
-                                >
-                                  <i className="bi bi-x-lg" aria-hidden />
-                                </button>
-                              ) : null}
+                    <div className={styles.ltHlBody}>
+                      <div className={styles.ltSumItem}>
+                        <span className={styles.ltSumIco}><SumIconClock /></span>
+                        <div className={styles.ltSumText}>
+                          <label>Laytime Allowed</label>
+                          <div>
+                            <span className={styles.ltSumVal}>{draft.laytimeAllowed || '—'}</span>
+                            <span className={styles.ltSumUnit}>{unitShort}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={styles.ltSumItem}>
+                        <span className={styles.ltSumIco}><SumIconClock /></span>
+                        <div className={styles.ltSumText}>
+                          <label>Laytime Used</label>
+                          <div>
+                            <span className={styles.ltSumVal}>{draft.actualLaytime || '—'}</span>
+                            <span className={styles.ltSumUnit}>{unitShort}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {showTimeSaved ? (
+                        <div className={`${styles.ltSumItem} ${styles.ltSumItemHi}`}>
+                          <span className={styles.ltSumIco}><SumIconClock /></span>
+                          <div className={styles.ltSumText}>
+                            <label>Time Saved</label>
+                            <div>
+                              <span className={styles.ltSumVal}>{draft.timeToDespatch || '—'}</span>
+                              <span className={styles.ltSumUnit}>{unitShort}</span>
                             </div>
-                          ))}
-                          {pendingFiles.map((file, index) => (
-                            <div key={`pending-${file.name}-${index}`} className={layoutStyles.docRow}>
-                              <span>{file.name}</span>
-                              <span className={pageStyles.muted}>(pending)</span>
-                              {!locked ? (
-                                <button
-                                  type="button"
-                                  className={pageStyles.dangerIcon}
-                                  title="Remove"
-                                  onClick={() => removePendingFile(index)}
-                                >
-                                  <i className="bi bi-x-lg" aria-hidden />
-                                </button>
-                              ) : null}
-                            </div>
-                          ))}
-                        </>
+                          </div>
+                        </div>
                       ) : (
-                        <div className={layoutStyles.sideEmpty}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                          </svg>
-                          <div>No documents uploaded yet.</div>
+                        <div className={`${styles.ltSumItem} ${styles.ltSumItemNeg}`}>
+                          <span className={styles.ltSumIco}><SumIconClock /></span>
+                          <div className={styles.ltSumText}>
+                            <label>Time (Lost)</label>
+                            <div>
+                              <span className={styles.ltSumVal}>{draft.timeToDemurrage || '—'}</span>
+                              <span className={styles.ltSumUnit}>{unitShort}</span>
+                            </div>
+                          </div>
                         </div>
                       )}
+                      <div className={styles.ltSumItem}>
+                        <span className={styles.ltSumIco}><SumIconCash /></span>
+                        <div className={styles.ltSumText}>
+                          <label>Demurrage Rate</label>
+                          <input
+                            className={styles.ltSumInput}
+                            type="text"
+                            value={draft.demurrageRate ?? ''}
+                            onChange={(e) => patchDraft({ demurrageRate: e.target.value }, { recompute: true })}
+                            disabled={locked}
+                            placeholder="0.00"
+                            aria-label={`Demurrage Rate (${currency}/Day)`}
+                          />
+                          <span className={styles.ltSumUnit}>{currency}/day</span>
+                        </div>
+                      </div>
+                      <div className={styles.ltSumItem}>
+                        <span className={styles.ltSumIco}><SumIconCash /></span>
+                        <div className={styles.ltSumText}>
+                          <label>Dispatch Rate</label>
+                          <input
+                            className={styles.ltSumInput}
+                            type="text"
+                            value={draft.despatchRate ?? ''}
+                            onChange={(e) => patchDraft({ despatchRate: e.target.value }, { recompute: true })}
+                            disabled={locked}
+                            placeholder="0.00"
+                            aria-label={`Dispatch Rate (${currency}/Day)`}
+                          />
+                          <span className={styles.ltSumUnit}>{currency}/day</span>
+                        </div>
+                      </div>
+                      {showTimeSaved ? (
+                        <div className={`${styles.ltSumItem} ${styles.ltSumItemHi}`}>
+                          <span className={styles.ltSumIco}><SumIconCash /></span>
+                          <div className={styles.ltSumText}>
+                            <label>Dispatch Payable</label>
+                            <div>
+                              <span className={styles.ltSumVal}>{draft.ttlDespatch || '—'}</span>
+                              <span className={styles.ltSumUnit}>{currency}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`${styles.ltSumItem} ${styles.ltSumItemNeg}`}>
+                          <span className={styles.ltSumIco}><SumIconCash /></span>
+                          <div className={styles.ltSumText}>
+                            <label>Demurrage Payable</label>
+                            <div>
+                              <span className={styles.ltSumVal}>{draft.ttlDemurrage || '—'}</span>
+                              <span className={styles.ltSumUnit}>{currency}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={sofStyles.cfSection}>
+                    <div className={`${sofStyles.cfSectionHead} ${styles.cfSectionHeadAmber}`}>
+                      <div className={sofStyles.cfSectionTitleWrap}>
+                        <div className={`${sofStyles.sectionIco} ${styles.sectionIcoAmber}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                          </svg>
+                        </div>
+                        <div className={sofStyles.cfSectionTitle} style={{ fontSize: 13.5 }}>Level 1 Approver</div>
+                      </div>
+                    </div>
+                    <div className={styles.ltApprovalBody} data-field="approvers">
+                      <label className={styles.ltApprovalLabel} htmlFor="approvers">Assign Approval Usernames</label>
+                      {approverOptions.length ? (
+                        <select
+                          id="approvers"
+                          className={styles.ltApprovalSelect}
+                          multiple
+                          disabled={locked}
+                          value={draft.approvers || []}
+                          onChange={(e) => {
+                            const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
+                            setApprovers(selected);
+                          }}
+                        >
+                          {approverOptions.map((opt) => {
+                            const id = String(opt.id ?? opt.value ?? '');
+                            const name = opt.name ?? opt.label ?? id;
+                            return (
+                              <option key={id} value={id}>{name}</option>
+                            );
+                          })}
+                        </select>
+                      ) : (
+                        <input
+                          id="approvers"
+                          className={styles.ltApprovalInput}
+                          type="text"
+                          value={(draft.approvers || []).join(', ')}
+                          onChange={(e) => setApprovers(e.target.value)}
+                          disabled={locked}
+                          placeholder="e.g. jsmith, agupta"
+                        />
+                      )}
+                      <span className={styles.ltApprovalHint}>(comma-separated)</span>
+                    </div>
+                  </div>
+
+                  <div className={sofStyles.cfSection}>
+                    <div className={`${sofStyles.cfSectionHead} ${sofStyles.cfSectionHeadGrey}`}>
+                      <div className={sofStyles.cfSectionTitleWrap}>
+                        <div className={`${sofStyles.sectionIco} ${styles.sectionIcoGrey}`} style={{ width: 28, height: 28, background: '#fff', border: '1px solid #dfe2e7' }}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <path d="M14 2v6h6" />
+                            <path d="M8 13h8" />
+                            <path d="M8 17h6" />
+                          </svg>
+                        </div>
+                        <div className={sofStyles.cfSectionTitle} style={{ fontSize: 13.5 }}>Remarks &amp; Documents</div>
+                        {docCount ? <div className={sofStyles.sideCount}>{docCount}</div> : null}
+                      </div>
+                    </div>
+                    <div className={styles.ltRemarksBody}>
+                      <div className={styles.ltRemarksLeglabel}>{summarySub}</div>
+                      <textarea
+                        className={styles.ltRemarksBox}
+                        rows={3}
+                        value={draft.remarks}
+                        onChange={(e) => patchDraft({ remarks: e.target.value })}
+                        disabled={locked}
+                        placeholder="Remarks for this port call…"
+                      />
+
+                      <div className={styles.ltDocsDivider}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        </svg>
+                        <span>Documents</span>
+                      </div>
+
                       {!locked ? (
-                        <div className={layoutStyles.attachRow}>
+                        <>
                           <input
                             ref={attachInputRef}
-                            className={layoutStyles.hiddenFileInput}
+                            className={sofStyles.hiddenFileInput}
                             type="file"
                             multiple
                             onChange={(event) => {
@@ -1166,68 +1339,131 @@ export default function OpsVcLaytimePage() {
                               event.target.value = '';
                             }}
                           />
-                          <button
-                            type="button"
-                            className={layoutStyles.addRowBtn}
+                          <div
+                            className={sofStyles.dropzone}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => attachInputRef.current?.click()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                attachInputRef.current?.click();
+                              }
+                            }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              addPendingFiles(e.dataTransfer?.files);
+                            }}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-                              <path d="M12 5v14M5 12h14" />
-                            </svg>
-                            Add Attachment
-                          </button>
+                            <div className={sofStyles.dropzoneIcon}>
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <path d="M12 16V4" />
+                                <path d="M6 10l6-6 6 6" />
+                                <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                              </svg>
+                            </div>
+                            <div className={sofStyles.dropzoneText}>
+                              <b>Drag &amp; drop files here</b>, or click to browse
+                            </div>
+                          </div>
+                        </>
+                      ) : null}
+
+                      {(draft.keepFiles || []).length || pendingFiles.length ? (
+                        <div className={sofStyles.fileList}>
+                          {(draft.keepFiles || []).map((file) => (
+                            <div key={file} className={sofStyles.fileRow}>
+                              <a
+                                className={sofStyles.fileName}
+                                href={attachmentUrl(file)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {displayStoredFileName(file)}
+                              </a>
+                              {renderCircleDelete(() => patchDraft({
+                                keepFiles: draft.keepFiles.filter((name) => name !== file),
+                              }))}
+                            </div>
+                          ))}
+                          {pendingFiles.map((file, index) => (
+                            <div key={`pending-${file.name}-${index}`} className={sofStyles.fileRow}>
+                              <span className={sofStyles.fileName}>{file.name}</span>
+                              <span className={sofStyles.filePending}>(pending)</span>
+                              {renderCircleDelete(() => removePendingFile(index))}
+                            </div>
+                          ))}
                         </div>
+                      ) : locked ? (
+                        <div className={sofStyles.sideEmpty}>No documents uploaded yet.</div>
                       ) : null}
                     </div>
                   </div>
 
                   {!locked ? (
-                    <div className={layoutStyles.gprlBottomActions}>
-                      <div className={layoutStyles.gprlNote}>
+                    <>
+                      <div className={styles.ltBtnRow}>
+                        <button
+                          type="button"
+                          className={sofStyles.btnSaveOutline}
+                          onClick={() => handleSubmit(0)}
+                          disabled={saving}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <path d="M17 21v-8H7v8" />
+                            <path d="M7 3v5h8" />
+                          </svg>
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.btnSubmitClose}
+                          onClick={() => handleSubmit(1)}
+                          disabled={saving}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="m22 2-7 20-4-9-9-4Z" />
+                            <path d="M22 2 11 13" />
+                          </svg>
+                          Submit
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.btnCloseLaytime}
+                        onClick={() => handleSubmit(5)}
+                        disabled={saving}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <rect x="5" y="11" width="14" height="10" rx="2" />
+                          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                        </svg>
+                        Close Laytime
+                      </button>
+                      <div className={sofStyles.gprlNote}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                           <path d="M12 9v4" />
                           <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                           <path d="M12 17h.01" />
                         </svg>
-                        Select approvers before sending for approval. Use Submit &amp; Close when the laytime is final.
+                        Use &ldquo;Submit&rdquo; once laytime figures for every port call are finalised; &ldquo;Close Laytime&rdquo; locks the calculation entirely.
                       </div>
-                      <div className={layoutStyles.gprlFooterActions}>
-                        <Button
-                          type="button"
-                          variant="saveOutline"
-                          label="Submit to edit"
-                          onClick={() => handleSubmit(0)}
-                          disabled={saving}
-                        />
-                        <Button
-                          type="button"
-                          variant="saveOutline"
-                          label="Send for Approval"
-                          onClick={() => handleSubmit(1)}
-                          disabled={saving}
-                        />
-                        <Button
-                          type="button"
-                          variant="submit"
-                          label="Submit & Close"
-                          onClick={() => handleSubmit(5)}
-                          disabled={saving}
-                        />
-                      </div>
-                    </div>
+                    </>
                   ) : (
                     <>
-                      <p className={layoutStyles.lockedNote}>This Laytime is locked / closed.</p>
+                      <p className={styles.lockedNote}>This Laytime is locked / closed.</p>
                       {form?.canOpen ? (
-                        <div className={layoutStyles.gprlFooterActions} style={{ marginTop: 12 }}>
-                          <Button
-                            type="button"
-                            variant="submit"
-                            label="Open"
-                            onClick={handleOpen}
-                            disabled={saving}
-                          />
-                        </div>
+                        <button
+                          type="button"
+                          className={styles.btnSubmitClose}
+                          onClick={handleOpen}
+                          disabled={saving}
+                          style={{ width: '100%' }}
+                        >
+                          Open
+                        </button>
                       ) : null}
                     </>
                   )}

@@ -11,6 +11,7 @@ import {
   dbListTcEstimates,
   dbSaveTcCalculation,
   dbSubmitTcDecisionChart,
+  dbSendTcEstimatesToOps,
   dbUpdateTcEstimate,
 } from './tcEstimateDb.js';
 import {
@@ -302,8 +303,7 @@ export async function listTcEstimates(params = {}) {
   const from = parseDmy(params.periodFrom);
   const to = parseDmy(params.periodTo);
   let rows = mockStore.filter((row) => String(row.BUSINESSTYPEID || row.ESTIMATE_TYPE) === selBType
-    && row.SHEET_NO == null
-    && row.FIXED == null);
+    && row.SHEET_NO == null);
 
   if (from) {
     rows = rows.filter((row) => String(row.CP_DATE1 || '') >= from);
@@ -702,6 +702,65 @@ export async function submitTcDecisionChart(payload = {}) {
     ...mockDecisionCharts,
   ];
   return { msg: 0, message, messageNo };
+}
+
+/** Send fixture(s) straight into TC Ops (logged-in user as operator). */
+export async function sendTcEstimatesToOps(tcOutIds = []) {
+  if (isDbConfigured()) return dbSendTcEstimatesToOps(tcOutIds);
+
+  const ids = [...new Set(
+    (Array.isArray(tcOutIds) ? tcOutIds : [tcOutIds])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean),
+  )];
+  if (!ids.length) {
+    const error = new Error('Please select at least one Fixture');
+    error.status = 400;
+    throw error;
+  }
+
+  const fixtures = [];
+  for (const tcOutId of ids) {
+    const item = mockStore.find((row) => String(row.TCOUTID) === String(tcOutId));
+    if (!item) {
+      const error = new Error(`Fixture ${tcOutId} was not found.`);
+      error.status = 404;
+      throw error;
+    }
+    if (item.FIXED === 1 || item.FIXED === '1' || (item.COMID != null && String(item.COMID).trim() !== '')) {
+      const error = new Error(`Fixture ${tcOutId} was already sent to Ops.`);
+      error.status = 400;
+      throw error;
+    }
+
+    const messageNo = String(mockCompareSeq).padStart(3, '0');
+    mockCompareSeq += 1;
+    const yearSuffix = String(new Date().getFullYear()).slice(-2);
+    const message = `${yearSuffix}-${messageNo}`;
+    const comId = String(9000 + mockCompareSeq);
+    item.COMID = comId;
+    item.FIXED = 1;
+
+    mockDecisionCharts = [
+      {
+        index: 1,
+        message,
+        messageNo,
+        tcOutId: Number(tcOutId),
+        tcNo: item.TC_NO || '',
+        vesselName: item.VESSEL_NAME || '',
+        ports: `${item.DEL_RANGE_PORT || ''}/${item.RE_DEL_RANGE || ''}`,
+        addOnDate: new Date().toLocaleDateString('en-GB').split('/').join('-'),
+        addedBy: 'Internal User',
+        finalId: tcOutId,
+        candidates: [{ tcOutId, remarks: '' }],
+      },
+      ...mockDecisionCharts,
+    ];
+    fixtures.push({ tcOutId, comId, message, messageNo });
+  }
+
+  return { msg: 0, fixtures };
 }
 
 export async function listTcDecisionCharts(params = {}) {

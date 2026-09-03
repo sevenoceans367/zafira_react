@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { CardSelect, DmyDateInput, LoadingOverlay } from '@bainbridge/shared-ui';
+import { CardSelect, DmyDateInput, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { useTcModule } from '../../../hooks/useTcModule.js';
 import {
@@ -19,6 +19,8 @@ import { fetchVesselEstimatePrefill } from '../../../services/estimateDetail.js'
 import saveIcon from '../../../assets/Save.png';
 import VesselSearchSelect from '../sopf/VesselSearchSelect.jsx';
 import CollapsiblePanel from '../sopf/CollapsiblePanel.jsx';
+import { focusEstimateValidationField } from '../sopf/estimateValidation.js';
+import { getTcAddRowBlockMessage, validateTcRecapForm } from './tcRecapValidation.js';
 import TcFormHeaderActions from './TcFormHeaderActions.jsx';
 import TcInExpensesModal, {
   EMPTY_TC_IN_BUNKER,
@@ -506,10 +508,10 @@ function emptyForm(businessTypeId = '2') {
   };
 }
 
-function Field({ label, children, className = '' }) {
+function Field({ label, children, className = '', id }) {
   return (
-    <div className={`${styles.field} ${className}`.trim()}>
-      <label>{label}</label>
+    <div className={`${styles.field} ${className}`.trim()} data-estimate-field-wrap={id || undefined}>
+      <label htmlFor={id || undefined}>{label}</label>
       {children}
     </div>
   );
@@ -523,10 +525,12 @@ function TextInput({
   placeholder = '',
   type = 'text',
   className = '',
+  id,
 }) {
   return (
-    <Field label={label} className={className}>
+    <Field label={label} className={className} id={id}>
       <input
+        id={id}
         type={type}
         value={value ?? ''}
         onChange={(e) => onChange?.(e.target.value)}
@@ -538,10 +542,11 @@ function TextInput({
   );
 }
 
-function DateField({ label, value, onChange, enableTime = false, className = '' }) {
+function DateField({ label, value, onChange, enableTime = false, className = '', id }) {
   return (
-    <Field label={label} className={className}>
+    <Field label={label} className={className} id={id}>
       <DmyDateInput
+        id={id}
         value={value || ''}
         onChange={onChange}
         enableTime={enableTime}
@@ -606,6 +611,8 @@ export default function TcFixtureFormPage({
   backHref,
 }) {
   const navigate = useNavigate();
+  const alert = useAlert();
+  const confirm = useConfirm();
   const { tcPath } = useTcModule();
   const { tcOutId: paramTcOutId } = useParams();
   const tcOutId = overrideTcOutId || paramTcOutId;
@@ -774,8 +781,13 @@ export default function TcFixtureFormPage({
     });
   };
 
-  const addBunker = (kind) => {
+  const addBunker = async (kind) => {
     if (readOnly) return;
+    const block = getTcAddRowBlockMessage(kind, form[kind] || []);
+    if (block) {
+      await alert({ title: 'Alert', message: block, confirmLabel: 'OK' });
+      return;
+    }
     setForm((prev) => ({ ...prev, [kind]: [...(prev[kind] || []), { ...EMPTY_BUNKER }] }));
   };
 
@@ -821,12 +833,29 @@ export default function TcFixtureFormPage({
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (readOnly) return;
-    if (!form.vesselImoId) {
-      setError('Vessel is required.');
+    setError('');
+
+    const validationError = validateTcRecapForm(form);
+    if (validationError) {
+      setError(validationError.message);
+      await alert({
+        title: 'Alert',
+        message: validationError.message,
+        confirmLabel: 'OK',
+      });
+      focusEstimateValidationField(validationError.fieldId);
       return;
     }
+
+    const confirmed = await confirm({
+      title: 'Confirmation',
+      message: 'Are you sure you have checked each entry ?',
+      confirmLabel: 'Submit',
+      cancelLabel: 'Cancel',
+    });
+    if (!confirmed) return;
+
     setSaving(true);
-    setError('');
     try {
       const hirePeriods = (form.hirePeriods?.length ? form.hirePeriods : [{ ...EMPTY_HIRE }])
         .map(resolveHirePeriod);
@@ -915,11 +944,55 @@ export default function TcFixtureFormPage({
     }));
   };
 
-  const addItinExpense = () => {
+  const addItinExpense = async () => {
     if (readOnly) return;
+    const block = getTcAddRowBlockMessage('itineraryExpenses', form.itineraryExpenses || []);
+    if (block) {
+      await alert({ title: 'Alert', message: block, confirmLabel: 'OK' });
+      return;
+    }
     setForm((prev) => ({
       ...prev,
       itineraryExpenses: [...(prev.itineraryExpenses || []), { ...EMPTY_ITIN_EXP }],
+    }));
+  };
+
+  const addHirePeriod = async () => {
+    if (readOnly) return;
+    const block = getTcAddRowBlockMessage('hirePeriods', form.hirePeriods || []);
+    if (block) {
+      await alert({ title: 'Alert', message: block, confirmLabel: 'OK' });
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      hirePeriods: [...(prev.hirePeriods || []), { ...EMPTY_HIRE }],
+    }));
+  };
+
+  const addOffHire = async () => {
+    if (readOnly) return;
+    const block = getTcAddRowBlockMessage('offHires', form.offHires || []);
+    if (block) {
+      await alert({ title: 'Alert', message: block, confirmLabel: 'OK' });
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      offHires: [...(prev.offHires || []), { ...EMPTY_OFF }],
+    }));
+  };
+
+  const addOtherExpense = async () => {
+    if (readOnly) return;
+    const block = getTcAddRowBlockMessage('otherExpenses', form.otherExpenses || []);
+    if (block) {
+      await alert({ title: 'Alert', message: block, confirmLabel: 'OK' });
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      otherExpenses: [...(prev.otherExpenses || []), { ...EMPTY_EXPENSE }],
     }));
   };
 
@@ -1053,6 +1126,7 @@ export default function TcFixtureFormPage({
             {(form[kind] || []).map((row, index) => {
               const gradeName = (lookups?.bunkers || []).find((opt) => String(opt.id) === String(row.bunkerId))?.name || '';
               const badge = gradeBadgeClass(gradeName);
+              const bunkerIdPrefix = kind === 'deliveryBunkers' ? 'delBunker' : 'reDelBunker';
               return (
                 <tr key={`${kind}-${index}`}>
                   <td>
@@ -1060,6 +1134,7 @@ export default function TcFixtureFormPage({
                       <span className={`${styles.gradeBadge} ${styles[badge]}`}>{gradeName}</span>
                     ) : null}
                     <select
+                      id={index === 0 ? bunkerIdPrefix + '_0' : undefined}
                       value={row.bunkerId != null ? String(row.bunkerId) : ''}
                       onChange={(e) => updateBunker(kind, index, 'bunkerId', e.target.value)}
                       disabled={readOnly}
@@ -1090,6 +1165,7 @@ export default function TcFixtureFormPage({
                   </td>
                   <td>
                     <input
+                      id={index === 0 ? `${bunkerIdPrefix}Qty_0` : undefined}
                       value={row.qty || ''}
                       onChange={(e) => updateBunker(kind, index, 'qty', e.target.value)}
                       placeholder="0.00"
@@ -1099,6 +1175,7 @@ export default function TcFixtureFormPage({
                   </td>
                   <td>
                     <DmyDateInput
+                      id={index === 0 ? `${bunkerIdPrefix}Date_0` : undefined}
                       value={row.bunkerDate || ''}
                       onChange={(value) => updateBunker(kind, index, 'bunkerDate', value)}
                       disabled={readOnly}
@@ -1106,6 +1183,7 @@ export default function TcFixtureFormPage({
                   </td>
                   <td>
                     <input
+                      id={index === 0 ? `${bunkerIdPrefix}Price_0` : undefined}
                       value={row.price || ''}
                       onChange={(e) => updateBunker(kind, index, 'price', e.target.value)}
                       placeholder="0.00"
@@ -1203,6 +1281,7 @@ export default function TcFixtureFormPage({
                   <Field label="Vessel">
                     {readOnly ? (
                       <input
+                        id="vesselName"
                         value={form.vesselName || ''}
                         readOnly
                         className={styles.inputReadonly}
@@ -1218,14 +1297,16 @@ export default function TcFixtureFormPage({
                   <TextInput label="Vessel Type" value={form.vesselType} readOnly />
                   <DateField label="CP Date" value={form.cpDate} onChange={(v) => setField('cpDate', v)} />
                   <TextInput
+                    id="tcNo"
                     label="TC No."
                     value={form.tcNo}
                     onChange={(v) => setField('tcNo', v)}
                     readOnly={mode === 'edit' || readOnly}
                   />
                   <TextInput label="Est No." value={mode === 'add' ? 'Auto' : (form.tcNo || '')} readOnly />
-                  <Field label="Chartering Team">
+                  <Field label="Chartering Team" id="charteringTeam">
                     <CardSelect
+                      id="charteringTeam"
                       options={lookups?.charteringTeams || []}
                       value={form.charteringTeam}
                       onChange={(v) => setField('charteringTeam', v)}
@@ -1233,8 +1314,9 @@ export default function TcFixtureFormPage({
                       ariaLabel="Chartering team"
                     />
                   </Field>
-                  <Field label="Chartering PIC">
+                  <Field label="Chartering PIC" id="charteringPic1">
                     <CardSelect
+                      id="charteringPic1"
                       options={lookups?.charteringPics || []}
                       value={form.charteringPic1}
                       onChange={(v) => setField('charteringPic1', v)}
@@ -1284,8 +1366,9 @@ export default function TcFixtureFormPage({
                       ariaLabel="Law arbitration"
                     />
                   </Field>
-                  <Field label="Charterers">
+                  <Field label="Charterers" id="charterer">
                     <CardSelect
+                      id="charterer"
                       options={lookups?.charterers || []}
                       value={form.charterer}
                       onChange={(v) => setField('charterer', v)}
@@ -1345,12 +1428,14 @@ export default function TcFixtureFormPage({
                   <Field label="Laycan From/To" className={styles.span2}>
                     <div className={styles.dateRangePair}>
                       <DmyDateInput
+                        id="laycanFrom"
                         value={form.laycanFrom || ''}
                         onChange={(v) => setField('laycanFrom', v)}
                         enableTime
                         disabled={readOnly}
                       />
                       <DmyDateInput
+                        id="laycanTo"
                         value={form.laycanTo || ''}
                         onChange={(v) => setField('laycanTo', v)}
                         enableTime
@@ -1358,8 +1443,9 @@ export default function TcFixtureFormPage({
                       />
                     </div>
                   </Field>
-                  <Field label="Hire Currency">
+                  <Field label="Hire Currency" id="exchangeCurrency">
                     <CardSelect
+                      id="exchangeCurrency"
                       options={lookups?.currencies || []}
                       value={form.exchangeCurrency}
                       onChange={(v) => setField('exchangeCurrency', v)}
@@ -1368,14 +1454,15 @@ export default function TcFixtureFormPage({
                     />
                   </Field>
                   <TextInput label="X-rate to USD" value={form.exchangeRate} onChange={(v) => setField('exchangeRate', v)} />
-                  <TextInput label="Del Port/Range" value={form.delRangePort} onChange={(v) => setField('delRangePort', v)} />
-                  <TextInput label="Re-Del Port/Range" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
+                  <TextInput id="delRangePort" label="Del Port/Range" value={form.delRangePort} onChange={(v) => setField('delRangePort', v)} />
+                  <TextInput id="reDelRange" label="Re-Del Port/Range" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
                   <TextInput label="CVE/Month ($)" value={form.cveMonth} onChange={(v) => setField('cveMonth', v)} />
-                  <TextInput label="ILOHC" value={form.ilohcUsd} onChange={(v) => setField('ilohcUsd', v)} />
+                  <TextInput id="ilohcUsd" label="ILOHC" value={form.ilohcUsd} onChange={(v) => setField('ilohcUsd', v)} />
                   <TextInput label="AD Comm (%)" value={form.addComm} onChange={(v) => setField('addComm', v)} />
                   <TextInput label="Brokerage (%)" value={form.brokerComm} onChange={(v) => setField('brokerComm', v)} />
-                  <Field label="Brokerage Paid By">
+                  <Field label="Brokerage Paid By" id="broCommPayable">
                     <CardSelect
+                      id="broCommPayable"
                       options={lookups?.payableBy || []}
                       value={form.broCommPayable}
                       onChange={(v) => setField('broCommPayable', v)}
@@ -1407,6 +1494,7 @@ export default function TcFixtureFormPage({
                           <tr key={`hire-${index}`}>
                             <td>
                               <DmyDateInput
+                                id={index === 0 ? 'hireDelDate_0' : undefined}
                                 value={row.delDate || ''}
                                 onChange={(v) => patchHirePeriod(index, { delDate: v })}
                                 enableTime
@@ -1415,6 +1503,7 @@ export default function TcFixtureFormPage({
                             </td>
                             <td>
                               <DmyDateInput
+                                id={index === 0 ? 'hireReDelDate_0' : undefined}
                                 value={row.reDelDate || ''}
                                 onChange={(v) => patchHirePeriod(index, { reDelDate: v })}
                                 enableTime
@@ -1432,6 +1521,7 @@ export default function TcFixtureFormPage({
                             </td>
                             <td>
                               <input
+                                id={index === 0 ? 'hireRate_0' : undefined}
                                 value={row.hireRate || ''}
                                 onChange={(e) => patchHirePeriod(index, { hireRate: e.target.value })}
                                 readOnly={readOnly}
@@ -1449,10 +1539,7 @@ export default function TcFixtureFormPage({
                                     type="button"
                                     className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
                                     title="Add a new trip"
-                                    onClick={() => setForm((prev) => ({
-                                      ...prev,
-                                      hirePeriods: [...(prev.hirePeriods || []), { ...EMPTY_HIRE }],
-                                    }))}
+                                    onClick={addHirePeriod}
                                   >
                                     <CircleAddIcon />
                                   </button>
@@ -1552,10 +1639,7 @@ export default function TcFixtureFormPage({
                                   type="button"
                                   className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
                                   title="Add off hire"
-                                  onClick={() => setForm((prev) => ({
-                                    ...prev,
-                                    offHires: [...(prev.offHires || []), { ...EMPTY_OFF }],
-                                  }))}
+                                  onClick={addOffHire}
                                 >
                                   <CircleAddIcon />
                                 </button>
@@ -1768,10 +1852,7 @@ export default function TcFixtureFormPage({
                                   type="button"
                                   className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
                                   title="Add expense"
-                                  onClick={() => setForm((prev) => ({
-                                    ...prev,
-                                    otherExpenses: [...(prev.otherExpenses || []), { ...EMPTY_EXPENSE }],
-                                  }))}
+                                  onClick={addOtherExpense}
                                 >
                                   <CircleAddIcon />
                                 </button>

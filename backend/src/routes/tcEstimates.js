@@ -12,6 +12,7 @@ import {
   listTcEstimates,
   saveTcCalculation,
   submitTcDecisionChart,
+  sendTcEstimatesToOps,
   updateTcEstimate,
 } from '../services/tcEstimateService.js';
 import {
@@ -96,6 +97,11 @@ router.get('/period-tc-in/:periodId', asyncHandler(async (req, res) => {
 
 router.post('/decision-chart', asyncHandler(async (req, res) => {
   res.json(await submitTcDecisionChart(req.body || {}));
+}));
+
+router.post('/send-to-ops', asyncHandler(async (req, res) => {
+  const ids = req.body?.tcOutIds ?? req.body?.ids ?? [];
+  res.json(await sendTcEstimatesToOps(ids));
 }));
 
 router.get('/:tcOutId/pdf', asyncHandler(async (req, res) => {

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
 import AddCircleButton from '../AddCircleButton/AddCircleButton.jsx';
+import EditRecapIcon from '../icons/EditRecapIcon.jsx';
 import DownloadIcon from '../icons/DownloadIcon.jsx';
 import styles from './Button.module.css';
 
@@ -175,6 +176,8 @@ const Button = ({
     );
   } else if (resolvedIcon === 'download') {
     iconNode = <DownloadIcon className={styles.icon} size={iconSize} title="" />;
+  } else if (resolvedIcon === 'pencil' || resolvedIcon === 'pencil-square') {
+    iconNode = <EditRecapIcon className={styles.icon} size={iconSize} />;
   } else if (resolvedIcon) {
     iconNode = <i className={`bi bi-${resolvedIcon} ${styles.icon}`} aria-hidden />;
   }

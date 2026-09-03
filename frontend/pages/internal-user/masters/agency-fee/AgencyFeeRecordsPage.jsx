@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFlashState } from '../../../../hooks/useTimedFlash.js';
-import { Button, DmyDateInput, isoToDmy, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { Button, DmyDateInput, isoToDmy, LoadingOverlay, useConfirm, EditRecapIcon } from '@bainbridge/shared-ui';
 import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
 import {
   createAgencyFeeRecord,
@@ -356,7 +356,7 @@ export default function AgencyFeeRecordsPage() {
                     title="Edit Details"
                     onClick={() => openEdit(row.id)}
                   >
-                    <i className="bi bi-pencil-square" aria-hidden />
+                    <EditRecapIcon size={16} />
                   </button>
                 </td>
               </tr>

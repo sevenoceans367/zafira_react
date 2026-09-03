@@ -106,6 +106,15 @@ export async function submitTcDecisionChart(payload) {
   return parseJson(response, 'Failed to submit decision chart.');
 }
 
+export async function sendTcEstimatesToOps(tcOutIds = []) {
+  const response = await fetch(`${BASE}/send-to-ops`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tcOutIds }),
+  });
+  return parseJson(response, 'Failed to send TC estimate to Ops.');
+}
+
 export async function fetchTcDecisionCharts(params = {}) {
   const response = await fetch(`${BASE}/decision-charts${toQuery(params)}`);
   return parseJson(response, 'Failed to load decision charts.');

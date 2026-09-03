@@ -3,6 +3,7 @@ import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
+  EditRecapIcon,
   FilterField,
   LoadingOverlay,
   TextInput,
@@ -29,24 +30,19 @@ import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsTcCompareSheetsModal from './OpsTcCompareSheetsModal.jsx';
 import OpsVoyageStatusModal, { VoyageStatusButton } from './OpsVoyageStatusModal.jsx';
 import OpsTcInOpsGlanceHeaderActions from './OpsTcInOpsGlanceHeaderActions.jsx';
+import OpsTcStatusTabs, { parseOpsTcTab } from './OpsTcStatusTabs.jsx';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
 import {
   ArrowIcon,
   ChipLink,
   CompareIcon,
   DEFAULT_PAGE_SIZE,
-  DocFileIcon,
+  EyeIcon,
   OpsVcGlanceTable,
   formatLastUpdated,
 } from './OpsVcGlanceUi.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcInOpsGlancePage.module.css';
-
-const STATUS_TABS = [
-  { id: 'ops', label: 'Ops' },
-  { id: 'post-ops', label: 'Post Ops' },
-  { id: 'history', label: 'History' },
-];
 
 const FLASH = {
   0: { type: 'success', text: 'TC Ops updated successfully.' },
@@ -93,45 +89,10 @@ function CloseIcon() {
   );
 }
 
-function parseTab(value) {
-  if (value === 'post-ops' || value === 'postops' || value === '2') return 'post-ops';
-  if (value === 'history' || value === '3') return 'history';
-  return 'ops';
-}
-
 function pageContextForTab(tab) {
   if (tab === 'post-ops') return 2;
   if (tab === 'history') return 3;
   return 1;
-}
-
-function TabIcon({ id }) {
-  if (id === 'post-ops') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M5 12h13" />
-        <path d="M13 6l6 6-6 6" />
-        <path d="M3 6v12" />
-      </svg>
-    );
-  }
-  if (id === 'history') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M3 12a9 9 0 1 0 3-6.7" />
-        <path d="M3 4v5h5" />
-        <path d="M12 7v5l3 2" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" />
-    </svg>
-  );
 }
 
 function currentUserOperator(operators = []) {
@@ -260,7 +221,7 @@ export default function OpsTcInOpsGlancePage() {
   const confirm = useConfirm();
   const alert = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [statusTab, setStatusTab] = useState(() => parseTab(searchParams.get('tab')));
+  const [statusTab, setStatusTab] = useState(() => parseOpsTcTab(searchParams.get('tab')));
   const [businessTypes, setBusinessTypes] = useState([]);
   const [years, setYears] = useState([]);
   const [operators, setOperators] = useState([]);
@@ -304,7 +265,7 @@ export default function OpsTcInOpsGlancePage() {
   };
 
   useEffect(() => {
-    setStatusTab(parseTab(searchParams.get('tab')));
+    setStatusTab(parseOpsTcTab(searchParams.get('tab')));
   }, [searchParams]);
 
   const load = useCallback(async () => {
@@ -451,12 +412,6 @@ export default function OpsTcInOpsGlancePage() {
     appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${pageContext}`)
   );
 
-  const selectTab = (tabId) => {
-    setStatusTab(tabId);
-    setPage(1);
-    updateQuery({ tab: tabId === 'ops' ? '' : tabId, msg: '' });
-  };
-
   return (
     <>
       <OpsTcInOpsGlanceHeaderActions
@@ -479,7 +434,7 @@ export default function OpsTcInOpsGlancePage() {
 
       <div className={`zafira-page ${pageStyles.page}`}>
         {loading || savingSheet ? (
-          <LoadingOverlay active label={savingSheet ? 'Creating sheet…' : 'Loading TC Ops…'} />
+          <LoadingOverlay show={loading || savingSheet} label={savingSheet ? 'Creating sheet…' : 'Loading TC Ops…'} fullScreen={false} />
         ) : null}
         {flash ? <div className={pageStyles.flashSuccess}>{flash.text}</div> : null}
         {error ? <div className={pageStyles.error}>{error}</div> : null}
@@ -507,25 +462,7 @@ export default function OpsTcInOpsGlancePage() {
           })}
         </div>
 
-        <div className={styles.statusTabs} role="tablist" aria-label="TC Ops status">
-          {STATUS_TABS.map((tab) => {
-            const active = statusTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                className={`${styles.statusTab} ${active ? styles.statusTabActive : ''}`}
-                onClick={() => selectTab(tab.id)}
-              >
-                <TabIcon id={tab.id} />
-                {active ? <span className={styles.tabDot} aria-hidden="true" /> : null}
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        <OpsTcStatusTabs />
 
         <OpsVcGlanceTable
           flushTop
@@ -540,30 +477,25 @@ export default function OpsTcInOpsGlancePage() {
             <tr>
               <th style={{ width: 36 }}>#</th>
               <th>TC Number</th>
-              <th>CP Date</th>
               <th>Vessel</th>
+              <th>CP Date</th>
               <th>Operator</th>
+              <th>Charterer</th>
+              <th>Worksheet</th>
+              <th className={styles.iconTh} title="Compare worksheets"><CompareIcon /></th>
               <th>Del / Re-Del</th>
               <th>CHRT DESK</th>
-              <th>Charterer</th>
-              <th>TC Financials</th>
-              <th className={styles.iconTh} title="Compare TC Financials"><CompareIcon /></th>
-              <th>Finance</th>
-              <th style={{ textAlign: 'center' }}>
-                TC Days
-                <br />
-                Fixture Note
-              </th>
               <th>Agency Letters</th>
-              <th>Checklist</th>
-              <th>Alerts</th>
+              <th>Fin.</th>
+              <th style={{ textAlign: 'center' }}>TC Recap</th>
+              <th>Status</th>
               <th>{lastColumnLabel}</th>
             </tr>
           </thead>
           <tbody>
             {!rows.length && !loading ? (
               <tr>
-                <td colSpan={16} className={styles.emptyCell}>
+                <td colSpan={15} className={styles.emptyCell}>
                   SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                 </td>
               </tr>
@@ -594,13 +526,30 @@ export default function OpsTcInOpsGlancePage() {
                       </span>
                     </div>
                   </td>
-                  <td>
-                    <span className={styles.cpDate} title={row.cpDate || ''}>{row.cpDate || '—'}</span>
-                  </td>
                   <td className={row.isPeriod ? styles.periodVessel : undefined}>
                     <div className={styles.opsCell}>
                       <span className={styles.primary}>{row.vesselName || '—'}</span>
                       <span className={styles.sub}>{row.vesselType || '—'}</span>
+                      {!isHistory && row.canDeactivate ? (
+                        <div className={styles.vesselDocs}>
+                          <Button
+                            variant="link"
+                            size="sm"
+                            icon="trash"
+                            className={`${styles.deleteIconBtn} ${styles.deleteIconDanger}`}
+                            onClick={() => handleDeactivate(row)}
+                            ariaLabel="Deactivate entry"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.opsCell}>
+                      <span className={styles.cpDate} title={row.cpDate || ''}>{row.cpDate || '—'}</span>
+                      <span className={styles.sub}>
+                        TC Days: {row.hireDays || '—'}
+                      </span>
                     </div>
                   </td>
                   <td>
@@ -625,18 +574,6 @@ export default function OpsTcInOpsGlancePage() {
                     </div>
                   </td>
                   <td>
-                    {routeLines.length ? (
-                      <div className={styles.route} title={row.ports || ''}>
-                        {routeLines.map((line) => <span key={line}>{line}</span>)}
-                      </div>
-                    ) : (
-                      <span className={styles.muted}>—</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className={styles.trunc} title={row.charteringTeam || ''}>{row.charteringTeam || '—'}</span>
-                  </td>
-                  <td>
                     <span className={styles.trunc} title={row.charterer || ''}>{row.charterer || '—'}</span>
                   </td>
                   <td>
@@ -650,7 +587,7 @@ export default function OpsTcInOpsGlancePage() {
                           ))}
                         </div>
                       ) : (
-                        <span className={styles.muted}>No financials yet</span>
+                        <span className={styles.muted}>No worksheets yet</span>
                       )
                     ) : (
                       <OpsVcWorksheetStack
@@ -665,7 +602,7 @@ export default function OpsTcInOpsGlancePage() {
                       <button
                         type="button"
                         className={`${styles.cmpBtn} ${canCompare ? '' : styles.cmpBtnDisabled}`}
-                        title={canCompare ? 'Compare TC Financials' : 'No TC financials yet'}
+                        title={canCompare ? 'Compare worksheets' : 'No worksheets yet'}
                         disabled={!canCompare}
                         onClick={() => canCompare && setCompareModal({ open: true, comId: row.comId })}
                       >
@@ -674,29 +611,16 @@ export default function OpsTcInOpsGlancePage() {
                     </div>
                   </td>
                   <td>
-                    <div className={styles.chipStack}>
-                      <ChipLink
-                        to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
-                      >
-                        Invoices
-                      </ChipLink>
-                    </div>
+                    {routeLines.length ? (
+                      <div className={styles.route} title={row.ports || ''}>
+                        {routeLines.map((line) => <span key={line}>{line}</span>)}
+                      </div>
+                    ) : (
+                      <span className={styles.muted}>—</span>
+                    )}
                   </td>
                   <td>
-                    <div className={styles.fixtureNoteCell}>
-                      <span className={styles.sub}>
-                        TC Days: {row.hireDays || '—'}
-                      </span>
-                      <div className={styles.docGroup}>
-                        <Link
-                          className={styles.docBtn}
-                          to={appPath(`/internal-user/vc/ops-tc/fixture-note?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
-                          title="View Fixture Note"
-                        >
-                          <DocFileIcon />
-                        </Link>
-                      </div>
-                    </div>
+                    <span className={styles.trunc} title={row.charteringTeam || ''}>{row.charteringTeam || '—'}</span>
                   </td>
                   <td>
                     <div className={styles.chipStack}>
@@ -708,13 +632,22 @@ export default function OpsTcInOpsGlancePage() {
                     </div>
                   </td>
                   <td>
-                    <div className={styles.chipStack}>
-                      <ChipLink
-                        to={appPath(`/internal-user/vc/ops-tc/checklist?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
-                      >
-                        Ops Checklist
-                      </ChipLink>
-                    </div>
+                    <Link
+                      className={styles.iconBtn}
+                      to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
+                      title="View Financials"
+                    >
+                      <EyeIcon />
+                    </Link>
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <Link
+                      className={styles.iconBtn}
+                      to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/edit`)}
+                      title="Edit TC Recap"
+                    >
+                      <EditRecapIcon size={18} />
+                    </Link>
                   </td>
                   <td>
                     <div className={styles.alertStack}>
@@ -723,16 +656,6 @@ export default function OpsTcInOpsGlancePage() {
                   </td>
                   <td>
                     <div className={styles.nextActions}>
-                      {!isHistory && row.canDeactivate ? (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          icon="trash"
-                          className={`${styles.deleteIconBtn} ${styles.deleteIconDanger}`}
-                          onClick={() => handleDeactivate(row)}
-                          ariaLabel="Deactivate entry"
-                        />
-                      ) : null}
                       {isHistory ? (
                         <span className={styles.statusChip}>
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

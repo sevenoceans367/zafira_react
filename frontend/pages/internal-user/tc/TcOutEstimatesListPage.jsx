@@ -1,21 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ActionButtonStack,
+  EditRecapIcon,
   LoadingOverlay,
   SecondaryActionButton,
   SendToOpsButton,
+  useConfirm,
 } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useTcModule } from '../../../hooks/useTcModule.js';
 import {
   fetchTcBusinessTypes,
   fetchTcEstimates,
+  sendTcEstimatesToOps,
 } from '../../../services/tcEstimates.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
-import TcDecisionChartModal from './TcDecisionChartModal.jsx';
 import TcListHeaderActions from './TcListHeaderActions.jsx';
 import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import styles from './TcBusinessPage.module.css';
@@ -31,7 +33,7 @@ const FLASH = {
   0: { type: 'success', text: 'TC Out Estimate saved successfully.' },
   1: { type: 'error', text: 'Sorry! there was an error while saving TC Out Estimate.' },
   2: { type: 'success', text: 'TC Out Estimate deleted successfully.' },
-  3: { type: 'success', text: 'Final TC Out Estimate sent to Decision Chart successfully.' },
+  3: { type: 'success', text: 'TC Out Estimate sent to TC Ops successfully.' },
 };
 
 function formatOpenTrade(value) {
@@ -105,15 +107,6 @@ function TabIcon({ id }) {
   );
 }
 
-function DocIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-      <path d="M6 3h9l5 5v13H6z" />
-      <path d="M15 3v5h5" />
-    </svg>
-  );
-}
-
 function EyeIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -131,6 +124,7 @@ function stageForRow(row) {
 
 export default function TcOutEstimatesListPage() {
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const { tcPath } = useTcModule();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -147,11 +141,8 @@ export default function TcOutEstimatesListPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [compareIds, setCompareIds] = useState([]);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const businessType = searchParams.get('selBType') || DEFAULT_BUSINESS_TYPE;
@@ -218,17 +209,6 @@ export default function TcOutEstimatesListPage() {
     return () => window.clearTimeout(timer);
   }, [flash, setSearchParams]);
 
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen]);
-
   const activeRows = useMemo(() => rows.filter((row) => !isInOps(row)), [rows]);
   const opsRows = useMemo(() => rows.filter((row) => isInOps(row)), [rows]);
   const visibleRows = statusTab === 'activeInOps' ? opsRows : activeRows;
@@ -238,7 +218,7 @@ export default function TcOutEstimatesListPage() {
     .map((row) => String(row.tcOutId));
   const allComparableSelected = comparableIds.length > 0
     && comparableIds.every((id) => selectedIds.includes(id));
-  const sensitivityEnabled = selectedIds.length > 0;
+  const batchSendEnabled = selectedIds.length > 0;
 
   const toggleAll = () => {
     setSelectedIds(allComparableSelected ? [] : comparableIds);
@@ -250,12 +230,33 @@ export default function TcOutEstimatesListPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const openDecisionChart = (ids = selectedIds) => {
-    const next = ids.map(String);
-    if (!next.length) return;
-    setMenuOpen(false);
-    setCompareIds(next);
-    setCompareOpen(true);
+  const handleSendToOps = async (ids = selectedIds) => {
+    const next = [...new Set((ids || []).map(String).filter(Boolean))];
+    if (!next.length || sending) return;
+
+    const ok = await confirm({
+      title: 'Send to Operations',
+      message: next.length === 1
+        ? 'Are you sure you want to send this TC estimate to TC Ops?'
+        : `Are you sure you want to send ${next.length} TC estimates to TC Ops?`,
+      confirmLabel: 'Send to Ops',
+      cancelLabel: 'Cancel',
+      confirmVariant: 'accent',
+    });
+    if (!ok) return;
+
+    setSending(true);
+    setError('');
+    try {
+      await sendTcEstimatesToOps(next);
+      setSelectedIds([]);
+      updateQuery({ msg: 3, status: 'activeInOps' });
+      await load();
+    } catch (err) {
+      setError(err.message || 'Failed to send TC estimate to Ops.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleReplicate = (row) => {
@@ -271,49 +272,6 @@ export default function TcOutEstimatesListPage() {
     { key: 'water', title: 'Vessels on Water', value: stats.vesselsOnWater ?? 0, variant: 'cnt' },
   ];
 
-  const moreMenu = (
-    <div className={styles.menuWrap} ref={menuRef}>
-      <button
-        type="button"
-        className={styles.btnMore}
-        aria-label="More options"
-        aria-expanded={menuOpen}
-        aria-haspopup="menu"
-        onClick={() => setMenuOpen((open) => !open)}
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <circle cx="12" cy="5" r="1.8" />
-          <circle cx="12" cy="12" r="1.8" />
-          <circle cx="12" cy="19" r="1.8" />
-        </svg>
-      </button>
-      {menuOpen ? (
-        <div className={styles.menuDropdown} role="menu">
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.menuItem}
-            disabled={!sensitivityEnabled}
-            onClick={() => openDecisionChart()}
-          >
-            Decision Chart
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.menuItem}
-            onClick={() => {
-              setMenuOpen(false);
-              navigate(tcPath('decision-charts'));
-            }}
-          >
-            Decision Chart List
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-
   const toolbarActions = statusTab === 'active' ? (
     <div className={styles.toolbarActions}>
       <button
@@ -328,19 +286,16 @@ export default function TcOutEstimatesListPage() {
       </button>
       <button
         type="button"
-        className={`${styles.btnSensitivity} ${sensitivityEnabled ? styles.btnSensitivityEnabled : ''}`}
-        disabled={!sensitivityEnabled}
-        title={sensitivityEnabled ? 'Open Sensitivity Analysis for selected estimates' : 'Select a row to enable'}
-        onClick={() => openDecisionChart()}
+        className={`${styles.btnSensitivity} ${batchSendEnabled ? styles.btnSensitivityEnabled : ''}`}
+        disabled={!batchSendEnabled || sending}
+        title={batchSendEnabled ? 'Send selected estimates to TC Ops' : 'Select a row to enable'}
+        onClick={() => handleSendToOps()}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M4 19V5" />
-          <path d="M8 19v-7" />
-          <path d="M12 19V9" />
-          <path d="M16 19v-4" />
-          <path d="M20 19V6" />
+          <path d="M5 12h13" />
+          <path d="M13 6l6 6-6 6" />
         </svg>
-        Sensitivity Analysis
+        Send to Ops
       </button>
     </div>
   ) : (
@@ -366,7 +321,12 @@ export default function TcOutEstimatesListPage() {
         onPeriodChange={({ from, to }) => updateQuery({ periodFrom: from || '', periodTo: to || '' })}
       />
 
-      {loading ? <LoadingOverlay show label="Loading Time Charter Business…" /> : null}
+      {loading || sending ? (
+        <LoadingOverlay
+          show
+          label={sending ? 'Sending to TC Ops…' : 'Loading Time Charter Business…'}
+        />
+      ) : null}
       {flash ? (
         <div className={flash.type === 'success' ? styles.flashSuccess : styles.flashError}>
           {flash.text}
@@ -414,7 +374,7 @@ export default function TcOutEstimatesListPage() {
         flushTop
         pageSize={pageSize}
         onPageSizeChange={setPageSize}
-        toolbarStart={statusTab === 'active' ? moreMenu : null}
+        toolbarStart={null}
         toolbarLeft={toolbarActions}
         footer={(
           <SopfPagination
@@ -439,7 +399,7 @@ export default function TcOutEstimatesListPage() {
                 <th>Hire In</th>
                 <th>Hire Out</th>
                 <th>Total Rev</th>
-                <th className={styles.compareHeader} title="Select rows for Sensitivity Analysis">
+                <th className={styles.compareHeader} title="Select rows to send to TC Ops">
                   <CompareIcon />
                   <input
                     type="checkbox"
@@ -447,7 +407,7 @@ export default function TcOutEstimatesListPage() {
                     checked={allComparableSelected}
                     onChange={toggleAll}
                     disabled={!comparableIds.length}
-                    aria-label="Select all comparable estimates"
+                    aria-label="Select all sendable estimates"
                   />
                 </th>
                 <th>TC Recap</th>
@@ -490,7 +450,8 @@ export default function TcOutEstimatesListPage() {
                       {row.canCompare ? (
                         <SendToOpsButton
                           className={`${styles.pillAction} ${styles.pillSendOps}`}
-                          onClick={() => openDecisionChart([row.tcOutId])}
+                          onClick={() => handleSendToOps([row.tcOutId])}
+                          disabled={sending}
                         />
                       ) : null}
                     </ActionButtonStack>
@@ -501,7 +462,7 @@ export default function TcOutEstimatesListPage() {
                       to={tcPath(`${row.tcOutId}/edit`)}
                       title="Edit TC Recap"
                     >
-                      <DocIcon />
+                      <EditRecapIcon size={18} />
                     </Link>
                   </td>
                 </tr>
@@ -572,17 +533,6 @@ export default function TcOutEstimatesListPage() {
           </table>
         )}
       </ScrollableTable>
-
-      <TcDecisionChartModal
-        open={compareOpen}
-        ids={compareIds}
-        onClose={() => setCompareOpen(false)}
-        onSubmitted={() => {
-          setCompareOpen(false);
-          updateQuery({ msg: 3 });
-          navigate(`${tcPath('decision-charts')}?msg=3`);
-        }}
-      />
     </div>
   );
 }

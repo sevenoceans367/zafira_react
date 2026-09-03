@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay, useConfirm, EditRecapIcon } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useElibraryModule } from '../../../hooks/useElibraryModule.js';
 import { elibraryBasePath } from '../../../constants/elibraryModule.js';
@@ -207,7 +207,7 @@ export default function ElibraryPage() {
                     aria-label="Edit Details"
                     onClick={() => navigate(`${listPath}/edit/${row.id}`)}
                   >
-                    <i className="bi bi-pencil-square" aria-hidden />
+                    <EditRecapIcon size={16} />
                   </button>
                   <button
                     type="button"

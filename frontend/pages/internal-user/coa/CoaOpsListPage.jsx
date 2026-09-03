@@ -1,14 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import {
-  Button,
-  CardSelect,
-  FilterField,
-  LoadingOverlay,
-  TextInput,
-  useAlert,
-  useConfirm,
-} from '@bainbridge/shared-ui';
+import { Button, CardSelect, FilterField, LoadingOverlay, TextInput, useAlert, useConfirm, EditRecapIcon } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
@@ -763,7 +755,7 @@ export default function CoaOpsListPage() {
                     </td>
                     <td className={styles.cellCenter}>
                       <Link className={styles.iconBtn} to={coaPath(`cargo-relet/${row.fcaId}`)} title="Edit Cargo Relet">
-                        <i className="bi bi-pencil-square" aria-hidden />
+                        <EditRecapIcon size={16} />
                       </Link>
                     </td>
                     <td>

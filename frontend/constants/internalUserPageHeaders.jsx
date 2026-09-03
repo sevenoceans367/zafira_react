@@ -106,7 +106,7 @@ export function resolveInternalUserHeader(pathname, search = '') {
   const opsVcHeader = resolveOpsVcHeader(pathname, search);
   if (opsVcHeader) return opsVcHeader;
 
-  const opsTcHeader = resolveOpsTcHeader(pathname);
+  const opsTcHeader = resolveOpsTcHeader(pathname, search);
   if (opsTcHeader) return opsTcHeader;
 
   const tcHeader = resolveTcHeader(pathname);

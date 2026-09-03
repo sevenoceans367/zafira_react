@@ -143,7 +143,7 @@ export function mapTcListRow(row, index = 0) {
     sentToDecisionChart: sentToChart,
     canCompare: !sentToChart && hasRevenue,
     compareLabel: sentToChart
-      ? 'Sent to Decision Chart'
+      ? 'Sent to Ops'
       : hasRevenue
         ? ''
         : 'Create Estimate',

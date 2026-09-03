@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, CardSelect, DownloadIcon, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, CardSelect, DownloadIcon, LoadingOverlay, EditRecapIcon } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.js';
 import { periodContractBasePath } from '../../../constants/periodContractModule.js';
@@ -156,12 +156,7 @@ function RowsIcon() {
 }
 
 function PencilIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-    </svg>
-  );
+  return <EditRecapIcon size={16} />;
 }
 
 function DocIcon() {
@@ -571,7 +566,7 @@ export default function PeriodContractListPage() {
                       aria-label="Edit Details"
                       onClick={() => navigate(editHref(row.periodId))}
                     >
-                      <i className="bi bi-pencil-square" aria-hidden />
+                      <EditRecapIcon size={16} />
                     </button>
                   </td>
                 </tr>

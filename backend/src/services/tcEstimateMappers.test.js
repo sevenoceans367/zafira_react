@@ -56,7 +56,7 @@ describe('tcEstimateMappers', () => {
       COMID: '55',
     });
     assert.equal(sent.sentToDecisionChart, true);
-    assert.equal(sent.compareLabel, 'Sent to Decision Chart');
+    assert.equal(sent.compareLabel, 'Sent to Ops');
   });
 
   it('computes highlight stats from live revenue without inventing values', () => {

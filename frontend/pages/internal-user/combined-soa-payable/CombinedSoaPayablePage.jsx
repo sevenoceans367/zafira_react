@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useSearchParams } from 'react-router-dom';
-import { LoadingOverlay, StatusBadge } from '@bainbridge/shared-ui';
+import { LoadingOverlay, StatusBadge, EditRecapIcon } from '@bainbridge/shared-ui';
 import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { groupPaymentsAddAppPath } from '../../../constants/combinedSoaPayablePageHeaders.js';
@@ -269,7 +269,7 @@ export default function CombinedSoaPayablePage() {
                   </td>
                   <td className={styles.detailsCell}>
                     <LegacyLink href={row.editHref} className={styles.editIcon} title="Edit Details">
-                      <i className="bi bi-pencil-square" aria-hidden />
+                      <EditRecapIcon size={16} />
                     </LegacyLink>
                   </td>
                 </tr>

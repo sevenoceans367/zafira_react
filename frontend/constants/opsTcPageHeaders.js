@@ -1,4 +1,5 @@
 import { appPath } from '@bainbridge/shared-routing';
+import { parseOpsTcTab } from '../pages/internal-user/ops/OpsTcStatusTabs.jsx';
 
 const HOME = { label: 'Home', href: appPath('/') };
 const SOC = { label: 'SOC', href: appPath('/internal-user/vc') };
@@ -18,7 +19,13 @@ const PAGES = {
   'payment-grid': 'Payment / Invoice Grid',
 };
 
-export function resolveOpsTcHeader(pathname) {
+const GLANCE_TAB_TITLES = {
+  ops: 'TC Ops',
+  'post-ops': 'Post Ops',
+  history: 'Voyage History',
+};
+
+export function resolveOpsTcHeader(pathname, search = '') {
   if (!pathname.startsWith('/internal-user/vc/ops-tc')) return null;
 
   const match = pathname.match(/^\/internal-user\/vc\/ops-tc\/([^/]+)/);
@@ -42,6 +49,18 @@ export function resolveOpsTcHeader(pathname) {
         OPS_TC,
         { label },
       ],
+    };
+  }
+
+  if (pageId === 'in-ops-glance') {
+    const tab = parseOpsTcTab(new URLSearchParams(
+      search.startsWith('?') ? search.slice(1) : search,
+    ).get('tab'));
+    const tabTitle = GLANCE_TAB_TITLES[tab] || 'TC Ops';
+    return {
+      title: tabTitle,
+      currentPage: tabTitle,
+      breadcrumbs: [HOME, SOC, { label: tabTitle }],
     };
   }
 

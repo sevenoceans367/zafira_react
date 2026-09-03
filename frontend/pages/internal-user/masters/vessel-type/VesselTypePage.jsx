@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFlashState } from '../../../../hooks/useTimedFlash.js';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay, EditRecapIcon } from '@bainbridge/shared-ui';
 import {
   createVesselType,
   fetchVesselType,
@@ -246,7 +246,7 @@ export default function VesselTypePage() {
                     title="Edit Details"
                     onClick={() => openEdit(row.id)}
                   >
-                    <i className="bi bi-pencil-square" aria-hidden />
+                    <EditRecapIcon size={16} />
                   </button>
                 </td>
               </tr>

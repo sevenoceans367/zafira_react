@@ -11,6 +11,7 @@ import {
   listTcDecisionCharts,
   listTcEstimates,
   saveTcCalculation,
+  sendTcEstimatesToOps,
   submitTcDecisionChart,
   updateTcEstimate,
 } from './tcEstimateService.js';
@@ -152,5 +153,46 @@ describe('tcEstimateService mock lifecycle', () => {
       () => submitTcDecisionChart({ candidates: [{ tcOutId: 2001 }] }),
       /Final selection/,
     );
+  });
+
+  it('sends a TC estimate straight to Ops with FIXED set', async () => {
+    const created = await createTcEstimate({
+      businessTypeId: '3',
+      vesselImoId: '1001',
+      vesselName: 'Ops Direct',
+      tcNo: 'TC-OPS-1',
+      hireFixPer: '10000',
+      exchangeRate: '1',
+    });
+    await saveTcCalculation(created.tcOutId, {
+      calc: { tcDays: 10, dailyGrossHire: '10000', totalRev: '100000' },
+      hirePeriods: [],
+      otherIncome: [],
+      otherExpenses: [],
+      offHires: [],
+    });
+
+    const sent = await sendTcEstimatesToOps([created.tcOutId]);
+    assert.equal(sent.msg, 0);
+    assert.equal(sent.fixtures.length, 1);
+    assert.ok(sent.fixtures[0].comId);
+    assert.ok(sent.fixtures[0].message);
+
+    const detail = await getTcEstimate(created.tcOutId);
+    assert.ok(detail.comId);
+
+    const list = await listTcEstimates({ selBType: '3', search: 'TC-OPS-1' });
+    const row = list.records.find((r) => String(r.tcOutId) === String(created.tcOutId));
+    assert.ok(row);
+    assert.equal(row.sentToDecisionChart, true);
+    assert.equal(row.canCompare, false);
+    assert.equal(row.compareLabel, 'Sent to Ops');
+
+    await assert.rejects(
+      () => sendTcEstimatesToOps([created.tcOutId]),
+      /already sent to Ops/,
+    );
+
+    await deleteTcEstimate(created.tcOutId);
   });
 });

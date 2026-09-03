@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFlashState } from '../../../../hooks/useTimedFlash.js';
-import { Button, DmyDateInput, dmyToIso, isoToDmy, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { Button, DmyDateInput, dmyToIso, isoToDmy, LoadingOverlay, useConfirm, EditRecapIcon } from '@bainbridge/shared-ui';
 import {
   createRateNetTon,
   fetchRateNetTon,
@@ -323,7 +323,7 @@ export default function RateNetTonPage() {
                     title="Edit Details"
                     onClick={() => openEdit(row.id)}
                   >
-                    <i className="bi bi-pencil-square" aria-hidden />
+                    <EditRecapIcon size={16} />
                   </button>
                 </td>
               </tr>

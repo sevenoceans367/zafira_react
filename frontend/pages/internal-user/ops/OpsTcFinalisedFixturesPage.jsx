@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   LoadingOverlay,
   Select,
+  useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -16,6 +17,7 @@ import {
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable, { DEFAULT_PAGE_SIZE } from '../sopf/ScrollableTable.jsx';
 import OpsTcFinalisedFixturesHeaderActions from './OpsTcFinalisedFixturesHeaderActions.jsx';
+import OpsTcStatusTabs from './OpsTcStatusTabs.jsx';
 import styles from './OpsPages.module.css';
 
 const FLASH = {
@@ -24,6 +26,7 @@ const FLASH = {
 
 export default function OpsTcFinalisedFixturesPage() {
   const confirm = useConfirm();
+  const alert = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
   const [operators, setOperators] = useState([]);
   const [searchInput, setSearchInput] = useState('');
@@ -95,7 +98,11 @@ export default function OpsTcFinalisedFixturesPage() {
 
   const handleFinalise = async () => {
     if (!selectedIds.length) {
-      setError('Please select at least one Fixture');
+      await alert({
+        title: 'Alert',
+        message: 'Please select at least one Fixture',
+        confirmLabel: 'OK',
+      });
       return;
     }
 
@@ -109,7 +116,11 @@ export default function OpsTcFinalisedFixturesPage() {
     });
 
     if (fixtures.some((item) => !item.operatorId)) {
-      setError('Please select an Operator for each selected fixture.');
+      await alert({
+        title: 'Alert',
+        message: 'Please select an Operator for each selected fixture.',
+        confirmLabel: 'OK',
+      });
       return;
     }
 
@@ -146,120 +157,122 @@ export default function OpsTcFinalisedFixturesPage() {
       />
 
       <div className={`zafira-page ${styles.page}`}>
-      <LoadingOverlay show={loading || saving} fullScreen={false} label={saving ? 'Finalising…' : 'Loading Finalised TC Fixtures…'} />
-      {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
-      {error ? <div className={styles.error}>{error}</div> : null}
+        <LoadingOverlay show={loading || saving} fullScreen={false} label={saving ? 'Finalising…' : 'Loading Finalised TC Fixtures…'} />
+        {flash ? <div className={styles.flashSuccess}>{flash.text}</div> : null}
+        {error ? <div className={styles.error}>{error}</div> : null}
 
-      <h3 className={styles.title}>Finalised TC Fixtures List</h3>
+        <OpsTcStatusTabs />
 
-      <ScrollableTable
-        pageSize={pageSize}
-        onPageSizeChange={setPageSize}
-        footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
-      >
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Vessel</th>
-              <th>Vessel Type</th>
-              <th>TC No.</th>
-              <th>CP Date</th>
-              <th>DWT</th>
-              <th>Del Port</th>
-              <th>Re Del Port</th>
-              <th>TC Days</th>
-              <th>Daily Gross Hire(USD)</th>
-              <th>Total Rev(USD)</th>
-              <th>
-                Status
-                {finalisableIds.length ? (
-                  <>
-                    {' '}
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleAll}
-                      aria-label="Select all fixtures"
-                      title="Select all"
-                    />
-                  </>
-                ) : null}
-              </th>
-              <th>Operator</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!rows.length && !loading ? (
+        <h3 className={styles.title}>Finalised TC Fixtures List</h3>
+
+        <ScrollableTable
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
+        >
+          <table className={styles.table}>
+            <thead>
               <tr>
-                <td colSpan={14} className={styles.emptyCell}>
-                  SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
-                </td>
-              </tr>
-            ) : rows.map((row) => {
-              const id = String(row.tcOutId);
-              const selected = selectedIds.includes(id);
-              return (
-                <tr key={id}>
-                  <td>{row.index}.</td>
-                  <td>{row.vesselName || '—'}</td>
-                  <td>{row.vesselType || '—'}</td>
-                  <td>{row.tcNo || '—'}</td>
-                  <td>{row.cpDate || '—'}</td>
-                  <td>{row.dwt || '—'}</td>
-                  <td>{row.delPort || '—'}</td>
-                  <td>{row.reDelPort || '—'}</td>
-                  <td>{row.tcDays || '—'}</td>
-                  <td>{row.dailyGrossHire || '—'}</td>
-                  <td>{row.totalRev || '—'}</td>
-                  <td>
-                    {row.fixed ? (
-                      <strong>{row.statusLabel}</strong>
-                    ) : (
+                <th>#</th>
+                <th>Vessel</th>
+                <th>Vessel Type</th>
+                <th>TC No.</th>
+                <th>CP Date</th>
+                <th>DWT</th>
+                <th>Del Port</th>
+                <th>Re Del Port</th>
+                <th>TC Days</th>
+                <th>Daily Gross Hire(USD)</th>
+                <th>Total Rev(USD)</th>
+                <th>
+                  Status
+                  {finalisableIds.length ? (
+                    <>
+                      {' '}
                       <input
                         type="checkbox"
-                        checked={selected}
-                        onChange={() => toggleOne(row)}
-                        aria-label={`Select ${row.tcNo || id}`}
+                        checked={allSelected}
+                        onChange={toggleAll}
+                        aria-label="Select all fixtures"
+                        title="Select all"
                       />
-                    )}
-                  </td>
-                  <td>
-                    {row.fixed ? (
-                      <strong>{row.operatorName || '—'}</strong>
-                    ) : (
-                      <Select
-                        value={operatorById[id] || ''}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setOperatorById((prev) => ({ ...prev, [id]: value }));
-                        }}
-                        aria-label={`Operator for ${row.tcNo || id}`}
-                      >
-                        <option value="">Select</option>
-                        {operators.map((op) => (
-                          <option key={op.id} value={op.id}>{op.name}</option>
-                        ))}
-                      </Select>
-                    )}
-                  </td>
-                  <td>
-                    <Link
-                      to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/calculate?mode=view&from=ops-tc`)}
-                      title="View Details"
-                      aria-label={`View ${row.tcNo || id}`}
-                    >
-                      <i className="bi bi-file-earmark-text" aria-hidden />
-                    </Link>
+                    </>
+                  ) : null}
+                </th>
+                <th>Operator</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!rows.length && !loading ? (
+                <tr>
+                  <td colSpan={14} className={styles.emptyCell}>
+                    SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </ScrollableTable>
-    </div>
+              ) : rows.map((row) => {
+                const id = String(row.tcOutId);
+                const selected = selectedIds.includes(id);
+                return (
+                  <tr key={id}>
+                    <td>{row.index}.</td>
+                    <td>{row.vesselName || '—'}</td>
+                    <td>{row.vesselType || '—'}</td>
+                    <td>{row.tcNo || '—'}</td>
+                    <td>{row.cpDate || '—'}</td>
+                    <td>{row.dwt || '—'}</td>
+                    <td>{row.delPort || '—'}</td>
+                    <td>{row.reDelPort || '—'}</td>
+                    <td>{row.tcDays || '—'}</td>
+                    <td>{row.dailyGrossHire || '—'}</td>
+                    <td>{row.totalRev || '—'}</td>
+                    <td>
+                      {row.fixed ? (
+                        <strong>{row.statusLabel}</strong>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleOne(row)}
+                          aria-label={`Select ${row.tcNo || id}`}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {row.fixed ? (
+                        <strong>{row.operatorName || '—'}</strong>
+                      ) : (
+                        <Select
+                          value={operatorById[id] || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setOperatorById((prev) => ({ ...prev, [id]: value }));
+                          }}
+                          aria-label={`Operator for ${row.tcNo || id}`}
+                        >
+                          <option value="">Select</option>
+                          {operators.map((op) => (
+                            <option key={op.id} value={op.id}>{op.name}</option>
+                          ))}
+                        </Select>
+                      )}
+                    </td>
+                    <td>
+                      <Link
+                        to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/calculate?mode=view&from=ops-tc`)}
+                        title="View Details"
+                        aria-label={`View ${row.tcNo || id}`}
+                      >
+                        <i className="bi bi-file-earmark-text" aria-hidden />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </ScrollableTable>
+      </div>
     </>
   );
 }

@@ -3,20 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { appPath } from '@bainbridge/shared-routing';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
 import timeCharterIcon from '../../assets/TIME CHARTER.png';
-
-const OPS_TC_GLANCE_PATH = '/internal-user/vc/ops-tc/in-ops-glance';
-
-function parseOpsTcTab(value) {
-  if (value === 'post-ops' || value === 'postops' || value === '2') return 'post-ops';
-  if (value === 'history' || value === '3') return 'history';
-  return 'ops';
-}
-
-function opsTcGlanceHref(tab = 'ops') {
-  if (tab === 'post-ops') return `${OPS_TC_GLANCE_PATH}?tab=post-ops`;
-  if (tab === 'history') return `${OPS_TC_GLANCE_PATH}?tab=history`;
-  return OPS_TC_GLANCE_PATH;
-}
+import {
+  OPS_TC_GLANCE_PATH,
+  opsTcGlanceHref,
+  parseOpsTcTab,
+} from '../../pages/internal-user/ops/OpsTcStatusTabs.jsx';
 
 export const OPS_TC_ITEMS = [
   { id: 'ops', label: 'TC Ops', to: opsTcGlanceHref('ops') },

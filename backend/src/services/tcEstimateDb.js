@@ -11,6 +11,7 @@ import {
   parsePeriodDate,
   toDbDate,
   calcTcTotals,
+  isTcSentToOps,
 } from './tcEstimateMappers.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
@@ -512,7 +513,6 @@ export async function dbListTcEstimates({
     chartering_estimate_tc_master.MCOMPANYID = ?
     AND vessel_imo_master.BUSINESSTYPEID = ?
     AND chartering_estimate_tc_master.SHEET_NO IS NULL
-    AND chartering_estimate_tc_master.FIXED IS NULL
   `;
 
   const fromDate = parsePeriodDate(periodFrom);
@@ -1428,6 +1428,91 @@ export async function dbSubmitTcDecisionChart({ finalId, candidates = [] } = {})
 
     await connection.commit();
     return { msg: 0, message, messageNo };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+/**
+ * Send TC fixture(s) straight to TC Ops (skip Finalised / Decision Chart).
+ * Creates compare Nom, sets FIXED=1, OPERATOR=logged-in user, STATUS=1.
+ */
+export async function dbSendTcEstimatesToOps(tcOutIds = []) {
+  const ids = [...new Set(
+    (Array.isArray(tcOutIds) ? tcOutIds : [tcOutIds])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean),
+  )];
+  if (!ids.length) {
+    const error = new Error('Please select at least one Fixture');
+    error.status = 400;
+    throw error;
+  }
+
+  const pool = getPool();
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const fixtures = [];
+
+    for (const tcOutId of ids) {
+      const [[master]] = await connection.query(
+        `SELECT TCOUTID, COMID, FIXED
+         FROM chartering_estimate_tc_master
+         WHERE TCOUTID = ?
+           AND MODULEID = ?
+           AND MCOMPANYID = ?`,
+        [tcOutId, MODULE_ID, COMPANY_ID],
+      );
+      if (!master) {
+        const error = new Error(`Fixture ${tcOutId} was not found.`);
+        error.status = 404;
+        throw error;
+      }
+      if (Number(master.FIXED) === 1 || isTcSentToOps(master.COMID)) {
+        const error = new Error(`Fixture ${tcOutId} was already sent to Ops.`);
+        error.status = 400;
+        throw error;
+      }
+
+      const messageNo = await nextMessageNo(connection);
+      const yearSuffix = String(new Date().getFullYear()).slice(-2);
+      const message = `${yearSuffix}-${messageNo}`;
+
+      const [insertResult] = await connection.query(
+        `INSERT INTO chartering_estimate_tc_compare
+         (TCOUTID, FINAL_ID, MESSAGE_NO, USERID, REMARKS, ADD_ON_DATE, MESSAGE, MODULEID, MCOMPANYID, OPERATOR, STATUS)
+         VALUES (?, ?, ?, ?, '', NOW(), ?, ?, ?, ?, 1)`,
+        [
+          tcOutId,
+          tcOutId,
+          messageNo,
+          USER_ID,
+          message,
+          MODULE_ID,
+          COMPANY_ID,
+          USER_ID,
+        ],
+      );
+
+      const comId = insertResult.insertId;
+      await connection.query(
+        `UPDATE chartering_estimate_tc_master
+         SET COMID = ?, FIXED = '1', FINAL_DATETIME = NOW(), FINAL_STATUS = 1
+         WHERE TCOUTID = ?
+           AND MODULEID = ?
+           AND MCOMPANYID = ?`,
+        [comId, tcOutId, MODULE_ID, COMPANY_ID],
+      );
+
+      fixtures.push({ tcOutId, comId, message, messageNo });
+    }
+
+    await connection.commit();
+    return { msg: 0, fixtures };
   } catch (error) {
     await connection.rollback();
     throw error;

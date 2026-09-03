@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFlashState } from '../../../../hooks/useTimedFlash.js';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay, useConfirm, EditRecapIcon } from '@bainbridge/shared-ui';
 import {
   createPcftf,
   fetchPcftf,
@@ -330,7 +330,7 @@ export default function PcftfPage() {
                     title="Edit Details"
                     onClick={() => openEdit(row.id)}
                   >
-                    <i className="bi bi-pencil-square" aria-hidden />
+                    <EditRecapIcon size={16} />
                   </button>
                 </td>
               </tr>

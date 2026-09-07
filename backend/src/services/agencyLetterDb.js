@@ -930,6 +930,74 @@ export async function dbGetAgencyLetterForPdf(genAgencyId, opts = {}) {
     [letter.COMID, letter.MODULEID || MODULE_ID, letter.MCOMPANYID || COMPANY_ID],
   ).catch(() => [[null]]);
 
+  let chartererName = '';
+  if (compare?.QTY_VENDORID) {
+    const [[charterer]] = await pool.query(
+      `SELECT NAME FROM vendor_master WHERE CODE = ? AND MCOMPANYID = ? LIMIT 1`,
+      [compare.QTY_VENDORID, letter.MCOMPANYID || COMPANY_ID],
+    ).catch(() => [[null]]);
+    chartererName = charterer?.NAME || '';
+  }
+
+  let countryName = '';
+  if (letter.COUNTRYID) {
+    const [[country]] = await pool.query(
+      `SELECT COUNTRY_NAME FROM country_master WHERE COUNTRYID = ? LIMIT 1`,
+      [letter.COUNTRYID],
+    ).catch(() => [[null]]);
+    countryName = country?.COUNTRY_NAME || '';
+  }
+
+  // Port rotation for voyage instructions (LP / DP on latest cost sheet).
+  let portRotation = [];
+  let portsSummary = '';
+  try {
+    const costSheetId = await getLatestCostSheetId(pool, letter.COMID).catch(() => null);
+    if (costSheetId) {
+      const [legs] = await pool.query(
+        `SELECT FROM_PORT, TO_PORT, RANDOMID, LOAD_PORT_QTY, DISC_PORT_QTY,
+                PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR
+         FROM freight_cost_estimete_slave1
+         WHERE FCAID = ?
+         ORDER BY FCA_SLAVEID ASC`,
+        [costSheetId],
+      ).catch(() => [[]]);
+      const rotation = [];
+      for (const leg of legs || []) {
+        if (leg.FROM_PORT) {
+          const name = await getPortName(pool, leg.FROM_PORT);
+          if (String(name || '').trim().toUpperCase() !== 'TBN') {
+            const vendor = await getVendorByCode(pool, leg.PORT_COSTLP_VENDOR);
+            const eta = await getEtaFixture(pool, letter.COMID, 'LP', leg.FROM_PORT, leg.RANDOMID);
+            rotation.push({
+              port: name || String(leg.FROM_PORT),
+              event: `Load Cargo${leg.LOAD_PORT_QTY ? ` (${leg.LOAD_PORT_QTY} MT)` : ''}`,
+              eta: eta || '',
+              agent: vendor?.NAME || '',
+            });
+          }
+        }
+        if (leg.TO_PORT && String(leg.TO_PORT) !== String(leg.FROM_PORT)) {
+          const name = await getPortName(pool, leg.TO_PORT);
+          if (String(name || '').trim().toUpperCase() !== 'TBN') {
+            const vendor = await getVendorByCode(pool, leg.PORT_COSTDP_VENDOR);
+            const eta = await getEtaFixture(pool, letter.COMID, 'DP', leg.TO_PORT, leg.RANDOMID);
+            rotation.push({
+              port: name || String(leg.TO_PORT),
+              event: 'Discharge',
+              eta: eta || '',
+              agent: vendor?.NAME || '',
+            });
+          }
+        }
+      }
+      portRotation = rotation;
+      portsSummary = rotation.map((row) => row.port).filter(Boolean).join(' / ');
+    }
+  } catch {
+    portRotation = [];
+  }
+
   let vesselImoId = compare?.VESSEL_IMO_ID;
   let cargoIdFallback = compare?.CARGO_ID || '';
   if (!vesselImoId) {
@@ -1110,6 +1178,7 @@ export async function dbGetAgencyLetterForPdf(genAgencyId, opts = {}) {
     portType: opts.portType || letter.PORT || '',
     portId: letter.PORTID,
     portName: port?.PortName || opts.portName || '',
+    countryName,
     bunkeringPort,
     agentCode,
     agentName: agent?.NAME || '',
@@ -1129,6 +1198,25 @@ export async function dbGetAgencyLetterForPdf(genAgencyId, opts = {}) {
     vesselName,
     vessel,
     nomId: compare?.MESSAGE || '',
+    chartererName,
+    cpDate: '',
+    portsSummary,
+    portRotation,
+    cargoSpecs: [
+      { label: 'Cargo Grade', value: cargoName },
+      {
+        label: 'Quantity & Tolerance',
+        value: [
+          letter.QTY != null && letter.QTY !== '' ? `${letter.QTY} Metric Tons` : '',
+          letter.TOLERANCE_PERCENT_SUB ? `(+/- ${letter.TOLERANCE_PERCENT_SUB})` : '',
+        ].filter(Boolean).join(' '),
+      },
+      { label: 'Cargo Details', value: letter.CARGO_PACKING_DESC ?? '' },
+    ].filter((row) => String(row.value || '').trim()),
+    opsInstructions: [
+      letter.CARGO_PACKING_DESC || '',
+      letter.TERMO_OF_TOLERANCE ? `Terms / Master: ${letter.TERMO_OF_TOLERANCE}` : '',
+    ].filter(Boolean),
     companyName: company?.COMPANY_NAME || '',
     companyAddress: company?.ADDRESS || '',
     companyPhone: company?.PHONE_NO || '',

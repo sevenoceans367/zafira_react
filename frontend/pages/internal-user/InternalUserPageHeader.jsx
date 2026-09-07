@@ -9,10 +9,14 @@ export default function InternalUserPageHeader() {
   const { actions, heading } = usePageHeaderState();
   const config = resolveInternalUserHeader(pathname, search);
 
+  // Platform home owns its own hero; skip the duplicate "Dashboard" title bar.
+  if (pathname === '/') return null;
+
   return (
     <BusinessPageHeader
       title={heading?.title ?? config.title}
       icon={heading?.icon ?? null}
+      titleExtra={heading?.titleExtra ?? null}
       breadcrumbs={config.breadcrumbs}
       currentPage={config.currentPage}
       actions={actions}

@@ -14,9 +14,9 @@ import {
 export const INTERNAL_USER_MODULES = [
   {
     id: 'sopf',
-    title: "Seven Oceans' Pre-Fixture",
+    title: 'Seven Oceans PreFix',
     subtitle: 'SOPF',
-    description: 'Spot business estimates, fleet, and help desk.',
+    description: 'Fix estimates, trades on water, & charter desk activities',
     href: '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2',
     iconSrc: sopfIcon,
     iconAlt: 'SOPF',
@@ -24,9 +24,9 @@ export const INTERNAL_USER_MODULES = [
   },
   {
     id: 'soc',
-    title: 'Seven Ocean Commercial',
+    title: 'Seven Ocean Commercials',
     subtitle: 'SOC',
-    description: 'VC/TC dashboard, COAs, periods, fleet, and commercial planning.',
+    description: 'Complete commercial freight and voyage management portfolio.',
     href: '/internal-user/vc',
     iconSrc: socIcon,
     iconAlt: 'SOC',

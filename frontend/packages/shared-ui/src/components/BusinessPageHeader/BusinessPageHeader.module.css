@@ -41,6 +41,13 @@
   height: 17px;
 }
 
+.titleExtra {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  margin-left: 2px;
+}
+
 .actions {
   display: flex;
   align-items: center;

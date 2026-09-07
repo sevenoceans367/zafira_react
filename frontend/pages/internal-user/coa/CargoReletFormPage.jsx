@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DmyDateInput, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
@@ -29,14 +29,7 @@ import CoaCardSelect from './CoaCardSelect.jsx';
 import CoaFormHeaderActions from './CoaFormHeaderActions.jsx';
 import styles from './CargoReletFormPage.module.css';
 
-const ALL_TABS = [
-  { id: 'estimate', label: 'Cargo Relet: Estimate' },
-  { id: 'commercial', label: 'Commercial Parameters' },
-  { id: 'planned', label: 'Planned Cargo/Intake' },
-];
-
-const NEW_RELET_TABS = ALL_TABS.filter((item) => item.id === 'estimate');
-
+const ESTIMATE_TAB = { id: 'estimate', label: 'Cargo Relet: Estimate' };
 const MIRROR_ROW_KEYS = {
   partiesIn: 'partiesOut',
   loadPortsIn: 'loadPortsOut',
@@ -82,6 +75,22 @@ function ReletIcon() {
   );
 }
 
+function CircleDeleteButton({ onClick, title = 'Remove' }) {
+  return (
+    <button
+      type="button"
+      className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+      title={title}
+      onClick={onClick}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+        <path d="M18 6 6 18" />
+        <path d="M6 6l12 12" />
+      </svg>
+    </button>
+  );
+}
+
 function EstimateCardIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -96,30 +105,6 @@ function EstimateCardIcon() {
       <line x1="8" y1="18" x2="8" y2="18.01" />
       <line x1="12" y1="18" x2="12" y2="18.01" />
       <line x1="16" y1="18" x2="16" y2="18.01" />
-    </svg>
-  );
-}
-
-function TabIcon({ id }) {
-  if (id === 'commercial') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <path d="M3 10h18" />
-      </svg>
-    );
-  }
-  if (id === 'planned') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 3v18" />
-        <path d="M16.5 7.5c0-2-2-3-4.5-3s-4.5 1.2-4.5 3.2c0 4.3 9 2 9 6.3 0 2-2 3.2-4.5 3.2s-4.5-1-4.5-3" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 12h4l2 7 4-14 2 7h6" />
     </svg>
   );
 }
@@ -392,19 +377,6 @@ function MetaField({ id, label, children, grow = false }) {
   );
 }
 
-function SpeedInput({ id, value, onChange, readOnly = true }) {
-  return (
-    <input
-      id={id}
-      value={value || ''}
-      readOnly={readOnly}
-      className={readOnly ? styles.readonly : undefined}
-      placeholder="0.00"
-      onChange={(event) => onChange?.(event.target.value)}
-    />
-  );
-}
-
 export default function CargoReletFormPage({ mode = 'edit' }) {
   const { fcaId } = useParams();
   const navigate = useNavigate();
@@ -418,8 +390,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   const isAdd = mode === 'add' || !fcaId;
   const fromRunning = searchParams.get('from') === 'running';
   const lockedCoaId = searchParams.get('coaId') || '';
-  const tabs = isAdd ? NEW_RELET_TABS : ALL_TABS;
-  const [tab, setTab] = useState('estimate');
+  const [tab, setTab] = useState(ESTIMATE_TAB.id);
   const [lookups, setLookups] = useState(null);
   const [coaOptions, setCoaOptions] = useState([]);
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -430,7 +401,9 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [attachNote, setAttachNote] = useState('No documents attached yet');
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [dropActive, setDropActive] = useState(false);
+  const attachInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -549,7 +522,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
         const typed = String(form.cargoName || '').toLowerCase().trim();
         return typed && (name === typed || name.startsWith(typed) || typed.startsWith(name));
       });
-      return match?.name || (form.cargoName ? '—' : '—');
+      return match?.name || form.cargoName || '—';
     }
     return businessTypes.find((item) => String(item.id) === String(form.businessTypeId))?.name || '';
   }, [businessTypes, form.businessTypeId, form.cargoName, lookups, standalone]);
@@ -577,6 +550,21 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     if (standalone && STANDALONE_LIVE_KEYS.has(key)) return applyCalc(next);
     return next;
   });
+
+  const addPendingFiles = (fileList) => {
+    const next = Array.from(fileList || []);
+    if (!next.length) return;
+    setPendingFiles((prev) => [...prev, ...next]);
+  };
+
+  const removePendingFile = (index) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  useEffect(() => {
+    const name = pendingFiles[0]?.name || '';
+    setForm((prev) => (prev.attachmentName === name ? prev : { ...prev, attachmentName: name }));
+  }, [pendingFiles]);
 
   const recalculate = () => {
     setForm((prev) => applyCalc(prev));
@@ -1073,31 +1061,74 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                   <textarea value={form.minTermOut} onChange={(event) => patch('minTermOut', event.target.value)} />
                 </Field>
               </div>
-              <div className={`${styles.field} ${styles.attachField}`}>
-                <label htmlFor="relet-attach">Attachments</label>
-                <div className={styles.dropzone}>
-                  <div className={styles.dzText}>Drag &amp; drop files here, or <b>browse</b></div>
-                  <div className={styles.dzSub}>{attachNote}</div>
-                  <label className={styles.attachBtn} htmlFor="relet-attach">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                    </svg>
-                    Attach
-                    <input
-                      id="relet-attach"
-                      type="file"
-                      multiple
-                      hidden
-                      onChange={(event) => {
-                        const count = event.target.files?.length || 0;
-                        const note = count
-                          ? `${count} file${count === 1 ? '' : 's'} selected (not uploaded yet)`
-                          : 'No documents attached yet';
-                        setAttachNote(note);
-                        patch('attachmentName', event.target.files?.[0]?.name || '');
-                      }}
-                    />
-                  </label>
+              <div className={styles.docsSection}>
+                <div className={`${styles.docsSectionHead} ${styles.docsSectionHeadGrey}`}>
+                  <div className={styles.docsSectionTitleWrap}>
+                    <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`} style={{ width: 28, height: 28 }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                      </svg>
+                    </div>
+                    <div className={styles.docsSectionTitle}>Attachments</div>
+                    {pendingFiles.length ? <div className={styles.docsCount}>{pendingFiles.length}</div> : null}
+                  </div>
+                </div>
+                <div className={styles.docsSectionBody}>
+                  <input
+                    ref={attachInputRef}
+                    className={styles.hiddenFileInput}
+                    type="file"
+                    multiple
+                    onChange={(event) => {
+                      addPendingFiles(event.target.files);
+                      event.target.value = '';
+                    }}
+                  />
+                  <div
+                    className={dropActive ? `${styles.dropzone} ${styles.dropzoneActive}` : styles.dropzone}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => attachInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        attachInputRef.current?.click();
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDropActive(true);
+                    }}
+                    onDragLeave={() => setDropActive(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDropActive(false);
+                      addPendingFiles(e.dataTransfer?.files);
+                    }}
+                  >
+                    <div className={styles.dropzoneIcon}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M12 16V4" />
+                        <path d="M6 10l6-6 6 6" />
+                        <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                      </svg>
+                    </div>
+                    <div className={styles.dropzoneText}>
+                      <b>Drag &amp; drop files here</b>, or click to browse
+                    </div>
+                  </div>
+
+                  {pendingFiles.length ? (
+                    <div className={styles.fileList}>
+                      {pendingFiles.map((file, index) => (
+                        <div key={`pending-${file.name}-${index}`} className={styles.fileRow}>
+                          <span className={styles.fileName}>{file.name}</span>
+                          <span className={styles.filePending}>(pending)</span>
+                          <CircleDeleteButton onClick={() => removePendingFile(index)} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </>
@@ -1339,347 +1370,44 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             {renderStandaloneEstimateBody()}
           </div>
         ) : (
-          <>
-            <div className={styles.statusTabs} role="tablist" aria-label="Cargo relet sections">
-              {tabs.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === item.id}
-                  className={`${styles.tabButton} ${tab === item.id ? styles.tabButtonActive : ''}`}
-                  onClick={() => setTab(item.id)}
-                >
-                  <TabIcon id={item.id} />
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            <div className={styles.tabPanelCard}>
-              {tab === 'estimate' ? (
-                <div role="tabpanel">
-                  {standalone ? renderStandaloneEstimateBody() : (
-                    <>
-                      <div className={styles.cargoStrip}>
-                        <div className={styles.cargoStripBlock}>
-                          <span className={styles.cargoStripLabel}>Cargo Type</span>
-                          <div className={styles.cargoStripValue}>{cargoTypeLabel || '—'}</div>
-                        </div>
-                        <div className={`${styles.cargoStripBlock} ${styles.cargoStripBlockWide}`}>
-                          <span className={styles.cargoStripLabel}>Planned Cargo</span>
-                          <div className={styles.plannedCargoBox}>
-                            {form.cargoPlanDetails || 'Cargo Planning Details...'}
-                          </div>
-                        </div>
+          <div className={styles.tabPanelCard}>
+            <div role="tabpanel" aria-label={ESTIMATE_TAB.label}>
+              {standalone ? renderStandaloneEstimateBody() : (
+                <>
+                  <div className={styles.cargoStrip}>
+                    <div className={styles.cargoStripBlock}>
+                      <span className={styles.cargoStripLabel}>Cargo Type</span>
+                      <div className={styles.cargoStripValue}>{cargoTypeLabel || '—'}</div>
+                    </div>
+                    <div className={`${styles.cargoStripBlock} ${styles.cargoStripBlockWide}`}>
+                      <span className={styles.cargoStripLabel}>Planned Cargo</span>
+                      <div className={styles.plannedCargoBox}>
+                        {form.cargoPlanDetails || 'Cargo Planning Details...'}
                       </div>
+                    </div>
+                  </div>
 
-                      <div className={styles.cargoSearchRow}>
-                        {!isAdd ? (
-                          <button type="button" className={styles.btnNavySm} onClick={() => setTab('planned')}>
-                            Search Cargo
-                          </button>
-                        ) : null}
-                        <Field id="cargoName" label="Cargo">
-                          <input className={styles.readonly} readOnly value={form.cargoName || '—'} />
-                        </Field>
-                        <Field id="cargoQty" label="Cargo Qty (MT)">
-                          <input
-                            id="cargoQty"
-                            value={form.cargoQty}
-                            placeholder="0.00"
-                            onChange={(event) => patch('cargoQty', event.target.value)}
-                            onBlur={recalculate}
-                          />
-                        </Field>
-                      </div>
+                  <div className={styles.cargoSearchRow}>
+                    <Field id="cargoName" label="Cargo">
+                      <input className={styles.readonly} readOnly value={form.cargoName || '—'} />
+                    </Field>
+                    <Field id="cargoQty" label="Cargo Qty (MT)">
+                      <input
+                        id="cargoQty"
+                        value={form.cargoQty}
+                        placeholder="0.00"
+                        onChange={(event) => patch('cargoQty', event.target.value)}
+                        onBlur={recalculate}
+                      />
+                    </Field>
+                  </div>
 
-                      {renderTwinPanels()}
-                    </>
-                  )}
-                </div>
-              ) : null}
-
-          {tab === 'commercial' && !isAdd ? (
-            <div role="tabpanel">
-              <div className={styles.paramGrid}>
-                <Field id="dwtSummer" label="DWT (Summer)">
-                  <input id="dwtSummer" className={styles.readonly} readOnly value={form.dwtSummer} placeholder="0.00" />
-                </Field>
-                <Field id="grainCap" label="Grain Cap. (CBM)">
-                  <input id="grainCap" className={styles.readonly} readOnly value={form.grainCap} />
-                </Field>
-                <Field id="baleCap" label="Bale Cap. (CBM)">
-                  <input id="baleCap" className={styles.readonly} readOnly value={form.baleCap} disabled={form.capType !== '2'} />
-                </Field>
-                <Field id="stowageFactor" label="SF (ft3/lt)">
-                  <input id="stowageFactor" value={form.stowageFactor} onChange={(event) => patch('stowageFactor', event.target.value)} />
-                </Field>
-                <Field id="loadable" label="Loadable (MT)">
-                  <input id="loadable" className={styles.readonly} readOnly value={form.loadable} />
-                </Field>
-                <Field id="gnrt" label="GRT">
-                  <input id="gnrt" className={styles.readonly} readOnly value={form.gnrt} />
-                </Field>
-                <Field id="loa" label="LOA">
-                  <input id="loa" className={styles.readonly} readOnly value={form.loa} />
-                </Field>
-                <Field id="builtYear" label="Built Year">
-                  <input id="builtYear" className={styles.readonly} readOnly value={form.builtYear} />
-                </Field>
-                <Field id="beam" label="BEAM (m)">
-                  <input id="beam" className={styles.readonly} readOnly value={form.beam} />
-                </Field>
-                <Field id="tpc" label="TPC">
-                  <input id="tpc" className={styles.readonly} readOnly value={form.tpc} />
-                </Field>
-              </div>
-
-              <div className={styles.sectionAccent}>Speed Data</div>
-              <table className={styles.speedTable}>
-                <thead>
-                  <tr>
-                    <th />
-                    <th>Full Speed</th>
-                    <th>Service Speed</th>
-                    <th>Most Eco Speed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className={styles.rowLabel}>Ballast Speed (Knots)</td>
-                    <td><SpeedInput id="ballastFullSpeed" value={form.ballastFullSpeed} /></td>
-                    <td><SpeedInput id="ballastServiceSpeed" value={form.ballastServiceSpeed} /></td>
-                    <td><SpeedInput id="ballastEcoSpeed" value={form.ballastEcoSpeed} /></td>
-                  </tr>
-                  <tr>
-                    <td className={styles.rowLabel}>Laden Speed (Knots)</td>
-                    <td><SpeedInput id="ladenFullSpeed" value={form.ladenFullSpeed} /></td>
-                    <td><SpeedInput id="ladenServiceSpeed" value={form.ladenServiceSpeed} /></td>
-                    <td><SpeedInput id="ladenEcoSpeed" value={form.ladenEcoSpeed} /></td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <div className={styles.sectionAccent}>FO Consumption MT/Day</div>
-              <table className={styles.consumeTable}>
-                <thead>
-                  <tr>
-                    <th />
-                    <th>Full Speed</th>
-                    <th>Service Speed</th>
-                    <th>Most Eco Speed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className={styles.rowLabel}>Ballast Passage</td>
-                    <td><SpeedInput id="foBallastFull" value={form.foBallastFull} /></td>
-                    <td><SpeedInput id="foBallastService" value={form.foBallastService} /></td>
-                    <td><SpeedInput id="foBallastEco" value={form.foBallastEco} /></td>
-                  </tr>
-                  <tr>
-                    <td className={styles.rowLabel}>Laden Passage</td>
-                    <td><SpeedInput id="foLadenFull" value={form.foLadenFull} /></td>
-                    <td><SpeedInput id="foLadenService" value={form.foLadenService} /></td>
-                    <td><SpeedInput id="foLadenEco" value={form.foLadenEco} /></td>
-                  </tr>
-                  <tr>
-                    <td className={styles.rowLabel}>In Port</td>
-                    <td><SpeedInput id="foPortIdle" value={form.foPortIdle} /></td>
-                    <td><SpeedInput id="foPortWorking" value={form.foPortWorking} /></td>
-                    <td />
-                  </tr>
-                </tbody>
-              </table>
-
-              <div className={styles.sectionAccent}>DO Consumption per MT/Day</div>
-              <table className={styles.consumeTable}>
-                <thead>
-                  <tr>
-                    <th />
-                    <th>Full Speed</th>
-                    <th>Service Speed</th>
-                    <th>Most Eco Speed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className={styles.rowLabel}>Ballast Passage</td>
-                    <td><SpeedInput id="doBallastFull" value={form.doBallastFull} /></td>
-                    <td><SpeedInput id="doBallastService" value={form.doBallastService} /></td>
-                    <td><SpeedInput id="doBallastEco" value={form.doBallastEco} /></td>
-                  </tr>
-                  <tr>
-                    <td className={styles.rowLabel}>Laden Passage</td>
-                    <td><SpeedInput id="doLadenFull" value={form.doLadenFull} /></td>
-                    <td><SpeedInput id="doLadenService" value={form.doLadenService} /></td>
-                    <td><SpeedInput id="doLadenEco" value={form.doLadenEco} /></td>
-                  </tr>
-                  <tr>
-                    <td className={styles.rowLabel}>In Port</td>
-                    <td><SpeedInput id="doPortIdle" value={form.doPortIdle} /></td>
-                    <td><SpeedInput id="doPortWorking" value={form.doPortWorking} /></td>
-                    <td />
-                  </tr>
-                </tbody>
-              </table>
+                  {renderTwinPanels()}
+                </>
+              )}
             </div>
-          ) : null}
-
-          {tab === 'planned' && !isAdd ? (
-            <div role="tabpanel">
-              <div className={styles.blockTitle}>Planned Cargo</div>
-              <div className={styles.plannedGrid}>
-                <Field id="openCargoId" label="CP ID">
-                  <input id="openCargoId" className={styles.readonly} readOnly value={form.openCargoId} placeholder="Cargo ID" />
-                </Field>
-                <Field id="shipperCp" label="Shipper">
-                  <CoaCardSelect label="Shipper" value={form.shipperCp} options={vendors} onChange={(value) => patch('shipperCp', value)} />
-                </Field>
-                <Field id="chartererCp" label="Charterer">
-                  <CoaCardSelect label="Charterer" value={form.chartererCp} options={lookups?.charterers || []} onChange={(value) => patch('chartererCp', value)} />
-                </Field>
-                <Field id="ownerCp" label="Owner">
-                  <CoaCardSelect label="Owner" value={form.ownerCp} options={lookups?.owners || []} onChange={(value) => patch('ownerCp', value)} />
-                </Field>
-                <Field id="receiverCp" label="Receiver">
-                  <CoaCardSelect label="Receiver" value={form.receiverCp} options={vendors} onChange={(value) => patch('receiverCp', value)} />
-                </Field>
-                <Field id="cargoCp" label="Cargo">
-                  <CoaCardSelect
-                    label="Cargo"
-                    value={form.cargoCp}
-                    options={lookups?.cargos || []}
-                    onChange={(value) => {
-                      const cargo = (lookups?.cargos || []).find((item) => item.id === value);
-                      setForm((prev) => ({ ...prev, cargoCp: value, cargoName: cargo?.name || '' }));
-                    }}
-                  />
-                </Field>
-                <Field id="plannedCargoQty" label="Cargo Stem Size (MT)">
-                  <input
-                    id="plannedCargoQty"
-                    className={styles.readonly}
-                    readOnly
-                    value={form.plannedCargoQty}
-                  />
-                </Field>
-                <Field id="toleranceCp" label="Tolerance (+/- %)">
-                  <input id="toleranceCp" className={styles.readonly} readOnly value={form.toleranceCp} />
-                </Field>
-                <Field id="baseFreightCp" label={`Base Freight (${currency}/MT)`}>
-                  <input
-                    id="baseFreightCp"
-                    className={styles.readonly}
-                    readOnly
-                    value={form.baseFreightCp || form.freightUsd}
-                  />
-                </Field>
-                <Field id="coaDateCp" label="COA date">
-                  <input id="coaDateCp" className={styles.readonly} readOnly value={form.coaDateCp} placeholder="dd-mm-yyyy" />
-                </Field>
-                <Field id="loadPortCp" label="Load Port">
-                  <PortSearchSelect
-                    value={form.loadPortCp}
-                    label={form.loadPortCpName}
-                    onChange={(portId, portName) => setForm((prev) => ({ ...prev, loadPortCp: portId, loadPortCpName: portName }))}
-                  />
-                </Field>
-                <Field id="dischargePortCp" label="Discharge Port">
-                  <PortSearchSelect
-                    value={form.dischargePortCp}
-                    label={form.dischargePortCpName}
-                    onChange={(portId, portName) => setForm((prev) => ({ ...prev, dischargePortCp: portId, dischargePortCpName: portName }))}
-                  />
-                </Field>
-                <Field id="laycanStartCp" label="LayCan Start Date">
-                  <input id="laycanStartCp" className={styles.readonly} readOnly value={form.laycanStartCp} />
-                </Field>
-                <Field id="laycanFinishCp" label="LayCan Finish Date">
-                  <input id="laycanFinishCp" className={styles.readonly} readOnly value={form.laycanFinishCp} />
-                </Field>
-                <Field id="nomClauseCp" label="Nom Clause">
-                  <input id="nomClauseCp" className={styles.readonly} readOnly value={form.nomClauseCp} />
-                </Field>
-                <Field id="remarksCp" label="Remarks" wide>
-                  <textarea id="remarksCp" className={styles.readonly} readOnly value={form.remarksCp} />
-                </Field>
-              </div>
-
-              <div className={styles.blockTitle}>Cargo Intake Calculations</div>
-              <div className={styles.plannedGrid}>
-                <Field id="summerDwtMt" label="Summer DWT (MT)">
-                  <input id="summerDwtMt" className={styles.readonly} readOnly value={form.summerDwtMt} />
-                </Field>
-                <Field id="summerDwtLt" label="Summer DWT (LT)">
-                  <input id="summerDwtLt" className={styles.readonly} readOnly value={form.summerDwtLt} />
-                </Field>
-                <Field id="summerDraftM" label="Summer Draft (M)">
-                  <input id="summerDraftM" className={styles.readonly} readOnly value={form.summerDraftM} />
-                </Field>
-                <Field id="summerDraftFt" label="Summer Draft (FT)">
-                  <input id="summerDraftFt" className={styles.readonly} readOnly value={form.summerDraftFt} />
-                </Field>
-                <Field id="tpcMt" label="TPC (MT)">
-                  <input id="tpcMt" className={styles.readonly} readOnly value={form.tpcMt} />
-                </Field>
-                <Field id="constantsMt" label="Constants (MT)">
-                  <input id="constantsMt" className={styles.readonly} readOnly value={form.constantsMt} />
-                </Field>
-                <Field id="grainCapCbm" label="Grain Cap (CBM)">
-                  <input id="grainCapCbm" className={styles.readonly} readOnly value={form.grainCapCbm} />
-                </Field>
-              </div>
-
-              <div className={styles.blockTitle}>Basis Max Draft in Port</div>
-              <div className={styles.plannedGrid}>
-                <Field id="allowedDraftM" label="Allowed Draft (M)">
-                  <input
-                    id="allowedDraftM"
-                    value={form.allowedDraftM}
-                    placeholder="0.00"
-                    onChange={(event) => {
-                      const allowedDraftM = event.target.value;
-                      setForm((prev) => applyCalc({
-                        ...prev,
-                        allowedDraftM,
-                        ...calcCargoIntake({ ...prev, allowedDraftM }),
-                      }));
-                    }}
-                  />
-                </Field>
-                <Field id="bunkerRobMt" label="Bunker ROB (MT)">
-                  <input
-                    id="bunkerRobMt"
-                    value={form.bunkerRobMt}
-                    placeholder="0.00"
-                    onChange={(event) => {
-                      const bunkerRobMt = event.target.value;
-                      setForm((prev) => applyCalc({
-                        ...prev,
-                        bunkerRobMt,
-                        ...calcCargoIntake({ ...prev, bunkerRobMt }),
-                      }));
-                    }}
-                  />
-                </Field>
-                <Field id="cargoIntakeMt" label="Cargo Intake (MT)">
-                  <input id="cargoIntakeMt" className={styles.readonly} readOnly value={form.cargoIntakeMt} />
-                </Field>
-                <Field id="sfCbmMt" label="SF (CBM/MT)">
-                  <input id="sfCbmMt" className={styles.readonly} readOnly value={form.sfCbmMt} />
-                </Field>
-                <Field id="cargoLoadableMt" label="Cargo Loadable (MT)">
-                  <input id="cargoLoadableMt" className={styles.readonly} readOnly value={form.cargoLoadableMt} />
-                </Field>
-              </div>
-            </div>
-          ) : null}
-            </div>
-          </>
+          </div>
         )}
-
         <div className={styles.formFooter}>
           {!standalone ? (
             <button type="button" className={styles.btnNavy} onClick={recalculate}>

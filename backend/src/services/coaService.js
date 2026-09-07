@@ -14,6 +14,7 @@ import {
   dbListRunningCoas,
   dbMoveVoyageToPostOps,
   dbSaveMonthlyRemarks,
+  dbSendCargoReletToOps,
   dbUpdateCargoRelet,
   dbUpdateCoa,
 } from './coaDb.js';
@@ -96,6 +97,9 @@ const MOCK_RELETS = {
       currency: 'USD',
       fixed: false,
       updateStatus: 1,
+      status: 'Draft',
+      sentToOps: false,
+      canSendToOps: true,
       canDelete: true,
     },
   ],
@@ -476,12 +480,24 @@ export async function advanceCargoReletOpsStage(fcaId) {
       msg: 0,
       fcaId: Number(fcaId) || 11,
       reletNo: 'CR-001',
-      finalStatus: 2,
-      opsStage: 'postops',
-      nextLabel: 'Post Ops',
+      finalStatus: 3,
+      opsStage: 'history',
+      nextLabel: 'History',
     };
   }
   return dbAdvanceCargoReletOpsStage(fcaId);
+}
+
+export async function sendCargoReletToOps(fcaId) {
+  if (!isDbConfigured()) {
+    return {
+      msg: 0,
+      fcaId: Number(fcaId) || 11,
+      reletNo: 'CR-001',
+      sentToOps: true,
+    };
+  }
+  return dbSendCargoReletToOps(fcaId);
 }
 
 export async function listCoaOpsVoyages(params) {

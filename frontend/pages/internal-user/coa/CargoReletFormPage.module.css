@@ -683,6 +683,16 @@
   margin-top: 12px;
 }
 
+.attachField {
+  margin-top: 16px;
+}
+
+.attachBtn svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
 .remarksCol {
   max-width: 160px;
 }

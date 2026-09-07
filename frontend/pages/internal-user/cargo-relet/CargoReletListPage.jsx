@@ -1,11 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { DownloadIcon, LoadingOverlay, EditRecapIcon, useConfirm } from '@bainbridge/shared-ui';
+import {
+  ActionButtonStack,
+  DownloadIcon,
+  LoadingOverlay,
+  EditRecapIcon,
+  SecondaryActionButton,
+  SendToOpsButton,
+  useConfirm,
+} from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useCargoReletModule } from '../../../hooks/useCargoReletModule.js';
 import {
   advanceStandaloneCargoReletOps,
   fetchStandaloneCargoRelets,
+  sendStandaloneCargoReletToOps,
 } from '../../../services/cargoRelets.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
@@ -32,7 +41,6 @@ const BUSINESS_TABS = [
 
 const OPS_TABS = [
   { id: 'ops', label: 'In Ops' },
-  { id: 'postops', label: 'Post Ops' },
   { id: 'history', label: 'History' },
 ];
 
@@ -51,19 +59,11 @@ function PlusIcon() {
 }
 
 function TabIcon({ id }) {
-  if (id === 'completed' || id === 'postops') {
+  if (id === 'completed' || id === 'history') {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="9" />
         <path d="M8 12.5l2.5 2.5L16 9.5" />
-      </svg>
-    );
-  }
-  if (id === 'history') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3.5 2" />
       </svg>
     );
   }
@@ -127,22 +127,14 @@ function HighlightIcon({ name }) {
   );
 }
 
-function StatusBadge({ status }) {
-  const key = String(status || '').toLowerCase();
-  let className = styles.statusDraft;
-  if (key.includes('cancel')) className = styles.statusCancelled;
-  else if (key.includes('complete')) className = styles.statusCompleted;
-  else if (key.includes('active')) className = styles.statusActive;
-  return <span className={className}>{status || '—'}</span>;
-}
-
 function parseBusinessStatus(value) {
   if (value === 'completed' || value === 'cancelled') return value;
   return 'active';
 }
 
 function parseOpsStatus(value) {
-  if (value === 'postops' || value === 'history') return value;
+  // Post Ops removed — legacy ?status=postops opens History
+  if (value === 'history' || value === 'postops' || value === 'post-ops') return 'history';
   return 'ops';
 }
 
@@ -185,7 +177,7 @@ function exportColumns(isOps) {
     { key: 'Frt-Out', get: (row) => row.freightOutAmt },
     { key: 'P&L', get: (row) => row.profit },
   ];
-  if (!isOps) cols.push({ key: 'Status', get: (row) => row.status });
+  if (!isOps) cols.push({ key: 'Sent to Ops', get: (row) => (row.sentToOps || row.fixed ? 'Yes' : 'No') });
   return cols;
 }
 
@@ -244,6 +236,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
   const debouncedSearch = useDebouncedValue(search, 300);
   const [loading, setLoading] = useState(true);
   const [advancingId, setAdvancingId] = useState(null);
+  const [sendingId, setSendingId] = useState(null);
   const [error, setError] = useState('');
   const [recordsTotal, setRecordsTotal] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -307,8 +300,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
       if (isOps) {
         setTabCounts({
           ops: allRows.filter((r) => r.opsStage === 'ops' || (!r.opsStage && r.fixed && Number(r.finalStatus || 0) <= 1 && r.updateStatus !== 3)).length,
-          postops: allRows.filter((r) => r.opsStage === 'postops' || Number(r.finalStatus) === 2).length,
-          history: allRows.filter((r) => r.opsStage === 'history' || Number(r.finalStatus) === 3).length,
+          history: allRows.filter((r) => r.opsStage === 'history' || Number(r.finalStatus) >= 2).length,
         });
       } else {
         setTabCounts({
@@ -366,7 +358,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
   }, [activeTab, businessType, debouncedSearch, isOps, year]);
 
   const handleAdvanceOps = async (row) => {
-    const nextLabel = row.nextLabel || (activeTab === 'ops' ? 'Post Ops' : 'History');
+    const nextLabel = row.nextLabel || 'History';
     const ok = await confirm({
       title: `Move to ${nextLabel}`,
       message: `Move ${row.reletNo || 'this cargo relet'} to ${nextLabel}?`,
@@ -382,6 +374,34 @@ export default function CargoReletListPage({ variant = 'business' }) {
       setError(err.message || 'Failed to advance cargo relet.');
     } finally {
       setAdvancingId(null);
+    }
+  };
+
+  const handleReplicate = (row) => {
+    navigate(
+      `${cargoReletAddPath}?replicateFrom=${encodeURIComponent(row.fcaId)}&selBType=${encodeURIComponent(businessType)}`,
+    );
+  };
+
+  const handleSendToOps = async (row) => {
+    if (!row?.fcaId || sendingId) return;
+    const ok = await confirm({
+      title: 'Send to Operations',
+      message: `Are you sure you want to send ${row.reletNo || 'this cargo relet'} to Ops?`,
+      confirmLabel: 'Send to Ops',
+      cancelLabel: 'Cancel',
+      confirmVariant: 'accent',
+    });
+    if (!ok) return;
+    setSendingId(row.fcaId);
+    setError('');
+    try {
+      await sendStandaloneCargoReletToOps(row.fcaId);
+      await loadList();
+    } catch (err) {
+      setError(err.message || 'Failed to send cargo relet to Ops.');
+    } finally {
+      setSendingId(null);
     }
   };
 
@@ -433,7 +453,6 @@ export default function CargoReletListPage({ variant = 'business' }) {
       return [
         { key: 'revenue', label: 'Ops Revenue (YTD)', value: stats.revenue.toLocaleString(), tone: 'red', icon: 'revenue' },
         { key: 'ops', label: 'In Ops', value: String(tabCounts.ops ?? 0), tone: 'cnt', icon: 'count' },
-        { key: 'post', label: 'Post Ops', value: String(tabCounts.postops ?? 0), tone: 'cnt', icon: 'count' },
         { key: 'hist', label: 'Completed (History)', value: String(tabCounts.history ?? 0), tone: 'cnt', icon: 'count' },
       ];
     }
@@ -572,7 +591,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
               onClick={() => navigate(`${cargoReletAddPath}?selBType=${businessType}`)}
             >
               <PlusIcon />
-              Add New Cargo Relet
+              Add
             </button>
           ) : null
         )}
@@ -595,7 +614,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
               <th>Frt-Out ($/MT)</th>
               <th>Frt-Out</th>
               <th>P&amp;L</th>
-              {!isOps ? <th>Status</th> : null}
+              {!isOps ? <th>Actions</th> : null}
               <th>Edit</th>
               {isOps ? <th>Next</th> : null}
             </tr>
@@ -621,7 +640,28 @@ export default function CargoReletListPage({ variant = 'business' }) {
                 <td>{liveValue(row.freightOutPerMt)}</td>
                 <td>{liveValue(row.freightOutAmt)}</td>
                 <td>{liveValue(row.profit)}</td>
-                {!isOps ? <td><StatusBadge status={row.status} /></td> : null}
+                {!isOps ? (
+                  <td>
+                    <ActionButtonStack className={styles.rowActions}>
+                      <SecondaryActionButton
+                        label="Replicate"
+                        className={`${styles.pillAction} ${styles.pillReplicate}`}
+                        onClick={() => handleReplicate(row)}
+                        ariaLabel={`Replicate ${row.reletNo || row.fcaId}`}
+                      />
+                      {row.canSendToOps ? (
+                        <SendToOpsButton
+                          className={`${styles.pillAction} ${styles.pillSendOps}`}
+                          onClick={() => handleSendToOps(row)}
+                          disabled={sendingId === row.fcaId}
+                          ariaLabel={`Send to Ops ${row.reletNo || row.fcaId}`}
+                        />
+                      ) : row.sentToOps || row.fixed ? (
+                        <span className={styles.sentLabel}>Sent to Ops</span>
+                      ) : null}
+                    </ActionButtonStack>
+                  </td>
+                ) : null}
                 <td>
                   <Link className={styles.iconBtn} to={cargoReletEditPath(row.fcaId)} title="Edit Cargo Relet">
                     <EditRecapIcon size={16} />

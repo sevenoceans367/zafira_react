@@ -19,7 +19,10 @@ function toQuery(params = {}) {
 }
 
 export async function fetchStandaloneCargoRelets(params = {}) {
-  const response = await fetch(`${BASE}${toQuery(params)}`);
+  const response = await fetch(`${BASE}${toQuery({
+    ...params,
+    standaloneOnly: params.standaloneOnly == null ? '1' : params.standaloneOnly,
+  })}`);
   return parseJson(response, 'Failed to load cargo relets.');
 }
 
@@ -59,4 +62,12 @@ export async function advanceStandaloneCargoReletOps(fcaId) {
     headers: { 'Content-Type': 'application/json' },
   });
   return parseJson(response, 'Failed to advance cargo relet ops stage.');
+}
+
+export async function sendStandaloneCargoReletToOps(fcaId) {
+  const response = await fetch(`${BASE}/${encodeURIComponent(fcaId)}/send-to-ops`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return parseJson(response, 'Failed to send cargo relet to Ops.');
 }

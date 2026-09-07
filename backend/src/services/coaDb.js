@@ -687,11 +687,9 @@ export async function dbListCargoRelets({
   const statusKey = String(status || '').toLowerCase();
   if (view === 'ops') {
     conditions.push('r.FIXED = 1');
-    if (statusKey === 'postops' || statusKey === 'post-ops') {
-      conditions.push('COALESCE(r.FINAL_STATUS, 0) = 2');
-      conditions.push('(r.UPDATE_STATUS IS NULL OR r.UPDATE_STATUS <> 3)');
-    } else if (statusKey === 'history') {
-      conditions.push('COALESCE(r.FINAL_STATUS, 0) = 3');
+    if (statusKey === 'history' || statusKey === 'postops' || statusKey === 'post-ops') {
+      // History includes former Post Ops (FINAL_STATUS=2) and History (3+)
+      conditions.push('COALESCE(r.FINAL_STATUS, 0) >= 2');
     } else if (statusKey === 'ops' || statusKey === 'inops' || statusKey === 'in-ops') {
       conditions.push('COALESCE(r.FINAL_STATUS, 0) <= 1');
       conditions.push('(r.UPDATE_STATUS IS NULL OR r.UPDATE_STATUS <> 3)');
@@ -779,15 +777,13 @@ export async function dbListCargoRelets({
     let opsStage = null;
     let nextLabel = null;
     if (fixed && updateStatus !== 3) {
-      if (finalStatus >= 3) opsStage = 'history';
-      else if (finalStatus === 2) {
-        opsStage = 'postops';
-        nextLabel = 'History';
+      if (finalStatus >= 2) {
+        opsStage = 'history';
       } else {
         opsStage = 'ops';
-        nextLabel = 'Post Ops';
+        nextLabel = 'History';
       }
-    } else if (fixed && finalStatus >= 3) {
+    } else if (fixed && finalStatus >= 2) {
       opsStage = 'history';
     }
 
@@ -819,6 +815,8 @@ export async function dbListCargoRelets({
       nextLabel,
       canAdvanceOps: Boolean(nextLabel),
       status: statusLabel,
+      sentToOps: fixed,
+      canSendToOps: !fixed && updateStatus !== 3,
       canDelete: !fixed && updateStatus !== 3,
     });
   }
@@ -1243,7 +1241,65 @@ export async function dbDeleteCargoRelet(fcaId) {
 }
 
 /**
- * Advance cargo-relet ops stage: In Ops (FINAL_STATUS≤1) → Post Ops (2) → History (3).
+ * Business list “Send to Ops” — same finalize path as form Submit (updateStatus=2).
+ */
+export async function dbSendCargoReletToOps(fcaId) {
+  const pool = getPool();
+  const [[row]] = await pool.query(
+    `SELECT FCAID, FIXED, UPDATE_STATUS, COAID, CARGO_RELET_NO
+     FROM cargo_relet_estimate_masster
+     WHERE FCAID = ? AND MODULEID = ? AND MCOMPANYID = ?
+     LIMIT 1`,
+    [fcaId, COA_MODULE_ID, appContext.companyId],
+  );
+  if (!row) {
+    const error = new Error('Cargo relet not found.');
+    error.status = 404;
+    throw error;
+  }
+  if (Number(row.UPDATE_STATUS) === 3) {
+    throw new Error('Cancelled cargo relets cannot be sent to Ops.');
+  }
+  if (Number(row.FIXED) === 1) {
+    return {
+      msg: 0,
+      fcaId: Number(fcaId),
+      reletNo: row.CARGO_RELET_NO || '',
+      sentToOps: true,
+    };
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await finalizeCargoReletCompare(connection, fcaId, {
+      updateStatus: '2',
+      standalone: !row.COAID || Number(row.COAID) === 0,
+      coaId: row.COAID || '',
+    });
+    await connection.query(
+      `INSERT INTO recent_work_master (LOGINID, WORK, WORK_DATE)
+       VALUES (?, 'Cargo Relet sent to Ops successfully.', NOW())`,
+      [appContext.userId],
+    );
+    await connection.commit();
+    return {
+      msg: 0,
+      fcaId: Number(fcaId),
+      reletNo: row.CARGO_RELET_NO || '',
+      sentToOps: true,
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+/**
+ * Advance cargo-relet ops stage: In Ops (FINAL_STATUS≤1) → History (3).
+ * Post Ops is not used; legacy FINAL_STATUS=2 also advances to History.
  */
 export async function dbAdvanceCargoReletOpsStage(fcaId) {
   const pool = getPool();
@@ -1267,17 +1323,12 @@ export async function dbAdvanceCargoReletOpsStage(fcaId) {
   }
 
   const current = row.FINAL_STATUS != null ? Number(row.FINAL_STATUS) : 0;
-  let nextStatus;
-  let nextLabel;
-  if (current <= 1) {
-    nextStatus = 2;
-    nextLabel = 'Post Ops';
-  } else if (current === 2) {
-    nextStatus = 3;
-    nextLabel = 'History';
-  } else {
+  if (current >= 3) {
     throw new Error('Cargo relet is already in History.');
   }
+
+  const nextStatus = 3;
+  const nextLabel = 'History';
 
   await pool.query(
     `UPDATE cargo_relet_estimate_masster
@@ -1300,7 +1351,7 @@ export async function dbAdvanceCargoReletOpsStage(fcaId) {
     fcaId: Number(fcaId),
     reletNo: row.CARGO_RELET_NO || '',
     finalStatus: nextStatus,
-    opsStage: nextStatus === 2 ? 'postops' : 'history',
+    opsStage: 'history',
     nextLabel,
   };
 }

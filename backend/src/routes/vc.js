@@ -97,6 +97,7 @@ import {
 import { getRequestUser, resolveRequestIsMgmtUser } from '../services/authService.js';
 import { getSofForm, saveSof } from '../services/sofService.js';
 import { getLaytimeForm, saveLaytime, openLaytime } from '../services/laytimeService.js';
+import { generateLaytimePdf } from '../services/laytimePdfService.js';
 import { getBunkerForm, saveBunker } from '../services/bunkerService.js';
 import { getSoaReport } from '../services/soaReportService.js';
 import { getCompareSheetsTc } from '../services/compareSheetsTcService.js';
@@ -874,6 +875,20 @@ router.post('/ops/sof', (req, res, next) => {
 router.get('/ops/laytime', asyncHandler(async (req, res) => {
   const comId = req.query.comId || req.query.comid;
   res.json(await getLaytimeForm(comId));
+}));
+
+router.get('/ops/laytime/pdf', asyncHandler(async (req, res) => {
+  getRequestUser(req);
+  const { buffer, filename } = await generateLaytimePdf({
+    comId: req.query.comId || req.query.comid,
+    laytimeId: req.query.laytimeId || req.query.laytimeid || '',
+    portType: req.query.portType || req.query.port || '',
+    portId: req.query.portId || req.query.portid || '',
+    randomId: req.query.randomId || req.query.ramdomid || req.query.randomid || '',
+  });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buffer);
 }));
 
 router.post('/ops/laytime', (req, res, next) => {

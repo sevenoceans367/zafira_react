@@ -5,6 +5,7 @@ import {
   deleteCargoRelet,
   getCargoRelet,
   listCargoRelets,
+  sendCargoReletToOps,
   updateCargoRelet,
 } from '../services/coaService.js';
 
@@ -39,6 +40,10 @@ router.get('/', asyncHandler(async (req, res) => {
 
 router.post('/:fcaId/advance-ops', asyncHandler(async (req, res) => {
   res.json(await advanceCargoReletOpsStage(req.params.fcaId));
+}));
+
+router.post('/:fcaId/send-to-ops', asyncHandler(async (req, res) => {
+  res.json(await sendCargoReletToOps(req.params.fcaId));
 }));
 
 router.get('/:fcaId', asyncHandler(async (req, res) => {

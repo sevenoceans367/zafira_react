@@ -477,7 +477,31 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           next.reletNo = generateStandaloneReletNo();
           next.reletName = next.reletNo;
         }
-        if (queryCoaId) {
+        const replicateFrom = searchParams.get('replicateFrom') || '';
+        if (replicateFrom) {
+          const source = standalone
+            ? await fetchStandaloneCargoRelet(replicateFrom)
+            : await fetchCargoRelet(replicateFrom);
+          if (cancelled) return;
+          if (source) {
+            Object.assign(next, {
+              ...source,
+              fcaId: undefined,
+              reletNo: standalone ? next.reletNo : '',
+              reletName: standalone ? next.reletNo : (source.reletName || ''),
+              updateStatus: '1',
+              partiesIn: source.partiesIn?.length ? source.partiesIn : [partyRow()],
+              partiesOut: source.partiesOut?.length ? source.partiesOut : [partyRow()],
+              loadPortsIn: withPortRows(source.loadPortsIn),
+              dischargePortsIn: withPortRows(source.dischargePortsIn),
+              loadPortsOut: withPortRows(source.loadPortsOut),
+              dischargePortsOut: withPortRows(source.dischargePortsOut),
+            });
+            if (!standalone && queryCoaId) {
+              next.coaId = queryCoaId;
+            }
+          }
+        } else if (queryCoaId) {
           try {
             const coa = await fetchCoa(queryCoaId);
             if (cancelled) return;
@@ -643,7 +667,21 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
         const factory = key.startsWith('parties') ? partyRow : portRow;
         const mirrorRows = [...(prev[mirrorKey] || [])];
         while (mirrorRows.length <= index) mirrorRows.push(factory());
-        mirrorRows[index] = { ...mirrorRows[index], ...patchRow };
+        // Cargo IN Charterer/Owner flip to Owner/Charterer on Cargo OUT
+        let mirrorPatch = patchRow;
+        if (key === 'partiesIn') {
+          mirrorPatch = {};
+          if (Object.prototype.hasOwnProperty.call(patchRow, 'charterer')) {
+            mirrorPatch.owner = patchRow.charterer;
+          }
+          if (Object.prototype.hasOwnProperty.call(patchRow, 'owner')) {
+            mirrorPatch.charterer = patchRow.owner;
+          }
+          if (Object.prototype.hasOwnProperty.call(patchRow, 'broker')) {
+            mirrorPatch.broker = patchRow.broker;
+          }
+        }
+        mirrorRows[index] = { ...mirrorRows[index], ...mirrorPatch };
         next[mirrorKey] = mirrorRows;
       }
       return next;
@@ -827,7 +865,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             <Field id={brokId} label="Brokerage (%)">
               <input id={brokId} value={form[brokId]} placeholder="0.00" onChange={(event) => patch(brokId, event.target.value)} />
             </Field>
-            <Field id={demId} label={out ? 'Dem (Disponent)' : 'Dem (Cgo Charterer)'}>
+            <Field id={demId} label={out ? 'Demurrage (Disponent)' : 'Demurrage (Cgo Charterer)'}>
               <input id={demId} value={form[demId]} placeholder="0.00" onChange={(event) => patch(demId, event.target.value)} />
             </Field>
           </div>
@@ -871,7 +909,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           <Field id={brokId} label="Brokerage (%)">
             <input id={brokId} value={form[brokId]} placeholder="0.00" onChange={(event) => patch(brokId, event.target.value)} onBlur={recalculate} />
           </Field>
-          <Field id={demId} label={`Dem Rate (${currency}/Day)`}>
+          <Field id={demId} label={`Demurrage Rate (${currency}/Day)`}>
             <input id={demId} value={form[demId]} placeholder="0.00" onChange={(event) => patch(demId, event.target.value)} />
           </Field>
           <Field id={desId} label={`Despatch Rate (${currency}/Day)`}>
@@ -933,10 +971,10 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                 </>
               ) : (
                 <>
-                  <Field id="addCommAmt" label="Ttl Comm">
+                  <Field id="addCommAmt" label="Total Comm">
                     <input className={styles.readonly} readOnly value={form.addCommAmt || '0.00'} />
                   </Field>
-                  <Field id="totalAmt" label="Nett Rev">
+                  <Field id="totalAmt" label="Net Rev">
                     <input className={styles.readonly} readOnly value={form.totalAmt || '0.00'} />
                   </Field>
                 </>
@@ -975,7 +1013,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             <Field id={out ? 'bunkerSurchargeAmtOut' : 'bunkerSurchargeAmt'} label={`Bunker Surcharge (${currency})`}>
               <input className={styles.readonly} readOnly value={form[out ? 'bunkerSurchargeAmtOut' : 'bunkerSurchargeAmt']} placeholder="0.00" />
             </Field>
-            <Field id={out ? 'demmurageAmtOut' : 'demmurageAmt'} label={`Dem (${currency})`}>
+            <Field id={out ? 'demmurageAmtOut' : 'demmurageAmt'} label={`Demurrage (${currency})`}>
               <input value={form[out ? 'demmurageAmtOut' : 'demmurageAmt']} placeholder="0.00" onChange={(event) => patch(out ? 'demmurageAmtOut' : 'demmurageAmt', event.target.value)} onBlur={recalculate} />
             </Field>
             <Field id={out ? 'despatchAmtOut' : 'despatchAmt'} label={`Despatch (${currency})`}>
@@ -1035,12 +1073,15 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                   <textarea value={form.minTermOut} onChange={(event) => patch('minTermOut', event.target.value)} />
                 </Field>
               </div>
-              <div className={styles.field}>
+              <div className={`${styles.field} ${styles.attachField}`}>
                 <label htmlFor="relet-attach">Attachments</label>
                 <div className={styles.dropzone}>
                   <div className={styles.dzText}>Drag &amp; drop files here, or <b>browse</b></div>
                   <div className={styles.dzSub}>{attachNote}</div>
                   <label className={styles.attachBtn} htmlFor="relet-attach">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                    </svg>
                     Attach
                     <input
                       id="relet-attach"

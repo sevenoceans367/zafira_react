@@ -636,7 +636,15 @@ export default function OpsVcLaytimePage() {
 
   return (
     <>
-      <OpsVcLaytimeHeaderActions backHref={backHref} disabled={loading || saving} />
+      <OpsVcLaytimeHeaderActions
+        backHref={backHref}
+        comId={comId}
+        laytimeId={activePort?.laytimeId || ''}
+        portType={activePort?.portType || ''}
+        portId={activePort?.portId || ''}
+        randomId={activePort?.randomId || ''}
+        disabled={loading || saving}
+      />
 
       <div className={`zafira-page ${pageStyles.page} ${styles.page}`}>
         {(loading || saving) ? (
@@ -695,8 +703,8 @@ export default function OpsVcLaytimePage() {
             </div>
 
             {activePort && draft ? (
-              <div className={sofStyles.gprlLayout}>
-                <div className={sofStyles.gprlMain}>
+              <div className={styles.ltPageBody}>
+                <div className={styles.ltTopMain}>
                   <div className={sofStyles.cfSection}>
                     <div className={`${sofStyles.cfSectionHead} ${sofStyles.cfSectionHeadNavy}`}>
                       <div className={sofStyles.cfSectionTitleWrap}>
@@ -937,8 +945,248 @@ export default function OpsVcLaytimePage() {
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className={sofStyles.cfSection} style={{ marginBottom: 0 }}>
+                <div className={styles.ltSide}>
+                  <div className={styles.ltHighlightCard}>
+                    <div className={styles.ltHlHead}>
+                      <div className={styles.ltHlIco}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M4 19V5" />
+                          <path d="M4 19h16" />
+                          <path d="M8 15v-4" />
+                          <path d="M12 15V7" />
+                          <path d="M16 15v-6" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className={styles.ltHlTitle}>Summary</div>
+                        <div className={styles.ltHlSub}>{summarySub}</div>
+                      </div>
+                    </div>
+                    <div className={styles.ltHlBody}>
+                      <div className={styles.ltSumItem}>
+                        <span className={styles.ltSumIco}><SumIconClock /></span>
+                        <div className={styles.ltSumText}>
+                          <label>Laytime Allowed</label>
+                          <div>
+                            <span className={styles.ltSumVal}>{draft.laytimeAllowed || '—'}</span>
+                            <span className={styles.ltSumUnit}>{unitShort}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={styles.ltSumItem}>
+                        <span className={styles.ltSumIco}><SumIconClock /></span>
+                        <div className={styles.ltSumText}>
+                          <label>Laytime Used</label>
+                          <div>
+                            <span className={styles.ltSumVal}>{draft.actualLaytime || '—'}</span>
+                            <span className={styles.ltSumUnit}>{unitShort}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {showTimeSaved ? (
+                        <div className={`${styles.ltSumItem} ${styles.ltSumItemHi}`}>
+                          <span className={styles.ltSumIco}><SumIconClock /></span>
+                          <div className={styles.ltSumText}>
+                            <label>Time Saved</label>
+                            <div>
+                              <span className={styles.ltSumVal}>{draft.timeToDespatch || '—'}</span>
+                              <span className={styles.ltSumUnit}>{unitShort}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`${styles.ltSumItem} ${styles.ltSumItemNeg}`}>
+                          <span className={styles.ltSumIco}><SumIconClock /></span>
+                          <div className={styles.ltSumText}>
+                            <label>Time (Lost)</label>
+                            <div>
+                              <span className={styles.ltSumVal}>{draft.timeToDemurrage || '—'}</span>
+                              <span className={styles.ltSumUnit}>{unitShort}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div className={styles.ltSumItem}>
+                        <span className={styles.ltSumIco}><SumIconCash /></span>
+                        <div className={styles.ltSumText}>
+                          <label>Demurrage Rate</label>
+                          <input
+                            className={styles.ltSumInput}
+                            type="text"
+                            value={draft.demurrageRate ?? ''}
+                            onChange={(e) => patchDraft({ demurrageRate: e.target.value }, { recompute: true })}
+                            disabled={locked}
+                            placeholder="0.00"
+                            aria-label="Demurrage Rate ($/day)"
+                          />
+                          <span className={styles.ltSumUnit}>$/day</span>
+                        </div>
+                      </div>
+                      <div className={styles.ltSumItem}>
+                        <span className={styles.ltSumIco}><SumIconCash /></span>
+                        <div className={styles.ltSumText}>
+                          <label>Dispatch Rate</label>
+                          <input
+                            className={styles.ltSumInput}
+                            type="text"
+                            value={draft.despatchRate ?? ''}
+                            onChange={(e) => patchDraft({ despatchRate: e.target.value }, { recompute: true })}
+                            disabled={locked}
+                            placeholder="0.00"
+                            aria-label="Dispatch Rate ($/day)"
+                          />
+                          <span className={styles.ltSumUnit}>$/day</span>
+                        </div>
+                      </div>
+                      {showTimeSaved ? (
+                        <div className={`${styles.ltSumItem} ${styles.ltSumItemHi}`}>
+                          <span className={styles.ltSumIco}><SumIconCash /></span>
+                          <div className={styles.ltSumText}>
+                            <label>Dispatch Payable</label>
+                            <div>
+                              <span className={styles.ltSumVal}>{draft.ttlDespatch || '—'}</span>
+                              <span className={styles.ltSumUnit}>{currency}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`${styles.ltSumItem} ${styles.ltSumItemNeg}`}>
+                          <span className={styles.ltSumIco}><SumIconCash /></span>
+                          <div className={styles.ltSumText}>
+                            <label>Demurrage Payable</label>
+                            <div>
+                              <span className={styles.ltSumVal}>{draft.ttlDemurrage || '—'}</span>
+                              <span className={styles.ltSumUnit}>{currency}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={sofStyles.cfSection}>
+                    <div className={`${sofStyles.cfSectionHead} ${styles.cfSectionHeadAmber}`}>
+                      <div className={sofStyles.cfSectionTitleWrap}>
+                        <div className={`${sofStyles.sectionIco} ${styles.sectionIcoAmber}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                          </svg>
+                        </div>
+                        <div className={sofStyles.cfSectionTitle} style={{ fontSize: 13.5 }}>Level 1 Approver</div>
+                      </div>
+                    </div>
+                    <div className={styles.ltApprovalBody} data-field="approvers">
+                      <label className={styles.ltApprovalLabel} htmlFor="approvers">Assign Approval Usernames</label>
+                      {approverOptions.length ? (
+                        <select
+                          id="approvers"
+                          className={styles.ltApprovalSelect}
+                          multiple
+                          disabled={locked}
+                          value={draft.approvers || []}
+                          onChange={(e) => {
+                            const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
+                            setApprovers(selected);
+                          }}
+                        >
+                          {approverOptions.map((opt) => {
+                            const id = String(opt.id ?? opt.value ?? '');
+                            const name = opt.name ?? opt.label ?? id;
+                            return (
+                              <option key={id} value={id}>{name}</option>
+                            );
+                          })}
+                        </select>
+                      ) : (
+                        <input
+                          id="approvers"
+                          className={styles.ltApprovalInput}
+                          type="text"
+                          value={(draft.approvers || []).join(', ')}
+                          onChange={(e) => setApprovers(e.target.value)}
+                          disabled={locked}
+                          placeholder="e.g. jsmith, agupta"
+                        />
+                      )}
+                      <span className={styles.ltApprovalHint}>(comma-separated)</span>
+                    </div>
+                  </div>
+
+                  {!locked ? (
+                    <>
+                      <div className={styles.ltBtnRow}>
+                        <button
+                          type="button"
+                          className={sofStyles.btnSaveOutline}
+                          onClick={() => handleSubmit(0)}
+                          disabled={saving}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <path d="M17 21v-8H7v8" />
+                            <path d="M7 3v5h8" />
+                          </svg>
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.btnSubmitClose}
+                          onClick={() => handleSubmit(1)}
+                          disabled={saving}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="m22 2-7 20-4-9-9-4Z" />
+                            <path d="M22 2 11 13" />
+                          </svg>
+                          Submit
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.btnCloseLaytime}
+                        onClick={() => handleSubmit(5)}
+                        disabled={saving}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <rect x="5" y="11" width="14" height="10" rx="2" />
+                          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                        </svg>
+                        Close Laytime
+                      </button>
+                      <div className={sofStyles.gprlNote}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M12 9v4" />
+                          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                          <path d="M12 17h.01" />
+                        </svg>
+                        Use &ldquo;Submit&rdquo; once laytime figures for every port call are finalised; &ldquo;Close Laytime&rdquo; locks the calculation entirely.
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className={styles.lockedNote}>This Laytime is locked / closed.</p>
+                      {form?.canOpen ? (
+                        <button
+                          type="button"
+                          className={styles.btnSubmitClose}
+                          onClick={handleOpen}
+                          disabled={saving}
+                          style={{ width: '100%' }}
+                        >
+                          Open
+                        </button>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+
+                <div className={styles.ltFullWidth}>
+                  <div className={sofStyles.cfSection}>
                     <div className={styles.ltActdedGrid}>
                       <div className={`${styles.ltActdedCol} ${styles.ltActdedColLeft}`}>
                         <div className={`${sofStyles.cfSectionHead} ${sofStyles.cfSectionHeadOrange}`}>
@@ -1122,177 +1370,6 @@ export default function OpsVcLaytimePage() {
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className={styles.ltSide}>
-                  <div className={styles.ltHighlightCard}>
-                    <div className={styles.ltHlHead}>
-                      <div className={styles.ltHlIco}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M4 19V5" />
-                          <path d="M4 19h16" />
-                          <path d="M8 15v-4" />
-                          <path d="M12 15V7" />
-                          <path d="M16 15v-6" />
-                        </svg>
-                      </div>
-                      <div>
-                        <div className={styles.ltHlTitle}>Summary</div>
-                        <div className={styles.ltHlSub}>{summarySub}</div>
-                      </div>
-                    </div>
-                    <div className={styles.ltHlBody}>
-                      <div className={styles.ltSumItem}>
-                        <span className={styles.ltSumIco}><SumIconClock /></span>
-                        <div className={styles.ltSumText}>
-                          <label>Laytime Allowed</label>
-                          <div>
-                            <span className={styles.ltSumVal}>{draft.laytimeAllowed || '—'}</span>
-                            <span className={styles.ltSumUnit}>{unitShort}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className={styles.ltSumItem}>
-                        <span className={styles.ltSumIco}><SumIconClock /></span>
-                        <div className={styles.ltSumText}>
-                          <label>Laytime Used</label>
-                          <div>
-                            <span className={styles.ltSumVal}>{draft.actualLaytime || '—'}</span>
-                            <span className={styles.ltSumUnit}>{unitShort}</span>
-                          </div>
-                        </div>
-                      </div>
-                      {showTimeSaved ? (
-                        <div className={`${styles.ltSumItem} ${styles.ltSumItemHi}`}>
-                          <span className={styles.ltSumIco}><SumIconClock /></span>
-                          <div className={styles.ltSumText}>
-                            <label>Time Saved</label>
-                            <div>
-                              <span className={styles.ltSumVal}>{draft.timeToDespatch || '—'}</span>
-                              <span className={styles.ltSumUnit}>{unitShort}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className={`${styles.ltSumItem} ${styles.ltSumItemNeg}`}>
-                          <span className={styles.ltSumIco}><SumIconClock /></span>
-                          <div className={styles.ltSumText}>
-                            <label>Time (Lost)</label>
-                            <div>
-                              <span className={styles.ltSumVal}>{draft.timeToDemurrage || '—'}</span>
-                              <span className={styles.ltSumUnit}>{unitShort}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      <div className={styles.ltSumItem}>
-                        <span className={styles.ltSumIco}><SumIconCash /></span>
-                        <div className={styles.ltSumText}>
-                          <label>Demurrage Rate</label>
-                          <input
-                            className={styles.ltSumInput}
-                            type="text"
-                            value={draft.demurrageRate ?? ''}
-                            onChange={(e) => patchDraft({ demurrageRate: e.target.value }, { recompute: true })}
-                            disabled={locked}
-                            placeholder="0.00"
-                            aria-label={`Demurrage Rate (${currency}/Day)`}
-                          />
-                          <span className={styles.ltSumUnit}>{currency}/day</span>
-                        </div>
-                      </div>
-                      <div className={styles.ltSumItem}>
-                        <span className={styles.ltSumIco}><SumIconCash /></span>
-                        <div className={styles.ltSumText}>
-                          <label>Dispatch Rate</label>
-                          <input
-                            className={styles.ltSumInput}
-                            type="text"
-                            value={draft.despatchRate ?? ''}
-                            onChange={(e) => patchDraft({ despatchRate: e.target.value }, { recompute: true })}
-                            disabled={locked}
-                            placeholder="0.00"
-                            aria-label={`Dispatch Rate (${currency}/Day)`}
-                          />
-                          <span className={styles.ltSumUnit}>{currency}/day</span>
-                        </div>
-                      </div>
-                      {showTimeSaved ? (
-                        <div className={`${styles.ltSumItem} ${styles.ltSumItemHi}`}>
-                          <span className={styles.ltSumIco}><SumIconCash /></span>
-                          <div className={styles.ltSumText}>
-                            <label>Dispatch Payable</label>
-                            <div>
-                              <span className={styles.ltSumVal}>{draft.ttlDespatch || '—'}</span>
-                              <span className={styles.ltSumUnit}>{currency}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className={`${styles.ltSumItem} ${styles.ltSumItemNeg}`}>
-                          <span className={styles.ltSumIco}><SumIconCash /></span>
-                          <div className={styles.ltSumText}>
-                            <label>Demurrage Payable</label>
-                            <div>
-                              <span className={styles.ltSumVal}>{draft.ttlDemurrage || '—'}</span>
-                              <span className={styles.ltSumUnit}>{currency}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className={sofStyles.cfSection}>
-                    <div className={`${sofStyles.cfSectionHead} ${styles.cfSectionHeadAmber}`}>
-                      <div className={sofStyles.cfSectionTitleWrap}>
-                        <div className={`${sofStyles.sectionIco} ${styles.sectionIcoAmber}`}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                            <circle cx="9" cy="7" r="4" />
-                            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                          </svg>
-                        </div>
-                        <div className={sofStyles.cfSectionTitle} style={{ fontSize: 13.5 }}>Level 1 Approver</div>
-                      </div>
-                    </div>
-                    <div className={styles.ltApprovalBody} data-field="approvers">
-                      <label className={styles.ltApprovalLabel} htmlFor="approvers">Assign Approval Usernames</label>
-                      {approverOptions.length ? (
-                        <select
-                          id="approvers"
-                          className={styles.ltApprovalSelect}
-                          multiple
-                          disabled={locked}
-                          value={draft.approvers || []}
-                          onChange={(e) => {
-                            const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                            setApprovers(selected);
-                          }}
-                        >
-                          {approverOptions.map((opt) => {
-                            const id = String(opt.id ?? opt.value ?? '');
-                            const name = opt.name ?? opt.label ?? id;
-                            return (
-                              <option key={id} value={id}>{name}</option>
-                            );
-                          })}
-                        </select>
-                      ) : (
-                        <input
-                          id="approvers"
-                          className={styles.ltApprovalInput}
-                          type="text"
-                          value={(draft.approvers || []).join(', ')}
-                          onChange={(e) => setApprovers(e.target.value)}
-                          disabled={locked}
-                          placeholder="e.g. jsmith, agupta"
-                        />
-                      )}
-                      <span className={styles.ltApprovalHint}>(comma-separated)</span>
-                    </div>
-                  </div>
 
                   <div className={sofStyles.cfSection}>
                     <div className={`${sofStyles.cfSectionHead} ${sofStyles.cfSectionHeadGrey}`}>
@@ -1305,12 +1382,16 @@ export default function OpsVcLaytimePage() {
                             <path d="M8 17h6" />
                           </svg>
                         </div>
-                        <div className={sofStyles.cfSectionTitle} style={{ fontSize: 13.5 }}>Remarks &amp; Documents</div>
-                        {docCount ? <div className={sofStyles.sideCount}>{docCount}</div> : null}
+                        <div>
+                          <div className={sofStyles.cfSectionTitle}>
+                            Remarks &amp; Documents
+                            {docCount ? <span className={styles.ltCountBadge}>{docCount}</span> : null}
+                          </div>
+                          <div className={sofStyles.cfSectionSub}>{summarySub}</div>
+                        </div>
                       </div>
                     </div>
                     <div className={styles.ltRemarksBody}>
-                      <div className={styles.ltRemarksLeglabel}>{summarySub}</div>
                       <textarea
                         className={styles.ltRemarksBox}
                         rows={3}
@@ -1400,73 +1481,6 @@ export default function OpsVcLaytimePage() {
                       ) : null}
                     </div>
                   </div>
-
-                  {!locked ? (
-                    <>
-                      <div className={styles.ltBtnRow}>
-                        <button
-                          type="button"
-                          className={sofStyles.btnSaveOutline}
-                          onClick={() => handleSubmit(0)}
-                          disabled={saving}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                            <path d="M17 21v-8H7v8" />
-                            <path d="M7 3v5h8" />
-                          </svg>
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btnSubmitClose}
-                          onClick={() => handleSubmit(1)}
-                          disabled={saving}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="m22 2-7 20-4-9-9-4Z" />
-                            <path d="M22 2 11 13" />
-                          </svg>
-                          Submit
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        className={styles.btnCloseLaytime}
-                        onClick={() => handleSubmit(5)}
-                        disabled={saving}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <rect x="5" y="11" width="14" height="10" rx="2" />
-                          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-                        </svg>
-                        Close Laytime
-                      </button>
-                      <div className={sofStyles.gprlNote}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M12 9v4" />
-                          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                          <path d="M12 17h.01" />
-                        </svg>
-                        Use &ldquo;Submit&rdquo; once laytime figures for every port call are finalised; &ldquo;Close Laytime&rdquo; locks the calculation entirely.
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className={styles.lockedNote}>This Laytime is locked / closed.</p>
-                      {form?.canOpen ? (
-                        <button
-                          type="button"
-                          className={styles.btnSubmitClose}
-                          onClick={handleOpen}
-                          disabled={saving}
-                          style={{ width: '100%' }}
-                        >
-                          Open
-                        </button>
-                      ) : null}
-                    </>
-                  )}
                 </div>
               </div>
             ) : null}

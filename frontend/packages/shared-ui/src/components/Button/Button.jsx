@@ -114,6 +114,9 @@ const Button = ({
   size = 'md',
   className = '',
   ariaLabel,
+  title,
+  target,
+  rel,
 }) => {
   if (label === '+') {
     return (
@@ -209,9 +212,12 @@ const Button = ({
       <a
         href={appPath(href)}
         className={baseClass}
-        title={accessibleName}
+        title={title || accessibleName}
         aria-label={accessibleName}
         aria-disabled={disabled || undefined}
+        target={target}
+        rel={rel}
+        onClick={disabled ? (event) => event.preventDefault() : undefined}
       >
         {content}
       </a>
@@ -224,7 +230,7 @@ const Button = ({
       onClick={onClick}
       disabled={disabled}
       className={baseClass}
-      title={accessibleName}
+      title={title || accessibleName}
       aria-label={accessibleName}
     >
       {content}

@@ -655,6 +655,7 @@ export async function dbListCargoRelets({
   status = '',
   view = 'business',
   standaloneOnly = false,
+  selYear = '',
 } = {}) {
   const pool = getPool();
   const businessType = selBType || '2';
@@ -685,16 +686,17 @@ export async function dbListCargoRelets({
 
   const statusKey = String(status || '').toLowerCase();
   if (view === 'ops') {
+    conditions.push('r.FIXED = 1');
     if (statusKey === 'postops' || statusKey === 'post-ops') {
-      // Reserved for post-ops workflow; no distinct flag yet.
-      conditions.push('1 = 0');
+      conditions.push('COALESCE(r.FINAL_STATUS, 0) = 2');
+      conditions.push('(r.UPDATE_STATUS IS NULL OR r.UPDATE_STATUS <> 3)');
     } else if (statusKey === 'history') {
-      conditions.push('r.UPDATE_STATUS = 3');
-    } else {
-      // In Ops (default): submitted / fixed relets still live.
-      conditions.push('r.FIXED = 1');
+      conditions.push('COALESCE(r.FINAL_STATUS, 0) = 3');
+    } else if (statusKey === 'ops' || statusKey === 'inops' || statusKey === 'in-ops') {
+      conditions.push('COALESCE(r.FINAL_STATUS, 0) <= 1');
       conditions.push('(r.UPDATE_STATUS IS NULL OR r.UPDATE_STATUS <> 3)');
     }
+    // empty status → all fixed ops stages (for highlight counts)
   } else if (statusKey === 'completed' || statusKey === 'closed') {
     // Reserved until a dedicated completed flag exists.
     conditions.push('1 = 0');
@@ -702,6 +704,12 @@ export async function dbListCargoRelets({
     conditions.push('r.UPDATE_STATUS = 3');
   } else if (statusKey === 'active' || statusKey === 'open' || statusKey === '1') {
     conditions.push('(r.UPDATE_STATUS IS NULL OR r.UPDATE_STATUS <> 3)');
+  }
+
+  const yearKey = String(selYear || '').trim().toLowerCase();
+  if (yearKey && yearKey !== 'all') {
+    conditions.push('YEAR(r.TRANS_DATE) = ?');
+    params.push(Number(yearKey));
   }
 
   const where = conditions.join(' AND ');
@@ -763,9 +771,25 @@ export async function dbListCargoRelets({
 
     const fixed = Number(row.FIXED) === 1;
     const updateStatus = row.UPDATE_STATUS != null ? Number(row.UPDATE_STATUS) : 0;
+    const finalStatus = row.FINAL_STATUS != null ? Number(row.FINAL_STATUS) : 0;
     let statusLabel = 'Draft';
     if (updateStatus === 3) statusLabel = 'Cancelled';
     else if (fixed) statusLabel = 'Active';
+
+    let opsStage = null;
+    let nextLabel = null;
+    if (fixed && updateStatus !== 3) {
+      if (finalStatus >= 3) opsStage = 'history';
+      else if (finalStatus === 2) {
+        opsStage = 'postops';
+        nextLabel = 'History';
+      } else {
+        opsStage = 'ops';
+        nextLabel = 'Post Ops';
+      }
+    } else if (fixed && finalStatus >= 3) {
+      opsStage = 'history';
+    }
 
     records.push({
       index,
@@ -790,7 +814,10 @@ export async function dbListCargoRelets({
       currency: row.CURRENCY || 'USD',
       fixed,
       updateStatus,
-      finalStatus: row.FINAL_STATUS != null ? Number(row.FINAL_STATUS) : 0,
+      finalStatus,
+      opsStage,
+      nextLabel,
+      canAdvanceOps: Boolean(nextLabel),
       status: statusLabel,
       canDelete: !fixed && updateStatus !== 3,
     });
@@ -1213,6 +1240,69 @@ export async function dbDeleteCargoRelet(fcaId) {
   } finally {
     connection.release();
   }
+}
+
+/**
+ * Advance cargo-relet ops stage: In Ops (FINAL_STATUS≤1) → Post Ops (2) → History (3).
+ */
+export async function dbAdvanceCargoReletOpsStage(fcaId) {
+  const pool = getPool();
+  const [[row]] = await pool.query(
+    `SELECT FCAID, FIXED, FINAL_STATUS, UPDATE_STATUS, CARGO_RELET_NO
+     FROM cargo_relet_estimate_masster
+     WHERE FCAID = ? AND MODULEID = ? AND MCOMPANYID = ?
+     LIMIT 1`,
+    [fcaId, COA_MODULE_ID, appContext.companyId],
+  );
+  if (!row) {
+    const error = new Error('Cargo relet not found.');
+    error.status = 404;
+    throw error;
+  }
+  if (Number(row.FIXED) !== 1) {
+    throw new Error('Only submitted cargo relets can move through Ops.');
+  }
+  if (Number(row.UPDATE_STATUS) === 3) {
+    throw new Error('Cancelled cargo relets cannot move through Ops.');
+  }
+
+  const current = row.FINAL_STATUS != null ? Number(row.FINAL_STATUS) : 0;
+  let nextStatus;
+  let nextLabel;
+  if (current <= 1) {
+    nextStatus = 2;
+    nextLabel = 'Post Ops';
+  } else if (current === 2) {
+    nextStatus = 3;
+    nextLabel = 'History';
+  } else {
+    throw new Error('Cargo relet is already in History.');
+  }
+
+  await pool.query(
+    `UPDATE cargo_relet_estimate_masster
+     SET FINAL_STATUS = ?, FINAL_DATETIME = NOW()
+     WHERE FCAID = ? AND MODULEID = ? AND MCOMPANYID = ?`,
+    [nextStatus, fcaId, COA_MODULE_ID, appContext.companyId],
+  );
+
+  await pool.query(
+    `INSERT INTO recent_work_master (LOGINID, WORK, WORK_DATE)
+     VALUES (?, ?, NOW())`,
+    [
+      appContext.userId,
+      `Cargo Relet ${row.CARGO_RELET_NO || fcaId} moved to ${nextLabel}.`,
+    ],
+  );
+
+  return {
+    msg: 0,
+    fcaId: Number(fcaId),
+    reletNo: row.CARGO_RELET_NO || '',
+    finalStatus: nextStatus,
+    opsStage: nextStatus === 2 ? 'postops' : 'history',
+    nextLabel,
+  };
 }
 
 export async function dbListCoaOpsVoyages({

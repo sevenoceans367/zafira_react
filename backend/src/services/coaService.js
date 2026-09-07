@@ -1,5 +1,6 @@
 import { isDbConfigured } from '../config.js';
 import {
+  dbAdvanceCargoReletOpsStage,
   dbCancelCoa,
   dbCreateCargoRelet,
   dbCreateCoa,
@@ -467,6 +468,20 @@ export async function updateCargoRelet(fcaId, payload) {
 export async function deleteCargoRelet(fcaId) {
   if (!isDbConfigured()) return { msg: 0 };
   return dbDeleteCargoRelet(fcaId);
+}
+
+export async function advanceCargoReletOpsStage(fcaId) {
+  if (!isDbConfigured()) {
+    return {
+      msg: 0,
+      fcaId: Number(fcaId) || 11,
+      reletNo: 'CR-001',
+      finalStatus: 2,
+      opsStage: 'postops',
+      nextLabel: 'Post Ops',
+    };
+  }
+  return dbAdvanceCargoReletOpsStage(fcaId);
 }
 
 export async function listCoaOpsVoyages(params) {

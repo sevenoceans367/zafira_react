@@ -9,9 +9,13 @@ export default function CargoReletHeaderActions({
   businessTypes = [],
   businessType,
   onBusinessTypeChange,
+  yearOptions = [],
+  year,
+  onYearChange,
 }) {
   const searchRef = useRef(null);
   const showBusinessType = typeof onBusinessTypeChange === 'function';
+  const showYear = typeof onYearChange === 'function' && yearOptions.length > 0;
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -37,6 +41,9 @@ export default function CargoReletHeaderActions({
         businessType,
         businessTypes,
         onBusinessTypeChange,
+        year,
+        yearOptions,
+        onYearChange,
       ]}
     >
       <HeaderFilterControls>
@@ -46,6 +53,15 @@ export default function CargoReletHeaderActions({
           onChange={onSearchChange}
           placeholder={searchPlaceholder}
         />
+        {showYear ? (
+          <CardSelect
+            options={yearOptions}
+            value={year}
+            onChange={onYearChange}
+            placeholder="Year"
+            ariaLabel="Year"
+          />
+        ) : null}
         {showBusinessType ? (
           <CardSelect
             options={businessTypes}

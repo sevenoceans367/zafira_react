@@ -181,6 +181,77 @@
   height: 15px;
 }
 
+.menuWrap {
+  position: relative;
+}
+
+.btnMore {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: var(--text-mid);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+
+.btnMore:hover,
+.btnMore[aria-expanded='true'] {
+  background: #f1f2f4;
+  color: var(--text-dark);
+}
+
+.btnMore svg {
+  width: 16px;
+  height: 16px;
+}
+
+.menuDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 210px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #111827;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuIcon {
+  display: inline-flex;
+  color: #374151;
+  flex: none;
+}
+
+.menuItem:hover {
+  background: #f3f4f6;
+}
+
 .grid {
   width: 100%;
   border-collapse: collapse;
@@ -288,4 +359,39 @@
 
 .accentCell {
   border-left: 3px solid var(--relet-red);
+}
+
+.pillNext {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 6px 13px;
+  border: 1.5px solid #1e3a5f;
+  background: #e8eef6;
+  color: #1e3a5f;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.pillNext:hover:not(:disabled) {
+  background: #d7e2f0;
+}
+
+.pillNext:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pillNext svg {
+  width: 11px;
+  height: 11px;
+}
+
+.dash {
+  color: var(--text-light);
+  font-weight: 600;
 }

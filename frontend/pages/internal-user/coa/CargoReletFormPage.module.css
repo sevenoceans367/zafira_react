@@ -307,13 +307,28 @@
 
 .panelHead {
   display: flex;
-  align-items: center;
-  gap: 9px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   padding: 13px 18px;
   font-family: var(--font-family-heading, inherit);
   font-weight: 700;
   font-size: 14.5px;
   color: #fff;
+}
+
+.panelHeadMain {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.panelHeadSub {
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 11px;
+  opacity: 0.85;
+  padding-left: 25px;
 }
 
 .panelIn .panelHead {
@@ -600,4 +615,116 @@
 .actionIcon:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.fieldHint {
+  font-size: 10.5px;
+  color: #8a93a2;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.estimateTopRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.estimateTopRow .field {
+  min-width: 120px;
+  flex: 1 1 140px;
+}
+
+.blockTitleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.blockTitleRow .blockTitle {
+  margin-bottom: 0;
+}
+
+.calcNote {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8a93a2;
+}
+
+.profitField {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #dfe2e7;
+}
+
+.profitField .field {
+  max-width: 280px;
+}
+
+.profitField input {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.profitPositive {
+  color: #0fa836 !important;
+}
+
+.profitNegative {
+  color: #e4483b !important;
+}
+
+.notesGap {
+  margin-top: 12px;
+}
+
+.remarksCol {
+  max-width: 160px;
+}
+
+.dropzone {
+  border: 1.5px dashed #dfe2e7;
+  border-radius: 12px;
+  padding: 18px;
+  text-align: center;
+  background: #fafbfc;
+}
+
+.dzText {
+  font-size: 13px;
+  color: #5b6472;
+  margin-bottom: 4px;
+}
+
+.dzSub {
+  font-size: 11.5px;
+  color: #8a93a2;
+  margin-bottom: 10px;
+}
+
+.attachBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid #dfe2e7;
+  background: #fff;
+  color: #5b6472;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.attachBtn:hover {
+  background: #f1f2f4;
+}
+
+.attachBtn input {
+  display: none;
 }

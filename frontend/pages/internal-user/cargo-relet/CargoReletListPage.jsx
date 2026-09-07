@@ -1,14 +1,28 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { LoadingOverlay, EditRecapIcon } from '@bainbridge/shared-ui';
+import { DownloadIcon, LoadingOverlay, EditRecapIcon, useConfirm } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useCargoReletModule } from '../../../hooks/useCargoReletModule.js';
-import { fetchStandaloneCargoRelets } from '../../../services/cargoRelets.js';
+import {
+  advanceStandaloneCargoReletOps,
+  fetchStandaloneCargoRelets,
+} from '../../../services/cargoRelets.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import CargoReletHeaderActions from './CargoReletHeaderActions.jsx';
 import styles from './CargoReletListPage.module.css';
+
+const EXPORT_PAGE_SIZE = 5000;
+
+const YEAR_OPTIONS = (() => {
+  const current = new Date().getFullYear();
+  return [
+    { id: 'all', name: 'All Years' },
+    { id: String(current), name: String(current) },
+    { id: String(current - 1), name: String(current - 1) },
+  ];
+})();
 
 const BUSINESS_TABS = [
   { id: 'active', label: 'Active' },
@@ -37,11 +51,19 @@ function PlusIcon() {
 }
 
 function TabIcon({ id }) {
-  if (id === 'completed' || id === 'history') {
+  if (id === 'completed' || id === 'postops') {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="9" />
         <path d="M8 12.5l2.5 2.5L16 9.5" />
+      </svg>
+    );
+  }
+  if (id === 'history') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3.5 2" />
       </svg>
     );
   }
@@ -50,6 +72,14 @@ function TabIcon({ id }) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="9" />
         <path d="M9.5 9.5l5 5M14.5 9.5l-5 5" />
+      </svg>
+    );
+  }
+  if (id === 'ops') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 16l1.5-6h13L20 16c-1 1.5-3 2.5-8 2.5S5 17.5 4 16z" />
+        <path d="M9 10V5h6v5" />
       </svg>
     );
   }
@@ -116,9 +146,86 @@ function parseOpsStatus(value) {
   return 'ops';
 }
 
+function csvCell(value) {
+  const text = String(value ?? '').replace(/\r?\n/g, ' ').trim();
+  if (text.includes(',') || text.includes('"')) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+function downloadCsv(filename, headers, rows) {
+  const lines = [
+    headers.map(csvCell).join(','),
+    ...rows.map((row) => headers.map((header) => csvCell(row[header])).join(',')),
+  ];
+  const blob = new Blob([`\ufeff${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportColumns(isOps) {
+  const cols = [
+    { key: '#', get: (row) => row.index },
+    { key: 'Relet No.', get: (row) => row.reletNo },
+    { key: 'Vessel', get: (row) => row.vesselName },
+    { key: 'Date', get: (row) => row.transDate || row.coaDate },
+    { key: 'Charterer', get: (row) => row.charterer },
+    { key: 'Cargo', get: (row) => row.cargo },
+    { key: 'LP/DP', get: (row) => row.ports },
+    { key: 'QTY (MT)', get: (row) => row.cargoQty },
+    { key: 'Frt-In ($/MT)', get: (row) => row.freightInPerMt },
+    { key: 'Frt-In', get: (row) => row.freightInAmt },
+    { key: 'FO Surcharge', get: (row) => row.foSurcharge },
+    { key: 'Frt-Out ($/MT)', get: (row) => row.freightOutPerMt },
+    { key: 'Frt-Out', get: (row) => row.freightOutAmt },
+    { key: 'P&L', get: (row) => row.profit },
+  ];
+  if (!isOps) cols.push({ key: 'Status', get: (row) => row.status });
+  return cols;
+}
+
+function mapExportRows(records, isOps) {
+  const cols = exportColumns(isOps);
+  return (records || []).map((row) => {
+    const out = {};
+    cols.forEach((col) => {
+      out[col.key] = col.get(row) ?? '';
+    });
+    return out;
+  });
+}
+
+function openPdfPrintWindow(title, headers, rows) {
+  const win = window.open('', '_blank');
+  if (!win) return;
+  const head = headers.map((h) => `<th>${String(h).replace(/</g, '&lt;')}</th>`).join('');
+  const body = rows.map((row) => (
+    `<tr>${headers.map((h) => `<td>${String(row[h] ?? '').replace(/</g, '&lt;')}</td>`).join('')}</tr>`
+  )).join('');
+  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:24px;color:#1b2430}
+      h1{font-size:18px;margin:0 0 16px}
+      table{width:100%;border-collapse:collapse;font-size:11px}
+      th,td{border:1px solid #dfe2e7;padding:6px 8px;text-align:left}
+      th{background:#fafbfc;text-transform:uppercase;font-size:10px;color:#5b6472}
+    </style></head><body>
+    <h1>${title}</h1>
+    <table><thead><tr>${head}</tr></thead><tbody>${body || `<tr><td colspan="${headers.length}">No records</td></tr>`}</tbody></table>
+    <script>window.onload=function(){window.print();}</script>
+    </body></html>`);
+  win.document.close();
+}
+
 export default function CargoReletListPage({ variant = 'business' }) {
   const isOps = variant === 'ops';
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const { cargoReletAddPath, cargoReletEditPath } = useCargoReletModule();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabs = isOps ? OPS_TABS : BUSINESS_TABS;
@@ -127,6 +234,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
   );
   const [businessTypes, setBusinessTypes] = useState([]);
   const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [year, setYear] = useState(searchParams.get('selYear') || (isOps ? String(new Date().getFullYear()) : 'all'));
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState({ count: 0, revenue: 0, qty: 0 });
   const [tabCounts, setTabCounts] = useState({});
@@ -135,8 +243,11 @@ export default function CargoReletListPage({ variant = 'business' }) {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const debouncedSearch = useDebouncedValue(search, 300);
   const [loading, setLoading] = useState(true);
+  const [advancingId, setAdvancingId] = useState(null);
   const [error, setError] = useState('');
   const [recordsTotal, setRecordsTotal] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   const updateQuery = useCallback((patch) => {
     setSearchParams((prev) => {
@@ -166,14 +277,16 @@ export default function CargoReletListPage({ variant = 'business' }) {
     setLoading(true);
     setError('');
     try {
-      const data = await fetchStandaloneCargoRelets({
+      const listParams = {
         selBType: businessType,
         page,
         pageSize,
         search: debouncedSearch,
         status: activeTab,
         view: isOps ? 'ops' : 'business',
-      });
+        ...(isOps ? { selYear: year === 'all' ? '' : year } : {}),
+      };
+      const data = await fetchStandaloneCargoRelets(listParams);
       setRows(data.records || []);
       setRecordsTotal(Number(data.recordsTotal || 0));
 
@@ -183,6 +296,8 @@ export default function CargoReletListPage({ variant = 'business' }) {
         pageSize: 500,
         search: debouncedSearch,
         view: isOps ? 'ops' : 'business',
+        status: isOps ? '' : undefined,
+        ...(isOps ? { selYear: year === 'all' ? '' : year } : {}),
       });
       const allRows = all.records || [];
       const revenue = allRows.reduce((sum, row) => sum + (Number(String(row.profit ?? '').replace(/,/g, '')) || 0), 0);
@@ -191,9 +306,9 @@ export default function CargoReletListPage({ variant = 'business' }) {
 
       if (isOps) {
         setTabCounts({
-          ops: allRows.filter((r) => r.fixed && r.updateStatus !== 3).length,
-          postops: 0,
-          history: allRows.filter((r) => r.updateStatus === 3).length,
+          ops: allRows.filter((r) => r.opsStage === 'ops' || (!r.opsStage && r.fixed && Number(r.finalStatus || 0) <= 1 && r.updateStatus !== 3)).length,
+          postops: allRows.filter((r) => r.opsStage === 'postops' || Number(r.finalStatus) === 2).length,
+          history: allRows.filter((r) => r.opsStage === 'history' || Number(r.finalStatus) === 3).length,
         });
       } else {
         setTabCounts({
@@ -209,7 +324,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, businessType, debouncedSearch, isOps, page, pageSize]);
+  }, [activeTab, businessType, debouncedSearch, isOps, page, pageSize, year]);
 
   useEffect(() => {
     loadList();
@@ -222,8 +337,96 @@ export default function CargoReletListPage({ variant = 'business' }) {
       page: String(page),
       pageSize: String(pageSize),
       search: debouncedSearch || undefined,
+      ...(isOps ? { selYear: year === 'all' ? undefined : year } : {}),
     });
-  }, [activeTab, businessType, debouncedSearch, page, pageSize, updateQuery]);
+  }, [activeTab, businessType, debouncedSearch, isOps, page, pageSize, updateQuery, year]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  const fetchExportRows = useCallback(async () => {
+    const data = await fetchStandaloneCargoRelets({
+      selBType: businessType,
+      page: 1,
+      pageSize: EXPORT_PAGE_SIZE,
+      search: debouncedSearch,
+      status: activeTab,
+      view: isOps ? 'ops' : 'business',
+      ...(isOps ? { selYear: year === 'all' ? '' : year } : {}),
+    });
+    return mapExportRows(data.records || [], isOps);
+  }, [activeTab, businessType, debouncedSearch, isOps, year]);
+
+  const handleAdvanceOps = async (row) => {
+    const nextLabel = row.nextLabel || (activeTab === 'ops' ? 'Post Ops' : 'History');
+    const ok = await confirm({
+      title: `Move to ${nextLabel}`,
+      message: `Move ${row.reletNo || 'this cargo relet'} to ${nextLabel}?`,
+      confirmLabel: 'Move',
+    });
+    if (!ok) return;
+    setAdvancingId(row.fcaId);
+    setError('');
+    try {
+      await advanceStandaloneCargoReletOps(row.fcaId);
+      await loadList();
+    } catch (err) {
+      setError(err.message || 'Failed to advance cargo relet.');
+    } finally {
+      setAdvancingId(null);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    setMenuOpen(false);
+    try {
+      const exportRows = await fetchExportRows();
+      const headers = exportColumns(isOps).map((col) => col.key);
+      downloadCsv(`cargo-relets-${activeTab}.csv`, headers, exportRows);
+    } catch (err) {
+      setError(err.message || 'Failed to download Excel.');
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setMenuOpen(false);
+    try {
+      const exportRows = await fetchExportRows();
+      const headers = exportColumns(isOps).map((col) => col.key);
+      openPdfPrintWindow(`Cargo Relets — ${activeTab}`, headers, exportRows);
+    } catch (err) {
+      setError(err.message || 'Failed to download PDF.');
+    }
+  };
+
+  const handleEmail = async () => {
+    setMenuOpen(false);
+    try {
+      const exportRows = await fetchExportRows();
+      const headers = exportColumns(isOps).map((col) => col.key);
+      const lines = [
+        headers.join('\t'),
+        ...exportRows.map((row) => headers.map((header) => String(row[header] ?? '')).join('\t')),
+      ];
+      const fullBody = `Cargo Relets (${activeTab}) — ${exportRows.length} record(s)\n\n${lines.join('\n')}`;
+      // mailto URLs have practical length limits across clients
+      const maxBody = 1800;
+      const body = fullBody.length > maxBody
+        ? `${fullBody.slice(0, maxBody)}\n\n…(truncated; use Download as Excel for the full list)`
+        : fullBody;
+      window.location.href = `mailto:?subject=${encodeURIComponent(`Cargo Relets — ${activeTab}`)}&body=${encodeURIComponent(body)}`;
+    } catch (err) {
+      setError(err.message || 'Failed to prepare email.');
+    }
+  };
 
   const highlights = useMemo(() => {
     if (isOps) {
@@ -262,6 +465,14 @@ export default function CargoReletListPage({ variant = 'business' }) {
           setBusinessType(value || '2');
           setPage(1);
         }}
+        {...(isOps ? {
+          yearOptions: YEAR_OPTIONS,
+          year,
+          onYearChange: (value) => {
+            setYear(value || 'all');
+            setPage(1);
+          },
+        } : {})}
       />
       {error ? <div className={styles.error}>{error}</div> : null}
       <LoadingOverlay show={loading} label={isOps ? 'Loading Cargo Relet Ops…' : 'Loading Cargo Relets…'} />
@@ -310,12 +521,55 @@ export default function CargoReletListPage({ variant = 'business' }) {
           setPageSize(size);
           setPage(1);
         }}
+        toolbarStart={(
+          !isOps ? (
+            <div className={styles.menuWrap} ref={menuRef}>
+              <button
+                type="button"
+                className={styles.btnMore}
+                aria-label="More options"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                title="Download"
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="5" r="1.8" />
+                  <circle cx="12" cy="12" r="1.8" />
+                  <circle cx="12" cy="19" r="1.8" />
+                </svg>
+              </button>
+              {menuOpen ? (
+                <div className={styles.menuDropdown} role="menu">
+                  <button type="button" role="menuitem" className={styles.menuItem} onClick={handleDownloadExcel}>
+                    <span className={styles.menuIcon} aria-hidden>
+                      <DownloadIcon size={16} title="" />
+                    </span>
+                    Download as Excel
+                  </button>
+                  <button type="button" role="menuitem" className={styles.menuItem} onClick={handleDownloadPdf}>
+                    <span className={styles.menuIcon} aria-hidden>
+                      <DownloadIcon size={16} title="" />
+                    </span>
+                    Download as PDF
+                  </button>
+                  <button type="button" role="menuitem" className={styles.menuItem} onClick={handleEmail}>
+                    <span className={styles.menuIcon} aria-hidden>
+                      <DownloadIcon size={16} title="" />
+                    </span>
+                    Email
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null
+        )}
         toolbarLeft={(
           !isOps ? (
             <button
               type="button"
               className={styles.btnAdd}
-              onClick={() => navigate(cargoReletAddPath)}
+              onClick={() => navigate(`${cargoReletAddPath}?selBType=${businessType}`)}
             >
               <PlusIcon />
               Add New Cargo Relet
@@ -373,7 +627,26 @@ export default function CargoReletListPage({ variant = 'business' }) {
                     <EditRecapIcon size={16} />
                   </Link>
                 </td>
-                {isOps ? <td>—</td> : null}
+                {isOps ? (
+                  <td>
+                    {row.canAdvanceOps && row.nextLabel ? (
+                      <button
+                        type="button"
+                        className={styles.pillNext}
+                        disabled={advancingId === row.fcaId}
+                        onClick={() => handleAdvanceOps(row)}
+                      >
+                        {row.nextLabel}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M5 12h14" />
+                          <path d="M13 6l6 6-6 6" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <span className={styles.dash}>—</span>
+                    )}
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

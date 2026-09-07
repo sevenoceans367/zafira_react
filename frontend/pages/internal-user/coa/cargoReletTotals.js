@@ -8,10 +8,52 @@ function money(value) {
 }
 
 /**
+ * Standalone Cargo Relet live calc — mirrors php/New_Standalone_Cargo_Relet.html.
+ * Bunker Diff / Bnkr Surcharge / Effective Frt are $/MT; Gross/Nett are amounts.
+ */
+export function calcStandaloneCargoReletTotals(form) {
+  const qty = num(form.cargoQty);
+  const bunkerDiff = num(form.currentFoPrice) - num(form.contractFoPrice);
+
+  const bunkerSurIn = bunkerDiff * num(form.bafUsd);
+  const effFrtIn = num(form.freightUsd) + bunkerSurIn;
+  const grossRev = qty * effFrtIn;
+  const ttlComm = grossRev * ((num(form.addCom) + num(form.brokerage)) / 100);
+  const nettRev = grossRev - ttlComm;
+
+  const bunkerSurOut = bunkerDiff * num(form.bafUsdOut);
+  const effFrtOut = num(form.freightUsdOut) + bunkerSurOut;
+  const grossExp = qty * effFrtOut;
+  const addCommAmtOut = grossExp * (num(form.addComOut) / 100);
+  const brokerageAmtOut = grossExp * (num(form.brokerageOut) / 100);
+  const nettExp = grossExp - addCommAmtOut - brokerageAmtOut;
+
+  return {
+    bunkerDiff: money(bunkerDiff),
+    bunkerSurchargeAmt: money(bunkerSurIn),
+    effectiveFrt: money(effFrtIn),
+    freightAmt: money(grossRev),
+    addCommAmt: money(ttlComm),
+    brokerageAmt: money(0),
+    totalAmt: money(nettRev),
+    bunkerSurchargeAmtOut: money(bunkerSurOut),
+    effectiveFrtOut: money(effFrtOut),
+    freightAmtOut: money(grossExp),
+    addCommAmtOut: money(addCommAmtOut),
+    brokerageAmtOut: money(brokerageAmtOut),
+    totalAmtOut: money(nettExp),
+    profit: money(nettRev - nettExp),
+  };
+}
+
+/**
  * Commercial totals for COA cargo relet (IN vs OUT).
  * Mirrors php/addcoacargorelet.php getCalculation().
+ * Pass `{ standalone: true }` for the New Standalone Cargo Relet model.
  */
-export function calcCargoReletTotals(form) {
+export function calcCargoReletTotals(form, options = {}) {
+  if (options.standalone) return calcStandaloneCargoReletTotals(form);
+
   const qty = num(form.cargoQty);
 
   const freightAmt = qty * num(form.freightUsd);

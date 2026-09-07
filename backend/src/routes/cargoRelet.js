@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  advanceCargoReletOpsStage,
   createCargoRelet,
   deleteCargoRelet,
   getCargoRelet,
@@ -32,7 +33,12 @@ router.get('/', asyncHandler(async (req, res) => {
     status: req.query.status || '',
     view: req.query.view || 'business',
     standaloneOnly: req.query.standaloneOnly === '1' || req.query.standaloneOnly === 'true',
+    selYear: req.query.selYear || '',
   }));
+}));
+
+router.post('/:fcaId/advance-ops', asyncHandler(async (req, res) => {
+  res.json(await advanceCargoReletOpsStage(req.params.fcaId));
 }));
 
 router.get('/:fcaId', asyncHandler(async (req, res) => {

@@ -52,3 +52,11 @@ export async function deleteStandaloneCargoRelet(fcaId) {
   });
   return parseJson(response, 'Failed to delete cargo relet.');
 }
+
+export async function advanceStandaloneCargoReletOps(fcaId) {
+  const response = await fetch(`${BASE}/${encodeURIComponent(fcaId)}/advance-ops`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return parseJson(response, 'Failed to advance cargo relet ops stage.');
+}

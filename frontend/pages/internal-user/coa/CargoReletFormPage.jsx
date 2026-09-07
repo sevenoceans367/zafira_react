@@ -37,6 +37,31 @@ const ALL_TABS = [
 
 const NEW_RELET_TABS = ALL_TABS.filter((item) => item.id === 'estimate');
 
+const MIRROR_ROW_KEYS = {
+  partiesIn: 'partiesOut',
+  loadPortsIn: 'loadPortsOut',
+  dischargePortsIn: 'dischargePortsOut',
+};
+
+const STANDALONE_LIVE_KEYS = new Set([
+  'cargoQty',
+  'freightUsd',
+  'bafUsd',
+  'contractFoPrice',
+  'addCom',
+  'brokerage',
+  'freightUsdOut',
+  'bafUsdOut',
+  'currentFoPrice',
+  'addComOut',
+  'brokerageOut',
+]);
+
+function generateStandaloneReletNo() {
+  const stamp = String(Date.now()).slice(-6);
+  return `RLT-${stamp}`;
+}
+
 function PlusIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
@@ -53,6 +78,24 @@ function ReletIcon() {
       <polyline points="21 16 21 21 16 21" />
       <line x1="15" y1="15" x2="21" y2="21" />
       <line x1="4" y1="4" x2="9" y2="9" />
+    </svg>
+  );
+}
+
+function EstimateCardIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="2" width="16" height="20" rx="2" />
+      <line x1="8" y1="6" x2="16" y2="6" />
+      <line x1="8" y1="10" x2="8" y2="10.01" />
+      <line x1="12" y1="10" x2="12" y2="10.01" />
+      <line x1="16" y1="10" x2="16" y2="10.01" />
+      <line x1="8" y1="14" x2="8" y2="14.01" />
+      <line x1="12" y1="14" x2="12" y2="14.01" />
+      <line x1="16" y1="14" x2="16" y2="14.01" />
+      <line x1="8" y1="18" x2="8" y2="18.01" />
+      <line x1="12" y1="18" x2="12" y2="18.01" />
+      <line x1="16" y1="18" x2="16" y2="18.01" />
     </svg>
   );
 }
@@ -209,6 +252,9 @@ function emptyForm(businessTypeId = '2', coaId = '') {
     brokerageAmt: '',
     totalAmt: '',
     profit: '',
+    bunkerDiff: '',
+    effectiveFrt: '',
+    effectiveFrtOut: '',
     freightAmtOut: '',
     bunkerSurchargeAmtOut: '',
     demmurageAmtOut: '',
@@ -216,6 +262,7 @@ function emptyForm(businessTypeId = '2', coaId = '') {
     addCommAmtOut: '',
     brokerageAmtOut: '',
     totalAmtOut: '',
+    attachmentName: '',
     coaRef: '',
     loadportAgent: '',
     loadportRemarks: '',
@@ -383,6 +430,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [attachNote, setAttachNote] = useState('No documents attached yet');
 
   useEffect(() => {
     let cancelled = false;
@@ -425,6 +473,10 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
         }
 
         const next = emptyForm(bType, queryCoaId);
+        if (standalone) {
+          next.reletNo = generateStandaloneReletNo();
+          next.reletName = next.reletNo;
+        }
         if (queryCoaId) {
           try {
             const coa = await fetchCoa(queryCoaId);
@@ -440,7 +492,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           }
         }
         if (cancelled) return;
-        setForm(next);
+        setForm(standalone ? { ...next, ...calcCargoReletTotals(next, { standalone: true }) } : next);
       } catch (err) {
         if (!cancelled) setError(err.message || 'Failed to load cargo relet form.');
       } finally {
@@ -465,8 +517,21 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     return [...map.values()];
   }, [lookups]);
 
-  const cargoTypeLabel = useMemo(
-    () => businessTypes.find((item) => String(item.id) === String(form.businessTypeId))?.name || '',
+  const cargoTypeLabel = useMemo(() => {
+    if (standalone) {
+      const cargos = lookups?.cargos || [];
+      const match = cargos.find((item) => {
+        const name = String(item.name || '').toLowerCase();
+        const typed = String(form.cargoName || '').toLowerCase().trim();
+        return typed && (name === typed || name.startsWith(typed) || typed.startsWith(name));
+      });
+      return match?.name || (form.cargoName ? '—' : '—');
+    }
+    return businessTypes.find((item) => String(item.id) === String(form.businessTypeId))?.name || '';
+  }, [businessTypes, form.businessTypeId, form.cargoName, lookups, standalone]);
+
+  const businessTypeLabel = useMemo(
+    () => businessTypes.find((item) => String(item.id) === String(form.businessTypeId))?.name || '—',
     [businessTypes, form.businessTypeId],
   );
 
@@ -478,12 +543,16 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
       ? `${coaPath('running')}?selBType=${form.businessTypeId || '2'}`
       : opsListHref;
 
-  const patch = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
-
   const applyCalc = useCallback((current) => ({
     ...current,
-    ...calcCargoReletTotals(current),
-  }), []);
+    ...calcCargoReletTotals(current, { standalone }),
+  }), [standalone]);
+
+  const patch = (key, value) => setForm((prev) => {
+    const next = { ...prev, [key]: value };
+    if (standalone && STANDALONE_LIVE_KEYS.has(key)) return applyCalc(next);
+    return next;
+  });
 
   const recalculate = () => {
     setForm((prev) => applyCalc(prev));
@@ -565,9 +634,46 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   };
 
   const updateRows = (key, index, patchRow) => {
-    const next = [...(form[key] || [])];
-    next[index] = { ...next[index], ...patchRow };
-    patch(key, next);
+    setForm((prev) => {
+      const rows = [...(prev[key] || [])];
+      rows[index] = { ...rows[index], ...patchRow };
+      const next = { ...prev, [key]: rows };
+      if (standalone && MIRROR_ROW_KEYS[key]) {
+        const mirrorKey = MIRROR_ROW_KEYS[key];
+        const factory = key.startsWith('parties') ? partyRow : portRow;
+        const mirrorRows = [...(prev[mirrorKey] || [])];
+        while (mirrorRows.length <= index) mirrorRows.push(factory());
+        mirrorRows[index] = { ...mirrorRows[index], ...patchRow };
+        next[mirrorKey] = mirrorRows;
+      }
+      return next;
+    });
+  };
+
+  const addTableRow = (key) => {
+    const factory = key.startsWith('parties') ? partyRow : portRow;
+    setForm((prev) => {
+      const next = { ...prev, [key]: [...(prev[key] || []), factory()] };
+      if (standalone && MIRROR_ROW_KEYS[key]) {
+        const mirrorKey = MIRROR_ROW_KEYS[key];
+        next[mirrorKey] = [...(prev[mirrorKey] || []), factory()];
+      }
+      return next;
+    });
+  };
+
+  const removeTableRow = (key, index) => {
+    setForm((prev) => {
+      if ((prev[key] || []).length <= 1) return prev;
+      const next = { ...prev, [key]: prev[key].filter((_, i) => i !== index) };
+      if (standalone && MIRROR_ROW_KEYS[key]) {
+        const mirrorKey = MIRROR_ROW_KEYS[key];
+        if ((prev[mirrorKey] || []).length > 1) {
+          next[mirrorKey] = prev[mirrorKey].filter((_, i) => i !== index);
+        }
+      }
+      return next;
+    });
   };
 
   const renderPartyTable = (key) => (
@@ -606,7 +712,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                   className={styles.actionIcon}
                   title="Remove row"
                   disabled={(form[key] || []).length <= 1}
-                  onClick={() => patch(key, form[key].filter((_, i) => i !== index))}
+                  onClick={() => removeTableRow(key, index)}
                 >
                   <i className="bi bi-x-lg" aria-hidden />
                 </button>
@@ -619,7 +725,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
         <button
           type="button"
           className={styles.dashedAdd}
-          onClick={() => patch(key, [...(form[key] || []), partyRow()])}
+          onClick={() => addTableRow(key)}
         >
           <PlusIcon />
           Add
@@ -636,7 +742,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           <tr>
             <th style={{ width: 26 }}>#</th>
             <th>{heading === 'Dis Port' ? 'Dis Port' : 'Load Port'}</th>
-            <th>Comments</th>
+            <th className={styles.remarksCol}>Comments</th>
             <th style={{ width: 30 }} />
           </tr>
         </thead>
@@ -652,7 +758,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                   onChange={(portId, portName) => updateRows(key, index, { portId, portName })}
                 />
               </td>
-              <td data-relet-field-wrap>
+              <td className={styles.remarksCol} data-relet-field-wrap>
                 <input
                   id={`${key}-${index}-comments`}
                   value={row.comments}
@@ -666,7 +772,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                   className={styles.actionIcon}
                   title="Remove row"
                   disabled={(form[key] || []).length <= 1}
-                  onClick={() => patch(key, form[key].filter((_, i) => i !== index))}
+                  onClick={() => removeTableRow(key, index)}
                 >
                   <i className="bi bi-x-lg" aria-hidden />
                 </button>
@@ -679,7 +785,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
         <button
           type="button"
           className={styles.dashedAdd}
-          onClick={() => patch(key, [...(form[key] || []), portRow()])}
+          onClick={() => addTableRow(key)}
         >
           <PlusIcon />
           Add
@@ -690,6 +796,45 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
 
   const renderFreight = (side) => {
     const out = side === 'out';
+    if (standalone) {
+      const rateId = out ? 'freightUsdOut' : 'freightUsd';
+      const bafId = out ? 'bafUsdOut' : 'bafUsd';
+      const addId = out ? 'addComOut' : 'addCom';
+      const brokId = out ? 'brokerageOut' : 'brokerage';
+      const demId = out ? 'demRateOut' : 'demRate';
+      return (
+        <div>
+          <div className={styles.blockTitle}>Freight Financials</div>
+          <div className={styles.fieldGrid}>
+            <Field id={rateId} label={out ? 'Relet Frt ($/MT)' : 'Base Frt ($/MT)'}>
+              <input id={rateId} value={form[rateId]} placeholder="0.00" onChange={(event) => patch(rateId, event.target.value)} />
+            </Field>
+            <Field id={bafId} label="BAF">
+              <input id={bafId} value={form[bafId]} placeholder="0.00" onChange={(event) => patch(bafId, event.target.value)} />
+            </Field>
+            {out ? (
+              <Field id="currentFoPrice" label="Relet FO ($/MT)">
+                <input id="currentFoPrice" value={form.currentFoPrice} placeholder="0.00" onChange={(event) => patch('currentFoPrice', event.target.value)} />
+              </Field>
+            ) : (
+              <Field id="contractFoPrice" label="Contract FO ($/MT)">
+                <input id="contractFoPrice" value={form.contractFoPrice} placeholder="0.00" onChange={(event) => patch('contractFoPrice', event.target.value)} />
+              </Field>
+            )}
+            <Field id={addId} label="Add Comm (%)">
+              <input id={addId} value={form[addId]} placeholder="0.00" onChange={(event) => patch(addId, event.target.value)} />
+            </Field>
+            <Field id={brokId} label="Brokerage (%)">
+              <input id={brokId} value={form[brokId]} placeholder="0.00" onChange={(event) => patch(brokId, event.target.value)} />
+            </Field>
+            <Field id={demId} label={out ? 'Dem (Disponent)' : 'Dem (Cgo Charterer)'}>
+              <input id={demId} value={form[demId]} placeholder="0.00" onChange={(event) => patch(demId, event.target.value)} />
+            </Field>
+          </div>
+        </div>
+      );
+    }
+
     const rateId = out ? 'freightUsdOut' : 'freightUsd';
     const bafId = out ? 'bafUsdOut' : 'bafUsd';
     const fromId = out ? 'freightFromOut' : 'freightFrom';
@@ -755,6 +900,70 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
 
   const renderResult = (side) => {
     const out = side === 'out';
+    if (standalone) {
+      const profitNegative = Number(form.profit) < 0;
+      return (
+        <div>
+          <div className={styles.blockTitleRow}>
+            <span className={styles.blockTitle}>Results</span>
+            <span className={styles.calcNote}>= (Relet FO − Contract FO) × BAF</span>
+          </div>
+          <div className={styles.resultStrip}>
+            <div className={styles.fieldGrid}>
+              <Field id={out ? 'bunkerDiffOut' : 'bunkerDiff'} label="Bunker Diff ($/MT)">
+                <input className={styles.readonly} readOnly value={form.bunkerDiff || '0.00'} />
+              </Field>
+              <Field id={out ? 'bunkerSurchargeAmtOut' : 'bunkerSurchargeAmt'} label="Bnkr Surcharge ($/MT)">
+                <input className={styles.readonly} readOnly value={form[out ? 'bunkerSurchargeAmtOut' : 'bunkerSurchargeAmt'] || '0.00'} />
+              </Field>
+              <Field id={out ? 'effectiveFrtOut' : 'effectiveFrt'} label="Effective Frt ($/MT)">
+                <input className={styles.readonly} readOnly value={form[out ? 'effectiveFrtOut' : 'effectiveFrt'] || '0.00'} />
+              </Field>
+              <Field id={out ? 'freightAmtOut' : 'freightAmt'} label={out ? 'Gross Exp' : 'Gross Rev'}>
+                <input className={styles.readonly} readOnly value={form[out ? 'freightAmtOut' : 'freightAmt'] || '0.00'} />
+              </Field>
+              {out ? (
+                <>
+                  <Field id="addCommAmtOut" label="Add Comm">
+                    <input className={styles.readonly} readOnly value={form.addCommAmtOut || '0.00'} />
+                  </Field>
+                  <Field id="brokerageAmtOut" label="Brokerage">
+                    <input className={styles.readonly} readOnly value={form.brokerageAmtOut || '0.00'} />
+                  </Field>
+                </>
+              ) : (
+                <>
+                  <Field id="addCommAmt" label="Ttl Comm">
+                    <input className={styles.readonly} readOnly value={form.addCommAmt || '0.00'} />
+                  </Field>
+                  <Field id="totalAmt" label="Nett Rev">
+                    <input className={styles.readonly} readOnly value={form.totalAmt || '0.00'} />
+                  </Field>
+                </>
+              )}
+            </div>
+            {out ? (
+              <div className={styles.profitField}>
+                <Field id="totalAmtOut" label="Net Exp">
+                  <input className={styles.readonly} readOnly value={form.totalAmtOut || '0.00'} />
+                </Field>
+              </div>
+            ) : (
+              <div className={styles.profitField}>
+                <Field id="profit" label="Profit/Loss">
+                  <input
+                    className={`${styles.readonly} ${profitNegative ? styles.profitNegative : styles.profitPositive}`}
+                    readOnly
+                    value={form.profit || '0.00'}
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div>
         <div className={styles.blockTitle}>Result</div>
@@ -794,6 +1003,68 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
 
   const renderNotes = (side) => {
     const out = side === 'out';
+    if (standalone) {
+      const paymentId = out ? 'paymentClauseOut' : 'paymentClause';
+      const bunkerId = out ? 'bunkerClauseOut' : 'bunkerClause';
+      return (
+        <div>
+          <div className={styles.blockTitle}>Notes &amp; Documents</div>
+          <div className={styles.fieldGrid}>
+            <Field id={paymentId} label="Payment Clause">
+              <textarea id={paymentId} placeholder="Payment clause..." value={form[paymentId]} onChange={(event) => patch(paymentId, event.target.value)} />
+            </Field>
+            <Field id={bunkerId} label="Bunker Clause">
+              <textarea id={bunkerId} placeholder="Bunker clause..." value={form[bunkerId]} onChange={(event) => patch(bunkerId, event.target.value)} />
+            </Field>
+          </div>
+          {out ? (
+            <>
+              <div className={`${styles.fieldGrid} ${styles.notesGap}`}>
+                <Field id="loadportAgentOut" label="LP Agents">
+                  <CoaCardSelect label="LP Agents" value={form.loadportAgentOut} options={vendors} onChange={(value) => patch('loadportAgentOut', value)} />
+                </Field>
+                <Field id="disportAgentOut" label="DP Agents">
+                  <CoaCardSelect label="DP Agents" value={form.disportAgentOut} options={vendors} onChange={(value) => patch('disportAgentOut', value)} />
+                </Field>
+              </div>
+              <div className={`${styles.fieldGrid} ${styles.notesGap}`}>
+                <Field id="extraInsuranceOut" label="Extra Insurance">
+                  <textarea value={form.extraInsuranceOut} onChange={(event) => patch('extraInsuranceOut', event.target.value)} />
+                </Field>
+                <Field id="minTermOut" label="Main Terms">
+                  <textarea value={form.minTermOut} onChange={(event) => patch('minTermOut', event.target.value)} />
+                </Field>
+              </div>
+              <div className={styles.field}>
+                <label htmlFor="relet-attach">Attachments</label>
+                <div className={styles.dropzone}>
+                  <div className={styles.dzText}>Drag &amp; drop files here, or <b>browse</b></div>
+                  <div className={styles.dzSub}>{attachNote}</div>
+                  <label className={styles.attachBtn} htmlFor="relet-attach">
+                    Attach
+                    <input
+                      id="relet-attach"
+                      type="file"
+                      multiple
+                      hidden
+                      onChange={(event) => {
+                        const count = event.target.files?.length || 0;
+                        const note = count
+                          ? `${count} file${count === 1 ? '' : 's'} selected (not uploaded yet)`
+                          : 'No documents attached yet';
+                        setAttachNote(note);
+                        patch('attachmentName', event.target.files?.[0]?.name || '');
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      );
+    }
+
     const s = out ? 'Out' : '';
     return (
       <>
@@ -837,6 +1108,88 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     );
   };
 
+  const renderTwinPanels = () => (
+    <div className={styles.twinGrid}>
+      <div className={`${styles.panel} ${styles.panelIn}`}>
+        <div className={styles.panelHead}>
+          <div className={styles.panelHeadMain}>
+            <PanelArrow down />
+            Cargo IN
+          </div>
+          {standalone ? <div className={styles.panelHeadSub}>Cargo lift — revenue leg</div> : null}
+        </div>
+        <div className={styles.panelBody}>
+          {renderPartyTable('partiesIn')}
+          {renderPortTable('loadPortsIn', 'Load Port')}
+          {renderPortTable('dischargePortsIn', 'Dis Port')}
+          {renderFreight('in')}
+          {renderResult('in')}
+          {renderNotes('in')}
+        </div>
+      </div>
+      <div className={`${styles.panel} ${styles.panelOut}`}>
+        <div className={styles.panelHead}>
+          <div className={styles.panelHeadMain}>
+            <PanelArrow down={false} />
+            Cargo OUT
+          </div>
+          {standalone ? <div className={styles.panelHeadSub}>Sub-charter to relet owner — expense leg</div> : null}
+        </div>
+        <div className={styles.panelBody}>
+          {renderPartyTable('partiesOut')}
+          {renderPortTable('loadPortsOut', 'Load Port')}
+          {renderPortTable('dischargePortsOut', 'Dis Port')}
+          {renderFreight('out')}
+          {renderResult('out')}
+          {renderNotes('out')}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderStandaloneEstimateBody = () => (
+    <>
+      <div className={styles.estimateTopRow}>
+        <Field id="cargoName" label="Cargo">
+          <input
+            id="cargoName"
+            list="standalone-cargo-datalist"
+            value={form.cargoName}
+            placeholder="Enter cargo..."
+            onChange={(event) => patch('cargoName', event.target.value)}
+          />
+          <datalist id="standalone-cargo-datalist">
+            {(lookups?.cargos || []).slice(0, 40).map((cargo) => (
+              <option key={cargo.id} value={cargo.name} />
+            ))}
+          </datalist>
+          <span className={styles.fieldHint}>Manually entered — no master COA to pull from.</span>
+        </Field>
+        <Field id="cargoType" label="Cargo Type">
+          <input id="cargoType" className={styles.readonly} readOnly value={cargoTypeLabel || '—'} />
+          <span className={styles.fieldHint}>Product genre, linked to the cargo master.</span>
+        </Field>
+        <Field id="cargoQty" label="Cargo Qty (MT)">
+          <input
+            id="cargoQty"
+            value={form.cargoQty}
+            placeholder="0.00"
+            onChange={(event) => patch('cargoQty', event.target.value)}
+          />
+        </Field>
+        <Field id="cargoPlanDetails" label="Planned Cargo" wide>
+          <input
+            id="cargoPlanDetails"
+            value={form.cargoPlanDetails}
+            placeholder="Planning details..."
+            onChange={(event) => patch('cargoPlanDetails', event.target.value)}
+          />
+        </Field>
+      </div>
+      {renderTwinPanels()}
+    </>
+  );
+
   if (loading) {
     return (
       <div className={`zafira-page ${styles.page}${standalone ? ` ${styles.standalone}` : ''}`}>
@@ -847,7 +1200,11 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
 
   return (
     <div className={`zafira-page ${styles.page}${standalone ? ` ${styles.standalone}` : ''}`}>
-      <CoaFormHeaderActions listHref={listHref} disabled={saving} />
+      <CoaFormHeaderActions
+        listHref={listHref}
+        disabled={saving}
+        currencyChip={standalone ? currency : null}
+      />
       {saving ? <LoadingOverlay show fullScreen={false} label="Saving cargo relet…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
@@ -861,18 +1218,21 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           </div>
           <div className={styles.gridFields}>
             <MetaField id="fixtureType" label="Fixture Type">
-              <div className={styles.metaValue}>{standalone ? 'Standalone Cargo Relet' : 'Cargo Relet'}</div>
+              <div className={styles.metaValue}>
+                {standalone ? 'Cargo Relet (Standalone)' : 'Cargo Relet'}
+              </div>
             </MetaField>
             {standalone ? (
-              <MetaField id="businessTypeId" label="Business Type">
-                <CoaCardSelect
-                  id="businessTypeId"
-                  label="Business Type"
-                  value={form.businessTypeId}
-                  options={businessTypes}
-                  onChange={(value) => patch('businessTypeId', value || '2')}
-                />
-              </MetaField>
+              <>
+                <MetaField id="reletNo" label="Relet No.">
+                  <input id="reletNo" className={styles.readonly} readOnly value={form.reletNo} />
+                  <span className={styles.fieldHint}>No COA nomination ID — standalone relets number their own sequence.</span>
+                </MetaField>
+                <MetaField id="businessTypeId" label="Business Type">
+                  <div className={styles.metaValue}>{businessTypeLabel}</div>
+                  <span className={styles.fieldHint}>Pulled from the Running Cargo Relets screen&apos;s Tankers/Dry Cargo selection.</span>
+                </MetaField>
+              </>
             ) : (
               <MetaField id="coaId" label="COA ID" grow>
                 {lockedCoaId ? (
@@ -889,7 +1249,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                 )}
               </MetaField>
             )}
-            <MetaField id="vesselImoId" label="Vessel" grow>
+            <MetaField id="vesselImoId" label="Vessel" grow={!standalone}>
               <CoaCardSelect
                 id="vesselImoId"
                 label="Vessel"
@@ -904,109 +1264,100 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             <MetaField id="transDate" label="Date">
               <DmyDateInput id="transDate" value={form.transDate} onChange={(value) => patch('transDate', value)} />
             </MetaField>
-            <MetaField id="reletNo" label="Cargo Relet No.">
-              <input
-                id="reletNo"
-                value={form.reletNo}
-                placeholder="Required"
-                onChange={(event) => patch('reletNo', event.target.value)}
-              />
-            </MetaField>
-            <MetaField id="reletName" label="Cargo Relet Sheet Name" grow>
-              <input
-                id="reletName"
-                value={form.reletName}
-                placeholder="e.g. RLT-1041 Working Sheet"
-                onChange={(event) => patch('reletName', event.target.value)}
-              />
-            </MetaField>
+            {!standalone ? (
+              <>
+                <MetaField id="reletNo" label="Cargo Relet No.">
+                  <input
+                    id="reletNo"
+                    value={form.reletNo}
+                    placeholder="Required"
+                    onChange={(event) => patch('reletNo', event.target.value)}
+                  />
+                </MetaField>
+                <MetaField id="reletName" label="Cargo Relet Sheet Name" grow>
+                  <input
+                    id="reletName"
+                    value={form.reletName}
+                    placeholder="e.g. RLT-1041 Working Sheet"
+                    onChange={(event) => patch('reletName', event.target.value)}
+                  />
+                </MetaField>
+              </>
+            ) : null}
           </div>
         </div>
 
-        <div className={styles.statusTabs} role="tablist" aria-label="Cargo relet sections">
-          {tabs.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.id}
-              className={`${styles.tabButton} ${tab === item.id ? styles.tabButtonActive : ''}`}
-              onClick={() => setTab(item.id)}
-            >
-              <TabIcon id={item.id} />
-              {item.label}
-            </button>
-          ))}
-        </div>
-
-        <div className={styles.tabPanelCard}>
-          {tab === 'estimate' ? (
-            <div role="tabpanel">
-              <div className={styles.cargoStrip}>
-                <div className={styles.cargoStripBlock}>
-                  <span className={styles.cargoStripLabel}>Cargo Type</span>
-                  <div className={styles.cargoStripValue}>{cargoTypeLabel || '—'}</div>
-                </div>
-                <div className={`${styles.cargoStripBlock} ${styles.cargoStripBlockWide}`}>
-                  <span className={styles.cargoStripLabel}>Planned Cargo</span>
-                  <div className={styles.plannedCargoBox}>
-                    {form.cargoPlanDetails || 'Cargo Planning Details...'}
-                  </div>
-                </div>
+        {standalone && isAdd ? (
+          <div className={styles.card}>
+            <div className={styles.cardHead}>
+              <div className={styles.cardHeadIcon}>
+                <EstimateCardIcon />
               </div>
-
-              <div className={styles.cargoSearchRow}>
-                {!isAdd ? (
-                  <button type="button" className={styles.btnNavySm} onClick={() => setTab('planned')}>
-                    Search Cargo
-                  </button>
-                ) : null}
-                <Field id="cargoName" label="Cargo">
-                  <input className={styles.readonly} readOnly value={form.cargoName || '—'} />
-                </Field>
-                <Field id="cargoQty" label="Cargo Qty (MT)">
-                  <input
-                    id="cargoQty"
-                    value={form.cargoQty}
-                    placeholder="0.00"
-                    onChange={(event) => patch('cargoQty', event.target.value)}
-                    onBlur={recalculate}
-                  />
-                </Field>
-              </div>
-
-              <div className={styles.twinGrid}>
-                <div className={`${styles.panel} ${styles.panelIn}`}>
-                  <div className={styles.panelHead}>
-                    <PanelArrow down />
-                    Cargo IN
-                  </div>
-                  <div className={styles.panelBody}>
-                    {renderPartyTable('partiesIn')}
-                    {renderPortTable('loadPortsIn', 'Load Port')}
-                    {renderPortTable('dischargePortsIn', 'Dis Port')}
-                    {renderFreight('in')}
-                    {renderResult('in')}
-                    {renderNotes('in')}
-                  </div>
-                </div>
-                <div className={`${styles.panel} ${styles.panelOut}`}>
-                  <div className={styles.panelHead}>
-                    <PanelArrow down={false} />
-                    Cargo OUT
-                  </div>
-                  <div className={styles.panelBody}>
-                    {renderPartyTable('partiesOut')}
-                    {renderPortTable('loadPortsOut', 'Load Port')}
-                    {renderPortTable('dischargePortsOut', 'Dis Port')}
-                    {renderFreight('out')}
-                    {renderResult('out')}
-                    {renderNotes('out')}
-                  </div>
-                </div>
-              </div>
+              <span className={styles.cardTitle}>Estimate</span>
             </div>
-          ) : null}
+            {renderStandaloneEstimateBody()}
+          </div>
+        ) : (
+          <>
+            <div className={styles.statusTabs} role="tablist" aria-label="Cargo relet sections">
+              {tabs.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === item.id}
+                  className={`${styles.tabButton} ${tab === item.id ? styles.tabButtonActive : ''}`}
+                  onClick={() => setTab(item.id)}
+                >
+                  <TabIcon id={item.id} />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.tabPanelCard}>
+              {tab === 'estimate' ? (
+                <div role="tabpanel">
+                  {standalone ? renderStandaloneEstimateBody() : (
+                    <>
+                      <div className={styles.cargoStrip}>
+                        <div className={styles.cargoStripBlock}>
+                          <span className={styles.cargoStripLabel}>Cargo Type</span>
+                          <div className={styles.cargoStripValue}>{cargoTypeLabel || '—'}</div>
+                        </div>
+                        <div className={`${styles.cargoStripBlock} ${styles.cargoStripBlockWide}`}>
+                          <span className={styles.cargoStripLabel}>Planned Cargo</span>
+                          <div className={styles.plannedCargoBox}>
+                            {form.cargoPlanDetails || 'Cargo Planning Details...'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className={styles.cargoSearchRow}>
+                        {!isAdd ? (
+                          <button type="button" className={styles.btnNavySm} onClick={() => setTab('planned')}>
+                            Search Cargo
+                          </button>
+                        ) : null}
+                        <Field id="cargoName" label="Cargo">
+                          <input className={styles.readonly} readOnly value={form.cargoName || '—'} />
+                        </Field>
+                        <Field id="cargoQty" label="Cargo Qty (MT)">
+                          <input
+                            id="cargoQty"
+                            value={form.cargoQty}
+                            placeholder="0.00"
+                            onChange={(event) => patch('cargoQty', event.target.value)}
+                            onBlur={recalculate}
+                          />
+                        </Field>
+                      </div>
+
+                      {renderTwinPanels()}
+                    </>
+                  )}
+                </div>
+              ) : null}
 
           {tab === 'commercial' && !isAdd ? (
             <div role="tabpanel">
@@ -1284,15 +1635,19 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
               </div>
             </div>
           ) : null}
-        </div>
+            </div>
+          </>
+        )}
 
         <div className={styles.formFooter}>
-          <button type="button" className={styles.btnNavy} onClick={recalculate}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polygon points="6 3 20 12 6 21 6 3" />
-            </svg>
-            Run
-          </button>
+          {!standalone ? (
+            <button type="button" className={styles.btnNavy} onClick={recalculate}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polygon points="6 3 20 12 6 21 6 3" />
+              </svg>
+              Run
+            </button>
+          ) : null}
           <button type="submit" className={styles.btnOutline} disabled={saving}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
@@ -1303,7 +1658,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           </button>
           <button
             type="button"
-            className={styles.btnOrange}
+            className={standalone ? styles.btnNavy : styles.btnOrange}
             disabled={saving || form.fixed}
             onClick={() => persist('2')}
           >
@@ -1311,7 +1666,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
               <path d="M22 2 11 13" />
               <path d="M22 2 15 22l-4-9-9-4Z" />
             </svg>
-            Submit for Review
+            {standalone ? 'Send to Ops' : 'Submit for Review'}
           </button>
         </div>
       </form>

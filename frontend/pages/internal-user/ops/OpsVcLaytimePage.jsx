@@ -10,6 +10,7 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchLaytimeForm, openLaytime, saveLaytime } from '../../../services/opsVc.js';
 import OpsVcLaytimeHeaderActions from './OpsVcLaytimeHeaderActions.jsx';
+import { PortTabLabel } from './portTabLabel.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
 import pageStyles from './OpsPages.module.css';
 import sofStyles from './OpsVcSofPage.module.css';
@@ -815,7 +816,7 @@ export default function OpsVcLaytimePage() {
                   <span className={`${sofStyles.ptIco} ${port.portType === 'DP' ? styles.ptIcoDp : styles.ptIcoLp}`}>
                     <PortTypeIcon portType={port.portType} />
                   </span>
-                  {port.tabLabel}
+                  <PortTabLabel label={port.tabLabel} />
                 </button>
               ))}
             </div>
@@ -1185,7 +1186,7 @@ export default function OpsVcLaytimePage() {
                   </div>
 
                   <div className={`${sofStyles.cfSection} ${styles.ltApproverSection}`}>
-                    <div className={`${sofStyles.cfSectionHead} ${styles.cfSectionHeadAmber}`}>
+                    <div className={`${sofStyles.cfSectionHead} ${styles.cfSectionHeadAmber} ${styles.ltApproverHead}`}>
                       <div className={sofStyles.cfSectionTitleWrap}>
                         <div className={`${sofStyles.sectionIco} ${styles.sectionIcoAmber}`}>
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

@@ -4,6 +4,7 @@ import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchAgencyLetterForm } from '../../../services/opsVc.js';
 import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
+import { PortTabLabel } from './portTabLabel.jsx';
 import styles from './OpsPages.module.css';
 
 const BACK_PATHS = {
@@ -108,7 +109,7 @@ export default function OpsVcPdaFdaPage() {
                 className={port.key === activeKey ? styles.tabActive : styles.tab}
                 onClick={() => selectTab(port, index)}
               >
-                {port.tabLabel}
+                <PortTabLabel label={port.tabLabel} />
               </button>
             ))}
           </div>

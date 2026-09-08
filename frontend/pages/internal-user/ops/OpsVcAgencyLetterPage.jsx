@@ -18,6 +18,7 @@ import {
   saveAgencyLetter,
 } from '../../../services/opsVc.js';
 import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
+import { PortTabLabel } from './portTabLabel.jsx';
 import OpsVcAgencyLetterPreviewModal from './OpsVcAgencyLetterPreviewModal.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcAgencyLetterPage.module.css';
@@ -879,7 +880,7 @@ export default function OpsVcAgencyLetterPage() {
                   <span className={styles.ptIco}>
                     <PortTypeIcon portType={port.portType} />
                   </span>
-                  {port.tabLabel}
+                  <PortTabLabel label={port.tabLabel} />
                 </button>
               ))}
             </div>

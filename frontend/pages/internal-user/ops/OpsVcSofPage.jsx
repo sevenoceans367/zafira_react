@@ -11,6 +11,7 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchSofForm, saveSof } from '../../../services/opsVc.js';
 import OpsVcSofHeaderActions from './OpsVcSofHeaderActions.jsx';
+import { PortTabLabel } from './portTabLabel.jsx';
 import styles from './OpsVcSofPage.module.css';
 
 const BACK_PATHS = {
@@ -609,7 +610,7 @@ export default function OpsVcSofPage() {
                   <span className={styles.ptIco}>
                     <PortTypeIcon portType={port.portType} />
                   </span>
-                  {port.tabLabel}
+                  <PortTabLabel label={port.tabLabel} />
                 </button>
               ))}
             </div>

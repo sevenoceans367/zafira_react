@@ -644,6 +644,11 @@
   overflow: visible;
 }
 
+.ltApproverSection .ltApproverHead {
+  padding: 10px 16px;
+  border-radius: 13px 13px 0 0;
+}
+
 .ltApprovalBody {
   padding: 16px 18px;
   display: flex;

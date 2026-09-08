@@ -43,7 +43,8 @@ const MOCK_FORM = {
       qty: '50000',
       defaultEntityName: 'Ops Desk',
       defaultEntityEmail: 'agent@example.com',
-      etaFixture: '18-01-2026 08:00',
+      etaFixture: '',
+      etaNoon: '18-01-2026 08:00',
       defaultUsername: 'ZAF/001/101',
       letter: null,
       entities: [{ entity: '2', name: 'Ops Desk', email: 'agent@example.com' }],
@@ -77,11 +78,6 @@ export async function saveAgencyLetter(payload = {}) {
   }
   if (!payload.etaDate1) {
     const error = new Error('Please add ETA Date.');
-    error.status = 400;
-    throw error;
-  }
-  if (!payload.countryId) {
-    const error = new Error('Please add country for this port.');
     error.status = 400;
     throw error;
   }

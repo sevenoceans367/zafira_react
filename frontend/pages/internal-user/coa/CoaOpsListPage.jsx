@@ -7,10 +7,8 @@ import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import { coaBasePath } from '../../../constants/coaModule.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
-  completeDirectFixture,
   fetchCargoRelets,
   fetchCoaOpsVoyages,
-  fetchDirectFixtures,
   moveVoyageToPostOps,
 } from '../../../services/coas.js';
 import {
@@ -36,7 +34,6 @@ const OPS_TABS = [
 const TRADE_TYPES = [
   { id: 'spot', label: 'Spot', color: '#e67e22' },
   { id: 'relet', label: 'Cargo Relet', color: '#7c5cff' },
-  { id: 'direct', label: 'Direct Fixture', color: '#3b82f6' },
 ];
 
 function parseTab(value) {
@@ -47,7 +44,6 @@ function parseTab(value) {
 
 function parseTradeType(value) {
   if (value === 'relet' || value === 'cargo-relet') return 'relet';
-  if (value === 'direct' || value === 'direct-fixture') return 'direct';
   return 'spot';
 }
 
@@ -159,8 +155,7 @@ export default function CoaOpsListPage() {
   const [savingSheet, setSavingSheet] = useState(false);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const isRelet = tradeType === 'relet';
-  const isDirect = tradeType === 'direct';
-  const postOpsDisabled = isRelet || isDirect;
+  const postOpsDisabled = isRelet;
   const isHistoryTab = statusTab === 'history';
 
   const updateQuery = useCallback((patch) => {
@@ -187,37 +182,6 @@ export default function CoaOpsListPage() {
 
   const loadCounts = useCallback(async () => {
     try {
-      if (isDirect) {
-        const [opsData, historyData] = await Promise.all([
-          fetchDirectFixtures({
-            selBType: businessType,
-            status: 'ops',
-            page: 1,
-            pageSize: 200,
-            search: debouncedSearch,
-          }),
-          fetchDirectFixtures({
-            selBType: businessType,
-            status: 'history',
-            page: 1,
-            pageSize: 200,
-            search: debouncedSearch,
-          }),
-        ]);
-        const filterYear = (list) => (list.records ?? []).filter((row) => {
-          if (yearFilter === 'all') return true;
-          return yearFromDate(row.coaDate) === Number(yearFilter);
-        });
-        const opsRows = filterYear(opsData);
-        const historyRows = filterYear(historyData);
-        const revenue = [...opsRows, ...historyRows].reduce(
-          (sum, row) => sum + (Number(String(row.grossRevenue ?? '').replace(/,/g, '')) || 0),
-          0,
-        );
-        setCounts({ ops: opsRows.length, postops: 0, history: historyRows.length, revenue });
-        return;
-      }
-
       if (isRelet) {
         const data = await fetchCargoRelets({
           selBType: businessType,
@@ -275,7 +239,7 @@ export default function CoaOpsListPage() {
     } catch {
       // keep previous counts on soft failure
     }
-  }, [businessType, debouncedSearch, isDirect, isRelet, yearFilter]);
+  }, [businessType, debouncedSearch, isRelet, yearFilter]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -283,32 +247,6 @@ export default function CoaOpsListPage() {
     try {
       const types = await fetchVcBusinessTypes(businessType);
       setBusinessTypes(types);
-
-      if (isDirect) {
-        if (statusTab === 'postops') {
-          setRows([]);
-          setTotal(0);
-          return;
-        }
-        const data = await fetchDirectFixtures({
-          selBType: businessType,
-          status: statusTab === 'history' ? 'history' : 'ops',
-          page: 1,
-          pageSize: 200,
-          search: debouncedSearch,
-        });
-        const filtered = (data.records ?? []).filter((row) => {
-          if (yearFilter !== 'all' && yearFromDate(row.coaDate) !== Number(yearFilter)) return false;
-          return true;
-        });
-        const start = (page - 1) * pageSize;
-        setTotal(filtered.length);
-        setRows(filtered.slice(start, start + pageSize).map((row, index) => ({
-          ...row,
-          index: start + index + 1,
-        })));
-        return;
-      }
 
       if (isRelet) {
         if (statusTab === 'postops' || statusTab === 'history') {
@@ -371,7 +309,6 @@ export default function CoaOpsListPage() {
   }, [
     businessType,
     debouncedSearch,
-    isDirect,
     isHistoryTab,
     isRelet,
     page,
@@ -412,22 +349,6 @@ export default function CoaOpsListPage() {
     }
   };
 
-  const handleCompleteDirect = async (row) => {
-    const ok = await confirm({
-      title: 'Complete fixture',
-      message: `Move ${row.fixtureNo} to History (Closed)?`,
-      confirmLabel: 'Complete',
-    });
-    if (!ok) return;
-    try {
-      await completeDirectFixture(row.fcaId);
-      load();
-      loadCounts();
-    } catch (err) {
-      setError(err.message || 'Failed to complete fixture.');
-    }
-  };
-
   const cards = [
     { title: 'Ops Revenue (YTD)', value: formatMoney(counts.revenue), variant: 'fin', icon: 'revenue' },
     { title: 'In Ops', value: String(counts.ops), variant: 'cnt', icon: 'ops' },
@@ -440,12 +361,10 @@ export default function CoaOpsListPage() {
     : `Showing ${Math.min((page - 1) * pageSize + 1, total)} to ${Math.min(page * pageSize, total)} of ${total} entries`;
 
   const emptyMessage = postOpsDisabled && statusTab === 'postops'
-    ? `${isDirect ? 'Direct fixtures' : 'Cargo relets'} skip Post Ops — use In Ops (Active) or History (Closed).`
-    : isHistoryTab && isDirect
-      ? 'No completed direct fixtures yet.'
-      : isHistoryTab && !isRelet && !isDirect
-        ? 'No completed history voyages yet.'
-        : 'SORRY CURRENTLY THERE ARE ZERO(0) RECORDS';
+    ? 'Cargo relets skip Post Ops — use In Ops (Active).'
+    : isHistoryTab && !isRelet
+      ? 'No completed history voyages yet.'
+      : 'SORRY CURRENTLY THERE ARE ZERO(0) RECORDS';
 
   const tradeMeta = TRADE_TYPES.find((item) => item.id === tradeType) || TRADE_TYPES[0];
 
@@ -547,7 +466,7 @@ export default function CoaOpsListPage() {
               onChange={(value) => {
                 const next = parseTradeType(value);
                 setTradeType(next);
-                const nextTab = (next === 'relet' || next === 'direct') && statusTab === 'postops'
+                const nextTab = next === 'relet' && statusTab === 'postops'
                   ? 'ops'
                   : statusTab;
                 if (nextTab !== statusTab) setStatusTab(nextTab);
@@ -635,72 +554,7 @@ export default function CoaOpsListPage() {
           toolbarRight={showingLabel}
           footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
         >
-          {isDirect ? (
-            <table className={styles.grid}>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Fixture No.</th>
-                  <th>Date</th>
-                  <th>Vessel</th>
-                  <th>Charterer</th>
-                  <th>Cargo</th>
-                  <th>LP/DP</th>
-                  <th>QTY (MT)</th>
-                  <th>Frt Rate ($/MT)</th>
-                  <th>Gross Revenue</th>
-                  <th>Status</th>
-                  <th>Details</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={13} className={styles.emptyCell}>{emptyMessage}</td>
-                  </tr>
-                ) : rows.map((row) => (
-                  <tr key={row.fcaId}>
-                    <td className={`${styles.accentCell} ${styles.accentDirect}`}>{row.index}</td>
-                    <td>
-                      <div className={styles.opsCell}>
-                        <span className={styles.noCoaBadge}>Direct Fixture</span>
-                        <span className={styles.subNo}>{liveValue(row.fixtureNo)}</span>
-                        <span className={`${styles.typeChip} ${styles.typeChipDirect}`}>Direct Fixture</span>
-                      </div>
-                    </td>
-                    <td>{liveValue(row.coaDate)}</td>
-                    <td>{liveValue(row.vesselName)}</td>
-                    <td>{liveValue(row.charterer)}</td>
-                    <td>{liveValue(row.cargo)}</td>
-                    <td>{liveValue(row.ports)}</td>
-                    <td className={styles.cellNum}>{liveValue(row.cargoQty)}</td>
-                    <td className={styles.cellNum}>{liveValue(row.freightUsd)}</td>
-                    <td className={styles.cellNum}>{liveValue(row.grossRevenue)}</td>
-                    <td>
-                      <span className={`${styles.statusPill} ${row.statusCode === 'closed' ? styles.statusClosed : styles.statusActive}`}>
-                        {liveValue(row.status)}
-                      </span>
-                    </td>
-                    <td>
-                      <Link className={styles.iconBtn} to={coaPath(`direct-fixture/${row.fcaId}`)} title="Open fixture">
-                        <i className="bi bi-eye" aria-hidden />
-                      </Link>
-                    </td>
-                    <td>
-                      {row.canComplete ? (
-                        <button type="button" className={styles.pillComplete} onClick={() => handleCompleteDirect(row)}>
-                          Complete
-                        </button>
-                      ) : (
-                        <span className={styles.dash}>—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : isRelet ? (
+          {isRelet ? (
             <table className={styles.grid}>
               <thead>
                 <tr>

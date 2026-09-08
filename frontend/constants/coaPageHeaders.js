@@ -31,32 +31,6 @@ export function resolveCoaHeader(pathname, search = '') {
     ? { label: 'Running COAs', href: runningHref }
     : { label: 'COA Ops', href: opsReletHref };
 
-  if (pathname.includes('/coas/direct-fixture/add')) {
-    return {
-      title: 'New Direct Fixture',
-      currentPage: 'New Direct Fixture',
-      breadcrumbs: [
-        HOME,
-        moduleCrumb,
-        { label: 'Running COAs', href: runningHref },
-        { label: 'New Direct Fixture' },
-      ],
-    };
-  }
-
-  if (/\/coas\/direct-fixture\/[^/]+$/.test(pathname)) {
-    return {
-      title: 'Update Direct Fixture',
-      currentPage: 'Update Direct Fixture',
-      breadcrumbs: [
-        HOME,
-        moduleCrumb,
-        { label: 'COA Ops', href: `${coaAppPath(module, 'in-ops')}?tradeType=direct` },
-        { label: 'Update Direct Fixture' },
-      ],
-    };
-  }
-
   if (pathname.includes('/coas/running/add')) {
     return {
       title: 'Add a new COA',

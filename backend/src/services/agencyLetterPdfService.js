@@ -1,6 +1,149 @@
+import fs from 'fs';
+import path from 'path';
+import zlib from 'zlib';
+import { fileURLToPath } from 'url';
 import PDFDocument from 'pdfkit';
 import { isDbConfigured } from '../config.js';
 import { dbGetAgencyLetterForPdf } from './agencyLetterDb.js';
+
+const LOGO_SVG = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../frontend/assets/progress_shipping.svg',
+);
+
+let logoPngCache;
+
+function pngChunk(type, data) {
+  const typeBuf = Buffer.from(type);
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(zlib.crc32(Buffer.concat([typeBuf, data])) >>> 0);
+  return Buffer.concat([len, typeBuf, data, crc]);
+}
+
+function decodePng(buf) {
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let colorType = 0;
+  const idat = [];
+  while (offset + 8 <= buf.length) {
+    const length = buf.readUInt32BE(offset);
+    const type = buf.toString('ascii', offset + 4, offset + 8);
+    const data = buf.subarray(offset + 8, offset + 8 + length);
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      colorType = data[9];
+    } else if (type === 'IDAT') {
+      idat.push(data);
+    } else if (type === 'IEND') {
+      break;
+    }
+    offset += 12 + length;
+  }
+  const channels = colorType === 0 ? 1 : colorType === 2 ? 3 : colorType === 6 ? 4 : 0;
+  if (!width || !height || !channels) return null;
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  const stride = width * channels;
+  const pixels = Buffer.alloc(height * stride);
+  let src = 0;
+  let prev = Buffer.alloc(stride);
+  for (let y = 0; y < height; y += 1) {
+    const filter = raw[src];
+    src += 1;
+    const row = Buffer.from(raw.subarray(src, src + stride));
+    src += stride;
+    for (let i = 0; i < stride; i += 1) {
+      const left = i >= channels ? row[i - channels] : 0;
+      const up = prev[i];
+      const upLeft = i >= channels ? prev[i - channels] : 0;
+      let value = row[i];
+      if (filter === 1) value = (value + left) & 255;
+      else if (filter === 2) value = (value + up) & 255;
+      else if (filter === 3) value = (value + Math.floor((left + up) / 2)) & 255;
+      else if (filter === 4) {
+        const p = left + up - upLeft;
+        const pa = Math.abs(p - left);
+        const pb = Math.abs(p - up);
+        const pc = Math.abs(p - upLeft);
+        const pred = pa <= pb && pa <= pc ? left : pb <= pc ? up : upLeft;
+        value = (value + pred) & 255;
+      }
+      row[i] = value;
+    }
+    row.copy(pixels, y * stride);
+    prev = row;
+  }
+  return { width, height, channels, pixels };
+}
+
+function sampleChannel(image, x, y, channel) {
+  const px = Math.min(image.width - 1, Math.max(0, x));
+  const py = Math.min(image.height - 1, Math.max(0, y));
+  return image.pixels[(py * image.width + px) * image.channels + channel];
+}
+
+function encodeLogoPng(mask, color, size = 240) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const rows = [];
+  for (let y = 0; y < size; y += 1) {
+    const row = Buffer.alloc(1 + size * 4);
+    const srcY = Math.floor(((y + 0.5) * color.height) / size);
+    for (let x = 0; x < size; x += 1) {
+      const srcX = Math.floor(((x + 0.5) * color.width) / size);
+      const alpha = sampleChannel(mask, srcX, srcY, 0);
+      const o = 1 + x * 4;
+      row[o] = sampleChannel(color, srcX, srcY, 0);
+      row[o + 1] = sampleChannel(color, srcX, srcY, 1);
+      row[o + 2] = sampleChannel(color, srcX, srcY, 2);
+      row[o + 3] = alpha;
+    }
+    rows.push(row);
+  }
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', zlib.deflateSync(Buffer.concat(rows), { level: 9 })),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+function loadLogoPng() {
+  if (logoPngCache !== undefined) return logoPngCache;
+  try {
+    const svg = fs.readFileSync(LOGO_SVG, 'utf8');
+    const matches = [...svg.matchAll(/xlink:href="data:image\/png;base64,([^"]+)"/g)];
+    if (matches.length < 2) {
+      logoPngCache = null;
+      return logoPngCache;
+    }
+    const mask = decodePng(Buffer.from(matches[0][1], 'base64'));
+    const color = decodePng(Buffer.from(matches[1][1], 'base64'));
+    logoPngCache = mask && color ? encodeLogoPng(mask, color) : null;
+  } catch {
+    logoPngCache = null;
+  }
+  return logoPngCache;
+}
+
+function drawHeaderLogo(doc, top) {
+  const png = loadLogoPng();
+  const size = 58;
+  const x = leftX(doc) + usableWidth(doc) - size;
+  if (!png) return 0;
+  try {
+    doc.image(png, x, top, { fit: [size, size], align: 'right', valign: 'top' });
+    return size + 10;
+  } catch {
+    return 0;
+  }
+}
 
 const NAVY = '#274670';
 const ORANGE = '#F4652C';
@@ -103,8 +246,13 @@ function buildRef(data, prefix) {
 function drawStyledHeader(doc, { heading, sub, accent, refCode, dateLabel }) {
   const x = leftX(doc);
   const w = usableWidth(doc);
-  doc.font('Helvetica-Bold').fontSize(16).fillColor(accent).text(heading, x, doc.y, { width: w - 70 });
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY).text(sub, { width: w - 70 });
+  const top = doc.y;
+  const logoPad = drawHeaderLogo(doc, top);
+  const textW = Math.max(120, w - logoPad);
+  doc.font('Helvetica-Bold').fontSize(16).fillColor(accent).text(heading, x, top, { width: textW });
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY).text(sub, x, doc.y, { width: textW });
+  doc.y = Math.max(doc.y, top + 58);
+  doc.x = x;
   doc.moveDown(0.55);
 
   const barY = doc.y;
@@ -369,7 +517,14 @@ function drawOpsBox(doc, paragraphs) {
 
 /** Legacy plain header kept for nomination / bunker letters. */
 function drawLegacyHeader(doc, title) {
-  doc.font('Helvetica-Bold').fontSize(16).fillColor('#1b77a6').text(title, { align: 'center' });
+  const top = doc.y;
+  const logoPad = drawHeaderLogo(doc, top);
+  doc.font('Helvetica-Bold').fontSize(16).fillColor('#1b77a6').text(title, leftX(doc), top, {
+    align: 'center',
+    width: usableWidth(doc) - logoPad,
+  });
+  doc.y = Math.max(doc.y, top + 58);
+  doc.x = leftX(doc);
   doc.moveDown(0.35);
   doc.moveTo(leftX(doc), doc.y)
     .lineTo(leftX(doc) + usableWidth(doc), doc.y)
@@ -798,6 +953,10 @@ export async function generateAgencyLetterPdf(genAgencyId, opts = {}) {
     if (type !== 'agent-bunker') {
       drawLegacyHeader(doc, title);
     } else {
+      const top = doc.y;
+      drawHeaderLogo(doc, top);
+      doc.y = top + 62;
+      doc.x = leftX(doc);
       doc.moveTo(leftX(doc), doc.y)
         .lineTo(leftX(doc) + usableWidth(doc), doc.y)
         .strokeColor('#b1afaf')

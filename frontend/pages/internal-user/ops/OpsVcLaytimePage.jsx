@@ -256,6 +256,124 @@ function normalizeApprovers(value) {
   return String(value).split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+function approverLabel(options, id) {
+  const match = (options || []).find((opt) => String(opt.id ?? opt.value ?? '') === String(id));
+  return match?.name ?? match?.label ?? String(id);
+}
+
+function ApproverTagField({ options, value, onChange, disabled }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  const selected = normalizeApprovers(value);
+
+  const available = useMemo(() => {
+    const chosen = new Set(selected);
+    const q = query.trim().toLowerCase();
+    return (options || []).filter((opt) => {
+      const id = String(opt.id ?? opt.value ?? '');
+      if (!id || chosen.has(id)) return false;
+      const name = String(opt.name ?? opt.label ?? id).toLowerCase();
+      return !q || name.includes(q) || id.toLowerCase().includes(q);
+    });
+  }, [options, selected, query]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [open]);
+
+  const addId = (id) => {
+    const next = String(id || '').trim();
+    if (!next || selected.includes(next)) return;
+    onChange([...selected, next]);
+    setQuery('');
+    setOpen(false);
+  };
+
+  const addTyped = () => {
+    const typed = query.replace(/,$/, '').trim();
+    if (!typed) return;
+    const match = (options || []).find((opt) => {
+      const id = String(opt.id ?? opt.value ?? '');
+      const name = String(opt.name ?? opt.label ?? '').toLowerCase();
+      return id.toLowerCase() === typed.toLowerCase() || name === typed.toLowerCase();
+    });
+    addId(match ? String(match.id ?? match.value ?? '') : typed);
+  };
+
+  return (
+    <div className={styles.tagField} ref={rootRef} data-field="approvers">
+      <div className={styles.tagBox} onClick={() => rootRef.current?.querySelector('input')?.focus()}>
+        {selected.map((id) => (
+          <span key={id} className={styles.tagChip}>
+            <span>{approverLabel(options, id)}</span>
+            {!disabled ? (
+              <button
+                type="button"
+                className={styles.tagRemove}
+                aria-label={`Remove ${approverLabel(options, id)}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onChange(selected.filter((item) => item !== id));
+                }}
+              >
+                ×
+              </button>
+            ) : null}
+          </span>
+        ))}
+        <input
+          id="approvers"
+          className={styles.tagInput}
+          value={query}
+          disabled={disabled}
+          placeholder={selected.length ? 'Add another…' : 'Type a name or username, then Enter'}
+          onFocus={() => setOpen(true)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ',') {
+              event.preventDefault();
+              if (available[0] && query.trim()) addId(String(available[0].id ?? available[0].value ?? ''));
+              else addTyped();
+            } else if (event.key === 'Backspace' && !query && selected.length) {
+              onChange(selected.slice(0, -1));
+            } else if (event.key === 'Escape') {
+              setOpen(false);
+            }
+          }}
+        />
+      </div>
+      {open && !disabled && available.length ? (
+        <div className={styles.tagMenu} role="listbox">
+          {available.slice(0, 8).map((opt) => {
+            const id = String(opt.id ?? opt.value ?? '');
+            const name = opt.name ?? opt.label ?? id;
+            return (
+              <button
+                key={id}
+                type="button"
+                className={styles.tagOption}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => addId(id)}
+              >
+                {name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function truthyFlag(value) {
   return value === true || value === 1 || value === '1';
 }
@@ -519,7 +637,7 @@ export default function OpsVcLaytimePage() {
     if (submitId === 1 && !(draft.approvers || []).length) {
       await alertThenFocus(alert, {
         title: 'Alert',
-        message: 'Please select Level 1 Approvers first.',
+        message: 'Please assign an approver first.',
       }, 'approvers');
       return;
     }
@@ -1066,7 +1184,7 @@ export default function OpsVcLaytimePage() {
                     </div>
                   </div>
 
-                  <div className={sofStyles.cfSection}>
+                  <div className={`${sofStyles.cfSection} ${styles.ltApproverSection}`}>
                     <div className={`${sofStyles.cfSectionHead} ${styles.cfSectionHeadAmber}`}>
                       <div className={sofStyles.cfSectionTitleWrap}>
                         <div className={`${sofStyles.sectionIco} ${styles.sectionIcoAmber}`}>
@@ -1077,43 +1195,31 @@ export default function OpsVcLaytimePage() {
                             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                           </svg>
                         </div>
-                        <div className={sofStyles.cfSectionTitle} style={{ fontSize: 13.5 }}>Level 1 Approver</div>
+                        <div className={sofStyles.cfSectionTitle} style={{ fontSize: 13.5 }}>Assign an Approver</div>
                       </div>
                     </div>
-                    <div className={styles.ltApprovalBody} data-field="approvers">
-                      <label className={styles.ltApprovalLabel} htmlFor="approvers">Assign Approval Usernames</label>
-                      {approverOptions.length ? (
-                        <select
-                          id="approvers"
-                          className={styles.ltApprovalSelect}
-                          multiple
-                          disabled={locked}
-                          value={draft.approvers || []}
-                          onChange={(e) => {
-                            const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                            setApprovers(selected);
-                          }}
+                    <div className={styles.ltApprovalBody}>
+                      <label className={styles.ltApprovalLabel} htmlFor="approvers">Approvers</label>
+                      <ApproverTagField
+                        options={approverOptions}
+                        value={draft.approvers || []}
+                        onChange={setApprovers}
+                        disabled={locked}
+                      />
+                      {!locked ? (
+                        <button
+                          type="button"
+                          className={styles.btnSubmitClose}
+                          onClick={() => handleSubmit(1)}
+                          disabled={saving}
                         >
-                          {approverOptions.map((opt) => {
-                            const id = String(opt.id ?? opt.value ?? '');
-                            const name = opt.name ?? opt.label ?? id;
-                            return (
-                              <option key={id} value={id}>{name}</option>
-                            );
-                          })}
-                        </select>
-                      ) : (
-                        <input
-                          id="approvers"
-                          className={styles.ltApprovalInput}
-                          type="text"
-                          value={(draft.approvers || []).join(', ')}
-                          onChange={(e) => setApprovers(e.target.value)}
-                          disabled={locked}
-                          placeholder="e.g. jsmith, agupta"
-                        />
-                      )}
-                      <span className={styles.ltApprovalHint}>(comma-separated)</span>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="m22 2-7 20-4-9-9-4Z" />
+                            <path d="M22 2 11 13" />
+                          </svg>
+                          Submit
+                        </button>
+                      ) : null}
                     </div>
                   </div>
 
@@ -1132,18 +1238,6 @@ export default function OpsVcLaytimePage() {
                             <path d="M7 3v5h8" />
                           </svg>
                           Save
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btnSubmitClose}
-                          onClick={() => handleSubmit(1)}
-                          disabled={saving}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="m22 2-7 20-4-9-9-4Z" />
-                            <path d="M22 2 11 13" />
-                          </svg>
-                          Submit
                         </button>
                       </div>
                       <button

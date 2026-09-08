@@ -189,12 +189,11 @@
 }
 
 .ltrDocLogo {
-  width: 64px;
-  height: 74px;
-  border-radius: 8px;
-  background: linear-gradient(160deg, #e6eaf1 0%, #f8f9fb 100%);
-  border: 1px solid #dfe2e7;
+  width: 78px;
+  height: 78px;
+  object-fit: contain;
   flex: none;
+  background: transparent;
 }
 
 .ltrDocBarwrap {

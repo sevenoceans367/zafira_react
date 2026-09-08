@@ -13,18 +13,6 @@
   flex-wrap: wrap;
 }
 
-.tagSoft {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #8a93a2;
-  background: #f1f2f4;
-  border: 1px solid #dfe2e7;
-  border-radius: 999px;
-  padding: 2px 9px;
-}
-
 .voyChip {
   display: inline-flex;
   align-items: center;
@@ -36,7 +24,7 @@
   padding: 8px 14px;
   font-size: 13px;
   font-weight: 800;
-  margin-bottom: 22px;
+  margin-bottom: 40px;
 }
 
 .voyChip svg {
@@ -66,6 +54,70 @@
   border-radius: 14px;
   margin-bottom: 22px;
   overflow: hidden;
+}
+
+.docLayout {
+  display: flex;
+  align-items: flex-start;
+  gap: 22px;
+}
+
+.docMain {
+  flex: 0 1 700px;
+  min-width: 620px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.docMain .cfSection {
+  margin-bottom: 0;
+}
+
+.docSide {
+  flex: 1;
+  min-width: 380px;
+}
+
+.docSideSticky {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.docSide .cfSection {
+  margin-bottom: 0;
+}
+
+.docSideSticky .cfSection {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+@media (max-width: 1100px) {
+  .docLayout {
+    flex-direction: column;
+  }
+
+  .docMain {
+    flex-basis: auto;
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .docSide {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .docSideSticky {
+    position: static;
+    height: auto !important;
+  }
 }
 
 .cfSectionHead {
@@ -307,7 +359,7 @@
 
 .cfInp {
   width: 100%;
-  min-width: 0;
+  min-width: 130px;
   box-sizing: border-box;
   font-family: inherit;
   font-size: 12px;
@@ -316,6 +368,11 @@
   border: 1px solid #dfe2e7;
   border-radius: 8px;
   padding: 7px 9px;
+}
+
+.cfInp::placeholder {
+  color: #8a93a2;
+  font-style: italic;
 }
 
 .rowNameInp {
@@ -354,6 +411,18 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.docTypeSelect {
+  font-family: inherit;
+  font-size: 12px;
+  color: #1b2430;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 7px 9px;
+  width: 100%;
+  min-width: 96px;
 }
 
 .fileNameLink {
@@ -471,6 +540,164 @@
   font-size: 11px;
   color: #8a93a2;
   font-weight: 600;
+}
+
+.emailPanel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  height: 100%;
+  margin-bottom: 0;
+}
+
+.emailActionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  padding: 12px 22px;
+  border-bottom: 1px solid #eceef2;
+  background: #fafbfc;
+}
+
+.btnOutlineSm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5b6472;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 8px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btnOutlineSm:hover {
+  background: #f1f2f4;
+}
+
+.emailIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid #dfe2e7;
+  background: #fff;
+  color: #5b6472;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+
+.emailIconBtn:hover {
+  background: #f1f2f4;
+}
+
+.emailIconBtn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.emailIconBtnSpin svg {
+  animation: docEmailSpin 0.7s linear infinite;
+}
+
+@keyframes docEmailSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.emailFilterWrap {
+  position: relative;
+  margin-left: auto;
+}
+
+.emailFilterPop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  width: 240px;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(20, 20, 40, 0.14);
+  padding: 10px;
+}
+
+.emailSearchBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f2f4;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: #8a93a2;
+  font-size: 12.5px;
+}
+
+.emailSearchBox svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.emailSearchBox input {
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 12.5px;
+  color: #1b2430;
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+}
+
+.emailSearchBox input::placeholder {
+  color: #8a93a2;
+  font-style: normal;
+}
+
+.emailFilterCount {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #8a93a2;
+  margin-top: 6px;
+  padding-left: 2px;
+}
+
+.emailFilterEmpty {
+  padding: 24px 22px;
+  text-align: center;
+  font-size: 12px;
+  color: #8a93a2;
+  font-weight: 600;
+}
+
+.emailList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 1100px) {
+  .emailPanel {
+    height: auto;
+  }
+
+  .emailList {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
 }
 
 .emailRow {

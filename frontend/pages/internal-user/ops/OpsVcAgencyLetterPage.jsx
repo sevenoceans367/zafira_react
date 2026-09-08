@@ -69,18 +69,25 @@ function lookupOptions(items, placeholder = '---Select from list---') {
   ];
 }
 
+function todayDmy() {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${day}-${month}-${now.getFullYear()}`;
+}
+
 function draftFromPort(port, form) {
   const letter = port.letter;
   const cargoDetails = letter?.cargoDetails || form.cargoDefault || '';
   const tolerance = letter?.tolerance || form.toleranceDefault || '';
   return {
     genAgencyId: letter?.genAgencyId || '',
-    date: letter?.date || '',
+    date: letter?.date || todayDmy(),
     qty: letter?.qty != null && letter.qty !== '' ? String(letter.qty) : String(port.qty || ''),
     countryId: letter?.countryId || '',
     username: letter?.username || port.defaultUsername || '',
     password: letter?.password || '',
-    etaDate1: letter?.etaDate1 || port.etaFixture || '',
+    etaDate1: letter?.etaDate1 || port.etaNoon || port.etaFixture || '',
     masterName: letter?.masterName || '',
     cargoDetails,
     tolerance,
@@ -739,14 +746,6 @@ export default function OpsVcAgencyLetterPage() {
       }, 'vc-agency-eta-date');
       return;
     }
-    if (!draft.countryId) {
-      await alertThenFocus(alert, {
-        title: 'Missing Information',
-        message: 'Please add country for this port.',
-        confirmLabel: 'OK',
-      }, 'vc-agency-country');
-      return;
-    }
 
     const ok = await confirm({
       title: 'Confirmation',
@@ -972,44 +971,6 @@ export default function OpsVcAgencyLetterPage() {
                           onChange={(v) => patchDraft({ etaDate1: v })}
                           disabled={activePort.locked}
                         />
-                      </div>
-                      <div className={styles.fItem} data-field="vc-agency-country">
-                        <label htmlFor="vc-agency-country">Port Country</label>
-                        {activePort.letter?.countryId ? (
-                          <TextInput
-                            id="vc-agency-country"
-                            value={lookups.countries.find((c) => c.id === draft.countryId)?.name || draft.countryId}
-                            readOnly
-                          />
-                        ) : (
-                          <div className={styles.cardSelect}>
-                            <CardSelect
-                              id="vc-agency-country"
-                              value={draft.countryId}
-                              options={lookupOptions(lookups.countries)}
-                              placeholder="---Select from list---"
-                              ariaLabel="Port Country"
-                              align="start"
-                              disabled={activePort.locked}
-                              onChange={(next) => patchDraft({ countryId: next })}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className={styles.fItem}>
-                        <label htmlFor="vc-agency-ship-owner">Ship Owner</label>
-                        <div className={styles.cardSelect}>
-                          <CardSelect
-                            id="vc-agency-ship-owner"
-                            value={draft.shipOwner}
-                            options={lookupOptions(lookups.shipOwners)}
-                            placeholder="---Select from list---"
-                            ariaLabel="Ship Owner"
-                            align="start"
-                            disabled={activePort.locked}
-                            onChange={(next) => patchDraft({ shipOwner: next })}
-                          />
-                        </div>
                       </div>
                     </div>
                   </div>

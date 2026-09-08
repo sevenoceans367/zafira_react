@@ -539,15 +539,7 @@ export default function RunningCoasListPage() {
                 onClick={() => navigate(`${coaPath('running/add')}?selBType=${businessType}`)}
               >
                 <PlusIcon />
-                Add New
-              </button>
-              <button
-                type="button"
-                className={styles.btnAddDirect}
-                onClick={() => navigate(`${coaPath('direct-fixture/add')}?selBType=${businessType}`)}
-              >
-                <PlusIcon />
-                Add Direct Fixture
+                Add
               </button>
             </>
           )}

@@ -4,6 +4,13 @@ import { getPool } from '../db.js';
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
 
+function todayDmy() {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${day}-${month}-${now.getFullYear()}`;
+}
+
 function blankDate(value, withTime = false) {
   if (!value) return '';
   const str = String(value);
@@ -252,6 +259,58 @@ async function getCargoDefaults(pool, comId, costSheetId) {
   return { cargoDefault, toleranceDefault };
 }
 
+function normalizePortKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function portsMatch(left, right) {
+  const a = normalizePortKey(left);
+  const b = normalizePortKey(right);
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
+async function loadNoonReportEtas(pool, imoNo) {
+  const imo = String(imoNo || '').trim();
+  if (!imo) return [];
+  const queries = [
+    `SELECT NEXT_PORT AS portName, ETA_NEXT_PORT AS eta, REPORTING_DATETIME_LT AS reportedAt
+     FROM sa_noon_master
+     WHERE IMO_NO = ? AND ETA_NEXT_PORT IS NOT NULL`,
+    `SELECT NEXT_PORT AS portName, ETA_NEXT_PORT AS eta, REPORTING_DATETIME_LT AS reportedAt
+     FROM sa_departure_master
+     WHERE IMO_NO = ? AND ETA_NEXT_PORT IS NOT NULL`,
+    `SELECT PORT_OF_ARRIVAL AS portName, ETA_NEXT_PORT AS eta, REPORTING_DATETIME_LT AS reportedAt
+     FROM sa_arrival_master
+     WHERE IMO_NO = ? AND ETA_NEXT_PORT IS NOT NULL`,
+  ];
+  const rows = [];
+  for (const sql of queries) {
+    try {
+      const [result] = await pool.query(sql, [imo]);
+      rows.push(...(result || []));
+    } catch {
+      // voyage report tables are optional
+    }
+  }
+  return rows
+    .map((row) => ({
+      portName: row.portName || '',
+      eta: blankDate(row.eta, true),
+      reportedAt: row.reportedAt ? new Date(row.reportedAt).getTime() : 0,
+    }))
+    .filter((row) => row.eta)
+    .sort((a, b) => b.reportedAt - a.reportedAt);
+}
+
+function etaFromNoonReports(reports, portName) {
+  const match = (reports || []).find((row) => portsMatch(row.portName, portName));
+  return match?.eta || '';
+}
+
 async function getEtaFixture(pool, comId, portType, portId, randomId) {
   try {
     const type = storedPortType(portType);
@@ -438,7 +497,7 @@ export async function dbGetAgencyLetterForm(comId) {
   );
 
   const [[sheet]] = await pool.query(
-    `SELECT m.FCAID, m.VESSEL_IMO_ID, vim.VESSEL_NAME
+    `SELECT m.FCAID, m.VESSEL_IMO_ID, vim.VESSEL_NAME, vim.IMO_NO
      FROM freight_cost_estimete_master m
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
      WHERE m.FCAID = ?
@@ -475,6 +534,7 @@ export async function dbGetAgencyLetterForm(comId) {
   const agencyNumber = await getMaxAgencyNumber(pool);
   const shortName = await getCompanyShortName(pool);
   const lookups = await dbGetAgencyLetterLookups();
+  const noonReports = await loadNoonReportEtas(pool, sheet?.IMO_NO);
 
   const ports = [];
   for (const leg of legs) {
@@ -588,6 +648,7 @@ export async function dbGetAgencyLetterForm(comId) {
         candidate.portId,
         candidate.randomId,
       );
+      const etaNoon = etaFromNoonReports(noonReports, portName);
       const defaultUsername = `${shortName}/${agencyNumber}/${candidate.randomId}`;
 
       ports.push({
@@ -605,6 +666,7 @@ export async function dbGetAgencyLetterForm(comId) {
         defaultEntityName: vendor?.STREET_2 || '',
         defaultEntityEmail: vendor?.EMAILID || '',
         etaFixture,
+        etaNoon,
         defaultUsername,
         letter: detail.letter,
         entities: detail.entities.length
@@ -657,11 +719,6 @@ export async function dbSaveAgencyLetter(payload = {}) {
       error.status = 400;
       throw error;
     }
-    if (!payload.countryId) {
-      const error = new Error('Please add country for this port.');
-      error.status = 400;
-      throw error;
-    }
 
     await connection.beginTransaction();
 
@@ -673,7 +730,7 @@ export async function dbSaveAgencyLetter(payload = {}) {
       [comId, MODULE_ID, COMPANY_ID, port, portId, vendorId, randomId, username],
     );
 
-    const date = parseDmyDate(payload.date, false);
+    const date = parseDmyDate(payload.date || todayDmy(), false);
     const etaDate1 = parseDmyDate(payload.etaDate1, true);
     const etaDate = parseDmyDate(payload.etaDate, true);
     const entities = Array.isArray(payload.entities) ? payload.entities : [];

@@ -640,11 +640,117 @@
   background: #f1f2f4;
 }
 
+.ltApproverSection {
+  overflow: visible;
+}
+
 .ltApprovalBody {
   padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  position: relative;
+}
+
+.tagField {
+  position: relative;
+}
+
+.tagBox {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 6px 8px;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 9px;
+  cursor: text;
+}
+
+.tagBox:focus-within {
+  border-color: #274670;
+  box-shadow: 0 0 0 3px rgba(39, 70, 112, 0.12);
+}
+
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 3px 6px 3px 9px;
+  border-radius: 999px;
+  background: #e6eaf1;
+  color: #274670;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.tagRemove {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #5b6472;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tagRemove:hover {
+  background: #d3dae7;
+  color: #1b2430;
+}
+
+.tagInput {
+  flex: 1 1 120px;
+  min-width: 120px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #1b2430;
+  padding: 4px 4px;
+}
+
+.tagInput::placeholder {
+  color: #8a93a2;
+  font-style: italic;
+}
+
+.tagMenu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(20, 26, 40, 0.12);
+  overflow: hidden;
+}
+
+.tagOption {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: #fff;
+  color: #1b2430;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.tagOption:hover {
+  background: #f1f2f4;
 }
 
 .ltApprovalLabel {
@@ -751,6 +857,7 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
+  width: 100%;
   background: #274670;
   color: #fff;
   font-weight: 700;

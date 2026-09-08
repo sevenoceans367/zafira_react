@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import styles from './OpsDocumentsPage.module.css';
 
@@ -43,27 +43,6 @@ function CircleDeleteButton({ onClick, disabled, title = 'Remove' }) {
         <path d="M6 6l12 12" />
       </svg>
     </button>
-  );
-}
-
-function AttachmentChips({ attachments }) {
-  if (!attachments?.length) return <span className={styles.muted}>—</span>;
-  return (
-    <div className={styles.docUploadStack}>
-      {attachments.map((item) => (
-        <a
-          key={`${item.file}-${item.name}`}
-          className={styles.docUploadChip}
-          href={item.url}
-          target="_blank"
-          rel="noreferrer"
-          title="Click to view file"
-        >
-          <CheckIcon />
-          {item.name}
-        </a>
-      ))}
-    </div>
   );
 }
 
@@ -149,10 +128,11 @@ function DocSection({
   title,
   subtitle,
   note,
+  className,
   children,
 }) {
   return (
-    <div className={styles.cfSection} id={id}>
+    <div className={[styles.cfSection, className].filter(Boolean).join(' ')} id={id}>
       <div className={`${styles.cfSectionHead} ${headClass}`}>
         <div className={styles.cfSectionTitleWrap}>
           <div className={`${styles.sectionIco} ${iconClass}`}>
@@ -201,7 +181,77 @@ const PLACEHOLDER_EMAILS = [
     snippet: 'Confirming the bunker stem as discussed on call. Supply schedule and grade breakdown attached.',
     attachments: 2,
   },
+  {
+    id: 'sample-3',
+    subject: 'Statement of Facts - Care-Houston',
+    date: '01-Sep-2026, 11:05',
+    from: 'agent@barwilagencies.com',
+    snippet: 'Please find attached the signed SOF for the load port along with the time sheet.',
+    attachments: 2,
+  },
+  {
+    id: 'sample-4',
+    subject: 'RE: Discharge berth allocation',
+    date: '29-Aug-2026, 08:52',
+    from: 'ops@charterercorp.com',
+    snippet: 'Berth 4 confirmed for discharge. Please advise vessel ETA update once available.',
+    attachments: 0,
+  },
+  {
+    id: 'sample-5',
+    subject: 'Notice of Readiness - New Orleans',
+    date: '28-Aug-2026, 14:10',
+    from: 'agent@gulfportservices.com',
+    snippet: 'NOR tendered 20 Oct 2026, 0900 hrs. Awaiting berth confirmation from terminal.',
+    attachments: 1,
+  },
+  {
+    id: 'sample-6',
+    subject: 'Owner\'s P&I Club confirmation',
+    date: '25-Aug-2026, 09:47',
+    from: 'claims@piclubgroup.com',
+    snippet: 'Confirming cover is in place for this voyage. Certificate of entry attached for your records.',
+    attachments: 1,
+  },
+  {
+    id: 'sample-7',
+    subject: 'Freight invoice queries - INV-26012-01',
+    date: '24-Aug-2026, 16:33',
+    from: 'accounts@charterercorp.com',
+    snippet: 'A couple of line items on the freight invoice need clarification before we can process payment.',
+    attachments: 0,
+  },
+  {
+    id: 'sample-8',
+    subject: 'Draft survey report - loading complete',
+    date: '30-Aug-2026, 17:20',
+    from: 'surveyor@independentmarine.com',
+    snippet: 'Draft survey attached showing final loaded quantity. Please countersign and return.',
+    attachments: 1,
+  },
 ];
+
+const SIMULATED_EMAIL = {
+  subject: 'Incoming: Agency appointment confirmation',
+  from: 'ops@portagent.com',
+  snippet: 'Agency appointment confirmed for this voyage. Please file the attached nomination against the port call.',
+  attachments: 1,
+};
+
+function todayLabel() {
+  return new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+}
+
+function nowEmailStamp() {
+  return new Date().toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).replace(',', '');
+}
 
 export default function OpsDocumentsPageContent({
   comId,
@@ -211,19 +261,22 @@ export default function OpsDocumentsPageContent({
 }) {
   const confirm = useConfirm();
   const genericInputRef = useRef(null);
-  const vesselInputRef = useRef(null);
   const invoiceInputRef = useRef(null);
-  const emailInputRef = useRef(null);
+  const docMainRef = useRef(null);
+  const emailStickyRef = useRef(null);
+  const filterPopRef = useRef(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [dropActive, setDropActive] = useState(false);
+  const [dropActive, setDropActive] = useState('');
   const [copied, setCopied] = useState(false);
-
-  const notifyUploadUnavailable = (section) => {
-    setError(`Upload for ${section} is not available on this page yet. Use Generic Files for voyage documents.`);
-  };
+  const [genericEdits, setGenericEdits] = useState({});
+  const [pendingFinancial, setPendingFinancial] = useState([]);
+  const [emails, setEmails] = useState(PLACEHOLDER_EMAILS);
+  const [emailQuery, setEmailQuery] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const forwardAddress = useMemo(
     () => voyForwardAddress(data?.nomId),
@@ -301,10 +354,86 @@ export default function OpsDocumentsPageContent({
     }
   };
 
+  const addPendingFinancial = (fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    setPendingFinancial((current) => [
+      ...files.map((file, index) => ({
+        id: `pending-${Date.now()}-${index}`,
+        particular: file.name,
+        type: 'Invoice',
+        number: '',
+        uploaded: todayLabel(),
+      })),
+      ...current,
+    ]);
+  };
+
+  const filteredEmails = useMemo(() => {
+    const q = emailQuery.trim().toLowerCase();
+    if (!q) return emails;
+    return emails.filter((email) => (
+      email.subject.toLowerCase().includes(q) || email.from.toLowerCase().includes(q)
+    ));
+  }, [emails, emailQuery]);
+
+  const simulateIncoming = () => {
+    setEmails((current) => [{
+      id: `sim-${Date.now()}`,
+      ...SIMULATED_EMAIL,
+      date: nowEmailStamp(),
+    }, ...current]);
+  };
+
+  const refreshEmails = () => {
+    setRefreshing(true);
+    window.setTimeout(() => setRefreshing(false), 700);
+  };
+
+  useEffect(() => {
+    if (!filterOpen) return undefined;
+    const onPointerDown = (event) => {
+      if (!filterPopRef.current?.contains(event.target)) setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [filterOpen]);
+
+  useLayoutEffect(() => {
+    const main = docMainRef.current;
+    const side = emailStickyRef.current;
+    if (!main || !side) return undefined;
+
+    const sync = () => {
+      if (window.innerWidth <= 1100) {
+        side.style.height = '';
+        return;
+      }
+      side.style.height = `${main.getBoundingClientRect().height}px`;
+    };
+
+    sync();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(sync);
+    observer?.observe(main);
+    window.addEventListener('resize', sync);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', sync);
+    };
+  }, [data, pendingFinancial, loading]);
+
   const voyLabelParts = [data?.nomId, data?.vesselName].filter(Boolean);
-  const vesselSubtitle = data?.vesselName
-    ? `Documents from ${data.vesselName}'s vessel master record`
-    : 'Documents from the vessel master record';
+  const financialRows = [
+    ...pendingFinancial,
+    ...(data?.invoiceAttachments || []).map((row, index) => ({
+      id: `saved-${index}`,
+      particular: row.particular || '',
+      type: row.type || 'Invoice',
+      number: row.number || '',
+      uploaded: 'On file',
+      saved: true,
+    })),
+  ];
 
   return (
     <div className={`zafira-page ${styles.page}`}>
@@ -313,7 +442,6 @@ export default function OpsDocumentsPageContent({
 
       <div className={styles.pageSubhead}>
         Vessel and cargo documentation for this voyage
-        <span className={styles.tagSoft}>DOC</span>
       </div>
 
       {voyLabelParts.length ? (
@@ -334,291 +462,347 @@ export default function OpsDocumentsPageContent({
         </div>
       ) : null}
 
-      <DocSection
-        id="sec-generic"
-        headClass={styles.cfSectionHeadNavy}
-        iconClass={styles.sectionIcoNavy}
-        title="Generic Files"
-        subtitle="General documents attached to this voyage"
-        note="Any general document relevant to this voyage — reports, checklists, correspondence not tied to a specific invoice."
-        icon={(
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <path d="M14 2v6h6" />
-            <path d="M9 13h6" />
-            <path d="M9 17h6" />
-          </svg>
-        )}
-      >
-        <div className={styles.docBody}>
-          <div className={styles.docDzRow}>
-            <Dropzone
-              inputRef={genericInputRef}
-              active={dropActive}
-              disabled={loading || saving}
-              onActivate={() => setDropActive(true)}
-              onDeactivate={() => setDropActive(false)}
-              onFiles={uploadGenericFiles}
-              subHint="PDF, Word, Excel up to 20MB"
-            />
-          </div>
-          <div className={styles.tableWrap}>
-            <table className={styles.cfTable}>
-              <thead>
-                <tr>
-                  <th>File Name</th>
-                  <th>Uploaded</th>
-                  <th>Details</th>
-                  <th aria-label="Actions" />
-                </tr>
-              </thead>
-              <tbody>
-                {(data?.documents || []).map((doc) => (
-                  <tr key={doc.id}>
-                    <td className={`${styles.accentCell} ${styles.accentNavy}`}>
-                      {doc.fileName || '—'}
-                    </td>
-                    <td>
-                      <AttachmentChips attachments={doc.attachments} />
-                    </td>
-                    <td className={styles.muted}>
-                      {(doc.attachments || []).length
-                        ? `${doc.attachments.length} file${doc.attachments.length === 1 ? '' : 's'} on record`
-                        : '—'}
-                    </td>
-                    <td style={{ width: 40 }}>
-                      <CircleDeleteButton
-                        disabled={loading || saving}
-                        onClick={() => handleDelete(doc)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {!loading && !(data?.documents || []).length ? (
-                  <tr className={styles.cfEmptyRow}>
-                    <td colSpan={4}>No documents uploaded yet.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </DocSection>
+      <div className={styles.docLayout}>
+        <div className={styles.docMain} ref={docMainRef}>
+          <DocSection
+            id="sec-generic"
+            headClass={styles.cfSectionHeadNavy}
+            iconClass={styles.sectionIcoNavy}
+            title="Generic Files"
+            subtitle="General documents attached to this voyage"
+            note="Any general document relevant to this voyage — reports, checklists, correspondence not tied to a specific invoice."
+            icon={(
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M9 13h6" />
+                <path d="M9 17h6" />
+              </svg>
+            )}
+          >
+            <div className={styles.docBody}>
+              <div className={styles.docDzRow}>
+                <Dropzone
+                  inputRef={genericInputRef}
+                  active={dropActive === 'generic'}
+                  disabled={loading || saving}
+                  onActivate={() => setDropActive('generic')}
+                  onDeactivate={() => setDropActive('')}
+                  onFiles={uploadGenericFiles}
+                  subHint="PDF, Word, Excel up to 20MB"
+                />
+              </div>
+              <div className={styles.tableWrap}>
+                <table className={styles.cfTable}>
+                  <thead>
+                    <tr>
+                      <th>File Name</th>
+                      <th>Uploaded</th>
+                      <th>Details</th>
+                      <th aria-label="Actions" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data?.documents || []).map((doc) => {
+                      const edit = genericEdits[doc.id] || {};
+                      const fileName = edit.fileName ?? doc.fileName ?? '';
+                      const details = edit.details ?? '';
+                      const href = doc.attachments?.[0]?.url;
+                      return (
+                        <tr key={doc.id}>
+                          <td className={`${styles.accentCell} ${styles.accentNavy}`}>
+                            <input
+                              className={`${styles.cfInp} ${styles.rowNameInp}`}
+                              value={fileName}
+                              onChange={(event) => setGenericEdits((current) => ({
+                                ...current,
+                                [doc.id]: { ...current[doc.id], fileName: event.target.value },
+                              }))}
+                            />
+                          </td>
+                          <td>
+                            {href ? (
+                              <a className={styles.docUploadChip} href={href} target="_blank" rel="noreferrer">
+                                <CheckIcon />
+                                {todayLabel()}
+                              </a>
+                            ) : (
+                              <span className={styles.docUploadChip}>
+                                <CheckIcon />
+                                On file
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <input
+                              className={styles.cfInp}
+                              value={details}
+                              placeholder="Details"
+                              onChange={(event) => setGenericEdits((current) => ({
+                                ...current,
+                                [doc.id]: { ...current[doc.id], details: event.target.value },
+                              }))}
+                            />
+                          </td>
+                          <td style={{ width: 40 }}>
+                            <CircleDeleteButton
+                              disabled={loading || saving}
+                              onClick={() => handleDelete(doc)}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {!loading && !(data?.documents || []).length ? (
+                      <tr className={styles.cfEmptyRow}>
+                        <td colSpan={4}>No documents uploaded yet.</td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </DocSection>
 
-      <DocSection
-        id="sec-vessel"
-        headClass={styles.cfSectionHeadOrange}
-        iconClass={styles.sectionIcoOrange}
-        title="Open Vessel Details : Attachments"
-        subtitle={vesselSubtitle}
-        note="Pulled from the vessel's master record — view certificates and particulars linked to this voyage's vessel."
-        icon={(
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M2 21c1.6 1.2 3.4 1.2 5 0 1.6 1.2 3.4 1.2 5 0 1.6 1.2 3.4 1.2 5 0 1.6 1.2 3.4 1.2 5 0" />
-            <path d="M4 18l1-8h14l1 8" />
-            <path d="M12 10V4h4l2 4" />
-            <path d="M9 4h3" />
-          </svg>
-        )}
-      >
-        <div className={styles.docBody}>
-          <div className={styles.docDzRow}>
-            <Dropzone
-              inputRef={vesselInputRef}
-              active={false}
-              onActivate={() => {}}
-              onDeactivate={() => {}}
-              onFiles={() => notifyUploadUnavailable('Open Vessel Details')}
-              subHint="Certificates, particulars, survey reports"
-            />
-          </div>
-          <div className={styles.tableWrap}>
-            <table className={styles.cfTable}>
-              <thead>
-                <tr>
-                  <th>File Name</th>
-                  <th>Uploaded</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data?.vesselAttachments || []).map((item) => (
-                  <tr key={`${item.file}-${item.name}`}>
-                    <td className={`${styles.accentCell} ${styles.accentOrange}`}>
-                      <a
-                        className={styles.fileNameLink}
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Click to view file"
-                      >
-                        {item.name}
-                      </a>
-                    </td>
-                    <td>
-                      <a
-                        className={styles.docUploadChip}
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <CheckIcon />
-                        View file
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-                {!loading && !(data?.vesselAttachments || []).length ? (
-                  <tr className={styles.cfEmptyRow}>
-                    <td colSpan={2}>No vessel attachments.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+          <DocSection
+            id="sec-financial"
+            headClass={styles.cfSectionHeadTeal}
+            iconClass={styles.sectionIcoTeal}
+            title="Financial Elements"
+            subtitle="Financial paperwork supporting the SOA for this voyage"
+            note="Attach the source document behind an invoice, statement or payment — tag its type and reference so it's easy to match against the Cashflow page."
+            icon={(
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" />
+                <path d="M9 7h6" />
+                <path d="M9 11h6" />
+                <path d="M9 15h4" />
+              </svg>
+            )}
+          >
+            <div className={styles.docBody}>
+              <div className={styles.docDzRow}>
+                <Dropzone
+                  inputRef={invoiceInputRef}
+                  active={dropActive === 'invoice'}
+                  disabled={loading || saving}
+                  onActivate={() => setDropActive('invoice')}
+                  onDeactivate={() => setDropActive('')}
+                  onFiles={addPendingFinancial}
+                  subHint="Invoices, SOAs, payment confirmations"
+                />
+              </div>
+              <div className={styles.tableWrap}>
+                <table className={styles.cfTable}>
+                  <thead>
+                    <tr>
+                      <th>Particular</th>
+                      <th>Type</th>
+                      <th>Invoice/Statement/Payment No.</th>
+                      <th>Uploaded</th>
+                      <th aria-label="Actions" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {financialRows.map((row) => (
+                      <tr key={row.id}>
+                        <td className={`${styles.accentCell} ${styles.accentTeal}`}>
+                          <input
+                            className={`${styles.cfInp} ${styles.rowNameInp}`}
+                            value={row.particular}
+                            onChange={(event) => {
+                              if (row.saved) return;
+                              const value = event.target.value;
+                              setPendingFinancial((current) => current.map((item) => (
+                                item.id === row.id ? { ...item, particular: value } : item
+                              )));
+                            }}
+                            readOnly={row.saved}
+                          />
+                        </td>
+                        <td>
+                          <select
+                            className={styles.docTypeSelect}
+                            value={row.type || 'Invoice'}
+                            disabled={row.saved}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setPendingFinancial((current) => current.map((item) => (
+                                item.id === row.id ? { ...item, type: value } : item
+                              )));
+                            }}
+                          >
+                            <option>Invoice</option>
+                            <option>Statement</option>
+                            <option>Payment</option>
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            className={`${styles.cfInp} ${styles.rowInpSm}`}
+                            value={row.number}
+                            placeholder="Reference No."
+                            readOnly={row.saved}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setPendingFinancial((current) => current.map((item) => (
+                                item.id === row.id ? { ...item, number: value } : item
+                              )));
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <span className={styles.docUploadChip}>
+                            <CheckIcon />
+                            {row.uploaded || todayLabel()}
+                          </span>
+                        </td>
+                        <td style={{ width: 40 }}>
+                          <CircleDeleteButton
+                            onClick={() => {
+                              if (row.saved) return;
+                              setPendingFinancial((current) => current.filter((item) => item.id !== row.id));
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                    {!financialRows.length ? (
+                      <tr className={styles.cfEmptyRow}>
+                        <td colSpan={5}>No invoice / payment attachments.</td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </DocSection>
         </div>
-      </DocSection>
 
-      <DocSection
-        id="sec-invoice"
-        headClass={styles.cfSectionHeadTeal}
-        iconClass={styles.sectionIcoTeal}
-        title="Invoice / Statement / Payment : Attachments"
-        subtitle="Financial paperwork supporting the SOA for this voyage"
-        note="Source documents behind invoices, statements and payments — matched against the Cashflow page."
-        icon={(
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" />
-            <path d="M9 7h6" />
-            <path d="M9 11h6" />
-            <path d="M9 15h4" />
-          </svg>
-        )}
-      >
-        <div className={styles.docBody}>
-          <div className={styles.docDzRow}>
-            <Dropzone
-              inputRef={invoiceInputRef}
-              active={false}
-              onActivate={() => {}}
-              onDeactivate={() => {}}
-              onFiles={() => notifyUploadUnavailable('Invoice / Statement / Payment')}
-              subHint="Invoices, SOAs, payment confirmations"
-            />
-          </div>
-          <div className={styles.tableWrap}>
-            <table className={styles.cfTable}>
-              <thead>
-                <tr>
-                  <th>Particular</th>
-                  <th>Type</th>
-                  <th>Invoice/Statement/Payment No.</th>
-                  <th>Uploaded</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data?.invoiceAttachments || []).map((row, index) => (
-                  <tr key={`${row.particular}-${row.number}-${index}`}>
-                    <td className={`${styles.accentCell} ${styles.accentTeal}`}>
-                      {row.particular || '—'}
-                    </td>
-                    <td>{row.type || '—'}</td>
-                    <td>{row.number || '—'}</td>
-                    <td>
-                      {(row.groups || []).length ? (
-                        (row.groups || []).map((group) => (
-                          <div key={group.label} className={styles.invoiceGroup}>
-                            <div className={styles.invoiceGroupLabel}>{group.label}</div>
-                            <AttachmentChips attachments={group.attachments} />
-                          </div>
-                        ))
-                      ) : (
-                        <span className={styles.muted}>—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {!loading && !(data?.invoiceAttachments || []).length ? (
-                  <tr className={styles.cfEmptyRow}>
-                    <td colSpan={4}>No invoice / payment attachments.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </DocSection>
-
-      <DocSection
-        id="sec-email"
-        headClass={styles.cfSectionHeadPurple}
-        iconClass={styles.sectionIcoPurple}
-        title="Emails"
-        subtitle="Correspondence received or logged for this voyage"
-        icon={(
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <rect x="3" y="5" width="18" height="14" rx="2.5" />
-            <path d="m3.5 6.5 8.5 6 8.5-6" />
-          </svg>
-        )}
-      >
-        <div className={styles.emailForwardBar}>
-          <span className={styles.emailForwardLabel}>Auto-file to</span>
-          <span className={styles.emailForwardAddr}>{forwardAddress}</span>
-          <button type="button" className={styles.emailCopyBtn} onClick={handleCopyForward}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="9" y="9" width="12" height="12" rx="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-          <span className={styles.emailCopyHint}>
-            Forward or CC this address and the email files here automatically.
-          </span>
-        </div>
-        <div className={styles.docBody} style={{ paddingTop: 14 }}>
-          <div className={styles.docDzRow}>
-            <Dropzone
-              inputRef={emailInputRef}
-              active={false}
-              onActivate={() => {}}
-              onDeactivate={() => {}}
-              onFiles={() => notifyUploadUnavailable('Emails')}
-              subHint=".eml or .msg files, or drag in a saved email export"
-            />
-          </div>
-        </div>
-        <div>
-          {PLACEHOLDER_EMAILS.map((email) => (
-            <div key={email.id} className={styles.emailRow}>
-              <div className={styles.emailIco}>
+        <div className={styles.docSide}>
+          <div className={styles.docSideSticky} ref={emailStickyRef}>
+            <DocSection
+              id="sec-email"
+              className={styles.emailPanel}
+              headClass={styles.cfSectionHeadPurple}
+              iconClass={styles.sectionIcoPurple}
+              title="Emails"
+              subtitle="Correspondence received or logged for this voyage"
+              icon={(
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <rect x="3" y="5" width="18" height="14" rx="2.5" />
                   <path d="m3.5 6.5 8.5 6 8.5-6" />
                 </svg>
+              )}
+            >
+              <div className={styles.emailForwardBar}>
+                <span className={styles.emailForwardLabel}>Auto-file to</span>
+                <span className={styles.emailForwardAddr}>{forwardAddress}</span>
+                <button type="button" className={styles.emailCopyBtn} onClick={handleCopyForward}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="9" y="9" width="12" height="12" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+                <span className={styles.emailCopyHint}>
+                  Forward or CC this address and the email files here automatically.
+                </span>
               </div>
-              <div className={styles.emailMain}>
-                <div className={styles.emailTop}>
-                  <span className={styles.emailSubject}>{email.subject}</span>
-                  <span className={styles.emailDate}>{email.date}</span>
-                </div>
-                <div className={styles.emailFrom}>{email.from}</div>
-                <div className={styles.emailSnippet}>{email.snippet}</div>
-                <div className={styles.emailMetaRow}>
-                  <span className={styles.emailAttachChip}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M21.4 11.5 12.3 20.6a5 5 0 0 1-7.1-7.1L14.3 4.4a3.5 3.5 0 0 1 5 5L10.2 18.5a2 2 0 0 1-2.9-2.9l8-8" />
+              <div className={styles.emailActionRow}>
+                <button type="button" className={styles.btnOutlineSm} onClick={simulateIncoming}>
+                  + incoming
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.emailIconBtn} ${refreshing ? styles.emailIconBtnSpin : ''}`}
+                  title="Integrate / Refresh emails"
+                  onClick={refreshEmails}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M21 12a9 9 0 1 1-2.6-6.3" />
+                    <path d="M21 4v6h-6" />
+                  </svg>
+                </button>
+                <div className={styles.emailFilterWrap} ref={filterPopRef}>
+                  <button
+                    type="button"
+                    className={styles.emailIconBtn}
+                    title="Filter emails"
+                    onClick={() => setFilterOpen((open) => !open)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="m20 20-3.5-3.5" />
                     </svg>
-                    {email.attachments}
-                    {' '}
-                    attachment
-                    {email.attachments === 1 ? '' : 's'}
-                  </span>
+                  </button>
+                  {filterOpen ? (
+                    <div className={styles.emailFilterPop}>
+                      <div className={styles.emailSearchBox}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <circle cx="11" cy="11" r="7" />
+                          <path d="m20 20-3.5-3.5" />
+                        </svg>
+                        <input
+                          type="text"
+                          value={emailQuery}
+                          placeholder="Filter by subject or sender..."
+                          autoFocus
+                          onChange={(event) => setEmailQuery(event.target.value)}
+                        />
+                      </div>
+                      {emailQuery ? (
+                        <div className={styles.emailFilterCount}>
+                          {filteredEmails.length}
+                          {' '}
+                          match
+                          {filteredEmails.length === 1 ? '' : 'es'}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
-            </div>
-          ))}
+              {emailQuery && !filteredEmails.length ? (
+                <div className={styles.emailFilterEmpty}>No emails match your filter.</div>
+              ) : null}
+              <div className={styles.emailList}>
+                {filteredEmails.map((email) => (
+                  <div key={email.id} className={styles.emailRow}>
+                    <div className={styles.emailIco}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <rect x="3" y="5" width="18" height="14" rx="2.5" />
+                        <path d="m3.5 6.5 8.5 6 8.5-6" />
+                      </svg>
+                    </div>
+                    <div className={styles.emailMain}>
+                      <div className={styles.emailTop}>
+                        <span className={styles.emailSubject}>{email.subject}</span>
+                        <span className={styles.emailDate}>{email.date}</span>
+                      </div>
+                      <div className={styles.emailFrom}>{email.from}</div>
+                      <div className={styles.emailSnippet}>{email.snippet}</div>
+                      {email.attachments ? (
+                        <div className={styles.emailMetaRow}>
+                          <span className={styles.emailAttachChip}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M21.4 11.5 12.3 20.6a5 5 0 0 1-7.1-7.1L14.3 4.4a3.5 3.5 0 0 1 5 5L10.2 18.5a2 2 0 0 1-2.9-2.9l8-8" />
+                            </svg>
+                            {email.attachments}
+                            {' '}
+                            attachment
+                            {email.attachments === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </DocSection>
+          </div>
         </div>
-      </DocSection>
+      </div>
     </div>
   );
 }

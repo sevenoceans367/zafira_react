@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import shippingLogo from '../../../assets/progress_shipping.svg';
 import styles from './OpsVcAgencyLetterPreviewModal.module.css';
 
 const SPEC_LABELS = [
@@ -153,7 +154,7 @@ function LetterShell({ accentClass, heading, sub, refCode, dateLabel, footer, ch
               <div className={`${styles.ltrDocH1} ${accentClass}`}>{heading}</div>
               <div className={styles.ltrDocSub}>{sub}</div>
             </div>
-            <div className={styles.ltrDocLogo} aria-hidden />
+            <img className={styles.ltrDocLogo} src={shippingLogo} alt="" aria-hidden />
           </div>
           <div className={styles.ltrDocBarwrap}>
             <div className={styles.ltrDocBar}>
@@ -630,7 +631,7 @@ export default function OpsVcAgencyLetterPreviewModal({
     const portRotation = (form.ports || []).map((port) => ({
       port: port.portName || port.tabLabel,
       event: port.portType === 'DP' ? 'Discharge' : 'Load Cargo',
-      eta: port.etaFixture || '',
+      eta: port.etaNoon || port.etaFixture || '',
       agent: port.agentName || '',
     }));
     const firstBunker = (draft.bunkers || []).find((row) => row.bunkerPort || row.grade) || {};

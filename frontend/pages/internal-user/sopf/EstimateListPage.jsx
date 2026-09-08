@@ -415,10 +415,10 @@ export default function EstimateListPage() {
   };
 
   const handleSensitivityAnalysis = async () => {
-    if (!selectedIds.length) {
+    if (selectedIds.length <= 1) {
       await alert({
         title: 'Missing Information',
-        message: 'Please select at least one checkbox',
+        message: 'Please select more than one estimate',
         confirmLabel: 'OK',
       });
       return;
@@ -523,7 +523,7 @@ export default function EstimateListPage() {
             <EstimateListTableToolbar
               addHref={`/internal-user/sopf/addestimate?estimatetype=${estimateType}&selBType=${businessType}`}
               onSensitivityAnalysis={handleSensitivityAnalysis}
-              sensitivityDisabled={selectedIds.length === 0}
+              sensitivityDisabled={selectedIds.length <= 1}
               showSensitivity={!isCompletedTab}
             />
           )}

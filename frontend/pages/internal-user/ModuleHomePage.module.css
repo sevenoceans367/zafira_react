@@ -71,6 +71,29 @@
   color: #8a93a2;
 }
 
+.demoRole {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+}
+
+.demoRole span {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a93a2;
+}
+
+.demoRole .demoRoleSelect {
+  width: auto;
+  min-width: 132px;
+  padding-right: 28px;
+  font-weight: 700;
+  color: #1b2430;
+}
+
 .hero {
   margin-bottom: 14px;
 }
@@ -101,6 +124,7 @@
 
 .aiBarWrap {
   position: relative;
+  z-index: 6;
   margin: 0 0 12px;
   max-width: 640px;
 }
@@ -425,6 +449,13 @@
   right: 16px;
   width: 22px;
   height: 22px;
+}
+
+.prodIcon svg,
+svg.prodIcon {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 .themeBlue .prodIcon {

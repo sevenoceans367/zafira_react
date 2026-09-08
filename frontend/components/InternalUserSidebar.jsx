@@ -163,11 +163,11 @@ export default function InternalUserSidebar({ isOpen }) {
                   active={isSidebarItemActive(currentPath, item)}
                   disabled={item.disabled}
                 />
-                {item.id === 'time_charter' ? (
-                  <CargoReletSidebarTree isOpen={isOpen} module="sopf" />
-                ) : null}
                 {item.id === 'period' ? (
-                  <CoasSidebarTree isOpen={isOpen} />
+                  <>
+                    <CargoReletSidebarTree isOpen={isOpen} module="sopf" />
+                    <CoasSidebarTree isOpen={isOpen} />
+                  </>
                 ) : null}
               </React.Fragment>
             ))}
@@ -219,7 +219,6 @@ export default function InternalUserSidebar({ isOpen }) {
             />
             <OpsVcSidebarTree isOpen={isOpen} />
             <OpsTcSidebarTree isOpen={isOpen} />
-            <CargoReletSidebarTree isOpen={isOpen} module="vc" />
             <SidebarLink
               to={periodContractAppPath('vc')}
               iconSrc={PERIOD_CONTRACT_LINK.iconSrc}
@@ -227,6 +226,7 @@ export default function InternalUserSidebar({ isOpen }) {
               label={PERIOD_CONTRACT_LINK.label}
               active={currentPath.startsWith('/internal-user/vc/period-contracts')}
             />
+            <CargoReletSidebarTree isOpen={isOpen} module="vc" />
             <CoasSidebarTree isOpen={isOpen} />
             <SidebarLink
               to={groupPaymentsAppPath()}

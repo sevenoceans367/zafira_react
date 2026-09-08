@@ -264,15 +264,7 @@ export default function TcOutEstimatesListPage() {
         Add
       </button>
     </div>
-  ) : (
-    <div className={styles.viewOnlyNoteInline}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-      View only — fixtures already sent to Ops
-    </div>
-  );
+  ) : null;
 
   return (
     <div className={`zafira-page ${styles.page}`}>

@@ -902,7 +902,7 @@ export default function OpsVcAgencyLetterPage() {
                         <div className={styles.sectionSub}>Core information used to draft the letter</div>
                       </div>
                     </div>
-                    <div className={styles.fGrid}>
+                    <div className={`${styles.fGrid} ${styles.detailsGrid}`}>
                       <div className={styles.fItem}>
                         <label htmlFor="vc-agency-date">Date</label>
                         <DmyDateInput
@@ -947,6 +947,16 @@ export default function OpsVcAgencyLetterPage() {
                           disabled={activePort.locked}
                         />
                       </div>
+                      <div className={styles.fItem} data-field="vc-agency-eta-date">
+                        <label htmlFor="vc-agency-eta-date">ETA Date</label>
+                        <DmyDateInput
+                          id="vc-agency-eta-date"
+                          enableTime
+                          value={draft.etaDate1}
+                          onChange={(v) => patchDraft({ etaDate1: v })}
+                          disabled={activePort.locked}
+                        />
+                      </div>
                       <div className={`${styles.fItem} ${styles.fItemCred}`}>
                         <label htmlFor="vc-agency-username">Username</label>
                         <TextInput id="vc-agency-username" value={draft.username} readOnly placeholder="Auto-generated once agent is selected" />
@@ -961,16 +971,6 @@ export default function OpsVcAgencyLetterPage() {
                           disabled={activePort.locked}
                           autoComplete="off"
                           placeholder="Auto-generated once agent is selected"
-                        />
-                      </div>
-                        <div className={styles.fItem} data-field="vc-agency-eta-date">
-                        <label htmlFor="vc-agency-eta-date">ETA Date</label>
-                        <DmyDateInput
-                          id="vc-agency-eta-date"
-                          enableTime
-                          value={draft.etaDate1}
-                          onChange={(v) => patchDraft({ etaDate1: v })}
-                          disabled={activePort.locked}
                         />
                       </div>
                     </div>

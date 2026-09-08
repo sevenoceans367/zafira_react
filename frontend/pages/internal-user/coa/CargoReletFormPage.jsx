@@ -368,9 +368,9 @@ function Field({ id, label, children, wide = false }) {
   );
 }
 
-function MetaField({ id, label, children, grow = false }) {
+function MetaField({ id, label, children, grow = false, className = '' }) {
   return (
-    <div className={`${styles.metaField} ${grow ? styles.metaFieldGrow : ''}`}>
+    <div className={`${styles.metaField} ${grow ? styles.metaFieldGrow : ''} ${className}`.trim()}>
       <label className={styles.metaLabel} htmlFor={id}>{label}</label>
       {children}
     </div>
@@ -1237,10 +1237,6 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           </datalist>
           <span className={styles.fieldHint}>Manually entered — no master COA to pull from.</span>
         </Field>
-        <Field id="cargoType" label="Cargo Type">
-          <input id="cargoType" className={styles.readonly} readOnly value={cargoTypeLabel || '—'} />
-          <span className={styles.fieldHint}>Product genre, linked to the cargo master.</span>
-        </Field>
         <Field id="cargoQty" label="Cargo Qty (MT)">
           <input
             id="cargoQty"
@@ -1297,7 +1293,19 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             {standalone ? (
               <>
                 <MetaField id="reletNo" label="Relet No.">
-                  <input id="reletNo" className={styles.readonly} readOnly value={form.reletNo} />
+                  {isAdd ? (
+                    <input
+                      id="reletNo"
+                      value={form.reletNo}
+                      placeholder="Required"
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setForm((prev) => ({ ...prev, reletNo: value, reletName: value }));
+                      }}
+                    />
+                  ) : (
+                    <input id="reletNo" className={styles.readonly} readOnly value={form.reletNo} />
+                  )}
                   <span className={styles.fieldHint}>No COA nomination ID — standalone relets number their own sequence.</span>
                 </MetaField>
                 <MetaField id="businessTypeId" label="Business Type">
@@ -1321,7 +1329,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                 )}
               </MetaField>
             )}
-            <MetaField id="vesselImoId" label="Vessel" grow={!standalone}>
+            <MetaField id="vesselImoId" label="Vessel" grow={!standalone} className={styles.vesselField}>
               <CoaCardSelect
                 id="vesselImoId"
                 label="Vessel"
@@ -1359,7 +1367,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
           </div>
         </div>
 
-        {standalone && isAdd ? (
+        {standalone ? (
           <div className={styles.card}>
             <div className={styles.cardHead}>
               <div className={styles.cardHeadIcon}>
@@ -1372,8 +1380,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
         ) : (
           <div className={styles.tabPanelCard}>
             <div role="tabpanel" aria-label={ESTIMATE_TAB.label}>
-              {standalone ? renderStandaloneEstimateBody() : (
-                <>
+              <>
                   <div className={styles.cargoStrip}>
                     <div className={styles.cargoStripBlock}>
                       <span className={styles.cargoStripLabel}>Cargo Type</span>
@@ -1403,8 +1410,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                   </div>
 
                   {renderTwinPanels()}
-                </>
-              )}
+              </>
             </div>
           </div>
         )}

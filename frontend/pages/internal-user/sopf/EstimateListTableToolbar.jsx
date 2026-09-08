@@ -134,7 +134,7 @@ export default function EstimateListTableToolbar({
           type="button"
           className={`${styles.btnSensitivity} ${sensitivityEnabled ? styles.btnSensitivityEnabled : ''}`}
           disabled={sensitivityDisabled}
-          title={sensitivityEnabled ? 'Open Sensitivity Analysis for selected estimates' : 'Select a row to enable'}
+          title={sensitivityEnabled ? 'Open Sensitivity Analysis for selected estimates' : 'Select more than one row to enable'}
           onClick={onSensitivityAnalysis}
         >
           <SensitivityIcon />

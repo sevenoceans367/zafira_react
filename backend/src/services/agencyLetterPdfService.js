@@ -336,6 +336,25 @@ function drawPlatformFooter(doc, data) {
   }
 
   doc.roundedRect(x, y0 - 4, w, 36, 4).fill(NAVY);
+  const logoSize = 22;
+  const logoX = x + 8;
+  const logoY = y0 + 3;
+  const png = loadLogoPng();
+  let textX = x + 12;
+  if (png) {
+    try {
+      const cx = logoX + logoSize / 2;
+      const cy = logoY + logoSize / 2;
+      doc.save();
+      doc.circle(cx, cy, logoSize / 2).fill('#fff');
+      doc.circle(cx, cy, logoSize / 2 - 1).clip();
+      doc.image(png, logoX + 1, logoY + 1, { fit: [logoSize - 2, logoSize - 2], align: 'center', valign: 'center' });
+      doc.restore();
+      textX = logoX + logoSize + 8;
+    } catch {
+      textX = x + 12;
+    }
+  }
   doc.fillColor('#B9C4D8').font('Helvetica').fontSize(8);
   const company = data.companyName || 'Progress Shipping';
   const line1 = [
@@ -347,8 +366,8 @@ function drawPlatformFooter(doc, data) {
     data.companyEmail || 'ops@progressshipping.com',
     data.companyWebsite || 'www.sevenoceans.world',
   ].filter(Boolean).join(' · ');
-  doc.text(line1, x + 12, y0 + 4, { width: w - 24 });
-  doc.text(line2, x + 12, y0 + 16, { width: w - 24 });
+  doc.text(line1, textX, y0 + 4, { width: x + w - 12 - textX });
+  doc.text(line2, textX, y0 + 16, { width: x + w - 12 - textX });
   doc.page.margins.bottom = savedBottom;
   doc.x = x;
 }

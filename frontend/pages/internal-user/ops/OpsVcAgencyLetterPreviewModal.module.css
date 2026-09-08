@@ -358,12 +358,14 @@
   margin-top: auto;
 }
 
-.ltrDocFootChip {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #fff;
+.ltrDocFootLogo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
   flex: none;
+  background: #fff;
+  border-radius: 50%;
+  padding: 2px;
 }
 
 .ltrDocFootText {

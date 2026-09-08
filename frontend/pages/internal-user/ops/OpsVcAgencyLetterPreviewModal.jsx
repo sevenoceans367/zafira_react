@@ -129,7 +129,7 @@ function parseVoyageLetterText(text) {
 function LetterFooter({ companyName, companyPhone, companyEmail, companyWebsite, companyAddress }) {
   return (
     <div className={styles.ltrDocFoot}>
-      <div className={styles.ltrDocFootChip} aria-hidden />
+      <img className={styles.ltrDocFootLogo} src={shippingLogo} alt="" aria-hidden />
       <div className={styles.ltrDocFootText}>
         <b>{companyName || 'Progress Shipping'}</b>
         {' '}

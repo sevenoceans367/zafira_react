@@ -18,18 +18,22 @@
   --orange: #f4652c;
   --orange-tint: #fdece4;
   --orange-tint-strong: #fbd9c9;
+  --orange-line: #f7a47d;
   --orange-tint-pale: #fef6f1;
   --blue: #3b82f6;
   --blue-tint: #eaf1fe;
   --blue-tint-strong: #d3e3fd;
+  --blue-line: #9cc0fb;
   --blue-tint-pale: #f3f7fe;
   --purple: #6c47ff;
   --purple-tint: #eee9ff;
   --purple-tint-strong: #ded4ff;
+  --purple-line: #b7a3ff;
   --purple-tint-pale: #f7f4ff;
   --brown: #a9740b;
   --brown-tint: #fbf1d9;
   --brown-tint-strong: #f3e0ac;
+  --brown-line: #d9ad52;
   --brown-tint-pale: #fdf9ee;
   --page-bg: #ffffff;
   --card-bg: #ffffff;
@@ -393,8 +397,8 @@
 
 .voyagecard .colCell {
   justify-self: center;
-  width: auto;
-  max-width: 200px;
+  width: 100%;
+  max-width: 260px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -495,18 +499,20 @@
   display: flex;
   gap: 6px;
   flex: none;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
+  width: 100%;
 }
 
 .resultsPill {
   display: inline-flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 4px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: #fff;
-  padding: 5px 12px;
+  padding: 4px 8px;
+  white-space: nowrap;
 }
 
 .pillVoy0 {
@@ -600,6 +606,7 @@
   --sc: var(--navy);
   --sc-tint: var(--navy-tint);
   --sc-tint-strong: var(--navy-tint-strong);
+  --sc-line: var(--navy-line);
   --sc-tint-pale: var(--navy-tint-pale);
 }
 
@@ -607,6 +614,7 @@
   --sc: var(--orange);
   --sc-tint: var(--orange-tint);
   --sc-tint-strong: var(--orange-tint-strong);
+  --sc-line: var(--orange-line);
   --sc-tint-pale: var(--orange-tint-pale);
 }
 
@@ -614,6 +622,7 @@
   --sc: var(--blue);
   --sc-tint: var(--blue-tint);
   --sc-tint-strong: var(--blue-tint-strong);
+  --sc-line: var(--blue-line);
   --sc-tint-pale: var(--blue-tint-pale);
 }
 
@@ -621,6 +630,7 @@
   --sc: var(--purple);
   --sc-tint: var(--purple-tint);
   --sc-tint-strong: var(--purple-tint-strong);
+  --sc-line: var(--purple-line);
   --sc-tint-pale: var(--purple-tint-pale);
 }
 
@@ -628,6 +638,7 @@
   --sc: var(--brown);
   --sc-tint: var(--brown-tint);
   --sc-tint-strong: var(--brown-tint-strong);
+  --sc-line: var(--brown-line);
   --sc-tint-pale: var(--brown-tint-pale);
 }
 
@@ -685,15 +696,17 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 5px 4px;
-  font-size: 11px;
-  color: var(--text-dark);
-  background: var(--field-grey);
-  border: 1px solid var(--field-grey-border);
+  padding: 4px;
   margin: 2px 0;
-  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dark);
+  background: transparent;
+  border: none;
   gap: 4px;
-  min-height: 28px;
+  min-width: 0;
+  position: relative;
+  container-type: inline-size;
 }
 
 .colCellEmpty {
@@ -770,8 +783,8 @@
 }
 
 .sub .colCell {
-  background: var(--field-grey-faint);
-  border-color: var(--field-grey-faint-border);
+  background: transparent;
+  border: none;
   color: var(--text-mid);
 }
 
@@ -784,14 +797,16 @@
 .amt .colCell {
   font-weight: 700;
   color: var(--sc);
-  background: var(--field-grey);
-  border-color: var(--field-grey-border);
+  background: transparent;
+  border: none;
 }
 
 .input {
-  width: auto;
+  width: min(20ch, 85%);
   min-width: 52px;
-  max-width: 85%;
+  max-width: min(20ch, 85%);
+  box-sizing: border-box;
+  flex: 0 0 auto;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: #fff;
@@ -816,23 +831,76 @@
   align-items: center;
   justify-content: center;
   width: 100%;
+  align-self: stretch;
+}
+
+.withLink .inputWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .withLink .input {
-  max-width: calc(100% - 40px);
+  width: min(20ch, 85%);
+  min-width: 52px;
+  max-width: min(20ch, 85%);
+  flex: 0 0 auto;
+}
+
+.withLink .sensiLink {
+  position: absolute;
+  left: calc(50% + min(10ch, 42.5%) + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.inputWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.fieldStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-left: 3px;
+}
+
+.fieldStatus svg {
+  width: 13px;
+  height: 13px;
+}
+
+.fieldStatusSaved {
+  color: #0fa836;
+}
+
+.fieldStatusSaving {
+  color: var(--text-light);
+}
+
+.fieldStatusSaving svg {
+  animation: fieldSpin 0.9s linear infinite;
+}
+
+@keyframes fieldSpin {
+  to { transform: rotate(360deg); }
 }
 
 .sensiLink {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex: none;
   width: 26px;
   height: 26px;
-  border-radius: 8px;
-  border: 1px solid var(--line-strong);
-  background: #fff;
-  color: var(--text-mid);
+  border-radius: 6px;
+  border: 1px solid var(--sc-line, var(--line-strong));
+  background: var(--sc-tint-pale, #fff);
+  color: var(--sc, var(--text-mid));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -846,8 +914,9 @@
 }
 
 .sensiLink:hover {
-  border-color: var(--navy);
-  color: var(--navy);
+  background: var(--sc-tint, #eaf1fe);
+  border-color: var(--sc, var(--navy));
+  color: var(--sc, var(--navy));
 }
 
 .input:read-only {
@@ -1006,13 +1075,12 @@
 }
 
 .sensiModal {
-  width: min(92vw, 760px);
+  width: min(92vw, 840px);
   max-height: 88vh;
   overflow: auto;
   background: #fff;
   border-radius: 14px;
-  border: 1px solid var(--line);
-  box-shadow: 0 24px 56px rgba(15, 25, 40, 0.28);
+  box-shadow: 0 24px 60px rgba(15, 25, 40, 0.35);
 }
 
 .sensiHead {
@@ -1020,22 +1088,81 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
+  padding: 14px 20px;
+  color: #fff;
 }
 
 .sensiHead h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
-  color: var(--navy);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.sensiHeadIcon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  color: #fff;
+}
+
+.sensiHeadIcon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.sensiHead .iconBtn {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #fff;
+}
+
+.sensiHead .iconBtnClose:hover {
+  background: rgba(255, 59, 48, 0.85);
+  border-color: #fff;
+  color: #fff;
 }
 
 .sensiBody {
   display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 12px;
-  padding: 14px 16px 18px;
+  grid-template-columns: 190px 1fr;
+  gap: 22px;
+  padding: 20px 24px 24px;
+  align-items: center;
+}
+
+.sensiSummary {
+  font-size: 10px;
+  color: var(--text-light);
+  font-style: italic;
+  margin: -2px 0 8px;
+}
+
+.sensiChartWrap {
+  text-align: center;
+}
+
+.sensiChartTitle {
+  font-size: 9.5px;
+  color: var(--text-light);
+  margin: 0 0 4px;
+}
+
+.chartTooltip {
+  position: fixed;
+  z-index: 2000;
+  pointer-events: none;
+  background: #1b2733;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(15, 25, 40, 0.3);
+  white-space: nowrap;
 }
 
 .sensiTable {
@@ -1046,9 +1173,13 @@
 
 .sensiTable th,
 .sensiTable td {
-  padding: 5px 6px;
-  text-align: right;
+  padding: 3px 6px;
+  text-align: center;
   border-bottom: 1px solid var(--line);
+}
+
+.sensiTable tbody tr:hover td {
+  background: var(--field-grey);
 }
 
 .sensiTable th {
@@ -1060,7 +1191,12 @@
 
 .sensiBase td {
   font-weight: 700;
-  color: var(--orange);
+  color: var(--sensi-color, var(--brown));
+  background: color-mix(in srgb, var(--sensi-color, #a9740b) 12%, #fff);
+}
+
+.sensiBase:hover td {
+  background: color-mix(in srgb, var(--sensi-color, #a9740b) 22%, #fff);
 }
 
 @media (max-width: 900px) {

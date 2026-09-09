@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useAlert } from '@bainbridge/shared-ui';
-import { updateSensitivityEstimate, downloadSensitivityAnalysisPdf } from '../../../services/estimateList.js';
+import { useAlert, useConfirm } from '@bainbridge/shared-ui';
+import { updateSensitivityEstimate, downloadSensitivityAnalysisPdf, sendEstimateToOps } from '../../../services/estimateList.js';
 import {
   buildColumnState,
   buildUpdatePayload,
@@ -8,6 +8,7 @@ import {
   calculateRatesFromFlatRate,
   formatAddComm,
   formatAmount,
+  formatComma,
   toNumber,
 } from './sensitivityAnalysisCalculations.js';
 import styles from './SensitivityAnalysisModal.module.css';
@@ -83,7 +84,7 @@ function buildSensiRows(kind, column, metrics) {
   });
 }
 
-function SensiChart({ rows, color }) {
+function SensiChart({ rows, color, xLabel, formatX, onTip, onMove, onHide }) {
   if (!rows.length) return null;
   const xs = rows.map((row) => row.x);
   const tces = rows.map((row) => row.tce);
@@ -104,7 +105,7 @@ function SensiChart({ rows, color }) {
   const gridVals = Array.from({ length: 5 }, (_, index) => y0 + ((y1 - y0) * index) / 4);
 
   return (
-    <svg viewBox="0 0 640 300" width="100%" role="img" aria-label="TCE impact chart">
+    <svg viewBox="0 0 640 300" width="100%" style={{ maxWidth: 600 }} role="img" aria-label="TCE impact chart">
       {gridVals.map((value) => (
         <g key={value}>
           <line x1={xPx0} y1={py(value)} x2={xPx1} y2={py(value)} stroke="#ECEEF2" strokeWidth="1" />
@@ -123,29 +124,54 @@ function SensiChart({ rows, color }) {
           fill={row.base ? '#F4652C' : color}
           stroke="#fff"
           strokeWidth="1.5"
-        >
-          <title>{`${row.x} → TCE $${Math.round(row.tce).toLocaleString()}/d`}</title>
-        </circle>
+          style={{ cursor: 'pointer' }}
+          onMouseEnter={(event) => onTip?.(event, `${formatX(row.x)} → TCE $${Math.round(row.tce).toLocaleString()}/d`)}
+          onMouseMove={onMove}
+          onMouseLeave={onHide}
+        />
       ))}
       {rows.map((row) => (
         <text key={`x-${row.x}`} x={px(row.x)} y={yPx0 + 16} textAnchor="middle" fontSize="8.5" fill="#8A93A0">
           {Number.isInteger(row.x) ? row.x : row.x.toFixed(1)}
         </text>
       ))}
+      <text x={(xPx0 + xPx1) / 2} y="292" textAnchor="middle" fontSize="10" fontWeight="700" fill="#57626F">
+        {xLabel}
+      </text>
       <text x="10" y="14" fontSize="10" fontWeight="700" fill="#57626F">TCE ($/d)</text>
     </svg>
   );
 }
 
-function InputCell({ value, onChange, readOnly = false, disabled = false }) {
+function FieldStatus({ status }) {
+  if (status !== 'saving' && status !== 'saved') return null;
   return (
-    <input
-      className={styles.input}
-      value={value ?? ''}
-      readOnly={readOnly || disabled}
-      disabled={disabled}
-      onChange={(event) => onChange(event.target.value)}
-    />
+    <span className={`${styles.fieldStatus} ${status === 'saved' ? styles.fieldStatusSaved : styles.fieldStatusSaving}`}>
+      {status === 'saved' ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden>
+          <path d="M21 12a9 9 0 1 1-9-9" />
+        </svg>
+      )}
+    </span>
+  );
+}
+
+function InputCell({ value, onChange, readOnly = false, disabled = false, status = '' }) {
+  return (
+    <span className={styles.inputWrap}>
+      <input
+        className={styles.input}
+        value={value ?? ''}
+        readOnly={readOnly || disabled}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <FieldStatus status={status} />
+    </span>
   );
 }
 
@@ -225,8 +251,10 @@ export default function SensitivityAnalysisModal({
   data,
   businessType,
   onClose,
+  onSent,
 }) {
   const alert = useAlert();
+  const confirm = useConfirm();
   const [columns, setColumns] = useState([]);
   const [bunkerGrades, setBunkerGrades] = useState([]);
   const [updatingId, setUpdatingId] = useState('');
@@ -235,7 +263,12 @@ export default function SensitivityAnalysisModal({
   const [sentIds, setSentIds] = useState(() => new Set());
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [sensiModal, setSensiModal] = useState(null);
+  const [fieldStatus, setFieldStatus] = useState({});
+  const [chartTip, setChartTip] = useState(null);
   const downloadRef = useRef(null);
+  const columnsRef = useRef([]);
+  const metricsRef = useRef({});
+  const saveTimers = useRef({});
 
   useEffect(() => {
     if (!data?.columns?.length) {
@@ -243,7 +276,7 @@ export default function SensitivityAnalysisModal({
       setBunkerGrades([]);
       return;
     }
-    setColumns(data.columns.map((column) => buildColumnState(column)));
+    setColumns(data.columns.slice(0, 5).map((column) => buildColumnState(column)));
     setBunkerGrades(data.bunkerGrades ?? []);
   }, [data]);
 
@@ -253,6 +286,8 @@ export default function SensitivityAnalysisModal({
     setSentIds(new Set());
     setDownloadOpen(false);
     setSensiModal(null);
+    setFieldStatus({});
+    setChartTip(null);
   }, [open]);
 
   useEffect(() => {
@@ -264,9 +299,41 @@ export default function SensitivityAnalysisModal({
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [downloadOpen]);
 
+  useEffect(() => () => {
+    Object.values(saveTimers.current).forEach((timer) => clearTimeout(timer));
+  }, []);
+
   const resolvedBusinessType = data?.businessType ?? businessType ?? '2';
   const isTanker = String(resolvedBusinessType) === '2';
   const tradeLabel = isTanker ? 'Tankers' : 'Dry Bulk';
+
+  const statusFor = (columnId, fieldKey) => fieldStatus[`${columnId}:${fieldKey}`] || '';
+
+  const queueSave = (columnId, fieldKey) => {
+    const statusKey = `${columnId}:${fieldKey}`;
+    setFieldStatus((current) => ({ ...current, [statusKey]: 'saving' }));
+    clearTimeout(saveTimers.current[columnId]);
+    saveTimers.current[columnId] = setTimeout(async () => {
+      const column = columnsRef.current.find((item) => item.id === columnId);
+      const metrics = metricsRef.current[columnId];
+      if (!column || !metrics) return;
+      try {
+        await updateSensitivityEstimate(columnId, buildUpdatePayload(column, metrics));
+        setFieldStatus((current) => ({ ...current, [statusKey]: 'saved' }));
+      } catch (error) {
+        setFieldStatus((current) => {
+          const next = { ...current };
+          delete next[statusKey];
+          return next;
+        });
+        await alert({
+          title: 'Error',
+          message: error.message || 'Failed to save estimate.',
+          confirmLabel: 'OK',
+        });
+      }
+    }, 450);
+  };
 
   const metricsById = useMemo(() => {
     const map = {};
@@ -275,6 +342,9 @@ export default function SensitivityAnalysisModal({
     }
     return map;
   }, [columns, resolvedBusinessType]);
+
+  columnsRef.current = columns;
+  metricsRef.current = metricsById;
 
   const updateColumn = (columnId, updater) => {
     setColumns((current) => current.map((column) => (
@@ -295,6 +365,7 @@ export default function SensitivityAnalysisModal({
         };
       }),
     }));
+    queueSave(columnId, `${adjustmentKey}:minFlatRate`);
   };
 
   const handleMinWSRateChange = (columnId, adjustmentKey, value) => {
@@ -306,6 +377,7 @@ export default function SensitivityAnalysisModal({
           : item
       )),
     }));
+    queueSave(columnId, `${adjustmentKey}:minWSRate`);
   };
 
   const handleAdjustmentChange = (columnId, adjustmentKey, field, value) => {
@@ -315,6 +387,7 @@ export default function SensitivityAnalysisModal({
         item.key === adjustmentKey ? { ...item, [field]: value } : item
       )),
     }));
+    queueSave(columnId, `${adjustmentKey}:${field}`);
   };
 
   const handlePortChange = (columnId, collection, portKey, value) => {
@@ -324,6 +397,7 @@ export default function SensitivityAnalysisModal({
         port.key === portKey ? { ...port, cost: value } : port
       )),
     }));
+    queueSave(columnId, `${collection}:${portKey}`);
   };
 
   const handleBunkerPriceChange = (columnId, grade, value) => {
@@ -333,6 +407,7 @@ export default function SensitivityAnalysisModal({
         item.grade === grade ? { ...item, estPrice: value } : item
       )),
     }));
+    queueSave(columnId, `bunker:${grade}`);
   };
 
   const handleHireChange = (columnId, value) => {
@@ -340,6 +415,7 @@ export default function SensitivityAnalysisModal({
       ...column,
       hire: { ...column.hire, rate: value },
     }));
+    queueSave(columnId, 'hire');
   };
 
   const handleUpdateEstimate = async (columnId) => {
@@ -366,9 +442,32 @@ export default function SensitivityAnalysisModal({
   const handleSendToOps = async () => {
     const column = columns[selectedIndex];
     if (!column || sentIds.has(String(column.id)) || updatingId) return;
+
+    const label = column.vesselName || column.voyageNo || 'this estimate';
+    const ok = await confirm({
+      title: 'Send to Operations',
+      message: `Are you sure you want to send "${label}" to Operations?`,
+      confirmLabel: 'Send to Ops',
+      cancelLabel: 'Cancel',
+      confirmVariant: 'accent',
+    });
+    if (!ok) return;
+
+    clearTimeout(saveTimers.current[column.id]);
     const saved = await handleUpdateEstimate(column.id);
     if (!saved) return;
-    setSentIds((current) => new Set([...current, String(column.id)]));
+
+    try {
+      await sendEstimateToOps(column.id);
+      setSentIds((current) => new Set([...current, String(column.id)]));
+      onSent?.(column.id);
+    } catch (error) {
+      await alert({
+        title: 'Error',
+        message: error?.message || 'Unable to send this estimate to Operations.',
+        confirmLabel: 'OK',
+      });
+    }
   };
 
   const handleGeneratePdf = async () => {
@@ -429,11 +528,38 @@ export default function SensitivityAnalysisModal({
     : sensiModal?.kind === 'lumpsum'
       ? `Lump Sum Sensitivity — ${sensiModal.vessel}`
       : `VLSFO Price Sensitivity — ${sensiModal?.vessel || ''}`;
-  const sensiHead = sensiModal?.kind === 'ws'
+  const sensiKind = sensiModal?.kind || 'vlsfo';
+  const sensiColor = sensiKind === 'vlsfo' ? '#A9740B' : '#274670';
+  const sensiHead = sensiKind === 'ws'
     ? 'WS'
-    : sensiModal?.kind === 'lumpsum'
+    : sensiKind === 'lumpsum'
       ? 'Lump Sum $'
-      : 'VLSFO $/MT';
+      : 'VLSFO $/t';
+  const sensiXLabel = sensiKind === 'ws'
+    ? 'World Scale (points)'
+    : sensiKind === 'lumpsum'
+      ? 'Lump Sum ($)'
+      : 'VLSFO Price ($/t)';
+  const sensiBaseValue = sensiColumn
+    ? (sensiKind === 'ws'
+      ? toNumber(sensiColumn.freightAdjustments?.[0]?.minWSRate)
+      : sensiKind === 'lumpsum'
+        ? toNumber(sensiColumn.lumpsumAmt)
+        : toNumber((sensiColumn.bunkerExpenses || []).find((item) => /vlsfo/i.test(item.grade || ''))?.estPrice))
+    : 0;
+  const sensiBaseTce = sensiColumn ? toNumber(metricsById[sensiColumn.id]?.nettDailyProfit) : 0;
+  const sensiSummary = sensiKind === 'ws'
+    ? `Base: WS ${sensiBaseValue.toFixed(2)} → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±25 points in 5-point steps.`
+    : sensiKind === 'lumpsum'
+      ? `Base: $${formatComma(sensiBaseValue, 2)} lump sum → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±$500 in $100 steps.`
+      : `Base: $${sensiBaseValue.toFixed(2)}/t VLSFO → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±$50/t in $10 steps.`;
+  const formatSensiX = (value) => (
+    sensiKind === 'ws'
+      ? Number(value).toFixed(1)
+      : sensiKind === 'lumpsum'
+        ? `$${formatComma(value, 2)}`
+        : `$${Number(value).toFixed(2)}`
+  );
 
   const renderAdjustmentInputs = (column, field, onChangeFactory, readOnlyFactory, disableLumpsum = false) => {
     const items = column.freightAdjustments?.length
@@ -453,6 +579,7 @@ export default function SensitivityAnalysisModal({
             }
             readOnly={Boolean(readOnlyFactory)}
             disabled={disableLumpsum && column.chkLumpSum}
+            status={statusFor(column.id, `${item.key}:${field}`)}
             onChange={(value) => onChangeFactory(column.id, item.key, value)}
           />
         )}
@@ -469,6 +596,7 @@ export default function SensitivityAnalysisModal({
         {port.portName ? <span className={styles.portNameTiny}>{port.portName}</span> : null}
         <InputCell
           value={port.cost}
+          status={statusFor(column.id, `${collection}:${port.key}`)}
           onChange={(value) => handlePortChange(column.id, collection, port.key, value)}
         />
       </div>
@@ -675,6 +803,7 @@ export default function SensitivityAnalysisModal({
                             <div className={styles.withLink}>
                               <InputCell
                                 value={item.minWSRate}
+                                status={statusFor(column.id, `${item.key}:minWSRate`)}
                                 onChange={(value) => handleMinWSRateChange(column.id, item.key, value)}
                               />
                               <SensiLink
@@ -735,10 +864,14 @@ export default function SensitivityAnalysisModal({
                           ) : (
                             <InputCell
                               value={column.freight}
-                              onChange={(value) => updateColumn(column.id, (current) => ({
-                                ...current,
-                                freight: value,
-                              }))}
+                              status={statusFor(column.id, 'freight')}
+                              onChange={(value) => {
+                                updateColumn(column.id, (current) => ({
+                                  ...current,
+                                  freight: value,
+                                }));
+                                queueSave(column.id, 'freight');
+                              }}
                             />
                           )
                         )}
@@ -752,10 +885,14 @@ export default function SensitivityAnalysisModal({
                           ) : (
                             <InputCell
                               value={column.qty}
-                              onChange={(value) => updateColumn(column.id, (current) => ({
-                                ...current,
-                                qty: value,
-                              }))}
+                              status={statusFor(column.id, 'qty')}
+                              onChange={(value) => {
+                                updateColumn(column.id, (current) => ({
+                                  ...current,
+                                  qty: value,
+                                }));
+                                queueSave(column.id, 'qty');
+                              }}
                             />
                           )
                         )}
@@ -772,10 +909,14 @@ export default function SensitivityAnalysisModal({
                         <div className={styles.withLink}>
                           <InputCell
                             value={column.lumpsumAmt}
-                            onChange={(value) => updateColumn(column.id, (current) => ({
-                              ...current,
-                              lumpsumAmt: value,
-                            }))}
+                            status={statusFor(column.id, 'lumpsum')}
+                            onChange={(value) => {
+                              updateColumn(column.id, (current) => ({
+                                ...current,
+                                lumpsumAmt: value,
+                              }));
+                              queueSave(column.id, 'lumpsum');
+                            }}
                           />
                           <SensiLink
                             title="View Lump Sum sensitivity for this voyage"
@@ -795,11 +936,12 @@ export default function SensitivityAnalysisModal({
                     Hire cost (editable) × Voyage Days (from the worksheet&apos;s laycan/date selection, not editable here) = Total.
                   </p>
                   <EditableRow
-                    label="Hire/Vessel Ops Cost (USD)"
+                    label="Hire/ Vessel OPEX"
                     columns={columns}
                     renderCell={(column) => (
                       <InputCell
                         value={column.hire?.rate}
+                        status={statusFor(column.id, 'hire')}
                         onChange={(value) => handleHireChange(column.id, value)}
                       />
                     )}
@@ -861,25 +1003,41 @@ export default function SensitivityAnalysisModal({
                     renderCell={(column) => renderPortInputs(column, 'discPorts')}
                   />
                   <EditableRow
-                    label="Transit Port"
+                    label="Transit / Bunkering Port"
                     columns={columns}
-                    renderCell={(column) => renderPortInputs(column, 'transitPorts')}
+                    renderCell={(column) => {
+                      const ports = [
+                        ...(column.transitPorts || []).map((port) => ({ ...port, collection: 'transitPorts' })),
+                        ...(column.bunkeringPorts || []).map((port) => ({ ...port, collection: 'bunkeringPorts' })),
+                      ];
+                      if (!ports.length) return <span className={styles.colCellEmpty}>—</span>;
+                      return ports.map((port, index) => (
+                        <div key={`${port.collection}-${port.key}`} className={styles.stackItem}>
+                          {index > 0 ? <hr className={styles.stackDivider} /> : null}
+                          {port.portName ? <span className={styles.portNameTiny}>{port.portName}</span> : null}
+                          <InputCell
+                            value={port.cost}
+                            status={statusFor(column.id, `${port.collection}:${port.key}`)}
+                            onChange={(value) => handlePortChange(column.id, port.collection, port.key, value)}
+                          />
+                        </div>
+                      ));
+                    }}
                   />
                   <EditableRow
-                    label="Bunkering Port"
-                    columns={columns}
-                    renderCell={(column) => renderPortInputs(column, 'bunkeringPorts')}
-                  />
-                  <EditableRow
-                    label="Operational Cost"
+                    label="Total OPEX"
                     columns={columns}
                     renderCell={(column) => (
                       <InputCell
                         value={column.operationalCost}
-                        onChange={(value) => updateColumn(column.id, (current) => ({
-                          ...current,
-                          operationalCost: value,
-                        }))}
+                        status={statusFor(column.id, 'opex')}
+                        onChange={(value) => {
+                          updateColumn(column.id, (current) => ({
+                            ...current,
+                            operationalCost: value,
+                          }));
+                          queueSave(column.id, 'opex');
+                        }}
                       />
                     )}
                   />
@@ -917,6 +1075,7 @@ export default function SensitivityAnalysisModal({
                                 <div className={styles.withLink}>
                                   <InputCell
                                     value={bunker.estPrice}
+                                    status={statusFor(column.id, `bunker:${grade}`)}
                                     onChange={(value) => handleBunkerPriceChange(column.id, grade, value)}
                                   />
                                   <SensiLink
@@ -938,6 +1097,7 @@ export default function SensitivityAnalysisModal({
                               return (
                                 <InputCell
                                   value={bunker.estPrice}
+                                  status={statusFor(column.id, `bunker:${grade}`)}
                                   onChange={(value) => handleBunkerPriceChange(column.id, grade, value)}
                                 />
                               );
@@ -984,9 +1144,12 @@ export default function SensitivityAnalysisModal({
             aria-label={sensiTitle}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className={styles.sensiHead}>
-              <h3>{sensiTitle}</h3>
-              <button type="button" className={`${styles.iconBtn} ${styles.iconBtnClose}`} aria-label="Close" onClick={() => setSensiModal(null)}>
+            <div className={styles.sensiHead} style={{ background: sensiColor }}>
+              <h3>
+                <span className={styles.sensiHeadIcon}><ChartIcon /></span>
+                {sensiTitle}
+              </h3>
+              <button type="button" className={`${styles.iconBtn} ${styles.iconBtnClose}`} aria-label="Close" onClick={() => { setSensiModal(null); setChartTip(null); }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M5 5l14 14" />
                   <path d="M19 5L5 19" />
@@ -994,25 +1157,44 @@ export default function SensitivityAnalysisModal({
               </button>
             </div>
             <div className={styles.sensiBody}>
-              <table className={styles.sensiTable}>
-                <thead>
-                  <tr>
-                    <th>{sensiHead}</th>
-                    <th>TCE $/d</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sensiRows.map((row) => (
-                    <tr key={`${row.x}-${row.tce}`} className={row.base ? styles.sensiBase : ''}>
-                      <td>{formatMoney(row.x, 1)}</td>
-                      <td>{formatMoney(row.tce, 0)}</td>
+              <div>
+                <p className={styles.sensiSummary}>{sensiSummary}</p>
+                <table className={styles.sensiTable} style={{ '--sensi-color': sensiColor }}>
+                  <thead>
+                    <tr>
+                      <th>{sensiHead}</th>
+                      <th>TCE $/d</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <SensiChart rows={sensiRows} color={sensiModal.kind === 'vlsfo' ? '#A9740B' : '#274670'} />
+                  </thead>
+                  <tbody>
+                    {sensiRows.map((row) => (
+                      <tr key={`${row.x}-${row.tce}`} className={row.base ? styles.sensiBase : ''}>
+                        <td>{formatSensiX(row.x)}</td>
+                        <td>{`$${formatMoney(row.tce, 0)}/d`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className={styles.sensiChartWrap}>
+                <p className={styles.sensiChartTitle}>TCE impact across range</p>
+                <SensiChart
+                  rows={sensiRows}
+                  color={sensiColor}
+                  xLabel={sensiXLabel}
+                  formatX={formatSensiX}
+                  onTip={(event, text) => setChartTip({ text, x: event.clientX + 14, y: event.clientY - 12 })}
+                  onMove={(event) => setChartTip((current) => (current ? { ...current, x: event.clientX + 14, y: event.clientY - 12 } : current))}
+                  onHide={() => setChartTip(null)}
+                />
+              </div>
             </div>
           </div>
+        </div>
+      ) : null}
+      {chartTip ? (
+        <div className={styles.chartTooltip} style={{ left: chartTip.x, top: chartTip.y }}>
+          {chartTip.text}
         </div>
       ) : null}
     </div>

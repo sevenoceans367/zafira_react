@@ -35,6 +35,8 @@ import {
 } from './estimateListExports.js';
 import styles from './EstimateListPage.module.css';
 
+const MAX_COMPARE = 5;
+
 const MSG_COPY = {
   0: { type: 'success', text: 'Congratulations! VC Estimates added/updated successfully.' },
   1: { type: 'danger', text: 'Sorry! there was an error while adding/updating VC Estimates.' },
@@ -336,13 +338,25 @@ export default function EstimateListPage() {
       return;
     }
     setSelectedIds((prev) => {
-      const next = new Set(prev);
-      selectablePaged.forEach((row) => next.add(row.id));
-      return [...next];
+      const next = [...prev];
+      for (const row of selectablePaged) {
+        if (next.includes(row.id)) continue;
+        if (next.length >= MAX_COMPARE) break;
+        next.push(row.id);
+      }
+      return next;
     });
   };
 
-  const toggleRow = (id) => {
+  const toggleRow = async (id) => {
+    if (!selectedIds.includes(id) && selectedIds.length >= MAX_COMPARE) {
+      await alert({
+        title: 'Notice',
+        message: 'A maximum of 5 estimates can be compared.',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
     );
@@ -415,10 +429,18 @@ export default function EstimateListPage() {
   };
 
   const handleSensitivityAnalysis = async () => {
-    if (selectedIds.length <= 1) {
+    if (selectedIds.length < 2) {
       await alert({
         title: 'Missing Information',
-        message: 'Please select more than one estimate',
+        message: 'Please select at least 2 estimates to compare.',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+    if (selectedIds.length > MAX_COMPARE) {
+      await alert({
+        title: 'Notice',
+        message: 'A maximum of 5 estimates can be compared.',
         confirmLabel: 'OK',
       });
       return;
@@ -808,6 +830,7 @@ export default function EstimateListPage() {
         data={saData}
         businessType={businessType}
         onClose={() => setSaModalOpen(false)}
+        onSent={() => loadData()}
       />
 
       <LoadingOverlay show={loading && !modalOpen && !saModalOpen} label="Loading estimates..." />

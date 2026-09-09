@@ -5,12 +5,26 @@ export function toNumber(value) {
 
 export function formatAmount(value, digits = 2) {
   if (!value) return '';
-  return toNumber(value).toFixed(digits);
+  return formatComma(value, digits);
+}
+
+export function formatComma(value, digits) {
+  if (value === undefined || value === null || value === '') return '';
+  const raw = String(value).trim();
+  if (raw === '') return '';
+  const num = toNumber(value);
+  if (!Number.isFinite(num)) return raw;
+  const options = digits == null
+    ? { maximumFractionDigits: 20 }
+    : { minimumFractionDigits: digits, maximumFractionDigits: digits };
+  return num.toLocaleString(undefined, options);
 }
 
 export function formatAddComm(per, amount) {
-  if (!per) return '';
-  return `${per}% (-)${formatAmount(amount)}`;
+  if (amount === undefined || amount === null || amount === '' || !toNumber(amount)) return '';
+  const pct = per === undefined || per === null || per === '' ? '' : String(per);
+  const amountText = formatComma(amount, 2);
+  return pct ? `${amountText} (${pct}%)` : amountText;
 }
 
 export function calculateFreightAdjustmentAmount(qty, flatRate, wsRate) {

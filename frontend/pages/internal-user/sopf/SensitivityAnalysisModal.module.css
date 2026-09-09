@@ -11,6 +11,7 @@
 
 .modal {
   --navy: #274670;
+  --navy-line: #8fa1c2;
   --navy-tint: #e6eaf1;
   --navy-tint-strong: #d3dae7;
   --navy-tint-pale: #f1f3f7;
@@ -26,10 +27,10 @@
   --purple-tint: #eee9ff;
   --purple-tint-strong: #ded4ff;
   --purple-tint-pale: #f7f4ff;
-  --brown: #8b5e3c;
-  --brown-tint: #f3eae0;
-  --brown-tint-strong: #e9d8c6;
-  --brown-tint-pale: #faf6f2;
+  --brown: #a9740b;
+  --brown-tint: #fbf1d9;
+  --brown-tint-strong: #f3e0ac;
+  --brown-tint-pale: #fdf9ee;
   --page-bg: #ffffff;
   --card-bg: #ffffff;
   --line: #eceef2;
@@ -66,7 +67,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.85rem 1.25rem;
+  padding: 16px 22px;
   background: #fff;
   border-bottom: 1px solid var(--line);
 }
@@ -75,15 +76,93 @@
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.headerIcon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--navy);
 }
 
 .chromeActions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 8px;
+}
+
+.downloadWrap {
+  position: relative;
+}
+
+.iconBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-mid);
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  cursor: pointer;
+  padding: 0;
+}
+
+.iconBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.iconBtn:hover {
+  background: var(--field-grey);
+}
+
+.iconBtnClose:hover {
+  background: var(--red-tint);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.iconBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.downloadMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  min-width: 170px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(15, 25, 40, 0.18);
+  padding: 6px;
+}
+
+.downloadMenu button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.downloadMenu button:hover {
+  background: var(--field-grey);
 }
 
 /* Icon-only PDF download — grey outlined box (same radius as shared Button) */
@@ -110,9 +189,9 @@
 }
 
 .body {
-  padding: 1rem 1.25rem 1.5rem;
+  padding: 0;
   overflow: auto;
-  background: var(--page-bg);
+  background: #fff;
 }
 
 .loading {
@@ -129,7 +208,7 @@
 }
 
 .docInner {
-  padding: 8px 8px 8px;
+  padding: 22px 30px 20px;
 }
 
 .docHeader {
@@ -204,24 +283,76 @@
 
 /* Voyage Comparison — match sensitivityAnalysisPdfService drawOverview */
 .overview {
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  overflow: hidden;
-  margin-top: 18px;
+  border: none;
+  margin-top: 0;
 }
 
 .overviewLabel {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   min-height: 18px;
   font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: 11.5px;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: #fff;
-  background: var(--navy);
-  padding: 5px 10px;
+  background: linear-gradient(120deg, #223045 0%, #35516f 50%, #4e76a1 100%);
+  padding: 8px 14px;
+  border-radius: 10px;
+}
+
+.overviewLabelLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.overviewActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.selectedHint {
+  font-weight: 600;
+  font-size: 9.5px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.sendOpsBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  background: rgba(244, 101, 44, 0.3);
+  color: #fff;
+  border: 1.5px solid rgba(244, 101, 44, 0.9);
+  border-radius: 999px;
+  padding: 5px 11px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15, 25, 40, 0.18);
+}
+
+.sendOpsBtn svg {
+  width: 10px;
+  height: 10px;
+}
+
+.sendOpsBtn:hover:not(:disabled) {
+  background: rgba(244, 101, 44, 0.42);
+}
+
+.sendOpsBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .tradeBadge {
@@ -238,12 +369,13 @@
 }
 
 .overviewBody {
-  padding: 8px 8px 10px;
+  padding: 12px 0 0;
 }
 
 .voyagecard {
   align-items: stretch;
   min-height: 62px;
+  column-gap: 22px;
 }
 
 .voyagecard .labelCell {
@@ -260,26 +392,64 @@
 }
 
 .voyagecard .colCell {
+  justify-self: center;
+  width: auto;
+  max-width: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 4px;
-  padding: 5px 6px 6px;
+  gap: 5px;
+  padding: 8px 12px;
   text-align: center;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: #fff;
   min-width: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  appearance: none;
+  transition: box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.voyagecard .colCell:hover {
+  box-shadow: 0 0 0 2px var(--line-strong);
+}
+
+.voyagecard .colCell.selected,
+.voyagecard .colCell.selected:hover {
+  box-shadow: 0 0 0 2px var(--orange);
+  background: var(--orange-tint-pale);
+}
+
+.voyagecard .colCell.sent {
+  cursor: default;
+  box-shadow: none;
+  background: var(--field-grey-faint);
+  border-left-color: var(--line-strong);
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.voyEstLine {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.sep {
+  margin: 0 5px;
+  color: var(--line-strong);
 }
 
 .voy0 {
-  background: var(--navy-tint);
-  border-color: var(--navy) !important;
+  border-left-color: var(--navy) !important;
 }
 
 .voy1 {
-  background: var(--blue-tint);
-  border-color: var(--blue) !important;
+  border-left-color: var(--text-mid) !important;
 }
 
 .voyChip {
@@ -304,15 +474,66 @@
   background: var(--blue);
 }
 
-.vessel {
+.voyagecard .vessel {
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.2;
   color: var(--text-dark);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.voyagecard .voyEstLine {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.cardMetrics {
+  display: flex;
+  gap: 6px;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.resultsPill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: #fff;
+  padding: 5px 12px;
+}
+
+.pillVoy0 {
+  border-color: var(--navy-line);
+}
+
+.pillVoy1 {
+  border-color: var(--field-empty);
+}
+
+.rpLabel {
+  font-weight: 700;
+  font-size: 9px;
+  color: var(--text-mid);
+}
+
+.rpValue {
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+.rcPos {
+  color: #0b7a28;
+}
+
+.rcNeg {
+  color: #c22a20;
 }
 
 .qrChips {
@@ -440,7 +661,8 @@
   font-size: 10px;
   color: var(--text-light);
   font-style: italic;
-  margin: -3px 0 6px 15px;
+  margin: -3px 0 6px 0;
+  text-align: right;
 }
 
 .row {
@@ -567,15 +789,65 @@
 }
 
 .input {
-  width: 100%;
-  max-width: 140px;
-  border: 1px solid var(--field-grey-border);
-  border-radius: 4px;
+  width: auto;
+  min-width: 52px;
+  max-width: 85%;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
   background: #fff;
-  padding: 3px 6px;
+  box-shadow: 0 1px 2px rgba(20, 30, 50, 0.05);
+  padding: 5px 10px;
   font-size: 11px;
   text-align: center;
   color: var(--text-dark);
+}
+
+.input:disabled {
+  background: var(--field-grey-faint);
+  border-color: var(--field-grey-faint-border);
+  color: var(--field-empty);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.withLink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.withLink .input {
+  max-width: calc(100% - 40px);
+}
+
+.sensiLink {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: var(--text-mid);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.sensiLink svg {
+  width: 14px;
+  height: 14px;
+}
+
+.sensiLink:hover {
+  border-color: var(--navy);
+  color: var(--navy);
 }
 
 .input:read-only {
@@ -720,6 +992,75 @@
 .miniLogo {
   width: 26px;
   height: 26px;
+}
+
+.sensiOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(15, 25, 40, 0.45);
+}
+
+.sensiModal {
+  width: min(92vw, 760px);
+  max-height: 88vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 56px rgba(15, 25, 40, 0.28);
+}
+
+.sensiHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sensiHead h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.sensiBody {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+  padding: 14px 16px 18px;
+}
+
+.sensiTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.sensiTable th,
+.sensiTable td {
+  padding: 5px 6px;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+
+.sensiTable th {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-light);
+}
+
+.sensiBase td {
+  font-weight: 700;
+  color: var(--orange);
 }
 
 @media (max-width: 900px) {

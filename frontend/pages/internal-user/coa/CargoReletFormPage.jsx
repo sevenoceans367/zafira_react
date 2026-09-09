@@ -20,6 +20,8 @@ import {
   updateStandaloneCargoRelet,
 } from '../../../services/cargoRelets.js';
 import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
+import VesselSearchSelect from '../sopf/VesselSearchSelect.jsx';
+import { fetchVesselEstimatePrefill } from '../../../services/estimateDetail.js';
 import { calcCargoIntake, calcCargoReletTotals } from './cargoReletTotals.js';
 import {
   focusCargoReletValidationField,
@@ -34,6 +36,13 @@ const MIRROR_ROW_KEYS = {
   partiesIn: 'partiesOut',
   loadPortsIn: 'loadPortsOut',
   dischargePortsIn: 'dischargePortsOut',
+};
+
+const FREIGHT_MIRROR = {
+  bafUsd: 'bafUsdOut',
+  addCom: 'addComOut',
+  brokerage: 'brokerageOut',
+  demRate: 'demRateOut',
 };
 
 const STANDALONE_LIVE_KEYS = new Set([
@@ -199,6 +208,8 @@ function emptyForm(businessTypeId = '2', coaId = '') {
     openCargoId: '',
     updateStatus: '1',
     vesselImoId: '',
+    vesselName: '',
+    cargoId: '',
     transDate: todayDmy(),
     reletNo: '',
     reletName: '',
@@ -359,9 +370,9 @@ function mapVesselCommercial(data) {
   };
 }
 
-function Field({ id, label, children, wide = false }) {
+function Field({ id, label, children, wide = false, className = '' }) {
   return (
-    <div className={`${styles.field} ${wide ? styles.fieldWide : ''}`}>
+    <div className={`${styles.field} ${wide ? styles.fieldWide : ''} ${className}`.trim()}>
       <label htmlFor={id}>{label}</label>
       {children}
     </div>
@@ -432,7 +443,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             : await fetchCargoRelet(fcaId);
           if (cancelled) return;
           if (!detail) throw new Error('Cargo relet not found.');
-          setForm({
+          const loaded = {
             ...emptyForm(detail.businessTypeId),
             ...detail,
             partiesIn: detail.partiesIn?.length ? detail.partiesIn : [partyRow()],
@@ -441,6 +452,10 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             dischargePortsIn: withPortRows(detail.dischargePortsIn),
             loadPortsOut: withPortRows(detail.loadPortsOut),
             dischargePortsOut: withPortRows(detail.dischargePortsOut),
+          };
+          setForm({
+            ...loaded,
+            ...calcCargoReletTotals(loaded, { standalone }),
           });
           return;
         }
@@ -499,12 +514,25 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     return () => { cancelled = true; };
   }, [fcaId, isAdd, searchParams, standalone]);
 
-  const vessels = useMemo(
-    () => (lookups?.vessels || []).filter(
-      (item) => !item.businessTypeId || item.businessTypeId === form.businessTypeId,
-    ),
-    [form.businessTypeId, lookups],
-  );
+  const cargoOptions = useMemo(() => {
+    const typeId = String(form.businessTypeId || '');
+    return (lookups?.cargos || [])
+      .filter((item) => {
+        const itemType = String(item.materialTypeId || '');
+        return !itemType || itemType === typeId;
+      })
+      .map((item) => ({ id: String(item.id), name: item.name }))
+      .filter((item) => item.id && item.name);
+  }, [form.businessTypeId, lookups]);
+
+  const cargoSelectOptions = useMemo(() => {
+    const selectedId = String(form.cargoId || '');
+    if (!selectedId || cargoOptions.some((item) => item.id === selectedId)) return cargoOptions;
+    return [
+      { id: selectedId, name: form.cargoName || selectedId },
+      ...cargoOptions,
+    ];
+  }, [cargoOptions, form.cargoId, form.cargoName]);
 
   const vendors = useMemo(() => {
     const map = new Map();
@@ -547,7 +575,10 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
 
   const patch = (key, value) => setForm((prev) => {
     const next = { ...prev, [key]: value };
-    if (standalone && STANDALONE_LIVE_KEYS.has(key)) return applyCalc(next);
+    if (standalone && FREIGHT_MIRROR[key]) {
+      next[FREIGHT_MIRROR[key]] = value;
+    }
+    if (standalone && (STANDALONE_LIVE_KEYS.has(key) || FREIGHT_MIRROR[key])) return applyCalc(next);
     return next;
   });
 
@@ -570,26 +601,57 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     setForm((prev) => applyCalc(prev));
   };
 
-  const handleVesselChange = async (value) => {
-    if (!value) {
+  const handleVesselSelect = async (vessel) => {
+    if (!vessel) {
       setForm((prev) => ({
         ...prev,
         vesselImoId: '',
+        vesselName: '',
         vesselType: '',
         ...emptyCommercial(),
       }));
       return;
     }
+
+    const displayName = vessel.vesselName || vessel.name || '';
+    let vesselImoId = vessel.id ? String(vessel.id) : '';
+    let vesselType = vessel.vesselType || '';
     try {
-      const data = await fetchCommercialParameters(value);
+      const prefill = await fetchVesselEstimatePrefill(vessel.id);
+      if (prefill) {
+        vesselImoId = prefill.vesselImoId || vesselImoId;
+        vesselType = prefill.vesselType || vesselType;
+      }
+    } catch {
+      // Keep the AIS search row if commercial prefill is unavailable.
+    }
+
+    try {
+      const data = await fetchCommercialParameters(vesselImoId);
       setForm((prev) => ({
         ...prev,
-        vesselImoId: value,
         ...mapVesselCommercial(data),
+        vesselImoId,
+        vesselName: displayName,
+        vesselType: vesselType || data?.vessel?.type || '',
       }));
     } catch {
-      setForm((prev) => ({ ...prev, vesselImoId: value }));
+      setForm((prev) => ({
+        ...prev,
+        vesselImoId,
+        vesselName: displayName,
+        vesselType,
+      }));
     }
+  };
+
+  const handleCargoChange = (value) => {
+    const cargo = cargoOptions.find((item) => item.id === value);
+    setForm((prev) => ({
+      ...prev,
+      cargoId: value,
+      cargoName: cargo?.name || '',
+    }));
   };
 
   const persist = async (updateStatus) => {
@@ -620,7 +682,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     setSaving(true);
     setError('');
     try {
-      const totals = calcCargoReletTotals(form);
+      const totals = calcCargoReletTotals(form, { standalone });
       const payload = { ...form, ...totals, reletNo, updateStatus, standalone };
       if (standalone) {
         if (isAdd) await createStandaloneCargoRelet(payload);
@@ -1222,20 +1284,15 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   const renderStandaloneEstimateBody = () => (
     <>
       <div className={styles.estimateTopRow}>
-        <Field id="cargoName" label="Cargo">
-          <input
+        <Field id="cargoName" label="Cargo Name" className={styles.cargoSelectField}>
+          <CoaCardSelect
             id="cargoName"
-            list="standalone-cargo-datalist"
-            value={form.cargoName}
-            placeholder="Enter cargo..."
-            onChange={(event) => patch('cargoName', event.target.value)}
+            label="Cargo Name"
+            value={form.cargoId}
+            options={cargoSelectOptions}
+            placeholder="Select cargo..."
+            onChange={handleCargoChange}
           />
-          <datalist id="standalone-cargo-datalist">
-            {(lookups?.cargos || []).slice(0, 40).map((cargo) => (
-              <option key={cargo.id} value={cargo.name} />
-            ))}
-          </datalist>
-          <span className={styles.fieldHint}>Manually entered — no master COA to pull from.</span>
         </Field>
         <Field id="cargoQty" label="Cargo Qty (MT)">
           <input
@@ -1243,14 +1300,6 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             value={form.cargoQty}
             placeholder="0.00"
             onChange={(event) => patch('cargoQty', event.target.value)}
-          />
-        </Field>
-        <Field id="cargoPlanDetails" label="Planned Cargo" wide>
-          <input
-            id="cargoPlanDetails"
-            value={form.cargoPlanDetails}
-            placeholder="Planning details..."
-            onChange={(event) => patch('cargoPlanDetails', event.target.value)}
           />
         </Field>
       </div>
@@ -1330,13 +1379,13 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
               </MetaField>
             )}
             <MetaField id="vesselImoId" label="Vessel" grow={!standalone} className={styles.vesselField}>
-              <CoaCardSelect
-                id="vesselImoId"
-                label="Vessel"
-                value={form.vesselImoId}
-                options={vessels}
-                onChange={handleVesselChange}
-              />
+              <div id="vesselImoId" className={styles.vesselSearch}>
+                <VesselSearchSelect
+                  value={form.vesselImoId}
+                  label={form.vesselName}
+                  onSelect={handleVesselSelect}
+                />
+              </div>
             </MetaField>
             <MetaField id="vesselType" label="Vessel Type">
               <input id="vesselType" className={styles.readonly} readOnly value={form.vesselType} placeholder="—" />

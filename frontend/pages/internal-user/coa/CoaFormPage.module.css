@@ -20,11 +20,39 @@
   margin-bottom: 18px;
 }
 
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.cardHeadIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #efeaff;
+  color: #6c47ff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.cardHeadIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
 .cardTitle {
   font-size: 14.5px;
   font-weight: 700;
   color: #1b2430;
-  margin: 0 0 16px;
+  margin: 0;
+}
+
+.qtyGrid {
+  margin-bottom: 16px;
 }
 
 .gridFields {
@@ -135,6 +163,7 @@
 }
 
 .miniTable {
+  width: 100%;
   border-collapse: collapse;
 }
 
@@ -156,7 +185,7 @@
 
 .miniTable input,
 .miniTable select {
-  width: 170px;
+  width: 220px;
   border: 1px solid #dfe2e7;
   border-radius: 8px;
   padding: 7px 9px;
@@ -216,7 +245,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  width: 230px;
+  width: 100%;
+  max-width: 520px;
 }
 
 .lpChips {
@@ -265,7 +295,7 @@
 }
 
 .lpAddInput {
-  width: 170px !important;
+  width: 220px !important;
 }
 
 .periodField :global(button) {
@@ -277,9 +307,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 5px;
   text-align: center;
-  padding: 26px 14px;
+  padding: 14px;
   background: #f1f2f4;
   border-radius: 9px;
   border: 1.5px dashed #dfe2e7;
@@ -293,13 +323,13 @@
 }
 
 .dropzone svg {
-  width: 22px;
-  height: 22px;
+  width: 17px;
+  height: 17px;
   color: #8a93a2;
 }
 
 .dzText {
-  font-size: 12px;
+  font-size: 11.5px;
   color: #5b6472;
 }
 
@@ -322,12 +352,12 @@
   color: #fff;
   border: none;
   border-radius: 7px;
-  padding: 8px 14px;
-  font-size: 11.5px;
+  padding: 6px 12px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .attachBtn:hover {
@@ -344,7 +374,7 @@
 }
 
 .sectionTitle {
-  margin: 0 0 10px;
+  margin: 16px 0 10px;
   font-size: 12.5px;
   font-weight: 700;
   color: #1b2430;

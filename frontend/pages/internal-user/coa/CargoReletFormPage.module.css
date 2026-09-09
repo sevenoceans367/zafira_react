@@ -133,6 +133,38 @@
   font-size: 13px;
 }
 
+.vesselSearch {
+  width: 100%;
+}
+
+.vesselField input,
+.vesselSearch input {
+  width: 100% !important;
+  min-height: 37px !important;
+  padding: 9px 11px !important;
+  border: 1px solid #dfe2e7 !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #1b2430 !important;
+}
+
+.cargoSelectField :global(button) {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 37px !important;
+  padding: 9px 11px !important;
+  border: 1px solid #dfe2e7 !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #1b2430 !important;
+}
+
 .vesselField :global(button) {
   width: 100% !important;
   height: auto !important;

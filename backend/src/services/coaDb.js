@@ -45,6 +45,42 @@ async function ensureCoaMasterLifecycleColumns(pool) {
   return columns;
 }
 
+let reletColumnsPromise = null;
+
+async function getReletColumns(pool) {
+  if (!reletColumnsPromise) {
+    reletColumnsPromise = pool.query('SHOW COLUMNS FROM cargo_relet_estimate_masster')
+      .then(([rows]) => new Set(rows.map((row) => row.Field)));
+  }
+  return reletColumnsPromise;
+}
+
+async function ensureReletCargoColumn(connection) {
+  const columns = await getReletColumns(connection);
+  if (columns.has('CARGO')) return true;
+  try {
+    await connection.query(
+      'ALTER TABLE cargo_relet_estimate_masster ADD COLUMN CARGO INT NULL',
+    );
+    columns.add('CARGO');
+    return true;
+  } catch (error) {
+    console.warn('[coaDb] Could not add cargo_relet CARGO column:', error.message);
+    return false;
+  }
+}
+
+async function saveReletCargo(connection, fcaId, payload) {
+  const cargoId = nullIfEmpty(payload.cargoId);
+  if (!cargoId) return;
+  const columns = await getReletColumns(connection);
+  if (!columns.has('CARGO')) return;
+  await connection.query(
+    'UPDATE cargo_relet_estimate_masster SET CARGO = ? WHERE FCAID = ?',
+    [cargoId, fcaId],
+  );
+}
+
 function nullIfEmpty(value) {
   if (value == null) return null;
   const str = String(value).trim();
@@ -901,6 +937,9 @@ function mapReletDetail(row, parties = [], ports = []) {
     spclCommentsOut: row.SPCL_COMMENTS_OUT ?? '',
     nomProcOut: row.NOM_PROC_OUT ?? '',
     businessTypeId: row.BUSINESSTYPEID != null ? String(row.BUSINESSTYPEID) : '3',
+    cargoId: row.CARGO != null ? String(row.CARGO) : '',
+    cargoName: row.CARGO_NAME ?? '',
+    vesselName: row.VESSEL_NAME ?? '',
     fixed: Number(row.FIXED) === 1,
     partiesIn: parties.filter((p) => p.identify === 'IN'),
     partiesOut: parties.filter((p) => p.identify === 'OUT'),
@@ -913,9 +952,21 @@ function mapReletDetail(row, parties = [], ports = []) {
 
 export async function dbGetCargoRelet(fcaId) {
   const pool = getPool();
+  const columns = await getReletColumns(pool);
+  const cargoSelect = columns.has('CARGO')
+    ? `COALESCE(NULLIF(TRIM(cargo.MATERIAL_TYPE), ''), cargo.MATERIAL_CODE_DESC) AS CARGO_NAME`
+    : `'' AS CARGO_NAME`;
+  const cargoJoin = columns.has('CARGO')
+    ? 'LEFT JOIN cargo_master cargo ON cargo.MATERIALID = r.CARGO'
+    : '';
   const [[row]] = await pool.query(
-    `SELECT * FROM cargo_relet_estimate_masster
-     WHERE FCAID = ? AND MODULEID = ? AND MCOMPANYID = ?
+    `SELECT r.*,
+            vim.VESSEL_NAME AS VESSEL_NAME,
+            ${cargoSelect}
+     FROM cargo_relet_estimate_masster r
+     LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = r.VESSEL_IMO_ID
+     ${cargoJoin}
+     WHERE r.FCAID = ? AND r.MODULEID = ? AND r.MCOMPANYID = ?
      LIMIT 1`,
     [fcaId, COA_MODULE_ID, appContext.companyId],
   );
@@ -1067,6 +1118,7 @@ export async function dbCreateCargoRelet(payload) {
     throw new Error('COA is required for cargo relet.');
   }
   const pool = getPool();
+  await ensureReletCargoColumn(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -1094,6 +1146,7 @@ export async function dbCreateCargoRelet(payload) {
       reletMasterValues(payload, true),
     );
     const fcaId = result.insertId;
+    await saveReletCargo(connection, fcaId, payload);
     await replaceReletChildren(connection, fcaId, payload);
     await finalizeCargoReletCompare(connection, fcaId, payload);
     await connection.query(
@@ -1163,6 +1216,7 @@ async function finalizeCargoReletCompare(connection, fcaId, payload) {
 
 export async function dbUpdateCargoRelet(fcaId, payload) {
   const pool = getPool();
+  await ensureReletCargoColumn(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -1188,6 +1242,7 @@ export async function dbUpdateCargoRelet(fcaId, payload) {
       [...reletMasterValues(payload, false), fcaId, COA_MODULE_ID, appContext.companyId],
     );
     if (!result.affectedRows) throw new Error('Cargo relet not found.');
+    await saveReletCargo(connection, fcaId, payload);
     await replaceReletChildren(connection, fcaId, payload);
     await finalizeCargoReletCompare(connection, fcaId, payload);
     await connection.query(
@@ -1208,30 +1263,30 @@ export async function dbUpdateCargoRelet(fcaId, payload) {
 export async function dbDeleteCargoRelet(fcaId) {
   const pool = getPool();
   const [[row]] = await pool.query(
-    `SELECT FIXED FROM cargo_relet_estimate_masster
+    `SELECT FIXED, UPDATE_STATUS FROM cargo_relet_estimate_masster
      WHERE FCAID = ? AND MODULEID = ? AND MCOMPANYID = ? LIMIT 1`,
     [fcaId, COA_MODULE_ID, appContext.companyId],
   );
   if (!row) throw new Error('Cargo relet not found.');
-  if (Number(row.FIXED) === 1) throw new Error('Cannot delete a fixed cargo relet.');
+  if (Number(row.FIXED) === 1) throw new Error('Cannot cancel a fixed cargo relet.');
+  if (Number(row.UPDATE_STATUS) === 3) throw new Error('Cargo relet is already cancelled.');
 
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    await connection.query('DELETE FROM cargo_relet_estimate_slave1 WHERE FCAID = ?', [fcaId]);
-    await connection.query('DELETE FROM cargo_relet_estimate_slave2 WHERE FCAID = ?', [fcaId]);
     await connection.query(
-      `DELETE FROM cargo_relet_estimate_masster
+      `UPDATE cargo_relet_estimate_masster
+       SET UPDATE_STATUS = 3, UPDATE_ON_DATE = NOW()
        WHERE FCAID = ? AND MODULEID = ? AND MCOMPANYID = ?`,
       [fcaId, COA_MODULE_ID, appContext.companyId],
     );
     await connection.query(
       `INSERT INTO recent_work_master (LOGINID, WORK, WORK_DATE)
-       VALUES (?, 'COA Cargo Relet deleted successfully.', NOW())`,
+       VALUES (?, 'COA Cargo Relet cancelled successfully.', NOW())`,
       [appContext.userId],
     );
     await connection.commit();
-    return { msg: 0 };
+    return { msg: 0, updateStatus: 3 };
   } catch (error) {
     await connection.rollback();
     throw error;

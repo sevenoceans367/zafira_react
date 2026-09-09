@@ -312,6 +312,34 @@
   height: 16px;
 }
 
+.detailActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.iconDanger {
+  border: none;
+  background: transparent;
+  color: #8a93a2;
+}
+
+.iconDanger i {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.iconDanger:hover:not(:disabled) {
+  background: #fdecea;
+  border-color: transparent;
+  color: #e4483b;
+}
+
+.iconBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* Status pills — Business.html */
 .statusActive {
   display: inline-flex;

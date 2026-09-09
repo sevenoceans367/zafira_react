@@ -71,6 +71,15 @@ function normalizeExclusions(rows) {
   }));
 }
 
+function CardHead({ icon, title }) {
+  return (
+    <div className={styles.cardHead}>
+      <span className={styles.cardHeadIcon}>{icon}</span>
+      <span className={styles.cardTitle}>{title}</span>
+    </div>
+  );
+}
+
 function Field({ id, label, children, className = '', hint = '' }) {
   return (
     <div className={`${styles.field} ${className}`.trim()}>
@@ -223,16 +232,27 @@ export default function CoaFormPage({ mode = 'edit' }) {
 
       <form onSubmit={handleSave}>
         <div className={styles.card}>
-          <div className={styles.cardTitle}>Contract Information</div>
+          <CardHead
+            title="Contract Information"
+            icon={(
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5.5" />
+                <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
+              </svg>
+            )}
+          />
 
           <div className={styles.gridFields}>
-            <Field id="coaIdentity" label="COA No.">
+            <Field
+              id="coaIdentity"
+              label="COA No."
+              hint={isAdd ? 'Auto-generated — editable if needed.' : ''}
+            >
               <input
                 id="coaIdentity"
-                className={styles.readonly}
-                readOnly
                 value={form.coaIdentity}
-                placeholder="Auto-generated on Save"
+                onChange={(e) => patch('coaIdentity', e.target.value)}
               />
             </Field>
             <Field id="coaDate" label="Date">
@@ -250,7 +270,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(value) => patch('coaRoute', value)}
               />
             </Field>
-            <Field id="charterer" label="Charterer">
+            <Field id="charterer" label="Charterer" hint="Synced with the Charterers/Owners/Brokers master data.">
               <CoaCardSelect
                 label="Charterer"
                 value={form.charterer}
@@ -258,7 +278,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(value) => patch('charterer', value)}
               />
             </Field>
-            <Field id="owner" label="Owner">
+            <Field id="owner" label="Owner" hint="Synced with the Charterers/Owners/Brokers master data.">
               <CoaCardSelect
                 label="Owner"
                 value={form.owner}
@@ -266,7 +286,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(value) => patch('owner', value)}
               />
             </Field>
-            <Field id="broker" label="Broker">
+            <Field id="broker" label="Broker" hint="Synced with the Charterers/Owners/Brokers master data.">
               <CoaCardSelect
                 label="Broker"
                 value={form.broker}
@@ -291,12 +311,16 @@ export default function CoaFormPage({ mode = 'edit' }) {
               <input
                 id="loadOptions"
                 type="text"
-                placeholder="Enter load options"
+                placeholder="e.g. 1/1 Safe Berth Safe Port"
                 value={form.loadOptions}
                 onChange={(e) => patch('loadOptions', e.target.value)}
               />
             </Field>
-            <Field id="cargo" label="Cargo">
+            <Field
+              id="cargo"
+              label="Cargo"
+              hint="Pulled from the Material Name master list — Tankers show regular cargo names only."
+            >
               <CoaCardSelect
                 label="Cargo"
                 value={form.cargo}
@@ -332,24 +356,6 @@ export default function CoaFormPage({ mode = 'edit' }) {
               />
             </Field>
 
-            <Field id="minGuaranteedQty" label="Minimum Quantity Guaranteed (MT)">
-              <input
-                id="minGuaranteedQty"
-                type="number"
-                placeholder="0.00"
-                value={form.minGuaranteedQty}
-                onChange={(e) => patch('minGuaranteedQty', e.target.value)}
-              />
-            </Field>
-            <Field id="minQtyPerShipment" label="Minimum Quantity per Shipment (MT)">
-              <input
-                id="minQtyPerShipment"
-                type="number"
-                placeholder="0.00"
-                value={form.minQtyPerShipment}
-                onChange={(e) => patch('minQtyPerShipment', e.target.value)}
-              />
-            </Field>
             <Field id="lpEtaNotices" label="Load Port ETA Notices">
               <input
                 id="lpEtaNotices"
@@ -395,15 +401,44 @@ export default function CoaFormPage({ mode = 'edit' }) {
               />
             </Field>
           </div>
+        </div>
 
-          <hr className={styles.divider} />
-
+        <div className={styles.card}>
+          <CardHead
+            title="Quantity & Load Ports"
+            icon={(
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z" />
+                <circle cx="12" cy="9" r="2.4" />
+              </svg>
+            )}
+          />
+          <div className={`${styles.gridFields} ${styles.qtyGrid}`}>
+            <Field id="minGuaranteedQty" label="Minimum Quantity Guaranteed (MT)" className={styles.span3}>
+              <input
+                id="minGuaranteedQty"
+                type="number"
+                placeholder="0.00"
+                value={form.minGuaranteedQty}
+                onChange={(e) => patch('minGuaranteedQty', e.target.value)}
+              />
+            </Field>
+            <Field id="minQtyPerShipment" label="Minimum Quantity per Shipment (MT)" className={styles.span3}>
+              <input
+                id="minQtyPerShipment"
+                type="number"
+                placeholder="0.00"
+                value={form.minQtyPerShipment}
+                onChange={(e) => patch('minQtyPerShipment', e.target.value)}
+              />
+            </Field>
+          </div>
           <div className={styles.miniWrap}>
             <table className={styles.miniTable}>
               <thead>
                 <tr>
                   <th style={{ width: 56 }} />
-                  <th>Min Qty/ Shipment(MT)</th>
+                  <th>Qty/Shipment (MT)</th>
                   <th>Load Port</th>
                 </tr>
               </thead>
@@ -499,9 +534,18 @@ export default function CoaFormPage({ mode = 'edit' }) {
               </tbody>
             </table>
           </div>
+        </div>
 
-          <hr className={styles.divider} />
-
+        <div className={styles.card}>
+          <CardHead
+            title="Financials & Commercial Terms"
+            icon={(
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3v18" />
+                <path d="M16.5 7.5c0-2-2-3-4.5-3s-4.5 1.2-4.5 3.2c0 4.3 9 2 9 6.3 0 2-2 3.2-4.5 3.2s-4.5-1-4.5-3" />
+              </svg>
+            )}
+          />
           <div className={styles.gridFields}>
             <Field id="freightDetails" label="Freight Details" className={styles.span3}>
               <textarea id="freightDetails" value={form.freightDetails} placeholder="Freight Details" onChange={(e) => patch('freightDetails', e.target.value)} />
@@ -542,7 +586,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(e) => patch('bafAmt', e.target.value)}
               />
             </Field>
-            <Field id="demmLaytime" label="Demurrage & Laytime" className={styles.span3}>
+            <Field id="demmLaytime" label="Demurrage & Laytime" className={styles.span6}>
               <textarea id="demmLaytime" value={form.demmLaytime} placeholder="Demurrage & Laytime" onChange={(e) => patch('demmLaytime', e.target.value)} />
             </Field>
             <Field id="remarks" label="Overall Remarks" className={styles.span6}>
@@ -621,10 +665,18 @@ export default function CoaFormPage({ mode = 'edit' }) {
               </div>
             </>
           ) : null}
+        </div>
 
-          <hr className={styles.divider} />
-
-          <Field id="attachment" label="Attach Documents" className={styles.span6}>
+        <div className={styles.card}>
+          <CardHead
+            title="Attachments"
+            icon={(
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <path d="M21 12.5l-8.4 8.4a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3l7.7-7.7" />
+              </svg>
+            )}
+          />
+          <Field id="attachment" label="Attach Documents">
             <div
               className={styles.dropzone}
               onDragEnter={(e) => { e.preventDefault(); e.currentTarget.classList.add(styles.dragOver); }}

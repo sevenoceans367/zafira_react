@@ -176,12 +176,6 @@ function RowsIcon() {
   );
 }
 
-function statusBadgeClass(tab) {
-  if (tab === 'completed') return `${styles.statusBadge} ${styles.statusCompleted}`;
-  if (tab === 'cancelled') return `${styles.statusBadge} ${styles.statusCancelled}`;
-  return styles.statusBadge;
-}
-
 function statusLabel(tab) {
   if (tab === 'completed') return 'Completed';
   if (tab === 'cancelled') return 'Cancelled';
@@ -560,7 +554,6 @@ export default function RunningCoasListPage() {
                   <th>No.</th>
                   <th>Route</th>
                   <th>Date</th>
-                  <th>Status</th>
                   <th>Vessel</th>
                   <th>Charterer</th>
                   <th>Cargo</th>
@@ -575,12 +568,11 @@ export default function RunningCoasListPage() {
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr>
-                    <td colSpan={14} className={styles.emptyCell}>
+                    <td colSpan={13} className={styles.emptyCell}>
                       SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                     </td>
                   </tr>
                 ) : pageRows.map((row, index) => {
-                  const tab = rowTab(row);
                   const coaNo = row.coaNo || row.coaIdentity;
                   return (
                     <tr key={row.coaId}>
@@ -599,9 +591,6 @@ export default function RunningCoasListPage() {
                       </td>
                       <td>{liveValue(row.coaRoute)}</td>
                       <td className={styles.cellNum}>{liveValue(row.coaDate)}</td>
-                      <td>
-                        <span className={statusBadgeClass(tab)}>{statusLabel(tab)}</span>
-                      </td>
                       <td className={styles.cellVessel}>{liveValue(row.vesselType)}</td>
                       <td>{liveValue(row.charterer)}</td>
                       <td>{liveValue(row.cargo)}</td>

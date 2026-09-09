@@ -13,6 +13,7 @@ import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useCargoReletModule } from '../../../hooks/useCargoReletModule.js';
 import {
   advanceStandaloneCargoReletOps,
+  deleteStandaloneCargoRelet,
   fetchStandaloneCargoRelets,
   sendStandaloneCargoReletToOps,
 } from '../../../services/cargoRelets.js';
@@ -237,6 +238,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
   const [loading, setLoading] = useState(true);
   const [advancingId, setAdvancingId] = useState(null);
   const [sendingId, setSendingId] = useState(null);
+  const [cancellingId, setCancellingId] = useState(null);
   const [error, setError] = useState('');
   const [recordsTotal, setRecordsTotal] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -374,6 +376,28 @@ export default function CargoReletListPage({ variant = 'business' }) {
       setError(err.message || 'Failed to advance cargo relet.');
     } finally {
       setAdvancingId(null);
+    }
+  };
+
+  const handleCancel = async (row) => {
+    if (!row?.fcaId || !row.canDelete || cancellingId) return;
+    const ok = await confirm({
+      title: 'Cancel cargo relet',
+      message: `Cancel ${row.reletNo || 'this cargo relet'}? It will move to the Cancelled tab.`,
+      confirmLabel: 'Cancel relet',
+      cancelLabel: 'Keep',
+    });
+    if (!ok) return;
+    setCancellingId(row.fcaId);
+    setError('');
+    try {
+      await deleteStandaloneCargoRelet(row.fcaId);
+      setPage(1);
+      setActiveTab('cancelled');
+    } catch (err) {
+      setError(err.message || 'Failed to cancel cargo relet.');
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -615,7 +639,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
               <th>Frt-Out</th>
               <th>P&amp;L</th>
               {!isOps ? <th>Actions</th> : null}
-              <th>Edit</th>
+              <th>Details</th>
               {isOps ? <th>Next</th> : null}
             </tr>
           </thead>
@@ -663,9 +687,23 @@ export default function CargoReletListPage({ variant = 'business' }) {
                   </td>
                 ) : null}
                 <td>
-                  <Link className={styles.iconBtn} to={cargoReletEditPath(row.fcaId)} title="Edit Cargo Relet">
-                    <EditRecapIcon size={16} />
-                  </Link>
+                  <div className={styles.detailActions}>
+                    <Link className={styles.iconBtn} to={cargoReletEditPath(row.fcaId)} title="Cargo Relet details">
+                      <EditRecapIcon size={16} />
+                    </Link>
+                    {!isOps && row.canDelete ? (
+                      <button
+                        type="button"
+                        className={`${styles.iconBtn} ${styles.iconDanger}`}
+                        title="Cancel cargo relet"
+                        aria-label={`Cancel ${row.reletNo || row.fcaId}`}
+                        disabled={cancellingId === row.fcaId}
+                        onClick={() => handleCancel(row)}
+                      >
+                        <i className="bi bi-trash" aria-hidden />
+                      </button>
+                    ) : null}
+                  </div>
                 </td>
                 {isOps ? (
                   <td>

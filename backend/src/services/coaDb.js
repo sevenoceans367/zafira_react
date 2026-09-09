@@ -746,6 +746,15 @@ export async function dbListCargoRelets({
     params.push(Number(yearKey));
   }
 
+  const reletColumns = await getReletColumns(pool);
+  const hasCargo = reletColumns.has('CARGO');
+  const cargoSelect = hasCargo
+    ? ', COALESCE(NULLIF(TRIM(cargo.MATERIAL_TYPE), \'\'), cargo.MATERIAL_CODE_DESC) AS CARGO_NAME'
+    : ', \'\' AS CARGO_NAME';
+  const cargoJoin = hasCargo
+    ? 'LEFT JOIN cargo_master cargo ON cargo.MATERIALID = r.CARGO'
+    : '';
+
   const where = conditions.join(' AND ');
 
   const [[countRow]] = await pool.query(
@@ -762,9 +771,11 @@ export async function dbListCargoRelets({
             r.BUNKER_SURCHARGE_AMT, r.TOTAL_AMT, r.PROFIT, r.FREIGHT_USD_OUT, r.FREIGHT_AMT_OUT,
             r.FIXED, r.COMID, r.UPDATE_STATUS, r.FINAL_STATUS, r.TRANS_DATE, r.VESSEL_IMO_ID,
             c.COA_ID, c.COA_NO, c.COA_DATE, c.CURRENCY, vim.VESSEL_NAME
+            ${cargoSelect}
      FROM cargo_relet_estimate_masster r
      LEFT JOIN coa_master c ON c.COAID = r.COAID
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = r.VESSEL_IMO_ID
+     ${cargoJoin}
      WHERE ${where}
      ORDER BY r.FCAID DESC
      LIMIT ? OFFSET ?`,
@@ -830,7 +841,7 @@ export async function dbListCargoRelets({
       coaIdentity: row.COA_ID ?? '',
       coaNo: row.COA_NO ?? '',
       reletNo: row.CARGO_RELET_NO ?? '',
-      cargo: row.CARGO_RELET_NAME ?? '',
+      cargo: row.CARGO_NAME ?? '',
       coaDate: formatDateDMY(row.COA_DATE || row.TRANS_DATE),
       transDate: formatDateDMY(row.TRANS_DATE),
       cargoQty: row.CARGO_QMT_MT ?? '',
@@ -1113,10 +1124,18 @@ function reletMasterValues(payload, includeMeta = false) {
   return values;
 }
 
+function requireStandaloneCargo(payload) {
+  if (!payload.standalone) return;
+  if (!nullIfEmpty(payload.cargoId)) {
+    throw new Error('Cargo is required.');
+  }
+}
+
 export async function dbCreateCargoRelet(payload) {
   if (!payload.coaId && !payload.standalone) {
     throw new Error('COA is required for cargo relet.');
   }
+  requireStandaloneCargo(payload);
   const pool = getPool();
   await ensureReletCargoColumn(pool);
   const connection = await pool.getConnection();
@@ -1215,6 +1234,7 @@ async function finalizeCargoReletCompare(connection, fcaId, payload) {
 }
 
 export async function dbUpdateCargoRelet(fcaId, payload) {
+  requireStandaloneCargo(payload);
   const pool = getPool();
   await ensureReletCargoColumn(pool);
   const connection = await pool.getConnection();

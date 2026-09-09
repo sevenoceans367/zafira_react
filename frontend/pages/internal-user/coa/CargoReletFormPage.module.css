@@ -423,6 +423,11 @@
   letter-spacing: 0.03em;
 }
 
+.requiredMark {
+  color: #c0392b;
+  font-weight: 700;
+}
+
 .field input,
 .field select,
 .field textarea,

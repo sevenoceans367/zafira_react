@@ -244,11 +244,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
           />
 
           <div className={styles.gridFields}>
-            <Field
-              id="coaIdentity"
-              label="COA No."
-              hint={isAdd ? 'Auto-generated — editable if needed.' : ''}
-            >
+            <Field id="coaIdentity" label="COA No.">
               <input
                 id="coaIdentity"
                 value={form.coaIdentity}
@@ -263,31 +259,31 @@ export default function CoaFormPage({ mode = 'edit' }) {
               />
             </Field>
             <Field id="coaRoute" label="Route">
-              <CoaCardSelect
+              <CoaCardSelect className={styles.select}
                 label="Route"
                 value={form.coaRoute}
                 options={lookups?.routes || []}
                 onChange={(value) => patch('coaRoute', value)}
               />
             </Field>
-            <Field id="charterer" label="Charterer" hint="Synced with the Charterers/Owners/Brokers master data.">
-              <CoaCardSelect
+            <Field id="charterer" label="Charterer">
+              <CoaCardSelect className={styles.select}
                 label="Charterer"
                 value={form.charterer}
                 options={lookups?.charterers || []}
                 onChange={(value) => patch('charterer', value)}
               />
             </Field>
-            <Field id="owner" label="Owner" hint="Synced with the Charterers/Owners/Brokers master data.">
-              <CoaCardSelect
+            <Field id="owner" label="Owner">
+              <CoaCardSelect className={styles.select}
                 label="Owner"
                 value={form.owner}
                 options={lookups?.owners || []}
                 onChange={(value) => patch('owner', value)}
               />
             </Field>
-            <Field id="broker" label="Broker" hint="Synced with the Charterers/Owners/Brokers master data.">
-              <CoaCardSelect
+            <Field id="broker" label="Broker">
+              <CoaCardSelect className={styles.select}
                 label="Broker"
                 value={form.broker}
                 options={lookups?.brokers || []}
@@ -295,12 +291,8 @@ export default function CoaFormPage({ mode = 'edit' }) {
               />
             </Field>
 
-            <Field
-              id="vesselType"
-              label="Trade Type"
-              hint="Filters which vessels are available when assigning a Spot voyage or Cargo Relet to this COA."
-            >
-              <CoaCardSelect
+            <Field id="vesselType" label="Trade Type">
+              <CoaCardSelect className={styles.select}
                 label="Trade Type"
                 value={form.vesselType}
                 options={vesselTypes}
@@ -316,12 +308,8 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(e) => patch('loadOptions', e.target.value)}
               />
             </Field>
-            <Field
-              id="cargo"
-              label="Cargo"
-              hint="Pulled from the Material Name master list — Tankers show regular cargo names only."
-            >
-              <CoaCardSelect
+            <Field id="cargo" label="Cargo">
+              <CoaCardSelect className={styles.select}
                 label="Cargo"
                 value={form.cargo}
                 options={cargos}
@@ -364,7 +352,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
               />
             </Field>
             <Field id="vesselSubstitute" label="Vessel Substitutions">
-              <CoaCardSelect
+              <CoaCardSelect className={styles.select}
                 label="Vessel Substitutions"
                 value={form.vesselSubstitute}
                 options={lookups?.vesselSubstitutes || []}
@@ -385,14 +373,14 @@ export default function CoaFormPage({ mode = 'edit' }) {
               <PeriodCardPicker
                 from={form.startDate || ''}
                 to={form.endDate || ''}
-                align="start"
+                align="end"
                 onChange={({ from, to }) => {
                   setForm((prev) => ({ ...prev, startDate: from || '', endDate: to || '' }));
                 }}
               />
             </Field>
             <Field id="currency" label="Working Currency">
-              <CoaCardSelect
+              <CoaCardSelect className={styles.select}
                 label="Working Currency"
                 value={form.currency}
                 options={lookups?.currencies || []}

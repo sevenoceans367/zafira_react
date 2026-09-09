@@ -370,10 +370,13 @@ function mapVesselCommercial(data) {
   };
 }
 
-function Field({ id, label, children, wide = false, className = '' }) {
+function Field({ id, label, children, wide = false, className = '', required = false }) {
   return (
     <div className={`${styles.field} ${wide ? styles.fieldWide : ''} ${className}`.trim()}>
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>
+        {label}
+        {required ? <span className={styles.requiredMark}> *</span> : null}
+      </label>
       {children}
     </div>
   );
@@ -655,7 +658,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   };
 
   const persist = async (updateStatus) => {
-    const validation = validateCargoReletForm(form, { requireCoa: !standalone });
+    const validation = validateCargoReletForm(form, { requireCoa: !standalone, requireCargo: standalone });
     if (validation) {
       setError(validation.message);
       if (validation.tab && validation.tab !== tab) setTab(validation.tab);
@@ -1284,13 +1287,13 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   const renderStandaloneEstimateBody = () => (
     <>
       <div className={styles.estimateTopRow}>
-        <Field id="cargoName" label="Cargo Name" className={styles.cargoSelectField}>
+        <Field id="cargoName" label="Cargo Name" className={styles.cargoSelectField} required>
           <CoaCardSelect
             id="cargoName"
             label="Cargo Name"
             value={form.cargoId}
             options={cargoSelectOptions}
-            placeholder="Select cargo..."
+            placeholder="Required"
             onChange={handleCargoChange}
           />
         </Field>
@@ -1355,11 +1358,9 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                   ) : (
                     <input id="reletNo" className={styles.readonly} readOnly value={form.reletNo} />
                   )}
-                  <span className={styles.fieldHint}>No COA nomination ID — standalone relets number their own sequence.</span>
                 </MetaField>
                 <MetaField id="businessTypeId" label="Business Type">
                   <div className={styles.metaValue}>{businessTypeLabel}</div>
-                  <span className={styles.fieldHint}>Pulled from the Running Cargo Relets screen&apos;s Tankers/Dry Cargo selection.</span>
                 </MetaField>
               </>
             ) : (

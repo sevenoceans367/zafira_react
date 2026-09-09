@@ -64,6 +64,9 @@ export function validateCargoReletForm(form = {}, options = {}) {
   if (!filled(form.reletNo)) {
     return { message: 'Please fill Cargo Relet No.', fieldId: 'reletNo', tab: 'estimate' };
   }
+  if (options.requireCargo !== false && !filled(form.cargoId)) {
+    return { message: 'Please select Cargo', fieldId: 'cargoName', tab: 'estimate' };
+  }
   if (!filled(form.cargoQty)) {
     return { message: 'Please fill Cargo Qty (MT)', fieldId: 'cargoQty', tab: 'estimate' };
   }

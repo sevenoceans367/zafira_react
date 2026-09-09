@@ -22,6 +22,7 @@ export default function OpsVcCostSheetPage() {
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const costSheetId = searchParams.get('cost_sheet_id') || searchParams.get('costSheetId') || '';
   const page = Number(searchParams.get('page') || 1);
+  const viewOnly = searchParams.get('view') === '1';
   const backPath = BACK_BY_PAGE[page] || BACK_BY_PAGE[1];
   const backHref = appPath(backPath);
 
@@ -88,6 +89,7 @@ export default function OpsVcCostSheetPage() {
       costSheetIdProp={String(costSheetId)}
       sheetNameProp={sheet.sheetName || ''}
       initialFinalStatus={Number(sheet.finalStatus || 0)}
+      viewOnly={viewOnly}
     />
   );
 }

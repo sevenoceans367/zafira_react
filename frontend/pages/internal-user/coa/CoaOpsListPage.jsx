@@ -379,11 +379,11 @@ export default function CoaOpsListPage() {
     return appPath(`${path}?id=${encodeURIComponent(fcaId)}&returnTo=${returnTo}`);
   }, [opsReturnTo]);
 
-  const costSheetPage = statusTab === 'postops' ? 2 : 1;
+  const costSheetPage = statusTab === 'history' ? 3 : statusTab === 'postops' ? 2 : 1;
 
   const costSheetPath = useCallback((row, sheet) => (
-    appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${costSheetPage}`)
-  ), [costSheetPage]);
+    appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${costSheetPage}${statusTab === 'history' ? '&view=1' : ''}`)
+  ), [costSheetPage, statusTab]);
 
   const handleAddSheetClick = async (row) => {
     if (!row.canAddCostSheet) {
@@ -608,8 +608,12 @@ export default function CoaOpsListPage() {
                       </span>
                     </td>
                     <td className={styles.cellCenter}>
-                      <Link className={styles.iconBtn} to={coaPath(`cargo-relet/${row.fcaId}`)} title="Edit Cargo Relet">
-                        <EditRecapIcon size={16} />
+                      <Link
+                        className={styles.iconBtn}
+                        to={isHistoryTab ? coaPath(`cargo-relet/${row.fcaId}?view=1`) : coaPath(`cargo-relet/${row.fcaId}`)}
+                        title={isHistoryTab ? 'View Cargo Relet' : 'Edit Cargo Relet'}
+                      >
+                        {isHistoryTab ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={16} />}
                       </Link>
                     </td>
                     <td>
@@ -670,10 +674,11 @@ export default function CoaOpsListPage() {
                     <td className={styles.cellNum}>{liveValue(row.cargoQty)}</td>
                     <td>
                       <OpsVcWorksheetStack
+                        viewOnly={isHistoryTab}
                         sheets={sheets}
                         sheetHref={(sheet) => costSheetPath(row, sheet)}
                         onAdd={statusTab === 'ops' ? () => handleAddSheetClick(row) : undefined}
-                        onLayoutChange={(nextSheets) => handleWorksheetLayoutChange(row, nextSheets)}
+                        onLayoutChange={isHistoryTab ? undefined : (nextSheets) => handleWorksheetLayoutChange(row, nextSheets)}
                       />
                     </td>
                     <td>

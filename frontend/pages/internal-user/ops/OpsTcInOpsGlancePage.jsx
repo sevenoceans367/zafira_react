@@ -409,7 +409,7 @@ export default function OpsTcInOpsGlancePage() {
   };
 
   const costSheetPath = (row, sheet) => (
-    appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${pageContext}`)
+    appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${pageContext}${isHistory ? '&view=1' : ''}`)
   );
 
   return (
@@ -643,10 +643,10 @@ export default function OpsTcInOpsGlancePage() {
                   <td style={{ textAlign: 'center' }}>
                     <Link
                       className={styles.iconBtn}
-                      to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/edit`)}
-                      title="Edit TC Recap"
+                      to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/${isHistory ? 'view' : 'edit'}`)}
+                      title={isHistory ? 'View TC Recap' : 'Edit TC Recap'}
                     >
-                      <EditRecapIcon size={18} />
+                      {isHistory ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={18} />}
                     </Link>
                   </td>
                   <td>

@@ -225,6 +225,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
   const [activeTab, setActiveTab] = useState(
     isOps ? parseOpsStatus(searchParams.get('status')) : parseBusinessStatus(searchParams.get('status')),
   );
+  const isHistoryTab = isOps && activeTab === 'history';
   const [businessTypes, setBusinessTypes] = useState([]);
   const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
   const [year, setYear] = useState(searchParams.get('selYear') || (isOps ? String(new Date().getFullYear()) : 'all'));
@@ -688,8 +689,12 @@ export default function CargoReletListPage({ variant = 'business' }) {
                 ) : null}
                 <td>
                   <div className={styles.detailActions}>
-                    <Link className={styles.iconBtn} to={cargoReletEditPath(row.fcaId)} title="Cargo Relet details">
-                      <EditRecapIcon size={16} />
+                    <Link
+                      className={styles.iconBtn}
+                      to={isHistoryTab ? `${cargoReletEditPath(row.fcaId)}?view=1` : cargoReletEditPath(row.fcaId)}
+                      title={isHistoryTab ? 'View Cargo Relet' : 'Cargo Relet details'}
+                    >
+                      {isHistoryTab ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={16} />}
                     </Link>
                     {!isOps && row.canDelete ? (
                       <button
@@ -707,22 +712,24 @@ export default function CargoReletListPage({ variant = 'business' }) {
                 </td>
                 {isOps ? (
                   <td>
-                    {row.canAdvanceOps && row.nextLabel ? (
-                      <button
-                        type="button"
-                        className={styles.pillNext}
-                        disabled={advancingId === row.fcaId}
-                        onClick={() => handleAdvanceOps(row)}
-                      >
-                        {row.nextLabel}
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M5 12h14" />
-                          <path d="M13 6l6 6-6 6" />
-                        </svg>
-                      </button>
-                    ) : (
-                      <span className={styles.dash}>—</span>
-                    )}
+                    <div className={styles.nextActions}>
+                      {row.canAdvanceOps && row.nextLabel ? (
+                        <button
+                          type="button"
+                          className={styles.pillNext}
+                          disabled={advancingId === row.fcaId}
+                          onClick={() => handleAdvanceOps(row)}
+                        >
+                          {row.nextLabel}
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M5 12h14" />
+                            <path d="M13 6l6 6-6 6" />
+                          </svg>
+                        </button>
+                      ) : (
+                        <span className={styles.dash}>—</span>
+                      )}
+                    </div>
                   </td>
                 ) : null}
               </tr>

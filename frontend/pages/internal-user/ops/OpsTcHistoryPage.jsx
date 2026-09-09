@@ -174,7 +174,7 @@ export default function OpsTcHistoryPage() {
                     {(row.costSheets || []).map((sheet) => (
                       <div key={sheet.id}>
                         <Link
-                          to={appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${PAGE_CONTEXT}`)}
+                          to={appPath(`/internal-user/vc/ops-tc/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${PAGE_CONTEXT}&view=1`)}
                         >
                           {sheet.name}
                         </Link>

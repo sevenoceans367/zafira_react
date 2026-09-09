@@ -49,6 +49,7 @@ export default function CostSheetEstimatePage({
   costSheetIdProp = '',
   sheetNameProp = '',
   initialFinalStatus = 0,
+  viewOnly = false,
 } = {}) {
   const navigate = useNavigate();
   const alert = useAlert();
@@ -390,11 +391,12 @@ export default function CostSheetEstimatePage({
 
   const sheetClosed = isCostSheet
     && Number(detail?.finalStatus ?? initialFinalStatus) === 1;
+  const locked = sheetClosed || viewOnly;
   const sheetLabel = sheetNameProp
     || (costSheetIdProp ? `Sheet ${costSheetIdProp}` : '');
   const pageHeading = sheetLabel
-    ? `${sheetClosed ? 'Closed Voyage Financials' : 'Voyage Financials'} — ${sheetLabel}`
-    : (sheetClosed ? 'Closed Voyage Financials' : 'Voyage Financials');
+    ? `${viewOnly ? 'View Voyage Financials' : sheetClosed ? 'Closed Voyage Financials' : 'Voyage Financials'} — ${sheetLabel}`
+    : (viewOnly ? 'View Voyage Financials' : sheetClosed ? 'Closed Voyage Financials' : 'Voyage Financials');
 
   // Ensure Passage & Ports SOF links see comid/page (PHP updatecost_sheet_tci).
   const sectionsDetail = detail && isCostSheet
@@ -418,7 +420,7 @@ export default function CostSheetEstimatePage({
           onSubmit={(event) => {
             event.preventDefault();
             // Closed sheets: Enter must not save; use Submit to Edit to reopen.
-            if (sheetClosed) return;
+            if (locked) return;
             handleSubmit(event, isCostSheet ? 0 : null);
           }}
         >
@@ -427,7 +429,7 @@ export default function CostSheetEstimatePage({
             form={form}
             lookups={lookups}
             voyageExcludeId={estimateId}
-            readOnly={sheetClosed}
+            readOnly={locked}
             onFieldChange={updateField}
             onVesselSelect={handleVesselSelect}
             onPeriodContractChange={handlePeriodContractChange}
@@ -435,7 +437,7 @@ export default function CostSheetEstimatePage({
             onApplyPatch={handleApplyPatch}
           />
           <div className={styles.actions}>
-            {isCostSheet ? (
+            {viewOnly ? null : isCostSheet ? (
               <>
                 <Button
                   type="button"
@@ -457,7 +459,7 @@ export default function CostSheetEstimatePage({
             ) : (
               <Button type="submit" variant="primary" label="Submit" disabled={saving} />
             )}
-            <Button variant="outline" label="Cancel" href={listHref} />
+            <Button variant="outline" label={viewOnly ? 'Back' : 'Cancel'} href={listHref} />
           </div>
         </form>
       ) : null}

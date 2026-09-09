@@ -51,8 +51,50 @@
   margin: 0;
 }
 
-.qtyGrid {
-  margin-bottom: 16px;
+.qtyAttachRow {
+  display: flex;
+  align-items: stretch;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.qtyAttachRow > .card {
+  margin-bottom: 0;
+  width: auto;
+  min-width: 520px;
+  max-width: 100%;
+  flex: 1;
+}
+
+.qtyFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 16px;
+}
+
+.qtyMatchField {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+
+.qtyMatchField label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  line-height: 1.3;
+  min-height: 28px;
+}
+
+.qtyMatchField input:not([type='file']) {
+  width: 100%;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-size: 12px;
 }
 
 .gridFields {
@@ -91,6 +133,27 @@
 
 .span6 {
   grid-column: 1 / -1;
+}
+
+.noteRow {
+  grid-column: 1 / span 3;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+  min-width: 0;
+}
+
+.field textarea.shortNote {
+  min-height: 34px;
+  height: 34px;
+  resize: vertical;
+}
+
+@media (max-width: 760px) {
+  .noteRow {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1300px) {
@@ -204,12 +267,22 @@
   vertical-align: top;
 }
 
+.qtyTable {
+  width: max-content;
+}
+
+.actionCol {
+  width: 64px;
+}
+
 .miniTable input,
 .miniTable select {
   width: 220px;
+  height: 34px;
+  min-height: 34px;
   border: 1px solid #dfe2e7;
   border-radius: 8px;
-  padding: 7px 9px;
+  padding: 0 9px;
   font-size: 12px;
   font-family: inherit;
   box-sizing: border-box;
@@ -219,12 +292,14 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  height: 34px;
 }
 
 .rowAdd,
 .rowDel {
   width: 26px;
-  height: 34px;
+  height: 26px;
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -233,6 +308,8 @@
   background: none;
   border-radius: 6px;
   padding: 0;
+  box-sizing: border-box;
+  aspect-ratio: 1;
 }
 
 .rowAdd {
@@ -266,8 +343,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  width: 100%;
-  max-width: 520px;
+  width: 220px;
+  max-width: 220px;
 }
 
 .lpChips {
@@ -317,6 +394,9 @@
 
 .lpAddInput {
   width: 220px !important;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 9px;
 }
 
 .periodField > div {
@@ -344,75 +424,208 @@
   max-width: min(680px, calc(100vw - 48px));
 }
 
+.docsSection {
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  min-width: 280px;
+  flex: 1;
+}
+
+.docsSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #dfe2e7;
+}
+
+.docsSectionHeadGrey {
+  background: #f1f2f4;
+}
+
+.docsSectionTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.docsSectionTitle {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.docsCount {
+  margin-left: auto;
+  background: #fff;
+  color: #5b6472;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.docsSectionBody {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.sectionIco {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: #e6eaf1;
+  color: #274670;
+}
+
+.sectionIco svg {
+  width: 16px;
+  height: 16px;
+}
+
 .dropzone {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  text-align: center;
-  padding: 14px;
-  background: #f1f2f4;
-  border-radius: 9px;
+  gap: 8px;
   border: 1.5px dashed #dfe2e7;
-  transition: background 0.12s ease, border-color 0.12s ease;
-  width: 100%;
-}
-
-.dropzone.dragOver {
-  background: #eaf1fe;
-  border-color: #2e6fe8;
-}
-
-.dropzone svg {
-  width: 17px;
-  height: 17px;
-  color: #8a93a2;
-}
-
-.dzText {
-  font-size: 11.5px;
-  color: #5b6472;
-}
-
-.dzText b {
-  color: #2e6fe8;
-  font-weight: 700;
+  border-radius: 12px;
+  padding: 22px 16px;
+  background: #fafbfc;
   cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+  flex: 1;
+  min-height: 140px;
 }
 
-.dzSub {
-  font-size: 10.5px;
+.dropzone:hover,
+.dropzoneActive {
+  background: #e6eaf1;
+  border-color: #274670;
+}
+
+.dropzoneIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #e6eaf1;
+  color: #274670;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropzoneIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dropzoneText {
+  font-size: 12px;
+  color: #5b6472;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.dropzoneText b {
+  color: #1b2430;
+}
+
+.fileList {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.fileRow:hover {
+  background: #f1f2f4;
+}
+
+.fileName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  color: #274670;
+}
+
+.filePending {
   color: #8a93a2;
+  font-weight: 600;
 }
 
-.attachBtn {
+.hiddenFileInput {
+  display: none;
+}
+
+.circleBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid #dfe2e7;
+  background: #fff;
+  color: #8a93a2;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: #2e6fe8;
-  color: #fff;
-  border: none;
-  border-radius: 7px;
-  padding: 6px 12px;
-  font-size: 11px;
-  font-weight: 700;
+  justify-content: center;
   cursor: pointer;
-  font-family: inherit;
-  margin-top: 2px;
+  flex: none;
+  padding: 0;
 }
 
-.attachBtn:hover {
-  background: #265dc7;
+.circleBtn svg {
+  width: 13px;
+  height: 13px;
 }
 
-.attachBtn svg {
-  width: 12px;
-  height: 12px;
+.circleBtn:hover {
+  background: #fdecea;
+  color: #e4483b;
+  border-color: #e4483b;
 }
 
-.attachBtn input {
-  display: none;
+@media (max-width: 1100px) {
+  .qtyAttachRow {
+    flex-direction: column;
+  }
+
+  .qtyAttachRow > .card {
+    width: 100%;
+  }
+
+  .docsSection {
+    width: 100%;
+    flex: none;
+  }
 }
 
 .sectionTitle {

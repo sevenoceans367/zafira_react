@@ -174,6 +174,7 @@ async function fetchColumn(pool, id) {
     cargoType: ESTIMATE_TYPE_LABELS[Number(master.ESTIMATE_TYPE)] || '',
     estimateType: Number(master.ESTIMATE_TYPE || 0),
     chkLumpSum: Boolean(Number(master.CHK_LUMPSUM)),
+    sentToOps: Number(master.FIXED) === 1,
     freight: num(master.FREIGHT_GROSS),
     qty: num(master.BL_QTY_FREIGHT),
     lumpsumAmt: num(master.LUMPSUMAMT),

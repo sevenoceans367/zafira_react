@@ -6,7 +6,6 @@ import {
   createCoa,
   fetchCoa,
   fetchCoaLookups,
-  saveCoaMonthlyRemarks,
   updateCoa,
 } from '../../../services/coas.js';
 import CoaCardSelect from './CoaCardSelect.jsx';
@@ -122,6 +121,8 @@ export default function CoaFormPage({ mode = 'edit' }) {
   const { coaPath } = useCoaModule();
   const [searchParams] = useSearchParams();
   const fileRef = useRef(null);
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [dropActive, setDropActive] = useState(false);
   const isAdd = mode === 'add' || !coaId;
   const [lookups, setLookups] = useState(null);
   const [form, setForm] = useState(() => emptyForm(searchParams.get('selBType') || '2'));
@@ -180,6 +181,24 @@ export default function CoaFormPage({ mode = 'edit' }) {
 
   const patch = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  const addPendingFiles = (fileList) => {
+    const next = Array.from(fileList || []);
+    if (!next.length) return;
+    setPendingFiles((prev) => {
+      const files = [...prev, ...next];
+      patch('attachmentName', files[0]?.name || '');
+      return files;
+    });
+  };
+
+  const removePendingFile = (index) => {
+    setPendingFiles((prev) => {
+      const files = prev.filter((_, i) => i !== index);
+      patch('attachmentName', files[0]?.name || '');
+      return files;
+    });
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     if (!form.coaIdentity?.trim()) {
@@ -198,14 +217,8 @@ export default function CoaFormPage({ mode = 'edit' }) {
             exPort: (row.ports || []).join(' | '),
           })),
       };
-      const result = isAdd
-        ? await createCoa(payload)
-        : await updateCoa(coaId, payload);
-      const id = result.coaId || coaId;
-      await saveCoaMonthlyRemarks(
-        id,
-        (form.monthlyRemarks || []).filter((row) => row.remarkDate || row.remarks),
-      );
+      if (isAdd) await createCoa(payload);
+      else await updateCoa(coaId, payload);
       navigate(`${coaPath('running')}?selBType=${form.businessTypeId}&msg=0`);
     } catch (err) {
       setError(err.message || 'Failed to save COA.');
@@ -391,6 +404,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
           </div>
         </div>
 
+        <div className={styles.qtyAttachRow}>
         <div className={styles.card}>
           <CardHead
             title="Quantity & Load Ports"
@@ -401,8 +415,8 @@ export default function CoaFormPage({ mode = 'edit' }) {
               </svg>
             )}
           />
-          <div className={`${styles.gridFields} ${styles.qtyGrid}`}>
-            <Field id="minGuaranteedQty" label="Minimum Quantity Guaranteed (MT)" className={styles.span3}>
+          <div className={styles.qtyFields}>
+            <Field id="minGuaranteedQty" label="Minimum Quantity Guaranteed (MT)" className={styles.qtyMatchField}>
               <input
                 id="minGuaranteedQty"
                 type="number"
@@ -411,7 +425,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(e) => patch('minGuaranteedQty', e.target.value)}
               />
             </Field>
-            <Field id="minQtyPerShipment" label="Minimum Quantity per Shipment (MT)" className={styles.span3}>
+            <Field id="minQtyPerShipment" label="Minimum Quantity per Shipment (MT)" className={styles.qtyMatchField}>
               <input
                 id="minQtyPerShipment"
                 type="number"
@@ -422,10 +436,10 @@ export default function CoaFormPage({ mode = 'edit' }) {
             </Field>
           </div>
           <div className={styles.miniWrap}>
-            <table className={styles.miniTable}>
+            <table className={`${styles.miniTable} ${styles.qtyTable}`}>
               <thead>
                 <tr>
-                  <th style={{ width: 56 }} />
+                  <th className={styles.actionCol} />
                   <th>Qty/Shipment (MT)</th>
                   <th>Load Port</th>
                 </tr>
@@ -524,6 +538,95 @@ export default function CoaFormPage({ mode = 'edit' }) {
           </div>
         </div>
 
+        <div className={styles.docsSection}>
+          <div className={`${styles.docsSectionHead} ${styles.docsSectionHeadGrey}`}>
+            <div className={styles.docsSectionTitleWrap}>
+              <div className={styles.sectionIco}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+              </div>
+              <div className={styles.docsSectionTitle}>Attachments</div>
+              {pendingFiles.length ? <div className={styles.docsCount}>{pendingFiles.length}</div> : null}
+            </div>
+          </div>
+          <div className={styles.docsSectionBody}>
+            <input
+              ref={fileRef}
+              className={styles.hiddenFileInput}
+              type="file"
+              multiple
+              onChange={(event) => {
+                addPendingFiles(event.target.files);
+                event.target.value = '';
+              }}
+            />
+            <div
+              className={dropActive ? `${styles.dropzone} ${styles.dropzoneActive}` : styles.dropzone}
+              role="button"
+              tabIndex={0}
+              onClick={() => fileRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  fileRef.current?.click();
+                }
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDropActive(true);
+              }}
+              onDragLeave={() => setDropActive(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDropActive(false);
+                addPendingFiles(e.dataTransfer?.files);
+              }}
+            >
+              <div className={styles.dropzoneIcon}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 16V4" />
+                  <path d="M6 10l6-6 6 6" />
+                  <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                </svg>
+              </div>
+              <div className={styles.dropzoneText}>
+                <b>Drag &amp; drop files here</b>
+                , or click to browse
+              </div>
+            </div>
+
+            {pendingFiles.length ? (
+              <div className={styles.fileList}>
+                {pendingFiles.map((file, index) => (
+                  <div key={`pending-${file.name}-${index}`} className={styles.fileRow}>
+                    <span className={styles.fileName}>{file.name}</span>
+                    <span className={styles.filePending}>(pending)</span>
+                    <button
+                      type="button"
+                      className={styles.circleBtn}
+                      title="Remove"
+                      onClick={() => removePendingFile(index)}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                        <path d="M18 6 6 18" />
+                        <path d="M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : form.attachmentName ? (
+              <div className={styles.fileList}>
+                <div className={styles.fileRow}>
+                  <span className={styles.fileName}>{form.attachmentName}</span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        </div>
+
         <div className={styles.card}>
           <CardHead
             title="Financials & Commercial Terms"
@@ -574,138 +677,15 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(e) => patch('bafAmt', e.target.value)}
               />
             </Field>
-            <Field id="demmLaytime" label="Demurrage & Laytime" className={styles.span6}>
-              <textarea id="demmLaytime" value={form.demmLaytime} placeholder="Demurrage & Laytime" onChange={(e) => patch('demmLaytime', e.target.value)} />
-            </Field>
-            <Field id="remarks" label="Overall Remarks" className={styles.span6}>
-              <textarea id="remarks" value={form.remarks} placeholder="Overall Remarks..." onChange={(e) => patch('remarks', e.target.value)} />
-            </Field>
-          </div>
-
-          {!isAdd ? (
-            <>
-              <hr className={styles.divider} />
-              <div className={styles.sectionTitle}>Monthly Remarks</div>
-              <div className={styles.miniWrap}>
-                <table className={styles.miniTable}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: 56 }} />
-                      <th>Date</th>
-                      <th>Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(form.monthlyRemarks || []).map((row, index) => (
-                      <tr key={`mr-${index}`}>
-                        <td>
-                          <div className={styles.rowActions}>
-                            <button
-                              type="button"
-                              className={styles.rowAdd}
-                              title="Add row"
-                              onClick={() => patch(
-                                'monthlyRemarks',
-                                [
-                                  ...(form.monthlyRemarks || []).slice(0, index + 1),
-                                  { remarkDate: '', remarks: '' },
-                                  ...(form.monthlyRemarks || []).slice(index + 1),
-                                ],
-                              )}
-                            >
-                              <PlusIcon />
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.rowDel}
-                              title="Remove row"
-                              disabled={(form.monthlyRemarks || []).length <= 1}
-                              onClick={() => patch('monthlyRemarks', form.monthlyRemarks.filter((_, i) => i !== index))}
-                            >
-                              <XIcon />
-                            </button>
-                          </div>
-                        </td>
-                        <td>
-                          <DmyDateInput
-                            value={row.remarkDate || ''}
-                            onChange={(value) => {
-                              const next = [...form.monthlyRemarks];
-                              next[index] = { ...next[index], remarkDate: value };
-                              patch('monthlyRemarks', next);
-                            }}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            value={row.remarks}
-                            onChange={(e) => {
-                              const next = [...form.monthlyRemarks];
-                              next[index] = { ...next[index], remarks: e.target.value };
-                              patch('monthlyRemarks', next);
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : null}
-        </div>
-
-        <div className={styles.card}>
-          <CardHead
-            title="Attachments"
-            icon={(
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                <path d="M21 12.5l-8.4 8.4a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3l7.7-7.7" />
-              </svg>
-            )}
-          />
-          <Field id="attachment" label="Attach Documents">
-            <div
-              className={styles.dropzone}
-              onDragEnter={(e) => { e.preventDefault(); e.currentTarget.classList.add(styles.dragOver); }}
-              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add(styles.dragOver); }}
-              onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove(styles.dragOver); }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.currentTarget.classList.remove(styles.dragOver);
-                const file = e.dataTransfer?.files?.[0];
-                if (file) patch('attachmentName', file.name);
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                <path d="M21 12.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9.5" />
-                <path d="M16 3l5 5-9 9H7v-5z" />
-              </svg>
-              <div className={styles.dzText}>
-                Drag & drop files here, or
-                {' '}
-                <b>browse</b>
-              </div>
-              <div className={styles.dzSub}>
-                {form.attachmentName || 'No documents attached yet'}
-              </div>
-              <label className={styles.attachBtn}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
-                  <path d="M21 12.5l-8.4 8.4a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3l7.7-7.7" />
-                </svg>
-                Attach
-                <input
-                  ref={fileRef}
-                  id="attachment"
-                  type="file"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    patch('attachmentName', file?.name || '');
-                  }}
-                />
-              </label>
+            <div className={styles.noteRow}>
+              <Field id="demmLaytime" label="Demurrage & Laytime">
+                <textarea id="demmLaytime" className={styles.shortNote} value={form.demmLaytime} placeholder="Demurrage & Laytime" onChange={(e) => patch('demmLaytime', e.target.value)} />
+              </Field>
+              <Field id="remarks" label="Overall Remarks">
+                <textarea id="remarks" className={styles.shortNote} value={form.remarks} placeholder="Overall Remarks..." onChange={(e) => patch('remarks', e.target.value)} />
+              </Field>
             </div>
-          </Field>
+          </div>
         </div>
 
         <div className={styles.formFooter}>

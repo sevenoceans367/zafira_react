@@ -448,15 +448,15 @@ export default function PeriodCardPicker({
                 : 'No period selected'}
             </span>
             <div className={styles.footerActions}>
-              <button type="button" className={styles.footerBtn} onClick={handleClear}>
+              <button type="button" className={`${styles.footerBtn} ${styles.footerBtnClear}`} onClick={handleClear}>
                 <i className={`bi bi-trash3 ${styles.footerBtnIcon}`} aria-hidden />
                 Clear
               </button>
-              <button type="button" className={styles.footerBtn} onClick={() => setOpen(false)}>
+              <button type="button" className={`${styles.footerBtn} ${styles.footerBtnCancel}`} onClick={() => setOpen(false)}>
                 <i className={`bi bi-x-lg ${styles.footerBtnIcon}`} aria-hidden />
                 Cancel
               </button>
-              <button type="button" className={styles.footerBtn} onClick={handleApply}>
+              <button type="button" className={`${styles.footerBtn} ${styles.footerBtnApply}`} onClick={handleApply}>
                 <i className={`bi bi-check-lg ${styles.footerBtnIcon}`} aria-hidden />
                 Apply
               </button>

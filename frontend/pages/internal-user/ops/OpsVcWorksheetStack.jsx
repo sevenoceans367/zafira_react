@@ -24,6 +24,15 @@ function EditIcon() {
   return <EditRecapIcon size={14} />;
 }
 
+function ViewIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 function DragIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -67,6 +76,7 @@ export default function OpsVcWorksheetStack({
   sheetHref,
   onAdd,
   onLayoutChange,
+  viewOnly = false,
 }) {
   const [dragId, setDragId] = useState('');
   const allowDragRef = useRef(false);
@@ -130,28 +140,36 @@ export default function OpsVcWorksheetStack({
                 allowDragRef.current = false;
               }}
             >
-              <button
-                type="button"
-                className={styles.pinIco}
-                title={sheet.pinned ? 'Unpin worksheet' : 'Pin worksheet to top'}
-                onClick={() => handlePin(sheet)}
-              >
-                <PinIcon filled={Boolean(sheet.pinned)} />
-              </button>
+              {viewOnly ? null : (
+                <button
+                  type="button"
+                  className={styles.pinIco}
+                  title={sheet.pinned ? 'Unpin worksheet' : 'Pin worksheet to top'}
+                  onClick={() => handlePin(sheet)}
+                >
+                  <PinIcon filled={Boolean(sheet.pinned)} />
+                </button>
+              )}
               <Link className={styles.wchipName} to={sheetHref(sheet)} title={sheet.name}>
                 {sheet.name}
               </Link>
-              <Link className={styles.editIco} to={sheetHref(sheet)} title="Edit this worksheet">
-                <EditIcon />
-              </Link>
-              <span
-                className={styles.dragIco}
-                title="Drag to reorder"
-                onMouseDown={() => { allowDragRef.current = true; }}
-                onMouseUp={() => { allowDragRef.current = false; }}
+              <Link
+                className={styles.editIco}
+                to={sheetHref(sheet)}
+                title={viewOnly ? 'View this worksheet' : 'Edit this worksheet'}
               >
-                <DragIcon />
-              </span>
+                {viewOnly ? <ViewIcon /> : <EditIcon />}
+              </Link>
+              {viewOnly ? null : (
+                <span
+                  className={styles.dragIco}
+                  title="Drag to reorder"
+                  onMouseDown={() => { allowDragRef.current = true; }}
+                  onMouseUp={() => { allowDragRef.current = false; }}
+                >
+                  <DragIcon />
+                </span>
+              )}
             </div>
           ))}
           {onAdd ? (

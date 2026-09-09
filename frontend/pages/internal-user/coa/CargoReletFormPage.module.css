@@ -533,6 +533,17 @@
   font-size: 10px;
 }
 
+.viewOnly input,
+.viewOnly select,
+.viewOnly textarea,
+.viewOnly button {
+  pointer-events: none;
+}
+
+.viewOnly {
+  opacity: 1;
+}
+
 .formFooter {
   display: flex;
   align-items: center;

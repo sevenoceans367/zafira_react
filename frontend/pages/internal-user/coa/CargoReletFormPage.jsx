@@ -402,6 +402,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const isAdd = mode === 'add' || !fcaId;
+  const viewOnly = searchParams.get('view') === '1';
   const fromRunning = searchParams.get('from') === 'running';
   const lockedCoaId = searchParams.get('coaId') || '';
   const [tab, setTab] = useState(ESTIMATE_TAB.id);
@@ -658,6 +659,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   };
 
   const persist = async (updateStatus) => {
+    if (viewOnly) return;
     const validation = validateCargoReletForm(form, { requireCoa: !standalone, requireCargo: standalone });
     if (validation) {
       setError(validation.message);
@@ -707,6 +709,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
 
   const handleSave = async (event) => {
     event.preventDefault();
+    if (viewOnly) return;
     await persist('1');
   };
 
@@ -1328,7 +1331,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
       {saving ? <LoadingOverlay show fullScreen={false} label="Saving cargo relet…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      <form onSubmit={handleSave}>
+      <form onSubmit={handleSave} className={viewOnly ? styles.viewOnly : undefined}>
         <div className={styles.card}>
           <div className={styles.cardHead}>
             <div className={styles.cardHeadIcon}>
@@ -1464,6 +1467,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             </div>
           </div>
         )}
+        {viewOnly ? null : (
         <div className={styles.formFooter}>
           {!standalone ? (
             <button type="button" className={styles.btnNavy} onClick={recalculate}>
@@ -1494,6 +1498,7 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             {standalone ? 'Send to Ops' : 'Submit for Review'}
           </button>
         </div>
+        )}
       </form>
     </div>
   );

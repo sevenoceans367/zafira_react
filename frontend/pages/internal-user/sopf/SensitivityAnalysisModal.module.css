@@ -668,14 +668,6 @@
   border-top: 2px dashed var(--sc-tint-strong);
 }
 
-.sectionCaption {
-  font-size: 10px;
-  color: var(--text-light);
-  font-style: italic;
-  margin: -3px 0 6px 0;
-  text-align: right;
-}
-
 .row {
   border-bottom: 1px solid var(--line);
 }
@@ -711,6 +703,21 @@
 
 .colCellEmpty {
   color: var(--field-empty);
+}
+
+.colLocked {
+  filter: grayscale(1);
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+.colLocked .input,
+.colLocked .input:disabled {
+  background: var(--field-grey-faint);
+  border-color: var(--field-grey-faint-border);
+  color: var(--field-empty);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 .spacer {

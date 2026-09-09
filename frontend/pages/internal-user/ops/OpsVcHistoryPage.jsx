@@ -10,11 +10,13 @@ import {
   updateOpsVcCostSheetLayout,
 } from '../../../services/opsVc.js';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
+import OpsVcCompareSheetsModal from './OpsVcCompareSheetsModal.jsx';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
 import OpsVoyageStatusModal, { VoyageStatusButton } from './OpsVoyageStatusModal.jsx';
 import {
   AlertIcon,
   ChipLink,
+  CompareIcon,
   DEFAULT_PAGE_SIZE,
   EyeIcon,
   OpsVcGlanceTable,
@@ -43,8 +45,10 @@ export default function OpsVcHistoryPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
+  const [canCompareSheets, setCanCompareSheets] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [compareModal, setCompareModal] = useState({ open: false, comId: '' });
   const [voyageStatusRow, setVoyageStatusRow] = useState(null);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flashMsg = searchParams.get('msg');
@@ -74,6 +78,7 @@ export default function OpsVcHistoryPage() {
       setBusinessTypes(types);
       setRows(data.records || []);
       setTotal(data.recordsTotal || 0);
+      setCanCompareSheets(Boolean(data.canCompareSheets));
     } catch (err) {
       setError(err.message || 'Failed to load Vessels in History.');
     } finally {
@@ -104,7 +109,7 @@ export default function OpsVcHistoryPage() {
   };
 
   const costSheetPath = (row, sheet) => (
-    appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${PAGE_CONTEXT}`)
+    appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(row.comId)}&cost_sheet_id=${encodeURIComponent(sheet.id)}&page=${PAGE_CONTEXT}&view=1`)
   );
 
   return (
@@ -148,6 +153,7 @@ export default function OpsVcHistoryPage() {
               <th>Operator</th>
               <th>Cargo</th>
               <th>Worksheet</th>
+              <th className={styles.iconTh} title="Compare Working Sheets"><CompareIcon /></th>
               <th>LP / DP</th>
               <th>CHRT DESK</th>
               <th>Charterer</th>
@@ -157,7 +163,6 @@ export default function OpsVcHistoryPage() {
               <th>Calculations</th>
               <th>Fin.</th>
               <th>Alerts</th>
-              <th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -170,6 +175,7 @@ export default function OpsVcHistoryPage() {
             ) : rows.map((row, index) => {
               const sheets = row.costSheets || [];
               const alerts = alertLabels(row);
+              const canCompare = canCompareSheets && sheets.length > 0;
               const hasWorksheet = sheets.length > 0;
               const voyageReportHref = row.vesselImoNo
                 ? appPath(`/internal-user/vc/ops/voyage-report?vesselimono=${encodeURIComponent(row.vesselImoNo)}&comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}&type=VC`)
@@ -222,10 +228,23 @@ export default function OpsVcHistoryPage() {
                   </td>
                   <td>
                     <OpsVcWorksheetStack
+                      viewOnly
                       sheets={sheets}
                       sheetHref={(sheet) => costSheetPath(row, sheet)}
-                      onLayoutChange={(nextSheets) => handleWorksheetLayoutChange(row, nextSheets)}
                     />
+                  </td>
+                  <td>
+                    <div className={styles.docCenter}>
+                      <button
+                        type="button"
+                        className={`${styles.cmpBtn} ${canCompare ? '' : styles.cmpBtnDisabled}`}
+                        title={canCompare ? 'Compare Working Sheets' : 'No worksheet yet'}
+                        disabled={!canCompare}
+                        onClick={() => canCompare && setCompareModal({ open: true, comId: row.comId })}
+                      >
+                        <CompareIcon />
+                      </button>
+                    </div>
                   </td>
                   <td>
                     {portLines(row.ports).length ? (
@@ -303,15 +322,17 @@ export default function OpsVcHistoryPage() {
                       {!alerts.length ? <span className={styles.muted}>—</span> : null}
                     </div>
                   </td>
-                  <td>
-                    <span className={styles.statusPill}>{row.statusLabel || 'History'}</span>
-                  </td>
                 </tr>
               );
             })}
           </tbody>
         </OpsVcGlanceTable>
 
+        <OpsVcCompareSheetsModal
+          open={compareModal.open}
+          comId={compareModal.comId}
+          onClose={() => setCompareModal({ open: false, comId: '' })}
+        />
         <OpsVoyageStatusModal
           open={Boolean(voyageStatusRow)}
           row={voyageStatusRow}

@@ -127,6 +127,7 @@ export default function OpsTcCostSheetPage() {
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const costSheetId = searchParams.get('cost_sheet_id') || searchParams.get('costSheetId') || '';
   const page = Number(searchParams.get('page') || 1);
+  const viewOnly = searchParams.get('view') === '1';
   const backHref = appPath(BACK_BY_PAGE[page] || BACK_BY_PAGE[1]);
 
   const [sheetMeta, setSheetMeta] = useState(null);
@@ -202,9 +203,11 @@ export default function OpsTcCostSheetPage() {
   }
 
   const mode = sheetMeta.mode || 'create';
-  const readOnly = mode === 'closed';
+  const readOnly = viewOnly || mode === 'closed';
   const sheetLabel = sheetMeta.sheetName || `Sheet ${costSheetId}`;
-  const title = mode === 'closed'
+  const title = viewOnly
+    ? `View TC Cost Sheet — ${sheetLabel}`
+    : mode === 'closed'
     ? `Closed TC Cost Sheet — ${sheetLabel}`
     : mode === 'edit'
       ? `Update TC Cost Sheet — ${sheetLabel}`

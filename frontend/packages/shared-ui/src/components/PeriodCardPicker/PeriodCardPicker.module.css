@@ -289,52 +289,85 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   padding: 14px 20px;
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid #eceef2;
+  background: #fafbfc;
   flex-wrap: wrap;
 }
 
 .summary {
   font-size: 12px;
-  color: #374151;
+  color: #5b6472;
+  font-weight: 600;
 }
 
 .footerActions {
   display: flex;
-  gap: 28px;
   align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .footerBtn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
-  padding: 0;
-  border: none;
+  border-radius: 8px;
+  padding: 9px 15px;
+  border: 1.5px solid transparent;
   background: transparent;
   color: #5b6472;
   font-family: var(--font-family-body);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
 }
 
-.footerBtn:hover {
-  color: #3f4654;
+.footerBtnClear {
+  background: none;
+  border-color: transparent;
+  color: #8a93a2;
+  padding: 9px 8px;
+}
+
+.footerBtnClear:hover {
+  color: #e4483b;
+  background: #fdecea;
+}
+
+.footerBtnCancel {
+  background: #fff;
+  border-color: #dfe2e7;
+  color: #5b6472;
+}
+
+.footerBtnCancel:hover {
+  border-color: #5b6472;
+  color: #1b2430;
+}
+
+.footerBtnApply {
+  background: #274670;
+  border-color: #274670;
+  color: #fff;
+}
+
+.footerBtnApply:hover {
+  background: #1d3a63;
 }
 
 .footerBtn:focus-visible {
-  outline: 2px solid rgba(91, 100, 114, 0.35);
-  outline-offset: 3px;
-  border-radius: 4px;
+  outline: 2px solid rgba(39, 70, 112, 0.35);
+  outline-offset: 2px;
 }
 
 .footerBtnIcon {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
+  flex: none;
 }
 
 @media (max-width: 720px) {

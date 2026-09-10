@@ -226,6 +226,7 @@ async function fetchColumn(pool, id) {
     id: String(id),
     vesselName: master.VESSEL_NAME || '',
     voyageNo: master.VOYAGE_NO || '',
+    estimateNo: Number(master.ESTIMATE_NO) > 0 ? Number(master.ESTIMATE_NO) : 1,
     cargoType: ESTIMATE_TYPE_LABELS[Number(master.ESTIMATE_TYPE)] || '',
     estimateType: Number(master.ESTIMATE_TYPE || 0),
     chkLumpSum,

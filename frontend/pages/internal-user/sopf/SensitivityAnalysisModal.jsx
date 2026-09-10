@@ -987,9 +987,9 @@ export default function SensitivityAnalysisModal({
                           >
                             <div className={styles.vessel}>{column.vesselName || '—'}</div>
                             <div className={styles.voyEstLine}>
-                              {column.voyageNo || '—'}
-                              <span className={styles.sep}>·</span>
-                              {`EST-${column.id}`}
+                              {column.voyageNo
+                                ? `${column.voyageNo}-Est${column.estimateNo || 1}`
+                                : '—'}
                             </div>
                             <div className={`${styles.cardMetrics} ${colCount >= 5 ? styles.cardMetricsCompact : ''}`.trim()}>
                               <span className={`${styles.resultsPill} ${index % 2 === 0 ? styles.pillVoy0 : styles.pillVoy1}`}>

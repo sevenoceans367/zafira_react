@@ -9,6 +9,7 @@ function buildMockColumn(id, index) {
     id,
     vesselName: `Vessel ${index + 1}`,
     voyageNo: `V-${index + 1}`,
+    estimateNo: index + 1,
     cargoType: 'Tanker',
     estimateType: 2,
     chkLumpSum: false,

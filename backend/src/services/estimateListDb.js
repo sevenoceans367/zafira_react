@@ -187,6 +187,7 @@ function normalizeMasterRow(row) {
     // Tanker Cargo Qty (MT) — PHP/React lumpsum qty column
     wsQty: Number(row.WS_QTY || 0),
     quantity: Number(row.QUANTITY || 0),
+    blQtyFreight: Number(row.BL_QTY_FREIGHT || 0),
     qtyTypeRadio: Number(row.QTY_TYPE_RADIO || 1),
     dailyEarning: row.DAILY_EARNING,
     netDailyEarning: row.NET_DAILY_EARNING,
@@ -301,7 +302,7 @@ async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = f
 
   const [rows] = await pool.query(
     `SELECT m.FCAID, m.VESSEL_IMO_ID, m.VOYAGE_NAME, m.VOYAGE_NO, m.ESTIMATE_NO, m.VESSEL_TYPE, m.FREIGHT_GROSS,
-            m.TOTAL_DAYS, m.QUANTITY, m.DAILY_EARNING, m.NET_DAILY_EARNING,
+            m.TOTAL_DAYS, m.QUANTITY, m.BL_QTY_FREIGHT, m.DAILY_EARNING, m.NET_DAILY_EARNING,
             m.DAILY_VESSEL_OPERATION_EXP,
             m.PROFIT_LOSS, m.TRANS_DATE, m.QTY_TYPE_RADIO, m.ESTIMATE_TYPE,
             m.GAS_QUANTITY, m.TANK_QUANTITY, m.WS_QTY, m.IF_BENCHMARK, m.COMID, m.FIXED,

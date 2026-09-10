@@ -113,15 +113,13 @@ async function fetchColumn(pool, id) {
     [id],
   );
 
-  // Hire / Day: same fallback chain as estimate sheet (slave17 → master.HIRE_RATE → daily vessel opex).
+  // Hire / Day: same fallback chain as estimate sheet (slave17 → DAILY_VESSEL_OPERATION_EXP).
   const hireRateFromRows = hireRows
     .map((row) => row.HIRE_RATE)
     .find((value) => value != null && String(value).trim() !== '');
   const hireRate = hireRateFromRows != null && String(hireRateFromRows).trim() !== ''
     ? num(hireRateFromRows)
-    : (master.HIRE_RATE != null && String(master.HIRE_RATE).trim() !== ''
-      ? num(master.HIRE_RATE)
-      : num(master.DAILY_VESSEL_OPERATION_EXP));
+    : num(master.DAILY_VESSEL_OPERATION_EXP);
   const hireDaysFromRows = hireRows.reduce((sum, row) => sum + num(row.HIRE_DAYS), 0);
   const totalDays = num(master.TOTAL_DAYS);
   const hireDays = hireDaysFromRows > 0 ? hireDaysFromRows : totalDays;
@@ -197,6 +195,16 @@ async function fetchColumn(pool, id) {
   const chkLumpSum = Boolean(Number(master.CHK_LUMPSUM));
   const lumpsumAmt = num(master.LUMPSUMAMT);
   const lumpsumQty = num(master.WS_QTY);
+  // Dry estimates store Freight/MT on CARGO_RATE/MARKET_RATE and qty on QUANTITY.
+  // FREIGHT_GROSS / TOTAL_PREIGHT_ADJ are the computed totals (Revenue Gross Freight).
+  const qty = num(master.QUANTITY) || num(master.BL_QTY_FREIGHT) || lumpsumQty;
+  const storedGrossFreight = num(master.FREIGHT_GROSS)
+    || num(master.TOTAL_PREIGHT_ADJ)
+    || num(master.REVENUES_FREIGHT);
+  const cargoRate = num(master.CARGO_RATE) || num(master.MARKET_RATE);
+  const freight = cargoRate || (qty > 0 && storedGrossFreight > 0
+    ? storedGrossFreight / qty
+    : 0);
   // Lumpsum deals store cargo qty on master.WS_QTY; seed Min Cargo Qty when slave12 is empty.
   if (chkLumpSum && lumpsumQty) {
     freightAdjustments.forEach((item) => {
@@ -205,10 +213,10 @@ async function fetchColumn(pool, id) {
   }
   if (chkLumpSum && lumpsumAmt) {
     freightAdjustments.forEach((item) => {
-      const qty = num(item.minCargoQty) || lumpsumQty;
+      const adjQty = num(item.minCargoQty) || lumpsumQty;
       const flat = num(item.minFlatRate);
-      if (qty && flat && !num(item.minWSRate)) {
-        item.minWSRate = (lumpsumAmt * 100) / (qty * flat);
+      if (adjQty && flat && !num(item.minWSRate)) {
+        item.minWSRate = (lumpsumAmt * 100) / (adjQty * flat);
         item.overageWSRate = item.minWSRate;
       }
     });
@@ -222,8 +230,9 @@ async function fetchColumn(pool, id) {
     estimateType: Number(master.ESTIMATE_TYPE || 0),
     chkLumpSum,
     sentToOps: Number(master.FIXED) === 1,
-    freight: num(master.FREIGHT_GROSS),
-    qty: num(master.BL_QTY_FREIGHT),
+    freight,
+    qty,
+    storedGrossFreight,
     lumpsumAmt,
     lumpsumQty,
     freightAdjustments,
@@ -299,53 +308,92 @@ export async function dbUpdateSensitivityEstimate(id, payload) {
       computed = {},
     } = payload;
 
-    const grossFreight = num(computed.grossFreight);
+    const grossFreight = num(computed.grossFreight)
+      || (chkLumpSum ? num(lumpsumAmt) : num(freight) * num(qty));
     const totalPreightAdj = chkLumpSum ? num(lumpsumAmt) : grossFreight;
 
-    const lumpsumQtyToSave = chkLumpSum
-      ? num(freightAdjustments[0]?.minCargoQty ?? payload.lumpsumQty)
-      : null;
+    const profitLoss = num(computed.profitLoss);
+    const nettDailyProfit = num(computed.nettDailyProfit);
 
+    // Tanker grid Cargo uses WS_QTY (lumpsum) or slave12 TOTAL_QTY / Min+Ove.
+    // Prefer adjustment Min qty for lumpsum WS_QTY; dry keeps column.qty first.
+    const tankerCargoQty = freightAdjustments.reduce(
+      (sum, item) => sum + num(item.minCargoQty) + num(item.overageQty),
+      0,
+    );
+    const lumpsumQtyToSave = chkLumpSum
+      ? (num(freightAdjustments[0]?.minCargoQty ?? payload.lumpsumQty)
+        || num(payload.lumpsumQty)
+        || num(qty)
+        || null)
+      : null;
+    const masterCargoQty = chkLumpSum
+      ? (lumpsumQtyToSave || tankerCargoQty || num(qty))
+      : (num(qty) || tankerCargoQty);
+
+    // Hire/Day lives on DAILY_VESSEL_OPERATION_EXP (master) and HIRE_RATE (slave17).
+    // Grid TCE/P&L read DAILY_EARNING and PROFIT_LOSS — keep those in sync on save.
     await connection.query(
       `UPDATE freight_cost_estimete_master
        SET FREIGHT_GROSS = ?,
+           CARGO_RATE = ?,
+           QUANTITY = ?,
            BL_QTY_FREIGHT = ?,
+           TANK_QUANTITY = ?,
            LUMPSUMAMT = ?,
            CHK_LUMPSUM = ?,
            ${lumpsumQtyToSave != null ? 'WS_QTY = ?,' : ''}
            TOTAL_PREIGHT_ADJ = ?,
-           HIRE_RATE = ?,
-           FINAL_HIERAGE_AMOUNT = ?
+           REVENUES_FREIGHT = ?,
+           DAILY_VESSEL_OPERATION_EXP = ?,
+           FINAL_HIERAGE_AMOUNT = ?,
+           PROFIT_LOSS = ?,
+           DAILY_EARNING = ?,
+           NET_DAILY_EARNING = ?
        WHERE FCAID = ?`,
       [
+        grossFreight,
         num(freight),
-        num(qty),
+        masterCargoQty,
+        masterCargoQty,
+        masterCargoQty,
         num(lumpsumAmt),
         chkLumpSum ? 1 : 0,
         ...(lumpsumQtyToSave != null ? [lumpsumQtyToSave] : []),
         totalPreightAdj,
+        grossFreight,
         num(hire.rate),
         num(computed.estimatedHire ?? computed.netHireage),
+        profitLoss,
+        nettDailyProfit,
+        nettDailyProfit,
         columnId,
       ],
     );
 
     for (const adjustment of freightAdjustments) {
       if (!adjustment.recordId) continue;
+      const minQty = num(adjustment.minCargoQty);
+      const oveQty = num(adjustment.overageQty);
+      const totalQty = minQty + oveQty;
+      const totalAmount = num(adjustment.minAmt) + num(adjustment.overageAmt);
       await connection.query(
         `UPDATE freight_cost_estimete_slave12
          SET MIN_CARGO_QTY = ?, MIN_FLAT_RATE = ?, MIN_WS = ?, MIN_AMOUNT = ?,
-             OVE_CARGO_QTY = ?, OVE_FLAT_RATE = ?, OVE_WS = ?, OVE_AMOUNT = ?
+             OVE_CARGO_QTY = ?, OVE_FLAT_RATE = ?, OVE_WS = ?, OVE_AMOUNT = ?,
+             TOTAL_QTY = ?, TOTAL_AMOUNT = ?
          WHERE FCA_SLAVE12ID = ?`,
         [
-          num(adjustment.minCargoQty),
+          minQty,
           num(adjustment.minFlatRate),
           num(adjustment.minWSRate),
           num(adjustment.minAmt),
-          num(adjustment.overageQty),
+          oveQty,
           num(adjustment.overageFlatRate),
           num(adjustment.overageWSRate),
           num(adjustment.overageAmt),
+          totalQty,
+          totalAmount,
           adjustment.recordId,
         ],
       );
@@ -399,6 +447,43 @@ export async function dbUpdateSensitivityEstimate(id, payload) {
          WHERE a.FCAID = ? AND b.NAME = ?`,
         [num(bunker.estMt), num(bunker.estPrice), num(bunker.estCost), columnId, bunker.grade],
       );
+    }
+
+    // Keep dry freight-qty rows (slave7) aligned with Qty (MT) so the list Cargo column matches.
+    const [slave7Rows] = await connection.query(
+      `SELECT FCA_SLAVE7ID AS id, QUANTITY AS quantity
+       FROM freight_cost_estimete_slave7
+       WHERE FCAID = ?`,
+      [columnId],
+    );
+    if (slave7Rows.length === 1) {
+      await connection.query(
+        `UPDATE freight_cost_estimete_slave7
+         SET QUANTITY = ?
+         WHERE FCA_SLAVE7ID = ?`,
+        [num(qty), slave7Rows[0].id],
+      );
+    } else if (slave7Rows.length > 1) {
+      const oldSum = slave7Rows.reduce((sum, row) => sum + num(row.quantity), 0);
+      for (const row of slave7Rows) {
+        const nextQty = oldSum > 0
+          ? (num(qty) * num(row.quantity)) / oldSum
+          : 0;
+        await connection.query(
+          `UPDATE freight_cost_estimete_slave7
+           SET QUANTITY = ?
+           WHERE FCA_SLAVE7ID = ?`,
+          [nextQty, row.id],
+        );
+      }
+      if (oldSum <= 0) {
+        await connection.query(
+          `UPDATE freight_cost_estimete_slave7
+           SET QUANTITY = ?
+           WHERE FCA_SLAVE7ID = ?`,
+          [num(qty), slave7Rows[0].id],
+        );
+      }
     }
 
     await connection.query(

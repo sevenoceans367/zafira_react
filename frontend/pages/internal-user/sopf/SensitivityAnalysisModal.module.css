@@ -935,10 +935,6 @@
   transform: translateY(-50%);
 }
 
-.withLinkLeft .sensiLink {
-  left: calc(50% - min(10ch, 42.5%) - 32px);
-}
-
 .inputWrap {
   display: inline-flex;
   align-items: center;

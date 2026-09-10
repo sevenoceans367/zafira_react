@@ -81,7 +81,7 @@ export function isDateWithinPeriod(value, periodFrom, periodTo) {
 export function getCargoQuantity(row) {
   // Prefer first positive qty across type-specific + fallback columns.
   // Tankers often store qty in WS_QTY (React lumpsumQty) while TANK_QUANTITY is 0.
-  // Dry distributed (qtyTypeRadio≠1) uses slave7; fall back to master QUANTITY when slave7 is empty.
+  // Dry: prefer master QUANTITY (estimate + sensitivity keep this in sync), then slave7.
   const candidates = (() => {
     if (row.estimateType === 1) return [row.gasQuantity, row.quantity];
     // Tanker: Lumpsum → WS_QTY; World Scale → slave12 Min+Ove (not leftover lumpsum WS_QTY)
@@ -91,8 +91,11 @@ export function getCargoQuantity(row) {
       }
       return [row.slave12SumQty, row.tankQuantity, row.quantity];
     }
-    if (row.qtyTypeRadio === 1) return [row.quantity];
-    return [row.slave7SumQty, row.quantity];
+    // Dry Cargo (estimateType 3) — Sensitivity / estimate keep QUANTITY + BL_QTY_FREIGHT in sync.
+    if (row.estimateType === 3) {
+      return [row.quantity, row.blQtyFreight, row.wsQty, row.slave7SumQty];
+    }
+    return [row.quantity];
   })();
 
   for (const value of candidates) {

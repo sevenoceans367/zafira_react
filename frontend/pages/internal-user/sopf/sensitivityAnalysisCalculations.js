@@ -76,14 +76,18 @@ export function calculateColumnMetrics(column, businessType) {
 
   let grossFreight = 0;
   if (column.chkLumpSum) {
-    grossFreight = toNumber(column.lumpsumAmt);
+    // Multiple / lumpsum: use lumpsum amount, fall back to stored estimate total.
+    grossFreight = toNumber(column.lumpsumAmt) || toNumber(column.storedGrossFreight);
   } else if (isTanker) {
     grossFreight = adjustments.reduce(
       (sum, item) => sum + toNumber(item.minAmt) + toNumber(item.overageAmt),
       0,
     );
+    if (!grossFreight) grossFreight = toNumber(column.storedGrossFreight);
   } else {
+    // Dry Single: Freight/MT × Qty (from CARGO_RATE × QUANTITY).
     grossFreight = toNumber(column.freight) * toNumber(column.qty);
+    if (!grossFreight) grossFreight = toNumber(column.storedGrossFreight);
   }
 
   const brokerageAmt = column.brokeragePer

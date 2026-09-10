@@ -251,9 +251,12 @@ function dryDealType(column) {
 
 function dryTotalFreight(column, metrics) {
   if (column?.chkLumpSum) {
-    return toNumber(column.lumpsumAmt) || toNumber(metrics?.grossFreight);
+    return toNumber(column.lumpsumAmt)
+      || toNumber(metrics?.grossFreight)
+      || toNumber(column.storedGrossFreight);
   }
-  return toNumber(column.freight) * toNumber(column.qty);
+  const fromRate = toNumber(column.freight) * toNumber(column.qty);
+  return fromRate || toNumber(metrics?.grossFreight) || toNumber(column.storedGrossFreight);
 }
 
 function SectionLabel({ children }) {
@@ -354,6 +357,7 @@ export default function SensitivityAnalysisModal({
   const columnsRef = useRef([]);
   const metricsRef = useRef({});
   const saveTimers = useRef({});
+  const saveInFlight = useRef({});
 
   useEffect(() => {
     if (!data?.columns?.length) {
@@ -394,6 +398,65 @@ export default function SensitivityAnalysisModal({
 
   const statusFor = (columnId, fieldKey) => fieldStatus[`${columnId}:${fieldKey}`] || '';
 
+  const saveColumnNow = async (columnId, statusKey = '') => {
+    const column = columnsRef.current.find((item) => String(item.id) === String(columnId));
+    const metrics = metricsRef.current[columnId] || metricsRef.current[String(columnId)];
+    if (!column || !metrics) return;
+    if (sentIds.has(String(columnId)) || column.sentToOps) return;
+    if (statusKey) {
+      setFieldStatus((current) => ({ ...current, [statusKey]: 'saving' }));
+    }
+    const request = (async () => {
+      try {
+        await updateSensitivityEstimate(columnId, buildUpdatePayload(column, metrics));
+        if (statusKey) {
+          setFieldStatus((current) => ({ ...current, [statusKey]: 'saved' }));
+        }
+      } catch (error) {
+        if (statusKey) {
+          setFieldStatus((current) => {
+            const next = { ...current };
+            delete next[statusKey];
+            return next;
+          });
+        }
+        throw error;
+      } finally {
+        delete saveInFlight.current[columnId];
+      }
+    })();
+    saveInFlight.current[columnId] = request;
+    await request;
+  };
+
+  const flushPendingSaves = async () => {
+    const pendingIds = Object.keys(saveTimers.current);
+    pendingIds.forEach((id) => {
+      clearTimeout(saveTimers.current[id]);
+      delete saveTimers.current[id];
+    });
+    for (const columnId of pendingIds) {
+      try {
+        await saveColumnNow(columnId);
+      } catch (error) {
+        await alert({
+          title: 'Error',
+          message: error.message || 'Failed to save estimate.',
+          confirmLabel: 'OK',
+        });
+      }
+    }
+    const inFlight = Object.values(saveInFlight.current);
+    if (inFlight.length) {
+      await Promise.allSettled(inFlight);
+    }
+  };
+
+  const handleClose = async () => {
+    await flushPendingSaves();
+    onClose?.();
+  };
+
   const queueSave = (columnId, fieldKey) => {
     const column = columnsRef.current.find((item) => String(item.id) === String(columnId));
     if (sentIds.has(String(columnId)) || column?.sentToOps) return;
@@ -401,18 +464,10 @@ export default function SensitivityAnalysisModal({
     setFieldStatus((current) => ({ ...current, [statusKey]: 'saving' }));
     clearTimeout(saveTimers.current[columnId]);
     saveTimers.current[columnId] = setTimeout(async () => {
-      const column = columnsRef.current.find((item) => item.id === columnId);
-      const metrics = metricsRef.current[columnId];
-      if (!column || !metrics) return;
+      delete saveTimers.current[columnId];
       try {
-        await updateSensitivityEstimate(columnId, buildUpdatePayload(column, metrics));
-        setFieldStatus((current) => ({ ...current, [statusKey]: 'saved' }));
+        await saveColumnNow(columnId, statusKey);
       } catch (error) {
-        setFieldStatus((current) => {
-          const next = { ...current };
-          delete next[statusKey];
-          return next;
-        });
         await alert({
           title: 'Error',
           message: error.message || 'Failed to save estimate.',
@@ -821,7 +876,7 @@ export default function SensitivityAnalysisModal({
   };
 
   return (
-    <div className={styles.backdrop} role="presentation" onClick={onClose}>
+    <div className={styles.backdrop} role="presentation" onClick={handleClose}>
       <div
         className={styles.modal}
         role="dialog"
@@ -866,7 +921,7 @@ export default function SensitivityAnalysisModal({
                 </div>
               ) : null}
             </div>
-            <button type="button" className={`${styles.iconBtn} ${styles.iconBtnClose}`} aria-label="Close" onClick={onClose}>
+            <button type="button" className={`${styles.iconBtn} ${styles.iconBtnClose}`} aria-label="Close" onClick={handleClose}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M5 5l14 14" />
                 <path d="M19 5L5 19" />
@@ -1118,13 +1173,7 @@ export default function SensitivityAnalysisModal({
                           column.chkLumpSum ? (
                             <InputCell value="" disabled onChange={() => {}} />
                           ) : (
-                            <div className={`${styles.withLink} ${styles.withLinkLeft}`}>
-                              {isColumnSent(column) ? null : (
-                                <SensiLink
-                                  title="View Freight/MT sensitivity for this voyage"
-                                  onClick={() => openSensi(column, 'freightmt')}
-                                />
-                              )}
+                            <div className={styles.withLink}>
                               <InputCell
                                 value={column.freight}
                                 disabled={isColumnSent(column)}
@@ -1137,6 +1186,12 @@ export default function SensitivityAnalysisModal({
                                   queueSave(column.id, 'freight');
                                 }}
                               />
+                              {isColumnSent(column) ? null : (
+                                <SensiLink
+                                  title="View Freight/MT sensitivity for this voyage"
+                                  onClick={() => openSensi(column, 'freightmt')}
+                                />
+                              )}
                             </div>
                           )
                         )}

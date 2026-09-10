@@ -829,7 +829,10 @@ export default function EstimateListPage() {
         loading={saModalLoading}
         data={saData}
         businessType={businessType}
-        onClose={() => setSaModalOpen(false)}
+        onClose={async () => {
+          setSaModalOpen(false);
+          await loadData();
+        }}
         onSent={() => loadData()}
       />
 

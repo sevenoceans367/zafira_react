@@ -434,12 +434,22 @@
   background: #f1f2f4;
   border-color: #dfe2e7;
   color: #8a93a2;
-  cursor: not-allowed;
 }
 
-.gprlQuickbtn.muted:hover,
-.muted:hover {
+.gprlQuickbtn.muted:not(:disabled):hover {
+  background: #e8eaed;
+  color: #5b6472;
+}
+
+.gprlQuickbtn:disabled,
+.gprlQuickbtn.muted:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.gprlQuickbtn.muted:disabled:hover {
   background: #f1f2f4;
+  color: #8a93a2;
 }
 
 .cOrange.isActive,

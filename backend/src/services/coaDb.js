@@ -1023,10 +1023,26 @@ export async function dbGetCargoRelet(fcaId) {
     [fcaId],
   );
   const [portRows] = await pool.query(
-    `SELECT PORTID AS portId, COMMENTS AS comments, PORT_TYPE AS portType, IDENTIFY AS identify
-     FROM cargo_relet_estimate_slave2 WHERE FCAID = ?`,
+    `SELECT PORTID AS portId,
+            COMMENTS AS comments,
+            PORT_TYPE AS portType,
+            IDENTIFY AS identify
+     FROM cargo_relet_estimate_slave2
+     WHERE FCAID = ?`,
     [fcaId],
   );
+
+  const ports = [];
+  for (const p of portRows) {
+    const portId = p.portId != null ? String(p.portId).trim() : '';
+    ports.push({
+      portId,
+      portName: await getPortShortName(pool, portId),
+      comments: p.comments ?? '',
+      portType: String(p.portType || '').trim().toUpperCase(),
+      identify: String(p.identify || '').trim().toUpperCase(),
+    });
+  }
 
   return mapReletDetail(
     row,
@@ -1034,14 +1050,9 @@ export async function dbGetCargoRelet(fcaId) {
       charterer: p.charterer != null ? String(p.charterer) : '',
       owner: p.owner != null ? String(p.owner) : '',
       broker: p.broker != null ? String(p.broker) : '',
-      identify: p.identify,
+      identify: String(p.identify || '').trim().toUpperCase(),
     })),
-    portRows.map((p) => ({
-      portId: p.portId != null ? String(p.portId) : '',
-      comments: p.comments ?? '',
-      portType: p.portType,
-      identify: p.identify,
-    })),
+    ports,
   );
 }
 

@@ -116,6 +116,24 @@ function buildSensiRows(kind, column, metrics) {
     });
   }
 
+  if (kind === 'freightmt') {
+    const base = toNumber(column.freight);
+    const qty = toNumber(column.qty);
+    return Array.from({ length: 11 }, (_, index) => {
+      const step = index - 5;
+      const x = base + step * 1;
+      return { x, tce: baseTce + ((qty * step * 1) / days), base: step === 0 };
+    });
+  }
+
+  if (kind === 'totalfreight') {
+    const base = toNumber(column.lumpsumAmt) || toNumber(metrics?.grossFreight);
+    return Array.from({ length: 11 }, (_, index) => {
+      const step = index - 5;
+      return { x: base + step * 25000, tce: baseTce + ((step * 25000) / days), base: step === 0 };
+    });
+  }
+
   const base = toNumber(bunker?.estPrice);
   const qty = toNumber(bunker?.estMt);
   return Array.from({ length: 11 }, (_, index) => {
@@ -224,6 +242,18 @@ function SensiLink({ title, onClick }) {
       <ChartIcon />
     </button>
   );
+}
+
+function dryDealType(column) {
+  // Dry: CHK_LUMPSUM → Multiple (total freight); otherwise Single (freight/MT × qty).
+  return column?.chkLumpSum ? 'Multiple' : 'Single';
+}
+
+function dryTotalFreight(column, metrics) {
+  if (column?.chkLumpSum) {
+    return toNumber(column.lumpsumAmt) || toNumber(metrics?.grossFreight);
+  }
+  return toNumber(column.freight) * toNumber(column.qty);
 }
 
 function SectionLabel({ children }) {
@@ -677,36 +707,56 @@ export default function SensitivityAnalysisModal({
     ? `World Scale Price Sensitivity — ${sensiModal.vessel}`
     : sensiModal?.kind === 'lumpsum'
       ? `Lump Sum Sensitivity — ${sensiModal.vessel}`
-      : `VLSFO Price Sensitivity — ${sensiModal?.vessel || ''}`;
+      : sensiModal?.kind === 'freightmt'
+        ? `Freight $/MT Sensitivity — ${sensiModal.vessel}`
+        : sensiModal?.kind === 'totalfreight'
+          ? `Total Freight Sensitivity — ${sensiModal.vessel}`
+          : `VLSFO Price Sensitivity — ${sensiModal?.vessel || ''}`;
   const sensiKind = sensiModal?.kind || 'vlsfo';
   const sensiColor = sensiKind === 'vlsfo' ? '#A9740B' : '#274670';
   const sensiHead = sensiKind === 'ws'
     ? 'WS'
     : sensiKind === 'lumpsum'
       ? 'Lump Sum $'
-      : 'VLSFO $/t';
+      : sensiKind === 'freightmt'
+        ? 'Freight $/MT'
+        : sensiKind === 'totalfreight'
+          ? 'Total Freight $'
+          : 'VLSFO $/t';
   const sensiXLabel = sensiKind === 'ws'
     ? 'World Scale (points)'
     : sensiKind === 'lumpsum'
       ? 'Lump Sum ($)'
-      : 'VLSFO Price ($/t)';
+      : sensiKind === 'freightmt'
+        ? 'Freight ($/MT)'
+        : sensiKind === 'totalfreight'
+          ? 'Total Freight ($)'
+          : 'VLSFO Price ($/t)';
   const sensiBaseValue = sensiColumn
     ? (sensiKind === 'ws'
       ? toNumber(sensiColumn.freightAdjustments?.[0]?.minWSRate)
       : sensiKind === 'lumpsum'
         ? toNumber(sensiColumn.lumpsumAmt)
-        : toNumber((sensiColumn.bunkerExpenses || []).find((item) => /vlsfo/i.test(item.grade || ''))?.estPrice))
+        : sensiKind === 'freightmt'
+          ? toNumber(sensiColumn.freight)
+          : sensiKind === 'totalfreight'
+            ? dryTotalFreight(sensiColumn, metricsById[sensiColumn.id])
+            : toNumber((sensiColumn.bunkerExpenses || []).find((item) => /vlsfo/i.test(item.grade || ''))?.estPrice))
     : 0;
   const sensiBaseTce = sensiColumn ? toNumber(metricsById[sensiColumn.id]?.nettDailyProfit) : 0;
   const sensiSummary = sensiKind === 'ws'
     ? `Base: WS ${sensiBaseValue.toFixed(2)} → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±25 points in 5-point steps.`
     : sensiKind === 'lumpsum'
       ? `Base: $${formatComma(sensiBaseValue, 2)} lump sum → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±$5,000 in $1,000 steps.`
-      : `Base: $${sensiBaseValue.toFixed(2)}/t VLSFO → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±$50/t in $10 steps.`;
+      : sensiKind === 'freightmt'
+        ? `Base: $${formatComma(sensiBaseValue, 2)}/MT → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±$5/MT in $1 steps.`
+        : sensiKind === 'totalfreight'
+          ? `Base: $${formatComma(sensiBaseValue, 2)} total freight → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±$125,000 in $25,000 steps.`
+          : `Base: $${sensiBaseValue.toFixed(2)}/t VLSFO → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±$50/t in $10 steps.`;
   const formatSensiX = (value) => (
     sensiKind === 'ws'
       ? Number(value).toFixed(1)
-      : sensiKind === 'lumpsum'
+      : sensiKind === 'lumpsum' || sensiKind === 'freightmt' || sensiKind === 'totalfreight'
         ? `$${formatComma(value, 2)}`
         : `$${Number(value).toFixed(2)}`
   );
@@ -830,7 +880,10 @@ export default function SensitivityAnalysisModal({
             <p className={styles.loading}>Please wait...</p>
           ) : (
             <div className={styles.doc}>
-              <div className={styles.docInner}>
+              <div
+                className={styles.docInner}
+                data-trade={isTanker ? 'tanker' : 'dry'}
+              >
                 <div className={styles.overview}>
                   <div className={styles.overviewLabel}>
                     <div className={styles.overviewLabelLeft}>Voyage Comparison</div>
@@ -1041,37 +1094,63 @@ export default function SensitivityAnalysisModal({
                   ) : (
                     <>
                       <EditableRow
-                        label="Freight / MT"
+                        label="Cargo Type"
                         columns={columns}
                         isLocked={isColumnSent}
+                        variant="sub"
+                        renderCell={(column) => {
+                          const deal = dryDealType(column);
+                          return (
+                            <span
+                              className={`${styles.dealtypeChip} ${deal === 'Multiple' ? styles.dealtypeMultiple : styles.dealtypeSingle}`}
+                            >
+                              {deal}
+                            </span>
+                          );
+                        }}
+                      />
+                      <EditableRow
+                        label="Freight/MT"
+                        columns={columns}
+                        isLocked={isColumnSent}
+                        variant="sub"
                         renderCell={(column) => (
                           column.chkLumpSum ? (
-                            <span className={styles.colCellEmpty}>—</span>
+                            <InputCell value="" disabled onChange={() => {}} />
                           ) : (
-                            <InputCell
-                              value={column.freight}
-                              disabled={isColumnSent(column)}
-                              status={isColumnSent(column) ? '' : statusFor(column.id, 'freight')}
-                              onChange={(value) => {
-                                updateColumn(column.id, (current) => ({
-                                  ...current,
-                                  freight: value,
-                                }));
-                                queueSave(column.id, 'freight');
-                              }}
-                            />
+                            <div className={`${styles.withLink} ${styles.withLinkLeft}`}>
+                              {isColumnSent(column) ? null : (
+                                <SensiLink
+                                  title="View Freight/MT sensitivity for this voyage"
+                                  onClick={() => openSensi(column, 'freightmt')}
+                                />
+                              )}
+                              <InputCell
+                                value={column.freight}
+                                disabled={isColumnSent(column)}
+                                status={isColumnSent(column) ? '' : statusFor(column.id, 'freight')}
+                                onChange={(value) => {
+                                  updateColumn(column.id, (current) => ({
+                                    ...current,
+                                    freight: value,
+                                  }));
+                                  queueSave(column.id, 'freight');
+                                }}
+                              />
+                            </div>
                           )
                         )}
                       />
                       <EditableRow
-                        label="QTY (MT)"
+                        label="Qty (MT)"
                         columns={columns}
                         isLocked={isColumnSent}
+                        variant="sub"
                         renderCell={(column) => (
                           <InputCell
                             value={column.qty}
-                            disabled={column.chkLumpSum || isColumnSent(column)}
-                            status={isColumnSent(column) || column.chkLumpSum ? '' : statusFor(column.id, 'qty')}
+                            disabled={isColumnSent(column)}
+                            status={isColumnSent(column) ? '' : statusFor(column.id, 'qty')}
                             onChange={(value) => {
                               updateColumn(column.id, (current) => ({
                                 ...current,
@@ -1082,43 +1161,78 @@ export default function SensitivityAnalysisModal({
                           />
                         )}
                       />
+                      <EditableRow
+                        label="Total Freight ($)"
+                        columns={columns}
+                        isLocked={isColumnSent}
+                        variant="amt"
+                        renderCell={(column) => {
+                          if (!column.chkLumpSum) {
+                            const total = dryTotalFreight(column, metricsById[column.id]);
+                            return toNumber(total) ? formatAmount(total) : '—';
+                          }
+                          return (
+                            <div className={styles.withLink}>
+                              <InputCell
+                                value={column.lumpsumAmt}
+                                disabled={isColumnSent(column)}
+                                status={isColumnSent(column) ? '' : statusFor(column.id, 'lumpsum')}
+                                onChange={(value) => handleLumpsumAmtChange(column.id, value)}
+                              />
+                              {isColumnSent(column) ? null : (
+                                <SensiLink
+                                  title="View Total Freight sensitivity for this voyage"
+                                  onClick={() => openSensi(column, 'totalfreight')}
+                                />
+                              )}
+                            </div>
+                          );
+                        }}
+                      />
                     </>
                   )}
 
-                  <EditableRow
-                    label="Lumpsum"
-                    columns={columns}
-                        isLocked={isColumnSent}
-                    variant="sub"
-                    renderCell={(column) => (
-                      column.chkLumpSum ? (
-                        <div className={styles.withLink}>
-                          <InputCell
-                            value={column.lumpsumAmt}
-                            disabled={isColumnSent(column)}
-                            status={isColumnSent(column) ? '' : statusFor(column.id, 'lumpsum')}
-                            onChange={(value) => handleLumpsumAmtChange(column.id, value)}
-                          />
-                          {isColumnSent(column) ? null : (
-                            <SensiLink
-                              title="View Lump Sum sensitivity for this voyage"
-                              onClick={() => openSensi(column, 'lumpsum')}
+                  {isTanker ? (
+                    <EditableRow
+                      label="Lumpsum"
+                      columns={columns}
+                      isLocked={isColumnSent}
+                      variant="sub"
+                      renderCell={(column) => (
+                        column.chkLumpSum ? (
+                          <div className={styles.withLink}>
+                            <InputCell
+                              value={column.lumpsumAmt}
+                              disabled={isColumnSent(column)}
+                              status={isColumnSent(column) ? '' : statusFor(column.id, 'lumpsum')}
+                              onChange={(value) => handleLumpsumAmtChange(column.id, value)}
                             />
-                          )}
-                        </div>
-                      ) : (
-                        <InputCell value="" disabled onChange={() => {}} />
-                      )
-                    )}
-                  />
+                            {isColumnSent(column) ? null : (
+                              <SensiLink
+                                title="View Lump Sum sensitivity for this voyage"
+                                onClick={() => openSensi(column, 'lumpsum')}
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          <InputCell value="" disabled onChange={() => {}} />
+                        )
+                      )}
+                    />
+                  ) : null}
                 </div>
 
                 <div className={`${styles.section} ${styles.themePurple}`}>
-                  <SectionLabel>Hireage / Vessel Opex</SectionLabel>
+                  <SectionLabel>{isTanker ? 'Hireage / Vessel Opex' : 'Hireage/Vessel Ops'}</SectionLabel>
+                  {isTanker ? null : (
+                    <p className={styles.sectionCaption}>
+                      Hire cost (editable) × Voyage Days (from the worksheet&apos;s laycan/date selection, not editable here) = Total.
+                    </p>
+                  )}
                   <EditableRow
-                    label="Hire / Day ($)"
+                    label={isTanker ? 'Hire / Day ($)' : 'Hire/Vessel Ops Cost (USD)'}
                     columns={columns}
-                        isLocked={isColumnSent}
+                    isLocked={isColumnSent}
                     renderCell={(column) => (
                       <InputCell
                         value={column.hire?.rate}
@@ -1137,7 +1251,7 @@ export default function SensitivityAnalysisModal({
                     ))}
                   />
                   <DisplayRow
-                    label="Net Hireage"
+                    label={isTanker ? 'Net Hireage' : 'Total'}
                     variant="subtotal"
                     columns={columns}
                     isLocked={isColumnSent}
@@ -1200,52 +1314,81 @@ export default function SensitivityAnalysisModal({
                         isLocked={isColumnSent}
                     renderCell={(column) => renderPortInputs(column, 'discPorts')}
                   />
-                  <EditableRow
-                    label="Transit / Bunkering Port"
-                    columns={columns}
+                  {isTanker ? (
+                    <EditableRow
+                      label="Transit / Bunkering Port"
+                      columns={columns}
+                      isLocked={isColumnSent}
+                      renderCell={(column) => {
+                        const groups = clubTransitBunkeringPorts(column);
+                        if (!groups.length) return <span className={styles.colCellEmpty}>—</span>;
+                        return groups.map((group, index) => (
+                          <div key={group.key} className={styles.stackItem}>
+                            {index > 0 ? <hr className={styles.stackDivider} /> : null}
+                            {group.portName ? <span className={styles.portNameTiny}>{group.portName}</span> : null}
+                            <InputCell
+                              value={group.cost || ''}
+                              disabled={isColumnSent(column)}
+                              status={isColumnSent(column) ? '' : statusFor(column.id, `club:${group.key}`)}
+                              onChange={(value) => handleClubbedPortChange(column.id, group.members, value)}
+                            />
+                          </div>
+                        ));
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <EditableRow
+                        label="Transit Port"
+                        columns={columns}
                         isLocked={isColumnSent}
-                    renderCell={(column) => {
-                      const groups = clubTransitBunkeringPorts(column);
-                      if (!groups.length) return <span className={styles.colCellEmpty}>—</span>;
-                      return groups.map((group, index) => (
-                        <div key={group.key} className={styles.stackItem}>
-                          {index > 0 ? <hr className={styles.stackDivider} /> : null}
-                          {group.portName ? <span className={styles.portNameTiny}>{group.portName}</span> : null}
-                          <InputCell
-                            value={group.cost || ''}
-                            disabled={isColumnSent(column)}
-                            status={isColumnSent(column) ? '' : statusFor(column.id, `club:${group.key}`)}
-                            onChange={(value) => handleClubbedPortChange(column.id, group.members, value)}
-                          />
-                        </div>
-                      ));
-                    }}
-                  />
-                  <EditableRow
-                    label="Total OPEX"
-                    columns={columns}
-                        isLocked={isColumnSent}
-                    renderCell={(column) => (
-                      <InputCell
-                        value={column.operationalCost}
-                        disabled={isColumnSent(column)}
-                        status={isColumnSent(column) ? '' : statusFor(column.id, 'opex')}
-                        onChange={(value) => {
-                          updateColumn(column.id, (current) => ({
-                            ...current,
-                            operationalCost: value,
-                          }));
-                          queueSave(column.id, 'opex');
-                        }}
+                        renderCell={(column) => renderPortInputs(column, 'transitPorts')}
                       />
-                    )}
-                  />
+                      <EditableRow
+                        label="Bunkering Port"
+                        columns={columns}
+                        isLocked={isColumnSent}
+                        renderCell={(column) => renderPortInputs(column, 'bunkeringPorts')}
+                      />
+                    </>
+                  )}
+                  {isTanker ? (
+                    <EditableRow
+                      label="Total OPEX"
+                      columns={columns}
+                      isLocked={isColumnSent}
+                      renderCell={(column) => (
+                        <InputCell
+                          value={column.operationalCost}
+                          disabled={isColumnSent(column)}
+                          status={isColumnSent(column) ? '' : statusFor(column.id, 'opex')}
+                          onChange={(value) => {
+                            updateColumn(column.id, (current) => ({
+                              ...current,
+                              operationalCost: value,
+                            }));
+                            queueSave(column.id, 'opex');
+                          }}
+                        />
+                      )}
+                    />
+                  ) : null}
                   <DisplayRow
                     label="Total"
                     variant="subtotal"
                     columns={columns}
                     isLocked={isColumnSent}
-                    values={columns.map((column) => formatAmount(metricsById[column.id]?.totalExpense))}
+                    values={columns.map((column) => {
+                      const metrics = metricsById[column.id];
+                      if (!isTanker) {
+                        const portsOnly = toNumber(metrics?.loadPortCost)
+                          + toNumber(metrics?.discPortCost)
+                          + toNumber(metrics?.transitPortCost)
+                          + toNumber(metrics?.bunkeringPortCost);
+                        return formatAmount(portsOnly);
+                      }
+                      return formatAmount(metrics?.totalExpense);
+                    })}
                   />
                 </div>
 

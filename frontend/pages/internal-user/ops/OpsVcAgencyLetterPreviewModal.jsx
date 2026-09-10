@@ -250,9 +250,16 @@ function PdaPreview({ ctx }) {
         <div className={styles.ltrDocPortalH}>Agent Portal Access</div>
         <div>Please log in to the agent portal to submit your PDA response directly:</div>
         <div className={styles.ltrDocPortalCred}>
-          Username: {dash(ctx.username)}
-          {'  '}
-          Password: {dash(ctx.password)}
+          <span>
+            Username:
+            {' '}
+            {dash(ctx.username)}
+          </span>
+          <span>
+            Password:
+            {' '}
+            {dash(ctx.password)}
+          </span>
         </div>
         <a
           className={styles.ltrDocPortalLink}

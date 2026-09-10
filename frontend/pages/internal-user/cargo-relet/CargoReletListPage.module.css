@@ -278,6 +278,12 @@
   vertical-align: middle;
 }
 
+.dateCol {
+  min-width: 118px;
+  width: 118px;
+  white-space: nowrap;
+}
+
 .grid tbody tr:hover {
   background: #fafbfc;
 }

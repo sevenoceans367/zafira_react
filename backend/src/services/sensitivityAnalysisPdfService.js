@@ -166,6 +166,10 @@ function buildLayout(payload = {}) {
       )),
       freight: lump ? '' : value(c.freight),
       qty: value(c.qty),
+      cargoType: lump ? 'Multiple' : 'Single',
+      totalFreight: lump
+        ? value(c.lumpsumAmt)
+        : formatAmount(toNumber(c.freight) * toNumber(c.qty)),
       lumpsum: lump ? value(c.lumpsumAmt) : '',
       loadPort: firstPortCost(c.loadPorts),
       loadPortName: portNames(c.loadPorts),
@@ -173,7 +177,10 @@ function buildLayout(payload = {}) {
       dischPortName: portNames(c.discPorts),
       transitBunkeringPort: clubTransitBunkering(c).cost,
       transitBunkeringPortName: clubTransitBunkering(c).names,
+      transitPort: firstPortCost(c.transitPorts),
+      bunkeringPort: firstPortCost(c.bunkeringPorts),
       hireDay: value(c.hire?.rate),
+      voyageDays: value(c.hire?.totalDays),
       grossFreight: formatAmount(metrics.grossFreight),
       brokerage: formatAmount(metrics.brokerageAmt),
       addComm: formatAddComm(c.addCommPer, metrics.addressCommAmt),
@@ -184,8 +191,16 @@ function buildLayout(payload = {}) {
       expTransitBunkering: formatAmount(
         toNumber(metrics.transitPortCost) + toNumber(metrics.bunkeringPortCost),
       ),
+      expTransit: formatAmount(metrics.transitPortCost),
+      expBunkering: formatAmount(metrics.bunkeringPortCost),
       opCost: formatAmount(metrics.operationalCost),
       totalCargoExp: formatAmount(metrics.totalExpense),
+      totalPortsOnly: formatAmount(
+        toNumber(metrics.loadPortCost)
+        + toNumber(metrics.discPortCost)
+        + toNumber(metrics.transitPortCost)
+        + toNumber(metrics.bunkeringPortCost),
+      ),
       totalBunker: formatAmount(metrics.totalBunkerExpense),
       estHire: formatAmount(metrics.netHireage ?? metrics.estimatedHire),
       bunkers: bunkerGrades.map((grade) => {
@@ -456,8 +471,15 @@ export async function generateSensitivityAnalysisPdf(payload = {}) {
   drawHeader(doc, pageWidth, left);
   drawOverview(doc, layout, left, pageWidth, labelW, valueW);
 
-  // Vessel OPEX
-  drawSectionTitle(doc, left, pageWidth, 'Vessel OPEX', themes.navy.color, themes.navy.strong);
+  // Freight Calculations
+  drawSectionTitle(
+    doc,
+    left,
+    pageWidth,
+    layout.isTanker ? 'Vessel OPEX' : 'Freight Calculations',
+    themes.navy.color,
+    themes.navy.strong,
+  );
   if (layout.isTanker) {
     drawGroupHeader(doc, left, pageWidth, labelW, valueW, layout.columns, 'Min Cargo', themes.navy.pale, themes.navy.color);
     drawDataRow(doc, left, labelW, valueW, layout.columns, 'Qty', layout.columns.map((c) => c.minCargoQty), { sub: true });
@@ -472,29 +494,37 @@ export async function generateSensitivityAnalysisPdf(payload = {}) {
       amt: true,
       themeColor: themes.navy.color,
     });
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Lumpsum', layout.columns.map((c) => c.lumpsum));
   } else {
-    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Freight / MT', layout.columns.map((c) => c.freight));
-    drawDataRow(doc, left, labelW, valueW, layout.columns, 'QTY (MT)', layout.columns.map((c) => c.qty));
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Cargo Type', layout.columns.map((c) => c.cargoType), { sub: true });
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Freight/MT', layout.columns.map((c) => c.freight), { sub: true });
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Qty (MT)', layout.columns.map((c) => c.qty), { sub: true });
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Total Freight ($)', layout.columns.map((c) => c.totalFreight), {
+      sub: true,
+      amt: true,
+      themeColor: themes.navy.color,
+    });
   }
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Lumpsum', layout.columns.map((c) => c.lumpsum));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Loading Port', layout.columns.map((c) => c.loadPort));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Discharge Port', layout.columns.map((c) => c.dischPort));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Transit / Bunkering Port', layout.columns.map((c) => c.transitBunkeringPort));
-  layout.bunkerGrades.forEach((grade, gradeIndex) => {
-    drawDataRow(
-      doc,
-      left,
-      labelW,
-      valueW,
-      layout.columns,
-      `${grade} (Price/MT)`,
-      layout.columns.map((c) => c.bunkerPrices[gradeIndex] || ''),
-    );
-  });
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Hire/Day ($)', layout.columns.map((c) => c.hireDay), {
-    bold: true,
-    themeColor: themes.navy.color,
-  });
+  if (layout.isTanker) {
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Loading Port', layout.columns.map((c) => c.loadPort));
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Discharge Port', layout.columns.map((c) => c.dischPort));
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Transit / Bunkering Port', layout.columns.map((c) => c.transitBunkeringPort));
+    layout.bunkerGrades.forEach((grade, gradeIndex) => {
+      drawDataRow(
+        doc,
+        left,
+        labelW,
+        valueW,
+        layout.columns,
+        `${grade} (Price/MT)`,
+        layout.columns.map((c) => c.bunkerPrices[gradeIndex] || ''),
+      );
+    });
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Hire/Day ($)', layout.columns.map((c) => c.hireDay), {
+      bold: true,
+      themeColor: themes.navy.color,
+    });
+  }
 
   // Revenue
   drawSectionTitle(doc, left, pageWidth, 'Revenue', themes.orange.color, themes.orange.strong);
@@ -511,12 +541,21 @@ export async function generateSensitivityAnalysisPdf(payload = {}) {
   drawSectionTitle(doc, left, pageWidth, 'OPEX (Sans Brokerage)', themes.blue.color, themes.blue.strong);
   drawDataRow(doc, left, labelW, valueW, layout.columns, 'Loading Port', layout.columns.map((c) => c.expLoad));
   drawDataRow(doc, left, labelW, valueW, layout.columns, 'Discharge Port', layout.columns.map((c) => c.expDisch));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Transit / Bunkering Port', layout.columns.map((c) => c.expTransitBunkering));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Operational Cost', layout.columns.map((c) => c.opCost));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Total', layout.columns.map((c) => c.totalCargoExp), {
-    subtotal: true,
-    themeColor: themes.blue.color,
-  });
+  if (layout.isTanker) {
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Transit / Bunkering Port', layout.columns.map((c) => c.expTransitBunkering));
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Operational Cost', layout.columns.map((c) => c.opCost));
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Total', layout.columns.map((c) => c.totalCargoExp), {
+      subtotal: true,
+      themeColor: themes.blue.color,
+    });
+  } else {
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Transit Port', layout.columns.map((c) => c.expTransit));
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Bunkering Port', layout.columns.map((c) => c.expBunkering));
+    drawDataRow(doc, left, labelW, valueW, layout.columns, 'Total', layout.columns.map((c) => c.totalPortsOnly), {
+      subtotal: true,
+      themeColor: themes.blue.color,
+    });
+  }
 
   // Bunker Expenses
   drawSectionTitle(doc, left, pageWidth, 'Bunker Expenses', themes.purple.color, themes.purple.strong);
@@ -538,10 +577,35 @@ export async function generateSensitivityAnalysisPdf(payload = {}) {
     themeColor: themes.purple.color,
   });
 
-  // Hireage / Vessel Opex
-  drawSectionTitle(doc, left, pageWidth, 'Hireage / Vessel Opex', themes.brown.color, themes.brown.strong);
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Hire / Day ($)', layout.columns.map((c) => c.hireDay));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Net Hireage', layout.columns.map((c) => c.estHire));
+  // Hireage / Vessel Ops
+  drawSectionTitle(
+    doc,
+    left,
+    pageWidth,
+    layout.isTanker ? 'Hireage / Vessel Opex' : 'Hireage/Vessel Ops',
+    themes.brown.color,
+    themes.brown.strong,
+  );
+  drawDataRow(
+    doc,
+    left,
+    labelW,
+    valueW,
+    layout.columns,
+    layout.isTanker ? 'Hire / Day ($)' : 'Hire/Vessel Ops Cost (USD)',
+    layout.columns.map((c) => c.hireDay),
+  );
+  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Voyage Days', layout.columns.map((c) => c.voyageDays));
+  drawDataRow(
+    doc,
+    left,
+    labelW,
+    valueW,
+    layout.columns,
+    layout.isTanker ? 'Net Hireage' : 'Total',
+    layout.columns.map((c) => c.estHire),
+    { subtotal: true, themeColor: themes.brown.color },
+  );
 
   drawResults(doc, layout, left, pageWidth, labelW, valueW);
   drawFooter(doc, left, pageWidth, payload.calculatedAt);

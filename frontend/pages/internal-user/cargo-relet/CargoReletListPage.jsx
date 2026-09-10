@@ -628,7 +628,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
               <th>#</th>
               <th>Relet No.</th>
               <th>Vessel</th>
-              <th>Date</th>
+              <th className={styles.dateCol}>Date</th>
               <th>Charterer</th>
               <th>Cargo</th>
               <th>LP/DP</th>
@@ -654,7 +654,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
                 <td className={styles.accentCell}>{row.index}</td>
                 <td>{liveValue(row.reletNo)}</td>
                 <td>{liveValue(row.vesselName)}</td>
-                <td>{liveValue(row.transDate || row.coaDate)}</td>
+                <td className={styles.dateCol}>{liveValue(row.transDate || row.coaDate)}</td>
                 <td>{liveValue(row.charterer)}</td>
                 <td>{liveValue(row.cargo)}</td>
                 <td title={liveValue(row.ports)}>{liveValue(row.ports)}</td>

@@ -354,10 +354,10 @@ export async function getCargoRelet(fcaId) {
       fixed: false,
       partiesIn: [{ charterer: 'C001', owner: 'O001', broker: 'B001' }],
       partiesOut: [{ charterer: 'C002', owner: 'O001', broker: 'B001' }],
-      loadPortsIn: [{ portId: '', comments: '' }],
-      dischargePortsIn: [{ portId: '', comments: '' }],
-      loadPortsOut: [{ portId: '', comments: '' }],
-      dischargePortsOut: [{ portId: '', comments: '' }],
+      loadPortsIn: [{ portId: '1', portName: 'Rotterdam', comments: '' }],
+      dischargePortsIn: [{ portId: '2', portName: 'Singapore', comments: '' }],
+      loadPortsOut: [{ portId: '1', portName: 'Rotterdam', comments: '' }],
+      dischargePortsOut: [{ portId: '2', portName: 'Singapore', comments: '' }],
     };
   }
   return dbGetCargoRelet(fcaId);

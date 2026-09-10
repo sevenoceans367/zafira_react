@@ -31,6 +31,33 @@ export default function PortSearchSelect({
     setQuery(label || '');
   }, [label, value]);
 
+  // When a port id is loaded without a display name (e.g. replicate/edit), resolve the label.
+  useEffect(() => {
+    const portId = String(value || '').trim();
+    const hasLabel = Boolean(String(label || '').trim());
+    if (!portId || hasLabel) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await searchFn(portId);
+        if (cancelled) return;
+        const match = (Array.isArray(rows) ? rows : []).find(
+          (row) => String(row.id) === portId,
+        ) || (Array.isArray(rows) ? rows[0] : null);
+        if (match?.name) {
+          setQuery(match.name);
+          // Persist name into parent form when available (replicate/edit payloads).
+          stateRef.current.onChange?.(portId, match.name);
+        }
+      } catch {
+        // Keep empty label; user can re-select.
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [value, label, searchFn]);
+
   const dismissWithoutSelection = () => {
     const {
       query: currentQuery,

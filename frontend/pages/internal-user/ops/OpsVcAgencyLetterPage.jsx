@@ -37,14 +37,14 @@ const FLASH = {
 const DEFAULT_AGENT_LETTER_TEXT = 'Please quote ALL IN agency fee. In addition, please advise the usual port restrictions for this vessel type.';
 
 const AGENT_LETTER_TYPES = [
-  { id: 'pda', label: 'PDA Request', color: 'orange', pdfType: 'pda', nonTpOnly: true },
-  { id: 'nomination', label: 'Agency Nomination', color: 'blue', pdfType: 'nomination', nonTpOnly: true },
-  { id: 'agent-bunker', label: 'Bunkers Stemmed', color: 'teal', pdfType: 'agent-bunker' },
+  { id: 'pda', label: 'PDA Request', color: 'orange', pdfType: 'pda', nonTpOnly: true, hasPreview: true },
+  { id: 'nomination', label: 'Agency Nomination', color: 'blue', pdfType: 'nomination', nonTpOnly: true, hasPreview: true },
+  { id: 'agent-bunker', label: 'Bunkers Stemmed', color: 'teal', pdfType: 'agent-bunker', hasPreview: true },
 ];
 
 const MASTER_LETTER_TYPES = [
-  { id: 'voyage', label: 'Voyage Instructions', color: 'amber', pdfType: 'voyage' },
-  { id: 'master-bunker', label: 'Bunkers Stemmed', color: 'teal', pdfType: 'master-bunker' },
+  { id: 'voyage', label: 'Voyage Instructions', color: 'amber', pdfType: 'voyage', hasPreview: true },
+  { id: 'master-bunker', label: 'Bunkers Stemmed', color: 'teal', pdfType: 'master-bunker', hasPreview: true },
 ];
 
 const PDF_TYPES = [
@@ -185,10 +185,10 @@ function DetailsInfoPopup() {
           Vessel, voyage and cargo <b>Details</b> are filled in for you — grey fields are pulled from earlier system entries, white fields stay editable.
         </li>
         <li>
-          Pick a <b>Select Letter Type</b> under Letters to Agent / Letters to Master, and adjust the <b>Letter Text</b> to suit.
+          Click a coloured letter button under Letters to Agent / Letters to Master to select that type and open a live <b>preview</b>. Only one letter type can be active at a time; types without a preview stay disabled.
         </li>
         <li>
-          Click the coloured letter button to open a live <b>preview</b> of the generated letter.
+          Adjust the <b>Letter Text</b> to suit the selected letter.
         </li>
         <li>
           <span className={styles.infoPopIco}>
@@ -557,33 +557,42 @@ function LetterQuickButtons({
   types,
   activeId,
   portType,
-  letterText,
+  locked = false,
   onSelect,
   onPreview,
 }) {
-  const hasText = Boolean(String(letterText || '').trim());
   return (
-    <div className={styles.gprlQuickbtnRow}>
+    <div className={styles.gprlQuickbtnRow} role="radiogroup" aria-label="Letter type">
       {types.map((item) => {
         const blockedForTp = item.nonTpOnly && portType === 'TP';
-        const isActive = activeId === item.id && hasText && !blockedForTp;
+        const noPreview = !item.hasPreview;
+        const unavailable = blockedForTp || noPreview || locked;
+        const isActive = activeId === item.id && !unavailable;
         const className = [
           styles.gprlQuickbtn,
           styles[`c${item.color[0].toUpperCase()}${item.color.slice(1)}`] || '',
           isActive ? styles.isActive : '',
-          blockedForTp || (!hasText && activeId !== item.id) ? styles.muted : '',
+          !isActive ? styles.muted : '',
         ].filter(Boolean).join(' ');
+
+        let title = `Select and preview ${item.label}`;
+        if (locked) title = 'Letter is locked';
+        else if (blockedForTp) title = 'Not available for this port type';
+        else if (noPreview) title = 'Preview not available yet';
 
         return (
           <button
             key={item.id}
             type="button"
+            role="radio"
+            aria-checked={isActive}
             className={className}
-            disabled={blockedForTp}
-            title={blockedForTp ? 'Not available for this port type' : `Preview ${item.label}`}
+            disabled={unavailable}
+            title={title}
             onClick={() => {
+              if (unavailable) return;
               onSelect(item.id);
-              if (!blockedForTp) onPreview(item.id);
+              onPreview(item.id);
             }}
           >
             <DocIcon />
@@ -679,34 +688,9 @@ export default function OpsVcAgencyLetterPage() {
     }));
   };
 
-  const patchEntity = (index, patch) => {
-    const entities = draft.entities.map((row, i) => (i === index ? { ...row, ...patch } : row));
-    patchDraft({ entities });
-  };
-
   const patchBunker = (index, patch) => {
     const bunkers = draft.bunkers.map((row, i) => (i === index ? { ...row, ...patch } : row));
     patchDraft({ bunkers });
-  };
-
-  const addEntity = async () => {
-    const lastIndex = draft.entities.length - 1;
-    const last = draft.entities[lastIndex];
-    if (!last?.entity || !last?.name || !last?.email) {
-      const fieldId = !last?.entity
-        ? `vc-agency-entity-${lastIndex}`
-        : !last?.name
-          ? `vc-agency-entity-name-${lastIndex}`
-          : `vc-agency-entity-email-${lastIndex}`;
-      await alertThenFocus(alert, {
-        title: 'Missing Information',
-        message: 'Please fill all Business Entity values before adding another row.',
-        confirmLabel: 'OK',
-      }, fieldId);
-      return;
-    }
-    setError('');
-    patchDraft({ entities: [...draft.entities, emptyEntity()] });
   };
 
   const addBunker = async () => {
@@ -991,28 +975,10 @@ export default function OpsVcAgencyLetterPage() {
                       types={AGENT_LETTER_TYPES}
                       activeId={draft.agentLetterType}
                       portType={activePort.portType}
-                      letterText={draft.agentLetterText}
+                      locked={activePort.locked}
                       onSelect={(id) => patchDraft({ agentLetterType: id })}
                       onPreview={(id) => setPreviewLetterId(id)}
                     />
-
-                    <div className={styles.fGrid} style={{ marginBottom: 14 }}>
-                      <div className={`${styles.fItem} ${styles.selLettertype}`}>
-                        <label htmlFor="vc-agency-agent-letter-type">Select Letter Type</label>
-                        <div className={styles.cardSelect}>
-                          <CardSelect
-                            id="vc-agency-agent-letter-type"
-                            value={draft.agentLetterType}
-                            options={AGENT_LETTER_TYPES.map((item) => ({ id: item.id, name: item.label }))}
-                            placeholder="Select letter type"
-                            ariaLabel="Select Letter Type"
-                            align="start"
-                            disabled={activePort.locked}
-                            onChange={(next) => patchDraft({ agentLetterType: next })}
-                          />
-                        </div>
-                      </div>
-                    </div>
 
                     <div className={`${styles.fItem} ${styles.ltrTextbox}`}>
                       <label htmlFor="vc-agency-agent-letter-text">Letter Text</label>
@@ -1024,81 +990,6 @@ export default function OpsVcAgencyLetterPage() {
                         onChange={(e) => patchDraft({ agentLetterText: e.target.value })}
                       />
                     </div>
-
-                    <table className={styles.miniAddTable}>
-                      <thead>
-                        <tr>
-                          <th style={{ width: 36 }}>#</th>
-                          <th>Business Entity</th>
-                          <th>PIC Name</th>
-                          <th>Email Address</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {draft.entities.map((row, index) => (
-                          <tr key={`entity-${index}`}>
-                            <td>
-                              {!activePort.locked ? (
-                                <button
-                                  type="button"
-                                  className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                                  title="Remove"
-                                  onClick={() => patchDraft({
-                                    entities: draft.entities.filter((_, i) => i !== index).length
-                                      ? draft.entities.filter((_, i) => i !== index)
-                                      : [emptyEntity()],
-                                  })}
-                                >
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-                                    <path d="M6 6l12 12M18 6L6 18" />
-                                  </svg>
-                                </button>
-                              ) : '—'}
-                            </td>
-                            <td>
-                              <div className={styles.cardSelect} data-field={`vc-agency-entity-${index}`}>
-                                <CardSelect
-                                  id={`vc-agency-entity-${index}`}
-                                  value={row.entity}
-                                  options={lookupOptions(lookups.entityTypes)}
-                                  placeholder="---Select from list---"
-                                  ariaLabel="Business Entity"
-                                  align="start"
-                                  disabled={activePort.locked}
-                                  onChange={(next) => patchEntity(index, { entity: next })}
-                                />
-                              </div>
-                            </td>
-                            <td>
-                              <TextInput
-                                id={`vc-agency-entity-name-${index}`}
-                                data-field={`vc-agency-entity-name-${index}`}
-                                value={row.name}
-                                onChange={(e) => patchEntity(index, { name: e.target.value })}
-                                disabled={activePort.locked}
-                              />
-                            </td>
-                            <td>
-                              <TextInput
-                                id={`vc-agency-entity-email-${index}`}
-                                data-field={`vc-agency-entity-email-${index}`}
-                                value={row.email}
-                                onChange={(e) => patchEntity(index, { email: e.target.value })}
-                                disabled={activePort.locked}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {!activePort.locked ? (
-                      <button type="button" className={styles.addRowBtn} onClick={addEntity}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                        Add
-                      </button>
-                    ) : null}
 
                     <SavedLettersDropdown
                       records={savedRecords}
@@ -1126,28 +1017,10 @@ export default function OpsVcAgencyLetterPage() {
                       types={MASTER_LETTER_TYPES}
                       activeId={draft.masterLetterType}
                       portType={activePort.portType}
-                      letterText={draft.masterLetterText}
+                      locked={activePort.locked}
                       onSelect={(id) => patchDraft({ masterLetterType: id })}
                       onPreview={(id) => setPreviewLetterId(id)}
                     />
-
-                    <div className={styles.fGrid} style={{ marginBottom: 14 }}>
-                      <div className={`${styles.fItem} ${styles.selLettertype}`}>
-                        <label htmlFor="vc-agency-master-letter-type">Select Letter Type</label>
-                        <div className={styles.cardSelect}>
-                          <CardSelect
-                            id="vc-agency-master-letter-type"
-                            value={draft.masterLetterType}
-                            options={MASTER_LETTER_TYPES.map((item) => ({ id: item.id, name: item.label }))}
-                            placeholder="Select letter type"
-                            ariaLabel="Select Letter Type"
-                            align="start"
-                            disabled={activePort.locked}
-                            onChange={(next) => patchDraft({ masterLetterType: next })}
-                          />
-                        </div>
-                      </div>
-                    </div>
 
                     <div className={`${styles.fItem} ${styles.ltrTextbox}`}>
                       <label htmlFor="vc-agency-master-letter-text">Letter Text</label>

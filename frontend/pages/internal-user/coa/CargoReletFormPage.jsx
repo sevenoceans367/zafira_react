@@ -348,9 +348,11 @@ function emptyForm(businessTypeId = '2', coaId = '') {
 
 function withPortRows(rows) {
   return (rows?.length ? rows : [portRow()]).map((row) => ({
-    portId: row.portId || '',
-    portName: row.portName || '',
-    comments: row.comments || '',
+    portId: row.portId != null && row.portId !== ''
+      ? String(row.portId)
+      : (row.PORTID != null ? String(row.PORTID) : ''),
+    portName: row.portName || row.PortName || row.port_name || '',
+    comments: row.comments || row.COMMENTS || '',
   }));
 }
 

@@ -504,6 +504,10 @@
   width: 100%;
 }
 
+.cardMetricsCompact {
+  gap: 4px;
+}
+
 .resultsPill {
   display: inline-flex;
   align-items: baseline;
@@ -513,6 +517,14 @@
   background: #fff;
   padding: 4px 8px;
   white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cardMetricsCompact .resultsPill {
+  padding: 2px 5px;
+  gap: 2px;
+  border-radius: 6px;
 }
 
 .pillVoy0 {
@@ -529,9 +541,34 @@
   color: var(--text-mid);
 }
 
+.cardMetricsCompact .rpLabel {
+  font-size: 8px;
+}
+
 .rpValue {
   font-weight: 700;
   font-size: 12.5px;
+}
+
+.cardMetricsCompact .rpValue {
+  font-size: 10px;
+}
+
+.docInner[data-cols="5"] .voyagecard {
+  column-gap: 10px;
+}
+
+.docInner[data-cols="5"] .voyagecard .colCell {
+  padding: 6px 6px;
+  max-width: none;
+}
+
+.docInner[data-cols="5"] .voyagecard .vessel {
+  font-size: 11.5px;
+}
+
+.docInner[data-cols="5"] .voyagecard .voyEstLine {
+  font-size: 8.5px;
 }
 
 .rcPos {

@@ -4,6 +4,7 @@ import {
   createCargoRelet,
   deleteCargoRelet,
   getCargoRelet,
+  getNextCargoReletNo,
   listCargoRelets,
   sendCargoReletToOps,
   updateCargoRelet,
@@ -35,6 +36,16 @@ router.get('/', asyncHandler(async (req, res) => {
     view: req.query.view || 'business',
     standaloneOnly: req.query.standaloneOnly === '1' || req.query.standaloneOnly === 'true',
     selYear: req.query.selYear || '',
+  }));
+}));
+
+router.get('/next-number', asyncHandler(async (req, res) => {
+  res.json(await getNextCargoReletNo({
+    selBType: req.query.selBType,
+    businessTypeId: req.query.businessTypeId || req.query.selBType,
+    coaId: req.query.coaId || '',
+    standalone: '1',
+    standaloneOnly: '1',
   }));
 }));
 

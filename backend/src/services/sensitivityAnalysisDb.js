@@ -89,8 +89,22 @@ async function fetchColumn(pool, id) {
     [id],
   );
 
-  const [[hireRow]] = await pool.query(
-    `SELECT HIRE_RATE FROM freight_cost_estimete_slave17 WHERE FCAID = ? LIMIT 1`,
+  const [hireRows] = await pool.query(
+    `SELECT HIRE_RATE, HIRE_DAYS, HIRE_AMT FROM freight_cost_estimete_slave17 WHERE FCAID = ?`,
+    [id],
+  );
+
+  const [[deliveryRow]] = await pool.query(
+    `SELECT COALESCE(SUM(AMOUNT), 0) AS DELIVERY_TOTAL
+     FROM freight_cost_estimete_slave13
+     WHERE FCAID = ? AND IDENTITY = 'DEL'`,
+    [id],
+  );
+
+  const [[redeliveryRow]] = await pool.query(
+    `SELECT COALESCE(SUM(AMOUNT), 0) AS REDELIVERY_TOTAL
+     FROM freight_cost_estimete_slave13
+     WHERE FCAID = ? AND IDENTITY = 'REDEL'`,
     [id],
   );
 
@@ -98,6 +112,19 @@ async function fetchColumn(pool, id) {
     `SELECT * FROM freight_cost_estimete_slave12 WHERE FCAID = ?`,
     [id],
   );
+
+  // Hire / Day: same fallback chain as estimate sheet (slave17 → master.HIRE_RATE → daily vessel opex).
+  const hireRateFromRows = hireRows
+    .map((row) => row.HIRE_RATE)
+    .find((value) => value != null && String(value).trim() !== '');
+  const hireRate = hireRateFromRows != null && String(hireRateFromRows).trim() !== ''
+    ? num(hireRateFromRows)
+    : (master.HIRE_RATE != null && String(master.HIRE_RATE).trim() !== ''
+      ? num(master.HIRE_RATE)
+      : num(master.DAILY_VESSEL_OPERATION_EXP));
+  const hireDaysFromRows = hireRows.reduce((sum, row) => sum + num(row.HIRE_DAYS), 0);
+  const totalDays = num(master.TOTAL_DAYS);
+  const hireDays = hireDaysFromRows > 0 ? hireDaysFromRows : totalDays;
 
   const loadPorts = loadPortRows
     .filter((row) => num(row.LOAD_PORT_COST) !== 0)
@@ -185,12 +212,16 @@ async function fetchColumn(pool, id) {
     bunkeringPorts,
     bunkerExpenses,
     hire: {
-      rate: num(hireRow?.HIRE_RATE),
+      rate: hireRate,
       ballastBonus: num(master.BALLAST_BONUS),
       hierageAddCommPercent: num(master.HIREAGE_PERCENT),
       hierageBrokeragePercent: num(master.HIERAGE_BROKER_PERCENT),
       cvePerMonth: num(master.CVE_AMT),
-      totalDays: num(master.TOTAL_DAYS),
+      hireDays,
+      totalDays,
+      deliveryTotal: num(deliveryRow?.DELIVERY_TOTAL),
+      redeliveryTotal: num(redeliveryRow?.REDELIVERY_TOTAL),
+      lessOffHire: num(master.LESS_OFF_HIRE),
       ilohcCost: num(ilohc?.RAW_AMOUNT),
     },
     brokeragePer: num(brokerage?.BROKAGE_PERCENT),
@@ -250,6 +281,7 @@ export async function dbUpdateSensitivityEstimate(id, payload) {
            LUMPSUMAMT = ?,
            CHK_LUMPSUM = ?,
            TOTAL_PREIGHT_ADJ = ?,
+           HIRE_RATE = ?,
            FINAL_HIERAGE_AMOUNT = ?
        WHERE FCAID = ?`,
       [
@@ -258,7 +290,8 @@ export async function dbUpdateSensitivityEstimate(id, payload) {
         num(lumpsumAmt),
         chkLumpSum ? 1 : 0,
         totalPreightAdj,
-        num(computed.estimatedHire),
+        num(hire.rate),
+        num(computed.estimatedHire ?? computed.netHireage),
         columnId,
       ],
     );

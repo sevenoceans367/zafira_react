@@ -41,6 +41,42 @@ function formatMoney(value, digits = 0) {
   });
 }
 
+function clubTransitBunkeringPorts(column) {
+  const ports = [
+    ...(column.transitPorts || []).map((port) => ({ ...port, collection: 'transitPorts' })),
+    ...(column.bunkeringPorts || []).map((port) => ({ ...port, collection: 'bunkeringPorts' })),
+  ];
+  const groups = [];
+  const indexByKey = new Map();
+  ports.forEach((port) => {
+    const key = String(port.portId || port.portName || port.key || '').trim().toLowerCase();
+    if (!key) {
+      groups.push({
+        key: `solo-${port.collection}-${port.key}`,
+        portName: port.portName || '',
+        cost: toNumber(port.cost),
+        members: [port],
+      });
+      return;
+    }
+    if (indexByKey.has(key)) {
+      const group = groups[indexByKey.get(key)];
+      group.cost += toNumber(port.cost);
+      group.members.push(port);
+      if (!group.portName && port.portName) group.portName = port.portName;
+      return;
+    }
+    indexByKey.set(key, groups.length);
+    groups.push({
+      key,
+      portName: port.portName || '',
+      cost: toNumber(port.cost),
+      members: [port],
+    });
+  });
+  return groups;
+}
+
 function ChartIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -69,9 +105,10 @@ function buildSensiRows(kind, column, metrics) {
 
   if (kind === 'lumpsum') {
     const base = toNumber(column.lumpsumAmt);
+    // Range ±$5,000 in $1,000 steps (11 points).
     return Array.from({ length: 11 }, (_, index) => {
       const step = index - 5;
-      return { x: base + step * 100, tce: baseTce + ((step * 100) / days), base: step === 0 };
+      return { x: base + step * 1000, tce: baseTce + ((step * 1000) / days), base: step === 0 };
     });
   }
 
@@ -414,6 +451,25 @@ export default function SensitivityAnalysisModal({
     queueSave(columnId, `${collection}:${portKey}`);
   };
 
+  const handleClubbedPortChange = (columnId, members, value) => {
+    updateColumn(columnId, (column) => {
+      const next = { ...column };
+      members.forEach((member, index) => {
+        const list = [...(next[member.collection] || [])];
+        const idx = list.findIndex((port) => port.key === member.key);
+        if (idx < 0) return;
+        list[idx] = {
+          ...list[idx],
+          cost: index === 0 ? value : 0,
+        };
+        next[member.collection] = list;
+      });
+      return next;
+    });
+    const first = members[0];
+    if (first) queueSave(columnId, `${first.collection}:${first.key}`);
+  };
+
   const handleBunkerPriceChange = (columnId, grade, value) => {
     updateColumn(columnId, (column) => ({
       ...column,
@@ -570,7 +626,7 @@ export default function SensitivityAnalysisModal({
   const sensiSummary = sensiKind === 'ws'
     ? `Base: WS ${sensiBaseValue.toFixed(2)} → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±25 points in 5-point steps.`
     : sensiKind === 'lumpsum'
-      ? `Base: $${formatComma(sensiBaseValue, 2)} lump sum → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±$500 in $100 steps.`
+      ? `Base: $${formatComma(sensiBaseValue, 2)} lump sum → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±$5,000 in $1,000 steps.`
       : `Base: $${sensiBaseValue.toFixed(2)}/t VLSFO → TCE $${Math.round(sensiBaseTce).toLocaleString()}/d. Range ±$50/t in $10 steps.`;
   const formatSensiX = (value) => (
     sensiKind === 'ws'
@@ -647,6 +703,7 @@ export default function SensitivityAnalysisModal({
         aria-modal="true"
         aria-labelledby="sensitivity-analysis-title"
         style={{ '--cols': colCount }}
+        data-cols={colCount}
         onClick={(event) => event.stopPropagation()}
       >
         <div className={styles.chrome}>
@@ -751,7 +808,7 @@ export default function SensitivityAnalysisModal({
                               <span className={styles.sep}>·</span>
                               {`EST-${column.id}`}
                             </div>
-                            <div className={styles.cardMetrics}>
+                            <div className={`${styles.cardMetrics} ${colCount >= 5 ? styles.cardMetricsCompact : ''}`.trim()}>
                               <span className={`${styles.resultsPill} ${index % 2 === 0 ? styles.pillVoy0 : styles.pillVoy1}`}>
                                 <span className={styles.rpLabel}>TCE</span>
                                 <span className={`${styles.rpValue} ${tce >= 0 ? styles.rcPos : styles.rcNeg}`}>
@@ -798,12 +855,16 @@ export default function SensitivityAnalysisModal({
                         columns={columns}
                         isLocked={isColumnSent}
                         variant="sub"
-                        renderCell={(column) => renderAdjustmentInputs(
-                          column,
-                          'minFlatRate',
-                          handleMinFlatRateChange,
-                          undefined,
-                          true,
+                        renderCell={(column) => (
+                          column.chkLumpSum ? (
+                            <InputCell value="" disabled onChange={() => {}} />
+                          ) : (
+                            renderAdjustmentInputs(
+                              column,
+                              'minFlatRate',
+                              handleMinFlatRateChange,
+                            )
+                          )
                         )}
                       />
                       <EditableRow
@@ -813,13 +874,7 @@ export default function SensitivityAnalysisModal({
                         variant="sub"
                         renderCell={(column) => {
                           if (column.chkLumpSum) {
-                            return renderAdjustmentInputs(
-                              column,
-                              'minWSRate',
-                              handleMinWSRateChange,
-                              undefined,
-                              true,
-                            );
+                            return <InputCell value="" disabled onChange={() => {}} />;
                           }
                           const item = column.freightAdjustments?.[0];
                           if (!item) return <span className={styles.colCellEmpty}>—</span>;
@@ -861,12 +916,16 @@ export default function SensitivityAnalysisModal({
                         columns={columns}
                         isLocked={isColumnSent}
                         variant="sub"
-                        renderCell={(column) => renderAdjustmentInputs(
-                          column,
-                          'overageFlatRate',
-                          (id, key, value) => handleAdjustmentChange(id, key, 'overageFlatRate', value),
-                          undefined,
-                          true,
+                        renderCell={(column) => (
+                          column.chkLumpSum ? (
+                            <InputCell value="" disabled onChange={() => {}} />
+                          ) : (
+                            renderAdjustmentInputs(
+                              column,
+                              'overageFlatRate',
+                              (id, key, value) => handleAdjustmentChange(id, key, 'overageFlatRate', value),
+                            )
+                          )
                         )}
                       />
                       <EditableRow
@@ -874,12 +933,16 @@ export default function SensitivityAnalysisModal({
                         columns={columns}
                         isLocked={isColumnSent}
                         variant="sub"
-                        renderCell={(column) => renderAdjustmentInputs(
-                          column,
-                          'overageWSRate',
-                          (id, key, value) => handleAdjustmentChange(id, key, 'overageWSRate', value),
-                          undefined,
-                          true,
+                        renderCell={(column) => (
+                          column.chkLumpSum ? (
+                            <InputCell value="" disabled onChange={() => {}} />
+                          ) : (
+                            renderAdjustmentInputs(
+                              column,
+                              'overageWSRate',
+                              (id, key, value) => handleAdjustmentChange(id, key, 'overageWSRate', value),
+                            )
+                          )
                         )}
                       />
                     </>
@@ -913,22 +976,18 @@ export default function SensitivityAnalysisModal({
                         columns={columns}
                         isLocked={isColumnSent}
                         renderCell={(column) => (
-                          column.chkLumpSum ? (
-                            <span className={styles.colCellEmpty}>—</span>
-                          ) : (
-                            <InputCell
-                              value={column.qty}
-                              disabled={isColumnSent(column)}
-                              status={isColumnSent(column) ? '' : statusFor(column.id, 'qty')}
-                              onChange={(value) => {
-                                updateColumn(column.id, (current) => ({
-                                  ...current,
-                                  qty: value,
-                                }));
-                                queueSave(column.id, 'qty');
-                              }}
-                            />
-                          )
+                          <InputCell
+                            value={column.qty}
+                            disabled={column.chkLumpSum || isColumnSent(column)}
+                            status={isColumnSent(column) || column.chkLumpSum ? '' : statusFor(column.id, 'qty')}
+                            onChange={(value) => {
+                              updateColumn(column.id, (current) => ({
+                                ...current,
+                                qty: value,
+                              }));
+                              queueSave(column.id, 'qty');
+                            }}
+                          />
                         )}
                       />
                     </>
@@ -969,9 +1028,9 @@ export default function SensitivityAnalysisModal({
                 </div>
 
                 <div className={`${styles.section} ${styles.themePurple}`}>
-                  <SectionLabel>Hireage/Vessel Ops</SectionLabel>
+                  <SectionLabel>Hireage / Vessel Opex</SectionLabel>
                   <EditableRow
-                    label="Hire/ Vessel OPEX"
+                    label="Hire / Day ($)"
                     columns={columns}
                         isLocked={isColumnSent}
                     renderCell={(column) => (
@@ -992,13 +1051,13 @@ export default function SensitivityAnalysisModal({
                     ))}
                   />
                   <DisplayRow
-                    label="Total"
+                    label="Net Hireage"
                     variant="subtotal"
                     columns={columns}
                     isLocked={isColumnSent}
                     values={columns.map((column) => {
-                      const total = toNumber(column.hire?.rate) * toNumber(column.hire?.totalDays);
-                      return total ? formatAmount(total) : '';
+                      const total = metricsById[column.id]?.netHireage;
+                      return toNumber(total) ? formatAmount(total) : '';
                     })}
                   />
                 </div>
@@ -1042,7 +1101,7 @@ export default function SensitivityAnalysisModal({
                 </div>
 
                 <div className={`${styles.section} ${styles.themeBlue}`}>
-                  <SectionLabel>OPEX</SectionLabel>
+                  <SectionLabel>OPEX (Sans Brokerage)</SectionLabel>
                   <EditableRow
                     label="Loading Port"
                     columns={columns}
@@ -1060,20 +1119,17 @@ export default function SensitivityAnalysisModal({
                     columns={columns}
                         isLocked={isColumnSent}
                     renderCell={(column) => {
-                      const ports = [
-                        ...(column.transitPorts || []).map((port) => ({ ...port, collection: 'transitPorts' })),
-                        ...(column.bunkeringPorts || []).map((port) => ({ ...port, collection: 'bunkeringPorts' })),
-                      ];
-                      if (!ports.length) return <span className={styles.colCellEmpty}>—</span>;
-                      return ports.map((port, index) => (
-                        <div key={`${port.collection}-${port.key}`} className={styles.stackItem}>
+                      const groups = clubTransitBunkeringPorts(column);
+                      if (!groups.length) return <span className={styles.colCellEmpty}>—</span>;
+                      return groups.map((group, index) => (
+                        <div key={group.key} className={styles.stackItem}>
                           {index > 0 ? <hr className={styles.stackDivider} /> : null}
-                          {port.portName ? <span className={styles.portNameTiny}>{port.portName}</span> : null}
+                          {group.portName ? <span className={styles.portNameTiny}>{group.portName}</span> : null}
                           <InputCell
-                            value={port.cost}
+                            value={group.cost || ''}
                             disabled={isColumnSent(column)}
-                            status={isColumnSent(column) ? '' : statusFor(column.id, `${port.collection}:${port.key}`)}
-                            onChange={(value) => handlePortChange(column.id, port.collection, port.key, value)}
+                            status={isColumnSent(column) ? '' : statusFor(column.id, `club:${group.key}`)}
+                            onChange={(value) => handleClubbedPortChange(column.id, group.members, value)}
                           />
                         </div>
                       ));

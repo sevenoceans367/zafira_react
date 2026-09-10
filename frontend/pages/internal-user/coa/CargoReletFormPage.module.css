@@ -891,6 +891,11 @@
   white-space: nowrap;
   font-weight: 700;
   color: #274670;
+  text-decoration: none;
+}
+
+a.fileName:hover {
+  text-decoration: underline;
 }
 
 .filePending {

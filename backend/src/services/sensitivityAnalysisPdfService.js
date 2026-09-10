@@ -99,6 +99,35 @@ function portNames(ports = []) {
   return ports.map((port) => port.portName).filter(Boolean).join(' / ');
 }
 
+function clubTransitBunkering(column = {}) {
+  const ports = [
+    ...(column.transitPorts || []),
+    ...(column.bunkeringPorts || []),
+  ];
+  const groups = new Map();
+  ports.forEach((port) => {
+    const key = String(port.portId || port.portName || port.key || '').trim().toLowerCase();
+    const name = port.portName || '';
+    if (!key) {
+      const soloKey = `solo-${groups.size}`;
+      groups.set(soloKey, { name, cost: toNumber(port.cost) });
+      return;
+    }
+    if (!groups.has(key)) {
+      groups.set(key, { name, cost: toNumber(port.cost) });
+      return;
+    }
+    const group = groups.get(key);
+    group.cost += toNumber(port.cost);
+    if (!group.name && name) group.name = name;
+  });
+  const list = [...groups.values()];
+  return {
+    names: list.map((item) => item.name).filter(Boolean).join(' / '),
+    cost: list.length ? formatAmount(list.reduce((sum, item) => sum + item.cost, 0)) : '',
+  };
+}
+
 function buildLayout(payload = {}) {
   const columns = Array.isArray(payload.columns) ? payload.columns : [];
   const bunkerGrades = Array.isArray(payload.bunkerGrades) ? payload.bunkerGrades : [];
@@ -108,29 +137,30 @@ function buildLayout(payload = {}) {
   const colData = columns.map((c) => {
     const metrics = c.metrics || {};
     const adjustments = c.freightAdjustments || [];
+    const lump = Boolean(c.chkLumpSum);
     return {
       voyage: value(c.voyageNo),
       vessel: value(c.vesselName),
       tce: toNumber(metrics.nettDailyProfit),
       pnl: toNumber(metrics.profitLoss),
       minCargoQty: joinAdjustment(adjustments, (item) => value(item.minCargoQty)),
-      minCargoFlat: joinAdjustment(adjustments, (item) => value(item.minFlatRate)),
-      minCargoWs: joinAdjustment(adjustments, (item) => value(item.minWSRate)),
+      minCargoFlat: lump ? '' : joinAdjustment(adjustments, (item) => value(item.minFlatRate)),
+      minCargoWs: lump ? '' : joinAdjustment(adjustments, (item) => value(item.minWSRate)),
       overageQty: joinAdjustment(adjustments, (item) => value(item.overageQty)),
-      overageFlat: joinAdjustment(adjustments, (item) => value(item.overageFlatRate)),
-      overageWs: joinAdjustment(adjustments, (item) => value(item.overageWSRate)),
-      overageAmt: joinAdjustment(adjustments, (item) => formatAmount(
+      overageFlat: lump ? '' : joinAdjustment(adjustments, (item) => value(item.overageFlatRate)),
+      overageWs: lump ? '' : joinAdjustment(adjustments, (item) => value(item.overageWSRate)),
+      overageAmt: lump ? '' : joinAdjustment(adjustments, (item) => formatAmount(
         freightAmount(item.overageQty, item.overageFlatRate, item.overageWSRate),
       )),
-      freight: c.chkLumpSum ? '' : value(c.freight),
-      qty: c.chkLumpSum ? '' : value(c.qty),
-      lumpsum: c.chkLumpSum ? value(c.lumpsumAmt) : '',
+      freight: lump ? '' : value(c.freight),
+      qty: value(c.qty),
+      lumpsum: lump ? value(c.lumpsumAmt) : '',
       loadPort: firstPortCost(c.loadPorts),
       loadPortName: portNames(c.loadPorts),
       dischPort: firstPortCost(c.discPorts),
       dischPortName: portNames(c.discPorts),
-      transitPort: firstPortCost(c.transitPorts),
-      bunkeringPort: firstPortCost(c.bunkeringPorts),
+      transitBunkeringPort: clubTransitBunkering(c).cost,
+      transitBunkeringPortName: clubTransitBunkering(c).names,
       hireDay: value(c.hire?.rate),
       grossFreight: formatAmount(metrics.grossFreight),
       brokerage: formatAmount(metrics.brokerageAmt),
@@ -139,12 +169,13 @@ function buildLayout(payload = {}) {
       nettReceivable: formatAmount(metrics.netReceivable),
       expLoad: formatAmount(metrics.loadPortCost),
       expDisch: formatAmount(metrics.discPortCost),
-      expTransit: formatAmount(metrics.transitPortCost),
-      expBunkering: formatAmount(metrics.bunkeringPortCost),
+      expTransitBunkering: formatAmount(
+        toNumber(metrics.transitPortCost) + toNumber(metrics.bunkeringPortCost),
+      ),
       opCost: formatAmount(metrics.operationalCost),
       totalCargoExp: formatAmount(metrics.totalExpense),
       totalBunker: formatAmount(metrics.totalBunkerExpense),
-      estHire: formatAmount(metrics.estimatedHire),
+      estHire: formatAmount(metrics.netHireage ?? metrics.estimatedHire),
       bunkers: bunkerGrades.map((grade) => {
         const bunker = (metrics.bunkerExpenses || c.bunkerExpenses || [])
           .find((item) => item.grade === grade);
@@ -431,8 +462,7 @@ export async function generateSensitivityAnalysisPdf(payload = {}) {
   drawDataRow(doc, left, labelW, valueW, layout.columns, 'Lumpsum', layout.columns.map((c) => c.lumpsum));
   drawDataRow(doc, left, labelW, valueW, layout.columns, 'Loading Port', layout.columns.map((c) => c.loadPort));
   drawDataRow(doc, left, labelW, valueW, layout.columns, 'Discharge Port', layout.columns.map((c) => c.dischPort));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Transit Port', layout.columns.map((c) => c.transitPort));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Bunkering Port', layout.columns.map((c) => c.bunkeringPort));
+  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Transit / Bunkering Port', layout.columns.map((c) => c.transitBunkeringPort));
   layout.bunkerGrades.forEach((grade, gradeIndex) => {
     drawDataRow(
       doc,
@@ -460,14 +490,13 @@ export async function generateSensitivityAnalysisPdf(payload = {}) {
     themeColor: themes.orange.color,
   });
 
-  // Cargo Expenses
-  drawSectionTitle(doc, left, pageWidth, 'Cargo Expenses', themes.blue.color, themes.blue.strong);
+  // OPEX (Sans Brokerage)
+  drawSectionTitle(doc, left, pageWidth, 'OPEX (Sans Brokerage)', themes.blue.color, themes.blue.strong);
   drawDataRow(doc, left, labelW, valueW, layout.columns, 'Loading Port', layout.columns.map((c) => c.expLoad));
   drawDataRow(doc, left, labelW, valueW, layout.columns, 'Discharge Port', layout.columns.map((c) => c.expDisch));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Transit Port', layout.columns.map((c) => c.expTransit));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Bunkering Port', layout.columns.map((c) => c.expBunkering));
+  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Transit / Bunkering Port', layout.columns.map((c) => c.expTransitBunkering));
   drawDataRow(doc, left, labelW, valueW, layout.columns, 'Operational Cost', layout.columns.map((c) => c.opCost));
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Total Cargo Expense', layout.columns.map((c) => c.totalCargoExp), {
+  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Total', layout.columns.map((c) => c.totalCargoExp), {
     subtotal: true,
     themeColor: themes.blue.color,
   });
@@ -492,9 +521,10 @@ export async function generateSensitivityAnalysisPdf(payload = {}) {
     themeColor: themes.purple.color,
   });
 
-  // Hireage
-  drawSectionTitle(doc, left, pageWidth, 'Hireage', themes.brown.color, themes.brown.strong);
-  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Estimated Hire', layout.columns.map((c) => c.estHire));
+  // Hireage / Vessel Opex
+  drawSectionTitle(doc, left, pageWidth, 'Hireage / Vessel Opex', themes.brown.color, themes.brown.strong);
+  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Hire / Day ($)', layout.columns.map((c) => c.hireDay));
+  drawDataRow(doc, left, labelW, valueW, layout.columns, 'Net Hireage', layout.columns.map((c) => c.estHire));
 
   drawResults(doc, layout, left, pageWidth, labelW, valueW);
   drawFooter(doc, left, pageWidth, payload.calculatedAt);

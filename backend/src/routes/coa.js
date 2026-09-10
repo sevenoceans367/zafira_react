@@ -8,6 +8,7 @@ import {
   getCoa,
   getCoaLookups,
   getCoaNominations,
+  getNextCargoReletNo,
   listCargoRelets,
   listCoaOpsVoyages,
   listRunningCoas,
@@ -81,6 +82,16 @@ router.get('/cargo-relets', asyncHandler(async (req, res) => {
     coaId: req.query.coaId || '',
     status: req.query.status || '',
     view: req.query.view || 'business',
+  }));
+}));
+
+router.get('/cargo-relets/next-number', asyncHandler(async (req, res) => {
+  res.json(await getNextCargoReletNo({
+    selBType: req.query.selBType,
+    businessTypeId: req.query.businessTypeId || req.query.selBType,
+    coaId: req.query.coaId || '',
+    standalone: req.query.standalone,
+    standaloneOnly: req.query.standaloneOnly,
   }));
 }));
 

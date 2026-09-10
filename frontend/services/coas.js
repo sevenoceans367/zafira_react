@@ -84,6 +84,11 @@ export async function fetchCargoRelet(fcaId) {
   return parseJson(response, 'Failed to load cargo relet.');
 }
 
+export async function fetchNextCargoReletNo(params = {}) {
+  const response = await fetch(`${BASE}/cargo-relets/next-number${toQuery(params)}`);
+  return parseJson(response, 'Failed to load next cargo relet number.');
+}
+
 export async function createCargoRelet(payload) {
   const response = await fetch(`${BASE}/cargo-relets`, {
     method: 'POST',

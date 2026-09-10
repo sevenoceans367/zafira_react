@@ -11,11 +11,13 @@ import {
   fetchCargoRelet,
   fetchCoa,
   fetchCoaLookups,
+  fetchNextCargoReletNo,
   fetchRunningCoas,
   updateCargoRelet,
 } from '../../../services/coas.js';
 import {
   createStandaloneCargoRelet,
+  fetchNextStandaloneCargoReletNo,
   fetchStandaloneCargoRelet,
   updateStandaloneCargoRelet,
 } from '../../../services/cargoRelets.js';
@@ -59,9 +61,13 @@ const STANDALONE_LIVE_KEYS = new Set([
   'brokerageOut',
 ]);
 
-function generateStandaloneReletNo() {
-  const stamp = String(Date.now()).slice(-6);
-  return `RLT-${stamp}`;
+async function nextReletNo({ standalone, businessTypeId, coaId }) {
+  const params = { selBType: businessTypeId || '2', businessTypeId: businessTypeId || '2' };
+  if (coaId) params.coaId = coaId;
+  const data = standalone
+    ? await fetchNextStandaloneCargoReletNo(params)
+    : await fetchNextCargoReletNo(params);
+  return data?.reletNo || `${String(businessTypeId) === '3' ? 'D' : String(businessTypeId) === '1' ? 'G' : 'T'}1`;
 }
 
 function PlusIcon() {
@@ -97,6 +103,27 @@ function CircleDeleteButton({ onClick, title = 'Remove' }) {
         <path d="M6 6l12 12" />
       </svg>
     </button>
+  );
+}
+
+function PendingFileRow({ file, onRemove }) {
+  const href = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(href), [href]);
+  return (
+    <div className={styles.fileRow}>
+      <a
+        className={styles.fileName}
+        href={href}
+        download={file.name}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {file.name}
+      </a>
+      <span className={styles.filePending}>(pending)</span>
+      <CircleDeleteButton onClick={onRemove} />
+    </div>
   );
 }
 
@@ -466,7 +493,10 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
 
         const next = emptyForm(bType, queryCoaId);
         if (standalone) {
-          next.reletNo = generateStandaloneReletNo();
+          next.reletNo = await nextReletNo({
+            standalone: true,
+            businessTypeId: bType,
+          });
           next.reletName = next.reletNo;
         }
         const replicateFrom = searchParams.get('replicateFrom') || '';
@@ -476,11 +506,16 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             : await fetchCargoRelet(replicateFrom);
           if (cancelled) return;
           if (source) {
+            const sequentialNo = await nextReletNo({
+              standalone,
+              businessTypeId: source.businessTypeId || bType,
+              coaId: !standalone ? (queryCoaId || source.coaId || '') : '',
+            });
             Object.assign(next, {
               ...source,
               fcaId: undefined,
-              reletNo: standalone ? next.reletNo : '',
-              reletName: standalone ? next.reletNo : (source.reletName || ''),
+              reletNo: sequentialNo,
+              reletName: sequentialNo,
               updateStatus: '1',
               partiesIn: source.partiesIn?.length ? source.partiesIn : [partyRow()],
               partiesOut: source.partiesOut?.length ? source.partiesOut : [partyRow()],
@@ -505,6 +540,14 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
             next.coaDateCp = coa?.coaDate || '';
           } catch {
             next.coaId = queryCoaId;
+          }
+          if (!next.reletNo) {
+            next.reletNo = await nextReletNo({
+              standalone: false,
+              businessTypeId: bType,
+              coaId: queryCoaId,
+            });
+            next.reletName = next.reletNo;
           }
         }
         if (cancelled) return;
@@ -1189,12 +1232,18 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                   {pendingFiles.length ? (
                     <div className={styles.fileList}>
                       {pendingFiles.map((file, index) => (
-                        <div key={`pending-${file.name}-${index}`} className={styles.fileRow}>
-                          <span className={styles.fileName}>{file.name}</span>
-                          <span className={styles.filePending}>(pending)</span>
-                          <CircleDeleteButton onClick={() => removePendingFile(index)} />
-                        </div>
+                        <PendingFileRow
+                          key={`pending-${file.name}-${index}`}
+                          file={file}
+                          onRemove={() => removePendingFile(index)}
+                        />
                       ))}
+                    </div>
+                  ) : form.attachmentName ? (
+                    <div className={styles.fileList}>
+                      <div className={styles.fileRow}>
+                        <span className={styles.fileName}>{form.attachmentName}</span>
+                      </div>
                     </div>
                   ) : null}
                 </div>

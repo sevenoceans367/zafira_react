@@ -87,6 +87,40 @@ function nullIfEmpty(value) {
   return str === '' ? null : str;
 }
 
+function reletNoPrefix(businessTypeId) {
+  const id = String(businessTypeId || '2');
+  if (id === '3') return 'D';
+  if (id === '1') return 'G';
+  return 'T';
+}
+
+export async function dbNextCargoReletNo({
+  businessTypeId = '2',
+  coaId = '',
+  standalone = false,
+} = {}) {
+  const pool = getPool();
+  const prefix = reletNoPrefix(businessTypeId);
+  const params = [COA_MODULE_ID, appContext.companyId, `${prefix}%`];
+  let sql = `SELECT CARGO_RELET_NO
+    FROM cargo_relet_estimate_masster
+    WHERE MODULEID = ? AND MCOMPANYID = ? AND CARGO_RELET_NO LIKE ?`;
+  if (coaId && !standalone) {
+    sql += ' AND COAID = ?';
+    params.push(coaId);
+  } else if (standalone) {
+    sql += " AND (COAID IS NULL OR COAID = 0 OR COAID = '')";
+  }
+  const [rows] = await pool.query(sql, params);
+  let max = 0;
+  const pattern = new RegExp(`^${prefix}(\\d+)$`, 'i');
+  for (const row of rows) {
+    const match = String(row.CARGO_RELET_NO || '').trim().match(pattern);
+    if (match) max = Math.max(max, Number(match[1]) || 0);
+  }
+  return `${prefix}${max + 1}`;
+}
+
 function toDbDate(value) {
   if (!value) return '1970-01-01';
   return parsePeriodDate(value) || '1970-01-01';
@@ -1136,6 +1170,17 @@ export async function dbCreateCargoRelet(payload) {
     throw new Error('COA is required for cargo relet.');
   }
   requireStandaloneCargo(payload);
+  const nextPayload = { ...payload };
+  if (!nullIfEmpty(nextPayload.reletNo)) {
+    nextPayload.reletNo = await dbNextCargoReletNo({
+      businessTypeId: nextPayload.businessTypeId,
+      coaId: nextPayload.coaId,
+      standalone: Boolean(nextPayload.standalone),
+    });
+    if (!nullIfEmpty(nextPayload.reletName)) {
+      nextPayload.reletName = nextPayload.reletNo;
+    }
+  }
   const pool = getPool();
   await ensureReletCargoColumn(pool);
   const connection = await pool.getConnection();
@@ -1162,19 +1207,19 @@ export async function dbCreateCargoRelet(payload) {
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0
       )`,
-      reletMasterValues(payload, true),
+      reletMasterValues(nextPayload, true),
     );
     const fcaId = result.insertId;
-    await saveReletCargo(connection, fcaId, payload);
-    await replaceReletChildren(connection, fcaId, payload);
-    await finalizeCargoReletCompare(connection, fcaId, payload);
+    await saveReletCargo(connection, fcaId, nextPayload);
+    await replaceReletChildren(connection, fcaId, nextPayload);
+    await finalizeCargoReletCompare(connection, fcaId, nextPayload);
     await connection.query(
       `INSERT INTO recent_work_master (LOGINID, WORK, WORK_DATE)
        VALUES (?, 'COA Cargo Relet added successfully.', NOW())`,
       [appContext.userId],
     );
     await connection.commit();
-    return { msg: 0, fcaId };
+    return { msg: 0, fcaId, reletNo: nextPayload.reletNo };
   } catch (error) {
     await connection.rollback();
     throw error;

@@ -13,6 +13,7 @@ import {
   dbListCoaOpsVoyages,
   dbListRunningCoas,
   dbMoveVoyageToPostOps,
+  dbNextCargoReletNo,
   dbSaveMonthlyRemarks,
   dbSendCargoReletToOps,
   dbUpdateCargoRelet,
@@ -362,8 +363,28 @@ export async function getCargoRelet(fcaId) {
   return dbGetCargoRelet(fcaId);
 }
 
+export async function getNextCargoReletNo(params = {}) {
+  if (!isDbConfigured()) {
+    const prefix = String(params.businessTypeId || params.selBType || '2') === '3'
+      ? 'D'
+      : String(params.businessTypeId || params.selBType || '2') === '1'
+        ? 'G'
+        : 'T';
+    return { reletNo: `${prefix}1` };
+  }
+  const reletNo = await dbNextCargoReletNo({
+    businessTypeId: params.businessTypeId || params.selBType || '2',
+    coaId: params.coaId || '',
+    standalone: params.standalone === true
+      || params.standalone === '1'
+      || params.standaloneOnly === '1'
+      || params.standaloneOnly === true,
+  });
+  return { reletNo };
+}
+
 export async function createCargoRelet(payload) {
-  if (!isDbConfigured()) return { msg: 0, fcaId: 11 };
+  if (!isDbConfigured()) return { msg: 0, fcaId: 11, reletNo: payload?.reletNo || 'T1' };
   return dbCreateCargoRelet(payload);
 }
 

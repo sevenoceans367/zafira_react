@@ -91,13 +91,24 @@ export function calculateColumnMetrics(column, businessType) {
 
   const hire = column.hire ?? {};
   const totalDays = toNumber(hire.totalDays);
-  const hireAmt = toNumber(hire.rate) * totalDays;
+  // Match estimate sheet Net Hireage:
+  // (Hire/Day × Hire Days + Ballast − Add Comm − Brokerage)
+  // + Delivery bunkers + CVE − Redelivery bunkers − Less Off Hire
+  const hireDays = toNumber(hire.hireDays) || totalDays;
+  const hireAmt = toNumber(hire.rate) * hireDays;
   const grossHire = toNumber(hire.ballastBonus) + hireAmt;
   const hireAddComm = (grossHire * toNumber(hire.hierageAddCommPercent)) / 100;
   const hireBrokerage = (hireAmt * toNumber(hire.hierageBrokeragePercent)) / 100;
   const nettHire = grossHire - hireAddComm - hireBrokerage;
-  const cveAmt = ((toNumber(hire.cvePerMonth) * 12) / 365) * totalDays;
-  const estimatedHire = nettHire + cveAmt;
+  const hireageCveAmt = ((toNumber(hire.cvePerMonth) * 12) / 365) * hireDays;
+  const netHireage = (
+    nettHire
+    + toNumber(hire.deliveryTotal)
+    + hireageCveAmt
+    - toNumber(hire.redeliveryTotal)
+    - toNumber(hire.lessOffHire)
+  );
+  const estimatedHire = netHireage;
 
   const ilohcCost = toNumber(hire.ilohcCost);
   const profitLoss = netReceivable + ilohcCost - totalExpense - totalBunkerExpense - estimatedHire;
@@ -119,6 +130,7 @@ export function calculateColumnMetrics(column, businessType) {
     bunkerExpenses,
     totalBunkerExpense,
     estimatedHire,
+    netHireage,
     profitLoss,
     nettDailyProfit,
   };
@@ -153,6 +165,7 @@ export function buildUpdatePayload(column, metrics) {
     computed: {
       grossFreight: metrics.grossFreight,
       estimatedHire: metrics.estimatedHire,
+      netHireage: metrics.netHireage,
       profitLoss: metrics.profitLoss,
       nettDailyProfit: metrics.nettDailyProfit,
     },

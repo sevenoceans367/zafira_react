@@ -130,7 +130,11 @@ function clubTransitBunkering(column = {}) {
 
 function buildLayout(payload = {}) {
   const columns = Array.isArray(payload.columns) ? payload.columns : [];
-  const bunkerGrades = Array.isArray(payload.bunkerGrades) ? payload.bunkerGrades : [];
+  const rawGrades = Array.isArray(payload.bunkerGrades) ? payload.bunkerGrades : [];
+  const bunkerGrades = ['VLSFO', 'LSMGO'].map((required) => {
+    const match = rawGrades.find((grade) => new RegExp(required, 'i').test(String(grade || '')));
+    return match || required;
+  });
   const isTanker = String(payload.businessType ?? '2') === '2';
   const tradeLabel = payload.tradeLabel || (isTanker ? 'Tankers' : 'Dry Bulk');
 
@@ -145,8 +149,16 @@ function buildLayout(payload = {}) {
       pnl: toNumber(metrics.profitLoss),
       minCargoQty: joinAdjustment(adjustments, (item) => value(item.minCargoQty)),
       minCargoFlat: lump ? '' : joinAdjustment(adjustments, (item) => value(item.minFlatRate)),
-      minCargoWs: lump ? '' : joinAdjustment(adjustments, (item) => value(item.minWSRate)),
-      overageQty: joinAdjustment(adjustments, (item) => value(item.overageQty)),
+      minCargoWs: joinAdjustment(adjustments, (item) => {
+        if (!lump) return value(item.minWSRate);
+        const qty = toNumber(item.minCargoQty);
+        const flat = toNumber(item.minFlatRate);
+        const lumpAmt = toNumber(c.lumpsumAmt);
+        if (toNumber(item.minWSRate)) return value(item.minWSRate);
+        if (!lumpAmt || !qty || !flat) return '';
+        return formatAmount((lumpAmt * 100) / (qty * flat));
+      }),
+      overageQty: lump ? '' : joinAdjustment(adjustments, (item) => value(item.overageQty)),
       overageFlat: lump ? '' : joinAdjustment(adjustments, (item) => value(item.overageFlatRate)),
       overageWs: lump ? '' : joinAdjustment(adjustments, (item) => value(item.overageWSRate)),
       overageAmt: lump ? '' : joinAdjustment(adjustments, (item) => formatAmount(
@@ -178,13 +190,18 @@ function buildLayout(payload = {}) {
       estHire: formatAmount(metrics.netHireage ?? metrics.estimatedHire),
       bunkers: bunkerGrades.map((grade) => {
         const bunker = (metrics.bunkerExpenses || c.bunkerExpenses || [])
-          .find((item) => item.grade === grade);
-        const has = bunker && toNumber(bunker.estPrice);
+          .find((item) => String(item.grade || '').toLowerCase() === String(grade).toLowerCase()
+            || new RegExp(grade, 'i').test(String(item.grade || '')));
+        const qty = bunker ? toNumber(bunker.estMt) : 0;
+        const price = bunker ? toNumber(bunker.estPrice) : 0;
+        const amount = bunker
+          ? toNumber(bunker.estCost ?? qty * price)
+          : 0;
         return {
           grade,
-          price: has ? formatAmount(bunker.estPrice) : '',
-          qty: has ? formatAmount(bunker.estMt) : '',
-          amount: has ? formatAmount(bunker.estCost ?? toNumber(bunker.estMt) * toNumber(bunker.estPrice)) : '',
+          price: price ? formatAmount(price) : '—',
+          qty: qty ? formatAmount(qty) : '—',
+          amount: amount ? formatAmount(amount) : '—',
         };
       }),
       bunkerPrices: bunkerGrades.map((grade) => {

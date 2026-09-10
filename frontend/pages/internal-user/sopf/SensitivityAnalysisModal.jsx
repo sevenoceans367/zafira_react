@@ -5,10 +5,14 @@ import {
   buildColumnState,
   buildUpdatePayload,
   calculateColumnMetrics,
+  calculateLumpsumWsEquivalent,
   calculateRatesFromFlatRate,
+  displayOrDash,
   formatAddComm,
   formatAmount,
   formatComma,
+  isSensiBunkerGrade,
+  SENSI_BUNKER_GRADES,
   toNumber,
 } from './sensitivityAnalysisCalculations.js';
 import styles from './SensitivityAnalysisModal.module.css';
@@ -198,11 +202,13 @@ function FieldStatus({ status }) {
 }
 
 function InputCell({ value, onChange, readOnly = false, disabled = false, status = '' }) {
+  const empty = value === undefined || value === null || value === '';
   return (
     <span className={styles.inputWrap}>
       <input
         className={styles.input}
-        value={value ?? ''}
+        value={empty ? '' : value}
+        placeholder="—"
         readOnly={readOnly || disabled}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
@@ -434,11 +440,63 @@ export default function SensitivityAnalysisModal({
   const handleAdjustmentChange = (columnId, adjustmentKey, field, value) => {
     updateColumn(columnId, (column) => ({
       ...column,
-      freightAdjustments: column.freightAdjustments.map((item) => (
-        item.key === adjustmentKey ? { ...item, [field]: value } : item
-      )),
+      freightAdjustments: column.freightAdjustments.map((item) => {
+        if (item.key !== adjustmentKey) return item;
+        const next = { ...item, [field]: value };
+        if (column.chkLumpSum && (field === 'minCargoQty' || field === 'minFlatRate')) {
+          const ws = calculateLumpsumWsEquivalent(
+            column.lumpsumAmt,
+            field === 'minCargoQty' ? value : next.minCargoQty,
+            field === 'minFlatRate' ? value : next.minFlatRate,
+          );
+          if (ws !== '') {
+            next.minWSRate = ws;
+            next.overageWSRate = ws;
+          }
+        }
+        return next;
+      }),
+      lumpsumQty: column.chkLumpSum && field === 'minCargoQty'
+        ? value
+        : column.lumpsumQty,
     }));
     queueSave(columnId, `${adjustmentKey}:${field}`);
+  };
+
+  const handleLumpsumAmtChange = (columnId, value) => {
+    updateColumn(columnId, (column) => {
+      const item = column.freightAdjustments?.[0];
+      const ws = item
+        ? calculateLumpsumWsEquivalent(value, item.minCargoQty, item.minFlatRate)
+        : '';
+      return {
+        ...column,
+        lumpsumAmt: value,
+        freightAdjustments: (column.freightAdjustments || []).map((row, index) => (
+          index === 0 && ws !== ''
+            ? { ...row, minWSRate: ws, overageWSRate: ws }
+            : row
+        )),
+      };
+    });
+    queueSave(columnId, 'lumpsum');
+  };
+
+  const handleBunkerQtyChange = (columnId, grade, value) => {
+    updateColumn(columnId, (column) => {
+      const existing = column.bunkerExpenses || [];
+      const matchIndex = existing.findIndex((item) => (
+        String(item.grade || '').toLowerCase() === String(grade).toLowerCase()
+        || new RegExp(grade, 'i').test(String(item.grade || ''))
+      ));
+      const bunkerExpenses = matchIndex >= 0
+        ? existing.map((item, index) => (
+          index === matchIndex ? { ...item, estMt: value } : item
+        ))
+        : [...existing, { grade, estMt: value, estPrice: '', estCost: 0 }];
+      return { ...column, bunkerExpenses };
+    });
+    queueSave(columnId, `bunkerQty:${grade}`);
   };
 
   const handlePortChange = (columnId, collection, portKey, value) => {
@@ -471,12 +529,19 @@ export default function SensitivityAnalysisModal({
   };
 
   const handleBunkerPriceChange = (columnId, grade, value) => {
-    updateColumn(columnId, (column) => ({
-      ...column,
-      bunkerExpenses: column.bunkerExpenses.map((item) => (
-        item.grade === grade ? { ...item, estPrice: value } : item
-      )),
-    }));
+    updateColumn(columnId, (column) => {
+      const existing = column.bunkerExpenses || [];
+      const matchIndex = existing.findIndex((item) => (
+        String(item.grade || '').toLowerCase() === String(grade).toLowerCase()
+        || new RegExp(grade, 'i').test(String(item.grade || ''))
+      ));
+      const bunkerExpenses = matchIndex >= 0
+        ? existing.map((item, index) => (
+          index === matchIndex ? { ...item, estPrice: value } : item
+        ))
+        : [...existing, { grade, estMt: '', estPrice: value, estCost: 0 }];
+      return { ...column, bunkerExpenses };
+    });
     queueSave(columnId, `bunker:${grade}`);
   };
 
@@ -574,13 +639,23 @@ export default function SensitivityAnalysisModal({
   const selectedColumn = columns[selectedIndex] || columns[0];
   const isColumnSent = (column) => Boolean(column) && (sentIds.has(String(column.id)) || Boolean(column.sentToOps));
   const selectedSent = selectedColumn ? isColumnSent(selectedColumn) : false;
-  const grades = bunkerGrades.length
-    ? bunkerGrades
-    : [...new Set(columns.flatMap((column) => (column.bunkerExpenses || []).map((item) => item.grade)).filter(Boolean))];
+  const grades = (bunkerGrades.length ? bunkerGrades : SENSI_BUNKER_GRADES)
+    .filter((grade) => isSensiBunkerGrade(grade));
+  const uniqueGrades = [];
+  for (const grade of [...grades, ...SENSI_BUNKER_GRADES]) {
+    if (!uniqueGrades.some((item) => item.toLowerCase() === String(grade).toLowerCase())) {
+      uniqueGrades.push(grade);
+    }
+  }
+  const visibleBunkerGrades = uniqueGrades.filter((grade) => isSensiBunkerGrade(grade));
 
-  const bunkerFor = (column, grade) => (
-    (column.bunkerExpenses || []).find((item) => item.grade === grade)
-  );
+  const bunkerFor = (column, grade) => {
+    const list = column.bunkerExpenses || [];
+    const target = String(grade || '').toLowerCase();
+    return list.find((item) => String(item.grade || '').toLowerCase() === target)
+      || list.find((item) => new RegExp(grade, 'i').test(String(item.grade || '')))
+      || list.find((item) => new RegExp(String(item.grade || ''), 'i').test(String(grade || '')));
+  };
   const isVlsfo = (grade) => /vlsfo/i.test(grade || '');
 
   const openSensi = (column, kind) => {
@@ -847,7 +922,7 @@ export default function SensitivityAnalysisModal({
                           'minCargoQty',
                           (id, key, value) => handleAdjustmentChange(id, key, 'minCargoQty', value),
                           undefined,
-                          true,
+                          false,
                         )}
                       />
                       <EditableRow
@@ -873,11 +948,24 @@ export default function SensitivityAnalysisModal({
                         isLocked={isColumnSent}
                         variant="sub"
                         renderCell={(column) => {
-                          if (column.chkLumpSum) {
-                            return <InputCell value="" disabled onChange={() => {}} />;
-                          }
                           const item = column.freightAdjustments?.[0];
                           if (!item) return <span className={styles.colCellEmpty}>—</span>;
+                          if (column.chkLumpSum) {
+                            const wsValue = item.minWSRate
+                              || calculateLumpsumWsEquivalent(
+                                column.lumpsumAmt,
+                                item.minCargoQty,
+                                item.minFlatRate,
+                              );
+                            return (
+                              <InputCell
+                                value={wsValue === '' || wsValue == null ? '' : wsValue}
+                                disabled={isColumnSent(column)}
+                                status={isColumnSent(column) ? '' : statusFor(column.id, `${item.key}:minWSRate`)}
+                                onChange={(value) => handleMinWSRateChange(column.id, item.key, value)}
+                              />
+                            );
+                          }
                           return (
                             <div className={styles.withLink}>
                               <InputCell
@@ -903,12 +991,16 @@ export default function SensitivityAnalysisModal({
                         columns={columns}
                         isLocked={isColumnSent}
                         variant="sub"
-                        renderCell={(column) => renderAdjustmentInputs(
-                          column,
-                          'overageQty',
-                          (id, key, value) => handleAdjustmentChange(id, key, 'overageQty', value),
-                          undefined,
-                          true,
+                        renderCell={(column) => (
+                          column.chkLumpSum ? (
+                            <InputCell value="" disabled onChange={() => {}} />
+                          ) : (
+                            renderAdjustmentInputs(
+                              column,
+                              'overageQty',
+                              (id, key, value) => handleAdjustmentChange(id, key, 'overageQty', value),
+                            )
+                          )
                         )}
                       />
                       <EditableRow
@@ -1005,13 +1097,7 @@ export default function SensitivityAnalysisModal({
                             value={column.lumpsumAmt}
                             disabled={isColumnSent(column)}
                             status={isColumnSent(column) ? '' : statusFor(column.id, 'lumpsum')}
-                            onChange={(value) => {
-                              updateColumn(column.id, (current) => ({
-                                ...current,
-                                lumpsumAmt: value,
-                              }));
-                              queueSave(column.id, 'lumpsum');
-                            }}
+                            onChange={(value) => handleLumpsumAmtChange(column.id, value)}
                           />
                           {isColumnSent(column) ? null : (
                             <SensiLink
@@ -1165,20 +1251,27 @@ export default function SensitivityAnalysisModal({
 
                 <div className={`${styles.section} ${styles.themeBrown}`}>
                   <SectionLabel>Bunker Expenses</SectionLabel>
-                  {grades.map((grade) => {
+                  {visibleBunkerGrades.map((grade) => {
                     const vlsfo = isVlsfo(grade);
                     return (
                       <React.Fragment key={`bunker-${grade}`}>
                         <GroupHeader label={grade} columns={columns} colCount={colCount} isLocked={isColumnSent} />
-                        <DisplayRow
+                        <EditableRow
                           label="Qty"
                           columns={columns}
                           isLocked={isColumnSent}
                           variant="sub"
-                          values={columns.map((column) => {
+                          renderCell={(column) => {
                             const bunker = bunkerFor(column, grade);
-                            return bunker ? formatAmount(bunker.estMt) : '';
-                          })}
+                            return (
+                              <InputCell
+                                value={bunker?.estMt ?? ''}
+                                disabled={isColumnSent(column)}
+                                status={isColumnSent(column) ? '' : statusFor(column.id, `bunkerQty:${grade}`)}
+                                onChange={(value) => handleBunkerQtyChange(column.id, grade, value)}
+                              />
+                            );
+                          }}
                         />
                         {vlsfo ? (
                           <EditableRow
@@ -1188,11 +1281,10 @@ export default function SensitivityAnalysisModal({
                             variant="sub"
                             renderCell={(column) => {
                               const bunker = bunkerFor(column, grade);
-                              if (!bunker) return <span className={styles.colCellEmpty}>—</span>;
                               return (
                                 <div className={styles.withLink}>
                                   <InputCell
-                                    value={bunker.estPrice}
+                                    value={bunker?.estPrice ?? ''}
                                     disabled={isColumnSent(column)}
                                     status={isColumnSent(column) ? '' : statusFor(column.id, `bunker:${grade}`)}
                                     onChange={(value) => handleBunkerPriceChange(column.id, grade, value)}
@@ -1215,10 +1307,9 @@ export default function SensitivityAnalysisModal({
                             variant="sub"
                             renderCell={(column) => {
                               const bunker = bunkerFor(column, grade);
-                              if (!bunker) return <span className={styles.colCellEmpty}>—</span>;
                               return (
                                 <InputCell
-                                  value={bunker.estPrice}
+                                  value={bunker?.estPrice ?? ''}
                                   disabled={isColumnSent(column)}
                                   status={isColumnSent(column) ? '' : statusFor(column.id, `bunker:${grade}`)}
                                   onChange={(value) => handleBunkerPriceChange(column.id, grade, value)}
@@ -1233,9 +1324,13 @@ export default function SensitivityAnalysisModal({
                           isLocked={isColumnSent}
                           variant="amt"
                           values={columns.map((column) => {
-                            const bunker = metricsById[column.id]?.bunkerExpenses
-                              ?.find((item) => item.grade === grade);
-                            return bunker ? formatAmount(bunker.estCost) : '';
+                            const metricsList = metricsById[column.id]?.bunkerExpenses || [];
+                            const bunker = metricsList.find((item) => item.grade === grade)
+                              || metricsList.find((item) => new RegExp(grade, 'i').test(String(item.grade || '')))
+                              || bunkerFor(column, grade);
+                            const amount = bunker?.estCost
+                              ?? (toNumber(bunker?.estMt) * toNumber(bunker?.estPrice));
+                            return amount ? formatAmount(amount) : '';
                           })}
                         />
                       </React.Fragment>
@@ -1246,7 +1341,10 @@ export default function SensitivityAnalysisModal({
                     variant="subtotal"
                     columns={columns}
                     isLocked={isColumnSent}
-                    values={columns.map((column) => formatAmount(metricsById[column.id]?.totalBunkerExpense))}
+                    values={columns.map((column) => {
+                      const total = metricsById[column.id]?.totalBunkerExpense;
+                      return total ? formatAmount(total) : '';
+                    })}
                   />
                 </div>
               </div>

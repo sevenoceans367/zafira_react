@@ -31,8 +31,31 @@ export function calculateFreightAdjustmentAmount(qty, flatRate, wsRate) {
   return (toNumber(qty) * toNumber(flatRate) * toNumber(wsRate)) / 100;
 }
 
+/** Tara: WS equivalent from lumpsum = (Lumpsum × 100) / (Qty × Flat Rate). */
+export function calculateLumpsumWsEquivalent(lumpsumAmt, qty, flatRate) {
+  const lump = toNumber(lumpsumAmt);
+  const quantity = toNumber(qty);
+  const flat = toNumber(flatRate);
+  if (!lump || !quantity || !flat) return '';
+  return (lump * 100) / (quantity * flat);
+}
+
 export function calculateRatesFromFlatRate(flatRate) {
   return toNumber(flatRate) / 2;
+}
+
+export const SENSI_BUNKER_GRADES = ['VLSFO', 'LSMGO'];
+
+export function isSensiBunkerGrade(grade) {
+  return SENSI_BUNKER_GRADES.some((allowed) => new RegExp(allowed, 'i').test(String(grade || '')));
+}
+
+export function displayOrDash(value) {
+  if (value === undefined || value === null || value === '') return '—';
+  const formatted = typeof value === 'number' || /^-?\d+(\.\d+)?$/.test(String(value).trim())
+    ? formatAmount(value)
+    : String(value);
+  return formatted || '—';
 }
 
 export function calculateColumnMetrics(column, businessType) {
@@ -81,12 +104,14 @@ export function calculateColumnMetrics(column, businessType) {
   const operationalCost = toNumber(column.operationalCost);
   const totalExpense = loadPortCost + discPortCost + transitPortCost + bunkeringPortCost + operationalCost;
 
-  const bunkerExpenses = (column.bunkerExpenses ?? []).map((item) => {
-    const estMt = toNumber(item.estMt);
-    const estPrice = toNumber(item.estPrice);
-    const estCost = estMt * estPrice;
-    return { ...item, estCost };
-  });
+  const bunkerExpenses = (column.bunkerExpenses ?? [])
+    .filter((item) => isSensiBunkerGrade(item.grade))
+    .map((item) => {
+      const estMt = toNumber(item.estMt);
+      const estPrice = toNumber(item.estPrice);
+      const estCost = estMt * estPrice;
+      return { ...item, estCost };
+    });
   const totalBunkerExpense = bunkerExpenses.reduce((sum, item) => sum + toNumber(item.estCost), 0);
 
   const hire = column.hire ?? {};
@@ -154,6 +179,7 @@ export function buildUpdatePayload(column, metrics) {
     freight: column.freight,
     qty: column.qty,
     lumpsumAmt: column.lumpsumAmt,
+    lumpsumQty: column.lumpsumQty,
     chkLumpSum: column.chkLumpSum,
     freightAdjustments: metrics.adjustments,
     loadPorts: column.loadPorts,

@@ -194,17 +194,38 @@ async function fetchColumn(pool, id) {
       overageAmt: 0,
     }];
 
+  const chkLumpSum = Boolean(Number(master.CHK_LUMPSUM));
+  const lumpsumAmt = num(master.LUMPSUMAMT);
+  const lumpsumQty = num(master.WS_QTY);
+  // Lumpsum deals store cargo qty on master.WS_QTY; seed Min Cargo Qty when slave12 is empty.
+  if (chkLumpSum && lumpsumQty) {
+    freightAdjustments.forEach((item) => {
+      if (!num(item.minCargoQty)) item.minCargoQty = lumpsumQty;
+    });
+  }
+  if (chkLumpSum && lumpsumAmt) {
+    freightAdjustments.forEach((item) => {
+      const qty = num(item.minCargoQty) || lumpsumQty;
+      const flat = num(item.minFlatRate);
+      if (qty && flat && !num(item.minWSRate)) {
+        item.minWSRate = (lumpsumAmt * 100) / (qty * flat);
+        item.overageWSRate = item.minWSRate;
+      }
+    });
+  }
+
   return {
     id: String(id),
     vesselName: master.VESSEL_NAME || '',
     voyageNo: master.VOYAGE_NO || '',
     cargoType: ESTIMATE_TYPE_LABELS[Number(master.ESTIMATE_TYPE)] || '',
     estimateType: Number(master.ESTIMATE_TYPE || 0),
-    chkLumpSum: Boolean(Number(master.CHK_LUMPSUM)),
+    chkLumpSum,
     sentToOps: Number(master.FIXED) === 1,
     freight: num(master.FREIGHT_GROSS),
     qty: num(master.BL_QTY_FREIGHT),
-    lumpsumAmt: num(master.LUMPSUMAMT),
+    lumpsumAmt,
+    lumpsumQty,
     freightAdjustments,
     loadPorts,
     discPorts,
@@ -244,7 +265,14 @@ export async function dbGetSensitivityAnalysis(ids) {
 
   const bunkerGrades = [...new Set(
     columns.flatMap((column) => column.bunkerExpenses.map((item) => item.grade)),
-  )];
+  )].filter((grade) => /vlsfo|lsmgo/i.test(String(grade || '')));
+
+  // Always expose VLSFO + LSMGO so empty grades still render as dashes.
+  for (const required of ['VLSFO', 'LSMGO']) {
+    if (!bunkerGrades.some((grade) => new RegExp(required, 'i').test(grade))) {
+      bunkerGrades.push(required);
+    }
+  }
 
   return { columns, bunkerGrades };
 }
@@ -274,12 +302,17 @@ export async function dbUpdateSensitivityEstimate(id, payload) {
     const grossFreight = num(computed.grossFreight);
     const totalPreightAdj = chkLumpSum ? num(lumpsumAmt) : grossFreight;
 
+    const lumpsumQtyToSave = chkLumpSum
+      ? num(freightAdjustments[0]?.minCargoQty ?? payload.lumpsumQty)
+      : null;
+
     await connection.query(
       `UPDATE freight_cost_estimete_master
        SET FREIGHT_GROSS = ?,
            BL_QTY_FREIGHT = ?,
            LUMPSUMAMT = ?,
            CHK_LUMPSUM = ?,
+           ${lumpsumQtyToSave != null ? 'WS_QTY = ?,' : ''}
            TOTAL_PREIGHT_ADJ = ?,
            HIRE_RATE = ?,
            FINAL_HIERAGE_AMOUNT = ?
@@ -289,6 +322,7 @@ export async function dbUpdateSensitivityEstimate(id, payload) {
         num(qty),
         num(lumpsumAmt),
         chkLumpSum ? 1 : 0,
+        ...(lumpsumQtyToSave != null ? [lumpsumQtyToSave] : []),
         totalPreightAdj,
         num(hire.rate),
         num(computed.estimatedHire ?? computed.netHireage),
@@ -361,9 +395,9 @@ export async function dbUpdateSensitivityEstimate(id, payload) {
       await connection.query(
         `UPDATE freight_cost_estimete_slave2 a
          INNER JOIN bunker_grade_master b ON b.BUNKERGRADEID = a.BUNKERGRADEID
-         SET a.EST_PRICE = ?, a.EST_COST = ?
+         SET a.EST_MT = ?, a.EST_PRICE = ?, a.EST_COST = ?
          WHERE a.FCAID = ? AND b.NAME = ?`,
-        [num(bunker.estPrice), num(bunker.estCost), columnId, bunker.grade],
+        [num(bunker.estMt), num(bunker.estPrice), num(bunker.estCost), columnId, bunker.grade],
       );
     }
 

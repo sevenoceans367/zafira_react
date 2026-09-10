@@ -32,7 +32,7 @@ function buildMockColumn(id, index) {
     bunkeringPorts: [],
     bunkerExpenses: [
       { grade: 'VLSFO', estMt: 500, estPrice: 600, estCost: 300000 },
-      { grade: 'MGO', estMt: 50, estPrice: 900, estCost: 45000 },
+      { grade: 'LSMGO', estMt: 50, estPrice: 900, estCost: 45000 },
     ],
     hire: {
       rate: 12000,
@@ -70,7 +70,7 @@ export async function getSensitivityAnalysis(ids, businessType = '2') {
 
   return {
     businessType: String(businessType),
-    bunkerGrades: ['VLSFO', 'MGO'],
+    bunkerGrades: ['VLSFO', 'LSMGO'],
     columns: idList.map((id, index) => buildMockColumn(id, index)),
   };
 }

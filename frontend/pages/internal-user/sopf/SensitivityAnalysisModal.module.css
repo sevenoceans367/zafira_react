@@ -533,33 +533,43 @@
 
 .cardMetrics {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex: none;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: center;
+  align-items: stretch;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
+/* 5-column squeeze: stack pills so large TCE/P&L values stay inside the chip */
 .cardMetricsCompact {
+  flex-direction: column;
+  flex-wrap: nowrap;
   gap: 4px;
+  align-items: stretch;
 }
 
 .resultsPill {
   display: inline-flex;
   align-items: baseline;
+  justify-content: center;
   gap: 4px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: #fff;
-  padding: 4px 8px;
-  white-space: nowrap;
+  padding: 4px 9px;
+  box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
+  overflow: hidden;
 }
 
 .cardMetricsCompact .resultsPill {
-  padding: 2px 5px;
-  gap: 2px;
+  width: 100%;
+  padding: 3px 6px;
+  gap: 3px;
   border-radius: 6px;
 }
 
@@ -575,6 +585,8 @@
   font-weight: 700;
   font-size: 9px;
   color: var(--text-mid);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .cardMetricsCompact .rpLabel {
@@ -584,10 +596,14 @@
 .rpValue {
   font-weight: 700;
   font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .cardMetricsCompact .rpValue {
-  font-size: 10px;
+  font-size: 10.5px;
 }
 
 .docInner[data-cols="5"] .voyagecard {
@@ -1155,12 +1171,25 @@
 }
 
 .sensiModal {
+  /* Same tokens as .modal — chart popup sits outside .modal so vars must be local */
+  --brown: #a9740b;
+  --brown-tint: #fbf1d9;
+  --brown-tint-strong: #f3e0ac;
+  --brown-tint-pale: #fdf9ee;
+  --line: #eceef2;
+  --line-strong: #d8dce3;
+  --text-dark: #1b2733;
+  --text-light: #8a93a0;
+  --field-grey: #f1f2f4;
+
   width: min(92vw, 840px);
   max-height: 88vh;
   overflow: auto;
   background: #fff;
   border-radius: 14px;
   box-shadow: 0 24px 60px rgba(15, 25, 40, 0.35);
+  color: var(--text-dark);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .sensiHead {
@@ -1248,35 +1277,41 @@
 .sensiTable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
 .sensiTable th,
 .sensiTable td {
   padding: 3px 6px;
   text-align: center;
+  color: var(--text-dark);
   border-bottom: 1px solid var(--line);
 }
 
+.sensiTable th {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-light);
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+/* Match HTML dry/tanker: grey row hover; base pale tint, stronger brown-tint on hover */
 .sensiTable tbody tr:hover td {
   background: var(--field-grey);
 }
 
-.sensiTable th {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-light);
-}
-
+.sensiTable tr.sensiBase td,
 .sensiBase td {
   font-weight: 700;
   color: var(--sensi-color, var(--brown));
-  background: color-mix(in srgb, var(--sensi-color, #a9740b) 12%, #fff);
+  background: color-mix(in srgb, var(--sensi-color, var(--brown)) 12%, #fff);
 }
 
-.sensiBase:hover td {
-  background: color-mix(in srgb, var(--sensi-color, #a9740b) 22%, #fff);
+.sensiTable tr.sensiBase:hover td {
+  background: color-mix(in srgb, var(--sensi-color, var(--brown)) 28%, #fff);
 }
 
 @media (max-width: 900px) {

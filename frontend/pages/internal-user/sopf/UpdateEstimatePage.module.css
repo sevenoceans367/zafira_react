@@ -312,6 +312,21 @@
   font-size: 11px;
 }
 
+.panelIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: #14919b;
+}
+
+.panelIcon svg {
+  width: 100%;
+  height: 100%;
+}
+
 .panelActions {
   display: flex;
   align-items: center;

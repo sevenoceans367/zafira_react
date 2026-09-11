@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  AttachmentDropzone,
   DmyDateInput,
   LoadingOverlay,
   useAlert,
@@ -475,7 +476,6 @@ export default function OpsVcLaytimePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pendingFilesByKey, setPendingFilesByKey] = useState({});
-  const attachInputRef = useRef(null);
 
   const rateUnit = form?.rateUnit === 'hours' ? 'hours' : 'days';
   const unitLabel = rateUnit === 'hours' ? 'Hrs' : 'Days';
@@ -1503,77 +1503,22 @@ export default function OpsVcLaytimePage() {
                         <span>Documents</span>
                       </div>
 
-                      {!locked ? (
-                        <>
-                          <input
-                            ref={attachInputRef}
-                            className={sofStyles.hiddenFileInput}
-                            type="file"
-                            multiple
-                            onChange={(event) => {
-                              addPendingFiles(event.target.files);
-                              event.target.value = '';
-                            }}
-                          />
-                          <div
-                            className={sofStyles.dropzone}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => attachInputRef.current?.click()}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                attachInputRef.current?.click();
-                              }
-                            }}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              addPendingFiles(e.dataTransfer?.files);
-                            }}
-                          >
-                            <div className={sofStyles.dropzoneIcon}>
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                <path d="M12 16V4" />
-                                <path d="M6 10l6-6 6 6" />
-                                <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-                              </svg>
-                            </div>
-                            <div className={sofStyles.dropzoneText}>
-                              <b>Drag &amp; drop files here</b>, or click to browse
-                            </div>
-                          </div>
-                        </>
-                      ) : null}
-
-                      {(draft.keepFiles || []).length || pendingFiles.length ? (
-                        <div className={sofStyles.fileList}>
-                          {(draft.keepFiles || []).map((file) => (
-                            <div key={file} className={sofStyles.fileRow}>
-                              <a
-                                className={sofStyles.fileName}
-                                href={attachmentUrl(file)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {displayStoredFileName(file)}
-                              </a>
-                              {renderCircleDelete(() => patchDraft({
-                                keepFiles: draft.keepFiles.filter((name) => name !== file),
-                              }))}
-                            </div>
-                          ))}
-                          {pendingFiles.map((file, index) => (
-                            <div key={`pending-${file.name}-${index}`} className={sofStyles.fileRow}>
-                              <span className={sofStyles.fileName}>{file.name}</span>
-                              <span className={sofStyles.filePending}>(pending)</span>
-                              {renderCircleDelete(() => removePendingFile(index))}
-                            </div>
-                          ))}
-                        </div>
-                      ) : locked ? (
-                        <div className={sofStyles.sideEmpty}>No documents uploaded yet.</div>
-                      ) : null}
+                      <AttachmentDropzone
+                        readOnly={locked}
+                        files={pendingFiles}
+                        existing={(draft.keepFiles || []).map((file) => ({
+                          key: file,
+                          file,
+                          name: displayStoredFileName(file),
+                          url: attachmentUrl(file),
+                        }))}
+                        onAddFiles={addPendingFiles}
+                        onRemoveFile={removePendingFile}
+                        onRemoveExisting={(item) => patchDraft({
+                          keepFiles: (draft.keepFiles || []).filter((name) => name !== item.file),
+                        })}
+                        emptyLabel="No documents uploaded yet."
+                      />
                     </div>
                   </div>
                 </div>

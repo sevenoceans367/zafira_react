@@ -1,4 +1,5 @@
 import { formatDateDMY, parsePeriodDate } from './estimateListMappers.js';
+import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 export { formatDateDMY, parsePeriodDate };
 
@@ -239,6 +240,15 @@ export function mapTcDetail(row, extras = {}) {
     ownersBankDet: row.OWNERS_BANK_DET ?? '',
     docCreatBy: row.DOC_CREAT_BY ?? '',
     additInform: row.ADDIT_INFORM ?? '',
+    attachments: (() => {
+      const files = String(row.ATTACHMENT || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const names = String(row.ATTACHMENT_NAME || '').split(',').map((s) => s.trim());
+      return files.map((file, i) => ({
+        file,
+        name: names[i] || file,
+        url: attachmentPublicUrl(file),
+      }));
+    })(),
     dwtSummerCp: row.DWT_SUMMER_CP != null ? String(row.DWT_SUMMER_CP) : '',
     dwtTropicalCp: row.DWT_TROPICAL_CP != null ? String(row.DWT_TROPICAL_CP) : '',
     grainCapCp: row.GRAIN_CAP_CP != null ? String(row.GRAIN_CAP_CP) : '',

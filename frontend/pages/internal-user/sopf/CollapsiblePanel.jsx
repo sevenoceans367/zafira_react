@@ -12,6 +12,7 @@ export default function CollapsiblePanel({
   onOpenChange,
   actions = null,
   className = '',
+  icon = null,
   children,
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
@@ -40,6 +41,7 @@ export default function CollapsiblePanel({
           aria-expanded={open}
         >
           <span className={styles.panelChevron} aria-hidden>{open ? '▾' : '▸'}</span>
+          {icon ? <span className={styles.panelIcon} aria-hidden>{icon}</span> : null}
           <span>{title}</span>
         </button>
         {actions ? (

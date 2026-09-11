@@ -214,9 +214,14 @@
 
 .inputReadonly,
 .field input.inputReadonly,
-.field textarea.inputReadonly {
-  background: #e1e1e1;
-  color: #333;
+.field textarea.inputReadonly,
+.field input[readonly],
+.field textarea[readonly],
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  background: #f1f2f4 !important;
+  color: #5b6472 !important;
 }
 
 .viewFieldset {
@@ -840,6 +845,21 @@
   pointer-events: auto;
 }
 
+/* View mode — grey field chrome like mockup disabled inputs (#F1F2F4) */
+.viewModeLock .field input:not([type='checkbox']):not([type='file']),
+.viewModeLock .field select,
+.viewModeLock .field textarea,
+.viewModeLock .field > div:not(.dateRangePair) > button:first-child,
+.viewModeLock .dateRangePair input,
+.viewModeLock .miniTable input:not([type='checkbox']),
+.viewModeLock .miniTable select,
+.viewModeLock .miniTable textarea,
+.viewModeLock .tableCardSelect > div > button:first-child,
+.viewModeLock .connectBtn {
+  background: #f1f2f4 !important;
+  color: #5b6472 !important;
+}
+
 .modalHeader {
   display: flex;
   justify-content: space-between;
@@ -874,14 +894,152 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  overflow: hidden;
+  overflow: visible;
+}
+
+/*
+ * Form-kit control chrome inside TC Recap fields.
+ * Match shared FormControls (30px / 6px radius) so CardSelect, dates,
+ * vessel search, and native inputs share one height and layout.
+ */
+.estLhs .field {
+  align-items: stretch;
+}
+
+.estLhs .field > label {
+  min-height: 14px;
+  line-height: 1.2;
+}
+
+.estLhs .field input:not([type='checkbox']):not([type='file']),
+.estLhs .field select,
+.estLhs .field textarea {
+  width: 100%;
+  min-height: 30px;
+  height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: var(--border-radius-sm, 6px);
+  background: #fff;
+  color: var(--color-text-dark, #1f2937);
+  font-size: var(--font-size-body, 12px);
+  font-weight: 500;
+  line-height: 1.35;
+  box-sizing: border-box;
+  box-shadow: none;
+}
+
+.estLhs .field textarea {
+  height: auto;
+  min-height: 38px;
+}
+
+.estLhs .field select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+/* Must beat the :not([type]) white rule above (same or higher specificity) */
+.estLhs .field input:not([type='checkbox']):not([type='file']).inputReadonly,
+.estLhs .field input:not([type='checkbox']):not([type='file'])[readonly],
+.estLhs .field input:not([type='checkbox']):not([type='file']):disabled,
+.estLhs .field textarea.inputReadonly,
+.estLhs .field textarea[readonly],
+.estLhs .field textarea:disabled,
+.estLhs .field select:disabled {
+  background: #f1f2f4 !important;
+  color: #5b6472 !important;
+}
+
+/* CardSelect / PeriodConnect wrap — form field layout (not header filter pill) */
+.estLhs .field > div:not(.dateRangePair):not(.subCharterBadge) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+}
+
+.estLhs .field > div:not(.dateRangePair) > button:first-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 30px;
+  min-height: 30px;
+  margin: 0;
+  padding: 5px 8px 5px 10px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: var(--border-radius-sm, 6px);
+  background: #fff;
+  color: var(--color-text-dark, #1f2937);
+  font-size: var(--font-size-body, 12px);
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: none;
+  box-sizing: border-box;
+}
+
+.estLhs .field > div:not(.dateRangePair) > button:first-child:hover:not(:disabled) {
+  border-color: #c5cdd9;
+  background: #fff;
+  color: var(--color-text-dark, #1f2937);
+}
+
+.estLhs .field > div:not(.dateRangePair) > button:first-child:focus-visible {
+  border-color: var(--color-primary, #274670);
+  box-shadow: 0 0 0 2px rgba(39, 70, 112, 0.15);
+}
+
+.estLhs .field > div:not(.dateRangePair) > button:first-child:disabled {
+  opacity: 1;
+  background: #f1f2f4;
+  color: #5b6472;
+  cursor: not-allowed;
+}
+
+/* DmyDateInput — match form control height (module class is hashed) */
+.estLhs .field input,
+.estLhs .dateRangePair input {
+  width: 100%;
+  min-height: 30px;
+  height: 30px;
+  padding: 5px 8px;
+  border-radius: var(--border-radius-sm, 6px);
+  box-sizing: border-box;
+}
+
+.estLhs .field [data-estimate-field-wrap='vesselName'] input,
+.estLhs .field > div input {
+  width: 100%;
+  min-height: 30px;
+  height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: var(--border-radius-sm, 6px);
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.estLhs .field > div input[readonly],
+.estLhs .field > div input:disabled,
+.estLhs .dateRangePair input[readonly],
+.estLhs .dateRangePair input:disabled {
+  background: #f1f2f4;
+  color: #5b6472;
 }
 
 .estLhs :global(section) {
   min-width: 0;
   max-width: 100%;
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;
   margin-bottom: 0;
 }
 
@@ -900,7 +1058,7 @@
 }
 
 .estRhs {
-  width: 300px;
+  width: 336px;
   max-width: 100%;
   flex: none;
   position: sticky;
@@ -909,6 +1067,252 @@
   flex-direction: column;
   gap: 16px;
   align-self: flex-start;
+}
+
+/* TC Recap accordion cards — white card, teal section icon */
+.estCard {
+  background: #fff !important;
+  border: 1px solid #eceef2 !important;
+  border-radius: 14px !important;
+  overflow: visible !important;
+  margin-bottom: 0 !important;
+}
+
+.estCard :global(.panelHeader),
+.estLhs .estCard > div:first-child {
+  background: #fff !important;
+  border-bottom: 1px solid #eceef2;
+  padding: 16px 20px !important;
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  color: #1b2430 !important;
+}
+
+.estCard:hover > div:first-child {
+  background: #f1f2f4 !important;
+}
+
+.estCardBody {
+  padding: 2px 20px 20px;
+}
+
+.docsSectionStack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px 0 8px;
+}
+
+.subsectionCard {
+  background: #fafbfc;
+  border: 1px solid #eceef2;
+  border-radius: 12px;
+  padding: 4px 14px 10px;
+}
+
+.subsectionCardNoLabel {
+  margin-top: 18px;
+}
+
+.subBlockLabelPad {
+  margin-top: 20px;
+}
+
+.itineraryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px 16px;
+  margin-top: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.itineraryGrid textarea {
+  min-height: 38px;
+  resize: vertical;
+}
+
+.cpInfoGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 8px;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+}
+
+.cpInfoGrid > * {
+  min-width: 0;
+}
+
+.cpNarrowItem {
+  flex: 0 1 132px;
+  width: 132px;
+  max-width: 150px;
+}
+
+.cpChartererItem {
+  flex: 1 1 180px;
+  max-width: 240px;
+}
+
+.cpAddressItem {
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 300px;
+}
+
+.tcDetailsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 10px;
+  width: 100%;
+}
+
+.tcDetailsGrid > * {
+  flex: 1 1 110px;
+  min-width: 110px;
+  max-width: 100%;
+}
+
+.laycanWide {
+  flex: 1 1 250px !important;
+  min-width: 230px !important;
+}
+
+.opsPicItem {
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.lpcItem {
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.bgDirChip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-weight: 700;
+  background: #fdece4;
+  color: #f4652c;
+}
+
+/* Table CardSelect — same form-kit chrome as field dropdowns */
+.tableCardSelect {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tableCardSelect > div {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tableCardSelect > div > button:first-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 30px;
+  min-height: 30px;
+  margin: 0;
+  padding: 5px 8px 5px 10px;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: var(--border-radius-sm, 6px);
+  background: #fff;
+  color: var(--color-text-dark, #1f2937);
+  font-size: var(--font-size-body, 12px);
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: none;
+  box-sizing: border-box;
+}
+
+.tableCardSelect > div > button:first-child:hover:not(:disabled) {
+  border-color: #c5cdd9;
+  background: #fff;
+  color: var(--color-text-dark, #1f2937);
+}
+
+.tableCardSelect > div > button:first-child:disabled {
+  opacity: 1;
+  background: #f1f2f4;
+  color: #5b6472;
+  cursor: not-allowed;
+}
+
+/* Mockup bunker grade chips after selection */
+.chipGradeVlsfo > div > button:first-child {
+  background: #e3f4f4 !important;
+  color: #14919b !important;
+  font-weight: 700 !important;
+}
+
+.chipGradeLsmgo > div > button:first-child {
+  background: #f7edd9 !important;
+  color: #a9740b !important;
+  font-weight: 700 !important;
+}
+
+.chipGradeHsfo > div > button:first-child {
+  background: #eef0f3 !important;
+  color: #5b6472 !important;
+  font-weight: 700 !important;
+}
+
+.chipGradeHsflo > div > button:first-child {
+  background: #e5f0fe !important;
+  color: #3b82f6 !important;
+  font-weight: 700 !important;
+}
+
+.chipGradeScrubber > div > button:first-child {
+  background: #e6eaf1 !important;
+  color: #274670 !important;
+  font-weight: 700 !important;
+}
+
+/* Owner / Charterer expense chips */
+.chipOwnerWrap > div > button:first-child {
+  background: #e3f4f4 !important;
+  color: #14919b !important;
+  font-weight: 700 !important;
+}
+
+.chipChartererWrap > div > button:first-child {
+  background: #fdece4 !important;
+  color: #f4652c !important;
+  font-weight: 700 !important;
+}
+
+.resRowAccentOrange .resRowLabel {
+  color: #f4652c;
+  font-weight: 700;
+}
+
+.resRowAccentOrange .resRowVal {
+  background: #fdece4;
+  color: #f4652c;
+}
+
+.miniTable tfoot tr {
+  background: #e6eaf1;
+}
+
+.miniTable tfoot td {
+  font-weight: 700;
+  color: #274670;
+  border-bottom: none;
+  padding: 11px 10px;
+  border-top: 2px solid #d3dae7;
 }
 
 .denseGrid {
@@ -920,16 +1324,15 @@
 }
 
 .dense7 {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 10px;
-  grid-template-columns: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px 8px;
+  align-items: start;
 }
 
 .dense7 > * {
-  flex: 1 1 125px;
-  min-width: 125px;
-  max-width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 .dense9 {
@@ -945,6 +1348,105 @@
   line-height: 1.3;
 }
 
+.offhireList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.offhireItem {
+  margin-bottom: 0;
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+}
+
+.offhireItem:last-child {
+  margin-bottom: 0;
+}
+
+.offhireMain {
+  table-layout: fixed;
+  min-width: 760px;
+}
+
+.offhireMain th:nth-child(1),
+.offhireMain td:nth-child(1) {
+  width: 16%;
+}
+
+.offhireMain th:nth-child(2),
+.offhireMain td:nth-child(2) {
+  width: 24%;
+}
+
+.offhireMain th:nth-child(3),
+.offhireMain td:nth-child(3) {
+  width: 10%;
+}
+
+.offhireMain th:nth-child(4),
+.offhireMain td:nth-child(4) {
+  width: 12%;
+}
+
+.offhireMain th:nth-child(5),
+.offhireMain td:nth-child(5) {
+  width: 16%;
+}
+
+.offhireMain th:nth-child(6),
+.offhireMain td:nth-child(6) {
+  width: 12%;
+}
+
+.offhireMain th:nth-child(7),
+.offhireMain td:nth-child(7) {
+  width: 48px;
+}
+
+.offhireMain td {
+  vertical-align: top;
+  overflow: visible;
+}
+
+.offhireRange {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.offhireRange :global(input) {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.offhireBunkers {
+  padding-left: 2px;
+}
+
+.offhireBunkersInner {
+  background: #fff;
+  border: 1px solid var(--color-border, #eceef2);
+  border-radius: 10px;
+  padding: 2px 10px 8px;
+  margin-top: 10px;
+}
+
+.offhireBunkerTable {
+  margin-top: 0;
+}
+
+.offhireAddBunkersBtn {
+  margin-top: 8px;
+}
+
 .connectField {
   position: relative;
   width: 100%;
@@ -957,17 +1459,19 @@
   gap: 7px;
   width: 100%;
   background: #fff;
-  border: 1px solid #c9d4e4;
-  border-radius: 8px;
-  padding: 9px 11px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #5b6472;
+  border: 1px solid var(--color-border, #d9dee8);
+  border-radius: var(--border-radius-sm, 6px);
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-dark, #1f2937);
   cursor: pointer;
   font-family: inherit;
   box-sizing: border-box;
-  min-height: 36px;
+  min-height: 30px;
+  height: 30px;
   text-align: left;
+  box-shadow: none;
 }
 
 .connectBtn svg {
@@ -977,12 +1481,15 @@
 }
 
 .connectBtn:hover:not(:disabled) {
-  background: #f8fafc;
-  color: #4a5260;
+  border-color: #c5cdd9;
+  background: #fff;
+  color: var(--color-text-dark, #1f2937);
 }
 
 .connectBtn:disabled {
-  opacity: 0.7;
+  opacity: 1;
+  background: #f1f2f4;
+  color: #5b6472;
   cursor: not-allowed;
 }
 
@@ -1100,6 +1607,11 @@
 .dense7 .field,
 .dense9 .field {
   min-width: 0;
+  max-width: none;
+}
+
+.dense9 .field,
+.denseGrid .field {
   max-width: 100%;
 }
 
@@ -1124,7 +1636,9 @@
 }
 
 .dense7 .field label,
-.dense9 .field label {
+.dense9 .field label,
+.cpInfoGrid .field label,
+.tcDetailsGrid .field label {
   font-size: 9.5px;
 }
 
@@ -1447,13 +1961,7 @@
   text-align: center;
 }
 
-.miniTable tfoot td {
-  font-weight: 700;
-  background: #e8eef5;
-  border-bottom: none;
-  border-top: 2px solid var(--color-border, #e5e7eb);
-  color: var(--color-primary, #274670);
-}
+/* tfoot navy styling defined once above with .miniTable tfoot tr/td */
 
 .addRowBtn {
   display: inline-flex;
@@ -1481,11 +1989,42 @@
   width: 100%;
   max-width: 100%;
   min-height: 30px;
-  padding: 6px 8px;
+  height: 30px;
+  padding: 5px 8px;
   border: 1px solid var(--color-border, #d9dee8);
-  border-radius: 6px;
+  border-radius: var(--border-radius-sm, 6px);
   font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-dark, #1f2937);
+  background: #fff;
   box-sizing: border-box;
+  box-shadow: none;
+}
+
+.miniTable input.inputReadonly,
+.miniTable input[readonly],
+.miniTable input:disabled,
+.miniTable select:disabled,
+.miniTable textarea.inputReadonly,
+.miniTable textarea[readonly],
+.miniTable textarea:disabled {
+  background: #f1f2f4 !important;
+  color: #5b6472 !important;
+}
+
+.miniTable select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px 6px;
+  padding-right: 26px;
+  cursor: pointer;
+}
+
+.miniTable textarea {
+  height: auto;
+  min-height: 38px;
 }
 
 .miniTable input[type='checkbox'],
@@ -1522,6 +2061,18 @@
   }
 
   .dateRangePair {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1300px) {
+  .cpNarrowItem {
+    flex: 0 1 120px;
+    width: 120px;
+    max-width: 140px;
+  }
+
+  .itineraryGrid {
     grid-template-columns: 1fr;
   }
 }

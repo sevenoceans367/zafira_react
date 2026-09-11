@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { CardSelect, DmyDateInput, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
-import { appPath } from '@bainbridge/shared-routing';
+import { AttachmentDropzone, CardSelect, DmyDateInput, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
+import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { getUser } from '@bainbridge/shared-auth';
 import { useTcModule } from '../../../hooks/useTcModule.js';
 import {
+  calcTcTotals,
   createTcEstimate,
   daysBetween,
   downloadTcEstimatePdf,
@@ -28,6 +29,7 @@ import TcInExpensesModal, {
   EMPTY_TC_IN_BUNKER,
   EMPTY_TC_IN_HIRE,
   EMPTY_TC_IN_OFF,
+  calcTcInFinalHireage,
 } from './TcInExpensesModal.jsx';
 import styles from './TcPages.module.css';
 
@@ -41,13 +43,23 @@ function CancelIcon() {
 
 const EMPTY_BUNKER = { bunkerId: '', qty: '', price: '', amount: '', bunkerDate: '' };
 const EMPTY_HIRE = { delDate: '', reDelDate: '', days: '', hireRate: '', amount: '', randomId: '' };
-const EMPTY_OFF = { reason: '', from: '', to: '', days: '', hireRate: '', amount: '', bunkers: [] };
+const EMPTY_OFF = {
+  reason: '',
+  from: '',
+  to: '',
+  days: '',
+  hireRate: '',
+  amount: '',
+  vendorId: '',
+  bunkers: [],
+  bunkersOpen: false,
+};
 const EMPTY_OFF_BUNKER = { bunkerId: '', gradeName: '', qty: '', price: '', amount: '' };
 const EMPTY_EXPENSE = {
   expenseTypeId: '',
   description: '',
   notes: '',
-  addToTotal: true,
+  addToTotal: false,
   amount: '',
   vendorId: '',
 };
@@ -75,6 +87,157 @@ function CircleDelIcon() {
       <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
+}
+
+function SectionIcon({ children }) {
+  return children;
+}
+
+const SECTION_ICONS = {
+  identifiers: (
+    <SectionIcon>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+        <circle cx="8.5" cy="11" r="1.8" />
+        <path d="M6 16c0-1.7 1.2-2.8 2.5-2.8s2.5 1.1 2.5 2.8" />
+        <path d="M13.5 9.5h4M13.5 12.5h4" />
+      </svg>
+    </SectionIcon>
+  ),
+  cp: (
+    <SectionIcon>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M8 4.5h8v15l-2-1.3-2 1.3-2-1.3-2 1.3z" />
+        <path d="M10 8h4M10 11h4M10 14h2.5" />
+      </svg>
+    </SectionIcon>
+  ),
+  vessel: (
+    <SectionIcon>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 16l1.5-6h13L20 16c-1 1.5-3 2.5-8 2.5S5 17.5 4 16z" />
+        <path d="M9 10V5h6v5" />
+      </svg>
+    </SectionIcon>
+  ),
+  tcDetails: (
+    <SectionIcon>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    </SectionIcon>
+  ),
+  preTc: (
+    <SectionIcon>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 18h16" />
+        <path d="M6 18V9l6-4 6 4v9" />
+        <path d="M10 18v-5h4v5" />
+      </svg>
+    </SectionIcon>
+  ),
+  expenses: (
+    <SectionIcon>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M7 3.5h10v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4z" />
+        <path d="M9.5 8h5M9.5 11.5h5M9.5 15h3" />
+      </svg>
+    </SectionIcon>
+  ),
+  trip: (
+    <SectionIcon>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
+        <path d="M3.5 9.5h17" />
+        <path d="M8 3v3M16 3v3" />
+        <path d="M8 13.5h2M8 17h2M14 13.5h2M14 17h2" />
+      </svg>
+    </SectionIcon>
+  ),
+  bunkers: (
+    <SectionIcon>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 3s6 6.5 6 10.5a6 6 0 0 1-12 0C6 9.5 12 3 12 3z" />
+      </svg>
+    </SectionIcon>
+  ),
+  terms: (
+    <SectionIcon>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M15 9l-2 5-5 2 2-5z" />
+      </svg>
+    </SectionIcon>
+  ),
+  docs: (
+    <SectionIcon>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M8 12.5V7a4 4 0 0 1 8 0v9a2.5 2.5 0 0 1-5 0V8.5" />
+      </svg>
+    </SectionIcon>
+  ),
+};
+
+function ownerChipClass(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'owner') return `${styles.tableCardSelect} ${styles.chipOwnerWrap}`;
+  if (v === 'charterer') return `${styles.tableCardSelect} ${styles.chipChartererWrap}`;
+  return styles.tableCardSelect;
+}
+
+function gradeSelectClass(name) {
+  const upper = String(name || '').toUpperCase();
+  if (upper.includes('VLSFO')) return `${styles.tableCardSelect} ${styles.chipGradeVlsfo}`;
+  if (upper.includes('LSMGO') || upper.includes('MGO') || upper.includes('MDO')) {
+    return `${styles.tableCardSelect} ${styles.chipGradeLsmgo}`;
+  }
+  if (upper.includes('HSFLO')) return `${styles.tableCardSelect} ${styles.chipGradeHsflo}`;
+  if (upper.includes('HSFO')) return `${styles.tableCardSelect} ${styles.chipGradeHsfo}`;
+  if (upper.includes('SCRUB')) return `${styles.tableCardSelect} ${styles.chipGradeScrubber}`;
+  return styles.tableCardSelect;
+}
+
+const OWNER_CHARTERER_OPTIONS = [
+  { id: 'Owner', name: 'Owner' },
+  { id: 'Charterer', name: 'Charterer' },
+];
+
+function TableCardSelect({
+  options = [],
+  value,
+  onChange,
+  placeholder = 'Select',
+  disabled = false,
+  className = '',
+  id,
+  ariaLabel,
+}) {
+  return (
+    <div className={(className || styles.tableCardSelect).trim()}>
+      <CardSelect
+        id={id}
+        options={options}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        disabled={disabled}
+        align="start"
+        ariaLabel={ariaLabel || placeholder}
+        tone="muted"
+      />
+    </div>
+  );
+}
+
+const ADDRESS_NOT_FOUND = 'address not found';
+
+function resolveChartererAddress(lookups, chartererCode) {
+  const code = String(chartererCode || '').trim();
+  if (!code) return '';
+  const match = (lookups?.charterers || []).find((opt) => String(opt.id) === code);
+  const address = String(match?.address || '').trim();
+  return address || ADDRESS_NOT_FOUND;
 }
 
 function ConnectIcon() {
@@ -205,13 +368,6 @@ function PeriodConnectSelect({
   );
 }
 
-function gradeBadgeClass(name) {
-  const n = String(name || '').toLowerCase();
-  if (/vlsfo|vls/.test(n)) return 'vlsfo';
-  if (/lsmgo|mgo|mdo|lsm/.test(n)) return 'lsmgo';
-  return '';
-}
-
 function resolveHirePeriod(row = {}) {
   let days = Number(row.days) || 0;
   if (row.delDate && row.reDelDate) {
@@ -259,6 +415,26 @@ function collectOffHireBunkers(offHires = []) {
     for (const b of row.bunkers || []) nested.push({ ...EMPTY_OFF_BUNKER, ...b });
   }
   return nested;
+}
+
+/** Prefer nested bunkers on each off-hire; fall back to legacy flat grid on first row. */
+function mergeOffHiresForCalc(offHires, offHireBunkers) {
+  const legacyBunkers = (offHireBunkers || [])
+    .filter((row) => row.qty || row.price || row.bunkerId)
+    .map((row) => ({
+      bunkerId: row.bunkerId || '',
+      gradeName: row.gradeName || '',
+      qty: row.qty || '',
+      price: row.price || '',
+      amount: row.amount || '',
+    }));
+  const rows = (offHires?.length ? offHires : [{ ...EMPTY_OFF }]).map(resolveOffHire);
+  return rows.map((row, index) => {
+    const nested = (row.bunkers || []).filter((b) => b.qty || b.price || b.bunkerId);
+    if (nested.length) return { ...row, bunkers: nested };
+    if (index === 0 && legacyBunkers.length) return { ...row, bunkers: legacyBunkers };
+    return { ...row, bunkers: nested };
+  });
 }
 
 function emptyTcIn(detail = {}, calc = {}) {
@@ -322,9 +498,22 @@ function normalizeCapexFields(detail = {}) {
       hireRate: detail.hireFixPer || '',
     }].map(resolveHirePeriod);
   const offHires = detail.offHires?.length
-    ? detail.offHires.map((row) => resolveOffHire({ ...EMPTY_OFF, ...row }))
+    ? detail.offHires.map((row) => resolveOffHire({
+      ...EMPTY_OFF,
+      ...row,
+      bunkers: (row.bunkers || []).map((b) => ({ ...EMPTY_OFF_BUNKER, ...b })),
+      bunkersOpen: Boolean((row.bunkers || []).some((b) => b.qty || b.price || b.bunkerId)),
+    }))
     : [{ ...EMPTY_OFF }];
-  const offHireBunkers = collectOffHireBunkers(offHires);
+  const flatBunkers = collectOffHireBunkers(offHires);
+  // Legacy: if bunkers lived only on a flat grid, attach to first reason
+  if (flatBunkers.length && !(offHires[0]?.bunkers || []).length) {
+    offHires[0] = {
+      ...offHires[0],
+      bunkers: flatBunkers,
+      bunkersOpen: true,
+    };
+  }
   const contractType = detail.contractType
     || (detail.periodId ? 'tcinout' : 'tcout');
   return {
@@ -342,7 +531,7 @@ function normalizeCapexFields(detail = {}) {
       ? detail.otherExpenses.map((row) => ({ ...EMPTY_EXPENSE, ...row }))
       : [{ ...EMPTY_EXPENSE }],
     offHires,
-    offHireBunkers: offHireBunkers.length ? offHireBunkers : defaultOffHireBunkers(),
+    offHireBunkers: [],
     tcInExpenses: detail.tcInExpenses
       ? {
           ...emptyTcIn(detail, calc),
@@ -443,6 +632,7 @@ function emptyForm(businessTypeId = '2') {
     hireOptPer: '',
     fuelSpecs: '',
     cveMonth: '',
+    ballastBonus: '',
     supercargoMeals: '',
     holdCleanInter: '',
     ilohcUsd: '',
@@ -453,7 +643,8 @@ function emptyForm(businessTypeId = '2') {
     ownersBankDet: '',
     docCreatBy: '',
     additInform: '',
-    attachmentName: '',
+    attachments: [],
+    attachmentFiles: [],
     windForce: '',
     speedLaden: '',
     speedBallast: '',
@@ -506,7 +697,7 @@ function emptyForm(businessTypeId = '2') {
     otherIncome: [],
     otherExpenses: [{ ...EMPTY_EXPENSE }],
     offHires: [{ ...EMPTY_OFF }],
-    offHireBunkers: defaultOffHireBunkers(),
+    offHireBunkers: [],
     tcInExpenses: emptyTcIn(),
   };
 }
@@ -660,6 +851,36 @@ export default function TcFixtureFormPage({
     [form.itineraryExpenses],
   );
 
+  const otherIncomeTotal = useMemo(
+    () => (form.otherIncome || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+    [form.otherIncome],
+  );
+
+  const expensePartyTotals = useMemo(() => {
+    const sumParty = (rows, partyKey, party) => (rows || []).reduce((sum, row) => {
+      const type = String(row[partyKey] || '').toLowerCase();
+      if (type !== party) return sum;
+      return sum + (Number(row.amount) || 0);
+    }, 0);
+
+    // Pre-TC uses expenseType; TC Expenses uses notes for Owner/Charterer
+    const itineraryOwners = sumParty(form.itineraryExpenses, 'expenseType', 'owner');
+    const itineraryCharterers = sumParty(form.itineraryExpenses, 'expenseType', 'charterer');
+    const tcOwners = sumParty(form.otherExpenses, 'notes', 'owner');
+    const tcCharterers = sumParty(form.otherExpenses, 'notes', 'charterer');
+    const tcAddToTotal = (form.otherExpenses || []).reduce((sum, row) => {
+      if (row.addToTotal === false) return sum;
+      return sum + (Number(row.amount) || 0);
+    }, 0);
+
+    return {
+      refOwners: itineraryOwners + tcOwners,
+      refCharterers: itineraryCharterers + tcCharterers,
+      tcAddToTotal,
+      preTcTotal: itineraryOwners + itineraryCharterers,
+    };
+  }, [form.itineraryExpenses, form.otherExpenses]);
+
   const hirePeriodTotals = useMemo(() => {
     const rows = (form.hirePeriods || []).map(resolveHirePeriod);
     const totalDays = rows.reduce((sum, row) => sum + (Number(row.days) || 0), 0);
@@ -681,25 +902,92 @@ export default function TcFixtureFormPage({
     return (hire * exchange).toFixed(2);
   }, [form.durFixPer, form.exchangeRate, form.hireFixPer, hirePeriodTotals.rows]);
 
+  const tcInFinalHireage = useMemo(() => {
+    if (!showSubCharter || !form.tcInExpenses) {
+      return Number(form.calc?.tcFinalHireage) || 0;
+    }
+    const live = Number(calcTcInFinalHireage(form.tcInExpenses).finalHireage) || 0;
+    return live || Number(form.calc?.tcFinalHireage) || 0;
+  }, [form.tcInExpenses, form.calc?.tcFinalHireage, showSubCharter]);
+
   const tcResults = useMemo(() => {
     const calc = form.calc || {};
-    const totalRev = Number(calc.totalRev) || 0;
-    const lessOffHire = Number(calc.lessOffHire) || 0;
-    const nettTcRev = Number(calc.nettHireInvoice ?? calc.nettRev) || Math.max(totalRev - lessOffHire, 0);
-    const totalExp = Number(calc.totalExp) || itineraryExpenseTotal;
-    const profit = Number(calc.voyageEarn) || (totalRev - totalExp);
+    const hire = Number(form.hireFixPer) || 0;
+    const rate = Number(form.exchangeRate);
+    const exchange = Number.isFinite(rate) && rate !== 0 ? rate : 1;
+    const dailyGrossHire = calc.dailyGrossHire || String((hire * exchange).toFixed(2));
+
+    const hirePeriods = (form.hirePeriods?.length ? form.hirePeriods : [{ ...EMPTY_HIRE }]).map((row) => {
+      const resolved = resolveHirePeriod(row);
+      if (Number(resolved.hireRate) || resolved.delDate || resolved.reDelDate) return resolved;
+      // Seed empty trip row from TC Details hire / period
+      return resolveHirePeriod({
+        ...resolved,
+        delDate: resolved.delDate || form.delDate || '',
+        reDelDate: resolved.reDelDate || form.reDelDate || '',
+        days: resolved.days || form.durFixPer || '',
+        hireRate: resolved.hireRate || form.hireFixPer || dailyGrossHire || '',
+      });
+    });
+
+    const voyageExp = expensePartyTotals.tcAddToTotal + tcInFinalHireage;
+    const totals = calcTcTotals({
+      ...calc,
+      dailyGrossHire,
+      tcDays: form.durFixPer || calc.tcDays || '',
+      addCommPct: form.addComm ?? calc.addCommPct,
+      brokerCommPct: form.brokerComm ?? calc.brokerCommPct,
+      ballastBonus: form.ballastBonus ?? calc.ballastBonus ?? '',
+      cveMonth: form.cveMonth ?? calc.cveMonth,
+      ilohcAmt: form.ilohcUsd ?? calc.ilohcAmt,
+      hirePeriods,
+      deliveryBunkers: form.deliveryBunkers,
+      redeliveryBunkers: form.redeliveryBunkers,
+      offHires: mergeOffHiresForCalc(form.offHires, form.offHireBunkers),
+      otherIncome: otherIncomeTotal,
+      totalExp: voyageExp,
+    });
+
+    const totalRev = Number(totals.totalRev) || 0;
+    const lessOffHire = Number(totals.lessOffHire) || 0;
+    const nettTcRev = Number(totals.nettHireInvoice) || 0;
+    const totalExp = voyageExp + itineraryExpenseTotal;
+    // Voyage earn excludes Pre-TC; Adj line deducts Pre-TC from that profit
+    const profit = Number(totals.voyageEarn) || (totalRev - voyageExp);
     const profitAdjPreTc = profit - itineraryExpenseTotal;
+
     return {
-      totalRev: formatResult(calc.totalRev ?? totalRev),
-      lessOffHire: formatResult(calc.lessOffHire ?? lessOffHire),
+      totalRev: formatResult(totalRev),
+      lessOffHire: formatResult(lessOffHire),
       nettTcRev: formatResult(nettTcRev),
-      refCharterers: formatResult(calc.refCharterers),
-      refOwners: formatResult(calc.refOwners),
-      totalExp: formatResult(calc.totalExp ?? totalExp),
-      profit: formatResult(calc.voyageEarn ?? profit),
+      refCharterers: formatResult(expensePartyTotals.refCharterers),
+      refOwners: formatResult(expensePartyTotals.refOwners),
+      totalExp: formatResult(totalExp),
+      profit: formatResult(profit),
       profitAdjPreTc: formatResult(profitAdjPreTc),
     };
-  }, [form.calc, itineraryExpenseTotal]);
+  }, [
+    form.calc,
+    form.hireFixPer,
+    form.exchangeRate,
+    form.hirePeriods,
+    form.delDate,
+    form.reDelDate,
+    form.durFixPer,
+    form.addComm,
+    form.brokerComm,
+    form.ballastBonus,
+    form.cveMonth,
+    form.ilohcUsd,
+    form.deliveryBunkers,
+    form.redeliveryBunkers,
+    form.offHires,
+    form.offHireBunkers,
+    otherIncomeTotal,
+    expensePartyTotals,
+    itineraryExpenseTotal,
+    tcInFinalHireage,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -714,10 +1002,6 @@ export default function TcFixtureFormPage({
         setBusinessTypes(types?.businessTypes || types || []);
         setForm((prev) => {
           let next = prev;
-          const hasFilledOffBunker = (prev.offHireBunkers || []).some((row) => row.qty || row.price || row.bunkerId);
-          if (!hasFilledOffBunker) {
-            next = { ...next, offHireBunkers: defaultOffHireBunkers(data?.bunkers) };
-          }
           if (mode === 'add') {
             const sessionUser = getUser();
             const sessionId = sessionUser?.id != null ? String(sessionUser.id) : '';
@@ -730,6 +1014,12 @@ export default function TcFixtureFormPage({
                 charOperation: next.charOperation || sessionId,
               };
             }
+          }
+          if (next.charterer) {
+            next = {
+              ...next,
+              charOperAdd: resolveChartererAddress(data, next.charterer),
+            };
           }
           return next;
         });
@@ -776,6 +1066,12 @@ export default function TcFixtureFormPage({
           ...emptyForm(detail.businessTypeId || '2'),
           ...detail,
           fixtureType: detail.fixtureType || '1',
+          ballastBonus: detail.calc?.ballastBonus || detail.ballastBonus || '',
+          attachments: (detail.attachments || []).map((item) => ({
+            ...item,
+            url: item.url || attachmentUrl(item.file),
+          })),
+          attachmentFiles: [],
           deliveryBunkers: detail.deliveryBunkers?.length ? detail.deliveryBunkers : [{ ...EMPTY_BUNKER }],
           redeliveryBunkers: detail.redeliveryBunkers?.length ? detail.redeliveryBunkers : [{ ...EMPTY_BUNKER }],
           foConsumptions: detail.foConsumptions || [],
@@ -805,6 +1101,17 @@ export default function TcFixtureFormPage({
     return () => { cancelled = true; };
   }, [mode, tcOutId]);
 
+  useEffect(() => {
+    if (!lookups) return;
+    setForm((prev) => {
+      if (!prev.charterer) {
+        return prev.charOperAdd ? { ...prev, charOperAdd: '' } : prev;
+      }
+      const nextAddress = resolveChartererAddress(lookups, prev.charterer);
+      return prev.charOperAdd === nextAddress ? prev : { ...prev, charOperAdd: nextAddress };
+    });
+  }, [lookups, form.charterer]);
+
   const setField = (key, value) => {
     if (readOnly) return;
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -817,6 +1124,10 @@ export default function TcFixtureFormPage({
       const next = { ...rows[index], [key]: value };
       if (key === 'qty' || key === 'price') {
         next.amount = bunkerAmount(key === 'qty' ? value : next.qty, key === 'price' ? value : next.price);
+      }
+      if (key === 'bunkerId') {
+        const match = (lookups?.bunkers || []).find((opt) => String(opt.id) === String(value));
+        next.gradeName = match?.name || '';
       }
       rows[index] = next;
       return { ...prev, [kind]: rows };
@@ -903,6 +1214,8 @@ export default function TcFixtureFormPage({
         .map(resolveHirePeriod);
       const firstHire = hirePeriods[0] || {};
       const offHires = mergeOffHiresForSave(form.offHires, form.offHireBunkers);
+      const attachments = form.attachments || [];
+      const attachmentFiles = form.attachmentFiles || [];
       const payload = {
         ...form,
         fixtureType: form.fixtureType || '1',
@@ -913,13 +1226,17 @@ export default function TcFixtureFormPage({
         hirePeriods,
         offHires,
         otherExpenses: form.otherExpenses || [],
+        keepAttachment: attachments.map((item) => item.file).filter(Boolean).join(','),
+        keepAttachmentName: attachments.map((item) => item.name || item.file).filter(Boolean).join(','),
       };
+      delete payload.attachmentFiles;
+      delete payload.attachments;
       let savedId = tcOutId;
       if (mode === 'add') {
-        const created = await createTcEstimate(payload);
+        const created = await createTcEstimate(payload, attachmentFiles);
         savedId = created.tcOutId;
       } else {
-        await updateTcEstimate(tcOutId, payload);
+        await updateTcEstimate(tcOutId, payload, attachmentFiles);
       }
 
       // Capex/itinerary/tcIn persist only via calculate endpoint — merge existing calc children.
@@ -932,6 +1249,11 @@ export default function TcFixtureFormPage({
       await saveTcCalculation(savedId, {
         calc: {
           ...(existing?.calc || form.calc || {}),
+          ballastBonus: form.ballastBonus ?? '',
+          cveMonth: form.cveMonth ?? '',
+          ilohcAmt: form.ilohcUsd ?? '',
+          addCommPct: form.addComm ?? '',
+          brokerCommPct: form.brokerComm ?? '',
           tcCpDate: form.tcInExpenses?.cpDate || '',
           tcCpNumber: form.tcInExpenses?.contractRef || form.tcNo || '',
           tcDeliveryPort: form.tcInExpenses?.deliveryPort || form.delRangePort || '',
@@ -1021,9 +1343,103 @@ export default function TcFixtureFormPage({
     }
     setForm((prev) => ({
       ...prev,
-      offHires: [...(prev.offHires || []), { ...EMPTY_OFF }],
+      offHires: [
+        ...(prev.offHires || []),
+        resolveOffHire({
+          ...EMPTY_OFF,
+          hireRate: prev.hireFixPer || '',
+        }),
+      ],
     }));
   };
+
+  const syncFixtureFromHirePeriods = (periods) => {
+    const first = resolveHirePeriod(periods[0] || {});
+    return {
+      delDate: first.delDate || '',
+      reDelDate: first.reDelDate || '',
+      durFixPer: first.days || '',
+      hireFixPer: first.hireRate || '',
+    };
+  };
+
+  const patchHirePeriod = (index, patch) => {
+    if (readOnly) return;
+    setForm((prev) => {
+      const next = updateRow(prev.hirePeriods || [{ ...EMPTY_HIRE }], index, patch).map(resolveHirePeriod);
+      return {
+        ...prev,
+        hirePeriods: next,
+        ...syncFixtureFromHirePeriods(next),
+      };
+    });
+  };
+
+  const patchOffHire = (index, patch) => {
+    if (readOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      offHires: updateRow(prev.offHires || [{ ...EMPTY_OFF }], index, patch).map(resolveOffHire),
+    }));
+  };
+
+  const patchOffHireNestedBunker = (offIndex, bunkerIndex, patch) => {
+    if (readOnly) return;
+    setForm((prev) => {
+      const offHires = [...(prev.offHires || [{ ...EMPTY_OFF }])];
+      const offRow = { ...offHires[offIndex] };
+      const bunkers = updateRow(offRow.bunkers || [], bunkerIndex, patch).map((row) => {
+        const qty = Number(row.qty) || 0;
+        const price = Number(row.price) || 0;
+        return { ...row, amount: (qty || price) ? (qty * price).toFixed(2) : '' };
+      });
+      offHires[offIndex] = resolveOffHire({ ...offRow, bunkers });
+      return { ...prev, offHires };
+    });
+  };
+
+  const addOffHireBunkers = (offIndex) => {
+    if (readOnly) return;
+    setForm((prev) => {
+      const offHires = [...(prev.offHires || [{ ...EMPTY_OFF }])];
+      const offRow = { ...offHires[offIndex] };
+      const existing = offRow.bunkers || [];
+      const nextBunkers = existing.length
+        ? [...existing, { ...EMPTY_OFF_BUNKER }]
+        : defaultOffHireBunkers(lookups?.bunkers);
+      offHires[offIndex] = {
+        ...offRow,
+        bunkers: nextBunkers,
+        bunkersOpen: true,
+      };
+      return { ...prev, offHires };
+    });
+  };
+
+  const removeOffHireBunker = (offIndex, bunkerIndex) => {
+    if (readOnly) return;
+    setForm((prev) => {
+      const offHires = [...(prev.offHires || [{ ...EMPTY_OFF }])];
+      const offRow = { ...offHires[offIndex] };
+      const bunkers = (offRow.bunkers || []).filter((_, i) => i !== bunkerIndex);
+      offHires[offIndex] = {
+        ...offRow,
+        bunkers,
+        bunkersOpen: bunkers.length > 0 ? offRow.bunkersOpen : false,
+      };
+      return { ...prev, offHires };
+    });
+  };
+
+  const patchOtherExpense = (index, patch) => {
+    if (readOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      otherExpenses: updateRow(prev.otherExpenses || [{ ...EMPTY_EXPENSE }], index, patch),
+    }));
+  };
+
+  const mergeOffHiresForSave = (offHires, offHireBunkers) => mergeOffHiresForCalc(offHires, offHireBunkers);
 
   const addOtherExpense = async () => {
     if (readOnly) return;
@@ -1070,72 +1486,6 @@ export default function TcFixtureFormPage({
     }
   };
 
-  const syncFixtureFromHirePeriods = (periods) => {
-    const first = resolveHirePeriod(periods[0] || {});
-    return {
-      delDate: first.delDate || '',
-      reDelDate: first.reDelDate || '',
-      durFixPer: first.days || '',
-      hireFixPer: first.hireRate || '',
-    };
-  };
-
-  const patchHirePeriod = (index, patch) => {
-    if (readOnly) return;
-    setForm((prev) => {
-      const next = updateRow(prev.hirePeriods || [{ ...EMPTY_HIRE }], index, patch).map(resolveHirePeriod);
-      return {
-        ...prev,
-        hirePeriods: next,
-        ...syncFixtureFromHirePeriods(next),
-      };
-    });
-  };
-
-  const patchOffHire = (index, patch) => {
-    if (readOnly) return;
-    setForm((prev) => ({
-      ...prev,
-      offHires: updateRow(prev.offHires || [{ ...EMPTY_OFF }], index, patch).map(resolveOffHire),
-    }));
-  };
-
-  const patchOffHireBunker = (index, patch) => {
-    if (readOnly) return;
-    setForm((prev) => {
-      const rows = updateRow(prev.offHireBunkers || defaultOffHireBunkers(lookups?.bunkers), index, patch);
-      const next = rows.map((row) => {
-        const qty = Number(row.qty) || 0;
-        const price = Number(row.price) || 0;
-        return { ...row, amount: (qty || price) ? (qty * price).toFixed(2) : '' };
-      });
-      return { ...prev, offHireBunkers: next };
-    });
-  };
-
-  const patchOtherExpense = (index, patch) => {
-    if (readOnly) return;
-    setForm((prev) => ({
-      ...prev,
-      otherExpenses: updateRow(prev.otherExpenses || [{ ...EMPTY_EXPENSE }], index, patch),
-    }));
-  };
-
-  const mergeOffHiresForSave = (offHires, offHireBunkers) => {
-    const bunkers = (offHireBunkers || [])
-      .filter((row) => row.qty || row.price || row.bunkerId)
-      .map((row) => ({
-        bunkerId: row.bunkerId || '',
-        gradeName: row.gradeName || '',
-        qty: row.qty || '',
-        price: row.price || '',
-        amount: row.amount || '',
-      }));
-    const rows = (offHires?.length ? offHires : [{ ...EMPTY_OFF }]).map(resolveOffHire);
-    if (!bunkers.length) return rows;
-    return rows.map((row, index) => (index === 0 ? { ...row, bunkers } : row));
-  };
-
   const handleGeneratePdf = async () => {
     if (mode === 'add' || !tcOutId || pdfLoading) return;
     setPdfLoading(true);
@@ -1149,61 +1499,50 @@ export default function TcFixtureFormPage({
     }
   };
 
-  const renderBunkerTable = (kind, label) => (
+  const renderBunkerTable = (kind, labelNode) => (
     <div className={styles.bunkerBlock}>
-      <div className={`${styles.subBlockLabel} ${kind === 'deliveryBunkers' ? styles.subBlockLabelFirst : ''}`.trim()}>{label}</div>
+      <div className={`${styles.subBlockLabel} ${kind === 'deliveryBunkers' ? `${styles.subBlockLabelFirst} ${styles.subBlockLabelPad}` : ''}`.trim()}>
+        {labelNode}
+      </div>
+      <div className={styles.subsectionCard}>
       <div className={styles.miniTableWrap}>
         <table className={styles.miniTable}>
           <thead>
             <tr>
               <th>Bunker Grade</th>
               <th>Qty (MT)</th>
+              <th>Price (/MT)</th>
               <th>Bunker Date</th>
-              <th>Price USD/MT</th>
-              <th>Amount (USD)</th>
+              <th>Amount</th>
               <th style={{ width: 64 }} />
             </tr>
           </thead>
           <tbody>
             {(form[kind] || []).map((row, index) => {
-              const gradeName = (lookups?.bunkers || []).find((opt) => String(opt.id) === String(row.bunkerId))?.name || '';
-              const badge = gradeBadgeClass(gradeName);
+              const gradeName = (lookups?.bunkers || []).find((opt) => String(opt.id) === String(row.bunkerId))?.name
+                || row.gradeName
+                || '';
               const bunkerIdPrefix = kind === 'deliveryBunkers' ? 'delBunker' : 'reDelBunker';
               return (
                 <tr key={`${kind}-${index}`}>
                   <td>
-                    {badge ? (
-                      <span className={`${styles.gradeBadge} ${styles[badge]}`}>{gradeName}</span>
-                    ) : null}
-                    <select
+                    <TableCardSelect
                       id={index === 0 ? bunkerIdPrefix + '_0' : undefined}
+                      options={[
+                        ...(lookups?.bunkers || []),
+                        ...(row.bunkerId != null
+                          && String(row.bunkerId).trim() !== ''
+                          && !(lookups?.bunkers || []).some((opt) => String(opt.id) === String(row.bunkerId))
+                          ? [{ id: String(row.bunkerId), name: gradeName || `Grade #${row.bunkerId}` }]
+                          : []),
+                      ]}
                       value={row.bunkerId != null ? String(row.bunkerId) : ''}
-                      onChange={(e) => updateBunker(kind, index, 'bunkerId', e.target.value)}
+                      onChange={(v) => updateBunker(kind, index, 'bunkerId', v)}
                       disabled={readOnly}
-                      className={badge ? styles.srOnly : undefined}
-                      aria-label="Bunker grade"
-                    >
-                      <option value="">Select</option>
-                      {(lookups?.bunkers || []).map((opt) => (
-                        <option key={String(opt.id)} value={String(opt.id)}>{opt.name}</option>
-                      ))}
-                      {row.bunkerId != null
-                        && String(row.bunkerId).trim() !== ''
-                        && !(lookups?.bunkers || []).some((opt) => String(opt.id) === String(row.bunkerId))
-                        ? (
-                          <option value={String(row.bunkerId)}>{`Grade #${row.bunkerId}`}</option>
-                        )
-                        : null}
-                    </select>
-                    {badge && !readOnly ? (
-                      <button
-                        type="button"
-                        className={styles.linkBtn}
-                        onClick={() => updateBunker(kind, index, 'bunkerId', '')}
-                      >
-                        Change
-                      </button>
-                    ) : null}
+                      className={gradeSelectClass(gradeName)}
+                      placeholder="Select"
+                      ariaLabel="Bunker grade"
+                    />
                   </td>
                   <td>
                     <input
@@ -1216,14 +1555,6 @@ export default function TcFixtureFormPage({
                     />
                   </td>
                   <td>
-                    <DmyDateInput
-                      id={index === 0 ? `${bunkerIdPrefix}Date_0` : undefined}
-                      value={row.bunkerDate || ''}
-                      onChange={(value) => updateBunker(kind, index, 'bunkerDate', value)}
-                      disabled={readOnly}
-                    />
-                  </td>
-                  <td>
                     <input
                       id={index === 0 ? `${bunkerIdPrefix}Price_0` : undefined}
                       value={row.price || ''}
@@ -1231,6 +1562,14 @@ export default function TcFixtureFormPage({
                       placeholder="0.00"
                       readOnly={readOnly}
                       className={readOnly ? styles.inputReadonly : undefined}
+                    />
+                  </td>
+                  <td>
+                    <DmyDateInput
+                      id={index === 0 ? `${bunkerIdPrefix}Date_0` : undefined}
+                      value={row.bunkerDate || ''}
+                      onChange={(value) => updateBunker(kind, index, 'bunkerDate', value)}
+                      disabled={readOnly}
                     />
                   </td>
                   <td>
@@ -1271,6 +1610,7 @@ export default function TcFixtureFormPage({
           </tfoot>
         </table>
       </div>
+      </div>
     </div>
   );
 
@@ -1297,7 +1637,8 @@ export default function TcFixtureFormPage({
       <form onSubmit={handleSubmit}>
           <div className={`${styles.estLayout} ${readOnly ? styles.viewModeLock : ''}`.trim()}>
             <div className={styles.estLhs}>
-              <CollapsiblePanel title="Recap Identifiers" defaultOpen>
+
+              <CollapsiblePanel title="Recap Identifiers" defaultOpen className={styles.estCard} icon={SECTION_ICONS.identifiers}>
                 <div className={`${styles.denseGrid} ${styles.dense7}`}>
                   <Field label="Contract Type">
                     <CardSelect
@@ -1378,7 +1719,7 @@ export default function TcFixtureFormPage({
                       ariaLabel="Chartering PIC"
                     />
                   </Field>
-                  <Field label="Ops PIC">
+                  <Field label="Ops PIC" className={styles.opsPicItem}>
                     <CardSelect
                       options={lookups?.charteringPics || []}
                       value={form.charOperation}
@@ -1387,7 +1728,7 @@ export default function TcFixtureFormPage({
                       ariaLabel="Ops PIC"
                     />
                   </Field>
-                  <Field label="Link Period CTT">
+                  <Field label="Link Period Contract" className={styles.lpcItem}>
                     <PeriodConnectSelect
                       options={lookups?.periodContracts || []}
                       value={form.periodId}
@@ -1399,10 +1740,9 @@ export default function TcFixtureFormPage({
                 </div>
                 <input type="hidden" value={form.fixtureType || '1'} readOnly />
               </CollapsiblePanel>
-
-              <CollapsiblePanel title="CP Information" defaultOpen={false}>
-                <div className={styles.denseGrid}>
-                  <Field label="CP Type">
+              <CollapsiblePanel title="CP Information" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.cp}>
+                <div className={styles.cpInfoGrid}>
+                  <Field label="CP Type" className={styles.cpNarrowItem}>
                     <CardSelect
                       options={lookups?.cpTypes || []}
                       value={form.cpType}
@@ -1411,7 +1751,7 @@ export default function TcFixtureFormPage({
                       ariaLabel="CP type"
                     />
                   </Field>
-                  <Field label="Law / Arbitration">
+                  <Field label="Law / Arbitration" className={styles.cpNarrowItem}>
                     <CardSelect
                       options={lookups?.lawArbitration || []}
                       value={form.lawArbit}
@@ -1420,29 +1760,34 @@ export default function TcFixtureFormPage({
                       ariaLabel="Law arbitration"
                     />
                   </Field>
-                  <Field label="Charterers" id="charterer">
+                  <Field label="Charterers" id="charterer" className={styles.cpChartererItem}>
                     <CardSelect
                       id="charterer"
                       options={lookups?.charterers || []}
                       value={form.charterer}
-                      onChange={(v) => setField('charterer', v)}
+                      onChange={(v) => {
+                        if (readOnly) return;
+                        setForm((prev) => ({
+                          ...prev,
+                          charterer: v,
+                          charOperAdd: resolveChartererAddress(lookups, v),
+                        }));
+                      }}
                       placeholder="Select charterer"
                       ariaLabel="Charterer"
                     />
                   </Field>
-                  <Field label="Charterers' Address" className={styles.span2}>
+                  <Field label="Charterers' Address" className={styles.cpAddressItem}>
                     <input
                       value={form.charOperAdd || ''}
-                      onChange={(e) => setField('charOperAdd', e.target.value)}
                       readOnly
                       className={styles.inputReadonly}
-                      placeholder="Display from master data"
+                      placeholder="Display from Vendor"
                     />
                   </Field>
                 </div>
               </CollapsiblePanel>
-
-              <CollapsiblePanel title="Vessel Particulars" defaultOpen={false}>
+              <CollapsiblePanel title="Vessel Particulars" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.vessel}>
                 <div className={`${styles.denseGrid} ${styles.dense9}`}>
                   <TextInput label="Master's Name" value={form.mastersName} onChange={(v) => setField('mastersName', v)} />
                   <TextInput label="Yard" value={form.buildYard} readOnly />
@@ -1476,10 +1821,9 @@ export default function TcFixtureFormPage({
                   ) : null}
                 </div>
               </CollapsiblePanel>
-
-              <CollapsiblePanel title="TC Details" defaultOpen>
-                <div className={styles.denseGrid}>
-                  <Field label="Laycan From/To" className={styles.span2}>
+              <CollapsiblePanel title="TC Details" defaultOpen className={styles.estCard} icon={SECTION_ICONS.tcDetails}>
+                <div className={styles.tcDetailsGrid}>
+                  <Field label="Laycan From/To" className={styles.laycanWide}>
                     <div className={styles.dateRangePair}>
                       <DmyDateInput
                         id="laycanFrom"
@@ -1510,6 +1854,12 @@ export default function TcFixtureFormPage({
                   <TextInput label="X-rate to USD" value={form.exchangeRate} onChange={(v) => setField('exchangeRate', v)} />
                   <TextInput id="delRangePort" label="Del Port/Range" value={form.delRangePort} onChange={(v) => setField('delRangePort', v)} />
                   <TextInput id="reDelRange" label="Re-Del Port/Range" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
+                  <TextInput
+                    id="ballastBonus"
+                    label="Ballast Bonus ($)"
+                    value={form.ballastBonus}
+                    onChange={(v) => setField('ballastBonus', v)}
+                  />
                   <TextInput label="CVE/Month ($)" value={form.cveMonth} onChange={(v) => setField('cveMonth', v)} />
                   <TextInput id="ilohcUsd" label="ILOHC" value={form.ilohcUsd} onChange={(v) => setField('ilohcUsd', v)} />
                   <TextInput label="AD Comm (%)" value={form.addComm} onChange={(v) => setField('addComm', v)} />
@@ -1526,9 +1876,284 @@ export default function TcFixtureFormPage({
                   </Field>
                 </div>
               </CollapsiblePanel>
+              <CollapsiblePanel title="Pre-TC Details" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.preTc}>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst} ${styles.subBlockLabelPad}`}>Itinerary</div>
+                <div className={styles.itineraryGrid}>
+                  <TextInput
+                    label="From"
+                    value={form.itinerary?.from?.place || ''}
+                    onChange={(v) => patchItinerary('from', 'place', v)}
+                  />
+                  <DateField
+                    label="Date/Time"
+                    value={form.itinerary?.from?.date || ''}
+                    onChange={(v) => patchItinerary('from', 'date', v)}
+                  />
+                  <Field label="Notes">
+                    <textarea
+                      value={form.itinerary?.from?.notes || ''}
+                      onChange={(e) => patchItinerary('from', 'notes', e.target.value)}
+                      placeholder="Notes..."
+                      readOnly={readOnly}
+                      className={readOnly ? styles.inputReadonly : undefined}
+                      rows={2}
+                    />
+                  </Field>
+                  <TextInput
+                    label="To"
+                    value={form.itinerary?.to?.place || ''}
+                    onChange={(v) => patchItinerary('to', 'place', v)}
+                  />
+                  <DateField
+                    label="Date/Time"
+                    value={form.itinerary?.to?.date || ''}
+                    onChange={(v) => patchItinerary('to', 'date', v)}
+                  />
+                  <Field label="Notes">
+                    <textarea
+                      value={form.itinerary?.to?.notes || ''}
+                      onChange={(e) => patchItinerary('to', 'notes', e.target.value)}
+                      placeholder="Notes..."
+                      readOnly={readOnly}
+                      className={readOnly ? styles.inputReadonly : undefined}
+                      rows={2}
+                    />
+                  </Field>
+                </div>
 
-              <CollapsiblePanel title="Trip Details" defaultOpen>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Trip Schedule</div>
+                <div className={styles.subBlockLabel}>Expenses</div>
+                <div className={styles.subsectionCard}>
+                <div className={styles.miniTableWrap}>
+                <table className={styles.miniTable}>
+                  <thead>
+                    <tr>
+                      <th>Expense Type</th>
+                      <th>Expense Description</th>
+                      <th>Amount (USD)</th>
+                      <th>Notes</th>
+                      <th style={{ width: 64 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(form.itineraryExpenses || []).map((row, index) => (
+                      <tr key={`itin-exp-${index}`}>
+                        <td>
+                          <TableCardSelect
+                            options={OWNER_CHARTERER_OPTIONS}
+                            value={row.expenseType || ''}
+                            onChange={(v) => patchItinExpense(index, { expenseType: v })}
+                            disabled={readOnly}
+                            className={ownerChipClass(row.expenseType)}
+                            placeholder="Select"
+                            ariaLabel="Expense type"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={row.description || ''}
+                            onChange={(e) => patchItinExpense(index, { description: e.target.value })}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={row.amount || ''}
+                            onChange={(e) => patchItinExpense(index, { amount: e.target.value })}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                            placeholder="0.00"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={row.notes || ''}
+                            onChange={(e) => patchItinExpense(index, { notes: e.target.value })}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                            placeholder="Notes"
+                          />
+                        </td>
+                        <td>
+                          {!readOnly ? (
+                            <div className={styles.rowIconActions}>
+                              <button
+                                type="button"
+                                className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
+                                title="Add expense"
+                                onClick={addItinExpense}
+                              >
+                                <CircleAddIcon />
+                              </button>
+                              <button
+                                type="button"
+                                className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                title="Delete row"
+                                onClick={() => removeItinExpense(index)}
+                              >
+                                <CircleDelIcon />
+                              </button>
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={2} style={{ textAlign: 'right' }}>Total (USD)</td>
+                      <td>{itineraryExpenseTotal.toFixed(2)}</td>
+                      <td />
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+                </div>
+                </div>
+              </CollapsiblePanel>
+              <CollapsiblePanel title="TC Expenses" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.expenses}>
+                <div className={`${styles.subsectionCard} ${styles.subsectionCardNoLabel}`}>
+                <div className={styles.miniTableWrap}>
+                  <table className={`${styles.miniTable} ${styles.miniTableCenter}`}>
+                    <thead>
+                      <tr>
+                        <th>Expense Desc.</th>
+                        <th>Expense Type</th>
+                        <th>Notes</th>
+                        <th>Add to TTL</th>
+                        <th>Expense Amt</th>
+                        <th>Vendor</th>
+                        <th style={{ width: 64 }} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(form.otherExpenses?.length ? form.otherExpenses : [{ ...EMPTY_EXPENSE }]).map((row, index) => (
+                        <tr key={`exp-${index}`}>
+                          <td>
+                            <TableCardSelect
+                              options={lookups?.expenseTypes || []}
+                              value={row.expenseTypeId || ''}
+                              onChange={(v) => {
+                                const match = (lookups?.expenseTypes || []).find((opt) => String(opt.id) === String(v));
+                                patchOtherExpense(index, {
+                                  expenseTypeId: v,
+                                  description: match?.name || row.description || '',
+                                });
+                              }}
+                              disabled={readOnly}
+                              placeholder="Select from"
+                              ariaLabel="Expense description"
+                            />
+                          </td>
+                          <td>
+                            <TableCardSelect
+                              options={OWNER_CHARTERER_OPTIONS}
+                              value={row.notes || ''}
+                              onChange={(v) => {
+                                const isOwner = String(v || '').toLowerCase() === 'owner';
+                                patchOtherExpense(index, {
+                                  notes: v,
+                                  // Add to TTL only applies to Owner expenses
+                                  addToTotal: isOwner,
+                                });
+                              }}
+                              disabled={readOnly}
+                              className={ownerChipClass(row.notes)}
+                              placeholder="Select from"
+                              ariaLabel="Expense type"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              value={row.description || ''}
+                              onChange={(e) => patchOtherExpense(index, { description: e.target.value })}
+                              placeholder="Expense Desc."
+                              readOnly={readOnly}
+                              className={readOnly ? styles.inputReadonly : undefined}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="checkbox"
+                              className={styles.expenseChk}
+                              checked={String(row.notes || '').toLowerCase() === 'owner' && row.addToTotal !== false}
+                              onChange={(e) => patchOtherExpense(index, { addToTotal: e.target.checked })}
+                              disabled={readOnly || String(row.notes || '').toLowerCase() !== 'owner'}
+                              title={
+                                String(row.notes || '').toLowerCase() === 'owner'
+                                  ? 'Add to total'
+                                  : 'Add to TTL is only available for Owner expenses'
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              value={row.amount || ''}
+                              onChange={(e) => patchOtherExpense(index, { amount: e.target.value })}
+                              placeholder="0.00"
+                              readOnly={readOnly}
+                              className={readOnly ? styles.inputReadonly : undefined}
+                            />
+                          </td>
+                          <td>
+                            <TableCardSelect
+                              options={lookups?.vendors || []}
+                              value={row.vendorId || ''}
+                              onChange={(v) => patchOtherExpense(index, { vendorId: v })}
+                              disabled={readOnly}
+                              placeholder="Select from"
+                              ariaLabel="Vendor"
+                            />
+                          </td>
+                          <td>
+                            {!readOnly ? (
+                              <div className={styles.rowIconActions}>
+                                <button
+                                  type="button"
+                                  className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
+                                  title="Add expense"
+                                  onClick={addOtherExpense}
+                                >
+                                  <CircleAddIcon />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                  title="Delete row"
+                                  onClick={() => setForm((prev) => ({
+                                    ...prev,
+                                    otherExpenses: (prev.otherExpenses || []).length > 1
+                                      ? prev.otherExpenses.filter((_, i) => i !== index)
+                                      : [{ ...EMPTY_EXPENSE }],
+                                  }))}
+                                >
+                                  <CircleDelIcon />
+                                </button>
+                              </div>
+                            ) : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                </div>
+                {showSubCharter ? (
+                  <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
+                    <button
+                      type="button"
+                      className={`${styles.addRowBtn} ${styles.addRowBtnSubCharter}`}
+                      onClick={() => setTcInOpen(true)}
+                    >
+                      <CircleAddIcon />
+                      Add Sub-Charter Expense
+                    </button>
+                  </div>
+                ) : null}
+              </CollapsiblePanel>
+              <CollapsiblePanel title="Trip Details" defaultOpen className={styles.estCard} icon={SECTION_ICONS.trip}>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst} ${styles.subBlockLabelPad}`}>Trip Schedule</div>
+                <div className={styles.subsectionCard}>
                 <div className={styles.miniTableWrap}>
                   <table className={styles.miniTable}>
                     <thead>
@@ -1628,168 +2253,228 @@ export default function TcFixtureFormPage({
                     </tfoot>
                   </table>
                 </div>
-
-                <div className={styles.subBlockLabel}>Off Hire</div>
-                <div className={styles.miniTableWrap}>
-                  <table className={styles.miniTable}>
-                    <thead>
-                      <tr>
-                        <th>Reason</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th>Days</th>
-                        <th>Rate/Day</th>
-                        <th style={{ width: 64 }} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(form.offHires?.length ? form.offHires : [{ ...EMPTY_OFF }]).map((row, index) => (
-                        <tr key={`off-${index}`}>
-                          <td>
-                            <input
-                              value={row.reason || ''}
-                              onChange={(e) => patchOffHire(index, { reason: e.target.value })}
-                              placeholder="Description"
-                              readOnly={readOnly}
-                              className={readOnly ? styles.inputReadonly : undefined}
-                            />
-                          </td>
-                          <td>
-                            <DmyDateInput
-                              value={row.from || ''}
-                              onChange={(v) => patchOffHire(index, { from: v })}
-                              enableTime
-                              disabled={readOnly}
-                            />
-                          </td>
-                          <td>
-                            <DmyDateInput
-                              value={row.to || ''}
-                              onChange={(v) => patchOffHire(index, { to: v })}
-                              enableTime
-                              disabled={readOnly}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              value={row.days || ''}
-                              onChange={(e) => patchOffHire(index, { days: e.target.value })}
-                              readOnly={readOnly}
-                              className={readOnly ? styles.inputReadonly : undefined}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              value={row.hireRate || ''}
-                              onChange={(e) => patchOffHire(index, { hireRate: e.target.value })}
-                              readOnly={readOnly}
-                              className={readOnly ? styles.inputReadonly : undefined}
-                            />
-                          </td>
-                          <td>
-                            {!readOnly ? (
-                              <div className={styles.rowIconActions}>
-                                <button
-                                  type="button"
-                                  className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
-                                  title="Add off hire"
-                                  onClick={addOffHire}
-                                >
-                                  <CircleAddIcon />
-                                </button>
-                                <button
-                                  type="button"
-                                  className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                                  title="Delete row"
-                                  onClick={() => setForm((prev) => ({
-                                    ...prev,
-                                    offHires: (prev.offHires || []).length > 1
-                                      ? prev.offHires.filter((_, i) => i !== index)
-                                      : [{ ...EMPTY_OFF }],
-                                  }))}
-                                >
-                                  <CircleDelIcon />
-                                </button>
-                              </div>
-                            ) : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 </div>
-
-                <div className={styles.subBlockLabel}>Off Hire Bunkers</div>
-                <div className={styles.miniTableWrap}>
-                  <table className={styles.miniTable}>
-                    <thead>
-                      <tr>
-                        <th>Grade</th>
-                        <th>Qty (MT)</th>
-                        <th>Price (USD/MT)</th>
-                        <th>Amt (USD)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(form.offHireBunkers?.length ? form.offHireBunkers : defaultOffHireBunkers(lookups?.bunkers)).map((row, index) => {
-                        const badge = gradeBadgeClass(row.gradeName);
-                        return (
-                          <tr key={`ohb-${index}`}>
-                            <td>
-                              {badge ? (
-                                <span className={`${styles.gradeBadge} ${styles[badge]}`}>{row.gradeName || '—'}</span>
-                              ) : (
-                                <select
-                                  value={row.bunkerId || ''}
-                                  onChange={(e) => {
-                                    const match = (lookups?.bunkers || []).find((b) => String(b.id) === e.target.value);
-                                    patchOffHireBunker(index, {
-                                      bunkerId: e.target.value,
-                                      gradeName: match?.name || '',
-                                    });
-                                  }}
-                                  disabled={readOnly}
-                                >
-                                  <option value="">Select</option>
-                                  {(lookups?.bunkers || []).map((opt) => (
-                                    <option key={String(opt.id)} value={String(opt.id)}>{opt.name}</option>
-                                  ))}
-                                </select>
-                              )}
-                            </td>
-                            <td>
-                              <input
-                                value={row.qty || ''}
-                                onChange={(e) => patchOffHireBunker(index, { qty: e.target.value })}
-                                readOnly={readOnly}
-                                className={readOnly ? styles.inputReadonly : undefined}
-                              />
-                            </td>
-                            <td>
-                              <input
-                                value={row.price || ''}
-                                onChange={(e) => patchOffHireBunker(index, { price: e.target.value })}
-                                readOnly={readOnly}
-                                className={readOnly ? styles.inputReadonly : undefined}
-                              />
-                            </td>
-                            <td>
-                              <input value={row.amount || ''} readOnly className={styles.inputReadonly} />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPad}`}>Off Hire</div>
+                <div className={styles.offhireList}>
+                  {(form.offHires?.length ? form.offHires : [{ ...EMPTY_OFF }]).map((row, index) => {
+                    const resolved = resolveOffHire(row);
+                    const showBunkers = row.bunkersOpen || (row.bunkers || []).length > 0;
+                    return (
+                      <div key={`off-${index}`} className={`${styles.offhireItem} ${styles.subsectionCard}`}>
+                        <div className={styles.miniTableWrap}>
+                          <table className={`${styles.miniTable} ${styles.offhireMain}`}>
+                            <thead>
+                              <tr>
+                                <th>Reason</th>
+                                <th>From → To</th>
+                                <th>Days</th>
+                                <th>Rate/Day</th>
+                                <th>Vendor</th>
+                                <th>Amount</th>
+                                <th style={{ width: 44 }} />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td>
+                                  <input
+                                    value={row.reason || ''}
+                                    onChange={(e) => patchOffHire(index, { reason: e.target.value })}
+                                    placeholder="Description"
+                                    readOnly={readOnly}
+                                    className={readOnly ? styles.inputReadonly : undefined}
+                                  />
+                                </td>
+                                <td>
+                                  <div className={styles.offhireRange}>
+                                    <DmyDateInput
+                                      value={row.from || ''}
+                                      onChange={(v) => patchOffHire(index, { from: v })}
+                                      enableTime
+                                      disabled={readOnly}
+                                    />
+                                    <DmyDateInput
+                                      value={row.to || ''}
+                                      onChange={(v) => patchOffHire(index, { to: v })}
+                                      enableTime
+                                      disabled={readOnly}
+                                    />
+                                  </div>
+                                </td>
+                                <td>
+                                  <input
+                                    value={resolved.days || ''}
+                                    onChange={(e) => patchOffHire(index, { days: e.target.value })}
+                                    readOnly={readOnly || Boolean(row.from && row.to)}
+                                    className={(readOnly || (row.from && row.to)) ? styles.inputReadonly : undefined}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    value={row.hireRate || ''}
+                                    onChange={(e) => patchOffHire(index, { hireRate: e.target.value })}
+                                    readOnly={readOnly}
+                                    className={readOnly ? styles.inputReadonly : undefined}
+                                  />
+                                </td>
+                                <td>
+                                  <TableCardSelect
+                                    options={lookups?.vendors || []}
+                                    value={row.vendorId || ''}
+                                    onChange={(v) => patchOffHire(index, { vendorId: v })}
+                                    disabled={readOnly}
+                                    placeholder="Select"
+                                    ariaLabel="Off hire vendor"
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    value={resolved.amount || ''}
+                                    readOnly
+                                    className={styles.inputReadonly}
+                                  />
+                                </td>
+                                <td>
+                                  {!readOnly ? (
+                                    <div className={styles.rowIconActions}>
+                                      <button
+                                        type="button"
+                                        className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                        title="Delete this off-hire item"
+                                        onClick={() => setForm((prev) => ({
+                                          ...prev,
+                                          offHires: (prev.offHires || []).length > 1
+                                            ? prev.offHires.filter((_, i) => i !== index)
+                                            : [{ ...EMPTY_OFF }],
+                                        }))}
+                                      >
+                                        <CircleDelIcon />
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className={styles.offhireBunkers}>
+                          {showBunkers ? (
+                            <div className={styles.offhireBunkersInner}>
+                              <table className={`${styles.miniTable} ${styles.offhireBunkerTable}`}>
+                                <thead>
+                                  <tr>
+                                    <th>Grade</th>
+                                    <th>Qty (MT)</th>
+                                    <th>Price (/MT)</th>
+                                    <th>Amt</th>
+                                    <th style={{ width: 44 }} />
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(row.bunkers?.length ? row.bunkers : [{ ...EMPTY_OFF_BUNKER }]).map((bunker, bIndex) => {
+                                    const gradeName = bunker.gradeName
+                                      || (lookups?.bunkers || []).find((b) => String(b.id) === String(bunker.bunkerId))?.name
+                                      || '';
+                                    return (
+                                      <tr key={`ohb-${index}-${bIndex}`}>
+                                        <td>
+                                          <TableCardSelect
+                                            options={[
+                                              ...(lookups?.bunkers || []),
+                                              ...(bunker.bunkerId
+                                                && !(lookups?.bunkers || []).some((b) => String(b.id) === String(bunker.bunkerId))
+                                                ? [{ id: String(bunker.bunkerId), name: gradeName || `Grade #${bunker.bunkerId}` }]
+                                                : []),
+                                            ]}
+                                            value={bunker.bunkerId || ''}
+                                            onChange={(v) => {
+                                              const match = (lookups?.bunkers || []).find((b) => String(b.id) === String(v));
+                                              patchOffHireNestedBunker(index, bIndex, {
+                                                bunkerId: v,
+                                                gradeName: match?.name || '',
+                                              });
+                                            }}
+                                            disabled={readOnly}
+                                            className={gradeSelectClass(gradeName)}
+                                            placeholder="Select"
+                                            ariaLabel="Off hire bunker grade"
+                                          />
+                                        </td>
+                                        <td>
+                                          <input
+                                            value={bunker.qty || ''}
+                                            onChange={(e) => patchOffHireNestedBunker(index, bIndex, { qty: e.target.value })}
+                                            readOnly={readOnly}
+                                            className={readOnly ? styles.inputReadonly : undefined}
+                                          />
+                                        </td>
+                                        <td>
+                                          <input
+                                            value={bunker.price || ''}
+                                            onChange={(e) => patchOffHireNestedBunker(index, bIndex, { price: e.target.value })}
+                                            readOnly={readOnly}
+                                            className={readOnly ? styles.inputReadonly : undefined}
+                                          />
+                                        </td>
+                                        <td>
+                                          <input value={bunker.amount || ''} readOnly className={styles.inputReadonly} />
+                                        </td>
+                                        <td>
+                                          {!readOnly ? (
+                                            <div className={styles.rowIconActions}>
+                                              <button
+                                                type="button"
+                                                className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                                title="Delete bunker row"
+                                                onClick={() => removeOffHireBunker(index, bIndex)}
+                                              >
+                                                <CircleDelIcon />
+                                              </button>
+                                            </div>
+                                          ) : null}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : null}
+                          {!readOnly ? (
+                            <button
+                              type="button"
+                              className={`${styles.addRowBtn} ${styles.offhireAddBunkersBtn}`}
+                              onClick={() => addOffHireBunkers(index)}
+                            >
+                              + Add Bunkers
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+                {!readOnly ? (
+                  <button
+                    type="button"
+                    className={styles.addRowBtn}
+                    onClick={addOffHire}
+                  >
+                    + Add Reason
+                  </button>
+                ) : null}
               </CollapsiblePanel>
-
-              <CollapsiblePanel title="Bunkers" defaultOpen={false}>
-                {renderBunkerTable('deliveryBunkers', 'Bunker Grades → Delivery')}
-                {renderBunkerTable('redeliveryBunkers', 'Bunker Grades → Re-Delivery')}
+              <CollapsiblePanel title="Bunkers" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.bunkers}>
+                {renderBunkerTable(
+                  'deliveryBunkers',
+                  <>Bunkers on <span className={styles.bgDirChip}>Delivery</span></>,
+                )}
+                {renderBunkerTable(
+                  'redeliveryBunkers',
+                  <>Bunkers on <span className={styles.bgDirChip}>Redelivery</span></>,
+                )}
               </CollapsiblePanel>
-
-              <CollapsiblePanel title="TC Terms for Voyage" defaultOpen={false}>
+              <CollapsiblePanel title="TC Terms for Voyage" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.terms}>
                 <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Sea Passage</div>
                 <div className={styles.denseGrid}>
                   <TextInput label="Wind Force" value={form.windForce} onChange={(v) => setField('windForce', v)} />
@@ -1813,322 +2498,62 @@ export default function TcFixtureFormPage({
                   <TextInput label="Disch Rate (MT/day)" value={form.dischRate} onChange={(v) => setField('dischRate', v)} />
                 </div>
               </CollapsiblePanel>
-
-              <CollapsiblePanel title="Expenses" defaultOpen={false}>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>TC Expense</div>
-                <div className={styles.miniTableWrap}>
-                  <table className={`${styles.miniTable} ${styles.miniTableCenter}`}>
-                    <thead>
-                      <tr>
-                        <th>Expense Desc.</th>
-                        <th>Expense Type</th>
-                        <th>Notes</th>
-                        <th>Add to TTL</th>
-                        <th>Expense Amt</th>
-                        <th>Vendor</th>
-                        <th style={{ width: 64 }} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(form.otherExpenses?.length ? form.otherExpenses : [{ ...EMPTY_EXPENSE }]).map((row, index) => (
-                        <tr key={`exp-${index}`}>
-                          <td>
-                            <select
-                              value={row.expenseTypeId || ''}
-                              onChange={(e) => {
-                                const match = (lookups?.expenseTypes || []).find((opt) => String(opt.id) === e.target.value);
-                                patchOtherExpense(index, {
-                                  expenseTypeId: e.target.value,
-                                  description: match?.name || row.description || '',
-                                });
-                              }}
-                              disabled={readOnly}
-                            >
-                              <option value="">Select from</option>
-                              {(lookups?.expenseTypes || []).map((opt) => (
-                                <option key={String(opt.id)} value={String(opt.id)}>{opt.name}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td>
-                            <select
-                              value={row.notes || ''}
-                              onChange={(e) => patchOtherExpense(index, { notes: e.target.value })}
-                              disabled={readOnly}
-                            >
-                              <option value="">Select from</option>
-                              <option value="Owner">Owner</option>
-                              <option value="Charterer">Charterer</option>
-                            </select>
-                          </td>
-                          <td>
-                            <input
-                              value={row.description || ''}
-                              onChange={(e) => patchOtherExpense(index, { description: e.target.value })}
-                              placeholder="Expense Desc."
-                              readOnly={readOnly}
-                              className={readOnly ? styles.inputReadonly : undefined}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="checkbox"
-                              className={styles.expenseChk}
-                              checked={row.addToTotal !== false}
-                              onChange={(e) => patchOtherExpense(index, { addToTotal: e.target.checked })}
-                              disabled={readOnly}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              value={row.amount || ''}
-                              onChange={(e) => patchOtherExpense(index, { amount: e.target.value })}
-                              placeholder="0.00"
-                              readOnly={readOnly}
-                              className={readOnly ? styles.inputReadonly : undefined}
-                            />
-                          </td>
-                          <td>
-                            <select
-                              value={row.vendorId || ''}
-                              onChange={(e) => patchOtherExpense(index, { vendorId: e.target.value })}
-                              disabled={readOnly}
-                            >
-                              <option value="">Select from</option>
-                              {(lookups?.vendors || []).map((opt) => (
-                                <option key={String(opt.id)} value={String(opt.id)}>{opt.name}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td>
-                            {!readOnly ? (
-                              <div className={styles.rowIconActions}>
-                                <button
-                                  type="button"
-                                  className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
-                                  title="Add expense"
-                                  onClick={addOtherExpense}
-                                >
-                                  <CircleAddIcon />
-                                </button>
-                                <button
-                                  type="button"
-                                  className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                                  title="Delete row"
-                                  onClick={() => setForm((prev) => ({
-                                    ...prev,
-                                    otherExpenses: (prev.otherExpenses || []).length > 1
-                                      ? prev.otherExpenses.filter((_, i) => i !== index)
-                                      : [{ ...EMPTY_EXPENSE }],
-                                  }))}
-                                >
-                                  <CircleDelIcon />
-                                </button>
-                              </div>
-                            ) : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
-                  <button
-                    type="button"
-                    className={`${styles.addRowBtn} ${showSubCharter ? styles.addRowBtnSubCharter : ''}`}
-                    onClick={() => setTcInOpen(true)}
-                  >
-                    <CircleAddIcon />
-                    {showSubCharter ? 'Add Sub-Charter Expense' : 'TC In Expenses'}
-                  </button>
-                </div>
-              </CollapsiblePanel>
-
-              <CollapsiblePanel title="Pre-TC Details" defaultOpen={false}>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Itinerary</div>
-                <div className={styles.denseGrid}>
-                  <TextInput
-                    label="From"
-                    value={form.itinerary?.from?.place || ''}
-                    onChange={(v) => patchItinerary('from', 'place', v)}
-                  />
-                  <DateField
-                    label="Date/Time"
-                    value={form.itinerary?.from?.date || ''}
-                    onChange={(v) => patchItinerary('from', 'date', v)}
-                  />
-                  <Field label="Notes">
-                    <textarea
-                      value={form.itinerary?.from?.notes || ''}
-                      onChange={(e) => patchItinerary('from', 'notes', e.target.value)}
-                      placeholder="Notes..."
-                      readOnly={readOnly}
-                      className={readOnly ? styles.inputReadonly : undefined}
-                      rows={2}
-                    />
-                  </Field>
-                  <TextInput
-                    label="To"
-                    value={form.itinerary?.to?.place || ''}
-                    onChange={(v) => patchItinerary('to', 'place', v)}
-                  />
-                  <DateField
-                    label="Date/Time"
-                    value={form.itinerary?.to?.date || ''}
-                    onChange={(v) => patchItinerary('to', 'date', v)}
-                  />
-                  <Field label="Notes">
-                    <textarea
-                      value={form.itinerary?.to?.notes || ''}
-                      onChange={(e) => patchItinerary('to', 'notes', e.target.value)}
-                      placeholder="Notes..."
-                      readOnly={readOnly}
-                      className={readOnly ? styles.inputReadonly : undefined}
-                      rows={2}
-                    />
-                  </Field>
-                </div>
-
-                <div className={styles.subBlockLabel}>Expenses</div>
-                <div className={styles.miniTableWrap}>
-                <table className={styles.miniTable}>
-                  <thead>
-                    <tr>
-                      <th>Expense Type</th>
-                      <th>Expense Description</th>
-                      <th>Amount (USD)</th>
-                      <th>Notes</th>
-                      <th style={{ width: 64 }} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(form.itineraryExpenses || []).map((row, index) => (
-                      <tr key={`itin-exp-${index}`}>
-                        <td>
-                          <select
-                            value={row.expenseType || ''}
-                            onChange={(e) => patchItinExpense(index, { expenseType: e.target.value })}
-                            disabled={readOnly}
-                          >
-                            <option value="">Select</option>
-                            <option value="Owner">Owner</option>
-                            <option value="Charterer">Charterer</option>
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            value={row.description || ''}
-                            onChange={(e) => patchItinExpense(index, { description: e.target.value })}
-                            readOnly={readOnly}
-                            className={readOnly ? styles.inputReadonly : undefined}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            value={row.amount || ''}
-                            onChange={(e) => patchItinExpense(index, { amount: e.target.value })}
-                            readOnly={readOnly}
-                            className={readOnly ? styles.inputReadonly : undefined}
-                            placeholder="0.00"
-                          />
-                        </td>
-                        <td>
-                          <input
-                            value={row.notes || ''}
-                            onChange={(e) => patchItinExpense(index, { notes: e.target.value })}
-                            readOnly={readOnly}
-                            className={readOnly ? styles.inputReadonly : undefined}
-                            placeholder="Notes"
-                          />
-                        </td>
-                        <td>
-                          {!readOnly ? (
-                            <div className={styles.rowIconActions}>
-                              <button
-                                type="button"
-                                className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
-                                title="Add expense"
-                                onClick={addItinExpense}
-                              >
-                                <CircleAddIcon />
-                              </button>
-                              <button
-                                type="button"
-                                className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                                title="Delete row"
-                                onClick={() => removeItinExpense(index)}
-                              >
-                                <CircleDelIcon />
-                              </button>
-                            </div>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colSpan={2} style={{ textAlign: 'right' }}>Total (USD)</td>
-                      <td>{itineraryExpenseTotal.toFixed(2)}</td>
-                      <td />
-                      <td />
-                    </tr>
-                  </tfoot>
-                </table>
-                </div>
-              </CollapsiblePanel>
-
-              <CollapsiblePanel title="Additional Info and Documents" defaultOpen={false}>
-                <div className={styles.denseGrid}>
-                  <Field label="Addnl Info" className={styles.span2}>
-                    <input
-                      value={form.additInform || ''}
-                      onChange={(e) => setField('additInform', e.target.value)}
-                      placeholder="Description"
-                      readOnly={readOnly}
-                      className={readOnly ? styles.inputReadonly : undefined}
-                    />
-                  </Field>
-                </div>
-                <label className={`${styles.dropzone} ${readOnly ? styles.inputReadonly : ''}`.trim()}>
-                  <div className={styles.dropzoneIcon} aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 16V4" />
-                      <path d="M6 10l6-6 6 6" />
-                      <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-                    </svg>
+              <CollapsiblePanel title="Additional Info & Documents" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.docs}>
+                <div className={styles.docsSectionStack}>
+                  <div className={styles.denseGrid}>
+                    <Field label="More Info" className={styles.span2}>
+                      <input
+                        value={form.additInform || ''}
+                        onChange={(e) => setField('additInform', e.target.value)}
+                        placeholder="Description"
+                        readOnly={readOnly}
+                        className={readOnly ? styles.inputReadonly : undefined}
+                      />
+                    </Field>
                   </div>
-                  <div className={styles.dropzoneText}>
-                    <b>Drag &amp; drop files here</b>, or click to browse
-                    {form.attachmentName ? <span className={styles.dropzoneFile}> — {form.attachmentName}</span> : null}
-                  </div>
-                  {!readOnly ? (
-                    <input
-                      type="file"
-                      className={styles.dropzoneInput}
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        setField('attachmentName', file?.name || '');
-                      }}
-                    />
-                  ) : null}
-                </label>
+                  <AttachmentDropzone
+                    readOnly={readOnly}
+                    files={form.attachmentFiles || []}
+                    existing={(form.attachments || []).map((item) => ({
+                      ...item,
+                      url: item.url || attachmentUrl(item.file),
+                    }))}
+                    onAddFiles={(added) => {
+                      setForm((prev) => ({
+                        ...prev,
+                        attachmentFiles: [...(prev.attachmentFiles || []), ...added],
+                      }));
+                    }}
+                    onRemoveFile={(index) => {
+                      setForm((prev) => ({
+                        ...prev,
+                        attachmentFiles: (prev.attachmentFiles || []).filter((_, i) => i !== index),
+                      }));
+                    }}
+                    onRemoveExisting={(_item, index) => {
+                      setForm((prev) => ({
+                        ...prev,
+                        attachments: (prev.attachments || []).filter((_, i) => i !== index),
+                      }));
+                    }}
+                  />
+                </div>
               </CollapsiblePanel>
             </div>
 
-            <aside className={styles.estRhs}>
+                        <aside className={styles.estRhs}>
               <div className={styles.resultsBlock}>
                 <div className={styles.resultsHead}>Revenue</div>
                 <div className={styles.resultsBody}>
                   <div className={`${styles.resRow} ${styles.resRowAccent}`}>
-                    <span className={styles.resRowLabel}>Total TC Rev</span>
+                    <span className={styles.resRowLabel}>Total Revenue</span>
                     <span className={styles.resRowVal}>{tcResults.totalRev}</span>
                   </div>
                   <div className={styles.resRow}>
                     <span className={styles.resRowLabel}>Less - Off Hire (Incl. Bunkers)</span>
                     <span className={styles.resRowVal}>{tcResults.lessOffHire}</span>
                   </div>
-                  <div className={styles.resRow}>
+                  <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
                     <span className={styles.resRowLabel}>Net TC Rev</span>
                     <span className={styles.resRowVal}>{tcResults.nettTcRev}</span>
                   </div>
@@ -2146,7 +2571,7 @@ export default function TcFixtureFormPage({
                     <span className={styles.resRowLabel}>Owner's Acc</span>
                     <span className={styles.resRowVal}>{tcResults.refOwners}</span>
                   </div>
-                  <div className={styles.resRow}>
+                  <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
                     <span className={styles.resRowLabel}>Total Exp (Incl. Pre TC)</span>
                     <span className={styles.resRowVal}>{tcResults.totalExp}</span>
                   </div>
@@ -2156,7 +2581,7 @@ export default function TcFixtureFormPage({
               <div className={styles.resultsBlock}>
                 <div className={styles.resultsHead}>P&amp;L</div>
                 <div className={styles.resultsBody}>
-                  <div className={`${styles.resRow} ${styles.resRowAccent}`}>
+                  <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
                     <span className={styles.resRowLabel}>Total Profit</span>
                     <span className={styles.resRowVal}>{tcResults.profit}</span>
                   </div>

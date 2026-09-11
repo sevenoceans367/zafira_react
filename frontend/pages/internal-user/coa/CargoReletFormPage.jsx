@@ -1,6 +1,6 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { DmyDateInput, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
+import { AttachmentDropzone, DmyDateInput, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { fetchCommercialParameters } from '../../../services/commercialParameters.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
@@ -87,43 +87,6 @@ function ReletIcon() {
       <line x1="15" y1="15" x2="21" y2="21" />
       <line x1="4" y1="4" x2="9" y2="9" />
     </svg>
-  );
-}
-
-function CircleDeleteButton({ onClick, title = 'Remove' }) {
-  return (
-    <button
-      type="button"
-      className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-      title={title}
-      onClick={onClick}
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-        <path d="M18 6 6 18" />
-        <path d="M6 6l12 12" />
-      </svg>
-    </button>
-  );
-}
-
-function PendingFileRow({ file, onRemove }) {
-  const href = useMemo(() => URL.createObjectURL(file), [file]);
-  useEffect(() => () => URL.revokeObjectURL(href), [href]);
-  return (
-    <div className={styles.fileRow}>
-      <a
-        className={styles.fileName}
-        href={href}
-        download={file.name}
-        target="_blank"
-        rel="noreferrer"
-        onClick={(event) => event.stopPropagation()}
-      >
-        {file.name}
-      </a>
-      <span className={styles.filePending}>(pending)</span>
-      <CircleDeleteButton onClick={onRemove} />
-    </div>
   );
 }
 
@@ -446,8 +409,6 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pendingFiles, setPendingFiles] = useState([]);
-  const [dropActive, setDropActive] = useState(false);
-  const attachInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -631,10 +592,9 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
     return next;
   });
 
-  const addPendingFiles = (fileList) => {
-    const next = Array.from(fileList || []);
-    if (!next.length) return;
-    setPendingFiles((prev) => [...prev, ...next]);
+  const addPendingFiles = (added) => {
+    if (!added?.length) return;
+    setPendingFiles((prev) => [...prev, ...added]);
   };
 
   const removePendingFile = (index) => {
@@ -1187,67 +1147,14 @@ export default function CargoReletFormPage({ mode = 'edit' }) {
                   </div>
                 </div>
                 <div className={styles.docsSectionBody}>
-                  <input
-                    ref={attachInputRef}
-                    className={styles.hiddenFileInput}
-                    type="file"
-                    multiple
-                    onChange={(event) => {
-                      addPendingFiles(event.target.files);
-                      event.target.value = '';
-                    }}
+                  <AttachmentDropzone
+                    files={pendingFiles}
+                    existing={!pendingFiles.length && form.attachmentName
+                      ? [{ name: form.attachmentName }]
+                      : []}
+                    onAddFiles={addPendingFiles}
+                    onRemoveFile={removePendingFile}
                   />
-                  <div
-                    className={dropActive ? `${styles.dropzone} ${styles.dropzoneActive}` : styles.dropzone}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => attachInputRef.current?.click()}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        attachInputRef.current?.click();
-                      }
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDropActive(true);
-                    }}
-                    onDragLeave={() => setDropActive(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDropActive(false);
-                      addPendingFiles(e.dataTransfer?.files);
-                    }}
-                  >
-                    <div className={styles.dropzoneIcon}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M12 16V4" />
-                        <path d="M6 10l6-6 6 6" />
-                        <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-                      </svg>
-                    </div>
-                    <div className={styles.dropzoneText}>
-                      <b>Drag &amp; drop files here</b>, or click to browse
-                    </div>
-                  </div>
-
-                  {pendingFiles.length ? (
-                    <div className={styles.fileList}>
-                      {pendingFiles.map((file, index) => (
-                        <PendingFileRow
-                          key={`pending-${file.name}-${index}`}
-                          file={file}
-                          onRemove={() => removePendingFile(index)}
-                        />
-                      ))}
-                    </div>
-                  ) : form.attachmentName ? (
-                    <div className={styles.fileList}>
-                      <div className={styles.fileRow}>
-                        <span className={styles.fileName}>{form.attachmentName}</span>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               </div>
             </>

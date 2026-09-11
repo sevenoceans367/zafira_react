@@ -142,23 +142,20 @@ async function fetchColumn(pool, id) {
       cost: num(row.DISC_PORT_COST),
     }));
 
-  const transitPorts = transitPortRows
-    .filter((row) => num(row.TRANSIT_PORT_COST) !== 0)
-    .map((row, index) => ({
-      key: `tp-${index + 1}`,
-      portId: String(row.FROM_PORT ?? ''),
-      portName: portLabel(row.PortName),
-      cost: num(row.TRANSIT_PORT_COST),
-    }));
+  // Keep TP/BP rows even when cost is 0 so the UI can show empty input chips.
+  const transitPorts = transitPortRows.map((row, index) => ({
+    key: `tp-${index + 1}`,
+    portId: String(row.FROM_PORT ?? ''),
+    portName: portLabel(row.PortName),
+    cost: num(row.TRANSIT_PORT_COST),
+  }));
 
-  const bunkeringPorts = bunkeringPortRows
-    .filter((row) => num(row.TRANSIT_PORT_COST) !== 0)
-    .map((row, index) => ({
-      key: `bp-${index + 1}`,
-      portId: String(row.FROM_PORT ?? ''),
-      portName: portLabel(row.PortName),
-      cost: num(row.TRANSIT_PORT_COST),
-    }));
+  const bunkeringPorts = bunkeringPortRows.map((row, index) => ({
+    key: `bp-${index + 1}`,
+    portId: String(row.FROM_PORT ?? ''),
+    portName: portLabel(row.PortName),
+    cost: num(row.TRANSIT_PORT_COST),
+  }));
 
   const bunkerExpenses = bunkerRows.map((row) => ({
     grade: row.NAME || 'Bunker',
@@ -401,43 +398,62 @@ export async function dbUpdateSensitivityEstimate(id, payload) {
     }
 
     for (const port of loadPorts) {
-      if (!port.portId) continue;
-      await connection.query(
-        `UPDATE freight_cost_estimete_slave1
-         SET LOAD_PORT_COST = ?
-         WHERE FCAID = ? AND FROM_PORT = ?`,
-        [num(port.cost), columnId, port.portId],
-      );
+      if (port.portId) {
+        await connection.query(
+          `UPDATE freight_cost_estimete_slave1
+           SET LOAD_PORT_COST = ?
+           WHERE FCAID = ? AND FROM_PORT = ?`,
+          [num(port.cost), columnId, port.portId],
+        );
+      }
     }
 
     for (const port of discPorts) {
-      if (!port.portId) continue;
-      await connection.query(
-        `UPDATE freight_cost_estimete_slave1
-         SET DISC_PORT_COST = ?
-         WHERE FCAID = ? AND TO_PORT = ?`,
-        [num(port.cost), columnId, port.portId],
-      );
+      if (port.portId) {
+        await connection.query(
+          `UPDATE freight_cost_estimete_slave1
+           SET DISC_PORT_COST = ?
+           WHERE FCAID = ? AND TO_PORT = ?`,
+          [num(port.cost), columnId, port.portId],
+        );
+      }
     }
 
     for (const port of transitPorts) {
-      if (!port.portId) continue;
-      await connection.query(
-        `UPDATE freight_cost_estimete_slave1
-         SET TRANSIT_PORT_COST = ?
-         WHERE FCAID = ? AND FROM_PORT = ? AND CHK_MAND = 'TP'`,
-        [num(port.cost), columnId, port.portId],
-      );
+      if (port.portId) {
+        await connection.query(
+          `UPDATE freight_cost_estimete_slave1
+           SET TRANSIT_PORT_COST = ?
+           WHERE FCAID = ? AND FROM_PORT = ? AND CHK_MAND = 'TP'`,
+          [num(port.cost), columnId, port.portId],
+        );
+      } else {
+        // Placeholder chip with no specific port — apply cost to all TP rows for this estimate.
+        await connection.query(
+          `UPDATE freight_cost_estimete_slave1
+           SET TRANSIT_PORT_COST = ?
+           WHERE FCAID = ? AND CHK_MAND = 'TP'`,
+          [num(port.cost), columnId],
+        );
+      }
     }
 
     for (const port of bunkeringPorts) {
-      if (!port.portId) continue;
-      await connection.query(
-        `UPDATE freight_cost_estimete_slave1
-         SET TRANSIT_PORT_COST = ?
-         WHERE FCAID = ? AND FROM_PORT = ? AND CHK_MAND = 'BP'`,
-        [num(port.cost), columnId, port.portId],
-      );
+      if (port.portId) {
+        await connection.query(
+          `UPDATE freight_cost_estimete_slave1
+           SET TRANSIT_PORT_COST = ?
+           WHERE FCAID = ? AND FROM_PORT = ? AND CHK_MAND = 'BP'`,
+          [num(port.cost), columnId, port.portId],
+        );
+      } else {
+        await connection.query(
+          `UPDATE freight_cost_estimete_slave1
+           SET TRANSIT_PORT_COST = ?
+           WHERE FCAID = ? AND CHK_MAND = 'BP'`,
+          [num(port.cost), columnId],
+        );
+      }
     }
 
     for (const bunker of bunkerExpenses) {

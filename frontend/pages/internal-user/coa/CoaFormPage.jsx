@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { DmyDateInput, LoadingOverlay, PeriodCardPicker } from '@bainbridge/shared-ui';
+import { AttachmentDropzone, DmyDateInput, LoadingOverlay, PeriodCardPicker } from '@bainbridge/shared-ui';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import {
   createCoa,
@@ -120,9 +120,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
   const navigate = useNavigate();
   const { coaPath } = useCoaModule();
   const [searchParams] = useSearchParams();
-  const fileRef = useRef(null);
   const [pendingFiles, setPendingFiles] = useState([]);
-  const [dropActive, setDropActive] = useState(false);
   const isAdd = mode === 'add' || !coaId;
   const [lookups, setLookups] = useState(null);
   const [form, setForm] = useState(() => emptyForm(searchParams.get('selBType') || '2'));
@@ -181,11 +179,10 @@ export default function CoaFormPage({ mode = 'edit' }) {
 
   const patch = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const addPendingFiles = (fileList) => {
-    const next = Array.from(fileList || []);
-    if (!next.length) return;
+  const addPendingFiles = (added) => {
+    if (!added?.length) return;
     setPendingFiles((prev) => {
-      const files = [...prev, ...next];
+      const files = [...prev, ...added];
       patch('attachmentName', files[0]?.name || '');
       return files;
     });
@@ -551,78 +548,14 @@ export default function CoaFormPage({ mode = 'edit' }) {
             </div>
           </div>
           <div className={styles.docsSectionBody}>
-            <input
-              ref={fileRef}
-              className={styles.hiddenFileInput}
-              type="file"
-              multiple
-              onChange={(event) => {
-                addPendingFiles(event.target.files);
-                event.target.value = '';
-              }}
+            <AttachmentDropzone
+              files={pendingFiles}
+              existing={!pendingFiles.length && form.attachmentName
+                ? [{ name: form.attachmentName }]
+                : []}
+              onAddFiles={addPendingFiles}
+              onRemoveFile={removePendingFile}
             />
-            <div
-              className={dropActive ? `${styles.dropzone} ${styles.dropzoneActive}` : styles.dropzone}
-              role="button"
-              tabIndex={0}
-              onClick={() => fileRef.current?.click()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  fileRef.current?.click();
-                }
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDropActive(true);
-              }}
-              onDragLeave={() => setDropActive(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDropActive(false);
-                addPendingFiles(e.dataTransfer?.files);
-              }}
-            >
-              <div className={styles.dropzoneIcon}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 16V4" />
-                  <path d="M6 10l6-6 6 6" />
-                  <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-                </svg>
-              </div>
-              <div className={styles.dropzoneText}>
-                <b>Drag &amp; drop files here</b>
-                , or click to browse
-              </div>
-            </div>
-
-            {pendingFiles.length ? (
-              <div className={styles.fileList}>
-                {pendingFiles.map((file, index) => (
-                  <div key={`pending-${file.name}-${index}`} className={styles.fileRow}>
-                    <span className={styles.fileName}>{file.name}</span>
-                    <span className={styles.filePending}>(pending)</span>
-                    <button
-                      type="button"
-                      className={styles.circleBtn}
-                      title="Remove"
-                      onClick={() => removePendingFile(index)}
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-                        <path d="M18 6 6 18" />
-                        <path d="M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : form.attachmentName ? (
-              <div className={styles.fileList}>
-                <div className={styles.fileRow}>
-                  <span className={styles.fileName}>{form.attachmentName}</span>
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
         </div>

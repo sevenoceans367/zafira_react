@@ -21,6 +21,7 @@ import {
   generateTcDecisionChartsPdf,
 } from '../services/tcDecisionChartPdfService.js';
 import { generateTcEstimatePdf } from '../services/tcEstimatePdfService.js';
+import { estimateUpload, mapUploadedFiles } from '../utils/ticketAttachments.js';
 
 const router = Router();
 
@@ -35,6 +36,14 @@ function asyncHandler(handler) {
       });
     }
   };
+}
+
+function parseTcBody(req) {
+  let payload = req.body || {};
+  if (typeof payload.payload === 'string') {
+    payload = JSON.parse(payload.payload);
+  }
+  return payload;
 }
 
 router.get('/business-types', asyncHandler(async (req, res) => {
@@ -123,12 +132,16 @@ router.get('/:tcOutId', asyncHandler(async (req, res) => {
   return res.json(data);
 }));
 
-router.post('/', asyncHandler(async (req, res) => {
-  res.json(await createTcEstimate(req.body || {}));
+router.post('/', estimateUpload, asyncHandler(async (req, res) => {
+  const payload = parseTcBody(req);
+  const upload = mapUploadedFiles(req.files || []);
+  res.json(await createTcEstimate(payload, upload));
 }));
 
-router.put('/:tcOutId', asyncHandler(async (req, res) => {
-  const data = await updateTcEstimate(req.params.tcOutId, req.body || {});
+router.put('/:tcOutId', estimateUpload, asyncHandler(async (req, res) => {
+  const payload = parseTcBody(req);
+  const upload = mapUploadedFiles(req.files || []);
+  const data = await updateTcEstimate(req.params.tcOutId, payload, upload);
   if (!data) return res.status(404).json({ message: 'TC estimate not found.' });
   return res.json(data);
 }));

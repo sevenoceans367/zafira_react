@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AddCircleButton, Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
+import { AddCircleButton, AttachmentDropzone, Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
@@ -2196,59 +2196,20 @@ export default function EstimateDetailSections({
       </CollapsiblePanel>
 
       <CollapsiblePanel title="Attachments" defaultOpen={false}>
-        <div className={styles.attachmentList}>
-          {(form.attachments || []).map((attachment) => (
-            <a
-              key={attachment.file || attachment.name}
-              className={styles.uploadLink}
-              href={attachment.url}
-              target="_blank"
-              rel="noreferrer"
-              download={attachment.name || undefined}
-            >
-              {attachment.name || attachment.file}
-            </a>
-          ))}
-          {(form.attachmentFiles || []).map((file, index) => (
-            <div key={`pending-est-${file.name}-${index}`}>
-              <span className={styles.uploadLink}>{file.name}</span>
-              {' '}
-              <span style={{ color: '#8a93a2', fontSize: 12 }}>(pending)</span>
-              {editable ? (
-                <button
-                  type="button"
-                  title="Remove"
-                  style={{ marginLeft: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: '#e4483b' }}
-                  onClick={() => {
-                    const next = (form.attachmentFiles || []).filter((_, i) => i !== index);
-                    updateField('attachmentFiles', next);
-                  }}
-                >
-                  ×
-                </button>
-              ) : null}
-            </div>
-          ))}
-          {!((form.attachments || []).length || (form.attachmentFiles || []).length) ? (
-            <span style={{ color: '#8a93a2', fontSize: 12 }}>No documents attached yet.</span>
-          ) : null}
-          {editable ? (
-            <label className={styles.uploadLink} style={{ cursor: 'pointer', marginTop: 8 }}>
-              + Add files
-              <input
-                type="file"
-                multiple
-                style={{ display: 'none' }}
-                onChange={(event) => {
-                  const next = Array.from(event.target.files || []);
-                  if (!next.length) return;
-                  updateField('attachmentFiles', [...(form.attachmentFiles || []), ...next]);
-                  event.target.value = '';
-                }}
-              />
-            </label>
-          ) : null}
-        </div>
+        <AttachmentDropzone
+          readOnly={!editable}
+          files={form.attachmentFiles || []}
+          existing={form.attachments || []}
+          onAddFiles={(added) => {
+            updateField('attachmentFiles', [...(form.attachmentFiles || []), ...added]);
+          }}
+          onRemoveFile={(index) => {
+            updateField(
+              'attachmentFiles',
+              (form.attachmentFiles || []).filter((_, i) => i !== index),
+            );
+          }}
+        />
       </CollapsiblePanel>
 
       

@@ -27,7 +27,7 @@ import {
 const MOCK_LOOKUPS = {
   fixtureTypes: [{ id: '1', name: 'Time Charter Out' }],
   cpTypes: [{ id: '1', name: 'NYPE' }, { id: '2', name: 'ASBATIME' }],
-  charterers: [{ id: 'C001', name: 'Steel Corp ( C001 )' }],
+  charterers: [{ id: 'C001', name: 'Steel Corp ( C001 )', address: '1 Harbour Front, Singapore' }],
   vendors: [{ id: 'V001', name: 'Owner Co ( V001 )' }],
   lawArbitration: [{ id: '1', name: 'English Law / London' }],
   charteringTeams: [{ id: '7', name: 'Zafira' }],
@@ -370,8 +370,8 @@ export async function getTcEstimate(tcOutId) {
   return item ? toDetail(item) : null;
 }
 
-export async function createTcEstimate(body = {}) {
-  if (isDbConfigured()) return dbCreateTcEstimate(body);
+export async function createTcEstimate(body = {}, upload = {}) {
+  if (isDbConfigured()) return dbCreateTcEstimate(body, upload);
 
   const vessel = MOCK_LOOKUPS.vessels.find((v) => String(v.id) === String(body.vesselImoId));
   const id = mockSeq;
@@ -500,8 +500,8 @@ export async function createTcEstimate(body = {}) {
   return { msg: 0, tcOutId: id };
 }
 
-export async function updateTcEstimate(tcOutId, body = {}) {
-  if (isDbConfigured()) return dbUpdateTcEstimate(tcOutId, body);
+export async function updateTcEstimate(tcOutId, body = {}, upload = {}) {
+  if (isDbConfigured()) return dbUpdateTcEstimate(tcOutId, body, upload);
   const index = mockStore.findIndex((row) => String(row.TCOUTID) === String(tcOutId));
   if (index < 0) return null;
   const current = mockStore[index];

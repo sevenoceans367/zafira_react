@@ -19,6 +19,7 @@ const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
 const USER_ID = process.env.USER_ID || appContext.userId;
 
 let tcEstimateNoColumnReady = false;
+let tcAttachmentColumnsReady = false;
 
 async function ensureTcEstimateNoColumn(pool) {
   if (tcEstimateNoColumnReady) return true;
@@ -38,6 +39,60 @@ async function ensureTcEstimateNoColumn(pool) {
     console.warn('[tcEstimateDb] Could not ensure ESTIMATE_NO column:', error.message);
     return false;
   }
+}
+
+async function ensureTcAttachmentColumns(pool) {
+  if (tcAttachmentColumnsReady) return true;
+  try {
+    const [cols] = await pool.query(
+      `SHOW COLUMNS FROM chartering_estimate_tc_master LIKE 'ATTACHMENT'`,
+    );
+    if (!cols.length) {
+      await pool.query(
+        `ALTER TABLE chartering_estimate_tc_master
+         ADD COLUMN ATTACHMENT TEXT NULL,
+         ADD COLUMN ATTACHMENT_NAME TEXT NULL`,
+      );
+    }
+    tcAttachmentColumnsReady = true;
+    return true;
+  } catch (error) {
+    console.warn('[tcEstimateDb] Could not ensure ATTACHMENT columns:', error.message);
+    return false;
+  }
+}
+
+function splitCsv(value) {
+  return String(value || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function resolveAttachmentFields(body = {}, upload = {}) {
+  const keepFiles = body.keepAttachment != null
+    ? splitCsv(body.keepAttachment)
+    : body.attachment != null
+      ? splitCsv(body.attachment)
+      : null;
+  const keepNames = body.keepAttachmentName != null
+    ? splitCsv(body.keepAttachmentName)
+    : body.attachmentName != null
+      ? splitCsv(body.attachmentName)
+      : null;
+  const nextFiles = splitCsv(upload.attachment);
+  const nextNames = splitCsv(upload.attachmentName);
+
+  if (keepFiles == null && !nextFiles.length) {
+    return null;
+  }
+
+  const files = [...(keepFiles || []), ...nextFiles];
+  const names = [...(keepNames || []), ...nextNames];
+  return {
+    ATTACHMENT: files.join(',') || null,
+    ATTACHMENT_NAME: names.join(',') || null,
+  };
 }
 
 function masterPayload(body = {}) {
@@ -485,7 +540,14 @@ export async function dbGetTcLookups() {
     pool.query(`SELECT CONTRACTTYPEID AS id, CONTRACT_TYPE AS name FROM contract_type_master
       WHERE STATUS = 1 ORDER BY CONTRACT_TYPE`).catch(() => [[]]),
     // PHP getVendorListNewUpdate(): vendor CODE is stored in SEL_CHARTERER
-    pool.query(`SELECT CODE AS id, CONCAT(NAME, ' ( ', CODE, ' )') AS name
+    pool.query(`SELECT CODE AS id, CONCAT(NAME, ' ( ', CODE, ' )') AS name,
+        TRIM(BOTH ', ' FROM CONCAT_WS(', ',
+          NULLIF(TRIM(STREET_1), ''),
+          NULLIF(TRIM(STREET_2), ''),
+          NULLIF(TRIM(CITY), ''),
+          NULLIF(TRIM(COUNTRY), ''),
+          NULLIF(TRIM(CITY_POSTAL_CODE), '')
+        )) AS address
       FROM vendor_master WHERE STATUS = 1 AND MCOMPANYID = ?
       ORDER BY NAME LIMIT 1000`, [COMPANY_ID]).catch(() => [[]]),
     // PHP getVendorListNewForCOA('7,11,10,12') for Charterers Operations (SEL_CHAR_OPER)
@@ -527,7 +589,11 @@ export async function dbGetTcLookups() {
   return {
     fixtureTypes: fixtureTypes.map((r) => ({ id: String(r.id), name: r.name })),
     cpTypes: cpTypes.map((r) => ({ id: String(r.id), name: r.name })),
-    charterers: charterers.map((r) => ({ id: String(r.id), name: r.name })),
+    charterers: charterers.map((r) => ({
+      id: String(r.id),
+      name: r.name,
+      address: String(r.address || '').trim(),
+    })),
     vendors: vendors.map((r) => ({ id: String(r.id), name: r.name })),
     lawArbitration: lawArbit.map((r) => ({ id: String(r.id), name: r.name })),
     bunkers: bunkers.map((r) => ({ id: String(r.id), name: r.name })),
@@ -821,13 +887,20 @@ export async function dbGetTcEstimate(tcOutId) {
   });
 }
 
-export async function dbCreateTcEstimate(body = {}) {
+export async function dbCreateTcEstimate(body = {}, upload = {}) {
   const pool = getPool();
   const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
+  const hasAttachments = await ensureTcAttachmentColumns(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
+    let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
+    if (hasAttachments) {
+      const attachmentFields = resolveAttachmentFields(body, upload);
+      if (attachmentFields) {
+        payload = { ...payload, ...attachmentFields };
+      }
+    }
     const columns = Object.keys(payload);
     const values = Object.values(payload);
     const [result] = await connection.query(
@@ -853,22 +926,45 @@ export async function dbCreateTcEstimate(body = {}) {
   }
 }
 
-export async function dbUpdateTcEstimate(tcOutId, body = {}) {
+export async function dbUpdateTcEstimate(tcOutId, body = {}, upload = {}) {
   const pool = getPool();
   const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
+  const hasAttachments = await ensureTcAttachmentColumns(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     const [existing] = await connection.query(
-      `SELECT TCOUTID FROM chartering_estimate_tc_master
-       WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`,
+      hasAttachments
+        ? `SELECT TCOUTID, ATTACHMENT, ATTACHMENT_NAME
+           FROM chartering_estimate_tc_master
+           WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`
+        : `SELECT TCOUTID
+           FROM chartering_estimate_tc_master
+           WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`,
       [MODULE_ID, COMPANY_ID, tcOutId],
     );
     if (!existing[0]) {
       await connection.rollback();
       return null;
     }
-    const payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
+    let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
+    if (hasAttachments) {
+      const attachmentFields = resolveAttachmentFields(
+        {
+          ...body,
+          keepAttachment: body.keepAttachment != null
+            ? body.keepAttachment
+            : (existing[0].ATTACHMENT || ''),
+          keepAttachmentName: body.keepAttachmentName != null
+            ? body.keepAttachmentName
+            : (existing[0].ATTACHMENT_NAME || ''),
+        },
+        upload,
+      );
+      if (attachmentFields) {
+        payload = { ...payload, ...attachmentFields };
+      }
+    }
     const sets = Object.keys(payload).map((col) => `${col} = ?`).join(', ');
     await connection.query(
       `UPDATE chartering_estimate_tc_master

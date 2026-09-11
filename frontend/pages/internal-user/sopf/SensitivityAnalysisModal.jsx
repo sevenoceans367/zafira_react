@@ -45,42 +45,6 @@ function formatMoney(value, digits = 0) {
   });
 }
 
-function clubTransitBunkeringPorts(column) {
-  const ports = [
-    ...(column.transitPorts || []).map((port) => ({ ...port, collection: 'transitPorts' })),
-    ...(column.bunkeringPorts || []).map((port) => ({ ...port, collection: 'bunkeringPorts' })),
-  ];
-  const groups = [];
-  const indexByKey = new Map();
-  ports.forEach((port) => {
-    const key = String(port.portId || port.portName || port.key || '').trim().toLowerCase();
-    if (!key) {
-      groups.push({
-        key: `solo-${port.collection}-${port.key}`,
-        portName: port.portName || '',
-        cost: toNumber(port.cost),
-        members: [port],
-      });
-      return;
-    }
-    if (indexByKey.has(key)) {
-      const group = groups[indexByKey.get(key)];
-      group.cost += toNumber(port.cost);
-      group.members.push(port);
-      if (!group.portName && port.portName) group.portName = port.portName;
-      return;
-    }
-    indexByKey.set(key, groups.length);
-    groups.push({
-      key,
-      portName: port.portName || '',
-      cost: toNumber(port.cost),
-      members: [port],
-    });
-  });
-  return groups;
-}
-
 function ChartIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -585,32 +549,22 @@ export default function SensitivityAnalysisModal({
   };
 
   const handlePortChange = (columnId, collection, portKey, value) => {
-    updateColumn(columnId, (column) => ({
-      ...column,
-      [collection]: column[collection].map((port) => (
-        port.key === portKey ? { ...port, cost: value } : port
-      )),
-    }));
-    queueSave(columnId, `${collection}:${portKey}`);
-  };
-
-  const handleClubbedPortChange = (columnId, members, value) => {
     updateColumn(columnId, (column) => {
-      const next = { ...column };
-      members.forEach((member, index) => {
-        const list = [...(next[member.collection] || [])];
-        const idx = list.findIndex((port) => port.key === member.key);
-        if (idx < 0) return;
-        list[idx] = {
-          ...list[idx],
-          cost: index === 0 ? value : 0,
-        };
-        next[member.collection] = list;
-      });
-      return next;
+      const list = [...(column[collection] || [])];
+      const idx = list.findIndex((port) => port.key === portKey);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], cost: value };
+      } else {
+        list.push({
+          key: portKey,
+          portId: '',
+          portName: '',
+          cost: value,
+        });
+      }
+      return { ...column, [collection]: list };
     });
-    const first = members[0];
-    if (first) queueSave(columnId, `${first.collection}:${first.key}`);
+    queueSave(columnId, `${collection}:${portKey}`);
   };
 
   const handleBunkerPriceChange = (columnId, grade, value) => {
@@ -843,36 +797,23 @@ export default function SensitivityAnalysisModal({
   };
 
   const renderPortInputs = (column, collection) => {
-    const ports = column[collection] || [];
     const locked = isColumnSent(column);
-    if (!ports.length) return <span className={styles.colCellEmpty}>—</span>;
+    // Always show an editable input chip (HTML parity), even when no port rows exist.
+    const ports = (column[collection] || []).length
+      ? column[collection]
+      : [{ key: `${collection}-empty`, portId: '', portName: '', cost: '' }];
     return ports.map((port, index) => (
       <div key={port.key} className={styles.stackItem}>
         {index > 0 ? <hr className={styles.stackDivider} /> : null}
         {port.portName ? <span className={styles.portNameTiny}>{port.portName}</span> : null}
         <InputCell
-          value={port.cost}
+          value={port.cost === 0 || port.cost === '0' ? '' : (port.cost ?? '')}
           disabled={locked}
           status={locked ? '' : statusFor(column.id, `${collection}:${port.key}`)}
           onChange={(value) => handlePortChange(column.id, collection, port.key, value)}
         />
       </div>
     ));
-  };
-
-  const portNameNote = (collection) => {
-    const names = columns
-      .flatMap((column) => (column[collection] || []).map((port) => port.portName).filter(Boolean));
-    const unique = [...new Set(names)];
-    if (!unique.length) return null;
-    return (
-      <div className={`${styles.row} ${styles.portNote}`}>
-        <div className={styles.labelCell}>{unique.join(' / ')}</div>
-        {columns.map((column) => (
-          <div key={column.id} className={`${styles.colCell} ${styles.spacer} ${isColumnSent(column) ? styles.colLocked : ''}`.trim()} />
-        ))}
-      </div>
-    );
   };
 
   return (
@@ -992,18 +933,22 @@ export default function SensitivityAnalysisModal({
                                 : '—'}
                             </div>
                             <div className={`${styles.cardMetrics} ${colCount >= 5 ? styles.cardMetricsCompact : ''}`.trim()}>
-                              <span className={`${styles.resultsPill} ${index % 2 === 0 ? styles.pillVoy0 : styles.pillVoy1}`}>
+                              <span
+                                className={`${styles.resultsPill} ${index % 2 === 0 ? styles.pillVoy0 : styles.pillVoy1}`}
+                                title={`TCE $${formatMoney(tce, 0)}`}
+                              >
                                 <span className={styles.rpLabel}>TCE</span>
                                 <span className={`${styles.rpValue} ${tce >= 0 ? styles.rcPos : styles.rcNeg}`}>
-                                  $
-                                  {formatMoney(tce, 0)}
+                                  {`$${formatMoney(tce, 0)}`}
                                 </span>
                               </span>
-                              <span className={`${styles.resultsPill} ${index % 2 === 0 ? styles.pillVoy0 : styles.pillVoy1}`}>
+                              <span
+                                className={`${styles.resultsPill} ${index % 2 === 0 ? styles.pillVoy0 : styles.pillVoy1}`}
+                                title={`P&L $${formatMoney(pnl, 0)}`}
+                              >
                                 <span className={styles.rpLabel}>P&amp;L</span>
                                 <span className={`${styles.rpValue} ${pnl >= 0 ? styles.rcPos : styles.rcNeg}`}>
-                                  $
-                                  {formatMoney(pnl, 0)}
+                                  {`$${formatMoney(pnl, 0)}`}
                                 </span>
                               </span>
                             </div>
@@ -1360,53 +1305,27 @@ export default function SensitivityAnalysisModal({
                   <EditableRow
                     label="Loading Port"
                     columns={columns}
-                        isLocked={isColumnSent}
+                    isLocked={isColumnSent}
                     renderCell={(column) => renderPortInputs(column, 'loadPorts')}
                   />
                   <EditableRow
                     label="Discharge Port"
                     columns={columns}
-                        isLocked={isColumnSent}
+                    isLocked={isColumnSent}
                     renderCell={(column) => renderPortInputs(column, 'discPorts')}
                   />
-                  {isTanker ? (
-                    <EditableRow
-                      label="Transit / Bunkering Port"
-                      columns={columns}
-                      isLocked={isColumnSent}
-                      renderCell={(column) => {
-                        const groups = clubTransitBunkeringPorts(column);
-                        if (!groups.length) return <span className={styles.colCellEmpty}>—</span>;
-                        return groups.map((group, index) => (
-                          <div key={group.key} className={styles.stackItem}>
-                            {index > 0 ? <hr className={styles.stackDivider} /> : null}
-                            {group.portName ? <span className={styles.portNameTiny}>{group.portName}</span> : null}
-                            <InputCell
-                              value={group.cost || ''}
-                              disabled={isColumnSent(column)}
-                              status={isColumnSent(column) ? '' : statusFor(column.id, `club:${group.key}`)}
-                              onChange={(value) => handleClubbedPortChange(column.id, group.members, value)}
-                            />
-                          </div>
-                        ));
-                      }}
-                    />
-                  ) : (
-                    <>
-                      <EditableRow
-                        label="Transit Port"
-                        columns={columns}
-                        isLocked={isColumnSent}
-                        renderCell={(column) => renderPortInputs(column, 'transitPorts')}
-                      />
-                      <EditableRow
-                        label="Bunkering Port"
-                        columns={columns}
-                        isLocked={isColumnSent}
-                        renderCell={(column) => renderPortInputs(column, 'bunkeringPorts')}
-                      />
-                    </>
-                  )}
+                  <EditableRow
+                    label="Transit Port"
+                    columns={columns}
+                    isLocked={isColumnSent}
+                    renderCell={(column) => renderPortInputs(column, 'transitPorts')}
+                  />
+                  <EditableRow
+                    label="Bunkering Port"
+                    columns={columns}
+                    isLocked={isColumnSent}
+                    renderCell={(column) => renderPortInputs(column, 'bunkeringPorts')}
+                  />
                   {isTanker ? (
                     <EditableRow
                       label="Total OPEX"

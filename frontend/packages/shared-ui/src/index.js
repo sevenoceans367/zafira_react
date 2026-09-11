@@ -12,6 +12,7 @@ export { default as SummaryCard, SummaryCardGrid } from './components/SummaryCar
 export { default as Button } from './components/Button/Button.jsx';
 export { default as DownloadIcon } from './components/icons/DownloadIcon.jsx';
 export { default as EditRecapIcon } from './components/icons/EditRecapIcon.jsx';
+export { default as AttachmentDropzone } from './components/AttachmentDropzone/AttachmentDropzone.jsx';
 export { default as GlobalButton } from './components/GlobalButton.jsx';
 export { default as AddCircleButton } from './components/AddCircleButton/AddCircleButton.jsx';
 export {

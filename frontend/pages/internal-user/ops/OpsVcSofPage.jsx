@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  AttachmentDropzone,
   DmyDateInput,
   DownloadIcon,
   LoadingOverlay,
@@ -303,8 +304,6 @@ export default function OpsVcSofPage() {
   const [cargoSearch, setCargoSearch] = useState('');
   const [cargoRowSize, setCargoRowSize] = useState(DEFAULT_SOF_ROW_SIZE);
   const [cargoPage, setCargoPage] = useState(1);
-  const [dropActive, setDropActive] = useState(false);
-  const attachInputRef = useRef(null);
   const skipKeyOpsPageResetRef = useRef(false);
   const skipCargoPageResetRef = useRef(false);
 
@@ -945,88 +944,22 @@ export default function OpsVcSofPage() {
                       </div>
                     </div>
                     <div className={styles.sideCardBody}>
-                      {!locked ? (
-                        <>
-                          <input
-                            ref={attachInputRef}
-                            className={styles.hiddenFileInput}
-                            type="file"
-                            multiple
-                            onChange={(event) => {
-                              addPendingFiles(event.target.files);
-                              event.target.value = '';
-                            }}
-                          />
-                          <div
-                            className={dropActive ? `${styles.dropzone} ${styles.dropzoneActive}` : styles.dropzone}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => attachInputRef.current?.click()}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                attachInputRef.current?.click();
-                              }
-                            }}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              setDropActive(true);
-                            }}
-                            onDragLeave={() => setDropActive(false)}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              setDropActive(false);
-                              addPendingFiles(e.dataTransfer?.files);
-                            }}
-                          >
-                            <div className={styles.dropzoneIcon}>
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                <path d="M12 16V4" />
-                                <path d="M6 10l6-6 6 6" />
-                                <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-                              </svg>
-                            </div>
-                            <div className={styles.dropzoneText}>
-                              <b>Drag &amp; drop files here</b>, or click to browse
-                            </div>
-                          </div>
-                        </>
-                      ) : null}
-
-                      {(draft.keepFiles || []).length || pendingFiles.length ? (
-                        <div className={styles.fileList}>
-                          {(draft.keepFiles || []).map((file) => (
-                            <div key={file} className={styles.fileRow}>
-                              <a
-                                className={styles.fileName}
-                                href={attachmentHref(file)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {displayStoredFileName(file)}
-                              </a>
-                              <CircleDeleteButton
-                                disabled={locked}
-                                onClick={() => patchDraft({
-                                  keepFiles: draft.keepFiles.filter((name) => name !== file),
-                                })}
-                              />
-                            </div>
-                          ))}
-                          {pendingFiles.map((file, index) => (
-                            <div key={`pending-${file.name}-${index}`} className={styles.fileRow}>
-                              <span className={styles.fileName}>{file.name}</span>
-                              <span className={styles.filePending}>(pending)</span>
-                              <CircleDeleteButton
-                                disabled={locked}
-                                onClick={() => removePendingFile(index)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      ) : locked ? (
-                        <div className={styles.sideEmpty}>No documents uploaded yet.</div>
-                      ) : null}
+                      <AttachmentDropzone
+                        readOnly={locked}
+                        files={pendingFiles}
+                        existing={(draft.keepFiles || []).map((file) => ({
+                          key: file,
+                          file,
+                          name: displayStoredFileName(file),
+                          url: attachmentHref(file),
+                        }))}
+                        onAddFiles={addPendingFiles}
+                        onRemoveFile={removePendingFile}
+                        onRemoveExisting={(item) => patchDraft({
+                          keepFiles: (draft.keepFiles || []).filter((name) => name !== item.file),
+                        })}
+                        emptyLabel="No documents uploaded yet."
+                      />
                     </div>
                   </div>
 

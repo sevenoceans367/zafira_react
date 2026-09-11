@@ -12,6 +12,7 @@ export {
   SummaryCard,
   SummaryCardGrid,
   Button,
+  AttachmentDropzone,
   GlobalButton,
   AddCircleButton,
   SecondaryActionButton,

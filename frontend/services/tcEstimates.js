@@ -64,20 +64,28 @@ export async function downloadTcEstimatePdf(tcOutId) {
   URL.revokeObjectURL(url);
 }
 
-export async function createTcEstimate(payload) {
+export async function createTcEstimate(payload, files = []) {
+  const body = new FormData();
+  body.append('payload', JSON.stringify(payload));
+  for (const file of files) {
+    body.append('attach_file', file);
+  }
   const response = await fetch(BASE, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body,
   });
   return parseJson(response, 'Failed to create TC estimate.');
 }
 
-export async function updateTcEstimate(tcOutId, payload) {
+export async function updateTcEstimate(tcOutId, payload, files = []) {
+  const body = new FormData();
+  body.append('payload', JSON.stringify(payload));
+  for (const file of files) {
+    body.append('attach_file', file);
+  }
   const response = await fetch(`${BASE}/${encodeURIComponent(tcOutId)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body,
   });
   return parseJson(response, 'Failed to update TC estimate.');
 }

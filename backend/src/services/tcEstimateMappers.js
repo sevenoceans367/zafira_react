@@ -59,6 +59,9 @@ export function parseDateTime(value) {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
   const str = String(value).trim();
+  if (!str || /^0?1[-/]0?1[-/]1970\b/.test(str) || /^1970[-/]0?1[-/]0?1\b/.test(str)) {
+    return null;
+  }
   const dmy = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::\d{2})?)?$/);
   if (dmy) {
     const [, day, month, year, hh = '0', mm = '0'] = dmy;
@@ -74,6 +77,10 @@ export function parseDateTime(value) {
   }
   const iso = new Date(str);
   return Number.isNaN(iso.getTime()) ? null : iso;
+}
+
+export function hasDateValue(value) {
+  return parseDateTime(value) != null;
 }
 
 /** PHP getTimeDiff(end, start) — fractional days. */
@@ -440,7 +447,7 @@ function bunkerGridTotal(rows = []) {
   }, 0);
 }
 
-/** True when bunker grid has real qty/price/amount (not an empty placeholder row). */
+/** True when bunker grid has real qty/price/amount (grade alone is not enough). */
 function hasBunkerGridData(rows = []) {
   return Array.isArray(rows) && rows.some((row) => {
     const qty = Number(row.qty);
@@ -448,8 +455,7 @@ function hasBunkerGridData(rows = []) {
     const amount = Number(row.amount);
     return (Number.isFinite(qty) && qty !== 0)
       || (Number.isFinite(price) && price !== 0)
-      || (Number.isFinite(amount) && amount !== 0)
-      || (row.bunkerId != null && String(row.bunkerId).trim() !== '');
+      || (Number.isFinite(amount) && amount !== 0);
   });
 }
 
@@ -483,7 +489,9 @@ export function calcTcTotals(input = {}) {
   const resolvedPeriods = hirePeriods.map((period) => {
     // PHP getFinalCalculation always recomputes TC days from del/redel dates when present.
     let days = num(period.days);
-    if (period.delDate && period.reDelDate) {
+    const hasDel = hasDateValue(period.delDate);
+    const hasReDel = hasDateValue(period.reDelDate);
+    if (hasDel && hasReDel) {
       days = daysBetween(period.reDelDate, period.delDate);
     }
     const hireRate = num(period.hireRate);
@@ -492,7 +500,7 @@ export function calcTcTotals(input = {}) {
     tcDays += days;
     return {
       ...period,
-      days: days ? days.toFixed(4) : (days === 0 && period.delDate && period.reDelDate ? '0.0000' : ''),
+      days: days ? days.toFixed(4) : (days === 0 && hasDel && hasReDel ? '0.0000' : ''),
       amount: amount.toFixed(2),
     };
   });
@@ -536,12 +544,14 @@ export function calcTcTotals(input = {}) {
     lessOffHire = 0;
     for (const row of offHires) {
       let days = num(row.days);
-      const hasFrom = row.from != null && String(row.from).trim() !== '';
-      // PHP only advances utilisation off-hire days when From is filled; amount still uses days×rate.
-      if (hasFrom && row.to) {
+      const hasFrom = hasDateValue(row.from);
+      const hasTo = hasDateValue(row.to);
+      // PHP getTimeDiff requires both dates; amount can still use manual days×rate.
+      if (hasFrom && hasTo) {
         days = daysBetween(row.to, row.from);
       }
-      if (hasFrom) {
+      // Utilisation off-hire days only when both From and To are present (PHP timediff path).
+      if (hasFrom && hasTo) {
         offHireDays += days;
       }
       lessOffHire += days * num(row.hireRate) + offHireBunkerTotal(row);
@@ -550,10 +560,11 @@ export function calcTcTotals(input = {}) {
 
   const utilisationDays = tcDays - offHireDays;
   const hasCveMonth = input.cveMonth != null && String(input.cveMonth).trim() !== '';
+  // PHP: empty txtCVEM → CVE amount 0 (do not keep a stale CVE_EST).
   const cveMonth = num(input.cveMonth);
   const cve = hasCveMonth
     ? (cveMonth / 30) * utilisationDays
-    : num(input.cve);
+    : (input.cveMonth != null ? 0 : num(input.cve));
   const otherIncome = num(input.otherIncome);
   const ilohcAmt = num(input.ilohcAmt ?? input.ilohcUsd);
   const nettHireInvoice = nettRev - lessOffHire + cve + bunkerDiffAmt + ilohcAmt;

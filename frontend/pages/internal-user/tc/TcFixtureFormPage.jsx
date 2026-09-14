@@ -16,6 +16,7 @@ import {
   fetchTcBusinessTypes,
   fetchTcEstimate,
   fetchTcLookups,
+  hasDateValue,
   saveTcCalculation,
   updateTcEstimate,
 } from '../../../services/tcEstimates.js';
@@ -268,6 +269,25 @@ function TableCardSelect({
         ariaLabel={ariaLabel || placeholder}
         tone="muted"
       />
+    </div>
+  );
+}
+
+function TsecCard({ theme = 'navy', tab, className = '', children }) {
+  const themeClass = theme === 'lblue'
+    ? styles.tsecLblue
+    : theme === 'mustard'
+      ? styles.tsecMustard
+      : styles.tsecNavy;
+  const tabClass = theme === 'lblue'
+    ? styles.tsecTabLblue
+    : theme === 'mustard'
+      ? styles.tsecTabMustard
+      : styles.tsecTabNavy;
+  return (
+    <div className={`${styles.tsecCard} ${themeClass} ${className}`.trim()}>
+      <span className={`${styles.tsecTab} ${tabClass}`}>{tab}</span>
+      {children}
     </div>
   );
 }
@@ -558,7 +578,7 @@ function PeriodConnectSelect({
 
 function resolveHirePeriod(row = {}) {
   let days = Number(row.days) || 0;
-  if (row.delDate && row.reDelDate) {
+  if (hasDateValue(row.delDate) && hasDateValue(row.reDelDate)) {
     days = daysBetween(row.reDelDate, row.delDate) || 0;
   }
   const hireRate = Number(row.hireRate) || 0;
@@ -572,7 +592,7 @@ function resolveHirePeriod(row = {}) {
 
 function resolveOffHire(row = {}) {
   let days = Number(row.days) || 0;
-  if (row.from && row.to) {
+  if (hasDateValue(row.from) && hasDateValue(row.to)) {
     days = daysBetween(row.to, row.from) || days;
   }
   const hireRate = Number(row.hireRate) || 0;
@@ -1077,7 +1097,8 @@ export default function TcFixtureFormPage({
     const tcOwners = sumParty(form.otherExpenses, 'notes', 'owner');
     const tcCharterers = sumParty(form.otherExpenses, 'notes', 'charterer');
     const tcAddToTotal = (form.otherExpenses || []).reduce((sum, row) => {
-      if (row.addToTotal === false) return sum;
+      // PHP only includes rows where chkVal == 1 (Add to TTL).
+      if (row.addToTotal !== true) return sum;
       return sum + (Number(row.amount) || 0);
     }, 0);
 
@@ -1111,7 +1132,9 @@ export default function TcFixtureFormPage({
   }, [form.durFixPer, form.exchangeRate, form.hireFixPer, hirePeriodTotals.rows]);
 
   const tcInFinalHireage = useMemo(() => {
-    if (!showSubCharter || !form.tcInExpenses) {
+    // PHP Final TC In Hireage only applies when TC In section is in play.
+    if (!showSubCharter) return 0;
+    if (!form.tcInExpenses) {
       return Number(form.calc?.tcFinalHireage) || 0;
     }
     const live = Number(calcTcInFinalHireage(form.tcInExpenses).finalHireage) || 0;
@@ -1124,18 +1147,27 @@ export default function TcFixtureFormPage({
     const rate = Number(form.exchangeRate);
     const exchange = Number.isFinite(rate) && rate !== 0 ? rate : 1;
     const dailyGrossHire = calc.dailyGrossHire || String((hire * exchange).toFixed(2));
+    const cveMonth = form.cveMonth ?? calc.cveMonth ?? '';
 
     const hirePeriods = (form.hirePeriods?.length ? form.hirePeriods : [{ ...EMPTY_HIRE }]).map((row) => {
       const resolved = resolveHirePeriod(row);
-      if (Number(resolved.hireRate) || resolved.delDate || resolved.reDelDate) return resolved;
-      // Seed empty trip row from TC Details hire / period
-      return resolveHirePeriod({
+      const seeded = {
         ...resolved,
-        delDate: resolved.delDate || form.delDate || '',
-        reDelDate: resolved.reDelDate || form.reDelDate || '',
-        days: resolved.days || form.durFixPer || '',
-        hireRate: resolved.hireRate || form.hireFixPer || dailyGrossHire || '',
-      });
+        delDate: hasDateValue(resolved.delDate) ? resolved.delDate : (form.delDate || ''),
+        reDelDate: hasDateValue(resolved.reDelDate) ? resolved.reDelDate : (form.reDelDate || ''),
+        days: Number(resolved.days) ? resolved.days : (form.durFixPer || resolved.days || ''),
+        // Seed missing rate even when dates already exist (PHP schedule rate × days).
+        hireRate: Number(resolved.hireRate) ? resolved.hireRate : (form.hireFixPer || dailyGrossHire || ''),
+      };
+      if (
+        seeded.delDate === resolved.delDate
+        && seeded.reDelDate === resolved.reDelDate
+        && seeded.days === resolved.days
+        && seeded.hireRate === resolved.hireRate
+      ) {
+        return resolved;
+      }
+      return resolveHirePeriod(seeded);
     });
 
     const voyageExp = expensePartyTotals.tcAddToTotal + tcInFinalHireage;
@@ -1146,7 +1178,9 @@ export default function TcFixtureFormPage({
       addCommPct: form.addComm ?? calc.addCommPct,
       brokerCommPct: form.brokerComm ?? calc.brokerCommPct,
       ballastBonus: form.ballastBonus ?? calc.ballastBonus ?? '',
-      cveMonth: form.cveMonth ?? calc.cveMonth,
+      cveMonth,
+      // PHP empty CVE/month → 0; do not reuse stale CVE_EST from calc spread.
+      cve: 0,
       ilohcAmt: form.ilohcUsd ?? calc.ilohcAmt,
       hirePeriods,
       deliveryBunkers: form.deliveryBunkers,
@@ -1158,13 +1192,18 @@ export default function TcFixtureFormPage({
 
     const netRev = Number(totals.totalRev) || 0;
     const lessOffHire = Number(totals.lessOffHire) || 0;
-    // Waterfall: Total (before off-hire) → Less Off-Hire → Net TC Revenue
+    // Waterfall: revenue before off-hire → Less Off-Hire → Net (= PHP Total Rev)
     const grossRev = netRev + lessOffHire;
     const bunkerDiffAmt = Number(totals.bunkerDiffAmt) || 0;
     const totalExp = voyageExp + itineraryExpenseTotal;
     // Voyage earn excludes Pre-TC; Adj line deducts Pre-TC from that profit
-    const profit = Number(totals.voyageEarn) || (netRev - voyageExp);
+    const voyageEarn = Number(totals.voyageEarn);
+    const profit = Number.isFinite(voyageEarn) ? voyageEarn : (netRev - voyageExp);
     const profitAdjPreTc = profit - itineraryExpenseTotal;
+    const utilisationDays = Number(totals.utilisationDays) || 0;
+    const profitPerDay = utilisationDays
+      ? (profit / utilisationDays).toFixed(2)
+      : formatResult(0);
 
     return {
       totalRev: formatResult(grossRev),
@@ -1176,6 +1215,7 @@ export default function TcFixtureFormPage({
       totalExp: formatResult(totalExp),
       profit: formatResult(profit),
       profitAdjPreTc: formatResult(profitAdjPreTc),
+      profitPerDay,
     };
   }, [
     form.calc,
@@ -1279,6 +1319,8 @@ export default function TcFixtureFormPage({
           fixtureType: detail.fixtureType || '1',
           charteringTeam: normalizeCharteringTeam(detail.charteringTeam),
           ballastBonus: detail.calc?.ballastBonus || detail.ballastBonus || '',
+          cveMonth: detail.calc?.cveMonth || detail.cveMonth || '',
+          ilohcUsd: detail.ilohcUsd || detail.calc?.ilohcAmt || '',
           attachments: (detail.attachments || []).map((item) => ({
             ...item,
             url: item.url || attachmentUrl(item.file),
@@ -1466,17 +1508,23 @@ export default function TcFixtureFormPage({
           ilohcAmt: form.ilohcUsd ?? '',
           addCommPct: form.addComm ?? '',
           brokerCommPct: form.brokerComm ?? '',
+          totalExp: String(expensePartyTotals.tcAddToTotal + tcInFinalHireage),
+          deliveryBunkers: form.deliveryBunkers,
+          redeliveryBunkers: form.redeliveryBunkers,
           tcCpDate: form.tcInExpenses?.cpDate || '',
           tcCpNumber: form.tcInExpenses?.contractRef || form.tcNo || '',
           tcDeliveryPort: form.tcInExpenses?.deliveryPort || form.delRangePort || '',
           tcRedeliveryPort: form.tcInExpenses?.redeliveryPort || form.reDelRange || '',
           tcFinalVendor: form.tcInExpenses?.finalVendor || '',
+          tcFinalHireage: showSubCharter ? String(tcInFinalHireage) : '0',
           tcOffHireCveMonth: form.tcInExpenses?.offHireCveMonth || '',
           tcBunkerOnOwner: form.tcInExpenses?.bunkerOnOwner || '',
           tcIlohc: form.tcInExpenses?.ilohc || '',
           awrpCost: form.tcInExpenses?.awrpCost || '',
         },
         hirePeriods,
+        deliveryBunkers: form.deliveryBunkers,
+        redeliveryBunkers: form.redeliveryBunkers,
         otherIncome: form.otherIncome?.length ? form.otherIncome : (existing?.otherIncome || []),
         otherExpenses: form.otherExpenses?.length ? form.otherExpenses : (existing?.otherExpenses || []),
         offHires,
@@ -1711,119 +1759,116 @@ export default function TcFixtureFormPage({
     }
   };
 
-  const renderBunkerTable = (kind, labelNode) => (
-    <div className={styles.bunkerBlock}>
-      <div className={`${styles.subBlockLabel} ${kind === 'deliveryBunkers' ? `${styles.subBlockLabelFirst} ${styles.subBlockLabelPad}` : ''}`.trim()}>
-        {labelNode}
+  const renderBunkerTable = (kind, dirLabel) => (
+    <TsecCard
+      theme="mustard"
+      tab={(
+        <>
+          Bunkers on
+          {' '}
+          <span className={styles.tsecDirChip}>{dirLabel}</span>
+        </>
+      )}
+      className={kind === 'deliveryBunkers' ? styles.tsecMustardFirst : ''}
+    >
+      <div
+        className={styles.fieldGrid}
+        style={{ '--cols': '1fr 0.8fr 0.9fr 1.1fr 1fr 64px' }}
+      >
+        <div className={styles.fgHead}>Bunker Grade</div>
+        <div className={styles.fgHead}>Qty (MT)</div>
+        <div className={styles.fgHead}>Price (/MT)</div>
+        <div className={styles.fgHead}>Bunker Date</div>
+        <div className={styles.fgHead}>Amount</div>
+        <div className={styles.fgHead} />
+        {(form[kind] || []).map((row, index) => {
+          const gradeName = (lookups?.bunkers || []).find((opt) => String(opt.id) === String(row.bunkerId))?.name
+            || row.gradeName
+            || '';
+          const bunkerIdPrefix = kind === 'deliveryBunkers' ? 'delBunker' : 'reDelBunker';
+          return (
+            <React.Fragment key={`${kind}-${index}`}>
+              <div className={styles.fgCell}>
+                <TableCardSelect
+                  id={index === 0 ? bunkerIdPrefix + '_0' : undefined}
+                  options={[
+                    ...(lookups?.bunkers || []),
+                    ...(row.bunkerId != null
+                      && String(row.bunkerId).trim() !== ''
+                      && !(lookups?.bunkers || []).some((opt) => String(opt.id) === String(row.bunkerId))
+                      ? [{ id: String(row.bunkerId), name: gradeName || `Grade #${row.bunkerId}` }]
+                      : []),
+                  ]}
+                  value={row.bunkerId != null ? String(row.bunkerId) : ''}
+                  onChange={(v) => updateBunker(kind, index, 'bunkerId', v)}
+                  disabled={readOnly}
+                  className={styles.tableCardSelect}
+                  placeholder="Select"
+                  ariaLabel="Bunker grade"
+                />
+              </div>
+              <div className={styles.fgCell}>
+                <input
+                  id={index === 0 ? `${bunkerIdPrefix}Qty_0` : undefined}
+                  value={row.qty || ''}
+                  onChange={(e) => updateBunker(kind, index, 'qty', e.target.value)}
+                  placeholder="0.00"
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
+              </div>
+              <div className={styles.fgCell}>
+                <input
+                  id={index === 0 ? `${bunkerIdPrefix}Price_0` : undefined}
+                  value={row.price || ''}
+                  onChange={(e) => updateBunker(kind, index, 'price', e.target.value)}
+                  placeholder="0.00"
+                  readOnly={readOnly}
+                  className={readOnly ? styles.inputReadonly : undefined}
+                />
+              </div>
+              <div className={styles.fgCell}>
+                <DmyDateInput
+                  id={index === 0 ? `${bunkerIdPrefix}Date_0` : undefined}
+                  value={row.bunkerDate || ''}
+                  onChange={(value) => updateBunker(kind, index, 'bunkerDate', value)}
+                  disabled={readOnly}
+                />
+              </div>
+              <div className={styles.fgCell}>
+                <input value={row.amount || ''} readOnly className={styles.inputReadonly} placeholder="0.00" />
+              </div>
+              <div className={styles.fgCell}>
+                {!readOnly ? (
+                  <div className={styles.rowIconActions}>
+                    <button
+                      type="button"
+                      className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
+                      title="Add bunker row"
+                      onClick={() => addBunker(kind)}
+                    >
+                      <CircleAddIcon />
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                      title="Delete row"
+                      onClick={() => removeBunker(kind, index)}
+                    >
+                      <CircleDelIcon />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </React.Fragment>
+          );
+        })}
       </div>
-      <div className={styles.subsectionCard}>
-      <div className={styles.miniTableWrap}>
-        <table className={styles.miniTable}>
-          <thead>
-            <tr>
-              <th>Bunker Grade</th>
-              <th>Qty (MT)</th>
-              <th>Price (/MT)</th>
-              <th>Bunker Date</th>
-              <th>Amount</th>
-              <th style={{ width: 64 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {(form[kind] || []).map((row, index) => {
-              const gradeName = (lookups?.bunkers || []).find((opt) => String(opt.id) === String(row.bunkerId))?.name
-                || row.gradeName
-                || '';
-              const bunkerIdPrefix = kind === 'deliveryBunkers' ? 'delBunker' : 'reDelBunker';
-              return (
-                <tr key={`${kind}-${index}`}>
-                  <td>
-                    <TableCardSelect
-                      id={index === 0 ? bunkerIdPrefix + '_0' : undefined}
-                      options={[
-                        ...(lookups?.bunkers || []),
-                        ...(row.bunkerId != null
-                          && String(row.bunkerId).trim() !== ''
-                          && !(lookups?.bunkers || []).some((opt) => String(opt.id) === String(row.bunkerId))
-                          ? [{ id: String(row.bunkerId), name: gradeName || `Grade #${row.bunkerId}` }]
-                          : []),
-                      ]}
-                      value={row.bunkerId != null ? String(row.bunkerId) : ''}
-                      onChange={(v) => updateBunker(kind, index, 'bunkerId', v)}
-                      disabled={readOnly}
-                      className={gradeSelectClass(gradeName)}
-                      placeholder="Select"
-                      ariaLabel="Bunker grade"
-                    />
-                  </td>
-                  <td>
-                    <input
-                      id={index === 0 ? `${bunkerIdPrefix}Qty_0` : undefined}
-                      value={row.qty || ''}
-                      onChange={(e) => updateBunker(kind, index, 'qty', e.target.value)}
-                      placeholder="0.00"
-                      readOnly={readOnly}
-                      className={readOnly ? styles.inputReadonly : undefined}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      id={index === 0 ? `${bunkerIdPrefix}Price_0` : undefined}
-                      value={row.price || ''}
-                      onChange={(e) => updateBunker(kind, index, 'price', e.target.value)}
-                      placeholder="0.00"
-                      readOnly={readOnly}
-                      className={readOnly ? styles.inputReadonly : undefined}
-                    />
-                  </td>
-                  <td>
-                    <DmyDateInput
-                      id={index === 0 ? `${bunkerIdPrefix}Date_0` : undefined}
-                      value={row.bunkerDate || ''}
-                      onChange={(value) => updateBunker(kind, index, 'bunkerDate', value)}
-                      disabled={readOnly}
-                    />
-                  </td>
-                  <td>
-                    <input value={row.amount || ''} readOnly className={styles.inputReadonly} placeholder="0.00" />
-                  </td>
-                  <td>
-                    {!readOnly ? (
-                      <div className={styles.rowIconActions}>
-                        <button
-                          type="button"
-                          className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
-                          title="Add bunker row"
-                          onClick={() => addBunker(kind)}
-                        >
-                          <CircleAddIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                          title="Delete row"
-                          onClick={() => removeBunker(kind, index)}
-                        >
-                          <CircleDelIcon />
-                        </button>
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={4} style={{ textAlign: 'right' }}>Total</td>
-              <td>{sumBunkerAmounts(form[kind])}</td>
-              <td />
-            </tr>
-          </tfoot>
-        </table>
+      <div className={styles.tsecTotalRow}>
+        <span className={styles.tsecTotalLabel}>Total</span>
+        <span>{sumBunkerAmounts(form[kind])}</span>
       </div>
-      </div>
-    </div>
+    </TsecCard>
   );
 
   const businessTypeOptions = (Array.isArray(businessTypes) ? businessTypes : []).map((opt) => ({
@@ -2091,8 +2136,8 @@ export default function TcFixtureFormPage({
                 </div>
               </CollapsiblePanel>
               <CollapsiblePanel title="Pre-TC Details" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.preTc}>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst} ${styles.subBlockLabelPad}`}>Itinerary</div>
-                <div className={styles.itineraryGrid}>
+                <TsecCard theme="lblue" tab="Itinerary">
+                <div className={styles.tsecItineraryGrid}>
                   <TextInput
                     label="From"
                     value={form.itinerary?.from?.place || ''}
@@ -2134,32 +2179,27 @@ export default function TcFixtureFormPage({
                     />
                   </Field>
                 </div>
+                </TsecCard>
 
-                <div className={styles.subBlockLabel}>Expenses</div>
-                <div className={styles.subsectionCard}>
-                <div className={styles.miniTableWrap}>
-                <table className={styles.miniTable}>
-                  <thead>
-                    <tr>
-                      <th>Expense Type</th>
-                      <th>Expense Description</th>
-                      <th>Amount (USD)</th>
-                      <th>Notes</th>
-                      <th style={{ width: 64 }} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(form.itineraryExpenses || []).map((row, index) => {
-                      // PHP Pre-TC: Expense Description options come from #selOwRel
-                      // (owner_related_cost_master; value = LASER_CODE).
+                <TsecCard theme="navy" tab="Expenses">
+                <div
+                  className={styles.fieldGrid}
+                  style={{ '--cols': '1fr 1.3fr 0.9fr 1.4fr 64px' }}
+                >
+                  <div className={styles.fgHead}>Expense Type</div>
+                  <div className={styles.fgHead}>Expense Description</div>
+                  <div className={styles.fgHead}>Amount</div>
+                  <div className={styles.fgHead}>Notes</div>
+                  <div className={styles.fgHead} />
+                  {(form.itineraryExpenses || []).map((row, index) => {
                       const expenseDescOptions = lookups?.ownerRelatedCosts || [];
                       const storedDesc = String(row.description || row.expenseDescId || '').trim();
                       const expenseDescValue = expenseDescOptions.find((opt) => String(opt.id) === storedDesc)?.id
                         || expenseDescOptions.find((opt) => opt.name === storedDesc)?.id
                         || storedDesc;
                       return (
-                      <tr key={`itin-exp-${index}`}>
-                        <td>
+                      <React.Fragment key={`itin-exp-${index}`}>
+                        <div className={styles.fgCell}>
                           <TableCardSelect
                             options={OWNER_CHARTERER_OPTIONS}
                             value={row.expenseType || ''}
@@ -2169,8 +2209,8 @@ export default function TcFixtureFormPage({
                             placeholder="Select"
                             ariaLabel="Expense type"
                           />
-                        </td>
-                        <td>
+                        </div>
+                        <div className={styles.fgCell}>
                           <TableCardSelect
                             options={[
                               ...expenseDescOptions,
@@ -2181,7 +2221,6 @@ export default function TcFixtureFormPage({
                             ]}
                             value={expenseDescValue ? String(expenseDescValue) : ''}
                             onChange={(v) => {
-                              // Persist LASER_CODE in description (matches PHP EXPENSEDESC).
                               patchItinExpense(index, {
                                 expenseDescId: v,
                                 description: v || '',
@@ -2191,8 +2230,8 @@ export default function TcFixtureFormPage({
                             placeholder="Select from list"
                             ariaLabel="Expense description"
                           />
-                        </td>
-                        <td>
+                        </div>
+                        <div className={styles.fgCell}>
                           <input
                             value={row.amount || ''}
                             onChange={(e) => patchItinExpense(index, { amount: e.target.value })}
@@ -2200,8 +2239,8 @@ export default function TcFixtureFormPage({
                             className={readOnly ? styles.inputReadonly : undefined}
                             placeholder="0.00"
                           />
-                        </td>
-                        <td>
+                        </div>
+                        <div className={styles.fgCell}>
                           <input
                             value={row.notes || ''}
                             onChange={(e) => patchItinExpense(index, { notes: e.target.value })}
@@ -2209,8 +2248,8 @@ export default function TcFixtureFormPage({
                             className={readOnly ? styles.inputReadonly : undefined}
                             placeholder="Notes"
                           />
-                        </td>
-                        <td>
+                        </div>
+                        <div className={styles.fgCell}>
                           {!readOnly ? (
                             <div className={styles.rowIconActions}>
                               <button
@@ -2231,150 +2270,138 @@ export default function TcFixtureFormPage({
                               </button>
                             </div>
                           ) : null}
-                        </td>
-                      </tr>
+                        </div>
+                      </React.Fragment>
                       );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colSpan={2} style={{ textAlign: 'right' }}>Total (USD)</td>
-                      <td>{itineraryExpenseTotal.toFixed(2)}</td>
-                      <td />
-                      <td />
-                    </tr>
-                  </tfoot>
-                </table>
+                  })}
                 </div>
+                <div className={styles.tsecTotalRow}>
+                  <span className={styles.tsecTotalLabel}>Total</span>
+                  <span>{itineraryExpenseTotal.toFixed(2)}</span>
                 </div>
+                </TsecCard>
               </CollapsiblePanel>
               <CollapsiblePanel title="TC Expenses" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.expenses}>
-                <div className={`${styles.subsectionCard} ${styles.subsectionCardNoLabel}`}>
-                <div className={styles.miniTableWrap}>
-                  <table className={`${styles.miniTable} ${styles.miniTableCenter} ${styles.tcExpensesTable}`}>
-                    <thead>
-                      <tr>
-                        <th className={styles.tcExpColExpense}>Expense</th>
-                        <th className={styles.tcExpColType}>Type</th>
-                        <th className={styles.tcExpColNotes}>Notes</th>
-                        <th className={styles.tcExpColAddTotal}>Add to Total</th>
-                        <th className={styles.tcExpColAmount}>Amount</th>
-                        <th className={styles.tcExpColVendor}>Vendor</th>
-                        <th className={styles.tcExpColActions} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(form.otherExpenses?.length ? form.otherExpenses : [{ ...EMPTY_EXPENSE }]).map((row, index) => (
-                        <tr key={`exp-${index}`}>
-                          <td className={styles.tcExpColExpense}>
-                            <TableCardSelect
-                              options={lookups?.expenseTypes || []}
-                              value={row.expenseTypeId || ''}
-                              onChange={(v) => {
-                                const match = (lookups?.expenseTypes || []).find((opt) => String(opt.id) === String(v));
-                                patchOtherExpense(index, {
-                                  expenseTypeId: v,
-                                  description: match?.name || row.description || '',
-                                });
-                              }}
-                              disabled={readOnly}
-                              placeholder="Select from"
-                              ariaLabel="Expense"
-                            />
-                          </td>
-                          <td className={styles.tcExpColType}>
-                            <TableCardSelect
-                              options={OWNER_CHARTERER_OPTIONS}
-                              value={row.notes || ''}
-                              onChange={(v) => {
-                                const isOwner = String(v || '').toLowerCase() === 'owner';
-                                patchOtherExpense(index, {
-                                  notes: v,
-                                  // Add to Total only applies to Owner expenses
-                                  addToTotal: isOwner,
-                                });
-                              }}
-                              disabled={readOnly}
-                              className={ownerChipClass(row.notes)}
-                              placeholder="Select from"
-                              ariaLabel="Type"
-                            />
-                          </td>
-                          <td className={styles.tcExpColNotes}>
-                            <input
-                              value={row.description || ''}
-                              onChange={(e) => patchOtherExpense(index, { description: e.target.value })}
-                              placeholder="Notes"
-                              readOnly={readOnly}
-                              className={readOnly ? styles.inputReadonly : undefined}
-                            />
-                          </td>
-                          <td className={styles.tcExpColAddTotal}>
-                            <input
-                              type="checkbox"
-                              className={styles.expenseChk}
-                              checked={String(row.notes || '').toLowerCase() === 'owner' && row.addToTotal !== false}
-                              onChange={(e) => patchOtherExpense(index, { addToTotal: e.target.checked })}
-                              disabled={readOnly || String(row.notes || '').toLowerCase() !== 'owner'}
-                              title={
-                                String(row.notes || '').toLowerCase() === 'owner'
-                                  ? 'Add to total'
-                                  : 'Add to Total is only available for Owner expenses'
-                              }
-                            />
-                          </td>
-                          <td className={styles.tcExpColAmount}>
-                            <input
-                              value={row.amount || ''}
-                              onChange={(e) => patchOtherExpense(index, { amount: e.target.value })}
-                              placeholder="0.00"
-                              readOnly={readOnly}
-                              className={readOnly ? styles.inputReadonly : undefined}
-                            />
-                          </td>
-                          <td className={styles.tcExpColVendor}>
-                            <TableCardSelect
-                              options={lookups?.charterers || []}
-                              value={row.vendorId || ''}
-                              onChange={(v) => patchOtherExpense(index, { vendorId: v })}
-                              disabled={readOnly}
-                              placeholder="Select from"
-                              ariaLabel="Vendor"
-                            />
-                          </td>
-                          <td>
-                            {!readOnly ? (
-                              <div className={styles.rowIconActions}>
-                                <button
-                                  type="button"
-                                  className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
-                                  title="Add expense"
-                                  onClick={addOtherExpense}
-                                >
-                                  <CircleAddIcon />
-                                </button>
-                                <button
-                                  type="button"
-                                  className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                                  title="Delete row"
-                                  onClick={() => setForm((prev) => ({
-                                    ...prev,
-                                    otherExpenses: (prev.otherExpenses || []).length > 1
-                                      ? prev.otherExpenses.filter((_, i) => i !== index)
-                                      : [{ ...EMPTY_EXPENSE }],
-                                  }))}
-                                >
-                                  <CircleDelIcon />
-                                </button>
-                              </div>
-                            ) : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <TsecCard theme="navy" tab="TC Expenses">
+                <div
+                  className={styles.fieldGrid}
+                  style={{ '--cols': '1.3fr 1fr 1.4fr 0.7fr 0.9fr 1fr 64px' }}
+                >
+                  <div className={styles.fgHead}>Expense</div>
+                  <div className={styles.fgHead}>Type</div>
+                  <div className={styles.fgHead}>Notes</div>
+                  <div className={styles.fgHead}>Add to Total</div>
+                  <div className={styles.fgHead}>Amount</div>
+                  <div className={styles.fgHead}>Vendor</div>
+                  <div className={styles.fgHead} />
+                  {(form.otherExpenses?.length ? form.otherExpenses : [{ ...EMPTY_EXPENSE }]).map((row, index) => (
+                    <React.Fragment key={`exp-${index}`}>
+                      <div className={styles.fgCell}>
+                        <TableCardSelect
+                          options={lookups?.expenseTypes || []}
+                          value={row.expenseTypeId || ''}
+                          onChange={(v) => {
+                            const match = (lookups?.expenseTypes || []).find((opt) => String(opt.id) === String(v));
+                            patchOtherExpense(index, {
+                              expenseTypeId: v,
+                              description: match?.name || row.description || '',
+                            });
+                          }}
+                          disabled={readOnly}
+                          placeholder="Select from"
+                          ariaLabel="Expense"
+                        />
+                      </div>
+                      <div className={styles.fgCell}>
+                        <TableCardSelect
+                          options={OWNER_CHARTERER_OPTIONS}
+                          value={row.notes || ''}
+                          onChange={(v) => {
+                            const isOwner = String(v || '').toLowerCase() === 'owner';
+                            patchOtherExpense(index, {
+                              notes: v,
+                              addToTotal: isOwner,
+                            });
+                          }}
+                          disabled={readOnly}
+                          className={ownerChipClass(row.notes)}
+                          placeholder="Select from"
+                          ariaLabel="Type"
+                        />
+                      </div>
+                      <div className={styles.fgCell}>
+                        <input
+                          value={row.description || ''}
+                          onChange={(e) => patchOtherExpense(index, { description: e.target.value })}
+                          placeholder="Notes"
+                          readOnly={readOnly}
+                          className={readOnly ? styles.inputReadonly : undefined}
+                        />
+                      </div>
+                      <div className={styles.fgCell}>
+                        <input
+                          type="checkbox"
+                          className={styles.expenseChk}
+                          checked={String(row.notes || '').toLowerCase() === 'owner' && row.addToTotal !== false}
+                          onChange={(e) => patchOtherExpense(index, { addToTotal: e.target.checked })}
+                          disabled={readOnly || String(row.notes || '').toLowerCase() !== 'owner'}
+                          title={
+                            String(row.notes || '').toLowerCase() === 'owner'
+                              ? 'Add to total'
+                              : 'Add to Total is only available for Owner expenses'
+                          }
+                        />
+                      </div>
+                      <div className={styles.fgCell}>
+                        <input
+                          value={row.amount || ''}
+                          onChange={(e) => patchOtherExpense(index, { amount: e.target.value })}
+                          placeholder="0.00"
+                          readOnly={readOnly}
+                          className={readOnly ? styles.inputReadonly : undefined}
+                        />
+                      </div>
+                      <div className={styles.fgCell}>
+                        <TableCardSelect
+                          options={lookups?.charterers || []}
+                          value={row.vendorId || ''}
+                          onChange={(v) => patchOtherExpense(index, { vendorId: v })}
+                          disabled={readOnly}
+                          placeholder="Select from"
+                          ariaLabel="Vendor"
+                        />
+                      </div>
+                      <div className={styles.fgCell}>
+                        {!readOnly ? (
+                          <div className={styles.rowIconActions}>
+                            <button
+                              type="button"
+                              className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
+                              title="Add expense"
+                              onClick={addOtherExpense}
+                            >
+                              <CircleAddIcon />
+                            </button>
+                            <button
+                              type="button"
+                              className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                              title="Delete row"
+                              onClick={() => setForm((prev) => ({
+                                ...prev,
+                                otherExpenses: (prev.otherExpenses || []).length > 1
+                                  ? prev.otherExpenses.filter((_, i) => i !== index)
+                                  : [{ ...EMPTY_EXPENSE }],
+                              }))}
+                            >
+                              <CircleDelIcon />
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </React.Fragment>
+                  ))}
                 </div>
-                </div>
+                </TsecCard>
                 {showSubCharter ? (
                   <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
                     <button
@@ -2389,304 +2416,288 @@ export default function TcFixtureFormPage({
                 ) : null}
               </CollapsiblePanel>
               <CollapsiblePanel title="Trip Details" defaultOpen className={styles.estCard} icon={SECTION_ICONS.trip}>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst} ${styles.subBlockLabelPad}`}>Trip Schedule</div>
-                <div className={styles.subsectionCard}>
-                <div className={styles.miniTableWrap}>
-                  <table className={styles.miniTable}>
-                    <thead>
-                      <tr>
-                        <th>Del Date (From)</th>
-                        <th>Del Date (To)</th>
-                        <th>Days</th>
-                        <th>Hire ($/day)</th>
-                        <th>Hire Amt ($)</th>
-                        <th style={{ width: 64 }} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(form.hirePeriods?.length ? form.hirePeriods : [{ ...EMPTY_HIRE }]).map((row, index) => {
-                        const resolved = hirePeriodTotals.rows[index] || resolveHirePeriod(row);
-                        return (
-                          <tr key={`hire-${index}`}>
-                            <td>
-                              <DmyDateInput
-                                id={index === 0 ? 'hireDelDate_0' : undefined}
-                                value={row.delDate || ''}
-                                onChange={(v) => patchHirePeriod(index, { delDate: v })}
-                                enableTime
-                                disabled={readOnly}
-                              />
-                            </td>
-                            <td>
-                              <DmyDateInput
-                                id={index === 0 ? 'hireReDelDate_0' : undefined}
-                                value={row.reDelDate || ''}
-                                onChange={(v) => patchHirePeriod(index, { reDelDate: v })}
-                                enableTime
-                                disabled={readOnly}
-                              />
-                            </td>
-                            <td>
-                              <input
-                                value={resolved.days || ''}
-                                onChange={(e) => patchHirePeriod(index, { days: e.target.value })}
-                                readOnly={readOnly || Boolean(row.delDate && row.reDelDate)}
-                                className={(readOnly || (row.delDate && row.reDelDate)) ? styles.inputReadonly : undefined}
-                                placeholder="0"
-                              />
-                            </td>
-                            <td>
-                              <input
-                                id={index === 0 ? 'hireRate_0' : undefined}
-                                value={row.hireRate || ''}
-                                onChange={(e) => patchHirePeriod(index, { hireRate: e.target.value })}
-                                readOnly={readOnly}
-                                className={readOnly ? styles.inputReadonly : undefined}
-                                placeholder="0.00"
-                              />
-                            </td>
-                            <td>
-                              <input value={resolved.amount || dailyHireUsd} readOnly className={styles.inputReadonly} placeholder="0.00" />
-                            </td>
-                            <td>
-                              {!readOnly ? (
-                                <div className={styles.rowIconActions}>
-                                  <button
-                                    type="button"
-                                    className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
-                                    title="Add a new trip"
-                                    onClick={addHirePeriod}
-                                  >
-                                    <CircleAddIcon />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                                    title="Delete row"
-                                    onClick={() => setForm((prev) => {
-                                      const next = (prev.hirePeriods || []).length > 1
-                                        ? prev.hirePeriods.filter((_, i) => i !== index)
-                                        : [{ ...EMPTY_HIRE }];
-                                      return { ...prev, hirePeriods: next, ...syncFixtureFromHirePeriods(next) };
-                                    })}
-                                  >
-                                    <CircleDelIcon />
-                                  </button>
-                                </div>
-                              ) : null}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colSpan={2} style={{ textAlign: 'right' }}>Total</td>
-                        <td>{hirePeriodTotals.totalDays || ''}</td>
-                        <td />
-                        <td>{hirePeriodTotals.totalAmt}</td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  </table>
+                <TsecCard theme="lblue" tab="Trip Schedule" className={styles.tsecTripSchedule}>
+                <div
+                  className={styles.fieldGrid}
+                  style={{ '--cols': '1.3fr 1.3fr 0.6fr 0.9fr 1fr 64px' }}
+                >
+                  <div className={styles.fgHead}>Del Date (From)</div>
+                  <div className={styles.fgHead}>Del Date (To)</div>
+                  <div className={styles.fgHead}>Days</div>
+                  <div className={styles.fgHead}>Hire ($/day)</div>
+                  <div className={styles.fgHead}>Hire Amt ($)</div>
+                  <div className={styles.fgHead} />
+                  {(form.hirePeriods?.length ? form.hirePeriods : [{ ...EMPTY_HIRE }]).map((row, index) => {
+                    const resolved = hirePeriodTotals.rows[index] || resolveHirePeriod(row);
+                    return (
+                      <React.Fragment key={`hire-${index}`}>
+                        <div className={styles.fgCell}>
+                          <DmyDateInput
+                            id={index === 0 ? 'hireDelDate_0' : undefined}
+                            value={row.delDate || ''}
+                            onChange={(v) => patchHirePeriod(index, { delDate: v })}
+                            enableTime
+                            disabled={readOnly}
+                          />
+                        </div>
+                        <div className={styles.fgCell}>
+                          <DmyDateInput
+                            id={index === 0 ? 'hireReDelDate_0' : undefined}
+                            value={row.reDelDate || ''}
+                            onChange={(v) => patchHirePeriod(index, { reDelDate: v })}
+                            enableTime
+                            disabled={readOnly}
+                          />
+                        </div>
+                        <div className={styles.fgCell}>
+                          <input
+                            value={resolved.days || ''}
+                            onChange={(e) => patchHirePeriod(index, { days: e.target.value })}
+                            readOnly={readOnly || Boolean(row.delDate && row.reDelDate)}
+                            className={(readOnly || (row.delDate && row.reDelDate)) ? styles.inputReadonly : undefined}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className={styles.fgCell}>
+                          <input
+                            id={index === 0 ? 'hireRate_0' : undefined}
+                            value={row.hireRate || ''}
+                            onChange={(e) => patchHirePeriod(index, { hireRate: e.target.value })}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className={styles.fgCell}>
+                          <input value={resolved.amount || dailyHireUsd} readOnly className={styles.inputReadonly} placeholder="0.00" />
+                        </div>
+                        <div className={styles.fgCell}>
+                          {!readOnly ? (
+                            <div className={styles.rowIconActions}>
+                              <button
+                                type="button"
+                                className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
+                                title="Add a new trip"
+                                onClick={addHirePeriod}
+                              >
+                                <CircleAddIcon />
+                              </button>
+                              <button
+                                type="button"
+                                className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                title="Delete row"
+                                onClick={() => setForm((prev) => {
+                                  const next = (prev.hirePeriods || []).length > 1
+                                    ? prev.hirePeriods.filter((_, i) => i !== index)
+                                    : [{ ...EMPTY_HIRE }];
+                                  return { ...prev, hirePeriods: next, ...syncFixtureFromHirePeriods(next) };
+                                })}
+                              >
+                                <CircleDelIcon />
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
+                <div className={styles.tsecTotalRow}>
+                  <span className={styles.tsecTotalLabel}>Total</span>
+                  <span>{hirePeriodTotals.totalDays || '0'} days / {hirePeriodTotals.totalAmt || '0.00'}</span>
                 </div>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPad}`}>Off Hire</div>
+                </TsecCard>
+                <TsecCard theme="navy" tab="Off Hire">
                 <div className={styles.offhireList}>
                   {(form.offHires?.length ? form.offHires : [{ ...EMPTY_OFF }]).map((row, index) => {
                     const resolved = resolveOffHire(row);
                     const showBunkers = row.bunkersOpen || (row.bunkers || []).length > 0;
                     return (
-                      <div key={`off-${index}`} className={`${styles.offhireItem} ${styles.subsectionCard}`}>
-                        <div className={styles.miniTableWrap}>
-                          <table className={`${styles.miniTable} ${styles.offhireMain}`}>
-                            <thead>
-                              <tr>
-                                <th>Reason</th>
-                                <th>From → To</th>
-                                <th>Days</th>
-                                <th>Rate/Day</th>
-                                <th>Vendor</th>
-                                <th>Amount</th>
-                                <th style={{ width: 44 }} />
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr>
-                                <td>
-                                  <input
-                                    value={row.reason || ''}
-                                    onChange={(e) => patchOffHire(index, { reason: e.target.value })}
-                                    placeholder="Description"
-                                    readOnly={readOnly}
-                                    className={readOnly ? styles.inputReadonly : undefined}
-                                  />
-                                </td>
-                                <td>
-                                  <div className={styles.offhireRange}>
-                                    <DmyDateInput
-                                      value={row.from || ''}
-                                      onChange={(v) => patchOffHire(index, {
-                                        from: v,
-                                        hireRate: row.hireRate || form.hireFixPer || '',
-                                      })}
-                                      enableTime
-                                      disabled={readOnly}
-                                    />
-                                    <DmyDateInput
-                                      value={row.to || ''}
-                                      onChange={(v) => patchOffHire(index, {
-                                        to: v,
-                                        hireRate: row.hireRate || form.hireFixPer || '',
-                                      })}
-                                      enableTime
-                                      disabled={readOnly}
-                                    />
-                                  </div>
-                                </td>
-                                <td>
-                                  <input
-                                    value={resolved.days || ''}
-                                    onChange={(e) => patchOffHire(index, { days: e.target.value })}
-                                    readOnly={readOnly || Boolean(row.from && row.to)}
-                                    className={(readOnly || (row.from && row.to)) ? styles.inputReadonly : undefined}
-                                  />
-                                </td>
-                                <td>
-                                  <input
-                                    value={row.hireRate || ''}
-                                    onChange={(e) => patchOffHire(index, { hireRate: e.target.value })}
-                                    readOnly={readOnly}
-                                    className={readOnly ? styles.inputReadonly : undefined}
-                                  />
-                                </td>
-                                <td>
-                                  <TableCardSelect
-                                    options={lookups?.charterers || []}
-                                    value={row.vendorId || ''}
-                                    onChange={(v) => patchOffHire(index, { vendorId: v })}
-                                    disabled={readOnly}
-                                    placeholder="Select"
-                                    ariaLabel="Off hire vendor"
-                                  />
-                                </td>
-                                <td>
-                                  <input
-                                    value={resolved.amount || ''}
-                                    readOnly
-                                    className={styles.inputReadonly}
-                                  />
-                                </td>
-                                <td>
-                                  {!readOnly ? (
-                                    <div className={styles.rowIconActions}>
-                                      <button
-                                        type="button"
-                                        className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                                        title="Delete this off-hire item"
-                                        onClick={() => setForm((prev) => ({
-                                          ...prev,
-                                          offHires: (prev.offHires || []).length > 1
-                                            ? prev.offHires.filter((_, i) => i !== index)
-                                            : [{ ...EMPTY_OFF }],
-                                        }))}
-                                      >
-                                        <CircleDelIcon />
-                                      </button>
-                                    </div>
-                                  ) : null}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
+                      <div key={`off-${index}`} className={styles.offhireItem}>
+                        <div
+                          className={styles.fieldGrid}
+                          style={{ '--cols': '1.8fr 1fr 1fr 0.55fr 0.8fr 1.6fr 0.9fr 44px' }}
+                        >
+                          {index === 0 ? (
+                            <>
+                              <div className={styles.fgHead}>Reason</div>
+                              <div className={styles.fgHead}>From</div>
+                              <div className={styles.fgHead}>To</div>
+                              <div className={styles.fgHead}>Days</div>
+                              <div className={styles.fgHead}>Rate/Day</div>
+                              <div className={styles.fgHead}>Vendor</div>
+                              <div className={styles.fgHead}>Amount</div>
+                              <div className={styles.fgHead} />
+                            </>
+                          ) : null}
+                          <div className={styles.fgCell}>
+                            <input
+                              value={row.reason || ''}
+                              onChange={(e) => patchOffHire(index, { reason: e.target.value })}
+                              placeholder="Description"
+                              readOnly={readOnly}
+                              className={readOnly ? styles.inputReadonly : undefined}
+                            />
+                          </div>
+                          <div className={styles.fgCell}>
+                            <DmyDateInput
+                              value={row.from || ''}
+                              onChange={(v) => patchOffHire(index, {
+                                from: v,
+                                hireRate: row.hireRate || form.hireFixPer || '',
+                              })}
+                              enableTime
+                              disabled={readOnly}
+                            />
+                          </div>
+                          <div className={styles.fgCell}>
+                            <DmyDateInput
+                              value={row.to || ''}
+                              onChange={(v) => patchOffHire(index, {
+                                to: v,
+                                hireRate: row.hireRate || form.hireFixPer || '',
+                              })}
+                              enableTime
+                              disabled={readOnly}
+                            />
+                          </div>
+                          <div className={styles.fgCell}>
+                            <input
+                              value={resolved.days || ''}
+                              onChange={(e) => patchOffHire(index, { days: e.target.value })}
+                              readOnly={readOnly || Boolean(row.from && row.to)}
+                              className={(readOnly || (row.from && row.to)) ? styles.inputReadonly : undefined}
+                            />
+                          </div>
+                          <div className={styles.fgCell}>
+                            <input
+                              value={row.hireRate || ''}
+                              onChange={(e) => patchOffHire(index, { hireRate: e.target.value })}
+                              readOnly={readOnly}
+                              className={readOnly ? styles.inputReadonly : undefined}
+                            />
+                          </div>
+                          <div className={styles.fgCell}>
+                            <TableCardSelect
+                              options={lookups?.charterers || []}
+                              value={row.vendorId || ''}
+                              onChange={(v) => patchOffHire(index, { vendorId: v })}
+                              disabled={readOnly}
+                              placeholder="Select"
+                              ariaLabel="Off hire vendor"
+                            />
+                          </div>
+                          <div className={styles.fgCell}>
+                            <input
+                              value={resolved.amount || ''}
+                              readOnly
+                              className={styles.inputReadonly}
+                            />
+                          </div>
+                          <div className={styles.fgCell}>
+                            {!readOnly ? (
+                              <div className={styles.rowIconActions}>
+                                <button
+                                  type="button"
+                                  className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                  title="Delete this off-hire item"
+                                  onClick={() => setForm((prev) => ({
+                                    ...prev,
+                                    offHires: (prev.offHires || []).length > 1
+                                      ? prev.offHires.filter((_, i) => i !== index)
+                                      : [{ ...EMPTY_OFF }],
+                                  }))}
+                                >
+                                  <CircleDelIcon />
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
                         <div className={styles.offhireBunkers}>
                           {showBunkers ? (
                             <div className={styles.offhireBunkersInner}>
-                              <table className={`${styles.miniTable} ${styles.offhireBunkerTable}`}>
-                                <thead>
-                                  <tr>
-                                    <th>Grade</th>
-                                    <th>Qty (MT)</th>
-                                    <th>Price (/MT)</th>
-                                    <th>Amt</th>
-                                    <th style={{ width: 44 }} />
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {(row.bunkers?.length ? row.bunkers : [{ ...EMPTY_OFF_BUNKER }]).map((bunker, bIndex) => {
-                                    const gradeName = bunker.gradeName
-                                      || (lookups?.bunkers || []).find((b) => String(b.id) === String(bunker.bunkerId))?.name
-                                      || '';
-                                    return (
-                                      <tr key={`ohb-${index}-${bIndex}`}>
-                                        <td>
-                                          <TableCardSelect
-                                            options={[
-                                              ...(lookups?.bunkers || []),
-                                              ...(bunker.bunkerId
-                                                && !(lookups?.bunkers || []).some((b) => String(b.id) === String(bunker.bunkerId))
-                                                ? [{ id: String(bunker.bunkerId), name: gradeName || `Grade #${bunker.bunkerId}` }]
-                                                : []),
-                                            ]}
-                                            value={bunker.bunkerId || ''}
-                                            onChange={(v) => {
-                                              const match = (lookups?.bunkers || []).find((b) => String(b.id) === String(v));
-                                              patchOffHireNestedBunker(index, bIndex, {
-                                                bunkerId: v,
-                                                gradeName: match?.name || '',
-                                              });
-                                            }}
-                                            disabled={readOnly}
-                                            className={gradeSelectClass(gradeName)}
-                                            placeholder="Select"
-                                            ariaLabel="Off hire bunker grade"
-                                          />
-                                        </td>
-                                        <td>
-                                          <input
-                                            value={bunker.qty || ''}
-                                            onChange={(e) => patchOffHireNestedBunker(index, bIndex, { qty: e.target.value })}
-                                            readOnly={readOnly}
-                                            className={readOnly ? styles.inputReadonly : undefined}
-                                          />
-                                        </td>
-                                        <td>
-                                          <input
-                                            value={bunker.price || ''}
-                                            onChange={(e) => patchOffHireNestedBunker(index, bIndex, { price: e.target.value })}
-                                            readOnly={readOnly}
-                                            className={readOnly ? styles.inputReadonly : undefined}
-                                          />
-                                        </td>
-                                        <td>
-                                          <input value={bunker.amount || ''} readOnly className={styles.inputReadonly} />
-                                        </td>
-                                        <td>
-                                          {!readOnly ? (
-                                            <div className={styles.rowIconActions}>
-                                              <button
-                                                type="button"
-                                                className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                                                title="Delete bunker row"
-                                                onClick={() => removeOffHireBunker(index, bIndex)}
-                                              >
-                                                <CircleDelIcon />
-                                              </button>
-                                            </div>
-                                          ) : null}
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                              <div
+                                className={styles.fieldGrid}
+                                style={{ '--cols': '1.2fr 0.8fr 0.9fr 1fr 44px' }}
+                              >
+                                <div className={styles.fgHead}>Grade</div>
+                                <div className={styles.fgHead}>Qty (MT)</div>
+                                <div className={styles.fgHead}>Price (/MT)</div>
+                                <div className={styles.fgHead}>Amount</div>
+                                <div className={styles.fgHead} />
+                                {(row.bunkers?.length ? row.bunkers : [{ ...EMPTY_OFF_BUNKER }]).map((bunker, bIndex) => {
+                                  const gradeName = bunker.gradeName
+                                    || (lookups?.bunkers || []).find((b) => String(b.id) === String(bunker.bunkerId))?.name
+                                    || '';
+                                  return (
+                                    <React.Fragment key={`ohb-${index}-${bIndex}`}>
+                                      <div className={styles.fgCell}>
+                                        <TableCardSelect
+                                          options={[
+                                            ...(lookups?.bunkers || []),
+                                            ...(bunker.bunkerId
+                                              && !(lookups?.bunkers || []).some((b) => String(b.id) === String(bunker.bunkerId))
+                                              ? [{ id: String(bunker.bunkerId), name: gradeName || `Grade #${bunker.bunkerId}` }]
+                                              : []),
+                                          ]}
+                                          value={bunker.bunkerId || ''}
+                                          onChange={(v) => {
+                                            const match = (lookups?.bunkers || []).find((b) => String(b.id) === String(v));
+                                            patchOffHireNestedBunker(index, bIndex, {
+                                              bunkerId: v,
+                                              gradeName: match?.name || '',
+                                            });
+                                          }}
+                                          disabled={readOnly}
+                                          className={gradeSelectClass(gradeName)}
+                                          placeholder="Select"
+                                          ariaLabel="Off hire bunker grade"
+                                        />
+                                      </div>
+                                      <div className={styles.fgCell}>
+                                        <input
+                                          value={bunker.qty || ''}
+                                          onChange={(e) => patchOffHireNestedBunker(index, bIndex, { qty: e.target.value })}
+                                          readOnly={readOnly}
+                                          className={readOnly ? styles.inputReadonly : undefined}
+                                        />
+                                      </div>
+                                      <div className={styles.fgCell}>
+                                        <input
+                                          value={bunker.price || ''}
+                                          onChange={(e) => patchOffHireNestedBunker(index, bIndex, { price: e.target.value })}
+                                          readOnly={readOnly}
+                                          className={readOnly ? styles.inputReadonly : undefined}
+                                        />
+                                      </div>
+                                      <div className={styles.fgCell}>
+                                        <input value={bunker.amount || ''} readOnly className={styles.inputReadonly} />
+                                      </div>
+                                      <div className={styles.fgCell}>
+                                        {!readOnly ? (
+                                          <div className={styles.rowIconActions}>
+                                            <button
+                                              type="button"
+                                              className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                              title="Delete bunker row"
+                                              onClick={() => removeOffHireBunker(index, bIndex)}
+                                            >
+                                              <CircleDelIcon />
+                                            </button>
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    </React.Fragment>
+                                  );
+                                })}
+                              </div>
                             </div>
                           ) : null}
                           {!readOnly ? (
                             <button
                               type="button"
-                              className={`${styles.addRowBtn} ${styles.offhireAddBunkersBtn}`}
+                              className={`${styles.tsecAddBtn} ${styles.tsecAddBtnSlate}`}
                               onClick={() => addOffHireBunkers(index)}
                             >
                               + Add Bunkers
@@ -2700,22 +2711,17 @@ export default function TcFixtureFormPage({
                 {!readOnly ? (
                   <button
                     type="button"
-                    className={styles.addRowBtn}
+                    className={`${styles.tsecAddBtn} ${styles.tsecAddBtnNavy}`}
                     onClick={addOffHire}
                   >
                     + Add Reason
                   </button>
                 ) : null}
+                </TsecCard>
               </CollapsiblePanel>
               <CollapsiblePanel title="Bunkers" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.bunkers}>
-                {renderBunkerTable(
-                  'deliveryBunkers',
-                  <>Bunkers on <span className={styles.bgDirChip}>Delivery</span></>,
-                )}
-                {renderBunkerTable(
-                  'redeliveryBunkers',
-                  <>Bunkers on <span className={styles.bgDirChip}>Redelivery</span></>,
-                )}
+                {renderBunkerTable('deliveryBunkers', 'Delivery')}
+                {renderBunkerTable('redeliveryBunkers', 'Redelivery')}
               </CollapsiblePanel>
               <CollapsiblePanel title="TC Terms for Voyage" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.terms}>
                 <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Sea Passage</div>
@@ -2834,6 +2840,10 @@ export default function TcFixtureFormPage({
                   <div className={styles.resRow}>
                     <span className={styles.resRowLabel}>Profit (Adj. Pre TC)</span>
                     <span className={styles.resRowVal}>{tcResults.profitAdjPreTc}</span>
+                  </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Profit / Day</span>
+                    <span className={styles.resRowVal}>{tcResults.profitPerDay}</span>
                   </div>
                 </div>
               </div>

@@ -1341,9 +1341,15 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
       calcInput.otherIncome = body.otherIncome.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
     }
     if (calcInput.totalExp == null && Array.isArray(body.otherExpenses)) {
-      calcInput.totalExp = body.otherExpenses
-        .filter((row) => row.addToTotal !== false)
+      const addToTotal = body.otherExpenses
+        .filter((row) => row.addToTotal === true)
         .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+      const tcInHireage = Number(
+        body.tcInExpenses?.finalHireage
+        ?? calcInput.tcFinalHireage
+        ?? 0,
+      ) || 0;
+      calcInput.totalExp = addToTotal + tcInHireage;
     }
     const totals = calcTcTotals(calcInput);
     const merged = { ...calcInput, ...totals };

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CardSelect, DmyDateInput } from '@bainbridge/shared-ui';
-import { daysBetween } from '../../../services/tcEstimates.js';
+import { daysBetween, hasDateValue } from '../../../services/tcEstimates.js';
 import styles from './TcPages.module.css';
 
 const EMPTY_HIRE = {
@@ -34,7 +34,7 @@ function num(v) {
 function resolveHireRow(row) {
   let voyageDays = num(row.voyageDays);
   // Match PHP: always recompute voyage days from delivery/redelivery when both set.
-  if (row.deliveryDate && row.redeliveryDate) {
+  if (hasDateValue(row.deliveryDate) && hasDateValue(row.redeliveryDate)) {
     voyageDays = daysBetween(row.redeliveryDate, row.deliveryDate);
   }
   const dailyHire = num(row.dailyHire);
@@ -73,11 +73,13 @@ export function calcTcInFinalHireage(tcIn = {}) {
   let ownerBunker = num(tcIn.bunkerOnOwner);
   const offHires = (tcIn.offHires || []).map((row) => {
     let days = num(row.days);
-    const hasFrom = row.from != null && String(row.from).trim() !== '';
-    if (hasFrom && row.to) {
+    const hasFrom = hasDateValue(row.from);
+    const hasTo = hasDateValue(row.to);
+    if (hasFrom && hasTo) {
       days = daysBetween(row.to, row.from);
     }
     const amount = days * num(row.hireRate);
+    // PHP TC In: when From exists, add timediff (or manual days if To blank).
     if (hasFrom) offHireDays += days;
     offHireAmt += amount;
     // PHP sums off-hire bunkers with ChkOFFHireCal checked into owners bunker / less off-hire.

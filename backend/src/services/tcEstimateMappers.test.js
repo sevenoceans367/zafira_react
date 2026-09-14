@@ -149,7 +149,7 @@ describe('tcEstimateMappers', () => {
     assert.equal(totals.hireIncome, '100000.00');
   });
 
-  it('only reduces utilisation for off-hire rows with From date', () => {
+  it('only reduces utilisation when off-hire has both From and To', () => {
     const totals = calcTcTotals({
       hirePeriods: [
         { delDate: '01-01-2026 00:00', reDelDate: '11-01-2026 00:00', hireRate: '10000' },
@@ -164,6 +164,55 @@ describe('tcEstimateMappers', () => {
     assert.equal(totals.utilisationDays, '10');
     assert.equal(totals.lessOffHire, '10000.00');
     assert.equal(totals.cve, '1000.00');
+  });
+
+  it('ignores off-hire utilisation when To is missing (PHP getTimeDiff)', () => {
+    const totals = calcTcTotals({
+      hirePeriods: [
+        { delDate: '01-01-2026 00:00', reDelDate: '11-01-2026 00:00', hireRate: '10000' },
+      ],
+      addCommPct: 0,
+      brokerCommPct: 0,
+      cveMonth: '',
+      otherIncome: 0,
+      totalExp: 0,
+      offHires: [{ days: '2', hireRate: '5000', from: '02-01-2026 00:00', to: '' }],
+    });
+    assert.equal(totals.utilisationDays, '10');
+    assert.equal(totals.lessOffHire, '10000.00');
+  });
+
+  it('treats empty cveMonth as zero CVE (not stale cve amount)', () => {
+    const totals = calcTcTotals({
+      hirePeriods: [
+        { delDate: '01-01-2026 00:00', reDelDate: '11-01-2026 00:00', hireRate: '10000' },
+      ],
+      addCommPct: 0,
+      brokerCommPct: 0,
+      cveMonth: '',
+      cve: 99999,
+      otherIncome: 0,
+      totalExp: 0,
+      offHires: [],
+    });
+    assert.equal(totals.cve, '0.00');
+  });
+
+  it('falls back to HFO/MGO when bunker grid only has a grade selected', () => {
+    const totals = calcTcTotals({
+      tcDays: 10,
+      dailyGrossHire: 1000,
+      deliveryBunkers: [{ bunkerId: '12', qty: '', price: '', amount: '' }],
+      redeliveryBunkers: [{ bunkerId: '12', qty: '', price: '', amount: '' }],
+      delHfoMt: 10,
+      delHfoUsd: 100,
+      reDelHfoMt: 5,
+      reDelHfoUsd: 100,
+      otherIncome: 0,
+      totalExp: 0,
+      offHires: [],
+    });
+    assert.equal(totals.bunkerDiffAmt, '500.00');
   });
 
   it('adds nested off-hire bunkers into lessOffHire', () => {

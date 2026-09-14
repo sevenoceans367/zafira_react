@@ -63,4 +63,37 @@ describe('frontend calcTcTotals', () => {
     });
     assert.equal(totals.lessOffHire, '13000.00');
   });
+
+  it('treats empty cveMonth as zero CVE (PHP txtCVEM == "")', () => {
+    const totals = calcTcTotals({
+      hirePeriods: [
+        { delDate: '01-01-2026 00:00', reDelDate: '11-01-2026 00:00', hireRate: '10000' },
+      ],
+      addCommPct: 0,
+      brokerCommPct: 0,
+      cveMonth: '',
+      cve: 99999,
+      otherIncome: 0,
+      totalExp: 0,
+      offHires: [],
+    });
+    assert.equal(totals.cve, '0.00');
+    assert.equal(totals.utilisationDays, '10');
+  });
+
+  it('does not reduce utilisation when off-hire To is missing', () => {
+    const totals = calcTcTotals({
+      hirePeriods: [
+        { delDate: '01-01-2026 00:00', reDelDate: '11-01-2026 00:00', hireRate: '10000' },
+      ],
+      addCommPct: 0,
+      brokerCommPct: 0,
+      cveMonth: '',
+      otherIncome: 0,
+      totalExp: 0,
+      offHires: [{ days: '2', hireRate: '5000', from: '02-01-2026 00:00', to: '' }],
+    });
+    assert.equal(totals.utilisationDays, '10');
+    assert.equal(totals.lessOffHire, '10000.00');
+  });
 });

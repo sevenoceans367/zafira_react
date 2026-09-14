@@ -1384,20 +1384,6 @@
   gap: 12px 10px;
 }
 
-.fieldHint {
-  display: block;
-  font-size: 10px;
-  color: #9ca3af;
-  margin-top: 4px;
-  line-height: 1.3;
-}
-
-.offhireRateRow {
-  margin-top: 6px;
-  margin-bottom: 2px;
-  max-width: 220px;
-}
-
 .offhireList {
   display: flex;
   flex-direction: column;

@@ -7,28 +7,35 @@
 }
 
 /*
- * Zafira-themed Flatpickr calendar (look only).
- * Keeps default flatpickr day grid + multi-step date → hour → minute layout.
- * Tokens: navy #274670 · light blue #376eb8 (selection)
+ * Laycan / CP Date–style Flatpickr calendar (global).
+ * White panel, navy selection, Today + Cancel / Apply footer for date-only.
  */
 :global(.flatpickr-calendar) {
   --fp-navy: #274670;
+  --fp-navy-tint: #e6eaf1;
+  --fp-navy-tint-strong: #d8dce3;
   --fp-blue: #376eb8;
   --fp-blue-soft: rgba(55, 110, 184, 0.14);
   --fp-navy-soft: rgba(39, 70, 112, 0.08);
-  --fp-border: #d5dee9;
-  --fp-text: #1f2937;
-  --fp-muted: #6b7280;
+  --fp-border: #dfe2e7;
+  --fp-line: #eceef2;
+  --fp-text: #1b2430;
+  --fp-muted: #8a93a2;
+  --fp-mid: #5b6472;
+  --fp-field: #f1f2f4;
+  --fp-red: #e4483b;
+  --fp-red-tint: #fdecea;
 
   z-index: 10050 !important;
+  width: 270px !important;
+  min-width: 270px !important;
   border: 1px solid var(--fp-border);
   border-radius: 12px;
   background: #fff;
-  box-shadow:
-    0 12px 28px rgba(39, 70, 112, 0.16),
-    0 2px 6px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 16px 36px rgba(20, 20, 40, 0.16);
   font-family: inherit;
-  overflow: hidden;
+  overflow: visible;
+  padding: 4px 0 0;
 }
 
 :global(.flatpickr-calendar.arrowTop::before),
@@ -39,65 +46,90 @@
 }
 
 :global(.flatpickr-months) {
-  background: var(--fp-navy);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
   border-radius: 0;
-  padding-top: 4px;
+  padding: 6px 6px 4px;
+  height: 40px;
+  box-sizing: border-box;
 }
 
 :global(.flatpickr-months .flatpickr-month) {
   background: transparent;
-  color: #fff;
-  fill: #fff;
-  height: 34px;
-}
-
-:global(.flatpickr-current-month) {
-  left: 0;
-  width: 100%;
-  height: 34px;
-  padding: 0 36px;
+  color: var(--fp-text);
+  fill: var(--fp-mid);
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-  transform: none;
+  flex: 1;
+  overflow: visible;
 }
 
-:global(.flatpickr-current-month .flatpickr-monthDropdown-months),
+:global(.flatpickr-current-month) {
+  position: static;
+  left: auto;
+  width: auto;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--fp-text);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+  transform: none;
+  line-height: 1;
+}
+
+/* Hide native month <select>; replaced by CardSelect-style control */
+:global(.flatpickr-current-month .flatpickr-monthDropdown-months) {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 :global(.flatpickr-current-month input.cur-year) {
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
+  color: var(--fp-text);
+  font-size: 12.5px;
+  font-weight: 700;
   font-family: inherit;
   box-shadow: none;
   color-scheme: light;
   text-align: center;
   text-align-last: center;
   margin: 0;
+  height: 28px;
+  line-height: 28px;
+  padding: 0 4px;
+  box-sizing: border-box;
 }
 
 :global(.flatpickr-current-month .numInputWrapper) {
   width: 7ch;
+  height: 28px;
 }
 
-:global(.flatpickr-current-month .flatpickr-monthDropdown-months:hover),
 :global(.flatpickr-current-month input.cur-year:hover),
 :global(.flatpickr-current-month input.cur-year:focus) {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-}
-
-:global(.flatpickr-current-month .flatpickr-monthDropdown-months option) {
-  background: #fff;
-  color: #1f2937;
-  color-scheme: light;
+  background: var(--fp-field);
+  color: var(--fp-text);
 }
 
 :global(.flatpickr-current-month .numInputWrapper span) {
@@ -105,75 +137,228 @@
 }
 
 :global(.flatpickr-current-month .numInputWrapper span.arrowUp::after) {
-  border-bottom-color: #fff;
+  border-bottom-color: var(--fp-mid);
 }
 
 :global(.flatpickr-current-month .numInputWrapper span.arrowDown::after) {
-  border-top-color: #fff;
+  border-top-color: var(--fp-mid);
+}
+
+/* CardSelect-style month picker inside calendar header */
+.monthSelectWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 0;
+  z-index: 5;
+}
+
+.monthSelectTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  height: 28px;
+  margin: 0;
+  padding: 0 8px 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #5b6472;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.monthSelectTrigger:hover {
+  border-color: #c9d4e3;
+  background: #f8fafc;
+  color: #4a5260;
+}
+
+.monthSelectTriggerLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.monthSelectChevron {
+  flex: none;
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1;
+}
+
+.monthSelectMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  min-width: 148px;
+  max-height: 220px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid #e8edf3;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+  box-sizing: border-box;
+}
+
+.monthSelectItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #374151;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.monthSelectItem:hover,
+.monthSelectItem:focus-visible {
+  background: #f3f7fb;
+  color: #275e9b;
+  outline: none;
+}
+
+.monthSelectItemSelected {
+  background: #eef5fc;
+  color: #275e9b;
+  font-weight: 600;
+}
+
+.monthSelectCheck {
+  flex: none;
+  font-size: 12px;
+  color: #275e9b;
+  font-weight: 700;
 }
 
 :global(.flatpickr-months .flatpickr-prev-month),
 :global(.flatpickr-months .flatpickr-next-month) {
-  color: #fff;
-  fill: #fff;
-  padding: 6px 10px;
-  border-radius: 8px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fp-mid);
+  fill: var(--fp-mid);
+  padding: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  z-index: 1;
+}
+
+:global(.flatpickr-months .flatpickr-prev-month) {
+  left: 8px;
+  right: auto;
+}
+
+:global(.flatpickr-months .flatpickr-next-month) {
+  right: 8px;
+  left: auto;
+}
+
+:global(.flatpickr-months .flatpickr-prev-month svg),
+:global(.flatpickr-months .flatpickr-next-month svg) {
+  width: 13px;
+  height: 13px;
+  vertical-align: middle;
 }
 
 :global(.flatpickr-months .flatpickr-prev-month:hover),
 :global(.flatpickr-months .flatpickr-next-month:hover) {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-  fill: #fff;
+  background: var(--fp-field);
+  color: var(--fp-navy);
+  fill: var(--fp-navy);
 }
 
 :global(.flatpickr-months .flatpickr-prev-month:hover svg),
 :global(.flatpickr-months .flatpickr-next-month:hover svg) {
-  fill: #fff;
+  fill: var(--fp-navy);
 }
 
 :global(.flatpickr-weekdays) {
   background: transparent;
+  margin-top: 2px;
 }
 
 :global(span.flatpickr-weekday) {
   color: var(--fp-muted);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   background: transparent;
 }
 
-/* Keep flatpickr’s native 7-column day sizing — do not override widths. */
+:global(.flatpickr-days) {
+  width: 100% !important;
+}
+
+:global(.dayContainer) {
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+}
+
 :global(.flatpickr-day) {
-  border-radius: 8px;
+  border-radius: 6px;
   border: 0;
   color: var(--fp-text);
+  font-size: 11.5px;
   font-weight: 500;
+  max-width: none;
+  height: 34px;
+  line-height: 34px;
 }
 
 :global(.flatpickr-day:hover),
 :global(.flatpickr-day:focus),
 :global(.flatpickr-day.prevMonthDay:hover),
 :global(.flatpickr-day.nextMonthDay:hover) {
-  background: var(--fp-navy-soft);
+  background: var(--fp-navy-tint);
   border-color: transparent;
   color: var(--fp-navy);
 }
 
 :global(.flatpickr-day.today) {
-  border: 1px solid var(--fp-blue);
+  border: 0;
   background: transparent;
-  color: var(--fp-blue);
+  color: var(--fp-navy);
   font-weight: 700;
+  box-shadow: inset 0 0 0 1.5px var(--fp-navy-tint-strong);
 }
 
 :global(.flatpickr-day.today:hover),
 :global(.flatpickr-day.today:focus) {
-  background: var(--fp-blue-soft);
-  border-color: var(--fp-blue);
-  color: var(--fp-blue);
+  background: var(--fp-navy-tint);
+  color: var(--fp-navy);
+  box-shadow: inset 0 0 0 1.5px var(--fp-navy-tint-strong);
 }
 
 :global(.flatpickr-day.selected),
@@ -185,31 +370,34 @@
 :global(.flatpickr-day.selected:focus),
 :global(.flatpickr-day.startRange:focus),
 :global(.flatpickr-day.endRange:focus) {
-  background: var(--fp-blue);
-  border-color: var(--fp-blue);
+  background: var(--fp-navy);
+  border-color: var(--fp-navy);
   color: #fff;
   font-weight: 700;
   box-shadow: none;
 }
 
 :global(.flatpickr-day.selected.today) {
-  background: var(--fp-blue);
-  border-color: var(--fp-blue);
+  background: var(--fp-navy);
+  border-color: var(--fp-navy);
   color: #fff;
+  box-shadow: none;
 }
 
 :global(.flatpickr-day.inRange),
 :global(.flatpickr-day.prevMonthDay.inRange),
 :global(.flatpickr-day.nextMonthDay.inRange) {
-  background: var(--fp-blue-soft);
+  background: var(--fp-navy-tint);
   border-color: transparent;
   box-shadow: none;
+  border-radius: 0;
   color: var(--fp-navy);
 }
 
 :global(.flatpickr-day.prevMonthDay),
 :global(.flatpickr-day.nextMonthDay) {
-  color: #b0b8c4;
+  color: var(--fp-muted);
+  opacity: 0.55;
 }
 
 :global(.flatpickr-day.flatpickr-disabled),
@@ -218,6 +406,8 @@
   background: transparent;
   border-color: transparent;
   cursor: not-allowed;
+  opacity: 1;
+  box-shadow: none;
 }
 
 :global(.flatpickr-time) {
@@ -238,6 +428,85 @@
   background: #fff;
 }
 
+/* Confirm footer (date-only) — Today | Cancel / Apply */
+.confirmFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--fp-line);
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.confirmToday {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--fp-navy);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 2px;
+  line-height: 1.2;
+}
+
+.confirmToday:hover {
+  text-decoration: underline;
+}
+
+.confirmActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.confirmCancel {
+  appearance: none;
+  background: #fff;
+  color: var(--fp-red);
+  border: 1.5px solid var(--fp-red-tint);
+  border-radius: 9px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.confirmCancel:hover {
+  background: var(--fp-red-tint);
+}
+
+.confirmApply {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  background: var(--fp-navy);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.confirmApply:hover {
+  background: #1d3757;
+}
+
+.confirmApply:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* —— Multi-step date → hour → minute (enableTime) —— */
 
 .stepDate :global(.flatpickr-time) {
@@ -251,11 +520,11 @@
 .stepTime :global(.flatpickr-months),
 .stepTime :global(.flatpickr-innerContainer),
 .stepTime :global(.flatpickr-weekdays),
-.stepTime :global(.flatpickr-time) {
+.stepTime :global(.flatpickr-time),
+.stepTime .confirmFooter {
   display: none !important;
 }
 
-/* Shrink popup to time-panel size so hour/minute stay compact (no wide strip). */
 .stepTime:global(.flatpickr-calendar) {
   width: 268px !important;
   min-width: 268px !important;
@@ -279,16 +548,16 @@
   padding: 10px 12px;
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
-  background: #274670;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--fp-text);
+  background: #fff;
+  border-bottom: 1px solid var(--fp-line);
   text-align: center;
   cursor: pointer;
   box-sizing: border-box;
 }
 
 .timeHeading:hover {
-  background: #1c3558;
+  background: var(--fp-field);
 }
 
 .hourGrid,
@@ -333,14 +602,14 @@
 
 .hourBtnActive,
 .minuteBtnActive {
-  background: #376eb8;
+  background: #274670;
   color: #fff;
   font-weight: 600;
 }
 
 .hourBtnActive:hover,
 .minuteBtnActive:hover {
-  background: #2f5fa0;
+  background: #1d3757;
   color: #fff;
 }
 
@@ -355,9 +624,9 @@
 
 .timeFooterToday {
   appearance: none;
-  border: 1px solid #376eb8;
+  border: 1px solid #274670;
   background: transparent;
-  color: #376eb8;
+  color: #274670;
   border-radius: 6px;
   padding: 4px 12px;
   font-size: 13px;
@@ -367,7 +636,7 @@
 }
 
 .timeFooterToday:hover {
-  background: rgba(55, 110, 184, 0.12);
+  background: rgba(39, 70, 112, 0.08);
   color: #274670;
   border-color: #274670;
   text-decoration: none;

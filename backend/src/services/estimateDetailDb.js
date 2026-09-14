@@ -1173,7 +1173,12 @@ export async function dbGetEstimateLookups(estimateType = 2) {
     ownerCosts: ownerCosts.map((row) => ({ id: String(row.id), name: row.name ?? '' })),
     owners: owners.map(mapVendor),
     ownBusiness: (ownBusiness.length ? ownBusiness : owners).map(mapVendor),
-    charteringTeams: [{ id: '7', name: 'Zafira' }],
+    charteringTeams: [
+      { id: '6', name: 'Atlantic' },
+      { id: '8', name: 'Pacific' },
+      { id: '4', name: 'Southeast Asia' },
+      { id: '1', name: 'India' },
+    ],
     charteringPics: charteringPics.map((row) => ({
       id: String(row.id),
       name: row.name ?? '',

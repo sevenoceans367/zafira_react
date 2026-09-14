@@ -73,6 +73,11 @@ function formatDmyTime(date) {
   return `${base} ${hh}:${mi}`;
 }
 
+function toDateOnly(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 function applyCommittedValue(fp, raw) {
   if (!fp) return;
   const next = sanitizeValue(raw);
@@ -84,7 +89,7 @@ function applyCommittedValue(fp, raw) {
     }
     const parsed = parseFlexibleDate(next);
     if (parsed) {
-      const dateOnly = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+      const dateOnly = toDateOnly(parsed);
       fp.setDate(dateOnly, false);
     }
     if (fp.input) fp.input.value = next;
@@ -97,7 +102,8 @@ function applyCommittedValue(fp, raw) {
  * Date input with calendar popup — legacy dryout format dd-mm-yyyy
  * (or dd-mm-yyyy HH:MM when enableTime is true).
  *
- * Supports typing and copy/paste of common date formats.
+ * Date-only: laycan/CP Date layout — select a day, then Apply
+ * (Today jumps month; Cancel discards).
  *
  * With enableTime: three-step picker —
  * 1) calendar date, 2) hour, 3) minute; picking a minute closes.
@@ -125,6 +131,7 @@ const DmyDateInput = ({
   const stepRef = useRef('date');
   const pendingHourRef = useRef(0);
   const pendingDateRef = useRef(null);
+  const appliedViaFooterRef = useRef(false);
   onChangeRef.current = onChange;
   allowClearRef.current = allowClear;
 
@@ -189,11 +196,21 @@ const DmyDateInput = ({
       });
     };
 
+    const syncApplyEnabled = (fp) => {
+      const applyBtn = fp.calendarContainer?.querySelector(`.${styles.confirmApply}`);
+      if (!applyBtn) return;
+      applyBtn.disabled = !pendingDateRef.current;
+    };
+
+    const restoreInputDisplay = (fp) => {
+      if (fp.input) fp.input.value = valueRef.current || '';
+    };
+
     const commitDate = (fp, date) => {
       const str = enableTime ? formatDmyTime(date) : formatDmy(date);
       if (!str) return;
       suppressChange = true;
-      const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const dateOnly = toDateOnly(date);
       fp.setDate(dateOnly, false);
       suppressChange = false;
       if (fp.input) fp.input.value = str;
@@ -213,6 +230,7 @@ const DmyDateInput = ({
       valueRef.current = '';
       pendingDateRef.current = null;
       onChangeRef.current?.('');
+      syncApplyEnabled(fp);
     };
 
     const commitRawInput = (fp, raw) => {
@@ -234,6 +252,200 @@ const DmyDateInput = ({
       }
       commitDate(fp, parsed);
       return true;
+    };
+
+    const ensureConfirmFooter = (fp) => {
+      const cal = fp.calendarContainer;
+      if (!cal || cal.querySelector(`.${styles.confirmFooter}`)) return;
+
+      const footer = document.createElement('div');
+      footer.className = styles.confirmFooter;
+
+      const todayBtn = document.createElement('button');
+      todayBtn.type = 'button';
+      todayBtn.className = styles.confirmToday;
+      todayBtn.textContent = 'Today';
+      todayBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      todayBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const now = toDateOnly(new Date());
+        // Jump month view (mockup) and select today so Apply can commit.
+        fp.jumpToDate(now, false);
+        pendingDateRef.current = now;
+        suppressChange = true;
+        fp.setDate(now, false);
+        suppressChange = false;
+        restoreInputDisplay(fp);
+        syncApplyEnabled(fp);
+        syncMonthSelectLabel(fp);
+      });
+
+      const actions = document.createElement('div');
+      actions.className = styles.confirmActions;
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = styles.confirmCancel;
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      cancelBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        appliedViaFooterRef.current = false;
+        fp.close();
+      });
+
+      const applyBtn = document.createElement('button');
+      applyBtn.type = 'button';
+      applyBtn.className = styles.confirmApply;
+      applyBtn.textContent = 'Apply';
+      applyBtn.disabled = true;
+      applyBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      applyBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!pendingDateRef.current) return;
+        appliedViaFooterRef.current = true;
+        commitDate(fp, pendingDateRef.current);
+        fp.close();
+      });
+
+      actions.append(cancelBtn, applyBtn);
+      footer.append(todayBtn, actions);
+      cal.appendChild(footer);
+      syncApplyEnabled(fp);
+    };
+
+    const syncMonthSelectLabel = (fp) => {
+      const wrap = fp.calendarContainer?.querySelector(`.${styles.monthSelectWrap}`);
+      if (!wrap) return;
+      const label = wrap.querySelector(`.${styles.monthSelectTriggerLabel}`);
+      const menu = wrap.querySelector(`.${styles.monthSelectMenu}`);
+      const monthIndex = fp.currentMonth;
+      if (label) label.textContent = MONTHS[monthIndex] || '';
+      if (menu) {
+        menu.querySelectorAll(`.${styles.monthSelectItem}`).forEach((btn) => {
+          const selected = Number(btn.dataset.month) === monthIndex;
+          btn.classList.toggle(styles.monthSelectItemSelected, selected);
+          btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+          const check = btn.querySelector(`.${styles.monthSelectCheck}`);
+          if (check) check.hidden = !selected;
+        });
+      }
+    };
+
+    const closeMonthSelectMenu = (fp) => {
+      const wrap = fp.calendarContainer?.querySelector(`.${styles.monthSelectWrap}`);
+      if (!wrap) return;
+      const menu = wrap.querySelector(`.${styles.monthSelectMenu}`);
+      const trigger = wrap.querySelector(`.${styles.monthSelectTrigger}`);
+      if (menu) menu.hidden = true;
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    };
+
+    const ensureMonthSelect = (fp) => {
+      const cal = fp.calendarContainer;
+      const currentMonth = cal?.querySelector('.flatpickr-current-month');
+      const nativeSelect = currentMonth?.querySelector('select.flatpickr-monthDropdown-months');
+      if (!cal || !currentMonth || !nativeSelect) return;
+      if (currentMonth.querySelector(`.${styles.monthSelectWrap}`)) {
+        syncMonthSelectLabel(fp);
+        return;
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = styles.monthSelectWrap;
+
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = styles.monthSelectTrigger;
+      trigger.setAttribute('aria-haspopup', 'listbox');
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.setAttribute('aria-label', 'Select month');
+
+      const triggerLabel = document.createElement('span');
+      triggerLabel.className = styles.monthSelectTriggerLabel;
+      triggerLabel.textContent = MONTHS[fp.currentMonth] || '';
+
+      const chevron = document.createElement('span');
+      chevron.className = styles.monthSelectChevron;
+      chevron.setAttribute('aria-hidden', 'true');
+      chevron.textContent = '▾';
+
+      trigger.append(triggerLabel, chevron);
+
+      const menu = document.createElement('div');
+      menu.className = styles.monthSelectMenu;
+      menu.setAttribute('role', 'listbox');
+      menu.setAttribute('aria-label', 'Month');
+      menu.hidden = true;
+
+      MONTHS.forEach((name, index) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = styles.monthSelectItem;
+        item.dataset.month = String(index);
+        item.setAttribute('role', 'option');
+        item.setAttribute('aria-selected', index === fp.currentMonth ? 'true' : 'false');
+        if (index === fp.currentMonth) item.classList.add(styles.monthSelectItemSelected);
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = name;
+
+        const check = document.createElement('span');
+        check.className = styles.monthSelectCheck;
+        check.setAttribute('aria-hidden', 'true');
+        check.textContent = '✓';
+        check.hidden = index !== fp.currentMonth;
+
+        item.append(nameSpan, check);
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const delta = index - fp.currentMonth;
+          if (delta !== 0) fp.changeMonth(delta, false);
+          closeMonthSelectMenu(fp);
+          syncMonthSelectLabel(fp);
+        });
+        menu.appendChild(item);
+      });
+
+      const toggleMenu = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const willOpen = menu.hidden;
+        menu.hidden = !willOpen;
+        trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        if (willOpen) syncMonthSelectLabel(fp);
+      };
+
+      trigger.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      trigger.addEventListener('click', toggleMenu);
+
+      wrap.append(trigger, menu);
+      nativeSelect.insertAdjacentElement('afterend', wrap);
+      syncMonthSelectLabel(fp);
+
+      cal.addEventListener('mousedown', (e) => {
+        if (!wrap.contains(e.target)) closeMonthSelectMenu(fp);
+      });
     };
 
     const ensureTimeUi = (fp) => {
@@ -400,51 +612,85 @@ const DmyDateInput = ({
       enableTime: false,
       allowInput: true,
       disableMobile: true,
-      // Keep open for hour/minute steps when time is enabled.
-      closeOnSelect: !enableTime,
+      // Date-only stays open until Apply/Cancel; time mode stays open across steps.
+      closeOnSelect: false,
       appendTo: typeof document !== 'undefined' ? document.body : undefined,
       clickOpens: !disabled,
       parseDate: (datestr) => {
         const parsed = parseFlexibleDate(datestr);
         if (!parsed) return undefined;
-        return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+        return toDateOnly(parsed);
       },
       onReady: (_dates, _str, fp) => {
-        if (!enableTime) return;
-        ensureTimeUi(fp);
-        setStep(fp, 'date');
+        ensureMonthSelect(fp);
+        if (enableTime) {
+          ensureTimeUi(fp);
+          setStep(fp, 'date');
+          return;
+        }
+        ensureConfirmFooter(fp);
       },
       onOpen: (_dates, _str, fp) => {
-        if (!enableTime) return;
-        ensureTimeUi(fp);
+        appliedViaFooterRef.current = false;
+        ensureMonthSelect(fp);
+        closeMonthSelectMenu(fp);
         const committed = parseFlexibleDate(valueRef.current);
-        pendingHourRef.current = committed?.getHours?.() ?? 0;
-        pendingDateRef.current = committed
-          ? new Date(committed.getFullYear(), committed.getMonth(), committed.getDate())
-          : null;
-        setStep(fp, 'date');
-        syncTimeHeading(fp);
-        syncHourHighlight(fp);
-        syncMinuteHighlight(fp);
+        const committedDate = committed ? toDateOnly(committed) : null;
+        pendingDateRef.current = committedDate;
+        suppressChange = true;
+        if (committedDate) {
+          fp.setDate(committedDate, false);
+          fp.jumpToDate(committedDate, false);
+        } else {
+          fp.clear(false);
+        }
+        suppressChange = false;
+        restoreInputDisplay(fp);
+        syncMonthSelectLabel(fp);
+
+        if (enableTime) {
+          ensureTimeUi(fp);
+          pendingHourRef.current = committed?.getHours?.() ?? 0;
+          setStep(fp, 'date');
+          syncTimeHeading(fp);
+          syncHourHighlight(fp);
+          syncMinuteHighlight(fp);
+          return;
+        }
+
+        ensureConfirmFooter(fp);
+        syncApplyEnabled(fp);
+      },
+      onMonthChange: (_dates, _str, fp) => {
+        syncMonthSelectLabel(fp);
+        closeMonthSelectMenu(fp);
+      },
+      onYearChange: (_dates, _str, fp) => {
+        syncMonthSelectLabel(fp);
       },
       onChange: (selectedDates, _dateStr, fp) => {
         if (suppressChange) return;
         if (!selectedDates?.length) {
-          if (!enableTime) clearInput(fp);
+          if (!enableTime) {
+            pendingDateRef.current = null;
+            restoreInputDisplay(fp);
+            syncApplyEnabled(fp);
+          }
           return;
         }
 
-        const picked = selectedDates[0];
-        const dateOnly = new Date(picked.getFullYear(), picked.getMonth(), picked.getDate());
+        const dateOnly = toDateOnly(selectedDates[0]);
+        pendingDateRef.current = dateOnly;
 
         if (!enableTime) {
-          commitDate(fp, dateOnly);
+          // Select only — commit on Apply (keep input on last committed value).
+          restoreInputDisplay(fp);
+          syncApplyEnabled(fp);
           return;
         }
 
         // Date → hour step (picker stays open via closeOnSelect: false)
         if (stepRef.current !== 'date') return;
-        pendingDateRef.current = dateOnly;
         const committed = parseFlexibleDate(valueRef.current);
         pendingHourRef.current = committed?.getHours?.() ?? 0;
         suppressChange = true;
@@ -455,6 +701,7 @@ const DmyDateInput = ({
         setStep(fp, 'hour');
       },
       onClose: (_dates, _str, fp) => {
+        closeMonthSelectMenu(fp);
         if (enableTime) {
           setStep(fp, 'date');
           pendingDateRef.current = null;
@@ -462,10 +709,19 @@ const DmyDateInput = ({
           applyCommittedValue(fp, valueRef.current);
           return;
         }
-        const raw = fp.input?.value ?? '';
-        if (!commitRawInput(fp, raw)) {
-          applyCommittedValue(fp, valueRef.current);
+
+        if (appliedViaFooterRef.current) {
+          appliedViaFooterRef.current = false;
+          pendingDateRef.current = parseFlexibleDate(valueRef.current)
+            ? toDateOnly(parseFlexibleDate(valueRef.current))
+            : null;
+          return;
         }
+
+        // Cancel / click-outside: discard pending selection.
+        pendingDateRef.current = null;
+        applyCommittedValue(fp, valueRef.current);
+        syncApplyEnabled(fp);
       },
     });
 

@@ -12,7 +12,7 @@ const base = {
   deliveryBunkers: [{ bunkerId: '1', qty: '10', bunkerDate: '01-01-2026', price: '100' }],
   redeliveryBunkers: [{ bunkerId: '1', qty: '8', bunkerDate: '15-01-2026', price: '110' }],
   charterer: '9',
-  charteringTeam: '7',
+  charteringTeam: '6',
   charteringPic1: '3',
   delRangePort: 'Singapore',
   hirePeriods: [{ delDate: '01-01-2026 00:00', reDelDate: '31-01-2026 00:00', hireRate: '12000' }],

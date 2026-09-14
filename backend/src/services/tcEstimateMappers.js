@@ -169,7 +169,7 @@ export function mapTcDetail(row, extras = {}) {
     charOperation: row.SEL_CHAR_OPER != null ? String(row.SEL_CHAR_OPER) : '',
     charteringTeam: row.CHARTERING_PIC != null && String(row.CHARTERING_PIC) !== '0'
       ? String(row.CHARTERING_PIC)
-      : '7',
+      : '',
     charteringPic1: row.CHARTERING_PIC_1 != null && String(row.CHARTERING_PIC_1) !== '0'
       ? String(row.CHARTERING_PIC_1)
       : '',

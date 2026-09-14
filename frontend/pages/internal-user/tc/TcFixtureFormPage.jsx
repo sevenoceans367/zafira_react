@@ -64,7 +64,7 @@ const EMPTY_EXPENSE = {
   amount: '',
   vendorId: '',
 };
-const EMPTY_ITIN_EXP = { expenseType: '', description: '', amount: '', notes: '' };
+const EMPTY_ITIN_EXP = { expenseType: '', expenseDescId: '', description: '', amount: '', notes: '' };
 const EMPTY_ITINERARY = {
   from: { place: '', date: '', notes: '' },
   to: { place: '', date: '', notes: '' },
@@ -235,6 +235,15 @@ const OWNER_CHARTERER_OPTIONS = [
   { id: 'Owner', name: 'Owner' },
   { id: 'Charterer', name: 'Charterer' },
 ];
+
+/** Active Chartering Team ids (legacy CHARTERING_PIC codes). */
+const CHARTERING_TEAM_IDS = new Set(['6', '8', '4', '1']);
+
+function normalizeCharteringTeam(value) {
+  const id = value == null ? '' : String(value).trim();
+  if (!id || id === '0' || !CHARTERING_TEAM_IDS.has(id)) return '';
+  return id;
+}
 
 function TableCardSelect({
   options = [],
@@ -698,7 +707,7 @@ function normalizeCapexFields(detail = {}) {
       bunkersOpen: true,
     };
   }
-  const offHireRateMaster = offHires.find((row) => row.hireRate)?.hireRate
+  const defaultOffHireRate = offHires.find((row) => row.hireRate)?.hireRate
     || detail.hireFixPer
     || calc.dailyGrossHire
     || '';
@@ -719,9 +728,8 @@ function normalizeCapexFields(detail = {}) {
       ? detail.otherExpenses.map((row) => ({ ...EMPTY_EXPENSE, ...row }))
       : [{ ...EMPTY_EXPENSE }],
     offHires: offHires.map((row) => (
-      row.hireRate ? row : resolveOffHire({ ...row, hireRate: offHireRateMaster })
+      row.hireRate ? row : resolveOffHire({ ...row, hireRate: defaultOffHireRate })
     )),
-    offHireRateMaster,
     offHireBunkers: [],
     tcInExpenses: detail.tcInExpenses
       ? {
@@ -766,7 +774,7 @@ function emptyForm(businessTypeId = '2') {
     cpType: '',
     charterer: '',
     charOperation: '',
-    charteringTeam: '7',
+    charteringTeam: '',
     charteringPic1: '',
     charteringPic2: '',
     lawArbit: '',
@@ -888,7 +896,6 @@ function emptyForm(businessTypeId = '2') {
     otherIncome: [],
     otherExpenses: [{ ...EMPTY_EXPENSE }],
     offHires: [{ ...EMPTY_OFF }],
-    offHireRateMaster: '',
     offHireBunkers: [],
     tcInExpenses: emptyTcIn(),
   };
@@ -1270,6 +1277,7 @@ export default function TcFixtureFormPage({
           ...emptyForm(detail.businessTypeId || '2'),
           ...detail,
           fixtureType: detail.fixtureType || '1',
+          charteringTeam: normalizeCharteringTeam(detail.charteringTeam),
           ballastBonus: detail.calc?.ballastBonus || detail.ballastBonus || '',
           attachments: (detail.attachments || []).map((item) => ({
             ...item,
@@ -1551,20 +1559,9 @@ export default function TcFixtureFormPage({
         ...(prev.offHires || []),
         resolveOffHire({
           ...EMPTY_OFF,
-          hireRate: prev.offHireRateMaster || prev.hireFixPer || '',
+          hireRate: prev.hireFixPer || '',
         }),
       ],
-    }));
-  };
-
-  const propagateOffHireRate = (rate) => {
-    if (readOnly) return;
-    setForm((prev) => ({
-      ...prev,
-      offHireRateMaster: rate,
-      offHires: (prev.offHires?.length ? prev.offHires : [{ ...EMPTY_OFF }]).map((row) => (
-        resolveOffHire({ ...row, hireRate: rate })
-      )),
     }));
   };
 
@@ -1911,8 +1908,8 @@ export default function TcFixtureFormPage({
                     <CardSelect
                       id="charteringTeam"
                       options={lookups?.charteringTeams || []}
-                      value={form.charteringTeam}
-                      onChange={(v) => setField('charteringTeam', v)}
+                      value={normalizeCharteringTeam(form.charteringTeam)}
+                      onChange={(v) => setField('charteringTeam', normalizeCharteringTeam(v))}
                       placeholder="Select chartering team"
                       ariaLabel="Chartering team"
                     />
@@ -2152,7 +2149,15 @@ export default function TcFixtureFormPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {(form.itineraryExpenses || []).map((row, index) => (
+                    {(form.itineraryExpenses || []).map((row, index) => {
+                      // PHP Pre-TC: Expense Description options come from #selOwRel
+                      // (owner_related_cost_master; value = LASER_CODE).
+                      const expenseDescOptions = lookups?.ownerRelatedCosts || [];
+                      const storedDesc = String(row.description || row.expenseDescId || '').trim();
+                      const expenseDescValue = expenseDescOptions.find((opt) => String(opt.id) === storedDesc)?.id
+                        || expenseDescOptions.find((opt) => opt.name === storedDesc)?.id
+                        || storedDesc;
+                      return (
                       <tr key={`itin-exp-${index}`}>
                         <td>
                           <TableCardSelect
@@ -2166,11 +2171,25 @@ export default function TcFixtureFormPage({
                           />
                         </td>
                         <td>
-                          <input
-                            value={row.description || ''}
-                            onChange={(e) => patchItinExpense(index, { description: e.target.value })}
-                            readOnly={readOnly}
-                            className={readOnly ? styles.inputReadonly : undefined}
+                          <TableCardSelect
+                            options={[
+                              ...expenseDescOptions,
+                              ...(expenseDescValue
+                                && !expenseDescOptions.some((opt) => String(opt.id) === String(expenseDescValue))
+                                ? [{ id: String(expenseDescValue), name: String(expenseDescValue) }]
+                                : []),
+                            ]}
+                            value={expenseDescValue ? String(expenseDescValue) : ''}
+                            onChange={(v) => {
+                              // Persist LASER_CODE in description (matches PHP EXPENSEDESC).
+                              patchItinExpense(index, {
+                                expenseDescId: v,
+                                description: v || '',
+                              });
+                            }}
+                            disabled={readOnly}
+                            placeholder="Select from list"
+                            ariaLabel="Expense description"
                           />
                         </td>
                         <td>
@@ -2214,7 +2233,8 @@ export default function TcFixtureFormPage({
                           ) : null}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                   <tfoot>
                     <tr>
@@ -2472,19 +2492,6 @@ export default function TcFixtureFormPage({
                 </div>
                 </div>
                 <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPad}`}>Off Hire</div>
-                <div className={`${styles.dense7} ${styles.offhireRateRow}`}>
-                  <Field label="Off-Hire Rate/Day" id="offHireRateMaster">
-                    <input
-                      id="offHireRateMaster"
-                      value={form.offHireRateMaster || ''}
-                      onChange={(e) => propagateOffHireRate(e.target.value)}
-                      placeholder="0.00"
-                      readOnly={readOnly}
-                      className={readOnly ? styles.inputReadonly : undefined}
-                    />
-                    <span className={styles.fieldHint}>Applies to all reasons below</span>
-                  </Field>
-                </div>
                 <div className={styles.offhireList}>
                   {(form.offHires?.length ? form.offHires : [{ ...EMPTY_OFF }]).map((row, index) => {
                     const resolved = resolveOffHire(row);
@@ -2521,7 +2528,7 @@ export default function TcFixtureFormPage({
                                       value={row.from || ''}
                                       onChange={(v) => patchOffHire(index, {
                                         from: v,
-                                        hireRate: row.hireRate || form.offHireRateMaster || form.hireFixPer || '',
+                                        hireRate: row.hireRate || form.hireFixPer || '',
                                       })}
                                       enableTime
                                       disabled={readOnly}
@@ -2530,7 +2537,7 @@ export default function TcFixtureFormPage({
                                       value={row.to || ''}
                                       onChange={(v) => patchOffHire(index, {
                                         to: v,
-                                        hireRate: row.hireRate || form.offHireRateMaster || form.hireFixPer || '',
+                                        hireRate: row.hireRate || form.hireFixPer || '',
                                       })}
                                       enableTime
                                       disabled={readOnly}

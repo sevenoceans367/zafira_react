@@ -30,7 +30,12 @@ const MOCK_LOOKUPS = {
   charterers: [{ id: 'C001', name: 'Steel Corp ( C001 )', address: '1 Harbour Front, Singapore' }],
   vendors: [{ id: 'V001', name: 'Owner Co ( V001 )' }],
   lawArbitration: [{ id: '1', name: 'English Law / London' }],
-  charteringTeams: [{ id: '7', name: 'Zafira' }],
+  charteringTeams: [
+    { id: '6', name: 'Atlantic' },
+    { id: '8', name: 'Pacific' },
+    { id: '4', name: 'Southeast Asia' },
+    { id: '1', name: 'India' },
+  ],
   charteringPics: [
     { id: '101', name: 'Christos Matarangas' },
   ],
@@ -38,7 +43,11 @@ const MOCK_LOOKUPS = {
     { id: '1', name: 'VLSFO' },
     { id: '2', name: 'MGO' },
   ],
-  expenseTypes: [{ id: '1', name: 'Port Charges' }],
+  expenseTypes: [{ id: '1', name: 'Port Charges', description: 'Agency Fee' }],
+  ownerRelatedCosts: [
+    { id: 'DE0002', name: 'AWRP' },
+    { id: 'DE0053', name: 'AGM inspection' },
+  ],
   balticRoutes: [{ id: '1', name: 'C5' }],
   periodContracts: [{ id: '10', name: 'PC-2026-01' }],
   vessels: [

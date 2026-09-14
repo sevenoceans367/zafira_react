@@ -130,7 +130,11 @@ export function getTcAddRowBlockMessage(collection, rows = []) {
     },
     itineraryExpenses: {
       message: 'Please fill previous data',
-      ok: () => filled(last.expenseType) && filled(last.amount),
+      ok: () => (
+        filled(last.expenseType)
+        && (filled(last.expenseDescId) || filled(last.description))
+        && filled(last.amount)
+      ),
     },
     hirePeriods: {
       message: 'Please fill previous data',

@@ -108,7 +108,7 @@ function masterPayload(body = {}) {
     SEL_CP_TYPE: nullIfEmpty(body.cpType),
     SEL_CHARTERER: nullIfEmpty(body.charterer),
     SEL_CHAR_OPER: nullIfEmpty(body.charOperation),
-    CHARTERING_PIC: nullIfEmpty(body.charteringTeam) || '7',
+    CHARTERING_PIC: nullIfEmpty(body.charteringTeam),
     CHARTERING_PIC_1: nullIfEmpty(body.charteringPic1),
     CHARTERING_PIC_2: nullIfEmpty(body.charteringPic2),
     LAW_ARBITRA: nullIfEmpty(body.lawArbit),
@@ -551,7 +551,7 @@ async function loadCalcExtras(pool, slave1Id) {
 
 export async function dbGetTcLookups() {
   const pool = getPool();
-  const [[fixtureTypes], [cpTypes], [charterers], [vendors], [lawArbit], [bunkers], [expenseTypes], [routes], [periods], [vessels], [charteringPics]] = await Promise.all([
+  const [[fixtureTypes], [cpTypes], [charterers], [vendors], [lawArbit], [bunkers], [expenseTypes], [ownerRelatedCosts], [routes], [periods], [vessels], [charteringPics]] = await Promise.all([
     pool.query(`SELECT FIXTURETYPEID AS id, FIXTURE_TYPE AS name FROM fixture_type_master
       WHERE MODULEID = ? AND MCOMPANYID = ? ORDER BY FIXTURE_TYPE`, [MODULE_ID, COMPANY_ID]).catch(() => [[]]),
     // PHP getContractTypeList(): contract_type_master.CONTRACTTYPEID
@@ -578,8 +578,15 @@ export async function dbGetTcLookups() {
       WHERE STATUS = 1 ORDER BY LAW_ARBITRATION`).catch(() => [[]]),
     pool.query(`SELECT BUNKERGRADEID AS id, NAME AS name FROM bunker_grade_master
       WHERE STATUS = 1 ORDER BY NAME`).catch(() => [[]]),
-    pool.query(`SELECT EXPENSETYPEID AS id, EXPENSE_TYPE AS name FROM expense_type_master
-      WHERE MODULEID = ? AND MCOMPANYID = ? ORDER BY EXPENSE_TYPE`, [MODULE_ID, COMPANY_ID]).catch(() => [[]]),
+    pool.query(`SELECT EXPENSETYPEID AS id, EXPENSE_TYPE AS name, DESCRIPTION AS description
+      FROM expense_type_master
+      WHERE MODULEID = ? AND MCOMPANYID = ? AND STATUS = 1
+      ORDER BY EXPENSE_TYPE`, [MODULE_ID, COMPANY_ID]).catch(() => [[]]),
+    // PHP #selOwRel / getOwnerRelatedCostListForTallyInvoice(): value=LASER_CODE, label=NAME
+    pool.query(`SELECT LASER_CODE AS id, NAME AS name
+      FROM owner_related_cost_master
+      WHERE STATUS = 1 AND LASER_CODE IS NOT NULL AND TRIM(LASER_CODE) <> ''
+      ORDER BY NAME`).catch(() => [[]]),
     pool.query(`SELECT ROUTEID AS id, ROUTE_NAME AS name FROM baltic_route_master
       WHERE MODULEID = ? AND MCOMPANYID = ? ORDER BY ROUTE_NAME`, [MODULE_ID, COMPANY_ID]).catch(() => [[]]),
     pool.query(
@@ -631,7 +638,16 @@ export async function dbGetTcLookups() {
     vendors: vendors.map((r) => ({ id: String(r.id), name: r.name })),
     lawArbitration: lawArbit.map((r) => ({ id: String(r.id), name: r.name })),
     bunkers: bunkers.map((r) => ({ id: String(r.id), name: r.name })),
-    expenseTypes: expenseTypes.map((r) => ({ id: String(r.id), name: r.name })),
+    expenseTypes: expenseTypes.map((r) => ({
+      id: String(r.id),
+      name: r.name,
+      description: String(r.description || '').trim(),
+    })),
+    // Pre-TC "Expense Description" = PHP #selOwRel (owner_related_cost_master).
+    ownerRelatedCosts: ownerRelatedCosts.map((r) => ({
+      id: String(r.id),
+      name: r.name,
+    })),
     balticRoutes: routes.map((r) => ({ id: String(r.id), name: r.name })),
     periodContracts: periods.map((r) => {
       const delivery = r.deliveryDate ? formatDateDMY(r.deliveryDate) : '';
@@ -654,7 +670,12 @@ export async function dbGetTcLookups() {
         subtitle,
       };
     }),
-    charteringTeams: [{ id: '7', name: 'Zafira' }],
+    charteringTeams: [
+      { id: '6', name: 'Atlantic' },
+      { id: '8', name: 'Pacific' },
+      { id: '4', name: 'Southeast Asia' },
+      { id: '1', name: 'India' },
+    ],
     charteringPics: charteringPics.map((r) => ({ id: String(r.id), name: r.name })),
     vessels: vessels.map((r) => ({
       id: String(r.id),

@@ -5,6 +5,7 @@ import { AttachmentDropzone, CardSelect, DmyDateInput, LoadingOverlay, useAlert,
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { getUser } from '@bainbridge/shared-auth';
 import { useTcModule } from '../../../hooks/useTcModule.js';
+import { periodContractAppPath } from '../../../constants/periodContractModule.js';
 import {
   calcTcTotals,
   createTcEstimate,
@@ -186,16 +187,48 @@ function ownerChipClass(value) {
   return styles.tableCardSelect;
 }
 
+/** HTML mockup grade chips + stable extras for other bunker_grade_master names. */
+const GRADE_CHIP_PALETTE = [
+  styles.chipGradeVlsfo,
+  styles.chipGradeLsmgo,
+  styles.chipGradeHsfo,
+  styles.chipGradeHsflo,
+  styles.chipGradeScrubber,
+  styles.chipGradeAltGreen,
+  styles.chipGradeAltOrange,
+  styles.chipGradeAltCyan,
+];
+
+function hashGradeName(name) {
+  const str = String(name || '');
+  let hash = 0;
+  for (let i = 0; i < str.length; i += 1) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
 function gradeSelectClass(name) {
-  const upper = String(name || '').toUpperCase();
-  if (upper.includes('VLSFO')) return `${styles.tableCardSelect} ${styles.chipGradeVlsfo}`;
+  const upper = String(name || '').toUpperCase().replace(/\s+/g, '');
+  if (!upper) return styles.tableCardSelect;
+  if (upper.includes('VLSFO') || upper.includes('VLS')) {
+    return `${styles.tableCardSelect} ${styles.chipGradeVlsfo}`;
+  }
   if (upper.includes('LSMGO') || upper.includes('MGO') || upper.includes('MDO')) {
     return `${styles.tableCardSelect} ${styles.chipGradeLsmgo}`;
   }
-  if (upper.includes('HSFLO')) return `${styles.tableCardSelect} ${styles.chipGradeHsflo}`;
-  if (upper.includes('HSFO')) return `${styles.tableCardSelect} ${styles.chipGradeHsfo}`;
-  if (upper.includes('SCRUB')) return `${styles.tableCardSelect} ${styles.chipGradeScrubber}`;
-  return styles.tableCardSelect;
+  if (upper.includes('HSFLO') || upper.includes('HSF-LO') || upper.includes('HSF_LO')) {
+    return `${styles.tableCardSelect} ${styles.chipGradeHsflo}`;
+  }
+  if (upper.includes('HSFO') || upper.includes('IFO') || upper.includes('HFO')) {
+    return `${styles.tableCardSelect} ${styles.chipGradeHsfo}`;
+  }
+  if (upper.includes('SCRUB')) {
+    return `${styles.tableCardSelect} ${styles.chipGradeScrubber}`;
+  }
+  const chip = GRADE_CHIP_PALETTE[hashGradeName(upper) % GRADE_CHIP_PALETTE.length];
+  return `${styles.tableCardSelect} ${chip}`;
 }
 
 const OWNER_CHARTERER_OPTIONS = [
@@ -249,121 +282,267 @@ function ConnectIcon() {
   );
 }
 
+function formatPeriodSubtitle(opt = {}) {
+  if (opt.subtitle) return opt.subtitle;
+  return [opt.vesselName, opt.chartererName, opt.periodLabel, opt.dateSpan]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(' · ');
+}
+
 function PeriodConnectSelect({
   options = [],
   value,
   onChange,
   disabled = false,
-  placeholder = 'Select Contract',
+  placeholder = 'Select',
+  charterers = [],
+  addHref = '',
 }) {
-  const wrapRef = useRef(null);
-  const btnRef = useRef(null);
-  const menuRef = useRef(null);
   const [open, setOpen] = useState(false);
-  const [menuStyle, setMenuStyle] = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [localRows, setLocalRows] = useState([]);
+  const [draft, setDraft] = useState({
+    ref: '',
+    vessel: '',
+    charterer: '',
+    period: '',
+  });
+  const [pickedLocalId, setPickedLocalId] = useState('');
 
-  const normalized = options.map((opt) => ({
-    id: String(opt.id ?? opt.value ?? ''),
-    name: opt.name ?? opt.label ?? String(opt.id ?? ''),
-  }));
+  const normalized = useMemo(() => {
+    const fromLookups = (options || []).map((opt) => ({
+      id: String(opt.id ?? opt.value ?? ''),
+      name: opt.name ?? opt.label ?? String(opt.id ?? ''),
+      subtitle: formatPeriodSubtitle(opt),
+      local: false,
+    }));
+    return [...fromLookups, ...localRows];
+  }, [options, localRows]);
+
   const valueId = value == null || value === '' ? '' : String(value);
-  const selected = normalized.find((opt) => opt.id === valueId);
-  const label = selected?.name || placeholder;
-
-  const updateMenuPosition = () => {
-    const btn = btnRef.current;
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
-    const width = Math.max(rect.width, 200);
-    let left = rect.left;
-    left = Math.min(Math.max(8, left), window.innerWidth - width - 8);
-    setMenuStyle({
-      position: 'fixed',
-      top: `${rect.bottom + 6}px`,
-      left: `${left}px`,
-      width: `${width}px`,
-      maxHeight: '260px',
-      zIndex: 10050,
-    });
-  };
+  const selected = normalized.find((opt) => !opt.local && opt.id === valueId);
+  const pickedLocal = normalized.find((opt) => opt.local && opt.id === pickedLocalId);
+  const label = pickedLocal?.name || selected?.name || placeholder;
 
   useEffect(() => {
-    if (!open) {
-      setMenuStyle(null);
-      return undefined;
-    }
-    updateMenuPosition();
-    const onDoc = (event) => {
-      if (wrapRef.current?.contains(event.target) || menuRef.current?.contains(event.target)) return;
-      setOpen(false);
-    };
+    if (!open) return undefined;
     const onKey = (event) => {
       if (event.key === 'Escape') setOpen(false);
     };
-    const onRepos = () => updateMenuPosition();
-    document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
-    window.addEventListener('resize', onRepos);
-    window.addEventListener('scroll', onRepos, true);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('mousedown', onDoc);
       document.removeEventListener('keydown', onKey);
-      window.removeEventListener('resize', onRepos);
-      window.removeEventListener('scroll', onRepos, true);
+      document.body.style.overflow = prevOverflow;
     };
   }, [open]);
 
-  const menu = open && menuStyle && typeof document !== 'undefined'
+  const closeModal = () => {
+    setOpen(false);
+    setAddOpen(false);
+  };
+
+  const selectRow = (opt) => {
+    if (opt.local) {
+      setPickedLocalId(opt.id);
+      onChange?.('');
+    } else {
+      setPickedLocalId('');
+      onChange?.(opt.id);
+    }
+    closeModal();
+  };
+
+  const clearSelection = () => {
+    setPickedLocalId('');
+    onChange?.('');
+    closeModal();
+  };
+
+  const saveNewContract = () => {
+    const ref = String(draft.ref || '').trim();
+    if (!ref) return;
+    const chartererName = (charterers || []).find((c) => String(c.id) === String(draft.charterer))?.name
+      || draft.charterer
+      || '';
+    const subtitle = [draft.vessel, chartererName, draft.period]
+      .map((part) => String(part || '').trim())
+      .filter(Boolean)
+      .join(' · ');
+    const id = `local-${Date.now()}`;
+    const row = { id, name: ref, subtitle, local: true };
+    setLocalRows((prev) => [...prev, row]);
+    setDraft({ ref: '', vessel: '', charterer: '', period: '' });
+    setAddOpen(false);
+    setPickedLocalId(id);
+    onChange?.('');
+    closeModal();
+  };
+
+  const modal = open && typeof document !== 'undefined'
     ? createPortal(
-      <div ref={menuRef} className={styles.connectMenu} style={menuStyle} role="listbox" aria-label="Period contracts">
-        <button
-          type="button"
-          role="option"
-          className={`${styles.connectMenuItem} ${!valueId ? styles.connectMenuItemSelected : ''}`.trim()}
-          onClick={() => {
-            setOpen(false);
-            onChange?.('');
-          }}
-        >
-          — None —
-        </button>
-        {normalized.map((opt) => (
-          <button
-            key={opt.id || '__empty'}
-            type="button"
-            role="option"
-            aria-selected={opt.id === valueId}
-            className={`${styles.connectMenuItem} ${opt.id === valueId ? styles.connectMenuItemSelected : ''}`.trim()}
-            onClick={() => {
-              setOpen(false);
-              onChange?.(opt.id);
-            }}
-          >
-            {opt.name}
-          </button>
-        ))}
+      <div
+        className={styles.modalBackdrop}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lpc-modal-title"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) closeModal();
+        }}
+      >
+        <div className={`${styles.modal} ${styles.lpcModal}`}>
+          <div className={styles.thdHead}>
+            <div className={styles.thdTitleWrap}>
+              <div className={styles.thdTitleIco} aria-hidden="true">
+                <ConnectIcon />
+              </div>
+              <div>
+                <div id="lpc-modal-title" className={styles.thdTitle}>Link Period Contract</div>
+                <div className={styles.thdSubtitle}>
+                  Select a period contract from the master system, or add a new one
+                </div>
+              </div>
+            </div>
+            <button type="button" className={styles.thdClose} title="Close" onClick={closeModal} aria-label="Close">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+
+          <div className={styles.lpcBody}>
+            <div className={styles.lpcList}>
+              {normalized.length === 0 ? (
+                <div className={styles.lpcEmpty}>No period contracts found.</div>
+              ) : normalized.map((opt) => {
+                const isSelected = opt.local
+                  ? opt.id === pickedLocalId
+                  : Boolean(valueId) && opt.id === valueId && !pickedLocalId;
+                return (
+                  <div key={opt.id || opt.name} className={styles.lpcRow}>
+                    <div className={styles.lpcRowMain}>
+                      <div className={styles.lpcRowRef}>{opt.name}</div>
+                      {opt.subtitle ? <div className={styles.lpcRowSub}>{opt.subtitle}</div> : null}
+                    </div>
+                    <button
+                      type="button"
+                      className={`${styles.lpcSelectBtn} ${isSelected ? styles.lpcSelectBtnSelected : ''}`.trim()}
+                      onClick={() => selectRow(opt)}
+                    >
+                      {isSelected ? 'Selected' : 'Select'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              className={`${styles.addRowBtn} ${styles.lpcAddToggle}`.trim()}
+              onClick={() => setAddOpen((prev) => !prev)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Add a New Period Contract
+            </button>
+
+            {addOpen ? (
+              <div className={styles.lpcAddForm}>
+                <div className={styles.thdStepSub}>
+                  Not linking to an existing contract? Create one here — it&apos;ll appear in the list above and can be selected immediately.
+                </div>
+                <div className={styles.lpcAddGrid}>
+                  <div className={styles.field}>
+                    <label htmlFor="lpc-new-ref">Contract Ref.</label>
+                    <input
+                      id="lpc-new-ref"
+                      value={draft.ref}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, ref: e.target.value }))}
+                      placeholder="e.g. PCTT-2026-021"
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label htmlFor="lpc-new-vessel">Vessel</label>
+                    <input
+                      id="lpc-new-vessel"
+                      value={draft.vessel}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, vessel: e.target.value }))}
+                      placeholder="Vessel name"
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label htmlFor="lpc-new-charterer">Charterer</label>
+                    <select
+                      id="lpc-new-charterer"
+                      value={draft.charterer}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, charterer: e.target.value }))}
+                    >
+                      <option value="">Select</option>
+                      {(charterers || []).map((opt) => (
+                        <option key={opt.id} value={opt.id}>{opt.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.field}>
+                    <label htmlFor="lpc-new-period">Period</label>
+                    <input
+                      id="lpc-new-period"
+                      value={draft.period}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, period: e.target.value }))}
+                      placeholder="e.g. 12 mo"
+                    />
+                  </div>
+                </div>
+                <button type="button" className={`${styles.thdApplyBtn} ${styles.lpcAddSave}`.trim()} onClick={saveNewContract}>
+                  Save New Contract
+                </button>
+                {addHref ? (
+                  <a className={styles.lpcAddFullLink} href={addHref} target="_blank" rel="noopener noreferrer">
+                    Open full Period Contract form
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <div className={styles.thdFooter}>
+            {(valueId || pickedLocalId) ? (
+              <button type="button" className={styles.thdCloseBtn} onClick={clearSelection}>
+                Clear
+              </button>
+            ) : null}
+            <button type="button" className={styles.thdCloseBtn} onClick={closeModal}>
+              Close
+            </button>
+          </div>
+        </div>
       </div>,
       document.body,
     )
     : null;
 
   return (
-    <div className={styles.connectField} ref={wrapRef}>
+    <div className={styles.connectField}>
       <button
-        ref={btnRef}
         type="button"
         className={styles.connectBtn}
         title="Opens a popup listing master system period contracts"
-        aria-label="Link Period CTT"
+        aria-label="Link Period Contract"
         aria-expanded={open}
-        aria-haspopup="listbox"
+        aria-haspopup="dialog"
         disabled={disabled}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => {
+          if (disabled) return;
+          setOpen(true);
+        }}
       >
         <ConnectIcon />
         <span>{label}</span>
       </button>
-      {menu}
+      {modal}
     </div>
   );
 }
@@ -405,8 +584,13 @@ function defaultOffHireBunkers(lookupsBunkers = []) {
       bunkerId: match ? String(match.id) : '',
       gradeName: match?.name || name,
     };
-  });
-  return rows.length ? rows : [{ ...EMPTY_OFF_BUNKER, gradeName: 'VLSFO' }];
+  }).filter((row) => row.bunkerId || row.gradeName);
+  if (rows.length) return rows;
+  const first = (lookupsBunkers || [])[0];
+  if (first) {
+    return [{ ...EMPTY_OFF_BUNKER, bunkerId: String(first.id), gradeName: first.name || '' }];
+  }
+  return [{ ...EMPTY_OFF_BUNKER }];
 }
 
 function collectOffHireBunkers(offHires = []) {
@@ -514,6 +698,10 @@ function normalizeCapexFields(detail = {}) {
       bunkersOpen: true,
     };
   }
+  const offHireRateMaster = offHires.find((row) => row.hireRate)?.hireRate
+    || detail.hireFixPer
+    || calc.dailyGrossHire
+    || '';
   const contractType = detail.contractType
     || (detail.periodId ? 'tcinout' : 'tcout');
   return {
@@ -530,7 +718,10 @@ function normalizeCapexFields(detail = {}) {
     otherExpenses: detail.otherExpenses?.length
       ? detail.otherExpenses.map((row) => ({ ...EMPTY_EXPENSE, ...row }))
       : [{ ...EMPTY_EXPENSE }],
-    offHires,
+    offHires: offHires.map((row) => (
+      row.hireRate ? row : resolveOffHire({ ...row, hireRate: offHireRateMaster })
+    )),
+    offHireRateMaster,
     offHireBunkers: [],
     tcInExpenses: detail.tcInExpenses
       ? {
@@ -697,6 +888,7 @@ function emptyForm(businessTypeId = '2') {
     otherIncome: [],
     otherExpenses: [{ ...EMPTY_EXPENSE }],
     offHires: [{ ...EMPTY_OFF }],
+    offHireRateMaster: '',
     offHireBunkers: [],
     tcInExpenses: emptyTcIn(),
   };
@@ -772,6 +964,15 @@ function formatResult(value) {
   return n.toFixed(2);
 }
 
+function formatSignedResult(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0.00';
+  const abs = Math.abs(n).toFixed(2);
+  if (n > 0) return `+${abs}`;
+  if (n < 0) return `-${abs}`;
+  return abs;
+}
+
 function applyVesselPrefill(prev, prefill, vesselMeta = {}) {
   if (!prefill && !vesselMeta.id) return prev;
   return {
@@ -807,7 +1008,7 @@ export default function TcFixtureFormPage({
   const navigate = useNavigate();
   const alert = useAlert();
   const confirm = useConfirm();
-  const { tcPath } = useTcModule();
+  const { module, tcPath } = useTcModule();
   const { tcOutId: paramTcOutId } = useParams();
   const tcOutId = overrideTcOutId || paramTcOutId;
   const [searchParams] = useSearchParams();
@@ -948,18 +1149,21 @@ export default function TcFixtureFormPage({
       totalExp: voyageExp,
     });
 
-    const totalRev = Number(totals.totalRev) || 0;
+    const netRev = Number(totals.totalRev) || 0;
     const lessOffHire = Number(totals.lessOffHire) || 0;
-    const nettTcRev = Number(totals.nettHireInvoice) || 0;
+    // Waterfall: Total (before off-hire) → Less Off-Hire → Net TC Revenue
+    const grossRev = netRev + lessOffHire;
+    const bunkerDiffAmt = Number(totals.bunkerDiffAmt) || 0;
     const totalExp = voyageExp + itineraryExpenseTotal;
     // Voyage earn excludes Pre-TC; Adj line deducts Pre-TC from that profit
-    const profit = Number(totals.voyageEarn) || (totalRev - voyageExp);
+    const profit = Number(totals.voyageEarn) || (netRev - voyageExp);
     const profitAdjPreTc = profit - itineraryExpenseTotal;
 
     return {
-      totalRev: formatResult(totalRev),
+      totalRev: formatResult(grossRev),
       lessOffHire: formatResult(lessOffHire),
-      nettTcRev: formatResult(nettTcRev),
+      nettTcRev: formatResult(netRev),
+      bunkerDiffAmt: formatSignedResult(bunkerDiffAmt),
       refCharterers: formatResult(expensePartyTotals.refCharterers),
       refOwners: formatResult(expensePartyTotals.refOwners),
       totalExp: formatResult(totalExp),
@@ -1347,9 +1551,20 @@ export default function TcFixtureFormPage({
         ...(prev.offHires || []),
         resolveOffHire({
           ...EMPTY_OFF,
-          hireRate: prev.hireFixPer || '',
+          hireRate: prev.offHireRateMaster || prev.hireFixPer || '',
         }),
       ],
+    }));
+  };
+
+  const propagateOffHireRate = (rate) => {
+    if (readOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      offHireRateMaster: rate,
+      offHires: (prev.offHires?.length ? prev.offHires : [{ ...EMPTY_OFF }]).map((row) => (
+        resolveOffHire({ ...row, hireRate: rate })
+      )),
     }));
   };
 
@@ -1734,7 +1949,9 @@ export default function TcFixtureFormPage({
                       value={form.periodId}
                       onChange={handlePeriodChange}
                       disabled={readOnly}
-                      placeholder="Select Contract"
+                      placeholder="Select"
+                      charterers={lookups?.charterers || []}
+                      addHref={periodContractAppPath(module, 'add')}
                     />
                   </Field>
                 </div>
@@ -2014,22 +2231,22 @@ export default function TcFixtureFormPage({
               <CollapsiblePanel title="TC Expenses" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.expenses}>
                 <div className={`${styles.subsectionCard} ${styles.subsectionCardNoLabel}`}>
                 <div className={styles.miniTableWrap}>
-                  <table className={`${styles.miniTable} ${styles.miniTableCenter}`}>
+                  <table className={`${styles.miniTable} ${styles.miniTableCenter} ${styles.tcExpensesTable}`}>
                     <thead>
                       <tr>
-                        <th>Expense Desc.</th>
-                        <th>Expense Type</th>
-                        <th>Notes</th>
-                        <th>Add to TTL</th>
-                        <th>Expense Amt</th>
-                        <th>Vendor</th>
-                        <th style={{ width: 64 }} />
+                        <th className={styles.tcExpColExpense}>Expense</th>
+                        <th className={styles.tcExpColType}>Type</th>
+                        <th className={styles.tcExpColNotes}>Notes</th>
+                        <th className={styles.tcExpColAddTotal}>Add to Total</th>
+                        <th className={styles.tcExpColAmount}>Amount</th>
+                        <th className={styles.tcExpColVendor}>Vendor</th>
+                        <th className={styles.tcExpColActions} />
                       </tr>
                     </thead>
                     <tbody>
                       {(form.otherExpenses?.length ? form.otherExpenses : [{ ...EMPTY_EXPENSE }]).map((row, index) => (
                         <tr key={`exp-${index}`}>
-                          <td>
+                          <td className={styles.tcExpColExpense}>
                             <TableCardSelect
                               options={lookups?.expenseTypes || []}
                               value={row.expenseTypeId || ''}
@@ -2042,10 +2259,10 @@ export default function TcFixtureFormPage({
                               }}
                               disabled={readOnly}
                               placeholder="Select from"
-                              ariaLabel="Expense description"
+                              ariaLabel="Expense"
                             />
                           </td>
-                          <td>
+                          <td className={styles.tcExpColType}>
                             <TableCardSelect
                               options={OWNER_CHARTERER_OPTIONS}
                               value={row.notes || ''}
@@ -2053,26 +2270,26 @@ export default function TcFixtureFormPage({
                                 const isOwner = String(v || '').toLowerCase() === 'owner';
                                 patchOtherExpense(index, {
                                   notes: v,
-                                  // Add to TTL only applies to Owner expenses
+                                  // Add to Total only applies to Owner expenses
                                   addToTotal: isOwner,
                                 });
                               }}
                               disabled={readOnly}
                               className={ownerChipClass(row.notes)}
                               placeholder="Select from"
-                              ariaLabel="Expense type"
+                              ariaLabel="Type"
                             />
                           </td>
-                          <td>
+                          <td className={styles.tcExpColNotes}>
                             <input
                               value={row.description || ''}
                               onChange={(e) => patchOtherExpense(index, { description: e.target.value })}
-                              placeholder="Expense Desc."
+                              placeholder="Notes"
                               readOnly={readOnly}
                               className={readOnly ? styles.inputReadonly : undefined}
                             />
                           </td>
-                          <td>
+                          <td className={styles.tcExpColAddTotal}>
                             <input
                               type="checkbox"
                               className={styles.expenseChk}
@@ -2082,11 +2299,11 @@ export default function TcFixtureFormPage({
                               title={
                                 String(row.notes || '').toLowerCase() === 'owner'
                                   ? 'Add to total'
-                                  : 'Add to TTL is only available for Owner expenses'
+                                  : 'Add to Total is only available for Owner expenses'
                               }
                             />
                           </td>
-                          <td>
+                          <td className={styles.tcExpColAmount}>
                             <input
                               value={row.amount || ''}
                               onChange={(e) => patchOtherExpense(index, { amount: e.target.value })}
@@ -2095,9 +2312,9 @@ export default function TcFixtureFormPage({
                               className={readOnly ? styles.inputReadonly : undefined}
                             />
                           </td>
-                          <td>
+                          <td className={styles.tcExpColVendor}>
                             <TableCardSelect
-                              options={lookups?.vendors || []}
+                              options={lookups?.charterers || []}
                               value={row.vendorId || ''}
                               onChange={(v) => patchOtherExpense(index, { vendorId: v })}
                               disabled={readOnly}
@@ -2255,6 +2472,19 @@ export default function TcFixtureFormPage({
                 </div>
                 </div>
                 <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPad}`}>Off Hire</div>
+                <div className={`${styles.dense7} ${styles.offhireRateRow}`}>
+                  <Field label="Off-Hire Rate/Day" id="offHireRateMaster">
+                    <input
+                      id="offHireRateMaster"
+                      value={form.offHireRateMaster || ''}
+                      onChange={(e) => propagateOffHireRate(e.target.value)}
+                      placeholder="0.00"
+                      readOnly={readOnly}
+                      className={readOnly ? styles.inputReadonly : undefined}
+                    />
+                    <span className={styles.fieldHint}>Applies to all reasons below</span>
+                  </Field>
+                </div>
                 <div className={styles.offhireList}>
                   {(form.offHires?.length ? form.offHires : [{ ...EMPTY_OFF }]).map((row, index) => {
                     const resolved = resolveOffHire(row);
@@ -2289,13 +2519,19 @@ export default function TcFixtureFormPage({
                                   <div className={styles.offhireRange}>
                                     <DmyDateInput
                                       value={row.from || ''}
-                                      onChange={(v) => patchOffHire(index, { from: v })}
+                                      onChange={(v) => patchOffHire(index, {
+                                        from: v,
+                                        hireRate: row.hireRate || form.offHireRateMaster || form.hireFixPer || '',
+                                      })}
                                       enableTime
                                       disabled={readOnly}
                                     />
                                     <DmyDateInput
                                       value={row.to || ''}
-                                      onChange={(v) => patchOffHire(index, { to: v })}
+                                      onChange={(v) => patchOffHire(index, {
+                                        to: v,
+                                        hireRate: row.hireRate || form.offHireRateMaster || form.hireFixPer || '',
+                                      })}
                                       enableTime
                                       disabled={readOnly}
                                     />
@@ -2319,7 +2555,7 @@ export default function TcFixtureFormPage({
                                 </td>
                                 <td>
                                   <TableCardSelect
-                                    options={lookups?.vendors || []}
+                                    options={lookups?.charterers || []}
                                     value={row.vendorId || ''}
                                     onChange={(v) => patchOffHire(index, { vendorId: v })}
                                     disabled={readOnly}
@@ -2500,17 +2736,16 @@ export default function TcFixtureFormPage({
               </CollapsiblePanel>
               <CollapsiblePanel title="Additional Info & Documents" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.docs}>
                 <div className={styles.docsSectionStack}>
-                  <div className={styles.denseGrid}>
-                    <Field label="More Info" className={styles.span2}>
-                      <input
-                        value={form.additInform || ''}
-                        onChange={(e) => setField('additInform', e.target.value)}
-                        placeholder="Description"
-                        readOnly={readOnly}
-                        className={readOnly ? styles.inputReadonly : undefined}
-                      />
-                    </Field>
-                  </div>
+                  <Field label="More Info" className={styles.moreInfoField}>
+                    <textarea
+                      value={form.additInform || ''}
+                      onChange={(e) => setField('additInform', e.target.value)}
+                      placeholder="Description"
+                      readOnly={readOnly}
+                      className={`${styles.moreInfoTextarea}${readOnly ? ` ${styles.inputReadonly}` : ''}`}
+                      rows={4}
+                    />
+                  </Field>
                   <AttachmentDropzone
                     readOnly={readOnly}
                     files={form.attachmentFiles || []}
@@ -2550,11 +2785,11 @@ export default function TcFixtureFormPage({
                     <span className={styles.resRowVal}>{tcResults.totalRev}</span>
                   </div>
                   <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Less - Off Hire (Incl. Bunkers)</span>
+                    <span className={styles.resRowLabel}>Less Off-Hire Expense</span>
                     <span className={styles.resRowVal}>{tcResults.lessOffHire}</span>
                   </div>
                   <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
-                    <span className={styles.resRowLabel}>Net TC Rev</span>
+                    <span className={styles.resRowLabel}>Net TC Revenue</span>
                     <span className={styles.resRowVal}>{tcResults.nettTcRev}</span>
                   </div>
                 </div>
@@ -2564,15 +2799,19 @@ export default function TcFixtureFormPage({
                 <div className={styles.resultsHead}>Expenses</div>
                 <div className={styles.resultsBody}>
                   <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Charterer's Acc</span>
+                    <span className={styles.resRowLabel}>Ref Charterers</span>
                     <span className={styles.resRowVal}>{tcResults.refCharterers}</span>
                   </div>
                   <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Owner's Acc</span>
+                    <span className={styles.resRowLabel}>Ref Owners</span>
                     <span className={styles.resRowVal}>{tcResults.refOwners}</span>
                   </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Bunker Differential</span>
+                    <span className={styles.resRowVal}>{tcResults.bunkerDiffAmt}</span>
+                  </div>
                   <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
-                    <span className={styles.resRowLabel}>Total Exp (Incl. Pre TC)</span>
+                    <span className={styles.resRowLabel}>Total Expenses (Incl. Pre TC)</span>
                     <span className={styles.resRowVal}>{tcResults.totalExp}</span>
                   </div>
                 </div>
@@ -2582,7 +2821,7 @@ export default function TcFixtureFormPage({
                 <div className={styles.resultsHead}>P&amp;L</div>
                 <div className={styles.resultsBody}>
                   <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
-                    <span className={styles.resRowLabel}>Total Profit</span>
+                    <span className={styles.resRowLabel}>Profit</span>
                     <span className={styles.resRowVal}>{tcResults.profit}</span>
                   </div>
                   <div className={styles.resRow}>

@@ -219,7 +219,10 @@ function offHireBunkerTotal(row = {}) {
   return bunkers.reduce((sum, bunker) => {
     const qty = Number(bunker.qty);
     const price = Number(bunker.price);
-    return sum + ((Number.isFinite(qty) ? qty : 0) * (Number.isFinite(price) ? price : 0));
+    const fromQtyPrice = (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(price) ? price : 0);
+    if (fromQtyPrice) return sum + fromQtyPrice;
+    const amount = Number(bunker.amount);
+    return sum + (Number.isFinite(amount) ? amount : 0);
   }, 0);
 }
 

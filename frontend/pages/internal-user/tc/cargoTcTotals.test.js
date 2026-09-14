@@ -46,4 +46,21 @@ describe('frontend calcTcTotals', () => {
     assert.equal(totals.tcDays, '10');
     assert.equal(totals.hireIncome, '10000.00');
   });
+
+  it('includes off-hire bunker amounts in lessOffHire', () => {
+    const totals = calcTcTotals({
+      tcDays: 10,
+      dailyGrossHire: 10000,
+      addCommPct: 0,
+      brokerCommPct: 0,
+      otherIncome: 0,
+      totalExp: 0,
+      offHires: [{
+        days: '1',
+        hireRate: '10000',
+        bunkers: [{ qty: '5', price: '600' }],
+      }],
+    });
+    assert.equal(totals.lessOffHire, '13000.00');
+  });
 });

@@ -503,6 +503,23 @@ async function loadCalcExtras(pool, slave1Id) {
     tcInExpenses = null;
   }
 
+  const offHireBunkerByIndex = new Map();
+  for (const row of bunkerRows) {
+    const identity = bunkerIdentity(row);
+    const match = identity.match(/^OFF(\d+)$/);
+    if (!match) continue;
+    const index = Number(match[1]);
+    if (!Number.isFinite(index)) continue;
+    const list = offHireBunkerByIndex.get(index) || [];
+    list.push({
+      bunkerId: row.BUNKERID != null ? String(row.BUNKERID) : '',
+      qty: row.QTY != null ? String(row.QTY) : '',
+      price: row.PRICE != null ? String(row.PRICE) : '',
+      amount: row.AMOUNT != null ? String(row.AMOUNT) : '',
+    });
+    offHireBunkerByIndex.set(index, list);
+  }
+
   return {
     otherIncome: incomeRows.map((r) => ({
       description: r.DESCRIPTION ?? '',
@@ -514,13 +531,14 @@ async function loadCalcExtras(pool, slave1Id) {
       addToTotal: Number(r.CHK_ADDTTL || 0) === 1,
       amount: r.OTHER_AMT != null ? String(r.OTHER_AMT) : '',
     })),
-    offHires: offHireRows.map((r) => ({
+    offHires: offHireRows.map((r, index) => ({
       reason: r.OFF_REASON ?? '',
       from: formatDateTimeDMY(r.OFF_FROM) || formatDateDMY(r.OFF_FROM),
       to: formatDateTimeDMY(r.OFF_TO) || formatDateDMY(r.OFF_TO),
       days: r.OFF_DAYS != null ? String(r.OFF_DAYS) : '',
       hireRate: r.HIRE_RATE != null ? String(r.HIRE_RATE) : '',
       amount: r.OFF_HIRE != null ? String(r.OFF_HIRE) : '',
+      bunkers: offHireBunkerByIndex.get(index) || [],
     })),
     calcBunkersDel: bunkerRows.filter((r) => bunkerIdentity(r) === 'DEL').map(mapBunkerRow),
     calcBunkersRedel: bunkerRows.filter((r) => bunkerIdentity(r) === 'REDEL').map(mapBunkerRow),
@@ -564,8 +582,24 @@ export async function dbGetTcLookups() {
       WHERE MODULEID = ? AND MCOMPANYID = ? ORDER BY EXPENSE_TYPE`, [MODULE_ID, COMPANY_ID]).catch(() => [[]]),
     pool.query(`SELECT ROUTEID AS id, ROUTE_NAME AS name FROM baltic_route_master
       WHERE MODULEID = ? AND MCOMPANYID = ? ORDER BY ROUTE_NAME`, [MODULE_ID, COMPANY_ID]).catch(() => [[]]),
-    pool.query(`SELECT PERIODID AS id, PERIOD_CONTRACT AS name FROM period_contract_master
-      WHERE MODULEID = ? AND MCOMPANYID = ? ORDER BY PERIODID DESC LIMIT 200`, [MODULE_ID, COMPANY_ID]).catch(() => [[]]),
+    pool.query(
+      `SELECT pcm.PERIODID AS id,
+              COALESCE(NULLIF(TRIM(pcm.PERIOD_CONTRACT), ''), NULLIF(TRIM(pcm.CONTRACT_ID), ''), CAST(pcm.PERIODID AS CHAR)) AS name,
+              pcm.CONTRACT_ID AS contractId,
+              vim.VESSEL_NAME AS vesselName,
+              pcm.DELIVERY_DATE AS deliveryDate,
+              pcm.RE_DEL_MAX_DATE AS reDelMaxDate,
+              pcm.PERIOD_MIN AS periodMin,
+              pcm.PERIOD_MAX AS periodMax,
+              pcm.PERIOD_TYPE AS periodType,
+              (SELECT vm.NAME FROM vendor_master vm
+               WHERE vm.CODE = pcm.OWN_BUSINESS_ACCOUNT LIMIT 1) AS chartererName
+       FROM period_contract_master pcm
+       LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = pcm.VESSEL_IMO_ID
+       WHERE pcm.MODULEID = ? AND pcm.MCOMPANYID = ?
+       ORDER BY pcm.PERIODID DESC LIMIT 200`,
+      [MODULE_ID, COMPANY_ID],
+    ).catch(() => [[]]),
     pool.query(`SELECT VESSEL_IMO_ID AS id, VESSEL_NAME AS name, BUSINESSTYPEID AS businessTypeId
       FROM vessel_imo_master WHERE MODULEID = ? AND MCOMPANYID = ? AND STATUS = 1
       ORDER BY VESSEL_NAME LIMIT 500`, [MODULE_ID, COMPANY_ID]).catch(() => [[]]),
@@ -599,7 +633,27 @@ export async function dbGetTcLookups() {
     bunkers: bunkers.map((r) => ({ id: String(r.id), name: r.name })),
     expenseTypes: expenseTypes.map((r) => ({ id: String(r.id), name: r.name })),
     balticRoutes: routes.map((r) => ({ id: String(r.id), name: r.name })),
-    periodContracts: periods.map((r) => ({ id: String(r.id), name: r.name })),
+    periodContracts: periods.map((r) => {
+      const delivery = r.deliveryDate ? formatDateDMY(r.deliveryDate) : '';
+      const reDel = r.reDelMaxDate ? formatDateDMY(r.reDelMaxDate) : '';
+      const periodSpan = [r.periodMin, r.periodMax].filter((v) => v != null && v !== '').join('-');
+      const periodLabel = periodSpan
+        ? `${periodSpan}${r.periodType ? ` ${r.periodType}` : ''}`.trim()
+        : '';
+      const dateSpan = delivery && reDel ? `${delivery} → ${reDel}` : (delivery || reDel || '');
+      const subtitle = [r.vesselName, r.chartererName, periodLabel, dateSpan]
+        .map((part) => String(part || '').trim())
+        .filter(Boolean)
+        .join(' · ');
+      return {
+        id: String(r.id),
+        name: r.name || r.contractId || String(r.id),
+        contractId: r.contractId != null ? String(r.contractId) : '',
+        vesselName: r.vesselName || '',
+        chartererName: r.chartererName || '',
+        subtitle,
+      };
+    }),
     charteringTeams: [{ id: '7', name: 'Zafira' }],
     charteringPics: charteringPics.map((r) => ({ id: String(r.id), name: r.name })),
     vessels: vessels.map((r) => ({
@@ -1041,9 +1095,20 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
     );
   }
 
+  const offHireBunkerRows = [];
+  (body.offHires || []).forEach((offRow, offIndex) => {
+    for (const bunker of offRow.bunkers || []) {
+      if (!bunker.bunkerId && !bunker.qty && !bunker.price) continue;
+      offHireBunkerRows.push({
+        ...bunker,
+        identity: `OFF${offIndex}`,
+      });
+    }
+  });
   const calcBunkers = [
     ...(body.calc?.deliveryBunkers || body.deliveryBunkers || []).map((r) => ({ ...r, identity: 'DEL' })),
     ...(body.calc?.redeliveryBunkers || body.redeliveryBunkers || []).map((r) => ({ ...r, identity: 'REDEL' })),
+    ...offHireBunkerRows,
   ];
   for (const row of calcBunkers) {
     if (!row.bunkerId && !row.qty) continue;

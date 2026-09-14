@@ -964,7 +964,7 @@
   display: block;
 }
 
-.estLhs .field > div:not(.dateRangePair) > button:first-child {
+.estLhs .field > div:not(.dateRangePair):not(.connectField) > button:first-child {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
@@ -986,18 +986,18 @@
   box-sizing: border-box;
 }
 
-.estLhs .field > div:not(.dateRangePair) > button:first-child:hover:not(:disabled) {
+.estLhs .field > div:not(.dateRangePair):not(.connectField) > button:first-child:hover:not(:disabled) {
   border-color: #c5cdd9;
   background: #fff;
   color: var(--color-text-dark, #1f2937);
 }
 
-.estLhs .field > div:not(.dateRangePair) > button:first-child:focus-visible {
+.estLhs .field > div:not(.dateRangePair):not(.connectField) > button:first-child:focus-visible {
   border-color: var(--color-primary, #274670);
   box-shadow: 0 0 0 2px rgba(39, 70, 112, 0.15);
 }
 
-.estLhs .field > div:not(.dateRangePair) > button:first-child:disabled {
+.estLhs .field > div:not(.dateRangePair):not(.connectField) > button:first-child:disabled {
   opacity: 1;
   background: #f1f2f4;
   color: #5b6472;
@@ -1039,7 +1039,7 @@
   min-width: 0;
   max-width: 100%;
   border-radius: 14px;
-  overflow: visible;
+  overflow: hidden;
   margin-bottom: 0;
 }
 
@@ -1049,6 +1049,12 @@
   font-size: 13.5px;
   font-weight: 700;
   letter-spacing: 0;
+  border-radius: 14px 14px 0 0;
+}
+
+/* Closed accordion: round all four header corners (class is CSS-module hashed). */
+.estLhs :global(section)[class*='panelClosed'] > div:first-child {
+  border-radius: 14px;
 }
 
 .estLhs :global(section) > div:first-child button {
@@ -1074,7 +1080,7 @@
   background: #fff !important;
   border: 1px solid #eceef2 !important;
   border-radius: 14px !important;
-  overflow: visible !important;
+  overflow: hidden !important;
   margin-bottom: 0 !important;
 }
 
@@ -1086,6 +1092,12 @@
   font-size: 14.5px !important;
   font-weight: 700 !important;
   color: #1b2430 !important;
+  border-radius: 14px 14px 0 0;
+}
+
+.estLhs .estCard[class*='panelClosed'] > div:first-child {
+  border-radius: 14px;
+  border-bottom-color: transparent;
 }
 
 .estCard:hover > div:first-child {
@@ -1101,6 +1113,19 @@
   flex-direction: column;
   gap: 18px;
   padding: 4px 0 8px;
+}
+
+.moreInfoField {
+  width: 100%;
+  min-width: 0;
+}
+
+.moreInfoField textarea,
+.moreInfoTextarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  box-sizing: border-box;
 }
 
 .subsectionCard {
@@ -1195,6 +1220,7 @@
   align-items: center;
   border-radius: 6px;
   padding: 2px 8px;
+  margin-left: 10px;
   font-weight: 700;
   background: #fdece4;
   color: #f4652c;
@@ -1280,6 +1306,24 @@
   font-weight: 700 !important;
 }
 
+.chipGradeAltGreen > div > button:first-child {
+  background: #e8f8ec !important;
+  color: #0fa836 !important;
+  font-weight: 700 !important;
+}
+
+.chipGradeAltOrange > div > button:first-child {
+  background: #fdece4 !important;
+  color: #f4652c !important;
+  font-weight: 700 !important;
+}
+
+.chipGradeAltCyan > div > button:first-child {
+  background: #e3f8fb !important;
+  color: #22b8cf !important;
+  font-weight: 700 !important;
+}
+
 /* Owner / Charterer expense chips */
 .chipOwnerWrap > div > button:first-child {
   background: #e3f4f4 !important;
@@ -1346,6 +1390,12 @@
   color: #9ca3af;
   margin-top: 4px;
   line-height: 1.3;
+}
+
+.offhireRateRow {
+  margin-top: 6px;
+  margin-bottom: 2px;
+  max-width: 220px;
 }
 
 .offhireList {
@@ -1455,22 +1505,22 @@
 .connectBtn {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 7px;
+  justify-content: center;
+  gap: 4px;
   width: 100%;
   background: #fff;
-  border: 1px solid var(--color-border, #d9dee8);
-  border-radius: var(--border-radius-sm, 6px);
-  padding: 5px 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-dark, #1f2937);
+  border: 1px solid #d8dce3;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--color-primary, #274670);
   cursor: pointer;
   font-family: inherit;
   box-sizing: border-box;
   min-height: 30px;
   height: 30px;
-  text-align: left;
+  text-align: center;
   box-shadow: none;
 }
 
@@ -1480,10 +1530,16 @@
   flex: none;
 }
 
+.connectBtn span {
+  flex: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+
 .connectBtn:hover:not(:disabled) {
-  border-color: #c5cdd9;
-  background: #fff;
-  color: var(--color-text-dark, #1f2937);
+  background: #e6eaf1;
+  border-color: #d8dce3;
+  color: var(--color-primary, #274670);
 }
 
 .connectBtn:disabled {
@@ -1491,6 +1547,126 @@
   background: #f1f2f4;
   color: #5b6472;
   cursor: not-allowed;
+}
+
+.lpcModal {
+  width: min(640px, 100%);
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid #c9d4e4;
+  padding: 0;
+  box-shadow: 0 30px 70px rgba(20, 20, 40, 0.28);
+}
+
+.lpcBody {
+  padding: 18px 22px 6px;
+  overflow: auto;
+  flex: 1 1 auto;
+}
+
+.lpcList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lpcEmpty {
+  padding: 18px 12px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 12.5px;
+}
+
+.lpcRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fafbfc;
+  border: 1px solid #e5e7eb;
+  border-radius: 11px;
+  padding: 12px 14px;
+}
+
+.lpcRowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.lpcRowRef {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--color-text-dark, #1b2430);
+}
+
+.lpcRowSub {
+  font-size: 11.5px;
+  color: #8b93a1;
+  margin-top: 2px;
+}
+
+.lpcSelectBtn {
+  background: #fff;
+  border: 1.5px solid #d3dae7;
+  color: var(--color-primary, #274670);
+  font-weight: 700;
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 7px 16px;
+  cursor: pointer;
+  flex: none;
+  font-family: inherit;
+}
+
+.lpcSelectBtn:hover {
+  background: #e6eaf1;
+}
+
+.lpcSelectBtnSelected {
+  background: var(--color-primary, #274670);
+  color: #fff;
+  border-color: var(--color-primary, #274670);
+}
+
+.lpcAddToggle {
+  width: 100%;
+  justify-content: center;
+}
+
+.lpcAddForm {
+  margin-top: 14px;
+  background: #fafbfc;
+  border: 1px dashed #d8dce3;
+  border-radius: 12px;
+  padding: 16px 18px 18px;
+}
+
+.lpcAddForm .thdStepSub {
+  margin: 0;
+}
+
+.lpcAddGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.lpcAddSave {
+  margin-top: 14px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+}
+
+.lpcAddFullLink {
+  display: inline-block;
+  margin-top: 10px;
+  margin-left: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary, #274670);
 }
 
 .connectMenu {
@@ -2040,6 +2216,37 @@
   cursor: pointer;
   accent-color: #274670;
   vertical-align: middle;
+}
+
+/* TC Expenses: Notes slightly wider than Expense/Type; Add to Total compact */
+.tcExpensesTable .tcExpColExpense {
+  width: 15%;
+}
+
+.tcExpensesTable .tcExpColType {
+  width: 12%;
+}
+
+.tcExpensesTable .tcExpColNotes {
+  width: 22%;
+}
+
+.tcExpensesTable .tcExpColAddTotal {
+  width: 6%;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.tcExpensesTable .tcExpColAmount {
+  width: 12%;
+}
+
+.tcExpensesTable .tcExpColVendor {
+  width: 18%;
+}
+
+.tcExpensesTable .tcExpColActions {
+  width: 64px;
 }
 
 .miniTableWrap {

@@ -15,6 +15,7 @@ import {
   SENSI_BUNKER_GRADES,
   toNumber,
 } from './sensitivityAnalysisCalculations.js';
+import { formatVoyageEstimateLabel } from './estimateVoyage.js';
 import styles from './SensitivityAnalysisModal.module.css';
 
 function SoMark({ className }) {
@@ -185,19 +186,40 @@ function FieldStatus({ status }) {
 
 function InputCell({ value, onChange, readOnly = false, disabled = false, status = '' }) {
   const empty = value === undefined || value === null || value === '';
+  const locked = Boolean(readOnly || disabled);
   return (
     <span className={styles.inputWrap}>
       <input
-        className={styles.input}
+        className={`${styles.input} ${locked ? styles.inputLocked : ''}`.trim()}
         value={empty ? '' : value}
         placeholder="—"
-        readOnly={readOnly || disabled}
+        readOnly={locked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
       />
       <FieldStatus status={status} />
     </span>
   );
+}
+
+function LockedBlank() {
+  return <InputCell value="" disabled onChange={() => {}} />;
+}
+
+function voyageCardLabel(column) {
+  if (column?.voyageLabel) return column.voyageLabel;
+  return formatVoyageEstimateLabel(column?.voyageNo, column?.estimateNo) || '—';
+}
+
+function hireVoyageDays(column) {
+  return toNumber(column?.hire?.totalDays) || toNumber(column?.hire?.hireDays);
+}
+
+function hireTotalAmount(column) {
+  const rate = toNumber(column?.hire?.rate);
+  const days = hireVoyageDays(column);
+  if (!rate && !days) return '';
+  return rate * days;
 }
 
 function SensiLink({ title, onClick }) {
@@ -928,9 +950,7 @@ export default function SensitivityAnalysisModal({
                           >
                             <div className={styles.vessel}>{column.vesselName || '—'}</div>
                             <div className={styles.voyEstLine}>
-                              {column.voyageNo
-                                ? `${column.voyageNo}-Est${column.estimateNo || 1}`
-                                : '—'}
+                              {voyageCardLabel(column)}
                             </div>
                             <div className={`${styles.cardMetrics} ${colCount >= 5 ? styles.cardMetricsCompact : ''}`.trim()}>
                               <span
@@ -975,7 +995,7 @@ export default function SensitivityAnalysisModal({
                           'minCargoQty',
                           (id, key, value) => handleAdjustmentChange(id, key, 'minCargoQty', value),
                           undefined,
-                          false,
+                          true,
                         )}
                       />
                       <EditableRow
@@ -985,7 +1005,7 @@ export default function SensitivityAnalysisModal({
                         variant="sub"
                         renderCell={(column) => (
                           column.chkLumpSum ? (
-                            <InputCell value="" disabled onChange={() => {}} />
+                            <LockedBlank />
                           ) : (
                             renderAdjustmentInputs(
                               column,
@@ -1004,20 +1024,7 @@ export default function SensitivityAnalysisModal({
                           const item = column.freightAdjustments?.[0];
                           if (!item) return <span className={styles.colCellEmpty}>—</span>;
                           if (column.chkLumpSum) {
-                            const wsValue = item.minWSRate
-                              || calculateLumpsumWsEquivalent(
-                                column.lumpsumAmt,
-                                item.minCargoQty,
-                                item.minFlatRate,
-                              );
-                            return (
-                              <InputCell
-                                value={wsValue === '' || wsValue == null ? '' : wsValue}
-                                disabled={isColumnSent(column)}
-                                status={isColumnSent(column) ? '' : statusFor(column.id, `${item.key}:minWSRate`)}
-                                onChange={(value) => handleMinWSRateChange(column.id, item.key, value)}
-                              />
-                            );
+                            return <LockedBlank />;
                           }
                           return (
                             <div className={styles.withLink}>
@@ -1044,16 +1051,12 @@ export default function SensitivityAnalysisModal({
                         columns={columns}
                         isLocked={isColumnSent}
                         variant="sub"
-                        renderCell={(column) => (
-                          column.chkLumpSum ? (
-                            <InputCell value="" disabled onChange={() => {}} />
-                          ) : (
-                            renderAdjustmentInputs(
-                              column,
-                              'overageQty',
-                              (id, key, value) => handleAdjustmentChange(id, key, 'overageQty', value),
-                            )
-                          )
+                        renderCell={(column) => renderAdjustmentInputs(
+                          column,
+                          'overageQty',
+                          (id, key, value) => handleAdjustmentChange(id, key, 'overageQty', value),
+                          undefined,
+                          true,
                         )}
                       />
                       <EditableRow
@@ -1063,7 +1066,7 @@ export default function SensitivityAnalysisModal({
                         variant="sub"
                         renderCell={(column) => (
                           column.chkLumpSum ? (
-                            <InputCell value="" disabled onChange={() => {}} />
+                            <LockedBlank />
                           ) : (
                             renderAdjustmentInputs(
                               column,
@@ -1080,7 +1083,7 @@ export default function SensitivityAnalysisModal({
                         variant="sub"
                         renderCell={(column) => (
                           column.chkLumpSum ? (
-                            <InputCell value="" disabled onChange={() => {}} />
+                            <LockedBlank />
                           ) : (
                             renderAdjustmentInputs(
                               column,
@@ -1194,48 +1197,51 @@ export default function SensitivityAnalysisModal({
 
                   {isTanker ? (
                     <EditableRow
-                      label="Lumpsum"
+                      label="Total Freight"
                       columns={columns}
                       isLocked={isColumnSent}
                       variant="sub"
-                      renderCell={(column) => (
-                        column.chkLumpSum ? (
+                      renderCell={(column) => {
+                        if (!column.chkLumpSum) {
+                          return <LockedBlank />;
+                        }
+                        const freightValue = toNumber(column.lumpsumAmt)
+                          || toNumber(column.storedGrossFreight)
+                          || toNumber(metricsById[column.id]?.grossFreight)
+                          || '';
+                        return (
                           <div className={styles.withLink}>
                             <InputCell
-                              value={column.lumpsumAmt}
-                              disabled={isColumnSent(column)}
-                              status={isColumnSent(column) ? '' : statusFor(column.id, 'lumpsum')}
-                              onChange={(value) => handleLumpsumAmtChange(column.id, value)}
+                              value={freightValue === '' ? '' : freightValue}
+                              disabled
+                              status=""
+                              onChange={() => {}}
                             />
                             {isColumnSent(column) ? null : (
                               <SensiLink
-                                title="View Lump Sum sensitivity for this voyage"
+                                title="View Lump Sum / Total Freight sensitivity for this voyage"
                                 onClick={() => openSensi(column, 'lumpsum')}
                               />
                             )}
                           </div>
-                        ) : (
-                          <InputCell value="" disabled onChange={() => {}} />
-                        )
-                      )}
+                        );
+                      }}
                     />
                   ) : null}
                 </div>
 
                 <div className={`${styles.section} ${styles.themePurple}`}>
                   <SectionLabel>{isTanker ? 'Hireage / Vessel Opex' : 'Hireage/Vessel Ops'}</SectionLabel>
-                  {isTanker ? null : (
-                    <p className={styles.sectionCaption}>
-                      Hire cost (editable) × Voyage Days (from the worksheet&apos;s laycan/date selection, not editable here) = Total.
-                    </p>
-                  )}
+                  <p className={styles.sectionCaption}>
+                    Hire cost (editable) × Voyage Days (from the worksheet&apos;s laycan/date selection, not editable here) = Total.
+                  </p>
                   <EditableRow
-                    label={isTanker ? 'Hire / Day ($)' : 'Hire/Vessel Ops Cost (USD)'}
+                    label={isTanker ? 'Hire / Vessel OPEX' : 'Hire/Vessel Ops Cost (USD)'}
                     columns={columns}
                     isLocked={isColumnSent}
                     renderCell={(column) => (
                       <InputCell
-                        value={column.hire?.rate}
+                        value={column.hire?.rate === 0 || column.hire?.rate === '0' ? '' : (column.hire?.rate ?? '')}
                         disabled={isColumnSent(column)}
                         status={isColumnSent(column) ? '' : statusFor(column.id, 'hire')}
                         onChange={(value) => handleHireChange(column.id, value)}
@@ -1246,18 +1252,19 @@ export default function SensitivityAnalysisModal({
                     label="Voyage Days"
                     columns={columns}
                     isLocked={isColumnSent}
-                    values={columns.map((column) => (
-                      toNumber(column.hire?.totalDays) ? formatAmount(column.hire.totalDays) : ''
-                    ))}
+                    values={columns.map((column) => {
+                      const days = hireVoyageDays(column);
+                      return days ? formatAmount(days) : '';
+                    })}
                   />
                   <DisplayRow
-                    label={isTanker ? 'Net Hireage' : 'Total'}
+                    label={isTanker ? 'Total Hireage' : 'Total'}
                     variant="subtotal"
                     columns={columns}
                     isLocked={isColumnSent}
                     values={columns.map((column) => {
-                      const total = metricsById[column.id]?.netHireage;
-                      return toNumber(total) ? formatAmount(total) : '';
+                      const total = hireTotalAmount(column);
+                      return total === '' ? '' : formatAmount(total);
                     })}
                   />
                 </div>
@@ -1376,16 +1383,16 @@ export default function SensitivityAnalysisModal({
                         <EditableRow
                           label="Qty"
                           columns={columns}
-                          isLocked={isColumnSent}
+                          isLocked={() => true}
                           variant="sub"
                           renderCell={(column) => {
                             const bunker = bunkerFor(column, grade);
                             return (
                               <InputCell
                                 value={bunker?.estMt ?? ''}
-                                disabled={isColumnSent(column)}
-                                status={isColumnSent(column) ? '' : statusFor(column.id, `bunkerQty:${grade}`)}
-                                onChange={(value) => handleBunkerQtyChange(column.id, grade, value)}
+                                disabled
+                                status=""
+                                onChange={() => {}}
                               />
                             );
                           }}
@@ -1394,7 +1401,7 @@ export default function SensitivityAnalysisModal({
                           <EditableRow
                             label="Price"
                             columns={columns}
-                        isLocked={isColumnSent}
+                            isLocked={() => true}
                             variant="sub"
                             renderCell={(column) => {
                               const bunker = bunkerFor(column, grade);
@@ -1402,9 +1409,9 @@ export default function SensitivityAnalysisModal({
                                 <div className={styles.withLink}>
                                   <InputCell
                                     value={bunker?.estPrice ?? ''}
-                                    disabled={isColumnSent(column)}
-                                    status={isColumnSent(column) ? '' : statusFor(column.id, `bunker:${grade}`)}
-                                    onChange={(value) => handleBunkerPriceChange(column.id, grade, value)}
+                                    disabled
+                                    status=""
+                                    onChange={() => {}}
                                   />
                                   {isColumnSent(column) ? null : (
                                     <SensiLink
@@ -1420,16 +1427,16 @@ export default function SensitivityAnalysisModal({
                           <EditableRow
                             label="Price"
                             columns={columns}
-                        isLocked={isColumnSent}
+                            isLocked={() => true}
                             variant="sub"
                             renderCell={(column) => {
                               const bunker = bunkerFor(column, grade);
                               return (
                                 <InputCell
                                   value={bunker?.estPrice ?? ''}
-                                  disabled={isColumnSent(column)}
-                                  status={isColumnSent(column) ? '' : statusFor(column.id, `bunker:${grade}`)}
-                                  onChange={(value) => handleBunkerPriceChange(column.id, grade, value)}
+                                  disabled
+                                  status=""
+                                  onChange={() => {}}
                                 />
                               );
                             }}

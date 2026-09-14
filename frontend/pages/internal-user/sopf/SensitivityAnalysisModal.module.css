@@ -801,10 +801,11 @@
 }
 
 .colLocked .input,
-.colLocked .input:disabled {
-  background: var(--field-grey-faint);
-  border-color: var(--field-grey-faint-border);
-  color: var(--field-empty);
+.colLocked .input:disabled,
+.colLocked .inputLocked {
+  background: var(--field-grey);
+  border-color: var(--field-grey-border);
+  color: var(--text-mid);
   box-shadow: none;
   cursor: not-allowed;
 }
@@ -913,10 +914,11 @@
   color: var(--text-dark);
 }
 
-.input:disabled {
-  background: var(--field-grey-faint);
-  border-color: var(--field-grey-faint-border);
-  color: var(--field-empty);
+.input:disabled,
+.inputLocked {
+  background: var(--field-grey);
+  border-color: var(--field-grey-border);
+  color: var(--text-mid);
   box-shadow: none;
   cursor: not-allowed;
 }

@@ -37,7 +37,8 @@
   --color-info: #00c0ef;
   --color-success: #00a65a;
   --color-danger: #dd4b39;
-  --color-text-dark: #000;
+  --color-text-dark: #1b2430;
+  --color-text: #1b2430;
   --color-text-light: #777;
   --color-background: #ecf0f5;
   --color-surface: #ffffff;
@@ -66,6 +67,7 @@
   --bs-font-sans-serif: var(--font-family-body);
   --bs-body-font-family: var(--font-family-body);
   --bs-body-font-size: var(--font-size-body);
+  --bs-body-color: var(--color-text-dark);
 }
 
 html {
@@ -77,6 +79,7 @@ body {
   margin: 0;
   font-family: var(--font-family-body);
   font-size: var(--font-size-body);
+  color: var(--color-text-dark);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--color-background);

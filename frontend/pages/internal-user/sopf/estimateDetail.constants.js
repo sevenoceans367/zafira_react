@@ -709,33 +709,23 @@ export function toFormState(detail = {}) {
     }
   });
 
-  // PHP selCName is driven by master.CARGO_ID — ensure every saved id becomes a selected row.
+  // Prefer full slave Main cargo lines (Multiple supports 3+ rows, including same cargo type).
+  // Master CARGO_ID is a unique-id list for the header multi-select — do not collapse table rows to it.
   let cargoRows;
-  if (masterCargoIds.length) {
-    cargoRows = masterCargoIds.map((cargoId, index) => {
-      const existing = mappedCargoRows.find((row) => String(row.cargoId) === String(cargoId))
-        || mappedCargoRows[index];
-      if (existing) {
-        return {
-          ...existing,
-          cargoId: String(cargoId),
-          cargoName: existing.cargoName || '',
-          status: existing.status ?? 1,
-        };
-      }
-      return {
+  if (mappedCargoRows.length) {
+    cargoRows = mappedCargoRows.map((row) => ({ ...row, status: row.status ?? 1 }));
+    for (const cargoId of masterCargoIds) {
+      if (cargoRows.some((row) => String(row.cargoId) === String(cargoId))) continue;
+      cargoRows.push({
         ...createEmptyCargoRow(1),
         cargoId: String(cargoId),
-      };
-    });
-    // Keep any extra slave rows that already have a cargoId not listed on master.
-    for (const row of mappedCargoRows) {
-      if (!row.cargoId) continue;
-      if (masterCargoIds.some((id) => String(id) === String(row.cargoId))) continue;
-      cargoRows.push(row);
+      });
     }
-  } else if (mappedCargoRows.length) {
-    cargoRows = mappedCargoRows;
+  } else if (masterCargoIds.length) {
+    cargoRows = masterCargoIds.map((cargoId) => ({
+      ...createEmptyCargoRow(1),
+      cargoId: String(cargoId),
+    }));
   } else {
     cargoRows = [createEmptyCargoRow(1)];
   }

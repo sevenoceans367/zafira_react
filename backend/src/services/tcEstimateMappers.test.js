@@ -166,6 +166,30 @@ describe('tcEstimateMappers', () => {
     assert.equal(totals.cve, '1000.00');
   });
 
+  it('adds nested off-hire bunkers into lessOffHire', () => {
+    const totals = calcTcTotals({
+      hirePeriods: [
+        { delDate: '01-01-2026 00:00', reDelDate: '11-01-2026 00:00', hireRate: '10000' },
+      ],
+      addCommPct: 0,
+      brokerCommPct: 0,
+      otherIncome: 0,
+      totalExp: 0,
+      offHires: [{
+        from: '02-01-2026 00:00',
+        to: '04-01-2026 00:00',
+        hireRate: '10000',
+        bunkers: [
+          { bunkerId: '1', qty: '10', price: '500' },
+          { bunkerId: '2', qty: '2', price: '750' },
+        ],
+      }],
+    });
+    // 2 days × 10000 + (10×500) + (2×750) = 26500
+    assert.equal(totals.lessOffHire, '26500.00');
+    assert.equal(totals.utilisationDays, '8');
+  });
+
   it('falls back to HFO/MGO summary when bunker grid is empty placeholders', () => {
     const totals = calcTcTotals({
       tcDays: 10,

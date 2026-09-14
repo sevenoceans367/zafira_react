@@ -1,5 +1,10 @@
 import { getPool } from '../db.js';
 import { ESTIMATE_TYPE_LABELS } from './estimateListMappers.js';
+import {
+  formatVoyageEstimateLabel,
+  normalizeEstimateNo,
+  parseVoyageEstimateLabel,
+} from './estimateVoyage.js';
 
 function num(value) {
   const parsed = Number(value);
@@ -8,6 +13,44 @@ function num(value) {
 
 function portLabel(name) {
   return String(name ?? '').split('/')[0] || '';
+}
+
+function daysBetweenSqlDates(start, end) {
+  if (!start || !end) return 0;
+  const a = new Date(start);
+  const b = new Date(end);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+  const ms = b.getTime() - a.getTime();
+  if (ms <= 0) return 0;
+  return ms / (1000 * 60 * 60 * 24);
+}
+
+/** Prefer ESTIMATE_NO from the estimate row; fall back to sheet/voyage label (e.g. 26001-Est2). */
+function resolveVoyageEstimateIdentity(master = {}) {
+  const nameParsed = parseVoyageEstimateLabel(master.VOYAGE_NAME);
+  const voyageParsed = parseVoyageEstimateLabel(master.VOYAGE_NO);
+  const nameHasEst = /-Est\d+$/i.test(String(master.VOYAGE_NAME || '').trim());
+  const voyageHasEst = /-Est\d+$/i.test(String(master.VOYAGE_NO || '').trim());
+
+  let voyageNo = String(master.VOYAGE_NO || '').trim();
+  if (voyageHasEst) voyageNo = voyageParsed.voyageNo;
+  else if (!voyageNo && nameHasEst) voyageNo = nameParsed.voyageNo;
+
+  let estimateNo = normalizeEstimateNo(master.ESTIMATE_NO);
+  if (!(Number(master.ESTIMATE_NO) > 0)) {
+    if (nameHasEst) estimateNo = nameParsed.estimateNo;
+    else if (voyageHasEst) estimateNo = voyageParsed.estimateNo;
+    else estimateNo = 1;
+  } else if (nameHasEst && nameParsed.estimateNo > 0) {
+    // Sheet label is the source of truth users see on the estimate.
+    estimateNo = nameParsed.estimateNo;
+  }
+
+  return {
+    voyageNo,
+    estimateNo,
+    voyageLabel: formatVoyageEstimateLabel(voyageNo, estimateNo),
+  };
 }
 
 async function fetchColumn(pool, id) {
@@ -121,7 +164,11 @@ async function fetchColumn(pool, id) {
     ? num(hireRateFromRows)
     : num(master.DAILY_VESSEL_OPERATION_EXP);
   const hireDaysFromRows = hireRows.reduce((sum, row) => sum + num(row.HIRE_DAYS), 0);
-  const totalDays = num(master.TOTAL_DAYS);
+  const laycanDays = daysBetweenSqlDates(
+    master.LAYCANSTART || master.LAYCAN_START_DATE,
+    master.LAYCANEND || master.LAYCAN_FINISH_DATE,
+  );
+  const totalDays = num(master.TOTAL_DAYS) || laycanDays || hireDaysFromRows;
   const hireDays = hireDaysFromRows > 0 ? hireDaysFromRows : totalDays;
 
   const loadPorts = loadPortRows
@@ -190,40 +237,37 @@ async function fetchColumn(pool, id) {
     }];
 
   const chkLumpSum = Boolean(Number(master.CHK_LUMPSUM));
-  const lumpsumAmt = num(master.LUMPSUMAMT);
+  const storedGrossFreight = num(master.FREIGHT_GROSS)
+    || num(master.TOTAL_PREIGHT_ADJ)
+    || num(master.REVENUES_FREIGHT);
+  // LS Total Freight: prefer LUMPSUMAMT, fall back to stored gross freight from the estimate.
+  const lumpsumAmt = chkLumpSum
+    ? (num(master.LUMPSUMAMT) || storedGrossFreight)
+    : num(master.LUMPSUMAMT);
   const lumpsumQty = num(master.WS_QTY);
   // Dry estimates store Freight/MT on CARGO_RATE/MARKET_RATE and qty on QUANTITY.
   // FREIGHT_GROSS / TOTAL_PREIGHT_ADJ are the computed totals (Revenue Gross Freight).
   const qty = num(master.QUANTITY) || num(master.BL_QTY_FREIGHT) || lumpsumQty;
-  const storedGrossFreight = num(master.FREIGHT_GROSS)
-    || num(master.TOTAL_PREIGHT_ADJ)
-    || num(master.REVENUES_FREIGHT);
   const cargoRate = num(master.CARGO_RATE) || num(master.MARKET_RATE);
   const freight = cargoRate || (qty > 0 && storedGrossFreight > 0
     ? storedGrossFreight / qty
     : 0);
   // Lumpsum deals store cargo qty on master.WS_QTY; seed Min Cargo Qty when slave12 is empty.
+  // Do not invent WS equivalents for LS — SA shows Flat/WS blank and locked for those columns.
   if (chkLumpSum && lumpsumQty) {
     freightAdjustments.forEach((item) => {
       if (!num(item.minCargoQty)) item.minCargoQty = lumpsumQty;
     });
   }
-  if (chkLumpSum && lumpsumAmt) {
-    freightAdjustments.forEach((item) => {
-      const adjQty = num(item.minCargoQty) || lumpsumQty;
-      const flat = num(item.minFlatRate);
-      if (adjQty && flat && !num(item.minWSRate)) {
-        item.minWSRate = (lumpsumAmt * 100) / (adjQty * flat);
-        item.overageWSRate = item.minWSRate;
-      }
-    });
-  }
+
+  const { voyageNo, estimateNo, voyageLabel } = resolveVoyageEstimateIdentity(master);
 
   return {
     id: String(id),
     vesselName: master.VESSEL_NAME || '',
-    voyageNo: master.VOYAGE_NO || '',
-    estimateNo: Number(master.ESTIMATE_NO) > 0 ? Number(master.ESTIMATE_NO) : 1,
+    voyageNo,
+    estimateNo,
+    voyageLabel,
     cargoType: ESTIMATE_TYPE_LABELS[Number(master.ESTIMATE_TYPE)] || '',
     estimateType: Number(master.ESTIMATE_TYPE || 0),
     chkLumpSum,

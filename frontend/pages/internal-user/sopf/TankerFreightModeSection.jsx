@@ -291,19 +291,20 @@ export default function TankerFreightModeSection({
           <div className={styles.segmented} role="group" aria-label="Calculation method">
             <button
               type="button"
-              className={`${styles.segmentedBtn} ${chkLumpsum ? styles.segmentedBtnActive : ''}`}
+              className={`${styles.segmentedBtn} ${!isDistributed && chkLumpsum ? styles.segmentedBtnActive : ''}`.trim()}
               disabled={readOnly || isDistributed}
-              title={isDistributed ? 'Lump Sum is only available for Single cargo type' : undefined}
-              aria-pressed={chkLumpsum}
+              title={isDistributed ? 'Calculation method is only available for Single cargo type' : undefined}
+              aria-pressed={!isDistributed && chkLumpsum}
               onClick={() => setCalculationMethod('lumpsum')}
             >
               Lump Sum
             </button>
             <button
               type="button"
-              className={`${styles.segmentedBtn} ${!chkLumpsum ? styles.segmentedBtnActive : ''}`}
-              disabled={readOnly}
-              aria-pressed={!chkLumpsum}
+              className={`${styles.segmentedBtn} ${!isDistributed && !chkLumpsum ? styles.segmentedBtnActive : ''}`.trim()}
+              disabled={readOnly || isDistributed}
+              title={isDistributed ? 'Calculation method is only available for Single cargo type' : undefined}
+              aria-pressed={!isDistributed && !chkLumpsum}
               onClick={() => setCalculationMethod('worldscale')}
             >
               World Scale

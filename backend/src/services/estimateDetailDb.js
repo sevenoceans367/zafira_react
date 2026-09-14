@@ -959,7 +959,9 @@ function mapEstimateDetail(
     fixed: Number(master.FIXED) === 1,
     portLegs: portLegs.map((row, index) => mapPortLeg(row, index)),
     cargoIds: masterCargoIds,
-    cargoRows: ensuredMainCargos,
+    // Prefer full slave10 Main cargo lines (Multiple can have 3+ rows, incl. same cargo type).
+    // Fall back to master CARGO_ID only when slave rows are missing (legacy / header-only).
+    cargoRows: mainCargoRows.length ? mainCargoRows : ensuredMainCargos,
     overageCargoRows: cargosWithIds.filter((row) => Number(row.status) === 2),
     deadfreightCargoRows: cargosWithIds.filter((row) => Number(row.status) === 3),
     bunkerRows: bunkerRows.map((row, index) => mapBunkerRow(row, index)),

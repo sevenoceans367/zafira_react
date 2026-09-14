@@ -12,7 +12,7 @@ export const theme = {
     info: '#00c0ef',
     success: '#00a65a',
     danger: '#dd4b39',
-    textDark: '#000',
+    textDark: '#1b2430',
     textLight: '#777',
     background: '#ecf0f5',
     surface: '#ffffff',

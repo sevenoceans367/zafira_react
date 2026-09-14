@@ -311,12 +311,24 @@ export default function TcInExpensesModal({
                   </div>
                   <div className={styles.denseGrid}>
                     <div className={styles.field}>
-                      <label>Date of Delivery</label>
-                      <DmyDateInput enableTime value={row.deliveryDate} onChange={(v) => patchHire(index, { deliveryDate: v })} disabled={readOnly} />
+                      <label>Date of Delivery *</label>
+                      <DmyDateInput
+                        id={index === 0 ? 'tcInDeliveryDate_0' : undefined}
+                        enableTime
+                        value={row.deliveryDate}
+                        onChange={(v) => patchHire(index, { deliveryDate: v })}
+                        disabled={readOnly}
+                      />
                     </div>
                     <div className={styles.field}>
-                      <label>Date of Re-Delivery</label>
-                      <DmyDateInput enableTime value={row.redeliveryDate} onChange={(v) => patchHire(index, { redeliveryDate: v })} disabled={readOnly} />
+                      <label>Date of Re-Delivery *</label>
+                      <DmyDateInput
+                        id={index === 0 ? 'tcInRedeliveryDate_0' : undefined}
+                        enableTime
+                        value={row.redeliveryDate}
+                        onChange={(v) => patchHire(index, { redeliveryDate: v })}
+                        disabled={readOnly}
+                      />
                     </div>
                     <div className={styles.field}>
                       <label>Total Voyage Days</label>

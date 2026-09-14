@@ -1137,8 +1137,8 @@ export default function TcFixtureFormPage({
     if (!form.tcInExpenses) {
       return Number(form.calc?.tcFinalHireage) || 0;
     }
-    const live = Number(calcTcInFinalHireage(form.tcInExpenses).finalHireage) || 0;
-    return live || Number(form.calc?.tcFinalHireage) || 0;
+    // Always trust the live TC In calc — including 0 (do not fall back to stale slave1).
+    return Number(calcTcInFinalHireage(form.tcInExpenses).finalHireage) || 0;
   }, [form.tcInExpenses, form.calc?.tcFinalHireage, showSubCharter]);
 
   const tcResults = useMemo(() => {
@@ -1156,8 +1156,8 @@ export default function TcFixtureFormPage({
         delDate: hasDateValue(resolved.delDate) ? resolved.delDate : (form.delDate || ''),
         reDelDate: hasDateValue(resolved.reDelDate) ? resolved.reDelDate : (form.reDelDate || ''),
         days: Number(resolved.days) ? resolved.days : (form.durFixPer || resolved.days || ''),
-        // Seed missing rate even when dates already exist (PHP schedule rate × days).
-        hireRate: Number(resolved.hireRate) ? resolved.hireRate : (form.hireFixPer || dailyGrossHire || ''),
+        // Seed missing rate from Hire Fix (same field PHP schedule uses), not exchanged daily gross.
+        hireRate: Number(resolved.hireRate) ? resolved.hireRate : (form.hireFixPer || ''),
       };
       if (
         seeded.delDate === resolved.delDate
@@ -1170,9 +1170,19 @@ export default function TcFixtureFormPage({
       return resolveHirePeriod(seeded);
     });
 
+    // PHP Total Expenses = Add-to-TTL TC expenses + Final TC In Hireage (no Pre-TC).
     const voyageExp = expensePartyTotals.tcAddToTotal + tcInFinalHireage;
     const totals = calcTcTotals({
       ...calc,
+      // Form bunker grids are source of truth — do not mix in stale HFO/MGO flat fields.
+      delHfoMt: '',
+      delHfoUsd: '',
+      delMgoMt: '',
+      delMgoUsd: '',
+      reDelHfoMt: '',
+      reDelHfoUsd: '',
+      reDelMgoMt: '',
+      reDelMgoUsd: '',
       dailyGrossHire,
       tcDays: form.durFixPer || calc.tcDays || '',
       addCommPct: form.addComm ?? calc.addCommPct,
@@ -1190,15 +1200,14 @@ export default function TcFixtureFormPage({
       totalExp: voyageExp,
     });
 
-    const netRev = Number(totals.totalRev) || 0;
+    const totalRev = Number(totals.totalRev) || 0;
+    const nettRev = Number(totals.nettRev) || 0;
     const lessOffHire = Number(totals.lessOffHire) || 0;
-    // Waterfall: revenue before off-hire → Less Off-Hire → Net (= PHP Total Rev)
-    const grossRev = netRev + lessOffHire;
     const bunkerDiffAmt = Number(totals.bunkerDiffAmt) || 0;
-    const totalExp = voyageExp + itineraryExpenseTotal;
-    // Voyage earn excludes Pre-TC; Adj line deducts Pre-TC from that profit
+    // PHP Total Expenses — excludes Pre-TC (shown only on Adj Profit).
+    const totalExp = voyageExp;
     const voyageEarn = Number(totals.voyageEarn);
-    const profit = Number.isFinite(voyageEarn) ? voyageEarn : (netRev - voyageExp);
+    const profit = Number.isFinite(voyageEarn) ? voyageEarn : (totalRev - voyageExp);
     const profitAdjPreTc = profit - itineraryExpenseTotal;
     const utilisationDays = Number(totals.utilisationDays) || 0;
     const profitPerDay = utilisationDays
@@ -1206,9 +1215,11 @@ export default function TcFixtureFormPage({
       : formatResult(0);
 
     return {
-      totalRev: formatResult(grossRev),
+      // Align labels with PHP getFinalCalculation outputs
+      nettRev: formatResult(nettRev),
+      totalRev: formatResult(totalRev),
       lessOffHire: formatResult(lessOffHire),
-      nettTcRev: formatResult(netRev),
+      nettTcRev: formatResult(totalRev),
       bunkerDiffAmt: formatSignedResult(bunkerDiffAmt),
       refCharterers: formatResult(expensePartyTotals.refCharterers),
       refOwners: formatResult(expensePartyTotals.refOwners),
@@ -1216,6 +1227,7 @@ export default function TcFixtureFormPage({
       profit: formatResult(profit),
       profitAdjPreTc: formatResult(profitAdjPreTc),
       profitPerDay,
+      utilisationDays: totals.utilisationDays || '0',
     };
   }, [
     form.calc,
@@ -1450,7 +1462,12 @@ export default function TcFixtureFormPage({
         message: validationError.message,
         confirmLabel: 'OK',
       });
-      focusEstimateValidationField(validationError.fieldId);
+      if (String(validationError.fieldId || '').startsWith('tcIn')) {
+        setTcInOpen(true);
+        window.setTimeout(() => focusEstimateValidationField(validationError.fieldId), 50);
+      } else {
+        focusEstimateValidationField(validationError.fieldId);
+      }
       return;
     }
 
@@ -1919,7 +1936,7 @@ export default function TcFixtureFormPage({
                       className={styles.inputReadonly}
                     />
                   </Field>
-                  <Field label="Vessel">
+                  <Field label="Vessel *">
                     {readOnly ? (
                       <input
                         id="vesselName"
@@ -1939,7 +1956,7 @@ export default function TcFixtureFormPage({
                   <DateField label="CP Date" value={form.cpDate} onChange={(v) => setField('cpDate', v)} />
                   <TextInput
                     id="tcNo"
-                    label="TC No."
+                    label="TC No. *"
                     value={form.tcNo}
                     onChange={(v) => setField('tcNo', v)}
                     readOnly={mode === 'edit' || readOnly}
@@ -1949,7 +1966,7 @@ export default function TcFixtureFormPage({
                     value={`EST${Number(form.estimateNo) > 0 ? Number(form.estimateNo) : 1}`}
                     readOnly
                   />
-                  <Field label="Chartering Team" id="charteringTeam">
+                  <Field label="Chartering Team *" id="charteringTeam">
                     <CardSelect
                       id="charteringTeam"
                       options={lookups?.charteringTeams || []}
@@ -1959,7 +1976,7 @@ export default function TcFixtureFormPage({
                       ariaLabel="Chartering team"
                     />
                   </Field>
-                  <Field label="Chartering PIC" id="charteringPic1">
+                  <Field label="Chartering PIC *" id="charteringPic1">
                     <CardSelect
                       id="charteringPic1"
                       options={lookups?.charteringPics || []}
@@ -2019,7 +2036,7 @@ export default function TcFixtureFormPage({
                       ariaLabel="Law arbitration"
                     />
                   </Field>
-                  <Field label="Charterers" id="charterer" className={styles.cpChartererItem}>
+                  <Field label="Charterers *" id="charterer" className={styles.cpChartererItem}>
                     <CardSelect
                       id="charterer"
                       options={lookups?.charterers || []}
@@ -2082,7 +2099,7 @@ export default function TcFixtureFormPage({
               </CollapsiblePanel>
               <CollapsiblePanel title="TC Details" defaultOpen className={styles.estCard} icon={SECTION_ICONS.tcDetails}>
                 <div className={styles.tcDetailsGrid}>
-                  <Field label="Laycan From/To" className={styles.laycanWide}>
+                  <Field label="Laycan From/To *" className={styles.laycanWide}>
                     <div className={styles.dateRangePair}>
                       <DmyDateInput
                         id="laycanFrom"
@@ -2100,7 +2117,7 @@ export default function TcFixtureFormPage({
                       />
                     </div>
                   </Field>
-                  <Field label="Hire Currency" id="exchangeCurrency">
+                  <Field label="Hire Currency *" id="exchangeCurrency">
                     <CardSelect
                       id="exchangeCurrency"
                       options={lookups?.currencies || []}
@@ -2111,8 +2128,8 @@ export default function TcFixtureFormPage({
                     />
                   </Field>
                   <TextInput label="X-rate to USD" value={form.exchangeRate} onChange={(v) => setField('exchangeRate', v)} />
-                  <TextInput id="delRangePort" label="Del Port/Range" value={form.delRangePort} onChange={(v) => setField('delRangePort', v)} />
-                  <TextInput id="reDelRange" label="Re-Del Port/Range" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
+                  <TextInput id="delRangePort" label="Del Port/Range *" value={form.delRangePort} onChange={(v) => setField('delRangePort', v)} />
+                  <TextInput id="reDelRange" label="Re-Del Port/Range *" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
                   <TextInput
                     id="ballastBonus"
                     label="Ballast Bonus ($)"
@@ -2120,10 +2137,10 @@ export default function TcFixtureFormPage({
                     onChange={(v) => setField('ballastBonus', v)}
                   />
                   <TextInput label="CVE/Month ($)" value={form.cveMonth} onChange={(v) => setField('cveMonth', v)} />
-                  <TextInput id="ilohcUsd" label="ILOHC" value={form.ilohcUsd} onChange={(v) => setField('ilohcUsd', v)} />
+                  <TextInput id="ilohcUsd" label="ILOHC *" value={form.ilohcUsd} onChange={(v) => setField('ilohcUsd', v)} />
                   <TextInput label="AD Comm (%)" value={form.addComm} onChange={(v) => setField('addComm', v)} />
                   <TextInput label="Brokerage (%)" value={form.brokerComm} onChange={(v) => setField('brokerComm', v)} />
-                  <Field label="Brokerage Paid By" id="broCommPayable">
+                  <Field label="Brokerage Paid By *" id="broCommPayable">
                     <CardSelect
                       id="broCommPayable"
                       options={lookups?.payableBy || []}
@@ -2320,7 +2337,9 @@ export default function TcFixtureFormPage({
                             const isOwner = String(v || '').toLowerCase() === 'owner';
                             patchOtherExpense(index, {
                               notes: v,
-                              addToTotal: isOwner,
+                              // PHP markCheckBox auto-checks Add to TTL when owner-related is picked;
+                              // keep Owner default-on, but Allow charterer rows to opt in too.
+                              addToTotal: isOwner ? true : row.addToTotal === true,
                             });
                           }}
                           disabled={readOnly}
@@ -2342,14 +2361,10 @@ export default function TcFixtureFormPage({
                         <input
                           type="checkbox"
                           className={styles.expenseChk}
-                          checked={String(row.notes || '').toLowerCase() === 'owner' && row.addToTotal !== false}
+                          checked={row.addToTotal === true}
                           onChange={(e) => patchOtherExpense(index, { addToTotal: e.target.checked })}
-                          disabled={readOnly || String(row.notes || '').toLowerCase() !== 'owner'}
-                          title={
-                            String(row.notes || '').toLowerCase() === 'owner'
-                              ? 'Add to total'
-                              : 'Add to Total is only available for Owner expenses'
-                          }
+                          disabled={readOnly}
+                          title="Add to total (PHP Add to TTL)"
                         />
                       </div>
                       <div className={styles.fgCell}>
@@ -2421,10 +2436,10 @@ export default function TcFixtureFormPage({
                   className={styles.fieldGrid}
                   style={{ '--cols': '1.3fr 1.3fr 0.6fr 0.9fr 1fr 64px' }}
                 >
-                  <div className={styles.fgHead}>Del Date (From)</div>
-                  <div className={styles.fgHead}>Del Date (To)</div>
+                  <div className={styles.fgHead}>Del Date (From) *</div>
+                  <div className={styles.fgHead}>Del Date (To) *</div>
                   <div className={styles.fgHead}>Days</div>
-                  <div className={styles.fgHead}>Hire ($/day)</div>
+                  <div className={styles.fgHead}>Hire ($/day) *</div>
                   <div className={styles.fgHead}>Hire Amt ($)</div>
                   <div className={styles.fgHead} />
                   {(form.hirePeriods?.length ? form.hirePeriods : [{ ...EMPTY_HIRE }]).map((row, index) => {
@@ -2793,17 +2808,17 @@ export default function TcFixtureFormPage({
               <div className={styles.resultsBlock}>
                 <div className={styles.resultsHead}>Revenue</div>
                 <div className={styles.resultsBody}>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Nett Rev</span>
+                    <span className={styles.resRowVal}>{tcResults.nettRev}</span>
+                  </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Less Off-Hire</span>
+                    <span className={styles.resRowVal}>{tcResults.lessOffHire}</span>
+                  </div>
                   <div className={`${styles.resRow} ${styles.resRowAccent}`}>
                     <span className={styles.resRowLabel}>Total Revenue</span>
                     <span className={styles.resRowVal}>{tcResults.totalRev}</span>
-                  </div>
-                  <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Less Off-Hire Expense</span>
-                    <span className={styles.resRowVal}>{tcResults.lessOffHire}</span>
-                  </div>
-                  <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
-                    <span className={styles.resRowLabel}>Net TC Revenue</span>
-                    <span className={styles.resRowVal}>{tcResults.nettTcRev}</span>
                   </div>
                 </div>
               </div>
@@ -2824,7 +2839,7 @@ export default function TcFixtureFormPage({
                     <span className={styles.resRowVal}>{tcResults.bunkerDiffAmt}</span>
                   </div>
                   <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
-                    <span className={styles.resRowLabel}>Total Expenses (Incl. Pre TC)</span>
+                    <span className={styles.resRowLabel}>Total Expenses</span>
                     <span className={styles.resRowVal}>{tcResults.totalExp}</span>
                   </div>
                 </div>
@@ -2834,7 +2849,7 @@ export default function TcFixtureFormPage({
                 <div className={styles.resultsHead}>P&amp;L</div>
                 <div className={styles.resultsBody}>
                   <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
-                    <span className={styles.resRowLabel}>Profit</span>
+                    <span className={styles.resRowLabel}>TC Earnings</span>
                     <span className={styles.resRowVal}>{tcResults.profit}</span>
                   </div>
                   <div className={styles.resRow}>

@@ -550,11 +550,16 @@ export function calcTcTotals(input = {}) {
       if (hasFrom && hasTo) {
         days = daysBetween(row.to, row.from);
       }
-      // Utilisation off-hire days only when both From and To are present (PHP timediff path).
+      // Utilisation off-hire days only when From is filled and timediff is computed (both dates).
       if (hasFrom && hasTo) {
         offHireDays += days;
       }
-      lessOffHire += days * num(row.hireRate) + offHireBunkerTotal(row);
+      const bunkerAmt = offHireBunkerTotal(row);
+      // PHP: second loop always adds bunkers; first loop adds them again when From is set.
+      lessOffHire += days * num(row.hireRate) + bunkerAmt;
+      if (hasFrom) {
+        lessOffHire += bunkerAmt;
+      }
     }
   }
 

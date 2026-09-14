@@ -1337,13 +1337,15 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
     if (!calcInput.offHires?.length && body.offHires?.length) {
       calcInput.offHires = body.offHires;
     }
-    if (calcInput.otherIncome == null && Array.isArray(body.otherIncome)) {
+    if (Array.isArray(body.otherIncome)) {
       calcInput.otherIncome = body.otherIncome.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
     }
-    if (calcInput.totalExp == null && Array.isArray(body.otherExpenses)) {
-      const addToTotal = body.otherExpenses
-        .filter((row) => row.addToTotal === true)
-        .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    if (calcInput.totalExp == null || calcInput.totalExp === '') {
+      const addToTotal = Array.isArray(body.otherExpenses)
+        ? body.otherExpenses
+          .filter((row) => row.addToTotal === true)
+          .reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+        : 0;
       const tcInHireage = Number(
         body.tcInExpenses?.finalHireage
         ?? calcInput.tcFinalHireage

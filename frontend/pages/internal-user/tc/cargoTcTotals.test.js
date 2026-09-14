@@ -96,4 +96,33 @@ describe('frontend calcTcTotals', () => {
     assert.equal(totals.utilisationDays, '10');
     assert.equal(totals.lessOffHire, '10000.00');
   });
+
+  it('matches full PHP getFinalCalculation walkthrough', () => {
+    const totals = calcTcTotals({
+      hirePeriods: [
+        { delDate: '01-01-2026 00:00', reDelDate: '11-01-2026 00:00', hireRate: '10000' },
+      ],
+      addCommPct: 2,
+      brokerCommPct: 1,
+      ballastBonus: 5000,
+      cveMonth: 3000,
+      ilohcAmt: 100,
+      otherIncome: 250,
+      totalExp: 5000,
+      deliveryBunkers: [{ qty: 10, price: 100 }],
+      redeliveryBunkers: [{ qty: 5, price: 100 }],
+      offHires: [{
+        from: '02-01-2026 00:00',
+        to: '04-01-2026 00:00',
+        hireRate: '10000',
+        bunkers: [
+          { qty: '10', price: '500' },
+          { qty: '2', price: '750' },
+        ],
+      }],
+    });
+    assert.equal(totals.totalRev, '70500.00');
+    assert.equal(totals.voyageEarn, '65500.00');
+    assert.equal(totals.profitPerDay, '8187.50');
+  });
 });

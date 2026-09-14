@@ -234,9 +234,64 @@ describe('tcEstimateMappers', () => {
         ],
       }],
     });
-    // 2 days × 10000 + (10×500) + (2×750) = 26500
-    assert.equal(totals.lessOffHire, '26500.00');
+    // PHP double-counts bunkers when From is set:
+    // 2 days × 10000 + 2×((10×500)+(2×750)) = 33000
+    assert.equal(totals.lessOffHire, '33000.00');
     assert.equal(totals.utilisationDays, '8');
+  });
+
+  it('counts off-hire bunkers once when From is empty', () => {
+    const totals = calcTcTotals({
+      hirePeriods: [
+        { delDate: '01-01-2026 00:00', reDelDate: '11-01-2026 00:00', hireRate: '10000' },
+      ],
+      addCommPct: 0,
+      brokerCommPct: 0,
+      otherIncome: 0,
+      totalExp: 0,
+      offHires: [{
+        days: '1',
+        hireRate: '10000',
+        bunkers: [{ qty: '5', price: '600' }],
+      }],
+    });
+    assert.equal(totals.lessOffHire, '13000.00');
+  });
+
+  it('matches full PHP getFinalCalculation walkthrough', () => {
+    const totals = calcTcTotals({
+      hirePeriods: [
+        { delDate: '01-01-2026 00:00', reDelDate: '11-01-2026 00:00', hireRate: '10000' },
+      ],
+      addCommPct: 2,
+      brokerCommPct: 1,
+      ballastBonus: 5000,
+      cveMonth: 3000,
+      ilohcAmt: 100,
+      otherIncome: 250,
+      totalExp: 5000,
+      deliveryBunkers: [{ qty: 10, price: 100 }],
+      redeliveryBunkers: [{ qty: 5, price: 100 }],
+      offHires: [{
+        from: '02-01-2026 00:00',
+        to: '04-01-2026 00:00',
+        hireRate: '10000',
+        bunkers: [
+          { qty: '10', price: '500' },
+          { qty: '2', price: '750' },
+        ],
+      }],
+    });
+    assert.equal(totals.tcDays, '10');
+    assert.equal(totals.utilisationDays, '8');
+    assert.equal(totals.hireIncome, '100000.00');
+    assert.equal(totals.nettRev, '101850.00');
+    assert.equal(totals.lessOffHire, '33000.00');
+    assert.equal(totals.cve, '800.00');
+    assert.equal(totals.bunkerDiffAmt, '500.00');
+    assert.equal(totals.totalRev, '70500.00');
+    assert.equal(totals.voyageEarn, '65500.00');
+    assert.equal(totals.profitPerDay, '8187.50');
   });
 
   it('falls back to HFO/MGO summary when bunker grid is empty placeholders', () => {

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { AttachmentDropzone, DmyDateInput, LoadingOverlay, PeriodCardPicker } from '@bainbridge/shared-ui';
+import { AttachmentDropzone, DmyDateInput, LoadingOverlay, PeriodCardPicker, RowAddButton, RowDelButton, RowActions } from '@bainbridge/shared-ui';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import {
   createCoa,
@@ -86,14 +86,6 @@ function Field({ id, label, children, className = '', hint = '' }) {
       {children}
       {hint ? <span className={styles.fieldHint}>{hint}</span> : null}
     </div>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" />
-    </svg>
   );
 }
 
@@ -445,10 +437,8 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 {(form.exclusions || []).map((row, index) => (
                   <tr key={`ex-${index}`}>
                     <td>
-                      <div className={styles.rowActions}>
-                        <button
-                          type="button"
-                          className={styles.rowAdd}
+                      <RowActions>
+                        <RowAddButton
                           title="Add row"
                           onClick={() => patch(
                             'exclusions',
@@ -458,19 +448,13 @@ export default function CoaFormPage({ mode = 'edit' }) {
                               ...(form.exclusions || []).slice(index + 1),
                             ],
                           )}
-                        >
-                          <PlusIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.rowDel}
+                        />
+                        <RowDelButton
                           title="Remove row"
                           disabled={(form.exclusions || []).length <= 1}
                           onClick={() => patch('exclusions', form.exclusions.filter((_, i) => i !== index))}
-                        >
-                          <XIcon />
-                        </button>
-                      </div>
+                        />
+                      </RowActions>
                     </td>
                     <td>
                       <input

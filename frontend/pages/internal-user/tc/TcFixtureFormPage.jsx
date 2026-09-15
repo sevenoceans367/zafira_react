@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { AttachmentDropzone, CardSelect, DmyDateInput, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
+import { AttachmentDropzone, CardSelect, DmyDateInput, LoadingOverlay, RowAddButton, RowDelButton, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { getUser } from '@bainbridge/shared-auth';
 import { useTcModule } from '../../../hooks/useTcModule.js';
@@ -623,11 +623,51 @@ function defaultOffHireBunkers(lookupsBunkers = []) {
     };
   }).filter((row) => row.bunkerId || row.gradeName);
   if (rows.length) return rows;
-  const first = (lookupsBunkers || [])[0];
+  const first = findVlsfoBunker(lookupsBunkers) || (lookupsBunkers || [])[0];
   if (first) {
     return [{ ...EMPTY_OFF_BUNKER, bunkerId: String(first.id), gradeName: first.name || '' }];
   }
   return [{ ...EMPTY_OFF_BUNKER }];
+}
+
+function isVlsfoName(name) {
+  const upper = String(name || '').toUpperCase().replace(/\s+/g, '');
+  return upper.includes('VLSFO') || (upper.includes('VLS') && !upper.includes('HSFO'));
+}
+
+function findVlsfoBunker(bunkers = []) {
+  return (bunkers || []).find((b) => isVlsfoName(b.name)) || null;
+}
+
+/** VLSFO first in bunker grade dropdowns. */
+function sortBunkersVlsfoFirst(bunkers = []) {
+  return [...(bunkers || [])].sort((a, b) => {
+    const aRank = isVlsfoName(a.name) ? 0 : 1;
+    const bRank = isVlsfoName(b.name) ? 0 : 1;
+    if (aRank !== bRank) return aRank - bRank;
+    return String(a.name || '').localeCompare(String(b.name || ''));
+  });
+}
+
+function defaultBunkerRow(bunkers = []) {
+  const vlsfo = findVlsfoBunker(bunkers);
+  if (!vlsfo) return { ...EMPTY_BUNKER };
+  return {
+    ...EMPTY_BUNKER,
+    bunkerId: String(vlsfo.id),
+    gradeName: vlsfo.name || 'VLSFO',
+  };
+}
+
+function seedEmptyBunkerRows(rows, bunkers) {
+  const list = rows?.length ? rows : [{ ...EMPTY_BUNKER }];
+  const fallback = defaultBunkerRow(bunkers);
+  if (!fallback.bunkerId) return list;
+  return list.map((row) => (
+    String(row.bunkerId || '').trim()
+      ? row
+      : { ...row, bunkerId: fallback.bunkerId, gradeName: row.gradeName || fallback.gradeName }
+  ));
 }
 
 function collectOffHireBunkers(offHires = []) {
@@ -1416,6 +1456,24 @@ export default function TcFixtureFormPage({
     });
   }, [lookups, form.charterer]);
 
+  useEffect(() => {
+    if (!lookups?.bunkers?.length || readOnly) return;
+    setForm((prev) => {
+      const nextDelivery = seedEmptyBunkerRows(prev.deliveryBunkers, lookups.bunkers);
+      const nextRedelivery = seedEmptyBunkerRows(prev.redeliveryBunkers, lookups.bunkers);
+      const deliveryChanged = nextDelivery !== prev.deliveryBunkers
+        && JSON.stringify(nextDelivery) !== JSON.stringify(prev.deliveryBunkers);
+      const redeliveryChanged = nextRedelivery !== prev.redeliveryBunkers
+        && JSON.stringify(nextRedelivery) !== JSON.stringify(prev.redeliveryBunkers);
+      if (!deliveryChanged && !redeliveryChanged) return prev;
+      return {
+        ...prev,
+        deliveryBunkers: nextDelivery,
+        redeliveryBunkers: nextRedelivery,
+      };
+    });
+  }, [lookups, readOnly]);
+
   const setField = (key, value) => {
     if (readOnly) return;
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -1445,7 +1503,7 @@ export default function TcFixtureFormPage({
       await alert({ title: 'Alert', message: block, confirmLabel: 'OK' });
       return;
     }
-    setForm((prev) => ({ ...prev, [kind]: [...(prev[kind] || []), { ...EMPTY_BUNKER }] }));
+    setForm((prev) => ({ ...prev, [kind]: [...(prev[kind] || []), defaultBunkerRow(lookups?.bunkers)] }));
   };
 
   const removeBunker = (kind, index) => {
@@ -1453,7 +1511,7 @@ export default function TcFixtureFormPage({
     setForm((prev) => {
       const rows = [...(prev[kind] || [])];
       rows.splice(index, 1);
-      return { ...prev, [kind]: rows.length ? rows : [{ ...EMPTY_BUNKER }] };
+      return { ...prev, [kind]: rows.length ? rows : [defaultBunkerRow(lookups?.bunkers)] };
     });
   };
 
@@ -1878,7 +1936,8 @@ export default function TcFixtureFormPage({
         <div className={styles.fgHead}>Amount</div>
         <div className={styles.fgHead} />
         {(form[kind] || []).map((row, index) => {
-          const gradeName = (lookups?.bunkers || []).find((opt) => String(opt.id) === String(row.bunkerId))?.name
+          const bunkerOptions = sortBunkersVlsfoFirst(lookups?.bunkers || []);
+          const gradeName = bunkerOptions.find((opt) => String(opt.id) === String(row.bunkerId))?.name
             || row.gradeName
             || '';
           const bunkerIdPrefix = kind === 'deliveryBunkers' ? 'delBunker' : 'reDelBunker';
@@ -1888,10 +1947,10 @@ export default function TcFixtureFormPage({
                 <TableCardSelect
                   id={index === 0 ? bunkerIdPrefix + '_0' : undefined}
                   options={[
-                    ...(lookups?.bunkers || []),
+                    ...bunkerOptions,
                     ...(row.bunkerId != null
                       && String(row.bunkerId).trim() !== ''
-                      && !(lookups?.bunkers || []).some((opt) => String(opt.id) === String(row.bunkerId))
+                      && !bunkerOptions.some((opt) => String(opt.id) === String(row.bunkerId))
                       ? [{ id: String(row.bunkerId), name: gradeName || `Grade #${row.bunkerId}` }]
                       : []),
                   ]}
@@ -1936,23 +1995,15 @@ export default function TcFixtureFormPage({
               </div>
               <div className={styles.fgCell}>
                 {!readOnly ? (
-                  <div className={styles.rowIconActions}>
-                    <button
-                      type="button"
-                      className={styles.rowAdd}
+                  <div className="rowActions">
+                    <RowAddButton
                       title="Add bunker row"
                       onClick={() => addBunker(kind)}
-                    >
-                      <PlusIcon />
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.rowDel}
+                    />
+                    <RowDelButton
                       title="Delete row"
                       onClick={() => removeBunker(kind, index)}
-                    >
-                      <XIcon />
-                    </button>
+                    />
                   </div>
                 ) : null}
               </div>
@@ -2116,7 +2167,7 @@ export default function TcFixtureFormPage({
                       ariaLabel="Law arbitration"
                     />
                   </Field>
-                  <Field label="Charterers *" id="charterer" className={styles.cpChartererItem}>
+                  <Field label="Charterer" id="charterer" className={styles.cpChartererItem}>
                     <CardSelect
                       id="charterer"
                       options={lookups?.charterers || []}
@@ -2357,23 +2408,15 @@ export default function TcFixtureFormPage({
                         </div>
                         <div className={styles.fgCell}>
                           {!readOnly ? (
-                            <div className={styles.rowIconActions}>
-                              <button
-                                type="button"
-                                className={styles.rowAdd}
+                            <div className="rowActions">
+                              <RowAddButton
                                 title="Add expense"
                                 onClick={addItinExpense}
-                              >
-                                <PlusIcon />
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.rowDel}
+                              />
+                              <RowDelButton
                                 title="Delete row"
                                 onClick={() => removeItinExpense(index)}
-                              >
-                                <XIcon />
-                              </button>
+                              />
                             </div>
                           ) : null}
                         </div>
@@ -2400,14 +2443,35 @@ export default function TcFixtureFormPage({
                   <div className={styles.fgHead}>Expense Amt</div>
                   <div className={styles.fgHead}>Vendor</div>
                   <div className={styles.fgHead} />
-                  {(form.otherExpenses?.length ? form.otherExpenses : [{ ...EMPTY_EXPENSE }]).map((row, index) => (
+                  {(form.otherExpenses?.length ? form.otherExpenses : [{ ...EMPTY_EXPENSE }]).map((row, index) => {
+                    const expenseDescOptions = lookups?.ownerRelatedCosts || [];
+                    const storedExpenseId = String(row.expenseTypeId || '').trim();
+                    const expenseDescValue = expenseDescOptions.find((opt) => String(opt.id) === storedExpenseId)?.id
+                      || (storedExpenseId
+                        ? storedExpenseId
+                        : '');
+                    return (
                     <React.Fragment key={`exp-${index}`}>
                       <div className={styles.fgCell}>
                         <TableCardSelect
-                          options={lookups?.expenseTypes || []}
-                          value={row.expenseTypeId || ''}
+                          options={[
+                            ...expenseDescOptions,
+                            ...(expenseDescValue
+                              && !expenseDescOptions.some((opt) => String(opt.id) === String(expenseDescValue))
+                              ? [{
+                                id: String(expenseDescValue),
+                                name: String(row.description || expenseDescValue),
+                              }]
+                              : []),
+                          ]}
+                          value={expenseDescValue ? String(expenseDescValue) : ''}
                           onChange={(v) => {
-                            patchOtherExpense(index, { expenseTypeId: v });
+                            const match = expenseDescOptions.find((opt) => String(opt.id) === String(v));
+                            patchOtherExpense(index, {
+                              expenseTypeId: v,
+                              // Keep Notes free-text; only seed it when empty.
+                              description: row.description || match?.name || '',
+                            });
                           }}
                           disabled={readOnly}
                           placeholder="Select from"
@@ -2471,18 +2535,12 @@ export default function TcFixtureFormPage({
                       </div>
                       <div className={styles.fgCell}>
                         {!readOnly ? (
-                          <div className={styles.rowIconActions}>
-                            <button
-                              type="button"
-                              className={styles.rowAdd}
+                          <div className="rowActions">
+                            <RowAddButton
                               title="Add expense"
                               onClick={addOtherExpense}
-                            >
-                              <PlusIcon />
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.rowDel}
+                            />
+                            <RowDelButton
                               title="Delete row"
                               onClick={() => setForm((prev) => ({
                                 ...prev,
@@ -2490,14 +2548,13 @@ export default function TcFixtureFormPage({
                                   ? prev.otherExpenses.filter((_, i) => i !== index)
                                   : [{ ...EMPTY_EXPENSE }],
                               }))}
-                            >
-                              <XIcon />
-                            </button>
+                            />
                           </div>
                         ) : null}
                       </div>
                     </React.Fragment>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className={styles.oiSection}>
@@ -2546,18 +2603,12 @@ export default function TcFixtureFormPage({
                           </div>
                           <div className={styles.fgCell}>
                             {!readOnly ? (
-                              <div className={styles.rowIconActions}>
-                                <button
-                                  type="button"
-                                  className={styles.rowAdd}
+                              <div className="rowActions">
+                                <RowAddButton
                                   title="Add other income"
                                   onClick={addOtherIncome}
-                                >
-                                  <PlusIcon />
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.rowDel}
+                                />
+                                <RowDelButton
                                   title="Delete row"
                                   onClick={() => setForm((prev) => ({
                                     ...prev,
@@ -2565,9 +2616,7 @@ export default function TcFixtureFormPage({
                                       ? prev.otherIncome.filter((_, i) => i !== index)
                                       : [{ ...EMPTY_INCOME }],
                                   }))}
-                                >
-                                  <XIcon />
-                                </button>
+                                />
                               </div>
                             ) : null}
                           </div>
@@ -2653,18 +2702,12 @@ export default function TcFixtureFormPage({
                         </div>
                         <div className={styles.fgCell}>
                           {!readOnly ? (
-                            <div className={styles.rowIconActions}>
-                              <button
-                                type="button"
-                                className={styles.rowAdd}
+                            <div className="rowActions">
+                              <RowAddButton
                                 title="Add a new trip"
                                 onClick={addHirePeriod}
-                              >
-                                <PlusIcon />
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.rowDel}
+                              />
+                              <RowDelButton
                                 title="Delete row"
                                 onClick={() => setForm((prev) => {
                                   const next = (prev.hirePeriods || []).length > 1
@@ -2672,9 +2715,7 @@ export default function TcFixtureFormPage({
                                     : [{ ...EMPTY_HIRE }];
                                   return { ...prev, hirePeriods: next, ...syncFixtureFromHirePeriods(next) };
                                 })}
-                              >
-                                <XIcon />
-                              </button>
+                              />
                             </div>
                           ) : null}
                         </div>
@@ -2770,10 +2811,8 @@ export default function TcFixtureFormPage({
                           </div>
                           <div className={styles.fgCell}>
                             {!readOnly ? (
-                              <div className={styles.rowIconActions}>
-                                <button
-                                  type="button"
-                                  className={styles.rowDel}
+                              <div className="rowActions">
+                                <RowDelButton
                                   title="Delete this off-hire item"
                                   onClick={() => setForm((prev) => ({
                                     ...prev,
@@ -2781,9 +2820,7 @@ export default function TcFixtureFormPage({
                                       ? prev.offHires.filter((_, i) => i !== index)
                                       : [{ ...EMPTY_OFF }],
                                   }))}
-                                >
-                                  <XIcon />
-                                </button>
+                                />
                               </div>
                             ) : null}
                           </div>
@@ -2801,23 +2838,24 @@ export default function TcFixtureFormPage({
                                 <div className={styles.fgHead}>Amount</div>
                                 <div className={styles.fgHead} />
                                 {(row.bunkers?.length ? row.bunkers : [{ ...EMPTY_OFF_BUNKER }]).map((bunker, bIndex) => {
+                                  const bunkerOptions = sortBunkersVlsfoFirst(lookups?.bunkers || []);
                                   const gradeName = bunker.gradeName
-                                    || (lookups?.bunkers || []).find((b) => String(b.id) === String(bunker.bunkerId))?.name
+                                    || bunkerOptions.find((b) => String(b.id) === String(bunker.bunkerId))?.name
                                     || '';
                                   return (
                                     <React.Fragment key={`ohb-${index}-${bIndex}`}>
                                       <div className={styles.fgCell}>
                                         <TableCardSelect
                                           options={[
-                                            ...(lookups?.bunkers || []),
+                                            ...bunkerOptions,
                                             ...(bunker.bunkerId
-                                              && !(lookups?.bunkers || []).some((b) => String(b.id) === String(bunker.bunkerId))
+                                              && !bunkerOptions.some((b) => String(b.id) === String(bunker.bunkerId))
                                               ? [{ id: String(bunker.bunkerId), name: gradeName || `Grade #${bunker.bunkerId}` }]
                                               : []),
                                           ]}
                                           value={bunker.bunkerId || ''}
                                           onChange={(v) => {
-                                            const match = (lookups?.bunkers || []).find((b) => String(b.id) === String(v));
+                                            const match = bunkerOptions.find((b) => String(b.id) === String(v));
                                             patchOffHireNestedBunker(index, bIndex, {
                                               bunkerId: v,
                                               gradeName: match?.name || '',
@@ -2850,15 +2888,11 @@ export default function TcFixtureFormPage({
                                       </div>
                                       <div className={styles.fgCell}>
                                         {!readOnly ? (
-                                          <div className={styles.rowIconActions}>
-                                            <button
-                                              type="button"
-                                              className={styles.rowDel}
+                                          <div className="rowActions">
+                                            <RowDelButton
                                               title="Delete bunker row"
                                               onClick={() => removeOffHireBunker(index, bIndex)}
-                                            >
-                                              <XIcon />
-                                            </button>
+                                            />
                                           </div>
                                         ) : null}
                                       </div>

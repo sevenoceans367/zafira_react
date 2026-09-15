@@ -256,29 +256,6 @@
   height: 14px;
 }
 
-.rowDel {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 6px;
-  background: #fdecea;
-  color: #e4483b;
-  cursor: pointer;
-  padding: 0;
-}
-
-.rowDel:hover {
-  background: #fbd9c9;
-}
-
-.rowDel svg {
-  width: 12px;
-  height: 12px;
-}
-
 .addRow {
   display: inline-flex;
   align-items: center;

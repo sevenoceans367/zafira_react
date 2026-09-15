@@ -288,57 +288,6 @@
   box-sizing: border-box;
 }
 
-.rowActions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 34px;
-}
-
-.rowAdd,
-.rowDel {
-  width: 26px;
-  height: 26px;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: none;
-  background: none;
-  border-radius: 6px;
-  padding: 0;
-  box-sizing: border-box;
-  aspect-ratio: 1;
-}
-
-.rowAdd {
-  color: #2e6fe8;
-}
-
-.rowAdd:hover {
-  background: #eaf1fe;
-}
-
-.rowDel {
-  color: #e4483b;
-}
-
-.rowDel:hover {
-  background: #fdecea;
-}
-
-.rowDel:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.rowAdd svg,
-.rowDel svg {
-  width: 13px;
-  height: 13px;
-}
-
 .lpChipField {
   display: flex;
   flex-direction: column;

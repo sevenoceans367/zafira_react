@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CardSelect, DmyDateInput } from '@bainbridge/shared-ui';
+import { CardSelect, DmyDateInput, RowDelButton } from '@bainbridge/shared-ui';
 import { daysBetween, hasDateValue } from '../../../services/tcEstimates.js';
 import styles from './TcPages.module.css';
 
@@ -553,9 +553,7 @@ export default function TcInExpensesModal({
                       <td><input className={styles.inputReadonly} readOnly value={row.amount} /></td>
                       <td>
                         {!readOnly ? (
-                          <button
-                            type="button"
-                            className={styles.rowDel}
+                          <RowDelButton
                             title="Remove row"
                             onClick={() => setDraft((prev) => ({
                               ...prev,
@@ -563,11 +561,7 @@ export default function TcInExpensesModal({
                                 ? prev.offHires.filter((_, i) => i !== index)
                                 : [{ ...EMPTY_OFF }],
                             }))}
-                          >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                              <path d="M6 6l12 12M18 6L6 18" />
-                            </svg>
-                          </button>
+                          />
                         ) : null}
                       </td>
                     </tr>
@@ -725,16 +719,10 @@ function BunkerRows({ rows, bunkers, onChange, onAdd, onRemove, readOnly = false
                 <td><input className={styles.inputReadonly} readOnly value={row.amount || ''} placeholder="0.00" /></td>
                 <td>
                   {!readOnly ? (
-                    <button
-                      type="button"
-                      className={styles.rowDel}
+                    <RowDelButton
                       title="Remove row"
                       onClick={() => onRemove(index)}
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                        <path d="M6 6l12 12M18 6L6 18" />
-                      </svg>
-                    </button>
+                    />
                   ) : null}
                 </td>
               </tr>

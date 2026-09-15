@@ -273,3 +273,62 @@ button.btn-link .text-danger {
 button.btn-link:hover .text-danger {
   color: #f18154 !important;
 }
+
+/* Global row + / × actions (COA layout) */
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+  height: 34px;
+}
+
+.rowAdd,
+.rowDel {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+  border-radius: 6px;
+  padding: 0;
+  box-sizing: border-box;
+  aspect-ratio: 1;
+}
+
+.rowAdd {
+  color: #2e6fe8;
+}
+
+.rowAdd:hover:not(:disabled) {
+  background: #eaf1fe;
+  border-width: 0.5px;
+  border-color: #2e6fe8;
+  color: #2e6fe8;
+}
+
+.rowDel {
+  color: #e4483b;
+}
+
+.rowDel:hover:not(:disabled) {
+  background: #fdecea;
+  border-color: #e4483b;
+  color: #e4483b;
+}
+
+.rowAdd:disabled,
+.rowDel:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.rowAdd svg,
+.rowDel svg {
+  width: 13px;
+  height: 13px;
+}

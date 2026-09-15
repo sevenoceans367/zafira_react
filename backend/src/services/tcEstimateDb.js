@@ -577,7 +577,13 @@ export async function dbGetTcLookups() {
     pool.query(`SELECT LAWARBITRA_ID AS id, LAW_ARBITRATION AS name FROM lawarbitration_master_list
       WHERE STATUS = 1 ORDER BY LAW_ARBITRATION`).catch(() => [[]]),
     pool.query(`SELECT BUNKERGRADEID AS id, NAME AS name FROM bunker_grade_master
-      WHERE STATUS = 1 ORDER BY NAME`).catch(() => [[]]),
+      WHERE STATUS = 1
+      ORDER BY CASE
+        WHEN UPPER(REPLACE(NAME, ' ', '')) LIKE '%VLSFO%' THEN 0
+        WHEN UPPER(REPLACE(NAME, ' ', '')) LIKE '%VLS%'
+          AND UPPER(REPLACE(NAME, ' ', '')) NOT LIKE '%HSFO%' THEN 0
+        ELSE 1
+      END, NAME`).catch(() => [[]]),
     pool.query(`SELECT EXPENSETYPEID AS id, EXPENSE_TYPE AS name, DESCRIPTION AS description
       FROM expense_type_master
       WHERE MODULEID = ? AND MCOMPANYID = ? AND STATUS = 1
@@ -643,7 +649,7 @@ export async function dbGetTcLookups() {
       name: r.name,
       description: String(r.description || '').trim(),
     })),
-    // Pre-TC "Expense Description" = PHP #selOwRel (owner_related_cost_master).
+    // TC Expenses "Expense Desc." + Pre-TC "Expense Description" = owner_related_cost_master.
     ownerRelatedCosts: ownerRelatedCosts.map((r) => ({
       id: String(r.id),
       name: r.name,

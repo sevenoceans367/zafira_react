@@ -60,8 +60,7 @@ const MOCK_LOOKUPS = {
   ],
   payableBy: [
     { id: 'Charterer', name: 'Charterer' },
-    { id: 'Operator', name: 'Operator' },
-    { id: 'N/A', name: 'N/A' },
+    { id: 'Owner', name: 'Owner' },
   ],
   currencies: [
     { id: 'USD', name: 'USD' },

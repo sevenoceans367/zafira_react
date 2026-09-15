@@ -1149,10 +1149,10 @@
   --tsec-navy: #1e3a8a;
   --tsec-navy-tint: #edf2f7;
   --tsec-navy-tint-strong: #d7e0ec;
-  --tsec-mustard: #b45309;
-  --tsec-mustard-tint: #fffbeb;
-  --tsec-mustard-tint-strong: #fde68a;
-  --tsec-mustard-chip-bg: #fef3c7;
+  --tsec-mustard: #a9740a;
+  --tsec-mustard-tint: #f5efe2;
+  --tsec-mustard-tint-strong: #bd9553;
+  --tsec-mustard-chip-bg: #dbc597;
   --tsec-mustard-chip-text: #92400e;
 
   position: relative;
@@ -1281,13 +1281,6 @@
   opacity: 1;
 }
 
-/* Uniform mustard grade chips inside Bunkers cards only */
-.tsecMustard .tableCardSelect > div > button:first-child {
-  background: var(--tsec-mustard-chip-bg) !important;
-  color: var(--tsec-mustard-chip-text) !important;
-  font-weight: 700 !important;
-}
-
 .fieldGrid {
   display: grid;
   grid-template-columns: var(--cols, 1fr);
@@ -1313,6 +1306,15 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Pin header bottoms so empty action-col separators match labeled columns
+     (fieldGrid uses align-items: center, which lifts empty cells). */
+  align-self: end;
+  line-height: 1.25;
+  box-sizing: border-box;
+}
+
+.fgHead:empty::before {
+  content: '\00a0';
 }
 
 .tsecLblue .fgHead {
@@ -1321,6 +1323,7 @@
   border-bottom: none;
   padding: 7px 8px;
   border-radius: 5px 5px 0 0;
+  align-self: stretch;
 }
 
 .tsecMustard .fgHead {
@@ -1329,13 +1332,7 @@
   border-bottom: none;
   padding: 7px 8px;
   border-radius: 5px 5px 0 0;
-}
-
-.tsecLblue .fgHead:empty,
-.tsecMustard .fgHead:empty {
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
+  align-self: stretch;
 }
 
 .fgCell {
@@ -1418,6 +1415,104 @@
 
 .subBlockLabelPad {
   margin-top: 20px;
+}
+
+.subBlockLabelPadAbove {
+  margin-top: 18px;
+}
+
+/* Other Income nested under TC Expenses (mockup Round 20) */
+.oiSection {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--color-border, #d1d5db);
+}
+
+.oiChipRow {
+  background: var(--tsec-navy-tint, #edf2f7);
+  padding: 7px 12px;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid var(--tsec-navy-tint-strong, #d7e0ec);
+  border-bottom: none;
+}
+
+.oiChip {
+  display: inline-flex;
+  align-items: center;
+  background: var(--tsec-navy, #1e3a8a);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.oiOutline {
+  border: 1px solid var(--tsec-navy-tint-strong, #d7e0ec);
+  border-radius: 0 0 10px 10px;
+  padding: 10px 12px 6px;
+  background: #fff;
+}
+
+.oiOutline .fieldGrid {
+  margin-top: 0;
+}
+
+.vpFullBtn {
+  width: auto !important;
+  display: inline-flex !important;
+  margin-top: 14px;
+  padding: 7px 14px !important;
+}
+
+.vpModal {
+  width: min(820px, 100%);
+  max-width: calc(100vw - 40px);
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid #c9d4e4;
+  padding: 0;
+  box-sizing: border-box;
+  box-shadow: 0 30px 70px rgba(20, 20, 40, 0.28);
+  background: #fff;
+}
+
+.vpModalBody {
+  padding: 18px 22px;
+  overflow: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Round 20: Bunkers mustard card — per-grade colours */
+.tsecMustard .chipGradeVlsfo > div > button:first-child {
+  background: #e3f4f4 !important;
+  color: #14919b !important;
+}
+
+.tsecMustard .chipGradeLsmgo > div > button:first-child {
+  background: #f8e6e6 !important;
+  color: #9b2c2c !important;
+}
+
+.tsecMustard .chipGradeHsfo > div > button:first-child {
+  background: #fef9c3 !important;
+  color: #ca8a04 !important;
+}
+
+.tsecMustard .chipGradeHsflo > div > button:first-child {
+  background: #e5f0fe !important;
+  color: #3b82f6 !important;
+}
+
+.tsecMustard .chipGradeScrubber > div > button:first-child {
+  background: #e6eaf1 !important;
+  color: #274670 !important;
 }
 
 .itineraryGrid {
@@ -1817,6 +1912,7 @@
 
 .lpcModal {
   width: min(640px, 100%);
+  max-width: calc(100vw - 40px);
   max-height: 90vh;
   overflow: hidden;
   display: flex;
@@ -1824,6 +1920,7 @@
   border-radius: 16px;
   border: 1px solid #c9d4e4;
   padding: 0;
+  box-sizing: border-box;
   box-shadow: 0 30px 70px rgba(20, 20, 40, 0.28);
 }
 
@@ -1831,12 +1928,16 @@
   padding: 18px 22px 6px;
   overflow: auto;
   flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .lpcList {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .lpcEmpty {
@@ -1854,6 +1955,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 11px;
   padding: 12px 14px;
+  min-width: 0;
 }
 
 .lpcRowMain {
@@ -1865,12 +1967,16 @@
   font-weight: 700;
   font-size: 13px;
   color: var(--color-text-dark, #1b2430);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .lpcRowSub {
   font-size: 11.5px;
   color: #8b93a1;
   margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .lpcSelectBtn {
@@ -1898,15 +2004,22 @@
 
 .lpcAddToggle {
   width: 100%;
+  max-width: 100%;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .lpcAddForm {
   margin-top: 14px;
+  margin-bottom: 12px;
   background: #fafbfc;
   border: 1px dashed #d8dce3;
   border-radius: 12px;
   padding: 16px 18px 18px;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .lpcAddForm .thdStepSub {
@@ -1915,24 +2028,63 @@
 
 .lpcAddGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.lpcAddGrid .field {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.lpcAddGrid .field input,
+.lpcAddGrid .field select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.lpcAddActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 14px;
+  min-width: 0;
 }
 
 .lpcAddSave {
-  margin-top: 14px;
+  margin-top: 0;
   padding: 8px 16px;
   font-size: 12.5px;
+  flex: none;
 }
 
 .lpcAddFullLink {
   display: inline-block;
-  margin-top: 10px;
-  margin-left: 12px;
+  margin-top: 0;
+  margin-left: 0;
   font-size: 12px;
   font-weight: 600;
   color: var(--color-primary, #274670);
+  word-break: break-word;
+}
+
+@media (max-width: 520px) {
+  .lpcAddGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lpcBody {
+    padding: 14px 14px 6px;
+  }
+
+  .lpcAddForm {
+    padding: 12px 12px 14px;
+  }
 }
 
 .connectMenu {
@@ -1972,40 +2124,62 @@
 .rowIconActions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   justify-content: center;
+  height: 34px;
 }
 
+/* Match New COA global + / x row actions */
+.rowAdd,
+.rowDel,
 .circleBtn {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border: 1px solid #c9d4e4;
-  background: #fff;
-  color: #6b7280;
-  flex: none;
+  border: none;
+  background: none;
+  border-radius: 6px;
   padding: 0;
+  box-sizing: border-box;
+  aspect-ratio: 1;
 }
 
-.circleBtn svg {
-  width: 12px;
-  height: 12px;
+.rowAdd,
+.circleBtnAdd {
+  color: #2e6fe8;
 }
 
+.rowAdd:hover,
 .circleBtnAdd:hover {
-  background: #e8eef5;
-  color: var(--color-primary, #274670);
-  border-color: #c9d4e4;
+  background: #eaf1fe;
 }
 
+.rowDel,
+.circleBtnDel {
+  color: #e4483b;
+}
+
+.rowDel:hover,
 .circleBtnDel:hover {
   background: #fdecea;
-  color: #c22a20;
-  border-color: #c22a20;
+}
+
+.rowDel:disabled,
+.circleBtn:disabled,
+.circleBtnDel:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.rowAdd svg,
+.rowDel svg,
+.circleBtn svg {
+  width: 13px;
+  height: 13px;
 }
 
 .gradeBadge {

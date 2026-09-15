@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcTcTotals } from '../../../services/tcEstimates.js';
+import { calcTcTotals, hireRateForOffHireEvent } from '../../../services/tcEstimates.js';
 
 describe('frontend calcTcTotals', () => {
   it('matches PHP hire/commission/profit formulas', () => {
@@ -124,5 +124,43 @@ describe('frontend calcTcTotals', () => {
     assert.equal(totals.totalRev, '70500.00');
     assert.equal(totals.voyageEarn, '65500.00');
     assert.equal(totals.profitPerDay, '8187.50');
+    assert.equal(totals.hireIncome, '100000.00');
+  });
+
+  it('picks off-hire hire rate from the covering trip period', () => {
+    assert.equal(
+      hireRateForOffHireEvent({
+        from: '05-02-2026 00:00',
+        to: '06-02-2026 00:00',
+        hirePeriods: [
+          { delDate: '01-01-2026 00:00', reDelDate: '31-01-2026 00:00', hireRate: '8000' },
+          { delDate: '01-02-2026 00:00', reDelDate: '28-02-2026 00:00', hireRate: '12000' },
+        ],
+        fallback: '5000',
+      }),
+      '12000',
+    );
+    assert.equal(
+      hireRateForOffHireEvent({
+        from: '10-01-2026 00:00',
+        hirePeriods: [
+          { delDate: '01-01-2026 00:00', reDelDate: '31-01-2026 00:00', hireRate: '8000' },
+          { delDate: '01-02-2026 00:00', reDelDate: '28-02-2026 00:00', hireRate: '12000' },
+        ],
+        fallback: '5000',
+      }),
+      '8000',
+    );
+    assert.equal(
+      hireRateForOffHireEvent({
+        from: '',
+        to: '',
+        hirePeriods: [
+          { delDate: '01-01-2026 00:00', reDelDate: '31-01-2026 00:00', hireRate: '8000' },
+        ],
+        fallback: '5000',
+      }),
+      '8000',
+    );
   });
 });

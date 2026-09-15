@@ -8,7 +8,7 @@
 
 /*
  * Laycan / CP Date–style Flatpickr calendar (global).
- * White panel, navy selection, Today + Cancel / Apply footer for date-only.
+ * White panel, navy selection, Real-time + Cancel / Apply footer for date-only.
  */
 :global(.flatpickr-calendar) {
   --fp-navy: #274670;
@@ -428,7 +428,7 @@
   background: #fff;
 }
 
-/* Confirm footer (date-only) — Today | Cancel / Apply */
+/* Confirm footer (date-only) — Real-time | Cancel / Apply */
 .confirmFooter {
   display: flex;
   align-items: center;

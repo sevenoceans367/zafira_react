@@ -555,7 +555,7 @@ export default function TcInExpensesModal({
                         {!readOnly ? (
                           <button
                             type="button"
-                            className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                            className={styles.rowDel}
                             title="Remove row"
                             onClick={() => setDraft((prev) => ({
                               ...prev,
@@ -564,7 +564,7 @@ export default function TcInExpensesModal({
                                 : [{ ...EMPTY_OFF }],
                             }))}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                               <path d="M6 6l12 12M18 6L6 18" />
                             </svg>
                           </button>
@@ -727,11 +727,11 @@ function BunkerRows({ rows, bunkers, onChange, onAdd, onRemove, readOnly = false
                   {!readOnly ? (
                     <button
                       type="button"
-                      className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                      className={styles.rowDel}
                       title="Remove row"
                       onClick={() => onRemove(index)}
                     >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                         <path d="M6 6l12 12M18 6L6 18" />
                       </svg>
                     </button>

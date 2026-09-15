@@ -40,12 +40,15 @@ export default function TcFormHeaderActions({
         {onGeneratePdf ? (
           <Button
             variant="outline"
-            label={pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
+            label="PDF"
+            icon="download"
             onClick={onGeneratePdf}
             disabled={disabled || pdfLoading}
+            title={pdfLoading ? 'Generating PDF…' : 'Download PDF'}
+            ariaLabel={pdfLoading ? 'Generating PDF…' : 'PDF'}
           />
         ) : null}
-        <Button variant="outline" label="Back" href={listHref} disabled={disabled} />
+        <Button variant="back" label="Back" href={listHref} disabled={disabled} />
       </HeaderFilterControls>
     </PageHeaderActions>
   );

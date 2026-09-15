@@ -2284,6 +2284,7 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
     flag,
     dwtSummer: strOrEmpty(vessel.DWT),
     dwtTropical,
+    draft: strOrEmpty(vessel.DRAFTM),
     gnrt,
     nrt,
     loa: strOrEmpty(vessel.LOA),

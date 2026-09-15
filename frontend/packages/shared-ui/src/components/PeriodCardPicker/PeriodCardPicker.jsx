@@ -264,6 +264,13 @@ export default function PeriodCardPicker({
     const nextFrom = parseDmy(fromInput) || draftFrom;
     const nextTo = parseDmy(toInput) || draftTo;
 
+    // Cleared draft: commit empty range and close (same as Apply after Clear).
+    if (!nextFrom && !nextTo) {
+      onChange?.({ from: '', to: '' });
+      setOpen(false);
+      return;
+    }
+
     if (!nextFrom || !nextTo) {
       await alert({
         title: 'Missing Information',
@@ -286,14 +293,14 @@ export default function PeriodCardPicker({
   };
 
   const handleClear = () => {
+    // Draft only — stay open. Calling onChange here remounts header actions
+    // (periodFrom/periodTo in PageHeaderActions deps) and closes the panel.
     setDraftFrom(null);
     setDraftTo(null);
     setFromInput('');
     setToInput('');
     setFromError('');
     setToError('');
-    onChange?.({ from: '', to: '' });
-    setOpen(false);
   };
 
   const shiftMonth = (delta) => {

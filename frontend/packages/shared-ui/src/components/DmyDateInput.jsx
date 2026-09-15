@@ -103,7 +103,7 @@ function applyCommittedValue(fp, raw) {
  * (or dd-mm-yyyy HH:MM when enableTime is true).
  *
  * Date-only: laycan/CP Date layout — select a day, then Apply
- * (Today jumps month; Cancel discards).
+ * (Real-time jumps month; Cancel discards).
  *
  * With enableTime: three-step picker —
  * 1) calendar date, 2) hour, 3) minute; picking a minute closes.
@@ -264,7 +264,7 @@ const DmyDateInput = ({
       const todayBtn = document.createElement('button');
       todayBtn.type = 'button';
       todayBtn.className = styles.confirmToday;
-      todayBtn.textContent = 'Today';
+      todayBtn.textContent = 'Real-time';
       todayBtn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -416,8 +416,8 @@ const DmyDateInput = ({
         item.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const delta = index - fp.currentMonth;
-          if (delta !== 0) fp.changeMonth(delta, false);
+          // Flatpickr: changeMonth(value, isOffset=false) treats value as absolute month 0–11.
+          if (index !== fp.currentMonth) fp.changeMonth(index, false);
           closeMonthSelectMenu(fp);
           syncMonthSelectLabel(fp);
         });
@@ -539,7 +539,7 @@ const DmyDateInput = ({
       const todayBtn = document.createElement('button');
       todayBtn.type = 'button';
       todayBtn.className = styles.timeFooterToday;
-      todayBtn.textContent = 'Today';
+      todayBtn.textContent = 'Real-time';
       todayBtn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -705,7 +705,7 @@ const DmyDateInput = ({
         if (enableTime) {
           setStep(fp, 'date');
           pendingDateRef.current = null;
-          // Keep last fully committed value (minute/Today/typed). Do not save hour-only drafts.
+          // Keep last fully committed value (minute/Real-time/typed). Do not save hour-only drafts.
           applyCommittedValue(fp, valueRef.current);
           return;
         }

@@ -17,6 +17,7 @@ import {
   fetchTcEstimate,
   fetchTcLookups,
   hasDateValue,
+  hireRateForOffHireEvent,
   saveTcCalculation,
   updateTcEstimate,
 } from '../../../services/tcEstimates.js';
@@ -65,6 +66,11 @@ const EMPTY_EXPENSE = {
   amount: '',
   vendorId: '',
 };
+const EMPTY_INCOME = {
+  accountType: 'Owner',
+  description: '',
+  amount: '',
+};
 const EMPTY_ITIN_EXP = { expenseType: '', expenseDescId: '', description: '', amount: '', notes: '' };
 const EMPTY_ITINERARY = {
   from: { place: '', date: '', notes: '' },
@@ -75,17 +81,17 @@ const CONTRACT_TYPE_OPTIONS = [
   { id: 'tcinout', name: 'TC In/TC Out' },
 ];
 
-function CircleAddIcon() {
+function PlusIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }
 
-function CircleDelIcon() {
+function XIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
       <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
@@ -525,14 +531,16 @@ function PeriodConnectSelect({
                     />
                   </div>
                 </div>
-                <button type="button" className={`${styles.thdApplyBtn} ${styles.lpcAddSave}`.trim()} onClick={saveNewContract}>
-                  Save New Contract
-                </button>
-                {addHref ? (
-                  <a className={styles.lpcAddFullLink} href={addHref} target="_blank" rel="noopener noreferrer">
-                    Open full Period Contract form
-                  </a>
-                ) : null}
+                <div className={styles.lpcAddActions}>
+                  <button type="button" className={`${styles.thdApplyBtn} ${styles.lpcAddSave}`.trim()} onClick={saveNewContract}>
+                    Save New Contract
+                  </button>
+                  {addHref ? (
+                    <a className={styles.lpcAddFullLink} href={addHref} target="_blank" rel="noopener noreferrer">
+                      Open full Period Contract form
+                    </a>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>
@@ -727,10 +735,7 @@ function normalizeCapexFields(detail = {}) {
       bunkersOpen: true,
     };
   }
-  const defaultOffHireRate = offHires.find((row) => row.hireRate)?.hireRate
-    || detail.hireFixPer
-    || calc.dailyGrossHire
-    || '';
+  const defaultOffHireRate = detail.hireFixPer || calc.dailyGrossHire || '';
   const contractType = detail.contractType
     || (detail.periodId ? 'tcinout' : 'tcout');
   return {
@@ -743,12 +748,24 @@ function normalizeCapexFields(detail = {}) {
       ? detail.itineraryExpenses.map((row) => ({ ...EMPTY_ITIN_EXP, ...row }))
       : [{ ...EMPTY_ITIN_EXP }],
     hirePeriods,
-    otherIncome: detail.otherIncome || [],
+    otherIncome: detail.otherIncome?.length
+      ? detail.otherIncome.map((row) => ({ ...EMPTY_INCOME, ...row }))
+      : [{ ...EMPTY_INCOME }],
     otherExpenses: detail.otherExpenses?.length
       ? detail.otherExpenses.map((row) => ({ ...EMPTY_EXPENSE, ...row }))
       : [{ ...EMPTY_EXPENSE }],
     offHires: offHires.map((row) => (
-      row.hireRate ? row : resolveOffHire({ ...row, hireRate: defaultOffHireRate })
+      row.hireRate
+        ? row
+        : resolveOffHire({
+          ...row,
+          hireRate: hireRateForOffHireEvent({
+            from: row.from,
+            to: row.to,
+            hirePeriods,
+            fallback: defaultOffHireRate,
+          }),
+        })
     )),
     offHireBunkers: [],
     tcInExpenses: detail.tcInExpenses
@@ -821,8 +838,10 @@ function emptyForm(businessTypeId = '2') {
     netTonn: '',
     cargoTankCap: '',
     noOfGrades: '',
+    noOfCargoPumps: '',
     cargoPumpCap: '',
     totalSbtCap: '',
+    vesselCode: '',
     suezGrt: '',
     suezNrt: '',
     panamaNrt: '',
@@ -913,7 +932,7 @@ function emptyForm(businessTypeId = '2') {
     },
     itineraryExpenses: [{ ...EMPTY_ITIN_EXP }],
     hirePeriods: [{ ...EMPTY_HIRE }],
-    otherIncome: [],
+    otherIncome: [{ ...EMPTY_INCOME }],
     otherExpenses: [{ ...EMPTY_EXPENSE }],
     offHires: [{ ...EMPTY_OFF }],
     offHireBunkers: [],
@@ -1012,6 +1031,7 @@ function applyVesselPrefill(prev, prefill, vesselMeta = {}) {
     imoNo: prefill?.imoNo || prev.imoNo,
     summerDwt: prefill?.dwtSummer || prev.summerDwt,
     dwtSummerCp: prefill?.dwtSummer || prev.dwtSummerCp,
+    summerDraft: prefill?.draft || prefill?.summerDraft || prev.summerDraft,
     loa1: prefill?.loa || prev.loa1,
     breadth: prefill?.beam || prev.breadth,
     yearBuild: prefill?.builtYear || prev.yearBuild,
@@ -1020,6 +1040,7 @@ function applyVesselPrefill(prev, prefill, vesselMeta = {}) {
     grossTonn: prefill?.gnrt || prev.grossTonn,
     netTonn: prefill?.nrt || prev.netTonn,
     tpc1: prefill?.tpc || prev.tpc1,
+    vesselCode: prefill?.vesselCode || prev.vesselCode || String(prefill?.vesselImoId || vesselMeta.id || prev.vesselCode || ''),
     businessTypeId: prefill?.businessTypeId || vesselMeta.businessTypeId || prev.businessTypeId,
     bFullSpeedCp: prefill?.bFullSpeed || prev.bFullSpeedCp,
     lFullSpeedCp: prefill?.lFullSpeed || prev.lFullSpeedCp,
@@ -1054,6 +1075,7 @@ export default function TcFixtureFormPage({
   const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState('');
   const [tcInOpen, setTcInOpen] = useState(false);
+  const [vpModalOpen, setVpModalOpen] = useState(false);
 
   const returnToRaw = searchParams.get('returnTo') || '';
   const returnTo = (() => {
@@ -1079,8 +1101,19 @@ export default function TcFixtureFormPage({
     [form.itineraryExpenses],
   );
 
-  const otherIncomeTotal = useMemo(
-    () => (form.otherIncome || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+  const otherIncomeChartererTotal = useMemo(
+    () => (form.otherIncome || []).reduce((sum, row) => {
+      if (String(row.accountType || 'Owner').toLowerCase() !== 'charterer') return sum;
+      return sum + (Number(row.amount) || 0);
+    }, 0),
+    [form.otherIncome],
+  );
+
+  const otherIncomeOwnerTotal = useMemo(
+    () => (form.otherIncome || []).reduce((sum, row) => {
+      if (String(row.accountType || 'Owner').toLowerCase() !== 'owner') return sum;
+      return sum + (Number(row.amount) || 0);
+    }, 0),
     [form.otherIncome],
   );
 
@@ -1094,13 +1127,13 @@ export default function TcFixtureFormPage({
     // Pre-TC uses expenseType; TC Expenses uses notes for Owner/Charterer
     const itineraryOwners = sumParty(form.itineraryExpenses, 'expenseType', 'owner');
     const itineraryCharterers = sumParty(form.itineraryExpenses, 'expenseType', 'charterer');
-    const tcOwners = sumParty(form.otherExpenses, 'notes', 'owner');
+    const tcOwners = sumParty(form.otherExpenses, 'notes', 'owner') + otherIncomeOwnerTotal;
     const tcCharterers = sumParty(form.otherExpenses, 'notes', 'charterer');
     const tcAddToTotal = (form.otherExpenses || []).reduce((sum, row) => {
       // PHP only includes rows where chkVal == 1 (Add to TTL).
       if (row.addToTotal !== true) return sum;
       return sum + (Number(row.amount) || 0);
-    }, 0);
+    }, 0) + otherIncomeOwnerTotal;
 
     return {
       refOwners: itineraryOwners + tcOwners,
@@ -1108,7 +1141,7 @@ export default function TcFixtureFormPage({
       tcAddToTotal,
       preTcTotal: itineraryOwners + itineraryCharterers,
     };
-  }, [form.itineraryExpenses, form.otherExpenses]);
+  }, [form.itineraryExpenses, form.otherExpenses, otherIncomeOwnerTotal]);
 
   const hirePeriodTotals = useMemo(() => {
     const rows = (form.hirePeriods || []).map(resolveHirePeriod);
@@ -1196,18 +1229,24 @@ export default function TcFixtureFormPage({
       deliveryBunkers: form.deliveryBunkers,
       redeliveryBunkers: form.redeliveryBunkers,
       offHires: mergeOffHiresForCalc(form.offHires, form.offHireBunkers),
-      otherIncome: otherIncomeTotal,
+      otherIncome: otherIncomeChartererTotal,
       totalExp: voyageExp,
     });
 
-    const totalRev = Number(totals.totalRev) || 0;
+    const netRev = Number(totals.totalRev) || 0;
     const nettRev = Number(totals.nettRev) || 0;
     const lessOffHire = Number(totals.lessOffHire) || 0;
+    // Waterfall display: Total Revenue → Less Off Hire → Net Revenue (= PHP totalRev)
+    const grossRev = netRev + lessOffHire;
     const bunkerDiffAmt = Number(totals.bunkerDiffAmt) || 0;
     // PHP Total Expenses — excludes Pre-TC (shown only on Adj Profit).
     const totalExp = voyageExp;
     const voyageEarn = Number(totals.voyageEarn);
-    const profit = Number.isFinite(voyageEarn) ? voyageEarn : (totalRev - voyageExp);
+    // TC Earnings = Σ trip days × hire rate only (exclude ballast, CVE, etc.).
+    const hireIncome = Number(totals.hireIncome) || 0;
+    const tcEarnings = Number.isFinite(hireIncome) ? hireIncome : 0;
+    // Voyage P&L still drives Adj. Pre TC and Daily P&L.
+    const profit = Number.isFinite(voyageEarn) ? voyageEarn : (netRev - voyageExp);
     const profitAdjPreTc = profit - itineraryExpenseTotal;
     const utilisationDays = Number(totals.utilisationDays) || 0;
     const profitPerDay = utilisationDays
@@ -1215,16 +1254,15 @@ export default function TcFixtureFormPage({
       : formatResult(0);
 
     return {
-      // Align labels with PHP getFinalCalculation outputs
       nettRev: formatResult(nettRev),
-      totalRev: formatResult(totalRev),
+      totalRev: formatResult(grossRev),
       lessOffHire: formatResult(lessOffHire),
-      nettTcRev: formatResult(totalRev),
+      nettTcRev: formatResult(netRev),
       bunkerDiffAmt: formatSignedResult(bunkerDiffAmt),
       refCharterers: formatResult(expensePartyTotals.refCharterers),
       refOwners: formatResult(expensePartyTotals.refOwners),
       totalExp: formatResult(totalExp),
-      profit: formatResult(profit),
+      profit: formatResult(tcEarnings),
       profitAdjPreTc: formatResult(profitAdjPreTc),
       profitPerDay,
       utilisationDays: totals.utilisationDays || '0',
@@ -1246,7 +1284,7 @@ export default function TcFixtureFormPage({
     form.redeliveryBunkers,
     form.offHires,
     form.offHireBunkers,
-    otherIncomeTotal,
+    otherIncomeChartererTotal,
     expensePartyTotals,
     itineraryExpenseTotal,
     tcInFinalHireage,
@@ -1624,7 +1662,10 @@ export default function TcFixtureFormPage({
         ...(prev.offHires || []),
         resolveOffHire({
           ...EMPTY_OFF,
-          hireRate: prev.hireFixPer || '',
+          hireRate: hireRateForOffHireEvent({
+            hirePeriods: prev.hirePeriods,
+            fallback: prev.hireFixPer || '',
+          }),
         }),
       ],
     }));
@@ -1654,10 +1695,24 @@ export default function TcFixtureFormPage({
 
   const patchOffHire = (index, patch) => {
     if (readOnly) return;
-    setForm((prev) => ({
-      ...prev,
-      offHires: updateRow(prev.offHires || [{ ...EMPTY_OFF }], index, patch).map(resolveOffHire),
-    }));
+    setForm((prev) => {
+      const current = (prev.offHires || [{ ...EMPTY_OFF }])[index] || { ...EMPTY_OFF };
+      const nextPatch = { ...patch };
+      const datesChanging = Object.prototype.hasOwnProperty.call(patch, 'from')
+        || Object.prototype.hasOwnProperty.call(patch, 'to');
+      if (datesChanging && !Object.prototype.hasOwnProperty.call(patch, 'hireRate')) {
+        nextPatch.hireRate = hireRateForOffHireEvent({
+          from: Object.prototype.hasOwnProperty.call(patch, 'from') ? patch.from : current.from,
+          to: Object.prototype.hasOwnProperty.call(patch, 'to') ? patch.to : current.to,
+          hirePeriods: prev.hirePeriods,
+          fallback: prev.hireFixPer || '',
+        });
+      }
+      return {
+        ...prev,
+        offHires: updateRow(prev.offHires || [{ ...EMPTY_OFF }], index, nextPatch).map(resolveOffHire),
+      };
+    });
   };
 
   const patchOffHireNestedBunker = (offIndex, bunkerIndex, patch) => {
@@ -1713,6 +1768,22 @@ export default function TcFixtureFormPage({
     setForm((prev) => ({
       ...prev,
       otherExpenses: updateRow(prev.otherExpenses || [{ ...EMPTY_EXPENSE }], index, patch),
+    }));
+  };
+
+  const patchOtherIncome = (index, patch) => {
+    if (readOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      otherIncome: updateRow(prev.otherIncome || [{ ...EMPTY_INCOME }], index, patch),
+    }));
+  };
+
+  const addOtherIncome = () => {
+    if (readOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      otherIncome: [...(prev.otherIncome || []), { ...EMPTY_INCOME }],
     }));
   };
 
@@ -1776,7 +1847,15 @@ export default function TcFixtureFormPage({
     }
   };
 
-  const renderBunkerTable = (kind, dirLabel) => (
+  const renderBunkerTable = (kind, dirLabel) => {
+    const periods = hirePeriodTotals.rows?.length
+      ? hirePeriodTotals.rows
+      : (form.hirePeriods || []);
+    const defaultBunkerDate = kind === 'deliveryBunkers'
+      ? (periods[0]?.delDate || form.delDate || '')
+      : (periods[periods.length - 1]?.reDelDate || form.reDelDate || '');
+
+    return (
     <TsecCard
       theme="mustard"
       tab={(
@@ -1819,7 +1898,7 @@ export default function TcFixtureFormPage({
                   value={row.bunkerId != null ? String(row.bunkerId) : ''}
                   onChange={(v) => updateBunker(kind, index, 'bunkerId', v)}
                   disabled={readOnly}
-                  className={styles.tableCardSelect}
+                  className={gradeSelectClass(gradeName)}
                   placeholder="Select"
                   ariaLabel="Bunker grade"
                 />
@@ -1847,7 +1926,7 @@ export default function TcFixtureFormPage({
               <div className={styles.fgCell}>
                 <DmyDateInput
                   id={index === 0 ? `${bunkerIdPrefix}Date_0` : undefined}
-                  value={row.bunkerDate || ''}
+                  value={row.bunkerDate || defaultBunkerDate}
                   onChange={(value) => updateBunker(kind, index, 'bunkerDate', value)}
                   disabled={readOnly}
                 />
@@ -1860,19 +1939,19 @@ export default function TcFixtureFormPage({
                   <div className={styles.rowIconActions}>
                     <button
                       type="button"
-                      className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
+                      className={styles.rowAdd}
                       title="Add bunker row"
                       onClick={() => addBunker(kind)}
                     >
-                      <CircleAddIcon />
+                      <PlusIcon />
                     </button>
                     <button
                       type="button"
-                      className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                      className={styles.rowDel}
                       title="Delete row"
                       onClick={() => removeBunker(kind, index)}
                     >
-                      <CircleDelIcon />
+                      <XIcon />
                     </button>
                   </div>
                 ) : null}
@@ -1886,7 +1965,8 @@ export default function TcFixtureFormPage({
         <span>{sumBunkerAmounts(form[kind])}</span>
       </div>
     </TsecCard>
-  );
+    );
+  };
 
   const businessTypeOptions = (Array.isArray(businessTypes) ? businessTypes : []).map((opt) => ({
     id: String(opt.id),
@@ -2047,6 +2127,9 @@ export default function TcFixtureFormPage({
                           ...prev,
                           charterer: v,
                           charOperAdd: resolveChartererAddress(lookups, v),
+                          otherExpenses: (prev.otherExpenses || []).map((row) => (
+                            row.vendorId ? row : { ...row, vendorId: v || '' }
+                          )),
                         }));
                       }}
                       placeholder="Select charterer"
@@ -2064,38 +2147,44 @@ export default function TcFixtureFormPage({
                 </div>
               </CollapsiblePanel>
               <CollapsiblePanel title="Vessel Particulars" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.vessel}>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Primary Data</div>
                 <div className={`${styles.denseGrid} ${styles.dense9}`}>
-                  <TextInput label="Master's Name" value={form.mastersName} onChange={(v) => setField('mastersName', v)} />
-                  <TextInput label="Yard" value={form.buildYard} readOnly />
-                  <TextInput label="Yr Blt" value={form.yearBuild} readOnly />
+                  <TextInput label="Vessel Code" value={form.vesselCode || form.vesselImoId || ''} readOnly />
+                  <TextInput label="IMO Number" value={form.imoNo} readOnly />
+                  <TextInput label="Year Built" value={form.yearBuild} readOnly />
                   <TextInput label="Flag" value={form.flag1 || form.flag} readOnly />
-                  <TextInput label="POR" value={form.portOfReg} readOnly />
-                  <TextInput label="IMO" value={form.imoNo} readOnly />
-                  <TextInput label="Class ID" value={form.classId} readOnly />
-                  <TextInput label="Last SS" value={form.lastSpSurvey} readOnly />
-                  <TextInput label="Last DD" value={form.lastDd} readOnly />
-                  <TextInput label="Owners' P&I" value={form.ownersPi} readOnly />
-                  <TextInput label="Call Sign" value={form.callSign} readOnly />
-                  <TextInput label="Inmar Tel" value={form.inmarsatTel} readOnly />
-                  <TextInput label="Inmar Email" value={form.inmarsatMail} readOnly />
-                  <TextInput label="LOA" value={form.loa1} readOnly />
-                  <TextInput label="BDTH" value={form.breadth} readOnly />
-                  <TextInput label="S DWT" value={form.summerDwt} readOnly />
-                  <TextInput label="S Draft" value={form.summerDraft} readOnly />
-                  <TextInput label="TPC" value={form.tpc1} readOnly />
-                  <TextInput label="Gross Tonnage" value={form.grossTonn} readOnly />
-                  <TextInput label="Net Tonnage" value={form.netTonn} readOnly />
-                  <TextInput label="Keel to Mast Top" value={form.keelTopMast} readOnly />
-                  <TextInput label="WL to Mast Top" value={form.waterlineTopMast} readOnly />
-                  {!isDry ? (
-                    <>
-                      <TextInput label="Cargo Tk Cap (CBM)" value={form.cargoTankCap} readOnly />
-                      <TextInput label="No. of Grades" value={form.noOfGrades} readOnly />
-                      <TextInput label="Cargo PP Cap" value={form.cargoPumpCap} readOnly />
-                      <TextInput label="SBT Cap (CBM)" value={form.totalSbtCap} readOnly />
-                    </>
-                  ) : null}
+                  <TextInput label="Summer DWT (MT)" value={form.summerDwt} readOnly />
+                  <TextInput label="Summer Draft (M)" value={form.summerDraft} readOnly />
+                  <TextInput label="LOA (M)" value={form.loa1} readOnly />
+                  <TextInput label="Extreme Breadth (M)" value={form.breadth} readOnly />
+                  <TextInput label="GRT" value={form.grossTonn} readOnly />
+                  <TextInput label="NRT" value={form.netTonn} readOnly />
                 </div>
+                {!isDry ? (
+                  <>
+                    <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPadAbove}`}>Tanker Particulars</div>
+                    <div className={`${styles.denseGrid} ${styles.dense9}`}>
+                      <TextInput label="Cargo Tank Capacity (CBM)" value={form.cargoTankCap} readOnly />
+                      <TextInput label="No. of Grades (Double V/V Seg)" value={form.noOfGrades} readOnly />
+                      <TextInput label="No. of Cargo Pump (Main)" value={form.noOfCargoPumps} readOnly />
+                      <TextInput label="Total SBT Capacity (CBM)" value={form.totalSbtCap} readOnly />
+                      <TextInput label="Cargo Pump Main Cap (CBM/HR)" value={form.cargoPumpCap} readOnly />
+                    </div>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  className={`${styles.connectBtn} ${styles.vpFullBtn}`}
+                  title="Opens the full vessel particulars"
+                  onClick={() => setVpModalOpen(true)}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ width: 13, height: 13 }}>
+                    <rect x="4" y="4" width="16" height="16" rx="2.5" />
+                    <path d="M4 9.5h16" />
+                    <path d="M8 4v3M16 4v3" />
+                  </svg>
+                  <span>Full Vessel Particulars</span>
+                </button>
               </CollapsiblePanel>
               <CollapsiblePanel title="TC Details" defaultOpen className={styles.estCard} icon={SECTION_ICONS.tcDetails}>
                 <div className={styles.tcDetailsGrid}>
@@ -2271,19 +2360,19 @@ export default function TcFixtureFormPage({
                             <div className={styles.rowIconActions}>
                               <button
                                 type="button"
-                                className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
+                                className={styles.rowAdd}
                                 title="Add expense"
                                 onClick={addItinExpense}
                               >
-                                <CircleAddIcon />
+                                <PlusIcon />
                               </button>
                               <button
                                 type="button"
-                                className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                className={styles.rowDel}
                                 title="Delete row"
                                 onClick={() => removeItinExpense(index)}
                               >
-                                <CircleDelIcon />
+                                <XIcon />
                               </button>
                             </div>
                           ) : null}
@@ -2304,11 +2393,11 @@ export default function TcFixtureFormPage({
                   className={styles.fieldGrid}
                   style={{ '--cols': '1.3fr 1fr 1.4fr 0.7fr 0.9fr 1fr 64px' }}
                 >
-                  <div className={styles.fgHead}>Expense</div>
-                  <div className={styles.fgHead}>Type</div>
+                  <div className={styles.fgHead}>Expense Desc.</div>
+                  <div className={styles.fgHead}>Account</div>
                   <div className={styles.fgHead}>Notes</div>
                   <div className={styles.fgHead}>Add to Total</div>
-                  <div className={styles.fgHead}>Amount</div>
+                  <div className={styles.fgHead}>Expense Amt</div>
                   <div className={styles.fgHead}>Vendor</div>
                   <div className={styles.fgHead} />
                   {(form.otherExpenses?.length ? form.otherExpenses : [{ ...EMPTY_EXPENSE }]).map((row, index) => (
@@ -2318,15 +2407,11 @@ export default function TcFixtureFormPage({
                           options={lookups?.expenseTypes || []}
                           value={row.expenseTypeId || ''}
                           onChange={(v) => {
-                            const match = (lookups?.expenseTypes || []).find((opt) => String(opt.id) === String(v));
-                            patchOtherExpense(index, {
-                              expenseTypeId: v,
-                              description: match?.name || row.description || '',
-                            });
+                            patchOtherExpense(index, { expenseTypeId: v });
                           }}
                           disabled={readOnly}
                           placeholder="Select from"
-                          ariaLabel="Expense"
+                          ariaLabel="Expense description"
                         />
                       </div>
                       <div className={styles.fgCell}>
@@ -2337,22 +2422,20 @@ export default function TcFixtureFormPage({
                             const isOwner = String(v || '').toLowerCase() === 'owner';
                             patchOtherExpense(index, {
                               notes: v,
-                              // PHP markCheckBox auto-checks Add to TTL when owner-related is picked;
-                              // keep Owner default-on, but Allow charterer rows to opt in too.
-                              addToTotal: isOwner ? true : row.addToTotal === true,
+                              addToTotal: isOwner,
                             });
                           }}
                           disabled={readOnly}
                           className={ownerChipClass(row.notes)}
                           placeholder="Select from"
-                          ariaLabel="Type"
+                          ariaLabel="Account"
                         />
                       </div>
                       <div className={styles.fgCell}>
                         <input
                           value={row.description || ''}
                           onChange={(e) => patchOtherExpense(index, { description: e.target.value })}
-                          placeholder="Notes"
+                          placeholder="Expense Desc."
                           readOnly={readOnly}
                           className={readOnly ? styles.inputReadonly : undefined}
                         />
@@ -2363,8 +2446,8 @@ export default function TcFixtureFormPage({
                           className={styles.expenseChk}
                           checked={row.addToTotal === true}
                           onChange={(e) => patchOtherExpense(index, { addToTotal: e.target.checked })}
-                          disabled={readOnly}
-                          title="Add to total (PHP Add to TTL)"
+                          disabled={readOnly || String(row.notes || '').toLowerCase() !== 'owner'}
+                          title="Add to total"
                         />
                       </div>
                       <div className={styles.fgCell}>
@@ -2391,15 +2474,15 @@ export default function TcFixtureFormPage({
                           <div className={styles.rowIconActions}>
                             <button
                               type="button"
-                              className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
+                              className={styles.rowAdd}
                               title="Add expense"
                               onClick={addOtherExpense}
                             >
-                              <CircleAddIcon />
+                              <PlusIcon />
                             </button>
                             <button
                               type="button"
-                              className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                              className={styles.rowDel}
                               title="Delete row"
                               onClick={() => setForm((prev) => ({
                                 ...prev,
@@ -2408,13 +2491,95 @@ export default function TcFixtureFormPage({
                                   : [{ ...EMPTY_EXPENSE }],
                               }))}
                             >
-                              <CircleDelIcon />
+                              <XIcon />
                             </button>
                           </div>
                         ) : null}
                       </div>
                     </React.Fragment>
                   ))}
+                </div>
+
+                <div className={styles.oiSection}>
+                  <div className={styles.oiChipRow}>
+                    <span className={styles.oiChip}>Other Income</span>
+                  </div>
+                  <div className={styles.oiOutline}>
+                    <div
+                      className={styles.fieldGrid}
+                      style={{ '--cols': '1fr 1.6fr 1fr 64px' }}
+                    >
+                      <div className={styles.fgHead}>Account</div>
+                      <div className={styles.fgHead}>Description</div>
+                      <div className={styles.fgHead}>Amount</div>
+                      <div className={styles.fgHead} />
+                      {(form.otherIncome?.length ? form.otherIncome : [{ ...EMPTY_INCOME }]).map((row, index) => (
+                        <React.Fragment key={`oi-${index}`}>
+                          <div className={styles.fgCell}>
+                            <TableCardSelect
+                              options={OWNER_CHARTERER_OPTIONS}
+                              value={row.accountType || 'Owner'}
+                              onChange={(v) => patchOtherIncome(index, { accountType: v || 'Owner' })}
+                              disabled={readOnly}
+                              className={ownerChipClass(row.accountType || 'Owner')}
+                              placeholder="Select"
+                              ariaLabel="Other income account"
+                            />
+                          </div>
+                          <div className={styles.fgCell}>
+                            <input
+                              value={row.description || ''}
+                              onChange={(e) => patchOtherIncome(index, { description: e.target.value })}
+                              placeholder="Description"
+                              readOnly={readOnly}
+                              className={readOnly ? styles.inputReadonly : undefined}
+                            />
+                          </div>
+                          <div className={styles.fgCell}>
+                            <input
+                              value={row.amount || ''}
+                              onChange={(e) => patchOtherIncome(index, { amount: e.target.value })}
+                              placeholder="0.00"
+                              readOnly={readOnly}
+                              className={readOnly ? styles.inputReadonly : undefined}
+                            />
+                          </div>
+                          <div className={styles.fgCell}>
+                            {!readOnly ? (
+                              <div className={styles.rowIconActions}>
+                                <button
+                                  type="button"
+                                  className={styles.rowAdd}
+                                  title="Add other income"
+                                  onClick={addOtherIncome}
+                                >
+                                  <PlusIcon />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.rowDel}
+                                  title="Delete row"
+                                  onClick={() => setForm((prev) => ({
+                                    ...prev,
+                                    otherIncome: (prev.otherIncome || []).length > 1
+                                      ? prev.otherIncome.filter((_, i) => i !== index)
+                                      : [{ ...EMPTY_INCOME }],
+                                  }))}
+                                >
+                                  <XIcon />
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.tsecTotalRow}>
+                  <span className={styles.tsecTotalLabel}>Total Expenses</span>
+                  <span>{formatResult(expensePartyTotals.tcAddToTotal)}</span>
                 </div>
                 </TsecCard>
                 {showSubCharter ? (
@@ -2424,7 +2589,7 @@ export default function TcFixtureFormPage({
                       className={`${styles.addRowBtn} ${styles.addRowBtnSubCharter}`}
                       onClick={() => setTcInOpen(true)}
                     >
-                      <CircleAddIcon />
+                      <PlusIcon />
                       Add Sub-Charter Expense
                     </button>
                   </div>
@@ -2436,8 +2601,8 @@ export default function TcFixtureFormPage({
                   className={styles.fieldGrid}
                   style={{ '--cols': '1.3fr 1.3fr 0.6fr 0.9fr 1fr 64px' }}
                 >
-                  <div className={styles.fgHead}>Del Date (From) *</div>
-                  <div className={styles.fgHead}>Del Date (To) *</div>
+                  <div className={styles.fgHead}>Delivery Date (From) *</div>
+                  <div className={styles.fgHead}>Redelivery Date (To) *</div>
                   <div className={styles.fgHead}>Days</div>
                   <div className={styles.fgHead}>Hire ($/day) *</div>
                   <div className={styles.fgHead}>Hire Amt ($)</div>
@@ -2491,15 +2656,15 @@ export default function TcFixtureFormPage({
                             <div className={styles.rowIconActions}>
                               <button
                                 type="button"
-                                className={`${styles.circleBtn} ${styles.circleBtnAdd}`}
+                                className={styles.rowAdd}
                                 title="Add a new trip"
                                 onClick={addHirePeriod}
                               >
-                                <CircleAddIcon />
+                                <PlusIcon />
                               </button>
                               <button
                                 type="button"
-                                className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                className={styles.rowDel}
                                 title="Delete row"
                                 onClick={() => setForm((prev) => {
                                   const next = (prev.hirePeriods || []).length > 1
@@ -2508,7 +2673,7 @@ export default function TcFixtureFormPage({
                                   return { ...prev, hirePeriods: next, ...syncFixtureFromHirePeriods(next) };
                                 })}
                               >
-                                <CircleDelIcon />
+                                <XIcon />
                               </button>
                             </div>
                           ) : null}
@@ -2557,10 +2722,7 @@ export default function TcFixtureFormPage({
                           <div className={styles.fgCell}>
                             <DmyDateInput
                               value={row.from || ''}
-                              onChange={(v) => patchOffHire(index, {
-                                from: v,
-                                hireRate: row.hireRate || form.hireFixPer || '',
-                              })}
+                              onChange={(v) => patchOffHire(index, { from: v })}
                               enableTime
                               disabled={readOnly}
                             />
@@ -2568,10 +2730,7 @@ export default function TcFixtureFormPage({
                           <div className={styles.fgCell}>
                             <DmyDateInput
                               value={row.to || ''}
-                              onChange={(v) => patchOffHire(index, {
-                                to: v,
-                                hireRate: row.hireRate || form.hireFixPer || '',
-                              })}
+                              onChange={(v) => patchOffHire(index, { to: v })}
                               enableTime
                               disabled={readOnly}
                             />
@@ -2614,7 +2773,7 @@ export default function TcFixtureFormPage({
                               <div className={styles.rowIconActions}>
                                 <button
                                   type="button"
-                                  className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                  className={styles.rowDel}
                                   title="Delete this off-hire item"
                                   onClick={() => setForm((prev) => ({
                                     ...prev,
@@ -2623,7 +2782,7 @@ export default function TcFixtureFormPage({
                                       : [{ ...EMPTY_OFF }],
                                   }))}
                                 >
-                                  <CircleDelIcon />
+                                  <XIcon />
                                 </button>
                               </div>
                             ) : null}
@@ -2694,11 +2853,11 @@ export default function TcFixtureFormPage({
                                           <div className={styles.rowIconActions}>
                                             <button
                                               type="button"
-                                              className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                                              className={styles.rowDel}
                                               title="Delete bunker row"
                                               onClick={() => removeOffHireBunker(index, bIndex)}
                                             >
-                                              <CircleDelIcon />
+                                              <XIcon />
                                             </button>
                                           </div>
                                         ) : null}
@@ -2808,17 +2967,17 @@ export default function TcFixtureFormPage({
               <div className={styles.resultsBlock}>
                 <div className={styles.resultsHead}>Revenue</div>
                 <div className={styles.resultsBody}>
-                  <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Nett Rev</span>
-                    <span className={styles.resRowVal}>{tcResults.nettRev}</span>
-                  </div>
-                  <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Less Off-Hire</span>
-                    <span className={styles.resRowVal}>{tcResults.lessOffHire}</span>
-                  </div>
                   <div className={`${styles.resRow} ${styles.resRowAccent}`}>
                     <span className={styles.resRowLabel}>Total Revenue</span>
                     <span className={styles.resRowVal}>{tcResults.totalRev}</span>
+                  </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Less Off Hire (incl bunkers)</span>
+                    <span className={styles.resRowVal}>{tcResults.lessOffHire}</span>
+                  </div>
+                  <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
+                    <span className={styles.resRowLabel}>Net Revenue</span>
+                    <span className={styles.resRowVal}>{tcResults.nettTcRev}</span>
                   </div>
                 </div>
               </div>
@@ -2833,10 +2992,6 @@ export default function TcFixtureFormPage({
                   <div className={styles.resRow}>
                     <span className={styles.resRowLabel}>Ref Owners</span>
                     <span className={styles.resRowVal}>{tcResults.refOwners}</span>
-                  </div>
-                  <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Bunker Differential</span>
-                    <span className={styles.resRowVal}>{tcResults.bunkerDiffAmt}</span>
                   </div>
                   <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
                     <span className={styles.resRowLabel}>Total Expenses</span>
@@ -2853,11 +3008,15 @@ export default function TcFixtureFormPage({
                     <span className={styles.resRowVal}>{tcResults.profit}</span>
                   </div>
                   <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Profit (Adj. Pre TC)</span>
+                    <span className={styles.resRowLabel}>Bunker Differential</span>
+                    <span className={styles.resRowVal}>{tcResults.bunkerDiffAmt}</span>
+                  </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>P&L (Adj. Pre TC)</span>
                     <span className={styles.resRowVal}>{tcResults.profitAdjPreTc}</span>
                   </div>
                   <div className={styles.resRow}>
-                    <span className={styles.resRowLabel}>Profit / Day</span>
+                    <span className={styles.resRowLabel}>Daily P&L</span>
                     <span className={styles.resRowVal}>{tcResults.profitPerDay}</span>
                   </div>
                 </div>
@@ -2893,6 +3052,78 @@ export default function TcFixtureFormPage({
             ) : null}
           </div>
       </form>
+
+      {vpModalOpen && typeof document !== 'undefined'
+        ? createPortal(
+          <div
+            className={styles.modalBackdrop}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="vp-modal-title"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setVpModalOpen(false);
+            }}
+          >
+            <div className={styles.vpModal}>
+              <div className={styles.thdHead}>
+                <div className={styles.thdTitleWrap}>
+                  <div className={styles.thdTitleIco} aria-hidden="true">
+                    {SECTION_ICONS.vessel}
+                  </div>
+                  <div>
+                    <div id="vp-modal-title" className={styles.thdTitle}>Full Vessel Particulars</div>
+                    <div className={styles.thdSubtitle}>Complete vessel record from Operated Vessels</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={styles.thdClose}
+                  title="Close"
+                  onClick={() => setVpModalOpen(false)}
+                  aria-label="Close"
+                >
+                  <XIcon />
+                </button>
+              </div>
+              <div className={styles.vpModalBody}>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Identity & Survey</div>
+                <div className={`${styles.denseGrid} ${styles.dense9}`}>
+                  <TextInput
+                    label="Master's Name"
+                    value={form.mastersName}
+                    onChange={(v) => setField('mastersName', v)}
+                    readOnly={readOnly}
+                  />
+                  <TextInput label="Yard" value={form.buildYard} readOnly />
+                  <TextInput label="Class ID" value={form.classId} readOnly />
+                  <TextInput label="Last SS" value={form.lastSpSurvey} readOnly />
+                  <TextInput label="Last DD" value={form.lastDd} readOnly />
+                  <TextInput label="Owners' P&I" value={form.ownersPi} readOnly />
+                </div>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPadAbove}`}>Communications</div>
+                <div className={`${styles.denseGrid} ${styles.dense9}`}>
+                  <TextInput label="Call Sign" value={form.callSign} readOnly />
+                  <TextInput label="Inmar Tel" value={form.inmarsatTel} readOnly />
+                  <TextInput label="Inmar Email" value={form.inmarsatMail} readOnly />
+                </div>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPadAbove}`}>Dimensions</div>
+                <div className={`${styles.denseGrid} ${styles.dense9}`}>
+                  <TextInput label="LOA" value={form.loa1} readOnly />
+                  <TextInput label="TPC" value={form.tpc1} readOnly />
+                  <TextInput label="Keel to Mast Top" value={form.keelTopMast} readOnly />
+                  <TextInput label="WL to Mast Top" value={form.waterlineTopMast} readOnly />
+                </div>
+              </div>
+              <div className={styles.thdFooter}>
+                <button type="button" className={styles.thdCloseBtn} onClick={() => setVpModalOpen(false)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+        : null}
 
       <TcInExpensesModal
         open={tcInOpen}

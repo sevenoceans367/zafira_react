@@ -180,24 +180,62 @@ export function hasDateValue(value) {
   return value != null && String(value).trim() !== '' && !isEpochPlaceholder(value);
 }
 
+/** Parse TC date strings (dd-mm-yyyy[ HH:MM[:SS]] or Date-parsable). */
+export function parseTcDate(value) {
+  if (!hasDateValue(value)) return null;
+  const str = String(value).trim();
+  const dmy = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::\d{2})?)?$/);
+  if (dmy) {
+    const [, day, month, year, hh = '0', mm = '0'] = dmy;
+    const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hh), Number(mm), 0);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const iso = new Date(str);
+  return Number.isNaN(iso.getTime()) ? null : iso;
+}
+
 /** Client-side P&L helpers matching php/updatetcestimatecal.php getFinalCalculation. */
 export function daysBetween(endValue, startValue) {
-  const parse = (value) => {
-    if (!hasDateValue(value)) return null;
-    const str = String(value).trim();
-    const dmy = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::\d{2})?)?$/);
-    if (dmy) {
-      const [, day, month, year, hh = '0', mm = '0'] = dmy;
-      const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hh), Number(mm), 0);
-      return Number.isNaN(date.getTime()) ? null : date;
-    }
-    const iso = new Date(str);
-    return Number.isNaN(iso.getTime()) ? null : iso;
-  };
-  const end = parse(endValue);
-  const start = parse(startValue);
+  const end = parseTcDate(endValue);
+  const start = parseTcDate(startValue);
   if (!end || !start) return 0;
   return (end.getTime() - start.getTime()) / 86400000;
+}
+
+/**
+ * Pick hire rate for an off-hire from the trip period whose date range covers
+ * the off-hire (prefer From, else To). Falls back to first period rate / hireFixPer.
+ */
+export function hireRateForOffHireEvent({
+  from = '',
+  to = '',
+  hirePeriods = [],
+  fallback = '',
+} = {}) {
+  const anchor = parseTcDate(from) || parseTcDate(to);
+  const periods = Array.isArray(hirePeriods) ? hirePeriods : [];
+
+  if (anchor) {
+    for (const period of periods) {
+      const start = parseTcDate(period?.delDate);
+      const end = parseTcDate(period?.reDelDate);
+      const rate = period?.hireRate;
+      if (!start || !end || rate == null || String(rate).trim() === '') continue;
+      if (anchor.getTime() >= start.getTime() && anchor.getTime() <= end.getTime()) {
+        return String(rate);
+      }
+    }
+  }
+
+  for (const period of periods) {
+    const rate = period?.hireRate;
+    if (rate != null && String(rate).trim() !== '' && Number(rate) !== 0) {
+      return String(rate);
+    }
+  }
+
+  if (fallback != null && String(fallback).trim() !== '') return String(fallback);
+  return '';
 }
 
 function bunkerGridTotal(rows = []) {

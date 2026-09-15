@@ -95,9 +95,9 @@ const SPOT_OVERVIEW_CARDS = [
 ];
 
 function spotOverviewCards(overview) {
-  return SPOT_OVERVIEW_CARDS.map((card) => ({
+  return SPOT_OVERVIEW_CARDS.map(({ key: overviewKey, ...card }) => ({
     ...card,
-    count: String(overview?.[card.key] ?? 0),
+    count: String(overview?.[overviewKey] ?? 0),
     live: true,
   }));
 }

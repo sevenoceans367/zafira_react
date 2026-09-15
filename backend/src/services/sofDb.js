@@ -4,6 +4,29 @@ import { getPool } from '../db.js';
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
 
+/** Sof key-ops "Date/Time To" — newer UI field; add column when missing (legacy PHP only had ACTIVITYDATETIME). */
+let sofActivityDateTimeToReady = false;
+
+export async function ensureSofActivityDateTimeToColumn(poolOrConn = getPool()) {
+  if (sofActivityDateTimeToReady) return true;
+  try {
+    const [cols] = await poolOrConn.query(
+      `SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'`,
+    );
+    if (!cols.length) {
+      await poolOrConn.query(
+        `ALTER TABLE sof_slave_6
+         ADD COLUMN ACTIVITYDATETIMETO DATETIME NULL AFTER ACTIVITYDATETIME`,
+      );
+    }
+    sofActivityDateTimeToReady = true;
+    return true;
+  } catch (error) {
+    console.warn('[sofDb] Could not ensure ACTIVITYDATETIMETO column:', error.message);
+    return false;
+  }
+}
+
 export const DEFAULT_KEY_OPERATIONS = [
   'EOSP',
   'Arrived at NOR tendering area',
@@ -430,6 +453,7 @@ async function loadSofRecord(pool, comId, portType, portId, randomId) {
 
 async function loadKeyOperations(pool, sofId, defaults) {
   if (!sofId) return defaultKeyOperations(defaults);
+  await ensureSofActivityDateTimeToColumn(pool);
   const [rows] = await pool.query(
     `SELECT * FROM sof_slave_6
      WHERE SOFID = ?
@@ -721,26 +745,45 @@ async function replaceSlaveRows(connection, sofId, keyOperations, cargoRows) {
   await connection.query(`DELETE FROM sof_slave_6 WHERE SOFID = ?`, [sofId]);
   await connection.query(`DELETE FROM sof_slave_7 WHERE SOFID = ?`, [sofId]);
 
+  const hasToColumn = await ensureSofActivityDateTimeToColumn(connection);
+
   for (const row of keyOperations || []) {
     const activity = String(row.activity || '').trim();
     if (!activity) continue;
     const activityDateTime = parseDmyDateTime(row.activityDateTime);
     const activityDateTimeTo = parseDmyDateTime(row.activityDateTimeTo);
-    await connection.query(
-      `INSERT INTO sof_slave_6
-        (SOFID, ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        sofId,
-        activity,
-        activityDateTime,
-        activityDateTimeTo,
-        numOrNull(row.robIfo),
-        numOrNull(row.robMdo),
-        str(row.comments),
-        Number(row.tDefault) === 1 ? 1 : 0,
-      ],
-    );
+    if (hasToColumn) {
+      await connection.query(
+        `INSERT INTO sof_slave_6
+          (SOFID, ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          sofId,
+          activity,
+          activityDateTime,
+          activityDateTimeTo,
+          numOrNull(row.robIfo),
+          numOrNull(row.robMdo),
+          str(row.comments),
+          Number(row.tDefault) === 1 ? 1 : 0,
+        ],
+      );
+    } else {
+      await connection.query(
+        `INSERT INTO sof_slave_6
+          (SOFID, ACTIVITY, ACTIVITYDATETIME, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          sofId,
+          activity,
+          activityDateTime,
+          numOrNull(row.robIfo),
+          numOrNull(row.robMdo),
+          str(row.comments),
+          Number(row.tDefault) === 1 ? 1 : 0,
+        ],
+      );
+    }
   }
 
   for (const row of cargoRows || []) {

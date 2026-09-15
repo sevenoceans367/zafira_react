@@ -1,5 +1,6 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
+import { ensureSofActivityDateTimeToColumn } from './sofDb.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -392,6 +393,7 @@ async function loadActivities(pool, laytimeId, sofId) {
 
   if (!sofId) return [emptyActivity()];
 
+  await ensureSofActivityDateTimeToColumn(pool);
   const [sofRows] = await pool.query(
     `SELECT * FROM sof_slave_6
      WHERE SOFID = ?
@@ -451,6 +453,7 @@ async function loadEntityRows(pool, laytimeId, sofId) {
 
   if (!sofId) return [];
 
+  await ensureSofActivityDateTimeToColumn(pool);
   const [sofRows] = await pool.query(
     `SELECT * FROM sof_slave_6
      WHERE SOFID = ?

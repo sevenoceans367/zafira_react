@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, CardSelect, DownloadIcon, LoadingOverlay, EditRecapIcon } from '@bainbridge/shared-ui';
+import { CardSelect, DownloadIcon, LoadingOverlay, EditRecapIcon } from '@bainbridge/shared-ui';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.js';
 import { periodContractBasePath } from '../../../constants/periodContractModule.js';
@@ -15,7 +15,6 @@ import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import PeriodContractHeaderActions from './PeriodContractHeaderActions.jsx';
-import legacyStyles from './PeriodContractListPage.module.css';
 import styles from './PeriodBusinessPage.module.css';
 
 const SHOW_OPTIONS = [
@@ -30,11 +29,6 @@ const FLASH_MESSAGES = {
   1: { type: 'error', text: 'Sorry! there was an error while adding/updating Period Contract.' },
   2: { type: 'success', text: 'Congratulations! Period Contract delete successfully.' },
 };
-
-const LEGACY_TABS = [
-  { id: 'open', label: 'Open' },
-  { id: 'closed', label: 'Closed' },
-];
 
 const SOPF_TABS = [
   { id: 'open', label: 'Active' },
@@ -174,15 +168,6 @@ function MultilineCell({ value, className }) {
   return <span className={className}>{text}</span>;
 }
 
-function StatusBadge({ status }) {
-  const isOpen = String(status).toLowerCase().includes('open');
-  return (
-    <span className={isOpen ? legacyStyles.statusOpen : legacyStyles.statusClosed}>
-      {status}
-    </span>
-  );
-}
-
 function parseListStatus(value) {
   if (value === 'closed' || value === 'completed' || value === '2') return 'closed';
   return 'open';
@@ -191,7 +176,6 @@ function parseListStatus(value) {
 export default function PeriodContractListPage() {
   const navigate = useNavigate();
   const { module } = usePeriodContractModule();
-  const isSopf = module === 'sopf';
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(parseListStatus(searchParams.get('status')));
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -251,8 +235,8 @@ export default function PeriodContractListPage() {
         page,
         pageSize,
         search: debouncedSearch,
-        periodFrom: isSopf ? periodFrom : '',
-        periodTo: isSopf ? periodTo : '',
+        periodFrom,
+        periodTo,
       });
       setRows(data.records ?? []);
       setTotal(data.recordsTotal ?? 0);
@@ -267,7 +251,7 @@ export default function PeriodContractListPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, businessType, debouncedSearch, isSopf, page, pageSize, periodFrom, periodTo]);
+  }, [activeTab, businessType, debouncedSearch, page, pageSize, periodFrom, periodTo]);
 
   useEffect(() => {
     loadBusinessTypes(businessType);
@@ -372,8 +356,8 @@ export default function PeriodContractListPage() {
         page: 1,
         pageSize: EXPORT_PAGE_SIZE,
         search: debouncedSearch,
-        periodFrom: isSopf ? periodFrom : '',
-        periodTo: isSopf ? periodTo : '',
+        periodFrom,
+        periodTo,
       });
       const exportRows = (data.records || []).map((row) => ({
         '#': row.index,
@@ -451,266 +435,11 @@ export default function PeriodContractListPage() {
       businessTypes={businessTypes}
       businessType={businessType}
       onBusinessTypeChange={handleBusinessTypeChange}
-      periodFrom={isSopf ? periodFrom : undefined}
-      periodTo={isSopf ? periodTo : undefined}
-      onPeriodChange={isSopf
-        ? ({ from, to }) => updateQuery({ periodFrom: from || '', periodTo: to || '' })
-        : undefined}
+      periodFrom={periodFrom}
+      periodTo={periodTo}
+      onPeriodChange={({ from, to }) => updateQuery({ periodFrom: from || '', periodTo: to || '' })}
     />
   );
-
-  if (!isSopf) {
-    return (
-      <div className={`zafira-page ${legacyStyles.page}`}>
-        {headerActions}
-        {loading ? <LoadingOverlay show label="Loading period contracts…" /> : null}
-        {flash ? (
-          <div className={flash.type === 'success' ? legacyStyles.flashSuccess : legacyStyles.flashError}>
-            {flash.text}
-          </div>
-        ) : null}
-        {error ? <div className={legacyStyles.error}>{error}</div> : null}
-        <h3 className={legacyStyles.title}>Period</h3>
-        <div className={legacyStyles.tabs}>
-          {LEGACY_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={activeTab === tab.id ? legacyStyles.tabActive : legacyStyles.tab}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div className={legacyStyles.toolbar}>
-          <div className={legacyStyles.toolbarActions}>
-            {activeTab !== 'closed' ? (
-              <Button
-                variant="add"
-                label="Add New"
-                onClick={() => navigate(`/internal-user/${module}/period-contracts/add`)}
-              />
-            ) : null}
-          </div>
-        </div>
-        <ScrollableTable
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
-          footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
-        >
-          <table className={legacyStyles.table}>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Contract ID</th>
-                <th>Contract No.</th>
-                <th>Contract Date</th>
-                <th>Vessel Name</th>
-                <th>Vessel Type</th>
-                <th>Dead weight</th>
-                <th>Initial hire</th>
-                <th>Own Business Account</th>
-                <th>Re-Del Date (Min)</th>
-                <th>Re-Del Date (Max)</th>
-                <th>Total / Performed / Balance Days</th>
-                <th>Remarks</th>
-                <th>Bunker Opening Balance</th>
-                <th>Bunker Closing Balance</th>
-                <th>Status</th>
-                <th>{activeTab === 'open' ? 'Nominate' : 'View Voyage'}</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={18} className={legacyStyles.emptyCell}>
-                    SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
-                  </td>
-                </tr>
-              ) : rows.map((row) => (
-                <tr key={row.periodId}>
-                  <td>{row.index}</td>
-                  <td>{row.contractId}</td>
-                  <td>{row.contractNo}</td>
-                  <td>{row.contractDate}</td>
-                  <td>{row.vesselName}</td>
-                  <td>{row.vesselType}</td>
-                  <td>{row.dwt}</td>
-                  <td>{row.initialHire}</td>
-                  <td>{row.ownBusinessAccount}</td>
-                  <td>{row.reDelMinDate}</td>
-                  <td>{row.reDelMaxDate}</td>
-                  <td>{`${row.totalDays} / ${row.performedDays} / ${row.balanceDays}`}</td>
-                  <td><span className={legacyStyles.multiline}>{row.remarks || '—'}</span></td>
-                  <td><span className={legacyStyles.multiline}>{row.bunkerOpening || '—'}</span></td>
-                  <td><span className={legacyStyles.multiline}>{row.bunkerClosing || '—'}</span></td>
-                  <td><StatusBadge status={row.status} /></td>
-                  <td className={legacyStyles.actionCell}>
-                    <button
-                      type="button"
-                      className={legacyStyles.actionIcon}
-                      title={activeTab === 'open' ? 'Nominate' : 'View Voyage'}
-                      aria-label={activeTab === 'open' ? 'Nominate' : 'View Voyage'}
-                      onClick={() => openNominations(row, { allowAdd: activeTab === 'open' })}
-                    >
-                      <i className={`bi ${activeTab === 'open' ? 'bi-send' : 'bi-eye'}`} aria-hidden />
-                    </button>
-                  </td>
-                  <td className={legacyStyles.actionCell}>
-                    <button
-                      type="button"
-                      className={legacyStyles.actionIcon}
-                      title="Edit Details"
-                      aria-label="Edit Details"
-                      onClick={() => navigate(editHref(row.periodId))}
-                    >
-                      <EditRecapIcon size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </ScrollableTable>
-        {modal ? (
-          <div className={legacyStyles.modalBackdrop} role="presentation" onClick={closeModal}>
-            <div
-              className={legacyStyles.modal}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="period-nominations-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className={legacyStyles.modalHeader}>
-                <h4 id="period-nominations-title">
-                  {modal.allowAdd ? 'Period Contract Nominations' : 'Period Contract Voyages'}
-                  {modal.contractNo ? ` — ${modal.contractNo}` : ''}
-                </h4>
-                <Button variant="close" size="sm" label="Close" onClick={closeModal} />
-              </div>
-              {modal.loading ? (
-                <p className={legacyStyles.modalLoading}>Please wait…</p>
-              ) : (
-                <div className={legacyStyles.modalBody}>
-                  <div className={legacyStyles.modalSection}>
-                    <div className={legacyStyles.modalSectionHeader}>
-                      <strong>Voyages</strong>
-                      {modal.allowAdd ? (
-                        <Button
-                          variant="accent"
-                          size="sm"
-                          label="Add New Voyage Estimate"
-                          onClick={() => navigate(addSpotHref)}
-                        />
-                      ) : null}
-                    </div>
-                    <div className={legacyStyles.nestedTableWrap}>
-                      <table className={legacyStyles.nestedTable}>
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>Vessel Name</th>
-                            <th>Voyage No.</th>
-                            <th>CP Date</th>
-                            <th>DWT</th>
-                            <th>LP/DP</th>
-                            <th>Duration</th>
-                            <th>Cargo Quantity</th>
-                            <th>NET TCE</th>
-                            <th>FVF Sheet</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(modal.voyages || []).length === 0 ? (
-                            <tr><td colSpan={10} className={legacyStyles.emptyCell}>No voyages</td></tr>
-                          ) : modal.voyages.map((voyage) => (
-                            <tr key={voyage.fcaId}>
-                              <td>{voyage.index}</td>
-                              <td>{voyage.vesselName}</td>
-                              <td>{voyage.voyageNo}</td>
-                              <td>{voyage.cpDate}</td>
-                              <td>{voyage.dwt}</td>
-                              <td>{voyage.lpDp}</td>
-                              <td>{voyage.duration}</td>
-                              <td>{voyage.cargoQuantity}</td>
-                              <td>{voyage.netTce}</td>
-                              <td>
-                                <Link
-                                  to={`/internal-user/sopf/viewestimate?id=${encodeURIComponent(voyage.fcaId)}&estimatetype=${encodeURIComponent(businessType)}&selBType=${encodeURIComponent(businessType)}&returnTo=${encodeURIComponent(listPath)}`}
-                                  title="FVF Sheet"
-                                >
-                                  <i className="bi bi-file-earmark-text" aria-hidden />
-                                </Link>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  <div className={legacyStyles.modalSection}>
-                    <div className={legacyStyles.modalSectionHeader}>
-                      <strong>TC Estimates</strong>
-                      {modal.allowAdd ? (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          label="Add New TC Estimate"
-                          onClick={() => navigate(addTcHref)}
-                        />
-                      ) : null}
-                    </div>
-                    <div className={legacyStyles.nestedTableWrap}>
-                      <table className={legacyStyles.nestedTable}>
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>Vessel</th>
-                            <th>TC No.</th>
-                            <th>CP Date</th>
-                            <th>DWT</th>
-                            <th>Del Port</th>
-                            <th>Re Del Port</th>
-                            <th>TC Days</th>
-                            <th>Daily Gross Hire</th>
-                            <th>FVF Sheet</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(modal.tcEstimates || []).length === 0 ? (
-                            <tr><td colSpan={10} className={legacyStyles.emptyCell}>No TC estimates</td></tr>
-                          ) : modal.tcEstimates.map((tc) => (
-                            <tr key={tc.tcOutId}>
-                              <td>{tc.index}</td>
-                              <td>{tc.vesselName}</td>
-                              <td>{tc.tcNo}</td>
-                              <td>{tc.cpDate}</td>
-                              <td>{tc.dwt}</td>
-                              <td>{tc.delPort}</td>
-                              <td>{tc.reDelPort}</td>
-                              <td>{tc.tcDays}</td>
-                              <td>{tc.dailyGrossHire}</td>
-                              <td>
-                                <Link to={tcAppPath(tcHost, `${tc.tcOutId}/view`)} title="FVF Sheet">
-                                  <i className="bi bi-file-earmark-text" aria-hidden />
-                                </Link>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
 
   return (
     <div className={`zafira-page ${styles.page}`}>

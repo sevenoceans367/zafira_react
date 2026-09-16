@@ -1,5 +1,11 @@
 /* App-level overrides on top of @bainbridge/shared-ui/global.css */
 
+/* Light grey page canvas across internal-user shell */
+.internal-user-shell,
+.internal-user-shell main {
+  background-color: var(--color-background, #ecf0f5);
+}
+
 .internal-user-shell .sectionTitle {
   display: none;
 }

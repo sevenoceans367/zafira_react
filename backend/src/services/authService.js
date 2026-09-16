@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { appContext, isMgmtUser } from '../config.js';
-import { dbAuthenticateUser, isAuthDbAvailable } from './authDb.js';
+import { dbAuthenticateUser, dbAuthenticateAgent, isAuthDbAvailable } from './authDb.js';
 
 const sessions = new Map();
 
@@ -114,6 +114,47 @@ export async function loginUser(username, password) {
         userType: appContext.userType || 'internal_user',
         companyId: Number(appContext.companyId) || 1,
         sopfUser: true,
+        rmUser: false,
+      };
+    }
+  }
+
+  if (!user) {
+    throw new Error('Invalid username or password.');
+  }
+
+  const token = createToken(user);
+  return {
+    token,
+    user,
+    expiresInMs: SESSION_TTL_MS,
+  };
+}
+
+/** Agent portal login — matches USERNAME/PASSWORD on generate_agency_letter. */
+export async function loginAgent(username, password) {
+  if (!username?.trim() || !password) {
+    throw new Error('Username and password are required.');
+  }
+
+  let user = null;
+
+  if (isAuthDbAvailable()) {
+    user = await dbAuthenticateAgent(username, password);
+  } else {
+    const mockUser = process.env.MOCK_AGENT_LOGIN_USER || 'ZAF/003/68637';
+    const mockPass = process.env.MOCK_AGENT_LOGIN_PASSWORD || 'PDA26012';
+    if (username.trim() === mockUser && password === mockPass) {
+      user = {
+        id: 'mock-agent-1',
+        username: mockUser,
+        name: 'Donna Paulson',
+        organisation: 'Progress Shipping',
+        userType: 'agent',
+        companyId: Number(appContext.companyId) || 1,
+        comId: null,
+        genAgencyId: null,
+        sopfUser: false,
         rmUser: false,
       };
     }

@@ -14,6 +14,7 @@ import mastersRoutes from './masters.js';
 import reportsRoutes from './reports.js';
 import elibraryRoutes from './elibrary.js';
 import liveVesselMapRoutes from './liveVesselMap.js';
+import agentRoutes from './agent.js';
 import { pingDb } from '../db.js';
 import { isDbConfigured } from '../config.js';
 import { getRequestUser } from '../services/authService.js';
@@ -26,6 +27,7 @@ import {
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/agent', agentRoutes);
 
 router.get('/health', async (_req, res) => {
   const payload = { status: 'ok', database: { configured: isDbConfigured() } };

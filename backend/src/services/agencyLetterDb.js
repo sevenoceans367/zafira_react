@@ -1280,7 +1280,7 @@ export async function dbGetAgencyLetterForPdf(genAgencyId, opts = {}) {
     companyEmail: company?.EMAIL_ID || '',
     companyWebsite: company?.WEBSITE || process.env.COMPANY_WEBSITE || 'www.zafirast.com',
     agentLoginUrl: process.env.AGENT_LOGIN_URL
-      || 'https://zafira.sevenoceans.net.in/login',
+      || '/agent/login',
     contactPerson: user?.CONTACT_PERSON || '',
     contactAddress: user?.ADDRESS || '',
     contactPhone: user?.PHONE_NO || '',

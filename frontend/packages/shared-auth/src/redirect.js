@@ -71,6 +71,11 @@ export const redirectAfterLogin = (_token, user) => {
 };
 
 export const redirectToPortal = () => {
+  const path = window.location?.pathname || '';
+  if (path.includes('/agent')) {
+    window.location.href = '/agent/login';
+    return;
+  }
   window.location.href = getPortalLoginUrl();
 };
 

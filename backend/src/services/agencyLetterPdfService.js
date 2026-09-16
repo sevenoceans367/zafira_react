@@ -221,7 +221,7 @@ function firstContact(data) {
 function agentLoginUrl(data) {
   const raw = data.agentLoginUrl
     || process.env.AGENT_LOGIN_URL
-    || 'https://zafira.sevenoceans.net.in/login';
+    || '/agent/login';
   return /^https?:\/\//i.test(raw)
     ? raw
     : `https://zafira.sevenoceans.net.in${raw.startsWith('/') ? '' : '/'}${raw}`;
@@ -936,7 +936,7 @@ function mockPdfData(genAgencyId, opts = {}) {
     companyPhone: '+65 6123 4567',
     companyEmail: 'ops@progressshipping.com',
     companyWebsite: 'www.sevenoceans.world',
-    agentLoginUrl: 'https://zafira.sevenoceans.net.in/login',
+    agentLoginUrl: '/agent/login',
     contactPerson: 'Rachel Zane',
     bunkerSurveyor: 'John Surveyor',
     bunkerSurveyorCom: 'Survey Co / +65 1234',

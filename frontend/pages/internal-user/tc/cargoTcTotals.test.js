@@ -30,6 +30,8 @@ describe('frontend calcTcTotals', () => {
     assert.equal(totals.totalRev, '97250.00');
     assert.equal(totals.voyageEarn, '92250.00');
     assert.equal(totals.profitPerDay, '9225.00');
+    assert.equal(totals.netTcDays, '10');
+    assert.equal(totals.netHirePerDay, '9700.00');
   });
 
   it('overrides stale hire days when del/redel dates are present', () => {
@@ -125,6 +127,8 @@ describe('frontend calcTcTotals', () => {
     assert.equal(totals.voyageEarn, '65500.00');
     assert.equal(totals.profitPerDay, '8187.50');
     assert.equal(totals.hireIncome, '100000.00');
+    assert.equal(totals.netTcDays, '8');
+    assert.equal(totals.netHirePerDay, '12731.25');
   });
 
   it('picks off-hire hire rate from the covering trip period', () => {

@@ -9,6 +9,11 @@ import {
 import RequireAuth from '../components/RequireAuth.jsx';
 import InternalUserLayout from '../components/Layout/InternalUserLayout.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
+import AgentLoginPage from '../pages/agent/AgentLoginPage.jsx';
+import AgentLayout from '../pages/agent/AgentLayout.jsx';
+import AgentDashboardPage from '../pages/agent/AgentDashboardPage.jsx';
+import AgentPortCostPage from '../pages/agent/AgentPortCostPage.jsx';
+import AgentSofPage from '../pages/agent/AgentSofPage.jsx';
 import ModuleHomePage from '../pages/internal-user/ModuleHomePage.jsx';
 import ReportsPage from '../pages/internal-user/ReportsPage.jsx';
 import ReportModulePage from '../pages/internal-user/reports/ReportModulePage.jsx';
@@ -114,6 +119,20 @@ export default function App() {
       <BrowserRouter basename={base}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/agent/login" element={<AgentLoginPage />} />
+
+          <Route
+            path="/agent"
+            element={(
+              <RequireAuth loginPath="/agent/login">
+                <AgentLayout />
+              </RequireAuth>
+            )}
+          >
+            <Route index element={<AgentDashboardPage />} />
+            <Route path="port-cost" element={<AgentPortCostPage />} />
+            <Route path="sof" element={<AgentSofPage />} />
+          </Route>
 
           <Route
             element={(

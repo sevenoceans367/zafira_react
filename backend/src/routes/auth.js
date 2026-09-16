@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { loginUser, logoutUser } from '../services/authService.js';
+import { loginUser, loginAgent, logoutUser } from '../services/authService.js';
 
 const router = Router();
 
@@ -7,6 +7,16 @@ router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body ?? {};
     const result = await loginUser(username, password);
+    res.json(result);
+  } catch (error) {
+    res.status(401).json({ error: error.message || 'Login failed.' });
+  }
+});
+
+router.post('/agent-login', async (req, res) => {
+  try {
+    const { username, password } = req.body ?? {};
+    const result = await loginAgent(username, password);
     res.json(result);
   } catch (error) {
     res.status(401).json({ error: error.message || 'Login failed.' });

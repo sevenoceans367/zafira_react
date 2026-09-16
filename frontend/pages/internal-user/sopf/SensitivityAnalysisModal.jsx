@@ -553,23 +553,6 @@ export default function SensitivityAnalysisModal({
     queueSave(columnId, 'lumpsum');
   };
 
-  const handleBunkerQtyChange = (columnId, grade, value) => {
-    updateColumn(columnId, (column) => {
-      const existing = column.bunkerExpenses || [];
-      const matchIndex = existing.findIndex((item) => (
-        String(item.grade || '').toLowerCase() === String(grade).toLowerCase()
-        || new RegExp(grade, 'i').test(String(item.grade || ''))
-      ));
-      const bunkerExpenses = matchIndex >= 0
-        ? existing.map((item, index) => (
-          index === matchIndex ? { ...item, estMt: value } : item
-        ))
-        : [...existing, { grade, estMt: value, estPrice: '', estCost: 0 }];
-      return { ...column, bunkerExpenses };
-    });
-    queueSave(columnId, `bunkerQty:${grade}`);
-  };
-
   const handlePortChange = (columnId, collection, portKey, value) => {
     updateColumn(columnId, (column) => {
       const list = [...(column[collection] || [])];
@@ -1232,9 +1215,6 @@ export default function SensitivityAnalysisModal({
 
                 <div className={`${styles.section} ${styles.themePurple}`}>
                   <SectionLabel>{isTanker ? 'Hireage / Vessel Opex' : 'Hireage/Vessel Ops'}</SectionLabel>
-                  <p className={styles.sectionCaption}>
-                    Hire cost (editable) × Voyage Days (from the worksheet&apos;s laycan/date selection, not editable here) = Total.
-                  </p>
                   <EditableRow
                     label={isTanker ? 'Hire / Vessel OPEX' : 'Hire/Vessel Ops Cost (USD)'}
                     columns={columns}
@@ -1333,27 +1313,16 @@ export default function SensitivityAnalysisModal({
                     isLocked={isColumnSent}
                     renderCell={(column) => renderPortInputs(column, 'bunkeringPorts')}
                   />
-                  {isTanker ? (
-                    <EditableRow
-                      label="Total OPEX"
-                      columns={columns}
-                      isLocked={isColumnSent}
-                      renderCell={(column) => (
-                        <InputCell
-                          value={column.operationalCost}
-                          disabled={isColumnSent(column)}
-                          status={isColumnSent(column) ? '' : statusFor(column.id, 'opex')}
-                          onChange={(value) => {
-                            updateColumn(column.id, (current) => ({
-                              ...current,
-                              operationalCost: value,
-                            }));
-                            queueSave(column.id, 'opex');
-                          }}
-                        />
-                      )}
-                    />
-                  ) : null}
+                  <DisplayRow
+                    label="Total OPEX"
+                    columns={columns}
+                    isLocked={isColumnSent}
+                    values={columns.map((column) => {
+                      const cost = metricsById[column.id]?.operationalCost
+                        ?? toNumber(column.operationalCost);
+                      return cost ? formatAmount(cost) : '';
+                    })}
+                  />
                   <DisplayRow
                     label="Total"
                     variant="subtotal"
@@ -1380,28 +1349,22 @@ export default function SensitivityAnalysisModal({
                     return (
                       <React.Fragment key={`bunker-${grade}`}>
                         <GroupHeader label={grade} columns={columns} colCount={colCount} isLocked={isColumnSent} />
-                        <EditableRow
+                        <DisplayRow
                           label="Qty"
                           columns={columns}
-                          isLocked={() => true}
+                          isLocked={isColumnSent}
                           variant="sub"
-                          renderCell={(column) => {
+                          values={columns.map((column) => {
                             const bunker = bunkerFor(column, grade);
-                            return (
-                              <InputCell
-                                value={bunker?.estMt ?? ''}
-                                disabled
-                                status=""
-                                onChange={() => {}}
-                              />
-                            );
-                          }}
+                            const qty = bunker?.estMt;
+                            return qty || qty === 0 ? formatAmount(qty) : '';
+                          })}
                         />
                         {vlsfo ? (
                           <EditableRow
                             label="Price"
                             columns={columns}
-                            isLocked={() => true}
+                            isLocked={isColumnSent}
                             variant="sub"
                             renderCell={(column) => {
                               const bunker = bunkerFor(column, grade);
@@ -1409,9 +1372,9 @@ export default function SensitivityAnalysisModal({
                                 <div className={styles.withLink}>
                                   <InputCell
                                     value={bunker?.estPrice ?? ''}
-                                    disabled
-                                    status=""
-                                    onChange={() => {}}
+                                    disabled={isColumnSent(column)}
+                                    status={isColumnSent(column) ? '' : statusFor(column.id, `bunker:${grade}`)}
+                                    onChange={(value) => handleBunkerPriceChange(column.id, grade, value)}
                                   />
                                   {isColumnSent(column) ? null : (
                                     <SensiLink
@@ -1427,16 +1390,16 @@ export default function SensitivityAnalysisModal({
                           <EditableRow
                             label="Price"
                             columns={columns}
-                            isLocked={() => true}
+                            isLocked={isColumnSent}
                             variant="sub"
                             renderCell={(column) => {
                               const bunker = bunkerFor(column, grade);
                               return (
                                 <InputCell
                                   value={bunker?.estPrice ?? ''}
-                                  disabled
-                                  status=""
-                                  onChange={() => {}}
+                                  disabled={isColumnSent(column)}
+                                  status={isColumnSent(column) ? '' : statusFor(column.id, `bunker:${grade}`)}
+                                  onChange={(value) => handleBunkerPriceChange(column.id, grade, value)}
                                 />
                               );
                             }}

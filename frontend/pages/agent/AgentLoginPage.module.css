@@ -1,0 +1,14 @@
+.agentCaption {
+  margin: 0 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.agentCaption svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}

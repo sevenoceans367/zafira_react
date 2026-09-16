@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { appPath } from '@bainbridge/shared-routing';
 import shippingLogo from '../../../assets/progress_shipping.svg';
 import styles from './OpsVcAgencyLetterPreviewModal.module.css';
+
+const DEFAULT_AGENT_LOGIN_URL = appPath('/agent/login');
 
 const SPEC_LABELS = [
   'cargo grade',
@@ -263,7 +266,7 @@ function PdaPreview({ ctx }) {
         </div>
         <a
           className={styles.ltrDocPortalLink}
-          href={ctx.agentLoginUrl || 'https://zafira.sevenoceans.net.in/login'}
+          href={ctx.agentLoginUrl || DEFAULT_AGENT_LOGIN_URL}
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -678,7 +681,7 @@ export default function OpsVcAgencyLetterPreviewModal({
       companyName: form.companyName || 'Progress Shipping',
       companyEmail: form.companyEmail || 'ops@progressshipping.com',
       contactPerson: form.contactPerson || '',
-      agentLoginUrl: form.agentLoginUrl || 'https://zafira.sevenoceans.net.in/login',
+      agentLoginUrl: form.agentLoginUrl || DEFAULT_AGENT_LOGIN_URL,
       footer: {
         companyName: form.companyName || 'Progress Shipping',
         companyPhone: form.companyPhone || '+65 6123 4567',

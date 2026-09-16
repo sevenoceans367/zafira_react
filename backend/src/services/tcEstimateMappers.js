@@ -564,6 +564,8 @@ export function calcTcTotals(input = {}) {
   }
 
   const utilisationDays = tcDays - offHireDays;
+  const netTcDays = utilisationDays;
+  const netHirePerDay = netTcDays > 0 ? nettRev / netTcDays : 0;
   const hasCveMonth = input.cveMonth != null && String(input.cveMonth).trim() !== '';
   // PHP: empty txtCVEM → CVE amount 0 (do not keep a stale CVE_EST).
   const cveMonth = num(input.cveMonth);
@@ -582,7 +584,10 @@ export function calcTcTotals(input = {}) {
     hirePeriods: resolvedPeriods,
     hireIncome: hireIncome.toFixed(2),
     tcDays: String(Number(tcDays.toFixed(4))),
+    offHireDays: String(Number(offHireDays.toFixed(4))),
     utilisationDays: String(Number(utilisationDays.toFixed(4))),
+    netTcDays: String(Number(netTcDays.toFixed(4))),
+    netHirePerDay: netHirePerDay.toFixed(2),
     delHfoAmt: delHfoAmt.toFixed(2),
     delMdoAmt: delMdoAmt.toFixed(2),
     reDelHfoAmt: reDelHfoAmt.toFixed(2),

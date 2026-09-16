@@ -739,6 +739,14 @@ export default function TcCalculatePage({
                 <input className={styles.inputReadonly} readOnly value={totals.nettRev || ''} />
               </div>
               <div className={styles.field}>
+                <label>Net TC Days</label>
+                <input className={styles.inputReadonly} readOnly value={totals.netTcDays || totals.utilisationDays || ''} />
+              </div>
+              <div className={styles.field}>
+                <label>Net Hire/Day</label>
+                <input className={styles.inputReadonly} readOnly value={totals.netHirePerDay || ''} />
+              </div>
+              <div className={styles.field}>
                 <label>Less Off hire</label>
                 <input className={styles.inputReadonly} readOnly value={totals.lessOffHire || ''} />
               </div>

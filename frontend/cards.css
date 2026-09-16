@@ -3,6 +3,8 @@
 .zafira-page {
   padding: 8px 24px 32px;
   margin-top: 16px;
+  min-height: calc(100% - 16px);
+  background-color: transparent;
 }
 
 .zafira-card {

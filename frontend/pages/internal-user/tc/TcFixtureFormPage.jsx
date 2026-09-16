@@ -1061,13 +1061,14 @@ function formatSignedResult(value) {
 
 function applyVesselPrefill(prev, prefill, vesselMeta = {}) {
   if (!prefill && !vesselMeta.id) return prev;
+  const flag = prefill?.flag || prev.flag;
   return {
     ...prev,
     vesselImoId: String(prefill?.vesselImoId || vesselMeta.id || prev.vesselImoId),
     vesselName: prefill?.vesselName || vesselMeta.name || prev.vesselName,
     vesselType: prefill?.vesselType || prev.vesselType,
-    flag: prefill?.flag || prev.flag,
-    flag1: prefill?.flag || prev.flag1,
+    flag,
+    flag1: prefill?.flag || prev.flag1 || flag,
     imoNo: prefill?.imoNo || prev.imoNo,
     summerDwt: prefill?.dwtSummer || prev.summerDwt,
     dwtSummerCp: prefill?.dwtSummer || prev.dwtSummerCp,
@@ -1080,10 +1081,71 @@ function applyVesselPrefill(prev, prefill, vesselMeta = {}) {
     grossTonn: prefill?.gnrt || prev.grossTonn,
     netTonn: prefill?.nrt || prev.netTonn,
     tpc1: prefill?.tpc || prev.tpc1,
-    vesselCode: prefill?.vesselCode || prev.vesselCode || String(prefill?.vesselImoId || vesselMeta.id || prev.vesselCode || ''),
-    businessTypeId: prefill?.businessTypeId || vesselMeta.businessTypeId || prev.businessTypeId,
+    vesselCode: prefill?.vesselCode
+      || prev.vesselCode
+      || String(prefill?.vesselImoId || vesselMeta.id || prev.vesselCode || ''),
+    businessTypeId: prefill?.businessTypeId != null && prefill.businessTypeId !== ''
+      ? String(prefill.businessTypeId)
+      : (vesselMeta.businessTypeId || prev.businessTypeId),
     bFullSpeedCp: prefill?.bFullSpeed || prev.bFullSpeedCp,
     lFullSpeedCp: prefill?.lFullSpeed || prev.lFullSpeedCp,
+    // Tanker / gas particulars
+    cargoTankCap: prefill?.cargoTankCap ?? prev.cargoTankCap,
+    noOfGrades: prefill?.noOfGrades ?? prev.noOfGrades,
+    noOfCargoPumps: prefill?.noOfCargoPumps ?? prev.noOfCargoPumps,
+    totalSbtCap: prefill?.totalSbtCap ?? prev.totalSbtCap,
+    cargoPumpCap: prefill?.cargoPumpCap ?? prev.cargoPumpCap,
+    // Full vessel particulars modal
+    buildYard: prefill?.buildYard ?? prev.buildYard,
+    classId: prefill?.classId ?? prev.classId,
+    lastSpSurvey: prefill?.lastSpSurvey ?? prev.lastSpSurvey,
+    lastDd: prefill?.lastDd ?? prev.lastDd,
+    ownersPi: prefill?.ownersPi ?? prev.ownersPi,
+    callSign: prefill?.callSign ?? prev.callSign,
+    inmarsatTel: prefill?.inmarsatTel ?? prev.inmarsatTel,
+    inmarsatMail: prefill?.inmarsatMail ?? prev.inmarsatMail,
+    keelTopMast: prefill?.keelTopMast ?? prev.keelTopMast,
+    waterlineTopMast: prefill?.waterlineTopMast ?? prev.waterlineTopMast,
+    portOfReg: prefill?.portOfReg ?? prev.portOfReg,
+  };
+}
+
+function clearVesselParticulars(prev) {
+  return {
+    ...prev,
+    vesselImoId: '',
+    vesselName: '',
+    vesselType: '',
+    flag: '',
+    flag1: '',
+    vesselCode: '',
+    imoNo: '',
+    yearBuild: '',
+    summerDwt: '',
+    summerDraft: '',
+    loa1: '',
+    breadth: '',
+    grossTonn: '',
+    netTonn: '',
+    tpc1: '',
+    grainCap: '',
+    baleCap: '',
+    cargoTankCap: '',
+    noOfGrades: '',
+    noOfCargoPumps: '',
+    totalSbtCap: '',
+    cargoPumpCap: '',
+    buildYard: '',
+    classId: '',
+    lastSpSurvey: '',
+    lastDd: '',
+    ownersPi: '',
+    callSign: '',
+    inmarsatTel: '',
+    inmarsatMail: '',
+    keelTopMast: '',
+    waterlineTopMast: '',
+    portOfReg: '',
   };
 }
 
@@ -1194,6 +1256,17 @@ export default function TcFixtureFormPage({
     };
   }, [form.hirePeriods]);
 
+  const offHireTotals = useMemo(() => {
+    const rows = (form.offHires || []).map(resolveOffHire);
+    const totalDays = rows.reduce((sum, row) => sum + (Number(row.days) || 0), 0);
+    const totalAmt = rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    return {
+      rows,
+      totalDays: totalDays ? Number(totalDays.toFixed(4)) : 0,
+      totalAmt: totalAmt.toFixed(2),
+    };
+  }, [form.offHires]);
+
   const dailyHireUsd = useMemo(() => {
     if (hirePeriodTotals.rows[0]?.amount) return hirePeriodTotals.rows[0].amount;
     const hire = Number(form.hireFixPer) || 0;
@@ -1293,11 +1366,16 @@ export default function TcFixtureFormPage({
       ? (profit / utilisationDays).toFixed(2)
       : formatResult(0);
 
+    const netTcDays = Number(totals.netTcDays ?? totals.utilisationDays) || 0;
+    const netHirePerDay = Number(totals.netHirePerDay) || 0;
+
     return {
       nettRev: formatResult(nettRev),
       totalRev: formatResult(grossRev),
       lessOffHire: formatResult(lessOffHire),
       nettTcRev: formatResult(netRev),
+      netTcDays: netTcDays ? String(Number(netTcDays.toFixed(4))) : '0',
+      netHirePerDay: formatResult(netHirePerDay),
       bunkerDiffAmt: formatSignedResult(bunkerDiffAmt),
       refCharterers: formatResult(expensePartyTotals.refCharterers),
       refOwners: formatResult(expensePartyTotals.refOwners),
@@ -1518,26 +1596,26 @@ export default function TcFixtureFormPage({
   const handleSelectVessel = async (vessel) => {
     if (readOnly) return;
     if (!vessel) {
-      setForm((prev) => ({
-        ...prev,
-        vesselImoId: '',
-        vesselName: '',
-        vesselType: '',
-        flag: '',
-      }));
+      setForm((prev) => clearVesselParticulars(prev));
       return;
     }
-    setForm((prev) => applyVesselPrefill(prev, null, {
-      id: vessel.id || vessel.vesselImoId,
-      name: vessel.name || vessel.vesselName,
-      businessTypeId: vessel.businessTypeId,
-    }));
+    const vesselId = vessel.id || vessel.vesselImoId;
+    const vesselName = vessel.name || vessel.vesselName;
+    setForm((prev) => applyVesselPrefill(
+      clearVesselParticulars(prev),
+      null,
+      {
+        id: vesselId,
+        name: vesselName,
+        businessTypeId: vessel.businessTypeId,
+      },
+    ));
     try {
-      const prefill = await fetchVesselEstimatePrefill(vessel.id || vessel.vesselImoId);
+      const prefill = await fetchVesselEstimatePrefill(vesselId);
       if (prefill) {
         setForm((prev) => applyVesselPrefill(prev, prefill, {
-          id: vessel.id || vessel.vesselImoId,
-          name: vessel.name || vessel.vesselName,
+          id: vesselId,
+          name: vesselName,
         }));
       }
     } catch {
@@ -2916,6 +2994,10 @@ export default function TcFixtureFormPage({
                     );
                   })}
                 </div>
+                <div className={styles.tsecTotalRow}>
+                  <span className={styles.tsecTotalLabel}>Total</span>
+                  <span>{offHireTotals.totalDays || '0'} days / {offHireTotals.totalAmt || '0.00'}</span>
+                </div>
                 {!readOnly ? (
                   <button
                     type="button"
@@ -3012,6 +3094,14 @@ export default function TcFixtureFormPage({
                   <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
                     <span className={styles.resRowLabel}>Net Revenue</span>
                     <span className={styles.resRowVal}>{tcResults.nettTcRev}</span>
+                  </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Net TC Days</span>
+                    <span className={styles.resRowVal}>{tcResults.netTcDays}</span>
+                  </div>
+                  <div className={styles.resRow}>
+                    <span className={styles.resRowLabel}>Net Hire/Day</span>
+                    <span className={styles.resRowVal}>{tcResults.netHirePerDay}</span>
                   </div>
                 </div>
               </div>

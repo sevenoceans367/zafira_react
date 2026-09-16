@@ -10,7 +10,8 @@ export const setupAuthFetch = () => {
 
     if (isApi) {
       const token = getToken();
-      if (!token && !url.includes('/api/auth/login') && !url.includes('/api/auth/agent-login')) {
+      const isAuthEndpoint = url.includes('/api/auth/login') || url.includes('/api/auth/agent-login');
+      if (!token && !isAuthEndpoint) {
         // Session expired while idle — force re-login before calling APIs.
         clearSession();
         redirectToPortal();

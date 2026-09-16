@@ -1934,6 +1934,14 @@ function strOrEmpty(value) {
   return String(value);
 }
 
+function formatPrefillDate(value) {
+  if (!value || value === '0000-00-00' || value === '1970-01-01') return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime()) || date.getFullYear() < 1971) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(date.getUTCDate())}-${pad(date.getUTCMonth() + 1)}-${date.getUTCFullYear()}`;
+}
+
 /**
  * Pick first meaningful consumption rate.
  * Treats null/''/0 like PHP's truthy checks so legacy 0 placeholders
@@ -2002,10 +2010,17 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
     `SELECT vim.VESSEL_IMO_ID, vim.VESSEL_NAME, vim.IMO_NO, vim.DWT, vim.VESSEL_TYPE,
             vim.VESSEL_TYPE_API, vim.BUSINESSTYPEID, vim.FLAG, vim.SHIP_FLAG, vim.LOA, vim.EXT_BREADTH,
             vim.GRT_NRT, vim.NRT, vim.YEARBUILT, vim.CARGO_GEAR, vim.GRAIN, vim.BALE,
-            vim.DRAFTM, vt.VesselType AS vesselTypeName, cm.COUNTRY_NAME AS flagName
+            vim.DRAFTM, vim.VESSEL_CODE, vim.TANKER_CAPACITY, vim.GAS_TANK_CAPACITY,
+            vim.NO_OF_GRADE, vim.TANKER_CARGO_PUMP, vim.GAS_CARGO_PUMPS, vim.GAS_MAIN_CARGO_PUMPS,
+            vim.TANKER_SBT_CAPACITY, vim.SBT_CAPACITY, vim.TANKER_PUMP_MAINCAP,
+            vim.CLA_SOC_ID, vim.P_I,
+            vt.VesselType AS vesselTypeName, cm.COUNTRY_NAME AS flagName,
+            csm.NAME AS classSocName, pi.NAME AS ownersPiName
      FROM vessel_imo_master vim
      LEFT JOIN vessel_type_master vt ON vt.VesselTypeId = vim.VESSEL_TYPE
      LEFT JOIN country_master cm ON cm.COUNTRYID = vim.FLAG
+     LEFT JOIN classification_soc_master csm ON csm.CLA_SOC_ID = vim.CLA_SOC_ID
+     LEFT JOIN vendor_master pi ON pi.VENDORID = vim.P_I
      WHERE vim.VESSEL_IMO_ID = ?
      LIMIT 1`,
     [id],
@@ -2020,25 +2035,64 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
 
   let tpc = '';
   let dwtTropical = '';
+  let buildYard = '';
+  let callSign = '';
+  let inmarsatTel = '';
+  let inmarsatMail = '';
+  let lastSpSurvey = '';
+  let lastDd = '';
+  let keelTopMast = '';
+  let waterlineTopMast = '';
+  let portOfReg = '';
+  let noOfCargoPumpsParticulars = '';
+
   if (businessTypeId === 3) {
     const [dryRows] = await pool.query(
-      `SELECT TPC_MT, TROPICAL_1, SUMMER_3
-       FROM vessel_master_1
-       WHERE VESSEL_IMO_ID = ?
-       LIMIT 1`,
+      'SELECT * FROM vessel_master_1 WHERE VESSEL_IMO_ID = ? LIMIT 1',
       [id],
-    );
-    tpc = strOrEmpty(dryRows[0]?.TPC_MT || dryRows[0]?.SUMMER_3);
-    dwtTropical = strOrEmpty(dryRows[0]?.TROPICAL_1);
+    ).catch(() => [[]]);
+    const [vm6Rows] = await pool.query(
+      'SELECT * FROM vessel_master_6 WHERE VESSEL_IMO_ID = ? LIMIT 1',
+      [id],
+    ).catch(() => [[]]);
+    const dry = dryRows[0] || {};
+    const vm6 = vm6Rows[0] || {};
+    tpc = strOrEmpty(dry.TPC_MT || dry.SUMMER_3);
+    dwtTropical = strOrEmpty(dry.TROPICAL_1);
+    buildYard = strOrEmpty(dry.YARD_NAME);
+    callSign = strOrEmpty(vm6.CALL_SIGN || dry.CALL_SIGN);
+    inmarsatTel = strOrEmpty(vm6.INMARSAT_NUMBER || dry.INMARSAT_NUMBER || vm6.PHONE_NO || dry.PHONE_NO);
+    inmarsatMail = strOrEmpty(vm6.EMAIL_ADDRESS || dry.EMAIL_ADDRESS);
+    if (dry.PORT_ID) {
+      const [[portRow]] = await pool.query(
+        'SELECT PortName FROM port_master WHERE PortId = ? LIMIT 1',
+        [dry.PORT_ID],
+      ).catch(() => [[null]]);
+      portOfReg = strOrEmpty(portRow?.PortName);
+    }
   } else {
     const [tankerRows] = await pool.query(
-      `SELECT TPC_SUMMER
-       FROM vessel_master_tankers
-       WHERE VESSEL_IMO_ID = ?
-       LIMIT 1`,
+      'SELECT * FROM vessel_master_tankers WHERE VESSEL_IMO_ID = ? LIMIT 1',
       [id],
-    );
-    tpc = strOrEmpty(tankerRows[0]?.TPC_SUMMER);
+    ).catch(() => [[]]);
+    const tanker = tankerRows[0] || {};
+    tpc = strOrEmpty(tanker.TPC_SUMMER);
+    buildYard = strOrEmpty(tanker.BUILDER);
+    callSign = strOrEmpty(tanker.CALL_SIGN);
+    inmarsatTel = strOrEmpty(tanker.INMARSAT_NUMBER || tanker.PHONE_NO);
+    inmarsatMail = strOrEmpty(tanker.EMAIL_ADDRESS);
+    lastSpSurvey = formatPrefillDate(tanker.SURVEY_DATE || tanker.ANNUAL_SURVEY_DATE);
+    lastDd = formatPrefillDate(tanker.DRY_DOCK_DATE);
+    keelTopMast = strOrEmpty(tanker.KEEL_KTM);
+    waterlineTopMast = strOrEmpty(tanker.FULL_MAST_1);
+    noOfCargoPumpsParticulars = strOrEmpty(tanker.NO_OF_CARGO_PUMPS);
+    if (tanker.REGISTRY_PORT) {
+      const [[portRow]] = await pool.query(
+        'SELECT PortName FROM port_master WHERE PortId = ? LIMIT 1',
+        [tanker.REGISTRY_PORT],
+      ).catch(() => [[null]]);
+      portOfReg = strOrEmpty(portRow?.PortName);
+    }
   }
 
   const param = await loadCommercialParameterRow(pool, id, appContext.moduleId);
@@ -2277,6 +2331,7 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
     vesselImoId: String(vessel.VESSEL_IMO_ID),
     vesselName: strOrEmpty(vessel.VESSEL_NAME),
     imoNo: strOrEmpty(vessel.IMO_NO),
+    vesselCode: strOrEmpty(vessel.VESSEL_CODE) || String(vessel.VESSEL_IMO_ID),
     vesselType: strOrEmpty(vessel.vesselTypeName)
       || (vessel.VESSEL_TYPE && Number(vessel.VESSEL_TYPE) !== 0 ? String(vessel.VESSEL_TYPE) : ''),
     vesselTypeId: strOrEmpty(vessel.VESSEL_TYPE),
@@ -2295,6 +2350,30 @@ export async function dbGetVesselEstimatePrefill(vesselId) {
     grainCap: strOrEmpty(vessel.GRAIN),
     baleCap: strOrEmpty(vessel.BALE),
     loadable: strOrEmpty(vessel.DWT),
+    // TC Recap / full vessel particulars (from operated vessel master + particulars)
+    cargoTankCap: strOrEmpty(
+      businessTypeId === 1 ? vessel.GAS_TANK_CAPACITY : vessel.TANKER_CAPACITY,
+    ),
+    noOfGrades: strOrEmpty(vessel.NO_OF_GRADE),
+    noOfCargoPumps: strOrEmpty(
+      noOfCargoPumpsParticulars
+      || vessel.TANKER_CARGO_PUMP
+      || vessel.GAS_CARGO_PUMPS
+      || vessel.GAS_MAIN_CARGO_PUMPS,
+    ),
+    totalSbtCap: strOrEmpty(vessel.TANKER_SBT_CAPACITY || vessel.SBT_CAPACITY),
+    cargoPumpCap: strOrEmpty(vessel.TANKER_PUMP_MAINCAP),
+    buildYard,
+    classId: strOrEmpty(vessel.classSocName),
+    lastSpSurvey,
+    lastDd,
+    ownersPi: strOrEmpty(vessel.ownersPiName),
+    callSign,
+    inmarsatTel,
+    inmarsatMail,
+    keelTopMast,
+    waterlineTopMast,
+    portOfReg,
     hasCommercialParameters: anyParamRows.length > 0,
     toPort: lastLeg?.toPort != null ? String(lastLeg.toPort) : '',
     toPortName: lastLeg?.toPortName && lastLeg.toPortName !== ' ()' ? String(lastLeg.toPortName) : '',

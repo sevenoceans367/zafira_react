@@ -395,7 +395,7 @@ export default function TcOutEstimatesListPage() {
                       to={tcPath(`${row.tcOutId}/edit`)}
                       title="Edit TC Recap"
                     >
-                      <EditRecapIcon size={18} />
+                      <EditRecapIcon size={13} />
                     </Link>
                   </td>
                 </tr>

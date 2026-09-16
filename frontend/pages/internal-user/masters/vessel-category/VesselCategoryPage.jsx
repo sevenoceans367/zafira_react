@@ -261,7 +261,7 @@ export default function VesselCategoryPage() {
                     title="Edit Details"
                     onClick={() => openEdit(row.id)}
                   >
-                    <EditRecapIcon size={16} />
+                    <EditRecapIcon size={13} />
                   </button>
                 </td>
               </tr>

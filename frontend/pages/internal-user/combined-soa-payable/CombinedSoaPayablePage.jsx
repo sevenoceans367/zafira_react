@@ -269,7 +269,7 @@ export default function CombinedSoaPayablePage() {
                   </td>
                   <td className={styles.detailsCell}>
                     <LegacyLink href={row.editHref} className={styles.editIcon} title="Edit Details">
-                      <EditRecapIcon size={16} />
+                      <EditRecapIcon size={13} />
                     </LegacyLink>
                   </td>
                 </tr>

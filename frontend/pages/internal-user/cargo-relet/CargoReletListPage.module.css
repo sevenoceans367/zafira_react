@@ -301,21 +301,25 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-light);
+  color: #8a93a2;
   cursor: pointer;
-  border: 1px solid var(--line-strong);
+  border: 1px solid #dfe2e7;
   background: #fff;
   text-decoration: none;
+  padding: 0;
+  box-sizing: border-box;
+  flex: none;
 }
 
 .iconBtn:hover {
   background: #f1f2f4;
-  color: var(--text-mid);
+  color: #5b6472;
 }
 
 .iconBtn svg {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
+  display: block;
 }
 
 .detailActions {

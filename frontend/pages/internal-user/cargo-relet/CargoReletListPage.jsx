@@ -694,7 +694,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
                       to={isHistoryTab ? `${cargoReletEditPath(row.fcaId)}?view=1` : cargoReletEditPath(row.fcaId)}
                       title={isHistoryTab ? 'View Cargo Relet' : 'Cargo Relet details'}
                     >
-                      {isHistoryTab ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={16} />}
+                      {isHistoryTab ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={13} />}
                     </Link>
                     {!isOps && row.canDelete ? (
                       <button

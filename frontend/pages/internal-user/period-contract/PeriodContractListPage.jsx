@@ -150,7 +150,7 @@ function RowsIcon() {
 }
 
 function PencilIcon() {
-  return <EditRecapIcon size={16} />;
+  return <EditRecapIcon size={13} />;
 }
 
 function DocIcon() {

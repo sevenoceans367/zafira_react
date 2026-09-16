@@ -129,25 +129,29 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   margin-right: 4px;
-  border: none;
+  border: 1px solid #dfe2e7;
   border-radius: 7px;
-  background: #f8f9fa;
-  color: #57626f;
+  background: #fff;
+  color: #8a93a2;
   cursor: pointer;
   text-decoration: none;
+  padding: 0;
+  box-sizing: border-box;
+  flex: none;
 }
 
 .iconBtn svg {
   width: 13px;
   height: 13px;
+  display: block;
 }
 
 .iconBtn:hover {
-  background: #e6eaf1;
-  color: #274670;
+  background: #f1f2f4;
+  color: #5b6472;
 }
 
 .iconBtnDanger {

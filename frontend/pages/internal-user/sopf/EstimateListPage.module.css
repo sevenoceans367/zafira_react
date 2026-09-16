@@ -304,25 +304,30 @@
   align-items: center;
   justify-content: center;
   padding: 0 !important;
-  border: none !important;
-  background: transparent !important;
+  border: 1px solid #dfe2e7 !important;
+  background: #fff !important;
+  color: #8a93a2 !important;
   box-shadow: none !important;
   text-decoration: none !important;
+  box-sizing: border-box;
+  flex: none;
+  cursor: pointer;
 }
 
 .iconBtn:hover,
 .iconBtn:focus {
   background: #f1f2f4 !important;
-  border: none !important;
+  color: #5b6472 !important;
+  border: 1px solid #dfe2e7 !important;
   box-shadow: none !important;
   text-decoration: none !important;
 }
 
 .iconBtn :global(i),
 .iconBtn :global(svg) {
-  font-size: 14px !important;
-  width: 14px;
-  height: 14px;
+  font-size: 13px !important;
+  width: 13px;
+  height: 13px;
 }
 
 .iconMuted {

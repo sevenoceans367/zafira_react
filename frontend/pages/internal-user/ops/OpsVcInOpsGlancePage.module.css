@@ -850,43 +850,35 @@
 }
 
 .iconBtn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #274670;
-  background: #e6eaf1;
-  border: 1px solid #d3dae7;
+  color: #8a93a2;
+  background: #fff;
+  border: 1px solid #dfe2e7;
   padding: 0;
   text-decoration: none;
   line-height: 0;
   flex: none;
-  /* Match Voyage Status: navy icon in the tinted chip */
+  cursor: pointer;
+  box-sizing: border-box;
 }
 
 .iconBtn:hover {
-  background: #274670;
-  color: #fff;
-  border-color: #274670;
+  background: #f1f2f4;
+  color: #5b6472;
+  border-color: #dfe2e7;
 }
 
 .iconBtn svg,
 .iconBtn img {
-  width: 18px;
-  height: 18px;
+  width: 13px;
+  height: 13px;
   display: block;
   object-fit: contain;
-  /* brand navy #274670 */
-  filter: brightness(0) saturate(100%) invert(23%) sepia(32%) saturate(1450%) hue-rotate(186deg) brightness(92%) contrast(92%);
-  transition: filter 0.15s ease;
-}
-
-.iconBtn:hover svg,
-.iconBtn:hover img {
-  /* white on navy hover, same as Voyage Status */
-  filter: brightness(0) invert(1);
 }
 
 .alertPill {

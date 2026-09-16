@@ -613,7 +613,7 @@ export default function CoaOpsListPage() {
                         to={isHistoryTab ? coaPath(`cargo-relet/${row.fcaId}?view=1`) : coaPath(`cargo-relet/${row.fcaId}`)}
                         title={isHistoryTab ? 'View Cargo Relet' : 'Edit Cargo Relet'}
                       >
-                        {isHistoryTab ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={16} />}
+                        {isHistoryTab ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={13} />}
                       </Link>
                     </td>
                     <td>

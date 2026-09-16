@@ -256,11 +256,13 @@
   align-items: center;
   justify-content: center;
   color: #8a93a2;
-  background: none;
-  border: none;
-  padding: 0;
   cursor: pointer;
+  border: 1px solid #dfe2e7;
+  background: #fff;
   text-decoration: none;
+  padding: 0;
+  box-sizing: border-box;
+  flex: none;
 }
 
 .iconBtn:hover {
@@ -269,8 +271,9 @@
 }
 
 .iconBtn svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
+  display: block;
 }
 
 .compareHeader {

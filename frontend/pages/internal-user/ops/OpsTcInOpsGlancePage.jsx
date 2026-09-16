@@ -646,7 +646,7 @@ export default function OpsTcInOpsGlancePage() {
                       to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/${isHistory ? 'view' : 'edit'}`)}
                       title={isHistory ? 'View TC Recap' : 'Edit TC Recap'}
                     >
-                      {isHistory ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={18} />}
+                      {isHistory ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={13} />}
                     </Link>
                   </td>
                   <td>

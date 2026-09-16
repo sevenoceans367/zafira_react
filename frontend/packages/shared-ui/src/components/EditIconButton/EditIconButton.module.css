@@ -1,0 +1,35 @@
+/* Cargo_Relet_Ops.html .icon-btn — global table edit control */
+.iconBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a93a2;
+  cursor: pointer;
+  border: 1px solid #dfe2e7;
+  background: #fff;
+  text-decoration: none;
+  padding: 0;
+  box-sizing: border-box;
+  flex: none;
+}
+
+.iconBtn:hover,
+.iconBtn:focus-visible {
+  background: #f1f2f4;
+  color: #5b6472;
+  outline: none;
+}
+
+.iconBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.iconBtn svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}

@@ -207,7 +207,7 @@ export default function ElibraryPage() {
                     aria-label="Edit Details"
                     onClick={() => navigate(`${listPath}/edit/${row.id}`)}
                   >
-                    <EditRecapIcon size={16} />
+                    <EditRecapIcon size={13} />
                   </button>
                   <button
                     type="button"

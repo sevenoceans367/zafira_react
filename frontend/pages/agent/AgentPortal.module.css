@@ -11,7 +11,7 @@
   --amber: #b9760a;
   --amber-tint: #fcf1dd;
   --grey-tint: #eef0f3;
-  --page-bg: #ecf0f5;
+  --page-bg: var(--color-background);
   --line: #eceef2;
   --line-strong: #dfe2e7;
   --text-dark: #1b2430;

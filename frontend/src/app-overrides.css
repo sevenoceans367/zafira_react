@@ -1,9 +1,9 @@
 /* App-level overrides on top of @bainbridge/shared-ui/global.css */
 
-/* Light grey page canvas across internal-user shell */
+/* Page canvas uses --color-background from shared-ui global.css */
 .internal-user-shell,
 .internal-user-shell main {
-  background-color: var(--color-background, #ecf0f5);
+  background-color: var(--color-background);
 }
 
 .internal-user-shell .sectionTitle {

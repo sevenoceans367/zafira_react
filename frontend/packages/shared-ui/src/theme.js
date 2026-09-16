@@ -14,7 +14,8 @@ export const theme = {
     danger: '#dd4b39',
     textDark: '#1b2430',
     textLight: '#777',
-    background: '#ecf0f5',
+    /** Mirrors --color-background in global.css; page canvas uses the CSS token */
+    background: '#ffffff',
     surface: '#ffffff',
     accent: '#f4652c',
     sidebarBg: '#274670',

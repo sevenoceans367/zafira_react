@@ -40,7 +40,8 @@
   --color-text-dark: #1b2430;
   --color-text: #1b2430;
   --color-text-light: #777;
-  --color-background: #ecf0f5;
+  /* Page canvas — single CSS source of truth (edit here only) */
+  --color-background: #ffffff;
   --color-surface: #ffffff;
   --color-accent: #f4652c;
   --color-accent-soft: #f99366;

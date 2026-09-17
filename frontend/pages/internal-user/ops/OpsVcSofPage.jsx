@@ -26,8 +26,8 @@ const FLASH = {
   1: { type: 'error', text: 'Sorry! this SOF already exists for this port.' },
 };
 
-const SOF_ROW_SIZE_OPTIONS = [5, 10, 15];
-const DEFAULT_SOF_ROW_SIZE = 10;
+const SOF_ROW_SIZE_OPTIONS = [5, 10, 15, 25];
+const DEFAULT_SOF_ROW_SIZE = 25;
 
 function paginateRows(items, page, pageSize) {
   const total = items.length;

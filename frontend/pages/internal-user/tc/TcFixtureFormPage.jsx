@@ -34,6 +34,7 @@ import TcInExpensesModal, {
   EMPTY_TC_IN_OFF,
   calcTcInFinalHireage,
 } from './TcInExpensesModal.jsx';
+import TcPeriodBlock from './TcPeriodBlock.jsx';
 import styles from './TcPages.module.css';
 
 function CancelIcon() {
@@ -76,6 +77,33 @@ const EMPTY_ITINERARY = {
   from: { place: '', date: '', notes: '' },
   to: { place: '', date: '', notes: '' },
 };
+
+/** UI-only extension periods (Add Period); period 1 stays on top-level form fields. */
+function emptyTcPeriodTerms() {
+  return {
+    laycanFrom: '',
+    laycanTo: '',
+    exchangeCurrency: 'USD',
+    exchangeRate: '1',
+    delRangePort: '',
+    reDelRange: '',
+    ballastBonus: '',
+    cveMonth: '',
+    ilohcUsd: '',
+    addComm: '',
+    brokerComm: '',
+    broCommPayable: '',
+  };
+}
+
+function emptyTcPeriodExtension() {
+  return {
+    terms: emptyTcPeriodTerms(),
+    hirePeriods: [{ ...EMPTY_HIRE }],
+    offHires: [{ ...EMPTY_OFF }],
+  };
+}
+
 const CONTRACT_TYPE_OPTIONS = [
   { id: 'tcout', name: 'TC Out' },
   { id: 'tcinout', name: 'TC In/TC Out' },
@@ -284,12 +312,20 @@ function TsecCard({ theme = 'navy', tab, className = '', children }) {
     ? styles.tsecLblue
     : theme === 'mustard'
       ? styles.tsecMustard
-      : styles.tsecNavy;
+      : theme === 'tcdLight'
+        ? styles.tsecTcdLight
+        : theme === 'tcdMid'
+          ? styles.tsecTcdMid
+          : styles.tsecNavy;
   const tabClass = theme === 'lblue'
     ? styles.tsecTabLblue
     : theme === 'mustard'
       ? styles.tsecTabMustard
-      : styles.tsecTabNavy;
+      : theme === 'tcdLight'
+        ? styles.tsecTabTcdLight
+        : theme === 'tcdMid'
+          ? styles.tsecTabTcdMid
+          : styles.tsecTabNavy;
   return (
     <div className={`${styles.tsecCard} ${themeClass} ${className}`.trim()}>
       <span className={`${styles.tsecTab} ${tabClass}`}>{tab}</span>
@@ -609,6 +645,28 @@ function resolveOffHire(row = {}) {
     ...row,
     days: days ? String(Number(days.toFixed(4))) : (row.days || ''),
     amount: amount ? amount.toFixed(2) : (row.amount || ''),
+  };
+}
+
+function summarizeHirePeriodRows(hirePeriods = []) {
+  const rows = (hirePeriods?.length ? hirePeriods : [{ ...EMPTY_HIRE }]).map(resolveHirePeriod);
+  const totalDays = rows.reduce((sum, row) => sum + (Number(row.days) || 0), 0);
+  const totalAmt = rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  return {
+    rows,
+    totalDays: totalDays ? Number(totalDays.toFixed(4)) : 0,
+    totalAmt: totalAmt.toFixed(2),
+  };
+}
+
+function summarizeOffHireRows(offHires = []) {
+  const rows = (offHires?.length ? offHires : [{ ...EMPTY_OFF }]).map(resolveOffHire);
+  const totalDays = rows.reduce((sum, row) => sum + (Number(row.days) || 0), 0);
+  const totalAmt = rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  return {
+    rows,
+    totalDays: totalDays ? Number(totalDays.toFixed(4)) : 0,
+    totalAmt: totalAmt.toFixed(2),
   };
 }
 
@@ -976,6 +1034,7 @@ function emptyForm(businessTypeId = '2') {
     otherExpenses: [{ ...EMPTY_EXPENSE }],
     offHires: [{ ...EMPTY_OFF }],
     offHireBunkers: [],
+    tcPeriodExtensions: [],
     tcInExpenses: emptyTcIn(),
   };
 }
@@ -1676,6 +1735,7 @@ export default function TcFixtureFormPage({
       };
       delete payload.attachmentFiles;
       delete payload.attachments;
+      delete payload.tcPeriodExtensions;
       let savedId = tcOutId;
       if (mode === 'add') {
         const created = await createTcEstimate(payload, attachmentFiles);
@@ -1899,6 +1959,145 @@ export default function TcFixtureFormPage({
     });
   };
 
+  const patchExtension = (extIndex, updater) => {
+    if (readOnly) return;
+    setForm((prev) => {
+      const list = [...(prev.tcPeriodExtensions || [])];
+      const current = list[extIndex] || emptyTcPeriodExtension();
+      list[extIndex] = updater(current);
+      return { ...prev, tcPeriodExtensions: list };
+    });
+  };
+
+  const addTcPeriodExtension = () => {
+    if (readOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      tcPeriodExtensions: [...(prev.tcPeriodExtensions || []), emptyTcPeriodExtension()],
+    }));
+  };
+
+  const removeTcPeriodExtension = (extIndex) => {
+    if (readOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      tcPeriodExtensions: (prev.tcPeriodExtensions || []).filter((_, i) => i !== extIndex),
+    }));
+  };
+
+  const patchExtensionTerm = (extIndex, key, value) => {
+    patchExtension(extIndex, (period) => ({
+      ...period,
+      terms: { ...emptyTcPeriodTerms(), ...period.terms, [key]: value },
+    }));
+  };
+
+  const patchExtensionHire = (extIndex, hireIndex, patch) => {
+    patchExtension(extIndex, (period) => {
+      const next = updateRow(period.hirePeriods || [{ ...EMPTY_HIRE }], hireIndex, patch).map(resolveHirePeriod);
+      return { ...period, hirePeriods: next };
+    });
+  };
+
+  const addExtensionHire = async (extIndex) => {
+    if (readOnly) return;
+    const rows = form.tcPeriodExtensions?.[extIndex]?.hirePeriods || [];
+    const block = getTcAddRowBlockMessage('hirePeriods', rows);
+    if (block) {
+      await alert({ title: 'Alert', message: block, confirmLabel: 'OK' });
+      return;
+    }
+    patchExtension(extIndex, (period) => ({
+      ...period,
+      hirePeriods: [...(period.hirePeriods || []), { ...EMPTY_HIRE }],
+    }));
+  };
+
+  const patchExtensionOffHire = (extIndex, offIndex, patch) => {
+    patchExtension(extIndex, (period) => {
+      const current = (period.offHires || [{ ...EMPTY_OFF }])[offIndex] || { ...EMPTY_OFF };
+      const nextPatch = { ...patch };
+      const datesChanging = Object.prototype.hasOwnProperty.call(patch, 'from')
+        || Object.prototype.hasOwnProperty.call(patch, 'to');
+      if (datesChanging && !Object.prototype.hasOwnProperty.call(patch, 'hireRate')) {
+        nextPatch.hireRate = hireRateForOffHireEvent({
+          from: Object.prototype.hasOwnProperty.call(patch, 'from') ? patch.from : current.from,
+          to: Object.prototype.hasOwnProperty.call(patch, 'to') ? patch.to : current.to,
+          hirePeriods: period.hirePeriods,
+          fallback: '',
+        });
+      }
+      return {
+        ...period,
+        offHires: updateRow(period.offHires || [{ ...EMPTY_OFF }], offIndex, nextPatch).map(resolveOffHire),
+      };
+    });
+  };
+
+  const addExtensionOffHire = async (extIndex) => {
+    if (readOnly) return;
+    const period = form.tcPeriodExtensions?.[extIndex] || emptyTcPeriodExtension();
+    const block = getTcAddRowBlockMessage('offHires', period.offHires || []);
+    if (block) {
+      await alert({ title: 'Alert', message: block, confirmLabel: 'OK' });
+      return;
+    }
+    patchExtension(extIndex, (p) => ({
+      ...p,
+      offHires: [
+        ...(p.offHires || []),
+        resolveOffHire({
+          ...EMPTY_OFF,
+          hireRate: hireRateForOffHireEvent({
+            hirePeriods: p.hirePeriods,
+            fallback: '',
+          }),
+        }),
+      ],
+    }));
+  };
+
+  const patchExtensionOffBunker = (extIndex, offIndex, bunkerIndex, patch) => {
+    patchExtension(extIndex, (period) => {
+      const offHires = [...(period.offHires || [{ ...EMPTY_OFF }])];
+      const offRow = { ...offHires[offIndex] };
+      const bunkers = updateRow(offRow.bunkers || [], bunkerIndex, patch).map((row) => {
+        const qty = Number(row.qty) || 0;
+        const price = Number(row.price) || 0;
+        return { ...row, amount: (qty || price) ? (qty * price).toFixed(2) : '' };
+      });
+      offHires[offIndex] = resolveOffHire({ ...offRow, bunkers });
+      return { ...period, offHires };
+    });
+  };
+
+  const addExtensionOffBunkers = (extIndex, offIndex) => {
+    patchExtension(extIndex, (period) => {
+      const offHires = [...(period.offHires || [{ ...EMPTY_OFF }])];
+      const offRow = { ...offHires[offIndex] };
+      const existing = offRow.bunkers || [];
+      const nextBunkers = existing.length
+        ? [...existing, { ...EMPTY_OFF_BUNKER }]
+        : defaultOffHireBunkers(lookups?.bunkers);
+      offHires[offIndex] = { ...offRow, bunkers: nextBunkers, bunkersOpen: true };
+      return { ...period, offHires };
+    });
+  };
+
+  const removeExtensionOffBunker = (extIndex, offIndex, bunkerIndex) => {
+    patchExtension(extIndex, (period) => {
+      const offHires = [...(period.offHires || [{ ...EMPTY_OFF }])];
+      const offRow = { ...offHires[offIndex] };
+      const bunkers = (offRow.bunkers || []).filter((_, i) => i !== bunkerIndex);
+      offHires[offIndex] = {
+        ...offRow,
+        bunkers,
+        bunkersOpen: bunkers.length > 0 ? offRow.bunkersOpen : false,
+      };
+      return { ...period, offHires };
+    });
+  };
+
   const patchOtherExpense = (index, patch) => {
     if (readOnly) return;
     setForm((prev) => ({
@@ -1990,19 +2189,15 @@ export default function TcFixtureFormPage({
     const defaultBunkerDate = kind === 'deliveryBunkers'
       ? (periods[0]?.delDate || form.delDate || '')
       : (periods[periods.length - 1]?.reDelDate || form.reDelDate || '');
+    const isFirst = kind === 'deliveryBunkers';
 
     return (
-    <TsecCard
-      theme="mustard"
-      tab={(
-        <>
-          Bunkers on
-          {' '}
-          <span className={styles.tsecDirChip}>{dirLabel}</span>
-        </>
-      )}
-      className={kind === 'deliveryBunkers' ? styles.tsecMustardFirst : ''}
-    >
+    <div className={styles.plainSubBlock}>
+      <div className={`${styles.subBlockLabel}${isFirst ? ` ${styles.subBlockLabelFirst}` : ''}`}>
+        Bunkers on
+        {' '}
+        {dirLabel}
+      </div>
       <div
         className={styles.fieldGrid}
         style={{ '--cols': '1fr 0.8fr 0.9fr 1.1fr 1fr 64px' }}
@@ -2093,7 +2288,7 @@ export default function TcFixtureFormPage({
         <span className={styles.tsecTotalLabel}>Total</span>
         <span>{sumBunkerAmounts(form[kind])}</span>
       </div>
-    </TsecCard>
+    </div>
     );
   };
 
@@ -2275,238 +2470,121 @@ export default function TcFixtureFormPage({
                   </Field>
                 </div>
               </CollapsiblePanel>
-              <CollapsiblePanel title="Vessel Particulars" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.vessel}>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Primary Data</div>
-                <div className={`${styles.denseGrid} ${styles.dense9}`}>
-                  <TextInput label="Vessel Code" value={form.vesselCode || form.vesselImoId || ''} readOnly />
-                  <TextInput label="IMO Number" value={form.imoNo} readOnly />
-                  <TextInput label="Year Built" value={form.yearBuild} readOnly />
-                  <TextInput label="Flag" value={form.flag1 || form.flag} readOnly />
-                  <TextInput label="Summer DWT (MT)" value={form.summerDwt} readOnly />
-                  <TextInput label="Summer Draft (M)" value={form.summerDraft} readOnly />
-                  <TextInput label="LOA (M)" value={form.loa1} readOnly />
-                  <TextInput label="Extreme Breadth (M)" value={form.breadth} readOnly />
-                  <TextInput label="GRT" value={form.grossTonn} readOnly />
-                  <TextInput label="NRT" value={form.netTonn} readOnly />
-                </div>
-                {!isDry ? (
-                  <>
-                    <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPadAbove}`}>Tanker Particulars</div>
-                    <div className={`${styles.denseGrid} ${styles.dense9}`}>
-                      <TextInput label="Cargo Tank Capacity (CBM)" value={form.cargoTankCap} readOnly />
-                      <TextInput label="No. of Grades (Double V/V Seg)" value={form.noOfGrades} readOnly />
-                      <TextInput label="No. of Cargo Pump (Main)" value={form.noOfCargoPumps} readOnly />
-                      <TextInput label="Total SBT Capacity (CBM)" value={form.totalSbtCap} readOnly />
-                      <TextInput label="Cargo Pump Main Cap (CBM/HR)" value={form.cargoPumpCap} readOnly />
-                    </div>
-                  </>
-                ) : null}
-                <button
-                  type="button"
-                  className={`${styles.connectBtn} ${styles.vpFullBtn}`}
-                  title="Opens the full vessel particulars"
-                  onClick={() => setVpModalOpen(true)}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ width: 13, height: 13 }}>
-                    <rect x="4" y="4" width="16" height="16" rx="2.5" />
-                    <path d="M4 9.5h16" />
-                    <path d="M8 4v3M16 4v3" />
-                  </svg>
-                  <span>Full Vessel Particulars</span>
-                </button>
-              </CollapsiblePanel>
               <CollapsiblePanel title="TC Details" defaultOpen className={styles.estCard} icon={SECTION_ICONS.tcDetails}>
-                <div className={styles.tcDetailsGrid}>
-                  <Field label="Laycan From/To *" className={styles.laycanWide}>
-                    <div className={styles.dateRangePair}>
-                      <DmyDateInput
-                        id="laycanFrom"
-                        value={form.laycanFrom || ''}
-                        onChange={(v) => setField('laycanFrom', v)}
-                        enableTime
-                        disabled={readOnly}
+                <div className={styles.tcdPeriods}>
+                  <TcPeriodBlock
+                    isPrimary
+                    terms={{
+                      laycanFrom: form.laycanFrom,
+                      laycanTo: form.laycanTo,
+                      exchangeCurrency: form.exchangeCurrency,
+                      exchangeRate: form.exchangeRate,
+                      delRangePort: form.delRangePort,
+                      reDelRange: form.reDelRange,
+                      ballastBonus: form.ballastBonus,
+                      cveMonth: form.cveMonth,
+                      ilohcUsd: form.ilohcUsd,
+                      addComm: form.addComm,
+                      brokerComm: form.brokerComm,
+                      broCommPayable: form.broCommPayable,
+                    }}
+                    onTermChange={setField}
+                    hirePeriods={form.hirePeriods}
+                    hireTotals={hirePeriodTotals}
+                    dailyHireFallback={dailyHireUsd}
+                    onPatchHire={patchHirePeriod}
+                    onAddHire={addHirePeriod}
+                    onRemoveHire={(index) => setForm((prev) => {
+                      const next = (prev.hirePeriods || []).length > 1
+                        ? prev.hirePeriods.filter((_, i) => i !== index)
+                        : [{ ...EMPTY_HIRE }];
+                      return { ...prev, hirePeriods: next, ...syncFixtureFromHirePeriods(next) };
+                    })}
+                    offHires={form.offHires}
+                    offTotals={offHireTotals}
+                    onPatchOff={patchOffHire}
+                    onAddOff={addOffHire}
+                    onRemoveOff={(index) => setForm((prev) => ({
+                      ...prev,
+                      offHires: (prev.offHires || []).length > 1
+                        ? prev.offHires.filter((_, i) => i !== index)
+                        : [{ ...EMPTY_OFF }],
+                    }))}
+                    onPatchOffBunker={patchOffHireNestedBunker}
+                    onAddOffBunkers={addOffHireBunkers}
+                    onRemoveOffBunker={removeOffHireBunker}
+                    resolveHirePeriod={resolveHirePeriod}
+                    resolveOffHire={resolveOffHire}
+                    emptyHire={{ ...EMPTY_HIRE }}
+                    emptyOff={{ ...EMPTY_OFF }}
+                    emptyOffBunker={{ ...EMPTY_OFF_BUNKER }}
+                    currencyOptions={lookups?.currencies || []}
+                    payableByOptions={lookups?.payableBy || []}
+                    vendorOptions={lookups?.charterers || []}
+                    bunkerOptions={lookups?.bunkers || []}
+                    gradeSelectClass={gradeSelectClass}
+                    sortBunkersVlsfoFirst={sortBunkersVlsfoFirst}
+                    readOnly={readOnly}
+                  />
+                  {(form.tcPeriodExtensions || []).map((period, extIndex) => {
+                    const hireTotalsExt = summarizeHirePeriodRows(period.hirePeriods);
+                    const offTotalsExt = summarizeOffHireRows(period.offHires);
+                    return (
+                      <TcPeriodBlock
+                        key={`tc-period-ext-${extIndex}`}
+                        periodNumber={extIndex + 2}
+                        onRemove={() => removeTcPeriodExtension(extIndex)}
+                        terms={{ ...emptyTcPeriodTerms(), ...period.terms }}
+                        onTermChange={(key, value) => patchExtensionTerm(extIndex, key, value)}
+                        hirePeriods={period.hirePeriods}
+                        hireTotals={hireTotalsExt}
+                        onPatchHire={(hireIndex, patch) => patchExtensionHire(extIndex, hireIndex, patch)}
+                        onAddHire={() => addExtensionHire(extIndex)}
+                        onRemoveHire={(hireIndex) => patchExtension(extIndex, (p) => ({
+                          ...p,
+                          hirePeriods: (p.hirePeriods || []).length > 1
+                            ? p.hirePeriods.filter((_, i) => i !== hireIndex)
+                            : [{ ...EMPTY_HIRE }],
+                        }))}
+                        offHires={period.offHires}
+                        offTotals={offTotalsExt}
+                        onPatchOff={(offIndex, patch) => patchExtensionOffHire(extIndex, offIndex, patch)}
+                        onAddOff={() => addExtensionOffHire(extIndex)}
+                        onRemoveOff={(offIndex) => patchExtension(extIndex, (p) => ({
+                          ...p,
+                          offHires: (p.offHires || []).length > 1
+                            ? p.offHires.filter((_, i) => i !== offIndex)
+                            : [{ ...EMPTY_OFF }],
+                        }))}
+                        onPatchOffBunker={(offIndex, bIndex, patch) => patchExtensionOffBunker(extIndex, offIndex, bIndex, patch)}
+                        onAddOffBunkers={(offIndex) => addExtensionOffBunkers(extIndex, offIndex)}
+                        onRemoveOffBunker={(offIndex, bIndex) => removeExtensionOffBunker(extIndex, offIndex, bIndex)}
+                        resolveHirePeriod={resolveHirePeriod}
+                        resolveOffHire={resolveOffHire}
+                        emptyHire={{ ...EMPTY_HIRE }}
+                        emptyOff={{ ...EMPTY_OFF }}
+                        emptyOffBunker={{ ...EMPTY_OFF_BUNKER }}
+                        currencyOptions={lookups?.currencies || []}
+                        payableByOptions={lookups?.payableBy || []}
+                        vendorOptions={lookups?.charterers || []}
+                        bunkerOptions={lookups?.bunkers || []}
+                        gradeSelectClass={gradeSelectClass}
+                        sortBunkersVlsfoFirst={sortBunkersVlsfoFirst}
+                        readOnly={readOnly}
                       />
-                      <DmyDateInput
-                        id="laycanTo"
-                        value={form.laycanTo || ''}
-                        onChange={(v) => setField('laycanTo', v)}
-                        enableTime
-                        disabled={readOnly}
-                      />
-                    </div>
-                  </Field>
-                  <Field label="Hire Currency *" id="exchangeCurrency">
-                    <CardSelect
-                      id="exchangeCurrency"
-                      options={lookups?.currencies || []}
-                      value={form.exchangeCurrency}
-                      onChange={(v) => setField('exchangeCurrency', v)}
-                      placeholder="Currency"
-                      ariaLabel="Hire currency"
-                    />
-                  </Field>
-                  <TextInput label="X-rate to USD" value={form.exchangeRate} onChange={(v) => setField('exchangeRate', v)} />
-                  <TextInput id="delRangePort" label="Del Port/Range *" value={form.delRangePort} onChange={(v) => setField('delRangePort', v)} />
-                  <TextInput id="reDelRange" label="Re-Del Port/Range *" value={form.reDelRange} onChange={(v) => setField('reDelRange', v)} />
-                  <TextInput
-                    id="ballastBonus"
-                    label="Ballast Bonus ($)"
-                    value={form.ballastBonus}
-                    onChange={(v) => setField('ballastBonus', v)}
-                  />
-                  <TextInput label="CVE/Month ($)" value={form.cveMonth} onChange={(v) => setField('cveMonth', v)} />
-                  <TextInput id="ilohcUsd" label="ILOHC *" value={form.ilohcUsd} onChange={(v) => setField('ilohcUsd', v)} />
-                  <TextInput label="AD Comm (%)" value={form.addComm} onChange={(v) => setField('addComm', v)} />
-                  <TextInput label="Brokerage (%)" value={form.brokerComm} onChange={(v) => setField('brokerComm', v)} />
-                  <Field label="Brokerage Paid By *" id="broCommPayable">
-                    <CardSelect
-                      id="broCommPayable"
-                      options={lookups?.payableBy || []}
-                      value={form.broCommPayable}
-                      onChange={(v) => setField('broCommPayable', v)}
-                      placeholder="Select"
-                      ariaLabel="Brokerage paid by"
-                    />
-                  </Field>
-                </div>
-              </CollapsiblePanel>
-              <CollapsiblePanel title="Pre-TC Details" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.preTc}>
-                <TsecCard theme="lblue" tab="Itinerary">
-                <div className={styles.tsecItineraryGrid}>
-                  <TextInput
-                    label="From"
-                    value={form.itinerary?.from?.place || ''}
-                    onChange={(v) => patchItinerary('from', 'place', v)}
-                  />
-                  <DateField
-                    label="Date/Time"
-                    value={form.itinerary?.from?.date || ''}
-                    onChange={(v) => patchItinerary('from', 'date', v)}
-                  />
-                  <Field label="Notes">
-                    <textarea
-                      value={form.itinerary?.from?.notes || ''}
-                      onChange={(e) => patchItinerary('from', 'notes', e.target.value)}
-                      placeholder="Notes..."
-                      readOnly={readOnly}
-                      className={readOnly ? styles.inputReadonly : undefined}
-                      rows={2}
-                    />
-                  </Field>
-                  <TextInput
-                    label="To"
-                    value={form.itinerary?.to?.place || ''}
-                    onChange={(v) => patchItinerary('to', 'place', v)}
-                  />
-                  <DateField
-                    label="Date/Time"
-                    value={form.itinerary?.to?.date || ''}
-                    onChange={(v) => patchItinerary('to', 'date', v)}
-                  />
-                  <Field label="Notes">
-                    <textarea
-                      value={form.itinerary?.to?.notes || ''}
-                      onChange={(e) => patchItinerary('to', 'notes', e.target.value)}
-                      placeholder="Notes..."
-                      readOnly={readOnly}
-                      className={readOnly ? styles.inputReadonly : undefined}
-                      rows={2}
-                    />
-                  </Field>
-                </div>
-                </TsecCard>
-
-                <TsecCard theme="navy" tab="Expenses">
-                <div
-                  className={styles.fieldGrid}
-                  style={{ '--cols': '1fr 1.3fr 0.9fr 1.4fr 64px' }}
-                >
-                  <div className={styles.fgHead}>Expense Type</div>
-                  <div className={styles.fgHead}>Expense Description</div>
-                  <div className={styles.fgHead}>Amount</div>
-                  <div className={styles.fgHead}>Notes</div>
-                  <div className={styles.fgHead} />
-                  {(form.itineraryExpenses || []).map((row, index) => {
-                      const expenseDescOptions = lookups?.ownerRelatedCosts || [];
-                      const storedDesc = String(row.description || row.expenseDescId || '').trim();
-                      const expenseDescValue = expenseDescOptions.find((opt) => String(opt.id) === storedDesc)?.id
-                        || expenseDescOptions.find((opt) => opt.name === storedDesc)?.id
-                        || storedDesc;
-                      return (
-                      <React.Fragment key={`itin-exp-${index}`}>
-                        <div className={styles.fgCell}>
-                          <TableCardSelect
-                            options={OWNER_CHARTERER_OPTIONS}
-                            value={row.expenseType || ''}
-                            onChange={(v) => patchItinExpense(index, { expenseType: v })}
-                            disabled={readOnly}
-                            className={ownerChipClass(row.expenseType)}
-                            placeholder="Select"
-                            ariaLabel="Expense type"
-                          />
-                        </div>
-                        <div className={styles.fgCell}>
-                          <TableCardSelect
-                            options={[
-                              ...expenseDescOptions,
-                              ...(expenseDescValue
-                                && !expenseDescOptions.some((opt) => String(opt.id) === String(expenseDescValue))
-                                ? [{ id: String(expenseDescValue), name: String(expenseDescValue) }]
-                                : []),
-                            ]}
-                            value={expenseDescValue ? String(expenseDescValue) : ''}
-                            onChange={(v) => {
-                              patchItinExpense(index, {
-                                expenseDescId: v,
-                                description: v || '',
-                              });
-                            }}
-                            disabled={readOnly}
-                            placeholder="Select from list"
-                            ariaLabel="Expense description"
-                          />
-                        </div>
-                        <div className={styles.fgCell}>
-                          <input
-                            value={row.amount || ''}
-                            onChange={(e) => patchItinExpense(index, { amount: e.target.value })}
-                            readOnly={readOnly}
-                            className={readOnly ? styles.inputReadonly : undefined}
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div className={styles.fgCell}>
-                          <input
-                            value={row.notes || ''}
-                            onChange={(e) => patchItinExpense(index, { notes: e.target.value })}
-                            readOnly={readOnly}
-                            className={readOnly ? styles.inputReadonly : undefined}
-                            placeholder="Notes"
-                          />
-                        </div>
-                        <div className={styles.fgCell}>
-                          {!readOnly ? (
-                            <div className="rowActions">
-                              <RowAddButton
-                                title="Add expense"
-                                onClick={addItinExpense}
-                              />
-                              <RowDelButton
-                                title="Delete row"
-                                onClick={() => removeItinExpense(index)}
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      </React.Fragment>
-                      );
+                    );
                   })}
                 </div>
-                <div className={styles.tsecTotalRow}>
-                  <span className={styles.tsecTotalLabel}>Total</span>
-                  <span>{itineraryExpenseTotal.toFixed(2)}</span>
-                </div>
-                </TsecCard>
+                {!readOnly ? (
+                  <button
+                    type="button"
+                    className={`${styles.tsecAddBtn} ${styles.addPeriodBtn}`}
+                    onClick={addTcPeriodExtension}
+                  >
+                    <PlusIcon />
+                    Add Period (Extension)
+                  </button>
+                ) : null}
               </CollapsiblePanel>
               <CollapsiblePanel title="TC Expenses" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.expenses}>
                 <TsecCard theme="navy" tab="TC Expenses">
@@ -2722,291 +2800,183 @@ export default function TcFixtureFormPage({
                   </div>
                 ) : null}
               </CollapsiblePanel>
-              <CollapsiblePanel title="Trip Details" defaultOpen className={styles.estCard} icon={SECTION_ICONS.trip}>
-                <TsecCard theme="lblue" tab="Trip Schedule" className={styles.tsecTripSchedule}>
+              <CollapsiblePanel title="Vessel Particulars" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.vessel}>
+                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Primary Data</div>
+                <div className={`${styles.denseGrid} ${styles.dense9}`}>
+                  <TextInput label="Master's Name" value={form.mastersName} onChange={(v) => setField('mastersName', v)} />
+                  <TextInput label="Vessel Code" value={form.vesselCode || form.vesselImoId || ''} readOnly />
+                  <TextInput label="IMO Number" value={form.imoNo} readOnly />
+                  <TextInput label="Year Built" value={form.yearBuild} readOnly />
+                  <TextInput label="Flag" value={form.flag1 || form.flag} readOnly />
+                  <TextInput label="Summer DWT (MT)" value={form.summerDwt} readOnly />
+                  <TextInput label="Summer Draft (M)" value={form.summerDraft} readOnly />
+                  <TextInput label="LOA (M)" value={form.loa1} readOnly />
+                  <TextInput label="Extreme Breadth (M)" value={form.breadth} readOnly />
+                  <TextInput label="GRT" value={form.grossTonn} readOnly />
+                  <TextInput label="NRT" value={form.netTonn} readOnly />
+                </div>
+                {!isDry ? (
+                  <>
+                    <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPadAbove}`}>Tanker Particulars</div>
+                    <div className={`${styles.denseGrid} ${styles.dense9}`}>
+                      <TextInput label="Cargo Tank Capacity (CBM)" value={form.cargoTankCap} readOnly />
+                      <TextInput label="No. of Grades (Double V/V Seg)" value={form.noOfGrades} readOnly />
+                      <TextInput label="No. of Cargo Pump (Main)" value={form.noOfCargoPumps} readOnly />
+                      <TextInput label="Total SBT Capacity (CBM)" value={form.totalSbtCap} readOnly />
+                      <TextInput label="Cargo Pump Main Cap (CBM/HR)" value={form.cargoPumpCap} readOnly />
+                    </div>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  className={`${styles.connectBtn} ${styles.vpFullBtn}`}
+                  title="Opens the full vessel particulars"
+                  onClick={() => setVpModalOpen(true)}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ width: 13, height: 13 }}>
+                    <rect x="4" y="4" width="16" height="16" rx="2.5" />
+                    <path d="M4 9.5h16" />
+                    <path d="M8 4v3M16 4v3" />
+                  </svg>
+                  <span>Full Vessel Particulars</span>
+                </button>
+              </CollapsiblePanel>
+              <CollapsiblePanel title="Pre-TC Details" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.preTc}>
+                <TsecCard theme="lblue" tab="Itinerary">
+                <div className={styles.tsecItineraryGrid}>
+                  <TextInput
+                    label="From"
+                    value={form.itinerary?.from?.place || ''}
+                    onChange={(v) => patchItinerary('from', 'place', v)}
+                  />
+                  <DateField
+                    label="Date/Time"
+                    value={form.itinerary?.from?.date || ''}
+                    onChange={(v) => patchItinerary('from', 'date', v)}
+                  />
+                  <Field label="Notes">
+                    <textarea
+                      value={form.itinerary?.from?.notes || ''}
+                      onChange={(e) => patchItinerary('from', 'notes', e.target.value)}
+                      placeholder="Notes..."
+                      readOnly={readOnly}
+                      className={readOnly ? styles.inputReadonly : undefined}
+                      rows={2}
+                    />
+                  </Field>
+                  <TextInput
+                    label="To"
+                    value={form.itinerary?.to?.place || ''}
+                    onChange={(v) => patchItinerary('to', 'place', v)}
+                  />
+                  <DateField
+                    label="Date/Time"
+                    value={form.itinerary?.to?.date || ''}
+                    onChange={(v) => patchItinerary('to', 'date', v)}
+                  />
+                  <Field label="Notes">
+                    <textarea
+                      value={form.itinerary?.to?.notes || ''}
+                      onChange={(e) => patchItinerary('to', 'notes', e.target.value)}
+                      placeholder="Notes..."
+                      readOnly={readOnly}
+                      className={readOnly ? styles.inputReadonly : undefined}
+                      rows={2}
+                    />
+                  </Field>
+                </div>
+                </TsecCard>
+
+                <TsecCard theme="navy" tab="Expenses">
                 <div
                   className={styles.fieldGrid}
-                  style={{ '--cols': '1.3fr 1.3fr 0.6fr 0.9fr 1fr 64px' }}
+                  style={{ '--cols': '1fr 1.3fr 0.9fr 1.4fr 64px' }}
                 >
-                  <div className={styles.fgHead}>Delivery Date (From) *</div>
-                  <div className={styles.fgHead}>Redelivery Date (To) *</div>
-                  <div className={styles.fgHead}>Days</div>
-                  <div className={styles.fgHead}>Hire ($/day) *</div>
-                  <div className={styles.fgHead}>Hire Amt ($)</div>
+                  <div className={styles.fgHead}>Expense Type</div>
+                  <div className={styles.fgHead}>Expense Description</div>
+                  <div className={styles.fgHead}>Amount</div>
+                  <div className={styles.fgHead}>Notes</div>
                   <div className={styles.fgHead} />
-                  {(form.hirePeriods?.length ? form.hirePeriods : [{ ...EMPTY_HIRE }]).map((row, index) => {
-                    const resolved = hirePeriodTotals.rows[index] || resolveHirePeriod(row);
-                    return (
-                      <React.Fragment key={`hire-${index}`}>
+                  {(form.itineraryExpenses || []).map((row, index) => {
+                      const expenseDescOptions = lookups?.ownerRelatedCosts || [];
+                      const storedDesc = String(row.description || row.expenseDescId || '').trim();
+                      const expenseDescValue = expenseDescOptions.find((opt) => String(opt.id) === storedDesc)?.id
+                        || expenseDescOptions.find((opt) => opt.name === storedDesc)?.id
+                        || storedDesc;
+                      return (
+                      <React.Fragment key={`itin-exp-${index}`}>
                         <div className={styles.fgCell}>
-                          <DmyDateInput
-                            id={index === 0 ? 'hireDelDate_0' : undefined}
-                            value={row.delDate || ''}
-                            onChange={(v) => patchHirePeriod(index, { delDate: v })}
-                            enableTime
+                          <TableCardSelect
+                            options={OWNER_CHARTERER_OPTIONS}
+                            value={row.expenseType || ''}
+                            onChange={(v) => patchItinExpense(index, { expenseType: v })}
                             disabled={readOnly}
+                            className={ownerChipClass(row.expenseType)}
+                            placeholder="Select"
+                            ariaLabel="Expense type"
                           />
                         </div>
                         <div className={styles.fgCell}>
-                          <DmyDateInput
-                            id={index === 0 ? 'hireReDelDate_0' : undefined}
-                            value={row.reDelDate || ''}
-                            onChange={(v) => patchHirePeriod(index, { reDelDate: v })}
-                            enableTime
+                          <TableCardSelect
+                            options={[
+                              ...expenseDescOptions,
+                              ...(expenseDescValue
+                                && !expenseDescOptions.some((opt) => String(opt.id) === String(expenseDescValue))
+                                ? [{ id: String(expenseDescValue), name: String(expenseDescValue) }]
+                                : []),
+                            ]}
+                            value={expenseDescValue ? String(expenseDescValue) : ''}
+                            onChange={(v) => {
+                              patchItinExpense(index, {
+                                expenseDescId: v,
+                                description: v || '',
+                              });
+                            }}
                             disabled={readOnly}
+                            placeholder="Select from list"
+                            ariaLabel="Expense description"
                           />
                         </div>
                         <div className={styles.fgCell}>
                           <input
-                            value={resolved.days || ''}
-                            onChange={(e) => patchHirePeriod(index, { days: e.target.value })}
-                            readOnly={readOnly || Boolean(row.delDate && row.reDelDate)}
-                            className={(readOnly || (row.delDate && row.reDelDate)) ? styles.inputReadonly : undefined}
-                            placeholder="0"
-                          />
-                        </div>
-                        <div className={styles.fgCell}>
-                          <input
-                            id={index === 0 ? 'hireRate_0' : undefined}
-                            value={row.hireRate || ''}
-                            onChange={(e) => patchHirePeriod(index, { hireRate: e.target.value })}
+                            value={row.amount || ''}
+                            onChange={(e) => patchItinExpense(index, { amount: e.target.value })}
                             readOnly={readOnly}
                             className={readOnly ? styles.inputReadonly : undefined}
                             placeholder="0.00"
                           />
                         </div>
                         <div className={styles.fgCell}>
-                          <input value={resolved.amount || dailyHireUsd} readOnly className={styles.inputReadonly} placeholder="0.00" />
+                          <input
+                            value={row.notes || ''}
+                            onChange={(e) => patchItinExpense(index, { notes: e.target.value })}
+                            readOnly={readOnly}
+                            className={readOnly ? styles.inputReadonly : undefined}
+                            placeholder="Notes"
+                          />
                         </div>
                         <div className={styles.fgCell}>
                           {!readOnly ? (
                             <div className="rowActions">
                               <RowAddButton
-                                title="Add a new trip"
-                                onClick={addHirePeriod}
+                                title="Add expense"
+                                onClick={addItinExpense}
                               />
                               <RowDelButton
                                 title="Delete row"
-                                onClick={() => setForm((prev) => {
-                                  const next = (prev.hirePeriods || []).length > 1
-                                    ? prev.hirePeriods.filter((_, i) => i !== index)
-                                    : [{ ...EMPTY_HIRE }];
-                                  return { ...prev, hirePeriods: next, ...syncFixtureFromHirePeriods(next) };
-                                })}
+                                onClick={() => removeItinExpense(index)}
                               />
                             </div>
                           ) : null}
                         </div>
                       </React.Fragment>
-                    );
+                      );
                   })}
                 </div>
                 <div className={styles.tsecTotalRow}>
                   <span className={styles.tsecTotalLabel}>Total</span>
-                  <span>{hirePeriodTotals.totalDays || '0'} days / {hirePeriodTotals.totalAmt || '0.00'}</span>
+                  <span>{itineraryExpenseTotal.toFixed(2)}</span>
                 </div>
-                </TsecCard>
-                <TsecCard theme="navy" tab="Off Hire">
-                <div className={styles.offhireList}>
-                  {(form.offHires?.length ? form.offHires : [{ ...EMPTY_OFF }]).map((row, index) => {
-                    const resolved = resolveOffHire(row);
-                    const showBunkers = row.bunkersOpen || (row.bunkers || []).length > 0;
-                    return (
-                      <div key={`off-${index}`} className={styles.offhireItem}>
-                        <div
-                          className={styles.fieldGrid}
-                          style={{ '--cols': '1.8fr 1fr 1fr 0.55fr 0.8fr 1.6fr 0.9fr 44px' }}
-                        >
-                          {index === 0 ? (
-                            <>
-                              <div className={styles.fgHead}>Reason</div>
-                              <div className={styles.fgHead}>From</div>
-                              <div className={styles.fgHead}>To</div>
-                              <div className={styles.fgHead}>Days</div>
-                              <div className={styles.fgHead}>Rate/Day</div>
-                              <div className={styles.fgHead}>Vendor</div>
-                              <div className={styles.fgHead}>Amount</div>
-                              <div className={styles.fgHead} />
-                            </>
-                          ) : null}
-                          <div className={styles.fgCell}>
-                            <input
-                              value={row.reason || ''}
-                              onChange={(e) => patchOffHire(index, { reason: e.target.value })}
-                              placeholder="Description"
-                              readOnly={readOnly}
-                              className={readOnly ? styles.inputReadonly : undefined}
-                            />
-                          </div>
-                          <div className={styles.fgCell}>
-                            <DmyDateInput
-                              value={row.from || ''}
-                              onChange={(v) => patchOffHire(index, { from: v })}
-                              enableTime
-                              disabled={readOnly}
-                            />
-                          </div>
-                          <div className={styles.fgCell}>
-                            <DmyDateInput
-                              value={row.to || ''}
-                              onChange={(v) => patchOffHire(index, { to: v })}
-                              enableTime
-                              disabled={readOnly}
-                            />
-                          </div>
-                          <div className={styles.fgCell}>
-                            <input
-                              value={resolved.days || ''}
-                              onChange={(e) => patchOffHire(index, { days: e.target.value })}
-                              readOnly={readOnly || Boolean(row.from && row.to)}
-                              className={(readOnly || (row.from && row.to)) ? styles.inputReadonly : undefined}
-                            />
-                          </div>
-                          <div className={styles.fgCell}>
-                            <input
-                              value={row.hireRate || ''}
-                              onChange={(e) => patchOffHire(index, { hireRate: e.target.value })}
-                              readOnly={readOnly}
-                              className={readOnly ? styles.inputReadonly : undefined}
-                            />
-                          </div>
-                          <div className={styles.fgCell}>
-                            <TableCardSelect
-                              options={lookups?.charterers || []}
-                              value={row.vendorId || ''}
-                              onChange={(v) => patchOffHire(index, { vendorId: v })}
-                              disabled={readOnly}
-                              placeholder="Select"
-                              ariaLabel="Off hire vendor"
-                            />
-                          </div>
-                          <div className={styles.fgCell}>
-                            <input
-                              value={resolved.amount || ''}
-                              readOnly
-                              className={styles.inputReadonly}
-                            />
-                          </div>
-                          <div className={styles.fgCell}>
-                            {!readOnly ? (
-                              <div className="rowActions">
-                                <RowDelButton
-                                  title="Delete this off-hire item"
-                                  onClick={() => setForm((prev) => ({
-                                    ...prev,
-                                    offHires: (prev.offHires || []).length > 1
-                                      ? prev.offHires.filter((_, i) => i !== index)
-                                      : [{ ...EMPTY_OFF }],
-                                  }))}
-                                />
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className={styles.offhireBunkers}>
-                          {showBunkers ? (
-                            <div className={styles.offhireBunkersInner}>
-                              <div
-                                className={styles.fieldGrid}
-                                style={{ '--cols': '1.2fr 0.8fr 0.9fr 1fr 44px' }}
-                              >
-                                <div className={styles.fgHead}>Grade</div>
-                                <div className={styles.fgHead}>Qty (MT)</div>
-                                <div className={styles.fgHead}>Price (/MT)</div>
-                                <div className={styles.fgHead}>Amount</div>
-                                <div className={styles.fgHead} />
-                                {(row.bunkers?.length ? row.bunkers : [{ ...EMPTY_OFF_BUNKER }]).map((bunker, bIndex) => {
-                                  const bunkerOptions = sortBunkersVlsfoFirst(lookups?.bunkers || []);
-                                  const gradeName = bunker.gradeName
-                                    || bunkerOptions.find((b) => String(b.id) === String(bunker.bunkerId))?.name
-                                    || '';
-                                  return (
-                                    <React.Fragment key={`ohb-${index}-${bIndex}`}>
-                                      <div className={styles.fgCell}>
-                                        <TableCardSelect
-                                          options={[
-                                            ...bunkerOptions,
-                                            ...(bunker.bunkerId
-                                              && !bunkerOptions.some((b) => String(b.id) === String(bunker.bunkerId))
-                                              ? [{ id: String(bunker.bunkerId), name: gradeName || `Grade #${bunker.bunkerId}` }]
-                                              : []),
-                                          ]}
-                                          value={bunker.bunkerId || ''}
-                                          onChange={(v) => {
-                                            const match = bunkerOptions.find((b) => String(b.id) === String(v));
-                                            patchOffHireNestedBunker(index, bIndex, {
-                                              bunkerId: v,
-                                              gradeName: match?.name || '',
-                                            });
-                                          }}
-                                          disabled={readOnly}
-                                          className={gradeSelectClass(gradeName)}
-                                          placeholder="Select"
-                                          ariaLabel="Off hire bunker grade"
-                                        />
-                                      </div>
-                                      <div className={styles.fgCell}>
-                                        <input
-                                          value={bunker.qty || ''}
-                                          onChange={(e) => patchOffHireNestedBunker(index, bIndex, { qty: e.target.value })}
-                                          readOnly={readOnly}
-                                          className={readOnly ? styles.inputReadonly : undefined}
-                                        />
-                                      </div>
-                                      <div className={styles.fgCell}>
-                                        <input
-                                          value={bunker.price || ''}
-                                          onChange={(e) => patchOffHireNestedBunker(index, bIndex, { price: e.target.value })}
-                                          readOnly={readOnly}
-                                          className={readOnly ? styles.inputReadonly : undefined}
-                                        />
-                                      </div>
-                                      <div className={styles.fgCell}>
-                                        <input value={bunker.amount || ''} readOnly className={styles.inputReadonly} />
-                                      </div>
-                                      <div className={styles.fgCell}>
-                                        {!readOnly ? (
-                                          <div className="rowActions">
-                                            <RowDelButton
-                                              title="Delete bunker row"
-                                              onClick={() => removeOffHireBunker(index, bIndex)}
-                                            />
-                                          </div>
-                                        ) : null}
-                                      </div>
-                                    </React.Fragment>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ) : null}
-                          {!readOnly ? (
-                            <button
-                              type="button"
-                              className={`${styles.tsecAddBtn} ${styles.tsecAddBtnSlate}`}
-                              onClick={() => addOffHireBunkers(index)}
-                            >
-                              + Add Bunkers
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className={styles.tsecTotalRow}>
-                  <span className={styles.tsecTotalLabel}>Total</span>
-                  <span>{offHireTotals.totalDays || '0'} days / {offHireTotals.totalAmt || '0.00'}</span>
-                </div>
-                {!readOnly ? (
-                  <button
-                    type="button"
-                    className={`${styles.tsecAddBtn} ${styles.tsecAddBtnNavy}`}
-                    onClick={addOffHire}
-                  >
-                    + Add Reason
-                  </button>
-                ) : null}
                 </TsecCard>
               </CollapsiblePanel>
               <CollapsiblePanel title="Bunkers" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.bunkers}>
@@ -3080,8 +3050,7 @@ export default function TcFixtureFormPage({
             </div>
 
                         <aside className={styles.estRhs}>
-              <div className={styles.resultsBlock}>
-                <div className={styles.resultsHead}>Revenue</div>
+              <CollapsiblePanel title="Revenue" defaultOpen className={styles.resultsBlock}>
                 <div className={styles.resultsBody}>
                   <div className={`${styles.resRow} ${styles.resRowAccent}`}>
                     <span className={styles.resRowLabel}>Total Revenue</span>
@@ -3104,10 +3073,9 @@ export default function TcFixtureFormPage({
                     <span className={styles.resRowVal}>{tcResults.netHirePerDay}</span>
                   </div>
                 </div>
-              </div>
+              </CollapsiblePanel>
 
-              <div className={styles.resultsBlock}>
-                <div className={styles.resultsHead}>Expenses</div>
+              <CollapsiblePanel title="Expenses" defaultOpen className={styles.resultsBlock}>
                 <div className={styles.resultsBody}>
                   <div className={styles.resRow}>
                     <span className={styles.resRowLabel}>Ref Charterers</span>
@@ -3122,10 +3090,9 @@ export default function TcFixtureFormPage({
                     <span className={styles.resRowVal}>{tcResults.totalExp}</span>
                   </div>
                 </div>
-              </div>
+              </CollapsiblePanel>
 
-              <div className={styles.resultsBlock}>
-                <div className={styles.resultsHead}>P&amp;L</div>
+              <CollapsiblePanel title="P&L" defaultOpen className={styles.resultsBlock}>
                 <div className={styles.resultsBody}>
                   <div className={`${styles.resRow} ${styles.resRowAccentOrange}`}>
                     <span className={styles.resRowLabel}>TC Earnings</span>
@@ -3144,7 +3111,7 @@ export default function TcFixtureFormPage({
                     <span className={styles.resRowVal}>{tcResults.profitPerDay}</span>
                   </div>
                 </div>
-              </div>
+              </CollapsiblePanel>
             </aside>
           </div>
 

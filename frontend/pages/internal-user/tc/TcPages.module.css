@@ -1075,6 +1075,41 @@
   align-self: flex-start;
 }
 
+/* RHS results CollapsiblePanel — keep navy header look */
+.estRhs :global(section) {
+  margin-bottom: 0 !important;
+}
+
+.estRhs :global(section) > div:first-child {
+  background: var(--color-primary, #274670) !important;
+  color: #fff !important;
+  border-bottom: 1px solid #1c3558;
+  padding: 13px 18px !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  border-radius: 14px 14px 0 0;
+}
+
+.estRhs :global(section)[class*='panelClosed'] > div:first-child {
+  border-radius: 14px;
+  border-bottom-color: transparent;
+}
+
+.estRhs :global(section) > div:first-child button {
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  gap: 8px;
+}
+
+.estRhs :global(section) > div:first-child button > span:first-child {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.estRhs :global(section) > div:nth-child(2) {
+  padding: 0 !important;
+}
+
 /* TC Recap accordion cards — white card, teal section icon */
 .estCard {
   background: #fff !important;
@@ -1139,6 +1174,94 @@
   margin-top: 18px;
 }
 
+.plainSubBlock {
+  margin-top: 4px;
+}
+
+.plainSubBlock + .plainSubBlock {
+  margin-top: 8px;
+}
+
+.plainSubBlock .tsecTotalRow {
+  background: #f1f2f4;
+  color: #1b2430;
+}
+
+.plainSubBlock .tsecTotalLabel {
+  color: #5b6472;
+  opacity: 1;
+}
+
+/* Merged TC Details — multi-period extensions (Add Period) */
+.tcdPeriods {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.tcdPeriodBlock + .tcdPeriodBlock {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1.5px dashed var(--color-border, #d9dee8);
+}
+
+.tcdPeriodHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.tcdPeriodLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1d4ed8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tcdPeriodRemove {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.tcdPeriodRemove:hover {
+  color: #c22a20;
+}
+
+.addPeriodBtn {
+  margin-top: 20px;
+  background: transparent;
+  border: 2px dashed #1d4ed8;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 8px;
+  gap: 6px;
+}
+
+.addPeriodBtn svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
+.addPeriodBtn:hover,
+.addPeriodBtn:focus-visible {
+  border-style: solid;
+  outline: none;
+  background: rgba(29, 78, 216, 0.08);
+}
+
 /* Absolute-tab section cards (Add_TC_Recap Round 14–18) */
 .tsecCard {
   --tsec-lblue: #23426b;
@@ -1154,6 +1277,15 @@
   --tsec-mustard-tint-strong: #bd9553;
   --tsec-mustard-chip-bg: #dbc597;
   --tsec-mustard-chip-text: #92400e;
+  /* Round 21 merged TC Details: light → mid → navy */
+  --tcd-light: #3b82f6;
+  --tcd-light-tint: #eff6ff;
+  --tcd-light-tint-strong: #dbeafe;
+  --tcd-mid: #1d4ed8;
+  --tcd-mid-tint: #dbeafe;
+  --tcd-mid-tint-strong: #bfdbfe;
+  --tcd-mid-head-bg: #bfdbfe;
+  --tcd-mid-head-text: #1e3a8a;
 
   position: relative;
   padding: 40px 16px 20px;
@@ -1189,6 +1321,16 @@
   border-color: var(--tsec-mustard-tint-strong);
 }
 
+.tsecTcdLight {
+  background: var(--tcd-light-tint);
+  border-color: var(--tcd-light-tint-strong);
+}
+
+.tsecTcdMid {
+  background: var(--tcd-mid-tint);
+  border-color: var(--tcd-mid-tint-strong);
+}
+
 .tsecTab {
   position: absolute;
   top: -1px;
@@ -1213,6 +1355,14 @@
 
 .tsecTabMustard {
   background: var(--tsec-mustard);
+}
+
+.tsecTabTcdLight {
+  background: var(--tcd-light);
+}
+
+.tsecTabTcdMid {
+  background: var(--tcd-mid);
 }
 
 .tsecTab .bgDirChip,
@@ -1269,6 +1419,30 @@
 .tsecNavy .tsecTotalLabel {
   color: var(--tsec-navy);
   opacity: 1;
+}
+
+.tsecTcdMid .tsecTotalRow {
+  background: var(--tcd-mid-tint-strong);
+  color: var(--tcd-mid);
+}
+
+.tsecTcdMid .tsecTotalLabel {
+  color: var(--tcd-mid);
+  opacity: 1;
+}
+
+.tsecTcdMid .fgHead {
+  background: var(--tcd-mid-head-bg);
+  color: var(--tcd-mid-head-text);
+  border-bottom: none;
+  padding: 7px 8px;
+  border-radius: 5px 5px 0 0;
+}
+
+.tsecTcdMid .fgHead:empty {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 
 .tsecMustard .tsecTotalRow {
@@ -1369,6 +1543,12 @@
   border-radius: 8px;
   padding: 7px 12px;
   cursor: pointer;
+}
+
+.tsecAddBtn svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
 }
 
 .tsecAddBtn:hover,

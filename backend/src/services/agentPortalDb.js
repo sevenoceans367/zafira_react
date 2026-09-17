@@ -146,15 +146,38 @@ async function loadLetterContext(pool, genAgencyId) {
     throw error;
   }
 
-  const [[voyage]] = await pool.query(
-    `SELECT f.VOYAGE_NO, f.FCAID, v.VESSEL_NAME
-     FROM freight_cost_estimete_master f
-     LEFT JOIN vessel_imo_master v ON v.VESSEL_IMO_ID = f.VESSEL_IMO_ID
-     WHERE f.COMID = ?
-     ORDER BY f.FCAID DESC
+  const [[compare]] = await pool.query(
+    `SELECT c.FCAID, m.VOYAGE_NO, m.VESSEL_IMO_ID, v.VESSEL_NAME
+     FROM freight_cost_estimate_compare c
+     LEFT JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
+     LEFT JOIN vessel_imo_master v ON v.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+     WHERE c.COMID = ?
+     ORDER BY c.FCAID DESC
      LIMIT 1`,
     [letter.COMID],
   ).catch(() => [[null]]);
+
+  let voyage = compare || null;
+  if (!String(voyage?.VOYAGE_NO || '').trim()) {
+    const [[latest]] = await pool.query(
+      `SELECT f.VOYAGE_NO, f.FCAID, f.VESSEL_IMO_ID, v.VESSEL_NAME
+       FROM freight_cost_estimete_master f
+       LEFT JOIN vessel_imo_master v ON v.VESSEL_IMO_ID = f.VESSEL_IMO_ID
+       WHERE f.COMID = ?
+       ORDER BY f.FCAID DESC
+       LIMIT 1`,
+      [letter.COMID],
+    ).catch(() => [[null]]);
+    if (latest) {
+      voyage = {
+        ...(voyage || {}),
+        ...latest,
+        VOYAGE_NO: latest.VOYAGE_NO || voyage?.VOYAGE_NO,
+        VESSEL_NAME: voyage?.VESSEL_NAME || latest.VESSEL_NAME,
+        FCAID: voyage?.FCAID || latest.FCAID,
+      };
+    }
+  }
 
   const [[port]] = await pool.query(
     `SELECT PortName, COUNTRY_KEY, COUNTRY_NAME FROM port_master WHERE PortId = ? LIMIT 1`,

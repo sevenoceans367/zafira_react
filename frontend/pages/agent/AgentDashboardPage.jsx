@@ -174,10 +174,10 @@ export default function AgentDashboardPage() {
                 <th>Voyage No.</th>
                 <th>Vessel</th>
                 <th>Port Rotation</th>
-                <th>Voyage Documents</th>
+                <th>SOF</th>
                 <th>Initial PDA</th>
                 <th>FDA</th>
-                <th>SOF</th>
+                <th>Voyage Documents</th>
               </tr>
             </thead>
             <tbody>
@@ -195,14 +195,14 @@ export default function AgentDashboardPage() {
                     <td>{voyage.vessel}</td>
                     <td><PortRotation ports={voyage.ports} /></td>
                     <td>
-                      <div className={styles.docCol}>
-                        <button type="button" className={styles.docBtn} disabled title="Documents coming soon">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z" />
-                            <path d="M14 3v5h5" />
-                          </svg>
-                          Documents
-                        </button>
+                      <div className={styles.pdaCol}>
+                        <StatusChip status={voyage.sof || 'notstarted'} />
+                        <Link
+                          to="/agent/sof"
+                          className={`${styles.btnMini} ${styles.btnOutline}`}
+                        >
+                          {(voyage.sof || 'notstarted') === 'notstarted' ? 'Start SOF' : 'Open SOF'}
+                        </Link>
                       </div>
                     </td>
                     <td>
@@ -231,6 +231,7 @@ export default function AgentDashboardPage() {
                             type="button"
                             className={`${styles.btnMini} ${styles.btnDisabled}`}
                             disabled
+                            title="Available once Initial PDA has been submitted"
                           >
                             Awaiting PDA
                           </button>
@@ -238,14 +239,21 @@ export default function AgentDashboardPage() {
                       </div>
                     </td>
                     <td>
-                      <div className={styles.pdaCol}>
-                        <StatusChip status={voyage.sof || 'notstarted'} />
-                        <Link
-                          to="/agent/sof"
-                          className={`${styles.btnMini} ${styles.btnOutline}`}
-                        >
-                          {(voyage.sof || 'notstarted') === 'notstarted' ? 'Start SOF' : 'Open SOF'}
-                        </Link>
+                      <div className={styles.docCol}>
+                        <button type="button" className={styles.docBtn} disabled title="Documents coming soon">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M12 15V3M7 10l5 5 5-5" />
+                            <path d="M4 21h16" />
+                          </svg>
+                          PDA Request Letter
+                        </button>
+                        <button type="button" className={styles.docBtn} disabled title="Documents coming soon">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M12 15V3M7 10l5 5 5-5" />
+                            <path d="M4 21h16" />
+                          </svg>
+                          Bunker Stemmed Letter
+                        </button>
                       </div>
                     </td>
                   </tr>

@@ -138,6 +138,12 @@ export default function LoginPage() {
               >
                 Support
               </a>
+              <a
+                className={styles.ghostPill}
+                href={appPath('/agent/login')}
+              >
+                Agent Portal
+              </a>
             </div>
           </div>
         </section>

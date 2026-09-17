@@ -339,6 +339,11 @@ export async function dbGetAgentPortCost(agentUser, mode = 'pda') {
       port: portLabel,
       portType: letter.PORT || '',
       portId: letter.PORTID != null ? String(letter.PORTID) : '',
+      country: (() => {
+        const name = String(port?.COUNTRY_NAME || '').trim();
+        if (name && !/^\d+$/.test(name)) return name;
+        return String(port?.COUNTRY_KEY || '').trim() || '—';
+      })(),
     },
     agent: {
       organisation: vendor?.NAME || agentUser?.organisation || '',

@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { fetchAgentPortCost, saveAgentPortCost } from '../../services/agentPortal.js';
+import {
+  COST_CATEGORIES,
+  CURRENCY_OPTIONS,
+  groupLinesByCategory,
+} from './agentCostCategories.js';
 import styles from './AgentPortal.module.css';
 
 function toInputNumber(value) {
@@ -15,6 +20,20 @@ function parseMoney(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function fmtMoney(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function InfoTip({ text }) {
+  if (!text) return null;
+  return (
+    <span className={styles.infoTip} title={text} aria-label={text}>
+      i
+    </span>
+  );
+}
+
 export default function AgentPortCostPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -26,6 +45,10 @@ export default function AgentPortCostPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState(null);
+  const [costSearch, setCostSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [displayMode, setDisplayMode] = useState('local');
+  const [openCats, setOpenCats] = useState(() => new Set(COST_CATEGORIES.map((c) => c.key)));
 
   useEffect(() => {
     let cancelled = false;
@@ -41,6 +64,7 @@ export default function AgentPortCostPage() {
           header: { ...(data.header || {}) },
           lines: (data.lines || []).map((line) => ({ ...line })),
         });
+        setOpenCats(new Set(COST_CATEGORIES.map((c) => c.key)));
       } catch (err) {
         if (!cancelled) {
           setForm(null);
@@ -58,6 +82,8 @@ export default function AgentPortCostPage() {
   const exchangeRate = Number(form?.header?.exchangeRate) > 0
     ? Number(form.header.exchangeRate)
     : 1;
+  const localCurrency = form?.header?.localCurrency || 'USD';
+  const showLocal = displayMode === 'local';
 
   const totals = useMemo(() => {
     if (!form?.lines) {
@@ -75,6 +101,25 @@ export default function AgentPortCostPage() {
     );
   }, [form]);
 
+  const varianceLc = totals.actualLc - totals.estimatedLc;
+  const varianceUsd = totals.actualUsd - totals.estimatedUsd;
+
+  const grouped = useMemo(() => {
+    const cats = groupLinesByCategory(form?.lines || []);
+    const q = costSearch.trim().toLowerCase();
+    return cats
+      .map((cat) => ({
+        ...cat,
+        lines: cat.lines.filter((line) => {
+          if (categoryFilter && cat.key !== categoryFilter) return false;
+          if (!q) return true;
+          return String(line.name || '').toLowerCase().includes(q)
+            || String(line.description || '').toLowerCase().includes(q);
+        }),
+      }))
+      .filter((cat) => cat.lines.length > 0);
+  }, [form?.lines, costSearch, categoryFilter]);
+
   const updateHeader = (key, value) => {
     setForm((prev) => (prev ? { ...prev, header: { ...prev.header, [key]: value } } : prev));
   };
@@ -89,8 +134,14 @@ export default function AgentPortCostPage() {
         if (key === 'estimatedLc' && !isFda) {
           next.estimatedUsd = Math.round((parseMoney(value) / rate) * 100) / 100;
         }
+        if (key === 'estimatedUsd' && !isFda) {
+          next.estimatedLc = Math.round((parseMoney(value) * rate) * 100) / 100;
+        }
         if (key === 'actualLc' && isFda) {
           next.actualUsd = Math.round((parseMoney(value) / rate) * 100) / 100;
+        }
+        if (key === 'actualUsd' && isFda) {
+          next.actualLc = Math.round((parseMoney(value) * rate) * 100) / 100;
         }
         return next;
       });
@@ -98,12 +149,13 @@ export default function AgentPortCostPage() {
     });
   };
 
-  const applyExchangeToAll = () => {
+  const onExchangeChange = (value) => {
     setForm((prev) => {
       if (!prev) return prev;
-      const rate = Number(prev.header?.exchangeRate) > 0 ? Number(prev.header.exchangeRate) : 1;
+      const rate = Number(value) > 0 ? Number(value) : 1;
       return {
         ...prev,
+        header: { ...prev.header, exchangeRate: value },
         lines: prev.lines.map((line) => ({
           ...line,
           estimatedUsd: Math.round((parseMoney(line.estimatedLc) / rate) * 100) / 100,
@@ -150,45 +202,54 @@ export default function AgentPortCostPage() {
     }
   };
 
-  const title = isFda ? 'Final Disbursement Account (FDA)' : 'Initial Port Disbursement Account (PDA)';
+  const toggleCat = (key) => {
+    setOpenCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const onCategoryFilterChange = (value) => {
+    setCategoryFilter(value);
+    if (value) setOpenCats(new Set([value]));
+    else setOpenCats(new Set(COST_CATEGORIES.map((c) => c.key)));
+  };
+
   const readOnly = Boolean(form?.readOnly);
+  const modeTitle = isFda ? 'FDA' : 'Initial PDA';
+
+  const primaryEst = (line) => (showLocal ? line.estimatedLc : line.estimatedUsd);
+  const primaryAct = (line) => (showLocal ? line.actualLc : line.actualUsd);
+  const fxEst = (line) => (showLocal
+    ? `≈ ${fmtMoney(parseMoney(line.estimatedUsd))} USD`
+    : `≈ ${fmtMoney(parseMoney(line.estimatedLc))} ${localCurrency}`);
+  const fxAct = (line) => (showLocal
+    ? `≈ ${fmtMoney(parseMoney(line.actualUsd))} USD`
+    : `≈ ${fmtMoney(parseMoney(line.actualLc))} ${localCurrency}`);
 
   return (
     <>
       {(loading || saving) ? <LoadingOverlay show fullScreen={false} /> : null}
 
-      <div className={styles.pageHead}>
-        <div className={styles.pageHeadLeft}>
-          <div className={styles.pageHeadIcon}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M9 5H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3" />
-              <rect x="9" y="3" width="6" height="4" rx="1" />
-            </svg>
-          </div>
-          <div>
-            <h1 className={styles.pageTitle}>{title}</h1>
-            <div className={styles.pageSub}>
-              {form?.voyage?.vessel || '—'}
-              {' · '}
-              {form?.voyage?.id || '—'}
-              {' · '}
-              {form?.voyage?.port || '—'}
-            </div>
+      <div className={styles.pcHeader}>
+        <div className={styles.pcTitleBlock}>
+          <span className={`${styles.pcModeChip} ${isFda ? styles.pcModeFda : styles.pcModePda}`}>
+            Port Costs
+          </span>
+          <h1 className={styles.pageTitle}>{modeTitle}</h1>
+          <div className={styles.pageSub}>
+            Fill in every line item that applies to this call — leave the rest blank.
+            Your Estimated/Actual figures roll up automatically.
           </div>
         </div>
-        <div className={styles.controls}>
-          <Link to="/agent/" className={`${styles.btnMini} ${styles.btnOutline}`}>
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
-
-      <div className={styles.breadcrumb}>
-        <Link to="/agent/">Home</Link>
-        {' '}
-        ›
-        {' '}
-        {isFda ? 'FDA' : 'Initial PDA'}
+        <Link to="/agent/" className={styles.backBtn}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          Back to Dashboard
+        </Link>
       </div>
 
       {error ? <div className={styles.formError}>{error}</div> : null}
@@ -196,184 +257,341 @@ export default function AgentPortCostPage() {
 
       {!loading && form ? (
         <>
-          <div className={styles.formCard}>
-            <div className={styles.formGrid}>
-              <label className={styles.field}>
-                <span>Date</span>
+          <div className={styles.voyageStrip}>
+            <div className={styles.vsRow}>
+              <div className={styles.vsItem}>
+                <label>Voyage No.</label>
+                <div className={styles.vsVal}>{form.voyage?.id || '—'}</div>
+              </div>
+              <div className={styles.vsItem}>
+                <label>Vessel</label>
+                <div className={styles.vsVal}>{form.voyage?.vessel || '—'}</div>
+              </div>
+              <div className={styles.vsItem}>
+                <label>Port</label>
+                <div className={styles.vsVal}>{form.voyage?.port || '—'}</div>
+              </div>
+              <div className={styles.vsItem}>
+                <label>Agent</label>
+                <div className={styles.vsVal}>
+                  {form.agent?.contactPerson || form.agent?.organisation || '—'}
+                </div>
+              </div>
+              <div className={styles.vsItem}>
+                <label>Date</label>
                 <input
                   type="date"
+                  className={styles.costInput}
                   value={form.header.date || ''}
                   disabled={readOnly}
                   onChange={(e) => updateHeader('date', e.target.value)}
                 />
-              </label>
-              <label className={styles.field}>
-                <span>Local Currency</span>
-                <input
-                  type="text"
-                  value={form.header.localCurrency || ''}
+              </div>
+            </div>
+            <div className={`${styles.vsRow} ${styles.vsRow2}`}>
+              <div className={styles.vsItem}>
+                <label>Country</label>
+                <div className={styles.vsVal}>{form.voyage?.country || '—'}</div>
+              </div>
+              <div className={styles.vsItem}>
+                <label>Currency</label>
+                <select
+                  className={styles.costInput}
+                  value={form.header.localCurrency || 'USD'}
                   disabled={readOnly}
                   onChange={(e) => updateHeader('localCurrency', e.target.value)}
+                >
+                  {CURRENCY_OPTIONS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className={styles.vsItem}>
+                <label>X-Rate to USD</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  className={styles.costInput}
+                  value={toInputNumber(form.header.exchangeRate)}
+                  disabled={readOnly}
+                  onChange={(e) => onExchangeChange(e.target.value)}
+                />
+              </div>
+              <div className={styles.vsItem}>
+                <label>Show Values In</label>
+                <div className={styles.segToggle}>
+                  <button
+                    type="button"
+                    className={`${styles.segBtn} ${showLocal ? styles.segBtnActive : ''}`}
+                    onClick={() => setDisplayMode('local')}
+                  >
+                    Local
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.segBtn} ${!showLocal ? styles.segBtnActive : ''}`}
+                    onClick={() => setDisplayMode('usd')}
+                  >
+                    USD
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.pcHintBanner}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 16v-5M12 8h.01" />
+            </svg>
+            <div>
+              Not sure what a line means? Tap the
+              {' '}
+              <b>i</b>
+              {' '}
+              next to its name for a plain-English explanation. Only enter a cost if it actually
+              applies to this call — everything else can stay at 0.00.
+              {isFda ? (
+                <>
+                  {' '}
+                  On FDA, Estimated Cost is locked from Initial PDA — only Actual Cost is editable.
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          <div className={styles.pcSearchRow}>
+            <div className={styles.searchBox}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input
+                type="search"
+                value={costSearch}
+                onChange={(e) => setCostSearch(e.target.value)}
+                placeholder="Find a cost line, e.g. 'pilotage' or 'agency fee'..."
+                aria-label="Search cost lines"
+              />
+            </div>
+            <div className={styles.filterSelectWrap}>
+              <select
+                className={styles.hdrSelect}
+                value={categoryFilter}
+                onChange={(e) => onCategoryFilterChange(e.target.value)}
+                aria-label="Filter by section"
+              >
+                <option value="">Filter by Section — All</option>
+                {COST_CATEGORIES.map((cat) => (
+                  <option key={cat.key} value={cat.key}>{cat.title}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className={styles.costCategories}>
+            {grouped.length === 0 ? (
+              <div className={styles.emptyCell}>No cost lines match this filter.</div>
+            ) : (
+              grouped.map((cat) => {
+                const open = openCats.has(cat.key);
+                const catEst = cat.lines.reduce((s, l) => s + parseMoney(showLocal ? l.estimatedLc : l.estimatedUsd), 0);
+                const catAct = cat.lines.reduce((s, l) => s + parseMoney(showLocal ? l.actualLc : l.actualUsd), 0);
+                return (
+                  <details
+                    key={cat.key}
+                    className={`${styles.costCat} ${styles[`costCat_${cat.color}`] || ''}`}
+                    open={open}
+                    onToggle={(e) => {
+                      const isOpen = e.currentTarget.open;
+                      setOpenCats((prev) => {
+                        const next = new Set(prev);
+                        if (isOpen) next.add(cat.key);
+                        else next.delete(cat.key);
+                        return next;
+                      });
+                    }}
+                  >
+                    <summary className={styles.costCatSummary} onClick={(e) => {
+                      e.preventDefault();
+                      toggleCat(cat.key);
+                    }}
+                    >
+                      <span className={styles.costCatTitle}>{cat.title}</span>
+                      <span className={styles.costCatMeta}>
+                        {cat.lines.length}
+                        {' '}
+                        lines · Est
+                        {' '}
+                        {fmtMoney(catEst)}
+                        {' · '}
+                        Act
+                        {' '}
+                        {fmtMoney(catAct)}
+                      </span>
+                    </summary>
+                    <div className={styles.costCatBody}>
+                      <div className={styles.tableWrap}>
+                        <table className={styles.costGrid}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '26%' }}>Cost Type</th>
+                              <th style={{ width: '15%' }}>Estimated Cost</th>
+                              <th style={{ width: '15%' }}>Actual Cost</th>
+                              <th style={{ width: '22%' }}>Agent Remarks</th>
+                              <th style={{ width: '22%' }}>Office Remarks</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cat.lines.map((line) => {
+                              const idx = line._index;
+                              const tip = line.description || line.name;
+                              return (
+                                <tr key={line.pcTypeId || idx}>
+                                  <td>
+                                    <span className={styles.costTypeCell}>
+                                      {line.name}
+                                      <InfoTip text={tip} />
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <input
+                                      className={styles.costInput}
+                                      type="number"
+                                      step="0.01"
+                                      value={toInputNumber(primaryEst(line))}
+                                      disabled={readOnly || isFda}
+                                      title={isFda ? 'Estimated cost is locked from Initial PDA' : undefined}
+                                      onChange={(e) => updateLine(
+                                        idx,
+                                        showLocal ? 'estimatedLc' : 'estimatedUsd',
+                                        e.target.value,
+                                      )}
+                                    />
+                                    <div className={styles.fxLine}>{fxEst(line)}</div>
+                                  </td>
+                                  <td>
+                                    <input
+                                      className={styles.costInput}
+                                      type="number"
+                                      step="0.01"
+                                      value={toInputNumber(primaryAct(line))}
+                                      disabled={readOnly || !isFda}
+                                      title={!isFda ? 'Actual cost is entered on FDA' : undefined}
+                                      onChange={(e) => updateLine(
+                                        idx,
+                                        showLocal ? 'actualLc' : 'actualUsd',
+                                        e.target.value,
+                                      )}
+                                    />
+                                    <div className={styles.fxLine}>{fxAct(line)}</div>
+                                  </td>
+                                  <td>
+                                    <input
+                                      className={styles.costInput}
+                                      type="text"
+                                      placeholder="Agent remarks"
+                                      value={line.remarksAgent || ''}
+                                      disabled={readOnly}
+                                      onChange={(e) => updateLine(idx, 'remarksAgent', e.target.value)}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      className={styles.costInput}
+                                      type="text"
+                                      value={line.remarksOperator || ''}
+                                      disabled
+                                      title="Office remarks are read-only for agents"
+                                      placeholder="—"
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </details>
+                );
+              })
+            )}
+          </div>
+
+          <div className={styles.pcSummary}>
+            <div className={`${styles.sumCard} ${styles.sumEst}`}>
+              <div className={styles.sumLabel}>Total Estimated</div>
+              <div className={styles.sumVal}>
+                {fmtMoney(showLocal ? totals.estimatedLc : totals.estimatedUsd)}
+              </div>
+              <div className={styles.sumFx}>
+                ≈
+                {' '}
+                {fmtMoney(showLocal ? totals.estimatedUsd : totals.estimatedLc)}
+                {' '}
+                {showLocal ? 'USD' : localCurrency}
+              </div>
+            </div>
+            <div className={`${styles.sumCard} ${styles.sumAct}`}>
+              <div className={styles.sumLabel}>Total Actual</div>
+              <div className={styles.sumVal}>
+                {fmtMoney(showLocal ? totals.actualLc : totals.actualUsd)}
+              </div>
+              <div className={styles.sumFx}>
+                ≈
+                {' '}
+                {fmtMoney(showLocal ? totals.actualUsd : totals.actualLc)}
+                {' '}
+                {showLocal ? 'USD' : localCurrency}
+              </div>
+            </div>
+            <div className={`${styles.sumCard} ${styles.sumVar}`}>
+              <div className={styles.sumLabel}>Variance</div>
+              <div className={styles.sumVal}>
+                {fmtMoney(showLocal ? varianceLc : varianceUsd)}
+              </div>
+              <div className={styles.sumFx}>
+                ≈
+                {' '}
+                {fmtMoney(showLocal ? varianceUsd : varianceLc)}
+                {' '}
+                {showLocal ? 'USD' : localCurrency}
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.pcFooterCard}>
+            <div className={styles.fGrid}>
+              <label className={styles.fItem}>
+                <span>Bank Details</span>
+                <input
+                  type="text"
+                  value={form.header.bankDetails || ''}
+                  disabled={readOnly}
+                  placeholder="Beneficiary bank / account no."
+                  onChange={(e) => updateHeader('bankDetails', e.target.value)}
                 />
               </label>
-              <label className={styles.field}>
-                <span>Exchange Rate (LC → USD)</span>
-                <div className={styles.inlineActions}>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={toInputNumber(form.header.exchangeRate)}
-                    disabled={readOnly}
-                    onChange={(e) => updateHeader('exchangeRate', e.target.value)}
-                  />
-                  {!readOnly ? (
-                    <button type="button" className={`${styles.btnMini} ${styles.btnOutline}`} onClick={applyExchangeToAll}>
-                      Apply
-                    </button>
-                  ) : null}
-                </div>
-              </label>
-              <label className={styles.field}>
-                <span>Prepared By</span>
+              <label className={styles.fItem}>
+                <span>Prepared By (Agent)</span>
                 <input
                   type="text"
                   value={form.header.preparedBy || ''}
                   disabled={readOnly}
+                  placeholder="Full name"
                   onChange={(e) => updateHeader('preparedBy', e.target.value)}
                 />
               </label>
-              <label className={`${styles.field} ${styles.fieldWide}`}>
-                <span>Bank Details</span>
-                <textarea
-                  rows={3}
-                  value={form.header.bankDetails || ''}
-                  disabled={readOnly}
-                  onChange={(e) => updateHeader('bankDetails', e.target.value)}
-                />
-              </label>
-              <label className={`${styles.field} ${styles.fieldWide}`}>
-                <span>Agent Remarks</span>
-                <textarea
-                  rows={3}
-                  value={form.header.agentRemarks || ''}
-                  disabled={readOnly}
-                  onChange={(e) => updateHeader('agentRemarks', e.target.value)}
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className={styles.tableCard}>
-            <div className={styles.tableWrap}>
-              <table className={styles.grid}>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Cost Type</th>
-                    <th>Est. (LC)</th>
-                    <th>Est. (USD)</th>
-                    {isFda ? (
-                      <>
-                        <th>Actual (LC)</th>
-                        <th>Actual (USD)</th>
-                      </>
-                    ) : null}
-                    <th>Remarks</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {form.lines.length === 0 ? (
-                    <tr>
-                      <td colSpan={isFda ? 7 : 5} className={styles.emptyCell}>
-                        No port cost types found for this country.
-                      </td>
-                    </tr>
-                  ) : (
-                    form.lines.map((line, index) => (
-                      <tr key={line.pcTypeId || index}>
-                        <td>{index + 1}</td>
-                        <td>{line.name}</td>
-                        <td>
-                          <input
-                            className={styles.cellInput}
-                            type="number"
-                            step="0.01"
-                            value={toInputNumber(line.estimatedLc)}
-                            disabled={readOnly || isFda}
-                            onChange={(e) => updateLine(index, 'estimatedLc', e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className={styles.cellInput}
-                            type="number"
-                            step="0.01"
-                            value={toInputNumber(line.estimatedUsd)}
-                            disabled={readOnly || isFda}
-                            onChange={(e) => updateLine(index, 'estimatedUsd', e.target.value)}
-                          />
-                        </td>
-                        {isFda ? (
-                          <>
-                            <td>
-                              <input
-                                className={styles.cellInput}
-                                type="number"
-                                step="0.01"
-                                value={toInputNumber(line.actualLc)}
-                                disabled={readOnly}
-                                onChange={(e) => updateLine(index, 'actualLc', e.target.value)}
-                              />
-                            </td>
-                            <td>
-                              <input
-                                className={styles.cellInput}
-                                type="number"
-                                step="0.01"
-                                value={toInputNumber(line.actualUsd)}
-                                disabled={readOnly}
-                                onChange={(e) => updateLine(index, 'actualUsd', e.target.value)}
-                              />
-                            </td>
-                          </>
-                        ) : null}
-                        <td>
-                          <input
-                            className={styles.cellInputWide}
-                            type="text"
-                            value={line.remarksAgent || ''}
-                            disabled={readOnly}
-                            onChange={(e) => updateLine(index, 'remarksAgent', e.target.value)}
-                          />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr className={styles.totalsRow}>
-                    <td colSpan={2}><strong>Totals</strong></td>
-                    <td><strong>{totals.estimatedLc.toFixed(2)}</strong></td>
-                    <td><strong>{totals.estimatedUsd.toFixed(2)}</strong></td>
-                    {isFda ? (
-                      <>
-                        <td><strong>{totals.actualLc.toFixed(2)}</strong></td>
-                        <td><strong>{totals.actualUsd.toFixed(2)}</strong></td>
-                      </>
-                    ) : null}
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
             </div>
           </div>
 
           {!readOnly ? (
-            <div className={styles.formActions}>
+            <div className={styles.actionRow}>
               <button
                 type="button"
-                className={`${styles.btnMini} ${styles.btnOutline}`}
+                className={styles.btnOutlineLg}
                 disabled={saving}
                 onClick={() => persist('draft')}
               >
@@ -381,23 +599,21 @@ export default function AgentPortCostPage() {
               </button>
               <button
                 type="button"
-                className={`${styles.btnMini} ${styles.btnNavy}`}
+                className={styles.btnNavyLg}
                 disabled={saving}
                 onClick={() => persist('submit')}
               >
-                {isFda ? 'Submit FDA' : 'Submit Initial PDA'}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12l5 5L20 7" />
+                </svg>
+                Submit for Review
               </button>
-              <span className={styles.fxHint}>
-                FX rate
-                {' '}
-                {exchangeRate}
-              </span>
             </div>
           ) : (
             <div className={styles.formNotice}>
               This
               {' '}
-              {isFda ? 'FDA' : 'Initial PDA'}
+              {modeTitle}
               {' '}
               is locked.
             </div>

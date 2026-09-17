@@ -218,7 +218,7 @@ export default function ComparisonReportPage({ reportId: reportIdProp }) {
                     Flag: sheetData.particulars.flag,
                     'Fixture Date': sheetData.particulars.fixtureDate,
                     'Voyage No.': sheetData.particulars.voyageNo,
-                    'Voyage Financials Name': sheetData.particulars.voyageName,
+                    'Voyage Worksheet Name': sheetData.particulars.voyageName,
                     'DWT (Summer)': sheetData.particulars.dwtSummer,
                     'DWT (Tropical)': sheetData.particulars.dwtTropical,
                   }).map(([label, value]) => (

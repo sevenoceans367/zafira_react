@@ -14,7 +14,7 @@ const BACK_BY_PAGE = {
 };
 
 /**
- * Voyage Financials page (PHP cost_sheet_tci → updatecost_sheet_tci).
+ * Voyage Worksheet page (PHP cost_sheet_tci → updatecost_sheet_tci).
  * Dedicated cost-sheet form — not shared with SOPF Add/Update Estimate.
  */
 export default function OpsVcCostSheetPage() {
@@ -44,14 +44,14 @@ export default function OpsVcCostSheetPage() {
         const data = await fetchOpsVcCostSheet(comId, costSheetId);
         if (cancelled) return;
         if (!data?.fcaId) {
-          setError('Cost sheet estimate not found for this Voyage Financials entry.');
+          setError('Cost sheet estimate not found for this Voyage Worksheet entry.');
           setLoading(false);
           return;
         }
         setSheet(data);
       } catch (err) {
         if (!cancelled) {
-          setError(err.message || 'Failed to open Voyage Financials.');
+          setError(err.message || 'Failed to open Voyage Worksheet.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -63,7 +63,7 @@ export default function OpsVcCostSheetPage() {
   if (loading) {
     return (
       <div className={`zafira-page ${styles.page}`}>
-        <LoadingOverlay active label="Opening Voyage Financials…" />
+        <LoadingOverlay active label="Opening Voyage Worksheet…" />
       </div>
     );
   }
@@ -71,7 +71,7 @@ export default function OpsVcCostSheetPage() {
   if (error || !sheet?.fcaId) {
     return (
       <div className={`zafira-page ${styles.page}`}>
-        <div className={styles.error}>{error || 'Voyage Financials not found.'}</div>
+        <div className={styles.error}>{error || 'Voyage Worksheet not found.'}</div>
         <p>
           <Link to={backHref}>Back</Link>
         </p>

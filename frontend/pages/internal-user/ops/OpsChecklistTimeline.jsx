@@ -6,7 +6,7 @@ export default function OpsChecklistTimeline({ steps = [], wipId, statusLabel })
     <div className={styles.section}>
       <h4 className={styles.sectionTitle}>Ops Checklist (WIP)</h4>
       <p className={styles.checklistLead}>
-        Chronological ACT events. Dates auto-update from Voyage Financials, SOF and reports.
+        Chronological ACT events. Dates auto-update from Voyage Worksheet, SOF and reports.
         {statusLabel && statusLabel !== '—' ? (
           <> Current activity: <strong>{statusLabel}</strong>.</>
         ) : (

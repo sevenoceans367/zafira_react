@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
+import { appPath } from '@bainbridge/shared-routing';
 import { agentLogin, getUser, isAuthenticated, isAgentAppUser } from '@bainbridge/shared-auth';
 import brandLogo from '../../assets/2026_Seven_Oceans_White_Stacked_Logo.png';
 import loginStyles from '../LoginPage.module.css';
@@ -72,6 +73,12 @@ export default function AgentLoginPage() {
                 href={`mailto:${SUPPORT_EMAIL}`}
               >
                 Support
+              </a>
+              <a
+                className={loginStyles.ghostPill}
+                href={appPath('/login')}
+              >
+                Genesis Portal
               </a>
             </div>
           </div>

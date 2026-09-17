@@ -376,7 +376,7 @@ export default function OpsTcInOpsGlancePage() {
     if (!row.canAddCostSheet) {
       await alert({
         title: 'Alert',
-        message: 'Please make sure the last TC Sheet is Submit to Close',
+        message: 'Please make sure the last TC Sheet is Submitted',
         confirmLabel: 'OK',
       });
       return;
@@ -705,7 +705,7 @@ export default function OpsTcInOpsGlancePage() {
                 </button>
               </div>
               <p className={pageStyles.muted}>
-                In the Ops side, enter any desired TC Sheet Name. This is then also possible after every Submit to Close.
+                In the Ops side, enter any desired TC Sheet Name. This is then also possible after every Submit.
               </p>
               <FilterField id="ops-tc-sheet-name" label="TC Sheet Name">
                 <TextInput

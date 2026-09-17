@@ -188,10 +188,10 @@ function buildVcEvents({ header, ports, sofRows, opsBySof, cargoBySof, oldEvents
   const dischargingStarted = Boolean(dischargingStart || dischargingDone);
 
   return {
-    fixture: { at: header.cpDate, source: 'Voyage Financials', done: Boolean(header.cpDate) },
+    fixture: { at: header.cpDate, source: 'Voyage Worksheet', done: Boolean(header.cpDate) },
     laycan: {
       at: [header.laycanFrom, header.laycanTo].filter(Boolean).join(' – '),
-      source: 'Voyage Financials',
+      source: 'Voyage Worksheet',
       done: Boolean(header.laycanFrom || header.laycanTo),
     },
     arrivalLoad: { at: arrivalLoad, source: arrivalLoad ? 'SOF / reports' : '', done: Boolean(arrivalLoad) },
@@ -240,25 +240,25 @@ function buildTcEvents(header, checklist) {
   const redelivered = Boolean(redeliveryAt);
 
   return {
-    fixture: { at: header.cpDate, source: 'Voyage Financials', done: Boolean(header.cpDate) },
+    fixture: { at: header.cpDate, source: 'Voyage Worksheet', done: Boolean(header.cpDate) },
     laycan: {
       at: [header.laycanFrom || firstDate(checklist?.LAYCAN_FROM), header.laycanTo || firstDate(checklist?.LAYCAN_TO)]
         .filter(Boolean)
         .join(' – '),
-      source: 'Voyage Financials',
+      source: 'Voyage Worksheet',
       done: Boolean(header.laycanFrom || header.laycanTo || checklist?.LAYCAN_FROM || checklist?.LAYCAN_TO),
     },
     arrivalDel: { at: arrivalDel, source: arrivalDel ? 'ACT checklist' : '', done: Boolean(arrivalDel) },
     norDel: { at: norDel, source: norDel ? 'ACT checklist' : '', done: Boolean(norDel) },
     delivery: {
       at: deliveryAt,
-      source: deliveryAt ? 'Voyage Financials' : '',
+      source: deliveryAt ? 'Voyage Worksheet' : '',
       detail: header.delPort || firstDate(checklist?.DEL_FO_DO_DATA) || '',
       done: delivered,
     },
     performing: {
       at: delivered && !redelivered ? deliveryAt : '',
-      source: delivered ? 'Voyage Financials' : '',
+      source: delivered ? 'Voyage Worksheet' : '',
       started: delivered && !redelivered,
       done: delivered && !redelivered,
     },
@@ -266,7 +266,7 @@ function buildTcEvents(header, checklist) {
     norRedel: { at: norRedel, source: norRedel ? 'ACT checklist' : '', done: Boolean(norRedel) },
     redelivery: {
       at: redeliveryAt,
-      source: redeliveryAt ? 'Voyage Financials' : '',
+      source: redeliveryAt ? 'Voyage Worksheet' : '',
       detail: header.reDelPort || '',
       done: redelivered,
     },

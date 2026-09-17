@@ -436,12 +436,12 @@ export async function getOpsVcCostSheet(comId, costSheetId) {
       };
     }
   }
-  const error = new Error('Voyage Financials sheet not found.');
+  const error = new Error('Voyage Worksheet sheet not found.');
   error.status = 404;
   throw error;
 }
 
-/** PHP insertActualCostSheetName — Voyage Financials "A" button. */
+/** PHP insertActualCostSheetName — Voyage Worksheet "A" button. */
 export async function createOpsVcCostSheet(comId, sheetName) {
   if (isDbConfigured()) return dbCreateOpsVcCostSheet(comId, sheetName);
   const name = String(sheetName || '').trim();
@@ -457,7 +457,7 @@ export async function createOpsVcCostSheet(comId, sheetName) {
     throw error;
   }
   if (row.canAddCostSheet === false) {
-    const error = new Error('Please make sure the last Voyage Financials is Submit to Close');
+    const error = new Error('Please make sure the last Voyage Worksheet is Submit to Close');
     error.status = 400;
     throw error;
   }

@@ -453,8 +453,8 @@ export default function AddEstimatePage() {
             onApplyPatch={handleApplyPatch}
           />
           <div className={styles.actions}>
-            <Button type="submit" variant="primary" label="Submit" disabled={saving} />
-            <Button variant="outline" label="Cancel" href={listHref} />
+            <Button type="submit" variant="submit" label="Submit" disabled={saving} />
+            <Button variant="close" label="Cancel" href={listHref} ariaLabel="Close" />
           </div>
         </form>
       ) : (

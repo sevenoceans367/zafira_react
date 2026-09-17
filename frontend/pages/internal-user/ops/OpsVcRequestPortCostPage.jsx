@@ -914,7 +914,7 @@ export default function OpsVcRequestPortCostPage() {
         <>
           <Button
             variant="primary"
-            label="Submit to edit"
+            label="Save"
             onClick={() => handleSubmit(0)}
             disabled={loading || saving || !context}
           />

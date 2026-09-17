@@ -77,17 +77,72 @@ function todayDmy() {
   return `${day}-${month}-${now.getFullYear()}`;
 }
 
+/** 8-char agent portal password (letters + digits), matching Voyage Letters mockup. */
+function generateAgentPassword(length = 8) {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = new Uint8Array(length);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  let out = '';
+  for (let i = 0; i < length; i += 1) {
+    out += alphabet[bytes[i] % alphabet.length];
+  }
+  return out;
+}
+
+/** Agent portal username: first 3 letters of agent name + "-" + DDMMYYYY (e.g. BAR-04092026). */
+function generateAgentUsername(agentName, dateValue) {
+  const letters = String(agentName || '').replace(/[^A-Za-z]/g, '').toUpperCase();
+  const prefix = letters.slice(0, 3);
+  if (!prefix) return '';
+
+  let day = '';
+  let month = '';
+  let year = '';
+  const raw = String(dateValue || '').trim();
+  const dmy = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})/);
+  if (dmy) {
+    day = String(dmy[1]).padStart(2, '0');
+    month = String(dmy[2]).padStart(2, '0');
+    year = dmy[3].length === 4 ? dmy[3] : `20${dmy[3]}`;
+  } else {
+    const now = new Date();
+    day = String(now.getDate()).padStart(2, '0');
+    month = String(now.getMonth() + 1).padStart(2, '0');
+    year = String(now.getFullYear());
+  }
+  return `${prefix}-${day}${month}${year}`;
+}
+
+function agentNameForUsername(agentName) {
+  // "Barwil Agencies (CODE)" → use org name before parenthesis
+  const text = String(agentName || '').trim();
+  const beforeParen = text.split('(')[0].trim();
+  return beforeParen || text;
+}
+
 function draftFromPort(port, form) {
   const letter = port.letter;
   const cargoDetails = letter?.cargoDetails || form.cargoDefault || '';
   const tolerance = letter?.tolerance || form.toleranceDefault || '';
+  const hasAgent = Boolean(port.agentCode || letter?.vendorId);
+  const existingPassword = String(letter?.password || '').trim();
+  const existingUsername = String(letter?.username || '').trim();
+  const date = letter?.date || todayDmy();
+  const username = existingUsername
+    || (hasAgent
+      ? generateAgentUsername(agentNameForUsername(port.agentName), date) || port.defaultUsername || ''
+      : '');
   return {
     genAgencyId: letter?.genAgencyId || '',
-    date: letter?.date || todayDmy(),
+    date,
     qty: letter?.qty != null && letter.qty !== '' ? String(letter.qty) : String(port.qty || ''),
     countryId: letter?.countryId || '',
-    username: letter?.username || port.defaultUsername || '',
-    password: letter?.password || '',
+    username,
+    password: existingPassword || (hasAgent ? generateAgentPassword() : ''),
     etaDate1: letter?.etaDate1 || port.etaNoon || port.etaFixture || '',
     masterName: letter?.masterName || '',
     cargoDetails,
@@ -892,7 +947,17 @@ export default function OpsVcAgencyLetterPage() {
                         <DmyDateInput
                           id="vc-agency-date"
                           value={draft.date}
-                          onChange={(v) => patchDraft({ date: v })}
+                          onChange={(v) => {
+                            const next = { date: v };
+                            // Keep saved login username stable; refresh for new drafts only.
+                            if (!draft.genAgencyId && activePort?.agentCode) {
+                              next.username = generateAgentUsername(
+                                agentNameForUsername(activePort.agentName),
+                                v,
+                              ) || draft.username;
+                            }
+                            patchDraft(next);
+                          }}
                           disabled={activePort.locked}
                         />
                       </div>
@@ -949,10 +1014,9 @@ export default function OpsVcAgencyLetterPage() {
                         <label htmlFor="vc-agency-password">Password</label>
                         <TextInput
                           id="vc-agency-password"
-                          type="password"
+                          type="text"
                           value={draft.password}
-                          onChange={(e) => patchDraft({ password: e.target.value })}
-                          disabled={activePort.locked}
+                          readOnly
                           autoComplete="off"
                           placeholder="Auto-generated once agent is selected"
                         />

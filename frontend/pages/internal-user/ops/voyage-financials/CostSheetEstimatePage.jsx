@@ -23,7 +23,7 @@ import styles from './CostSheetEstimatePage.module.css';
 
 const EMPTY_FORM = toFormState({});
 
-function VoyageFinancialsHeading({ title }) {
+function VoyageWorksheetHeading({ title }) {
   const setHeading = usePageHeaderHeading();
   useLayoutEffect(() => {
     if (!title) {
@@ -38,7 +38,7 @@ function VoyageFinancialsHeading({ title }) {
 }
 
 /**
- * Ops VC Voyage Financials form (PHP updatecost_sheet_tci).
+ * Ops VC Voyage Worksheet form (PHP updatecost_sheet_tci).
  * Isolated from SOPF Add/Update Estimate pages.
  */
 export default function CostSheetEstimatePage({
@@ -60,7 +60,7 @@ export default function CostSheetEstimatePage({
     || searchParams.get('estimatetype')
     || '2';
   const businessType = searchParams.get('selBType') || estimateType;
-  // Ops VC Voyage Financials (updatecost_sheet_tci) returns to In Ops / Post Ops / History
+  // Ops VC Voyage Worksheet (updatecost_sheet_tci) returns to In Ops / Post Ops / History
   const returnToRaw = returnToProp || searchParams.get('returnTo') || '';
   const returnTo = (() => {
     if (!returnToRaw) return '';
@@ -294,11 +294,11 @@ export default function CostSheetEstimatePage({
       ? (finalStatusOverride != null ? Number(finalStatusOverride) : 0)
       : null;
 
-    // Closed sheets are read-only; only Submit to Edit (reopen) is allowed.
+    // Closed sheets are read-only; only Save (reopen) is allowed.
     if (sheetAlreadyClosed && finalStatus === 1) {
       await alert({
         title: 'Alert',
-        message: 'This Voyage Financials sheet is already closed.',
+        message: 'This Voyage Worksheet sheet is already closed.',
         confirmLabel: 'OK',
       });
       return;
@@ -338,7 +338,7 @@ export default function CostSheetEstimatePage({
     const confirmed = await confirm({
       title: 'Confirmation',
       message: sheetAlreadyClosed && finalStatus === 0
-        ? 'Re-open this Voyage Financials sheet for editing?'
+        ? 'Re-open this Voyage Worksheet sheet for editing?'
         : 'Are you sure you have checked each entry ?',
       confirmLabel: 'OK',
       cancelLabel: 'Cancel',
@@ -361,10 +361,10 @@ export default function CostSheetEstimatePage({
         title: 'Success',
         message: isCostSheet
           ? (finalStatus === 1
-            ? 'Voyage Financials submitted to Close successfully.'
+            ? 'Voyage Worksheet submitted successfully.'
             : sheetAlreadyClosed
-              ? 'Voyage Financials re-opened for editing.'
-              : 'Voyage Financials saved successfully.')
+              ? 'Voyage Worksheet re-opened for editing.'
+              : 'Voyage Worksheet saved successfully.')
           : 'Congratulations! Estimate updated successfully.',
         confirmLabel: 'OK',
       });
@@ -395,8 +395,8 @@ export default function CostSheetEstimatePage({
   const sheetLabel = sheetNameProp
     || (costSheetIdProp ? `Sheet ${costSheetIdProp}` : '');
   const pageHeading = sheetLabel
-    ? `${viewOnly ? 'View Voyage Financials' : sheetClosed ? 'Closed Voyage Financials' : 'Voyage Financials'} — ${sheetLabel}`
-    : (viewOnly ? 'View Voyage Financials' : sheetClosed ? 'Closed Voyage Financials' : 'Voyage Financials');
+    ? `${viewOnly ? 'View Voyage Worksheet' : sheetClosed ? 'Closed Voyage Worksheet' : 'Voyage Worksheet'} — ${sheetLabel}`
+    : (viewOnly ? 'View Voyage Worksheet' : sheetClosed ? 'Closed Voyage Worksheet' : 'Voyage Worksheet');
 
   // Ensure Passage & Ports SOF links see comid/page (PHP updatecost_sheet_tci).
   const sectionsDetail = detail && isCostSheet
@@ -409,7 +409,7 @@ export default function CostSheetEstimatePage({
 
   return (
     <div className={`zafira-page ${styles.page}`}>
-      <VoyageFinancialsHeading title={pageHeading} />
+      <VoyageWorksheetHeading title={pageHeading} />
       <LoadingOverlay show={loading || saving} />
       <EstimateDetailHeaderActions listHref={listHref} disabled={saving} />
 
@@ -419,7 +419,7 @@ export default function CostSheetEstimatePage({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            // Closed sheets: Enter must not save; use Submit to Edit to reopen.
+            // Closed sheets: Enter must not save; use Save to reopen.
             if (locked) return;
             handleSubmit(event, isCostSheet ? 0 : null);
           }}
@@ -441,25 +441,30 @@ export default function CostSheetEstimatePage({
               <>
                 <Button
                   type="button"
-                  variant="outline"
-                  label="Submit to Edit"
+                  variant={sheetClosed ? 'primary' : 'saveOutline'}
+                  label={sheetClosed ? 'Re-Open Worksheet' : 'Save'}
                   disabled={saving}
                   onClick={() => handleSubmit(null, 0)}
                 />
                 {!sheetClosed ? (
                   <Button
                     type="button"
-                    variant="primary"
-                    label="Submit to Close"
+                    variant="submit"
+                    label="Submit"
                     disabled={saving}
                     onClick={() => handleSubmit(null, 1)}
                   />
                 ) : null}
               </>
             ) : (
-              <Button type="submit" variant="primary" label="Submit" disabled={saving} />
+              <Button type="submit" variant="submit" label="Submit" disabled={saving} />
             )}
-            <Button variant="outline" label={viewOnly ? 'Back' : 'Cancel'} href={listHref} />
+            <Button
+              variant={viewOnly ? 'outline' : 'close'}
+              label={viewOnly ? 'Back' : 'Cancel'}
+              href={listHref}
+              ariaLabel={viewOnly ? 'Back' : 'Close'}
+            />
           </div>
         </form>
       ) : null}

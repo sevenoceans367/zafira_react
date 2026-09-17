@@ -25,7 +25,7 @@ const PAGES = {
   laytime: 'Laytime Calculations',
   bunker: 'Bunker Calculations',
   'soa-report': 'Cashflow',
-  'cost-sheet': 'Voyage Financials',
+  'cost-sheet': 'Voyage Worksheet',
 };
 
 const FROM_PAYMENT_GRID = new Set([

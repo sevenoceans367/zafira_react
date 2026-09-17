@@ -490,6 +490,20 @@ export async function fetchAgencyLetterForm(comId) {
   return parseJson(response, 'Failed to load port related letters.');
 }
 
+export async function fetchOpsPdaFda(comId) {
+  const response = await fetch(`${BASE}/ops/pda-fda${toQuery({ comId })}`);
+  return parseJson(response, 'Failed to load PDA/FDA.');
+}
+
+export async function reviewOpsPdaFda(payload) {
+  const response = await fetch(`${BASE}/ops/pda-fda/review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJson(response, 'Failed to update PDA/FDA review.');
+}
+
 export async function saveAgencyLetter(payload) {
   const response = await fetch(`${BASE}/ops/agency-letter`, {
     method: 'POST',
@@ -536,22 +550,22 @@ export async function deactivateOpsVcEntry(comId) {
   return parseJson(response, 'Failed to deactivate voyage.');
 }
 
-/** PHP cost_sheet_tci / updatecost_sheet_tci — resolve FCAID for Voyage Financials. */
+/** PHP cost_sheet_tci / updatecost_sheet_tci — resolve FCAID for Voyage Worksheet. */
 export async function fetchOpsVcCostSheet(comId, costSheetId) {
   const response = await fetch(
     `${BASE}/ops/${encodeURIComponent(comId)}/cost-sheets/${encodeURIComponent(costSheetId)}`,
   );
-  return parseJson(response, 'Failed to load Voyage Financials cost sheet.');
+  return parseJson(response, 'Failed to load Voyage Worksheet cost sheet.');
 }
 
-/** PHP insertActualCostSheetName — Voyage Financials "A" button. */
+/** PHP insertActualCostSheetName — Voyage Worksheet "A" button. */
 export async function createOpsVcCostSheet(comId, sheetName) {
   const response = await fetch(`${BASE}/ops/${encodeURIComponent(comId)}/cost-sheets`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sheetName }),
   });
-  return parseJson(response, 'Failed to create Voyage Financials sheet.');
+  return parseJson(response, 'Failed to create Voyage Worksheet sheet.');
 }
 
 export async function updateOpsVcCostSheetLayout(comId, sheets) {

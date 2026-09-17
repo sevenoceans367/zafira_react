@@ -34,6 +34,7 @@ import {
   getAgencyLetterForm,
   saveAgencyLetter,
 } from '../services/agencyLetterService.js';
+import { getOpsPdaFda, reviewOpsPdaFda } from '../services/opsPdaFdaService.js';
 import { generateAgencyLetterPdf } from '../services/agencyLetterPdfService.js';
 import {
   createOpsDocument,
@@ -978,6 +979,15 @@ router.delete('/ops-tc/documents', asyncHandler(async (req, res) => {
 router.get('/ops/agency-letter', asyncHandler(async (req, res) => {
   const comId = req.query.comId || req.query.comid;
   res.json(await getAgencyLetterForm(comId));
+}));
+
+router.get('/ops/pda-fda', asyncHandler(async (req, res) => {
+  const comId = req.query.comId || req.query.comid;
+  res.json(await getOpsPdaFda(comId));
+}));
+
+router.post('/ops/pda-fda/review', asyncHandler(async (req, res) => {
+  res.json(await reviewOpsPdaFda(req.body || {}));
 }));
 
 router.post('/ops/agency-letter', asyncHandler(async (req, res) => {

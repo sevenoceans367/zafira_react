@@ -276,17 +276,29 @@
 }
 
 .close {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
   background: #fff;
-  border: 1px solid #9cc0fb;
-  border-radius: 999px;
-  color: #3b82f6;
+  border: 1.5px solid #dfe2e7;
+  border-radius: 8px;
+  color: #5b6472;
   font-weight: 600;
+  gap: 0;
 }
 
 .close:hover:not(:disabled) {
-  background: #eaf1fe;
-  border-color: #9cc0fb;
-  color: #3b82f6;
+  background: #fdecea;
+  border-color: #e4483b;
+  color: #e4483b;
+}
+
+.closeSvg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  flex-shrink: 0;
 }
 
 .add {

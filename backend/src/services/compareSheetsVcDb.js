@@ -107,7 +107,7 @@ export async function dbGetCompareSheetsVc(comId) {
   );
 
   if (!masters.length) {
-    const error = new Error('No Voyage Financials sheets found for this nomination.');
+    const error = new Error('No Voyage Worksheet sheets found for this nomination.');
     error.status = 404;
     throw error;
   }

@@ -197,7 +197,7 @@ export default function OpsVcInOpsGlancePage() {
     if (!row.canAddCostSheet) {
       await alert({
         title: 'Alert',
-        message: 'Please make sure the last Voyage Financials is Submit to Close',
+        message: 'Please make sure the last Voyage Worksheet is Submitted',
         confirmLabel: 'OK',
       });
       return;
@@ -242,7 +242,7 @@ export default function OpsVcInOpsGlancePage() {
       updateQuery({ msg: 4 });
       load();
     } catch (err) {
-      setError(err.message || 'Failed to create Voyage Financials sheet.');
+      setError(err.message || 'Failed to create Voyage Worksheet sheet.');
     } finally {
       setSavingSheet(false);
     }
@@ -503,7 +503,7 @@ export default function OpsVcInOpsGlancePage() {
           <div className={pageStyles.modalBackdrop} role="dialog" aria-modal="true">
             <div className={pageStyles.modal}>
               <div className={pageStyles.modalHeader}>
-                <h4>Add Voyage Financials</h4>
+                <h4>Add Voyage Worksheet</h4>
                 <button
                   type="button"
                   className={pageStyles.dangerIcon}
@@ -513,13 +513,13 @@ export default function OpsVcInOpsGlancePage() {
                   ×
                 </button>
               </div>
-              <p className={pageStyles.muted}>Please enter Voyage Financials Name and Submit</p>
-              <FilterField id="ops-vc-sheet-name" label="Voyage Financials Name">
+              <p className={pageStyles.muted}>Please enter Voyage Worksheet Name and Submit</p>
+              <FilterField id="ops-vc-sheet-name" label="Voyage Worksheet Name">
                 <TextInput
                   id="ops-vc-sheet-name"
                   value={sheetModal.sheetName}
                   onChange={(e) => setSheetModal((prev) => ({ ...prev, sheetName: e.target.value }))}
-                  placeholder="Voyage Financials Name"
+                  placeholder="Voyage Worksheet Name"
                 />
               </FilterField>
               <div className={pageStyles.toolbarActions} style={{ marginTop: 12 }}>

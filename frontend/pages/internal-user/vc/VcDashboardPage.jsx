@@ -167,7 +167,7 @@ function PerformingVesselsCard({ title = 'Performing Vessels', rows, columns, lo
         emptyMessage={loading ? 'Loading…' : 'No vessels in ops.'}
       />
       <p className={styles.drillHint}>
-        Activity Status is derived from Ops Checklist (WIP), auto-updated from Voyage Financials and reports.
+        Activity Status is derived from Ops Checklist (WIP), auto-updated from Voyage Worksheet and reports.
       </p>
     </ChartCard>
   );

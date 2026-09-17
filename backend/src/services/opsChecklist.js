@@ -1,6 +1,6 @@
 /**
  * Chronological Ops Checklist (WIP).
- * ACT arrival events are the base; dates auto-fill from Voyage Financials, SOF, and reports.
+ * ACT arrival events are the base; dates auto-fill from Voyage Worksheet, SOF, and reports.
  */
 
 export const VC_CHECKLIST_STEPS = [

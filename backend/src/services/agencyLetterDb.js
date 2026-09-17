@@ -11,6 +11,47 @@ function todayDmy() {
   return `${day}-${month}-${now.getFullYear()}`;
 }
 
+/** Agent portal username: first 3 letters of agent name + "-" + DDMMYYYY (e.g. BAR-04092026). */
+function generateAgentUsername(agentName, dateValue) {
+  const letters = String(agentName || '').replace(/[^A-Za-z]/g, '').toUpperCase();
+  const prefix = letters.slice(0, 3);
+  if (!prefix) return '';
+
+  let day = '';
+  let month = '';
+  let year = '';
+  const raw = String(dateValue || '').trim();
+  const dmy = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})/);
+  if (dmy) {
+    day = String(dmy[1]).padStart(2, '0');
+    month = String(dmy[2]).padStart(2, '0');
+    year = dmy[3].length === 4 ? dmy[3] : `20${dmy[3]}`;
+  } else {
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue || Date.now());
+    if (!Number.isNaN(date.getTime())) {
+      day = String(date.getDate()).padStart(2, '0');
+      month = String(date.getMonth() + 1).padStart(2, '0');
+      year = String(date.getFullYear());
+    }
+  }
+  if (!day || !month || !year) {
+    const now = new Date();
+    day = String(now.getDate()).padStart(2, '0');
+    month = String(now.getMonth() + 1).padStart(2, '0');
+    year = String(now.getFullYear());
+  }
+  return `${prefix}-${day}${month}${year}`;
+}
+
+function generateAgentPassword(length = 8) {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  let out = '';
+  for (let i = 0; i < length; i += 1) {
+    out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return out;
+}
+
 function blankDate(value, withTime = false) {
   if (!value) return '';
   const str = String(value);
@@ -213,14 +254,6 @@ async function getMaxAgencyNumber(pool) {
     'SELECT MAX(USERNAMEID) + 1 AS USERNAMEID FROM generate_agency_letter',
   );
   return padAgencyNumber(row?.USERNAMEID);
-}
-
-async function getCompanyShortName(pool) {
-  const [[row]] = await pool.query(
-    'SELECT SHORT_NAME FROM main_company WHERE MCOMPANYID = ? LIMIT 1',
-    [COMPANY_ID],
-  );
-  return row?.SHORT_NAME || '';
 }
 
 async function getCargoDefaults(pool, comId, costSheetId) {
@@ -532,7 +565,6 @@ export async function dbGetAgencyLetterForm(comId) {
 
   const { cargoDefault, toleranceDefault } = await getCargoDefaults(pool, comId, costSheetId);
   const agencyNumber = await getMaxAgencyNumber(pool);
-  const shortName = await getCompanyShortName(pool);
   const lookups = await dbGetAgencyLetterLookups();
   const noonReports = await loadNoonReportEtas(pool, sheet?.IMO_NO);
 
@@ -649,7 +681,13 @@ export async function dbGetAgencyLetterForm(comId) {
         candidate.randomId,
       );
       const etaNoon = etaFromNoonReports(noonReports, portName);
-      const defaultUsername = `${shortName}/${agencyNumber}/${candidate.randomId}`;
+      const agentDisplayName = vendor
+        ? `${vendor.NAME} (${vendor.CODE})`
+        : (candidate.agentCode ? String(candidate.agentCode) : 'No agent on cost sheet');
+      const letterDate = detail?.letter?.date || todayDmy();
+      const defaultUsername = vendor?.NAME
+        ? generateAgentUsername(vendor.NAME, letterDate)
+        : '';
 
       ports.push({
         key: `${candidate.portType}-${candidate.portId}-${candidate.randomId}`,
@@ -659,9 +697,7 @@ export async function dbGetAgencyLetterForm(comId) {
         portName,
         randomId: String(candidate.randomId ?? ''),
         agentCode: String(candidate.agentCode ?? ''),
-        agentName: vendor
-          ? `${vendor.NAME} (${vendor.CODE})`
-          : (candidate.agentCode ? String(candidate.agentCode) : 'No agent on cost sheet'),
+        agentName: agentDisplayName,
         qty: candidate.qty != null ? String(candidate.qty) : '',
         defaultEntityName: vendor?.STREET_2 || '',
         defaultEntityEmail: vendor?.EMAILID || '',
@@ -705,7 +741,7 @@ export async function dbSaveAgencyLetter(payload = {}) {
     const portId = payload.portId;
     const randomId = payload.randomId;
     const vendorId = payload.vendorId;
-    const username = String(payload.username || '').trim();
+    let username = String(payload.username || '').trim();
     const submitId = Number(payload.submitId) === 2 ? 2 : 1;
     const genAgencyId = payload.genAgencyId || null;
 
@@ -716,6 +752,16 @@ export async function dbSaveAgencyLetter(payload = {}) {
     }
     if (!payload.etaDate1) {
       const error = new Error('Please add ETA Date.');
+      error.status = 400;
+      throw error;
+    }
+
+    if (!username) {
+      const vendor = await getVendorByCode(connection, vendorId);
+      username = generateAgentUsername(vendor?.NAME || vendorId, payload.date || todayDmy());
+    }
+    if (!username) {
+      const error = new Error('Unable to generate agent username.');
       error.status = 400;
       throw error;
     }
@@ -735,6 +781,7 @@ export async function dbSaveAgencyLetter(payload = {}) {
     const etaDate = parseDmyDate(payload.etaDate, true);
     const entities = Array.isArray(payload.entities) ? payload.entities : [];
     const bunkers = Array.isArray(payload.bunkers) ? payload.bunkers : [];
+    const password = String(payload.password || '').trim() || generateAgentPassword();
 
     let savedId = genAgencyId;
 
@@ -754,7 +801,7 @@ export async function dbSaveAgencyLetter(payload = {}) {
       ];
       const insertVals = [
         intOrNull(comId), intOrNull(MODULE_ID), intOrNull(COMPANY_ID), port, intOrNull(portId), date, vendorId, '',
-        usernameId, username, payload.password || '', decimalOrNull(payload.qty), intOrNull(payload.countryId), '', '',
+        usernameId, username, password, decimalOrNull(payload.qty), intOrNull(payload.countryId), '', '',
         '', payload.shipOwner || null, '', '', '', '',
         '', '', '', '', '',
         '', payload.masterName || '', payload.cargoDetails || '', decimalOrNull(payload.tolerance),
@@ -781,7 +828,7 @@ export async function dbSaveAgencyLetter(payload = {}) {
          WHERE GEN_AGENCY_ID = ? AND COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
            AND PORT = ? AND PORTID = ? AND VENDORID = ?`,
         [
-          date, vendorId, username, payload.password || '', decimalOrNull(payload.qty), intOrNull(payload.countryId),
+          date, vendorId, username, password, decimalOrNull(payload.qty), intOrNull(payload.countryId),
           payload.shipOwner || null, payload.masterName || '', payload.cargoDetails || '',
           decimalOrNull(payload.tolerance), intOrNull(randomId), submitId, etaDate,
           payload.bunkerSurveyor || '', payload.bunkerSurveyorCom || '', etaDate1,

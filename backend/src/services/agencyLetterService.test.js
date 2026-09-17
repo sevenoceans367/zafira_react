@@ -30,7 +30,7 @@ describe('agencyLetterService mock lifecycle', () => {
       date: '15-01-2026',
       qty: '50000',
       countryId: '1',
-      username: 'ZAF/001/101',
+      username: 'POR-15012026',
       password: 'secret',
       etaDate1: '18-01-2026 08:00',
       cargoDetails: 'Coal',
@@ -55,7 +55,7 @@ describe('agencyLetterService mock lifecycle', () => {
       submitId: 1,
       countryId: '1',
       etaDate1: '18-01-2026 08:00',
-      username: 'ZAF/001/101',
+      username: 'POR-15012026',
     });
     const result = await deleteAgencyLetter(saved.genAgencyId);
     assert.equal(result.msg, 0);

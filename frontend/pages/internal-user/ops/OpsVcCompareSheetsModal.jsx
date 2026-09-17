@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { fetchCompareSheetsVc, downloadCompareSheetsVcPdf } from '../../../services/opsVc.js';
 import CompareSheetsDialog from './CompareSheetsDialog.jsx';
 
-/** PHP options.php?id=131 getCompareSheetData — VC Voyage Financials compare. */
+/** PHP options.php?id=131 getCompareSheetData — VC Voyage Worksheet compare. */
 export default function OpsVcCompareSheetsModal({ open, comId, onClose }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -58,7 +58,7 @@ export default function OpsVcCompareSheetsModal({ open, comId, onClose }) {
         { label: 'Flag', value: header.flag },
         { label: 'Fixture Date', value: header.fixtureDate },
         { label: 'Voyage No. / COA / Spot', value: header.voyageNo },
-        { label: 'Voyage Financials Name', value: header.voyageName },
+        { label: 'Voyage Worksheet Name', value: header.voyageName },
         { label: 'DWT (Summer)', value: header.dwtSummer },
         { label: 'DWT (Tropical)', value: header.dwtTropical },
       ]}

@@ -844,7 +844,7 @@ export default function OpsVcOtherInvoicePage() {
           <>
             <Button
               variant="primary"
-              label="Submit to edit"
+              label="Save"
               onClick={() => handleSubmit(0)}
               disabled={loading || saving || !context}
             />

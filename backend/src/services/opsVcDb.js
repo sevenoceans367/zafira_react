@@ -426,7 +426,7 @@ async function dbListOpsVcGlance({
     );
 
     const sheetFcaId = sheet?.FCAID || row.FCAID;
-    // PHP Voyage Financials links → cost_sheet_tci / updatecost_sheet_tci
+    // PHP Voyage Worksheet links → cost_sheet_tci / updatecost_sheet_tci
     // getTCICostSheetID: FCAID where COMID + SHEET_NO = COST_SHEETID
     const [costSheets] = await pool.query(
       `SELECT m.COST_SHEETID, m.SHEET_NAME, e.FCAID, e.ESTIMATE_TYPE
@@ -1121,7 +1121,7 @@ export async function dbListVoyageReports({ vesselImoNo = '', comId = '' } = {})
   };
 }
 
-/** Slave tables copied when seeding a Voyage Financials estimate from FVF / prior sheet. */
+/** Slave tables copied when seeding a Voyage Worksheet estimate from FVF / prior sheet. */
 const COST_SHEET_SLAVE_TABLES = [
   'freight_cost_estimete_slave1',
   'freight_cost_estimete_slave2',
@@ -1196,7 +1196,7 @@ async function ensureCostSheetEstimate(pool, comId, costSheetId) {
     [comId, MODULE_ID],
   );
   if (!source?.FCAID) {
-    const error = new Error('Cost sheet estimate not found for this Voyage Financials entry.');
+    const error = new Error('Cost sheet estimate not found for this Voyage Worksheet entry.');
     error.status = 404;
     throw error;
   }
@@ -1293,7 +1293,7 @@ export async function dbGetOpsVcCostSheet(comId, costSheetId) {
     [safeSheetId, safeComId, MODULE_ID, COMPANY_ID],
   );
   if (!sheet) {
-    const error = new Error('Voyage Financials sheet not found.');
+    const error = new Error('Voyage Worksheet sheet not found.');
     error.status = 404;
     throw error;
   }
@@ -1311,7 +1311,7 @@ export async function dbGetOpsVcCostSheet(comId, costSheetId) {
   };
 }
 
-/** PHP insertActualCostSheetName — Voyage Financials "A" button. */
+/** PHP insertActualCostSheetName — Voyage Worksheet "A" button. */
 export async function dbCreateOpsVcCostSheet(comId, sheetName) {
   const name = String(sheetName || '').trim();
   if (!name) {
@@ -1348,7 +1348,7 @@ export async function dbCreateOpsVcCostSheet(comId, sheetName) {
   const latestSheet = existingSheets[0];
   const latestSheetHasEstimate = !latestSheet || latestSheet.FCAID != null;
   if (Number(latestEst?.FINAL_STATUS) !== 1 || !latestSheetHasEstimate) {
-    const error = new Error('Please make sure the last Voyage Financials is Submit to Close');
+    const error = new Error('Please make sure the last Voyage Worksheet is Submit to Close');
     error.status = 400;
     throw error;
   }

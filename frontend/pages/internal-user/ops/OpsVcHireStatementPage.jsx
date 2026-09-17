@@ -806,7 +806,7 @@ export default function OpsVcHireStatementPage() {
         <Button variant="outline" label="Back" href={backHref} disabled={saving} />
         {editableByCreator ? (
           <>
-            <Button variant="primary" label="Submit to edit" onClick={() => handleSubmit(0)} disabled={loading || saving || !context} />
+            <Button variant="primary" label="Save" onClick={() => handleSubmit(0)} disabled={loading || saving || !context} />
             <Button variant="accent" label="Send for Approval" onClick={() => handleSubmit(auth.sendForApprovalStatus)} disabled={loading || saving || !context} />
           </>
         ) : null}

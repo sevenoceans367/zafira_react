@@ -181,7 +181,7 @@ export default function OpsTcPostOpsPage() {
     if (!row.canAddCostSheet) {
       await alert({
         title: 'Alert',
-        message: 'Please make sure the last TC Sheet is Submit to Close',
+        message: 'Please make sure the last TC Sheet is Submitted',
         confirmLabel: 'OK',
       });
       return;
@@ -400,7 +400,7 @@ export default function OpsTcPostOpsPage() {
                 </button>
               </div>
               <p className={styles.muted}>
-                In the Ops side, enter any desired TC Sheet Name. This is then also possible after every Submit to Close.
+                In the Ops side, enter any desired TC Sheet Name. This is then also possible after every Submit.
               </p>
               <FilterField id="ops-tc-post-sheet-name" label="TC Sheet Name">
                 <TextInput

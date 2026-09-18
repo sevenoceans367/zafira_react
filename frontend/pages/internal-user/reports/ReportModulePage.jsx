@@ -6,10 +6,17 @@ import { hasRegisteredReportPage } from '../../../constants/reportsPageRegistry.
 import ConfigurableReportPage from './ConfigurableReportPage.jsx';
 import ComparisonReportPage from './ComparisonReportPage.jsx';
 import DualPlReportPage from './DualPlReportPage.jsx';
+import PlAtAGlancePage from './PlAtAGlancePage.jsx';
 import CargoTonnageReportPage from './CargoTonnageReportPage.jsx';
 import EditableTrackerPage from './EditableTrackerPage.jsx';
 import VesselYearlyPerformancePage from './VesselYearlyPerformancePage.jsx';
 import styles from './ReportPlaceholderPage.module.css';
+
+const PL_AT_A_GLANCE_ALIASES = new Set([
+  'pl-at-a-glance-vc',
+  'pl-at-a-glance-vc-tc',
+  'pl-at-a-glance-tc',
+]);
 
 function ReportPlaceholder({ section, item }) {
   return (
@@ -30,6 +37,9 @@ function LiveReportPage({ reportId }) {
   if (definition?.pageType === 'comparison') {
     return <ComparisonReportPage key={reportId} reportId={reportId} />;
   }
+  if (definition?.pageType === 'plAtAGlance' || PL_AT_A_GLANCE_ALIASES.has(reportId)) {
+    return <PlAtAGlancePage key="pl-at-a-glance" />;
+  }
   if (definition?.pageType === 'dualPl') {
     return <DualPlReportPage key={reportId} reportId={reportId} />;
   }
@@ -47,6 +57,11 @@ function LiveReportPage({ reportId }) {
 
 export default function ReportModulePage() {
   const { sectionId, reportId } = useParams();
+
+  if (sectionId === 'management' && PL_AT_A_GLANCE_ALIASES.has(reportId)) {
+    return <Navigate to="/internal-user/vc/reports/management/pl-at-a-glance" replace />;
+  }
+
   const found = findReport(sectionId, reportId);
 
   if (!found) {

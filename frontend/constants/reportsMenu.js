@@ -28,9 +28,7 @@ export const REPORTS_SECTIONS = [
     label: 'Management Reports',
     items: [
       { id: 'comparison-report', label: 'Comparison Report' },
-      { id: 'pl-at-a-glance-vc', label: 'P & L At a Glance-VC' },
-      { id: 'pl-at-a-glance-vc-tc', label: 'P & L At a Glance-VC/TC' },
-      { id: 'pl-at-a-glance-tc', label: 'P & L At a Glance-TC' },
+      { id: 'pl-at-a-glance', label: 'P&L - At a Glance' },
       { id: 'cargo-tonnage-report', label: 'Cargo Tonnage Report' },
     ],
   },

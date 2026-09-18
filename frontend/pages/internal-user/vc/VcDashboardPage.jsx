@@ -5,13 +5,10 @@ import { appPath } from '@bainbridge/shared-routing';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import {
-  fetchCoaBusinessOverview,
   fetchCoaList,
   fetchCoaShipments,
   fetchPeriodList,
-  fetchPerformingVessels,
   fetchTcBusinessDashboard,
-  fetchVcBusinessDashboard,
   fetchVcBusinessTypes,
   fetchVcDashboardMeta,
 } from '../../../services/vcDashboard.js';
@@ -33,15 +30,21 @@ import {
   OFFICE_SHADES,
   OWNER_SHADES,
   OWNERS_OPERATOR,
-  OWNERS_TC,
+  OWNERS_OWNER,
+  OWNERS_TC_OPERATOR,
+  OWNERS_TC_OWNER,
   PERIOD_CARDS,
   PERIOD_RECORDS,
+  PERFORMING_TC,
+  PERFORMING_VC,
   PIPELINE,
+  COA_PACE,
   QUARTER_TRADES,
   RECEIVABLE_VS_INVOICED,
   REVENUE_QUARTERLY,
   TC_SPARK,
   TC_VESSEL_SHADES,
+  VC_SPARK,
   VC_VESSEL_SHADES,
   VESSEL_TYPE_TC,
   VESSEL_TYPE_VC,
@@ -88,19 +91,24 @@ function SectionHead({ title, showUsd = false }) {
   );
 }
 
-const SPOT_OVERVIEW_CARDS = [
-  { key: 'onSubs', label: 'On Subs', hint: 'SOPF pipeline', tone: 'sparkCardNavy', color: '#274670' },
-  { key: 'inProgress', label: 'In Progress', hint: 'In Ops + Post Ops', tone: 'sparkCardOrange', color: '#F4652C' },
-  { key: 'completed', label: 'Completed', hint: 'History', tone: 'sparkCardTeal', color: '#22B8CF' },
-];
+const SPOT_DEMO_PERFORMING = PERFORMING_VC.map((row, index) => ({
+  ...row,
+  id: `demo-vc-${index}`,
+}));
 
-function spotOverviewCards(overview) {
-  return SPOT_OVERVIEW_CARDS.map(({ key: overviewKey, ...card }) => ({
-    ...card,
-    count: String(overview?.[overviewKey] ?? 0),
-    live: true,
-  }));
-}
+const TC_DEMO_PERFORMING = PERFORMING_TC.map((row, index) => ({
+  ...row,
+  id: `demo-tc-${index}`,
+}));
+
+const ALL_DEMO_PERFORMING = [
+  ...SPOT_DEMO_PERFORMING,
+  ...TC_DEMO_PERFORMING.map((row, index) => ({
+    ...row,
+    id: `demo-all-tc-${index}`,
+    voy: row.tcNo || row.voy,
+  })),
+];
 
 const PAGE_SIZE = 10;
 
@@ -167,7 +175,7 @@ function PerformingVesselsCard({ title = 'Performing Vessels', rows, columns, lo
         emptyMessage={loading ? 'Loading…' : 'No vessels in ops.'}
       />
       <p className={styles.drillHint}>
-        Activity Status is derived from Ops Checklist (WIP), auto-updated from Voyage Worksheet and reports.
+        Activity Status is sourced from Daily Position Report triggers.
       </p>
     </ChartCard>
   );
@@ -249,23 +257,18 @@ export default function VcDashboardPage() {
   const [activeTab, setActiveTab] = useState('vc');
   const [businessTypes, setBusinessTypes] = useState([]);
   const [businessType, setBusinessType] = useState('2');
+  const [icpMode, setIcpMode] = useState('mixed');
   const [periodFrom, setPeriodFrom] = useState('');
   const [periodTo, setPeriodTo] = useState('');
   const [refreshIntervalMs, setRefreshIntervalMs] = useState(50000);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [vcData, setVcData] = useState(null);
   const [tcData, setTcData] = useState(null);
-  const [performingVc, setPerformingVc] = useState([]);
-  const [performingTc, setPerformingTc] = useState([]);
-  const [performingAll, setPerformingAll] = useState([]);
-  const [performingLoading, setPerformingLoading] = useState(false);
   const [coaRows, setCoaRows] = useState([]);
   const [coaTotal, setCoaTotal] = useState(0);
   const [coaPage, setCoaPage] = useState(1);
   const [coaPageSize, setCoaPageSize] = useState(PAGE_SIZE);
-  const [coaPace, setCoaPace] = useState([]);
   const [periodRows, setPeriodRows] = useState([]);
   const [periodTotal, setPeriodTotal] = useState(0);
   const [periodPage, setPeriodPage] = useState(1);
@@ -281,15 +284,6 @@ export default function VcDashboardPage() {
     setBusinessTypes(types);
   }, []);
 
-  const loadVc = useCallback(async () => {
-    const data = await fetchVcBusinessDashboard({
-      selBType: businessType,
-      fromDate: periodFrom,
-      toDate: periodTo,
-    });
-    setVcData(data);
-  }, [businessType, periodFrom, periodTo]);
-
   const loadTc = useCallback(async () => {
     const data = await fetchTcBusinessDashboard({
       selBType: businessType,
@@ -299,29 +293,17 @@ export default function VcDashboardPage() {
     setTcData(data);
   }, [businessType, periodFrom, periodTo]);
 
-  const loadCoaOverview = useCallback(async () => {
-    const overviewData = await fetchCoaBusinessOverview({
+  const loadCoas = useCallback(async () => {
+    const listData = await fetchCoaList({
       selBType: businessType,
       fromDate: periodFrom,
       toDate: periodTo,
+      page: coaPage,
+      pageSize: coaPageSize,
     });
-    setCoaPace(overviewData.cards ?? []);
-  }, [businessType, periodFrom, periodTo]);
-
-  const loadCoas = useCallback(async () => {
-    const [listData] = await Promise.all([
-      fetchCoaList({
-        selBType: businessType,
-        fromDate: periodFrom,
-        toDate: periodTo,
-        page: coaPage,
-        pageSize: coaPageSize,
-      }),
-      loadCoaOverview(),
-    ]);
     setCoaRows(listData.records ?? []);
     setCoaTotal(listData.recordsTotal ?? 0);
-  }, [businessType, periodFrom, periodTo, coaPage, coaPageSize, loadCoaOverview]);
+  }, [businessType, periodFrom, periodTo, coaPage, coaPageSize]);
 
   const loadPeriods = useCallback(async () => {
     const data = await fetchPeriodList({
@@ -333,33 +315,15 @@ export default function VcDashboardPage() {
     setPeriodTotal(data.recordsTotal ?? 0);
   }, [businessType, periodPage, periodPageSize]);
 
-  const loadPerforming = useCallback(async (kind) => {
-    setPerformingLoading(true);
-    try {
-      const data = await fetchPerformingVessels({ kind, selBType: businessType });
-      const records = data.records ?? [];
-      if (kind === 'vc') setPerformingVc(records);
-      if (kind === 'tc') setPerformingTc(records);
-      if (kind === 'all') setPerformingAll(records);
-    } catch {
-      if (kind === 'vc') setPerformingVc([]);
-      if (kind === 'tc') setPerformingTc([]);
-      if (kind === 'all') setPerformingAll([]);
-    } finally {
-      setPerformingLoading(false);
-    }
-  }, [businessType]);
-
   const loadActiveTab = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       switch (activeTab) {
         case 'vc':
-          await Promise.all([loadVc(), loadPerforming('vc')]);
           break;
         case 'tc':
-          await Promise.all([loadTc(), loadPerforming('tc')]);
+          await loadTc();
           break;
         case 'coas':
           await loadCoas();
@@ -368,7 +332,7 @@ export default function VcDashboardPage() {
           await loadPeriods();
           break;
         case 'all':
-          await Promise.all([loadVc(), loadTc(), loadCoas(), loadPeriods(), loadPerforming('all')]);
+          await Promise.all([loadTc(), loadCoas(), loadPeriods()]);
           break;
         default:
           break;
@@ -378,28 +342,19 @@ export default function VcDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, loadVc, loadTc, loadCoas, loadPeriods, loadPerforming]);
+  }, [activeTab, loadTc, loadCoas, loadPeriods]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const performingKind = activeTab === 'tc' || activeTab === 'vc' || activeTab === 'all'
-        ? (activeTab === 'all' ? 'all' : activeTab)
-        : null;
-      await Promise.all([
-        loadVc(),
-        loadTc(),
-        loadCoas(),
-        loadPeriods(),
-        performingKind ? loadPerforming(performingKind) : Promise.resolve(),
-      ]);
+      await Promise.all([loadTc(), loadCoas(), loadPeriods()]);
     } catch (err) {
       setError(err.message || 'Failed to load commercial performance.');
     } finally {
       setLoading(false);
     }
-  }, [activeTab, loadVc, loadTc, loadCoas, loadPeriods, loadPerforming]);
+  }, [loadTc, loadCoas, loadPeriods]);
 
   useEffect(() => {
     (async () => {
@@ -517,12 +472,22 @@ export default function VcDashboardPage() {
     { key: 'tcShipments', label: 'Total Shipment (TC)' },
   ];
 
+  const isOwnerIcp = icpMode === 'owner';
+  const spotOwnersTitle = icpMode === 'operator'
+    ? 'Business with Top Owners'
+    : 'Business with Top Third-Party Owners (Chartered-In)';
+  const spotOwnersData = icpMode === 'operator' ? OWNERS_OPERATOR : OWNERS_OWNER;
+  const tcOwnersData = icpMode === 'operator' ? OWNERS_TC_OPERATOR : OWNERS_TC_OWNER;
+  const showFleetMix = icpMode === 'mixed';
+
   return (
     <>
       <VcDashboardHeaderActions
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={handleBusinessTypeChange}
+        icpMode={icpMode}
+        onIcpModeChange={setIcpMode}
         periodFrom={periodFrom}
         periodTo={periodTo}
         onPeriodChange={handlePeriodChange}
@@ -556,9 +521,9 @@ export default function VcDashboardPage() {
         {activeTab === 'vc' ? (
           <>
             <section className={styles.secBlock}>
-              <SectionHead title="Spot Business Overview" />
+              <SectionHead title="Spot Business Overview" showUsd />
               <div className={styles.sparkRow}>
-                {spotOverviewCards(vcData?.overview).map((card) => (
+                {VC_SPARK.map((card) => (
                   <SparklineSummaryCard key={card.label} {...card} />
                 ))}
               </div>
@@ -581,11 +546,15 @@ export default function VcDashboardPage() {
                   <VerticalBars data={QUARTER_TRADES} colors={['#274670', '#3E5F8F', '#8FA1C2', '#C5CEDB']} />
                 </ChartCard>
               </div>
-              <div className={styles.shellGrid}>
-                <ChartCard title="Business with Top Owners" sub="YTD · USD (millions)">
-                  <HorizontalBars data={OWNERS_OPERATOR} colors={OWNER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
-                  <FleetMixBar owned={FLEET_MIX.owned} charteredIn={FLEET_MIX.charteredIn} />
-                </ChartCard>
+              <div className={`${styles.shellGrid}${isOwnerIcp ? ` ${styles.shellGridSingle}` : ''}`}>
+                {isOwnerIcp ? null : (
+                  <ChartCard title={spotOwnersTitle} sub="YTD · USD (millions)">
+                    <HorizontalBars data={spotOwnersData} colors={OWNER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
+                    {showFleetMix ? (
+                      <FleetMixBar owned={FLEET_MIX.owned} charteredIn={FLEET_MIX.charteredIn} />
+                    ) : null}
+                  </ChartCard>
+                )}
                 <ChartCard title="Business with Top Cargo Owners" sub="Billed-to party · YTD · USD (millions)">
                   <HorizontalBars data={CHARTERERS} colors={CHARTERER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
                 </ChartCard>
@@ -595,9 +564,9 @@ export default function VcDashboardPage() {
                 <SopFCta />
               </ChartCard>
               <PerformingVesselsCard
-                rows={performingVc}
+                rows={SPOT_DEMO_PERFORMING}
                 columns={PERFORMING_VC_COLUMNS}
-                loading={performingLoading}
+                loading={false}
               />
             </section>
           </>
@@ -625,11 +594,15 @@ export default function VcDashboardPage() {
                   <HorizontalBars data={AVG_HIRE_BY_TYPE} valueFmt={(v) => `$${v.toLocaleString('en-US')}/day`} />
                 </ChartCard>
               </div>
-              <div className={styles.shellGrid}>
-                <ChartCard title="Chartered-In Business" sub="TC · YTD · USD (millions)">
-                  <HorizontalBars data={OWNERS_TC} colors={OWNER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
-                  <FleetMixBar owned={FLEET_MIX.owned} charteredIn={FLEET_MIX.charteredIn} />
-                </ChartCard>
+              <div className={`${styles.shellGrid}${isOwnerIcp ? ` ${styles.shellGridSingle}` : ''}`}>
+                {isOwnerIcp ? null : (
+                  <ChartCard title="Chartered-In Business" sub="TC · YTD · USD (millions)">
+                    <HorizontalBars data={tcOwnersData} colors={OWNER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
+                    {showFleetMix ? (
+                      <FleetMixBar owned={FLEET_MIX.owned} charteredIn={FLEET_MIX.charteredIn} />
+                    ) : null}
+                  </ChartCard>
+                )}
                 <ChartCard title="Chartered-Out Business" sub="TC · YTD · USD (millions)">
                   <HorizontalBars data={CHARTERERS_TC} colors={CHARTERER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
                 </ChartCard>
@@ -639,9 +612,9 @@ export default function VcDashboardPage() {
                 <SopFCta />
               </ChartCard>
               <PerformingVesselsCard
-                rows={performingTc}
+                rows={TC_DEMO_PERFORMING}
                 columns={PERFORMING_TC_COLUMNS}
-                loading={performingLoading}
+                loading={false}
               />
             </section>
 
@@ -699,13 +672,9 @@ export default function VcDashboardPage() {
           <section className={styles.secBlock}>
             <SectionHead title="COA Business Overview" showUsd />
             <div className={styles.shellGrid}>
-              {coaPace.length > 0 ? (
-                coaPace.map((item) => (
-                  <PaceCard key={item.coaId || item.id} item={item} live />
-                ))
-              ) : (
-                <p className={styles.emptyCell}>No running COAs in this period.</p>
-              )}
+              {COA_PACE.map((item) => (
+                <PaceCard key={item.id} item={item} />
+              ))}
             </div>
             <SectionHead title="Contracts" />
             <DataTable
@@ -793,9 +762,9 @@ export default function VcDashboardPage() {
             <section className={styles.secBlock}>
               <PerformingVesselsCard
                 title="Performing Vessels (All)"
-                rows={performingAll}
+                rows={ALL_DEMO_PERFORMING}
                 columns={PERFORMING_ALL_COLUMNS}
-                loading={performingLoading}
+                loading={false}
               />
             </section>
             <section className={styles.secBlock}>

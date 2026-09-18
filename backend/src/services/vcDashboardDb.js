@@ -682,6 +682,18 @@ export async function dbGetCoaList({
   };
 }
 
+function buildShipmentTimeline(totalShipments, performed) {
+  const done = Math.max(0, Number(performed) || 0);
+  let total = Math.max(0, Number(totalShipments) || 0);
+  if (total <= 0 && done > 0) total = done + 1;
+  if (total <= 0) return [];
+  return Array.from({ length: total }, (_, index) => {
+    if (index < done) return 1;
+    if (index === done) return 'next';
+    return 0;
+  });
+}
+
 /**
  * Running COA pace cards for COA Business Overview (qty lifted vs contract duration).
  */
@@ -717,9 +729,11 @@ export async function dbGetCoaBusinessOverview({ selBType, fromDate, toDate, lim
 
   const where = conditions.join(' AND ');
   const [rows] = await pool.query(
-    `SELECT m.COAID, m.COA_ID, m.COA_NO, m.START_DATE, m.END_DATE, m.MIN_GUARANTEED_QTY,
+    `SELECT m.COAID, m.COA_ID, m.COA_NO, m.START_DATE, m.END_DATE, m.MIN_GUARANTEED_QTY, m.TOTAL_SHIPMENTS,
             route.COAROUTE_NAME AS COA_ROUTE,
             CONCAT(charterer.NAME, '(', charterer.CODE, ')') AS CHARTERER,
+            (SELECT COUNT(*) FROM freight_cost_estimate_compare c WHERE c.COAAID = m.COAID) AS LEGS_VC,
+            (SELECT COUNT(*) FROM cargo_relet_estimate_compare c WHERE c.COAAID = m.COAID) AS LEGS_RELET,
             (SELECT GROUP_CONCAT(COMID) FROM freight_cost_estimate_compare c WHERE c.COAAID = m.COAID) AS COMID_VC,
             (SELECT GROUP_CONCAT(COMID) FROM cargo_relet_estimate_compare c WHERE c.COAAID = m.COAID) AS COMID_RELET
      FROM coa_master m
@@ -746,6 +760,8 @@ export async function dbGetCoaBusinessOverview({ selBType, fromDate, toDate, lim
     const qtyLiftedPct = minQty > 0 ? clampPct((liftedMt / minQty) * 100) : 0;
     const elapsedPct = timeElapsedPct(row.START_DATE, row.END_DATE);
     const { from, to } = splitRouteName(row.COA_ROUTE);
+    const performed = Number(row.LEGS_VC || 0) + Number(row.LEGS_RELET || 0);
+    const totalShipments = Number(row.TOTAL_SHIPMENTS || 0);
 
     cards.push({
       id: row.COA_ID || `COA-${row.COAID}`,
@@ -759,6 +775,9 @@ export async function dbGetCoaBusinessOverview({ selBType, fromDate, toDate, lim
       lifted: formatMtLabel(liftedMt),
       balance: formatMtLabel(balanceMt),
       duration: 'Contract duration elapsed',
+      totalShipments,
+      performed,
+      shipments: buildShipmentTimeline(totalShipments, performed),
     });
   }
 

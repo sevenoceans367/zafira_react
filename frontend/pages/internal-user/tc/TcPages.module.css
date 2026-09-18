@@ -1509,6 +1509,12 @@
   align-self: stretch;
 }
 
+.tsecMustard .fgHead:empty {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
 .fgCell {
   padding: 8px 0 2px;
   min-width: 0;

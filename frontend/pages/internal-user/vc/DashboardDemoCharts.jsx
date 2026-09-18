@@ -6,6 +6,21 @@ function DemoBadge() {
   return <span className={styles.demoBadge}>{DEMO_BADGE}</span>;
 }
 
+function resolveShipmentTimeline(item) {
+  if (Array.isArray(item?.shipments) && item.shipments.length > 0) {
+    return item.shipments;
+  }
+  const performed = Math.max(0, Number(item?.performed) || 0);
+  let total = Math.max(0, Number(item?.totalShipments) || 0);
+  if (total <= 0 && performed > 0) total = performed + 1;
+  if (total <= 0) return [];
+  return Array.from({ length: total }, (_, index) => {
+    if (index < performed) return 1;
+    if (index === performed) return 'next';
+    return 0;
+  });
+}
+
 export function ChartCard({ title, sub, children, actions = null, className = '' }) {
   return (
     <div className={`${styles.card} ${className}`.trim()}>
@@ -170,48 +185,122 @@ export function FleetMixBar({ owned, charteredIn }) {
 }
 
 export function PaceCard({ item, live = false }) {
-  const delta = item.qtyLiftedPct - item.timeElapsedPct;
+  const qtyPct = Number(item.qtyLiftedPct) || 0;
+  const timePct = Number(item.timeElapsedPct) || 0;
+  const delta = qtyPct - timePct;
   const ahead = delta >= 0;
+  const shipments = resolveShipmentTimeline(item);
+
   return (
     <div className={styles.paceCard}>
-      <div className={styles.paceTop}>
+      <div className={styles.coaCardHead}>
         <div>
-          <span className={styles.paceId}>{item.id}</span>
-          {item.no ? <span className={styles.paceMeta}>COA No. {item.no} · {item.charterer}</span> : null}
+          <div className={styles.coaId}>{item.id}</div>
+          {item.no || item.charterer ? (
+            <div className={styles.coaMeta}>
+              {item.no ? `COA No. ${item.no}` : null}
+              {item.no && item.charterer ? ' · ' : null}
+              {item.charterer || null}
+            </div>
+          ) : null}
+          <div className={styles.coaRouteChips}>
+            <span className={styles.locChip}>{item.from}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M5 12h14" />
+              <path d="M13 6l6 6-6 6" />
+            </svg>
+            <span className={styles.locChip}>{item.to}</span>
+          </div>
         </div>
         <div className={styles.cardHeadRight}>
           <span className={styles.coaChip}>Running COA</span>
           {live ? null : <DemoBadge />}
         </div>
       </div>
-      <div className={styles.routeChips}>
-        <span>{item.from}</span>
-        <i className="bi bi-arrow-right" aria-hidden />
-        <span>{item.to}</span>
-      </div>
-      {!item.no ? <p className={styles.paceCharterer}>{item.charterer}</p> : null}
-      <div className={styles.paceMeters}>
-        <div>
-          <div className={styles.paceMeterLabel}>
-            Quantity Lifted <b>{item.qtyLiftedPct}%</b>
-          </div>
-          <div className={styles.paceTrack}>
-            <div className={styles.paceFillPurple} style={{ width: `${item.qtyLiftedPct}%` }} />
-          </div>
-          <div className={styles.paceHint}>{item.lifted} lifted · {item.balance} balance</div>
+
+      <div className={styles.paceBarRow}>
+        <div className={styles.paceBarLabel}>
+          <span>Quantity Lifted</span>
+          <b>{qtyPct}%</b>
         </div>
-        <div>
-          <div className={styles.paceMeterLabel}>
-            Contract Duration Elapsed <b>{item.timeElapsedPct}%</b>
+        <div className={styles.paceHover}>
+          <div className={styles.barTip}>
+            <b>Quantity</b>
+            Lifted: {item.lifted}
+            <br />
+            Balance Cargo: {item.balance}
           </div>
           <div className={styles.paceTrack}>
-            <div className={styles.paceFillMuted} style={{ width: `${item.timeElapsedPct}%` }} />
+            <div className={styles.paceFillPurple} style={{ width: `${qtyPct}%` }} />
           </div>
         </div>
       </div>
+
+      <div className={styles.paceBarRow}>
+        <div className={styles.paceBarLabel}>
+          <span>Contract Duration Elapsed</span>
+          <b>{timePct}%</b>
+        </div>
+        <div className={styles.paceTrack}>
+          <div className={styles.paceFillMuted} style={{ width: `${timePct}%` }} />
+        </div>
+      </div>
+
       <span className={`${styles.paceStatus} ${ahead ? styles.paceAhead : styles.paceBehind}`}>
-        {ahead ? '↑' : '↓'} {Math.abs(delta)} pts {ahead ? 'ahead of' : 'behind'} pace
+        {ahead ? '↑' : '↓'}
+        {' '}
+        {Math.abs(delta)}
+        {' '}
+        pts
+        {' '}
+        {ahead ? 'ahead of' : 'behind'}
+        {' '}
+        pace
       </span>
+
+      {shipments.length > 0 ? (
+        <>
+          <div className={styles.shipmentTimeline}>
+            {shipments.map((state, index) => {
+              const num = index + 1;
+              const kind = state === 1 || state === '1'
+                ? 'performed'
+                : state === 'next'
+                  ? 'next'
+                  : 'upcoming';
+              const tip = kind === 'performed'
+                ? `Shipment ${num} — lifted`
+                : kind === 'next'
+                  ? `Shipment ${num} — next nomination due`
+                  : `Shipment ${num} — upcoming`;
+              return (
+                <div
+                  key={`${item.id}-ship-${num}`}
+                  className={`${styles.shipChip} ${styles[`shipChip_${kind}`]}`}
+                  title={tip}
+                >
+                  {num}
+                  <span className={styles.shipTip}>{tip}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className={styles.timelineLegend}>
+            <span>
+              <span className={`${styles.legendSw} ${styles.legendSwLifted}`} />
+              Lifted
+            </span>
+            <span>
+              <span className={`${styles.legendSw} ${styles.legendSwNext}`} />
+              Next Due
+            </span>
+            <span>
+              <span className={`${styles.legendSw} ${styles.legendSwUpcoming}`} />
+              Upcoming
+            </span>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

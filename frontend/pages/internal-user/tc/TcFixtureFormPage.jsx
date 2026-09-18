@@ -2192,12 +2192,17 @@ export default function TcFixtureFormPage({
     const isFirst = kind === 'deliveryBunkers';
 
     return (
-    <div className={styles.plainSubBlock}>
-      <div className={`${styles.subBlockLabel}${isFirst ? ` ${styles.subBlockLabelFirst}` : ''}`}>
-        Bunkers on
-        {' '}
-        {dirLabel}
-      </div>
+    <TsecCard
+      theme="mustard"
+      className={isFirst ? styles.tsecMustardFirst : ''}
+      tab={(
+        <>
+          Bunkers on
+          {' '}
+          <span className={styles.bgDirChip}>{dirLabel}</span>
+        </>
+      )}
+    >
       <div
         className={styles.fieldGrid}
         style={{ '--cols': '1fr 0.8fr 0.9fr 1.1fr 1fr 64px' }}
@@ -2288,7 +2293,7 @@ export default function TcFixtureFormPage({
         <span className={styles.tsecTotalLabel}>Total</span>
         <span>{sumBunkerAmounts(form[kind])}</span>
       </div>
-    </div>
+    </TsecCard>
     );
   };
 

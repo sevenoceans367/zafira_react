@@ -1,6 +1,6 @@
 /** Sample analytics for Commercial Performance redesign visuals.
  *  Clearly demo-only — not from live dashboard APIs.
- *  Numbers aligned with php/SOC_Business_Dashboard_Redesign (1).html
+ *  Numbers aligned with SOC_Business_Dashboard_Redesign (3).html
  */
 
 export const DEMO_BADGE = 'Sample data';
@@ -84,6 +84,12 @@ export const OWNERS_OPERATOR = [
   { n: 'Meridian Tanker Owners Ltd', v: 0.9 },
 ];
 
+export const OWNERS_OWNER = [
+  { n: 'Aegean Tankers Inc.', v: 0.6 },
+  { n: 'Farstad Marine Holdings', v: 0.5 },
+  { n: 'Kalymnos Shipping Co.', v: 0.3 },
+];
+
 export const CHARTERERS = [
   { n: 'Zafira Shipping & Trading', v: 2.4 },
   { n: 'Nordic Tankers AS', v: 1.9 },
@@ -92,10 +98,18 @@ export const CHARTERERS = [
   { n: 'Meridian Tanker Pool', v: 1.0 },
 ];
 
-export const OWNERS_TC = [
+export const OWNERS_TC_OPERATOR = [
   { n: 'Farstad Marine Holdings', v: 1.6 },
   { n: 'Meridian Tanker Owners Ltd', v: 1.2 },
   { n: 'Kalymnos Shipping Co.', v: 0.8 },
+];
+
+/** @deprecated use OWNERS_TC_OPERATOR */
+export const OWNERS_TC = OWNERS_TC_OPERATOR;
+
+export const OWNERS_TC_OWNER = [
+  { n: 'Farstad Marine Holdings', v: 0.4 },
+  { n: 'Meridian Tanker Owners Ltd', v: 0.3 },
 ];
 
 export const CHARTERERS_TC = [
@@ -155,6 +169,7 @@ export const COA_PACE = [
     lifted: '330,000 MT',
     balance: '170,000 MT',
     duration: 'Contract duration elapsed',
+    shipments: [1, 1, 1, 1, 1, 1, 1, 1, 'next', 0, 0, 0],
   },
   {
     id: 'COA-021-2026',
@@ -167,6 +182,7 @@ export const COA_PACE = [
     lifted: '114,000 MT',
     balance: '186,000 MT',
     duration: 'Contract duration elapsed',
+    shipments: [1, 1, 1, 1, 'next', 0, 0, 0, 0, 0],
   },
 ];
 

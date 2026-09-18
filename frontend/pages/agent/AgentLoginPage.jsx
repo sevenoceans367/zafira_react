@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { agentLogin, getUser, isAuthenticated, isAgentAppUser } from '@bainbridge/shared-auth';
@@ -43,11 +43,13 @@ export default function AgentLoginPage() {
       <div className={loginStyles.shell}>
         <section className={loginStyles.hero} aria-label="Welcome">
           <div className={loginStyles.logoSlot}>
-            <img
-              src={brandLogo}
-              alt="Seven Oceans"
-              className={loginStyles.logo}
-            />
+            <Link to={appPath('/login')} aria-label="Back to sign in" className={loginStyles.logoLink}>
+              <img
+                src={brandLogo}
+                alt="Seven Oceans"
+                className={loginStyles.logo}
+              />
+            </Link>
           </div>
 
           <div className={loginStyles.heroBottom}>

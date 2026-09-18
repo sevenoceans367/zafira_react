@@ -1,4 +1,5 @@
-.shell {
+.shell,
+.portal {
   --navy: #274670;
   --navy-tint: #e6eaf1;
   --navy-dark: #1b3358;
@@ -24,10 +25,22 @@
   --font-display: 'Open Sauce One', 'Inter', 'Segoe UI', sans-serif;
   --font-body: 'Inter', 'Segoe UI', sans-serif;
 
-  min-height: 100vh;
+  min-height: 100%;
   background: var(--page-bg);
   color: var(--text-dark);
   font-family: var(--font-body);
+}
+
+.content {
+  /* Horizontal/vertical padding comes from shared .zafira-page (same as SOPF). */
+  box-sizing: border-box;
+}
+
+.pageSubInline {
+  margin: 0 0 14px;
+  color: var(--text-mid);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .topbar {

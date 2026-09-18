@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAlert } from '../ConfirmDialog/ConfirmContext.jsx';
 import styles from './PeriodCardPicker.module.css';
 
@@ -135,7 +136,10 @@ export default function PeriodCardPicker({
 }) {
   const alert = useAlert();
   const wrapRef = useRef(null);
+  const triggerRef = useRef(null);
+  const cardRef = useRef(null);
   const [open, setOpen] = useState(false);
+  const [cardStyle, setCardStyle] = useState(null);
   const [viewDate, setViewDate] = useState(() => parseDmy(from) || startOfDay(new Date()));
   const [draftFrom, setDraftFrom] = useState(() => parseDmy(from));
   const [draftTo, setDraftTo] = useState(() => parseDmy(to));
@@ -148,6 +152,32 @@ export default function PeriodCardPicker({
   const displayValue = hasValue ? `${from} → ${to}` : label;
   const cells = useMemo(() => buildMonthCells(viewDate), [viewDate]);
   const monthTitle = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  const updateCardPosition = () => {
+    const edge = 12;
+    const width = Math.min(window.innerWidth - edge * 2, 680);
+    const maxHeight = Math.min(window.innerHeight - edge * 2, 560);
+
+    setCardStyle({
+      position: 'fixed',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: `${width}px`,
+      maxHeight: `${maxHeight}px`,
+      zIndex: 10050,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setCardStyle(null);
+      return undefined;
+    }
+    updateCardPosition();
+    requestAnimationFrame(updateCardPosition);
+    return undefined;
+  }, [open, align]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -163,22 +193,28 @@ export default function PeriodCardPicker({
     setViewDate(nextFrom || nextTo || startOfDay(new Date()));
 
     const handleClickOutside = (event) => {
-      if (wrapRef.current && !wrapRef.current.contains(event.target)) {
-        setOpen(false);
-      }
+      const inTrigger = wrapRef.current?.contains(event.target);
+      const inCard = cardRef.current?.contains(event.target);
+      if (!inTrigger && !inCard) setOpen(false);
     };
 
     const handleEscape = (event) => {
       if (event.key === 'Escape') setOpen(false);
     };
 
+    const handleReposition = () => updateCardPosition();
+
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, true);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition, true);
     };
-  }, [open, from, to]);
+  }, [open, from, to, align]);
 
   const handleDayClick = (date) => {
     if (!draftFrom || (draftFrom && draftTo)) {
@@ -307,9 +343,173 @@ export default function PeriodCardPicker({
     setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
   };
 
+  const card = open && cardStyle && typeof document !== 'undefined'
+    ? createPortal(
+      <>
+        <div
+          className={styles.backdrop}
+          aria-hidden
+          onMouseDown={() => setOpen(false)}
+        />
+        <div
+          ref={cardRef}
+          className={styles.card}
+          style={cardStyle}
+          role="dialog"
+          aria-label={title}
+        >
+        <div className={styles.header}>
+          <div className={styles.headerIcon} aria-hidden>
+            <i className="bi bi-calendar3" />
+          </div>
+          <div>
+            <h4 className={styles.title}>{title}</h4>
+            <p className={styles.subtitle}>{subtitle}</p>
+          </div>
+        </div>
+
+        <div className={styles.body}>
+          <div className={styles.calendarCol}>
+            <div className={styles.monthNav}>
+              <button
+                type="button"
+                className={styles.navBtn}
+                aria-label="Previous month"
+                onClick={() => shiftMonth(-1)}
+              >
+                <i className="bi bi-chevron-left" />
+              </button>
+              <div className={styles.monthTitle}>{monthTitle}</div>
+              <button
+                type="button"
+                className={styles.navBtn}
+                aria-label="Next month"
+                onClick={() => shiftMonth(1)}
+              >
+                <i className="bi bi-chevron-right" />
+              </button>
+            </div>
+
+            <div className={styles.weekRow}>
+              {WEEKDAYS.map((day) => (
+                <span key={day} className={styles.weekday}>{day}</span>
+              ))}
+            </div>
+
+            <div className={styles.dayGrid}>
+              {cells.map((cell) => {
+                const isStart = sameDay(cell.date, draftFrom);
+                const isEnd = sameDay(cell.date, draftTo);
+                const inRange = Boolean(
+                  draftFrom
+                  && draftTo
+                  && cell.date > draftFrom
+                  && cell.date < draftTo,
+                );
+
+                return (
+                  <button
+                    key={cell.key}
+                    type="button"
+                    className={[
+                      styles.day,
+                      !cell.inCurrent ? styles.dayMuted : '',
+                      inRange ? styles.dayInRange : '',
+                      isStart ? styles.dayStart : '',
+                      isEnd ? styles.dayEnd : '',
+                      (isStart || isEnd) ? styles.daySelected : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => handleDayClick(cell.date)}
+                  >
+                    <span className={styles.dayNum}>{cell.day}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className={styles.fieldsCol}>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Start date*</span>
+              <input
+                type="text"
+                className={`${styles.fieldInput} ${fromError ? styles.fieldInputError : ''}`}
+                value={fromInput}
+                placeholder="dd-mm-yyyy"
+                onChange={(event) => {
+                  setFromInput(event.target.value);
+                  if (fromError) setFromError('');
+                }}
+                onBlur={commitFromInput}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitFromInput();
+                  }
+                }}
+              />
+              {fromError ? <span className={styles.fieldError}>{fromError}</span> : null}
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>End date*</span>
+              <input
+                type="text"
+                className={`${styles.fieldInput} ${toError ? styles.fieldInputError : ''}`}
+                value={toInput}
+                placeholder="dd-mm-yyyy"
+                onChange={(event) => {
+                  setToInput(event.target.value);
+                  if (toError) setToError('');
+                }}
+                onBlur={commitToInput}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitToInput();
+                  }
+                }}
+              />
+              {toError ? <span className={styles.fieldError}>{toError}</span> : null}
+            </label>
+
+            <p className={styles.hint}>
+              Type dates as dd-mm-yyyy, or click start then end on the calendar.
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.footer}>
+          <span className={styles.summary}>
+            {draftFrom && draftTo
+              ? `Period: ${formatLong(draftFrom)} – ${formatLong(draftTo)}`
+              : 'No period selected'}
+          </span>
+          <div className={styles.footerActions}>
+            <button type="button" className={`${styles.footerBtn} ${styles.footerBtnClear}`} onClick={handleClear}>
+              <i className={`bi bi-trash3 ${styles.footerBtnIcon}`} aria-hidden />
+              Clear
+            </button>
+            <button type="button" className={`${styles.footerBtn} ${styles.footerBtnCancel}`} onClick={() => setOpen(false)}>
+              <i className={`bi bi-x-lg ${styles.footerBtnIcon}`} aria-hidden />
+              Cancel
+            </button>
+            <button type="button" className={`${styles.footerBtn} ${styles.footerBtnApply}`} onClick={handleApply}>
+              <i className={`bi bi-check-lg ${styles.footerBtnIcon}`} aria-hidden />
+              Apply
+            </button>
+          </div>
+        </div>
+      </div>
+      </>,
+      document.body,
+    )
+    : null;
+
   return (
     <div className={styles.wrap} ref={wrapRef}>
       <button
+        ref={triggerRef}
         type="button"
         className={`${styles.trigger} ${hasValue ? styles.triggerActive : ''}`}
         aria-label={label}
@@ -320,157 +520,7 @@ export default function PeriodCardPicker({
         <span className={styles.triggerText}>{displayValue}</span>
         <i className={`bi bi-chevron-${open ? 'up' : 'down'} ${styles.chevron}`} aria-hidden />
       </button>
-
-      {open ? (
-        <div
-          className={`${styles.card} ${align === 'start' ? styles.cardAlignStart : ''}`}
-          role="dialog"
-          aria-label={title}
-        >
-          <div className={styles.header}>
-            <div className={styles.headerIcon} aria-hidden>
-              <i className="bi bi-calendar3" />
-            </div>
-            <div>
-              <h4 className={styles.title}>{title}</h4>
-              <p className={styles.subtitle}>{subtitle}</p>
-            </div>
-          </div>
-
-          <div className={styles.body}>
-            <div className={styles.calendarCol}>
-              <div className={styles.monthNav}>
-                <button
-                  type="button"
-                  className={styles.navBtn}
-                  aria-label="Previous month"
-                  onClick={() => shiftMonth(-1)}
-                >
-                  <i className="bi bi-chevron-left" />
-                </button>
-                <div className={styles.monthTitle}>{monthTitle}</div>
-                <button
-                  type="button"
-                  className={styles.navBtn}
-                  aria-label="Next month"
-                  onClick={() => shiftMonth(1)}
-                >
-                  <i className="bi bi-chevron-right" />
-                </button>
-              </div>
-
-              <div className={styles.weekRow}>
-                {WEEKDAYS.map((day) => (
-                  <span key={day} className={styles.weekday}>{day}</span>
-                ))}
-              </div>
-
-              <div className={styles.dayGrid}>
-                {cells.map((cell) => {
-                  const isStart = sameDay(cell.date, draftFrom);
-                  const isEnd = sameDay(cell.date, draftTo);
-                  const inRange = Boolean(
-                    draftFrom
-                    && draftTo
-                    && cell.date > draftFrom
-                    && cell.date < draftTo,
-                  );
-
-                  return (
-                    <button
-                      key={cell.key}
-                      type="button"
-                      className={[
-                        styles.day,
-                        !cell.inCurrent ? styles.dayMuted : '',
-                        inRange ? styles.dayInRange : '',
-                        isStart ? styles.dayStart : '',
-                        isEnd ? styles.dayEnd : '',
-                        (isStart || isEnd) ? styles.daySelected : '',
-                      ].filter(Boolean).join(' ')}
-                      onClick={() => handleDayClick(cell.date)}
-                    >
-                      <span className={styles.dayNum}>{cell.day}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className={styles.fieldsCol}>
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Start date*</span>
-                <input
-                  type="text"
-                  className={`${styles.fieldInput} ${fromError ? styles.fieldInputError : ''}`}
-                  value={fromInput}
-                  placeholder="dd-mm-yyyy"
-                  onChange={(event) => {
-                    setFromInput(event.target.value);
-                    if (fromError) setFromError('');
-                  }}
-                  onBlur={commitFromInput}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      commitFromInput();
-                    }
-                  }}
-                />
-                {fromError ? <span className={styles.fieldError}>{fromError}</span> : null}
-              </label>
-
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>End date*</span>
-                <input
-                  type="text"
-                  className={`${styles.fieldInput} ${toError ? styles.fieldInputError : ''}`}
-                  value={toInput}
-                  placeholder="dd-mm-yyyy"
-                  onChange={(event) => {
-                    setToInput(event.target.value);
-                    if (toError) setToError('');
-                  }}
-                  onBlur={commitToInput}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      commitToInput();
-                    }
-                  }}
-                />
-                {toError ? <span className={styles.fieldError}>{toError}</span> : null}
-              </label>
-
-              <p className={styles.hint}>
-                Type dates as dd-mm-yyyy, or click start then end on the calendar.
-              </p>
-            </div>
-          </div>
-
-          <div className={styles.footer}>
-            <span className={styles.summary}>
-              {draftFrom && draftTo
-                ? `Period: ${formatLong(draftFrom)} – ${formatLong(draftTo)}`
-                : 'No period selected'}
-            </span>
-            <div className={styles.footerActions}>
-              <button type="button" className={`${styles.footerBtn} ${styles.footerBtnClear}`} onClick={handleClear}>
-                <i className={`bi bi-trash3 ${styles.footerBtnIcon}`} aria-hidden />
-                Clear
-              </button>
-              <button type="button" className={`${styles.footerBtn} ${styles.footerBtnCancel}`} onClick={() => setOpen(false)}>
-                <i className={`bi bi-x-lg ${styles.footerBtnIcon}`} aria-hidden />
-                Cancel
-              </button>
-              <button type="button" className={`${styles.footerBtn} ${styles.footerBtnApply}`} onClick={handleApply}>
-                <i className={`bi bi-check-lg ${styles.footerBtnIcon}`} aria-hidden />
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {card}
     </div>
   );
 }

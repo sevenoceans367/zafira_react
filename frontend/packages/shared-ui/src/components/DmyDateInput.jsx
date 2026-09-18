@@ -344,6 +344,26 @@ const DmyDateInput = ({
       }
     };
 
+    const syncYearSelectLabel = (fp) => {
+      const wrap = fp.calendarContainer?.querySelector(`.${styles.yearSelectWrap}`);
+      if (!wrap) return;
+      const yearInput = wrap.querySelector(`.${styles.yearSelectInput}`);
+      const menu = wrap.querySelector(`.${styles.yearSelectMenu}`);
+      const year = Number(fp.currentYear);
+      if (yearInput && document.activeElement !== yearInput) {
+        yearInput.value = String(year || '');
+      }
+      if (menu) {
+        menu.querySelectorAll(`.${styles.yearSelectItem}`).forEach((btn) => {
+          const selected = Number(btn.dataset.year) === year;
+          btn.classList.toggle(styles.yearSelectItemSelected, selected);
+          btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+          const check = btn.querySelector(`.${styles.yearSelectCheck}`);
+          if (check) check.hidden = !selected;
+        });
+      }
+    };
+
     const closeMonthSelectMenu = (fp) => {
       const wrap = fp.calendarContainer?.querySelector(`.${styles.monthSelectWrap}`);
       if (!wrap) return;
@@ -351,6 +371,25 @@ const DmyDateInput = ({
       const trigger = wrap.querySelector(`.${styles.monthSelectTrigger}`);
       if (menu) menu.hidden = true;
       if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    };
+
+    const closeYearSelectMenu = (fp) => {
+      const wrap = fp.calendarContainer?.querySelector(`.${styles.yearSelectWrap}`);
+      if (!wrap) return;
+      const menu = wrap.querySelector(`.${styles.yearSelectMenu}`);
+      const chevronBtn = wrap.querySelector(`.${styles.yearSelectChevronBtn}`);
+      if (menu) menu.hidden = true;
+      if (chevronBtn) chevronBtn.setAttribute('aria-expanded', 'false');
+    };
+
+    const buildYearOptions = (fp) => {
+      const nowYear = new Date().getFullYear();
+      const current = Number(fp.currentYear) || nowYear;
+      const start = Math.min(1971, current);
+      const end = Math.max(nowYear + 15, current);
+      const years = [];
+      for (let y = end; y >= start; y -= 1) years.push(y);
+      return years;
     };
 
     const ensureMonthSelect = (fp) => {
@@ -428,6 +467,7 @@ const DmyDateInput = ({
         e.preventDefault();
         e.stopPropagation();
         const willOpen = menu.hidden;
+        closeYearSelectMenu(fp);
         menu.hidden = !willOpen;
         trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
         if (willOpen) syncMonthSelectLabel(fp);
@@ -445,6 +485,181 @@ const DmyDateInput = ({
 
       cal.addEventListener('mousedown', (e) => {
         if (!wrap.contains(e.target)) closeMonthSelectMenu(fp);
+      });
+    };
+
+    const ensureYearSelect = (fp) => {
+      const cal = fp.calendarContainer;
+      const currentMonth = cal?.querySelector('.flatpickr-current-month');
+      const yearWrapper = currentMonth?.querySelector('.numInputWrapper');
+      if (!cal || !currentMonth || !yearWrapper) return;
+      if (currentMonth.querySelector(`.${styles.yearSelectWrap}`)) {
+        syncYearSelectLabel(fp);
+        return;
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = styles.yearSelectWrap;
+
+      const trigger = document.createElement('div');
+      trigger.className = styles.yearSelectTrigger;
+
+      const yearInput = document.createElement('input');
+      yearInput.type = 'text';
+      yearInput.inputMode = 'numeric';
+      yearInput.pattern = '[0-9]*';
+      yearInput.maxLength = 4;
+      yearInput.className = styles.yearSelectInput;
+      yearInput.setAttribute('aria-label', 'Year');
+      yearInput.setAttribute('autocomplete', 'off');
+      yearInput.value = String(fp.currentYear || '');
+
+      const chevronBtn = document.createElement('button');
+      chevronBtn.type = 'button';
+      chevronBtn.className = styles.yearSelectChevronBtn;
+      chevronBtn.setAttribute('aria-label', 'Open year list');
+      chevronBtn.setAttribute('aria-haspopup', 'listbox');
+      chevronBtn.setAttribute('aria-expanded', 'false');
+      chevronBtn.setAttribute('tabindex', '-1');
+
+      const chevron = document.createElement('span');
+      chevron.className = styles.yearSelectChevron;
+      chevron.setAttribute('aria-hidden', 'true');
+      chevron.textContent = '▾';
+      chevronBtn.appendChild(chevron);
+
+      trigger.append(yearInput, chevronBtn);
+
+      const menu = document.createElement('div');
+      menu.className = styles.yearSelectMenu;
+      menu.setAttribute('role', 'listbox');
+      menu.setAttribute('aria-label', 'Year');
+      menu.hidden = true;
+
+      const rebuildYearItems = () => {
+        menu.replaceChildren();
+        const years = buildYearOptions(fp);
+        years.forEach((year) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = styles.yearSelectItem;
+          item.dataset.year = String(year);
+          item.setAttribute('role', 'option');
+          const selected = year === Number(fp.currentYear);
+          item.setAttribute('aria-selected', selected ? 'true' : 'false');
+          if (selected) item.classList.add(styles.yearSelectItemSelected);
+
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = String(year);
+
+          const check = document.createElement('span');
+          check.className = styles.yearSelectCheck;
+          check.setAttribute('aria-hidden', 'true');
+          check.textContent = '✓';
+          check.hidden = !selected;
+
+          item.append(nameSpan, check);
+          item.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          });
+          item.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (year !== Number(fp.currentYear)) fp.changeYear(year);
+            closeYearSelectMenu(fp);
+            syncYearSelectLabel(fp);
+          });
+          menu.appendChild(item);
+        });
+      };
+
+      rebuildYearItems();
+
+      const commitYearInput = () => {
+        const raw = String(yearInput.value || '').trim();
+        const year = Number(raw);
+        if (!/^\d{4}$/.test(raw) || year < 1971 || year > 2200) {
+          yearInput.value = String(fp.currentYear || '');
+          return;
+        }
+        if (year !== Number(fp.currentYear)) {
+          fp.changeYear(year);
+          rebuildYearItems();
+        }
+        syncYearSelectLabel(fp);
+      };
+
+      const openMenu = () => {
+        closeMonthSelectMenu(fp);
+        rebuildYearItems();
+        menu.hidden = false;
+        chevronBtn.setAttribute('aria-expanded', 'true');
+        syncYearSelectLabel(fp);
+        const selected = menu.querySelector(`.${styles.yearSelectItemSelected}`);
+        selected?.scrollIntoView({ block: 'nearest' });
+      };
+
+      const toggleMenu = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (menu.hidden) openMenu();
+        else closeYearSelectMenu(fp);
+      };
+
+      yearInput.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+      });
+      yearInput.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeMonthSelectMenu(fp);
+        closeYearSelectMenu(fp);
+      });
+      yearInput.addEventListener('focus', () => {
+        closeMonthSelectMenu(fp);
+        closeYearSelectMenu(fp);
+        yearInput.select();
+      });
+      yearInput.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commitYearInput();
+          closeYearSelectMenu(fp);
+          yearInput.blur();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          yearInput.value = String(fp.currentYear || '');
+          closeYearSelectMenu(fp);
+          yearInput.blur();
+          return;
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          openMenu();
+        }
+      });
+      yearInput.addEventListener('input', () => {
+        yearInput.value = yearInput.value.replace(/\D/g, '').slice(0, 4);
+      });
+      yearInput.addEventListener('blur', () => {
+        commitYearInput();
+      });
+
+      chevronBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      chevronBtn.addEventListener('click', toggleMenu);
+
+      wrap.append(trigger, menu);
+      yearWrapper.insertAdjacentElement('afterend', wrap);
+      syncYearSelectLabel(fp);
+
+      cal.addEventListener('mousedown', (e) => {
+        if (!wrap.contains(e.target)) closeYearSelectMenu(fp);
       });
     };
 
@@ -623,6 +838,7 @@ const DmyDateInput = ({
       },
       onReady: (_dates, _str, fp) => {
         ensureMonthSelect(fp);
+        ensureYearSelect(fp);
         if (enableTime) {
           ensureTimeUi(fp);
           setStep(fp, 'date');
@@ -633,7 +849,9 @@ const DmyDateInput = ({
       onOpen: (_dates, _str, fp) => {
         appliedViaFooterRef.current = false;
         ensureMonthSelect(fp);
+        ensureYearSelect(fp);
         closeMonthSelectMenu(fp);
+        closeYearSelectMenu(fp);
         const committed = parseFlexibleDate(valueRef.current);
         const committedDate = committed ? toDateOnly(committed) : null;
         pendingDateRef.current = committedDate;
@@ -647,6 +865,7 @@ const DmyDateInput = ({
         suppressChange = false;
         restoreInputDisplay(fp);
         syncMonthSelectLabel(fp);
+        syncYearSelectLabel(fp);
 
         if (enableTime) {
           ensureTimeUi(fp);
@@ -663,10 +882,14 @@ const DmyDateInput = ({
       },
       onMonthChange: (_dates, _str, fp) => {
         syncMonthSelectLabel(fp);
+        syncYearSelectLabel(fp);
         closeMonthSelectMenu(fp);
+        closeYearSelectMenu(fp);
       },
       onYearChange: (_dates, _str, fp) => {
         syncMonthSelectLabel(fp);
+        syncYearSelectLabel(fp);
+        closeYearSelectMenu(fp);
       },
       onChange: (selectedDates, _dateStr, fp) => {
         if (suppressChange) return;

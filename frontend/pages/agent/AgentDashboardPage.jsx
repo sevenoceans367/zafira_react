@@ -1,7 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { LoadingOverlay } from '@bainbridge/shared-ui';
+import {
+  CardSelect,
+  HeaderFilterControls,
+  LoadingOverlay,
+  PageHeaderSearch,
+} from '@bainbridge/shared-ui';
 import { fetchAgentDashboard } from '../../services/agentPortal.js';
+import PageHeaderActions from '../internal-user/PageHeaderActions.jsx';
 import {
   STATUS_LABEL,
   filterVoyages,
@@ -113,55 +119,24 @@ export default function AgentDashboardPage() {
     <>
       {loading ? <LoadingOverlay show fullScreen={false} /> : null}
 
-      <div className={styles.pageHead}>
-        <div className={styles.pageHeadLeft}>
-          <div className={styles.pageHeadIcon}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="3" y="3" width="7" height="5" rx="1.5" />
-              <rect x="14" y="3" width="7" height="9" rx="1.5" />
-              <rect x="3" y="12" width="7" height="9" rx="1.5" />
-              <rect x="14" y="16" width="7" height="5" rx="1.5" />
-            </svg>
-          </div>
-          <div>
-            <h1 className={styles.pageTitle}>{pageTitle}</h1>
-            <div className={styles.pageSub}>{timestamp}</div>
-          </div>
-        </div>
-        <div className={styles.controls}>
-          <div className={styles.searchBox}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search voyage or vessel..."
-              aria-label="Search voyage or vessel"
-            />
-          </div>
-          <select
-            className={styles.hdrSelect}
+      <PageHeaderActions deps={[query, year, yearOptions.join(',')]}>
+        <HeaderFilterControls>
+          <PageHeaderSearch
+            value={query}
+            onChange={setQuery}
+            placeholder="Search voyage or vessel..."
+          />
+          <CardSelect
+            options={yearOptions.map((y) => ({ id: y, name: y }))}
             value={year}
-            onChange={(event) => setYear(event.target.value)}
-            aria-label="Year filter"
-          >
-            {yearOptions.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+            onChange={setYear}
+            placeholder="Year"
+            ariaLabel="Year filter"
+          />
+        </HeaderFilterControls>
+      </PageHeaderActions>
 
-      <div className={styles.breadcrumb}>
-        <b>Home</b>
-        {' '}
-        ›
-        {' '}
-        {pageTitle}
-      </div>
+      <p className={styles.pageSubInline}>{timestamp} · {pageTitle}</p>
 
       {error ? <div className={styles.formError}>{error}</div> : null}
 

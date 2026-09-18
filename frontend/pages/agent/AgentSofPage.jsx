@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
+  Button,
   DmyDateInput,
+  HeaderFilterControls,
   LoadingOverlay,
   useConfirm,
 } from '@bainbridge/shared-ui';
-import { attachmentUrl } from '@bainbridge/shared-routing';
+import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import {
   fetchAgentSof,
   saveAgentPreArrival,
   saveAgentSof,
 } from '../../services/agentPortal.js';
+import PageHeaderActions from '../internal-user/PageHeaderActions.jsx';
 import styles from './AgentPortal.module.css';
 
 const ETA_FIELDS = [
@@ -257,36 +260,13 @@ export default function AgentSofPage() {
     <>
       {(loading || saving) ? <LoadingOverlay show fullScreen={false} /> : null}
 
-      <div className={styles.pageHead}>
-        <div className={styles.pageHeadLeft}>
-          <div className={styles.pageHeadIcon}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z" />
-              <path d="M14 3v5h5" />
-              <path d="M9 13h6" />
-              <path d="M9 17h6" />
-            </svg>
-          </div>
-          <div>
-            <h1 className={styles.pageTitle}>Statement of Facts</h1>
-            <div className={styles.pageSub}>{form?.title || 'Agent SOF'}</div>
-          </div>
-        </div>
-        <div className={styles.controls}>
-          <Link to="/agent/" className={`${styles.btnMini} ${styles.btnOutline}`}>
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
+      <PageHeaderActions deps={[]}>
+        <HeaderFilterControls>
+          <Button variant="secondary" label="Back" href={appPath('/agent/')} />
+        </HeaderFilterControls>
+      </PageHeaderActions>
 
-      <div className={styles.breadcrumb}>
-        <Link to="/agent/">Home</Link>
-        {' '}
-        ›
-        {' '}
-        SOF
-      </div>
-
+      {form?.title ? <p className={styles.pageSubInline}>{form.title}</p> : null}
       {error ? <div className={styles.formError}>{error}</div> : null}
       {notice ? <div className={styles.formNotice}>{notice}</div> : null}
 

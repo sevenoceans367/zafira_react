@@ -40,21 +40,26 @@
 }
 
 .card {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 60;
-  width: min(92vw, 680px);
+  z-index: 10050;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid #e8edf3;
   border-radius: 18px;
   background: #fff;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+  box-sizing: border-box;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  background: rgba(15, 23, 42, 0.28);
 }
 
 .cardAlignStart {
-  right: auto;
-  left: 0;
+  /* kept for backwards compatibility; position is applied via portal styles */
 }
 
 .header {
@@ -63,6 +68,7 @@
   gap: 12px;
   padding: 18px 20px 14px;
   border-bottom: 1px solid #eef2f7;
+  flex: none;
 }
 
 .headerIcon {
@@ -95,7 +101,9 @@
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
   gap: 0;
-  min-height: 320px;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
 }
 
 .calendarCol {
@@ -294,6 +302,7 @@
   border-top: 1px solid #eceef2;
   background: #fafbfc;
   flex-wrap: wrap;
+  flex: none;
 }
 
 .summary {

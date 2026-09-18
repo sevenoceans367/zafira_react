@@ -12,6 +12,33 @@ import CoaCardSelect from './CoaCardSelect.jsx';
 import CoaFormHeaderActions from './CoaFormHeaderActions.jsx';
 import styles from './CoaFormPage.module.css';
 
+function parseDmy(value) {
+  const match = String(value || '').trim().match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (!match) return null;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(date.getTime())
+    || date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+/** Inclusive calendar days between Select Period from/to (dd-mm-yyyy). */
+function durationDaysFromPeriod(from, to) {
+  const start = parseDmy(from);
+  const end = parseDmy(to);
+  if (!start || !end || end < start) return '';
+  const ms = end.getTime() - start.getTime();
+  return String(Math.floor(ms / 86400000) + 1);
+}
+
 function emptyForm(businessTypeId = '2', nextCoaId = '') {
   return {
     coaIdentity: nextCoaId,
@@ -293,9 +320,9 @@ export default function CoaFormPage({ mode = 'edit' }) {
               />
             </Field>
 
-            <Field id="vesselType" label="Trade Type">
+            <Field id="vesselType" label="Vessel Type">
               <CoaCardSelect className={styles.select}
-                label="Trade Type"
+                label="Vessel Type"
                 value={form.vesselType}
                 options={vesselTypes}
                 onChange={(value) => patch('vesselType', value)}
@@ -310,14 +337,6 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(e) => patch('loadOptions', e.target.value)}
               />
             </Field>
-            <Field id="cargo" label="Cargo">
-              <CoaCardSelect className={styles.select}
-                label="Cargo"
-                value={form.cargo}
-                options={cargos}
-                onChange={(value) => patch('cargo', value)}
-              />
-            </Field>
             <Field id="totalShipments" label="Total Shipments (Count)">
               <input
                 id="totalShipments"
@@ -325,15 +344,6 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 placeholder="0"
                 value={form.totalShipments}
                 onChange={(e) => patch('totalShipments', e.target.value)}
-              />
-            </Field>
-            <Field id="tolerance" label="Tolerance (%)">
-              <input
-                id="tolerance"
-                type="number"
-                placeholder="0.00"
-                value={form.tolerance}
-                onChange={(e) => patch('tolerance', e.target.value)}
               />
             </Field>
             <Field id="coaNotice" label="COA Notice Days">
@@ -362,23 +372,28 @@ export default function CoaFormPage({ mode = 'edit' }) {
                 onChange={(value) => patch('vesselSubstitute', value)}
               />
             </Field>
-            <Field id="duration" label="COA Duration (Days)">
-              <input
-                id="duration"
-                type="number"
-                placeholder="e.g. 365"
-                value={form.duration}
-                onChange={(e) => patch('duration', e.target.value)}
-              />
-            </Field>
             <Field id="period" label="Select Period" className={`${styles.span2} ${styles.periodField}`}>
               <PeriodCardPicker
                 from={form.startDate || ''}
                 to={form.endDate || ''}
                 align="end"
                 onChange={({ from, to }) => {
-                  setForm((prev) => ({ ...prev, startDate: from || '', endDate: to || '' }));
+                  setForm((prev) => ({
+                    ...prev,
+                    startDate: from || '',
+                    endDate: to || '',
+                    duration: durationDaysFromPeriod(from, to),
+                  }));
                 }}
+              />
+            </Field>
+            <Field id="duration" label="COA Duration (Days)">
+              <input
+                id="duration"
+                type="number"
+                placeholder="Days"
+                value={form.duration}
+                onChange={(e) => patch('duration', e.target.value)}
               />
             </Field>
             <Field id="currency" label="Working Currency">
@@ -396,7 +411,7 @@ export default function CoaFormPage({ mode = 'edit' }) {
         <div className={styles.qtyAttachRow}>
         <div className={styles.card}>
           <CardHead
-            title="Quantity & Load Ports"
+            title="Cargo Details"
             icon={(
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z" />
@@ -405,6 +420,23 @@ export default function CoaFormPage({ mode = 'edit' }) {
             )}
           />
           <div className={styles.qtyFields}>
+            <Field id="cargo" label="Cargo" className={styles.qtyMatchField}>
+              <CoaCardSelect className={styles.select}
+                label="Cargo"
+                value={form.cargo}
+                options={cargos}
+                onChange={(value) => patch('cargo', value)}
+              />
+            </Field>
+            <Field id="tolerance" label="Tolerance (%)" className={styles.qtyMatchField}>
+              <input
+                id="tolerance"
+                type="number"
+                placeholder="0.00"
+                value={form.tolerance}
+                onChange={(e) => patch('tolerance', e.target.value)}
+              />
+            </Field>
             <Field id="minGuaranteedQty" label="Minimum Quantity Guaranteed (MT)" className={styles.qtyMatchField}>
               <input
                 id="minGuaranteedQty"
@@ -518,6 +550,69 @@ export default function CoaFormPage({ mode = 'edit' }) {
             </table>
           </div>
         </div>
+        </div>
+
+        <div className={styles.card}>
+          <CardHead
+            title="Commercial Terms"
+            icon={(
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <path d="M3.27 6.96 12 12.01l8.73-5.05" />
+                <path d="M12 22.08V12" />
+              </svg>
+            )}
+          />
+          <div className={styles.gridFields}>
+            <div className={styles.commercialLine1}>
+              <Field id="freightUsd" label="Freight (USD/MT)">
+                <input
+                  id="freightUsd"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.freightUsd}
+                  onChange={(e) => patch('freightUsd', e.target.value)}
+                />
+              </Field>
+              <Field id="foPrice" label="Contract FO Price (USD/MT)">
+                <input
+                  id="foPrice"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.foPrice}
+                  onChange={(e) => patch('foPrice', e.target.value)}
+                />
+              </Field>
+              <Field id="bafAmt" label="BAF">
+                <input
+                  id="bafAmt"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.bafAmt}
+                  onChange={(e) => patch('bafAmt', e.target.value)}
+                />
+              </Field>
+              <Field id="demmLaytime" label="Demurrage & Laytime">
+                <textarea id="demmLaytime" className={styles.shortNote} value={form.demmLaytime} placeholder="Demurrage & Laytime" onChange={(e) => patch('demmLaytime', e.target.value)} />
+              </Field>
+            </div>
+            <Field id="freightDetails" label="Freight and Demurrage Remarks" className={styles.span6}>
+              <textarea id="freightDetails" className={styles.shortNote} value={form.freightDetails} placeholder="Freight and Demurrage Remarks" onChange={(e) => patch('freightDetails', e.target.value)} />
+            </Field>
+            <Field id="lpDetails" label="Load Port Details" className={styles.span6}>
+              <textarea id="lpDetails" value={form.lpDetails} placeholder="Load Port Details" onChange={(e) => patch('lpDetails', e.target.value)} />
+            </Field>
+            <Field id="dpDetails" label="Discharge Port Details" className={styles.span6}>
+              <textarea id="dpDetails" value={form.dpDetails} placeholder="Discharge Port Details" onChange={(e) => patch('dpDetails', e.target.value)} />
+            </Field>
+            <Field id="remarks" label="Overall Remarks" className={styles.span6}>
+              <textarea id="remarks" className={styles.shortNote} value={form.remarks} placeholder="Overall Remarks..." onChange={(e) => patch('remarks', e.target.value)} />
+            </Field>
+          </div>
+        </div>
 
         <div className={styles.docsSection}>
           <div className={`${styles.docsSectionHead} ${styles.docsSectionHeadGrey}`}>
@@ -540,68 +635,6 @@ export default function CoaFormPage({ mode = 'edit' }) {
               onAddFiles={addPendingFiles}
               onRemoveFile={removePendingFile}
             />
-          </div>
-        </div>
-        </div>
-
-        <div className={styles.card}>
-          <CardHead
-            title="Financials & Commercial Terms"
-            icon={(
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 3v18" />
-                <path d="M16.5 7.5c0-2-2-3-4.5-3s-4.5 1.2-4.5 3.2c0 4.3 9 2 9 6.3 0 2-2 3.2-4.5 3.2s-4.5-1-4.5-3" />
-              </svg>
-            )}
-          />
-          <div className={styles.gridFields}>
-            <Field id="freightDetails" label="Freight Details" className={styles.span3}>
-              <textarea id="freightDetails" value={form.freightDetails} placeholder="Freight Details" onChange={(e) => patch('freightDetails', e.target.value)} />
-            </Field>
-            <Field id="lpDetails" label="Load Port Details" className={styles.span3}>
-              <textarea id="lpDetails" value={form.lpDetails} placeholder="Load Port Details" onChange={(e) => patch('lpDetails', e.target.value)} />
-            </Field>
-            <Field id="dpDetails" label="Discharge Port Details" className={styles.span3}>
-              <textarea id="dpDetails" value={form.dpDetails} placeholder="Discharge Port Details" onChange={(e) => patch('dpDetails', e.target.value)} />
-            </Field>
-            <Field id="freightUsd" label="Freight (USD/MT)">
-              <input
-                id="freightUsd"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={form.freightUsd}
-                onChange={(e) => patch('freightUsd', e.target.value)}
-              />
-            </Field>
-            <Field id="foPrice" label="Contract FO Price (USD/MT)">
-              <input
-                id="foPrice"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={form.foPrice}
-                onChange={(e) => patch('foPrice', e.target.value)}
-              />
-            </Field>
-            <Field id="bafAmt" label="BAF">
-              <input
-                id="bafAmt"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={form.bafAmt}
-                onChange={(e) => patch('bafAmt', e.target.value)}
-              />
-            </Field>
-            <div className={styles.noteRow}>
-              <Field id="demmLaytime" label="Demurrage & Laytime">
-                <textarea id="demmLaytime" className={styles.shortNote} value={form.demmLaytime} placeholder="Demurrage & Laytime" onChange={(e) => patch('demmLaytime', e.target.value)} />
-              </Field>
-              <Field id="remarks" label="Overall Remarks">
-                <textarea id="remarks" className={styles.shortNote} value={form.remarks} placeholder="Overall Remarks..." onChange={(e) => patch('remarks', e.target.value)} />
-              </Field>
-            </div>
           </div>
         </div>
 

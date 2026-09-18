@@ -103,49 +103,27 @@
 }
 
 :global(.flatpickr-current-month input.cur-year) {
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--fp-text);
-  font-size: 12.5px;
-  font-weight: 700;
-  font-family: inherit;
-  box-shadow: none;
-  color-scheme: light;
-  text-align: center;
-  text-align-last: center;
-  margin: 0;
-  height: 28px;
-  line-height: 28px;
-  padding: 0 4px;
-  box-sizing: border-box;
+  pointer-events: none;
 }
 
+/* Hide native year spinner; replaced by dropdown */
 :global(.flatpickr-current-month .numInputWrapper) {
-  width: 7ch;
-  height: 28px;
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
-:global(.flatpickr-current-month input.cur-year:hover),
-:global(.flatpickr-current-month input.cur-year:focus) {
-  background: var(--fp-field);
-  color: var(--fp-text);
-}
-
-:global(.flatpickr-current-month .numInputWrapper span) {
-  border: 0;
-}
-
-:global(.flatpickr-current-month .numInputWrapper span.arrowUp::after) {
-  border-bottom-color: var(--fp-mid);
-}
-
-:global(.flatpickr-current-month .numInputWrapper span.arrowDown::after) {
-  border-top-color: var(--fp-mid);
-}
-
-/* CardSelect-style month picker inside calendar header */
-.monthSelectWrap {
+/* CardSelect-style month / year pickers inside calendar header */
+.monthSelectWrap,
+.yearSelectWrap {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -154,7 +132,8 @@
   z-index: 5;
 }
 
-.monthSelectTrigger {
+.monthSelectTrigger,
+.yearSelectTrigger {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
@@ -177,13 +156,27 @@
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
-.monthSelectTrigger:hover {
+.yearSelectTrigger {
+  min-width: 76px;
+  cursor: text;
+  padding-right: 4px;
+}
+
+.monthSelectTrigger:hover,
+.yearSelectTrigger:hover {
   border-color: #c9d4e3;
   background: #f8fafc;
   color: #4a5260;
 }
 
-.monthSelectTriggerLabel {
+.yearSelectTrigger:focus-within {
+  border-color: #c9d4e3;
+  background: #f8fafc;
+  color: #4a5260;
+}
+
+.monthSelectTriggerLabel,
+.yearSelectTriggerLabel {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -192,14 +185,64 @@
   text-align: left;
 }
 
-.monthSelectChevron {
+.yearSelectInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 2.6em;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: 1;
+  text-align: left;
+  cursor: text;
+  box-shadow: none;
+  appearance: none;
+  -moz-appearance: textfield;
+}
+
+.yearSelectInput::-webkit-outer-spin-button,
+.yearSelectInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.yearSelectChevronBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+.yearSelectChevronBtn:hover {
+  background: #eef2f7;
+}
+
+.monthSelectChevron,
+.yearSelectChevron {
   flex: none;
   font-size: 11px;
   color: #9ca3af;
   line-height: 1;
 }
 
-.monthSelectMenu {
+.monthSelectMenu,
+.yearSelectMenu {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
@@ -216,7 +259,13 @@
   box-sizing: border-box;
 }
 
-.monthSelectItem {
+.yearSelectMenu {
+  min-width: 96px;
+  max-height: 240px;
+}
+
+.monthSelectItem,
+.yearSelectItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -237,19 +286,23 @@
 }
 
 .monthSelectItem:hover,
-.monthSelectItem:focus-visible {
+.monthSelectItem:focus-visible,
+.yearSelectItem:hover,
+.yearSelectItem:focus-visible {
   background: #f3f7fb;
   color: #275e9b;
   outline: none;
 }
 
-.monthSelectItemSelected {
+.monthSelectItemSelected,
+.yearSelectItemSelected {
   background: #eef5fc;
   color: #275e9b;
   font-weight: 600;
 }
 
-.monthSelectCheck {
+.monthSelectCheck,
+.yearSelectCheck {
   flex: none;
   font-size: 12px;
   color: #275e9b;

@@ -197,24 +197,55 @@ async function loadCostBundle(pool, genAgencyId) {
   return { cost, lines };
 }
 
+async function lookupCountryNameById(pool, countryId) {
+  if (!countryId) return '';
+  const [[c]] = await pool.query(
+    'SELECT COUNTRY_NAME FROM country_master WHERE COUNTRYID = ? LIMIT 1',
+    [countryId],
+  ).catch(() => [[null]]);
+  return String(c?.COUNTRY_NAME || '').trim();
+}
+
+/** Resolve full country name — never leave ISO keys like ARE as the display value. */
 async function loadPortCountry(pool, portId, countryId) {
   const [[port]] = await pool.query(
     `SELECT PortName, COUNTRY_KEY, COUNTRY_NAME FROM port_master WHERE PortId = ? LIMIT 1`,
     [portId],
   ).catch(() => [[null]]);
 
-  let countryName = '';
-  if (countryId) {
-    const [[c]] = await pool.query(
-      'SELECT COUNTRY_NAME FROM country_master WHERE COUNTRYID = ? LIMIT 1',
-      [countryId],
-    ).catch(() => [[null]]);
-    countryName = c?.COUNTRY_NAME || '';
-  }
+  let countryName = await lookupCountryNameById(pool, countryId);
+
   if (!countryName) {
+    // Legacy: port_master.COUNTRY_NAME often stores numeric COUNTRYID.
     const stored = String(port?.COUNTRY_NAME || '').trim();
-    if (stored && !/^\d+$/.test(stored)) countryName = stored;
-    else countryName = String(port?.COUNTRY_KEY || '').trim();
+    if (stored && /^\d+$/.test(stored)) {
+      countryName = await lookupCountryNameById(pool, stored);
+    } else if (stored && stored.length > 3) {
+      // Already a full name in some datasets.
+      countryName = stored;
+    }
+  }
+
+  if (!countryName) {
+    const key = String(port?.COUNTRY_KEY || '').trim();
+    if (key && /^\d+$/.test(key)) {
+      countryName = await lookupCountryNameById(pool, key);
+    } else if (key) {
+      const attempts = [
+        ['SELECT COUNTRY_NAME FROM country_master WHERE COUNTRY_CODE = ? LIMIT 1', [key]],
+        ['SELECT COUNTRY_NAME FROM country_master WHERE COUNTRY_KEY = ? LIMIT 1', [key]],
+        ['SELECT COUNTRY_NAME FROM country_master WHERE ISO_CODE = ? LIMIT 1', [key]],
+        ['SELECT COUNTRY_NAME FROM country_master WHERE COUNTRY_NAME = ? LIMIT 1', [key]],
+        ['SELECT COUNTRY_NAME FROM country_master WHERE COUNTRY_NAME LIKE ? LIMIT 1', [`%${key}%`]],
+      ];
+      for (const [sql, params] of attempts) {
+        const [[row]] = await pool.query(sql, params).catch(() => [[null]]);
+        if (row?.COUNTRY_NAME) {
+          countryName = String(row.COUNTRY_NAME).trim();
+          break;
+        }
+      }
+    }
   }
 
   return {

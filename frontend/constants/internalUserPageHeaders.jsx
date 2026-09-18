@@ -14,6 +14,7 @@ import { resolveOpsTcHeader } from './opsTcPageHeaders.js';
 import { resolveTcHeader } from './tcPageHeaders.js';
 import { resolveCargoReletHeader } from './cargoReletPageHeaders.js';
 import { resolveReportsHeader } from './reportsPageHeaders.js';
+import { resolveAgentHeader } from './agentPageHeaders.js';
 import {
   LIVE_VESSEL_MAP_ENABLED,
   LIVE_VESSEL_MAP_PATH,
@@ -45,6 +46,9 @@ const STATIC_HEADERS = {
 };
 
 export function resolveInternalUserHeader(pathname, search = '') {
+  const agentHeader = resolveAgentHeader(pathname, search);
+  if (agentHeader) return agentHeader;
+
   if (LIVE_VESSEL_MAP_ENABLED && pathname === LIVE_VESSEL_MAP_PATH) {
     return {
       title: LIVE_VESSEL_MAP_TITLE,

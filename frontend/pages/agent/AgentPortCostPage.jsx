@@ -1,7 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { LoadingOverlay } from '@bainbridge/shared-ui';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  Button,
+  CardSelect,
+  HeaderFilterControls,
+  LoadingOverlay,
+  TextInput,
+} from '@bainbridge/shared-ui';
+import { appPath } from '@bainbridge/shared-routing';
 import { fetchAgentPortCost, saveAgentPortCost } from '../../services/agentPortal.js';
+import PageHeaderActions from '../internal-user/PageHeaderActions.jsx';
 import {
   COST_CATEGORIES,
   CURRENCY_OPTIONS,
@@ -233,24 +241,16 @@ export default function AgentPortCostPage() {
     <>
       {(loading || saving) ? <LoadingOverlay show fullScreen={false} /> : null}
 
-      <div className={styles.pcHeader}>
-        <div className={styles.pcTitleBlock}>
-          <span className={`${styles.pcModeChip} ${isFda ? styles.pcModeFda : styles.pcModePda}`}>
-            Port Costs
-          </span>
-          <h1 className={styles.pageTitle}>{modeTitle}</h1>
-          <div className={styles.pageSub}>
-            Fill in every line item that applies to this call — leave the rest blank.
-            Your Estimated/Actual figures roll up automatically.
-          </div>
-        </div>
-        <Link to="/agent/" className={styles.backBtn}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-          Back to Dashboard
-        </Link>
-      </div>
+      <PageHeaderActions deps={[]}>
+        <HeaderFilterControls>
+          <Button variant="secondary" label="Back" href={appPath('/agent/')} />
+        </HeaderFilterControls>
+      </PageHeaderActions>
+
+      <p className={styles.pageSubInline}>
+        Fill in every line item that applies to this call — leave the rest blank.
+        Your Estimated/Actual figures roll up automatically.
+      </p>
 
       {error ? <div className={styles.formError}>{error}</div> : null}
       {notice ? <div className={styles.formNotice}>{notice}</div> : null}
@@ -279,9 +279,8 @@ export default function AgentPortCostPage() {
               </div>
               <div className={styles.vsItem}>
                 <label>Date</label>
-                <input
+                <TextInput
                   type="date"
-                  className={styles.costInput}
                   value={form.header.date || ''}
                   disabled={readOnly}
                   onChange={(e) => updateHeader('date', e.target.value)}
@@ -295,24 +294,22 @@ export default function AgentPortCostPage() {
               </div>
               <div className={styles.vsItem}>
                 <label>Currency</label>
-                <select
-                  className={styles.costInput}
+                <CardSelect
+                  options={CURRENCY_OPTIONS.map((c) => ({ id: c, name: c }))}
                   value={form.header.localCurrency || 'USD'}
+                  onChange={(next) => updateHeader('localCurrency', next)}
+                  placeholder="Currency"
+                  ariaLabel="Currency"
                   disabled={readOnly}
-                  onChange={(e) => updateHeader('localCurrency', e.target.value)}
-                >
-                  {CURRENCY_OPTIONS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                  align="start"
+                />
               </div>
               <div className={styles.vsItem}>
                 <label>X-Rate to USD</label>
-                <input
+                <TextInput
                   type="number"
                   step="0.0001"
                   min="0"
-                  className={styles.costInput}
                   value={toInputNumber(form.header.exchangeRate)}
                   disabled={readOnly}
                   onChange={(e) => onExchangeChange(e.target.value)}
@@ -376,17 +373,17 @@ export default function AgentPortCostPage() {
               />
             </div>
             <div className={styles.filterSelectWrap}>
-              <select
-                className={styles.hdrSelect}
+              <CardSelect
+                options={[
+                  { id: '', name: 'Filter by Section — All' },
+                  ...COST_CATEGORIES.map((cat) => ({ id: cat.key, name: cat.title })),
+                ]}
                 value={categoryFilter}
-                onChange={(e) => onCategoryFilterChange(e.target.value)}
-                aria-label="Filter by section"
-              >
-                <option value="">Filter by Section — All</option>
-                {COST_CATEGORIES.map((cat) => (
-                  <option key={cat.key} value={cat.key}>{cat.title}</option>
-                ))}
-              </select>
+                onChange={onCategoryFilterChange}
+                placeholder="Filter by Section — All"
+                ariaLabel="Filter by section"
+                align="end"
+              />
             </div>
           </div>
 

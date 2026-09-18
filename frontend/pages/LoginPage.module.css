@@ -59,6 +59,13 @@
   align-self: flex-start;
 }
 
+.logoLink {
+  display: inline-flex;
+  line-height: 0;
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .logo {
   display: block;
   height: clamp(88px, 12vw, 112px);

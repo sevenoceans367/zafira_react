@@ -34,6 +34,104 @@
 .content {
   /* Horizontal/vertical padding comes from shared .zafira-page (same as SOPF). */
   box-sizing: border-box;
+  position: relative;
+}
+
+.dashboardPage {
+  position: relative;
+  z-index: 1;
+}
+
+.bgSplash {
+  position: absolute;
+  inset: -24px -28px auto -28px;
+  height: 420px;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bgSplashS1,
+.bgSplashS2 {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+}
+
+.bgSplashS1 {
+  width: 420px;
+  height: 420px;
+  top: -160px;
+  right: -100px;
+  background: var(--orange);
+  opacity: 0.12;
+}
+
+.bgSplashS2 {
+  width: 380px;
+  height: 380px;
+  top: -40px;
+  right: 200px;
+  background: var(--navy);
+  opacity: 0.09;
+}
+
+.accessLine {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--text-mid);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.accessLine b {
+  color: var(--text-dark);
+  font-weight: 700;
+}
+
+.accessLine svg {
+  width: 12px;
+  height: 12px;
+  color: var(--text-light);
+  flex: none;
+}
+
+.accessSep {
+  color: var(--text-light);
+}
+
+.hero {
+  position: relative;
+  z-index: 1;
+  margin: 2px 0 18px;
+}
+
+.heroLine1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(34px, 4.4vw, 52px);
+  line-height: 1.06;
+  color: var(--text-dark);
+}
+
+.accentName {
+  background: linear-gradient(100deg, #7a8291 0%, #f2a165 55%, #f4652c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.heroLine2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(17px, 2vw, 22px);
+  line-height: 1.2;
+  color: var(--text-light);
+  margin-top: 3px;
 }
 
 .pageSubInline {
@@ -286,11 +384,13 @@
 }
 
 .pageHead {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 6px;
+  margin: 14px 0 6px;
   flex-wrap: wrap;
 }
 
@@ -482,12 +582,12 @@
 .docBtn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   background: #fff;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
-  padding: 7px 11px;
-  font-size: 11.5px;
+  padding: 5px 8px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--text-mid);
   cursor: pointer;
@@ -506,8 +606,8 @@
 }
 
 .docBtn svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 .statusChip {
@@ -712,56 +812,272 @@ a.btnMini {
   font-weight: 700;
 }
 
+.sofMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  flex-wrap: wrap;
+}
+
+.sofMetaLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sofMetaLeft .pageSubInline {
+  margin: 0;
+}
+
+.sofHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.sofTitleRow {
+  display: flex;
+  align-items: center;
+}
+
+.sofPageTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 27px;
+  color: var(--text-dark);
+}
+
+.sofHeadRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sofVoyBadge {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-mid);
+  background: var(--field-grey);
+  border-radius: 999px;
+  padding: 5px 13px;
+  white-space: nowrap;
+}
+
+.sofVoyBadge b {
+  color: var(--text-dark);
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  color: var(--navy);
+  border: 1.5px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.backBtn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.backBtn:hover {
+  background: var(--field-grey);
+}
+
+.instrInfoWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+}
+
+.instrInfoBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--blue-tint);
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  flex: none;
+  border: none;
+  padding: 0;
+}
+
+.instrInfoBtn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.instrPopover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 400px;
+  max-width: 82vw;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(20, 30, 50, 0.18);
+  padding: 16px 18px;
+  z-index: 45;
+  font-size: 12px;
+  color: var(--text-mid);
+  line-height: 1.55;
+}
+
+.instrInfoWrap:hover .instrPopover,
+.instrInfoWrap:focus-within .instrPopover {
+  display: block;
+}
+
+.instrPopoverTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--text-dark);
+  margin-bottom: 10px;
+}
+
+.instrItem {
+  margin-bottom: 10px;
+}
+
+.instrItem:last-child {
+  margin-bottom: 0;
+}
+
+.instrItem b {
+  color: var(--text-dark);
+}
+
 .sofTabs {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 14px;
+  margin: 16px 0 18px;
 }
 
 .sofTab,
 .sofTabActive {
-  border: 1px solid var(--line-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1.5px solid var(--line-strong);
   background: #fff;
   color: var(--text-mid);
-  border-radius: 8px;
-  padding: 8px 14px;
+  border-radius: 10px;
+  padding: 9px 16px;
   font: inherit;
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
 }
 
-.sofTabActive {
-  background: var(--navy);
+.sofTab:hover {
   border-color: var(--navy);
-  color: #fff;
+  color: var(--navy);
+}
+
+.sofTabActive {
+  background: var(--navy-tint);
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+.lpdpChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding: 3px 8px 3px 7px;
+}
+
+.lpdpChip svg {
+  width: 10px;
+  height: 10px;
+}
+
+.lpdpChipLp {
+  background: var(--teal-tint);
+  color: var(--teal);
+}
+
+.lpdpChipDp {
+  background: var(--orange-tint);
+  color: var(--orange);
+}
+
+.sofSection {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px 20px 20px;
+  margin-bottom: 16px;
+}
+
+.sofSectionTitle {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.sofSectionSub {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-bottom: 12px;
 }
 
 .sofKV {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .sofKV td {
-  padding: 8px 10px;
+  padding: 9px 0;
   border-bottom: 1px solid var(--line);
   font-size: 12.5px;
   vertical-align: middle;
 }
 
-.sofKV td:first-child {
-  width: 42%;
-  color: var(--text-mid);
-  font-weight: 600;
+.sofKV tr:last-child td {
+  border-bottom: none;
 }
 
-.sofSectionTitle {
-  margin: 18px 0 10px;
-  font-size: 15px;
+.sofKV td:first-child {
+  width: 260px;
+  max-width: 42%;
+  color: var(--text-mid);
   font-weight: 700;
-  color: var(--navy-dark);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .sofNom {
@@ -769,6 +1085,64 @@ a.btnMini {
   text-align: right;
   font-size: 13px;
   color: var(--text-mid);
+}
+
+.sofActionRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 0 0;
+  flex-wrap: wrap;
+}
+
+.btnOutlineLg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1.5px solid var(--line-strong);
+  color: var(--text-mid);
+  border-radius: 9px;
+  padding: 11px 20px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnOutlineLg svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btnOutlineLg:hover {
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+.btnNavyLg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 11px 22px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btnNavyLg svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btnNavyLg:hover {
+  background: #1d3559;
 }
 
 .checkLabel {

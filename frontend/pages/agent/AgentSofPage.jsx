@@ -77,7 +77,6 @@ export default function AgentSofPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [showInstructions, setShowInstructions] = useState(false);
   const [form, setForm] = useState(null);
   const [pendingFiles, setPendingFiles] = useState([]);
 
@@ -256,17 +255,84 @@ export default function AgentSofPage() {
       : prev));
   };
 
+  const portRole = String(form?.portType || '').toUpperCase() === 'DP' ? 'DP' : 'LP';
+
   return (
     <>
       {(loading || saving) ? <LoadingOverlay show fullScreen={false} /> : null}
 
       <PageHeaderActions deps={[]}>
         <HeaderFilterControls>
-          <Button variant="secondary" label="Back" href={appPath('/agent/')} />
+          <Button variant="secondary" label="Back to Dashboard" href={appPath('/agent/')} />
         </HeaderFilterControls>
       </PageHeaderActions>
 
-      {form?.title ? <p className={styles.pageSubInline}>{form.title}</p> : null}
+      <div className={styles.sofMeta}>
+        <div className={styles.sofMetaLeft}>
+          <p className={styles.pageSubInline}>
+            {vessel.vesselName || form?.title || 'Statement of Facts'}
+          </p>
+          <div className={styles.instrInfoWrap} tabIndex={0}>
+            <button type="button" className={styles.instrInfoBtn} aria-label="Instructions">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 16v-4M12 8h.01" />
+              </svg>
+            </button>
+            <div className={styles.instrPopover}>
+              <div className={styles.instrPopoverTitle}>Instructions</div>
+              <div className={styles.instrItem}>
+                <b>A.</b>
+                {' '}
+                Items 10–16 must be filled in for the anchorage port too, in addition to the
+                load/discharge port, whenever the vessel calls at anchorage before berthing.
+              </div>
+              <div className={styles.instrItem}>
+                <b>B.</b>
+                {' '}
+                Log every port activity in the Activity in Port table below — gaps in the
+                timeline will be queried by the office team during review.
+              </div>
+              <div className={styles.instrItem}>
+                <b>C.</b>
+                {' '}
+                Times are logged on a 24-hour, end-of-day convention: e.g. an event at 23:59 on
+                the 5th is logged as
+                {' '}
+                <b>05 2359</b>
+                ; an event carrying past midnight into the 6th is logged against the
+                {' '}
+                <b>6th</b>
+                , not the 5th; a full idle day with no activity is logged as
+                {' '}
+                <b>00:00–24:00</b>
+                {' '}
+                against that date.
+              </div>
+              <div className={styles.instrItem}>
+                <b>D.</b>
+                {' '}
+                <b>Save</b>
+                {' '}
+                keeps the form editable so you can come back and finish it later.
+                {' '}
+                <b>Submit &amp; Close</b>
+                {' '}
+                sends it to the office team for review and locks the form — use it only once
+                the call is fully complete.
+              </div>
+            </div>
+          </div>
+        </div>
+        {form?.nomId ? (
+          <span className={styles.sofVoyBadge}>
+            Voy No.
+            {' '}
+            <b>{form.nomId}</b>
+          </span>
+        ) : null}
+      </div>
+
       {error ? <div className={styles.formError}>{error}</div> : null}
       {notice ? <div className={styles.formNotice}>{notice}</div> : null}
 
@@ -282,29 +348,36 @@ export default function AgentSofPage() {
               className={tab === 'pre' ? styles.sofTabActive : styles.sofTab}
               onClick={() => setTab('pre')}
             >
-              Pre Arrival & Other
+              Pre Arrival &amp; Others
             </button>
             <button
               type="button"
               className={tab === 'sof' ? styles.sofTabActive : styles.sofTab}
               onClick={() => setTab('sof')}
             >
-              {form.portType}
-              {' - '}
+              <span className={`${styles.lpdpChip} ${portRole === 'DP' ? styles.lpdpChipDp : styles.lpdpChipLp}`}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z" />
+                  <circle cx="12" cy="9" r="2.2" />
+                </svg>
+                {portRole}
+              </span>
               {form.portName}
             </button>
           </div>
 
           {tab === 'pre' ? (
-            <div className={styles.formCard}>
+            <div className={styles.sofSection}>
+              <div className={styles.sofSectionTitle}>Pre Arrival &amp; Others</div>
+              <div className={styles.sofSectionSub}>Vessel particulars, ETA notices, and daily quantity log.</div>
               <table className={styles.sofKV}>
                 <tbody>
                   <tr>
-                    <td>VESSEL NAME</td>
+                    <td>Vessel Name</td>
                     <td>{vessel.vesselName || '—'}</td>
                   </tr>
                   <tr>
-                    <td>NOMINATION ID</td>
+                    <td>Voy No.</td>
                     <td>{form.nomId || '—'}</td>
                   </tr>
                   <tr>
@@ -452,7 +525,7 @@ export default function AgentSofPage() {
                 </table>
               </div>
               {!locked ? (
-                <div className={styles.formActions}>
+                <div className={styles.sofActionRow}>
                   <button
                     type="button"
                     className={`${styles.btnMini} ${styles.btnOutline}`}
@@ -460,40 +533,55 @@ export default function AgentSofPage() {
                       ? { ...prev, dailyQty: [...prev.dailyQty, emptyDailyQtyRow()] }
                       : prev))}
                   >
-                    Add
+                    + Add row
                   </button>
                   <button
                     type="button"
-                    className={`${styles.btnMini} ${styles.btnNavy}`}
+                    className={styles.btnOutlineLg}
                     onClick={() => savePreArrival(false)}
                   >
-                    Submit
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+                      <path d="M17 21v-8H7v8" />
+                      <path d="M7 3v5h8" />
+                    </svg>
+                    Save
                   </button>
                   <button
                     type="button"
-                    className={`${styles.btnMini} ${styles.btnNavy}`}
+                    className={styles.btnNavyLg}
                     onClick={() => savePreArrival(true)}
                   >
-                    Submit & Close
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M22 2 11 13" />
+                      <path d="M22 2 15 22l-4-9-9-4Z" />
+                    </svg>
+                    Submit &amp; Close
                   </button>
                 </div>
               ) : null}
             </div>
           ) : (
-            <div className={styles.formCard}>
+            <div className={styles.sofSection}>
+              <div className={styles.sofSectionTitle}>
+                {portRole === 'DP' ? 'Discharge Port' : 'Load Port'}
+                {' — '}
+                {form.portName}
+              </div>
+              <div className={styles.sofSectionSub}>Vessel particulars, port call times, B/L, and activity log.</div>
               <div className={styles.sofNom}>
-                Nom ID :&nbsp;
+                Voy No.&nbsp;
                 <strong>{form.nomId || '—'}</strong>
               </div>
 
               <table className={styles.sofKV}>
                 <tbody>
                   <tr>
-                    <td>1. NAME OF VESSEL</td>
+                    <td>1. Name of Vessel</td>
                     <td>{vessel.vesselName || '—'}</td>
                   </tr>
                   <tr>
-                    <td>2. BUILT</td>
+                    <td>2. Built</td>
                     <td><input className={styles.cellInput} value={vessel.built || ''} readOnly disabled /></td>
                   </tr>
                   <tr>
@@ -501,7 +589,7 @@ export default function AgentSofPage() {
                     <td><input className={styles.cellInput} value={vessel.grtNrt || ''} readOnly disabled /></td>
                   </tr>
                   <tr>
-                    <td>4. FLAG</td>
+                    <td>4. Flag</td>
                     <td><input className={styles.cellInput} value={vessel.flag || ''} readOnly disabled /></td>
                   </tr>
                   <tr>
@@ -509,14 +597,14 @@ export default function AgentSofPage() {
                     <td><input className={styles.cellInput} value={vessel.dwt || ''} readOnly disabled /></td>
                   </tr>
                   <tr>
-                    <td>6. LOA/BEAM</td>
+                    <td>6. LOA/Beam</td>
                     <td><input className={styles.cellInput} value={vessel.loaBeam || ''} readOnly disabled /></td>
                   </tr>
                   <tr>
                     <td>
                       7.
                       {' '}
-                      {vessel.gearLabel || 'GEAR/GRABS'}
+                      {vessel.gearLabel || 'Gear/Grabs'}
                     </td>
                     <td><input className={styles.cellInput} value={vessel.gearValue || ''} readOnly disabled /></td>
                   </tr>
@@ -524,12 +612,12 @@ export default function AgentSofPage() {
                     <td>
                       8.
                       {' '}
-                      {vessel.hatchLabel || 'HATCH/HOLD'}
+                      {vessel.hatchLabel || 'Hatch/Hold'}
                     </td>
                     <td><input className={styles.cellInput} value={vessel.hatchValue || ''} readOnly disabled /></td>
                   </tr>
                   <tr>
-                    <td>9. PORT/TERMINAL/BERTH/ANCHORAGE</td>
+                    <td>9. Port/Terminal/Berth/Anchorage</td>
                     <td>
                       <input
                         className={styles.cellInputWide}
@@ -540,7 +628,7 @@ export default function AgentSofPage() {
                     </td>
                   </tr>
                   <tr>
-                    <td>10. STOWAGE PLAN QUANTITY (MT)</td>
+                    <td>10. Stowage Plan Quantity (MT)</td>
                     <td>
                       <input
                         className={styles.cellInput}
@@ -878,72 +966,40 @@ export default function AgentSofPage() {
                 <div className={styles.fxHint}>(max upload size per file - 2 MB)</div>
               </div>
 
-              <div className={styles.formActions}>
-                <button
-                  type="button"
-                  className={`${styles.btnMini} ${styles.btnOutline}`}
-                  onClick={() => setShowInstructions(true)}
-                >
-                  Instructions
-                </button>
+              <div className={styles.sofActionRow}>
                 {!locked ? (
                   <>
                     <button
                       type="button"
-                      className={`${styles.btnMini} ${styles.btnNavy}`}
+                      className={styles.btnOutlineLg}
                       onClick={() => saveSofMain(1)}
                     >
-                      Submit
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+                        <path d="M17 21v-8H7v8" />
+                        <path d="M7 3v5h8" />
+                      </svg>
+                      Save
                     </button>
                     <button
                       type="button"
-                      className={`${styles.btnMini} ${styles.btnNavy}`}
+                      className={styles.btnNavyLg}
                       onClick={() => saveSofMain(2)}
                     >
-                      Submit & Close
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M22 2 11 13" />
+                        <path d="M22 2 15 22l-4-9-9-4Z" />
+                      </svg>
+                      Submit &amp; Close
                     </button>
                   </>
                 ) : (
-                  <span className={styles.formNotice}>This SOF is locked after Submit & Close.</span>
+                  <span className={styles.formNotice}>This SOF is locked after Submit &amp; Close.</span>
                 )}
               </div>
             </div>
           )}
         </>
-      ) : null}
-
-      {showInstructions ? (
-        <div className={styles.modalBackdrop} role="presentation" onClick={() => setShowInstructions(false)}>
-          <div
-            className={styles.modalCard}
-            role="dialog"
-            aria-modal="true"
-            aria-label="SOF Instructions"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className={styles.modalHead}>
-              <h3>INSTRUCTIONS</h3>
-              <button type="button" className={styles.iconDanger} onClick={() => setShowInstructions(false)}>×</button>
-            </div>
-            <ol className={styles.instrList}>
-              <li>Please fill in the item 10 - 16 without fail, for anchorage port.</li>
-              <li>
-                Activity in ports: All Activities in Port to be mentioned from vessel arrival,
-                shifting, working, stoppages, including fields as mentioned in 10-16 above,
-                till vessel sailing and clearing port.
-              </li>
-              <li>
-                End of a day to be inserted as 00:00 hrs of new day.
-                <br />
-                eg. #1 : full day From : 11-Sep-2014 00:00 To : 12-Sep-2014 00:00
-              </li>
-              <li>
-                Click &quot;Submit&quot; to save the form and once complete click
-                &quot;Submit and Close&quot;. After &quot;Submit and Close&quot; the form is not editable.
-              </li>
-            </ol>
-          </div>
-        </div>
       ) : null}
     </>
   );

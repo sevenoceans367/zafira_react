@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  getCoaBusinessOverview,
   getCoaList,
   getCoaShipments,
   getDashboardMeta,
@@ -269,6 +270,20 @@ router.get('/coas', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message || 'Failed to load COA list.' });
+  }
+});
+
+router.get('/coas/overview', async (req, res) => {
+  try {
+    const data = await getCoaBusinessOverview({
+      selBType: req.query.selBType,
+      fromDate: req.query.fromDate,
+      toDate: req.query.toDate,
+    });
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || 'Failed to load COA overview.' });
   }
 });
 

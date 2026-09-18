@@ -21,10 +21,11 @@ export function resolveAgentHeader(pathname, search = '') {
 
   if (pathname.startsWith('/agent/sof')) {
     return {
-      title: 'Statement of Facts',
+      title: 'SOF',
       currentPage: 'SOF',
       breadcrumbs: [
         { label: 'Agent', href: appPath('/agent/') },
+        { label: 'SOF' },
       ],
     };
   }

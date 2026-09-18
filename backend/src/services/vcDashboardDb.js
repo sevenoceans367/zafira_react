@@ -88,6 +88,103 @@ async function getLatestFcaId(pool, comid) {
   return rows[0]?.FCAID ?? null;
 }
 
+async function sumCargoMtForCoaRow(pool, row) {
+  let cargoMt = 0;
+  if (row.COMID_VC) {
+    for (const comid of String(row.COMID_VC).split(',').filter(Boolean)) {
+      const fcaId = await getLatestFcaId(pool, comid);
+      if (!fcaId) continue;
+      const [[sumRow]] = await pool.query(
+        `SELECT SUM(CARGO_MT) AS SUM FROM freight_cost_estimete_slave10
+         WHERE FCAID = ? AND STATUS != 3`,
+        [fcaId],
+      );
+      cargoMt += Number(sumRow?.SUM || 0);
+    }
+  }
+  if (row.COMID_RELET) {
+    for (const comid of String(row.COMID_RELET).split(',').filter(Boolean)) {
+      const [[fcaRow]] = await pool.query(
+        `SELECT cargo_relet_estimate_masster.FCAID AS FCAID FROM cargo_relet_estimate_masster
+         INNER JOIN cargo_relet_estimate_compare c ON c.FCAID = cargo_relet_estimate_masster.FCAID
+         WHERE c.COMID = ? ORDER BY cargo_relet_estimate_masster.FCAID DESC LIMIT 1`,
+        [comid],
+      );
+      if (!fcaRow?.FCAID) continue;
+      const [[sumRow]] = await pool.query(
+        `SELECT SUM(CARGO_QMT_MT) AS SUM FROM cargo_relet_estimate_masster WHERE FCAID = ?`,
+        [fcaRow.FCAID],
+      );
+      cargoMt += Number(sumRow?.SUM || 0);
+    }
+  }
+  return cargoMt;
+}
+
+function isPlaceholderDate(value) {
+  if (!value) return true;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return true;
+  return d.getFullYear() <= 1970;
+}
+
+function toDateOnly(value) {
+  if (!value || isPlaceholderDate(value)) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function clampPct(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function formatMtLabel(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0 MT';
+  return `${n.toLocaleString('en-US', { maximumFractionDigits: 0 })} MT`;
+}
+
+function splitRouteName(routeName) {
+  const raw = String(routeName || '').trim();
+  if (!raw) return { from: '—', to: '—' };
+  const parts = raw.split(/\s*(?:→|->|\/|–|—)\s*/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return { from: parts[0], to: parts[parts.length - 1] };
+  }
+  return { from: raw, to: '—' };
+}
+
+function chartererDisplayName(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '—';
+  return raw.replace(/\([^)]*\)\s*$/, '').trim() || raw;
+}
+
+function timeElapsedPct(startDate, endDate, today = new Date()) {
+  const start = toDateOnly(startDate);
+  const end = toDateOnly(endDate);
+  if (!start || !end || end <= start) return 0;
+  const now = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (now <= start) return 0;
+  if (now >= end) return 100;
+  const total = end.getTime() - start.getTime();
+  const elapsed = now.getTime() - start.getTime();
+  return clampPct((elapsed / total) * 100);
+}
+
+async function coaMasterHasStatus(pool) {
+  const [[row]] = await pool.query(
+    `SELECT COUNT(*) AS c
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'coa_master'
+       AND COLUMN_NAME = 'STATUS'`,
+  );
+  return Number(row?.c || 0) > 0;
+}
+
 export async function dbGetVcDashboard({ selBType, fromDate, toDate }) {
   const pool = getPool();
   const { from, to } = defaultDateRange(fromDate, toDate);
@@ -557,35 +654,7 @@ export async function dbGetCoaList({
   let index = offset;
   for (const row of rows) {
     index += 1;
-    let cargoMt = 0;
-    if (row.COMID_VC) {
-      for (const comid of String(row.COMID_VC).split(',')) {
-        const fcaId = await getLatestFcaId(pool, comid);
-        if (!fcaId) continue;
-        const [[sumRow]] = await pool.query(
-          `SELECT SUM(CARGO_MT) AS SUM FROM freight_cost_estimete_slave10
-           WHERE FCAID = ? AND STATUS != 3`,
-          [fcaId],
-        );
-        cargoMt += Number(sumRow?.SUM || 0);
-      }
-    }
-    if (row.COMID_RELET) {
-      for (const comid of String(row.COMID_RELET).split(',')) {
-        const [[fcaRow]] = await pool.query(
-          `SELECT cargo_relet_estimate_masster.FCAID AS FCAID FROM cargo_relet_estimate_masster
-           INNER JOIN cargo_relet_estimate_compare c ON c.FCAID = cargo_relet_estimate_masster.FCAID
-           WHERE c.COMID = ? ORDER BY cargo_relet_estimate_masster.FCAID DESC LIMIT 1`,
-          [comid],
-        );
-        if (!fcaRow?.FCAID) continue;
-        const [[sumRow]] = await pool.query(
-          `SELECT SUM(CARGO_QMT_MT) AS SUM FROM cargo_relet_estimate_masster WHERE FCAID = ?`,
-          [fcaRow.FCAID],
-        );
-        cargoMt += Number(sumRow?.SUM || 0);
-      }
-    }
+    const cargoMt = await sumCargoMtForCoaRow(pool, row);
 
     records.push({
       index,
@@ -611,6 +680,89 @@ export async function dbGetCoaList({
     page,
     pageSize,
   };
+}
+
+/**
+ * Running COA pace cards for COA Business Overview (qty lifted vs contract duration).
+ */
+export async function dbGetCoaBusinessOverview({ selBType, fromDate, toDate, limit = 12 } = {}) {
+  const pool = getPool();
+  const businessType = selBType || '2';
+  const hasStatus = await coaMasterHasStatus(pool);
+  const maxCards = Math.max(1, Math.min(Number(limit) || 12, 24));
+
+  const conditions = ['m.MCOMPANYID = ?', 'm.BUSINESSTYPEID = ?'];
+  const params = [appContext.companyId, businessType];
+
+  if (hasStatus) {
+    conditions.push('m.STATUS = 1');
+  }
+
+  if (fromDate && toDate) {
+    conditions.push('m.COA_DATE >= ? AND m.COA_DATE <= ?');
+    params.push(parsePeriodDate(fromDate), parsePeriodDate(toDate));
+  }
+
+  // Running window: started (or no start) and not yet ended (or no end).
+  conditions.push(`(
+    m.START_DATE IS NULL
+    OR m.START_DATE <= '1970-01-01'
+    OR DATE(m.START_DATE) <= CURDATE()
+  )`);
+  conditions.push(`(
+    m.END_DATE IS NULL
+    OR m.END_DATE <= '1970-01-01'
+    OR DATE(m.END_DATE) >= CURDATE()
+  )`);
+
+  const where = conditions.join(' AND ');
+  const [rows] = await pool.query(
+    `SELECT m.COAID, m.COA_ID, m.COA_NO, m.START_DATE, m.END_DATE, m.MIN_GUARANTEED_QTY,
+            route.COAROUTE_NAME AS COA_ROUTE,
+            CONCAT(charterer.NAME, '(', charterer.CODE, ')') AS CHARTERER,
+            (SELECT GROUP_CONCAT(COMID) FROM freight_cost_estimate_compare c WHERE c.COAAID = m.COAID) AS COMID_VC,
+            (SELECT GROUP_CONCAT(COMID) FROM cargo_relet_estimate_compare c WHERE c.COAAID = m.COAID) AS COMID_RELET
+     FROM coa_master m
+     LEFT JOIN coaroute_master route ON route.COAROUTEID = m.COA_ROUTE
+     LEFT JOIN vendor_master charterer ON charterer.CODE = m.CHARTERER
+     WHERE ${where}
+     ORDER BY m.END_DATE ASC, m.COAID DESC
+     LIMIT ?`,
+    [...params, maxCards * 3],
+  );
+
+  const cards = [];
+  for (const row of rows) {
+    if (cards.length >= maxCards) break;
+
+    const minQty = Number(row.MIN_GUARANTEED_QTY || 0);
+    const liftedMt = await sumCargoMtForCoaRow(pool, row);
+    const balanceMt = Math.max(0, minQty - liftedMt);
+    const hasDates = Boolean(toDateOnly(row.START_DATE) && toDateOnly(row.END_DATE));
+
+    // Prefer dated contracts still in window; undated only if cargo remains.
+    if (!hasDates && balanceMt <= 0 && minQty > 0) continue;
+
+    const qtyLiftedPct = minQty > 0 ? clampPct((liftedMt / minQty) * 100) : 0;
+    const elapsedPct = timeElapsedPct(row.START_DATE, row.END_DATE);
+    const { from, to } = splitRouteName(row.COA_ROUTE);
+
+    cards.push({
+      id: row.COA_ID || `COA-${row.COAID}`,
+      coaId: row.COAID,
+      no: row.COA_NO != null ? String(row.COA_NO) : '',
+      from,
+      to,
+      charterer: chartererDisplayName(row.CHARTERER),
+      qtyLiftedPct,
+      timeElapsedPct: elapsedPct,
+      lifted: formatMtLabel(liftedMt),
+      balance: formatMtLabel(balanceMt),
+      duration: 'Contract duration elapsed',
+    });
+  }
+
+  return { cards };
 }
 
 export async function dbGetPeriodList({

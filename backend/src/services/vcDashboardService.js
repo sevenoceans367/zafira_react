@@ -1,5 +1,6 @@
 import { isDbConfigured, isMgmtUser } from '../config.js';
 import {
+  dbGetCoaBusinessOverview,
   dbGetCoaList,
   dbGetCoaShipments,
   dbGetPeriodList,
@@ -132,6 +133,24 @@ const MOCK_COAS = {
   pageSize: 10,
 };
 
+const MOCK_COA_OVERVIEW = {
+  cards: [
+    {
+      id: 'COA-001',
+      coaId: 1,
+      no: '2026/01',
+      from: 'Asia',
+      to: 'Europe',
+      charterer: 'Steel Corp',
+      qtyLiftedPct: 30,
+      timeElapsedPct: 25,
+      lifted: '150,000 MT',
+      balance: '350,000 MT',
+      duration: 'Contract duration elapsed',
+    },
+  ],
+};
+
 const MOCK_PERIODS = {
   records: [
     {
@@ -175,6 +194,11 @@ export async function getTcDashboard(filters) {
 export async function getCoaList(params) {
   if (!isDbConfigured()) return MOCK_COAS;
   return dbGetCoaList(params);
+}
+
+export async function getCoaBusinessOverview(params) {
+  if (!isDbConfigured()) return MOCK_COA_OVERVIEW;
+  return dbGetCoaBusinessOverview(params);
 }
 
 export async function getPeriodList(params) {

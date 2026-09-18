@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import {
   CardSelect,
   HeaderFilterControls,
@@ -21,6 +21,18 @@ const STATUS_CLASS = {
   submitted: styles.status_submitted,
   approved: styles.status_approved,
 };
+
+function greetingPrefix(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
+}
+
+function firstName(fullName) {
+  const parts = String(fullName || 'Agent').trim().split(/\s+/);
+  return parts[0] || 'Agent';
+}
 
 function StatusChip({ status }) {
   return (
@@ -44,6 +56,7 @@ function PortRotation({ ports }) {
 }
 
 export default function AgentDashboardPage() {
+  const { displayName = 'Agent', orgName = 'Agency' } = useOutletContext() || {};
   const [searchParams] = useSearchParams();
   const filter = searchParams.get('filter') || '';
   const [query, setQuery] = useState('');
@@ -63,6 +76,9 @@ export default function AgentDashboardPage() {
       minute: '2-digit',
     });
   }, []);
+
+  const greeting = useMemo(() => greetingPrefix(), []);
+  const greetName = useMemo(() => firstName(displayName), [displayName]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,8 +131,48 @@ export default function AgentDashboardPage() {
       ? 'Working FDA'
       : 'Dashboard';
 
+  const showHero = !filter;
+
   return (
-    <>
+    <div className={styles.dashboardPage}>
+      {showHero ? (
+        <>
+          <div className={styles.bgSplash} aria-hidden>
+            <span className={styles.bgSplashS1} />
+            <span className={styles.bgSplashS2} />
+          </div>
+          <div className={styles.accessLine}>
+            <span>
+              Viewing as
+              {' '}
+              <b>{displayName}</b>
+              {' '}
+              <span className={styles.accessSep}>/</span>
+              {' '}
+              <b>{orgName}</b>
+            </span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+            <span>
+              you have access to
+              {' '}
+              <b>Agency Module</b>
+            </span>
+          </div>
+          <div className={styles.hero}>
+            <div className={styles.heroLine1}>
+              <span>{greeting}</span>
+              ,
+              {' '}
+              <span className={styles.accentName}>{greetName}</span>
+              .
+            </div>
+            <div className={styles.heroLine2}>What would you like to do today?</div>
+          </div>
+        </>
+      ) : null}
+
       {loading ? <LoadingOverlay show fullScreen={false} /> : null}
 
       <PageHeaderActions deps={[query, year, yearOptions.join(',')]}>
@@ -136,7 +192,24 @@ export default function AgentDashboardPage() {
         </HeaderFilterControls>
       </PageHeaderActions>
 
-      <p className={styles.pageSubInline}>{timestamp} · {pageTitle}</p>
+      {!filter ? (
+        <div className={styles.pageHead}>
+          <div className={styles.pageHeadLeft}>
+            <div className={styles.pageHeadIcon}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="3" y="3" width="7" height="5" rx="1.5" />
+                <rect x="14" y="3" width="7" height="9" rx="1.5" />
+                <rect x="3" y="12" width="7" height="9" rx="1.5" />
+                <rect x="14" y="16" width="7" height="5" rx="1.5" />
+              </svg>
+            </div>
+            <div>
+              <h1 className={styles.pageTitle}>{pageTitle}</h1>
+              <div className={styles.pageSub}>{timestamp}</div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {error ? <div className={styles.formError}>{error}</div> : null}
 
@@ -148,7 +221,7 @@ export default function AgentDashboardPage() {
                 <th>#</th>
                 <th>Voyage No.</th>
                 <th>Vessel</th>
-                <th>Port Rotation</th>
+                <th>Port</th>
                 <th>SOF</th>
                 <th>Initial PDA</th>
                 <th>FDA</th>
@@ -238,6 +311,6 @@ export default function AgentDashboardPage() {
           </table>
         </div>
       </div>
-    </>
+    </div>
   );
 }

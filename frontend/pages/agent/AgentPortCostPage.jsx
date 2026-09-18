@@ -243,7 +243,7 @@ export default function AgentPortCostPage() {
 
       <PageHeaderActions deps={[]}>
         <HeaderFilterControls>
-          <Button variant="secondary" label="Back" href={appPath('/agent/')} />
+          <Button variant="secondary" label="Back to Dashboard" href={appPath('/agent/')} />
         </HeaderFilterControls>
       </PageHeaderActions>
 

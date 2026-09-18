@@ -169,7 +169,7 @@ export function FleetMixBar({ owned, charteredIn }) {
   );
 }
 
-export function PaceCard({ item }) {
+export function PaceCard({ item, live = false }) {
   const delta = item.qtyLiftedPct - item.timeElapsedPct;
   const ahead = delta >= 0;
   return (
@@ -181,7 +181,7 @@ export function PaceCard({ item }) {
         </div>
         <div className={styles.cardHeadRight}>
           <span className={styles.coaChip}>Running COA</span>
-          <DemoBadge />
+          {live ? null : <DemoBadge />}
         </div>
       </div>
       <div className={styles.routeChips}>

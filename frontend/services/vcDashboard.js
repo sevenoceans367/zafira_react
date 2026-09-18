@@ -63,6 +63,16 @@ export async function fetchCoaList({
   return parseJson(response, 'Failed to load COA list.');
 }
 
+export async function fetchCoaBusinessOverview({ selBType, fromDate, toDate } = {}) {
+  const params = new URLSearchParams();
+  if (selBType) params.set('selBType', selBType);
+  if (fromDate) params.set('fromDate', fromDate);
+  if (toDate) params.set('toDate', toDate);
+  const query = params.toString();
+  const response = await fetch(`${BASE}/coas/overview${query ? `?${query}` : ''}`);
+  return parseJson(response, 'Failed to load COA overview.');
+}
+
 export async function fetchPeriodList({
   selBType,
   page,

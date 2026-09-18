@@ -5,6 +5,7 @@ import { appPath } from '@bainbridge/shared-routing';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import {
+  fetchCoaBusinessOverview,
   fetchCoaList,
   fetchCoaShipments,
   fetchPeriodList,
@@ -25,7 +26,6 @@ import {
   CHARTERERS,
   CHARTERERS_TC,
   CHARTERER_SHADES,
-  COA_PACE,
   DESK_OFFICE_TC,
   DESK_OFFICE_VC,
   FLEET_MIX,
@@ -265,6 +265,7 @@ export default function VcDashboardPage() {
   const [coaTotal, setCoaTotal] = useState(0);
   const [coaPage, setCoaPage] = useState(1);
   const [coaPageSize, setCoaPageSize] = useState(PAGE_SIZE);
+  const [coaPace, setCoaPace] = useState([]);
   const [periodRows, setPeriodRows] = useState([]);
   const [periodTotal, setPeriodTotal] = useState(0);
   const [periodPage, setPeriodPage] = useState(1);
@@ -298,17 +299,29 @@ export default function VcDashboardPage() {
     setTcData(data);
   }, [businessType, periodFrom, periodTo]);
 
-  const loadCoas = useCallback(async () => {
-    const data = await fetchCoaList({
+  const loadCoaOverview = useCallback(async () => {
+    const overviewData = await fetchCoaBusinessOverview({
       selBType: businessType,
       fromDate: periodFrom,
       toDate: periodTo,
-      page: coaPage,
-      pageSize: coaPageSize,
     });
-    setCoaRows(data.records ?? []);
-    setCoaTotal(data.recordsTotal ?? 0);
-  }, [businessType, periodFrom, periodTo, coaPage, coaPageSize]);
+    setCoaPace(overviewData.cards ?? []);
+  }, [businessType, periodFrom, periodTo]);
+
+  const loadCoas = useCallback(async () => {
+    const [listData] = await Promise.all([
+      fetchCoaList({
+        selBType: businessType,
+        fromDate: periodFrom,
+        toDate: periodTo,
+        page: coaPage,
+        pageSize: coaPageSize,
+      }),
+      loadCoaOverview(),
+    ]);
+    setCoaRows(listData.records ?? []);
+    setCoaTotal(listData.recordsTotal ?? 0);
+  }, [businessType, periodFrom, periodTo, coaPage, coaPageSize, loadCoaOverview]);
 
   const loadPeriods = useCallback(async () => {
     const data = await fetchPeriodList({
@@ -686,9 +699,13 @@ export default function VcDashboardPage() {
           <section className={styles.secBlock}>
             <SectionHead title="COA Business Overview" showUsd />
             <div className={styles.shellGrid}>
-              {COA_PACE.map((item) => (
-                <PaceCard key={item.id} item={item} />
-              ))}
+              {coaPace.length > 0 ? (
+                coaPace.map((item) => (
+                  <PaceCard key={item.coaId || item.id} item={item} live />
+                ))
+              ) : (
+                <p className={styles.emptyCell}>No running COAs in this period.</p>
+              )}
             </div>
             <SectionHead title="Contracts" />
             <DataTable

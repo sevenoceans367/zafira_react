@@ -183,6 +183,214 @@ async function countAgentLegs(pool, fcaId) {
   return Number(row?.total || 0);
 }
 
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (value == null) continue;
+    const text = String(value).trim();
+    if (text !== '') return text;
+  }
+  return '';
+}
+
+function parseGrtNrt(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return { grt: '', nrt: '' };
+  const parts = raw.split(/[/|]/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) return { grt: parts[0], nrt: parts[1] };
+  return { grt: raw, nrt: '' };
+}
+
+function deriveNrtFromGrt(grt) {
+  const num = Number(String(grt || '').replace(/,/g, ''));
+  if (!Number.isFinite(num) || num <= 0) return '';
+  return (num * 0.7).toFixed(2);
+}
+
+/**
+ * PDA particulars sources:
+ * - BOA: Voyage Worksheet BEAM, else Operated Vessels Dimensions BEAM, else Fixed EXT_BREADTH
+ * - MAX S.DRAFT: Fixed vessels Summer Draft (DRAFTM)
+ * - DWT / GRT / NRT: Voyage Worksheet (DWT_SUMMER / GNRT), else vessel master
+ */
+async function loadAgencyLetterVessel(pool, vesselImoId, costSheetId = null) {
+  const emptyVessel = {
+    flag: '',
+    classSoc: '',
+    yearBuilt: '',
+    builtWhere: '',
+    imoNo: '',
+    portOfRegistry: '',
+    dwt: '',
+    displacement: '',
+    draft: '',
+    tpc: '',
+    cargoTankCapacity: '',
+    cargoPumps: '',
+    noOfGrades: '',
+    grain: '',
+    noh: '',
+    noha: '',
+    grt: '',
+    nrt: '',
+    panamaGt: '',
+    suezGt: '',
+    loa: '',
+    lbp: '',
+    breadth: '',
+    depth: '',
+    callSign: '',
+    email: '',
+    phone: '',
+    telex: '',
+    fax: '',
+    businessTypeId: '',
+  };
+
+  let sheet = null;
+  if (costSheetId) {
+    const [[row]] = await pool.query(
+      `SELECT BEAM, DWT_SUMMER, VESSEL_DWT, GNRT, LOA, VESSEL_IMO_ID
+       FROM freight_cost_estimete_master
+       WHERE FCAID = ?
+       LIMIT 1`,
+      [costSheetId],
+    ).catch(() => [[null]]);
+    sheet = row || null;
+  }
+
+  const resolvedImoId = vesselImoId || sheet?.VESSEL_IMO_ID;
+  if (!resolvedImoId) {
+    return { vesselName: '', vessel: emptyVessel };
+  }
+
+  const [[vim]] = await pool.query(
+    `SELECT * FROM vessel_imo_master WHERE VESSEL_IMO_ID = ? LIMIT 1`,
+    [resolvedImoId],
+  ).catch(() => [[null]]);
+  const vesselName = vim?.VESSEL_NAME || '';
+  const businessTypeId = vim?.BUSINESSTYPEID != null ? String(vim.BUSINESSTYPEID) : '';
+
+  const [[flagRow]] = await pool.query(
+    'SELECT COUNTRY_NAME FROM country_master WHERE COUNTRYID = ? LIMIT 1',
+    [vim?.FLAG],
+  ).catch(() => [[null]]);
+
+  let classSoc = '';
+  if (vim?.CLA_SOC_ID) {
+    const [[cls]] = await pool.query(
+      'SELECT NAME FROM classification_soc_master WHERE CLA_SOC_ID = ? LIMIT 1',
+      [vim.CLA_SOC_ID],
+    ).catch(() => [[null]]);
+    classSoc = cls?.NAME || '';
+  }
+
+  const [[vm1]] = await pool.query(
+    'SELECT * FROM vessel_master_1 WHERE VESSEL_IMO_ID = ? LIMIT 1',
+    [resolvedImoId],
+  ).catch(() => [[null]]);
+  const [[vmt]] = await pool.query(
+    'SELECT * FROM vessel_master_tankers WHERE VESSEL_IMO_ID = ? LIMIT 1',
+    [resolvedImoId],
+  ).catch(() => [[null]]);
+  const [[vm6]] = await pool.query(
+    'SELECT * FROM vessel_master_6 WHERE VESSEL_IMO_ID = ? LIMIT 1',
+    [resolvedImoId],
+  ).catch(() => [[null]]);
+
+  let portOfRegistry = '';
+  const registryPortId = businessTypeId === '1' || businessTypeId === '2'
+    ? (vmt?.REGISTRY_PORT || vm1?.PORT_ID)
+    : (vm1?.PORT_ID || vmt?.REGISTRY_PORT);
+  if (registryPortId) {
+    const [[rp]] = await pool.query(
+      'SELECT PortName FROM port_master WHERE PortId = ? LIMIT 1',
+      [registryPortId],
+    ).catch(() => [[null]]);
+    portOfRegistry = rp?.PortName || '';
+  }
+
+  let builtCountry = '';
+  if (vm1?.COUNTRY_ID) {
+    const [[bc]] = await pool.query(
+      'SELECT COUNTRY_NAME FROM country_master WHERE COUNTRYID = ? LIMIT 1',
+      [vm1.COUNTRY_ID],
+    ).catch(() => [[null]]);
+    builtCountry = bc?.COUNTRY_NAME || '';
+  }
+
+  const isTankerOrGas = businessTypeId === '1' || businessTypeId === '2';
+  const callSign = isTankerOrGas ? (vmt?.CALL_SIGN || '') : (vm6?.CALL_SIGN || vm1?.CALL_SIGN || '');
+  const email = isTankerOrGas
+    ? (vmt?.EMAIL_ADDRESS || '')
+    : (vm6?.EMAIL_ADDRESS || vm1?.EMAIL_ADDRESS || '');
+  const phone = isTankerOrGas ? (vmt?.PHONE_NO || '') : (vm6?.PHONE_NO || vm1?.PHONE_NO || '');
+  const telex = isTankerOrGas
+    ? (vmt?.TELEX_NO || '')
+    : (vm6?.TELEX_NUMBER || vm1?.TELEX_NUMBER || '');
+  const fax = isTankerOrGas ? (vmt?.FAXNO || '') : (vm6?.FAX_NUMBER || vm1?.FAX_NUMBER || '');
+  const mmsi = isTankerOrGas ? (vmt?.MMSI_NUMBER || '') : (vm6?.MMSI_NUMBER || '');
+  const inmarsat = isTankerOrGas ? (vmt?.INMARSAT_NUMBER || '') : (vm6?.INMARSAT_NUMBER || '');
+
+  // BOA: worksheet Beam → Operated Dimensions Extreme breadth → Fixed Extreme Breadth
+  const breadth = firstNonEmpty(sheet?.BEAM, vmt?.BEAM, vim?.EXT_BREADTH);
+  // MAX S.DRAFT: Fixed / Voyage Summer Draft (DRAFTM). Operated FCENTER_MANIFOLD is bridge→manifold, not draft.
+  const draft = firstNonEmpty(vim?.DRAFTM, vm1?.SUMMER_DRAFT, vmt?.SDRAFT_1);
+  const dwt = firstNonEmpty(sheet?.DWT_SUMMER, sheet?.VESSEL_DWT, vim?.DWT);
+  const sheetGrtNrt = parseGrtNrt(sheet?.GNRT);
+  const masterGrtNrt = parseGrtNrt(vim?.GRT_NRT);
+  const grt = firstNonEmpty(sheetGrtNrt.grt, masterGrtNrt.grt, vmt?.GROSS_TONNAGE);
+  const nrt = firstNonEmpty(
+    sheetGrtNrt.nrt,
+    vim?.NRT,
+    masterGrtNrt.nrt,
+    vmt?.NET_TONNAGE,
+    deriveNrtFromGrt(grt),
+  );
+  const loa = firstNonEmpty(sheet?.LOA, vim?.LOA);
+
+  const vessel = {
+    flag: flagRow?.COUNTRY_NAME || '',
+    classSoc,
+    yearBuilt: vim?.YEARBUILT ?? '',
+    builtWhere: [
+      String(builtCountry || '').toUpperCase(),
+      String(vm1?.YARD_NAME || '').toUpperCase(),
+    ].join('/'),
+    imoNo: vim?.IMO_NO ?? '',
+    portOfRegistry,
+    dwt,
+    displacement: vm1?.DISPLACEMENT ?? '',
+    draft,
+    tpc: firstNonEmpty(vm1?.SUMMER_3, vmt?.TPC_SUMMER),
+    cargoTankCapacity: businessTypeId === '1'
+      ? (vim?.GAS_TANK_CAPACITY ?? '')
+      : (vim?.TANKER_CAPACITY ?? ''),
+    cargoPumps: vim?.TANKER_CARGO_PUMP ?? '',
+    noOfGrades: vim?.NO_OF_GRADE ?? '',
+    grain: vim?.GRAIN ?? '',
+    noh: vim?.NOH ?? '',
+    noha: vim?.NOHA ?? '',
+    grt,
+    nrt,
+    panamaGt: vm1?.GT_PANAMA ?? '',
+    suezGt: vm1?.GT_SUEZ ?? '',
+    loa,
+    lbp: firstNonEmpty(vm1?.LBW, vmt?.LBP_LENGTH),
+    breadth,
+    depth: firstNonEmpty(vm1?.DEPTH_MODULE, vmt?.MODULER_DEPTH),
+    callSign,
+    email,
+    phone,
+    telex,
+    fax,
+    mmsi,
+    inmarsat,
+    businessTypeId,
+  };
+
+  return { vesselName, vessel };
+}
+
 async function getLatestCostSheetId(pool, comId) {
   const candidates = [];
 
@@ -567,6 +775,11 @@ export async function dbGetAgencyLetterForm(comId) {
   const agencyNumber = await getMaxAgencyNumber(pool);
   const lookups = await dbGetAgencyLetterLookups();
   const noonReports = await loadNoonReportEtas(pool, sheet?.IMO_NO);
+  const { vesselName: vesselNameFromParticulars, vessel } = await loadAgencyLetterVessel(
+    pool,
+    sheet?.VESSEL_IMO_ID,
+    costSheetId,
+  );
 
   const ports = [];
   for (const leg of legs) {
@@ -721,7 +934,8 @@ export async function dbGetAgencyLetterForm(comId) {
     comId: String(comId),
     costSheetId: String(costSheetId),
     nomId: compare?.MESSAGE || '',
-    vesselName: sheet?.VESSEL_NAME || '',
+    vesselName: sheet?.VESSEL_NAME || vesselNameFromParticulars || '',
+    vessel,
     cargoDefault,
     toleranceDefault,
     agencyNumber,
@@ -1104,9 +1318,11 @@ export async function dbGetAgencyLetterForPdf(genAgencyId, opts = {}) {
 
   let vesselImoId = compare?.VESSEL_IMO_ID;
   let cargoIdFallback = compare?.CARGO_ID || '';
+  let costSheetIdForVessel = null;
   if (!vesselImoId) {
     const costSheetId = await getLatestCostSheetId(pool, letter.COMID).catch(() => null);
     if (costSheetId) {
+      costSheetIdForVessel = costSheetId;
       const [[sheet]] = await pool.query(
         `SELECT VESSEL_IMO_ID, CARGO_ID FROM freight_cost_estimete_master WHERE FCAID = ? LIMIT 1`,
         [costSheetId],
@@ -1114,148 +1330,11 @@ export async function dbGetAgencyLetterForPdf(genAgencyId, opts = {}) {
       vesselImoId = sheet?.VESSEL_IMO_ID || vesselImoId;
       if (!cargoIdFallback && sheet?.CARGO_ID) cargoIdFallback = sheet.CARGO_ID;
     }
+  } else {
+    costSheetIdForVessel = await getLatestCostSheetId(pool, letter.COMID).catch(() => null);
   }
 
-  let vesselName = '';
-  let vessel = {
-    flag: '',
-    classSoc: '',
-    yearBuilt: '',
-    builtWhere: '',
-    imoNo: '',
-    portOfRegistry: '',
-    dwt: '',
-    displacement: '',
-    draft: '',
-    tpc: '',
-    cargoTankCapacity: '',
-    cargoPumps: '',
-    noOfGrades: '',
-    grain: '',
-    noh: '',
-    noha: '',
-    grt: '',
-    nrt: '',
-    panamaGt: '',
-    suezGt: '',
-    loa: '',
-    lbp: '',
-    breadth: '',
-    depth: '',
-    callSign: '',
-    email: '',
-    phone: '',
-    telex: '',
-    fax: '',
-    businessTypeId: '',
-  };
-  if (vesselImoId) {
-    const [[vim]] = await pool.query(
-      `SELECT * FROM vessel_imo_master WHERE VESSEL_IMO_ID = ? LIMIT 1`,
-      [vesselImoId],
-    ).catch(() => [[null]]);
-    vesselName = vim?.VESSEL_NAME || '';
-    const businessTypeId = vim?.BUSINESSTYPEID != null ? String(vim.BUSINESSTYPEID) : '';
-    const [[flagRow]] = await pool.query(
-      'SELECT COUNTRY_NAME FROM country_master WHERE COUNTRYID = ? LIMIT 1',
-      [vim?.FLAG],
-    ).catch(() => [[null]]);
-    let classSoc = '';
-    if (vim?.CLA_SOC_ID) {
-      const [[cls]] = await pool.query(
-        'SELECT NAME FROM classification_soc_master WHERE CLA_SOC_ID = ? LIMIT 1',
-        [vim.CLA_SOC_ID],
-      ).catch(() => [[null]]);
-      classSoc = cls?.NAME || '';
-    }
-    const [[vm1]] = await pool.query(
-      'SELECT * FROM vessel_master_1 WHERE VESSEL_IMO_ID = ? LIMIT 1',
-      [vesselImoId],
-    ).catch(() => [[null]]);
-    const [[vmt]] = await pool.query(
-      'SELECT * FROM vessel_master_tankers WHERE VESSEL_IMO_ID = ? LIMIT 1',
-      [vesselImoId],
-    ).catch(() => [[null]]);
-    const [[vm6]] = await pool.query(
-      'SELECT * FROM vessel_master_6 WHERE VESSEL_IMO_ID = ? LIMIT 1',
-      [vesselImoId],
-    ).catch(() => [[null]]);
-
-    let portOfRegistry = '';
-    const registryPortId = businessTypeId === '1' || businessTypeId === '2'
-      ? (vmt?.REGISTRY_PORT || vm1?.PORT_ID)
-      : (vm1?.PORT_ID || vmt?.REGISTRY_PORT);
-    if (registryPortId) {
-      const [[rp]] = await pool.query(
-        'SELECT PortName FROM port_master WHERE PortId = ? LIMIT 1',
-        [registryPortId],
-      ).catch(() => [[null]]);
-      portOfRegistry = rp?.PortName || '';
-    }
-
-    let builtCountry = '';
-    if (vm1?.COUNTRY_ID) {
-      const [[bc]] = await pool.query(
-        'SELECT COUNTRY_NAME FROM country_master WHERE COUNTRYID = ? LIMIT 1',
-        [vm1.COUNTRY_ID],
-      ).catch(() => [[null]]);
-      builtCountry = bc?.COUNTRY_NAME || '';
-    }
-
-    const isTankerOrGas = businessTypeId === '1' || businessTypeId === '2';
-    const callSign = isTankerOrGas ? (vmt?.CALL_SIGN || '') : (vm6?.CALL_SIGN || vm1?.CALL_SIGN || '');
-    const email = isTankerOrGas
-      ? (vmt?.EMAIL_ADDRESS || '')
-      : (vm6?.EMAIL_ADDRESS || vm1?.EMAIL_ADDRESS || '');
-    const phone = isTankerOrGas ? (vmt?.PHONE_NO || '') : (vm6?.PHONE_NO || vm1?.PHONE_NO || '');
-    const telex = isTankerOrGas
-      ? (vmt?.TELEX_NO || '')
-      : (vm6?.TELEX_NUMBER || vm1?.TELEX_NUMBER || '');
-    const fax = isTankerOrGas ? (vmt?.FAXNO || '') : (vm6?.FAX_NUMBER || vm1?.FAX_NUMBER || '');
-    const mmsi = isTankerOrGas ? (vmt?.MMSI_NUMBER || '') : (vm6?.MMSI_NUMBER || '');
-    const inmarsat = isTankerOrGas ? (vmt?.INMARSAT_NUMBER || '') : (vm6?.INMARSAT_NUMBER || '');
-
-    vessel = {
-      flag: flagRow?.COUNTRY_NAME || '',
-      classSoc,
-      yearBuilt: vim?.YEARBUILT ?? '',
-      // PHP: YEARBUILT/COUNTRY/YARD (always three slash-separated parts)
-      builtWhere: [
-        String(builtCountry || '').toUpperCase(),
-        String(vm1?.YARD_NAME || '').toUpperCase(),
-      ].join('/'),
-      imoNo: vim?.IMO_NO ?? '',
-      portOfRegistry,
-      dwt: vim?.DWT ?? '',
-      displacement: vm1?.DISPLACEMENT ?? '',
-      draft: vim?.DRAFTM ?? '',
-      tpc: vm1?.SUMMER_3 ?? '',
-      cargoTankCapacity: businessTypeId === '1'
-        ? (vim?.GAS_TANK_CAPACITY ?? '')
-        : (vim?.TANKER_CAPACITY ?? ''),
-      cargoPumps: vim?.TANKER_CARGO_PUMP ?? '',
-      noOfGrades: vim?.NO_OF_GRADE ?? '',
-      grain: vim?.GRAIN ?? '',
-      noh: vim?.NOH ?? '',
-      noha: vim?.NOHA ?? '',
-      grt: vim?.GRT_NRT ?? '',
-      nrt: vim?.NRT ?? '',
-      panamaGt: vm1?.GT_PANAMA ?? '',
-      suezGt: vm1?.GT_SUEZ ?? '',
-      loa: vim?.LOA ?? '',
-      lbp: vm1?.LBW ?? '',
-      breadth: vim?.EXT_BREADTH ?? '',
-      depth: vm1?.DEPTH_MODULE ?? '',
-      callSign,
-      email,
-      phone,
-      telex,
-      fax,
-      mmsi,
-      inmarsat,
-      businessTypeId,
-    };
-  }
+  const { vesselName, vessel } = await loadAgencyLetterVessel(pool, vesselImoId, costSheetIdForVessel);
 
   let cargoName = '';
   const cargoIds = String(cargoIdFallback || '')

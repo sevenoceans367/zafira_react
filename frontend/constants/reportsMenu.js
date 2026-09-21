@@ -28,7 +28,7 @@ export const REPORTS_SECTIONS = [
     label: 'Management Reports',
     items: [
       { id: 'comparison-report', label: 'Comparison Report' },
-      { id: 'pl-at-a-glance', label: 'P&L - At a Glance' },
+      { id: 'pl-at-a-glance', label: 'P&L - Spot & TC' },
       { id: 'cargo-tonnage-report', label: 'Cargo Tonnage Report' },
     ],
   },
@@ -59,8 +59,8 @@ export const REPORTS_SECTIONS = [
     id: 'accounts',
     label: 'Accounts',
     items: [
-      { id: 'aging-report-payable', label: 'Aging Report (Payable)' },
-      { id: 'aging-report-receivables', label: 'Aging Report (Receivables)' },
+      { id: 'aging-report-payable', label: 'Aging Report Payables' },
+      { id: 'aging-report-receivables', label: 'Aging Report Receivables' },
       { id: 'payable-receivables-report', label: 'Payable & Receivables Report' },
       { id: 'profitability-analysis-coa-spot', label: 'Profitability Analysis - COA/Spot' },
       { id: 'projected-cash-flow-vc', label: 'Projected Cash Flow (VC)' },
@@ -90,9 +90,7 @@ export function findReport(sectionId, reportId) {
 }
 
 export function getDefaultReportPath() {
-  const first = REPORTS_SECTIONS[0]?.items[0];
-  if (!first) return REPORTS_BASE;
-  return reportAppPath(REPORTS_SECTIONS[0].id, first.id);
+  return reportAppPath('management', 'pl-at-a-glance');
 }
 
 export function listAllReports() {

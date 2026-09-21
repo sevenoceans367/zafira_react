@@ -71,6 +71,27 @@ const RAW_PNL_ROWS = [
 
 const ELAPSED_QUARTERS = { q1: true, q2: true, q3: true, q4: false };
 
+const CARGO_MT = {
+  'SPOT-2601': 46000,
+  'SPOT-2602': 48000,
+  'COA-014-2026-S3': 69000,
+  'SPOT-2609': 36500,
+  'SPOT-2614': 56000,
+  'COA-021-2026-S5': 44000,
+  'SPOT-2622': 51000,
+  'SPOT-2631': 39000,
+  'SPOT-2638': 63500,
+  'SPOT-2645': 34000,
+  'TC-2603': 47000,
+  'TC-2607': 49000,
+  'TC-2611': 68000,
+  'TC-2616': 70500,
+  'TC-2624': 37000,
+  'TC-2629': 57500,
+  'TC-2636': 45000,
+  'TC-2643': 52000,
+};
+
 const PNL_ROWS = RAW_PNL_ROWS.map((r) => {
   const net = +(r.revenue - r.costs).toFixed(2);
   const margin = r.revenue ? +((net / r.revenue) * 100).toFixed(1) : 0;
@@ -81,6 +102,7 @@ const PNL_ROWS = RAW_PNL_ROWS.map((r) => {
     margin,
     status: ELAPSED_QUARTERS[r.q] ? 'Actual' : 'Estimated',
     dwt: vi.dwt,
+    cargoMt: CARGO_MT[r.id] || 0,
     owner: vi.owner,
   };
 });
@@ -88,6 +110,7 @@ const PNL_ROWS = RAW_PNL_ROWS.map((r) => {
 const COLUMN_DEFS = [
   { key: 'vessel', label: 'Vessel', defaultOn: true },
   { key: 'dwt', label: 'DWT', defaultOn: true },
+  { key: 'cargoMt', label: 'Cargo MT', defaultOn: true },
   { key: 'owner', label: 'Owner', defaultOn: true },
   { key: 'charterer', label: 'Charterer', defaultOn: true },
   { key: 'chrtPic', label: 'CHRT PIC', defaultOn: true },
@@ -161,6 +184,8 @@ function renderCell(key, row) {
       return row.vessel;
     case 'dwt':
       return row.dwt ? `${row.dwt.toLocaleString('en-US')} MT` : '—';
+    case 'cargoMt':
+      return row.cargoMt ? `${row.cargoMt.toLocaleString('en-US')} MT` : '—';
     case 'owner':
       return <span className={styles.trunc} title={row.owner}>{row.owner}</span>;
     case 'charterer':
@@ -194,14 +219,14 @@ function renderCell(key, row) {
   }
 }
 
-const NUMERIC_KEYS = new Set(['dwt', 'cpDate', 'eta', 'revenue', 'costs', 'net', 'margin']);
+const NUMERIC_KEYS = new Set(['dwt', 'cargoMt', 'cpDate', 'eta', 'revenue', 'costs', 'net', 'margin']);
 
 export default function PlAtAGlancePage() {
   const setHeading = usePageHeaderHeading();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [yearFilter, setYearFilter] = useState('2026');
-  const [periodFilter, setPeriodFilter] = useState('full');
+  const [periodFilter, setPeriodFilter] = useState('q3');
   const [bizFilter, setBizFilter] = useState('Tanker');
   const [page, setPage] = useState(1);
   const [columnState, setColumnState] = useState(defaultColumnState);
@@ -217,7 +242,7 @@ export default function PlAtAGlancePage() {
       title: (
         <span>
           P&L
-          <span className={styles.titleMuted}> - At a Glance</span>
+          <span className={styles.titleMuted}> - Spot & TC</span>
         </span>
       ),
     });

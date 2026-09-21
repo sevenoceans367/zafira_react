@@ -281,7 +281,7 @@ export const MANAGEMENT_REPORT_DEFINITIONS = {
   },
 
   'pl-at-a-glance': {
-    title: 'P&L - At a Glance',
+    title: 'P&L - Spot & TC',
     pageType: 'plAtAGlance',
     searchOnMount: true,
   },
@@ -389,6 +389,7 @@ export const OPERATIONS_REPORT_DEFINITIONS = {
   },
   'daily-position-report': {
     title: 'Daily Position Report',
+    pageType: 'dailyPosition',
     searchOnMount: true,
     filters: [
       { key: 'selYear', label: 'Year', type: 'year' },
@@ -731,54 +732,14 @@ export const OPERATIONS_REPORT_IDS = Object.keys(OPERATIONS_REPORT_DEFINITIONS);
 
 export const ACCOUNTS_REPORT_DEFINITIONS = {
   'aging-report-payable': {
-    title: 'Aging Report (Payable)',
-    filters: [
-      { key: 'selDateType', label: 'Days', type: 'daySelection', defaultValue: '1' },
-      { key: 'selBType', label: 'Business Type', type: 'businessType', defaultValue: '' },
-      { key: 'selCOASpot', label: 'COA/Spot', type: 'coaSpot', defaultValue: '1' },
-      { key: 'selVendor', label: 'Vendor', type: 'vendor', defaultValue: '' },
-    ],
-    columns: [
-      { key: 'srNo', label: '#' },
-      { key: 'vendor', label: 'Vendor' },
-      { key: 'coaSpot', label: 'COA/Spot' },
-      { key: 'nomId', label: 'Nom ID / Voyage' },
-      { key: 'vesselName', label: 'Vessel' },
-      { key: 'cpDate', label: 'CP Date' },
-      { key: 'costType', label: 'Cost Type' },
-      { key: 'paymentNo', label: 'Payment No.' },
-      { key: 'invoiceDate', label: 'Invoice Date' },
-      { key: 'paymentDate', label: 'Payment Date' },
-      { key: 'amountInvoiced', label: 'Amount Invoiced' },
-      { key: 'amountPaid', label: 'Amount Paid' },
-      { key: 'difference', label: 'Difference' },
-      { key: 'delayDays', label: 'Delay (Days)' },
-    ],
+    title: 'Aging Report Payables',
+    pageType: 'agingPayables',
+    searchOnMount: true,
   },
   'aging-report-receivables': {
-    title: 'Aging Report (Receivables)',
-    filters: [
-      { key: 'selDateType', label: 'Days', type: 'daySelection', defaultValue: '1' },
-      { key: 'selBType', label: 'Business Type', type: 'businessType', defaultValue: '' },
-      { key: 'selSpotCOA', label: 'Spot/COA/TC', type: 'spotCoaTc', defaultValue: '1' },
-      { key: 'selVendor', label: 'Client', type: 'vendor', defaultValue: '' },
-    ],
-    columns: [
-      { key: 'srNo', label: '#' },
-      { key: 'client', label: 'Client' },
-      { key: 'spotCoaTc', label: 'Spot/COA/TC' },
-      { key: 'nomId', label: 'Nom ID / Voyage' },
-      { key: 'vesselName', label: 'Vessel' },
-      { key: 'cpDate', label: 'CP Date' },
-      { key: 'invoiceType', label: 'Invoice Type' },
-      { key: 'invoiceNo', label: 'Invoice No.' },
-      { key: 'invoiceDate', label: 'Invoice Date' },
-      { key: 'amountInvoiced', label: 'Amount Invoiced' },
-      { key: 'amountReceived', label: 'Amount Received' },
-      { key: 'difference', label: 'Difference' },
-      { key: 'delayDays', label: 'Delay (Days)' },
-      { key: 'openClosed', label: 'Open/Closed' },
-    ],
+    title: 'Aging Report Receivables',
+    pageType: 'agingReceivables',
+    searchOnMount: true,
   },
   'payable-receivables-report': {
     title: 'Payable & Receivables Report',

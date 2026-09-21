@@ -64,6 +64,30 @@ async function companyName(pool) {
   return row?.COMPANY_NAME || '';
 }
 
+/** BL dates live on sof_slave_1 (not freight_cost_estimete_master). */
+async function blDateForComid(pool, comId) {
+  if (!comId) return null;
+  try {
+    const [[row]] = await pool.query(
+      `SELECT s1.BL_DATE
+       FROM sof_master sm
+       INNER JOIN sof_slave_1 s1 ON s1.SOFID = sm.SOFID
+       WHERE sm.COMID = ?
+         AND sm.MODULEID = ?
+         AND sm.MCOMPANYID = ?
+         AND s1.BL_DATE IS NOT NULL
+         AND s1.BL_DATE != ''
+         AND s1.BL_DATE != '0000-00-00'
+       ORDER BY s1.SOF_SLAVEID ASC
+       LIMIT 1`,
+      [comId, MODULE_ID, COMPANY_ID],
+    );
+    return row?.BL_DATE || null;
+  } catch {
+    return null;
+  }
+}
+
 async function listVcVoyages(pool, { selBType, selCOASpot } = {}) {
   const typeFilter = estimateTypeFilter(selBType);
   const [rows] = await pool.query(
@@ -71,7 +95,7 @@ async function listVcVoyages(pool, { selBType, selCOASpot } = {}) {
             m.FCAID, m.VESSEL_IMO_ID, m.TRANS_DATE, m.CP_DATE, m.VOYAGE_NO, m.VOYAGE_NAME,
             m.ESTIMATE_TYPE, m.QUANTITY, m.GAS_QUANTITY, m.TANK_QUANTITY, m.QTY_TYPE_RADIO,
             m.REVENUES_FREIGHT, m.ACTUAL_PL, m.DAILY_EARNING, m.VOYAGE_EARNING,
-            m.BUNKER_EXPENSES, m.PORT_EXPENSES, m.CARGO_ID, m.BL_DATE,
+            m.BUNKER_EXPENSES, m.PORT_EXPENSES, m.CARGO_ID,
             v.VESSEL_NAME
      FROM freight_cost_estimate_compare c
      INNER JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
@@ -523,7 +547,8 @@ export async function dbShipmentRegisterReport(filters = {}) {
 
   const records = [];
   for (const voy of voyages) {
-    const dateValue = dateType === '1' ? voy.BL_DATE : voy.TRANS_DATE;
+    const blDate = await blDateForComid(pool, voy.COMID);
+    const dateValue = dateType === '1' ? blDate : voy.TRANS_DATE;
     const ms = dateValue ? new Date(dateValue).getTime() : null;
     if (fromMs != null && (ms == null || ms < fromMs)) continue;
     if (toMs != null && (ms == null || ms > toMs)) continue;
@@ -591,7 +616,7 @@ export async function dbShipmentRegisterReport(filters = {}) {
       lastUpdatedFreight: earnings ? earnings.toFixed(2) : '',
       fromPort,
       toPort,
-      blDate: safeDate(voy.BL_DATE),
+      blDate: safeDate(blDate),
       qty: qty || '',
       operationalExpenses: '',
       portExpenses: portExp ? portExp.toFixed(2) : '',

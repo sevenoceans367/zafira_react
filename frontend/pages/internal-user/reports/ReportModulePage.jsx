@@ -7,6 +7,8 @@ import ConfigurableReportPage from './ConfigurableReportPage.jsx';
 import ComparisonReportPage from './ComparisonReportPage.jsx';
 import DualPlReportPage from './DualPlReportPage.jsx';
 import PlAtAGlancePage from './PlAtAGlancePage.jsx';
+import DailyPositionReportPage from './DailyPositionReportPage.jsx';
+import AgingReportPage from './AgingReportPage.jsx';
 import CargoTonnageReportPage from './CargoTonnageReportPage.jsx';
 import EditableTrackerPage from './EditableTrackerPage.jsx';
 import VesselYearlyPerformancePage from './VesselYearlyPerformancePage.jsx';
@@ -39,6 +41,15 @@ function LiveReportPage({ reportId }) {
   }
   if (definition?.pageType === 'plAtAGlance' || PL_AT_A_GLANCE_ALIASES.has(reportId)) {
     return <PlAtAGlancePage key="pl-at-a-glance" />;
+  }
+  if (definition?.pageType === 'dailyPosition') {
+    return <DailyPositionReportPage key="daily-position-report" />;
+  }
+  if (definition?.pageType === 'agingReceivables') {
+    return <AgingReportPage key="aging-receivables" mode="receivables" />;
+  }
+  if (definition?.pageType === 'agingPayables') {
+    return <AgingReportPage key="aging-payables" mode="payables" />;
   }
   if (definition?.pageType === 'dualPl') {
     return <DualPlReportPage key={reportId} reportId={reportId} />;

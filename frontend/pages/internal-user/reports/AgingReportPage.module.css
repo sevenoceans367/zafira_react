@@ -1,0 +1,482 @@
+.titleMuted {
+  color: #8a93a2;
+  font-weight: 500;
+}
+
+.crossNavBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #e6eaf1;
+  color: #274670;
+  border: 1px solid #d3dae7;
+  border-radius: 9px;
+  padding: 9px 15px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.crossNavBtn:hover {
+  background: #d3dae7;
+}
+
+.crossNavBtn svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.page {
+  position: relative;
+  --navy: #274670;
+  --orange: #f4652c;
+  --orange-tint: #fdece4;
+  --teal: #14919b;
+  --teal-tint: #e3f4f4;
+  --blue: #3b82f6;
+  --blue-tint: #eaf1fe;
+  --purple: #6c47ff;
+  --purple-tint: #efeaff;
+  --grey-accent: #5b6472;
+  --grey-tint: #eef0f3;
+  --grey-tint-strong: #dfe2e7;
+  --line: #eceef2;
+  --line-strong: #dfe2e7;
+  --text-dark: #1b2430;
+  --text-mid: #5b6472;
+  --text-light: #8a93a2;
+  --field-grey: #f1f2f4;
+  --green-tint: #e8f8ec;
+  --red-tint: #fdecea;
+}
+
+.exportMenu,
+.colPicker {
+  position: relative;
+  display: inline-flex;
+}
+
+.exportMenuList,
+.colPickerMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(20, 30, 50, 0.14);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.exportMenuList {
+  width: 220px;
+  padding: 6px 0;
+}
+
+.exportMenuTitle,
+.colPickerMenuTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.exportMenuTitle {
+  padding: 8px 14px 6px;
+}
+
+.exportMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dark);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.exportMenuItem:hover {
+  background: var(--field-grey);
+}
+
+.iconOnlyBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: var(--text-mid);
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+
+.iconOnlyBtn:hover {
+  background: var(--field-grey);
+  color: var(--text-dark);
+}
+
+.iconOnlyBtn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.footerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-mid);
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.footerBtn:hover {
+  background: var(--field-grey);
+  color: var(--text-dark);
+}
+
+.footerBtn svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.colPickerMenu {
+  width: 260px;
+}
+
+.colPickerMenuTitle {
+  padding: 12px 14px 8px;
+}
+
+.colPickerListWrap {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.colPickerItem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dark);
+  cursor: pointer;
+}
+
+.colPickerItem:hover {
+  background: var(--field-grey);
+}
+
+.colPickerItem input {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  flex: none;
+}
+
+.colPickerMenuFooter {
+  border-top: 1px solid var(--line);
+  padding: 8px 14px;
+}
+
+.colPickerReset {
+  border: none;
+  background: none;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.colPickerReset:hover {
+  text-decoration: underline;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.grid thead th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-light);
+  background: #fafbfc;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+
+.grid tbody td {
+  padding: 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--text-dark);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.grid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.grid tbody tr:hover {
+  background: #fafbfc;
+}
+
+.cellNum {
+  font-variant-numeric: tabular-nums;
+}
+
+.cellId {
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.masterLine {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.emptyRow td {
+  padding: 32px 14px;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 13px;
+}
+
+.accentCell {
+  border-left: 3px solid transparent;
+}
+
+.partyCell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+
+.voyageCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.typeChip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 800;
+  border-radius: 5px;
+  padding: 2px 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex: none;
+}
+
+.typeChipSpot {
+  background: var(--orange-tint);
+  color: var(--orange);
+}
+
+.typeChipTc {
+  background: var(--teal-tint);
+  color: var(--teal);
+}
+
+.typeChipCoa {
+  background: var(--purple-tint);
+  color: var(--purple);
+}
+
+.typeChipPeriod {
+  background: var(--blue-tint);
+  color: var(--blue);
+}
+
+.typeChipRelet {
+  background: var(--grey-tint);
+  color: var(--grey-accent);
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.statusOpen {
+  background: var(--green-tint);
+  color: #0b7a28;
+}
+
+.statusClosed {
+  background: var(--grey-tint-strong);
+  color: var(--text-mid);
+}
+
+.bucketPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.bucketB0 {
+  background: var(--green-tint);
+  color: #0b7a28;
+}
+
+.bucketB1 {
+  background: #fff6de;
+  color: #8a6d00;
+}
+
+.bucketB2 {
+  background: var(--orange-tint);
+  color: var(--orange);
+}
+
+.bucketB3 {
+  background: var(--red-tint);
+  color: #b4291f;
+}
+
+.dash {
+  color: var(--text-light);
+}
+
+.trunc {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 190px;
+  vertical-align: middle;
+}
+
+.netNeg {
+  color: #b4291f;
+  font-weight: 700;
+}
+
+.pagerBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 12.5px;
+  color: var(--text-mid);
+  flex-wrap: wrap;
+  box-sizing: border-box;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pgArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-mid);
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+}
+
+.pgArrow:hover:not(:disabled) {
+  background: var(--field-grey);
+  color: var(--text-dark);
+}
+
+.pgArrow svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pgArrow:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.pgNum {
+  background: var(--grey-tint-strong);
+  color: var(--text-dark);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-weight: 700;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--text-dark);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 11px 18px;
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(20, 30, 50, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 50;
+  max-width: 80vw;
+  text-align: center;
+}
+
+.toastShow {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

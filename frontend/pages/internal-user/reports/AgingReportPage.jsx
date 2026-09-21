@@ -320,10 +320,10 @@ export default function AgingReportPage({ mode = 'receivables' }) {
           <span className={styles.titleMuted}>{mutedTitle}</span>
         </span>
       ),
-      titleExtra: <CrossNavLink to={crossNav.to} label={crossNav.label} />,
+      stacked: true,
     });
     return () => setHeading(null);
-  }, [setHeading, mutedTitle, crossNav.to, crossNav.label]);
+  }, [setHeading, mutedTitle]);
 
   useEffect(() => {
     const onDocClick = (event) => {
@@ -398,53 +398,58 @@ export default function AgingReportPage({ mode = 'receivables' }) {
 
   return (
     <>
-      <PageHeaderActions deps={[search, partyFilter, daysFilter, periodFrom, periodTo, bizFilter, tradeFilter]}>
-        <HeaderFilterControls>
-          <PageHeaderSearch
-            value={search}
-            onChange={setSearch}
-            placeholder={searchPlaceholder}
-          />
-          <CardSelect
-            options={partyOptions}
-            value={partyFilter}
-            onChange={setPartyFilter}
-            placeholder={partyLabel}
-            ariaLabel={partyLabel}
-          />
-          <CardSelect
-            options={DAYS_OPTIONS}
-            value={daysFilter}
-            onChange={setDaysFilter}
-            placeholder="Accounting Period"
-            ariaLabel="Accounting Period"
-          />
-          <PeriodCardPicker
-            from={periodFrom}
-            to={periodTo}
-            onChange={({ from, to }) => {
-              setPeriodFrom(from || '');
-              setPeriodTo(to || '');
-            }}
-            label="Select Period"
-            title="Select Period"
-            subtitle="Read the full fiscal year, or narrow to a portion of the calendar"
-          />
-          <CardSelect
-            options={BIZ_OPTIONS}
-            value={bizFilter}
-            onChange={setBizFilter}
-            placeholder="Business type"
-            ariaLabel="Business type"
-          />
-          <CardSelect
-            options={TRADE_OPTIONS}
-            value={tradeFilter}
-            onChange={setTradeFilter}
-            placeholder="Trade type"
-            ariaLabel="Trade type"
-          />
-        </HeaderFilterControls>
+      <PageHeaderActions deps={[search, partyFilter, daysFilter, periodFrom, periodTo, bizFilter, tradeFilter, crossNav.to, crossNav.label]}>
+        <div className={styles.headerFiltersRow}>
+          <div className={styles.headerFiltersMain}>
+            <HeaderFilterControls align="start">
+              <PageHeaderSearch
+                value={search}
+                onChange={setSearch}
+                placeholder={searchPlaceholder}
+              />
+              <PeriodCardPicker
+                from={periodFrom}
+                to={periodTo}
+                onChange={({ from, to }) => {
+                  setPeriodFrom(from || '');
+                  setPeriodTo(to || '');
+                }}
+                label="Select Period"
+                title="Select Period"
+                subtitle="Read the full fiscal year, or narrow to a portion of the calendar"
+              />
+              <CardSelect
+                options={partyOptions}
+                value={partyFilter}
+                onChange={setPartyFilter}
+                placeholder={partyLabel}
+                ariaLabel={partyLabel}
+              />
+              <CardSelect
+                options={DAYS_OPTIONS}
+                value={daysFilter}
+                onChange={setDaysFilter}
+                placeholder="Accounting Period"
+                ariaLabel="Accounting Period"
+              />
+              <CardSelect
+                options={BIZ_OPTIONS}
+                value={bizFilter}
+                onChange={setBizFilter}
+                placeholder="Business type"
+                ariaLabel="Business type"
+              />
+              <CardSelect
+                options={TRADE_OPTIONS}
+                value={tradeFilter}
+                onChange={setTradeFilter}
+                placeholder="Trade type"
+                ariaLabel="Trade type"
+              />
+            </HeaderFilterControls>
+          </div>
+          <CrossNavLink to={crossNav.to} label={crossNav.label} />
+        </div>
       </PageHeaderActions>
 
       <div className={`zafira-page ${styles.page}`}>

@@ -17,6 +17,7 @@ export default function InternalUserPageHeader() {
       title={heading?.title ?? config.title}
       icon={heading?.icon ?? null}
       titleExtra={heading?.titleExtra ?? null}
+      stacked={Boolean(heading?.stacked)}
       breadcrumbs={config.breadcrumbs}
       currentPage={config.currentPage}
       actions={actions}

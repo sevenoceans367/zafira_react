@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { fetchRecentWork } from '../services/recentWork.js';
 import { dismissUserAlert, fetchUserAlerts } from '../services/userAlerts.js';
 import hamburgerIcon from '../../../../assets/hamburger.png';
+import historyIcon from '../../../../assets/history.png';
+import notificationBellIcon from '../../../../assets/notification bell.png';
 import styles from './AppHeader.module.css';
 
 const AppHeader = ({
@@ -135,7 +137,7 @@ const AppHeader = ({
     const body = (
       <>
         <span className={styles.drawerIcon}>
-          <i className="bi bi-bell-fill"></i>
+          <img src={notificationBellIcon} alt="" aria-hidden="true" />
         </span>
         <span>
           <strong>{item.title}</strong>
@@ -233,7 +235,7 @@ const AppHeader = ({
                 aria-expanded={activeDropdown === 'history'}
                 onClick={(e) => handleDropdown(e, 'history')}
               >
-                <i className="bi bi-clock-history"></i>
+                <img src={historyIcon} alt="" className={styles.headerIcon} aria-hidden="true" />
                 {activityCount > 0 && (
                   <span className={styles.historyBadge}>{activityBadgeCount}</span>
                 )}
@@ -248,7 +250,7 @@ const AppHeader = ({
                 title="Notifications"
                 aria-expanded={activeDropdown === 'activity'}
               >
-                <i className="bi bi-bell-fill"></i>
+                <img src={notificationBellIcon} alt="" className={styles.headerIcon} aria-hidden="true" />
                 {notificationCount > 0 && (
                   <span className={styles.badge}>{notificationBadgeCount}</span>
                 )}
@@ -315,7 +317,7 @@ const AppHeader = ({
                 {recentActivity.map((item, index) => (
                   <li key={`${item.datetime}-${index}`} className={styles.drawerItem}>
                     <span className={styles.drawerIcon}>
-                      <i className="bi bi-clock-history"></i>
+                      <img src={historyIcon} alt="" aria-hidden="true" />
                     </span>
                     <span>
                       <strong>{item.work}</strong>

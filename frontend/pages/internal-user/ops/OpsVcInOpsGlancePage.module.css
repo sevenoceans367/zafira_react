@@ -850,15 +850,15 @@
 }
 
 .iconBtn {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #8a93a2;
-  background: #fff;
-  border: 1px solid #dfe2e7;
+  color: #274670;
+  background: #e6eaf1;
+  border: 1px solid #d3dae7;
   padding: 0;
   text-decoration: none;
   line-height: 0;
@@ -868,17 +868,21 @@
 }
 
 .iconBtn:hover {
-  background: #f1f2f4;
-  color: #5b6472;
-  border-color: #dfe2e7;
+  background: #274670;
+  color: #fff;
+  border-color: #274670;
 }
 
 .iconBtn svg,
 .iconBtn img {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   display: block;
   object-fit: contain;
+}
+
+.iconBtn:hover img {
+  filter: brightness(0) invert(1);
 }
 
 .alertPill {

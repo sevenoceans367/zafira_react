@@ -246,39 +246,51 @@
   align-items: flex-start;
 }
 
+/* Match SOC Post Ops History pill: filled soft bg, 1.5px stroke, 999 radius, darker hover */
 .pillAction {
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 11px !important;
+  font-weight: 700 !important;
   border-radius: 999px !important;
   padding: 5px 12px !important;
   min-height: auto !important;
-  border: 1.5px solid;
+  border-width: 1.5px !important;
+  border-style: solid !important;
   cursor: pointer;
   white-space: nowrap;
-  background: #fff !important;
   font-family: inherit;
   box-shadow: none !important;
+  line-height: 1.15;
 }
 
+:global(.global-btn-secondary).pillReplicate,
 .pillReplicate {
   color: #3b82f6 !important;
   border-color: #3b82f6 !important;
+  background: #eff6ff !important;
 }
 
+:global(.global-btn-secondary).pillReplicate:hover:not(:disabled),
+:global(.global-btn-secondary).pillReplicate:focus:not(:disabled),
 .pillReplicate:hover:not(:disabled) {
-  background: #eff6ff !important;
+  background: #dbeafe !important;
+  border-color: #3b82f6 !important;
   color: #3b82f6 !important;
 }
 
+:global(.global-btn-accent).pillSendOps,
 .pillSendOps {
   color: #f4652c !important;
   border-color: #f4652c !important;
+  background: #fdece4 !important;
 }
 
+:global(.global-btn-accent).pillSendOps:hover:not(:disabled),
+:global(.global-btn-accent).pillSendOps:focus:not(:disabled),
 .pillSendOps:hover:not(:disabled) {
-  background: #fdece4 !important;
+  background: #fbd9c9 !important;
+  border-color: #f4652c !important;
   color: #f4652c !important;
 }
 

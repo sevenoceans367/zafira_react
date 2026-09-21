@@ -9,6 +9,22 @@
   border-bottom: 1px solid #edf0f2;
 }
 
+.headerStacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.headerStacked .title {
+  width: 100%;
+}
+
+.headerStacked .actions {
+  justify-content: flex-start;
+  margin-left: 0;
+  width: 100%;
+}
+
 .title {
   margin: 0;
   color: #000;

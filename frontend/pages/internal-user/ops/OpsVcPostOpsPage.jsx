@@ -412,7 +412,7 @@ export default function OpsVcPostOpsPage() {
                   <td>
                     <div className={styles.chipStack}>
                       <ChipLink to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>
-                        Disbursements
+                        PDA/FDA
                       </ChipLink>
                     </div>
                   </td>

@@ -46,6 +46,13 @@
   object-fit: contain;
 }
 
+.headerIcon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  object-fit: contain;
+}
+
 .headerBreadcrumbWrap {
   min-width: 0;
 }
@@ -123,27 +130,27 @@
 }
 
 .iconButton {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--border-radius-sm);
-  color: #000;
+  border: none;
+  border-radius: 8px;
+  color: #5b6472;
   font-size: 1rem;
   cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
+  flex: none;
+  transition: background-color 0.15s ease;
 }
 
-.iconButton:hover {
-  background-color: #f4f6f8;
-  border-color: #d7dde4;
-  color: #000;
+.iconButton:hover,
+.iconButton[aria-expanded='true'] {
+  background-color: #f1f2f4;
+  color: #5b6472;
 }
 
 .historyButton {
@@ -152,35 +159,46 @@
 
 .historyBadge {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  background-color: #f39c12;
-  border-radius: 10px;
-  min-width: 14px;
-  height: 14px;
+  top: -3px;
+  right: -3px;
+  background-color: #f4652c;
+  border-radius: 999px;
+  min-width: 15px;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8px;
-  padding: 0 3px;
+  font-size: 9px;
+  padding: 1px 4px;
   color: #fff;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.3;
+  border: 1.5px solid #fff;
+  box-sizing: border-box;
 }
 
 .dropdownToggle {
-  color: #000;
-  text-decoration: none;
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  height: 60px;
-  padding: 0 8px;
-  transition: color 0.2s ease;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: #5b6472;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  flex: none;
+  transition: background-color 0.15s ease;
 }
 
-.dropdownToggle:hover {
-  color: #000;
+.dropdownToggle:hover,
+.dropdownToggle[aria-expanded='true'] {
+  background-color: #f1f2f4;
+  color: #5b6472;
 }
 
 .profileToggle {
@@ -269,17 +287,22 @@
 
 .badge {
   position: absolute;
-  top: 8px;
-  right: 2px;
-  background-color: #f39c12;
-  border-radius: 10px;
-  min-width: 14px;
-  height: 14px;
+  top: -3px;
+  right: -3px;
+  background-color: #f4652c;
+  border-radius: 999px;
+  min-width: 15px;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8px;
-  padding: 0 3px;
+  font-size: 9px;
+  padding: 1px 4px;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1.3;
+  border: 1.5px solid #fff;
+  box-sizing: border-box;
 }
 
 .drawerBackdrop {
@@ -354,6 +377,13 @@
   background: #eef4fb;
   color: #000;
   font-size: 13px;
+}
+
+.drawerIcon img {
+  width: 14px;
+  height: 14px;
+  display: block;
+  object-fit: contain;
 }
 
 .drawerItem strong {

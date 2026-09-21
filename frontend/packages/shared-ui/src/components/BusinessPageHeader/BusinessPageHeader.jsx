@@ -14,6 +14,8 @@ const BusinessPageHeader = ({
   actions = null,
   icon = null,
   titleExtra = null,
+  /** When true: row 1 = heading, row 2 = actions (filters/search). */
+  stacked = false,
 }) => {
   const resolvedHomeHref = homeHref ?? appPath('/');
   const trail = Array.isArray(breadcrumbs) ? breadcrumbs : [];
@@ -33,13 +35,17 @@ const BusinessPageHeader = ({
   }, [resolvedHomeHref, breadcrumbKey, leafLabel]);
 
   return (
-    <header className={styles.header}>
+    <header className={[styles.header, stacked ? styles.headerStacked : ''].filter(Boolean).join(' ')}>
       <h1 className={styles.title}>
         {icon ? <span className={styles.titleIcon}>{icon}</span> : null}
         {title}
         {titleExtra ? <span className={styles.titleExtra}>{titleExtra}</span> : null}
       </h1>
-      <div className={styles.actions} data-page-header-actions>
+      <div
+        className={styles.actions}
+        data-page-header-actions
+        data-stacked={stacked ? 'true' : undefined}
+      >
         {actions}
       </div>
     </header>

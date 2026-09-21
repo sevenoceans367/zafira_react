@@ -11,8 +11,8 @@ export const NAVIGATION_STATUSES = [
   'Under way sailing',
 ];
 
-/** Light basemap for readable sea/land contrast */
-export const MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+/** Voyager basemap (Carto) */
+export const MAP_TILE_URL = 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3pmi_1_40cb27ab8de5ac6f6c43e06c';
 export const MAP_ATTRIBUTION = 'Seven Oceans';
 export const DEFAULT_MAP_CENTER = [20, 0];
 export const DEFAULT_MAP_ZOOM = 3;

@@ -129,7 +129,7 @@ export default function DistanceFetchModal({
       const map = L.map(mapRef.current, { zoomSnap: 0.25 }).setView([20, 0], 2);
       // Show only "Seven Oceans" — hide default "Leaflet |" prefix.
       map.attributionControl.setPrefix(false);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3pmi_1_40cb27ab8de5ac6f6c43e06c', {
         maxZoom: 10,
         attribution: 'Seven Oceans',
       }).addTo(map);

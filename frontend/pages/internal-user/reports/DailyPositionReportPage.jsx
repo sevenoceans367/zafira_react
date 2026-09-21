@@ -170,11 +170,9 @@ function DirIcon({ towards }) {
   );
 }
 
-function Trunc({ text, width = 160 }) {
+function Trunc({ text }) {
   if (!text || text === '—') return <span className={styles.dash}>—</span>;
-  return (
-    <span className={styles.trunc} style={{ maxWidth: width }} title={text}>{text}</span>
-  );
+  return <span title={text}>{text}</span>;
 }
 
 export default function DailyPositionReportPage() {
@@ -278,17 +276,17 @@ export default function DailyPositionReportPage() {
           }}
           onMouseLeave={() => setContact(null)}
         >
-          <Trunc text={name} width={150} />
+          <Trunc text={name} />
         </button>
       );
     }
     if (['operator', 'charterer', 'shipper', 'owner', 'cargo', 'remarks'].includes(key)) {
-      return <Trunc text={row[key]} width={150} />;
+      return <Trunc text={row[key]} />;
     }
     return row[key] || '—';
   };
 
-  const tableMinWidth = Math.max(760, (visibleColumns.length + 3) * 122);
+  const tableMinWidth = Math.max(960, (visibleColumns.length + 3) * 120);
 
   return (
     <>
@@ -405,7 +403,7 @@ export default function DailyPositionReportPage() {
             {SECTIONS.map((section) => {
               const sectionRows = filteredRows.filter((row) => row.status === section.key);
               return (
-                <section key={section.key} className={styles.section}>
+                <section key={section.key} className={styles.section} style={{ minWidth: tableMinWidth }}>
                   <div className={styles.sectionHead}>
                     <span className={styles.sectionLabel}>
                       <DirIcon towards={section.towards} />
@@ -416,9 +414,9 @@ export default function DailyPositionReportPage() {
                   <table className={styles.grid} style={{ minWidth: tableMinWidth }}>
                     <thead>
                       <tr>
-                        <th aria-label="Copy" />
-                        <th>#</th>
-                        <th>Vessel / Voyage</th>
+                        <th className={styles.colCopy} aria-label="Copy" />
+                        <th className={styles.colIndex}>#</th>
+                        <th className={styles.colVessel}>Vessel / Voyage</th>
                         {visibleColumns.map((col) => <th key={col.key}>{col.label}</th>)}
                       </tr>
                     </thead>

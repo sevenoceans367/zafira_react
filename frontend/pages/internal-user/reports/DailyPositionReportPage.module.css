@@ -28,6 +28,14 @@
 
 .sections {
   background: #fff;
+  width: 100%;
+  min-width: 100%;
+}
+
+.section {
+  width: 100%;
+  min-width: 100%;
+  box-sizing: border-box;
 }
 
 .section + .section {
@@ -45,6 +53,8 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 10px 18px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .sectionLabel {
@@ -70,7 +80,21 @@
 
 .grid {
   width: 100%;
+  min-width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.colCopy {
+  width: 52px;
+}
+
+.colIndex {
+  width: 48px;
+}
+
+.colVessel {
+  width: 160px;
 }
 
 .grid thead th {
@@ -84,6 +108,8 @@
   padding: 12px 14px;
   border-bottom: 1px solid #dfe2e7;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .grid tbody td {
@@ -93,6 +119,8 @@
   color: #1b2430;
   white-space: nowrap;
   vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .grid tbody tr:hover {

@@ -39,6 +39,30 @@
   border-radius: 10px;
 }
 
+/* Replicate pill shape — grey treatment for Contracts Details */
+.pillDetails {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 5px 12px;
+  border: 1.5px solid #8a93a2;
+  cursor: pointer;
+  white-space: nowrap;
+  background: #eef0f3;
+  color: #5b6472;
+  font-family: inherit;
+  line-height: 1.15;
+  box-shadow: none;
+}
+
+.pillDetails:hover {
+  background: #dfe2e7;
+  color: #5b6472;
+  border-color: #8a93a2;
+}
+
 /* ---------- Folder-style tab chips ---------- */
 .tabs {
   display: flex;

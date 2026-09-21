@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
+import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
@@ -446,12 +446,13 @@ export default function VcDashboardPage() {
       key: 'details',
       label: 'Details',
       render: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          label="Details"
+        <button
+          type="button"
+          className={styles.pillDetails}
           onClick={() => openCoaDetails(row.coaId, row.coaIdentity)}
-        />
+        >
+          Details
+        </button>
       ),
     },
   ];

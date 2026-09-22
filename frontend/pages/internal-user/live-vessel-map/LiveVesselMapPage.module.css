@@ -25,7 +25,21 @@
   --field-grey-border: #e4e6e9;
 
   padding-top: 0;
-  margin: -8px -4px 0;
+  /* Keep horizontal bleed; do not pull up into BusinessPageHeader */
+  margin: 0 -4px 0;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin: 12px 4px 16px;
+  padding: 12px 14px 14px;
+  position: relative;
+  z-index: 1;
 }
 
 .introBar {
@@ -58,6 +72,8 @@
   border: 1px solid #bee8c7;
   padding: 4px 10px;
   border-radius: 999px;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .liveDot {
@@ -78,6 +94,284 @@
   margin: 0;
   font-size: 12.5px;
   color: var(--text-light);
+}
+
+.controlsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  align-items: flex-end;
+}
+
+.controlGroup,
+.controlGroupGrow,
+.field,
+.searchForm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.controlGroupGrow {
+  flex: 1 1 100%;
+}
+
+.controlLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--field-grey);
+}
+
+.segmentBtn {
+  border: none;
+  background: transparent;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-mid);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.segmentBtnActive {
+  background: var(--navy);
+  color: #fff;
+}
+
+.searchForm {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+.searchRow {
+  display: flex;
+  gap: 8px;
+}
+
+.searchInput,
+.select,
+.numInput {
+  border: 1px solid var(--field-grey-border);
+  background: var(--field-grey);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--text-dark);
+  font-family: inherit;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.searchBtn,
+.clearBtn {
+  border: none;
+  border-radius: 999px;
+  padding: 0 14px;
+  height: 36px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.searchBtn {
+  background: var(--orange);
+  color: #fff;
+}
+
+.searchBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.clearBtn {
+  background: var(--field-grey);
+  color: var(--text-mid);
+  border: 1px solid var(--line-strong);
+}
+
+.layerToggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+}
+
+.checkLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dark);
+  cursor: pointer;
+}
+
+.countChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--navy-tint);
+  color: var(--navy);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.countChipFleet {
+  background: var(--green-tint);
+  color: #0b7a28;
+}
+
+.navStatusRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filterChip {
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: var(--text-mid);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.filterChipActive {
+  border-color: var(--navy);
+  background: var(--navy-tint);
+  color: var(--navy);
+}
+
+/* Same rhythm as HeaderFilterControls (12px gap) + CardSelect height */
+.filterControls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.filterFieldLabel {
+  font-size: var(--font-size-body, 12px);
+  font-weight: 600;
+  color: var(--text-dark);
+  line-height: 1.2;
+}
+
+.filterInput {
+  width: 140px;
+  height: 36px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  color: #5b6472;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-body, 12px);
+  font-weight: 600;
+  line-height: 1;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  outline: none;
+}
+
+.filterInput::placeholder {
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.filterInput:hover {
+  border-color: #c9d4e3;
+  background: #f8fafc;
+  color: #4a5260;
+}
+
+.filterInput:focus {
+  border-color: #275e9b;
+  box-shadow: 0 0 0 3px rgba(39, 94, 155, 0.15);
+  color: #1b2733;
+}
+
+.controlsEnd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  margin-left: 0;
+  padding-bottom: 0;
+}
+
+.visibleMeta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.legendRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-mid);
+  font-weight: 600;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+
+.legendAis {
+  background: var(--navy);
+}
+
+.legendFleet {
+  background: var(--green);
 }
 
 .mapWrap {
@@ -194,6 +488,39 @@
   border-color: var(--orange-line);
 }
 
+.vesselPinFleet .pinIcon {
+  background: var(--green);
+}
+
+.vesselPinFleet .pinLabel {
+  color: #0b7a28;
+  border-color: #bee8c7;
+}
+
+.vesselPinFleet.vesselPinActive .pinIcon {
+  background: var(--orange);
+}
+
+.vesselPinFleet.vesselPinActive .pinLabel {
+  color: var(--orange);
+  border-color: var(--orange-line);
+}
+
+.fleetBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #0b7a28;
+  background: var(--green-tint);
+  border: 1px solid #bee8c7;
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 8px;
+}
+
 .bubble {
   position: absolute;
   z-index: 650;
@@ -222,7 +549,7 @@
 
 .bubbleTop {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;

@@ -10,11 +10,34 @@ export const NAVIGATION_STATUSES = [
   'Under way sailing',
 ];
 
-export const MAP_TILE_URL = 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3pmi_1_40cb27ab8de5ac6f6c43e06c';
+/** Carto basemap key (same as PHP Voyager URL). */
+export const CARTO_MAP_KEY = 'cb1_3pmi_1_40cb27ab8de5ac6f6c43e06c';
+
+export const MAP_STYLES = {
+  voyager: {
+    id: 'voyager',
+    label: 'Voyager',
+    url: `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${CARTO_MAP_KEY}`,
+  },
+  light: {
+    id: 'light',
+    label: 'Light',
+    url: `https://basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png?key=${CARTO_MAP_KEY}`,
+  },
+  dark: {
+    id: 'dark',
+    label: 'Dark',
+    url: `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=${CARTO_MAP_KEY}`,
+  },
+};
+
+export const DEFAULT_MAP_STYLE = 'voyager';
+export const MAP_TILE_URL = MAP_STYLES.voyager.url;
 export const MAP_ATTRIBUTION = 'Seven Oceans';
 export const DEFAULT_MAP_CENTER = [20, 0];
 export const DEFAULT_MAP_ZOOM = 3;
 export const AUTO_LOAD_MAX_ZOOM = 4;
+export const SEARCH_MAP_ZOOM = 8;
 export const MAX_AUTO_ROUTES = 20;
 
 export const ROUTE_COLORS = [
@@ -61,4 +84,80 @@ export function vesselVoyageLeg(vessel) {
   const destination = vesselField(vessel, 'DestDeclared');
   if (!origin || !destination) return null;
   return { origin, destination, key: voyageLegKey(origin, destination) };
+}
+
+export function parseDraughtMeters(vessel) {
+  const raw = vesselField(vessel, 'DraughtDeclared') || vesselField(vessel, 'Draught');
+  const match = String(raw).match(/[\d.]+/);
+  if (!match) return null;
+  const n = Number(match[0]);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function parseSpeedKnots(vessel) {
+  const raw = vessel?.SpeedOverGround
+    ?? vessel?.Speed
+    ?? vessel?.Sog
+    ?? vessel?.SOG
+    ?? vessel?.SpeedKnots;
+  if (raw == null || raw === '') return null;
+  const n = Number(String(raw).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+export function vesselNavStatus(vessel) {
+  return vesselField(vessel, 'NavigationStatus')
+    || vesselField(vessel, 'NavStatus')
+    || vesselField(vessel, 'NavigationalStatus');
+}
+
+export function vesselMatchesFilters(vessel, filters = {}) {
+  const {
+    navStatuses = [],
+    flag = '',
+    draughtMin = '',
+    draughtMax = '',
+    speedMin = '',
+    speedMax = '',
+  } = filters;
+
+  if (navStatuses.length) {
+    const nav = vesselNavStatus(vessel).toLowerCase();
+    if (nav && !navStatuses.some((status) => nav.includes(String(status).toLowerCase()))) {
+      return false;
+    }
+    if (!nav) return false;
+  }
+
+  if (flag) {
+    const shipFlag = vesselField(vessel, 'ShipFlag').toLowerCase();
+    if (!shipFlag.includes(String(flag).toLowerCase())) return false;
+  }
+
+  const draught = parseDraughtMeters(vessel);
+  if (draughtMin !== '' && draughtMin != null) {
+    if (draught == null || draught < Number(draughtMin)) return false;
+  }
+  if (draughtMax !== '' && draughtMax != null) {
+    if (draught == null || draught > Number(draughtMax)) return false;
+  }
+
+  const speed = parseSpeedKnots(vessel);
+  if (speedMin !== '' && speedMin != null) {
+    if (speed == null || speed < Number(speedMin)) return false;
+  }
+  if (speedMax !== '' && speedMax != null) {
+    if (speed == null || speed > Number(speedMax)) return false;
+  }
+
+  return true;
+}
+
+export function collectFlags(vessels = []) {
+  const set = new Set();
+  vessels.forEach((vessel) => {
+    const flag = vesselField(vessel, 'ShipFlag');
+    if (flag) set.add(flag);
+  });
+  return [...set].sort((a, b) => a.localeCompare(b));
 }

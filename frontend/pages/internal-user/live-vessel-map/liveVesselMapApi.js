@@ -1,6 +1,7 @@
 import { AUTO_LOAD_HUBS } from './liveVesselMap.constants.js';
 
 const BASE = '/api/internal-user/sopf';
+const LIVE = '/api/internal-user/live-vessels';
 
 export async function fetchVesselsWithinRange({ lat, lng, radius, navstatus }) {
   const params = new URLSearchParams({
@@ -28,10 +29,37 @@ export async function fetchVesselRoute({ origin, destination }) {
     from: String(origin || ''),
     to: String(destination || ''),
   });
-  const response = await fetch(`/api/internal-user/live-vessels/route?${params}`);
+  const response = await fetch(`${LIVE}/route?${params}`);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.message || 'Failed to load vessel route.');
+  }
+  return data;
+}
+
+export async function fetchVesselLastPosition(query) {
+  const params = new URLSearchParams();
+  if (typeof query === 'string') {
+    params.set('q', query);
+  } else {
+    if (query?.q) params.set('q', query.q);
+    if (query?.imo) params.set('imo', query.imo);
+    if (query?.mmsi) params.set('mmsi', query.mmsi);
+    if (query?.name) params.set('name', query.name);
+  }
+  const response = await fetch(`${LIVE}/last-position?${params}`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to find vessel position.');
+  }
+  return data;
+}
+
+export async function fetchFleetOverlay() {
+  const response = await fetch(`${LIVE}/fleet-overlay`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to load fleet overlay.');
   }
   return data;
 }

@@ -22,14 +22,6 @@ const FALLBACK_PORTS = {
   suez: { lat: 29.97, lng: 32.55, portName: 'Suez', portCode: 'EGSUZ' },
 };
 
-function toRad(value) {
-  return (value * Math.PI) / 180;
-}
-
-function toDeg(value) {
-  return (value * 180) / Math.PI;
-}
-
 function portCoords(port) {
   if (!port) return null;
   const lat = Number(port.lat ?? port.latitude ?? port.Lat ?? port.Latitude);
@@ -43,46 +35,6 @@ function fallbackPort(name) {
   if (!key) return null;
   const hit = Object.entries(FALLBACK_PORTS).find(([label]) => key.includes(label));
   return hit ? { ...hit[1] } : null;
-}
-
-function interpolateGreatCircle(start, end, steps = 36) {
-  const lat1 = toRad(start.lat);
-  const lng1 = toRad(start.lng);
-  const lat2 = toRad(end.lat);
-  const lng2 = toRad(end.lng);
-  const d = 2 * Math.asin(Math.sqrt(
-    Math.sin((lat2 - lat1) / 2) ** 2
-    + Math.cos(lat1) * Math.cos(lat2) * Math.sin((lng2 - lng1) / 2) ** 2,
-  ));
-  if (!Number.isFinite(d) || d < 0.0001) {
-    return [start, end];
-  }
-
-  const points = [];
-  for (let i = 0; i <= steps; i += 1) {
-    const f = i / steps;
-    const a = Math.sin((1 - f) * d) / Math.sin(d);
-    const b = Math.sin(f * d) / Math.sin(d);
-    const x = a * Math.cos(lat1) * Math.cos(lng1) + b * Math.cos(lat2) * Math.cos(lng2);
-    const y = a * Math.cos(lat1) * Math.sin(lng1) + b * Math.cos(lat2) * Math.sin(lng2);
-    const z = a * Math.sin(lat1) + b * Math.sin(lat2);
-    points.push({
-      lat: toDeg(Math.atan2(z, Math.sqrt(x * x + y * y))),
-      lng: toDeg(Math.atan2(y, x)),
-    });
-  }
-  return points;
-}
-
-function nmBetween(start, end) {
-  const earthNm = 3440.065;
-  const lat1 = toRad(start.lat);
-  const lat2 = toRad(end.lat);
-  const dLat = toRad(end.lat - start.lat);
-  const dLng = toRad(end.lng - start.lng);
-  const h = Math.sin(dLat / 2) ** 2
-    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return 2 * earthNm * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
 async function searchSeametrixPorts(query) {
@@ -120,10 +72,10 @@ async function fetchSeametrixRoute(startPort, endPort) {
   const payload = [{
     StartLon: Number(startPort.lng) || 0,
     StartLat: Number(startPort.lat) || 0,
-    StartPortCode: startPort.portCode,
+    StartPortCode: startPort.portCode || '',
     EndLon: Number(endPort.lng) || 0,
     EndLat: Number(endPort.lat) || 0,
-    EndPortCode: endPort.portCode,
+    EndPortCode: endPort.portCode || '',
     GreatCircleInterval: 0,
     AllowedAreas: [],
     SecaAvoidance: 0,
@@ -155,19 +107,6 @@ async function fetchSeametrixRoute(startPort, endPort) {
   };
 }
 
-function buildFallbackRoute(startPort, endPort) {
-  if (!Number.isFinite(startPort?.lat) || !Number.isFinite(endPort?.lat)) {
-    return null;
-  }
-  const start = { lat: startPort.lat, lng: startPort.lng };
-  const end = { lat: endPort.lat, lng: endPort.lng };
-  return {
-    waypoints: interpolateGreatCircle(start, end),
-    totalDistance: Number(nmBetween(start, end).toFixed(1)),
-    source: 'great-circle',
-  };
-}
-
 export async function fetchDeclaredVoyageRoute({ origin, destination }) {
   const fromName = String(origin || '').trim();
   const toName = String(destination || '').trim();
@@ -188,13 +127,16 @@ export async function fetchDeclaredVoyageRoute({ origin, destination }) {
     throw err;
   }
 
-  const seametrix = startPort.portCode && endPort.portCode
+  const hasCoords = Number.isFinite(startPort.lat) && Number.isFinite(endPort.lat)
+    && Number.isFinite(startPort.lng) && Number.isFinite(endPort.lng);
+  const hasCodes = Boolean(startPort.portCode && endPort.portCode);
+  // Sea routes only — never fall back to great-circle (crosses land).
+  const route = (hasCodes || hasCoords)
     ? await fetchSeametrixRoute(startPort, endPort)
     : null;
-  const route = seametrix || buildFallbackRoute(startPort, endPort);
 
   if (!route?.waypoints?.length) {
-    const err = new Error('No route waypoints returned.');
+    const err = new Error('No sea-route waypoints returned from Seametrix.');
     err.status = 404;
     throw err;
   }

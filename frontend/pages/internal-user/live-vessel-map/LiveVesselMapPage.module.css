@@ -183,11 +183,11 @@
   opacity: 1;
 }
 
-.subheader {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--text-light);
+.legLinePreview,
+.legLineActive {
+  pointer-events: none;
 }
+
 
 .controlsRow {
   display: flex;
@@ -545,13 +545,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  transition: background 0.15s ease;
 }
 
-.pinIcon svg {
-  width: 11px;
-  height: 11px;
+.pinIconImg {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
   transform: rotate(45deg);
-  fill: #fff;
+  display: block;
+  pointer-events: none;
+  /* Orange/yellow asset → white glyph */
+  filter: brightness(0) invert(1);
 }
 
 .pinLabel {
@@ -572,29 +578,13 @@
   text-overflow: ellipsis;
 }
 
+.vesselPin:hover .pinIcon,
 .vesselPinActive .pinIcon {
   background: var(--orange);
 }
 
+.vesselPin:hover .pinLabel,
 .vesselPinActive .pinLabel {
-  color: var(--orange);
-  border-color: var(--orange-line);
-}
-
-.vesselPinFleet .pinIcon {
-  background: var(--green);
-}
-
-.vesselPinFleet .pinLabel {
-  color: #0b7a28;
-  border-color: #bee8c7;
-}
-
-.vesselPinFleet.vesselPinActive .pinIcon {
-  background: var(--orange);
-}
-
-.vesselPinFleet.vesselPinActive .pinLabel {
   color: var(--orange);
   border-color: var(--orange-line);
 }

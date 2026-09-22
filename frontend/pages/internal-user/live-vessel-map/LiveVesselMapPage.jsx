@@ -15,6 +15,7 @@ import {
   fetchFleetRoutes,
   fetchLiveVesselFleet,
   fetchVesselLastPosition,
+  fetchVesselRoute,
 } from './liveVesselMapApi.js';
 import {
   agentInitials,
@@ -39,8 +40,10 @@ import {
   vesselField,
   vesselMatchesFilters,
   vesselVoyageLeg,
+  voyageLegKey,
 } from './liveVesselMap.constants.js';
 import styles from './LiveVesselMapPage.module.css';
+import shipIconUrl from '../../../assets/ship.png';
 import {
   LIVE_VESSEL_MAP_BADGE,
   LIVE_VESSEL_MAP_HINT,
@@ -61,8 +64,60 @@ const REFRESH_ICON = (
   </svg>
 );
 
-const SHIP_SVG = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 11.5L3.2 6.5h9.6L14 11.5H2zm1.3-6.2L4.5 3h7l1.2 2.3H3.3zM7.2 12.2h1.6v1.6H7.2z"/></svg>`;
+const LEG_PREVIEW = { color: '#B7BEC9', weight: 2, opacity: 0.85, dashArray: '8 8' };
+const LEG_ACTIVE = { color: '#f4652c', weight: 3, opacity: 1, dashArray: '8 8' };
 
+function currentLegPorts(vessel) {
+  const commercial = resolveCommercial(vessel);
+  const destination = commercial.legTo || commercial.to || '';
+  const origin = commercial.legFrom || commercial.from || '';
+  return { origin, destination };
+}
+
+function haversineKm(a, b) {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+}
+
+/** Clip Seametrix sea route from the vessel’s nearest waypoint onward.
+ * Never draw a long straight connector (that crosses land) when the ship is far off-route. */
+const LEG_SNAP_MAX_KM = 180;
+
+function remainingSeaRoute(vesselPos, waypoints) {
+  const valid = (waypoints || []).filter(
+    (wp) => Number.isFinite(wp?.lat) && Number.isFinite(wp?.lng),
+  );
+  if (!valid.length || !vesselPos) return valid;
+
+  let bestIdx = 0;
+  let bestDist = Infinity;
+  valid.forEach((wp, index) => {
+    const dist = haversineKm(vesselPos, wp);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIdx = index;
+    }
+  });
+
+  // Off the sea corridor — show the declared sea path only (no land shortcut).
+  if (bestDist > LEG_SNAP_MAX_KM) {
+    return valid;
+  }
+
+  const tail = valid.slice(bestIdx);
+  const first = tail[0];
+  const alreadyOnRoute = first
+    && Math.abs(first.lat - vesselPos.lat) < 0.01
+    && Math.abs(first.lng - vesselPos.lng) < 0.01;
+  if (alreadyOnRoute) return tail;
+  return [{ lat: vesselPos.lat, lng: vesselPos.lng }, ...tail];
+}
 const EYE_OPEN = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
     <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />
@@ -96,7 +151,9 @@ function createVesselIcon(name, active, { fleet = false } = {}) {
     className: styles.pinIconRoot,
     html: `
       <div class="${classes.join(' ')}">
-        <div class="${styles.pinIcon}">${SHIP_SVG}</div>
+        <div class="${styles.pinIcon}">
+          <img class="${styles.pinIconImg}" src="${shipIconUrl}" alt="" draggable="false" />
+        </div>
         <div class="${styles.pinLabel}">${escapeHtml(label)}</div>
       </div>
     `,
@@ -196,6 +253,11 @@ export default function LiveVesselMapPage() {
   const routesLayerRef = useRef(null);
   const routeLayersRef = useRef(new Map());
   const routesCacheRef = useRef(new Map());
+  const destCoordCacheRef = useRef(new Map());
+  const previewLegLayerRef = useRef(null);
+  const activeLegLayerRef = useRef(null);
+  const previewLegTokenRef = useRef(0);
+  const activeLegTokenRef = useRef(0);
   const vesselMarkersRef = useRef(new Map());
   const selectedVesselRef = useRef(null);
   const selectedLegKeyRef = useRef(null);
@@ -203,7 +265,7 @@ export default function LiveVesselMapPage() {
   const filtersRef = useRef(EMPTY_FILTERS);
   const showAisRef = useRef(true);
   const showFleetRef = useRef(true);
-  const showRoutesRef = useRef(true);
+  const showRoutesRef = useRef(false);
   const aisVesselsRef = useRef([]);
   const fleetVesselsRef = useRef([]);
 
@@ -224,7 +286,7 @@ export default function LiveVesselMapPage() {
   const [mapStyle, setMapStyle] = useState(DEFAULT_MAP_STYLE);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [showRoutes, setShowRoutes] = useState(true);
+  const [showRoutes, setShowRoutes] = useState(false);
   const [showAis, setShowAis] = useState(true);
   const [showFleet, setShowFleet] = useState(true);
   const [dailyPositionsOpen, setDailyPositionsOpen] = useState(false);
@@ -270,12 +332,126 @@ export default function LiveVesselMapPage() {
     setBubblePos({ left: point.x, top: point.y });
   }, []);
 
+  const clearLegLayer = useCallback((layerRef) => {
+    const map = mapRef.current;
+    if (layerRef.current && map) {
+      map.removeLayer(layerRef.current);
+    }
+    layerRef.current = null;
+  }, []);
+
+  const clearPreviewLeg = useCallback(() => {
+    previewLegTokenRef.current += 1;
+    clearLegLayer(previewLegLayerRef);
+  }, [clearLegLayer]);
+
+  const clearActiveLeg = useCallback(() => {
+    activeLegTokenRef.current += 1;
+    clearLegLayer(activeLegLayerRef);
+  }, [clearLegLayer]);
+
+  const drawLegPath = useCallback((layerRef, waypoints, mode) => {
+    const map = mapRef.current;
+    const points = (waypoints || []).filter(
+      (wp) => Number.isFinite(wp?.lat) && Number.isFinite(wp?.lng),
+    );
+    if (!map || points.length < 2) return;
+    clearLegLayer(layerRef);
+    const style = mode === 'active' ? LEG_ACTIVE : LEG_PREVIEW;
+    const dest = points[points.length - 1];
+    const layer = L.layerGroup();
+    L.polyline(
+      points.map((wp) => [wp.lat, wp.lng]),
+      {
+        ...style,
+        interactive: false,
+        className: mode === 'active' ? styles.legLineActive : styles.legLinePreview,
+      },
+    ).addTo(layer);
+    L.circleMarker([dest.lat, dest.lng], {
+      radius: mode === 'active' ? 5 : 4,
+      color: style.color,
+      fillColor: style.color,
+      fillOpacity: 0.95,
+      weight: 1,
+      interactive: false,
+    }).addTo(layer);
+    layer.addTo(map);
+    layerRef.current = layer;
+  }, [clearLegLayer]);
+
+  const resolveLegSeaRoute = useCallback(async (origin, destination) => {
+    const legKey = origin && destination ? voyageLegKey(origin, destination) : '';
+    const cachedRoute = legKey ? routesCacheRef.current.get(legKey) : null;
+    if (cachedRoute?.waypoints?.length) {
+      return cachedRoute;
+    }
+
+    const route = await fetchVesselRoute({
+      origin: origin || destination,
+      destination,
+    });
+    if (route?.waypoints?.length) {
+      const withKey = legKey ? { ...route, legKey } : route;
+      if (legKey) routesCacheRef.current.set(legKey, withKey);
+      const last = route.waypoints[route.waypoints.length - 1];
+      if (Number.isFinite(last?.lat) && Number.isFinite(last?.lng)) {
+        const destKey = String(destination || '').trim().toLowerCase();
+        if (destKey) destCoordCacheRef.current.set(destKey, last);
+      }
+      return withKey;
+    }
+    return null;
+  }, []);
+
+  const showCurrentLeg = useCallback(async (vessel, mode) => {
+    const lat = Number(vessel?.Latitude);
+    const lng = Number(vessel?.Longitude);
+    const { origin, destination } = currentLegPorts(vessel);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !destination) {
+      if (mode === 'preview') clearPreviewLeg();
+      return;
+    }
+
+    const tokenRef = mode === 'active' ? activeLegTokenRef : previewLegTokenRef;
+    const layerRef = mode === 'active' ? activeLegLayerRef : previewLegLayerRef;
+    const token = (tokenRef.current += 1);
+    const key = vesselKey(vessel);
+
+    try {
+      const route = await resolveLegSeaRoute(origin, destination);
+      if (token !== tokenRef.current) return;
+      if (mode === 'preview') {
+        const selectedKey = selectedVesselRef.current ? vesselKey(selectedVesselRef.current) : '';
+        if (selectedKey && selectedKey === key) {
+          clearPreviewLeg();
+          return;
+        }
+      } else if (selectedVesselRef.current && vesselKey(selectedVesselRef.current) !== key) {
+        return;
+      }
+      if (!route?.waypoints?.length || route.source === 'great-circle') {
+        if (mode === 'preview') clearPreviewLeg();
+        return;
+      }
+      const path = remainingSeaRoute({ lat, lng }, route.waypoints);
+      if (path.length < 2) {
+        if (mode === 'preview') clearPreviewLeg();
+        return;
+      }
+      drawLegPath(layerRef, path, mode);
+    } catch {
+      if (token === tokenRef.current && mode === 'preview') clearPreviewLeg();
+    }
+  }, [clearPreviewLeg, drawLegPath, resolveLegSeaRoute]);
+
   const selectVessel = useCallback((vessel) => {
     selectedVesselRef.current = vessel;
     setSelectedVessel(vessel);
     setPanelOpen(false);
     setTermsDraft(vessel?.commercial?.terms || '');
     updateBubblePosition(vessel);
+    clearPreviewLeg();
 
     const leg = vesselVoyageLeg(vessel);
     selectedLegKeyRef.current = leg?.key || null;
@@ -298,7 +474,9 @@ export default function LiveVesselMapPage() {
         opacity: active ? 0.95 : 0.5,
       });
     });
-  }, [updateBubblePosition]);
+
+    showCurrentLeg(vessel, 'active');
+  }, [clearPreviewLeg, showCurrentLeg, updateBubblePosition]);
 
   const clearAllRoutes = useCallback(() => {
     const map = mapRef.current;
@@ -363,6 +541,8 @@ export default function LiveVesselMapPage() {
     setRouteInfo(null);
     setPanelOpen(false);
     setBubblePos(null);
+    clearPreviewLeg();
+    clearActiveLeg();
     vesselMarkersRef.current.forEach((marker) => {
       marker.setIcon(createVesselIcon(
         vesselDisplayName(marker.vesselData),
@@ -377,7 +557,7 @@ export default function LiveVesselMapPage() {
         opacity: 0.5,
       });
     });
-  }, []);
+  }, [clearActiveLeg, clearPreviewLeg]);
 
   const clearMarkers = useCallback(() => {
     markerLayerRef.current?.clearLayers();
@@ -407,6 +587,19 @@ export default function LiveVesselMapPage() {
       marker.vesselData = vessel;
       vesselMarkersRef.current.set(vesselKey(vessel), marker);
 
+      marker.on('mouseover', () => {
+        if (selectedVesselRef.current && vesselKey(selectedVesselRef.current) === vesselKey(vessel)) {
+          clearPreviewLeg();
+          return;
+        }
+        showCurrentLeg(vessel, 'preview');
+      });
+      marker.on('mouseout', () => {
+        if (selectedVesselRef.current && vesselKey(selectedVesselRef.current) === vesselKey(vessel)) {
+          return;
+        }
+        clearPreviewLeg();
+      });
       marker.on('click', (event) => {
         L.DomEvent.stopPropagation(event);
         selectVessel(vessel);
@@ -426,7 +619,7 @@ export default function LiveVesselMapPage() {
       if (stillVisible) selectVessel(stillVisible);
       else clearSelection();
     }
-  }, [clearMarkers, clearSelection, selectVessel]);
+  }, [clearMarkers, clearPreviewLeg, clearSelection, selectVessel, showCurrentLeg]);
 
   const applyVisibility = useCallback(({ fit = false } = {}) => {
     const ais = showAisRef.current
@@ -702,6 +895,9 @@ export default function LiveVesselMapPage() {
       routesLayerRef.current = null;
       routeLayersRef.current.clear();
       routesCacheRef.current.clear();
+      destCoordCacheRef.current.clear();
+      previewLegLayerRef.current = null;
+      activeLegLayerRef.current = null;
     };
   }, [handleMapClick, updateBubblePosition]);
 
@@ -731,22 +927,6 @@ export default function LiveVesselMapPage() {
       <LiveVesselMapControls
         mapStyle={mapStyle}
         onMapStyleChange={handleMapStyleChange}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        onSearch={handleSearch}
-        searching={searching}
-        filters={filters}
-        onFiltersChange={setFilters}
-        flagOptions={flagOptions}
-        showRoutes={showRoutes}
-        onShowRoutesChange={setShowRoutes}
-        showAis={showAis}
-        onShowAisChange={setShowAis}
-        showFleet={showFleet}
-        onShowFleetChange={setShowFleet}
-        aisCount={aisVessels.length}
-        fleetCount={fleetVessels.length}
-        visibleCount={visibleVessels.length}
       />
 
       <div ref={mapWrapRef} className={styles.mapWrap}>

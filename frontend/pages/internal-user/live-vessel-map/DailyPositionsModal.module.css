@@ -1,0 +1,386 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 25, 40, 0.35);
+  z-index: 1100;
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 760px;
+  max-width: 92vw;
+  max-height: 80vh;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(20, 30, 50, 0.28);
+  z-index: 1101;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #eceef2;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #1b2733;
+}
+
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.viewReport {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  font-size: 11.5px;
+  color: #274670;
+  background: #e6eaf1;
+  border: 1px solid #d3dae7;
+  border-radius: 999px;
+  padding: 7px 14px;
+  text-decoration: none;
+  white-space: nowrap;
+  flex: none;
+}
+
+.viewReport:hover {
+  background: #d3dae7;
+}
+
+.viewReport svg {
+  width: 12px;
+  height: 12px;
+}
+
+.closeBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a93a0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex: none;
+  font-size: 14px;
+}
+
+.closeBtn:hover {
+  background: #f1f2f4;
+  color: #57626f;
+}
+
+.body {
+  padding: 8px 22px 22px;
+  overflow-y: auto;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.table th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a0;
+  padding: 9px 10px;
+  border-bottom: 1px solid #d8dce3;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 11px 10px;
+  border-bottom: 1px solid #eceef2;
+  color: #1b2733;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.accentCell {
+  border-left: 3px solid transparent;
+  padding-left: 8px;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.vessel {
+  font-weight: 700;
+  color: #1b2733;
+}
+
+.muted {
+  color: #8a93a0;
+  font-size: 10.5px;
+}
+
+.master {
+  color: #8a93a0;
+  font-size: 10px;
+}
+
+.typeChip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 800;
+  border-radius: 5px;
+  padding: 2px 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex: none;
+}
+
+.type_spot { background: #fdece4; color: #f4652c; }
+.type_tc { background: #e3f4f4; color: #14919b; }
+.type_coa { background: #eee9ff; color: #6c47ff; }
+.type_period { background: #eaf1fe; color: #3b82f6; }
+.type_relet { background: #f1f2f4; color: #5b6472; }
+
+.copyBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid #d8dce3;
+  background: #fff;
+  color: #57626f;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+
+.copyBtn:hover {
+  background: #f1f2f4;
+  color: #1b2733;
+}
+
+.copyBtn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.contactTrigger {
+  cursor: default;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  border-bottom: 1px dashed #d8dce3;
+}
+
+.activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #57626f;
+}
+
+.activityDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: #3b82f6;
+}
+
+.activity_loading .activityDot { background: #f4652c; }
+.activity_sea .activityDot { background: #3b82f6; }
+.activity_bunkering .activityDot { background: #6c47ff; }
+.activity_discharging .activityDot { background: #14919b; }
+
+.empty {
+  text-align: center;
+  color: #8a93a0;
+  padding: 24px 10px !important;
+  white-space: normal !important;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 0 2px;
+}
+
+.pageBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid #d8dce3;
+  background: #fff;
+  color: #57626f;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pageBtn:hover:not(:disabled) {
+  background: #f1f2f4;
+}
+
+.pageBtnActive {
+  background: #274670;
+  border-color: #274670;
+  color: #fff;
+}
+
+.pageBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.contactPopover {
+  position: fixed;
+  z-index: 1110;
+  width: 240px;
+  background: #fff;
+  border: 1px solid #d8dce3;
+  border-radius: 12px;
+  box-shadow: 0 14px 32px rgba(20, 30, 50, 0.22);
+  padding: 13px 15px;
+  font-size: 12.5px;
+  color: #1b2733;
+  pointer-events: none;
+}
+
+.contactHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 10px;
+}
+
+.contactAvatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #e6eaf1;
+  color: #274670;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.contactAvatar svg {
+  width: 16px;
+  height: 16px;
+}
+
+.contactRole {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a0;
+  margin-bottom: 2px;
+}
+
+.contactName {
+  font-weight: 700;
+  font-size: 13px;
+  color: #274670;
+}
+
+.contactRow {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  margin-bottom: 6px;
+  color: #57626f;
+}
+
+.contactRow:last-child {
+  margin-bottom: 0;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  background: #1b2733;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 11px 18px;
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(20, 30, 50, 0.24);
+  z-index: 1120;
+  max-width: 80vw;
+  text-align: center;
+}
+
+.dailyPosBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: #fff;
+  background: #274670;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 16px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dailyPosBtn:hover {
+  background: #1d3759;
+}
+
+.dailyPosBtn svg {
+  width: 14px;
+  height: 14px;
+}

@@ -116,18 +116,71 @@
   background: #0fa836;
 }
 
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 7px;
+  box-sizing: border-box;
+  flex: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: #274670;
+  background: #fff;
+  border: 1px solid #274670;
+  overflow: hidden;
+  transition: padding 0.15s ease, gap 0.15s ease, background 0.15s ease;
+}
+
+.refreshBtn:hover,
+.refreshBtn:focus-visible {
+  background: #e6eaf1;
+  color: #1b3358;
+  border-color: #1b3358;
+  padding: 0 10px;
+  gap: 0;
+  outline: none;
+}
+
 .refreshIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.refreshIcon svg {
   width: 13px;
   height: 13px;
   display: block;
-  background: currentColor;
-  -webkit-mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-size: contain;
-  mask-repeat: no-repeat;
-  mask-position: center;
-  mask-mode: luminance;
+}
+
+.refreshLabel {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.15s ease, opacity 0.12s ease;
+}
+
+.refreshBtn:hover .refreshIcon,
+.refreshBtn:focus-visible .refreshIcon {
+  display: none;
+}
+
+.refreshBtn:hover .refreshLabel,
+.refreshBtn:focus-visible .refreshLabel {
+  max-width: 64px;
+  opacity: 1;
 }
 
 .subheader {

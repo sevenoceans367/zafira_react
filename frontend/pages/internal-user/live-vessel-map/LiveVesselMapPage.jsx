@@ -5,10 +5,11 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { EditIconButton, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
+import { LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import { usePageHeaderActions, usePageHeaderHeading } from '../PageHeaderContext.jsx';
-import refreshIconSrc from '../../../assets/refresh.png';
 import LiveVesselMapControls from './LiveVesselMapControls.jsx';
+import DailyPositionsModal from './DailyPositionsModal.jsx';
+import modalStyles from './DailyPositionsModal.module.css';
 import {
   fetchFleetOverlay,
   fetchFleetRoutes,
@@ -52,6 +53,13 @@ L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
 });
+
+const REFRESH_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M21 12a9 9 0 1 1-2.6-6.2" />
+    <path d="M21 3v6h-6" />
+  </svg>
+);
 
 const SHIP_SVG = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 11.5L3.2 6.5h9.6L14 11.5H2zm1.3-6.2L4.5 3h7l1.2 2.3H3.3zM7.2 12.2h1.6v1.6H7.2z"/></svg>`;
 
@@ -219,6 +227,7 @@ export default function LiveVesselMapPage() {
   const [showRoutes, setShowRoutes] = useState(true);
   const [showAis, setShowAis] = useState(true);
   const [showFleet, setShowFleet] = useState(true);
+  const [dailyPositionsOpen, setDailyPositionsOpen] = useState(false);
   const [aisVessels, setAisVessels] = useState([]);
   const [fleetVessels, setFleetVessels] = useState([]);
 
@@ -619,16 +628,28 @@ export default function LiveVesselMapPage() {
   useEffect(() => {
     const ownerId = headerOwnerIdRef.current;
     setActions(
-      <EditIconButton title="Refresh" onClick={() => loadFleetRef.current()}>
-        <span
-          className={styles.refreshIcon}
-          style={{
-            WebkitMaskImage: `url(${refreshIconSrc})`,
-            maskImage: `url(${refreshIconSrc})`,
-          }}
-          aria-hidden="true"
-        />
-      </EditIconButton>,
+      <>
+        <button
+          type="button"
+          className={modalStyles.dailyPosBtn}
+          onClick={() => setDailyPositionsOpen(true)}
+        >
+          Daily Positions
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+            <path d="M7 17L17 7" />
+            <path d="M8 7h9v9" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className={styles.refreshBtn}
+          aria-label="Refresh"
+          onClick={() => loadFleetRef.current()}
+        >
+          <span className={styles.refreshIcon} aria-hidden="true">{REFRESH_ICON}</span>
+          <span className={styles.refreshLabel}>Refresh</span>
+        </button>
+      </>,
       ownerId,
     );
     return () => clearActions(ownerId);
@@ -701,6 +722,11 @@ export default function LiveVesselMapPage() {
   return (
     <div className={`zafira-page ${styles.page}`}>
       <LoadingOverlay show={loading || routesLoading || searching} />
+
+      <DailyPositionsModal
+        open={dailyPositionsOpen}
+        onClose={() => setDailyPositionsOpen(false)}
+      />
 
       <LiveVesselMapControls
         mapStyle={mapStyle}

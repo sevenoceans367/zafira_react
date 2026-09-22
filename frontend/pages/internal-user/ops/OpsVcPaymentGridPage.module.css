@@ -1,0 +1,235 @@
+.headerTitleStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  white-space: normal;
+}
+
+.titleMuted {
+  color: #8a93a2;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+.page {
+  --pg-navy: #274670;
+  --pg-navy-tint: #e6eaf1;
+  --pg-navy-dark: #1b3358;
+  --pg-orange: #f4652c;
+  --pg-orange-tint: #fdece4;
+  --pg-blue: #3b82f6;
+  --pg-blue-tint: #eaf1fe;
+  --pg-red: #ff3b30;
+  --pg-red-tint: #ffeceb;
+  --pg-line: #eceef2;
+  --pg-line-strong: #d8dce3;
+  --pg-text-dark: #1b2733;
+  --pg-num-grey: #454c54;
+  --pg-text-mid: #57626f;
+  --pg-text-light: #8a93a0;
+  --pg-field-grey: #f8f9fa;
+
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--pg-text-dark);
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--pg-line);
+  border-radius: 12px;
+  padding: 20px 22px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cardTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.cardNum {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--pg-orange-tint);
+  color: var(--pg-orange);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pg-num-grey);
+  line-height: 1.3;
+}
+
+.cardTitleSub {
+  font-weight: 600;
+  color: var(--pg-text-light);
+}
+
+.emptyNote {
+  color: var(--pg-text-light);
+  font-style: italic;
+  font-size: 12.5px;
+  padding: 2px 2px 4px;
+  margin: 0;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--pg-line);
+  border-radius: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 0;
+}
+
+.table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--pg-text-light);
+  background: var(--pg-field-grey);
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--pg-line);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--pg-line);
+  color: var(--pg-text-mid);
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.tableRowHighlight td {
+  color: #c0392b;
+}
+
+.groupHeader td {
+  font-weight: 700;
+  color: var(--pg-text-dark);
+  background: var(--pg-field-grey);
+}
+
+.cellStrong {
+  font-weight: 700;
+  color: var(--pg-text-dark);
+}
+
+.cellMuted {
+  color: var(--pg-text-light);
+}
+
+.pillRow {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.miniPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  background: var(--pg-field-grey);
+  color: var(--pg-text-mid);
+}
+
+.miniPill:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.miniPillOrange {
+  background: var(--pg-orange-tint);
+  color: var(--pg-orange);
+}
+
+.miniPillBlue {
+  background: var(--pg-blue-tint);
+  color: var(--pg-blue);
+}
+
+.miniPillRed {
+  background: var(--pg-red-tint);
+  color: var(--pg-red);
+}
+
+.miniPillBadge {
+  background: var(--pg-orange-tint);
+  color: var(--pg-orange);
+  cursor: default;
+}
+
+.error {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--pg-red-tint);
+  color: #b4291f;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.empty {
+  padding: 18px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--pg-line);
+  background: #fff;
+  color: var(--pg-text-mid);
+  font-size: 13px;
+}
+
+.empty a {
+  color: var(--pg-navy);
+  font-weight: 700;
+}

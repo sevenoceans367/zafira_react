@@ -3,8 +3,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchPaymentGridVc } from '../../../services/opsVc.js';
+import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import OpsVcPaymentGridHeaderActions from './OpsVcPaymentGridHeaderActions.jsx';
-import styles from './OpsPages.module.css';
+import styles from './OpsVcPaymentGridPage.module.css';
 
 /** PHP payment_grid.php page=1|2|3 → In Ops / Post Ops / History */
 const BACK_PATHS = {
@@ -13,19 +14,61 @@ const BACK_PATHS = {
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
 
-const VARIANT_CLASS = {
-  info: styles.btnInfo,
-  warning: styles.btnWarning,
-  danger: styles.btnDanger,
+const PILL_VARIANT = {
+  info: styles.miniPillBlue,
+  warning: styles.miniPillOrange,
+  danger: styles.miniPillRed,
 };
+
+const GRID_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+function PaymentGridHeading({ vesselName, voyageNo }) {
+  const setHeading = usePageHeaderHeading();
+  const subParts = [];
+  if (vesselName) subParts.push(vesselName);
+  if (voyageNo) subParts.push(`Voy. ${voyageNo}`);
+  const subtitle = subParts.join(' · ');
+
+  useEffect(() => {
+    setHeading({
+      title: (
+        <span className={styles.headerTitleStack}>
+          Payment / Invoice Grid
+          {subtitle ? <span className={styles.titleMuted}>{subtitle}</span> : null}
+        </span>
+      ),
+      icon: GRID_ICON,
+    });
+  }, [setHeading, subtitle]);
+
+  useEffect(() => () => setHeading(null), [setHeading]);
+  return null;
+}
+
+function dash(value) {
+  const text = value == null ? '' : String(value).trim();
+  return text || '—';
+}
+
+function lineCountLabel(count) {
+  if (!count) return ' · No rows';
+  return ` · ${count} line item${count === 1 ? '' : 's'}`;
+}
 
 function ActionButtons({ actions, badges, onAction }) {
   if (!actions?.length && !badges?.length) return null;
 
   return (
-    <div className={styles.actionsCell}>
+    <div className={styles.pillRow}>
       {(badges || []).map((item) => (
-        <span key={item.label} className={styles.badgeWarning}>{item.label}</span>
+        <span key={item.label} className={`${styles.miniPill} ${styles.miniPillBadge}`}>
+          {item.label}
+        </span>
       ))}
       {(actions || []).map((action) => {
         const canOpen = Boolean(action.enabled && action.migrated && action.href);
@@ -33,7 +76,7 @@ function ActionButtons({ actions, badges, onAction }) {
           <button
             key={`${action.key}-${action.label}-${action.href || action.vendorId || ''}`}
             type="button"
-            className={`${styles.actionBtn} ${VARIANT_CLASS[action.variant] || styles.btnInfo}`}
+            className={`${styles.miniPill} ${PILL_VARIANT[action.variant] || styles.miniPillBlue}`}
             disabled={!canOpen}
             title={
               canOpen
@@ -52,70 +95,87 @@ function ActionButtons({ actions, badges, onAction }) {
   );
 }
 
-function SectionTable({ section, onAction }) {
+function SectionCard({ section, index, onAction }) {
   const showPayments = Boolean(section.columns?.showPayments);
   const showVoyageId = Boolean(section.columns?.showVoyageId);
   const lines = section.lines || [];
-
-  if (!lines.length) {
-    return (
-      <div className={styles.letterPanel} style={{ marginBottom: '1rem' }}>
-        <h4 className={styles.sectionTitle}>{section.periodLabel}</h4>
-        <p className={styles.muted} style={{ margin: '0.5rem 0 0' }}>No rows.</p>
-      </div>
-    );
-  }
+  const count = lines.filter((row) => !row.isGroupHeader).length;
 
   return (
-    <div className={styles.letterPanel} style={{ marginBottom: '1rem' }}>
-      <h4 className={styles.sectionTitle}>{section.periodLabel}</h4>
-      <div className={styles.tableWrap}>
-        <table className={`zafira-data-table ${styles.table}`}>
-          <thead>
-            <tr>
-              <th width={showPayments ? '30%' : '45%'}>Name</th>
-              <th width={showPayments ? '20%' : '25%'}>Vendor</th>
-              <th width={showPayments ? '20%' : '30%'}>&nbsp;</th>
-              {showPayments ? <th width="10%">Total Payment made</th> : null}
-              {showPayments ? <th width="10%">Last Paid Date</th> : null}
-              {showVoyageId ? <th width="10%">Voyage Id</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((row) => {
-              if (row.isGroupHeader) {
-                const colSpan = 3 + (showPayments ? 2 : 0) + (showVoyageId ? 1 : 0);
+    <div className={styles.card}>
+      <div className={styles.cardHead}>
+        <div className={styles.cardTitleRow}>
+          <span className={styles.cardNum}>{index}</span>
+          <div className={styles.cardTitle}>
+            {section.periodLabel}
+            <span className={styles.cardTitleSub}>{lineCountLabel(count)}</span>
+          </div>
+        </div>
+      </div>
+
+      {!count ? (
+        <p className={styles.emptyNote}>No rows.</p>
+      ) : (
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Vendor</th>
+                <th aria-label="Actions" />
+                {showPayments ? <th>Total Payment Made</th> : null}
+                {showPayments ? <th>Last Paid Date</th> : null}
+                {showVoyageId ? <th>Voyage ID</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((row) => {
+                if (row.isGroupHeader) {
+                  const colSpan = 3 + (showPayments ? 2 : 0) + (showVoyageId ? 1 : 0);
+                  return (
+                    <tr key={row.key} className={styles.groupHeader}>
+                      <td colSpan={colSpan}>{row.name}</td>
+                    </tr>
+                  );
+                }
                 return (
-                  <tr key={row.key}>
-                    <td colSpan={colSpan}>
-                      <strong>{row.name}</strong>
+                  <tr
+                    key={row.key}
+                    className={row.highlight ? styles.tableRowHighlight : undefined}
+                  >
+                    <td className={styles.cellStrong}>{row.name}</td>
+                    <td className={row.vendorName ? undefined : styles.cellMuted}>
+                      {dash(row.vendorName)}
                     </td>
+                    <td>
+                      <ActionButtons
+                        actions={row.actions}
+                        badges={row.badges}
+                        onAction={onAction}
+                      />
+                    </td>
+                    {showPayments ? (
+                      <td className={row.totalPaid ? undefined : styles.cellMuted}>
+                        {dash(row.totalPaid)}
+                      </td>
+                    ) : null}
+                    {showPayments ? (
+                      <td className={row.lastPaidDate ? undefined : styles.cellMuted}>
+                        {dash(row.lastPaidDate)}
+                      </td>
+                    ) : null}
+                    {showVoyageId ? (
+                      <td className={row.voyageId ? undefined : styles.cellMuted}>
+                        {dash(row.voyageId)}
+                      </td>
+                    ) : null}
                   </tr>
                 );
-              }
-              return (
-                <tr
-                  key={row.key}
-                  style={row.highlight ? { color: '#c0392b' } : undefined}
-                >
-                  <td><strong>{row.name}</strong></td>
-                  <td>{row.vendorName || ''}</td>
-                  <td>
-                    <ActionButtons
-                      actions={row.actions}
-                      badges={row.badges}
-                      onAction={onAction}
-                    />
-                  </td>
-                  {showPayments ? <td>{row.totalPaid || ''}</td> : null}
-                  {showPayments ? <td>{row.lastPaidDate || ''}</td> : null}
-                  {showVoyageId ? <td>{row.voyageId || ''}</td> : null}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -129,7 +189,7 @@ export default function OpsVcPaymentGridPage() {
   const [searchParams] = useSearchParams();
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const page = searchParams.get('page') || '1';
-  const voyageNo = searchParams.get('voyage_no') || searchParams.get('voyageNo') || '';
+  const voyageNoParam = searchParams.get('voyage_no') || searchParams.get('voyageNo') || '';
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -151,7 +211,7 @@ export default function OpsVcPaymentGridPage() {
       setLoading(true);
       setError('');
       try {
-        const result = await fetchPaymentGridVc(comId, { page, voyageNo });
+        const result = await fetchPaymentGridVc(comId, { page, voyageNo: voyageNoParam });
         if (!cancelled) setData(result);
       } catch (err) {
         if (!cancelled) {
@@ -163,7 +223,7 @@ export default function OpsVcPaymentGridPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [comId, page, voyageNo]);
+  }, [comId, page, voyageNoParam]);
 
   const handleAction = (action) => {
     if (!action?.href) return;
@@ -174,29 +234,34 @@ export default function OpsVcPaymentGridPage() {
     navigate(appPath(`/${action.href.replace(/^\.?\//, '')}`));
   };
 
+  const vesselName = data?.vesselName || '';
+  const voyageNo = data?.voyageNo || voyageNoParam || '';
+  const sections = data?.sections || [];
+
   return (
     <>
+      <PaymentGridHeading vesselName={vesselName} voyageNo={voyageNo} />
       <OpsVcPaymentGridHeaderActions backHref={backHref} disabled={loading} />
 
       <div className={`zafira-page ${styles.page}`}>
         {loading ? <LoadingOverlay show label="Loading Payment / Invoice Grid…" /> : null}
         {error ? <div className={styles.error}>{error}</div> : null}
 
-        <h3 className={styles.title}>
-          Payment / Invoice Grid
-          {data?.vesselName ? ` : ${data.vesselName}` : ''}
-        </h3>
-
-        {!loading && !error && data && !(data.sections || []).some((s) => s.lines?.length) ? (
+        {!loading && !error && data && !sections.length ? (
           <div className={styles.empty}>
-            No payment / invoice rows found for this nomination.
+            No payment / invoice sections found for this nomination.
             {' '}
             <Link to={backHref}>Back</Link>
           </div>
         ) : null}
 
-        {(data?.sections || []).map((section) => (
-          <SectionTable key={section.key} section={section} onAction={handleAction} />
+        {sections.map((section, index) => (
+          <SectionCard
+            key={section.key || section.periodLabel || index}
+            section={section}
+            index={index + 1}
+            onAction={handleAction}
+          />
         ))}
       </div>
     </>

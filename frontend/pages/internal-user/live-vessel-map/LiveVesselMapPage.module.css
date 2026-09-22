@@ -18,8 +18,15 @@
   --text-dark: #1b2733;
   --text-mid: #57626f;
   --text-light: #8a93a0;
+  --teal: #14919b;
+  --teal-tint: #e3f4f4;
+  --teal-tint-strong: #c6e8e9;
+  --blue: #3b82f6;
+  --blue-tint: #eaf1fe;
+  --blue-tint-strong: #d3e3fd;
   --green: #0fa836;
   --green-tint: #e8f8ec;
+  --red: #ff3b30;
   --red-tint: #ffeceb;
   --field-grey: #f1f2f4;
   --field-grey-border: #e4e6e9;
@@ -525,13 +532,15 @@
   position: absolute;
   z-index: 650;
   width: 240px;
-  transform: translate(-50%, calc(-100% - 12px));
+  max-width: calc(100% - 24px);
+  transform: translate(-50%, calc(-100% - 34px));
   background: #fff;
   border-radius: 12px;
   border: 1px solid var(--line-strong);
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
   padding: 12px 13px;
   pointer-events: auto;
+  overflow: hidden;
 }
 
 .bubble::after {
@@ -539,8 +548,8 @@
   position: absolute;
   left: 50%;
   bottom: -7px;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   background: #fff;
   border-right: 1px solid var(--line-strong);
   border-bottom: 1px solid var(--line-strong);
@@ -561,6 +570,46 @@
   font-size: 12.5px;
   color: var(--text-dark);
   line-height: 1.25;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contractChip {
+  display: inline-block;
+  flex: none;
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.contractChipSpot {
+  background: var(--orange-tint);
+  color: var(--orange);
+  border: 1px solid var(--orange-tint-strong);
+}
+
+.contractChipTc {
+  background: var(--teal-tint);
+  color: var(--teal);
+  border: 1px solid var(--teal-tint-strong);
+}
+
+.contractChipPeriod {
+  background: var(--blue-tint);
+  color: var(--blue);
+  border: 1px solid var(--blue-tint-strong);
+}
+
+.contractChipAis {
+  background: var(--field-grey);
+  color: var(--text-mid);
+  border: 1px solid var(--field-grey-border);
 }
 
 .bubbleLegLabel {
@@ -574,19 +623,27 @@
 
 .bubbleLeg {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
   font-size: 11px;
   color: var(--text-mid);
   margin-bottom: 9px;
+  min-width: 0;
 }
 
 .tag {
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
   font-size: 9.5px;
   font-weight: 700;
-  padding: 1px 7px;
-  border-radius: 999px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .tagFrom {
@@ -602,6 +659,95 @@
 .bubbleArrow {
   color: var(--text-light);
   font-size: 10px;
+  align-self: center;
+}
+
+.bubbleMetrics {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+
+.bmetric {
+  flex: 1;
+  border-radius: 6px;
+  padding: 5px 6px;
+  text-align: center;
+  border: 2.5px solid #fff;
+  background: var(--field-grey);
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+
+.bmetricPos {
+  background: var(--green-tint);
+}
+
+.bmetricNeg {
+  background: var(--red-tint);
+}
+
+.bmetricLabel {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+  opacity: 0.8;
+}
+
+.bmetricValue {
+  font-family: var(--font-family-heading);
+  font-weight: 700;
+  font-size: 12px;
+  margin-top: 1px;
+  color: var(--text-dark);
+}
+
+.bmetricPos .bmetricValue {
+  color: #0b7a28;
+}
+
+.bmetricNeg .bmetricValue {
+  color: #c22a20;
+}
+
+.bubbleAgent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--field-grey);
+  border: 1px solid var(--field-grey-border);
+  border-radius: 7px;
+  padding: 6px 8px;
+  margin-bottom: 9px;
+}
+
+.bubbleAgentIco {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--brown);
+  color: #fff;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-family-heading);
+}
+
+.bubbleAgentName {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-dark);
+  line-height: 1.25;
+}
+
+.bubbleAgentRole {
+  font-size: 9px;
+  color: var(--text-light);
+  line-height: 1.25;
 }
 
 .bubbleMeta {
@@ -626,6 +772,9 @@
   color: var(--text-dark);
   font-weight: 600;
   text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .btnDetails {
@@ -687,11 +836,31 @@
   color: var(--navy);
 }
 
-.panelVesselMeta {
-  margin: 2px 0 0;
-  font-size: 11.5px;
+.panelTypeRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 3px 0 6px;
+  flex-wrap: wrap;
+}
+
+.panelVesselType {
+  margin: 0;
   font-style: italic;
+  font-size: 11.5px;
   color: var(--text-light);
+}
+
+.panelChips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.panelChips .contractChip {
+  font-size: 11px;
+  padding: 4px 13px;
 }
 
 .panelClose {
@@ -714,12 +883,18 @@
 
 .panelLeg {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 7px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
   margin-top: 12px;
   font-size: 12.5px;
   color: var(--text-mid);
+  min-width: 0;
+}
+
+.panelLeg .tag {
+  font-size: 10px;
+  padding: 4px 8px;
 }
 
 .panelBody {
@@ -835,6 +1010,168 @@
   color: var(--text-dark);
   font-weight: 600;
   text-align: right;
+}
+
+.termsInput {
+  width: 28%;
+  max-width: 108px;
+  margin-left: auto;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dark);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 5px 8px;
+}
+
+.termsInput:focus {
+  outline: none;
+  border-color: var(--sc, var(--orange));
+}
+
+.pfinRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pfinChip {
+  flex: 1;
+  border-radius: 8px;
+  padding: 9px 8px;
+  text-align: center;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px var(--line-strong);
+  background: var(--field-grey);
+}
+
+.pfinPos {
+  background: var(--green-tint);
+}
+
+.pfinNeg {
+  background: var(--red-tint);
+}
+
+.pfinLabel {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+  opacity: 0.8;
+}
+
+.pfinValue {
+  font-family: var(--font-family-heading);
+  font-weight: 700;
+  font-size: 16px;
+  margin-top: 2px;
+  color: var(--text-dark);
+}
+
+.pfinPos .pfinValue {
+  color: #0b7a28;
+}
+
+.pfinNeg .pfinValue {
+  color: #c22a20;
+}
+
+.btnVf {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  font-weight: 700;
+  font-size: 11.5px;
+  color: var(--purple);
+  background: transparent;
+  border: 2px solid var(--purple);
+  border-radius: 999px;
+  padding: 8px 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btnVf:hover {
+  background: rgba(108, 71, 255, 0.08);
+}
+
+.btnVfDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btnVf svg {
+  width: 13px;
+  height: 13px;
+}
+
+.agentCard {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: var(--field-grey);
+  border: 1px solid var(--field-grey-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.agentCard:last-child {
+  margin-bottom: 0;
+}
+
+.agentAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--brown);
+  color: #fff;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-family-heading);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.agentName {
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--text-dark);
+}
+
+.agentMeta {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-top: 1px;
+}
+
+.agentRole {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brown);
+  background: var(--brown-tint);
+  border: 1px solid var(--brown-tint-strong);
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+.emptyHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-light);
 }
 
 @media (max-width: 768px) {

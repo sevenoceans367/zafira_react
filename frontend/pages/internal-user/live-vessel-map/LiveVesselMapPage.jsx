@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -14,6 +15,14 @@ import {
   fetchVesselLastPosition,
 } from './liveVesselMapApi.js';
 import {
+  agentInitials,
+  formatMoney,
+  metricTone,
+  rateRowLabel,
+  resolveCommercial,
+  workingVfHref,
+} from './liveVesselCommercial.js';
+import {
   AUTO_LOAD_MAX_ZOOM,
   collectFlags,
   DEFAULT_MAP_CENTER,
@@ -22,13 +31,11 @@ import {
   MAP_ATTRIBUTION,
   MAP_STYLES,
   MAX_AUTO_ROUTES,
-  parseSpeedKnots,
   ROUTE_COLORS,
   SEARCH_MAP_ZOOM,
   vesselDisplayName,
   vesselField,
   vesselMatchesFilters,
-  vesselNavStatus,
   vesselVoyageLeg,
 } from './liveVesselMap.constants.js';
 import styles from './LiveVesselMapPage.module.css';
@@ -98,6 +105,25 @@ function vesselKey(vessel) {
   );
 }
 
+const VF_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <path d="M14 3h7v7" />
+    <path d="M10 14L21 3" />
+    <path d="M21 14v7h-7" />
+    <path d="M3 10V3h7" />
+    <path d="M3 10l7-7" />
+    <path d="M3 14v7h7" />
+    <path d="M14 21l7-7" />
+  </svg>
+);
+
+function contractChipClass(contract) {
+  if (contract === 'tc') return styles.contractChipTc;
+  if (contract === 'period') return styles.contractChipPeriod;
+  if (contract === 'spot') return styles.contractChipSpot;
+  return styles.contractChipAis;
+}
+
 function DetailBlock({ themeClass, title, hidden, onToggle, children }) {
   return (
     <div className={`${styles.pblock} ${themeClass}${hidden ? ` ${styles.pblockHidden}` : ''}`}>
@@ -125,6 +151,20 @@ function DetailRow({ label, value }) {
     <div className={styles.prow}>
       <span className={styles.pk}>{label}</span>
       <span className={styles.pv}>{display}</span>
+    </div>
+  );
+}
+
+function TermsRow({ value, onChange }) {
+  return (
+    <div className={styles.prow}>
+      <span className={styles.pk}>Terms</span>
+      <input
+        className={styles.termsInput}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label="Terms"
+      />
     </div>
   );
 }
@@ -162,9 +202,11 @@ export default function LiveVesselMapPage() {
   const [bubblePos, setBubblePos] = useState(null);
   const [hiddenBlocks, setHiddenBlocks] = useState({
     voyage: false,
-    position: false,
-    ship: false,
+    commercial: false,
+    financials: false,
+    agents: false,
   });
+  const [termsDraft, setTermsDraft] = useState('');
   const [mapStyle, setMapStyle] = useState(DEFAULT_MAP_STYLE);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -217,6 +259,7 @@ export default function LiveVesselMapPage() {
     selectedVesselRef.current = vessel;
     setSelectedVessel(vessel);
     setPanelOpen(false);
+    setTermsDraft(vessel?.commercial?.terms || '');
     updateBubblePosition(vessel);
 
     const leg = vesselVoyageLeg(vessel);
@@ -484,6 +527,8 @@ export default function LiveVesselMapPage() {
         isFleet: Boolean(existingFleet || vessel.isFleet),
         fleetVoyageNo: existingFleet?.fleetVoyageNo || vessel.fleetVoyageNo,
         fleetKind: existingFleet?.fleetKind || vessel.fleetKind,
+        fleetComId: existingFleet?.fleetComId || vessel.fleetComId,
+        commercial: existingFleet?.commercial || vessel.commercial,
       };
 
       if (merged.isFleet) {
@@ -619,28 +664,19 @@ export default function LiveVesselMapPage() {
     };
   }, [handleMapClick, updateBubblePosition]);
 
-  const origin = vesselField(selectedVessel, 'OriginDeclared');
-  const dest = vesselField(selectedVessel, 'DestDeclared');
-  const eta = vesselField(selectedVessel, 'EtaDeclared');
-  const imo = vesselField(selectedVessel, 'ImoNumber');
-  const mmsi = vesselField(selectedVessel, 'MmsiNumber');
+  const commercial = useMemo(
+    () => (selectedVessel ? resolveCommercial(selectedVessel) : null),
+    [selectedVessel],
+  );
+  const vfHref = commercial ? workingVfHref(commercial) : '';
+  const tceTone = metricTone(commercial?.tce);
+  const pnlTone = metricTone(commercial?.pnl);
+  const legFrom = commercial?.legFrom || '';
+  const legTo = commercial?.legTo || '';
+  const passageFrom = commercial?.from || '';
+  const passageTo = commercial?.to || '';
   const lastPos = vesselField(selectedVessel, 'PositionLastUpdated');
-  const flag = vesselField(selectedVessel, 'ShipFlag');
-  const draught = vesselField(selectedVessel, 'DraughtDeclared');
-  const navStatus = vesselNavStatus(selectedVessel);
-  const speed = parseSpeedKnots(selectedVessel);
-  const latStr = vesselField(selectedVessel, 'Latitude');
-  const lngStr = vesselField(selectedVessel, 'Longitude');
-  const routeDistance = routesLoading
-    ? 'Loading…'
-    : (routeInfo?.totalDistanceNm
-      ? `${Number(routeInfo.totalDistanceNm).toLocaleString(undefined, { maximumFractionDigits: 0 })} nm`
-      : '');
-  const routeSource = routeInfo?.source === 'seametrix'
-    ? 'Sea route'
-    : routeInfo?.source === 'great-circle'
-      ? 'Great circle'
-      : '';
+  const imo = vesselField(selectedVessel, 'ImoNumber');
 
   return (
     <div className={`zafira-page ${styles.page}`}>
@@ -670,72 +706,86 @@ export default function LiveVesselMapPage() {
       <div ref={mapWrapRef} className={styles.mapWrap}>
         <div ref={mapContainerRef} className={styles.map} aria-label="Vessel positions map" />
 
-        {selectedVessel && bubblePos && !panelOpen ? (
+        {selectedVessel && commercial && bubblePos && !panelOpen ? (
           <div
             className={styles.bubble}
             style={{ left: bubblePos.left, top: bubblePos.top }}
             role="dialog"
-            aria-label={`${vesselDisplayName(selectedVessel)} summary`}
+            aria-label={`${commercial.name} summary`}
+            onClick={(event) => event.stopPropagation()}
           >
             <div className={styles.bubbleTop}>
-              <div className={styles.bubbleVessel}>{vesselDisplayName(selectedVessel)}</div>
-              {selectedVessel.isFleet ? (
-                <span className={styles.fleetBadge}>Our fleet</span>
-              ) : null}
+              <div className={styles.bubbleVessel}>{commercial.name}</div>
+              <span className={`${styles.contractChip} ${contractChipClass(commercial.contract)}`}>
+                {commercial.contractLabel}
+              </span>
             </div>
 
-            {(origin || dest) ? (
+            {(legFrom || legTo) ? (
               <>
-                <p className={styles.bubbleLegLabel}>Current leg</p>
+                <p className={styles.bubbleLegLabel}>Current Leg</p>
                 <div className={styles.bubbleLeg}>
-                  {origin ? <span className={`${styles.tag} ${styles.tagFrom}`}>{origin}</span> : null}
-                  {origin && dest ? <span className={styles.bubbleArrow}>→</span> : null}
-                  {dest ? <span className={`${styles.tag} ${styles.tagTo}`}>{dest}</span> : null}
+                  {legFrom ? <span className={`${styles.tag} ${styles.tagFrom}`}>{legFrom}</span> : null}
+                  {legFrom && legTo ? <span className={styles.bubbleArrow}>→</span> : null}
+                  {legTo ? <span className={`${styles.tag} ${styles.tagTo}`}>{legTo}</span> : null}
                 </div>
               </>
             ) : null}
 
-            <div className={styles.bubbleMeta}>
-              {eta ? (
-                <div className={styles.bubbleMetaRow}>
-                  <span>ETA</span>
-                  <span>{eta}</span>
+            {(commercial.tce != null || commercial.pnl != null) ? (
+              <div className={styles.bubbleMetrics}>
+                <div className={`${styles.bmetric}${tceTone === 'pos' ? ` ${styles.bmetricPos}` : ''}${tceTone === 'neg' ? ` ${styles.bmetricNeg}` : ''}`}>
+                  <div className={styles.bmetricLabel}>TCE</div>
+                  <div className={styles.bmetricValue}>{formatMoney(commercial.tce) || '—'}</div>
                 </div>
-              ) : null}
-              {imo ? (
-                <div className={styles.bubbleMetaRow}>
-                  <span>IMO</span>
-                  <span>{imo}</span>
+                <div className={`${styles.bmetric}${pnlTone === 'pos' ? ` ${styles.bmetricPos}` : ''}${pnlTone === 'neg' ? ` ${styles.bmetricNeg}` : ''}`}>
+                  <div className={styles.bmetricLabel}>P&L</div>
+                  <div className={styles.bmetricValue}>{formatMoney(commercial.pnl) || '—'}</div>
                 </div>
-              ) : null}
-              {lastPos ? (
-                <div className={styles.bubbleMetaRow}>
-                  <span>Last pos</span>
-                  <span>{lastPos}</span>
+              </div>
+            ) : (
+              <div className={styles.bubbleMeta}>
+                {imo ? (
+                  <div className={styles.bubbleMetaRow}>
+                    <span>IMO</span>
+                    <span>{imo}</span>
+                  </div>
+                ) : null}
+                {lastPos ? (
+                  <div className={styles.bubbleMetaRow}>
+                    <span>Last pos</span>
+                    <span>{lastPos}</span>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {commercial.approachingAgent ? (
+              <div className={styles.bubbleAgent}>
+                <div className={styles.bubbleAgentIco}>
+                  {agentInitials(commercial.approachingAgent.name)}
                 </div>
-              ) : null}
-              {!eta && !imo && !lastPos ? (
-                <div className={styles.bubbleMetaRow}>
-                  <span>Position</span>
-                  <span>
-                    {latStr || '—'}, {lngStr || '—'}
-                  </span>
+                <div>
+                  <div className={styles.bubbleAgentName}>{commercial.approachingAgent.name}</div>
+                  <div className={styles.bubbleAgentRole}>
+                    {commercial.approachingAgent.role || 'Agent'}
+                  </div>
                 </div>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
 
             <button
               type="button"
               className={styles.btnDetails}
               onClick={() => setPanelOpen(true)}
             >
-              View Full Details
+              Full Details
             </button>
           </div>
         ) : null}
       </div>
 
-      {panelOpen && selectedVessel ? (
+      {panelOpen && selectedVessel && commercial ? (
         <>
           <div
             className={styles.scrim}
@@ -746,15 +796,22 @@ export default function LiveVesselMapPage() {
             <div className={styles.panelHead}>
               <div className={styles.panelHeadTop}>
                 <div>
-                  <h3 className={styles.panelVesselName}>{vesselDisplayName(selectedVessel)}</h3>
-                  <p className={styles.panelVesselMeta}>
-                    {[
-                      selectedVessel.isFleet ? 'Our fleet' : 'Open market',
-                      imo && `IMO ${imo}`,
-                      mmsi && `MMSI ${mmsi}`,
-                      flag,
-                    ].filter(Boolean).join(' · ') || 'AIS position'}
-                  </p>
+                  <h3 className={styles.panelVesselName}>{commercial.name}</h3>
+                  <div className={styles.panelTypeRow}>
+                    {commercial.vesselType ? (
+                      <p className={styles.panelVesselType}>{commercial.vesselType}</p>
+                    ) : (
+                      <p className={styles.panelVesselType}>
+                        {selectedVessel.isFleet ? 'Our fleet' : 'Open market'}
+                        {imo ? ` · IMO ${imo}` : ''}
+                      </p>
+                    )}
+                  </div>
+                  <div className={styles.panelChips}>
+                    <span className={`${styles.contractChip} ${contractChipClass(commercial.contract)}`}>
+                      {commercial.contractLabel}
+                    </span>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -766,11 +823,11 @@ export default function LiveVesselMapPage() {
                 </button>
               </div>
 
-              {(origin || dest) ? (
+              {(passageFrom || passageTo) ? (
                 <div className={styles.panelLeg}>
-                  {origin ? <span className={`${styles.tag} ${styles.tagFrom}`}>{origin}</span> : null}
-                  {origin && dest ? <span className={styles.bubbleArrow}>→</span> : null}
-                  {dest ? <span className={`${styles.tag} ${styles.tagTo}`}>{dest}</span> : null}
+                  {passageFrom ? <span className={`${styles.tag} ${styles.tagFrom}`}>{passageFrom}</span> : null}
+                  {passageFrom && passageTo ? <span className={styles.bubbleArrow}>→</span> : null}
+                  {passageTo ? <span className={`${styles.tag} ${styles.tagTo}`}>{passageTo}</span> : null}
                 </div>
               ) : null}
             </div>
@@ -782,37 +839,85 @@ export default function LiveVesselMapPage() {
                 hidden={hiddenBlocks.voyage}
                 onToggle={() => toggleBlock('voyage')}
               >
-                <DetailRow label="Origin" value={origin} />
-                <DetailRow label="Destination" value={dest} />
-                <DetailRow label="ETA" value={eta} />
-                <DetailRow label="Distance" value={routeDistance} />
-                <DetailRow label="Route" value={routeSource} />
-                <DetailRow label="Voyage / TC" value={vesselField(selectedVessel, 'fleetVoyageNo')} />
-                <DetailRow label="IMO" value={imo} />
-                <DetailRow label="MMSI" value={mmsi} />
+                <DetailRow label="Voyage No." value={commercial.voyageNo} />
+                <DetailRow label="Cargo" value={commercial.cargo} />
+                <DetailRow label="Laycan" value={commercial.laycan} />
+                <DetailRow
+                  label="Full Passage"
+                  value={(passageFrom || passageTo)
+                    ? `${passageFrom || '—'} → ${passageTo || '—'}`
+                    : ''}
+                />
               </DetailBlock>
 
               <DetailBlock
                 themeClass={styles.themeOrange}
-                title="Position"
-                hidden={hiddenBlocks.position}
-                onToggle={() => toggleBlock('position')}
+                title="Commercial Info"
+                hidden={hiddenBlocks.commercial}
+                onToggle={() => toggleBlock('commercial')}
               >
-                <DetailRow label="Last updated" value={lastPos} />
-                <DetailRow label="Latitude" value={latStr} />
-                <DetailRow label="Longitude" value={lngStr} />
-                <DetailRow label="Nav status" value={navStatus} />
-                <DetailRow label="Speed" value={speed != null ? `${speed} kn` : ''} />
+                <DetailRow label="Contract Type" value={commercial.contractLabel} />
+                {commercial.contract ? (
+                  <DetailRow
+                    label={rateRowLabel(commercial.contract)}
+                    value={commercial.rate}
+                  />
+                ) : null}
+                <DetailRow label="Charterer" value={commercial.charterer} />
+                <DetailRow label="Owner" value={commercial.owner} />
+                <TermsRow value={termsDraft} onChange={setTermsDraft} />
               </DetailBlock>
 
               <DetailBlock
                 themeClass={styles.themePurple}
-                title="Ship"
-                hidden={hiddenBlocks.ship}
-                onToggle={() => toggleBlock('ship')}
+                title="Financials"
+                hidden={hiddenBlocks.financials}
+                onToggle={() => toggleBlock('financials')}
               >
-                <DetailRow label="Flag" value={flag} />
-                <DetailRow label="Draught" value={draught} />
+                <div className={styles.pfinRow}>
+                  <div className={`${styles.pfinChip}${tceTone === 'pos' ? ` ${styles.pfinPos}` : ''}${tceTone === 'neg' ? ` ${styles.pfinNeg}` : ''}`}>
+                    <div className={styles.pfinLabel}>TCE</div>
+                    <div className={styles.pfinValue}>{formatMoney(commercial.tce) || '—'}</div>
+                  </div>
+                  <div className={`${styles.pfinChip}${pnlTone === 'pos' ? ` ${styles.pfinPos}` : ''}${pnlTone === 'neg' ? ` ${styles.pfinNeg}` : ''}`}>
+                    <div className={styles.pfinLabel}>P&L</div>
+                    <div className={styles.pfinValue}>{formatMoney(commercial.pnl) || '—'}</div>
+                  </div>
+                </div>
+                {vfHref ? (
+                  <Link className={styles.btnVf} to={vfHref}>
+                    {VF_ICON}
+                    Working VF
+                  </Link>
+                ) : (
+                  <span className={`${styles.btnVf} ${styles.btnVfDisabled}`} aria-disabled="true">
+                    {VF_ICON}
+                    Working VF
+                  </span>
+                )}
+              </DetailBlock>
+
+              <DetailBlock
+                themeClass={styles.themeBrown}
+                title="Agent / Broker"
+                hidden={hiddenBlocks.agents}
+                onToggle={() => toggleBlock('agents')}
+              >
+                {commercial.contacts.length ? (
+                  commercial.contacts.map((contact) => (
+                    <div key={`${contact.name}-${contact.contact || contact.role}`} className={styles.agentCard}>
+                      <div className={styles.agentAvatar}>{agentInitials(contact.name)}</div>
+                      <div>
+                        <div className={styles.agentName}>{contact.name}</div>
+                        {contact.company ? <div className={styles.agentMeta}>{contact.company}</div> : null}
+                        {contact.contact ? <div className={styles.agentMeta}>{contact.contact}</div> : null}
+                        {contact.role ? <span className={styles.agentRole}>{contact.role}</span> : null}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className={styles.emptyHint}>No agent or broker on file for this voyage.</p>
+                )}
               </DetailBlock>
             </div>
           </aside>

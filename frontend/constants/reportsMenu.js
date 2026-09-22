@@ -39,7 +39,7 @@ export const REPORTS_SECTIONS = [
       { id: 'voyage-details', label: 'Voyage Details' },
       { id: 'agent-list', label: 'Agent List' },
       { id: 'bunker-consumption-report', label: 'Bunker Consumption Report' },
-      { id: 'daily-position-report', label: 'Daily Position Report' },
+      { id: 'daily-position-report', label: 'Daily Positions Report' },
       { id: 'dead-freight-summary', label: 'Dead Freight Summary' },
       { id: 'demurrage-summary', label: 'Demmurage Summary' },
       { id: 'headwise-expense-report', label: 'Headwise Expense Report' },

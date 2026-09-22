@@ -5,8 +5,9 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { Button, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
+import { EditIconButton, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import { usePageHeaderActions, usePageHeaderHeading } from '../PageHeaderContext.jsx';
+import refreshIconSrc from '../../../assets/refresh.png';
 import LiveVesselMapControls from './LiveVesselMapControls.jsx';
 import {
   fetchFleetOverlay,
@@ -39,6 +40,11 @@ import {
   vesselVoyageLeg,
 } from './liveVesselMap.constants.js';
 import styles from './LiveVesselMapPage.module.css';
+import {
+  LIVE_VESSEL_MAP_BADGE,
+  LIVE_VESSEL_MAP_HINT,
+  LIVE_VESSEL_MAP_TITLE,
+} from './liveVesselMap.feature.js';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -594,11 +600,16 @@ export default function LiveVesselMapPage() {
 
   useEffect(() => {
     setHeading({
-      titleExtra: (
-        <span className={styles.liveBadge}>
-          <span className={styles.liveDot} aria-hidden="true" />
-          Live
-          <span className={styles.liveSrc}>AIS positions</span>
+      title: (
+        <span className={styles.headerTitleStack}>
+          <span className={styles.headerTitleRow}>
+            {LIVE_VESSEL_MAP_TITLE}
+            <span className={styles.liveBadge}>
+              <span className={styles.liveDot} aria-hidden="true" />
+              {LIVE_VESSEL_MAP_BADGE}
+            </span>
+          </span>
+          <span className={styles.headerHint}>{LIVE_VESSEL_MAP_HINT}</span>
         </span>
       ),
     });
@@ -608,7 +619,16 @@ export default function LiveVesselMapPage() {
   useEffect(() => {
     const ownerId = headerOwnerIdRef.current;
     setActions(
-      <Button variant="primary" label="Refresh" onClick={() => loadFleetRef.current()} />,
+      <EditIconButton title="Refresh" onClick={() => loadFleetRef.current()}>
+        <span
+          className={styles.refreshIcon}
+          style={{
+            WebkitMaskImage: `url(${refreshIconSrc})`,
+            maskImage: `url(${refreshIconSrc})`,
+          }}
+          aria-hidden="true"
+        />
+      </EditIconButton>,
       ownerId,
     );
     return () => clearActions(ownerId);
@@ -887,12 +907,12 @@ export default function LiveVesselMapPage() {
                 {vfHref ? (
                   <Link className={styles.btnVf} to={vfHref}>
                     {VF_ICON}
-                    Working VF
+                    Voyage Worksheet
                   </Link>
                 ) : (
                   <span className={`${styles.btnVf} ${styles.btnVfDisabled}`} aria-disabled="true">
                     {VF_ICON}
-                    Working VF
+                    Voyage Worksheet
                   </span>
                 )}
               </DetailBlock>

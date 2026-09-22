@@ -3,6 +3,29 @@
   font-weight: 500;
 }
 
+.headerTitleStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  white-space: normal;
+}
+
+.headerTitleText {
+  display: block;
+  line-height: 1.15;
+}
+
+.headerFiltersRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
 .liveClock {
   display: inline-flex;
   align-items: center;

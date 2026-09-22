@@ -11,4 +11,7 @@
  */
 export const LIVE_VESSEL_MAP_ENABLED = true;
 export const LIVE_VESSEL_MAP_PATH = '/internal-user/live-vessels';
-export const LIVE_VESSEL_MAP_TITLE = 'Live Vessel Map';
+export const LIVE_VESSEL_MAP_TITLE = 'Vessels on Water';
+export const LIVE_VESSEL_MAP_HINT =
+  'Ships and routes load automatically. Select a pin for leg details.';
+export const LIVE_VESSEL_MAP_BADGE = 'LIVE Dashboard';

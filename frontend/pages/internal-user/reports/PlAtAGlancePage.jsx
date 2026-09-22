@@ -346,7 +346,7 @@ export default function PlAtAGlancePage() {
           <PageHeaderSearch
             value={search}
             onChange={setSearch}
-            placeholder="Search vessel / charterer / contract no."
+            placeholder="Search"
           />
           <CardSelect
             options={TYPE_OPTIONS}

@@ -175,7 +175,7 @@ function PerformingVesselsCard({ title = 'Performing Vessels', rows, columns, lo
         emptyMessage={loading ? 'Loading…' : 'No vessels in ops.'}
       />
       <p className={styles.drillHint}>
-        Activity Status is sourced from Daily Position Report triggers.
+        Activity Status is sourced from Daily Positions Report triggers.
       </p>
     </ChartCard>
   );

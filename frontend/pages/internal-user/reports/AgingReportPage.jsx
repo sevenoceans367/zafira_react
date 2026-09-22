@@ -272,9 +272,7 @@ export default function AgingReportPage({ mode = 'receivables' }) {
   const rows = isAr ? AR_ROWS : AP_ROWS;
   const partyLabel = isAr ? 'Customer' : 'Vendor';
   const partyAllLabel = isAr ? 'All Customers' : 'All Vendors';
-  const searchPlaceholder = isAr
-    ? 'Search customer / vessel / voyage no.'
-    : 'Search vendor / vessel / voyage no.';
+  const searchPlaceholder = 'Search';
   const emptyMessage = isAr
     ? 'No invoices match the current filters.'
     : 'No bills match the current filters.';

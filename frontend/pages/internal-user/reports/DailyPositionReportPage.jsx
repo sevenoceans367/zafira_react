@@ -15,7 +15,7 @@ const TRADE_OPTIONS = [
 ];
 
 const BIZ_OPTIONS = [
-  { id: 'all', name: 'All Business Types (Tanker / Dry Cargo / Gas)' },
+  { id: 'all', name: 'All Business Types' },
   { id: 'Tanker', name: 'Tankers' },
   { id: 'Dry Cargo', name: 'Dry' },
   { id: 'Gas', name: 'Gas' },
@@ -192,12 +192,11 @@ export default function DailyPositionReportPage() {
   useEffect(() => {
     setHeading({
       title: (
-        <span>
-          Daily Position
-          <span className={styles.titleMuted}> Report</span>
+        <span className={styles.headerTitleStack}>
+          <span className={styles.headerTitleText}>Daily Positions Report</span>
+          <LiveClock />
         </span>
       ),
-      titleExtra: <LiveClock />,
     });
     return () => setHeading(null);
   }, [setHeading]);
@@ -291,26 +290,28 @@ export default function DailyPositionReportPage() {
   return (
     <>
       <PageHeaderActions deps={[search, tradeFilter, bizFilter]}>
-        <HeaderFilterControls>
-          <PageHeaderSearch
-            value={search}
-            onChange={setSearch}
-            placeholder="Search vessel / charterer / agent / broker"
-          />
-          <CardSelect
-            options={TRADE_OPTIONS}
-            value={tradeFilter}
-            onChange={setTradeFilter}
-            placeholder="Trade type"
-            ariaLabel="Trade type"
-          />
-          <CardSelect
-            options={BIZ_OPTIONS}
-            value={bizFilter}
-            onChange={setBizFilter}
-            placeholder="Business type"
-            ariaLabel="Business type"
-          />
+        <HeaderFilterControls align="end">
+          <div className={styles.headerFiltersRow}>
+            <PageHeaderSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Search"
+            />
+            <CardSelect
+              options={TRADE_OPTIONS}
+              value={tradeFilter}
+              onChange={setTradeFilter}
+              placeholder="Trade type"
+              ariaLabel="Trade type"
+            />
+            <CardSelect
+              options={BIZ_OPTIONS}
+              value={bizFilter}
+              onChange={setBizFilter}
+              placeholder="All Business Types"
+              ariaLabel="Business type"
+            />
+          </div>
         </HeaderFilterControls>
       </PageHeaderActions>
 

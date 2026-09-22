@@ -388,7 +388,7 @@ export const OPERATIONS_REPORT_DEFINITIONS = {
     ],
   },
   'daily-position-report': {
-    title: 'Daily Position Report',
+    title: 'Daily Positions Report',
     pageType: 'dailyPosition',
     searchOnMount: true,
     filters: [

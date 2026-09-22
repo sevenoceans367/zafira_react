@@ -66,6 +66,31 @@
   gap: 8px;
 }
 
+.headerTitleStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  white-space: normal;
+}
+
+.headerTitleRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.headerHint {
+  color: #8a93a2;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: normal;
+}
+
 .liveBadge {
   display: inline-flex;
   align-items: center;
@@ -75,26 +100,34 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #0b7a28;
-  background: var(--green-tint);
+  background: #e8f8ec;
   border: 1px solid #bee8c7;
   padding: 4px 10px;
   border-radius: 999px;
   white-space: nowrap;
   line-height: 1.2;
+  flex: none;
 }
 
 .liveDot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--green);
+  background: #0fa836;
 }
 
-.liveSrc {
-  color: #5f8f68;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0;
+.refreshIcon {
+  width: 13px;
+  height: 13px;
+  display: block;
+  background: currentColor;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-mode: luminance;
 }
 
 .subheader {

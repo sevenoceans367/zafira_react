@@ -27,6 +27,7 @@ import {
   createEmptyOtherIncomeRow,
   createEmptyPortLeg,
   createEmptyProfitSharingRow,
+  createEmptyConsumptionRow,
   createEmptySecaBunkerRow,
   getFixtureTypeLabel,
   seedPortLegsFromFirstCargo,
@@ -126,6 +127,7 @@ export default function EstimateDetailSections({
   const isGas = estimateType === 1;
   const isTanker = estimateType === 2;
   const isDry = estimateType === 3;
+  const isCoaSpot = String(form.coaSpot || '') === '2';
   const fixtureType = String(form.fixtureTypeId ?? '');
   // PHP makeFieldManD: hire table for TCIN/VCIN (1|2); Vessel Daily Ops for VCOUT (3)
   const showHireSection = fixtureType === '1' || fixtureType === '2';
@@ -736,27 +738,33 @@ export default function EstimateDetailSections({
             <Field id="tpc" label="TPC">
               <input {...inputProps('tpc')} />
             </Field>
-            <Field id="gear" label="Gear">
-              <input {...inputProps('gear')} />
-            </Field>
+            {!isTanker ? (
+              <Field id="gear" label="Gear">
+                <input {...inputProps('gear')} />
+              </Field>
+            ) : null}
             <Field id="builtYear" label="Year Built">
               <input {...inputProps('builtYear')} />
             </Field>
             <Field id="beam" label="Beam">
               <input {...inputProps('beam')} />
             </Field>
-            <Field id="loadable" label="Loadable">
-              <input {...inputProps('loadable')} />
-            </Field>
-            <Field id="stowageFactor" label="Stowage Factor">
-              <input {...inputProps('stowageFactor')} />
-            </Field>
-            <Field id="grainCap" label="Grain Cap">
-              <input {...inputProps('grainCap')} />
-            </Field>
-            <Field id="baleCap" label="Bale Cap">
-              <input {...inputProps('baleCap')} />
-            </Field>
+            {!isTanker ? (
+              <>
+                <Field id="loadable" label="Loadable">
+                  <input {...inputProps('loadable')} />
+                </Field>
+                <Field id="stowageFactor" label="Stowage Factor">
+                  <input {...inputProps('stowageFactor')} />
+                </Field>
+                <Field id="grainCap" label="Grain Cap">
+                  <input {...inputProps('grainCap')} />
+                </Field>
+                <Field id="baleCap" label="Bale Cap">
+                  <input {...inputProps('baleCap')} />
+                </Field>
+              </>
+            ) : null}
           </div>
       </CollapsiblePanel>
 
@@ -1075,15 +1083,39 @@ export default function EstimateDetailSections({
             : speedDataType === 'eco'
               ? 'lEcoSpeed2'
               : 'lFullSpeed';
-          const foRows = (form.consumptionRows || []).filter((row) => (
+          // Fresh Spot style: always keep editable FO + DO consumption rows available.
+          const baseRows = form.consumptionRows || [];
+          const hasFo = baseRows.some((row) => String(row.identify || 'FO').toUpperCase() === 'FO');
+          const hasDo = baseRows.some((row) => String(row.identify || '').toUpperCase() === 'DO');
+          const consumptionRows = (!hasFo || !hasDo)
+            ? [
+              ...baseRows,
+              ...(!hasFo ? [createEmptyConsumptionRow('FO')] : []),
+              ...(!hasDo ? [createEmptyConsumptionRow('DO')] : []),
+            ]
+            : baseRows;
+          const foRows = consumptionRows.filter((row) => (
             String(row.identify || 'FO').toUpperCase() === 'FO'
           ));
-          const doRows = (form.consumptionRows || []).filter((row) => (
+          const doRows = consumptionRows.filter((row) => (
             String(row.identify || '').toUpperCase() === 'DO'
           ));
           const gradeName = (id) => (
             (lookups.bunkerGrades || []).find((g) => String(g.id) === String(id))?.name || id || '—'
           );
+
+          const commitConsumptionPatch = (rowId, patch) => {
+            const existingIds = new Set((form.consumptionRows || []).map((row) => row.id));
+            if (existingIds.has(rowId)) {
+              updateRow('consumptionRows', rowId, patch);
+              return;
+            }
+            const nextRows = consumptionRows.map((row) => (
+              row.id === rowId ? { ...row, ...patch } : row
+            ));
+            if (onRecalc) onRecalc('consumptionRows', nextRows);
+            else applyPatch({ consumptionRows: nextRows });
+          };
 
           const renderConsTable = (title, rows, identify, columns) => {
             const dataCols = columns;
@@ -1109,7 +1141,7 @@ export default function EstimateDetailSections({
                           ) : (
                             <select
                               value={row.bunkerGradeId || ''}
-                              onChange={(e) => updateRow('consumptionRows', row.id, {
+                              onChange={(e) => commitConsumptionPatch(row.id, {
                                 bunkerGradeId: e.target.value,
                                 identify,
                               })}
@@ -1127,7 +1159,7 @@ export default function EstimateDetailSections({
                               value={row[col.key] ?? ''}
                               readOnly={readOnly}
                               placeholder="0.00"
-                              onChange={(e) => updateRow('consumptionRows', row.id, {
+                              onChange={(e) => commitConsumptionPatch(row.id, {
                                 [col.key]: e.target.value,
                                 identify,
                               })}
@@ -1232,10 +1264,11 @@ export default function EstimateDetailSections({
                 compact
                 options={[...optionMap.values()]}
                 value={selectedCargoIds}
-                disabled={readOnly}
+                disabled={readOnly || isCoaSpot}
                 placeholder="Choose cargo…"
                 searchPlaceholder="Search cargo…"
                 onChange={(selected) => {
+                  if (isCoaSpot) return;
                   const existingById = new Map(
                     (form.cargoRows || []).map((row) => [String(row.cargoId), row]),
                   );

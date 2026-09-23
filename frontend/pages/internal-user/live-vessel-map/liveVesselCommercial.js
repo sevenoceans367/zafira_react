@@ -4,7 +4,9 @@ import { vesselDisplayName, vesselField } from './liveVesselMap.constants.js';
 export const CONTRACT_LABEL = {
   spot: 'Spot',
   tc: 'TC',
+  coa: 'COA',
   period: 'Period',
+  relet: 'Relet',
 };
 
 export function agentInitials(name) {
@@ -33,8 +35,11 @@ export function resolveCommercial(vessel) {
   const c = vessel?.commercial || {};
   const origin = vesselField(vessel, 'OriginDeclared');
   const dest = vesselField(vessel, 'DestDeclared');
-  const contract = c.contract
-    || (vessel?.fleetKind === 'tc' ? 'tc' : (vessel?.isFleet ? 'spot' : ''));
+  const contract = String(
+    c.contract
+    || (vessel?.fleetKind === 'tc' ? 'tc' : '')
+    || (vessel?.isFleet ? 'spot' : ''),
+  ).toLowerCase();
 
   const contacts = Array.isArray(c.contacts) ? c.contacts : [];
   const approachingAgent = contacts.find((item) => item.type === 'agent') || contacts[0] || null;
@@ -43,7 +48,7 @@ export function resolveCommercial(vessel) {
     name: vesselDisplayName(vessel),
     vesselType: c.vesselType || '',
     contract,
-    contractLabel: CONTRACT_LABEL[contract] || (vessel?.isFleet ? 'Fleet' : 'AIS'),
+    contractLabel: CONTRACT_LABEL[contract] || '',
     from: c.from || origin,
     to: c.to || dest,
     legFrom: c.legFrom || origin,
@@ -81,5 +86,6 @@ export function workingVfHref(commercial) {
 }
 
 export function rateRowLabel(contract) {
-  return contract === 'spot' ? 'Freight' : 'Hire';
+  if (contract === 'tc' || contract === 'period') return 'Hire';
+  return 'Freight';
 }

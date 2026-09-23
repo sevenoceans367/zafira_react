@@ -140,10 +140,13 @@ export default function OpsVcPostOpsPage() {
   };
 
   const handleDeactivate = async (row) => {
+    const voyNo = row.voyageNo || row.message || '—';
     const ok = await confirm({
-      title: 'Deactivate Nom ID',
-      message: `Are you sure to de-activate Nom ID ${row.message}?`,
-      confirmLabel: 'Deactivate',
+      title: 'Cancel this voyage?',
+      message: `Are you sure you want to cancel Voy no. ${voyNo}?`,
+      confirmLabel: 'Cancel',
+      hideCancel: true,
+      tone: 'warning',
     });
     if (!ok) return;
     try {
@@ -151,7 +154,7 @@ export default function OpsVcPostOpsPage() {
       updateQuery({ msg: 2 });
       load();
     } catch (err) {
-      setError(err.message || 'Failed to deactivate voyage.');
+      setError(err.message || 'Failed to cancel voyage.');
     }
   };
 

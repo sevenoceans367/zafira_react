@@ -17,7 +17,7 @@ import EstimateDetailHeaderActions from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { createEmptyDetail, createEmptyPortLeg, toFormState, toReplicateFormState } from './estimateDetail.constants.js';
-import { applyPeriodPrefillToForm, applyVesselPrefillToForm } from './estimatePrefill.js';
+import { applyCoaPrefillToForm, applyPeriodPrefillToForm, applyVesselPrefillToForm } from './estimatePrefill.js';
 import { validateEstimateForm, focusEstimateValidationField } from './estimateValidation.js';
 import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import { buildAddEstimateTestForm } from './addEstimateTestData.js';
@@ -170,6 +170,11 @@ export default function AddEstimatePage() {
               fixtureBroker: coaData?.broker || coaMatch?.broker || next.fixtureBroker || '',
               ownerId: coaData?.owner || coaMatch?.owner || next.ownerId || '',
             };
+            if (coaData) {
+              next = applyCoaPrefillToForm(next, coaData, {
+                cargos: lookupsForType.cargos ?? [],
+              });
+            }
           }
           if (periodData) {
             next = applyPeriodPrefillToForm(next, periodData);

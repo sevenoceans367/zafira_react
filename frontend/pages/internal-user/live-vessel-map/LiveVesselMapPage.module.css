@@ -31,22 +31,60 @@
   --field-grey: #f1f2f4;
   --field-grey-border: #e4e6e9;
 
-  padding-top: 0;
-  /* Keep horizontal bleed; do not pull up into BusinessPageHeader */
-  margin: 0 -4px 0;
+  /* Use shared .zafira-page padding (8px 24px 32px) */
+  box-sizing: border-box;
 }
 
-.controls {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* Map Style — top LHS overlay, no section card (Agent Portal segToggle) */
+.mapStyleBar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.mapStyleLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-mid);
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.segToggle {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  overflow: hidden;
   background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  margin: 12px 4px 16px;
-  padding: 12px 14px 14px;
-  position: relative;
-  z-index: 1;
+  box-shadow: 0 2px 10px rgba(15, 25, 40, 0.12);
+}
+
+.segBtn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-mid);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.segBtn:hover {
+  background: var(--field-grey);
+  color: var(--text-dark);
+}
+
+.segBtnActive,
+.segBtnActive:hover {
+  background: var(--navy);
+  color: #fff;
 }
 
 .introBar {
@@ -121,15 +159,15 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  min-width: 26px;
-  height: 26px;
-  padding: 0 6px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
   border-radius: 7px;
   box-sizing: border-box;
   flex: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   line-height: 1;
   color: #274670;
@@ -144,7 +182,7 @@
   background: #e6eaf1;
   color: #1b3358;
   border-color: #1b3358;
-  padding: 0 10px;
+  padding: 0 12px;
   gap: 0;
   outline: none;
 }
@@ -153,14 +191,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   flex: none;
 }
 
 .refreshIcon svg {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   display: block;
 }
 
@@ -218,29 +256,6 @@
   color: var(--text-light);
 }
 
-.segmented {
-  display: inline-flex;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--field-grey);
-}
-
-.segmentBtn {
-  border: none;
-  background: transparent;
-  padding: 6px 12px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-mid);
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.segmentBtnActive {
-  background: var(--navy);
-  color: #fff;
-}
 
 .searchForm {
   flex: 1 1 240px;
@@ -469,11 +484,99 @@
 
 .mapWrap {
   position: relative;
-  margin: 0 4px 28px;
+  margin: 0 0 28px;
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--line-strong);
   background: #e8eef5;
+}
+
+.mapWrapDark {
+  border-color: #1a2438;
+  background: #0b1323;
+}
+
+.mapWrapDark .map,
+.mapWrapDark .map :global(.leaflet-container) {
+  background: #0b1323;
+}
+
+/* Flat navy ocean + light blue continents */
+.mapWrapDark :global(.tilesDarkNavy) {
+  filter: invert(1) hue-rotate(188deg) brightness(1.18) contrast(0.92) saturate(0.8);
+}
+
+.mapWrapDark :global(.leaflet-control-attribution) {
+  background: rgba(11, 19, 35, 0.72);
+  color: #8a93a2;
+}
+
+.mapWrapDark :global(.leaflet-control-attribution a) {
+  color: #b8c0cc;
+}
+
+.mapWrapDark :global(.leaflet-control-zoom) {
+  border-color: #2a3650 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.mapWrapDark :global(.leaflet-control-zoom a) {
+  background: #152038 !important;
+  color: #e8ecf2 !important;
+  border-bottom-color: #2a3650 !important;
+}
+
+.mapWrapDark :global(.leaflet-control-zoom a:hover) {
+  background: #1e2d4a !important;
+  color: #fff !important;
+}
+
+.mapWrapDark .mapStyleLabel {
+  color: #c5cdd8;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+.mapWrapDark .segToggle {
+  border-color: #2a3650;
+  background: #152038;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.mapWrapDark .segBtn {
+  color: #9aa3b2;
+}
+
+.mapWrapDark .segBtn:hover {
+  background: #1e2d4a;
+  color: #e8ecf2;
+}
+
+.mapWrapDark .segBtnActive,
+.mapWrapDark .segBtnActive:hover {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.continentLabelWrap {
+  background: transparent !important;
+  border: none !important;
+}
+
+.continentLabel {
+  display: inline-block;
+  transform: translate(-50%, -50%);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  text-shadow:
+    0 0 8px rgba(11, 19, 35, 0.9),
+    0 1px 2px rgba(0, 0, 0, 0.65);
+  opacity: 0.92;
 }
 
 .map {
@@ -665,27 +768,33 @@
 }
 
 .contractChipSpot {
-  background: var(--orange-tint);
-  color: var(--orange);
-  border: 1px solid var(--orange-tint-strong);
+  background: #fdece4;
+  color: #f4652c;
+  border: 1px solid #fbd9c9;
 }
 
 .contractChipTc {
-  background: var(--teal-tint);
-  color: var(--teal);
-  border: 1px solid var(--teal-tint-strong);
+  background: #e3f4f4;
+  color: #14919b;
+  border: 1px solid #bfe6e6;
+}
+
+.contractChipCoa {
+  background: #eee9ff;
+  color: #6c47ff;
+  border: 1px solid #d8d0ff;
 }
 
 .contractChipPeriod {
-  background: var(--blue-tint);
-  color: var(--blue);
-  border: 1px solid var(--blue-tint-strong);
+  background: #eaf1fe;
+  color: #3b82f6;
+  border: 1px solid #d3e3fd;
 }
 
-.contractChipAis {
-  background: var(--field-grey);
-  color: var(--text-mid);
-  border: 1px solid var(--field-grey-border);
+.contractChipRelet {
+  background: #f1f2f4;
+  color: #5b6472;
+  border: 1px solid #d8dce3;
 }
 
 .bubbleLegLabel {
@@ -699,9 +808,10 @@
 
 .bubbleLeg {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   color: var(--text-mid);
   margin-bottom: 9px;
@@ -709,7 +819,8 @@
 }
 
 .tag {
-  display: block;
+  display: inline-block;
+  width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
   font-size: 9.5px;
@@ -735,7 +846,8 @@
 .bubbleArrow {
   color: var(--text-light);
   font-size: 10px;
-  align-self: center;
+  flex: none;
+  line-height: 1;
 }
 
 .bubbleMetrics {
@@ -959,9 +1071,10 @@
 
 .panelLeg {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 5px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   margin-top: 12px;
   font-size: 12.5px;
   color: var(--text-mid);
@@ -1017,21 +1130,25 @@
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--sc);
+  color: var(--sc, var(--navy));
 }
 
 .pblockDot {
   width: 7px;
   height: 7px;
   border-radius: 2px;
-  background: var(--sc);
+  background: var(--sc, var(--navy));
   flex: none;
 }
 
-.pblockLabel::after {
-  content: '';
+.pblockTitle {
+  flex: none;
+}
+
+.pblockRule {
   flex: 1;
-  border-top: 2px dashed var(--sc-tint-strong);
+  min-width: 12px;
+  border-top: 2px dashed var(--sc-tint-strong, var(--navy-tint-strong));
 }
 
 .eyeToggle {
@@ -1040,28 +1157,32 @@
   height: 22px;
   border: none;
   border-radius: 6px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--sc);
-  opacity: 0.65;
+  color: var(--sc, var(--navy));
+  opacity: 0.7;
   cursor: pointer;
   background: transparent;
   padding: 0;
+  z-index: 1;
 }
 
-.eyeToggle:hover {
+.eyeToggle:hover,
+.eyeToggle:focus-visible {
   opacity: 1;
-  background: var(--sc-tint);
+  background: var(--sc-tint, var(--navy-tint));
+  outline: none;
 }
 
 .eyeToggle svg {
   width: 15px;
   height: 15px;
+  display: block;
 }
 
-.pblockHidden .pblockBody {
-  display: none;
+.pblockHidden .pblockLabel {
+  margin-bottom: 0;
 }
 
 .prow {

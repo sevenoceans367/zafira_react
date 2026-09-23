@@ -72,6 +72,7 @@ export default function ConfirmDialog({
   message,
   confirmLabel = 'OK',
   cancelLabel = 'Cancel',
+  hideCancel = false,
   tone,
   validation,
   children,
@@ -154,8 +155,12 @@ export default function ConfirmDialog({
           </div>
         </div>
 
-        <div className={styles.actions}>
-          {mode === 'confirm' ? (
+        <div className={[
+          styles.actions,
+          (hideCancel || mode === 'alert') ? styles.actionsCentered : '',
+        ].filter(Boolean).join(' ')}
+        >
+          {mode === 'confirm' && !hideCancel ? (
             <button
               type="button"
               className={styles.btnCancel}

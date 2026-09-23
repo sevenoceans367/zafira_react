@@ -47,14 +47,6 @@ const MASTER_LETTER_TYPES = [
   { id: 'master-bunker', label: 'Bunkers Stemmed', color: 'teal', pdfType: 'master-bunker', hasPreview: true },
 ];
 
-const PDF_TYPES = [
-  { type: 'pda', label: 'PDA Request Letter', nonTpOnly: true },
-  { type: 'nomination', label: 'Agency Nomination Letter', nonTpOnly: true },
-  { type: 'agent-bunker', label: 'Bunkers Stemmed (Agent)' },
-  { type: 'voyage', label: 'Voyage Instructions Letter' },
-  { type: 'master-bunker', label: 'Bunkers Stemmed (Master)' },
-];
-
 function emptyBunker() {
   return { bunkerPort: '', grade: '', supplier: '', physical: '', quantity: '' };
 }
@@ -256,16 +248,18 @@ function DetailsInfoPopup() {
           From the preview, <b>download the PDF</b> or open it in a new tab.
         </li>
         <li>
-          Once sent, the letter appears under that section&apos;s own <b>Saved Letters</b>.
+          Once sent, the letter appears under <b>Saved Letters</b> for the selected LP/DP port.
+          Open a saved entry to view the Voyage letter PDF in a new tab.
         </li>
       </ol>
     </div>
   );
 }
 
-function pdfHrefFor(record, type, comId, activePort) {
+/** View-only Voyage Instructions PDF for a saved letter (opens in a new tab). */
+function voyagePdfHrefFor(record, comId, activePort) {
   const params = new URLSearchParams({
-    type,
+    type: 'voyage',
     genAgencyId: record.genAgencyId,
     portType: record.portType || activePort?.portType || '',
     comId,
@@ -276,106 +270,12 @@ function pdfHrefFor(record, type, comId, activePort) {
   return `/api/internal-user/vc/ops/agency-letter/${encodeURIComponent(record.genAgencyId)}/pdf?${params}`;
 }
 
-function SavedLetterFilesMenu({ record, portType, comId, activePort }) {
-  const wrapRef = useRef(null);
-  const menuRef = useRef(null);
-  const [open, setOpen] = useState(false);
-  const [menuStyle, setMenuStyle] = useState(null);
-
-  const files = PDF_TYPES.filter((item) => !item.nonTpOnly || portType !== 'TP');
-
-  const updateMenuPosition = () => {
-    const trigger = wrapRef.current;
-    if (!trigger) return;
-    const rect = trigger.getBoundingClientRect();
-    const width = 230;
-    setMenuStyle({
-      position: 'fixed',
-      top: `${rect.bottom + 6}px`,
-      left: `${Math.min(rect.left, window.innerWidth - width - 8)}px`,
-      minWidth: `${width}px`,
-      zIndex: 10050,
-    });
-  };
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setMenuStyle(null);
-      return undefined;
-    }
-    updateMenuPosition();
-    return undefined;
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return undefined;
-
-    const handleClickOutside = (event) => {
-      const inTrigger = wrapRef.current?.contains(event.target);
-      const inMenu = menuRef.current?.contains(event.target);
-      if (!inTrigger && !inMenu) setOpen(false);
-    };
-
-    const handleEscape = (event) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-
-    const handleReposition = () => updateMenuPosition();
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-    window.addEventListener('resize', handleReposition);
-    window.addEventListener('scroll', handleReposition, true);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-      window.removeEventListener('resize', handleReposition);
-      window.removeEventListener('scroll', handleReposition, true);
-    };
-  }, [open]);
-
-  const menu = open && menuStyle && typeof document !== 'undefined'
-    ? createPortal(
-      <div
-        ref={menuRef}
-        className={styles.menuDropdown}
-        style={menuStyle}
-        role="menu"
-      >
-        {files.map((item) => (
-          <a
-            key={item.type}
-            className={styles.menuItemLink}
-            href={pdfHrefFor(record, item.type, comId, activePort)}
-            target="_blank"
-            rel="noopener noreferrer"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-          >
-            {item.label}
-          </a>
-        ))}
-      </div>,
-      document.body,
-    )
-    : null;
-
-  return (
-    <div className={styles.menuWrap} ref={wrapRef}>
-      <button
-        type="button"
-        className={styles.slFilesBtn}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <DocIcon />
-        Files
-        <span className={styles.slFilesCount}>{files.length}</span>
-      </button>
-      {menu}
-    </div>
-  );
+function portTypeChipClass(portType) {
+  const type = String(portType || '').toUpperCase();
+  if (type.startsWith('DP')) return styles.chipPortDP;
+  if (type.startsWith('LP')) return styles.chipPortLP;
+  if (type === 'TP') return styles.chipPortTP || '';
+  return '';
 }
 
 function SavedLettersDropdown({
@@ -389,16 +289,6 @@ function SavedLettersDropdown({
   const menuRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState(null);
-
-  const grouped = useMemo(() => {
-    const byType = { LP: [], DP: [], TP: [], OTHER: [] };
-    records.forEach((record) => {
-      const type = String(record.portType || activePort?.portType || '').toUpperCase();
-      if (byType[type]) byType[type].push(record);
-      else byType.OTHER.push(record);
-    });
-    return byType;
-  }, [records, activePort]);
 
   const updateMenuPosition = () => {
     const trigger = wrapRef.current;
@@ -450,68 +340,49 @@ function SavedLettersDropdown({
     };
   }, [open]);
 
-  const renderGroup = (label, rows) => {
-    if (!rows.length) return null;
-    return (
-      <React.Fragment key={label}>
-        <div className={styles.savedGroupLabel}>{label}</div>
-        {rows.map((record) => {
-          const portType = record.portType || activePort?.portType || '';
-          return (
-            <div key={record.genAgencyId} className={styles.savedRow}>
-              <div className={styles.slTop}>
-                <div className={styles.slPortWrap}>
-                  <span className={styles.slPort}>
-                    {[record.portName, record.countryName].filter(Boolean).join(', ') || '—'}
-                  </span>
-                  {portType ? (
-                    <span className={`${styles.chipPort} ${styles[`chipPort${portType}`] || ''}`}>
-                      {portType}
-                    </span>
-                  ) : null}
-                </div>
-                {!locked ? (
-                  <button
-                    type="button"
-                    className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                    title="Remove"
-                    onClick={() => onDelete(record)}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-                      <path d="M6 6l12 12M18 6L6 18" />
-                    </svg>
-                  </button>
-                ) : null}
-              </div>
-              <div className={styles.slMeta}>
-                {[record.agentName || 'No agent on cost sheet', record.username].filter(Boolean).join(' · ')}
-              </div>
-              {record.date ? <div className={styles.slMeta}>Saved {record.date}</div> : null}
-              <SavedLetterFilesMenu
-                record={record}
-                portType={portType}
-                comId={comId}
-                activePort={activePort}
-              />
-            </div>
-          );
-        })}
-      </React.Fragment>
-    );
-  };
-
   const menu = open && menuStyle && typeof document !== 'undefined'
     ? createPortal(
       <div ref={menuRef} className={`${styles.menuDropdown} ${styles.savedMenu}`} style={menuStyle} role="menu">
         {!records.length ? (
-          <div className={styles.savedEmpty}>No saved letters yet.</div>
+          <div className={styles.savedEmpty}>No saved letters yet for this port.</div>
         ) : (
-          <>
-            {renderGroup('LP', grouped.LP)}
-            {renderGroup('DP', grouped.DP)}
-            {renderGroup('TP', grouped.TP)}
-            {renderGroup('Other', grouped.OTHER)}
-          </>
+          records.map((record) => {
+            const portType = record.portType || activePort?.portType || '';
+            const portLabel = [record.portName, record.countryName].filter(Boolean).join(', ') || '—';
+            const pdfHref = voyagePdfHrefFor(record, comId, activePort);
+            return (
+              <div key={record.genAgencyId} className={styles.savedRow}>
+                <div className={styles.slTop}>
+                  <a
+                    className={`${styles.slPortPill} ${portTypeChipClass(portType)}`}
+                    href={pdfHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open Voyage letter PDF"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {portLabel}
+                  </a>
+                  {!locked ? (
+                    <button
+                      type="button"
+                      className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                      title="Remove"
+                      onClick={() => onDelete(record)}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+                        <path d="M6 6l12 12M18 6L6 18" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </div>
+                <div className={styles.slMeta}>
+                  {[record.agentName || 'No agent on cost sheet', record.username].filter(Boolean).join(' · ')}
+                </div>
+                {record.date ? <div className={styles.slMeta}>Saved on {record.date}</div> : null}
+              </div>
+            );
+          })
         )}
       </div>,
       document.body,
@@ -719,10 +590,11 @@ export default function OpsVcAgencyLetterPage() {
   const activePort = form?.ports?.find((port) => port.key === activeKey) || null;
   const draft = activeKey ? drafts[activeKey] : null;
   const lookups = form?.lookups || { entityTypes: [], countries: [], shipOwners: [], ports: [] };
-  const savedRecords = useMemo(() => {
-    if (!form?.ports?.length) return [];
-    return form.ports.flatMap((port) => port.records || []);
-  }, [form]);
+  // LP/DP tabs on top drive which saved letters appear (this port only).
+  const savedRecords = useMemo(
+    () => (activePort?.records || []),
+    [activePort],
+  );
   const pdfRecord = useMemo(() => {
     if (draft?.genAgencyId) {
       return {

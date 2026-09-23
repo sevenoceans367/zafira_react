@@ -28,6 +28,8 @@ import {
 import {
   AUTO_LOAD_MAX_ZOOM,
   collectFlags,
+  CONTINENT_LABEL_MAX_ZOOM,
+  CONTINENT_LABELS,
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_STYLE,
   DEFAULT_MAP_ZOOM,
@@ -119,16 +121,20 @@ function remainingSeaRoute(vesselPos, waypoints) {
   return [{ lat: vesselPos.lat, lng: vesselPos.lng }, ...tail];
 }
 const EYE_OPEN = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />
-    <circle cx="12" cy="12" r="2.5" />
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+    <circle cx="12" cy="12" r="3" />
   </svg>
 );
 
 const EYE_CLOSED = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-    <path d="M3 3l18 18M10.5 6.2A9.6 9.6 0 0112 6c6.5 0 10 6 10 6a16.4 16.4 0 01-3.1 3.6M7 7.8A16 16 0 002 12s3.5 6 10 6c1.3 0 2.5-.3 3.6-.7" />
-    <path d="M9.9 9.9A2.5 2.5 0 0014 14" />
+  <svg viewBox="0 0 25 25" fill="none" aria-hidden="true">
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M22.8325 7.58352L21.0255 6.72552L20.5965 7.62852C19.2595 10.4425 17.1855 12.4085 14.7955 13.2305L14.5945 13.2885C13.8375 13.5265 13.0535 13.6615 12.2495 13.6615C8.81748 13.6605 5.69748 11.4055 3.90348 7.62852L3.47448 6.72552L1.66748 7.58352L2.09648 8.48652C2.69748 9.75052 3.43348 10.8655 4.26948 11.8235L2.05648 14.0385L3.47048 15.4515L5.69648 13.2245C6.59548 13.9685 7.57648 14.5515 8.61448 14.9615L7.75348 17.9245L9.67448 18.4825L10.5385 15.5075C11.0985 15.6065 11.6685 15.6615 12.2485 15.6615H12.2515C12.8055 15.6615 13.3505 15.6125 13.8855 15.5225L14.7455 18.4825L16.6655 17.9245L15.8135 14.9885C16.8615 14.5835 17.8535 14.0055 18.7615 13.2615L20.9505 15.4515L22.3655 14.0385L20.1935 11.8655C21.0455 10.8985 21.7935 9.76952 22.4035 8.48652L22.8325 7.58352Z"
+      fill="currentColor"
+    />
   </svg>
 );
 
@@ -190,9 +196,11 @@ const VF_ICON = (
 
 function contractChipClass(contract) {
   if (contract === 'tc') return styles.contractChipTc;
+  if (contract === 'coa') return styles.contractChipCoa;
   if (contract === 'period') return styles.contractChipPeriod;
+  if (contract === 'relet') return styles.contractChipRelet;
   if (contract === 'spot') return styles.contractChipSpot;
-  return styles.contractChipAis;
+  return '';
 }
 
 function DetailBlock({ themeClass, title, hidden, onToggle, children }) {
@@ -200,18 +208,23 @@ function DetailBlock({ themeClass, title, hidden, onToggle, children }) {
     <div className={`${styles.pblock} ${themeClass}${hidden ? ` ${styles.pblockHidden}` : ''}`}>
       <div className={styles.pblockLabel}>
         <span className={styles.pblockDot} aria-hidden="true" />
-        {title}
+        <span className={styles.pblockTitle}>{title}</span>
+        <span className={styles.pblockRule} aria-hidden="true" />
         <button
           type="button"
           className={styles.eyeToggle}
-          onClick={onToggle}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggle();
+          }}
+          aria-pressed={hidden}
           aria-label={hidden ? `Show ${title}` : `Hide ${title}`}
-          title={hidden ? 'Show' : 'Hide'}
+          title={hidden ? 'Show section' : 'Hide section'}
         >
           {hidden ? EYE_CLOSED : EYE_OPEN}
         </button>
       </div>
-      <div className={styles.pblockBody}>{children}</div>
+      {!hidden ? <div className={styles.pblockBody}>{children}</div> : null}
     </div>
   );
 }
@@ -249,6 +262,8 @@ export default function LiveVesselMapPage() {
   const mapWrapRef = useRef(null);
   const mapRef = useRef(null);
   const tileLayerRef = useRef(null);
+  const continentLabelsLayerRef = useRef(null);
+  const mapStyleRef = useRef(DEFAULT_MAP_STYLE);
   const markerLayerRef = useRef(null);
   const routesLayerRef = useRef(null);
   const routeLayersRef = useRef(new Map());
@@ -450,6 +465,12 @@ export default function LiveVesselMapPage() {
     setSelectedVessel(vessel);
     setPanelOpen(false);
     setTermsDraft(vessel?.commercial?.terms || '');
+    setHiddenBlocks({
+      voyage: false,
+      commercial: false,
+      financials: false,
+      agents: false,
+    });
     updateBubblePosition(vessel);
     clearPreviewLeg();
 
@@ -769,16 +790,54 @@ export default function LiveVesselMapPage() {
     }
   }, [alert, applyVisibility, searchQuery, selectVessel]);
 
+  const syncContinentLabels = useCallback((styleId = mapStyleRef.current) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const show = styleId === 'dark' && map.getZoom() <= CONTINENT_LABEL_MAX_ZOOM;
+    if (!show) {
+      if (continentLabelsLayerRef.current) {
+        map.removeLayer(continentLabelsLayerRef.current);
+        continentLabelsLayerRef.current = null;
+      }
+      return;
+    }
+
+    if (continentLabelsLayerRef.current) return;
+
+    const layer = L.layerGroup();
+    CONTINENT_LABELS.forEach((continent) => {
+      const icon = L.divIcon({
+        className: styles.continentLabelWrap,
+        html: `<span class="${styles.continentLabel}">${continent.name}</span>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      });
+      L.marker([continent.lat, continent.lng], {
+        icon,
+        interactive: false,
+        keyboard: false,
+      }).addTo(layer);
+    });
+    layer.addTo(map);
+    continentLabelsLayerRef.current = layer;
+  }, []);
+
   const handleMapStyleChange = useCallback((styleId) => {
     setMapStyle(styleId);
+    mapStyleRef.current = styleId;
     const map = mapRef.current;
     const style = MAP_STYLES[styleId];
     if (!map || !style) return;
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
     }
-    tileLayerRef.current = L.tileLayer(style.url, { attribution: MAP_ATTRIBUTION }).addTo(map);
-  }, []);
+    tileLayerRef.current = L.tileLayer(style.url, {
+      attribution: MAP_ATTRIBUTION,
+      className: style.tileClassName || '',
+    }).addTo(map);
+    syncContinentLabels(styleId);
+  }, [syncContinentLabels]);
 
   useEffect(() => {
     applyVisibility();
@@ -860,11 +919,15 @@ export default function LiveVesselMapPage() {
     if (!mapContainerRef.current || mapRef.current) return undefined;
 
     const map = L.map(mapContainerRef.current, {
-      zoomControl: true,
+      zoomControl: false,
     }).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
     map.attributionControl.setPrefix(false);
     const initialStyle = MAP_STYLES[DEFAULT_MAP_STYLE];
-    tileLayerRef.current = L.tileLayer(initialStyle.url, { attribution: MAP_ATTRIBUTION }).addTo(map);
+    tileLayerRef.current = L.tileLayer(initialStyle.url, {
+      attribution: MAP_ATTRIBUTION,
+      className: initialStyle.tileClassName || '',
+    }).addTo(map);
 
     markerLayerRef.current = L.layerGroup().addTo(map);
     map.on('click', handleMapClick);
@@ -874,12 +937,17 @@ export default function LiveVesselMapPage() {
         updateBubblePosition(selectedVesselRef.current);
       }
     };
+    const onZoomEnd = () => {
+      syncBubble();
+      syncContinentLabels(mapStyleRef.current);
+    };
     map.on('move', syncBubble);
     map.on('zoom', syncBubble);
     map.on('moveend', syncBubble);
-    map.on('zoomend', syncBubble);
+    map.on('zoomend', onZoomEnd);
 
     mapRef.current = map;
+    syncContinentLabels(mapStyleRef.current);
     loadFleetRef.current();
 
     return () => {
@@ -887,7 +955,11 @@ export default function LiveVesselMapPage() {
       map.off('move', syncBubble);
       map.off('zoom', syncBubble);
       map.off('moveend', syncBubble);
-      map.off('zoomend', syncBubble);
+      map.off('zoomend', onZoomEnd);
+      if (continentLabelsLayerRef.current) {
+        map.removeLayer(continentLabelsLayerRef.current);
+        continentLabelsLayerRef.current = null;
+      }
       map.remove();
       mapRef.current = null;
       tileLayerRef.current = null;
@@ -899,7 +971,7 @@ export default function LiveVesselMapPage() {
       previewLegLayerRef.current = null;
       activeLegLayerRef.current = null;
     };
-  }, [handleMapClick, updateBubblePosition]);
+  }, [handleMapClick, syncContinentLabels, updateBubblePosition]);
 
   const commercial = useMemo(
     () => (selectedVessel ? resolveCommercial(selectedVessel) : null),
@@ -924,12 +996,14 @@ export default function LiveVesselMapPage() {
         onClose={() => setDailyPositionsOpen(false)}
       />
 
-      <LiveVesselMapControls
-        mapStyle={mapStyle}
-        onMapStyleChange={handleMapStyleChange}
-      />
-
-      <div ref={mapWrapRef} className={styles.mapWrap}>
+      <div
+        ref={mapWrapRef}
+        className={`${styles.mapWrap}${mapStyle === 'dark' ? ` ${styles.mapWrapDark}` : ''}`}
+      >
+        <LiveVesselMapControls
+          mapStyle={mapStyle}
+          onMapStyleChange={handleMapStyleChange}
+        />
         <div ref={mapContainerRef} className={styles.map} aria-label="Vessel positions map" />
 
         {selectedVessel && commercial && bubblePos && !panelOpen ? (
@@ -942,9 +1016,11 @@ export default function LiveVesselMapPage() {
           >
             <div className={styles.bubbleTop}>
               <div className={styles.bubbleVessel}>{commercial.name}</div>
-              <span className={`${styles.contractChip} ${contractChipClass(commercial.contract)}`}>
-                {commercial.contractLabel}
-              </span>
+              {commercial.contractLabel ? (
+                <span className={`${styles.contractChip} ${contractChipClass(commercial.contract)}`}>
+                  {commercial.contractLabel}
+                </span>
+              ) : null}
             </div>
 
             {(legFrom || legTo) ? (
@@ -1034,9 +1110,11 @@ export default function LiveVesselMapPage() {
                     )}
                   </div>
                   <div className={styles.panelChips}>
-                    <span className={`${styles.contractChip} ${contractChipClass(commercial.contract)}`}>
-                      {commercial.contractLabel}
-                    </span>
+                    {commercial.contractLabel ? (
+                      <span className={`${styles.contractChip} ${contractChipClass(commercial.contract)}`}>
+                        {commercial.contractLabel}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <button

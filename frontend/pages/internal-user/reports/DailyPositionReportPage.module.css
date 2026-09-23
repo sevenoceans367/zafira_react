@@ -109,7 +109,15 @@
 }
 
 .colCopy {
-  width: 52px;
+  width: 56px;
+  padding-left: 12px !important;
+  padding-right: 8px !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+.colCopy .iconOnlyBtn {
+  display: inline-flex;
 }
 
 .colIndex {

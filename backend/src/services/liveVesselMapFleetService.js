@@ -26,6 +26,48 @@ function toNumberOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function formatLaycan(from, to) {
+  const a = String(from || '').trim();
+  const b = String(to || '').trim();
+  if (a && b) return `${a} – ${b}`;
+  return a || b || '';
+}
+
+function formatEstimateDate(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime()) || d.getFullYear() < 1972) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+}
+
+function formatRate({
+  ws, cargoRate, lumpsumAmt, chkLumpsum, hireRate, hireAmt, isTc,
+}) {
+  if (Number(chkLumpsum) === 1 && toNumberOrNull(lumpsumAmt) != null) {
+    return `LS ${Number(lumpsumAmt).toLocaleString()}`;
+  }
+  if (ws != null && String(ws).trim() !== '' && Number(ws) !== 0) {
+    return `WS ${ws}`;
+  }
+  if (cargoRate != null && String(cargoRate).trim() !== '' && Number(cargoRate) !== 0) {
+    return `$${Number(cargoRate).toLocaleString()}/MT`;
+  }
+  const hire = toNumberOrNull(hireRate) ?? toNumberOrNull(hireAmt);
+  if (hire != null) {
+    return isTc || hireRate != null ? `$${hire.toLocaleString()}/day` : `$${hire.toLocaleString()}`;
+  }
+  return '';
+}
+
+function parseCargoIds(value) {
+  if (value == null || value === '') return [];
+  return String(value)
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part && part !== '0');
+}
+
 /** Prefer latest named cost sheet that has an estimate (Ops "working" sheet). */
 async function loadWorkingCostSheets(comIds = []) {
   const byCom = new Map();
@@ -48,18 +90,14 @@ async function loadWorkingCostSheets(comIds = []) {
     for (const row of vcSheets || []) {
       const key = String(row.COMID);
       if (byCom.has(key)) continue;
-      // Prefer sheets that already have a worksheet estimate
-      if (row.FCAID == null) {
-        // Keep looking for one with FCAID; fall back later
-        continue;
-      }
+      if (row.FCAID == null) continue;
       byCom.set(key, {
         costSheetId: row.COST_SHEETID,
         sheetName: row.SHEET_NAME || `Sheet ${row.COST_SHEETID}`,
         sheetKind: 'vc',
+        fcaId: row.FCAID,
       });
     }
-    // Fall back to newest named sheet even without estimate
     for (const row of vcSheets || []) {
       const key = String(row.COMID);
       if (byCom.has(key)) continue;
@@ -67,6 +105,7 @@ async function loadWorkingCostSheets(comIds = []) {
         costSheetId: row.COST_SHEETID,
         sheetName: row.SHEET_NAME || `Sheet ${row.COST_SHEETID}`,
         sheetKind: 'vc',
+        fcaId: null,
       });
     }
   } catch {
@@ -88,6 +127,7 @@ async function loadWorkingCostSheets(comIds = []) {
         costSheetId: row.COST_SHEETID,
         sheetName: row.SHEET_NAME || `Sheet ${row.COST_SHEETID}`,
         sheetKind: 'tc',
+        fcaId: null,
       });
     }
   } catch {
@@ -97,77 +137,477 @@ async function loadWorkingCostSheets(comIds = []) {
   return byCom;
 }
 
-/** Latest VF financials + commercial fields per COMID. */
-async function loadCommercialByComId(comIds = []) {
+async function loadCargoNamesByFca(pool, fcaIds = []) {
+  const byFca = new Map();
+  const ids = [...new Set(fcaIds.map(Number).filter(Boolean))];
+  if (!ids.length) return byFca;
+  const placeholders = ids.map(() => '?').join(',');
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT s.FCAID, s.CARGOID, s.SHIPPER_CHARTER,
+              cm.MATERIAL_TYPE AS CARGO_NAME,
+              vm.NAME AS CHARTERER_NAME
+       FROM freight_cost_estimete_slave10 s
+       LEFT JOIN cargo_master cm ON cm.MATERIALID = s.CARGOID
+       LEFT JOIN vendor_master vm ON vm.CODE = s.SHIPPER_CHARTER
+       WHERE s.FCAID IN (${placeholders})
+         AND (s.STATUS IS NULL OR s.STATUS = 1)
+       ORDER BY s.FCAID, s.STATUS ASC, s.RANDOMID ASC`,
+      ids,
+    );
+    for (const row of rows || []) {
+      const key = String(row.FCAID);
+      if (!byFca.has(key)) byFca.set(key, { names: [], charterer: '' });
+      const entry = byFca.get(key);
+      const cargoIdRaw = String(row.CARGOID || '').trim();
+      const name = String(row.CARGO_NAME || '').trim()
+        || (!/^\d+$/.test(cargoIdRaw) ? cargoIdRaw : '');
+      if (name && !entry.names.includes(name)) entry.names.push(name);
+      if (!entry.charterer) {
+        const charterer = String(row.CHARTERER_NAME || row.SHIPPER_CHARTER || '').trim();
+        // Prefer resolved vendor name; skip raw numeric codes without a name.
+        if (charterer && !(/^\d+$/.test(charterer) && !row.CHARTERER_NAME)) {
+          entry.charterer = String(row.CHARTERER_NAME || charterer).trim();
+        }
+      }
+    }
+  } catch {
+    /* optional — retry without vendor join */
+    try {
+      const [rows] = await pool.query(
+        `SELECT s.FCAID, s.CARGOID, s.SHIPPER_CHARTER, cm.MATERIAL_TYPE AS CARGO_NAME
+         FROM freight_cost_estimete_slave10 s
+         LEFT JOIN cargo_master cm ON cm.MATERIALID = s.CARGOID
+         WHERE s.FCAID IN (${placeholders})
+           AND (s.STATUS IS NULL OR s.STATUS = 1)
+         ORDER BY s.FCAID, s.STATUS ASC, s.RANDOMID ASC`,
+        ids,
+      );
+      for (const row of rows || []) {
+        const key = String(row.FCAID);
+        if (!byFca.has(key)) byFca.set(key, { names: [], charterer: '' });
+        const entry = byFca.get(key);
+        const cargoIdRaw = String(row.CARGOID || '').trim();
+        const name = String(row.CARGO_NAME || '').trim()
+          || (!/^\d+$/.test(cargoIdRaw) ? cargoIdRaw : '');
+        if (name && !entry.names.includes(name)) entry.names.push(name);
+        if (!entry.charterer && row.SHIPPER_CHARTER) {
+          const raw = String(row.SHIPPER_CHARTER).trim();
+          if (raw && !/^\d+$/.test(raw)) entry.charterer = raw;
+        }
+      }
+    } catch {
+      /* optional */
+    }
+  }
+
+  return byFca;
+}
+
+async function loadCurrentLegsByFca(pool, fcaIds = []) {
+  const byFca = new Map();
+  const ids = [...new Set(fcaIds.map(Number).filter(Boolean))];
+  if (!ids.length) return byFca;
+  const placeholders = ids.map(() => '?').join(',');
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT s.FCAID,
+              CONCAT(COALESCE(fp.PortName, ''), IF(fp.COUNTRY_KEY IS NULL OR fp.COUNTRY_KEY = '', '', CONCAT(' (', fp.COUNTRY_KEY, ')'))) AS FROM_PORT_NAME,
+              CONCAT(COALESCE(tp.PortName, ''), IF(tp.COUNTRY_KEY IS NULL OR tp.COUNTRY_KEY = '', '', CONCAT(' (', tp.COUNTRY_KEY, ')'))) AS TO_PORT_NAME
+       FROM freight_cost_estimete_slave1 s
+       LEFT JOIN port_master fp ON fp.PortId = s.FROM_PORT
+       LEFT JOIN port_master tp ON tp.PortId = s.TO_PORT
+       WHERE s.FCAID IN (${placeholders})
+       ORDER BY s.FCAID, s.FCA_SLAVEID DESC`,
+      ids,
+    );
+    for (const row of rows || []) {
+      const key = String(row.FCAID);
+      if (byFca.has(key)) continue;
+      byFca.set(key, {
+        legFrom: String(row.FROM_PORT_NAME || '').trim(),
+        legTo: String(row.TO_PORT_NAME || '').trim(),
+      });
+    }
+  } catch {
+    /* optional */
+  }
+
+  return byFca;
+}
+
+async function loadContactsByComId(pool, comIds = []) {
   const byCom = new Map();
-  if (!isDbConfigured() || !comIds.length) return byCom;
-  const pool = getPool();
   const ids = [...new Set(comIds.map(Number).filter(Boolean))];
   if (!ids.length) return byCom;
   const placeholders = ids.map(() => '?').join(',');
 
   try {
     const [rows] = await pool.query(
-      `SELECT m.COMID, m.DAILY_EARNING, m.NET_DAILY_EARNING, m.PROFIT_LOSS, m.ACTUAL_PL,
-              m.VESSEL_TYPE, m.PERIODID, m.WS, m.LUMPSUMAMT, m.CHK_LUMPSUM
-       FROM freight_cost_estimete_master m
-       WHERE m.MODULEID = ? AND m.MCOMPANYID = ?
-         AND m.COMID IN (${placeholders})
-         AND m.SHEET_NO IS NOT NULL AND m.SHEET_NO != '' AND m.SHEET_NO != 0
-       ORDER BY m.COMID, CAST(m.SHEET_NO AS UNSIGNED) DESC, m.FCAID DESC`,
-      [MODULE_ID, COMPANY_ID, ...ids],
+      `SELECT g.COMID, g.VENDORID, g.PORT, vm.NAME AS vendorName, vm.EMAILID AS vendorEmail,
+              p.PortName AS portName
+       FROM generate_agency_letter g
+       LEFT JOIN vendor_master vm ON vm.CODE = g.VENDORID AND vm.MCOMPANYID = g.MCOMPANYID
+       LEFT JOIN port_master p ON p.PortId = g.PORTID
+       WHERE g.COMID IN (${placeholders}) AND g.MODULEID = ? AND g.MCOMPANYID = ?
+       ORDER BY g.COMID, g.GEN_AGENCY_ID DESC`,
+      [...ids, MODULE_ID, COMPANY_ID],
     );
     for (const row of rows || []) {
       const key = String(row.COMID);
-      if (byCom.has(key)) continue;
-      const tce = toNumberOrNull(row.DAILY_EARNING)
-        ?? toNumberOrNull(row.NET_DAILY_EARNING);
-      const pnl = toNumberOrNull(row.ACTUAL_PL) ?? toNumberOrNull(row.PROFIT_LOSS);
-      byCom.set(key, {
-        vesselType: row.VESSEL_TYPE || '',
-        cargo: '',
-        charterer: '',
-        owner: '',
-        rate: row.WS ? `WS ${row.WS}` : '',
-        laycan: '',
-        tce,
-        pnl,
-        isPeriod: Number(row.PERIODID) > 0,
+      if (!byCom.has(key)) byCom.set(key, []);
+      const list = byCom.get(key);
+      const name = String(row.vendorName || row.VENDORID || '').trim();
+      if (!name) continue;
+      if (list.some((item) => item.name === name && item.type === 'agent')) continue;
+      if (list.filter((item) => item.type === 'agent').length >= 3) continue;
+      list.push({
+        name,
+        company: String(row.portName || row.PORT || '').trim() || name,
+        role: 'Selected Agent',
+        type: 'agent',
+        contact: String(row.vendorEmail || '').trim(),
       });
     }
   } catch {
-    /* optional — ACTUAL_PL / PERIODID may be missing */
-    try {
-      const [rows] = await pool.query(
-        `SELECT m.COMID, m.DAILY_EARNING, m.NET_DAILY_EARNING, m.PROFIT_LOSS, m.VESSEL_TYPE
-         FROM freight_cost_estimete_master m
-         WHERE m.MODULEID = ? AND m.MCOMPANYID = ?
-           AND m.COMID IN (${placeholders})
-           AND m.SHEET_NO IS NOT NULL AND m.SHEET_NO != '' AND m.SHEET_NO != 0
-         ORDER BY m.COMID, CAST(m.SHEET_NO AS UNSIGNED) DESC, m.FCAID DESC`,
-        [MODULE_ID, COMPANY_ID, ...ids],
-      );
-      for (const row of rows || []) {
-        const key = String(row.COMID);
-        if (byCom.has(key)) continue;
-        byCom.set(key, {
-          vesselType: row.VESSEL_TYPE || '',
-          cargo: '',
-          charterer: '',
-          owner: '',
-          rate: '',
-          laycan: '',
-          tce: toNumberOrNull(row.DAILY_EARNING) ?? toNumberOrNull(row.NET_DAILY_EARNING),
-          pnl: toNumberOrNull(row.PROFIT_LOSS),
-          isPeriod: false,
-        });
-      }
-    } catch {
-      /* ignore */
-    }
+    /* optional */
   }
 
   return byCom;
+}
+
+/**
+ * Resolve cargo display names from master.CARGO_ID / compare.CARGO_ID.
+ * PHP often stores cargo *names* (not MATERIALIDs) in CARGO_ID.
+ */
+async function resolveCargoDisplayNames(pool, cargoIdCsv) {
+  const tokens = parseCargoIds(cargoIdCsv);
+  if (!tokens.length) return [];
+  const numericIds = tokens.filter((token) => /^\d+$/.test(token));
+  const nameById = new Map();
+  if (numericIds.length) {
+    const placeholders = numericIds.map(() => '?').join(',');
+    try {
+      const [rows] = await pool.query(
+        `SELECT MATERIALID, MATERIAL_TYPE AS name
+         FROM cargo_master
+         WHERE MATERIALID IN (${placeholders})`,
+        numericIds,
+      );
+      for (const row of rows || []) {
+        const name = String(row.name || '').trim();
+        if (name) nameById.set(String(row.MATERIALID), name);
+      }
+    } catch {
+      /* fall through — treat tokens as names */
+    }
+  }
+  const names = [];
+  for (const token of tokens) {
+    const resolved = nameById.get(token);
+    if (resolved) {
+      if (!names.includes(resolved)) names.push(resolved);
+      continue;
+    }
+    // Non-numeric / unresolved → already a display name (legacy PHP storage).
+    if (!/^\d+$/.test(token) && !names.includes(token)) names.push(token);
+  }
+  return names;
+}
+
+async function loadVendorNames(pool, codes = []) {
+  const byCode = new Map();
+  const uniq = [...new Set(
+    codes.map((code) => String(code ?? '').trim()).filter((code) => code && code !== '0'),
+  )];
+  if (!uniq.length) return byCode;
+  const placeholders = uniq.map(() => '?').join(',');
+  try {
+    const [rows] = await pool.query(
+      `SELECT CODE, VENDORID, NAME
+       FROM vendor_master
+       WHERE CODE IN (${placeholders}) OR CAST(VENDORID AS CHAR) IN (${placeholders})`,
+      [...uniq, ...uniq],
+    );
+    for (const row of rows || []) {
+      const name = String(row.NAME || '').trim();
+      if (!name) continue;
+      if (row.CODE != null && String(row.CODE).trim() !== '') {
+        byCode.set(String(row.CODE).trim(), name);
+      }
+      if (row.VENDORID != null) byCode.set(String(row.VENDORID), name);
+    }
+  } catch {
+    /* optional */
+  }
+  return byCode;
+}
+
+/**
+ * Load fixed-fixture masters via compare.FCAID (ops source of truth).
+ * Falls back to MAX(FCAID) per COMID without SHEET_NO filter.
+ */
+async function loadVcMasterRowsByComId(pool, ids = []) {
+  if (!ids.length) return [];
+  const placeholders = ids.map(() => '?').join(',');
+  const selectCols = [
+    `c.COMID, c.FCAID,
+     c.CARGO_ID AS CMP_CARGO_ID, c.MATERIALID AS CMP_MATERIALID, c.QTY_VENDORID,
+     c.COA_SPOT AS CMP_COA_SPOT,
+     m.DAILY_EARNING, m.NET_DAILY_EARNING, m.PROFIT_LOSS, m.ACTUAL_PL,
+     m.VESSEL_TYPE, m.PERIODID, m.WS, m.LUMPSUMAMT, m.CHK_LUMPSUM, m.COA_SPOT,
+     m.CARGO_RATE, m.HIRE_RATE, m.HIREAGE_AMT, m.REMARKS, m.CARGO_ID,
+     m.FGFF_VENDORID, m.SHIPPER, m.OWNER, m.BROKER, m.DISPONENT_OWNER,
+     m.LAYCANSTART, m.LAYCANEND, m.LAYCAN_START_DATE, m.LAYCAN_FINISH_DATE`,
+    `c.COMID, c.FCAID,
+     c.CARGO_ID AS CMP_CARGO_ID, c.MATERIALID AS CMP_MATERIALID, c.QTY_VENDORID,
+     m.DAILY_EARNING, m.NET_DAILY_EARNING, m.PROFIT_LOSS, m.VESSEL_TYPE,
+     m.WS, m.REMARKS, m.CARGO_ID, m.FGFF_VENDORID, m.OWNER, m.BROKER, m.DISPONENT_OWNER`,
+    `c.COMID, c.FCAID, m.DAILY_EARNING, m.NET_DAILY_EARNING, m.PROFIT_LOSS,
+     m.VESSEL_TYPE, m.WS, m.REMARKS, m.CARGO_ID, m.OWNER, m.BROKER, m.DISPONENT_OWNER`,
+  ];
+
+  for (const cols of selectCols) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT ${cols}
+         FROM freight_cost_estimate_compare c
+         INNER JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
+         WHERE c.COMID IN (${placeholders})
+           AND c.MODULEID = ? AND c.MCOMPANYID = ?
+         ORDER BY c.COMID, c.FCAID DESC`,
+        [...ids, MODULE_ID, COMPANY_ID],
+      );
+      if (rows?.length) return rows;
+    } catch {
+      /* try next column set */
+    }
+  }
+
+  // Fallback: latest master FCAID per COMID (same as ops checklist — no SHEET_NO filter).
+  try {
+    const [latest] = await pool.query(
+      `SELECT COMID, MAX(FCAID) AS FCAID
+       FROM freight_cost_estimete_master
+       WHERE COMID IN (${placeholders})
+       GROUP BY COMID`,
+      ids,
+    );
+    const fcaIds = (latest || []).map((row) => row.FCAID).filter(Boolean);
+    if (!fcaIds.length) return [];
+    const fcaPlaceholders = fcaIds.map(() => '?').join(',');
+    const comByFca = new Map(
+      (latest || []).map((row) => [String(row.FCAID), row.COMID]),
+    );
+    try {
+      const [rows] = await pool.query(
+        `SELECT m.FCAID, m.DAILY_EARNING, m.NET_DAILY_EARNING, m.PROFIT_LOSS, m.ACTUAL_PL,
+                m.VESSEL_TYPE, m.PERIODID, m.WS, m.LUMPSUMAMT, m.CHK_LUMPSUM, m.COA_SPOT,
+                m.CARGO_RATE, m.HIRE_RATE, m.HIREAGE_AMT, m.REMARKS, m.CARGO_ID,
+                m.FGFF_VENDORID, m.SHIPPER, m.OWNER, m.BROKER, m.DISPONENT_OWNER,
+                m.LAYCANSTART, m.LAYCANEND, m.LAYCAN_START_DATE, m.LAYCAN_FINISH_DATE
+         FROM freight_cost_estimete_master m
+         WHERE m.FCAID IN (${fcaPlaceholders})`,
+        fcaIds,
+      );
+      return (rows || []).map((row) => ({
+        ...row,
+        COMID: comByFca.get(String(row.FCAID)),
+      })).filter((row) => row.COMID != null);
+    } catch {
+      const [rows] = await pool.query(
+        `SELECT m.FCAID, m.DAILY_EARNING, m.NET_DAILY_EARNING, m.PROFIT_LOSS,
+                m.VESSEL_TYPE, m.WS, m.REMARKS, m.CARGO_ID, m.OWNER, m.BROKER,
+                m.DISPONENT_OWNER, m.FGFF_VENDORID
+         FROM freight_cost_estimete_master m
+         WHERE m.FCAID IN (${fcaPlaceholders})`,
+        fcaIds,
+      );
+      return (rows || []).map((row) => ({
+        ...row,
+        COMID: comByFca.get(String(row.FCAID)),
+      })).filter((row) => row.COMID != null);
+    }
+  } catch {
+    return [];
+  }
+}
+
+/** Latest VF financials + commercial fields per COMID. */
+async function loadCommercialByComId(comIds = []) {
+  const enriched = new Map();
+  if (!isDbConfigured() || !comIds.length) return enriched;
+  const pool = getPool();
+  const ids = [...new Set(comIds.map(Number).filter(Boolean))];
+  if (!ids.length) return enriched;
+
+  const masters = await loadVcMasterRowsByComId(pool, ids);
+  const byCom = new Map();
+  const fcaIds = [];
+  for (const row of masters) {
+    const key = String(row.COMID);
+    if (byCom.has(key)) continue;
+    if (row.FCAID) fcaIds.push(row.FCAID);
+    byCom.set(key, row);
+  }
+
+  const vendorCodes = [];
+  for (const row of byCom.values()) {
+    vendorCodes.push(row.OWNER, row.BROKER, row.FGFF_VENDORID, row.SHIPPER, row.QTY_VENDORID);
+  }
+
+  const [cargoByFca, legsByFca, agentsByCom, vendorNames] = await Promise.all([
+    loadCargoNamesByFca(pool, fcaIds),
+    loadCurrentLegsByFca(pool, fcaIds),
+    loadContactsByComId(pool, ids),
+    loadVendorNames(pool, vendorCodes),
+  ]);
+
+  for (const [comId, row] of byCom.entries()) {
+    const fcaKey = row.FCAID != null ? String(row.FCAID) : '';
+    const cargoInfo = fcaKey ? cargoByFca.get(fcaKey) : null;
+    const legInfo = fcaKey ? legsByFca.get(fcaKey) : null;
+
+    let cargoNames = cargoInfo?.names || [];
+    if (!cargoNames.length) {
+      cargoNames = await resolveCargoDisplayNames(
+        pool,
+        row.CARGO_ID || row.CMP_CARGO_ID || row.CMP_MATERIALID || row.MATERIALID,
+      );
+    }
+
+    const ownerCode = String(row.OWNER ?? '').trim();
+    const brokerCode = String(row.BROKER ?? '').trim();
+    const chartererCode = String(
+      row.FGFF_VENDORID || row.QTY_VENDORID || row.SHIPPER || '',
+    ).trim();
+    const ownerName = (ownerCode && vendorNames.get(ownerCode))
+      || String(row.DISPONENT_OWNER || '').trim();
+    const brokerName = (brokerCode && vendorNames.get(brokerCode)) || '';
+    const chartererName = (chartererCode && vendorNames.get(chartererCode))
+      || String(cargoInfo?.charterer || '').trim();
+
+    const contacts = [...(agentsByCom.get(comId) || [])];
+    if (brokerName && !contacts.some((item) => item.type === 'broker' && item.name === brokerName)) {
+      contacts.push({
+        name: brokerName,
+        company: brokerName,
+        role: 'Registered Broker',
+        type: 'broker',
+        contact: '',
+      });
+    }
+
+    const tce = toNumberOrNull(row.DAILY_EARNING) ?? toNumberOrNull(row.NET_DAILY_EARNING);
+    const pnl = toNumberOrNull(row.ACTUAL_PL) ?? toNumberOrNull(row.PROFIT_LOSS);
+    const laycan = formatLaycan(
+      formatEstimateDate(row.LAYCANSTART || row.LAYCAN_START_DATE),
+      formatEstimateDate(row.LAYCANEND || row.LAYCAN_FINISH_DATE),
+    );
+    const coaSpot = row.COA_SPOT != null
+      ? String(row.COA_SPOT)
+      : (row.CMP_COA_SPOT != null ? String(row.CMP_COA_SPOT) : '');
+
+    enriched.set(comId, {
+      fcaId: row.FCAID || null,
+      vesselType: row.VESSEL_TYPE || '',
+      cargo: cargoNames.join(', '),
+      charterer: chartererName,
+      owner: ownerName,
+      rate: formatRate({
+        ws: row.WS,
+        cargoRate: row.CARGO_RATE,
+        lumpsumAmt: row.LUMPSUMAMT,
+        chkLumpsum: row.CHK_LUMPSUM,
+        hireRate: row.HIRE_RATE,
+        hireAmt: row.HIREAGE_AMT,
+        isTc: false,
+      }),
+      laycan,
+      terms: String(row.REMARKS || '').trim(),
+      tce,
+      pnl,
+      isPeriod: Number(row.PERIODID) > 0,
+      coaSpot,
+      legFrom: legInfo?.legFrom || '',
+      legTo: legInfo?.legTo || '',
+      contacts,
+    });
+  }
+
+  // TC fixtures: charterer / laycan from TC master when VC estimate is absent.
+  const missingTc = ids.filter((id) => !enriched.has(String(id)));
+  if (missingTc.length) {
+    const tcPlaceholders = missingTc.map(() => '?').join(',');
+    try {
+      const [tcRows] = await pool.query(
+        `SELECT c.COMID, m.SEL_CHARTERER, m.LAYCAN_FROM, m.LAYCAN_TO,
+                m.HIRE_FIX_PER, charterer.NAME AS CHARTERER_NAME
+         FROM chartering_estimate_tc_compare c
+         INNER JOIN chartering_estimate_tc_master m ON m.TCOUTID = c.TCOUTID
+         LEFT JOIN vendor_master charterer ON charterer.CODE = m.SEL_CHARTERER
+         WHERE c.COMID IN (${tcPlaceholders}) AND c.MODULEID = ? AND c.MCOMPANYID = ?
+         ORDER BY c.COMID, m.TCOUTID DESC`,
+        [...missingTc, MODULE_ID, COMPANY_ID],
+      );
+      for (const row of tcRows || []) {
+        const key = String(row.COMID);
+        if (enriched.has(key)) continue;
+        const agents = agentsByCom.get(key) || [];
+        enriched.set(key, {
+          fcaId: null,
+          vesselType: '',
+          cargo: '',
+          charterer: String(row.CHARTERER_NAME || '').trim(),
+          owner: '',
+          rate: formatRate({ hireRate: row.HIRE_FIX_PER, isTc: true }),
+          laycan: formatLaycan(
+            formatEstimateDate(row.LAYCAN_FROM),
+            formatEstimateDate(row.LAYCAN_TO),
+          ),
+          terms: '',
+          tce: null,
+          pnl: null,
+          isPeriod: false,
+          coaSpot: '',
+          legFrom: '',
+          legTo: '',
+          contacts: agents,
+        });
+      }
+    } catch {
+      /* optional */
+    }
+  }
+
+  // Still attach agents for COMIDs that only had empty commercial stubs.
+  for (const id of ids) {
+    const key = String(id);
+    if (enriched.has(key)) continue;
+    const agents = agentsByCom.get(key) || [];
+    if (!agents.length) continue;
+    enriched.set(key, {
+      fcaId: null,
+      vesselType: '',
+      cargo: '',
+      charterer: '',
+      owner: '',
+      rate: '',
+      laycan: '',
+      terms: '',
+      tce: null,
+      pnl: null,
+      isPeriod: false,
+      coaSpot: '',
+      legFrom: '',
+      legTo: '',
+      contacts: agents,
+    });
+  }
+
+  return enriched;
 }
 
 /**
@@ -221,8 +661,16 @@ export async function fetchFleetOverlay() {
     const sheet = sheetsByCom.get(String(row.comId));
     const fin = commercialByCom.get(String(row.comId)) || {};
     const sheetKind = row.kind === 'tc' ? 'tc' : (sheet?.sheetKind || 'vc');
-    let contract = row.kind === 'tc' ? 'tc' : 'spot';
-    if (fin.isPeriod) contract = 'period';
+    let contract = 'spot';
+    if (row.kind === 'tc') {
+      contract = 'tc';
+    } else if (fin.isPeriod) {
+      contract = 'period';
+    } else if (String(fin.coaSpot) === '2') {
+      contract = 'coa';
+    } else if (String(fin.coaSpot) === '1') {
+      contract = 'spot';
+    }
 
     const commercial = {
       contract,
@@ -233,14 +681,14 @@ export async function fetchFleetOverlay() {
       rate: fin.rate || '',
       charterer: fin.charterer || '',
       owner: fin.owner || '',
-      terms: '',
+      terms: fin.terms || '',
       tce: fin.tce ?? null,
       pnl: fin.pnl ?? null,
       from: row.routeFrom,
       to: row.routeTo,
-      legFrom: row.routeFrom,
-      legTo: row.routeTo,
-      contacts: [],
+      legFrom: fin.legFrom || row.routeFrom,
+      legTo: fin.legTo || row.routeTo,
+      contacts: Array.isArray(fin.contacts) ? fin.contacts : [],
       workingCostSheetId: sheet?.costSheetId || null,
       workingSheetName: sheet?.sheetName || '',
       workingVfKind: sheetKind,

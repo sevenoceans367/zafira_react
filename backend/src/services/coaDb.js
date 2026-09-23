@@ -38,6 +38,13 @@ async function ensureCoaMasterLifecycleColumns(pool) {
       );
       columns.add('CANCEL_REMARKS');
     }
+    if (!columns.has('FREIGHT_USD')) {
+      await pool.query(
+        `ALTER TABLE coa_master
+         ADD COLUMN FREIGHT_USD DECIMAL(18,4) NULL`,
+      );
+      columns.add('FREIGHT_USD');
+    }
   } catch (error) {
     console.warn('[coaDb] Could not add coa_master lifecycle columns:', error.message);
   }
@@ -219,6 +226,7 @@ function mapCoaDetail(row, exclusions = []) {
     businessTypeId: row.BUSINESSTYPEID != null ? String(row.BUSINESSTYPEID) : '3',
     foPrice: row.FO_PRICE != null ? String(row.FO_PRICE) : '',
     bafAmt: row.BAF_AMT != null ? String(row.BAF_AMT) : '',
+    freightUsd: row.FREIGHT_USD != null ? String(row.FREIGHT_USD) : '',
     status: row.STATUS != null ? Number(row.STATUS) : 1,
     cancelRemarks: row.CANCEL_REMARKS ?? '',
     exclusions,
@@ -439,6 +447,7 @@ export async function dbListRunningCoas({
 
 export async function dbGetCoa(coaId) {
   const pool = getPool();
+  await ensureCoaMasterLifecycleColumns(pool);
   const [[row]] = await pool.query(
     `SELECT * FROM coa_master
      WHERE COAID = ? AND MODULEID = ? AND MCOMPANYID = ?
@@ -475,8 +484,9 @@ export async function dbGetCoa(coaId) {
 
 export async function dbCreateCoa(payload) {
   const pool = getPool();
-  const columns = await ensureCoaMasterLifecycleColumns(pool);
+    const columns = await ensureCoaMasterLifecycleColumns(pool);
   const hasStatus = columns.has('STATUS');
+  const hasFreightUsd = columns.has('FREIGHT_USD');
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -490,8 +500,8 @@ export async function dbCreateCoa(payload) {
         MIN_GUARANTEED_QTY, LP_ETA_NOTICES, VESSEL_SUBSTITUTE, COA_DURATION, START_DATE, END_DATE,
         FREIGHT_DETAILS, LP_DETAILS, DP_DETAILS, DEMM_LAYTIME, REMARKS, UPDATE_STATUS,
         ATTACHMENT, ATTACHMENT_NAME, ADD_ON_DATE, MESSAGE_NO, CURRENCY, BUSINESSTYPEID,
-        FO_PRICE, BAF_AMT${hasStatus ? ', STATUS' : ''}`;
-    const insertPlaceholders = `?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?${hasStatus ? ', 1' : ''}`;
+        FO_PRICE, BAF_AMT${hasFreightUsd ? ', FREIGHT_USD' : ''}${hasStatus ? ', STATUS' : ''}`;
+    const insertPlaceholders = `?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?${hasFreightUsd ? ', ?' : ''}${hasStatus ? ', 1' : ''}`;
 
     const [result] = await connection.query(
       `INSERT INTO coa_master (${insertCols}) VALUES (${insertPlaceholders})`,
@@ -530,6 +540,7 @@ export async function dbCreateCoa(payload) {
         nullIfEmpty(payload.businessTypeId) || '2',
         nullIfEmpty(payload.foPrice),
         nullIfEmpty(payload.bafAmt),
+        ...(hasFreightUsd ? [nullIfEmpty(payload.freightUsd)] : []),
       ],
     );
 
@@ -561,6 +572,8 @@ export async function dbCreateCoa(payload) {
 
 export async function dbUpdateCoa(coaId, payload) {
   const pool = getPool();
+  const columns = await ensureCoaMasterLifecycleColumns(pool);
+  const hasFreightUsd = columns.has('FREIGHT_USD');
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -572,7 +585,7 @@ export async function dbUpdateCoa(coaId, payload) {
         VESSEL_SUBSTITUTE = ?, COA_DURATION = ?, START_DATE = ?, END_DATE = ?,
         FREIGHT_DETAILS = ?, LP_DETAILS = ?, DP_DETAILS = ?, DEMM_LAYTIME = ?, REMARKS = ?,
         ATTACHMENT = ?, ATTACHMENT_NAME = ?, CURRENCY = ?, BUSINESSTYPEID = ?,
-        UPDATE_STATUS = ?, FO_PRICE = ?, BAF_AMT = ?, UPDATE_ON_DATE = NOW()
+        UPDATE_STATUS = ?, FO_PRICE = ?, BAF_AMT = ?${hasFreightUsd ? ', FREIGHT_USD = ?' : ''}, UPDATE_ON_DATE = NOW()
        WHERE COAID = ? AND MODULEID = ? AND MCOMPANYID = ?`,
       [
         nullIfEmpty(payload.coaIdentity),
@@ -606,6 +619,7 @@ export async function dbUpdateCoa(coaId, payload) {
         nullIfEmpty(payload.updateStatus) || '1',
         nullIfEmpty(payload.foPrice),
         nullIfEmpty(payload.bafAmt),
+        ...(hasFreightUsd ? [nullIfEmpty(payload.freightUsd)] : []),
         coaId,
         COA_MODULE_ID,
         appContext.companyId,

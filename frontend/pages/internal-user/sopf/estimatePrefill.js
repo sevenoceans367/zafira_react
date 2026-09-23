@@ -2,13 +2,15 @@ import {
   BUNKER_ACTIVITY_SEED_FIELDS,
   PORT_BUNKER_GRADE_OPTIONS,
   createEmptyBunkerActivityRow,
+  createEmptyCargoRow,
+  createEmptyConsumptionRow,
   createEmptyDeliveryBunkerRow,
   createEmptyHireRow,
   createEmptyOffHireRow,
   createEmptyPortLeg,
   createEmptySecaBunkerRow,
 } from './estimateDetail.constants.js';
-import { classifyBunkerGradeName } from './estimateCalculations.js';
+import { calcCargoAmount, classifyBunkerGradeName } from './estimateCalculations.js';
 
 const PORT_BUNKER_GRADE_ORDER = PORT_BUNKER_GRADE_OPTIONS.map((option) => option.value);
 
@@ -188,13 +190,21 @@ export function applyVesselPrefillToForm(current, prefill, lookups = {}) {
   // Always rebuild on vessel select (PHP addBunkerVariousItems after commercial load).
   const bunkerActivityRows = buildBunkerActivityRowsFromVariousRates(variousRates, market);
 
-  const consumptionRows = (Array.isArray(prefill.consumptionRows) && prefill.consumptionRows.length
-    ? prefill.consumptionRows
-    : current.consumptionRows
-  ).map((row) => ({
-    ...row,
-    identify: classifyConsumptionIdentify(row, lookups.bunkerGrades || current._bunkerGrades || []),
-  }));
+  const consumptionRows = (() => {
+    const raw = (Array.isArray(prefill.consumptionRows) && prefill.consumptionRows.length
+      ? prefill.consumptionRows
+      : current.consumptionRows
+    ).map((row) => ({
+      ...row,
+      identify: classifyConsumptionIdentify(row, lookups.bunkerGrades || current._bunkerGrades || []),
+    }));
+    const hasFo = raw.some((row) => String(row.identify || 'FO').toUpperCase() === 'FO');
+    const hasDo = raw.some((row) => String(row.identify || '').toUpperCase() === 'DO');
+    const next = [...raw];
+    if (!hasFo) next.push(createEmptyConsumptionRow('FO'));
+    if (!hasDo) next.push(createEmptyConsumptionRow('DO'));
+    return next;
+  })();
   const portBunkerGrades = derivePortBunkerGrades(
     consumptionRows,
     lookups.bunkerGrades || current._bunkerGrades || [],
@@ -310,5 +320,63 @@ export function applyPeriodPrefillToForm(current, periodData) {
     offHireRows,
     deliveryBunkerRows,
     redeliveryBunkerRows,
+  };
+}
+
+function resolveCoaShipmentQty(coaData = {}) {
+  const fromExclusion = (coaData.exclusions || [])
+    .map((row) => String(row.minGuaranteed || '').trim())
+    .find(Boolean);
+  const candidates = [
+    coaData.minQtyPerShipment,
+    fromExclusion,
+    coaData.minGuaranteedQty,
+  ];
+  for (const value of candidates) {
+    const raw = String(value ?? '').trim();
+    if (!raw) continue;
+    const n = Number(String(raw).replace(/,/g, ''));
+    if (Number.isFinite(n) && n > 0) return String(raw);
+  }
+  return '';
+}
+
+/**
+ * Spot voyage inside COA (tanker): cargo + qty + USD/MT from master;
+ * force Single Lift + Lump Sum.
+ */
+export function applyCoaPrefillToForm(current, coaData, lookups = {}) {
+  if (!coaData) return current;
+
+  const cargoId = String(coaData.cargo || '').trim();
+  const cargoLookup = lookups.cargos || [];
+  const cargoMatch = cargoLookup.find((c) => String(c.id) === cargoId);
+  const cargoName = cargoMatch?.name
+    || coaData.cargoName
+    || cargoId;
+
+  const qty = resolveCoaShipmentQty(coaData);
+  const rate = String(coaData.freightUsd || '').trim();
+  const amount = qty && rate
+    ? String(calcCargoAmount(qty, rate) || '')
+    : '';
+
+  const cargoRow = {
+    ...createEmptyCargoRow(1),
+    cargoId: cargoId && cargoId !== '0' ? cargoId : '',
+    cargoName: cargoId ? cargoName : '',
+  };
+
+  return {
+    ...current,
+    coaSpot: '2',
+    tankType: '1',
+    chkLumpsum: true,
+    cargoIds: cargoRow.cargoId ? [cargoRow.cargoId] : [],
+    cargoRows: [cargoRow],
+    lumpsumQty: qty || current.lumpsumQty || '',
+    lumpsum: amount || current.lumpsum || '',
+    lumpsumVendor: coaData.charterer || current.lumpsumVendor || '',
+    coaFreightUsdMt: rate || current.coaFreightUsdMt || '',
   };
 }

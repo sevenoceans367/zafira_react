@@ -826,27 +826,33 @@ export default function EstimateDetailSections({
             <Field id="tpc" label="TPC">
               <input {...inputProps('tpc')} />
             </Field>
-            <Field id="gear" label="Gear">
-              <input {...inputProps('gear')} />
-            </Field>
+            {!isTanker ? (
+              <Field id="gear" label="Gear">
+                <input {...inputProps('gear')} />
+              </Field>
+            ) : null}
             <Field id="builtYear" label="Year Built">
               <input {...inputProps('builtYear')} />
             </Field>
             <Field id="beam" label="Beam">
               <input {...inputProps('beam')} />
             </Field>
-            <Field id="loadable" label="Loadable">
-              <input {...inputProps('loadable')} />
-            </Field>
-            <Field id="stowageFactor" label="Stowage Factor">
-              <input {...inputProps('stowageFactor')} />
-            </Field>
-            <Field id="grainCap" label="Grain Cap">
-              <input {...inputProps('grainCap')} />
-            </Field>
-            <Field id="baleCap" label="Bale Cap">
-              <input {...inputProps('baleCap')} />
-            </Field>
+            {!isTanker ? (
+              <>
+                <Field id="loadable" label="Loadable">
+                  <input {...inputProps('loadable')} />
+                </Field>
+                <Field id="stowageFactor" label="Stowage Factor">
+                  <input {...inputProps('stowageFactor')} />
+                </Field>
+                <Field id="grainCap" label="Grain Cap">
+                  <input {...inputProps('grainCap')} />
+                </Field>
+                <Field id="baleCap" label="Bale Cap">
+                  <input {...inputProps('baleCap')} />
+                </Field>
+              </>
+            ) : null}
           </div>
       </CollapsiblePanel>
 

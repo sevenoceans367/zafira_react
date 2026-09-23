@@ -27,7 +27,10 @@ export const MAP_STYLES = {
   dark: {
     id: 'dark',
     label: 'Dark',
-    url: `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=${CARTO_MAP_KEY}`,
+    // Voyager (no labels) + CSS tint → navy ocean / muted-blue land (flat dashboard look)
+    url: `https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png?key=${CARTO_MAP_KEY}`,
+    tileClassName: 'tilesDarkNavy',
+    theme: 'dark',
   },
 };
 
@@ -39,6 +42,18 @@ export const DEFAULT_MAP_ZOOM = 3;
 export const AUTO_LOAD_MAX_ZOOM = 4;
 export const SEARCH_MAP_ZOOM = 8;
 export const MAX_AUTO_ROUTES = 20;
+
+/** Continent labels for Dark map style (visible at low zoom only). */
+export const CONTINENT_LABELS = [
+  { name: 'NORTH AMERICA', lat: 45, lng: -100 },
+  { name: 'SOUTH AMERICA', lat: -15, lng: -58 },
+  { name: 'EUROPE', lat: 50, lng: 15 },
+  { name: 'AFRICA', lat: 5, lng: 20 },
+  { name: 'ASIA', lat: 45, lng: 90 },
+  { name: 'OCEANIA', lat: -25, lng: 135 },
+  { name: 'ANTARCTICA', lat: -82, lng: 0 },
+];
+export const CONTINENT_LABEL_MAX_ZOOM = 5;
 
 export const ROUTE_COLORS = [
   '#274670',

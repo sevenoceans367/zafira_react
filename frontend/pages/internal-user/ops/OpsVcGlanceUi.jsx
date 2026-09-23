@@ -286,8 +286,8 @@ export function VoyDocsCell({
           <button
             type="button"
             className={`${styles.docBtn} ${styles.docBtnDanger}`}
-            title="Deactivate entry"
-            aria-label="Deactivate entry"
+            title="Cancel"
+            aria-label="Cancel voyage"
             onClick={onDeactivate}
           >
             <DocTrashIcon />

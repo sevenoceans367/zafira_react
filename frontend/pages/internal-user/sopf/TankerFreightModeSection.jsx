@@ -175,10 +175,14 @@ export default function TankerFreightModeSection({
   updateField,
 }) {
   const alert = useAlert();
-  const tankType = String(form.tankType || '1');
-  const chkLumpsum = form.chkLumpsum != null ? !!form.chkLumpsum : true;
+  const isCoaSpot = String(form.coaSpot || '') === '2';
+  const tankType = isCoaSpot ? '1' : String(form.tankType || '1');
+  const chkLumpsum = isCoaSpot ? true : (form.chkLumpsum != null ? !!form.chkLumpsum : true);
   const isSingle = tankType === '1';
   const isDistributed = tankType === '2';
+  // Spot voyage inside COA: only Single Lift + Lump Sum.
+  const cargoTypeLocked = isCoaSpot;
+  const calcMethodLocked = isCoaSpot || isDistributed;
 
   const updateTankerWsRow = (id, patch) => {
     const cleanPatch = sanitizeEstimatePatch(patch);
@@ -244,6 +248,7 @@ export default function TankerFreightModeSection({
   };
 
   const setCargoType = (nextType) => {
+    if (isCoaSpot) return;
     if (nextType === '2') {
       applyPatch({ tankType: '2', chkLumpsum: false });
       return;
@@ -252,6 +257,7 @@ export default function TankerFreightModeSection({
   };
 
   const setCalculationMethod = (method) => {
+    if (isCoaSpot) return;
     handleChkLumpsumChange(method === 'lumpsum');
   };
 
@@ -268,17 +274,19 @@ export default function TankerFreightModeSection({
             <button
               type="button"
               className={`${styles.segmentedBtn} ${isSingle ? styles.segmentedBtnActive : ''}`}
-              disabled={readOnly}
+              disabled={readOnly || cargoTypeLocked}
               aria-pressed={isSingle}
+              title={cargoTypeLocked ? 'Spot voyage inside COA uses Single Lift only' : undefined}
               onClick={() => setCargoType('1')}
             >
-              Single
+              Single Lift
             </button>
             <button
               type="button"
               className={`${styles.segmentedBtn} ${isDistributed ? styles.segmentedBtnActive : ''}`}
-              disabled={readOnly}
+              disabled={readOnly || cargoTypeLocked}
               aria-pressed={isDistributed}
+              title={cargoTypeLocked ? 'Spot voyage inside COA uses Single Lift only' : undefined}
               onClick={() => setCargoType('2')}
             >
               Multiple
@@ -292,8 +300,12 @@ export default function TankerFreightModeSection({
             <button
               type="button"
               className={`${styles.segmentedBtn} ${!isDistributed && chkLumpsum ? styles.segmentedBtnActive : ''}`.trim()}
-              disabled={readOnly || isDistributed}
-              title={isDistributed ? 'Calculation method is only available for Single cargo type' : undefined}
+              disabled={readOnly || calcMethodLocked}
+              title={
+                isCoaSpot
+                  ? 'Spot voyage inside COA uses Lump Sum only'
+                  : (isDistributed ? 'Calculation method is only available for Single cargo type' : undefined)
+              }
               aria-pressed={!isDistributed && chkLumpsum}
               onClick={() => setCalculationMethod('lumpsum')}
             >
@@ -302,8 +314,12 @@ export default function TankerFreightModeSection({
             <button
               type="button"
               className={`${styles.segmentedBtn} ${!isDistributed && !chkLumpsum ? styles.segmentedBtnActive : ''}`.trim()}
-              disabled={readOnly || isDistributed}
-              title={isDistributed ? 'Calculation method is only available for Single cargo type' : undefined}
+              disabled={readOnly || calcMethodLocked}
+              title={
+                isCoaSpot
+                  ? 'Spot voyage inside COA uses Lump Sum only'
+                  : (isDistributed ? 'Calculation method is only available for Single cargo type' : undefined)
+              }
               aria-pressed={!isDistributed && !chkLumpsum}
               onClick={() => setCalculationMethod('worldscale')}
             >

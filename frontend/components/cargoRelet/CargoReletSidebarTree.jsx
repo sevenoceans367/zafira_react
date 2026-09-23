@@ -1,13 +1,30 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import SidebarSubmenuArrow from '../icons/SidebarSubmenuArrow.jsx';
-import cargoReletIcon from '../../assets/cargo-relet.svg';
 import {
   CARGO_RELET_SIDEBAR_ITEMS,
   cargoReletAppPath,
   isCargoReletPath,
   parseCargoReletModuleFromPath,
 } from '../../constants/cargoReletModule.js';
+
+function CargoReletIcon({ className = 'icon' }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <polyline points="16 3 21 3 21 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="4" y1="20" x2="21" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points="21 16 21 21 16 21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="4" y1="4" x2="9" y2="9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export default function CargoReletSidebarTree({ isOpen, module: moduleProp }) {
   const { pathname } = useLocation();
@@ -46,7 +63,7 @@ export default function CargoReletSidebarTree({ isOpen, module: moduleProp }) {
         onClick={() => setExpanded(false)}
         aria-haspopup="true"
       >
-        <img src={cargoReletIcon} alt="" className="icon" aria-hidden />
+        <CargoReletIcon />
         {isOpen ? <span>Cargo Relet</span> : null}
         {isOpen ? <SidebarSubmenuArrow className="icon master-chevron" /> : null}
       </Link>

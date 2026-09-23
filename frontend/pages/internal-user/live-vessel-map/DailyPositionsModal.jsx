@@ -27,8 +27,8 @@ const EXTERNAL_ICON = (
 
 const COPY_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="8" y="8" width="12" height="12" rx="2" />
-    <path d="M4 16V5a1 1 0 0 1 1-1h11" />
+    <rect x="9" y="9" width="13" height="13" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
   </svg>
 );
 
@@ -171,7 +171,7 @@ export default function DailyPositionsModal({ open, onClose }) {
                       className={styles.accentCell}
                       style={{ borderLeftColor: ACCENT[row.type] || ACCENT.relet }}
                     >
-                      {(safePage - 1) * PAGE_SIZE + index + 1}.
+                      {(safePage - 1) * PAGE_SIZE + index + 1}
                     </td>
                     <td>
                       <div className={styles.identity}>

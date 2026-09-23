@@ -200,6 +200,7 @@ export async function getCoa(coaId) {
       businessTypeId: '3',
       foPrice: '',
       bafAmt: '',
+      freightUsd: '12.50',
       status: 1,
       cancelRemarks: '',
       exclusions: [],

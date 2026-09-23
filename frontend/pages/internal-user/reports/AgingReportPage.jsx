@@ -25,7 +25,7 @@ const TRADE_OPTIONS = [
 ];
 
 const DAYS_OPTIONS = [
-  { id: 'all', name: 'All' },
+  { id: 'all', name: 'All Open' },
   { id: '0-30', name: '0 - 30 Days' },
   { id: '31-60', name: '31 - 60 Days' },
   { id: '61-90', name: '61 - 90 Days' },
@@ -85,22 +85,22 @@ const AR_ROWS_RAW = [
 ];
 
 const AP_ROWS_RAW = [
-  { vendor: 'Aegean Bunkering DMCC', contractType: 'spot', biz: 'Tanker', voyageNo: 'SPOT-2601', vessel: 'NEW INTEGRITY', cpDate: '10-Jan-2026', docType: 'Bunkers', docNo: 'BILL-10041', docDate: '15-Jun-2026', amtIn: 480000, amtOut: 355000, delayDays: 96, status: 'Open' },
-  { vendor: 'World Fuel Services', contractType: 'spot', biz: 'Tanker', voyageNo: 'SPOT-2602', masterContract: 'COA-088-2026', vessel: 'OCEAN PRIDE', cpDate: '18-Jan-2026', docType: 'Port DA', docNo: 'BILL-10052', docDate: '24-Jul-2026', amtIn: 260000, amtOut: 180000, delayDays: 57, status: 'Open' },
-  { vendor: 'Wilhelmsen Ships Service', contractType: 'coa', biz: 'Dry Cargo', voyageNo: 'COA-088-2026-L2', vessel: 'NORD PIONEER', cpDate: '02-Aug-2026', docType: 'Port DA', docNo: 'BILL-20031', docDate: '05-Aug-2026', amtIn: 610000, amtOut: 400000, delayDays: 45, status: 'Open' },
-  { vendor: 'GAC Shipping', contractType: 'coa', biz: 'Dry Cargo', voyageNo: 'COA-091-2026-L5', vessel: 'CORAL ISLAND', cpDate: '14-Aug-2026', docType: 'Bunkers', docNo: 'BILL-20044', docDate: '20-Aug-2026', amtIn: 395000, amtOut: 300000, delayDays: 30, status: 'Open' },
-  { vendor: 'Monjasa A/S', contractType: 'tc', biz: 'Gas', voyageNo: 'TC-3311', vessel: 'GAS PIONEER', cpDate: '—', docType: 'Management Fee', docNo: 'BILL-30015', docDate: '02-Sep-2026', amtIn: 260000, amtOut: 200000, delayDays: 17, status: 'Open' },
-  { vendor: 'Peninsula Petroleum', contractType: 'tc', biz: 'Gas', voyageNo: 'TC-3298', vessel: 'POLAR MIST', cpDate: '—', docType: 'Bunkers', docNo: 'BILL-30022', docDate: '01-Jul-2026', amtIn: 410000, amtOut: 260000, delayDays: 80, status: 'Open' },
-  { vendor: 'V.Group Ship Management', contractType: 'tc', biz: 'Tanker', voyageNo: 'TC-2611', vessel: 'CRIMSON HORIZON', cpDate: '12-Feb-2026', docType: 'Management Fee', docNo: 'BILL-10077', docDate: '12-Feb-2026', amtIn: 820000, amtOut: 500000, delayDays: 219, status: 'Open' },
-  { vendor: 'Inchcape Shipping Services', contractType: 'spot', biz: 'Tanker', voyageNo: 'SPOT-2609', vessel: 'ANTARES', cpDate: '27-Feb-2026', docType: 'Port DA', docNo: 'BILL-10088', docDate: '27-Feb-2026', amtIn: 320000, amtOut: 320000, delayDays: 0, status: 'Closed' },
-  { vendor: 'Sinotrans Shipping', contractType: 'coa', biz: 'Dry Cargo', voyageNo: 'COA-072-2026-D9', vessel: 'SILVER HORIZON', cpDate: '23-Sep-2026', docType: 'Port DA', docNo: 'BILL-20058', docDate: '12-Sep-2026', amtIn: 580000, amtOut: 535000, delayDays: 7, status: 'Open' },
-  { vendor: 'Bomin Bunker Oil', contractType: 'tc', biz: 'Gas', voyageNo: 'TC-3345', vessel: 'ARCTIC FLAME', cpDate: '—', docType: 'Bunkers', docNo: 'BILL-30037', docDate: '15-Aug-2026', amtIn: 195000, amtOut: 140000, delayDays: 35, status: 'Open' },
-  { vendor: 'Vopak Terminals', contractType: 'spot', biz: 'Tanker', voyageNo: 'SPOT-2622', vessel: 'PACIFIC GLORY', cpDate: '06-Jun-2026', docType: 'Port DA', docNo: 'BILL-10095', docDate: '06-Jun-2026', amtIn: 210000, amtOut: 210000, delayDays: 0, status: 'Closed' },
-  { vendor: 'Global Ports Holding', contractType: 'coa', biz: 'Dry Cargo', voyageNo: 'COA-065-2026-D3', vessel: 'EASTERN GLORY', cpDate: '18-Aug-2026', docType: 'Port DA', docNo: 'BILL-20066', docDate: '18-Aug-2026', amtIn: 600000, amtOut: 425000, delayDays: 32, status: 'Open' },
-  { vendor: 'Korea Marine Agency', contractType: 'tc', biz: 'Gas', voyageNo: 'TC-3210', vessel: 'NORTHERN COMET', cpDate: '—', docType: 'Management Fee', docNo: 'BILL-30049', docDate: '17-Sep-2026', amtIn: 195000, amtOut: 174000, delayDays: 2, status: 'Open' },
-  { vendor: 'Busan Port Services', contractType: 'spot', biz: 'Tanker', voyageNo: 'SPOT-2645', vessel: 'ORION TRADER', cpDate: '30-May-2026', docType: 'Bunkers', docNo: 'BILL-10102', docDate: '30-May-2026', amtIn: 500000, amtOut: 225000, delayDays: 112, status: 'Open' },
-  { vendor: 'Trident Ship Management', contractType: 'period', biz: 'Tanker', voyageNo: 'PERIOD-2026-04', vessel: 'STELLAR HORIZON', cpDate: '04-Apr-2026', docType: 'Management Fee', docNo: 'BILL-40010', docDate: '10-Aug-2026', amtIn: 900000, amtOut: 700000, delayDays: 40, status: 'Open' },
-  { vendor: 'GAC Shipping', contractType: 'relet', biz: 'Tanker', voyageNo: 'RELET-4401', masterContract: 'PERIOD-2026-04', vessel: 'CRIMSON HORIZON', cpDate: '12-Sep-2026', docType: 'Port DA', docNo: 'BILL-40025', docDate: '14-Sep-2026', amtIn: 150000, amtOut: 60000, delayDays: 5, status: 'Open' },
+  { customer: 'Aegean Bunkering DMCC', contractType: 'spot', biz: 'Tanker', voyageNo: 'SPOT-2601', vessel: 'NEW INTEGRITY', cpDate: '10-Jan-2026', docType: 'Bunkers', docNo: 'BILL-10041', docDate: '15-Jun-2026', amtIn: 480000, amtOut: 355000, delayDays: 96, status: 'Open' },
+  { customer: 'World Fuel Services', contractType: 'spot', biz: 'Tanker', voyageNo: 'SPOT-2602', masterContract: 'COA-088-2026', vessel: 'OCEAN PRIDE', cpDate: '18-Jan-2026', docType: 'Port DA', docNo: 'BILL-10052', docDate: '24-Jul-2026', amtIn: 260000, amtOut: 180000, delayDays: 57, status: 'Open' },
+  { customer: 'Wilhelmsen Ships Service', contractType: 'coa', biz: 'Dry Cargo', voyageNo: 'COA-088-2026-L2', vessel: 'NORD PIONEER', cpDate: '02-Aug-2026', docType: 'Port DA', docNo: 'BILL-20031', docDate: '05-Aug-2026', amtIn: 610000, amtOut: 400000, delayDays: 45, status: 'Open' },
+  { customer: 'GAC Shipping', contractType: 'coa', biz: 'Dry Cargo', voyageNo: 'COA-091-2026-L5', vessel: 'CORAL ISLAND', cpDate: '14-Aug-2026', docType: 'Bunkers', docNo: 'BILL-20044', docDate: '20-Aug-2026', amtIn: 395000, amtOut: 300000, delayDays: 30, status: 'Open' },
+  { customer: 'Monjasa A/S', contractType: 'tc', biz: 'Gas', voyageNo: 'TC-3311', vessel: 'GAS PIONEER', cpDate: '—', docType: 'Management Fee', docNo: 'BILL-30015', docDate: '02-Sep-2026', amtIn: 260000, amtOut: 200000, delayDays: 17, status: 'Open' },
+  { customer: 'Peninsula Petroleum', contractType: 'tc', biz: 'Gas', voyageNo: 'TC-3298', vessel: 'POLAR MIST', cpDate: '—', docType: 'Bunkers', docNo: 'BILL-30022', docDate: '01-Jul-2026', amtIn: 410000, amtOut: 260000, delayDays: 80, status: 'Open' },
+  { customer: 'V.Group Ship Management', contractType: 'tc', biz: 'Tanker', voyageNo: 'TC-2611', vessel: 'CRIMSON HORIZON', cpDate: '12-Feb-2026', docType: 'Management Fee', docNo: 'BILL-10077', docDate: '12-Feb-2026', amtIn: 820000, amtOut: 500000, delayDays: 219, status: 'Open' },
+  { customer: 'Inchcape Shipping Services', contractType: 'spot', biz: 'Tanker', voyageNo: 'SPOT-2609', vessel: 'ANTARES', cpDate: '27-Feb-2026', docType: 'Port DA', docNo: 'BILL-10088', docDate: '27-Feb-2026', amtIn: 320000, amtOut: 320000, delayDays: 0, status: 'Closed' },
+  { customer: 'Sinotrans Shipping', contractType: 'coa', biz: 'Dry Cargo', voyageNo: 'COA-072-2026-D9', vessel: 'SILVER HORIZON', cpDate: '23-Sep-2026', docType: 'Port DA', docNo: 'BILL-20058', docDate: '12-Sep-2026', amtIn: 580000, amtOut: 535000, delayDays: 7, status: 'Open' },
+  { customer: 'Bomin Bunker Oil', contractType: 'tc', biz: 'Gas', voyageNo: 'TC-3345', vessel: 'ARCTIC FLAME', cpDate: '—', docType: 'Bunkers', docNo: 'BILL-30037', docDate: '15-Aug-2026', amtIn: 195000, amtOut: 140000, delayDays: 35, status: 'Open' },
+  { customer: 'Vopak Terminals', contractType: 'spot', biz: 'Tanker', voyageNo: 'SPOT-2622', vessel: 'PACIFIC GLORY', cpDate: '06-Jun-2026', docType: 'Port DA', docNo: 'BILL-10095', docDate: '06-Jun-2026', amtIn: 210000, amtOut: 210000, delayDays: 0, status: 'Closed' },
+  { customer: 'Global Ports Holding', contractType: 'coa', biz: 'Dry Cargo', voyageNo: 'COA-065-2026-D3', vessel: 'EASTERN GLORY', cpDate: '18-Aug-2026', docType: 'Port DA', docNo: 'BILL-20066', docDate: '18-Aug-2026', amtIn: 600000, amtOut: 425000, delayDays: 32, status: 'Open' },
+  { customer: 'Korea Marine Agency', contractType: 'tc', biz: 'Gas', voyageNo: 'TC-3210', vessel: 'NORTHERN COMET', cpDate: '—', docType: 'Management Fee', docNo: 'BILL-30049', docDate: '17-Sep-2026', amtIn: 195000, amtOut: 174000, delayDays: 2, status: 'Open' },
+  { customer: 'Busan Port Services', contractType: 'spot', biz: 'Tanker', voyageNo: 'SPOT-2645', vessel: 'ORION TRADER', cpDate: '30-May-2026', docType: 'Bunkers', docNo: 'BILL-10102', docDate: '30-May-2026', amtIn: 500000, amtOut: 225000, delayDays: 112, status: 'Open' },
+  { customer: 'Trident Ship Management', contractType: 'period', biz: 'Tanker', voyageNo: 'PERIOD-2026-04', vessel: 'STELLAR HORIZON', cpDate: '04-Apr-2026', docType: 'Management Fee', docNo: 'BILL-40010', docDate: '10-Aug-2026', amtIn: 900000, amtOut: 700000, delayDays: 40, status: 'Open' },
+  { customer: 'GAC Shipping', contractType: 'relet', biz: 'Tanker', voyageNo: 'RELET-4401', masterContract: 'PERIOD-2026-04', vessel: 'CRIMSON HORIZON', cpDate: '12-Sep-2026', docType: 'Port DA', docNo: 'BILL-40025', docDate: '14-Sep-2026', amtIn: 150000, amtOut: 60000, delayDays: 5, status: 'Open' },
 ];
 
 function parseLegacyDate(str) {
@@ -141,7 +141,7 @@ function enrichRows(raw, partyKey) {
 }
 
 const AR_ROWS = enrichRows(AR_ROWS_RAW, 'customer');
-const AP_ROWS = enrichRows(AP_ROWS_RAW, 'vendor');
+const AP_ROWS = enrichRows(AP_ROWS_RAW, 'customer');
 
 function bucketOf(days) {
   if (days <= 30) return '0-30';
@@ -270,8 +270,8 @@ export default function AgingReportPage({ mode = 'receivables' }) {
   const isAr = mode === 'receivables';
   const columnDefs = useMemo(() => getColumnDefs(mode), [mode]);
   const rows = isAr ? AR_ROWS : AP_ROWS;
-  const partyLabel = isAr ? 'Customer' : 'Vendor';
-  const partyAllLabel = isAr ? 'All Customers' : 'All Vendors';
+  const partyLabel = 'Customer';
+  const partyAllLabel = 'All Customers';
   const searchPlaceholder = 'Search';
   const emptyMessage = isAr
     ? 'No invoices match the current filters.'
@@ -417,18 +417,18 @@ export default function AgingReportPage({ mode = 'receivables' }) {
                 subtitle="Read the full fiscal year, or narrow to a portion of the calendar"
               />
               <CardSelect
-                options={partyOptions}
-                value={partyFilter}
-                onChange={setPartyFilter}
-                placeholder={partyLabel}
-                ariaLabel={partyLabel}
-              />
-              <CardSelect
                 options={DAYS_OPTIONS}
                 value={daysFilter}
                 onChange={setDaysFilter}
                 placeholder="Accounting Period"
                 ariaLabel="Accounting Period"
+              />
+              <CardSelect
+                options={partyOptions}
+                value={partyFilter}
+                onChange={setPartyFilter}
+                placeholder={partyLabel}
+                ariaLabel={partyLabel}
               />
               <CardSelect
                 options={BIZ_OPTIONS}

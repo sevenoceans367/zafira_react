@@ -10,6 +10,7 @@ const EMPTY_STATE = {
   message: '',
   confirmLabel: 'Confirm',
   cancelLabel: 'Cancel',
+  hideCancel: false,
   tone: undefined,
   validation: null,
   children: null,
@@ -44,6 +45,7 @@ export function ConfirmProvider({ children }) {
         message: options.message || '',
         confirmLabel: options.confirmLabel || 'OK',
         cancelLabel: options.cancelLabel || 'Cancel',
+        hideCancel: Boolean(options.hideCancel),
         tone: options.tone,
         validation: options.validation ?? null,
         children: options.children ?? null,
@@ -97,6 +99,7 @@ export function ConfirmProvider({ children }) {
         message={state.message}
         confirmLabel={state.confirmLabel}
         cancelLabel={state.cancelLabel}
+        hideCancel={state.hideCancel}
         tone={state.tone}
         validation={state.validation}
         error={state.error}

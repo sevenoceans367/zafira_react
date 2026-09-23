@@ -365,13 +365,16 @@
   align-items: center;
   gap: 8px;
   flex: none;
+  height: 34px;
+  box-sizing: border-box;
   font-weight: 700;
   font-size: 12.5px;
+  line-height: 1;
   color: #fff;
   background: #274670;
   border: none;
   border-radius: 999px;
-  padding: 9px 16px;
+  padding: 0 16px;
   cursor: pointer;
   font-family: inherit;
 }

@@ -10,9 +10,9 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 760px;
-  max-width: 92vw;
-  max-height: 80vh;
+  width: 1180px;
+  max-width: 96vw;
+  max-height: 86vh;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(20, 30, 50, 0.28);

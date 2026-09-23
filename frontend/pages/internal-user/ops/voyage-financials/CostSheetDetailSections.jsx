@@ -1508,6 +1508,7 @@ export default function EstimateDetailSections({
             addRow={addRow}
             removeRow={removeRow}
             onRecalc={onRecalc}
+            updateField={updateField}
           />
         ) : null}
       </CollapsiblePanel>

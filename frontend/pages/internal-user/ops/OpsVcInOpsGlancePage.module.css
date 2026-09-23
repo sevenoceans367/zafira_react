@@ -679,6 +679,12 @@
   text-overflow: ellipsis;
 }
 
+.chipLink svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
 .chipLink:hover {
   background: #d3e3fd;
 }

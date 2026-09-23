@@ -119,12 +119,18 @@ export function DryFreightModeSection({
   addRow,
   removeRow,
   onRecalc,
+  updateField,
 }) {
   const tankType = String(form.tankType || '1');
   const isSingle = tankType !== '2';
   const isMultiple = tankType === '2';
   const dryMarket = String(form.dryMarket || '1');
   const isFreightRate = dryMarket !== '2';
+
+  const setLumpsumVendor = (value) => {
+    if (updateField) updateField('lumpsumVendor', value);
+    else applyPatch({ lumpsumVendor: value });
+  };
 
   const setCargoType = (nextType) => {
     if (String(nextType) === '2') {
@@ -304,6 +310,35 @@ export function DryFreightModeSection({
             )}
             <Field id="cargoQuantityDry" label="QTY (MT)">
               <input {...inputProps('cargoQuantity', { recalc: true })} id="cargoQuantityDry" placeholder="0.00" />
+            </Field>
+            <Field id="lumpsumVendorDry" label="Shipper/Charterer">
+              <select
+                id="lumpsumVendorDry"
+                name="lumpsumVendor"
+                value={form.lumpsumVendor || ''}
+                disabled={readOnly}
+                onChange={(e) => setLumpsumVendor(e.target.value)}
+              >
+                <option value="">— Select —</option>
+                {(() => {
+                  const options = [...(lookups.owners || [])];
+                  const selected = form.lumpsumVendor != null ? String(form.lumpsumVendor) : '';
+                  if (
+                    selected
+                    && !options.some((v) => String(v.code || v.id) === selected)
+                  ) {
+                    options.unshift({ id: selected, code: selected, name: selected });
+                  }
+                  return options.map((v) => {
+                    const optionValue = String(v.code || v.id || '');
+                    return (
+                      <option key={optionValue || v.id} value={optionValue}>
+                        {v.name}
+                      </option>
+                    );
+                  });
+                })()}
+              </select>
             </Field>
             {isFreightRate ? (
               <Field id="dfQty" label="DF Qty (MT)">

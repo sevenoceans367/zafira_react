@@ -38,7 +38,7 @@ function PaymentGridHeading({ vesselName, voyageNo }) {
     setHeading({
       title: (
         <span className={styles.headerTitleStack}>
-          Payment / Invoice Grid
+          Contract Finance
           {subtitle ? <span className={styles.titleMuted}>{subtitle}</span> : null}
         </span>
       ),
@@ -181,8 +181,8 @@ function SectionCard({ section, index, onAction }) {
 }
 
 /**
- * PHP payment_grid.php — Payment / Invoice Grid for Ops VC.
- * Opened from In Ops / Post Ops / History “View” under Payment / Invoices.
+ * PHP payment_grid.php — Contract Finance for Ops VC.
+ * Opened from In Ops / Post Ops / History F&A chip under Financial Management.
  */
 export default function OpsVcPaymentGridPage() {
   const navigate = useNavigate();
@@ -247,7 +247,7 @@ export default function OpsVcPaymentGridPage() {
       <OpsVcPaymentGridHeaderActions backHref={backHref} disabled={loading} />
 
       <div className={`zafira-page ${styles.page}`}>
-        {loading ? <LoadingOverlay show label="Loading Payment / Invoice Grid…" /> : null}
+        {loading ? <LoadingOverlay show label="Loading Contract Finance…" /> : null}
         {error ? <div className={styles.error}>{error}</div> : null}
 
         {!loading && !error && data && !sections.length ? (

@@ -147,6 +147,86 @@ export function ArrowIcon() {
   );
 }
 
+/** Chip icons from Spot Operations mockup (Letters / DA / Bunkers / SOF / Laytime). */
+export function LettersChipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 2.5h11.5L21 6v14a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 5 20V4a1.5 1.5 0 0 1 1.5-1.5z" />
+    </svg>
+  );
+}
+
+export function DaChipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="5" r="3" fill="currentColor" stroke="none" />
+      <path d="M12 8v13" />
+      <ellipse cx="12" cy="16.5" rx="7" ry="3.2" />
+    </svg>
+  );
+}
+
+export function BunkersChipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2.5c3.6 4.7 6.8 8.7 6.8 12.2a6.8 6.8 0 1 1-13.6 0c0-3.5 3.2-7.5 6.8-12.2z" />
+    </svg>
+  );
+}
+
+export function SofChipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
+      <rect x="8.5" y="2.3" width="7" height="3.4" rx="1.2" />
+      <path d="M8.5 11h7" />
+      <path d="M8.5 14.5h7" />
+      <path d="M8.5 18h4" />
+    </svg>
+  );
+}
+
+export function LaytimeChipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 6v6" />
+      <path d="M12 12l4.5 4.5" />
+      <circle cx="12" cy="3.7" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="20.3" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="3.7" cy="12" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="20.3" cy="12" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="6.3" cy="6.3" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="17.7" cy="6.3" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="6.3" cy="17.7" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="17.7" cy="17.7" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** Cashflow / F&A — not in the mockup chip set; stroke glyphs aligned with the same chip style. */
+export function CashflowChipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v18" />
+      <path d="M16.5 6.5H10a3 3 0 0 0 0 6h4a3 3 0 0 1 0 6H7" />
+    </svg>
+  );
+}
+
+export function FaChipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M8 14h3" />
+      <path d="M13 14h3" />
+      <path d="M8 17h8" />
+    </svg>
+  );
+}
+
 export function portLines(ports) {
   if (!ports) return [];
   return String(ports)

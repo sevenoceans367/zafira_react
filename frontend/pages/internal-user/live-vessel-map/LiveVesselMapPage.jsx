@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import worksheetIcon from '../../../assets/Worksheet_Icon.png';
 import { LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import { usePageHeaderActions, usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import LiveVesselMapControls from './LiveVesselMapControls.jsx';
@@ -183,15 +184,14 @@ function vesselKey(vessel) {
 }
 
 const VF_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-    <path d="M14 3h7v7" />
-    <path d="M10 14L21 3" />
-    <path d="M21 14v7h-7" />
-    <path d="M3 10V3h7" />
-    <path d="M3 10l7-7" />
-    <path d="M3 14v7h7" />
-    <path d="M14 21l7-7" />
-  </svg>
+  <span
+    className={styles.btnVfIcon}
+    style={{
+      WebkitMaskImage: `url(${worksheetIcon})`,
+      maskImage: `url(${worksheetIcon})`,
+    }}
+    aria-hidden="true"
+  />
 );
 
 function contractChipClass(contract) {

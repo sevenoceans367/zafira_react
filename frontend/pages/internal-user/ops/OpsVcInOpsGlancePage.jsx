@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Button,
   FilterField,
@@ -31,11 +31,17 @@ import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
 import {
   AlertIcon,
   ArrowIcon,
+  BunkersChipIcon,
+  CashflowChipIcon,
   ChipLink,
   CompareIcon,
+  DaChipIcon,
   DEFAULT_PAGE_SIZE,
-  EyeIcon,
+  FaChipIcon,
+  LaytimeChipIcon,
+  LettersChipIcon,
   OpsVcGlanceTable,
+  SofChipIcon,
   VoyDocsCell,
   alertLabels,
   formatLastUpdated,
@@ -300,6 +306,7 @@ export default function OpsVcInOpsGlancePage() {
                   <th style={{ width: 36 }}>#</th>
                   <th>Voy No.</th>
                   <th>Vessel</th>
+                  <th>Status</th>
                   <th>CP Date</th>
                   <th>Operator</th>
                   <th>Cargo</th>
@@ -308,19 +315,17 @@ export default function OpsVcInOpsGlancePage() {
                   <th>LP / DP</th>
                   <th>CHRT DESK</th>
                   <th>Charterer</th>
-                  <th>Voyage Letters</th>
-                  <th>Disbursements</th>
+                  <th>Letters</th>
+                  <th>Ports &amp; Fuel</th>
                   <th>Port Activity</th>
-                  <th>Calculations</th>
-                  <th>Fin.</th>
-                  <th>Alerts</th>
+                  <th>Financial Management</th>
                   <th>Next</th>
                 </tr>
               </thead>
               <tbody>
                 {!rows.length && !loading ? (
                   <tr>
-                    <td colSpan={18} className={styles.emptyCell}>
+                    <td colSpan={17} className={styles.emptyCell}>
                       SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                     </td>
                   </tr>
@@ -360,6 +365,17 @@ export default function OpsVcInOpsGlancePage() {
                             documentsHref={appPath(`/internal-user/vc/ops/documents?comid=${encodeURIComponent(row.comId)}&page=1`)}
                             onDeactivate={row.canDeactivate ? () => handleDeactivate(row) : undefined}
                           />
+                        </div>
+                      </td>
+                      <td>
+                        <div className={styles.alertStack}>
+                          {alerts.map((label) => (
+                            <span key={label} className={styles.alertPill}>
+                              <AlertIcon />
+                              {label}
+                            </span>
+                          ))}
+                          {!alerts.length ? <span className={styles.muted}>—</span> : null}
                         </div>
                       </td>
                       <td>
@@ -428,14 +444,23 @@ export default function OpsVcInOpsGlancePage() {
                       <td>
                         <div className={styles.chipStack}>
                           <ChipLink to={appPath(`/internal-user/vc/ops/agency-letter?comid=${encodeURIComponent(row.comId)}&tab=1&page=1`)}>
-                            Voyage Letters
+                            <LettersChipIcon />
+                            Letters
                           </ChipLink>
                         </div>
                       </td>
                       <td>
                         <div className={styles.chipStack}>
                           <ChipLink to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=1`)}>
-                            PDA/FDA
+                            <DaChipIcon />
+                            DA
+                          </ChipLink>
+                          <ChipLink
+                            to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                            disabled={!hasWorksheet}
+                          >
+                            <BunkersChipIcon />
+                            Bunkers
                           </ChipLink>
                         </div>
                       </td>
@@ -445,45 +470,31 @@ export default function OpsVcInOpsGlancePage() {
                             to={appPath(`/internal-user/vc/ops/sof?comid=${encodeURIComponent(row.comId)}&page=1`)}
                             disabled={!hasWorksheet}
                           >
+                            <SofChipIcon />
                             SOF
                           </ChipLink>
                           <ChipLink
                             to={appPath(`/internal-user/vc/ops/laytime?comid=${encodeURIComponent(row.comId)}&page=1`)}
                             disabled={!hasWorksheet}
                           >
+                            <LaytimeChipIcon />
                             Laytime
                           </ChipLink>
                         </div>
                       </td>
                       <td>
                         <div className={styles.chipStack}>
-                          <ChipLink
-                            to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                            disabled={!hasWorksheet}
-                          >
-                            Bunkers
+                          <ChipLink to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=1`)}>
+                            <CashflowChipIcon />
+                            Cashflow
                           </ChipLink>
-                          <ChipLink to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=1`)}>Cashflow</ChipLink>
-                        </div>
-                      </td>
-                      <td>
-                        <Link
-                          className={styles.iconBtn}
-                          to={appPath(`/internal-user/vc/ops/payment-grid?comid=${encodeURIComponent(row.comId)}&page=1`)}
-                          title="View Financials"
-                        >
-                          <EyeIcon />
-                        </Link>
-                      </td>
-                      <td>
-                        <div className={styles.alertStack}>
-                          {alerts.map((label) => (
-                            <span key={label} className={styles.alertPill}>
-                              <AlertIcon />
-                              {label}
-                            </span>
-                          ))}
-                          {!alerts.length ? <span className={styles.muted}>—</span> : null}
+                          <ChipLink
+                            to={appPath(`/internal-user/vc/ops/payment-grid?comid=${encodeURIComponent(row.comId)}&page=1`)}
+                            title="Contract Finance"
+                          >
+                            <FaChipIcon />
+                            F&amp;A
+                          </ChipLink>
                         </div>
                       </td>
                       <td>

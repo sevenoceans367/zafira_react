@@ -13,7 +13,7 @@ const PAGES = {
   'agency-letter': 'Generate Voyage Letters',
   'pda-fda': 'PDA/FDA',
   documents: 'Documents',
-  'payment-grid': 'Payment / Invoice Grid',
+  'payment-grid': 'Contract Finance',
   'freight-invoice': 'Freight Invoice',
   'other-invoice': 'Other Invoice',
   'hire-statement': 'Hire Statement',

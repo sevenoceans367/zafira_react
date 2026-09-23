@@ -315,7 +315,7 @@ export default function OpsVcInOpsGlancePage() {
                   <th>LP / DP</th>
                   <th>CHRT DESK</th>
                   <th>Charterer</th>
-                  <th>Letters</th>
+                  <th>Voyage Letters</th>
                   <th>Ports &amp; Fuel</th>
                   <th>Port Activity</th>
                   <th>Financial Management</th>
@@ -484,16 +484,16 @@ export default function OpsVcInOpsGlancePage() {
                       </td>
                       <td>
                         <div className={styles.chipStack}>
-                          <ChipLink to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=1`)}>
-                            <CashflowChipIcon />
-                            Cashflow
-                          </ChipLink>
                           <ChipLink
                             to={appPath(`/internal-user/vc/ops/payment-grid?comid=${encodeURIComponent(row.comId)}&page=1`)}
                             title="Contract Finance"
                           >
                             <FaChipIcon />
                             F&amp;A
+                          </ChipLink>
+                          <ChipLink to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=1`)}>
+                            <CashflowChipIcon />
+                            Cash
                           </ChipLink>
                         </div>
                       </td>

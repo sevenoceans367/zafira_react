@@ -10,6 +10,14 @@ function stripImo(value) {
   return String(value || '').replace(/^IMO/i, '').replace(/\D/g, '').trim();
 }
 
+/** First non-empty line of a multi-line "Full style" particulars field. */
+function firstLineItem(value) {
+  return String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean) || '';
+}
+
 function parseRoute(route) {
   const text = String(route || '').trim();
   if (!text || text === '—') return { from: '', to: '' };
@@ -387,6 +395,212 @@ async function loadVendorNames(pool, codes = []) {
 }
 
 /**
+ * Vessel name + type label from Voyage Worksheet estimate (vessel_imo_master / vessel_type_master).
+ */
+async function loadVesselIdentityByFca(pool, fcaIds = []) {
+  const byFca = new Map();
+  const ids = [...new Set(fcaIds.map(Number).filter(Boolean))];
+  if (!ids.length) return byFca;
+  const placeholders = ids.map(() => '?').join(',');
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT m.FCAID,
+              vim.VESSEL_NAME,
+              vim.IMO_NO,
+              m.VESSEL_TYPE,
+              vt.VesselType AS VESSEL_TYPE_NAME
+       FROM freight_cost_estimete_master m
+       LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+       LEFT JOIN vessel_type_master vt
+         ON vt.VesselTypeId = m.VESSEL_TYPE
+         OR CAST(vt.VesselTypeId AS CHAR) = CAST(m.VESSEL_TYPE AS CHAR)
+       WHERE m.FCAID IN (${placeholders})`,
+      ids,
+    );
+    for (const row of rows || []) {
+      const key = String(row.FCAID);
+      if (byFca.has(key)) continue;
+      const typeName = String(row.VESSEL_TYPE_NAME || '').trim();
+      const typeRaw = String(row.VESSEL_TYPE ?? '').trim();
+      // Prefer master label; fall back to non-numeric worksheet text; skip bare type ids.
+      const vesselType = typeName
+        || (typeRaw && !/^\d+$/.test(typeRaw) ? typeRaw : '');
+      byFca.set(key, {
+        vesselName: String(row.VESSEL_NAME || '').trim(),
+        vesselType,
+        imoNo: stripImo(row.IMO_NO),
+      });
+    }
+  } catch {
+    try {
+      const [rows] = await pool.query(
+        `SELECT m.FCAID, vim.VESSEL_NAME, vim.IMO_NO, m.VESSEL_TYPE
+         FROM freight_cost_estimete_master m
+         LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+         WHERE m.FCAID IN (${placeholders})`,
+        ids,
+      );
+      for (const row of rows || []) {
+        const key = String(row.FCAID);
+        if (byFca.has(key)) continue;
+        const typeRaw = String(row.VESSEL_TYPE ?? '').trim();
+        byFca.set(key, {
+          vesselName: String(row.VESSEL_NAME || '').trim(),
+          vesselType: typeRaw && !/^\d+$/.test(typeRaw) ? typeRaw : '',
+          imoNo: stripImo(row.IMO_NO),
+        });
+      }
+    } catch {
+      /* optional */
+    }
+  }
+
+  return byFca;
+}
+
+/**
+ * Registered owner from Operated Vessels → Ownership and Operation →
+ * Registered owner - Full style (vessel_master_tankers.REGISTEREDOWNER), first line.
+ */
+async function loadRegisteredOwnersByImo(pool, imos = []) {
+  const byImo = new Map();
+  const ids = [...new Set(imos.map(stripImo).filter(Boolean))];
+  if (!ids.length) return byImo;
+  const placeholders = ids.map(() => '?').join(',');
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT vim.IMO_NO, t.REGISTEREDOWNER
+       FROM vessel_imo_master vim
+       INNER JOIN vessel_master_tankers t ON t.VESSEL_IMO_ID = vim.VESSEL_IMO_ID
+       WHERE REPLACE(REPLACE(UPPER(COALESCE(vim.IMO_NO, '')), 'IMO', ''), ' ', '') IN (${placeholders})`,
+      ids,
+    );
+    for (const row of rows || []) {
+      const key = stripImo(row.IMO_NO);
+      if (!key || byImo.has(key)) continue;
+      const owner = firstLineItem(row.REGISTEREDOWNER);
+      if (owner) byImo.set(key, owner);
+    }
+  } catch {
+    /* optional — column/table may be absent on some DBs */
+  }
+
+  return byImo;
+}
+
+/**
+ * Commercial display fields from Voyage Worksheet:
+ * - Freight ← Cargo Total Freight (FREIGHT_GROSS)
+ * - Charterer ← Freight Adjustment Customer (slave12.CUSTOMER)
+ * - Cargo ← cargo row names (slave10)
+ */
+async function loadWorksheetCommercialByFca(pool, fcaIds = []) {
+  const byFca = new Map();
+  const ids = [...new Set(fcaIds.map(Number).filter(Boolean))];
+  if (!ids.length) return byFca;
+  const placeholders = ids.map(() => '?').join(',');
+
+  // Seed maps so missing joins still leave known FCAIDs present.
+  for (const id of ids) {
+    byFca.set(String(id), {
+      freightGross: null,
+      freightLabel: '',
+      customerCode: '',
+      charterer: '',
+      cargo: '',
+    });
+  }
+
+  try {
+    const [masters] = await pool.query(
+      `SELECT FCAID, FREIGHT_GROSS, LUMPSUMAMT, CHK_LUMPSUM, LUMP_VENDOR, FGFF_VENDORID
+       FROM freight_cost_estimete_master
+       WHERE FCAID IN (${placeholders})`,
+      ids,
+    );
+    for (const row of masters || []) {
+      const entry = byFca.get(String(row.FCAID));
+      if (!entry) continue;
+      const gross = toNumberOrNull(row.FREIGHT_GROSS);
+      entry.freightGross = gross;
+      // Match Voyage Worksheet Cargo → Total Freight (plain numeric display).
+      if (gross != null && gross !== 0) {
+        entry.freightLabel = Number(gross).toLocaleString(undefined, { maximumFractionDigits: 2 });
+      }
+      // Dry single shipper / charterer sometimes stored on master (fallback only).
+      if (row.LUMP_VENDOR) entry.customerCode = String(row.LUMP_VENDOR).trim();
+      else if (row.FGFF_VENDORID) entry.customerCode = String(row.FGFF_VENDORID).trim();
+    }
+  } catch {
+    try {
+      const [masters] = await pool.query(
+        `SELECT FCAID, FREIGHT_GROSS
+         FROM freight_cost_estimete_master
+         WHERE FCAID IN (${placeholders})`,
+        ids,
+      );
+      for (const row of masters || []) {
+        const entry = byFca.get(String(row.FCAID));
+        if (!entry) continue;
+        const gross = toNumberOrNull(row.FREIGHT_GROSS);
+        entry.freightGross = gross;
+        if (gross != null && gross !== 0) {
+          entry.freightLabel = Number(gross).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+      }
+    } catch {
+      /* optional */
+    }
+  }
+
+  // Freight Adjustment → Customer (prefer first non-empty CUSTOMER on slave12).
+  try {
+    const [wsRows] = await pool.query(
+      `SELECT FCAID, CUSTOMER
+       FROM freight_cost_estimete_slave12
+       WHERE FCAID IN (${placeholders})
+       ORDER BY FCAID, RANDOMID ASC`,
+      ids,
+    );
+    const seen = new Set();
+    for (const row of wsRows || []) {
+      const key = String(row.FCAID);
+      if (seen.has(key)) continue;
+      const entry = byFca.get(key);
+      if (!entry) continue;
+      const code = String(row.CUSTOMER ?? '').trim();
+      if (code && code !== '0') {
+        entry.customerCode = code;
+        seen.add(key);
+      }
+    }
+  } catch {
+    /* optional */
+  }
+
+  const customerCodes = [...byFca.values()]
+    .map((entry) => entry.customerCode)
+    .filter(Boolean);
+  const vendorNames = await loadVendorNames(pool, customerCodes);
+  for (const entry of byFca.values()) {
+    if (!entry.customerCode) continue;
+    entry.charterer = vendorNames.get(entry.customerCode) || '';
+  }
+
+  // Cargo names from worksheet cargo rows.
+  const cargoByFca = await loadCargoNamesByFca(pool, ids);
+  for (const [fcaKey, cargoInfo] of cargoByFca.entries()) {
+    const entry = byFca.get(fcaKey);
+    if (!entry) continue;
+    entry.cargo = (cargoInfo?.names || []).join(', ');
+  }
+
+  return byFca;
+}
+
+/**
  * Load fixed-fixture masters via compare.FCAID (ops source of truth).
  * Falls back to MAX(FCAID) per COMID without SHEET_NO filter.
  */
@@ -698,9 +912,34 @@ export async function fetchFleetOverlay() {
     positions.map((vessel) => [stripImo(vessel.ImoNumber), vessel]),
   );
 
+  const identityFcaIds = meta.map((row) => {
+    const sheet = sheetsByCom.get(String(row.comId));
+    const fin = commercialByCom.get(String(row.comId)) || {};
+    return sheet?.fcaId || fin.fcaId || null;
+  }).filter(Boolean);
+  const pool = isDbConfigured() ? getPool() : null;
+  const [identityByFca, worksheetCommercialByFca, registeredOwnerByImo] = pool
+    ? await Promise.all([
+      loadVesselIdentityByFca(pool, identityFcaIds),
+      loadWorksheetCommercialByFca(pool, identityFcaIds),
+      loadRegisteredOwnersByImo(pool, meta.map((row) => row.imo)),
+    ])
+    : [new Map(), new Map(), new Map()];
+
   const vessels = meta.map((row, index) => {
     const sheet = sheetsByCom.get(String(row.comId));
     const fin = commercialByCom.get(String(row.comId)) || {};
+    const fcaKey = String(sheet?.fcaId || fin.fcaId || '');
+    const identity = (fcaKey && identityByFca.get(fcaKey)) || {};
+    const wsCommercial = (fcaKey && worksheetCommercialByFca.get(fcaKey)) || {};
+    const registeredOwner = registeredOwnerByImo.get(String(row.imo))
+      || registeredOwnerByImo.get(stripImo(identity.imoNo))
+      || '';
+    const worksheetVesselName = identity.vesselName || row.shipName || '';
+    const worksheetVesselType = identity.vesselType
+      || (fin.vesselType && !/^\d+$/.test(String(fin.vesselType).trim())
+        ? String(fin.vesselType).trim()
+        : '');
     const sheetKind = row.kind === 'tc' ? 'tc' : (sheet?.sheetKind || 'vc');
     // Prefer Voyage Worksheet financials; fall back to compare/fixture master.
     const sheetTce = sheet ? resolveTceFromRow(sheet) : null;
@@ -716,15 +955,25 @@ export async function fetchFleetOverlay() {
       contract = 'spot';
     }
 
+    const useWorksheetCommercial = contract !== 'tc';
     const commercial = {
       contract,
-      vesselType: fin.vesselType || '',
+      vesselName: worksheetVesselName,
+      vesselType: worksheetVesselType,
       voyageNo: row.voyageNo,
-      cargo: fin.cargo || '',
+      // Spot/COA/Period: Cargo name, Total Freight, FA Customer from working sheet.
+      cargo: useWorksheetCommercial
+        ? (wsCommercial.cargo || fin.cargo || '')
+        : (fin.cargo || ''),
       laycan: fin.laycan || row.cpDate || '',
-      rate: fin.rate || '',
-      charterer: fin.charterer || '',
-      owner: fin.owner || '',
+      rate: useWorksheetCommercial
+        ? (wsCommercial.freightLabel || fin.rate || '')
+        : (fin.rate || ''),
+      charterer: useWorksheetCommercial
+        ? (wsCommercial.charterer || fin.charterer || '')
+        : (fin.charterer || ''),
+      // Operated Vessels → Ownership and Operation → Registered owner (first line).
+      owner: registeredOwner || fin.owner || '',
       terms: fin.terms || '',
       tce: sheetTce ?? fin.tce ?? null,
       pnl: sheetPnl ?? fin.pnl ?? null,
@@ -743,8 +992,9 @@ export async function fetchFleetOverlay() {
     if (ais) {
       return {
         ...ais,
-        ShipName: ais.ShipName || row.shipName,
-        ImoNumber: ais.ImoNumber || row.imo,
+        // Prefer Ops / Voyage Worksheet vessel name over AIS broadcast name.
+        ShipName: worksheetVesselName || ais.ShipName || row.shipName,
+        ImoNumber: identity.imoNo || ais.ImoNumber || row.imo,
         OriginDeclared: ais.OriginDeclared || row.routeFrom || '',
         DestDeclared: ais.DestDeclared || row.routeTo || '',
         isFleet: true,
@@ -764,8 +1014,8 @@ export async function fetchFleetOverlay() {
     ];
     const [lat, lng] = hubs[index % hubs.length];
     return {
-      ShipName: row.shipName || `Fleet ${row.imo}`,
-      ImoNumber: row.imo,
+      ShipName: worksheetVesselName || row.shipName || `Fleet ${row.imo}`,
+      ImoNumber: identity.imoNo || row.imo,
       Latitude: lat + (index % 5) * 0.12,
       Longitude: lng + (index % 4) * 0.12,
       OriginDeclared: row.routeFrom,

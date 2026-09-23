@@ -1102,6 +1102,8 @@ export default function LiveVesselMapPage() {
                   <div className={styles.panelTypeRow}>
                     {commercial.vesselType ? (
                       <p className={styles.panelVesselType}>{commercial.vesselType}</p>
+                    ) : commercial.voyageNo ? (
+                      <p className={styles.panelVesselType}>{commercial.voyageNo}</p>
                     ) : (
                       <p className={styles.panelVesselType}>
                         {selectedVessel.isFleet ? 'Our fleet' : 'Open market'}

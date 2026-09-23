@@ -45,7 +45,7 @@ export function resolveCommercial(vessel) {
   const approachingAgent = contacts.find((item) => item.type === 'agent') || contacts[0] || null;
 
   return {
-    name: vesselDisplayName(vessel),
+    name: c.vesselName || vesselDisplayName(vessel),
     vesselType: c.vesselType || '',
     contract,
     contractLabel: CONTRACT_LABEL[contract] || '',

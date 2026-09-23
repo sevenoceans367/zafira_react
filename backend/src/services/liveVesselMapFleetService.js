@@ -26,6 +26,29 @@ function toNumberOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Match estimate-list getTce: daily → net daily → P&L / days. */
+function resolveTceFromRow(row = {}) {
+  const daily = toNumberOrNull(row.DAILY_EARNING ?? row.dailyEarning);
+  if (daily != null && daily !== 0) return daily;
+  const net = toNumberOrNull(row.NET_DAILY_EARNING ?? row.netDailyEarning);
+  if (net != null && net !== 0) return net;
+  const pnl = toNumberOrNull(row.PROFIT_LOSS ?? row.profitLoss ?? row.ACTUAL_PL);
+  const days = toNumberOrNull(row.TOTAL_DAYS ?? row.totalDays);
+  if (pnl != null && days != null && days > 0) {
+    return Math.round((pnl / days) * 100) / 100;
+  }
+  // Allow explicit zero daily earning once fallbacks are exhausted.
+  if (daily != null) return daily;
+  if (net != null) return net;
+  return null;
+}
+
+function resolvePnlFromRow(row = {}) {
+  const actual = toNumberOrNull(row.ACTUAL_PL ?? row.actualPl);
+  if (actual != null) return actual;
+  return toNumberOrNull(row.PROFIT_LOSS ?? row.profitLoss);
+}
+
 function formatLaycan(from, to) {
   const a = String(from || '').trim();
   const b = String(to || '').trim();
@@ -77,36 +100,54 @@ async function loadWorkingCostSheets(comIds = []) {
   if (!ids.length) return byCom;
   const placeholders = ids.map(() => '?').join(',');
 
+  const mapVcSheet = (row) => ({
+    costSheetId: row.COST_SHEETID,
+    sheetName: row.SHEET_NAME || `Sheet ${row.COST_SHEETID}`,
+    sheetKind: 'vc',
+    fcaId: row.FCAID ?? null,
+    DAILY_EARNING: row.DAILY_EARNING,
+    NET_DAILY_EARNING: row.NET_DAILY_EARNING,
+    PROFIT_LOSS: row.PROFIT_LOSS,
+    ACTUAL_PL: row.ACTUAL_PL,
+    TOTAL_DAYS: row.TOTAL_DAYS,
+  });
+
   try {
-    const [vcSheets] = await pool.query(
-      `SELECT m.COMID, m.COST_SHEETID, m.SHEET_NAME, e.FCAID
-       FROM cost_sheet_name_master m
-       LEFT JOIN freight_cost_estimete_master e
-         ON e.COMID = m.COMID AND e.SHEET_NO = m.COST_SHEETID
-       WHERE m.COMID IN (${placeholders}) AND m.MODULEID = ? AND m.MCOMPANYID = ?
-       ORDER BY m.COMID, m.COST_SHEETID DESC`,
-      [...ids, MODULE_ID, COMPANY_ID],
-    );
-    for (const row of vcSheets || []) {
-      const key = String(row.COMID);
-      if (byCom.has(key)) continue;
-      if (row.FCAID == null) continue;
-      byCom.set(key, {
-        costSheetId: row.COST_SHEETID,
-        sheetName: row.SHEET_NAME || `Sheet ${row.COST_SHEETID}`,
-        sheetKind: 'vc',
-        fcaId: row.FCAID,
-      });
+    // Prefer working Voyage Worksheet master (SHEET_NO = COST_SHEETID) for TCE / P&L.
+    let vcSheets;
+    try {
+      [vcSheets] = await pool.query(
+        `SELECT m.COMID, m.COST_SHEETID, m.SHEET_NAME, e.FCAID,
+                e.DAILY_EARNING, e.NET_DAILY_EARNING, e.PROFIT_LOSS, e.ACTUAL_PL, e.TOTAL_DAYS
+         FROM cost_sheet_name_master m
+         LEFT JOIN freight_cost_estimete_master e
+           ON e.COMID = m.COMID AND e.SHEET_NO = m.COST_SHEETID
+         WHERE m.COMID IN (${placeholders}) AND m.MODULEID = ? AND m.MCOMPANYID = ?
+         ORDER BY m.COMID, m.COST_SHEETID DESC`,
+        [...ids, MODULE_ID, COMPANY_ID],
+      );
+    } catch {
+      [vcSheets] = await pool.query(
+        `SELECT m.COMID, m.COST_SHEETID, m.SHEET_NAME, e.FCAID,
+                e.DAILY_EARNING, e.NET_DAILY_EARNING, e.PROFIT_LOSS, e.TOTAL_DAYS
+         FROM cost_sheet_name_master m
+         LEFT JOIN freight_cost_estimete_master e
+           ON e.COMID = m.COMID AND e.SHEET_NO = m.COST_SHEETID
+         WHERE m.COMID IN (${placeholders}) AND m.MODULEID = ? AND m.MCOMPANYID = ?
+         ORDER BY m.COMID, m.COST_SHEETID DESC`,
+        [...ids, MODULE_ID, COMPANY_ID],
+      );
     }
     for (const row of vcSheets || []) {
       const key = String(row.COMID);
       if (byCom.has(key)) continue;
-      byCom.set(key, {
-        costSheetId: row.COST_SHEETID,
-        sheetName: row.SHEET_NAME || `Sheet ${row.COST_SHEETID}`,
-        sheetKind: 'vc',
-        fcaId: null,
-      });
+      if (row.FCAID == null) continue;
+      byCom.set(key, mapVcSheet(row));
+    }
+    for (const row of vcSheets || []) {
+      const key = String(row.COMID);
+      if (byCom.has(key)) continue;
+      byCom.set(key, mapVcSheet(row));
     }
   } catch {
     /* optional */
@@ -500,8 +541,8 @@ async function loadCommercialByComId(comIds = []) {
       });
     }
 
-    const tce = toNumberOrNull(row.DAILY_EARNING) ?? toNumberOrNull(row.NET_DAILY_EARNING);
-    const pnl = toNumberOrNull(row.ACTUAL_PL) ?? toNumberOrNull(row.PROFIT_LOSS);
+    const tce = resolveTceFromRow(row);
+    const pnl = resolvePnlFromRow(row);
     const laycan = formatLaycan(
       formatEstimateDate(row.LAYCANSTART || row.LAYCAN_START_DATE),
       formatEstimateDate(row.LAYCANEND || row.LAYCAN_FINISH_DATE),
@@ -661,6 +702,9 @@ export async function fetchFleetOverlay() {
     const sheet = sheetsByCom.get(String(row.comId));
     const fin = commercialByCom.get(String(row.comId)) || {};
     const sheetKind = row.kind === 'tc' ? 'tc' : (sheet?.sheetKind || 'vc');
+    // Prefer Voyage Worksheet financials; fall back to compare/fixture master.
+    const sheetTce = sheet ? resolveTceFromRow(sheet) : null;
+    const sheetPnl = sheet ? resolvePnlFromRow(sheet) : null;
     let contract = 'spot';
     if (row.kind === 'tc') {
       contract = 'tc';
@@ -682,8 +726,8 @@ export async function fetchFleetOverlay() {
       charterer: fin.charterer || '',
       owner: fin.owner || '',
       terms: fin.terms || '',
-      tce: fin.tce ?? null,
-      pnl: fin.pnl ?? null,
+      tce: sheetTce ?? fin.tce ?? null,
+      pnl: sheetPnl ?? fin.pnl ?? null,
       from: row.routeFrom,
       to: row.routeTo,
       legFrom: fin.legFrom || row.routeFrom,

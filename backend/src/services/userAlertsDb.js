@@ -51,6 +51,9 @@ function mapRedirectToReact(redirectTo, alertId) {
     const url = new URL(raw, 'http://local.invalid/');
     const file = (url.pathname.split('/').pop() || '').toLowerCase();
     const params = url.searchParams;
+    // Normalize legacy PHP param casing so React pages resolve the nomination.
+    const comId = params.get('comid') || params.get('comId') || params.get('COMID');
+    if (comId && !params.get('comid')) params.set('comid', comId);
     if (alertId && !params.get('alertid')) params.set('alertid', String(alertId));
     if (params.has('invtype') && !params.has('invType')) {
       params.set('invType', params.get('invtype'));

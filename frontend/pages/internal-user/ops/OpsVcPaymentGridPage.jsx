@@ -187,7 +187,10 @@ function SectionCard({ section, index, onAction }) {
 export default function OpsVcPaymentGridPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const comId = searchParams.get('comid') || searchParams.get('comId') || '';
+  const comId = searchParams.get('comid')
+    || searchParams.get('comId')
+    || searchParams.get('COMID')
+    || '';
   const page = searchParams.get('page') || '1';
   const voyageNoParam = searchParams.get('voyage_no') || searchParams.get('voyageNo') || '';
 

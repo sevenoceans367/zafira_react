@@ -166,7 +166,7 @@ export default function OpsVcInOpsGlancePage() {
     const ok = await confirm({
       title: 'Cancel this voyage?',
       message: `Are you sure you want to cancel Voy no. ${voyNo}?`,
-      confirmLabel: 'Cancel',
+      confirmLabel: 'Confirm',
       hideCancel: true,
       tone: 'warning',
     });

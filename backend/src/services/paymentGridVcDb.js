@@ -272,16 +272,66 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
   const page = String(options.page || '1');
   const voyageNoOpt = str(options.voyageNo || '');
 
-  const [[compare]] = await pool.query(
-    `SELECT c.*, m.VOYAGE_NO AS MASTER_VOYAGE_NO, m.VESSEL_IMO_ID AS MASTER_VESSEL_IMO_ID,
+  const compareSelect = `SELECT c.*, m.VOYAGE_NO AS MASTER_VOYAGE_NO, m.VESSEL_IMO_ID AS MASTER_VESSEL_IMO_ID,
             vim.VESSEL_NAME
      FROM freight_cost_estimate_compare c
      LEFT JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
-     LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
-     WHERE c.COMID = ? AND c.MODULEID = ?
-     LIMIT 1`,
-    [comId, MODULE_ID],
-  );
+     LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID`;
+
+  // Prefer MODULEID match; fall back to COMID-only (alerts / legacy rows may differ).
+  let compare = null;
+  try {
+    const [[row]] = await pool.query(
+      `${compareSelect}
+       WHERE c.COMID = ? AND c.MODULEID = ?
+       LIMIT 1`,
+      [comId, MODULE_ID],
+    );
+    compare = row || null;
+  } catch {
+    compare = null;
+  }
+  if (!compare?.COMID) {
+    try {
+      const [[row]] = await pool.query(
+        `${compareSelect}
+         WHERE c.COMID = ?
+         ORDER BY c.FCAID DESC
+         LIMIT 1`,
+        [comId],
+      );
+      compare = row || null;
+    } catch {
+      compare = null;
+    }
+  }
+
+  // Last resort: nomination exists only on master (no compare row).
+  if (!compare?.COMID) {
+    try {
+      const [[masterOnly]] = await pool.query(
+        `SELECT m.*, vim.VESSEL_NAME
+         FROM freight_cost_estimete_master m
+         LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+         WHERE m.COMID = ?
+         ORDER BY m.FCAID DESC
+         LIMIT 1`,
+        [comId],
+      );
+      if (masterOnly?.FCAID) {
+        compare = {
+          COMID: comId,
+          FCAID: masterOnly.FCAID,
+          MASTER_VOYAGE_NO: masterOnly.VOYAGE_NO,
+          MASTER_VESSEL_IMO_ID: masterOnly.VESSEL_IMO_ID,
+          VESSEL_NAME: masterOnly.VESSEL_NAME,
+          MESSAGE: masterOnly.VOYAGE_NO,
+        };
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   if (!compare?.COMID) {
     const error = new Error('VC nomination not found.');
@@ -290,13 +340,33 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
   }
 
   // PHP getLatestCostSheetID — latest FCAID for COMID (no SHEET_NO filter)
-  const [[latest]] = await pool.query(
-    `SELECT FCAID FROM freight_cost_estimete_master
-     WHERE COMID = ? AND MODULEID = ?
-     ORDER BY FCAID DESC
-     LIMIT 1`,
-    [comId, MODULE_ID],
-  );
+  let latest = null;
+  try {
+    const [[row]] = await pool.query(
+      `SELECT FCAID FROM freight_cost_estimete_master
+       WHERE COMID = ? AND MODULEID = ?
+       ORDER BY FCAID DESC
+       LIMIT 1`,
+      [comId, MODULE_ID],
+    );
+    latest = row || null;
+  } catch {
+    latest = null;
+  }
+  if (!latest?.FCAID) {
+    try {
+      const [[row]] = await pool.query(
+        `SELECT FCAID FROM freight_cost_estimete_master
+         WHERE COMID = ?
+         ORDER BY FCAID DESC
+         LIMIT 1`,
+        [comId],
+      );
+      latest = row || null;
+    } catch {
+      latest = null;
+    }
+  }
 
   const fcaId = latest?.FCAID || compare.FCAID;
   const [[master]] = await pool.query(

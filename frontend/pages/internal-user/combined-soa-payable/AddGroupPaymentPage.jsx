@@ -26,7 +26,7 @@ import styles from './AddGroupPaymentPage.module.css';
 
 const SPOT_COST_TYPES = [
   { id: '', name: 'Select' },
-  { id: 'Bunkers Nett Supply', name: 'Bunkers Nett Supply' },
+  { id: 'Bunkers Nett Supply', name: 'Bunkers Net Supply' },
   { id: 'Operational Costs (Others)', name: 'Operational Costs (Others)' },
   { id: 'Operational Costs', name: 'Operational Costs' },
   { id: 'Owners Side brokerage', name: 'Owners Side brokerage' },

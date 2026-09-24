@@ -88,10 +88,13 @@
 
 .demoRole .demoRoleSelect {
   width: auto;
-  min-width: 132px;
-  padding-right: 28px;
+  min-width: 148px;
+}
+
+.demoRole .demoRoleSelect :global(button) {
+  min-width: 148px;
+  height: 32px;
   font-weight: 700;
-  color: #1b2430;
 }
 
 .hero {

@@ -477,6 +477,7 @@ export async function dbGetSoaReport(comId) {
       const sums = await sumRequest(
         pool,
         comId,
+        // Legacy request_master.NAME still uses Nett spelling
         'Bunkers Nett Supply',
         '2',
         qrow.BUNKERGRADEID,

@@ -171,6 +171,9 @@ function line(partial) {
     description: partial.description || '',
     vendorId: partial.vendorId || '',
     vendorName: partial.vendorName || '',
+    cargoName: partial.cargoName || '',
+    amount: partial.amount ?? '',
+    netAmount: partial.netAmount ?? partial.amount ?? '',
     totalPaid: partial.totalPaid ?? '',
     lastPaidDate: partial.lastPaidDate ?? '',
     voyageId: partial.voyageId ?? '',
@@ -178,7 +181,28 @@ function line(partial) {
     badges: partial.badges || [],
     highlight: Boolean(partial.highlight),
     isGroupHeader: Boolean(partial.isGroupHeader),
+    isPlaceholder: Boolean(partial.isPlaceholder),
   };
+}
+
+/** Contract Finance income label: Freight - [Cargo Name]. */
+function freightIncomeName(cargoName = '') {
+  const cargo = String(cargoName || '').trim();
+  return cargo ? `Freight - ${cargo}` : 'Freight';
+}
+
+/** Prefer net freight fields over gross/total for multi-cargo rows. */
+function freightNetAmount(row = {}) {
+  return money2(
+    row.NET_AMOUNT
+      ?? row.NET_AMT
+      ?? row.NET_FREIGHT
+      ?? row.AMOUNT_USD
+      ?? row.NETFREIGHT
+      ?? row.TOTAL_AMOUNT
+      ?? row.COST
+      ?? '',
+  );
 }
 
 async function getVendorName(pool, code) {
@@ -386,8 +410,12 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
   const tankerSingle = Number(master.TANKER_RADIO_SINGLE_DIS);
   const chkLumpsum = Number(master.CHK_LUMPSUM) === 1;
   const qtyTypeRadio = Number(master.QTY_TYPE_RADIO);
+  // Spot estimate fixture dropdown: 1=TCIN-VCOUT, 2=VCIN-VCOUT, 3=VCOUT
+  const fixtureTypeId = Number(master.FIXTURETYPEID || master.SEL_BUSI_TYPE || 0);
+  const isVcInOut = fixtureTypeId === 2;
 
   const sections = [];
+  const vcInExpenseLines = [];
 
   // ── Freight Details ──────────────────────────────────────────────
   {
@@ -411,13 +439,16 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
           ]);
           freightLines.push(line({
             key: 'freight-lumpsum',
-            name: 'Final Nett Freight',
+            name: freightIncomeName(await getCargoNames(pool, master.CARGO || master.CARGOID)),
+            cargoName: await getCargoNames(pool, master.CARGO || master.CARGOID),
             vendorId,
             vendorName,
+            amount: money2(master.LUMPSUMAMT),
+            netAmount: money2(master.LUMPSUMAMT),
             actions: vendorName
               ? freightInvoiceActions({
                 invoiceId,
-                name: 'Final Nett Freight',
+                name: 'Final Net Freight',
                 page,
                 voyageNo,
               })
@@ -445,13 +476,16 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
             ]);
             freightLines.push(line({
               key: `freight-ws-${idx}`,
-              name: 'Final Nett Freight',
+              name: freightIncomeName(await getCargoNames(pool, row.CARGOID || master.CARGO)),
+              cargoName: await getCargoNames(pool, row.CARGOID || master.CARGO),
               vendorId,
               vendorName,
+              amount: freightNetAmount(row),
+              netAmount: freightNetAmount(row),
               actions: vendorName
                 ? freightInvoiceActions({
                   invoiceId,
-                  name: 'Final Nett Freight',
+                  name: 'Final Net Freight',
                   page,
                   voyageNo,
                 })
@@ -471,7 +505,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
             : status === 2
               ? 'Overage Cargo Freight'
               : 'Dead Freight';
-          const invoiceName = `Final Nett ${nameSuffix}`;
+          const invoiceName = `Final Net ${nameSuffix}`;
           const [rows] = await pool.query(
             `SELECT * FROM freight_cost_estimete_slave10
              WHERE FCAID = ? AND SHIPPER_CHARTER IS NOT NULL AND SHIPPER_CHARTER != '' AND STATUS = ?`,
@@ -546,11 +580,12 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
             }
             freightLines.push(line({
               key: `freight-cargo-${status}-${idx}`,
-              name: cargoName
-                ? `Final Nett Freight (${cargoName})`
-                : `Final Nett Freight (${nameSuffix})`,
+              name: freightIncomeName(cargoName || nameSuffix),
+              cargoName: cargoName || '',
               vendorId,
               vendorName,
+              amount: freightNetAmount(row),
+              netAmount: freightNetAmount(row),
               actions,
               badges,
             }));
@@ -575,7 +610,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
         ]);
         actions.push(...freightInvoiceActions({
           invoiceId,
-          name: 'Final Nett Freight',
+          name: 'Final Net Freight',
           page,
           voyageNo,
         }));
@@ -610,9 +645,12 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
       }
       freightLines.push(line({
         key: 'freight-single',
-        name: 'Final Nett Freight',
+        name: freightIncomeName(await getCargoNames(pool, master.CARGO || master.CARGOID)),
+        cargoName: await getCargoNames(pool, master.CARGO || master.CARGOID),
         vendorId,
         vendorName,
+        amount: money2(compare.TOTAL_PREIGHT_ADJ ?? master.TOTAL_PREIGHT_ADJ ?? master.LUMPSUMAMT),
+        netAmount: money2(compare.TOTAL_PREIGHT_ADJ ?? master.TOTAL_PREIGHT_ADJ ?? master.LUMPSUMAMT),
         actions,
       }));
     } else {
@@ -659,7 +697,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
           if (clubbed === 0 || (neg && Number(neg.STATUS) < 5)) {
             actions.push(...freightInvoiceActions({
               invoiceId,
-              name: 'Final Nett Freight',
+              name: 'Final Net Freight',
               page,
               voyageNo,
             }));
@@ -686,7 +724,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
             actions.push(action('invoiceClubbed', 'Invoice Clubbed', 'info', true, {
               href: clubbedInvoiceHref({
                 invoiceId,
-                name: 'Final Nett Freight',
+                name: 'Final Net Freight',
                 page,
                 invType: 'Final',
                 voyageNo,
@@ -696,21 +734,41 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
         }
         freightLines.push(line({
           key: `freight-qty-${idx}`,
-          name: 'Final Nett Freight',
+          name: freightIncomeName(await getCargoNames(pool, row.CARGO || master.CARGO)),
+          cargoName: await getCargoNames(pool, row.CARGO || master.CARGO),
           vendorId,
           vendorName,
+          amount: freightNetAmount(row),
+          netAmount: freightNetAmount(row),
           actions,
           badges,
         }));
       }
     }
 
-    // VC-In freight payment rows (PHP freight_cost_estimete_in_master)
+    // Default: Freight always present at top of Income (even if blank)
+    const freightDataRows = freightLines.filter((r) => !r.isGroupHeader);
+    if (!freightDataRows.length) {
+      freightLines.push(line({
+        key: 'freight-placeholder',
+        name: 'Freight',
+        isPlaceholder: true,
+      }));
+    }
+
+    sections.push({
+      key: 'freight',
+      periodLabel: 'Freight Details',
+      columns: { showPayments: false, showVoyageId: false },
+      lines: freightLines,
+    });
+
+    // VC-In expense (VCIN-VCOUT fixture only) — first expense line when present
     const [[vcIn]] = await pool.query(
       `SELECT * FROM freight_cost_estimete_in_master WHERE COMID = ? LIMIT 1`,
       [comId],
     ).catch(() => [[null]]);
-    if (vcIn?.FGFF_VENDORID || vcIn?.LUMP_VENDOR) {
+    if (isVcInOut && (vcIn?.FGFF_VENDORID || vcIn?.LUMP_VENDOR)) {
       const vendorId = str(vcIn.FGFF_VENDORID || vcIn.LUMP_VENDOR);
       const vendorName = await getVendorName(pool, vendorId);
       const actions = [];
@@ -764,20 +822,24 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
           }),
         }));
       }
-      freightLines.push(line({
-        key: 'freight-vcin',
-        name: 'Final Nett Freight',
+      vcInExpenseLines.push(line({
+        key: 'expense-vcin',
+        name: 'VC In Freight',
         vendorId,
         vendorName,
+        amount: money2(vcIn.TOTAL_PREIGHT_ADJ ?? vcIn.LUMPSUMAMT ?? vcIn.NET_PAYABLE_TAX),
+        netAmount: money2(vcIn.TOTAL_PREIGHT_ADJ ?? vcIn.LUMPSUMAMT ?? vcIn.NET_PAYABLE_TAX),
         actions,
       }));
     }
+  }
 
+  if (vcInExpenseLines.length) {
     sections.push({
-      key: 'freight',
-      periodLabel: 'Freight Details',
-      columns: { showPayments: false, showVoyageId: false },
-      lines: freightLines,
+      key: 'vc-in-expense',
+      periodLabel: 'VC In Expense',
+      columns: { showPayments: true, showVoyageId: false },
+      lines: vcInExpenseLines,
     });
   }
 
@@ -849,9 +911,11 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
         }
         demLines.push(line({
           key: `dem-lp-${idx}`,
-          name: `Load Port ${portName}`,
+          name: portName ? `Demurrage - LP ${portName}` : 'Demurrage - LP',
           vendorId,
           vendorName,
+          amount: money2(leg.DDCLP_NETCOST),
+          netAmount: money2(leg.DDCLP_NETCOST),
           actions,
           badges,
         }));
@@ -916,13 +980,24 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
         }
         demLines.push(line({
           key: `dem-dp-${idx}`,
-          name: `Discharge Port ${portName}`,
+          name: portName ? `Demurrage - DP ${portName}` : 'Demurrage - DP',
           vendorId,
           vendorName,
+          amount: money2(leg.DDCDP_NETCOST),
+          netAmount: money2(leg.DDCDP_NETCOST),
           actions,
           badges,
         }));
       }
+    }
+
+    // Default: Demurrage always present in Income (even if blank)
+    if (!demLines.length) {
+      demLines.push(line({
+        key: 'demurrage-placeholder',
+        name: 'Demurrage',
+        isPlaceholder: true,
+      }));
     }
 
     sections.push({
@@ -983,6 +1058,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
         name: str(row.IDENTY_ID) || 'Other Income',
         vendorId,
         vendorName,
+        amount: money2(row.RAW_AMOUNT),
         actions,
         badges,
       }));
@@ -995,7 +1071,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
     });
   }
 
-  // ── Bunkers Nett Supply ──────────────────────────────────────────
+  // ── Bunkers Net Supply ──────────────────────────────────────────
   {
     const bunkerLines = [];
     const [rows] = await pool.query(
@@ -1011,8 +1087,8 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
         pool,
         `SELECT SUM(P_AMT) AS P_AMT, MAX(P_DATE) AS P_DATE
          FROM request_master
-         WHERE COST_DESC = ? AND COMID = ? AND VENDOR = ?`,
-        [`${gradeName} Nett`, comId, vendorId],
+         WHERE COST_DESC IN (?, ?) AND COMID = ? AND VENDOR = ?`,
+        [`${gradeName} Nett`, `${gradeName} Net`, comId, vendorId],
       );
       const actions = [];
       if (vendorName) {
@@ -1020,13 +1096,14 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
           href: requestPortCostHref({
             id: joinInvoiceId([
               2,
+              // Legacy request_master.NAME — keep Nett for routing/lookups
               'Bunkers Nett Supply',
               row.BUNKERGRADEID,
               vendorId,
               comId,
               row.COST,
             ]),
-            name: `${gradeName} Nett`,
+            name: `${gradeName} Net`,
             page,
             voyageNo,
           }),
@@ -1034,9 +1111,10 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
       }
       bunkerLines.push(line({
         key: `bunker-${idx}`,
-        name: `${gradeName} Nett`,
+        name: `${gradeName} Net`,
         vendorId,
         vendorName,
+        amount: money2(row.EST_COST ?? row.AMOUNT_USD ?? row.COST),
         totalPaid: pay.totalPaid,
         lastPaidDate: pay.lastPaidDate,
         voyageId: pay.totalPaid && Number(pay.totalPaid) > 0 ? voyageNo : '',
@@ -1045,7 +1123,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
     }
     sections.push({
       key: 'bunkers',
-      periodLabel: 'Bunkers Nett Supply',
+      periodLabel: 'Bunkers Net Supply',
       columns: { showPayments: true, showVoyageId: true },
       lines: bunkerLines,
     });
@@ -1252,6 +1330,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
           name,
           vendorId: str(vendorId),
           vendorName,
+          amount: amount || '',
           totalPaid: pay.totalPaid,
           lastPaidDate: pay.lastPaidDate,
           voyageId: pay.totalPaid && Number(pay.totalPaid) > 0 ? voyageNo : '',
@@ -1376,6 +1455,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
       name: 'Hire',
       vendorId: dtcVendorId,
       vendorName: dtcVendorName,
+      amount: hirePay.totalPaid || money2(master.HIREAGE_AMT ?? master.HIRE_RATE),
       totalPaid: hirePay.totalPaid,
       lastPaidDate: hirePay.lastPaidDate,
       actions: hireActions,
@@ -1453,43 +1533,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
       }));
     }
 
-    const ownersBrokerVendor = str(compare.SEL_BROK_VEN);
-    const ownersBrokerName = await getVendorName(pool, ownersBrokerVendor);
-    const ownersBrokerPay = await getPaymentSummary(
-      pool,
-      `SELECT SUM(P_AMT) AS P_AMT, MAX(P_DATE) AS P_DATE
-       FROM request_master
-       WHERE COST_DESC = 'Owners Side brokerage' AND COMID = ?`,
-      [comId],
-    );
-    const ownersBrokerActions = [];
-    if (ownersBrokerName) {
-      ownersBrokerActions.push(action('ownersBrokerPayment', 'Payment', 'warning', true, {
-        href: requestPortCostHref({
-          id: joinInvoiceId([
-            13,
-            'Owners Side brokerage',
-            1771,
-            ownersBrokerVendor,
-            comId,
-            compare.HIERAGE_BROKER_AMT || master.HIERAGE_BROKER_AMT || 0,
-          ]),
-          name: 'Owners Side brokerage',
-          page,
-          voyageNo,
-        }),
-      }));
-    }
-    hireLines.push(line({
-      key: 'owners-broker',
-      name: 'Owners Side brokerage',
-      vendorId: ownersBrokerVendor,
-      vendorName: ownersBrokerName,
-      totalPaid: ownersBrokerPay.totalPaid,
-      lastPaidDate: ownersBrokerPay.lastPaidDate,
-      actions: ownersBrokerActions,
-      highlight: true,
-    }));
+    // Round 6 Contract Finance: Owners Side brokerage omitted (no useful data / no action).
 
     sections.push({
       key: 'hireage',

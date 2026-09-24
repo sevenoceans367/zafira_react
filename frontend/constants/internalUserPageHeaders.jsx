@@ -23,10 +23,9 @@ import {
 
 const STATIC_HEADERS = {
   '/': {
-    title: 'Dashboard',
-    currentPage: 'Dashboard',
-    // AppHeader adds Home — middle crumbs empty on home dashboard
-    breadcrumbs: [],
+    title: 'Home',
+    currentPage: 'Home',
+    breadcrumbs: [{ label: 'Seven Oceans Genesis' }],
   },
   '/internal-user/vc': {
     title: 'Commercial Performance',

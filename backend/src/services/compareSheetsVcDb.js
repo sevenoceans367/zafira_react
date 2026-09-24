@@ -195,7 +195,7 @@ export async function dbGetCompareSheetsVc(comId) {
     buildRow('Cargo Type', pick('cargoType').map((v) => v || ''), { section: 'Cargo Type' }),
     buildRow('Demurrage', pick('demurrage'), { section: 'Revenue' }),
     buildRow('Dispatch', pick('dispatch'), { section: 'Revenue' }),
-    buildRow('Final Nett Freight', pick('finalNettFreight'), { section: 'Revenue' }),
+    buildRow('Final Net Freight', pick('finalNettFreight'), { section: 'Revenue' }),
     buildRow('Total Revenue', pick('totalRevenue'), { section: 'Revenue' }),
     buildRow('Loading Port', pick('loadPort'), { section: 'Expenses - Cargo' }),
     buildRow('Discharge Port', pick('discPort'), { section: 'Expenses - Cargo' }),
@@ -223,7 +223,7 @@ export async function dbGetCompareSheetsVc(comId) {
     buildRow('Ballast Bonus', pick('ballastBonus'), { section: 'Expense - Ship' }),
     buildRow('Total Expense - Ship', pick('expenseShip'), { section: 'Expense - Ship' }),
     buildRow('Daily Earnings / TCE', pick('dailyEarning'), { section: 'Results' }),
-    buildRow('Nett Daily Profit', pick('netDailyProfit'), { section: 'Results' }),
+    buildRow('Net Daily Profit', pick('netDailyProfit'), { section: 'Results' }),
     buildRow('P/L', pick('profitLoss'), { section: 'Results' }),
   ];
 

@@ -366,7 +366,7 @@ export async function dbGetClubbedFreightInvoice({
   }
 
   const invoiceType = normalizeInvType(invType);
-  const pType = str(name) || 'Final Nett Freight';
+  const pType = str(name) || 'Final Net Freight';
   const { compare, latest } = await loadNomination(pool, comId);
   const fcaId = parsed.fcaId || str(latest?.FCAID || compare.MASTER_FCAID || compare.FCAID);
   const vendorId = parsed.vendorId;

@@ -1272,7 +1272,7 @@ export async function dbGetFreightInvoiceForm({
   }
 
   const invoiceType = normalizeInvType(invType);
-  const pType = str(name) || (inMode ? 'VC In Payment' : 'Final Nett Freight');
+  const pType = str(name) || (inMode ? 'VC In Payment' : 'Final Net Freight');
 
   const [[compare]] = await pool.query(
     `SELECT c.*, m.VOYAGE_NO AS MASTER_VOYAGE_NO, m.VESSEL_IMO_ID AS MASTER_VESSEL_IMO_ID,
@@ -1734,7 +1734,7 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
   const pageInvType = normalizeInvType(
     payload.pageInvType || payload.contextInvType || payload.invTypeFromUrl || '',
   ) || (invType === 'Final' || invType === 'Provisional' ? 'Final' : 'Interim');
-  const pType = str(payload.pType || payload.name) || (vcIn ? 'VC In Payment' : 'Final Nett Freight');
+  const pType = str(payload.pType || payload.name) || (vcIn ? 'VC In Payment' : 'Final Net Freight');
 
   if (!comId) throw Object.assign(new Error('COMID is required.'), { status: 400 });
   if (!vendorId) throw Object.assign(new Error('Vendor is required.'), { status: 400 });

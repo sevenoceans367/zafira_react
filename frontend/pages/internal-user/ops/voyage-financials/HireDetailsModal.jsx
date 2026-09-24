@@ -406,7 +406,7 @@ export default function HireDetailsModal({
                 </select>
               </div>
               <div className={styles.summaryRow}>
-                <span>Nett Hire-age (USD)</span>
+                <span>Net Hire-age (USD)</span>
                 <input value={form.nettHireargeAmt || ''} readOnly placeholder="0.00" />
               </div>
               <div className={styles.summaryRow}>

@@ -1103,7 +1103,7 @@ export function computeEstimateTotals(form) {
   });
   const totalOrcCost = round2(orcs.reduce((sum, row) => sum + num(row.amount), 0));
   // PHP setIlhocForTcDet: txtIlohcForTcDet = txtORCAmt_6 (owner cost id 12 / ILOHC).
-  // Included in ops expenses, then added back into voyage_earning for Nett Daily TCE / P&L.
+  // Included in ops expenses, then added back into voyage_earning for Net Daily TCE / P&L.
   const ilohcRow = orcs.find((row) => {
     const costId = String(row.costId || '');
     const name = String(row.costName || '').toUpperCase();
@@ -1435,7 +1435,7 @@ export function computeEstimateTotals(form) {
     // PHP getDDCOwnerCalculation: Actual tracks Estimated when laytime flag is 0
     const ddcLpReal = ddcLpEst;
     const ddcDpReal = ddcDpEst;
-    // PHP Nett = Actual − Actual×ADDComm%/100; ADDComm UI commented out → Nett = Actual
+    // PHP Net = Actual − Actual×ADDComm%/100; ADDComm UI commented out → Net = Actual
     const ddcLpNett = ddcLpReal;
     const ddcDpNett = ddcDpReal;
     return {
@@ -1449,7 +1449,7 @@ export function computeEstimateTotals(form) {
     };
   });
 
-  // PHP txtDemurrageRevenues / Total Nett = sum of row Nett Values (getDDCOwnerCalculation)
+  // PHP txtDemurrageRevenues / Total Net = sum of row Net Values (getDDCOwnerCalculation)
   const demurrageNett = round2(
     legsWithDemurrage.reduce((sum, leg) => sum + num(leg.ddcLpNett) + num(leg.ddcDpNett), 0),
   );

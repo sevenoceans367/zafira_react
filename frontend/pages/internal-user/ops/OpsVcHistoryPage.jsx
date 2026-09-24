@@ -167,7 +167,7 @@ export default function OpsVcHistoryPage() {
               <th>Voyage Letters</th>
               <th>Ports &amp; Fuel</th>
               <th>Port Activity</th>
-              <th>Financial Management</th>
+              <th>Contract Finance</th>
             </tr>
           </thead>
           <tbody>

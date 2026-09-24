@@ -9,7 +9,7 @@ function money(value) {
 
 /**
  * Standalone Cargo Relet live calc — mirrors php/New_Standalone_Cargo_Relet.html.
- * Bunker Diff / Bnkr Surcharge / Effective Frt are $/MT; Gross/Nett are amounts.
+ * Bunker Diff / Bnkr Surcharge / Effective Frt are $/MT; Gross/Net are amounts.
  */
 export function calcStandaloneCargoReletTotals(form) {
   const qty = num(form.cargoQty);

@@ -15,7 +15,7 @@ const MOCK_GRID = {
       lines: [
         {
           key: 'freight-1',
-          name: 'Final Nett Freight (WHEAT)',
+          name: 'Final Net Freight (WHEAT)',
           vendorId: 'CH001',
           vendorName: 'Ocean Charterers',
           actions: [
@@ -25,7 +25,7 @@ const MOCK_GRID = {
               variant: 'warning',
               enabled: true,
               migrated: true,
-              href: '/internal-user/vc/ops/freight-invoice?id=2001%2C3001%2CCH001%2C100000.00%2C0%2C10000%2C1%2C0%2C0%2C1%2C1&name=Final%20Nett%20Freight%20(WHEAT)&page=1&invType=Interim&voyageNo=V25001',
+              href: '/internal-user/vc/ops/freight-invoice?id=2001%2C3001%2CCH001%2C100000.00%2C0%2C10000%2C1%2C0%2C0%2C1%2C1&name=Final%20Net%20Freight%20(WHEAT)&page=1&invType=Interim&voyageNo=V25001',
             },
             {
               key: 'finalInvoice',
@@ -33,7 +33,7 @@ const MOCK_GRID = {
               variant: 'info',
               enabled: true,
               migrated: true,
-              href: '/internal-user/vc/ops/freight-invoice?id=2001%2C3001%2CCH001%2C100000.00%2C0%2C10000%2C1%2C0%2C0%2C1%2C1&name=Final%20Nett%20Freight%20(WHEAT)&page=1&invType=Final&voyageNo=V25001',
+              href: '/internal-user/vc/ops/freight-invoice?id=2001%2C3001%2CCH001%2C100000.00%2C0%2C10000%2C1%2C0%2C0%2C1%2C1&name=Final%20Net%20Freight%20(WHEAT)&page=1&invType=Final&voyageNo=V25001',
             },
           ],
           badges: [],
@@ -72,12 +72,12 @@ const MOCK_GRID = {
     },
     {
       key: 'bunkers',
-      periodLabel: 'Bunkers Nett Supply',
+      periodLabel: 'Bunkers Net Supply',
       columns: { showPayments: true, showVoyageId: true },
       lines: [
         {
           key: 'bunker-1',
-          name: 'VLSFO Nett',
+          name: 'VLSFO Net',
           vendorId: 'BK001',
           vendorName: 'Bunker Supplier',
           totalPaid: '12000',
@@ -90,7 +90,7 @@ const MOCK_GRID = {
               variant: 'warning',
               enabled: true,
               migrated: true,
-              href: '/internal-user/vc/ops/request-port-cost?id=2%2CBunkers%20Nett%20Supply%2CG001%2CBK001%2C2001%2C12000&name=VLSFO%20Nett&page=1&voyageNo=V25001',
+              href: '/internal-user/vc/ops/request-port-cost?id=2%2CBunkers%20Net%20Supply%2CG001%2CBK001%2C2001%2C12000&name=VLSFO%20Net&page=1&voyageNo=V25001',
             },
           ],
           badges: [],
@@ -217,7 +217,7 @@ export async function getPaymentGridVc(comId, options = {}) {
         const invType = item.key === 'initialInvoice' ? 'Interim' : 'Final';
         const params = new URLSearchParams({
           id: `${mock.comId},${mock.fcaId},${row.vendorId || 'CH001'},0,0,0,0,0,0`,
-          name: row.name || 'Final Nett Freight',
+          name: row.name || 'Final Net Freight',
           page,
           invType,
         });

@@ -1881,7 +1881,7 @@ export default function EstimateDetailSections({
                 <th>Demm. Rate</th>
                 <th>Estimated($)</th>
                 <th>Actual($)</th>
-                <th>Nett Value($)</th>
+                <th>Net Value($)</th>
                 <th>Vendor</th>
               </tr>
             </thead>
@@ -2020,7 +2020,7 @@ export default function EstimateDetailSections({
             <tfoot>
               <tr>
                 <td colSpan={5} />
-                <td className={styles.demurrageTotalLabel}>Total Nett Value($)</td>
+                <td className={styles.demurrageTotalLabel}>Total Net Value($)</td>
                 <td>
                   <input
                     id="demurrageNett"

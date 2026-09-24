@@ -318,7 +318,7 @@ export default function OpsVcInOpsGlancePage() {
                   <th>Voyage Letters</th>
                   <th>Ports &amp; Fuel</th>
                   <th>Port Activity</th>
-                  <th>Financial Management</th>
+                  <th>Contract Finance</th>
                   <th>Next</th>
                 </tr>
               </thead>

@@ -705,7 +705,7 @@ export default function OpsVcFreightInvoicePage() {
   const [searchParams] = useSearchParams();
 
   const id = searchParams.get('id') || '';
-  const name = searchParams.get('name') || 'Final Nett Freight';
+  const name = searchParams.get('name') || 'Final Net Freight';
   const page = searchParams.get('page') || '1';
   const invType = searchParams.get('invType') || searchParams.get('invtype') || 'Interim';
   const voyageNo = searchParams.get('voyageNo') || searchParams.get('voyage_no') || '';

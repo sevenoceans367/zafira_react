@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Select, useConfirm } from '@bainbridge/shared-ui';
+import { CardSelect, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { getUser } from '@bainbridge/shared-auth';
 import sopfIcon from '../../assets/SOPF Icon 1.png';
 import socIcon from '../../assets/SOC Product Icon.png';
+import hedgexIcon from '../../assets/hedgex-icon.png';
+import sofaIcon from '../../assets/sofa-icon.png';
 import ModuleTintIcon from '../../components/ModuleTintIcon.jsx';
 import tintStyles from '../../components/ModuleTintIcon.module.css';
 import styles from './ModuleHomePage.module.css';
@@ -25,6 +27,7 @@ const HOME_CARDS = [
     code: 'HedgeX',
     description: 'Manage your book’s exposure & hedge live contracts',
     href: '',
+    iconSrc: hedgexIcon,
     theme: 'themeSilver',
   },
   {
@@ -38,10 +41,11 @@ const HOME_CARDS = [
   },
   {
     id: 'sofa',
-    title: 'Seven Oceans Finance & Accounting',
+    title: 'Seven Oceans F&A',
     code: 'SOFA',
     description: 'Unified financial and portfolio metrics, beyond voyage contracts.',
     href: '',
+    iconSrc: sofaIcon,
     theme: 'themeSilver',
   },
 ];
@@ -54,15 +58,6 @@ function HomeCardIcon({ card }) {
         alt=""
         className={`${tintStyles.icon} ${styles.prodIcon}`}
       />
-    );
-  }
-  if (card.id === 'hedgex') {
-    return (
-      <svg className={styles.prodIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-        <rect x="2" y="7" width="17" height="11" rx="1.5" />
-        <circle cx="10.5" cy="12.5" r="2" />
-        <path d="M14 9l7-4-1.5 4.5" />
-      </svg>
     );
   }
   return (
@@ -226,17 +221,16 @@ export default function ModuleHomePage() {
         </span>
         <label className={styles.demoRole}>
           <span>Demo view</span>
-          <Select
-            size="sm"
-            className={styles.demoRoleSelect}
-            value={demoRole}
-            aria-label="Demo view"
-            onChange={(event) => setDemoRole(event.target.value)}
-          >
-            {DEMO_ROLES.map((role) => (
-              <option key={role.id} value={role.id}>{role.label}</option>
-            ))}
-          </Select>
+          <div className={styles.demoRoleSelect}>
+            <CardSelect
+              value={demoRole}
+              ariaLabel="Demo view"
+              placeholder="Select role"
+              align="end"
+              options={DEMO_ROLES.map((role) => ({ id: role.id, name: role.label }))}
+              onChange={(next) => setDemoRole(next)}
+            />
+          </div>
         </label>
       </div>
 

@@ -21,7 +21,7 @@ const MOCK = {
   ],
   rows: [
     {
-      label: 'Final Nett Freight',
+      label: 'Final Net Freight',
       section: 'Revenue',
       link: '',
       values: ['2145000.00', '2150000.00'],

@@ -1,9 +1,19 @@
 import { isDbConfigured } from '../config.js';
-import { dbGetOpsChecklist, dbListPerformingVessels } from './opsChecklistDb.js';
+import {
+  dbGetOpsChecklist,
+  dbListPerformingVessels,
+  dbListSpotOpsInOpsFleetHeaders,
+} from './opsChecklistDb.js';
 import { deriveTcChecklist, deriveVcChecklist } from './opsChecklist.js';
 
 export async function listPerformingVessels(params = {}) {
   if (isDbConfigured()) return dbListPerformingVessels(params);
+  return { records: [] };
+}
+
+/** Fast fleet list for Vessels on Water — In Ops headers only (no checklist). */
+export async function listSpotOpsInOpsFleetHeaders(params = {}) {
+  if (isDbConfigured()) return dbListSpotOpsInOpsFleetHeaders(params);
   return { records: [] };
 }
 

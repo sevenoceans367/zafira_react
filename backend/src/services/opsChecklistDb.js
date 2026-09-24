@@ -630,6 +630,37 @@ export async function dbListPerformingVessels({ kind = 'all', selBType = '2' } =
   return { records: [...vcRows, ...tcRows] };
 }
 
+/**
+ * Lightweight Spot Ops In Ops headers for the live map (no SOF/checklist enrichment).
+ */
+export async function dbListSpotOpsInOpsFleetHeaders({ selBType = '' } = {}) {
+  const pool = getPool();
+  const headers = await loadVcInOpsHeaders(pool, {
+    selBType: selBType ? String(selBType) : undefined,
+  });
+  return {
+    records: (headers || []).map((header) => ({
+      comId: header.comId,
+      kind: 'vc',
+      vessel: header.vesselName || '',
+      vesselName: header.vesselName || '',
+      vesselImoNo: header.vesselImoNo || '',
+      voy: header.voyageNo || '',
+      voyageNo: header.voyageNo || '',
+      cpDate: header.cpDate || '',
+      fcaId: header.fcaId,
+      checklistHref: `/internal-user/vc/ops/checklist?comid=${encodeURIComponent(header.comId)}`,
+      fixture: {
+        vesselName: header.vesselName || '',
+        voyageNo: header.voyageNo || '',
+        cpDate: header.cpDate || '',
+        loadPort: '',
+        dischargePort: '',
+      },
+    })),
+  };
+}
+
 export async function dbGetOpsChecklist(comId, kindHint = '') {
   if (!comId) {
     const error = new Error('comId is required.');

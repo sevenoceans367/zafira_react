@@ -1,6 +1,7 @@
 import { isDbConfigured, appContext } from '../config.js';
 import { getPool } from '../db.js';
-import { listPerformingVessels } from './opsChecklistService.js';
+import { listSpotOpsInOpsFleetHeaders } from './opsChecklistService.js';
+import { approxCoordsForPortLabel } from './liveVesselMapRouteService.js';
 import { fetchLastPositionsForImos } from './vesselPositionService.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
@@ -263,22 +264,72 @@ async function loadCurrentLegsByFca(pool, fcaIds = []) {
   try {
     const [rows] = await pool.query(
       `SELECT s.FCAID,
-              CONCAT(COALESCE(fp.PortName, ''), IF(fp.COUNTRY_KEY IS NULL OR fp.COUNTRY_KEY = '', '', CONCAT(' (', fp.COUNTRY_KEY, ')'))) AS FROM_PORT_NAME,
-              CONCAT(COALESCE(tp.PortName, ''), IF(tp.COUNTRY_KEY IS NULL OR tp.COUNTRY_KEY = '', '', CONCAT(' (', tp.COUNTRY_KEY, ')'))) AS TO_PORT_NAME
+              s.LOAD_PORT_QTY,
+              s.DISC_PORT_QTY,
+              s.PASSAGE_TYPE,
+              TRIM(CONCAT(COALESCE(fp.PortName, ''), IF(fp.COUNTRY_KEY IS NULL OR fp.COUNTRY_KEY = '', '', CONCAT(' (', fp.COUNTRY_KEY, ')')))) AS FROM_PORT_NAME,
+              TRIM(CONCAT(COALESCE(tp.PortName, ''), IF(tp.COUNTRY_KEY IS NULL OR tp.COUNTRY_KEY = '', '', CONCAT(' (', tp.COUNTRY_KEY, ')')))) AS TO_PORT_NAME
        FROM freight_cost_estimete_slave1 s
-       LEFT JOIN port_master fp ON fp.PortId = s.FROM_PORT
-       LEFT JOIN port_master tp ON tp.PortId = s.TO_PORT
+       LEFT JOIN port_master fp
+         ON CAST(fp.PortId AS CHAR) = CAST(s.FROM_PORT AS CHAR)
+       LEFT JOIN port_master tp
+         ON CAST(tp.PortId AS CHAR) = CAST(s.TO_PORT AS CHAR)
        WHERE s.FCAID IN (${placeholders})
-       ORDER BY s.FCAID, s.FCA_SLAVEID DESC`,
+       ORDER BY s.FCAID, s.FCA_SLAVEID ASC`,
       ids,
     );
+
     for (const row of rows || []) {
       const key = String(row.FCAID);
-      if (byFca.has(key)) continue;
-      byFca.set(key, {
-        legFrom: String(row.FROM_PORT_NAME || '').trim(),
-        legTo: String(row.TO_PORT_NAME || '').trim(),
-      });
+      if (!byFca.has(key)) {
+        byFca.set(key, {
+          legFrom: '',
+          legTo: '',
+          passageFrom: '',
+          passageTo: '',
+          _loads: [],
+          _discharges: [],
+          _allFrom: [],
+          _allTo: [],
+        });
+      }
+      const entry = byFca.get(key);
+      const fromName = String(row.FROM_PORT_NAME || '').trim();
+      const toName = String(row.TO_PORT_NAME || '').trim();
+      const passageType = row.PASSAGE_TYPE == null ? 2 : Number(row.PASSAGE_TYPE);
+
+      if (fromName) {
+        entry.legFrom = fromName;
+        if (!entry._allFrom.includes(fromName)) entry._allFrom.push(fromName);
+      }
+      if (toName) {
+        entry.legTo = toName;
+        if (!entry._allTo.includes(toName)) entry._allTo.push(toName);
+      }
+
+      if (passageType === 2 || row.PASSAGE_TYPE == null) {
+        if (Number(row.LOAD_PORT_QTY) > 0 && fromName && !entry._loads.includes(fromName)) {
+          entry._loads.push(fromName);
+        }
+        if (Number(row.DISC_PORT_QTY) > 0 && toName && !entry._discharges.includes(toName)) {
+          entry._discharges.push(toName);
+        }
+      }
+    }
+
+    for (const entry of byFca.values()) {
+      entry.passageFrom = entry._loads.length
+        ? entry._loads.join(', ')
+        : (entry._allFrom[0] || '');
+      entry.passageTo = entry._discharges.length
+        ? entry._discharges.join(', ')
+        : (entry._allTo[entry._allTo.length - 1] || '');
+      if (!entry.legFrom) entry.legFrom = entry.passageFrom;
+      if (!entry.legTo) entry.legTo = entry.passageTo;
+      delete entry._loads;
+      delete entry._discharges;
+      delete entry._allFrom;
+      delete entry._allTo;
     }
   } catch {
     /* optional */
@@ -720,6 +771,8 @@ async function loadCommercialByComId(comIds = []) {
     loadVendorNames(pool, vendorCodes),
   ]);
 
+  const cargoNameCache = new Map();
+
   for (const [comId, row] of byCom.entries()) {
     const fcaKey = row.FCAID != null ? String(row.FCAID) : '';
     const cargoInfo = fcaKey ? cargoByFca.get(fcaKey) : null;
@@ -727,10 +780,15 @@ async function loadCommercialByComId(comIds = []) {
 
     let cargoNames = cargoInfo?.names || [];
     if (!cargoNames.length) {
-      cargoNames = await resolveCargoDisplayNames(
-        pool,
-        row.CARGO_ID || row.CMP_CARGO_ID || row.CMP_MATERIALID || row.MATERIALID,
+      const csv = String(
+        row.CARGO_ID || row.CMP_CARGO_ID || row.CMP_MATERIALID || row.MATERIALID || '',
       );
+      if (csv) {
+        if (!cargoNameCache.has(csv)) {
+          cargoNameCache.set(csv, await resolveCargoDisplayNames(pool, csv));
+        }
+        cargoNames = cargoNameCache.get(csv) || [];
+      }
     }
 
     const ownerCode = String(row.OWNER ?? '').trim();
@@ -788,6 +846,9 @@ async function loadCommercialByComId(comIds = []) {
       coaSpot,
       legFrom: legInfo?.legFrom || '',
       legTo: legInfo?.legTo || '',
+      // Full Passage (all load → all discharge ports from worksheet)
+      from: legInfo?.passageFrom || legInfo?.legFrom || '',
+      to: legInfo?.passageTo || legInfo?.legTo || '',
       contacts,
     });
   }
@@ -870,7 +931,8 @@ async function loadCommercialByComId(comIds = []) {
  * Excludes Post Ops / History, COA, and TC.
  */
 export async function fetchFleetOverlay() {
-  const { records } = await listPerformingVessels({ kind: 'vc', selBType: '' });
+  // Lightweight headers only — avoid checklist/SOF enrichment (was a major slowdown).
+  const { records } = await listSpotOpsInOpsFleetHeaders({ selBType: '' });
   const byImo = new Map();
 
   (records || []).forEach((row) => {
@@ -891,6 +953,7 @@ export async function fetchFleetOverlay() {
       voyageNo: row.voy || row.voyageNo || row.tcNo || row.fixture?.voyageNo || '',
       kind: row.kind || 'vc',
       comId: row.comId || '',
+      fcaId: row.fcaId || null,
       cpDate: row.cpDate || row.fixture?.cpDate || '',
       routeFrom: from,
       routeTo: to,
@@ -905,7 +968,7 @@ export async function fetchFleetOverlay() {
 
   const comIds = meta.map((row) => row.comId);
   const [positions, sheetsByCom, commercialByCom] = await Promise.all([
-    fetchLastPositionsForImos(meta.map((row) => row.imo)),
+    fetchLastPositionsForImos(meta.map((row) => row.imo), { concurrency: 10, timeoutMs: 8000 }),
     loadWorkingCostSheets(comIds),
     loadCommercialByComId(comIds),
   ]);
@@ -916,21 +979,31 @@ export async function fetchFleetOverlay() {
   const identityFcaIds = meta.map((row) => {
     const sheet = sheetsByCom.get(String(row.comId));
     const fin = commercialByCom.get(String(row.comId)) || {};
-    return sheet?.fcaId || fin.fcaId || null;
+    return sheet?.fcaId || fin.fcaId || row.fcaId || null;
   }).filter(Boolean);
+  // Also include compare / header FCAIDs so passage can resolve from either source.
+  const compareFcaIds = meta
+    .map((row) => commercialByCom.get(String(row.comId))?.fcaId || row.fcaId)
+    .filter(Boolean);
+  const passageFcaIds = [...new Set([...identityFcaIds, ...compareFcaIds].map(Number).filter(Boolean))];
   const pool = isDbConfigured() ? getPool() : null;
-  const [identityByFca, worksheetCommercialByFca, registeredOwnerByImo] = pool
+  const [identityByFca, worksheetCommercialByFca, registeredOwnerByImo, passageByFca] = pool
     ? await Promise.all([
       loadVesselIdentityByFca(pool, identityFcaIds),
       loadWorksheetCommercialByFca(pool, identityFcaIds),
       loadRegisteredOwnersByImo(pool, meta.map((row) => row.imo)),
+      loadCurrentLegsByFca(pool, passageFcaIds),
     ])
-    : [new Map(), new Map(), new Map()];
+    : [new Map(), new Map(), new Map(), new Map()];
 
   const vessels = meta.map((row, index) => {
     const sheet = sheetsByCom.get(String(row.comId));
     const fin = commercialByCom.get(String(row.comId)) || {};
-    const fcaKey = String(sheet?.fcaId || fin.fcaId || '');
+    const fcaKey = String(sheet?.fcaId || fin.fcaId || row.fcaId || '');
+    const compareFcaKey = String(fin.fcaId || row.fcaId || '');
+    const passage = (fcaKey && passageByFca.get(fcaKey))
+      || (compareFcaKey && passageByFca.get(compareFcaKey))
+      || {};
     const identity = (fcaKey && identityByFca.get(fcaKey)) || {};
     const wsCommercial = (fcaKey && worksheetCommercialByFca.get(fcaKey)) || {};
     const registeredOwner = registeredOwnerByImo.get(String(row.imo))
@@ -957,6 +1030,8 @@ export async function fetchFleetOverlay() {
     }
 
     const useWorksheetCommercial = contract !== 'tc';
+    const passageFrom = passage.passageFrom || fin.from || row.routeFrom || '';
+    const passageTo = passage.passageTo || fin.to || row.routeTo || '';
     const commercial = {
       contract,
       vesselName: worksheetVesselName,
@@ -978,10 +1053,10 @@ export async function fetchFleetOverlay() {
       terms: fin.terms || '',
       tce: sheetTce ?? fin.tce ?? null,
       pnl: sheetPnl ?? fin.pnl ?? null,
-      from: row.routeFrom,
-      to: row.routeTo,
-      legFrom: fin.legFrom || row.routeFrom,
-      legTo: fin.legTo || row.routeTo,
+      from: passageFrom,
+      to: passageTo,
+      legFrom: passage.legFrom || fin.legFrom || passageFrom,
+      legTo: passage.legTo || fin.legTo || passageTo,
       contacts: Array.isArray(fin.contacts) ? fin.contacts : [],
       workingCostSheetId: sheet?.costSheetId || null,
       workingSheetName: sheet?.sheetName || '',
@@ -991,36 +1066,44 @@ export async function fetchFleetOverlay() {
 
     const ais = posByImo.get(row.imo);
     if (ais) {
-      return {
-        ...ais,
-        // Prefer Ops / Voyage Worksheet vessel name over AIS broadcast name.
-        ShipName: worksheetVesselName || ais.ShipName || row.shipName,
-        ImoNumber: identity.imoNo || ais.ImoNumber || row.imo,
-        OriginDeclared: ais.OriginDeclared || row.routeFrom || '',
-        DestDeclared: ais.DestDeclared || row.routeTo || '',
-        isFleet: true,
-        fleetKind: row.kind,
-        fleetVoyageNo: row.voyageNo,
-        fleetComId: row.comId,
-        commercial,
-      };
+      const lat = Number(ais.Latitude ?? ais.latitude ?? ais.Lat ?? ais.lat);
+      const lng = Number(ais.Longitude ?? ais.longitude ?? ais.Lon ?? ais.lon ?? ais.Lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return {
+          ...ais,
+          Latitude: lat,
+          Longitude: lng,
+          // Prefer Ops / Voyage Worksheet vessel name over AIS broadcast name.
+          ShipName: worksheetVesselName || ais.ShipName || row.shipName,
+          ImoNumber: identity.imoNo || ais.ImoNumber || row.imo,
+          OriginDeclared: commercial.from || ais.OriginDeclared || row.routeFrom || '',
+          DestDeclared: commercial.to || ais.DestDeclared || row.routeTo || '',
+          isFleet: true,
+          fleetKind: row.kind,
+          fleetVoyageNo: row.voyageNo,
+          fleetComId: row.comId,
+          fleetPositionApprox: false,
+          commercial,
+        };
+      }
     }
 
-    const hubs = [
-      [1.26, 103.82],
-      [51.95, 4.14],
-      [25.27, 55.3],
-      [29.45, -94.7],
-      [31.23, 121.47],
-    ];
-    const [lat, lng] = hubs[index % hubs.length];
+    // AIS missing / timed out: place near destination (then origin) port — not random hubs.
+    const nearPort = approxCoordsForPortLabel(commercial.to || row.routeTo)
+      || approxCoordsForPortLabel(commercial.from || row.routeFrom);
+    const lat = nearPort
+      ? nearPort.lat + ((index % 5) - 2) * 0.04
+      : 20 + (index % 7) * 2;
+    const lng = nearPort
+      ? nearPort.lng + ((index % 4) - 1.5) * 0.04
+      : 60 + (index % 6) * 3;
     return {
       ShipName: worksheetVesselName || row.shipName || `Fleet ${row.imo}`,
       ImoNumber: identity.imoNo || row.imo,
-      Latitude: lat + (index % 5) * 0.12,
-      Longitude: lng + (index % 4) * 0.12,
-      OriginDeclared: row.routeFrom,
-      DestDeclared: row.routeTo,
+      Latitude: lat,
+      Longitude: lng,
+      OriginDeclared: commercial.from || row.routeFrom,
+      DestDeclared: commercial.to || row.routeTo,
       PositionLastUpdated: new Date().toISOString().slice(0, 16).replace('T', ' '),
       ShipFlag: '',
       DraughtDeclared: '',

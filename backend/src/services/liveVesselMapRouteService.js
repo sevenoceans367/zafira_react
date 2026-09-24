@@ -20,6 +20,9 @@ const FALLBACK_PORTS = {
   yokohama: { lat: 35.45, lng: 139.65, portName: 'Yokohama', portCode: 'JPTYO' },
   gibraltar: { lat: 36.14, lng: -5.35, portName: 'Gibraltar', portCode: 'GIGIB' },
   suez: { lat: 29.97, lng: 32.55, portName: 'Suez', portCode: 'EGSUZ' },
+  sikka: { lat: 22.43, lng: 69.83, portName: 'Sikka', portCode: 'INSIK' },
+  venice: { lat: 45.438, lng: 12.336, portName: 'Venice', portCode: 'ITVCE' },
+  venezia: { lat: 45.438, lng: 12.336, portName: 'Venice', portCode: 'ITVCE' },
 };
 
 function portCoords(port) {
@@ -37,6 +40,58 @@ function fallbackPort(name) {
   return hit ? { ...hit[1] } : null;
 }
 
+/**
+ * Best-effort lat/lng for a worksheet port label without calling Seametrix.
+ * Used when AIS last-position is missing so pins are near the voyage ports
+ * instead of unrelated hub cities.
+ */
+export function approxCoordsForPortLabel(rawLabel) {
+  const candidates = portSearchCandidates(rawLabel);
+  for (const candidate of candidates) {
+    const hit = fallbackPort(candidate);
+    if (hit && Number.isFinite(hit.lat) && Number.isFinite(hit.lng)) {
+      return { lat: hit.lat, lng: hit.lng, portName: hit.portName || candidate };
+    }
+  }
+  return null;
+}
+
+/**
+ * Worksheet labels look like: "Sikka / Valupir / Reliance-Sikka (IND)".
+ * Seametrix needs a short searchable name — try primary segments first.
+ */
+function portSearchCandidates(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return [];
+  const withoutCountry = text.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+  const slashParts = withoutCountry
+    .split(/\s*\/\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const candidates = [];
+  const push = (value) => {
+    const next = String(value || '').trim();
+    if (!next) return;
+    if (!candidates.some((item) => item.toLowerCase() === next.toLowerCase())) {
+      candidates.push(next);
+    }
+  };
+
+  // Prefer first slash segment (usual PortName before aliases).
+  for (const part of slashParts) push(part);
+  for (const part of slashParts) {
+    for (const token of part.split(/[-–—]/).map((t) => t.trim()).filter(Boolean)) {
+      push(token);
+    }
+  }
+  push(withoutCountry);
+  push(text);
+
+  // Shorter queries match Seametrix better.
+  return candidates.sort((a, b) => a.length - b.length || a.localeCompare(b));
+}
+
 async function searchSeametrixPorts(query) {
   const term = String(query || '').trim();
   if (!term) return [];
@@ -51,21 +106,28 @@ async function searchSeametrixPorts(query) {
 }
 
 async function resolvePort(name) {
-  const hits = await searchSeametrixPorts(name);
-  const match = hits[0];
-  if (match?.portCode) {
-    const coords = portCoords(match) || fallbackPort(name) || fallbackPort(match.portName);
-    return {
-      portCode: match.portCode,
-      portName: match.portName || name,
-      country: match.country || '',
-      lat: coords?.lat,
-      lng: coords?.lng,
-    };
+  const candidates = portSearchCandidates(name);
+  for (const candidate of candidates) {
+    try {
+      const hits = await searchSeametrixPorts(candidate);
+      const match = hits[0];
+      if (match?.portCode) {
+        const coords = portCoords(match) || fallbackPort(candidate) || fallbackPort(match.portName);
+        return {
+          portCode: match.portCode,
+          portName: match.portName || candidate,
+          country: match.country || '',
+          lat: coords?.lat,
+          lng: coords?.lng,
+        };
+      }
+    } catch {
+      // try next candidate
+    }
+    const fallback = fallbackPort(candidate);
+    if (fallback) return fallback;
   }
-  const fallback = fallbackPort(name);
-  if (!fallback) return null;
-  return fallback;
+  return null;
 }
 
 async function fetchSeametrixRoute(startPort, endPort) {

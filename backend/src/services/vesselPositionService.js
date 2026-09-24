@@ -213,28 +213,45 @@ async function resolveImoCandidates({ imo, mmsi, name }) {
   return [];
 }
 
-async function callLastPositionApi(imo) {
-  const proxyUrl = process.env.VESSEL_LAST_POSITION_API_URL;
-  if (proxyUrl) {
-    const url = new URL(proxyUrl);
-    url.searchParams.set('imo', imo);
-    const response = await fetch(url.toString(), { headers: authHeaders() });
-    if (!response.ok) throw new Error(`Last position API returned ${response.status}`);
-    return JSON.parse(await response.text());
+async function callLastPositionApi(imo, { timeoutMs = 4000, signal } = {}) {
+  const controller = new AbortController();
+  const timer = timeoutMs > 0
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener('abort', () => controller.abort(), { once: true });
   }
 
-  const navUrl = process.env.NAVAPI_LAST_POSITION_URL
-    || 'https://v1.navapi.pro/aisp/svsl/LastPosition';
-  const token = process.env.VESSEL_POSITION_TOKEN || process.env.NAVAPI_SHIP_DETAILS_TOKEN;
-  if (!token) return null;
+  try {
+    const proxyUrl = process.env.VESSEL_LAST_POSITION_API_URL;
+    if (proxyUrl) {
+      const url = new URL(proxyUrl);
+      url.searchParams.set('imo', imo);
+      const response = await fetch(url.toString(), {
+        headers: authHeaders(),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`Last position API returned ${response.status}`);
+      return JSON.parse(await response.text());
+    }
 
-  const url = new URL(navUrl);
-  url.searchParams.set('IMO', imo);
-  const response = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok) throw new Error(`NavAPI LastPosition returned ${response.status}`);
-  return JSON.parse(await response.text());
+    const navUrl = process.env.NAVAPI_LAST_POSITION_URL
+      || 'https://v1.navapi.pro/aisp/svsl/LastPosition';
+    const token = process.env.VESSEL_POSITION_TOKEN || process.env.NAVAPI_SHIP_DETAILS_TOKEN;
+    if (!token) return null;
+
+    const url = new URL(navUrl);
+    url.searchParams.set('IMO', imo);
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`NavAPI LastPosition returned ${response.status}`);
+    return JSON.parse(await response.text());
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function mockLastPositionForCandidate(candidate, index = 0) {
@@ -315,7 +332,14 @@ export async function fetchVesselLastPosition({ imo = '', mmsi = '', name = '', 
   };
 }
 
-export async function fetchLastPositionsForImos(imoList = [], { concurrency = 4 } = {}) {
+/**
+ * Batch AIS last positions for known IMOs.
+ * Skips DB name/MMSI resolution (IMOs already known) and uses higher concurrency + timeouts.
+ */
+export async function fetchLastPositionsForImos(
+  imoList = [],
+  { concurrency = 12, timeoutMs = 4000 } = {},
+) {
   const unique = [...new Set((imoList || []).map(stripImo).filter(Boolean))];
   const vessels = [];
   let cursor = 0;
@@ -326,15 +350,32 @@ export async function fetchLastPositionsForImos(imoList = [], { concurrency = 4 
       cursor += 1;
       const imo = unique[index];
       try {
-        const result = await fetchVesselLastPosition({ imo });
-        if (result.vessel) vessels.push(result.vessel);
+        const payload = await callLastPositionApi(imo, { timeoutMs });
+        if (!payload) continue;
+        const resultCode = Number(payload?.Metadata?.ResultCode ?? 200);
+        const record = pickLastPositionRecord(payload);
+        if (resultCode === 200 && record) {
+          const lat = Number(record.Latitude ?? record.latitude ?? record.Lat ?? record.lat);
+          const lng = Number(
+            record.Longitude ?? record.longitude ?? record.Lon ?? record.lon ?? record.Lng,
+          );
+          vessels.push({
+            ...record,
+            ImoNumber: record.ImoNumber || imo,
+            Latitude: Number.isFinite(lat) ? lat : record.Latitude,
+            Longitude: Number.isFinite(lng) ? lng : record.Longitude,
+          });
+        }
       } catch {
-        // skip failed IMOs
+        // skip failed / timed-out IMOs — map falls back to approx position
       }
     }
   }
 
-  const workers = Array.from({ length: Math.min(concurrency, unique.length || 1) }, () => worker());
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, concurrency), unique.length || 1) },
+    () => worker(),
+  );
   await Promise.all(workers);
   return vessels;
 }

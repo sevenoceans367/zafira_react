@@ -64,6 +64,14 @@ export async function fetchFleetOverlay() {
   return data;
 }
 
+export function routeQueryPort(label) {
+  const text = String(label || '').trim();
+  if (!text) return '';
+  const withoutCountry = text.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+  const primary = withoutCountry.split(/\s*\/\s*/)[0]?.trim();
+  return primary || withoutCountry || text;
+}
+
 export function collectVoyageLegs(vessels, maxLegs = 20) {
   const legs = new Map();
   (vessels || []).forEach((vessel) => {
@@ -72,7 +80,13 @@ export function collectVoyageLegs(vessels, maxLegs = 20) {
     if (!origin || !destination) return;
     const key = `${origin.toLowerCase()}|${destination.toLowerCase()}`;
     if (!legs.has(key)) {
-      legs.set(key, { origin, destination, key });
+      legs.set(key, {
+        origin,
+        destination,
+        queryOrigin: routeQueryPort(origin),
+        queryDestination: routeQueryPort(destination),
+        key,
+      });
     }
   });
   return [...legs.values()].slice(0, maxLegs);
@@ -83,8 +97,8 @@ export async function fetchFleetRoutes(vessels, { maxLegs = 20 } = {}) {
   const results = await Promise.allSettled(
     legs.map(async (leg) => {
       const route = await fetchVesselRoute({
-        origin: leg.origin,
-        destination: leg.destination,
+        origin: leg.queryOrigin || leg.origin,
+        destination: leg.queryDestination || leg.destination,
       });
       return { ...route, legKey: leg.key };
     }),

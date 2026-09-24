@@ -16,6 +16,7 @@ import {
   fetchFleetRoutes,
   fetchVesselLastPosition,
   fetchVesselRoute,
+  routeQueryPort,
 } from './liveVesselMapApi.js';
 import {
   agentInitials,
@@ -402,8 +403,8 @@ export default function LiveVesselMapPage() {
     }
 
     const route = await fetchVesselRoute({
-      origin: origin || destination,
-      destination,
+      origin: routeQueryPort(origin) || origin || destination,
+      destination: routeQueryPort(destination) || destination,
     });
     if (route?.waypoints?.length) {
       const withKey = legKey ? { ...route, legKey } : route;
@@ -965,8 +966,8 @@ export default function LiveVesselMapPage() {
   const pnlTone = metricTone(commercial?.pnl);
   const legFrom = commercial?.legFrom || '';
   const legTo = commercial?.legTo || '';
-  const passageFrom = commercial?.from || '';
-  const passageTo = commercial?.to || '';
+  const passageFrom = commercial?.from || legFrom || '';
+  const passageTo = commercial?.to || legTo || '';
   const lastPos = vesselField(selectedVessel, 'PositionLastUpdated');
   const imo = vesselField(selectedVessel, 'ImoNumber');
 

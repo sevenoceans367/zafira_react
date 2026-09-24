@@ -1,5 +1,6 @@
 import { appPath } from '@bainbridge/shared-routing';
 import { vesselDisplayName, vesselField } from './liveVesselMap.constants.js';
+import { routeQueryPort } from './liveVesselMapApi.js';
 
 export const CONTRACT_LABEL = {
   spot: 'Spot',
@@ -30,6 +31,11 @@ export function metricTone(value) {
   return Number(value) >= 0 ? 'pos' : 'neg';
 }
 
+/** Display port label: value before first "/" (e.g. "Sikka / Valupir (IND)" → "Sikka"). */
+function shortPortLabel(label) {
+  return routeQueryPort(label) || String(label || '').trim();
+}
+
 /** Build commercial view-model for bubble + full-details panel. */
 export function resolveCommercial(vessel) {
   const c = vessel?.commercial || {};
@@ -49,10 +55,10 @@ export function resolveCommercial(vessel) {
     vesselType: c.vesselType || '',
     contract,
     contractLabel: CONTRACT_LABEL[contract] || '',
-    from: c.from || origin,
-    to: c.to || dest,
-    legFrom: c.legFrom || origin,
-    legTo: c.legTo || dest,
+    from: shortPortLabel(c.from || origin),
+    to: shortPortLabel(c.to || dest),
+    legFrom: shortPortLabel(c.legFrom || origin),
+    legTo: shortPortLabel(c.legTo || dest),
     voyageNo: c.voyageNo || vesselField(vessel, 'fleetVoyageNo') || '',
     cargo: c.cargo || '',
     laycan: c.laycan || '',

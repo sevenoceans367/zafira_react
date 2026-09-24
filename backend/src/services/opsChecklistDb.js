@@ -371,12 +371,14 @@ async function loadLatestReports(pool, imoNos) {
 }
 
 async function loadVcInOpsHeaders(pool, { selBType, comId } = {}) {
+  // Align with Spot Ops In Ops glance: STATUS=1, non-COA (COAAID IS NULL)
   const conditions = [
     'c.MODULEID = ?',
     'c.MCOMPANYID = ?',
     "c.FINAL_ID != ''",
     'm.FIXED = 1',
     'c.STATUS = 1',
+    'c.COAAID IS NULL',
   ];
   const params = [MODULE_ID, COMPANY_ID];
   if (selBType) {

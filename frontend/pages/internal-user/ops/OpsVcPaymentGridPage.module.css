@@ -729,28 +729,32 @@
   font-weight: 700;
 }
 
-/* Header: Go to Cash Flow — same layout as Aging Report Payables cross-nav */
+/* Header: Go to Cash Flow — match Back button size (.back in shared Button) */
 .crossNavBtn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: #e6eaf1;
-  color: #1b2430;
-  border: 1px solid #d3dae7;
+  justify-content: center;
+  gap: 7px;
+  background: #fff;
+  color: #5b6472;
+  border: 1.5px solid #dfe2e7;
   border-radius: 9px;
-  padding: 9px 15px;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.3;
+  padding: 8px 15px;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1;
   text-decoration: none;
   white-space: nowrap;
   font-family: inherit;
   flex: 0 0 auto;
   align-self: center;
+  box-sizing: border-box;
 }
 
 .crossNavBtn:hover {
-  background: #d3dae7;
+  background: #f1f2f4;
+  border-color: #dfe2e7;
+  color: #1b2430;
 }
 
 .crossNavBtn svg {

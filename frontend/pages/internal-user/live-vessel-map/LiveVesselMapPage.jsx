@@ -14,7 +14,6 @@ import modalStyles from './DailyPositionsModal.module.css';
 import {
   fetchFleetOverlay,
   fetchFleetRoutes,
-  fetchLiveVesselFleet,
   fetchVesselLastPosition,
   fetchVesselRoute,
 } from './liveVesselMapApi.js';
@@ -278,7 +277,7 @@ export default function LiveVesselMapPage() {
   const selectedLegKeyRef = useRef(null);
   const loadFleetRef = useRef(async () => {});
   const filtersRef = useRef(EMPTY_FILTERS);
-  const showAisRef = useRef(true);
+  const showAisRef = useRef(false);
   const showFleetRef = useRef(true);
   const showRoutesRef = useRef(false);
   const aisVesselsRef = useRef([]);
@@ -302,7 +301,7 @@ export default function LiveVesselMapPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [showRoutes, setShowRoutes] = useState(false);
-  const [showAis, setShowAis] = useState(true);
+  const [showAis, setShowAis] = useState(false);
   const [showFleet, setShowFleet] = useState(true);
   const [dailyPositionsOpen, setDailyPositionsOpen] = useState(false);
   const [aisVessels, setAisVessels] = useState([]);
@@ -667,35 +666,19 @@ export default function LiveVesselMapPage() {
     clearSelection();
 
     try {
-      const [aisData, fleetData] = await Promise.all([
-        fetchLiveVesselFleet(),
-        fetchFleetOverlay().catch(() => ({ resultCode: 200, vessels: [] })),
-      ]);
-
-      if (aisData.resultCode !== 200) {
-        await alert({
-          title: 'Error',
-          message: 'Something went wrong!',
-          confirmLabel: 'OK',
-        });
-        setAisVessels([]);
-        setFleetVessels([]);
-        clearMarkers();
-        clearAllRoutes();
-        return;
-      }
-
-      const ais = aisData.vessels || [];
+      // Spot Ops In Ops only — do not auto-load open-market AIS hub vessels.
+      const fleetData = await fetchFleetOverlay().catch(() => ({ resultCode: 200, vessels: [] }));
       const fleet = (fleetData.vessels || []).map((vessel) => ({ ...vessel, isFleet: true }));
-      setAisVessels(ais);
+
+      setAisVessels([]);
       setFleetVessels(fleet);
-      aisVesselsRef.current = ais;
+      aisVesselsRef.current = [];
       fleetVesselsRef.current = fleet;
 
-      if (!ais.length && !fleet.length) {
+      if (!fleet.length) {
         await alert({
           title: 'Notice',
-          message: 'No vessels found!',
+          message: 'No Spot Ops In Ops vessels found!',
           confirmLabel: 'OK',
         });
         clearMarkers();
@@ -704,7 +687,7 @@ export default function LiveVesselMapPage() {
       }
 
       applyVisibility({ fit: true });
-      loadFleetRoutes([...ais, ...fleet.filter((v) => v.OriginDeclared && v.DestDeclared)]);
+      loadFleetRoutes(fleet.filter((v) => v.OriginDeclared && v.DestDeclared));
     } catch (error) {
       await alert({
         title: 'Error',

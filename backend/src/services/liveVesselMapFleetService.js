@@ -866,10 +866,11 @@ async function loadCommercialByComId(comIds = []) {
 }
 
 /**
- * Overlay Zafira performing (in-ops) vessels on the live map using AIS last positions.
+ * Overlay Spot Ops In Ops (VC STATUS=1) vessels on the live map using AIS last positions.
+ * Excludes Post Ops / History, COA, and TC.
  */
 export async function fetchFleetOverlay() {
-  const { records } = await listPerformingVessels({ kind: 'all' });
+  const { records } = await listPerformingVessels({ kind: 'vc', selBType: '' });
   const byImo = new Map();
 
   (records || []).forEach((row) => {

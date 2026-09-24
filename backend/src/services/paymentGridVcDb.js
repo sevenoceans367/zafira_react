@@ -205,11 +205,16 @@ function freightNetAmount(row = {}) {
   );
 }
 
-async function getVendorName(pool, code) {
-  if (!code) return '';
+async function getVendorName(pool, codeOrId) {
+  if (!codeOrId && codeOrId !== 0) return '';
+  const key = String(codeOrId).trim();
+  if (!key || key === '0') return '';
+  // Worksheet Shipper/Charterer may store VENDORID or CODE depending on the control.
   const [[row]] = await pool.query(
-    `SELECT NAME FROM vendor_master WHERE CODE = ? LIMIT 1`,
-    [code],
+    `SELECT NAME FROM vendor_master
+     WHERE CODE = ? OR CAST(VENDORID AS CHAR) = ?
+     LIMIT 1`,
+    [key, key],
   ).catch(() => [[null]]);
   return row?.NAME || '';
 }
@@ -251,14 +256,22 @@ async function getCargoNames(pool, cargoId) {
     .filter((part) => part && part !== '0');
   if (!ids.length) return '';
   try {
+    // Worksheet Cargo Name = cargo_master.MATERIAL_TYPE (see estimateDetailDb).
     const [rows] = await pool.query(
-      `SELECT MATERIAL_CODE_DESC AS name FROM cargo_master WHERE MATERIALID IN (?)`,
+      `SELECT COALESCE(NULLIF(TRIM(MATERIAL_TYPE), ''), MATERIAL_CODE_DESC) AS name
+       FROM cargo_master
+       WHERE MATERIALID IN (?)`,
       [ids],
     );
     return rows.map((r) => r.name).filter(Boolean).join(', ');
   } catch {
     return '';
   }
+}
+
+/** Spot estimate stores cargo ids on CARGO_ID (comma-separated); legacy CARGO/CARGOID may be empty. */
+function masterCargoId(master = {}) {
+  return master.CARGO_ID || master.CARGO || master.CARGOID || '';
 }
 
 async function getPaymentSummary(pool, sql, params) {
@@ -421,9 +434,114 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
   {
     const freightLines = [];
 
-    if (estimateType === 2) {
-      if (tankerSingle === 1) {
-        if (chkLumpsum) {
+    // Multiple cargo (Tanker or Dry): one income row per cargo; Customer = Shipper/Charterer
+    if (tankerSingle === 2) {
+      for (const status of [1, 2, 3]) {
+        const labelPrefix = status === 1
+          ? 'Main Cargo Freight Details'
+          : status === 2
+            ? 'Overage Cargo Freight Details'
+            : 'Dead Freight Details';
+        const nameSuffix = status === 1
+          ? 'Main Cargo Freight'
+          : status === 2
+            ? 'Overage Cargo Freight'
+            : 'Dead Freight';
+        const invoiceName = `Final Net ${nameSuffix}`;
+        const [rows] = await pool.query(
+          `SELECT * FROM freight_cost_estimete_slave10
+           WHERE FCAID = ? AND STATUS = ?
+             AND (
+               (SHIPPER_CHARTER IS NOT NULL AND TRIM(SHIPPER_CHARTER) != '' AND SHIPPER_CHARTER != '0')
+               OR (VENDORID IS NOT NULL AND TRIM(VENDORID) != '' AND VENDORID != '0')
+               OR (CARGOID IS NOT NULL AND TRIM(CARGOID) != '' AND CARGOID != '0')
+               OR IFNULL(AMOUNT_USD, 0) != 0
+               OR IFNULL(CARGO_MT, 0) != 0
+             )`,
+          [fcaId, status],
+        ).catch(() => [[]]);
+        if (!rows?.length) continue;
+        freightLines.push(line({
+          key: `freight-hdr-${status}`,
+          name: labelPrefix,
+          isGroupHeader: true,
+        }));
+        for (const [idx, row] of rows.entries()) {
+          const vendorId = str(row.SHIPPER_CHARTER || row.VENDORID);
+          const vendorName = await getVendorName(pool, vendorId);
+          const cargoName = await getCargoNames(pool, row.CARGOID || masterCargoId(master));
+          const clubbed = await countQuery(
+            pool,
+            `SELECT COUNT(*) AS count
+             FROM freight_invoice_slave1 s
+             INNER JOIN freight_invoice_master m ON m.INVOICEID = s.INVOICEID
+             WHERE s.VENDOR = ? AND m.COMID = ? AND s.CARGO = ? AND s.RANDOMID = ?`,
+            [vendorId, comId, row.CARGOID, row.RANDOMID],
+          );
+          const actions = [];
+          const badges = [];
+          if (vendorName) {
+            const invoiceId = status === 1
+              ? joinInvoiceId([
+                comId,
+                fcaId,
+                vendorId,
+                money2(row.AMOUNT_USD),
+                0,
+                row.CARGO_MT ?? 0,
+                row.CARGOID ?? 0,
+                0,
+                0,
+                row.RANDOMID ?? 0,
+                row.FCA_SLAVE10ID ?? 0,
+              ])
+              : joinInvoiceId([
+                comId,
+                fcaId,
+                vendorId,
+                money2(row.AMOUNT_USD),
+                0,
+                row.CARGO_MT ?? 0,
+                0,
+                0,
+                0,
+                row.RANDOMID ?? 0,
+                row.FCA_SLAVE10ID ?? 0,
+              ]);
+            if (clubbed === 0) {
+              actions.push(...freightInvoiceActions({
+                invoiceId,
+                name: invoiceName,
+                page,
+                voyageNo,
+              }));
+            } else {
+              actions.push(action('invoiceClubbed', 'Invoice Clubbed', 'info', true, {
+                href: clubbedInvoiceHref({
+                  invoiceId,
+                  name: invoiceName,
+                  page,
+                  invType: 'Final',
+                  voyageNo,
+                }),
+              }));
+            }
+          }
+          freightLines.push(line({
+            key: `freight-cargo-${status}-${idx}`,
+            name: freightIncomeName(cargoName || nameSuffix),
+            cargoName: cargoName || '',
+            vendorId,
+            vendorName,
+            amount: freightNetAmount(row),
+            netAmount: freightNetAmount(row),
+            actions,
+            badges,
+          }));
+        }
+      }
+    } else if (estimateType === 2) {
+      if (chkLumpsum) {
           const vendorId = str(master.LUMP_VENDOR);
           const vendorName = await getVendorName(pool, vendorId);
           const invoiceId = joinInvoiceId([
@@ -439,8 +557,8 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
           ]);
           freightLines.push(line({
             key: 'freight-lumpsum',
-            name: freightIncomeName(await getCargoNames(pool, master.CARGO || master.CARGOID)),
-            cargoName: await getCargoNames(pool, master.CARGO || master.CARGOID),
+            name: freightIncomeName(await getCargoNames(pool, masterCargoId(master))),
+            cargoName: await getCargoNames(pool, masterCargoId(master)),
             vendorId,
             vendorName,
             amount: money2(master.LUMPSUMAMT),
@@ -476,8 +594,8 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
             ]);
             freightLines.push(line({
               key: `freight-ws-${idx}`,
-              name: freightIncomeName(await getCargoNames(pool, row.CARGOID || master.CARGO)),
-              cargoName: await getCargoNames(pool, row.CARGOID || master.CARGO),
+              name: freightIncomeName(await getCargoNames(pool, row.CARGOID || masterCargoId(master))),
+              cargoName: await getCargoNames(pool, row.CARGOID || masterCargoId(master)),
               vendorId,
               vendorName,
               amount: freightNetAmount(row),
@@ -493,107 +611,9 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
             }));
           }
         }
-      } else {
-        for (const status of [1, 2, 3]) {
-          const labelPrefix = status === 1
-            ? 'Main Cargo Freight Details'
-            : status === 2
-              ? 'Overage Cargo Freight Details'
-              : 'Dead Freight Details';
-          const nameSuffix = status === 1
-            ? 'Main Cargo Freight'
-            : status === 2
-              ? 'Overage Cargo Freight'
-              : 'Dead Freight';
-          const invoiceName = `Final Net ${nameSuffix}`;
-          const [rows] = await pool.query(
-            `SELECT * FROM freight_cost_estimete_slave10
-             WHERE FCAID = ? AND SHIPPER_CHARTER IS NOT NULL AND SHIPPER_CHARTER != '' AND STATUS = ?`,
-            [fcaId, status],
-          ).catch(() => [[]]);
-          if (!rows?.length) continue;
-          freightLines.push(line({
-            key: `freight-hdr-${status}`,
-            name: labelPrefix,
-            isGroupHeader: true,
-          }));
-          for (const [idx, row] of rows.entries()) {
-            const vendorId = str(row.SHIPPER_CHARTER);
-            const vendorName = await getVendorName(pool, vendorId);
-            const cargoName = await getCargoNames(pool, row.CARGOID);
-            const clubbed = await countQuery(
-              pool,
-              `SELECT COUNT(*) AS count
-               FROM freight_invoice_slave1 s
-               INNER JOIN freight_invoice_master m ON m.INVOICEID = s.INVOICEID
-               WHERE s.VENDOR = ? AND m.COMID = ? AND s.CARGO = ? AND s.RANDOMID = ?`,
-              [vendorId, comId, row.CARGOID, row.RANDOMID],
-            );
-            const actions = [];
-            const badges = [];
-            if (vendorName) {
-              const invoiceId = status === 1
-                ? joinInvoiceId([
-                  comId,
-                  fcaId,
-                  vendorId,
-                  money2(row.AMOUNT_USD),
-                  0,
-                  row.CARGO_MT ?? 0,
-                  row.CARGOID ?? 0,
-                  0,
-                  0,
-                  row.RANDOMID ?? 0,
-                  row.FCA_SLAVE10ID ?? 0,
-                ])
-                : joinInvoiceId([
-                  comId,
-                  fcaId,
-                  vendorId,
-                  money2(row.AMOUNT_USD),
-                  0,
-                  row.CARGO_MT ?? 0,
-                  0,
-                  0,
-                  0,
-                  row.RANDOMID ?? 0,
-                  row.FCA_SLAVE10ID ?? 0,
-                ]);
-              if (clubbed === 0) {
-                actions.push(...freightInvoiceActions({
-                  invoiceId,
-                  name: invoiceName,
-                  page,
-                  voyageNo,
-                }));
-              } else {
-                actions.push(action('invoiceClubbed', 'Invoice Clubbed', 'info', true, {
-                  href: clubbedInvoiceHref({
-                    invoiceId,
-                    name: invoiceName,
-                    page,
-                    invType: 'Final',
-                    voyageNo,
-                  }),
-                }));
-              }
-            }
-            freightLines.push(line({
-              key: `freight-cargo-${status}-${idx}`,
-              name: freightIncomeName(cargoName || nameSuffix),
-              cargoName: cargoName || '',
-              vendorId,
-              vendorName,
-              amount: freightNetAmount(row),
-              netAmount: freightNetAmount(row),
-              actions,
-              badges,
-            }));
-          }
-        }
-      }
     } else if (qtyTypeRadio === 1) {
-      const vendorId = str(compare.FGFF_VENDORID || master.FGFF_VENDORID);
+      // Single cargo: Customer = worksheet Shipper/Charterer (LUMP_VENDOR / FGFF_VENDORID)
+      const vendorId = str(master.LUMP_VENDOR || compare.FGFF_VENDORID || master.FGFF_VENDORID);
       const vendorName = await getVendorName(pool, vendorId);
       const actions = [];
       if (vendorName) {
@@ -604,7 +624,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
           compare.TOTAL_PREIGHT_ADJ ?? master.TOTAL_PREIGHT_ADJ ?? 0,
           compare.BROKERAGE_PER ?? master.BROKERAGE_PER ?? 0,
           master.QUANTITY ?? 0,
-          master.CARGO ?? master.CARGOID ?? 0,
+          masterCargoId(master) || 0,
           master.AGREED_GROSS_FREIGHT_LOCAL ?? master.FREIGHT_GROSS ?? 0,
           master.EXCHANGE_RATE ?? 0,
         ]);
@@ -645,8 +665,8 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
       }
       freightLines.push(line({
         key: 'freight-single',
-        name: freightIncomeName(await getCargoNames(pool, master.CARGO || master.CARGOID)),
-        cargoName: await getCargoNames(pool, master.CARGO || master.CARGOID),
+        name: freightIncomeName(await getCargoNames(pool, masterCargoId(master))),
+        cargoName: await getCargoNames(pool, masterCargoId(master)),
         vendorId,
         vendorName,
         amount: money2(compare.TOTAL_PREIGHT_ADJ ?? master.TOTAL_PREIGHT_ADJ ?? master.LUMPSUMAMT),
@@ -734,8 +754,8 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
         }
         freightLines.push(line({
           key: `freight-qty-${idx}`,
-          name: freightIncomeName(await getCargoNames(pool, row.CARGO || master.CARGO)),
-          cargoName: await getCargoNames(pool, row.CARGO || master.CARGO),
+          name: freightIncomeName(await getCargoNames(pool, row.CARGO || masterCargoId(master))),
+          cargoName: await getCargoNames(pool, row.CARGO || masterCargoId(master)),
           vendorId,
           vendorName,
           amount: freightNetAmount(row),

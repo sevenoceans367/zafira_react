@@ -22,14 +22,6 @@ const BACK_PATHS = {
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
 
-const TITLE_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 6.5v11" />
-    <path d="M15 9c-.5-1-1.7-1.6-3-1.6-1.8 0-3.3 1-3.3 2.3 0 1.3 1.2 1.8 3 2.1 2.1.4 3.3 1 3.3 2.4 0 1.4-1.5 2.4-3.3 2.4-1.4 0-2.6-.5-3.2-1.4" />
-  </svg>
-);
-
 const ANCHOR_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <circle cx="12" cy="5" r="3" />
@@ -71,7 +63,6 @@ function PaymentGridHeading({ voyageNo, vesselName }) {
   useEffect(() => {
     const hasVoyage = Boolean(voyageNo || vesselName);
     setHeading({
-      icon: TITLE_ICON,
       title: (
         <span className={styles.headerTitleStack}>
           <span className={styles.headerTitleText}>Contract Finance</span>
@@ -192,7 +183,7 @@ function FinanceSectionCard({
           <div className={styles.cardTitle}>
             {title}
             <span className={styles.cardTitleSub}>
-              {count ? ` · ${count} line item${count === 1 ? '' : 's'}` : ' · No rows'}
+              {count ? ` · ${count} item${count === 1 ? '' : 's'}` : ' · No rows'}
             </span>
           </div>
         </div>
@@ -503,7 +494,7 @@ export default function OpsVcPaymentGridPage() {
                   <span className={styles.stLabel}>Total Income</span>
                 </div>
                 <div className={styles.stValue}>{formatMoney(kpis.incomeTotal) || '$0'}</div>
-                <div className={styles.stSub}>{kpis.incomeCount} line item{kpis.incomeCount === 1 ? '' : 's'}</div>
+                <div className={styles.stSub}>{kpis.incomeCount} item{kpis.incomeCount === 1 ? '' : 's'}</div>
                 <StatusChip {...incomeStatus} />
               </div>
 
@@ -519,7 +510,7 @@ export default function OpsVcPaymentGridPage() {
                 </div>
                 <div className={styles.stValue}>{formatMoney(kpis.expenseTotal) || '$0'}</div>
                 <div className={styles.stSub}>
-                  {model.expenses.count} line item{model.expenses.count === 1 ? '' : 's'}
+                  {model.expenses.count} item{model.expenses.count === 1 ? '' : 's'}
                   {model.hireage.count
                     ? ` (incl. ${model.hireage.count} hire)`
                     : ''}
@@ -538,8 +529,6 @@ export default function OpsVcPaymentGridPage() {
                   <span className={styles.stLabel}>Net Result</span>
                 </div>
                 <div className={styles.stValue}>{formatMoney(kpis.net, { signed: true }) || '$0'}</div>
-                <div className={styles.stSub}>Income − Expenses (incl. Hire)</div>
-                <StatusChip label="Provisional" tone="pending" />
               </div>
 
               <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
@@ -554,8 +543,7 @@ export default function OpsVcPaymentGridPage() {
                   <span className={styles.stLabel}>TCE</span>
                 </div>
                 <div className={styles.stValue}>—</div>
-                <div className={styles.stSub}>Voyage days not available on this screen yet</div>
-                <StatusChip label="Provisional" tone="pending" />
+                <div className={styles.stSub}>Voyage days not available yet</div>
               </div>
             </div>
 

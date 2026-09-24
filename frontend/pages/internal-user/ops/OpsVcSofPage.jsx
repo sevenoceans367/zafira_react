@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AttachmentDropzone,
   DmyDateInput,
@@ -12,7 +12,9 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchSofForm, saveSof } from '../../../services/opsVc.js';
 import OpsVcSofHeaderActions from './OpsVcSofHeaderActions.jsx';
+import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
+import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcSofPage.module.css';
 
 const BACK_PATHS = {
@@ -20,6 +22,44 @@ const BACK_PATHS = {
   2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
+
+const SOF_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M8 3.5h8v17H8z" />
+    <path d="M10.5 7h3" />
+    <path d="M10.5 11h3" />
+    <path d="M10.5 15h3" />
+  </svg>
+);
+
+function SofHeading() {
+  const setHeading = usePageHeaderHeading();
+  useLayoutEffect(() => {
+    setHeading({ title: 'SOF', icon: SOF_ICON });
+  }, [setHeading]);
+  useEffect(() => () => setHeading(null), [setHeading]);
+  return null;
+}
+
+function VoyPageSubhead({ voyageNo, vesselName, cpDate, worksheetHref }) {
+  const voyText = voyageNo || '—';
+  return (
+    <div className={pageStyles.pageHead}>
+      <div className={pageStyles.pageSub}>
+        <span>
+          {worksheetHref && voyageNo ? (
+            <Link to={worksheetHref} className={pageStyles.voyLink} title="Open latest voyage worksheet">
+              {voyText}
+            </Link>
+          ) : voyText}
+          {' · '}
+          <b>{vesselName || '—'}</b>
+          {cpDate ? <> · CP <b>{cpDate}</b></> : null}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const FLASH = {
   0: { type: 'success', text: 'SOF added/updated successfully.' },
@@ -551,17 +591,20 @@ export default function OpsVcSofPage() {
   };
 
   const cargoSummary = (form?.cargo || []).join(', ') || '—';
-  const voyLabelParts = [form?.voyageNo, form?.vesselName].filter(Boolean);
+  const worksheetHref = comId && form?.costSheetId
+    ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.costSheetId)}&page=${encodeURIComponent(page || '1')}`)
+    : '';
   const docCount = (draft?.keepFiles?.length || 0) + pendingFiles.length;
 
   return (
     <>
+      <SofHeading />
       <OpsVcSofHeaderActions
         backHref={backHref}
         disabled={loading || saving}
       />
 
-      <div className={`zafira-page ${styles.page}`}>
+      <div className={`zafira-page ${pageStyles.page} ${styles.page}`}>
         {(loading || saving) ? <LoadingOverlay active label={saving ? 'Saving SOF…' : 'Loading SOF…'} /> : null}
         {flash ? (
           <div className={flash.type === 'error' ? styles.error : styles.flashSuccess}>{flash.text}</div>
@@ -576,26 +619,13 @@ export default function OpsVcSofPage() {
 
         {form?.ports?.length ? (
           <>
-            <div className={styles.pageSubhead}>
-              Port operations log and cargo figures for this voyage
-            </div>
-
-            {voyLabelParts.length ? (
-              <div className={styles.voyChip}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="12" cy="5" r="2.2" />
-                  <path d="M12 7.2V21" />
-                  <path d="M8 10h8" />
-                  <path d="M4 13a8 8 0 0 0 16 0" />
-                </svg>
-                {form.voyageNo || '—'}
-                {form.vesselName ? (
-                  <>
-                    <span className={styles.vcSep}>·</span>
-                    {form.vesselName}
-                  </>
-                ) : null}
-              </div>
+            {(form.voyageNo || form.vesselName) ? (
+              <VoyPageSubhead
+                voyageNo={form.voyageNo || ''}
+                vesselName={form.vesselName || ''}
+                cpDate={form.cpDate || ''}
+                worksheetHref={worksheetHref}
+              />
             ) : null}
 
             <div className={styles.portTabs}>

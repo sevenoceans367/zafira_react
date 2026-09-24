@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchSoaReport } from '../../../services/opsVc.js';
+import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import OpsVcSoaReportHeaderActions from './OpsVcSoaReportHeaderActions.jsx';
 import styles from './OpsVcSoaReportPage.module.css';
 
@@ -11,6 +12,16 @@ const BACK_PATHS = {
   2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
+
+/** Same title-bar icon treatment as Freight Invoice. */
+const CASH_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <rect x="2.5" y="6" width="19" height="12" rx="2" />
+    <circle cx="12" cy="12" r="2.5" />
+    <path d="M6 12h0.01" />
+    <path d="M18 12h0.01" />
+  </svg>
+);
 
 function parseMoney(value) {
   if (value == null || value === '') return null;
@@ -222,6 +233,36 @@ function buildKpis(receivables, payables) {
   };
 }
 
+function CashHeading() {
+  const setHeading = usePageHeaderHeading();
+  useLayoutEffect(() => {
+    setHeading({ title: 'Cash', icon: CASH_ICON });
+  }, [setHeading]);
+  useEffect(() => () => setHeading(null), [setHeading]);
+  return null;
+}
+
+/** Freight Invoice–style page subheader: Voy · Vessel · CP Date */
+function CashPageSubhead({ voyageNo, vesselName, cpDate, worksheetHref }) {
+  const voyText = voyageNo || '—';
+  return (
+    <div className={styles.pageHead}>
+      <div className={styles.pageSub}>
+        <span>
+          {worksheetHref && voyageNo ? (
+            <Link to={worksheetHref} className={styles.voyLink} title="Open latest voyage worksheet">
+              {voyText}
+            </Link>
+          ) : voyText}
+          {' · '}
+          <b>{vesselName || '—'}</b>
+          {cpDate ? <> · CP <b>{cpDate}</b></> : null}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function SoaSectionTable({ section, variant }) {
   if (!section) return null;
   const labels = section.labels || {};
@@ -353,12 +394,15 @@ function SoaSectionTable({ section, variant }) {
 }
 
 /**
- * Spot Ops Cashflow — Consolidated Statement of Accounts (legacy soa_report.php).
+ * Spot Ops Cash — Statement of Accounts (legacy soa_report.php).
  */
 export default function OpsVcSoaReportPage() {
   const [searchParams] = useSearchParams();
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const page = searchParams.get('page') || '1';
+  const voyageNoParam = searchParams.get('voyage_no')
+    || searchParams.get('voyageNo')
+    || '';
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -369,10 +413,27 @@ export default function OpsVcSoaReportPage() {
     return appPath(path);
   }, [page]);
 
+  const financeHref = useMemo(() => {
+    if (!comId) return '';
+    const params = new URLSearchParams();
+    params.set('comid', comId);
+    params.set('page', String(page || '1'));
+    const voyageNo = voyageNoParam || data?.voyageNo || '';
+    if (voyageNo) params.set('voyage_no', voyageNo);
+    return appPath(`/internal-user/vc/ops/payment-grid?${params.toString()}`);
+  }, [comId, page, voyageNoParam, data?.voyageNo]);
+
   const kpis = useMemo(
     () => (data ? buildKpis(data.receivables, data.payables) : null),
     [data],
   );
+
+  const worksheetHref = useMemo(() => {
+    if (!comId || !data?.costSheetId) return '';
+    return appPath(
+      `/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(data.costSheetId)}&page=${encodeURIComponent(page || '1')}`,
+    );
+  }, [comId, data?.costSheetId, page]);
 
   useEffect(() => {
     let cancelled = false;
@@ -404,8 +465,10 @@ export default function OpsVcSoaReportPage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
+      <CashHeading />
       <OpsVcSoaReportHeaderActions
         backHref={backHref}
+        financeHref={financeHref}
         comId={comId}
         disabled={loading}
       />
@@ -414,31 +477,12 @@ export default function OpsVcSoaReportPage() {
 
       {data ? (
         <>
-          <div className={styles.pageSubhead}>
-            Consolidated statement of accounts
-          </div>
-
-          <div className={styles.voyidCard}>
-            <div className={styles.voyChip}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="12" cy="5" r="2.2" />
-                <path d="M12 7.2V21" />
-                <path d="M8 10h8" />
-                <path d="M4 13a8 8 0 0 0 16 0" />
-              </svg>
-              {data.voyageNo || '—'}
-              {data.vesselName ? (
-                <>
-                  <span className={styles.vcSep}>·</span>
-                  {data.vesselName}
-                </>
-              ) : null}
-            </div>
-            <div className={styles.voyidSpec}>
-              <label>CP Date</label>
-              <span className={styles.val}>{data.cpDate || '—'}</span>
-            </div>
-          </div>
+          <CashPageSubhead
+            voyageNo={data.voyageNo || voyageNoParam || ''}
+            vesselName={data.vesselName || ''}
+            cpDate={data.cpDate || ''}
+            worksheetHref={worksheetHref}
+          />
 
           {kpis ? (
             <div className={styles.cfKpiGrid}>

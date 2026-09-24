@@ -58,10 +58,14 @@ function StatusChip({ tone, label }) {
   );
 }
 
-function PaymentGridHeading({ voyageNo, vesselName }) {
+function PaymentGridHeading({ voyageNo, vesselName, comId, costSheetId, page }) {
   const setHeading = usePageHeaderHeading();
+  const worksheetHref = comId && costSheetId
+    ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(costSheetId)}&page=${encodeURIComponent(page || '1')}`)
+    : '';
   useEffect(() => {
     const hasVoyage = Boolean(voyageNo || vesselName);
+    const voyLabel = voyageNo ? `VOY ${voyageNo}` : 'VOY —';
     setHeading({
       title: (
         <span className={styles.headerTitleStack}>
@@ -69,7 +73,11 @@ function PaymentGridHeading({ voyageNo, vesselName }) {
           {hasVoyage ? (
             <span className={styles.headerVoyageChip}>
               {ANCHOR_ICON}
-              {voyageNo ? `VOY ${voyageNo}` : 'VOY —'}
+              {worksheetHref && voyageNo ? (
+                <Link to={worksheetHref} className={styles.headerVoyLink} title="Open latest voyage worksheet">
+                  {voyLabel}
+                </Link>
+              ) : voyLabel}
               {vesselName ? (
                 <>
                   <span className={styles.vcSep}>·</span>
@@ -81,7 +89,7 @@ function PaymentGridHeading({ voyageNo, vesselName }) {
         </span>
       ),
     });
-  }, [setHeading, voyageNo, vesselName]);
+  }, [setHeading, voyageNo, vesselName, worksheetHref]);
   useEffect(() => () => setHeading(null), [setHeading]);
   return null;
 }
@@ -433,6 +441,7 @@ export default function OpsVcPaymentGridPage() {
 
   const vesselName = data?.vesselName || '';
   const voyageNo = data?.voyageNo || voyageNoParam || '';
+  const costSheetId = data?.costSheetId || '';
   const sections = data?.sections || [];
 
   const model = useMemo(() => groupPaymentGridSections(sections), [sections]);
@@ -469,7 +478,13 @@ export default function OpsVcPaymentGridPage() {
 
   return (
     <>
-      <PaymentGridHeading voyageNo={voyageNo} vesselName={vesselName} />
+      <PaymentGridHeading
+        voyageNo={voyageNo}
+        vesselName={vesselName}
+        comId={comId}
+        costSheetId={costSheetId}
+        page={page}
+      />
       <OpsVcPaymentGridHeaderActions
         backHref={backHref}
         cashHref={cashHref}

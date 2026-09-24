@@ -2,35 +2,10 @@
   position: relative;
 }
 
-.voyChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: #fdece4;
-  color: #f4652c;
-  border: 1px solid #fbd9c9;
-  border-radius: 9px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 800;
-  margin-bottom: 18px;
-}
-
-.voyChip svg {
-  width: 15px;
-  height: 15px;
-  flex: none;
-}
-
-.vcSep {
-  opacity: 0.5;
-  font-weight: 600;
-}
-
 .portTabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   flex-wrap: wrap;
 }
 

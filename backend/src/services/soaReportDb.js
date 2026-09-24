@@ -282,6 +282,20 @@ export async function dbGetSoaReport(comId) {
 
   const voyageNo = master.VOYAGE_NO || compare.MASTER_VOYAGE_NO || '';
   const cpDate = blankCpDate(master.CP_DATE || compare.MASTER_CP_DATE || compare.CP_DATE);
+  let costSheetId = '';
+  const sheetNo = master.SHEET_NO;
+  if (sheetNo != null && sheetNo !== '' && Number(sheetNo) !== 0) {
+    costSheetId = String(sheetNo);
+  } else {
+    const [[named]] = await pool.query(
+      `SELECT COST_SHEETID FROM cost_sheet_name_master
+       WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+       ORDER BY COST_SHEETID DESC
+       LIMIT 1`,
+      [comId, MODULE_ID, COMPANY_ID],
+    ).catch(() => [[null]]);
+    if (named?.COST_SHEETID) costSheetId = String(named.COST_SHEETID);
+  }
   const { quantity, freight, freightRates, freightLevel } = await resolveFreightMeta(
     pool,
     comId,
@@ -723,6 +737,7 @@ export async function dbGetSoaReport(comId) {
   return {
     comId: str(comId),
     fcaId: fcaId != null ? str(fcaId) : '',
+    costSheetId: str(costSheetId),
     vesselName: str(vesselName),
     message: str(compare.MESSAGE),
     voyageNo: str(voyageNo),

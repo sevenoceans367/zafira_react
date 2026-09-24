@@ -1563,9 +1563,29 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
     });
   }
 
+  let costSheetId = '';
+  const sheetNo = master.SHEET_NO;
+  if (sheetNo != null && sheetNo !== '' && Number(sheetNo) !== 0) {
+    costSheetId = String(sheetNo);
+  } else {
+    try {
+      const [[named]] = await pool.query(
+        `SELECT COST_SHEETID FROM cost_sheet_name_master
+         WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+         ORDER BY COST_SHEETID DESC
+         LIMIT 1`,
+        [comId, MODULE_ID, COMPANY_ID],
+      );
+      if (named?.COST_SHEETID) costSheetId = String(named.COST_SHEETID);
+    } catch {
+      costSheetId = '';
+    }
+  }
+
   return {
     comId: String(comId),
     fcaId: String(fcaId),
+    costSheetId,
     voyageNo,
     message: compare.MESSAGE || '',
     vesselName: vesselName || '',

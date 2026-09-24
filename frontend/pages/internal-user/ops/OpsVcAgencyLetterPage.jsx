@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button,
   CardSelect,
@@ -18,6 +18,7 @@ import {
   saveAgencyLetter,
 } from '../../../services/opsVc.js';
 import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
+import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import OpsVcAgencyLetterPreviewModal from './OpsVcAgencyLetterPreviewModal.jsx';
 import pageStyles from './OpsPages.module.css';
@@ -28,6 +29,42 @@ const BACK_PATHS = {
   2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
+
+const LETTERS_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M4 5.5h16v13H4z" />
+    <path d="M4 7l8 6 8-6" />
+  </svg>
+);
+
+function LettersHeading() {
+  const setHeading = usePageHeaderHeading();
+  useLayoutEffect(() => {
+    setHeading({ title: 'Letters', icon: LETTERS_ICON });
+  }, [setHeading]);
+  useEffect(() => () => setHeading(null), [setHeading]);
+  return null;
+}
+
+function VoyPageSubhead({ voyageNo, vesselName, cpDate, worksheetHref }) {
+  const voyText = voyageNo || '—';
+  return (
+    <div className={pageStyles.pageHead}>
+      <div className={pageStyles.pageSub}>
+        <span>
+          {worksheetHref && voyageNo ? (
+            <Link to={worksheetHref} className={pageStyles.voyLink} title="Open latest voyage worksheet">
+              {voyText}
+            </Link>
+          ) : voyText}
+          {' · '}
+          <b>{vesselName || '—'}</b>
+          {cpDate ? <> · CP <b>{cpDate}</b></> : null}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const FLASH = {
   0: { type: 'success', text: 'Agency Letter Generation added/updated successfully.' },
@@ -739,8 +776,14 @@ export default function OpsVcAgencyLetterPage() {
   const showBunkerEditors = draft?.agentLetterType === 'agent-bunker'
     || draft?.masterLetterType === 'master-bunker';
 
+  const voyageNo = form?.voyageNo || form?.nomId || '';
+  const worksheetHref = comId && form?.worksheetId
+    ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.worksheetId)}&page=${encodeURIComponent(page || '1')}`)
+    : '';
+
   return (
     <>
+      <LettersHeading />
       <OpsVcBackHeaderActions backHref={backHref} disabled={loading || saving} />
 
       <div className={`zafira-page ${pageStyles.page}`}>
@@ -762,22 +805,13 @@ export default function OpsVcAgencyLetterPage() {
 
         {form?.ports?.length ? (
           <>
-            {(form?.nomId || form?.vesselName) ? (
-              <div className={styles.voyChip}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="12" cy="5" r="2.2" />
-                  <path d="M12 7.2V21" />
-                  <path d="M8 10h8" />
-                  <path d="M4 13a8 8 0 0 0 16 0" />
-                </svg>
-                {form.nomId || '—'}
-                {form.vesselName ? (
-                  <>
-                    <span className={styles.vcSep}>·</span>
-                    {form.vesselName}
-                  </>
-                ) : null}
-              </div>
+            {(voyageNo || form?.vesselName) ? (
+              <VoyPageSubhead
+                voyageNo={voyageNo}
+                vesselName={form.vesselName || ''}
+                cpDate={form.cpDate || ''}
+                worksheetHref={worksheetHref}
+              />
             ) : null}
 
             <div className={styles.portTabs}>

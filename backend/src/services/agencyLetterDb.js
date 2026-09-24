@@ -738,7 +738,7 @@ export async function dbGetAgencyLetterForm(comId) {
   );
 
   const [[sheet]] = await pool.query(
-    `SELECT m.FCAID, m.VESSEL_IMO_ID, vim.VESSEL_NAME, vim.IMO_NO
+    `SELECT m.FCAID, m.VESSEL_IMO_ID, m.VOYAGE_NO, m.CP_DATE, m.SHEET_NO, vim.VESSEL_NAME, vim.IMO_NO
      FROM freight_cost_estimete_master m
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
      WHERE m.FCAID = ?
@@ -930,9 +930,38 @@ export async function dbGetAgencyLetterForm(comId) {
     }
   }
 
+  let worksheetId = '';
+  const sheetNo = sheet?.SHEET_NO;
+  if (sheetNo != null && sheetNo !== '' && Number(sheetNo) !== 0) {
+    worksheetId = String(sheetNo);
+  } else {
+    const [[named]] = await pool.query(
+      `SELECT COST_SHEETID FROM cost_sheet_name_master
+       WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+       ORDER BY COST_SHEETID DESC
+       LIMIT 1`,
+      [comId, MODULE_ID, COMPANY_ID],
+    ).catch(() => [[null]]);
+    if (named?.COST_SHEETID) worksheetId = String(named.COST_SHEETID);
+  }
+
+  let cpDate = '';
+  if (sheet?.CP_DATE) {
+    const raw = sheet.CP_DATE instanceof Date ? sheet.CP_DATE : new Date(sheet.CP_DATE);
+    if (!Number.isNaN(raw.getTime()) && raw.getFullYear() > 1970) {
+      const d = String(raw.getDate()).padStart(2, '0');
+      const m = String(raw.getMonth() + 1).padStart(2, '0');
+      const y = raw.getFullYear();
+      cpDate = `${d}-${m}-${y}`;
+    }
+  }
+
   return {
     comId: String(comId),
     costSheetId: String(costSheetId),
+    worksheetId,
+    voyageNo: sheet?.VOYAGE_NO ? String(sheet.VOYAGE_NO) : '',
+    cpDate,
     nomId: compare?.MESSAGE || '',
     vesselName: sheet?.VESSEL_NAME || vesselNameFromParticulars || '',
     vessel,

@@ -646,7 +646,7 @@ export async function dbGetLaytimeForm(comId) {
 
   const fcaId = await getLatestCostSheetId(pool, comId) || compare.FCAID;
   const [[master]] = await pool.query(
-    `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID
+    `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO
      FROM freight_cost_estimete_master
      WHERE FCAID = ?
      LIMIT 1`,
@@ -670,6 +670,30 @@ export async function dbGetLaytimeForm(comId) {
 
   const vesselName = compare.VESSEL_NAME || '';
   const voyageNo = master?.VOYAGE_NO || '';
+  let costSheetId = '';
+  const sheetNo = master?.SHEET_NO;
+  if (sheetNo != null && sheetNo !== '' && Number(sheetNo) !== 0) {
+    costSheetId = String(sheetNo);
+  } else {
+    const [[named]] = await pool.query(
+      `SELECT COST_SHEETID FROM cost_sheet_name_master
+       WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+       ORDER BY COST_SHEETID DESC
+       LIMIT 1`,
+      [comId, MODULE_ID, COMPANY_ID],
+    ).catch(() => [[null]]);
+    if (named?.COST_SHEETID) costSheetId = String(named.COST_SHEETID);
+  }
+  let cpDate = '';
+  if (master?.CP_DATE) {
+    const raw = master.CP_DATE instanceof Date ? master.CP_DATE : new Date(master.CP_DATE);
+    if (!Number.isNaN(raw.getTime()) && raw.getFullYear() > 1970) {
+      const d = String(raw.getDate()).padStart(2, '0');
+      const m = String(raw.getMonth() + 1).padStart(2, '0');
+      const y = raw.getFullYear();
+      cpDate = `${d}-${m}-${y}`;
+    }
+  }
   const vesselParticulars = await loadVesselParticulars(pool, fcaId);
   let portTabs = await loadPortTabs(pool, fcaId, comId);
   // If latest cost sheet has no legs, fall back to the compare FCAID sheet.
@@ -714,8 +738,10 @@ export async function dbGetLaytimeForm(comId) {
   return {
     comId: String(comId),
     fcaId: fcaId != null ? String(fcaId) : '',
+    costSheetId,
     voyageNo,
     vesselName,
+    cpDate,
     message: compare.MESSAGE || '',
     cargo,
     currency: 'USD',

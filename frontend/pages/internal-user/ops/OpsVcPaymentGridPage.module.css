@@ -69,8 +69,8 @@
   gap: 7px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: var(--pg-orange-tint);
-  color: #8b5e3c;
+  background: #f0f2f5;
+  color: #5b6472;
   font-size: 11.5px;
   font-weight: 700;
   line-height: 1.3;
@@ -81,7 +81,18 @@
   width: 12px;
   height: 12px;
   flex: none;
-  color: var(--pg-orange);
+  color: #8a93a2;
+}
+
+.headerVoyLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 700;
+}
+
+.headerVoyLink:hover {
+  color: #274670;
 }
 
 .vcSep {

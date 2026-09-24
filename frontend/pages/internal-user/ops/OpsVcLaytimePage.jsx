@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AttachmentDropzone,
   DmyDateInput,
@@ -11,6 +11,7 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchLaytimeForm, openLaytime, saveLaytime } from '../../../services/opsVc.js';
 import OpsVcLaytimeHeaderActions from './OpsVcLaytimeHeaderActions.jsx';
+import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
 import pageStyles from './OpsPages.module.css';
@@ -22,6 +23,42 @@ const BACK_PATHS = {
   2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
+
+const LAYTIME_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </svg>
+);
+
+function LaytimeHeading() {
+  const setHeading = usePageHeaderHeading();
+  useLayoutEffect(() => {
+    setHeading({ title: 'Laytime', icon: LAYTIME_ICON });
+  }, [setHeading]);
+  useEffect(() => () => setHeading(null), [setHeading]);
+  return null;
+}
+
+function VoyPageSubhead({ voyageNo, vesselName, cpDate, worksheetHref }) {
+  const voyText = voyageNo || '—';
+  return (
+    <div className={pageStyles.pageHead}>
+      <div className={pageStyles.pageSub}>
+        <span>
+          {worksheetHref && voyageNo ? (
+            <Link to={worksheetHref} className={pageStyles.voyLink} title="Open latest voyage worksheet">
+              {voyText}
+            </Link>
+          ) : voyText}
+          {' · '}
+          <b>{vesselName || '—'}</b>
+          {cpDate ? <> · CP <b>{cpDate}</b></> : null}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const FLASH = {
   0: { type: 'success', text: 'Laytime added/updated successfully.' },
@@ -753,8 +790,13 @@ export default function OpsVcLaytimePage() {
     );
   };
 
+  const worksheetHref = comId && form?.costSheetId
+    ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.costSheetId)}&page=${encodeURIComponent(page || '1')}`)
+    : '';
+
   return (
     <>
+      <LaytimeHeading />
       <OpsVcLaytimeHeaderActions
         backHref={backHref}
         comId={comId}
@@ -782,27 +824,13 @@ export default function OpsVcLaytimePage() {
 
         {form?.ports?.length ? (
           <>
-            <div className={sofStyles.pageSubhead}>
-              Laytime, demurrage and dispatch working for this voyage&apos;s port calls
-              <span className={sofStyles.tagSoft}>LAYTIME</span>
-            </div>
-
             {(form.voyageNo || form.vesselName) ? (
-              <div className={sofStyles.voyChip}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="12" cy="5" r="2.2" />
-                  <path d="M12 7.2V21" />
-                  <path d="M8 10h8" />
-                  <path d="M4 13a8 8 0 0 0 16 0" />
-                </svg>
-                {form.voyageNo || '—'}
-                {form.vesselName ? (
-                  <>
-                    <span className={sofStyles.vcSep}>·</span>
-                    {form.vesselName}
-                  </>
-                ) : null}
-              </div>
+              <VoyPageSubhead
+                voyageNo={form.voyageNo || ''}
+                vesselName={form.vesselName || ''}
+                cpDate={form.cpDate || ''}
+                worksheetHref={worksheetHref}
+              />
             ) : null}
 
             <div className={sofStyles.portTabs}>

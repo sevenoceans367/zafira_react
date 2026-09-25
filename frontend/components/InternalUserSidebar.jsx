@@ -196,8 +196,8 @@ export default function InternalUserSidebar({ isOpen }) {
               <SidebarLink
                 to={appPath('/internal-user/sopf/vessel_position')}
                 iconSrc={vesselsOnWaterIcon}
-                iconAlt="Vessels on Water"
-                label="Vessels on Water"
+                iconAlt="Open Vessels"
+                label="Open Vessels"
                 active={currentPath.includes('/internal-user/sopf/vessel_position')}
               />
             )}

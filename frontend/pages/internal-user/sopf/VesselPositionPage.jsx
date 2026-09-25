@@ -4,9 +4,10 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { Button, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay, useAlert, HeaderFilterControls } from '@bainbridge/shared-ui';
 import { fetchVesselsWithinRange } from '../../../services/vesselPositions.js';
 import VesselSearchModal from './VesselSearchModal.jsx';
+import PageHeaderActions from '../PageHeaderActions.jsx';
 import {
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_ZOOM,
@@ -366,29 +367,14 @@ export default function VesselPositionPage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
-      <LoadingOverlay show={loading} />
-
-      <header className={styles.header}>
-        <div className={styles.headerTop}>
-          <div>
-            <div className={styles.titleRow}>
-              <h2 className={styles.title}>Vessels on Water</h2>
-              <span className={styles.liveBadge}>
-                <span className={styles.liveDot} aria-hidden="true" />
-                Live
-                <span className={styles.liveSrc}>AIS + synced with SOPF &amp; SOC</span>
-              </span>
-            </div>
-            <p className={styles.subheader}>
-              Click anywhere on the map to find vessels within the chosen radius. Select a pin for
-              voyage details.
-            </p>
-          </div>
-          {showReset ? (
+      <PageHeaderActions deps={[showReset]}>
+        {showReset ? (
+          <HeaderFilterControls>
             <Button variant="primary" label="Reset" onClick={handleReset} />
-          ) : null}
-        </div>
-      </header>
+          </HeaderFilterControls>
+        ) : null}
+      </PageHeaderActions>
+      <LoadingOverlay show={loading} />
 
       <div ref={mapWrapRef} className={styles.mapWrap}>
         <div ref={mapContainerRef} className={styles.map} aria-label="Vessel positions map" />

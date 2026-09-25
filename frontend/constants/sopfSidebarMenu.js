@@ -18,9 +18,9 @@ export const SOPF_TOP_SIDEBAR_ITEMS = [
   {
     id: 'vessel_position',
     href: '/internal-user/sopf/vessel_position',
-    label: 'Vessels on Water',
+    label: 'Open Vessels',
     iconSrc: vesselsOnWaterIcon,
-    iconAlt: 'Vessels on Water',
+    iconAlt: 'Open Vessels',
     isActive: (pathname) => pathname.includes('/internal-user/sopf/vessel_position'),
   },
   {

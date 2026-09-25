@@ -18,9 +18,9 @@ export const SOPF_PAGE_HEADERS = {
     breadcrumbs: [HOME, SOPF, { label: SPOT_BUSINESS }],
   },
   vessel_position: {
-    title: 'Vessels on Water',
-    currentPage: 'Vessels on Water',
-    breadcrumbs: [HOME, SOPF, { label: 'Vessels on Water' }],
+    title: 'Open Vessels',
+    currentPage: 'Open Vessels',
+    breadcrumbs: [HOME, SOPF, { label: 'Open Vessels' }],
   },
   pools: {
     title: 'Pools',

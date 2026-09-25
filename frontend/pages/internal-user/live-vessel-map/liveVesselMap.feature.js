@@ -1,7 +1,7 @@
 /**
  * Isolated global Live Vessel Map (preview).
  *
- * Does not change SOPF "Vessels on Water", Period Business, Spot, or TC pages.
+ * Does not change SOPF "Open Vessels", Period Business, Spot, or TC pages.
  *
  * To hide: set LIVE_VESSEL_MAP_ENABLED to false.
  * To remove: delete frontend/pages/internal-user/live-vessel-map/,

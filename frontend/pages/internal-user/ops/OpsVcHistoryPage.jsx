@@ -10,6 +10,7 @@ import {
   updateOpsVcCostSheetLayout,
 } from '../../../services/opsVc.js';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
+import { readOpsVcBusinessType, rememberOpsVcBusinessType } from './opsVcListFilters.js';
 import OpsVcCompareSheetsModal from './OpsVcCompareSheetsModal.jsx';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
 import OpsVoyageStatusModal, { VoyageStatusButton } from './OpsVoyageStatusModal.jsx';
@@ -45,7 +46,7 @@ const FLASH = {
 export default function OpsVcHistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [businessType, setBusinessType] = useState(() => readOpsVcBusinessType(searchParams));
   const [searchInput, setSearchInput] = useState(searchParams.get('voy_no') || '');
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
@@ -127,6 +128,7 @@ export default function OpsVcHistoryPage() {
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => {
+          rememberOpsVcBusinessType(value);
           setBusinessType(value);
           updateQuery({ selBType: value, msg: '' });
         }}

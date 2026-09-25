@@ -25,6 +25,7 @@ import {
 } from '../../../services/opsVc.js';
 import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
+import { readOpsVcBusinessType, rememberOpsVcBusinessType } from './opsVcListFilters.js';
 import OpsVcCompareSheetsModal from './OpsVcCompareSheetsModal.jsx';
 import OpsVoyageStatusModal, { VoyageStatusButton } from './OpsVoyageStatusModal.jsx';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
@@ -67,7 +68,7 @@ export default function OpsVcPostOpsPage() {
   const [businessTypes, setBusinessTypes] = useState([]);
   const [years, setYears] = useState([]);
   const [operators, setOperators] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [businessType, setBusinessType] = useState(() => readOpsVcBusinessType(searchParams));
   const [year, setYear] = useState(searchParams.get('selYear') || String(new Date().getFullYear()));
   const [searchInput, setSearchInput] = useState('');
   const [rows, setRows] = useState([]);
@@ -252,6 +253,7 @@ export default function OpsVcPostOpsPage() {
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => {
+          rememberOpsVcBusinessType(value);
           setBusinessType(value);
           updateQuery({ selBType: value, msg: '' });
         }}

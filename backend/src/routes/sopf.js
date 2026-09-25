@@ -161,11 +161,13 @@ router.get('/estimates/voyage-exists', async (req, res) => {
   try {
     const voyageNo = req.query.vno || req.query.Vno || req.query.voyageNo || '';
     const excludeId = req.query.excludeId || req.query.excludeFcaId || null;
+    const excludeComId = req.query.excludeComId || null;
     const estimateNo = req.query.estimateNo != null ? Number(req.query.estimateNo) : 1;
     const allowSameVoyage = String(req.query.allowSameVoyage || '') === '1'
       || String(req.query.allowSameVoyage || '').toLowerCase() === 'true';
     const exists = await checkVoyageNoExists(voyageNo, {
       excludeFcaId: excludeId,
+      excludeComId,
       estimateNo,
       allowSameVoyage,
     });

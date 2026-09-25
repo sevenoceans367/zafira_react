@@ -461,6 +461,14 @@ export async function createOpsVcCostSheet(comId, sheetName) {
     error.status = 400;
     throw error;
   }
+  const existingName = (row.costSheets || []).some(
+    (sheet) => String(sheet.name || '').trim().toLowerCase() === name.toLowerCase(),
+  );
+  if (existingName) {
+    const error = new Error('Sheet name already exists for this voyage.');
+    error.status = 400;
+    throw error;
+  }
   const nextId = Math.max(0, ...(row.costSheets || []).map((s) => Number(s.id) || 0)) + 1;
   const sheet = { id: nextId, name, fcaId: null, estimateType: '2', pinned: false, sortOrder: (row.costSheets || []).length };
   row.costSheets = [...(row.costSheets || []), sheet];

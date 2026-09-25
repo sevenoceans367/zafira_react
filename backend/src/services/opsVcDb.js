@@ -1327,6 +1327,20 @@ export async function dbCreateOpsVcCostSheet(comId, sheetName) {
   }
 
   const pool = getPool();
+  const [[duplicate]] = await pool.query(
+    `SELECT COST_SHEETID
+     FROM cost_sheet_name_master
+     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+       AND LOWER(TRIM(SHEET_NAME)) = LOWER(?)
+     LIMIT 1`,
+    [safeComId, MODULE_ID, COMPANY_ID, name],
+  );
+  if (duplicate?.COST_SHEETID) {
+    const error = new Error('Sheet name already exists for this voyage.');
+    error.status = 400;
+    throw error;
+  }
+
   const [[latestEst]] = await pool.query(
     `SELECT FCAID, FINAL_STATUS
      FROM freight_cost_estimete_master

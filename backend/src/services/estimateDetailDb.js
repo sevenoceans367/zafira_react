@@ -3574,8 +3574,18 @@ export async function dbUpdateEstimateDetail(id, payload, upload = {}) {
  * - allowSameVoyage=true (replicate / update / Ops): only (VOYAGE_NO, ESTIMATE_NO) pair blocks.
  * TC_NO collision still always blocks the base voyage number.
  */
+export async function dbGetEstimateVoyageKey(fcaId) {
+  const pool = getPool();
+  const [[row]] = await pool.query(
+    `SELECT VOYAGE_NO, COMID FROM freight_cost_estimete_master WHERE FCAID = ? LIMIT 1`,
+    [Number(fcaId)],
+  ).catch(() => [[null]]);
+  return row || null;
+}
+
 export async function dbCheckVoyageNoExists(voyageNo, {
   excludeFcaId = null,
+  excludeComId = null,
   estimateNo = 1,
   allowSameVoyage = false,
 } = {}) {
@@ -3594,6 +3604,11 @@ export async function dbCheckVoyageNoExists(voyageNo, {
   if (excludeFcaId != null && excludeFcaId !== '') {
     voyageSql += ' AND FCAID <> ?';
     params.push(Number(excludeFcaId));
+  }
+  // Fixture and named worksheets of one nomination share VOYAGE_NO. Ignore that nomination.
+  if (excludeComId != null && excludeComId !== '' && Number(excludeComId) !== 0) {
+    voyageSql += ' AND (COMID IS NULL OR COMID <> ?)';
+    params.push(Number(excludeComId));
   }
   voyageSql += ' LIMIT 1';
 

@@ -229,7 +229,11 @@ export default function OpsVcPostOpsPage() {
       updateQuery({ msg: 4 });
       load();
     } catch (err) {
-      setError(err.message || 'Failed to create Voyage Worksheet sheet.');
+      await alert({
+        title: 'Alert',
+        message: err.message || 'Failed to create Voyage Worksheet sheet.',
+        confirmLabel: 'OK',
+      });
     } finally {
       setSavingSheet(false);
     }

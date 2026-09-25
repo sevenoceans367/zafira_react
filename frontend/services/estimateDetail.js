@@ -123,12 +123,16 @@ export async function createEstimateDetail(payload, files = []) {
 /** PHP options.php?id=149 — returns true when voyage/TC number already exists. */
 export async function checkVoyageNoExists(voyageNo, {
   excludeId,
+  excludeComId,
   estimateNo,
   allowSameVoyage = false,
 } = {}) {
   const params = new URLSearchParams({ vno: String(voyageNo || '') });
   if (excludeId != null && excludeId !== '') {
     params.set('excludeId', String(excludeId));
+  }
+  if (excludeComId != null && excludeComId !== '') {
+    params.set('excludeComId', String(excludeComId));
   }
   if (estimateNo != null && estimateNo !== '') {
     params.set('estimateNo', String(estimateNo));

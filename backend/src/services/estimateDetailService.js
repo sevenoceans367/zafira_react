@@ -3,6 +3,7 @@ import {
   dbCheckVoyageNoExists,
   dbCreateEstimateDetail,
   dbGetEstimateDetail,
+  dbGetEstimateVoyageKey,
   dbGetEstimateLookups,
   dbGetPeriodPrefill,
   dbGetVesselEstimatePrefill,
@@ -78,13 +79,20 @@ export async function updateEstimateDetail(id, payload, upload = {}) {
 
   if (isDbConfigured()) {
     const estimateNo = normalizeEstimateNo(payload.estimateNo ?? 1);
-    const exists = await dbCheckVoyageNoExists(payload.voyageNo, {
-      excludeFcaId: id,
-      estimateNo,
-      allowSameVoyage: true,
-    });
-    if (exists) {
-      throw new Error('Voyage number already exists');
+    const current = await dbGetEstimateVoyageKey(id);
+    const unchanged = String(current?.VOYAGE_NO || '').trim()
+      === String(payload.voyageNo || '').trim();
+    // Editing an existing sheet keeps its voyage number. Only a new number can collide.
+    if (!unchanged) {
+      const exists = await dbCheckVoyageNoExists(payload.voyageNo, {
+        excludeFcaId: id,
+        excludeComId: current?.COMID,
+        estimateNo,
+        allowSameVoyage: true,
+      });
+      if (exists) {
+        throw new Error('Voyage / estimate number combination already exists');
+      }
     }
     return dbUpdateEstimateDetail(id, { ...payload, estimateNo }, upload);
   }

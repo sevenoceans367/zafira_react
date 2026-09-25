@@ -312,11 +312,17 @@ export default function CostSheetEstimatePage({
     }
 
     try {
-      const voyageExists = await checkVoyageNoExists(form.voyageNo, {
-        excludeId: estimateId,
-        estimateNo: form.estimateNo || 1,
-        allowSameVoyage: true,
-      });
+      const originalVoyageNo = String(detail?.voyageNo || '').trim();
+      const nextVoyageNo = String(form.voyageNo || '').trim();
+      const voyageChanged = nextVoyageNo !== originalVoyageNo;
+      const voyageExists = voyageChanged
+        ? await checkVoyageNoExists(form.voyageNo, {
+          excludeId: estimateId,
+          excludeComId: comIdProp || detail?.comid || '',
+          estimateNo: form.estimateNo || 1,
+          allowSameVoyage: true,
+        })
+        : false;
       if (voyageExists) {
         await alert({
           title: 'Alert',
@@ -348,9 +354,12 @@ export default function CostSheetEstimatePage({
     setSaving(true);
     try {
       const computed = applyEstimateCalculations(form, lookups);
+      const lockedVoyageNo = String(detail?.voyageNo || computed.voyageNo || '').trim();
+      computed.voyageNo = lockedVoyageNo;
       setForm(computed);
       const files = computed.attachmentFiles || [];
       const payload = buildEstimateSubmitPayload(computed, estimateType);
+      payload.voyageNo = lockedVoyageNo;
       if (finalStatus != null) {
         payload.finalStatus = finalStatus;
       }
@@ -428,7 +437,6 @@ export default function CostSheetEstimatePage({
             detail={sectionsDetail}
             form={form}
             lookups={lookups}
-            voyageExcludeId={estimateId}
             readOnly={locked}
             onFieldChange={updateField}
             onVesselSelect={handleVesselSelect}

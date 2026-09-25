@@ -44,16 +44,11 @@ import PortLaytimeSections from './CostSheetPortLaytimeSections.jsx';
 import EstimateResultsPanels from '../../sopf/EstimateResultsPanels.jsx';
 import VesselItineraryModal from '../../sopf/VesselItineraryModal.jsx';
 import HireDetailsModal from './HireDetailsModal.jsx';
-import { checkVoyageNoExists, fetchCanalOrcRates, searchEstimatePorts } from '../../../../services/estimateDetail.js';
+import { fetchCanalOrcRates, searchEstimatePorts } from '../../../../services/estimateDetail.js';
 import { focusEstimateValidationField, getAddRowBlockMessage } from '../../sopf/estimateValidation.js';
 import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from '../../sopf/estimateInputSanitize.js';
 import styles from './CostSheetEstimatePage.module.css';
 import updateEstimateStyles from '../../sopf/UpdateEstimatePage.module.css';
-
-/** PHP addestimate.php — Voyage No allows a-z, 0-9, and hyphen only. */
-function sanitizeVoyageNo(value) {
-  return String(value || '').replace(/[^a-zA-Z0-9-]/g, '');
-}
 
 function BunkerPriceInput({ value, readOnly, onCommit }) {
   const [draft, setDraft] = useState(null);
@@ -119,7 +114,6 @@ export default function EstimateDetailSections({
   form,
   readOnly = false,
   isAdd = false,
-  voyageExcludeId = null,
   lookups = { cargos: [], bunkerGrades: [] },
   onFieldChange,
   onVesselSelect,
@@ -431,40 +425,6 @@ export default function EstimateDetailSections({
     }
   };
 
-  const handleVoyageNoChange = (value) => {
-    const next = sanitizeVoyageNo(value);
-    updateField('voyageNo', next);
-    if (isAdd) updateField('voyageName', next);
-  };
-
-  const handleVoyageNoBlur = async () => {
-    if (readOnly) return;
-    const voyageNo = String(form.voyageNo || '').trim();
-    if (!voyageNo) return;
-    try {
-      const exists = await checkVoyageNoExists(voyageNo, {
-        excludeId: voyageExcludeId,
-        estimateNo: form.estimateNo || 1,
-        allowSameVoyage: true,
-      });
-      if (!exists) return;
-      await alert({
-        title: 'Alert',
-        message: 'Voyage / estimate number combination already exists',
-        confirmLabel: 'OK',
-      });
-      updateField('voyageNo', '');
-      if (isAdd) updateField('voyageName', '');
-      focusEstimateValidationField('voyageNo');
-    } catch (err) {
-      await alert({
-        title: 'Error',
-        message: err.message || 'Failed to check voyage number.',
-        confirmLabel: 'OK',
-      });
-    }
-  };
-
   const inputProps = (key, opts = {}) => {
     const decimal = opts.decimal ?? ESTIMATE_DECIMAL_FIELDS.has(key);
     return {
@@ -631,10 +591,8 @@ export default function EstimateDetailSections({
               <input
                 id="voyageNo"
                 value={form.voyageNo}
-                readOnly={readOnly}
+                readOnly
                 autoComplete="off"
-                onChange={(e) => handleVoyageNoChange(e.target.value)}
-                onBlur={handleVoyageNoBlur}
               />
             </Field>
             <Field id="estimateNo" label="Estimate No.">

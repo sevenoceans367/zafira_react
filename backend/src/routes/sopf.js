@@ -221,7 +221,8 @@ router.post('/estimates', estimateUpload, async (req, res) => {
 
 router.get('/estimates/:id', async (req, res) => {
   try {
-    const data = await getEstimateDetail(req.params.id);
+    const variant = req.query.variant === 'vc-in' ? 'vc-in' : '';
+    const data = await getEstimateDetail(req.params.id, { variant });
     if (!data) {
       return res.status(404).json({ message: 'Estimate not found.' });
     }
@@ -239,7 +240,8 @@ router.put('/estimates/:id', estimateUpload, async (req, res) => {
       payload = JSON.parse(payload.payload);
     }
     const upload = mapUploadedFiles(req.files || []);
-    const result = await updateEstimateDetail(req.params.id, payload, upload);
+    const variant = req.query.variant === 'vc-in' ? 'vc-in' : '';
+    const result = await updateEstimateDetail(req.params.id, payload, upload, { variant });
     if (!result) {
       return res.status(404).json({ message: 'Estimate not found.', msg: 1 });
     }

@@ -1,5 +1,6 @@
 import { appContext } from '../config.js';
-import { getPool } from '../db.js';
+import { getPool as getRawPool } from '../db.js';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { ESTIMATE_TYPE_LABELS, formatDateDMY } from './estimateListMappers.js';
 import {
   ensureCommercialParametersFromNavApi,
@@ -11,6 +12,38 @@ import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
 
 /** PHP often stores INT_MAX as a placeholder RANDOMID for new/unsaved rows. */
 const PLACEHOLDER_RANDOM_ID = '2147483647';
+
+const vcInTableStore = new AsyncLocalStorage();
+
+function rewriteVcInSql(sql) {
+  if (typeof sql !== 'string' || !vcInTableStore.getStore()?.vcIn) return sql;
+  return sql.replace(/freight_cost_estimete_(?!in_)/g, 'freight_cost_estimete_in_');
+}
+
+function wrapQueryTarget(target) {
+  return new Proxy(target, {
+    get(obj, prop, receiver) {
+      if (prop === 'query') {
+        return (sql, ...rest) => obj.query(rewriteVcInSql(sql), ...rest);
+      }
+      if (prop === 'getConnection') {
+        return async (...args) => wrapQueryTarget(await obj.getConnection(...args));
+      }
+      const value = Reflect.get(obj, prop, receiver);
+      return typeof value === 'function' ? value.bind(obj) : value;
+    },
+  });
+}
+
+function getPool() {
+  const pool = getRawPool();
+  return vcInTableStore.getStore()?.vcIn ? wrapQueryTarget(pool) : pool;
+}
+
+/** Run estimate load/save against freight_cost_estimete_in_* (PHP updatecost_sheet_tci_in). */
+export function runWithVcInTables(fn) {
+  return vcInTableStore.run({ vcIn: true }, fn);
+}
 
 let estimateMasterColumnsPromise = null;
 let estimateNoColumnReady = false;

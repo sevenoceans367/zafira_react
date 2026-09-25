@@ -26,6 +26,7 @@ const PAGES = {
   bunker: 'Bunker Calculations',
   'soa-report': 'Cash',
   'cost-sheet': 'Voyage Worksheet',
+  'cost-sheet-in': 'VC-In Worksheet',
 };
 
 const FROM_PAYMENT_GRID = new Set([
@@ -49,6 +50,7 @@ const FROM_IN_OPS = new Set([
   'bunker',
   'soa-report',
   'cost-sheet',
+  'cost-sheet-in',
 ]);
 
 function header(title, breadcrumbs) {

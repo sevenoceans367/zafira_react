@@ -44,6 +44,7 @@ import OpsVcLaytimePage from '../pages/internal-user/ops/OpsVcLaytimePage.jsx';
 import OpsVcBunkerPage from '../pages/internal-user/ops/OpsVcBunkerPage.jsx';
 import OpsVcSoaReportPage from '../pages/internal-user/ops/OpsVcSoaReportPage.jsx';
 import OpsVcCostSheetPage from '../pages/internal-user/ops/OpsVcCostSheetPage.jsx';
+import OpsVcCostSheetInPage from '../pages/internal-user/ops/OpsVcCostSheetInPage.jsx';
 import OpsVcChecklistPage from '../pages/internal-user/ops/OpsVcChecklistPage.jsx';
 import OpsTcInOpsGlancePage from '../pages/internal-user/ops/OpsTcInOpsGlancePage.jsx';
 import OpsTcChecklistPage from '../pages/internal-user/ops/OpsTcChecklistPage.jsx';
@@ -157,6 +158,7 @@ export default function App() {
             <Route path="/internal-user/vc" element={<VcDashboardPage />} />
             <Route path="/internal-user/vc/ops/in-ops-glance" element={<OpsVcGlanceHubPage />} />
             <Route path="/internal-user/vc/ops/cost-sheet" element={<OpsVcCostSheetPage />} />
+            <Route path="/internal-user/vc/ops/cost-sheet-in" element={<OpsVcCostSheetInPage />} />
             <Route path="/internal-user/vc/ops/voyage-report" element={<OpsVcVoyageReportPage />} />
             <Route path="/internal-user/vc/ops/agency-letter" element={<OpsVcAgencyLetterPage />} />
             <Route path="/internal-user/vc/ops/pda-fda" element={<OpsVcPdaFdaPage />} />

@@ -50,6 +50,7 @@ export default function CostSheetEstimatePage({
   sheetNameProp = '',
   initialFinalStatus = 0,
   viewOnly = false,
+  variant = '',
 } = {}) {
   const navigate = useNavigate();
   const alert = useAlert();
@@ -106,7 +107,7 @@ export default function CostSheetEstimatePage({
     setError('');
     try {
       const [data, lookupData] = await Promise.all([
-        fetchEstimateDetail(estimateId),
+        fetchEstimateDetail(estimateId, { variant }),
         fetchEstimateLookups(estimateType),
       ]);
       const resolvedType = data?.estimateType || estimateType;
@@ -138,7 +139,7 @@ export default function CostSheetEstimatePage({
     } finally {
       setLoading(false);
     }
-  }, [comIdProp, estimateId, estimateType]);
+  }, [comIdProp, estimateId, estimateType, variant]);
 
   useEffect(() => {
     loadDetail();
@@ -363,7 +364,7 @@ export default function CostSheetEstimatePage({
       if (finalStatus != null) {
         payload.finalStatus = finalStatus;
       }
-      await updateEstimateDetail(estimateId, payload, files);
+      await updateEstimateDetail(estimateId, payload, files, { variant });
       // Clear overlay before alert — LoadingOverlay sits above the dialog and would block OK.
       setSaving(false);
       await alert({
@@ -403,9 +404,10 @@ export default function CostSheetEstimatePage({
   const locked = sheetClosed || viewOnly;
   const sheetLabel = sheetNameProp
     || (costSheetIdProp ? `Sheet ${costSheetIdProp}` : '');
+  const sheetTitle = variant === 'vc-in' ? 'VC-In Worksheet' : 'Voyage Worksheet';
   const pageHeading = sheetLabel
-    ? `${viewOnly ? 'View Voyage Worksheet' : sheetClosed ? 'Closed Voyage Worksheet' : 'Voyage Worksheet'} — ${sheetLabel}`
-    : (viewOnly ? 'View Voyage Worksheet' : sheetClosed ? 'Closed Voyage Worksheet' : 'Voyage Worksheet');
+    ? `${viewOnly ? `View ${sheetTitle}` : sheetClosed ? `Closed ${sheetTitle}` : sheetTitle} — ${sheetLabel}`
+    : (viewOnly ? `View ${sheetTitle}` : sheetClosed ? `Closed ${sheetTitle}` : sheetTitle);
 
   // Ensure Passage & Ports SOF links see comid/page (PHP updatecost_sheet_tci).
   const sectionsDetail = detail && isCostSheet
@@ -443,6 +445,7 @@ export default function CostSheetEstimatePage({
             onPeriodContractChange={handlePeriodContractChange}
             onRecalc={handleRecalc}
             onApplyPatch={handleApplyPatch}
+            variant={variant}
           />
           <div className={styles.actions}>
             {viewOnly ? null : isCostSheet ? (

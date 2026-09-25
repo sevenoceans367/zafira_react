@@ -3,12 +3,12 @@
  *
  * Data rules from SOC_Contract_Finance_Redesign_4.html (Rounds 2–6):
  * - Income ← freight + demurrage + other-income (worksheet / receivable activity)
- * - Expenses ← hire (top) + vc-in (VCIN-VCOUT) + port-costs + ops-costs + bunkers
+ * - Expenses ← VC-In Expense (first, VCIN-VCOUT only) + hire + port-costs + ops-costs + bunkers
  * - Hire counts as expense for KPIs / waterfall; hire rows keep dull-red Statement pills
  * - Owners Side brokerage omitted (no useful data)
  * - Expense/Payment actions only when a Customer (vendor) is present
  * - Income: Freight + Demurrage always present; freight labeled Freight - [Cargo], net amounts
- * - Expense order: Hire → VC-in → LP → DP → canal → brokerage → bunkers
+ * - Expense order: VC-In Expense → Hire → LP → DP → canal → brokerage → bunkers
  */
 
 const INCOME_SECTION_ORDER = ['freight', 'demurrage', 'other-income'];
@@ -164,15 +164,12 @@ export function pillToneClass(kind, action, styles) {
   return completed ? `${hue} ${styles.miniPillCompleted}` : hue;
 }
 
-/** Expense row sort: Hire → VC-in (VCIN-VCOUT only) → LP → DP → canal → brokerage → bunkers. */
+/** Expense row sort: VC-In Expense → Hire → LP → DP → canal → brokerage → bunkers. */
 export function expenseRowRank(row) {
   const name = String(row?.name || '').toLowerCase();
   const key = String(row?.key || '').toLowerCase();
   const section = String(row?.sectionKey || '');
 
-  if (section === 'hireage' || key === 'hire' || (name === 'hire' && !name.includes('broker'))) {
-    return -20;
-  }
   if (
     section === 'vc-in-expense'
     || name.includes('vc in')
@@ -180,7 +177,10 @@ export function expenseRowRank(row) {
     || name.includes('vcin')
     || key.includes('vcin')
   ) {
-    return 0;
+    return -30;
+  }
+  if (section === 'hireage' || key === 'hire' || (name === 'hire' && !name.includes('broker'))) {
+    return -20;
   }
   if (
     name.includes('load port')
@@ -384,7 +384,7 @@ export function groupPaymentGridSections(sections = []) {
   );
 
   const expenseRaw = flattenLines(sections, EXPENSE_KEYS, EXPENSE_SECTION_ORDER);
-  // Hire at top of expense list, then VC-in → LP/DP → brokerage → bunkers
+  // VC-In Expense at top of the expense list, then Hire → LP/DP → brokerage → bunkers
   const expenseCombined = [
     ...hireage.dataRows.map((r) => ({ ...r, sectionKey: 'hireage', lineKind: 'hire' })),
     ...expenseRaw.filter((r) => !r.isGroupHeader).map((r) => ({

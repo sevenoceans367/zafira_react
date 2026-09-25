@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AddCircleButton, Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import PortSearchSelect from '../../period-contract/PortSearchSelect.jsx';
@@ -120,6 +120,7 @@ export default function EstimateDetailSections({
   onPeriodContractChange,
   onRecalc,
   onApplyPatch,
+  variant = '',
 }) {
   const estimateType = Number(detail?.estimateType) || 2;
   const isGas = estimateType === 1;
@@ -131,6 +132,8 @@ export default function EstimateDetailSections({
   const showVesselDailyOps = fixtureType === '3';
   // PHP .tcin — Hire Details button only for TCIN-VCOUT
   const showHireDetailsButton = fixtureType === '1';
+  // PHP updatecost_sheet_tci_in — VCIN-VCOUT opens the VC-In worksheet
+  const showVcInButton = fixtureType === '2' && variant !== 'vc-in';
   const showCoaFields = String(form.coaSpot || '') === '2';
   const showIndexLinked = isDry && showHireSection;
   const editable = !readOnly;
@@ -150,6 +153,12 @@ export default function EstimateDetailSections({
   const sofHref = sofComId
     ? appPath(
       `/internal-user/vc/ops/sof?comid=${encodeURIComponent(sofComId)}&page=${encodeURIComponent(sofPage)}`,
+    )
+    : '';
+  const costSheetId = searchParams.get('cost_sheet_id') || searchParams.get('costSheetId') || '';
+  const vcInHref = showVcInButton && sofComId
+    ? appPath(
+      `/internal-user/vc/ops/cost-sheet-in?comid=${encodeURIComponent(sofComId)}&page=${encodeURIComponent(sofPage)}${costSheetId ? `&cost_sheet_id=${encodeURIComponent(costSheetId)}` : ''}`,
     )
     : '';
 
@@ -2427,16 +2436,29 @@ export default function EstimateDetailSections({
             <Field id="lessOffHire" label="Less Off Hire">
               <input id="lessOffHire" value={form.lessOffHire || form.totalOffHireAmt || ''} readOnly placeholder="0.00" />
             </Field>
-            {showHireDetailsButton ? (
+            {showHireDetailsButton || showVcInButton ? (
               <Field id="hireDetailsBtn" label=" ">
-                <button
-                  type="button"
-                  id="hireDetailsBtn"
-                  className={styles.hireDetailsBtn}
-                  onClick={() => setHireDetailsOpen(true)}
-                >
-                  Hire Details
-                </button>
+                <div className={styles.hireBtnRow}>
+                  {showHireDetailsButton ? (
+                    <button
+                      type="button"
+                      id="hireDetailsBtn"
+                      className={styles.hireDetailsBtn}
+                      onClick={() => setHireDetailsOpen(true)}
+                    >
+                      Hire Details
+                    </button>
+                  ) : null}
+                  {showVcInButton ? (
+                    <Link
+                      id="vcInSheetBtn"
+                      className={styles.hireDetailsBtn}
+                      to={vcInHref}
+                    >
+                      VC-In
+                    </Link>
+                  ) : null}
+                </div>
               </Field>
             ) : null}
           </div>

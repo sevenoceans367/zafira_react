@@ -179,6 +179,13 @@
   white-space: nowrap;
 }
 
+.hireBtnRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .hireDetailsBtn {
   display: inline-flex;
   align-items: center;
@@ -193,6 +200,7 @@
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  text-decoration: none;
 }
 
 .hireDetailsBtn:hover {

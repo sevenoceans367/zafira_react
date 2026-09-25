@@ -1,7 +1,8 @@
 const BASE = '/api/internal-user/sopf';
 
-export async function fetchEstimateDetail(id) {
-  const response = await fetch(`${BASE}/estimates/${encodeURIComponent(id)}`);
+export async function fetchEstimateDetail(id, { variant } = {}) {
+  const query = variant === 'vc-in' ? '?variant=vc-in' : '';
+  const response = await fetch(`${BASE}/estimates/${encodeURIComponent(id)}${query}`);
   if (!response.ok) {
     throw new Error('Failed to load estimate.');
   }
@@ -159,13 +160,14 @@ export async function fetchNextEstimateNo(voyageNo) {
   return Number(data.estimateNo) > 0 ? Number(data.estimateNo) : 1;
 }
 
-export async function updateEstimateDetail(id, payload, files = []) {
+export async function updateEstimateDetail(id, payload, files = [], { variant } = {}) {
   const body = new FormData();
   body.append('payload', JSON.stringify(payload));
   for (const file of files) {
     body.append('attach_file', file);
   }
-  const response = await fetch(`${BASE}/estimates/${encodeURIComponent(id)}`, {
+  const query = variant === 'vc-in' ? '?variant=vc-in' : '';
+  const response = await fetch(`${BASE}/estimates/${encodeURIComponent(id)}${query}`, {
     method: 'PUT',
     body,
   });

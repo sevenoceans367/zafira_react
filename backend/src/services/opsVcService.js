@@ -3,6 +3,7 @@ import {
   dbDeactivateOpsVcEntry,
   dbCreateOpsVcCostSheet,
   dbGetOpsVcCostSheet,
+  dbGetOpsVcCostSheetIn,
   dbListHistoryAtGlance,
   dbListInOpsAtGlance,
   dbListOpsVcOperators,
@@ -437,6 +438,14 @@ export async function getOpsVcCostSheet(comId, costSheetId) {
     }
   }
   const error = new Error('Voyage Worksheet sheet not found.');
+  error.status = 404;
+  throw error;
+}
+
+/** PHP updatecost_sheet_tci_in — VC-In worksheet for a voyage. */
+export async function getOpsVcCostSheetIn(comId) {
+  if (isDbConfigured()) return dbGetOpsVcCostSheetIn(comId);
+  const error = new Error('VC-In worksheet not found for this voyage.');
   error.status = 404;
   throw error;
 }

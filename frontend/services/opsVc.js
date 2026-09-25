@@ -558,6 +558,14 @@ export async function fetchOpsVcCostSheet(comId, costSheetId) {
   return parseJson(response, 'Failed to load Voyage Worksheet cost sheet.');
 }
 
+/** PHP updatecost_sheet_tci_in — VC-In worksheet for a voyage. */
+export async function fetchOpsVcCostSheetIn(comId) {
+  const response = await fetch(
+    `${BASE}/ops/${encodeURIComponent(comId)}/cost-sheet-in`,
+  );
+  return parseJson(response, 'Failed to load VC-In worksheet.');
+}
+
 /** PHP insertActualCostSheetName — Voyage Worksheet "A" button. */
 export async function createOpsVcCostSheet(comId, sheetName) {
   const response = await fetch(`${BASE}/ops/${encodeURIComponent(comId)}/cost-sheets`, {

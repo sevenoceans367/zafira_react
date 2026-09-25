@@ -783,14 +783,14 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
       lines: freightLines,
     });
 
-    // VC-In expense (VCIN-VCOUT fixture only) — first expense line when present
+    // VC-In expense — first expense line when the spot dropdown is VCIN-VCOUT
     const [[vcIn]] = await pool.query(
       `SELECT * FROM freight_cost_estimete_in_master WHERE COMID = ? LIMIT 1`,
       [comId],
     ).catch(() => [[null]]);
-    if (isVcInOut && (vcIn?.FGFF_VENDORID || vcIn?.LUMP_VENDOR)) {
-      const vendorId = str(vcIn.FGFF_VENDORID || vcIn.LUMP_VENDOR);
-      const vendorName = await getVendorName(pool, vendorId);
+    if (isVcInOut) {
+      const vendorId = str(vcIn?.FGFF_VENDORID || vcIn?.LUMP_VENDOR);
+      const vendorName = vendorId ? await getVendorName(pool, vendorId) : '';
       const actions = [];
       if (vendorName) {
         const vcInInvoiceId = joinInvoiceId([
@@ -844,12 +844,17 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
       }
       vcInExpenseLines.push(line({
         key: 'expense-vcin',
-        name: 'VC In Freight',
+        name: 'VC-In Expense',
         vendorId,
         vendorName,
-        amount: money2(vcIn.TOTAL_PREIGHT_ADJ ?? vcIn.LUMPSUMAMT ?? vcIn.NET_PAYABLE_TAX),
-        netAmount: money2(vcIn.TOTAL_PREIGHT_ADJ ?? vcIn.LUMPSUMAMT ?? vcIn.NET_PAYABLE_TAX),
+        amount: vendorId
+          ? money2(vcIn.TOTAL_PREIGHT_ADJ ?? vcIn.LUMPSUMAMT ?? vcIn.NET_PAYABLE_TAX)
+          : '',
+        netAmount: vendorId
+          ? money2(vcIn.TOTAL_PREIGHT_ADJ ?? vcIn.LUMPSUMAMT ?? vcIn.NET_PAYABLE_TAX)
+          : '',
         actions,
+        isPlaceholder: !vendorId,
       }));
     }
   }

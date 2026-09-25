@@ -27,6 +27,7 @@ import {
   updateOpsVcOperator,
   updateYearAddOnDate,
   getOpsVcCostSheet,
+  getOpsVcCostSheetIn,
   createOpsVcCostSheet,
   updateOpsVcCostSheetLayout,
 } from '../services/opsVcService.js';
@@ -1059,6 +1060,10 @@ router.post('/ops/:comId/deactivate', asyncHandler(async (req, res) => {
 
 router.get('/ops/:comId/cost-sheets/:costSheetId', asyncHandler(async (req, res) => {
   res.json(await getOpsVcCostSheet(req.params.comId, req.params.costSheetId));
+}));
+
+router.get('/ops/:comId/cost-sheet-in', asyncHandler(async (req, res) => {
+  res.json(await getOpsVcCostSheetIn(req.params.comId));
 }));
 
 router.post('/ops/:comId/cost-sheets', asyncHandler(async (req, res) => {

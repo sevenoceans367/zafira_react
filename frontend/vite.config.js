@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createLegacyDryoutProxy } from './packages/shared-routing/viteProxyApp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -28,6 +29,7 @@ export default defineConfig({
     proxy: {
       '/api': backendProxy(),
       '/attachment': backendProxy(),
+      ...createLegacyDryoutProxy(__dirname),
     },
   },
   resolve: {

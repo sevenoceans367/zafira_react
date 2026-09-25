@@ -10,10 +10,14 @@ import {
   dbNextEstimateNo,
   dbSearchVessels,
   dbUpdateEstimateDetail,
+  runWithVcInTables,
 } from './estimateDetailDb.js';
 import { normalizeEstimateNo } from './estimateVoyage.js';
 
-export async function getEstimateDetail(id) {
+export async function getEstimateDetail(id, { variant } = {}) {
+  if (variant === 'vc-in' && isDbConfigured()) {
+    return runWithVcInTables(() => dbGetEstimateDetail(id));
+  }
   if (isDbConfigured()) {
     return dbGetEstimateDetail(id);
   }
@@ -74,7 +78,10 @@ export async function getPeriodPrefill(periodId) {
   };
 }
 
-export async function updateEstimateDetail(id, payload, upload = {}) {
+export async function updateEstimateDetail(id, payload, upload = {}, { variant } = {}) {
+  if (variant === 'vc-in' && isDbConfigured()) {
+    return runWithVcInTables(() => updateEstimateDetail(id, payload, upload, {}));
+  }
   assertEstimateRequiredFields(payload);
 
   if (isDbConfigured()) {

@@ -1311,6 +1311,145 @@ export async function dbGetOpsVcCostSheet(comId, costSheetId) {
   };
 }
 
+/** PHP updatecost_sheet_tci_in — open by COMID, else voyage/vessel, else seed from the worksheet. */
+const VC_IN_SLAVE_TABLES = [
+  'slave1', 'slave2', 'slave3', 'slave4', 'slave5', 'slave6', 'slave7', 'slave8',
+  'slave9', 'slave10', 'slave11', 'slave12', 'slave13', 'slave14', 'slave15',
+  'slave16', 'slave17', 'slave18', 'slave19', 'slave20',
+];
+
+async function copySlaveIntoVcIn(connection, suffix, sourceFcaId, targetFcaId) {
+  const sourceTable = `freight_cost_estimete_${suffix}`;
+  const targetTable = `freight_cost_estimete_in_${suffix}`;
+  try {
+    const sourceCols = await getInsertableColumns(connection, sourceTable);
+    const targetCols = new Set(await getInsertableColumns(connection, targetTable));
+    const dataColumns = sourceCols.filter((column) => column !== 'FCAID' && targetCols.has(column));
+    if (!dataColumns.length || !targetCols.has('FCAID')) return;
+    const selectCols = dataColumns.map((column) => `\`${column}\``).join(', ');
+    const insertCols = ['`FCAID`', ...dataColumns.map((column) => `\`${column}\``)].join(', ');
+    await connection.query(
+      `INSERT INTO \`${targetTable}\` (${insertCols})
+       SELECT ?, ${selectCols} FROM \`${sourceTable}\` WHERE FCAID = ?`,
+      [targetFcaId, sourceFcaId],
+    );
+  } catch {
+    // Skip slaves that are not on this database.
+  }
+}
+
+async function seedVcInEstimate(pool, source, comId) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[again]] = await connection.query(
+      `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
+       FROM freight_cost_estimete_in_master
+       WHERE COMID = ?
+       ORDER BY FCAID DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [comId],
+    );
+    if (again?.FCAID) {
+      await connection.commit();
+      return again;
+    }
+
+    const sourceCols = await getInsertableColumns(connection, 'freight_cost_estimete_master');
+    const targetCols = new Set(await getInsertableColumns(connection, 'freight_cost_estimete_in_master'));
+    const dataColumns = sourceCols.filter((column) => column !== 'FCAID' && targetCols.has(column));
+    if (!dataColumns.length) {
+      const error = new Error('VC-In worksheet table is not available.');
+      error.status = 404;
+      throw error;
+    }
+    const values = dataColumns.map((column) => (column === 'COMID' ? comId : source[column]));
+    const insertCols = dataColumns.map((column) => `\`${column}\``).join(', ');
+    const placeholders = dataColumns.map(() => '?').join(', ');
+    const [insertResult] = await connection.query(
+      `INSERT INTO freight_cost_estimete_in_master (${insertCols}) VALUES (${placeholders})`,
+      values,
+    );
+    const newId = insertResult.insertId;
+    for (const suffix of VC_IN_SLAVE_TABLES) {
+      await copySlaveIntoVcIn(connection, suffix, source.FCAID, newId);
+    }
+    await connection.commit();
+    return {
+      FCAID: newId,
+      ESTIMATE_TYPE: source.ESTIMATE_TYPE,
+      VOYAGE_NO: source.VOYAGE_NO,
+      FINAL_STATUS: source.FINAL_STATUS,
+      VESSEL_IMO_ID: source.VESSEL_IMO_ID,
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+export async function dbGetOpsVcCostSheetIn(comId) {
+  const safeComId = Number(comId);
+  if (!safeComId) {
+    const error = new Error('COMID is required.');
+    error.status = 400;
+    throw error;
+  }
+  const pool = getPool();
+  const [[byCom]] = await pool.query(
+    `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
+     FROM freight_cost_estimete_in_master
+     WHERE COMID = ?
+     ORDER BY FCAID DESC
+     LIMIT 1`,
+    [safeComId],
+  );
+
+  let row = byCom;
+  const [[source]] = await pool.query(
+    `SELECT * FROM freight_cost_estimete_master
+     WHERE COMID = ? AND MODULEID = ?
+     ORDER BY FCAID DESC
+     LIMIT 1`,
+    [safeComId, MODULE_ID],
+  );
+
+  if (!row?.FCAID && source?.VOYAGE_NO) {
+    const params = [source.VOYAGE_NO];
+    let sql = `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
+               FROM freight_cost_estimete_in_master
+               WHERE VOYAGE_NO = ?`;
+    if (source.VESSEL_IMO_ID) {
+      sql += ' AND (VESSEL_IMO_ID = ? OR VESSEL_IMO_ID IS NULL OR VESSEL_IMO_ID = 0)';
+      params.push(source.VESSEL_IMO_ID);
+    }
+    sql += ' ORDER BY FCAID DESC LIMIT 1';
+    const [[byVoyage]] = await pool.query(sql, params);
+    row = byVoyage;
+  }
+
+  if (!row?.FCAID) {
+    if (!source?.FCAID) {
+      const error = new Error('Voyage worksheet not found to open VC-In.');
+      error.status = 404;
+      throw error;
+    }
+    row = await seedVcInEstimate(pool, source, safeComId);
+  }
+
+  return {
+    comId: safeComId,
+    fcaId: row.FCAID,
+    estimateType: row.ESTIMATE_TYPE != null ? String(row.ESTIMATE_TYPE) : '2',
+    voyageNo: row.VOYAGE_NO || source?.VOYAGE_NO || '',
+    finalStatus: Number(row.FINAL_STATUS || 0),
+    vesselImoId: row.VESSEL_IMO_ID || source?.VESSEL_IMO_ID || '',
+  };
+}
+
 /** PHP insertActualCostSheetName — Voyage Worksheet "A" button. */
 export async function dbCreateOpsVcCostSheet(comId, sheetName) {
   const name = String(sheetName || '').trim();

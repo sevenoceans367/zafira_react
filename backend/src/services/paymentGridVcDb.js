@@ -611,8 +611,8 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
             }));
           }
         }
-    } else if (qtyTypeRadio === 1) {
-      // Single cargo: Customer = worksheet Shipper/Charterer (LUMP_VENDOR / FGFF_VENDORID)
+    } else if (qtyTypeRadio === 1 || (estimateType === 3 && tankerSingle !== 2)) {
+      // Single cargo, including Dry Single: Customer = Shipper/Charterer (LUMP_VENDOR / FGFF)
       const vendorId = str(master.LUMP_VENDOR || compare.FGFF_VENDORID || master.FGFF_VENDORID);
       const vendorName = await getVendorName(pool, vendorId);
       const actions = [];

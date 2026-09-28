@@ -3009,7 +3009,7 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
   ];
 
   for (const cargo of allCargos) {
-    if (!cargo.cargoId && !cargo.cargoMt) continue;
+    if (!cargo.cargoId && !cargo.cargoMt && !cargo.charterer && !cargo.vendorId) continue;
     await connection.query(
       `INSERT INTO freight_cost_estimete_slave10 (
         FCAID, SHIPPER_CHARTER, CARGO_CBM, CARGO_MT, RATE_USD_MT, AMOUNT_USD,

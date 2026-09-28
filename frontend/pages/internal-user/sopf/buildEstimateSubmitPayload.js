@@ -20,7 +20,9 @@ function resolveCargoRateFields(form, estimateType) {
 
 /** Shared Add/Update estimate API payload from computed form state. */
 export function buildEstimateSubmitPayload(form, estimateType, periodId = null) {
-  const filterCargo = (rows) => (rows || []).filter((row) => row.cargoId || row.cargoMt);
+  const filterCargo = (rows) => (rows || []).filter(
+    (row) => row.cargoId || row.cargoMt || row.charterer || row.vendorId,
+  );
   const estimateNo = normalizeEstimateNo(form.estimateNo);
   const voyageNo = String(form.voyageNo || '').trim();
   const voyageLabel = formatVoyageEstimateLabel(voyageNo, estimateNo);

@@ -112,6 +112,17 @@ function rowStatusTab(row) {
   return 'active';
 }
 
+/** Performing: most recently sent first. Rows with no send time stay at the bottom. */
+function compareRecentSent(a, b) {
+  const aTime = Date.parse(a.sentAt);
+  const bTime = Date.parse(b.sentAt);
+  const aOk = Number.isFinite(aTime);
+  const bOk = Number.isFinite(bTime);
+  if (aOk && bOk && aTime !== bTime) return bTime - aTime;
+  if (aOk !== bOk) return aOk ? -1 : 1;
+  return Number(b.id) - Number(a.id);
+}
+
 /** Same icons as Running COA Active / Completed (Performing uses completed check). */
 function TabIcon({ id }) {
   if (id === 'completed') {
@@ -319,9 +330,13 @@ export default function EstimateListPage() {
     ].some((value) => String(value ?? '').toLowerCase().includes(query));
   });
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const orderedRows = statusTab === 'completed'
+    ? [...filteredRows].sort(compareRecentSent)
+    : filteredRows;
+
+  const totalPages = Math.max(1, Math.ceil(orderedRows.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  const pagedRows = filteredRows.slice(
+  const pagedRows = orderedRows.slice(
     (safePage - 1) * pageSize,
     safePage * pageSize,
   );
@@ -417,7 +432,7 @@ export default function EstimateListPage() {
       });
       return;
     }
-    downloadEstimateListCsv(filteredRows, 'vc-out-estimates.csv', { performing: isCompletedTab });
+    downloadEstimateListCsv(orderedRows, 'vc-out-estimates.csv', { performing: isCompletedTab });
   };
 
   const handleDownloadPdf = () => {

@@ -59,7 +59,11 @@ export const login = async (username, password) => {
 
 /** Agent portal login — legacy checklogin_agent.php (generate_agency_letter). */
 export const agentLogin = async (username, password) => {
-  const data = await postCredentials('/api/auth/agent-login', username, password);
+  const data = await postCredentials(
+    '/api/auth/agent-login',
+    String(username || '').trim(),
+    String(password || '').trim(),
+  );
   storeSession(data.token, data.user);
   return { token: data.token, user: data.user };
 };

@@ -34,6 +34,9 @@ export async function dbAuthenticateUser(username, password) {
  */
 export async function dbAuthenticateAgent(username, password) {
   const pool = getPool();
+  const userKey = String(username || '').trim();
+  const passKey = String(password || '').trim();
+  if (!userKey || !passKey) return null;
   const [rows] = await pool.query(
     `SELECT g.GEN_AGENCY_ID, g.USERNAME, g.COMID, g.MCOMPANYID, g.VENDORID,
             g.PORTID, g.PORT, g.RANDOMID, g.MODULEID,
@@ -41,13 +44,13 @@ export async function dbAuthenticateAgent(username, password) {
      FROM generate_agency_letter g
      LEFT JOIN vendor_master vm
        ON vm.CODE = g.VENDORID AND vm.MCOMPANYID = g.MCOMPANYID
-     WHERE g.USERNAME = ?
-       AND g.PASSWORD = ?
+     WHERE LOWER(TRIM(g.USERNAME)) = LOWER(?)
+       AND TRIM(g.PASSWORD) = ?
        AND TRIM(IFNULL(g.USERNAME, '')) <> ''
        AND TRIM(IFNULL(g.PASSWORD, '')) <> ''
      ORDER BY g.GEN_AGENCY_ID DESC
      LIMIT 1`,
-    [username.trim(), password],
+    [userKey, passKey],
   );
 
   if (!rows.length) return null;

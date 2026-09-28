@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button,
   CardSelect,
+  DmyDateInput,
   HeaderFilterControls,
   LoadingOverlay,
   TextInput,
@@ -31,6 +32,21 @@ function parseMoney(value) {
 function fmtMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function isoToDmy(value) {
+  const match = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return String(value || '').trim();
+  return `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+function dmyToIso(value) {
+  const raw = String(value || '').trim();
+  const dmy = raw.match(/^(\d{2})-(\d{2})-(\d{4})/);
+  if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  return raw;
 }
 
 function InfoTip({ text }) {
@@ -86,6 +102,11 @@ export default function AgentPortCostPage() {
       cancelled = true;
     };
   }, [mode]);
+
+  useEffect(() => {
+    const currency = String(form?.header?.localCurrency || 'USD').trim().toUpperCase();
+    setDisplayMode(currency === 'USD' ? 'usd' : 'local');
+  }, [form?.header?.localCurrency]);
 
   const exchangeRate = Number(form?.header?.exchangeRate) > 0
     ? Number(form.header.exchangeRate)
@@ -279,11 +300,10 @@ export default function AgentPortCostPage() {
               </div>
               <div className={styles.vsItem}>
                 <label>Date</label>
-                <TextInput
-                  type="date"
-                  value={form.header.date || ''}
+                <DmyDateInput
+                  value={isoToDmy(form.header.date)}
                   disabled={readOnly}
-                  onChange={(e) => updateHeader('date', e.target.value)}
+                  onChange={(value) => updateHeader('date', dmyToIso(value))}
                 />
               </div>
             </div>
@@ -337,26 +357,17 @@ export default function AgentPortCostPage() {
             </div>
           </div>
 
-          <div className={styles.pcHintBanner}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 16v-5M12 8h.01" />
-            </svg>
-            <div>
-              Not sure what a line means? Tap the
-              {' '}
-              <b>i</b>
-              {' '}
-              next to its name for a plain-English explanation. Only enter a cost if it actually
-              applies to this call — everything else can stay at 0.00.
-              {isFda ? (
-                <>
-                  {' '}
-                  On FDA, Estimated Cost is locked from Initial PDA — only Actual Cost is editable.
-                </>
-              ) : null}
+          {isFda ? (
+            <div className={styles.pcHintBanner}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 16v-5M12 8h.01" />
+              </svg>
+              <div>
+                On FDA, Estimated Cost is locked from Initial PDA — only Actual Cost is editable.
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div className={styles.pcSearchRow}>
             <div className={styles.searchBox}>
@@ -433,11 +444,11 @@ export default function AgentPortCostPage() {
                         <table className={styles.costGrid}>
                           <thead>
                             <tr>
-                              <th style={{ width: '26%' }}>Cost Type</th>
-                              <th style={{ width: '15%' }}>Estimated Cost</th>
-                              <th style={{ width: '15%' }}>Actual Cost</th>
-                              <th style={{ width: '22%' }}>Agent Remarks</th>
-                              <th style={{ width: '22%' }}>Office Remarks</th>
+                              <th style={{ width: isFda ? '26%' : '32%' }}>Cost Type</th>
+                              <th style={{ width: isFda ? '15%' : '18%' }}>Estimated Cost</th>
+                              {isFda ? <th style={{ width: '15%' }}>Actual Cost</th> : null}
+                              <th style={{ width: isFda ? '22%' : '25%' }}>Agent Remarks</th>
+                              <th style={{ width: isFda ? '22%' : '25%' }}>Office Remarks</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -468,22 +479,23 @@ export default function AgentPortCostPage() {
                                     />
                                     <div className={styles.fxLine}>{fxEst(line)}</div>
                                   </td>
-                                  <td>
-                                    <input
-                                      className={styles.costInput}
-                                      type="number"
-                                      step="0.01"
-                                      value={toInputNumber(primaryAct(line))}
-                                      disabled={readOnly || !isFda}
-                                      title={!isFda ? 'Actual cost is entered on FDA' : undefined}
-                                      onChange={(e) => updateLine(
-                                        idx,
-                                        showLocal ? 'actualLc' : 'actualUsd',
-                                        e.target.value,
-                                      )}
-                                    />
-                                    <div className={styles.fxLine}>{fxAct(line)}</div>
-                                  </td>
+                                  {isFda ? (
+                                    <td>
+                                      <input
+                                        className={styles.costInput}
+                                        type="number"
+                                        step="0.01"
+                                        value={toInputNumber(primaryAct(line))}
+                                        disabled={readOnly}
+                                        onChange={(e) => updateLine(
+                                          idx,
+                                          showLocal ? 'actualLc' : 'actualUsd',
+                                          e.target.value,
+                                        )}
+                                      />
+                                      <div className={styles.fxLine}>{fxAct(line)}</div>
+                                    </td>
+                                  ) : null}
                                   <td>
                                     <input
                                       className={styles.costInput}

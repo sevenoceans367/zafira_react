@@ -202,6 +202,7 @@ export function mapListRow(row, index, portLegs = {}, { voyageLocked = false } =
     sentToDecisionChart,
     sentToOps: sentToDecisionChart,
     fixed,
+    sentAt: row.sentAt || '',
     statusTab: fixed ? 'completed' : 'active',
     isBenchmark: row.ifBenchmark === 1,
     comid: row.comid || null,

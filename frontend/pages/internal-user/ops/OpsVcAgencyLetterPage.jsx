@@ -715,6 +715,51 @@ export default function OpsVcAgencyLetterPage() {
     }
   };
 
+  const openPreview = async (id) => {
+    if (
+      id === 'pda'
+      && activePort?.agentCode
+      && !activePort.locked
+      && draft?.username
+      && draft?.password
+    ) {
+      setSaving(true);
+      setError('');
+      try {
+        await saveAgencyLetter({
+          comId,
+          portType: activePort.portType,
+          portId: activePort.portId,
+          randomId: activePort.randomId,
+          vendorId: activePort.agentCode,
+          genAgencyId: draft.genAgencyId || null,
+          submitId: 1,
+          date: draft.date,
+          qty: draft.qty,
+          countryId: draft.countryId,
+          username: draft.username,
+          password: draft.password,
+          etaDate1: draft.etaDate1,
+          masterName: draft.masterName,
+          cargoDetails: draft.masterLetterText || draft.cargoDetails,
+          tolerance: draft.tolerance,
+          shipOwner: draft.shipOwner,
+          etaDate: draft.etaDate,
+          bunkerSurveyor: draft.bunkerSurveyor,
+          bunkerSurveyorCom: draft.bunkerSurveyorCom,
+          entities: draft.entities,
+          bunkers: draft.bunkers,
+        });
+        await load(activeKey);
+      } catch (err) {
+        setError(err.message || 'Could not save agent login for this preview.');
+      } finally {
+        setSaving(false);
+      }
+    }
+    setPreviewLetterId(id);
+  };
+
   const handleDelete = async (record) => {
     const ok = await confirm({
       title: 'Confirmation',
@@ -907,7 +952,7 @@ export default function OpsVcAgencyLetterPage() {
                       portType={activePort.portType}
                       locked={activePort.locked}
                       onSelect={(id) => patchDraft({ agentLetterType: id })}
-                      onPreview={(id) => setPreviewLetterId(id)}
+                      onPreview={openPreview}
                     />
 
                     <div className={`${styles.fItem} ${styles.ltrTextbox}`}>
@@ -949,7 +994,7 @@ export default function OpsVcAgencyLetterPage() {
                       portType={activePort.portType}
                       locked={activePort.locked}
                       onSelect={(id) => patchDraft({ masterLetterType: id })}
-                      onPreview={(id) => setPreviewLetterId(id)}
+                      onPreview={openPreview}
                     />
 
                     <div className={`${styles.fItem} ${styles.ltrTextbox}`}>

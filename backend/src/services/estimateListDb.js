@@ -170,6 +170,13 @@ async function enrichDryCargoQuantity(rows) {
   return next;
 }
 
+function formatSentAt(value) {
+  if (value == null || value === '') return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime()) || date.getFullYear() <= 1970) return '';
+  return date.toISOString();
+}
+
 function normalizeMasterRow(row) {
   return {
     fcaId: String(row.FCAID),
@@ -198,6 +205,7 @@ function normalizeMasterRow(row) {
     ifBenchmark: Number(row.IF_BENCHMARK || 0),
     comid: row.COMID ? String(row.COMID) : '',
     fixed: Number(row.FIXED) === 1,
+    sentAt: formatSentAt(row.FINAL_DATETIME),
     gasMarket: Number(row.GAS_MARKET || 0),
     gasBaseRate: row.GAS_BASE_RATE,
     gasLumsum: row.GAS_LUMSUM,
@@ -306,6 +314,7 @@ async function fetchMasterRows(selBType, fcaIds = null, { excludeSentToChart = f
             m.DAILY_VESSEL_OPERATION_EXP,
             m.PROFIT_LOSS, m.TRANS_DATE, m.QTY_TYPE_RADIO, m.ESTIMATE_TYPE,
             m.GAS_QUANTITY, m.TANK_QUANTITY, m.WS_QTY, m.IF_BENCHMARK, m.COMID, m.FIXED,
+            m.FINAL_DATETIME,
             m.GAS_MARKET, m.GAS_BASE_RATE, m.GAS_LUMSUM, m.TANKER_RADIO_SINGLE_DIS,
             m.CHK_LUMPSUM, m.LUMPSUMAMT,
             v.VESSEL_NAME, v.DWT,

@@ -30,7 +30,8 @@ import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsTcCompareSheetsModal from './OpsTcCompareSheetsModal.jsx';
 import OpsVoyageStatusModal, { VoyageStatusButton } from './OpsVoyageStatusModal.jsx';
 import OpsTcInOpsGlanceHeaderActions from './OpsTcInOpsGlanceHeaderActions.jsx';
-import OpsTcStatusTabs, { parseOpsTcTab } from './OpsTcStatusTabs.jsx';
+import OpsTcStatusTabs, { opsTcGlanceHref, parseOpsTcTab } from './OpsTcStatusTabs.jsx';
+import { useOpsVcScrollRestore } from './opsVcListFilters.js';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
 import {
   ArrowIcon,
@@ -306,6 +307,7 @@ export default function OpsTcInOpsGlancePage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [businessType, debouncedSearch, statusTab, year, pageSize]);
+  useOpsVcScrollRestore(`tc-${statusTab}`, !loading);
 
   const handleOperatorChange = async (row, operatorId) => {
     try {
@@ -643,7 +645,7 @@ export default function OpsTcInOpsGlancePage() {
                   <td style={{ textAlign: 'center' }}>
                     <Link
                       className={styles.iconBtn}
-                      to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/${isHistory ? 'view' : 'edit'}`)}
+                      to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/${isHistory ? 'view' : 'edit'}?returnTo=${encodeURIComponent(opsTcGlanceHref(statusTab))}`)}
                       title={isHistory ? 'View TC Recap' : 'Edit TC Recap'}
                     >
                       {isHistory ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={13} />}

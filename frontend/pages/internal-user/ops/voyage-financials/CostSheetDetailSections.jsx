@@ -9,7 +9,6 @@ import {
   BUNKER_ACTIVITY_GRADE_OPTIONS,
   BUNKER_ACTIVITY_OPTIONS,
   BUNKER_ACTIVITY_RATE_FIELD,
-  FIXTURE_TYPE_OPTIONS,
   COA_SPOT_OPTIONS,
   NSBG_OPTIONS,
   PASSAGE_TYPE_OPTIONS,
@@ -532,36 +531,7 @@ export default function EstimateDetailSections({
        <CollapsiblePanel title="Estimate Identifier" defaultOpen>
           <div className={styles.headerGrid}>
             <Field id="fixtureTypeId" label="Business Type">
-              {readOnly ? (
-                <input id="fixtureTypeId" value={getFixtureTypeLabel(form.fixtureTypeId)} readOnly />
-              ) : (
-                <select
-                  id="fixtureTypeId"
-                  value={String(form.fixtureTypeId ?? '')}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    const patch = { fixtureTypeId: value };
-                    // PHP makeFieldManD: VCOUT hides hire / clears index; TCIN/VCIN clear Vessel Daily Ops
-                    if (value === '3') {
-                      patch.chkHire = false;
-                      patch.chkIndex = false;
-                      patch.balticIndex = '';
-                      patch.balticPercent = '100';
-                      patch.balticRate = '';
-                      patch.totalHireRate = '';
-                    } else if (value === '1' || value === '2') {
-                      patch.vesselDailyOps = '';
-                    }
-                    if (value !== '1') setHireDetailsOpen(false);
-                    applyPatch(patch);
-                  }}
-                >
-                  <option value="">Select from list</option>
-                  {FIXTURE_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              )}
+              <input id="fixtureTypeId" value={getFixtureTypeLabel(form.fixtureTypeId)} readOnly />
             </Field>
 
             <Field id="vesselName" label="Vessel">

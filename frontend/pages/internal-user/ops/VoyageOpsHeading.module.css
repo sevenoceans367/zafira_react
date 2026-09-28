@@ -1,0 +1,49 @@
+.headerTitleStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  white-space: normal;
+}
+
+.headerTitleText {
+  line-height: 1.15;
+}
+
+.headerVoyageChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f0f2f5;
+  color: #5b6472;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.headerVoyageChip svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: #8a93a2;
+}
+
+.headerVoyLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 700;
+}
+
+.headerVoyLink:hover {
+  color: #274670;
+}
+
+.vcSep {
+  opacity: 0.55;
+  font-weight: 700;
+}

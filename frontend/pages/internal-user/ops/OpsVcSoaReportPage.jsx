@@ -1,9 +1,9 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchSoaReport } from '../../../services/opsVc.js';
-import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
+import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import OpsVcSoaReportHeaderActions from './OpsVcSoaReportHeaderActions.jsx';
 import styles from './OpsVcSoaReportPage.module.css';
 
@@ -12,16 +12,6 @@ const BACK_PATHS = {
   2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
-
-/** Same title-bar icon treatment as Freight Invoice. */
-const CASH_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <rect x="2.5" y="6" width="19" height="12" rx="2" />
-    <circle cx="12" cy="12" r="2.5" />
-    <path d="M6 12h0.01" />
-    <path d="M18 12h0.01" />
-  </svg>
-);
 
 function parseMoney(value) {
   if (value == null || value === '') return null;
@@ -233,36 +223,6 @@ function buildKpis(receivables, payables) {
   };
 }
 
-function CashHeading() {
-  const setHeading = usePageHeaderHeading();
-  useLayoutEffect(() => {
-    setHeading({ title: 'Cash', icon: CASH_ICON });
-  }, [setHeading]);
-  useEffect(() => () => setHeading(null), [setHeading]);
-  return null;
-}
-
-/** Freight Invoice–style page subheader: Voy · Vessel · CP Date */
-function CashPageSubhead({ voyageNo, vesselName, cpDate, worksheetHref }) {
-  const voyText = voyageNo || '—';
-  return (
-    <div className={styles.pageHead}>
-      <div className={styles.pageSub}>
-        <span>
-          {worksheetHref && voyageNo ? (
-            <Link to={worksheetHref} className={styles.voyLink} title="Open latest voyage worksheet">
-              {voyText}
-            </Link>
-          ) : voyText}
-          {' · '}
-          <b>{vesselName || '—'}</b>
-          {cpDate ? <> · CP <b>{cpDate}</b></> : null}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function SoaSectionTable({ section, variant }) {
   if (!section) return null;
   const labels = section.labels || {};
@@ -465,7 +425,12 @@ export default function OpsVcSoaReportPage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
-      <CashHeading />
+      <VoyageOpsHeading
+        title="Cash"
+        voyageNo={data?.voyageNo || voyageNoParam || ''}
+        vesselName={data?.vesselName || ''}
+        worksheetHref={worksheetHref}
+      />
       <OpsVcSoaReportHeaderActions
         backHref={backHref}
         financeHref={financeHref}
@@ -477,13 +442,6 @@ export default function OpsVcSoaReportPage() {
 
       {data ? (
         <>
-          <CashPageSubhead
-            voyageNo={data.voyageNo || voyageNoParam || ''}
-            vesselName={data.vesselName || ''}
-            cpDate={data.cpDate || ''}
-            worksheetHref={worksheetHref}
-          />
-
           {kpis ? (
             <div className={styles.cfKpiGrid}>
               <div className={`${styles.cfKpi} ${styles.cfKpiReceivable}`}>

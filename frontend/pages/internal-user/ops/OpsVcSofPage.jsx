@@ -1,6 +1,6 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AttachmentDropzone,
   DmyDateInput,
@@ -12,7 +12,7 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchSofForm, saveSof } from '../../../services/opsVc.js';
 import OpsVcSofHeaderActions from './OpsVcSofHeaderActions.jsx';
-import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
+import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcSofPage.module.css';
@@ -22,44 +22,6 @@ const BACK_PATHS = {
   2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
-
-const SOF_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M8 3.5h8v17H8z" />
-    <path d="M10.5 7h3" />
-    <path d="M10.5 11h3" />
-    <path d="M10.5 15h3" />
-  </svg>
-);
-
-function SofHeading() {
-  const setHeading = usePageHeaderHeading();
-  useLayoutEffect(() => {
-    setHeading({ title: 'SOF', icon: SOF_ICON });
-  }, [setHeading]);
-  useEffect(() => () => setHeading(null), [setHeading]);
-  return null;
-}
-
-function VoyPageSubhead({ voyageNo, vesselName, cpDate, worksheetHref }) {
-  const voyText = voyageNo || '—';
-  return (
-    <div className={pageStyles.pageHead}>
-      <div className={pageStyles.pageSub}>
-        <span>
-          {worksheetHref && voyageNo ? (
-            <Link to={worksheetHref} className={pageStyles.voyLink} title="Open latest voyage worksheet">
-              {voyText}
-            </Link>
-          ) : voyText}
-          {' · '}
-          <b>{vesselName || '—'}</b>
-          {cpDate ? <> · CP <b>{cpDate}</b></> : null}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 const FLASH = {
   0: { type: 'success', text: 'SOF added/updated successfully.' },
@@ -598,7 +560,12 @@ export default function OpsVcSofPage() {
 
   return (
     <>
-      <SofHeading />
+      <VoyageOpsHeading
+        title="SOF"
+        voyageNo={form?.voyageNo || ''}
+        vesselName={form?.vesselName || ''}
+        worksheetHref={worksheetHref}
+      />
       <OpsVcSofHeaderActions
         backHref={backHref}
         disabled={loading || saving}
@@ -619,15 +586,6 @@ export default function OpsVcSofPage() {
 
         {form?.ports?.length ? (
           <>
-            {(form.voyageNo || form.vesselName) ? (
-              <VoyPageSubhead
-                voyageNo={form.voyageNo || ''}
-                vesselName={form.vesselName || ''}
-                cpDate={form.cpDate || ''}
-                worksheetHref={worksheetHref}
-              />
-            ) : null}
-
             <div className={styles.portTabs}>
               {form.ports.map((port) => (
                 <button

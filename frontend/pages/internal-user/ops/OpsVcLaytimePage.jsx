@@ -1,6 +1,6 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AttachmentDropzone,
   DmyDateInput,
@@ -11,7 +11,7 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchLaytimeForm, openLaytime, saveLaytime } from '../../../services/opsVc.js';
 import OpsVcLaytimeHeaderActions from './OpsVcLaytimeHeaderActions.jsx';
-import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
+import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
 import pageStyles from './OpsPages.module.css';
@@ -23,42 +23,6 @@ const BACK_PATHS = {
   2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
-
-const LAYTIME_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M12 7.5V12l3 2" />
-  </svg>
-);
-
-function LaytimeHeading() {
-  const setHeading = usePageHeaderHeading();
-  useLayoutEffect(() => {
-    setHeading({ title: 'Laytime', icon: LAYTIME_ICON });
-  }, [setHeading]);
-  useEffect(() => () => setHeading(null), [setHeading]);
-  return null;
-}
-
-function VoyPageSubhead({ voyageNo, vesselName, cpDate, worksheetHref }) {
-  const voyText = voyageNo || '—';
-  return (
-    <div className={pageStyles.pageHead}>
-      <div className={pageStyles.pageSub}>
-        <span>
-          {worksheetHref && voyageNo ? (
-            <Link to={worksheetHref} className={pageStyles.voyLink} title="Open latest voyage worksheet">
-              {voyText}
-            </Link>
-          ) : voyText}
-          {' · '}
-          <b>{vesselName || '—'}</b>
-          {cpDate ? <> · CP <b>{cpDate}</b></> : null}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 const FLASH = {
   0: { type: 'success', text: 'Laytime added/updated successfully.' },
@@ -796,7 +760,12 @@ export default function OpsVcLaytimePage() {
 
   return (
     <>
-      <LaytimeHeading />
+      <VoyageOpsHeading
+        title="Laytime"
+        voyageNo={form?.voyageNo || ''}
+        vesselName={form?.vesselName || ''}
+        worksheetHref={worksheetHref}
+      />
       <OpsVcLaytimeHeaderActions
         backHref={backHref}
         comId={comId}
@@ -824,15 +793,6 @@ export default function OpsVcLaytimePage() {
 
         {form?.ports?.length ? (
           <>
-            {(form.voyageNo || form.vesselName) ? (
-              <VoyPageSubhead
-                voyageNo={form.voyageNo || ''}
-                vesselName={form.vesselName || ''}
-                cpDate={form.cpDate || ''}
-                worksheetHref={worksheetHref}
-              />
-            ) : null}
-
             <div className={sofStyles.portTabs}>
               {form.ports.map((port) => (
                 <button

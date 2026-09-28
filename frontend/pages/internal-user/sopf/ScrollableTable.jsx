@@ -153,7 +153,7 @@ export default function ScrollableTable({
         cardClassName,
       ].filter(Boolean).join(' ')}>
         <div className={`${styles.tableScroll} ${canLeft ? styles.fadeLeft : ''} ${canRight ? styles.fadeRight : ''}`.trim()}>
-          <div className={styles.tableWrap} ref={wrapRef}>
+          <div className={styles.tableWrap} ref={wrapRef} data-ops-hscroll>
             {children}
           </div>
         </div>

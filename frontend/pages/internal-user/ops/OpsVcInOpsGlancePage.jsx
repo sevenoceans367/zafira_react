@@ -25,7 +25,7 @@ import {
 } from '../../../services/opsVc.js';
 import CoaCardSelect from '../coa/CoaCardSelect.jsx';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
-import { readOpsVcBusinessType, rememberOpsVcBusinessType } from './opsVcListFilters.js';
+import { readOpsVcBusinessType, rememberOpsVcBusinessType, useOpsVcScrollRestore } from './opsVcListFilters.js';
 import OpsVcCompareSheetsModal from './OpsVcCompareSheetsModal.jsx';
 import OpsVoyageStatusModal, { VoyageStatusButton } from './OpsVoyageStatusModal.jsx';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
@@ -150,6 +150,7 @@ export default function OpsVcInOpsGlancePage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [businessType, debouncedSearch, year, pageSize]);
+  useOpsVcScrollRestore('ops', !loading);
 
   const handleOperatorChange = async (row, operatorId) => {
     try {

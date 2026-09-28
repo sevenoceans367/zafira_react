@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button,
   CardSelect,
@@ -18,7 +18,7 @@ import {
   saveAgencyLetter,
 } from '../../../services/opsVc.js';
 import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
-import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
+import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import OpsVcAgencyLetterPreviewModal from './OpsVcAgencyLetterPreviewModal.jsx';
 import pageStyles from './OpsPages.module.css';
@@ -29,42 +29,6 @@ const BACK_PATHS = {
   2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
-
-const LETTERS_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M4 5.5h16v13H4z" />
-    <path d="M4 7l8 6 8-6" />
-  </svg>
-);
-
-function LettersHeading() {
-  const setHeading = usePageHeaderHeading();
-  useLayoutEffect(() => {
-    setHeading({ title: 'Letters', icon: LETTERS_ICON });
-  }, [setHeading]);
-  useEffect(() => () => setHeading(null), [setHeading]);
-  return null;
-}
-
-function VoyPageSubhead({ voyageNo, vesselName, cpDate, worksheetHref }) {
-  const voyText = voyageNo || '—';
-  return (
-    <div className={pageStyles.pageHead}>
-      <div className={pageStyles.pageSub}>
-        <span>
-          {worksheetHref && voyageNo ? (
-            <Link to={worksheetHref} className={pageStyles.voyLink} title="Open latest voyage worksheet">
-              {voyText}
-            </Link>
-          ) : voyText}
-          {' · '}
-          <b>{vesselName || '—'}</b>
-          {cpDate ? <> · CP <b>{cpDate}</b></> : null}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 const FLASH = {
   0: { type: 'success', text: 'Agency Letter Generation added/updated successfully.' },
@@ -783,7 +747,12 @@ export default function OpsVcAgencyLetterPage() {
 
   return (
     <>
-      <LettersHeading />
+      <VoyageOpsHeading
+        title="Letters"
+        voyageNo={voyageNo}
+        vesselName={form?.vesselName || ''}
+        worksheetHref={worksheetHref}
+      />
       <OpsVcBackHeaderActions backHref={backHref} disabled={loading || saving} />
 
       <div className={`zafira-page ${pageStyles.page}`}>
@@ -805,15 +774,6 @@ export default function OpsVcAgencyLetterPage() {
 
         {form?.ports?.length ? (
           <>
-            {(voyageNo || form?.vesselName) ? (
-              <VoyPageSubhead
-                voyageNo={voyageNo}
-                vesselName={form.vesselName || ''}
-                cpDate={form.cpDate || ''}
-                worksheetHref={worksheetHref}
-              />
-            ) : null}
-
             <div className={styles.portTabs}>
               {form.ports.map((port) => (
                 <button

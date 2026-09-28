@@ -10,7 +10,7 @@ import {
   updateOpsVcCostSheetLayout,
 } from '../../../services/opsVc.js';
 import OpsVcListHeaderActions from './OpsVcListHeaderActions.jsx';
-import { readOpsVcBusinessType, rememberOpsVcBusinessType } from './opsVcListFilters.js';
+import { readOpsVcBusinessType, rememberOpsVcBusinessType, useOpsVcScrollRestore } from './opsVcListFilters.js';
 import OpsVcCompareSheetsModal from './OpsVcCompareSheetsModal.jsx';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
 import OpsVoyageStatusModal, { VoyageStatusButton } from './OpsVoyageStatusModal.jsx';
@@ -95,6 +95,7 @@ export default function OpsVcHistoryPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [businessType, debouncedSearch, pageSize]);
+  useOpsVcScrollRestore('history', !loading);
 
   const handleWorksheetLayoutChange = async (row, sheets) => {
     const previous = row.costSheets || [];

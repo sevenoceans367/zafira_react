@@ -573,7 +573,7 @@ export default function EstimateListPage() {
             />
           )}
         >
-            <table className={styles.grid} id="fce_list">
+            <table className={`${styles.grid} zafira-accent-spot`} id="fce_list">
               <thead>
                 <tr>
                   <th>#</th>

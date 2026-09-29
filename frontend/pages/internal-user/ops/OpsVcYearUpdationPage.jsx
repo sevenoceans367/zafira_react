@@ -114,6 +114,7 @@ export default function OpsVcYearUpdationPage() {
         <OpsVcGlanceHeader stats={stats} cards={CARDS} />
 
         <OpsVcGlanceTable
+          accent="spot"
           compact
           page={page}
           pageSize={pageSize}

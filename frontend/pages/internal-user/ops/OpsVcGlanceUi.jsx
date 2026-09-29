@@ -277,7 +277,9 @@ export function OpsVcGlanceTable({
   onPageChange,
   onPageSizeChange,
   showingLabel,
+  accent = '',
 }) {
+  const accentClass = accent ? `zafira-accent-${accent}` : '';
   return (
     <ScrollableTable
       flushTop={flushTop}
@@ -289,7 +291,7 @@ export function OpsVcGlanceTable({
         <SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} />
       )}
     >
-      <table className={`${styles.grid} ${compact ? styles.gridCompact : ''}`.trim()}>
+      <table className={`${styles.grid} ${compact ? styles.gridCompact : ''} ${accentClass}`.trim()}>
         {children}
       </table>
     </ScrollableTable>

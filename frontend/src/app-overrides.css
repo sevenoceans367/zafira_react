@@ -10,6 +10,27 @@
   display: none;
 }
 
+/* Contract-type rail on the left of list grids (Cargo Relet uses the same treatment). */
+.zafira-accent-spot > tbody > tr > td:first-child {
+  border-left: 3px solid #f4652c;
+}
+
+.zafira-accent-tc > tbody > tr > td:first-child {
+  border-left: 3px solid #14919b;
+}
+
+.zafira-accent-coa > tbody > tr > td:first-child {
+  border-left: 3px solid #6c47ff;
+}
+
+.zafira-accent-period > tbody > tr > td:first-child {
+  border-left: 3px solid #3b82f6;
+}
+
+.zafira-accent-relet > tbody > tr > td:first-child {
+  border-left: 3px solid #9e1b32;
+}
+
 .sidebar-section {
   margin: 14px 10px 6px;
   padding: 0 12px;

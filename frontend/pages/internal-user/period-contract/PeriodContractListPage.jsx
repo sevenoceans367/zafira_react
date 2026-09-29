@@ -535,7 +535,7 @@ export default function PeriodContractListPage() {
         )}
         footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
       >
-          <table className={styles.grid}>
+          <table className={`${styles.grid} zafira-accent-period`}>
             <thead>
               <tr>
                 <th>#</th>

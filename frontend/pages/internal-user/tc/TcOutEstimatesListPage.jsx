@@ -343,7 +343,7 @@ export default function TcOutEstimatesListPage() {
         )}
       >
         {statusTab === 'active' ? (
-          <table className={styles.grid}>
+          <table className={`${styles.grid} zafira-accent-tc`}>
             <thead>
               <tr>
                 <th>Item</th>
@@ -408,7 +408,7 @@ export default function TcOutEstimatesListPage() {
             </tbody>
           </table>
         ) : (
-          <table className={styles.grid}>
+          <table className={`${styles.grid} zafira-accent-tc`}>
             <thead>
               <tr>
                 <th>Item</th>

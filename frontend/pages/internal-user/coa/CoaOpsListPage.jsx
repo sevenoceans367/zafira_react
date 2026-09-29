@@ -657,7 +657,7 @@ export default function CoaOpsListPage() {
                   const canCompare = canCompareSheets && sheets.length > 0;
                   return (
                   <tr key={`${row.comId}-${row.fcaId}`}>
-                    <td className={`${styles.accentCell} ${styles.accentSpot}`}>{row.index}</td>
+                    <td className={`${styles.accentCell} ${styles.accentCoa}`}>{row.index}</td>
                     <td>
                       <div className={styles.opsCell}>
                         <span className={styles.coaNo}>{liveValue(row.coaIdentity || row.coaNo)}</span>

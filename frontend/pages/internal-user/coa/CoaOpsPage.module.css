@@ -227,11 +227,15 @@
 }
 
 .accentSpot {
-  border-left-color: #e67e22;
+  border-left-color: #f4652c;
+}
+
+.accentCoa {
+  border-left-color: #6c47ff;
 }
 
 .accentRelet {
-  border-left-color: #7c5cff;
+  border-left-color: #9e1b32;
 }
 
 .opsCell {

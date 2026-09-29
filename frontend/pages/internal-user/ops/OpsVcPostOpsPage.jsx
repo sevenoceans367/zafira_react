@@ -278,6 +278,7 @@ export default function OpsVcPostOpsPage() {
         <OpsVcStatusTabs />
 
         <OpsVcGlanceTable
+          accent="spot"
           flushTop
           page={page}
           pageSize={pageSize}

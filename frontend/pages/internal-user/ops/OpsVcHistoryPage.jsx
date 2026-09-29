@@ -145,6 +145,7 @@ export default function OpsVcHistoryPage() {
         <OpsVcStatusTabs />
 
         <OpsVcGlanceTable
+          accent="spot"
           flushTop
           page={page}
           pageSize={pageSize}

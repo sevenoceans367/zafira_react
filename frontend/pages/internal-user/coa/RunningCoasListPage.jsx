@@ -547,7 +547,7 @@ export default function RunningCoasListPage() {
             />
           )}
         >
-          <table className={styles.grid}>
+          <table className={`${styles.grid} zafira-accent-coa`}>
               <thead>
                 <tr>
                   <th>#</th>

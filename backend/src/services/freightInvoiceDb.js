@@ -648,28 +648,96 @@ async function hasOtherDemInvoice(pool, comId, portLabel, portKind) {
   return Number(row?.cnt) > 0;
 }
 
+function clubLineLabel(status) {
+  if (Number(status) === 2) return 'Overage';
+  if (Number(status) === 3) return 'Dead-freight';
+  return '';
+}
+
 async function loadClubCharterers(pool, {
   fcaId,
   vendorId,
   slaveId,
   estimateType,
+  tankType,
   isCoa,
   draftInvoiceId,
 }) {
   const rows = [];
-  if (Number(estimateType) === 2) {
-    const [clubRows] = await pool.query(
-      `SELECT SHIPPER_CHARTER AS vendorId, CARGOID AS cargoId, AMOUNT_USD AS amount, RANDOMID AS randomId
-       FROM freight_cost_estimete_slave10
+  const currentSlave = str(slaveId);
+  const invoiceVendor = str(vendorId);
+  // Voyage Worksheet cargo lines (slave10): Main=1, Overage=2, Deadfreight=3.
+  const [cargoLines] = await pool.query(
+    `SELECT FCA_SLAVE10ID, SHIPPER_CHARTER, VENDORID, CARGOID, AMOUNT_USD,
+            RATE_USD_MT, CARGO_MT, RANDOMID, STATUS
+     FROM freight_cost_estimete_slave10
+     WHERE FCAID = ?
+     ORDER BY STATUS, FCA_SLAVE10ID`,
+    [fcaId],
+  ).catch(() => [[]]);
+
+  const multipleCargo = Number(tankType) === 2 || Number(estimateType) === 2;
+  for (const line of cargoLines || []) {
+    const status = Number(line.STATUS) || 1;
+    const lineSlave = str(line.FCA_SLAVE10ID);
+    if (currentSlave && lineSlave === currentSlave) continue;
+    const shipper = str(line.SHIPPER_CHARTER);
+    const altVendor = str(line.VENDORID);
+    const sameVendor = Boolean(invoiceVendor)
+      && (shipper === invoiceVendor || altVendor === invoiceVendor);
+    // Overage and Dead-freight always come from the worksheet. Other cargo lines follow PHP (same charterer).
+    if (status !== 2 && status !== 3 && !(multipleCargo && sameVendor)) continue;
+    const amount = parseAmount(line.AMOUNT_USD)
+      || (parseAmount(line.RATE_USD_MT) * parseAmount(line.CARGO_MT));
+    rows.push({
+      vendorId: shipper && shipper !== '0' ? shipper : altVendor,
+      cargoId: line.CARGOID,
+      amount,
+      randomId: line.RANDOMID,
+      status,
+    });
+  }
+
+  if (!rows.some((row) => Number(row.status) === 3)) {
+    const [[sheet]] = await pool.query(
+      `SELECT DEAD_PREIGHT_ADJ, DF_QTY, CARGO_RATE
+       FROM freight_cost_estimete_master
        WHERE FCAID = ?
-         AND SHIPPER_CHARTER = ?
-         AND IFNULL(CARGOID, '') != ''
-         AND (? = '' OR FCA_SLAVE10ID != ?)
-       ORDER BY FCA_SLAVE10ID`,
-      [fcaId, vendorId, slaveId || '', slaveId || ''],
+       LIMIT 1`,
+      [fcaId],
+    ).catch(() => [[null]]);
+    const deadAmount = parseAmount(sheet?.DEAD_PREIGHT_ADJ)
+      || (parseAmount(sheet?.DF_QTY) * parseAmount(sheet?.CARGO_RATE));
+    if (deadAmount) {
+      rows.push({
+        vendorId: invoiceVendor,
+        cargoId: '',
+        amount: deadAmount,
+        randomId: 'dead-freight',
+        status: 3,
+      });
+    }
+  }
+
+  if (!rows.some((row) => Number(row.status) === 2)) {
+    const [wsRows] = await pool.query(
+      `SELECT OVE_AMOUNT, CUSTOMER, RANDOMID
+       FROM freight_cost_estimete_slave12
+       WHERE FCAID = ? AND IFNULL(OVE_AMOUNT, 0) != 0`,
+      [fcaId],
     ).catch(() => [[]]);
-    rows.push(...(clubRows || []));
-  } else if (Number(estimateType) === 3 && isCoa) {
+    for (const line of wsRows || []) {
+      rows.push({
+        vendorId: line.CUSTOMER,
+        cargoId: '',
+        amount: line.OVE_AMOUNT,
+        randomId: line.RANDOMID,
+        status: 2,
+      });
+    }
+  }
+
+  if (!multipleCargo && Number(estimateType) === 3 && isCoa) {
     const [clubRows] = await pool.query(
       `SELECT QTY_VENDORID AS vendorId, CARGO AS cargoId, NET_FREIGHT AS amount, RANDOMID AS randomId
        FROM freight_cost_estimete_slave7
@@ -700,16 +768,22 @@ async function loadClubCharterers(pool, {
   let idx = 0;
   for (const row of rows) {
     idx += 1;
-    const vId = str(row.vendorId);
+    const primaryVendor = str(row.vendorId);
+    const vId = primaryVendor && primaryVendor !== '0'
+      ? primaryVendor
+      : str(row.altVendorId);
     const cId = str(row.cargoId);
     const rId = str(row.randomId || '0');
     const key = `${vId}|${cId}|${rId}`;
+    const cargoName = await getCargoName(pool, cId);
     out.push({
       id: String(idx),
       vendorId: vId,
       vendorName: await getVendorName(pool, vId),
       cargoId: cId,
-      cargoName: await getCargoName(pool, cId),
+      cargoName,
+      lineLabel: clubLineLabel(row.status),
+      status: Number(row.status) || 0,
       amount: money2(row.amount),
       randomId: rId === '0' ? '' : rId,
       checked: checkedSet.has(key),
@@ -1246,6 +1320,139 @@ async function findDraftInvoice(pool, {
   return row || null;
 }
 
+function sameMoney(left, right) {
+  const a = parseAmount(left);
+  const b = parseAmount(right);
+  if (!a || !b) return false;
+  return Math.abs(a - b) < 0.02;
+}
+
+async function readRateRow(pool, sql, params) {
+  const [[row]] = await pool.query(sql, params).catch(() => [[null]]);
+  return row || null;
+}
+
+/** Cargo $/MT (or WS flat × points) for this invoice line — not the worksheet freight amount. */
+async function resolveCargoFreightRate(pool, {
+  fcaId,
+  master,
+  compare,
+  vendorId,
+  cargoId,
+  randomId,
+  slaveId,
+}) {
+  if (!fcaId) return 0;
+  const cargo = str(cargoId);
+  const vendor = str(vendorId);
+  const random = str(randomId);
+  const slave = str(slaveId);
+  const hasCargo = Boolean(cargo && cargo !== '0');
+  const hasVendor = Boolean(vendor);
+  const hasRandom = Boolean(random && random !== '0');
+  const hasSlave = Boolean(slave && slave !== '0');
+
+  if (hasSlave) {
+    const row = await readRateRow(
+      pool,
+      `SELECT RATE_USD_MT
+       FROM freight_cost_estimete_slave10
+       WHERE FCAID = ? AND FCA_SLAVE10ID = ?
+       LIMIT 1`,
+      [fcaId, slave],
+    );
+    const rate = parseAmount(row?.RATE_USD_MT);
+    if (rate) return rate;
+  }
+
+  if (hasCargo) {
+    const params = [fcaId, cargo];
+    let sql = `SELECT RATE_USD_MT
+               FROM freight_cost_estimete_slave10
+               WHERE FCAID = ? AND CARGOID = ?`;
+    if (hasVendor) {
+      sql += ' AND (SHIPPER_CHARTER = ? OR VENDORID = ?)';
+      params.push(vendor, vendor);
+    }
+    if (hasRandom) {
+      sql += ' AND RANDOMID = ?';
+      params.push(random);
+    }
+    const row = await readRateRow(pool, `${sql} LIMIT 1`, params);
+    const rate = parseAmount(row?.RATE_USD_MT);
+    if (rate) return rate;
+  }
+
+  const slave7Rate = (row) => parseAmount(row?.AGREED_GROSS_FREIGHT)
+    || parseAmount(row?.NET_FREIGHT_PERMT)
+    || parseAmount(row?.AGREED_GROSS_FREIGHT_LOCAL);
+
+  if (hasSlave) {
+    const row = await readRateRow(
+      pool,
+      `SELECT AGREED_GROSS_FREIGHT, AGREED_GROSS_FREIGHT_LOCAL, NET_FREIGHT_PERMT
+       FROM freight_cost_estimete_slave7
+       WHERE FCAID = ? AND FCA_SLAVE7ID = ?
+       LIMIT 1`,
+      [fcaId, slave],
+    );
+    const rate = slave7Rate(row);
+    if (rate) return rate;
+  }
+
+  if (hasCargo || hasVendor) {
+    const params = [fcaId];
+    let sql = `SELECT AGREED_GROSS_FREIGHT, AGREED_GROSS_FREIGHT_LOCAL, NET_FREIGHT_PERMT
+               FROM freight_cost_estimete_slave7
+               WHERE FCAID = ?`;
+    if (hasCargo) {
+      sql += ' AND CARGO = ?';
+      params.push(cargo);
+    }
+    if (hasVendor) {
+      sql += ' AND QTY_VENDORID = ?';
+      params.push(vendor);
+    }
+    if (hasRandom) {
+      sql += ' AND RANDOMID = ?';
+      params.push(random);
+    }
+    const row = await readRateRow(pool, `${sql} LIMIT 1`, params);
+    const rate = slave7Rate(row);
+    if (rate) return rate;
+  }
+
+  const estimateType = Number(master?.ESTIMATE_TYPE || compare?.ESTIMATE_TYPE || 0);
+  const lumpsum = Number(master?.CHK_LUMPSUM ?? compare?.CHK_LUMPSUM) === 1;
+  if (estimateType === 2 && !lumpsum) {
+    const params = [fcaId];
+    let sql = `SELECT MIN_FLAT_RATE, MIN_WS, OVE_FLAT_RATE, OVE_WS
+               FROM freight_cost_estimete_slave12
+               WHERE FCAID = ?`;
+    if (hasVendor) {
+      sql += ' AND CUSTOMER = ?';
+      params.push(vendor);
+    }
+    const row = await readRateRow(pool, `${sql} LIMIT 1`, params);
+    const flat = parseAmount(row?.MIN_FLAT_RATE) || parseAmount(row?.OVE_FLAT_RATE);
+    const worldscale = parseAmount(row?.MIN_WS) || parseAmount(row?.OVE_WS);
+    if (flat && worldscale) return money2((flat * worldscale) / 100);
+    if (flat) return flat;
+  }
+
+  const sheetRate = parseAmount(master?.CARGO_RATE)
+    || parseAmount(master?.MARKET_RATE)
+    || parseAmount(compare?.CARGO_RATE);
+  if (sheetRate) return sheetRate;
+
+  if (Number(master?.GAS_MARKET ?? compare?.GAS_MARKET) === 1) {
+    const base = parseAmount(master?.GAS_BASE_RATE ?? compare?.GAS_BASE_RATE);
+    if (base) return base;
+  }
+
+  return 0;
+}
+
 /**
  * PHP invoice.php form context for Initial/Final freight invoice.
  */
@@ -1326,10 +1533,6 @@ export async function dbGetFreightInvoiceForm({
     || Number(master?.QUANTITY)
     || Number(master?.TANK_QUANTITY)
     || 0;
-  const freightRate = parseAmount(parsed.agreedLocal)
-    || parseAmount(master?.FREIGHT_GROSS)
-    || parseAmount(master?.CARGO_RATE)
-    || 0;
   const grossFreight = parsed.amount
     || parseAmount(compare.TOTAL_PREIGHT_ADJ)
     || parseAmount(master?.LUMPSUMAMT)
@@ -1399,6 +1602,7 @@ export async function dbGetFreightInvoiceForm({
     vendorId,
     slaveId,
     estimateType,
+    tankType: Number(master?.TANKER_RADIO_SINGLE_DIS || 0),
     isCoa,
     draftInvoiceId: draftId,
   });
@@ -1435,6 +1639,31 @@ export async function dbGetFreightInvoiceForm({
       demurrageRows.filter((r) => r.checked).map((r) => r.id),
       daRows.filter((r) => r.checked).map((r) => r.id),
     );
+  }
+
+  const cargoRate = await resolveCargoFreightRate(pool, {
+    fcaId,
+    master,
+    compare,
+    vendorId,
+    cargoId,
+    randomId,
+    slaveId,
+  });
+  const storedRate = parseAmount(currentInvoice?.freightRate);
+  const storedIsWorksheetAmount = [
+    master?.FREIGHT_GROSS,
+    master?.LUMPSUMAMT,
+    master?.TOTAL_PREIGHT_ADJ,
+    compare?.TOTAL_PREIGHT_ADJ,
+    parsed.amount,
+    parsed.agreedLocal,
+  ].some((value) => sameMoney(storedRate, value));
+  const freightRate = cargoRate && (!storedRate || storedIsWorksheetAmount)
+    ? cargoRate
+    : (storedRate || cargoRate);
+  if (currentInvoice) {
+    currentInvoice.freightRate = freightRate ? String(freightRate) : '';
   }
 
   const existingInvoices = await loadExistingInvoices(pool, {
@@ -1748,7 +1977,7 @@ export async function dbSaveFreightInvoice(payload = {}, { userId = appContext.u
   const blDate = parseDmyToSqlDate(payload.blDate || payload.txtBLDate);
   const grossFreight = parseAmount(payload.grossFreight || payload.txtGrossFreight || payload.txtFreightAmt);
   const quantity = parseAmount(payload.blQuantity || payload.quantity || payload.txtQty || parsed.quantity);
-  const freightRate = parseAmount(payload.freightRate || payload.txtFrieghtRate || parsed.agreedLocal);
+  const freightRate = parseAmount(payload.freightRate || payload.txtFrieghtRate);
   const percentThereOff = parseAmount(payload.percentThereOff || payload.txtTO || payload.to_1);
   const brokeragePercent = parseAmount(payload.brokeragePercent || payload.txtBrokerage);
   // PHP: brokerage / addcom only when % There Off > 0, calculated on full gross

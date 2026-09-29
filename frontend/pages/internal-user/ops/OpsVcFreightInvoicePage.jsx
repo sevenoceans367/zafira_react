@@ -340,8 +340,9 @@ function ChecklistSection({ title, rows, onToggle, onProrateToggle, kind }) {
       <div className={styles.grid2}>
         {rows.map((row) => {
           const key = row.id ?? row.randomId ?? `${row.port}-${row.portId}`;
+          const clubLabel = `${row.vendorName || '—'}${row.cargoName ? ` (${row.cargoName})` : ''}`;
           const label = kind === 'club'
-            ? `${row.vendorName || '—'}${row.cargoName ? ` (${row.cargoName})` : ''}`
+            ? [row.lineLabel, clubLabel].filter(Boolean).join(' — ')
             : (row.portLabel || row.port || '—');
           return (
             <div key={key} className={styles.field}>
@@ -1791,7 +1792,19 @@ export default function OpsVcFreightInvoicePage() {
           <InvoiceCard num="3" title="Gross Freight & Adjustments">
             <ChecklistSection
               title="Club Freight"
-              rows={clubRows}
+              rows={clubRows.filter((row) => Number(row.status) !== 2 && Number(row.status) !== 3)}
+              kind="club"
+              onToggle={toggleClub}
+            />
+            <ChecklistSection
+              title="Overage"
+              rows={clubRows.filter((row) => Number(row.status) === 2)}
+              kind="club"
+              onToggle={toggleClub}
+            />
+            <ChecklistSection
+              title="Dead-freight"
+              rows={clubRows.filter((row) => Number(row.status) === 3)}
               kind="club"
               onToggle={toggleClub}
             />

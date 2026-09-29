@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CardSelect, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
+import { reportAppPath } from '../../constants/reportsMenu.js';
 import { getUser } from '@bainbridge/shared-auth';
 import sopfIcon from '../../assets/SOPF Icon 1.png';
 import socIcon from '../../assets/SOC Product Icon.png';
@@ -121,7 +122,7 @@ const ACTIVITY_STATS = {
       val: '4 days',
       delta: '',
       dir: 'up',
-      href: '/internal-user/vc/reports/management/pl-at-a-glance',
+      href: reportAppPath('management', 'pl-at-a-glance'),
     },
   ],
   hedgex: [

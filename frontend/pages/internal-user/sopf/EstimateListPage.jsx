@@ -108,7 +108,7 @@ function parseStatusTab(value) {
 }
 
 function rowStatusTab(row) {
-  if (row.statusTab === 'completed' || row.fixed || row.sentToOps) return 'completed';
+  if (row.statusTab === 'completed' || row.fixed || row.sentToOps || row.voyageLocked) return 'completed';
   return 'active';
 }
 

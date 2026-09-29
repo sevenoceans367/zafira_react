@@ -10,6 +10,7 @@ import { PageHeaderProvider } from '../../pages/internal-user/PageHeaderContext.
 import styles from './InternalUserLayout.module.css';
 
 const COLLAPSE_SIDEBAR_PATHS = [
+  '/',
   '/internal-user/sopf/addestimate',
   '/internal-user/sopf/updateestimate',
   '/internal-user/sopf/viewestimate',

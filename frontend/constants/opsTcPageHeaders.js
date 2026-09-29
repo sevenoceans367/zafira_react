@@ -14,7 +14,7 @@ const PAGES = {
   checklist: 'Ops Checklist',
   'fixture-note': 'Fixture Note',
   'cost-sheet': 'TC Cost Sheet',
-  'agency-letter': 'Generate Agency Letter',
+  'agency-letter': 'Letters',
   documents: 'Documents',
   'payment-grid': 'Payment / Invoice Grid',
 };

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import SopfPagination from '../sopf/SopfPagination.jsx';
@@ -253,8 +253,16 @@ function CoaShipmentsModal({ open, title, rows, loading, onClose }) {
   );
 }
 
+const DASHBOARD_TAB_IDS = new Set(['vc', 'tc', 'coas', 'periods', 'all']);
+
+function tabFromSearch(searchParams) {
+  const tab = searchParams.get('tab');
+  return DASHBOARD_TAB_IDS.has(tab) ? tab : 'vc';
+}
+
 export default function VcDashboardPage() {
-  const [activeTab, setActiveTab] = useState('vc');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => tabFromSearch(searchParams));
   const [businessTypes, setBusinessTypes] = useState([]);
   const [businessType, setBusinessType] = useState('2');
   const [icpMode, setIcpMode] = useState('mixed');
@@ -278,6 +286,14 @@ export default function VcDashboardPage() {
   const [coaModalTitle, setCoaModalTitle] = useState('');
   const [coaModalRows, setCoaModalRows] = useState([]);
   const [coaModalLoading, setCoaModalLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'all' || window.location.hash !== '#needs-attention') return undefined;
+    const timer = window.setTimeout(() => {
+      document.getElementById('needs-attention')?.scrollIntoView({ block: 'start' });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [activeTab]);
 
   const loadBusinessTypes = useCallback(async (selectedId) => {
     const types = await fetchVcBusinessTypes(selectedId);
@@ -755,7 +771,7 @@ export default function VcDashboardPage() {
             <section className={styles.secBlock}>
               <RevenueByContractCard />
             </section>
-            <section className={styles.secBlock}>
+            <section className={styles.secBlock} id="needs-attention">
               <ChartCard title="Needs Attention">
                 <AttentionList items={ATTENTION_ITEMS} />
               </ChartCard>

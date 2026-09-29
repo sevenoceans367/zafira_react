@@ -391,11 +391,11 @@ export default function TcOutEstimatesListPage() {
                   </td>
                   <td>
                     <Link
-                      className={styles.iconBtn}
+                      className={styles.editIco}
                       to={tcPath(`${row.tcOutId}/edit`)}
                       title="Edit TC Recap"
                     >
-                      <EditRecapIcon size={13} />
+                      <EditRecapIcon size={14} />
                     </Link>
                   </td>
                 </tr>
@@ -447,7 +447,7 @@ export default function TcOutEstimatesListPage() {
                     </td>
                     <td>
                       <Link
-                        className={styles.iconBtn}
+                        className={styles.editIco}
                         to={tcPath(`${row.tcOutId}/view`)}
                         title="View TC Recap"
                       >

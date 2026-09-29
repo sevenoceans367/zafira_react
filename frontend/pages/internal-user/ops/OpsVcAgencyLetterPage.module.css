@@ -512,6 +512,76 @@
   min-width: 260px;
 }
 
+.savedPopupOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 72px 20px 32px;
+  overflow-y: auto;
+  background: rgba(20, 26, 40, 0.55);
+  box-sizing: border-box;
+}
+
+.savedPopup {
+  width: 420px;
+  max-width: 100%;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 16px;
+  box-shadow: 0 30px 70px rgba(20, 20, 40, 0.28);
+  overflow: hidden;
+}
+
+.savedPopupHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #eceef2;
+}
+
+.savedPopupTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.savedPopupSub {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a93a2;
+}
+
+.savedPopupClose {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #f1f2f4;
+  color: #5b6472;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+}
+
+.savedPopupClose svg {
+  width: 14px;
+  height: 14px;
+}
+
+.savedPopupBody {
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  padding: 6px;
+}
+
 .savedRow {
   padding: 10px 12px;
   border-bottom: 1px solid #eceef2;

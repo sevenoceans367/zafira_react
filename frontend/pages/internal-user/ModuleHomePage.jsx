@@ -79,18 +79,60 @@ const DEMO_ROLES = [
 
 const ACTIVITY_STATS = {
   sopf: [
-    { label: 'Estimates in progress', dot: '#F4652C', val: '7', delta: '+2', dir: 'up' },
-    { label: 'Awaiting your review', dot: '#D8480F', val: '3', delta: '+1', dir: 'up' },
+    {
+      label: 'Estimates in progress',
+      dot: '#F4652C',
+      val: '7',
+      delta: '+2',
+      dir: 'up',
+      href: '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2',
+    },
+    {
+      label: 'Awaiting your review',
+      dot: '#D8480F',
+      val: '3',
+      delta: '+1',
+      dir: 'up',
+      href: '/internal-user/vc?tab=all#needs-attention',
+    },
   ],
   soc: [
-    { label: 'Open contracts', dot: '#2E6FE8', val: '12', delta: '+3', dir: 'up' },
-    { label: 'Invoices pending approval', dot: '#14919B', val: '6', delta: '-1', dir: 'down' },
+    {
+      label: 'Open contracts',
+      dot: '#2E6FE8',
+      val: '12',
+      delta: '+3',
+      dir: 'up',
+      href: '/internal-user/vc/ops/in-ops-glance',
+    },
+    {
+      label: 'Invoices pending approval',
+      dot: '#14919B',
+      val: '6',
+      delta: '-1',
+      dir: 'down',
+      href: '/internal-user/vc/todo-list',
+    },
   ],
   sofa: [
-    { label: 'Month-end close', dot: '#A9791E', val: '4 days', delta: '', dir: 'up' },
+    {
+      label: 'Month-end close',
+      dot: '#A9791E',
+      val: '4 days',
+      delta: '',
+      dir: 'up',
+      href: '/internal-user/vc/reports/management/pl-at-a-glance',
+    },
   ],
   hedgex: [
-    { label: 'Positions expiring this week', dot: '#5B4FE0', val: '3', delta: '+1', dir: 'up' },
+    {
+      label: 'Positions expiring this week',
+      dot: '#5B4FE0',
+      val: '3',
+      delta: '+1',
+      dir: 'up',
+      href: '/internal-user/vc/ops/payment-grid',
+    },
   ],
 };
 
@@ -148,7 +190,7 @@ export default function ModuleHomePage() {
         ...stat,
         moduleId: card.id,
         code: card.code,
-        href: card.href,
+        href: stat.href || card.href,
       }))
     ))
   ), [visibleCards]);

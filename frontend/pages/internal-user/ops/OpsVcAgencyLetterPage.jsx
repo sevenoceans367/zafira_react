@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -299,124 +299,116 @@ function SavedLettersDropdown({
   locked,
   onDelete,
 }) {
-  const wrapRef = useRef(null);
-  const menuRef = useRef(null);
   const [open, setOpen] = useState(false);
-  const [menuStyle, setMenuStyle] = useState(null);
-
-  const updateMenuPosition = () => {
-    const trigger = wrapRef.current;
-    if (!trigger) return;
-    const rect = trigger.getBoundingClientRect();
-    const width = 300;
-    setMenuStyle({
-      position: 'fixed',
-      top: `${rect.bottom + 8}px`,
-      left: `${Math.min(rect.left, window.innerWidth - width - 8)}px`,
-      minWidth: `${width}px`,
-      maxHeight: '420px',
-      overflowY: 'auto',
-      zIndex: 10050,
-    });
-  };
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setMenuStyle(null);
-      return undefined;
-    }
-    updateMenuPosition();
-    return undefined;
-  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
-
-    const handleClickOutside = (event) => {
-      const inTrigger = wrapRef.current?.contains(event.target);
-      const inMenu = menuRef.current?.contains(event.target);
-      if (!inTrigger && !inMenu) setOpen(false);
-    };
     const handleEscape = (event) => {
       if (event.key === 'Escape') setOpen(false);
     };
-    const handleReposition = () => updateMenuPosition();
-
-    document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
-    window.addEventListener('resize', handleReposition);
-    window.addEventListener('scroll', handleReposition, true);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-      window.removeEventListener('resize', handleReposition);
-      window.removeEventListener('scroll', handleReposition, true);
-    };
+    return () => document.removeEventListener('keydown', handleEscape);
   }, [open]);
 
-  const menu = open && menuStyle && typeof document !== 'undefined'
+  const popup = open && typeof document !== 'undefined'
     ? createPortal(
-      <div ref={menuRef} className={`${styles.menuDropdown} ${styles.savedMenu}`} style={menuStyle} role="menu">
-        {!records.length ? (
-          <div className={styles.savedEmpty}>No saved letters yet for this port.</div>
-        ) : (
-          records.map((record) => {
-            const portType = record.portType || activePort?.portType || '';
-            const portLabel = [record.portName, record.countryName].filter(Boolean).join(', ') || '—';
-            const pdfHref = voyagePdfHrefFor(record, comId, activePort);
-            return (
-              <div key={record.genAgencyId} className={styles.savedRow}>
-                <div className={styles.slTop}>
-                  <a
-                    className={`${styles.slPortPill} ${portTypeChipClass(portType)}`}
-                    href={pdfHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Open Voyage letter PDF"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    {portLabel}
-                  </a>
-                  {!locked ? (
-                    <button
-                      type="button"
-                      className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                      title="Remove"
-                      onClick={() => onDelete(record)}
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-                        <path d="M6 6l12 12M18 6L6 18" />
-                      </svg>
-                    </button>
-                  ) : null}
-                </div>
-                <div className={styles.slMeta}>
-                  {[record.agentName || 'No agent assigned on worksheet', record.username].filter(Boolean).join(' · ')}
-                </div>
-                {record.date ? <div className={styles.slMeta}>Saved on {record.date}</div> : null}
+      <div
+        className={styles.savedPopupOverlay}
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setOpen(false);
+        }}
+      >
+        <div
+          className={styles.savedPopup}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="vc-saved-letters-title"
+        >
+          <div className={styles.savedPopupHead}>
+            <div>
+              <div className={styles.savedPopupTitle} id="vc-saved-letters-title">Saved Letters</div>
+              <div className={styles.savedPopupSub}>
+                {records.length}
+                {' '}
+                {records.length === 1 ? 'letter' : 'letters'}
+                {' '}
+                for this port
               </div>
-            );
-          })
-        )}
+            </div>
+            <button
+              type="button"
+              className={styles.savedPopupClose}
+              aria-label="Close saved letters"
+              onClick={() => setOpen(false)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+          <div className={styles.savedPopupBody}>
+            {!records.length ? (
+              <div className={styles.savedEmpty}>No saved letters yet for this port.</div>
+            ) : (
+              records.map((record) => {
+                const portType = record.portType || activePort?.portType || '';
+                const portLabel = [record.portName, record.countryName].filter(Boolean).join(', ') || '—';
+                const pdfHref = voyagePdfHrefFor(record, comId, activePort);
+                return (
+                  <div key={record.genAgencyId} className={styles.savedRow}>
+                    <div className={styles.slTop}>
+                      <a
+                        className={`${styles.slPortPill} ${portTypeChipClass(portType)}`}
+                        href={pdfHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open Voyage letter PDF"
+                      >
+                        {portLabel}
+                      </a>
+                      {!locked ? (
+                        <button
+                          type="button"
+                          className={`${styles.circleBtn} ${styles.circleBtnDel}`}
+                          title="Remove"
+                          onClick={() => onDelete(record)}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+                            <path d="M6 6l12 12M18 6L6 18" />
+                          </svg>
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className={styles.slMeta}>
+                      {[record.agentName || 'No agent assigned on worksheet', record.username].filter(Boolean).join(' · ')}
+                    </div>
+                    {record.date ? <div className={styles.slMeta}>Saved on {record.date}</div> : null}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>,
       document.body,
     )
     : null;
 
   return (
-    <div className={styles.savedLtrWrap} ref={wrapRef}>
+    <div className={styles.savedLtrWrap}>
       <button
         type="button"
         className={`${styles.gprlQuickbtn} ${styles.savedTrigger}`}
         aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={() => setOpen((current) => !current)}
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
       >
         <FolderIcon />
         Saved Letters
         <span className={styles.slFilesCount}>{records.length}</span>
       </button>
-      {menu}
+      {popup}
     </div>
   );
 }

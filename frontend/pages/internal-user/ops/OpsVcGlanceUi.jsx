@@ -301,26 +301,38 @@ export function VoyDocsCell({
   rttype,
   documentsHref,
   voyageReportHref,
+  viewHref,
+  downloadHref,
   className = '',
   onDeactivate,
 }) {
+  const resolvedView = viewHref || (fcaId
+    ? appPath(`/internal-user/sopf/viewestimate?id=${fcaId}&rttype=${rttype}`)
+    : '');
+  const resolvedDownload = downloadHref || (fcaId
+    ? `/api/internal-user/sopf/estimate/${encodeURIComponent(fcaId)}/pdf`
+    : '');
   return (
     <div className={[styles.docCenter, className].filter(Boolean).join(' ')}>
       <div className={styles.docGroup}>
-        <Link
-          className={styles.docBtn}
-          to={appPath(`/internal-user/sopf/viewestimate?id=${fcaId}&rttype=${rttype}`)}
-          title="View FVF (Finalised Voyage Fixture)"
-        >
-          <DocEyeIcon />
-        </Link>
-        <a
-          className={styles.docBtn}
-          href={`/api/internal-user/sopf/estimate/${encodeURIComponent(fcaId)}/pdf`}
-          title="Download Voyage Docs"
-        >
-          <DocDownloadIcon />
-        </a>
+        {resolvedView ? (
+          <Link
+            className={styles.docBtn}
+            to={resolvedView}
+            title="View FVF (Finalised Voyage Fixture)"
+          >
+            <DocEyeIcon />
+          </Link>
+        ) : null}
+        {resolvedDownload ? (
+          <a
+            className={styles.docBtn}
+            href={resolvedDownload}
+            title="Download Voyage Docs"
+          >
+            <DocDownloadIcon />
+          </a>
+        ) : null}
         {voyageReportHref ? (
           <Link className={styles.docBtn} to={voyageReportHref} title="Voyage Report">
             <DocFileIcon />

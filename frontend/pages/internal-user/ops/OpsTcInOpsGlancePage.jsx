@@ -35,11 +35,14 @@ import { useOpsVcScrollRestore } from './opsVcListFilters.js';
 import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
 import {
   ArrowIcon,
+  CashflowChipIcon,
   ChipLink,
   CompareIcon,
   DEFAULT_PAGE_SIZE,
-  EyeIcon,
+  FaChipIcon,
+  LettersChipIcon,
   OpsVcGlanceTable,
+  VoyDocsCell,
   formatLastUpdated,
 } from './OpsVcGlanceUi.jsx';
 import pageStyles from './OpsPages.module.css';
@@ -487,8 +490,8 @@ export default function OpsTcInOpsGlancePage() {
               <th className={styles.iconTh} title="Compare worksheets"><CompareIcon /></th>
               <th>Del / Re-Del</th>
               <th>CHRT DESK</th>
-              <th>Agency Letters</th>
-              <th>Fin.</th>
+              <th>Voyage Letters</th>
+              <th>Contract Finance</th>
               <th style={{ textAlign: 'center' }}>TC Recap</th>
               <th>Status</th>
               <th>{lastColumnLabel}</th>
@@ -532,18 +535,20 @@ export default function OpsTcInOpsGlancePage() {
                     <div className={styles.opsCell}>
                       <span className={styles.primary}>{row.vesselName || '—'}</span>
                       <span className={styles.sub}>{row.vesselType || '—'}</span>
-                      {!isHistory && row.canDeactivate ? (
-                        <div className={styles.vesselDocs}>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            icon="trash"
-                            className={`${styles.deleteIconBtn} ${styles.deleteIconDanger}`}
-                            onClick={() => handleDeactivate(row)}
-                            ariaLabel="Deactivate entry"
-                          />
-                        </div>
-                      ) : null}
+                      <VoyDocsCell
+                        className={styles.vesselDocs}
+                        viewHref={row.tcOutId
+                          ? appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/calculate?mode=view&from=ops-tc`)
+                          : ''}
+                        downloadHref={row.tcOutId
+                          ? `/api/internal-user/tc-estimates/${encodeURIComponent(row.tcOutId)}/pdf`
+                          : ''}
+                        voyageReportHref={row.vesselImoNo
+                          ? appPath(`/internal-user/vc/ops/voyage-report?vesselimono=${encodeURIComponent(row.vesselImoNo)}&comid=${encodeURIComponent(row.comId)}&page=${pageContext}&type=TC&selYear=${encodeURIComponent(year)}`)
+                          : ''}
+                        documentsHref={appPath(`/internal-user/vc/ops-tc/documents?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
+                        onDeactivate={!isHistory && row.canDeactivate ? () => handleDeactivate(row) : undefined}
+                      />
                     </div>
                   </td>
                   <td>
@@ -629,26 +634,42 @@ export default function OpsTcInOpsGlancePage() {
                       <ChipLink
                         to={appPath(`/internal-user/vc/ops-tc/agency-letter?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
                       >
-                        Generate Agency Letter
+                        <LettersChipIcon />
+                        Letters
                       </ChipLink>
                     </div>
                   </td>
                   <td>
-                    <Link
-                      className={styles.iconBtn}
-                      to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
-                      title="View Financials"
-                    >
-                      <EyeIcon />
-                    </Link>
+                    <div className={styles.chipStack}>
+                      <ChipLink
+                        to={appPath(`/internal-user/vc/ops-tc/payment-grid?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
+                        title="Contract Finance"
+                      >
+                        <FaChipIcon />
+                        F&amp;A
+                      </ChipLink>
+                      <ChipLink
+                        to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
+                      >
+                        <CashflowChipIcon />
+                        Cash
+                      </ChipLink>
+                    </div>
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <Link
-                      className={styles.iconBtn}
+                      className={styles.editIco}
                       to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/${isHistory ? 'view' : 'edit'}?returnTo=${encodeURIComponent(opsTcGlanceHref(statusTab))}`)}
                       title={isHistory ? 'View TC Recap' : 'Edit TC Recap'}
                     >
-                      {isHistory ? <i className="bi bi-eye" aria-hidden /> : <EditRecapIcon size={13} />}
+                      {isHistory ? (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      ) : (
+                        <EditRecapIcon size={14} />
+                      )}
                     </Link>
                   </td>
                   <td>

@@ -5,7 +5,7 @@
 
 .headerFiltersRow {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   width: 100%;
   flex-wrap: nowrap;
@@ -37,7 +37,7 @@
   white-space: nowrap;
   font-family: inherit;
   flex: 0 0 auto;
-  align-self: center;
+  align-self: flex-start;
 }
 
 .crossNavBtn:hover {

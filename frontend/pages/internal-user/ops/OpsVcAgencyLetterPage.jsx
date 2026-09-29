@@ -279,6 +279,19 @@ function portTypeChipClass(portType) {
   return '';
 }
 
+function isLpDpPort(port) {
+  const type = String(port?.portType || '').toUpperCase();
+  return type === 'LP' || type === 'DP';
+}
+
+function defaultLetterPortKey(ports, preferredKey = '') {
+  const visible = (ports || []).filter(isLpDpPort);
+  if (preferredKey && visible.some((port) => port.key === preferredKey)) return preferredKey;
+  return visible.find((port) => String(port.portType).toUpperCase() === 'LP')?.key
+    || visible[0]?.key
+    || '';
+}
+
 function SavedLettersDropdown({
   records,
   comId,
@@ -378,7 +391,7 @@ function SavedLettersDropdown({
                   ) : null}
                 </div>
                 <div className={styles.slMeta}>
-                  {[record.agentName || 'No agent on cost sheet', record.username].filter(Boolean).join(' · ')}
+                  {[record.agentName || 'No agent assigned on worksheet', record.username].filter(Boolean).join(' · ')}
                 </div>
                 {record.date ? <div className={styles.slMeta}>Saved on {record.date}</div> : null}
               </div>
@@ -538,7 +551,6 @@ export default function OpsVcAgencyLetterPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const page = searchParams.get('page') || '1';
-  const tabParam = Number(searchParams.get('tab') || 1);
   const flashMsg = searchParams.get('msg');
   const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
   const [form, setForm] = useState(null);
@@ -565,11 +577,7 @@ export default function OpsVcAgencyLetterPage() {
         nextDrafts[port.key] = draftFromPort(port, data);
       });
       setDrafts(nextDrafts);
-      const preferred = preferredKey
-        || data.ports?.[Math.max(0, tabParam - 1)]?.key
-        || data.ports?.[0]?.key
-        || '';
-      setActiveKey(preferred);
+      setActiveKey(defaultLetterPortKey(data.ports, preferredKey));
     } catch (err) {
       setForm(null);
       setError(err.message || 'Failed to load port related letters.');
@@ -785,6 +793,10 @@ export default function OpsVcAgencyLetterPage() {
   const showBunkerEditors = draft?.agentLetterType === 'agent-bunker'
     || draft?.masterLetterType === 'master-bunker';
 
+  const letterPorts = useMemo(
+    () => (form?.ports || []).filter(isLpDpPort),
+    [form?.ports],
+  );
   const voyageNo = form?.voyageNo || form?.nomId || '';
   const worksheetHref = comId && form?.worksheetId
     ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.worksheetId)}&page=${encodeURIComponent(page || '1')}`)
@@ -807,7 +819,7 @@ export default function OpsVcAgencyLetterPage() {
         ) : null}
         {error ? <div className={pageStyles.error}>{error}</div> : null}
 
-        {!loading && !form?.ports?.length ? (
+        {!loading && form && !letterPorts.length ? (
           <div className={pageStyles.empty}>
             No load/discharge ports found on the cost sheet
             {form?.costSheetId ? ` (sheet ${form.costSheetId}` : ''}
@@ -817,10 +829,10 @@ export default function OpsVcAgencyLetterPage() {
           </div>
         ) : null}
 
-        {form?.ports?.length ? (
+        {letterPorts.length ? (
           <>
             <div className={styles.portTabs}>
-              {form.ports.map((port) => (
+              {letterPorts.map((port) => (
                 <button
                   key={port.key}
                   type="button"
@@ -886,7 +898,7 @@ export default function OpsVcAgencyLetterPage() {
                           id="vc-agency-agent"
                           value={activePort.agentName || ''}
                           readOnly
-                          placeholder="No agent on cost sheet"
+                          placeholder="No agent assigned on worksheet"
                         />
                       </div>
                       <div className={styles.fItem}>

@@ -896,7 +896,7 @@ export async function dbGetAgencyLetterForm(comId) {
       const etaNoon = etaFromNoonReports(noonReports, portName);
       const agentDisplayName = vendor
         ? `${vendor.NAME} (${vendor.CODE})`
-        : (candidate.agentCode ? String(candidate.agentCode) : 'No agent on cost sheet');
+        : (candidate.agentCode ? String(candidate.agentCode) : 'No agent assigned on worksheet');
       const letterDate = detail?.letter?.date || todayDmy();
       const defaultUsername = vendor?.NAME
         ? generateAgentUsername(vendor.NAME, letterDate)

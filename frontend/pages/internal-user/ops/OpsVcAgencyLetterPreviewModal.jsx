@@ -662,7 +662,7 @@ export default function OpsVcAgencyLetterPreviewModal({
       portLabel,
       portsSummary,
       portRotation,
-      agentName: activePort.agentName || 'No agent on cost sheet',
+      agentName: activePort.agentName || 'No agent assigned on worksheet',
       contactLine,
       qty: draft.qty,
       tolerance: draft.tolerance,

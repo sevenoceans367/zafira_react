@@ -60,22 +60,10 @@ export default function AgentDashboardPage() {
   const [searchParams] = useSearchParams();
   const filter = searchParams.get('filter') || '';
   const [query, setQuery] = useState('');
-  const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [year, setYear] = useState('');
   const [voyages, setVoyages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const timestamp = useMemo(() => {
-    const now = new Date();
-    return now.toLocaleString(undefined, {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  }, []);
 
   const greeting = useMemo(() => greetingPrefix(), []);
   const greetName = useMemo(() => firstName(displayName), [displayName]);
@@ -113,7 +101,7 @@ export default function AgentDashboardPage() {
 
   const rows = useMemo(() => {
     const filtered = filterVoyages(voyages, filter).filter((v) => {
-      if (!year) return true;
+      if (!filter || !year) return true;
       return String(v.year || '') === String(year);
     });
     const q = query.trim().toLowerCase();
@@ -125,16 +113,10 @@ export default function AgentDashboardPage() {
     );
   }, [voyages, filter, query, year]);
 
-  const pageTitle = filter === 'open-initial'
-    ? 'Open Initial PDA'
-    : filter === 'working-fda'
-      ? 'Working FDA'
-      : 'Dashboard';
-
   const showHero = !filter;
 
   return (
-    <div className={styles.dashboardPage}>
+    <div className={showHero ? `${styles.dashboardPage} ${styles.dashboardHome}` : styles.dashboardPage}>
       {showHero ? (
         <>
           <div className={styles.bgSplash} aria-hidden>
@@ -175,40 +157,23 @@ export default function AgentDashboardPage() {
 
       {loading ? <LoadingOverlay show fullScreen={false} /> : null}
 
-      <PageHeaderActions deps={[query, year, yearOptions.join(',')]}>
-        <HeaderFilterControls>
-          <PageHeaderSearch
-            value={query}
-            onChange={setQuery}
-            placeholder="Search voyage or vessel..."
-          />
-          <CardSelect
-            options={yearOptions.map((y) => ({ id: y, name: y }))}
-            value={year}
-            onChange={setYear}
-            placeholder="Year"
-            ariaLabel="Year filter"
-          />
-        </HeaderFilterControls>
-      </PageHeaderActions>
-
-      {!filter ? (
-        <div className={styles.pageHead}>
-          <div className={styles.pageHeadLeft}>
-            <div className={styles.pageHeadIcon}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <rect x="3" y="3" width="7" height="5" rx="1.5" />
-                <rect x="14" y="3" width="7" height="9" rx="1.5" />
-                <rect x="3" y="12" width="7" height="9" rx="1.5" />
-                <rect x="14" y="16" width="7" height="5" rx="1.5" />
-              </svg>
-            </div>
-            <div>
-              <h1 className={styles.pageTitle}>{pageTitle}</h1>
-              <div className={styles.pageSub}>{timestamp}</div>
-            </div>
-          </div>
-        </div>
+      {filter ? (
+        <PageHeaderActions deps={[query, year, yearOptions.join(',')]}>
+          <HeaderFilterControls>
+            <PageHeaderSearch
+              value={query}
+              onChange={setQuery}
+              placeholder="Search voyage or vessel..."
+            />
+            <CardSelect
+              options={yearOptions.map((y) => ({ id: y, name: y }))}
+              value={year}
+              onChange={setYear}
+              placeholder="Year"
+              ariaLabel="Year filter"
+            />
+          </HeaderFilterControls>
+        </PageHeaderActions>
       ) : null}
 
       {error ? <div className={styles.formError}>{error}</div> : null}

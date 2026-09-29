@@ -42,6 +42,18 @@
   z-index: 1;
 }
 
+.dashboardHome {
+  box-sizing: border-box;
+  min-height: calc(100vh - 60px);
+  margin: -24px -24px -32px;
+  padding: 16px 24px 48px;
+}
+
+.dashboardHome > * {
+  position: relative;
+  z-index: 1;
+}
+
 .bgSplash {
   position: absolute;
   inset: -24px -28px auto -28px;
@@ -49,6 +61,13 @@
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+}
+
+.dashboardHome > .bgSplash {
+  inset: 0;
+  height: auto;
+  min-height: 100%;
+  z-index: 0;
 }
 
 .bgSplashS1,

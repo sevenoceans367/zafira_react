@@ -387,12 +387,13 @@ function drawGenBy(doc) {
   );
 }
 
-function drawPortalBox(doc, data) {
-  ensureSpace(doc, 130);
+function drawPortalBox(doc, data, top) {
   const x = leftX(doc);
   const w = usableWidth(doc);
-  const y = doc.y;
+  const y = top == null ? doc.y : top;
   const boxH = 118;
+  const savedBottom = doc.page.margins.bottom;
+  if (top != null) doc.page.margins.bottom = 0;
   doc.roundedRect(x, y, w, boxH, 12).fillAndStroke('#eef5ff', '#c5d9f5');
   doc.fillColor('#3b82f6').font('Helvetica-Bold').fontSize(12)
     .text('Agent Portal Access', x + 16, y + 14, { width: w - 32, lineBreak: false });
@@ -425,9 +426,11 @@ function drawPortalBox(doc, data) {
     link: loginUrl,
   });
   doc.link(btnX, btnY, btnW, btnH, loginUrl);
+  doc.page.margins.bottom = savedBottom;
   doc.y = y + boxH + 12;
   doc.x = x;
   doc.fillColor(TEXT);
+  return boxH;
 }
 
 function drawParticularsGrid(doc, cells) {
@@ -676,7 +679,6 @@ function drawPdaBody(doc, data) {
 
   drawParagraph(doc, 'Please quote ALL IN agency fee. In addition, please advise the usual port restrictions for this vessel type.');
   drawSignOff(doc, data);
-  drawPortalBox(doc, data);
 }
 
 function drawLetterBanner(doc, { heading, sub, accent, dateLabel, refCode }) {
@@ -719,15 +721,20 @@ function drawLetterBanner(doc, { heading, sub, accent, dateLabel, refCode }) {
   return doc.y;
 }
 
-function drawLetterFooter(doc, data) {
+function drawLetterFooter(doc, data, { includePortal = false } = {}) {
   const pageW = doc.page.width;
   const pageH = doc.page.height;
   const barH = 42;
+  const portalH = includePortal ? 118 : 0;
+  const gap = includePortal ? 12 : 0;
   const y = pageH - barH;
   const savedBottom = doc.page.margins.bottom;
   const savedLeft = doc.page.margins.left;
   const savedRight = doc.page.margins.right;
   doc.page.margins.bottom = 0;
+  if (includePortal) {
+    drawPortalBox(doc, data, y - 16 - gap - portalH);
+  }
   doc.page.margins.left = 0;
   doc.page.margins.right = 0;
   const pad = 22;
@@ -1098,7 +1105,12 @@ export async function generateAgencyLetterPdf(genAgencyId, opts = {}) {
   const styled = type === 'pda' || type === 'voyage';
   const { doc, chunks } = createDocument(title, styled ? {
     bufferPages: true,
-    margins: { top: 28, right: 40, bottom: 64, left: 40 },
+    margins: {
+      top: 28,
+      right: 40,
+      bottom: type === 'pda' ? 196 : 72,
+      left: 40,
+    },
   } : undefined);
 
   if (styled) {
@@ -1138,7 +1150,7 @@ export async function generateAgencyLetterPdf(genAgencyId, opts = {}) {
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i += 1) {
       doc.switchToPage(range.start + i);
-      drawLetterFooter(doc, data);
+      drawLetterFooter(doc, data, { includePortal: type === 'pda' && i === range.count - 1 });
     }
   } else {
     // legacy footer strip

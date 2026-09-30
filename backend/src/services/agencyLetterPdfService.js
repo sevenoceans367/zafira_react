@@ -726,7 +726,7 @@ function drawLetterFooter(doc, data, { includePortal = false } = {}) {
   const pageH = doc.page.height;
   const barH = 42;
   const portalH = includePortal ? 118 : 0;
-  const gap = includePortal ? 12 : 0;
+  const gap = includePortal ? 28 : 0;
   const y = pageH - barH;
   const savedBottom = doc.page.margins.bottom;
   const savedLeft = doc.page.margins.left;
@@ -1108,7 +1108,7 @@ export async function generateAgencyLetterPdf(genAgencyId, opts = {}) {
     margins: {
       top: 28,
       right: 40,
-      bottom: type === 'pda' ? 196 : 72,
+      bottom: type === 'pda' ? 212 : 72,
       left: 40,
     },
   } : undefined);

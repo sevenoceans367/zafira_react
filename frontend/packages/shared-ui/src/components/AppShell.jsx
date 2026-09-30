@@ -13,6 +13,7 @@ const AppShell = ({
   profileHref,
   homeHref,
   onSignOut,
+  showMenu,
   sidebarStorageKey = SIDEBAR_STORAGE_KEY,
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -48,6 +49,7 @@ const AppShell = ({
           toggleSidebar={toggleSidebar}
           isSidebarOpen={isSidebarOpen}
           companyName={companyName}
+          showMenu={showMenu ?? sidebar != null}
           homeHref={homeHref}
           profileHref={resolvedProfileHref}
           onSignOut={onSignOut}

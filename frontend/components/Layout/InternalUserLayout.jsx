@@ -10,7 +10,6 @@ import { PageHeaderProvider } from '../../pages/internal-user/PageHeaderContext.
 import styles from './InternalUserLayout.module.css';
 
 const COLLAPSE_SIDEBAR_PATHS = [
-  '/',
   '/internal-user/sopf/addestimate',
   '/internal-user/sopf/updateestimate',
   '/internal-user/sopf/viewestimate',
@@ -24,6 +23,7 @@ export default function InternalUserLayout() {
   const collapseSidebar = COLLAPSE_SIDEBAR_PATHS.some((path) => (
     location.pathname === path || location.pathname.startsWith(`${path}/`)
   ));
+  const hideSidebar = location.pathname === '/';
 
   const handleSignOut = async () => {
     await logout();
@@ -35,10 +35,11 @@ export default function InternalUserLayout() {
       <AppShell
         companyName={displayName}
         collapseSidebar={collapseSidebar}
+        showMenu={!hideSidebar}
         sidebar={({ isOpen }) => (
           <div className={styles.navCluster}>
             <ModuleSwitcherRail />
-            <InternalUserSidebar isOpen={isOpen} />
+            {hideSidebar ? null : <InternalUserSidebar isOpen={isOpen} />}
           </div>
         )}
         profileHref={appPath('/profile')}

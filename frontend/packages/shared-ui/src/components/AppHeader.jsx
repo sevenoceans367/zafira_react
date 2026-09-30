@@ -10,6 +10,7 @@ import styles from './AppHeader.module.css';
 const AppHeader = ({
   toggleSidebar,
   isSidebarOpen = true,
+  showMenu = true,
   companyName = '',
   profileHref,
   onSignOut,
@@ -183,15 +184,17 @@ const AppHeader = ({
     <>
       <header className={styles.header}>
         <div className={styles.leftSide}>
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            className={styles.toggleButton}
-            aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-          >
-            <img src={hamburgerIcon} alt="" className={styles.toggleIcon} aria-hidden="true" />
-          </button>
+          {showMenu ? (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className={styles.toggleButton}
+              aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+              title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            >
+              <img src={hamburgerIcon} alt="" className={styles.toggleIcon} aria-hidden="true" />
+            </button>
+          ) : null}
           {pageTrail && (
             <nav className={styles.headerBreadcrumbWrap} aria-label="Breadcrumb">
               <ol className={styles.headerBreadcrumb}>

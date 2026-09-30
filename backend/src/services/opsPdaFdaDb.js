@@ -261,8 +261,9 @@ function buildPortPayload(base, costBundle, voyageMeta) {
   const lines = costBundle?.lines || [];
   const status = cost ? num(cost.STATUS, 0) : -1;
   const officeApproved = isOfficeApproved(cost?.AUTHORIZED_BY);
-  const pdaStatus = nominated ? mapPdaStatus(status, officeApproved) : 'notstarted';
-  const fdaStatus = nominated ? mapFdaStatus(status) : 'notstarted';
+  const hasSubmission = Boolean(cost);
+  const pdaStatus = (nominated || hasSubmission) ? mapPdaStatus(status, officeApproved) : 'notstarted';
+  const fdaStatus = (nominated || hasSubmission) ? mapFdaStatus(status) : 'notstarted';
   const localCurrency = cost?.LOCAL_CURRENCY || 'USD';
   const exchangeRate = cost ? num(cost.EXCHANGE_RATE, 1) : 1;
   const estimatedUsd = money(cost?.TTL_ESTMD_COST_USD);
@@ -324,7 +325,7 @@ function buildPortPayload(base, costBundle, voyageMeta) {
       canReview: fdaStatus === 'submitted',
       canViewBreakdown: Boolean(lines.length) && fdaStatus !== 'notstarted' && pdaStatus !== 'notstarted',
     },
-    tabDot: tabDot(pdaStatus, fdaStatus, nominated),
+    tabDot: tabDot(pdaStatus, fdaStatus, nominated || hasSubmission),
     header: {
       bankDetails: cost?.BANK_DETAILS || '',
       preparedBy: cost?.PREPARED_BY || '',
@@ -353,7 +354,7 @@ export async function dbGetOpsPdaFda(comId) {
   const ports = [];
   for (const port of form.ports || []) {
     const genAgencyId = port.letter?.genAgencyId || null;
-    const costBundle = nominatedBundle(port) ? await loadCostBundle(pool, genAgencyId) : null;
+    const costBundle = genAgencyId ? await loadCostBundle(pool, genAgencyId) : null;
     const countryInfo = await loadPortCountry(pool, port.portId, port.letter?.countryId);
     ports.push(buildPortPayload(
       {
@@ -378,10 +379,6 @@ export async function dbGetOpsPdaFda(comId) {
     legsCount: form.legsCount,
     ports,
   };
-}
-
-function nominatedBundle(port) {
-  return Number(port?.letter?.status) === 2 && port?.letter?.genAgencyId;
 }
 
 export async function dbReviewOpsPdaFda({ comId, genAgencyId, action, mode, operatorRemarks }) {

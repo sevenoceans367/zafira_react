@@ -176,10 +176,11 @@ function dash(value) {
   return text || '—';
 }
 
-function createDocument(title) {
+function createDocument(title, opts = {}) {
   const doc = new PDFDocument({
     size: 'A4',
-    margins: { top: 40, right: 42, bottom: 56, left: 42 },
+    bufferPages: Boolean(opts.bufferPages),
+    margins: opts.margins || { top: 40, right: 42, bottom: 56, left: 42 },
     info: { Title: title, Author: 'Zafira' },
   });
   const chunks = [];
@@ -229,10 +230,16 @@ function agentLoginUrl(data) {
 
 function formatDisplayDate(value) {
   const raw = String(value || '').trim();
+  const dmy = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmy) {
+    const parsed = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    }
+  }
   if (!raw) {
     return new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
   }
-  if (/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/.test(raw)) return raw;
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return raw;
   return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -381,25 +388,44 @@ function drawGenBy(doc) {
 }
 
 function drawPortalBox(doc, data) {
-  ensureSpace(doc, 90);
+  ensureSpace(doc, 130);
   const x = leftX(doc);
   const w = usableWidth(doc);
   const y = doc.y;
-  const boxH = 78;
-  doc.roundedRect(x, y, w, boxH, 8).fillAndStroke(GREEN_PORTAL_BG, GREEN_PORTAL_BD);
-  doc.fillColor(BLUE).font('Helvetica-Bold').fontSize(11)
-    .text('Agent Portal Access', x + 12, y + 10, { width: w - 24 });
-  doc.fillColor(MUTED).font('Helvetica').fontSize(9.5)
-    .text('Please log in to the agent portal to submit your PDA response directly:', x + 12, y + 28, { width: w - 24 });
-  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(10)
-    .text(`Username: ${dash(data.username)}    Password: ${dash(data.password)}`, x + 12, y + 44, { width: w - 24 });
-  doc.fillColor(BLUE).font('Helvetica').fontSize(9.5)
-    .text('Click here to log in', x + 12, y + 58, {
-      width: w - 24,
-      link: agentLoginUrl(data),
-      underline: true,
-    });
-  doc.y = y + boxH + 10;
+  const boxH = 118;
+  doc.roundedRect(x, y, w, boxH, 12).fillAndStroke('#eef5ff', '#c5d9f5');
+  doc.fillColor('#3b82f6').font('Helvetica-Bold').fontSize(12)
+    .text('Agent Portal Access', x + 16, y + 14, { width: w - 32, lineBreak: false });
+  doc.fillColor('#3d4654').font('Helvetica').fontSize(10)
+    .text(
+      'Please log in to the agent portal to submit your PDA response directly:',
+      x + 16,
+      y + 36,
+      { width: w - 32, lineBreak: false },
+    );
+  doc.fillColor('#1e3a5f').font('Helvetica-Bold').fontSize(10);
+  const credY = y + 58;
+  const userLabel = `Username: ${dash(data.username)}`;
+  doc.text(userLabel, x + 16, credY, { lineBreak: false });
+  const userW = doc.widthOfString(userLabel);
+  doc.text(`Password: ${dash(data.password)}`, x + 16 + userW + 28, credY, { lineBreak: false });
+
+  const btnLabel = 'Click here to log in';
+  const loginUrl = agentLoginUrl(data);
+  doc.font('Helvetica-Bold').fontSize(10);
+  const btnW = doc.widthOfString(btnLabel) + 28;
+  const btnH = 24;
+  const btnX = x + 16;
+  const btnY = y + 80;
+  doc.roundedRect(btnX, btnY, btnW, btnH, 6).fill('#3b82f6');
+  doc.fillColor('#FFFFFF').text(btnLabel, btnX, btnY + 7, {
+    width: btnW,
+    align: 'center',
+    lineBreak: false,
+    link: loginUrl,
+  });
+  doc.link(btnX, btnY, btnW, btnH, loginUrl);
+  doc.y = y + boxH + 12;
   doc.x = x;
   doc.fillColor(TEXT);
 }
@@ -426,11 +452,10 @@ function drawParticularsGrid(doc, cells) {
   doc.x = x;
 }
 
-function drawInfoGrid(doc, pairs) {
+function drawInfoGrid(doc, pairs, { rowH = 34, valueSize = 9.5 } = {}) {
   const x = leftX(doc);
   const w = usableWidth(doc);
   const colW = w / 2;
-  const rowH = 34;
   const rows = Math.ceil(pairs.length / 2);
   const y0 = doc.y;
   doc.roundedRect(x, y0, w, rows * rowH, 6).strokeColor(LINE).stroke();
@@ -450,8 +475,8 @@ function drawInfoGrid(doc, pairs) {
     }
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor(NAVY)
       .text(pair[0].toUpperCase(), cx + 8, cy + 6, { width: colW - 16 });
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(TEXT)
-      .text(dash(pair[1]), cx + 8, cy + 17, { width: colW - 16 });
+    doc.font('Helvetica-Bold').fontSize(valueSize).fillColor(TEXT)
+      .text(dash(pair[1]), cx + 8, cy + 15, { width: colW - 16 });
   });
 
   doc.roundedRect(x, y0, w, rows * rowH, 6).strokeColor(LINE).stroke();
@@ -610,7 +635,7 @@ function drawPdaBody(doc, data) {
   const refCode = buildRef(data, 'PDA');
   const portLabel = [data.portName, data.countryName].filter(Boolean).join(', ') || data.portName;
 
-  drawStyledHeader(doc, {
+  drawLetterBanner(doc, {
     heading: 'PDA REQUEST LETTER',
     sub: 'Performa Disbursement Account Request',
     accent: ORANGE,
@@ -652,9 +677,110 @@ function drawPdaBody(doc, data) {
   drawParagraph(doc, 'Please quote ALL IN agency fee. In addition, please advise the usual port restrictions for this vessel type.');
   drawSignOff(doc, data);
   drawPortalBox(doc, data);
-  drawGenBy(doc);
 }
 
+function drawLetterBanner(doc, { heading, sub, accent, dateLabel, refCode }) {
+  const savedLeft = doc.page.margins.left;
+  const savedRight = doc.page.margins.right;
+  doc.page.margins.left = 0;
+  doc.page.margins.right = 0;
+  const pageW = doc.page.width;
+  const pad = 22;
+  const top = 18;
+  const logoSize = 48;
+  const logoX = pageW - pad - logoSize;
+  const png = loadLogoPng();
+  if (png) {
+    try {
+      doc.image(png, logoX, top, { fit: [logoSize, logoSize], align: 'right', valign: 'top' });
+    } catch {
+      /* logo is optional */
+    }
+  }
+  const textW = Math.max(160, logoX - pad - 8);
+  doc.font('Helvetica-Bold').fontSize(16).fillColor(accent)
+    .text(heading, pad, top + 2, { width: textW, lineBreak: false });
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY)
+    .text(sub, pad, top + 22, { width: textW, lineBreak: false });
+
+  const barY = top + 52;
+  const barH = 22;
+  doc.rect(0, barY, pageW, barH).fill(NAVY);
+  doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(9);
+  doc.text(`Ref: ${refCode}`, pad, barY + 6, { width: pageW / 2 - pad, lineBreak: false });
+  doc.text(`Date: ${dateLabel}`, pageW / 2, barY + 6, { width: pageW / 2 - pad, align: 'right', lineBreak: false });
+  doc.rect(0, barY + barH, pageW, 3).fill(ORANGE);
+
+  doc.page.margins.left = savedLeft;
+  doc.page.margins.right = savedRight;
+  doc.fillColor(TEXT);
+  doc.x = savedLeft;
+  doc.y = barY + barH + 14;
+  return doc.y;
+}
+
+function drawLetterFooter(doc, data) {
+  const pageW = doc.page.width;
+  const pageH = doc.page.height;
+  const barH = 42;
+  const y = pageH - barH;
+  const savedBottom = doc.page.margins.bottom;
+  const savedLeft = doc.page.margins.left;
+  const savedRight = doc.page.margins.right;
+  doc.page.margins.bottom = 0;
+  doc.page.margins.left = 0;
+  doc.page.margins.right = 0;
+  const pad = 22;
+  const company = data.companyName || 'Progress Shipping';
+  const line1 = [
+    company,
+    data.companyAddress || 'Singapore',
+    data.companyPhone ? `Tel: ${data.companyPhone}` : '',
+  ].filter(Boolean).join(' · ');
+  const line2 = [
+    data.companyEmail || 'ops@progressshipping.com',
+    data.companyWebsite || 'www.sevenoceans.world',
+  ].filter(Boolean).join(' · ');
+  doc.save();
+  doc.font('Helvetica').fontSize(8).fillColor(LIGHT)
+    .text(
+      'This letter was generated on the Seven Oceans platform on behalf of Progress Shipping.',
+      pad,
+      y - 16,
+      { width: pageW - pad * 2, lineBreak: false },
+    );
+  doc.rect(0, y, pageW, barH).fill(NAVY);
+  const logoSize = 22;
+  const logoX = pad;
+  const logoY = y + (barH - logoSize) / 2;
+  const png = loadLogoPng();
+  let textX = pad;
+  if (png) {
+    try {
+      const cx = logoX + logoSize / 2;
+      const cy = logoY + logoSize / 2;
+      doc.circle(cx, cy, logoSize / 2).fill('#fff');
+      doc.circle(cx, cy, logoSize / 2 - 1).clip();
+      doc.image(png, logoX + 1, logoY + 1, { fit: [logoSize - 2, logoSize - 2], align: 'center', valign: 'center' });
+      doc.restore();
+      doc.save();
+      textX = logoX + logoSize + 10;
+    } catch {
+      textX = pad;
+    }
+  }
+  doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(8)
+    .text(line1, textX, y + 10, { width: pageW - textX - pad, lineBreak: false });
+  doc.fillColor('#B9C4D8').font('Helvetica').fontSize(8)
+    .text(line2, textX, y + 22, { width: pageW - textX - pad, lineBreak: false });
+  doc.restore();
+  doc.page.margins.bottom = savedBottom;
+  doc.page.margins.left = savedLeft;
+  doc.page.margins.right = savedRight;
+  doc.x = savedLeft;
+  doc.y = y - 16;
+  doc.fillColor(TEXT);
+}
 function drawVoyageBody(doc, data) {
   const dateLabel = formatDisplayDate(data.date);
   const refCode = buildRef(data, 'VOY');
@@ -663,12 +789,12 @@ function drawVoyageBody(doc, data) {
     || (data.portRotation || []).map((row) => row.port).filter(Boolean).join(' / ')
     || portLabel;
 
-  drawStyledHeader(doc, {
+  drawLetterBanner(doc, {
     heading: 'VOYAGE INSTRUCTIONS',
     sub: 'Letter to Master',
     accent: AMBER,
-    refCode,
     dateLabel,
+    refCode,
   });
 
   drawToFrom(
@@ -682,8 +808,8 @@ function drawVoyageBody(doc, data) {
   );
 
   drawReLine(doc, `Re: Voyage Instructions — M/V “${dash(data.vesselName)}”, Voyage ${dash(data.nomId)}`);
-  drawParagraph(doc, 'Dear Sir,', { gap: 0.2 });
-  drawParagraph(doc, 'The next voyage has been fixed as follows. Please follow the enclosed voyage instructions.');
+  drawParagraph(doc, 'Dear Sir,', { gap: 0.1 });
+  drawParagraph(doc, 'The next voyage has been fixed as follows. Please follow the enclosed voyage instructions.', { gap: 0.25 });
 
   drawInfoGrid(doc, [
     ['Vessel Name', data.vesselName],
@@ -694,10 +820,10 @@ function drawVoyageBody(doc, data) {
     ['Load / Disch Ports', portsSummary],
     ['Commercial Ops', data.companyEmail || 'ops@progressshipping.com'],
     ['Broker / Ref', refCode],
-  ]);
+  ], { rowH: 28, valueSize: 9 });
 
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY).text('PORT ROTATION');
-  doc.moveDown(0.25);
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY).text('PORT ROTATION', leftX(doc), doc.y, { width: usableWidth(doc) });
+  doc.moveDown(0.2);
   const rotation = (data.portRotation || []).length
     ? data.portRotation
     : [{ port: portLabel, event: 'Load / Discharge', eta: data.etaDate1, agent: data.agentName }];
@@ -707,8 +833,8 @@ function drawVoyageBody(doc, data) {
     rotation.map((row) => [row.port, row.event, row.eta, row.agent]),
   );
 
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY).text('CARGO SPECS AND INSTRUCTIONS');
-  doc.moveDown(0.25);
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY).text('CARGO SPECS AND INSTRUCTIONS', leftX(doc), doc.y, { width: usableWidth(doc) });
+  doc.moveDown(0.2);
   const specs = (data.cargoSpecs || []).length
     ? data.cargoSpecs
     : [
@@ -718,13 +844,17 @@ function drawVoyageBody(doc, data) {
     ].filter((row) => String(row.value || '').trim());
   drawSpecTable(doc, specs.length ? specs : [{ label: 'Cargo details', value: data.cargoName }]);
 
-  ensureSpace(doc, 120);
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(AMBER).text('OPERATIONAL AND REPORTING INSTRUCTIONS');
-  doc.moveDown(0.25);
-  drawOpsBox(doc, data.opsInstructions || []);
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY)
+    .text('OPERATIONAL AND REPORTING INSTRUCTIONS', leftX(doc), doc.y, { width: usableWidth(doc) });
+  doc.moveDown(0.2);
+  const instructions = (data.opsInstructions || []).filter((line) => String(line || '').trim());
+  if (instructions.length) {
+    instructions.forEach((line) => drawParagraph(doc, line, { size: 9.5, gap: 0.2 }));
+  } else {
+    drawParagraph(doc, 'Please acknowledge receipt and confirm compliance at your earliest convenience.', { size: 9.5, gap: 0.2 });
+  }
 
   drawSignOff(doc, data);
-  drawGenBy(doc);
 }
 
 function drawNominationBody(doc, data) {
@@ -965,8 +1095,22 @@ export async function generateAgencyLetterPdf(genAgencyId, opts = {}) {
     : mockPdfData(genAgencyId, opts);
 
   const title = LETTER_TITLES[type];
-  const { doc, chunks } = createDocument(title);
   const styled = type === 'pda' || type === 'voyage';
+  const { doc, chunks } = createDocument(title, styled ? {
+    bufferPages: true,
+    margins: { top: 28, right: 40, bottom: 64, left: 40 },
+  } : undefined);
+
+  if (styled) {
+    const dateLabel = formatDisplayDate(data.date);
+    const refCode = buildRef(data, type === 'voyage' ? 'VOY' : 'PDA');
+    const banner = type === 'voyage'
+      ? { heading: 'VOYAGE INSTRUCTIONS', sub: 'Letter to Master', accent: AMBER }
+      : { heading: 'PDA REQUEST LETTER', sub: 'Performa Disbursement Account Request', accent: ORANGE };
+    doc.on('pageAdded', () => {
+      drawLetterBanner(doc, { ...banner, dateLabel, refCode });
+    });
+  }
 
   if (!styled) {
     if (type !== 'agent-bunker') {
@@ -990,8 +1134,13 @@ export async function generateAgencyLetterPdf(genAgencyId, opts = {}) {
   else if (type === 'agent-bunker') drawBunkerAgentBody(doc, data);
   else drawBunkerMasterBody(doc, data);
 
-  if (styled) drawPlatformFooter(doc, data);
-  else {
+  if (styled) {
+    const range = doc.bufferedPageRange();
+    for (let i = 0; i < range.count; i += 1) {
+      doc.switchToPage(range.start + i);
+      drawLetterFooter(doc, data);
+    }
+  } else {
     // legacy footer strip
     const left = leftX(doc);
     const width = usableWidth(doc);

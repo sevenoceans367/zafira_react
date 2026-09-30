@@ -49,6 +49,10 @@ function dmyToIso(value) {
   return raw;
 }
 
+function displayModeForCurrency(currency) {
+  return String(currency || 'USD').trim().toUpperCase() === 'USD' ? 'usd' : 'local';
+}
+
 function InfoTip({ text }) {
   if (!text) return null;
   return (
@@ -88,6 +92,7 @@ export default function AgentPortCostPage() {
           header: { ...(data.header || {}) },
           lines: (data.lines || []).map((line) => ({ ...line })),
         });
+        setDisplayMode(displayModeForCurrency(data.header?.localCurrency));
         setOpenCats(new Set(COST_CATEGORIES.map((c) => c.key)));
       } catch (err) {
         if (!cancelled) {
@@ -151,6 +156,7 @@ export default function AgentPortCostPage() {
 
   const updateHeader = (key, value) => {
     setForm((prev) => (prev ? { ...prev, header: { ...prev.header, [key]: value } } : prev));
+    if (key === 'localCurrency') setDisplayMode(displayModeForCurrency(value));
   };
 
   const updateLine = (index, key, value) => {
@@ -247,7 +253,7 @@ export default function AgentPortCostPage() {
   };
 
   const readOnly = Boolean(form?.readOnly);
-  const modeTitle = isFda ? 'FDA' : 'Initial PDA';
+  const modeTitle = isFda ? 'FDA' : 'PDA';
 
   const primaryEst = (line) => (showLocal ? line.estimatedLc : line.estimatedUsd);
   const primaryAct = (line) => (showLocal ? line.actualLc : line.actualUsd);
@@ -324,7 +330,7 @@ export default function AgentPortCostPage() {
                   align="start"
                 />
               </div>
-              <div className={styles.vsItem}>
+              <div className={`${styles.vsItem} ${styles.vsItemXrate}`}>
                 <label>X-Rate to USD</label>
                 <TextInput
                   type="number"

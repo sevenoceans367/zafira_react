@@ -26,13 +26,21 @@ function HomeBreadcrumbSync({ breadcrumbs, currentPage }) {
   return null;
 }
 
+function isAgentDashboardHome(pathname, search) {
+  const path = String(pathname || '').replace(/\/+$/, '') || '/';
+  if (path !== '/agent') return false;
+  const params = new URLSearchParams(String(search || '').replace(/^\?/, ''));
+  return !params.get('filter');
+}
+
 export default function InternalUserPageHeader() {
   const { pathname, search } = useLocation();
   const { actions, heading } = usePageHeaderState();
   const config = resolveInternalUserHeader(pathname, search);
 
-  // Platform home owns its own hero; skip the title bar but keep header crumbs.
-  if (pathname === '/') {
+  // Platform home and the agent dashboard own the first screen.
+  // Skip the white title bar and keep breadcrumbs.
+  if (pathname === '/' || isAgentDashboardHome(pathname, search)) {
     return (
       <HomeBreadcrumbSync
         breadcrumbs={config.breadcrumbs}

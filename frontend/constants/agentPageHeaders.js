@@ -8,7 +8,7 @@ export function resolveAgentHeader(pathname, search = '') {
   const mode = String(params.get('mode') || '').toLowerCase();
 
   if (pathname.startsWith('/agent/port-cost')) {
-    const title = mode === 'fda' ? 'FDA' : 'Initial PDA';
+    const title = mode === 'fda' ? 'FDA' : 'PDA';
     return {
       title,
       currentPage: title,

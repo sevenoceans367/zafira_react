@@ -1347,7 +1347,12 @@ a.btnMini {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px dashed var(--line-strong);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  justify-items: start;
+}
+
+.vsItemXrate input {
+  width: 96px;
+  max-width: 100%;
 }
 
 .vsItem label {

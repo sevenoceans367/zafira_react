@@ -67,6 +67,17 @@ export default function AgentDashboardPage() {
 
   const greeting = useMemo(() => greetingPrefix(), []);
   const greetName = useMemo(() => firstName(displayName), [displayName]);
+  const timestamp = useMemo(() => {
+    const now = new Date();
+    return now.toLocaleString(undefined, {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,6 +164,25 @@ export default function AgentDashboardPage() {
             <div className={styles.heroLine2}>What would you like to do today?</div>
           </div>
         </>
+      ) : null}
+
+      {showHero ? (
+        <div className={styles.pageHead}>
+          <div className={styles.pageHeadLeft}>
+            <div className={styles.pageHeadIcon}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="3" y="3" width="7" height="5" rx="1.5" />
+                <rect x="14" y="3" width="7" height="9" rx="1.5" />
+                <rect x="3" y="12" width="7" height="9" rx="1.5" />
+                <rect x="14" y="16" width="7" height="5" rx="1.5" />
+              </svg>
+            </div>
+            <div>
+              <h1 className={styles.pageTitle}>Dashboard</h1>
+              <div className={styles.pageSub}>{timestamp}</div>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {loading ? <LoadingOverlay show fullScreen={false} /> : null}

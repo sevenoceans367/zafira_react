@@ -38,9 +38,9 @@ router.get('/last-position', async (req, res) => {
 });
 
 /** Our performing fleet (Zafira in-ops) with AIS last positions. */
-router.get('/fleet-overlay', async (_req, res) => {
+router.get('/fleet-overlay', async (req, res) => {
   try {
-    const data = await fetchFleetOverlay();
+    const data = await fetchFleetOverlay({ selBType: req.query.selBType || '' });
     res.json(data);
   } catch (error) {
     res.status(error.status || 500).json({

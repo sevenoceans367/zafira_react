@@ -6,7 +6,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import worksheetIcon from '../../../assets/Worksheet_Icon.png';
-import { LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
+import { CardSelect, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import { usePageHeaderActions, usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import LiveVesselMapControls from './LiveVesselMapControls.jsx';
 import DailyPositionsModal from './DailyPositionsModal.jsx';
@@ -69,6 +69,14 @@ const REFRESH_ICON = (
 
 const LEG_PREVIEW = { color: '#B7BEC9', weight: 2, opacity: 0.85, dashArray: '8 8' };
 const LEG_ACTIVE = { color: '#f4652c', weight: 3, opacity: 1, dashArray: '8 8' };
+
+/** Gas=1, Tankers=2, Dry=3. Empty id keeps every In Ops business type. */
+const BUSINESS_TYPE_OPTIONS = [
+  { id: '', name: 'All' },
+  { id: '1', name: 'Gas' },
+  { id: '2', name: 'Tankers' },
+  { id: '3', name: 'Dry' },
+];
 
 function currentLegPorts(vessel) {
   const commercial = resolveCommercial(vessel);
@@ -277,6 +285,7 @@ export default function LiveVesselMapPage() {
   const selectedVesselRef = useRef(null);
   const selectedLegKeyRef = useRef(null);
   const loadFleetRef = useRef(async () => {});
+  const businessTypeRef = useRef('');
   const filtersRef = useRef(EMPTY_FILTERS);
   const showAisRef = useRef(false);
   const showFleetRef = useRef(true);
@@ -285,6 +294,7 @@ export default function LiveVesselMapPage() {
   const fleetVesselsRef = useRef([]);
 
   const [loading, setLoading] = useState(true);
+  const [businessType, setBusinessType] = useState('');
   const [routesLoading, setRoutesLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [selectedVessel, setSelectedVessel] = useState(null);
@@ -668,7 +678,8 @@ export default function LiveVesselMapPage() {
 
     try {
       // Spot Ops In Ops only — do not auto-load open-market AIS hub vessels.
-      const fleetData = await fetchFleetOverlay().catch(() => ({ resultCode: 200, vessels: [] }));
+      const fleetData = await fetchFleetOverlay({ selBType: businessTypeRef.current })
+        .catch(() => ({ resultCode: 200, vessels: [] }));
       const fleet = (fleetData.vessels || []).map((vessel) => ({ ...vessel, isFleet: true }));
 
       setAisVessels([]);
@@ -703,6 +714,12 @@ export default function LiveVesselMapPage() {
   }, [alert, applyVisibility, clearAllRoutes, clearMarkers, clearSelection, loadFleetRoutes]);
 
   loadFleetRef.current = loadFleet;
+
+  useEffect(() => {
+    businessTypeRef.current = businessType;
+    if (!mapRef.current) return;
+    loadFleetRef.current();
+  }, [businessType]);
 
   const handleSearch = useCallback(async () => {
     const q = searchQuery.trim();
@@ -865,6 +882,14 @@ export default function LiveVesselMapPage() {
     const ownerId = headerOwnerIdRef.current;
     setActions(
       <>
+        <CardSelect
+          options={BUSINESS_TYPE_OPTIONS}
+          value={businessType}
+          onChange={setBusinessType}
+          placeholder="All"
+          ariaLabel="Business type"
+          align="end"
+        />
         <button
           type="button"
           className={modalStyles.dailyPosBtn}
@@ -889,7 +914,7 @@ export default function LiveVesselMapPage() {
       ownerId,
     );
     return () => clearActions(ownerId);
-  }, [setActions, clearActions]);
+  }, [setActions, clearActions, businessType]);
 
   const handleMapClick = useCallback(() => {
     clearSelection();

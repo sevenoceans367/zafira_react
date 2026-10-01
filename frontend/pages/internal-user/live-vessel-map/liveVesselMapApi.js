@@ -55,8 +55,11 @@ export async function fetchVesselLastPosition(query) {
   return data;
 }
 
-export async function fetchFleetOverlay() {
-  const response = await fetch(`${LIVE}/fleet-overlay`);
+export async function fetchFleetOverlay({ selBType = '' } = {}) {
+  const params = new URLSearchParams();
+  if (selBType) params.set('selBType', selBType);
+  const query = params.toString();
+  const response = await fetch(`${LIVE}/fleet-overlay${query ? `?${query}` : ''}`);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.message || 'Failed to load fleet overlay.');

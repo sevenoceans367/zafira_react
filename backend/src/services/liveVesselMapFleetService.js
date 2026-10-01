@@ -930,9 +930,12 @@ async function loadCommercialByComId(comIds = []) {
  * Overlay Spot Ops In Ops (VC STATUS=1) vessels on the live map using AIS last positions.
  * Excludes Post Ops / History, COA, and TC.
  */
-export async function fetchFleetOverlay() {
+export async function fetchFleetOverlay({ selBType = '' } = {}) {
   // Lightweight headers only — avoid checklist/SOF enrichment (was a major slowdown).
-  const { records } = await listSpotOpsInOpsFleetHeaders({ selBType: '' });
+  // Empty selBType keeps Gas, Tanker, and Dry. A set type filters ESTIMATE_TYPE.
+  const { records } = await listSpotOpsInOpsFleetHeaders({
+    selBType: selBType ? String(selBType) : '',
+  });
   const byImo = new Map();
 
   (records || []).forEach((row) => {

@@ -10,8 +10,11 @@ function filled(value) {
  */
 export function getAddRowBlockMessage(collection, rows = [], { identify } = {}) {
   let list = Array.isArray(rows) ? rows : [];
-  if (collection === 'consumptionRows' && identify) {
-    list = list.filter((row) => row.identify === identify);
+  // bunkerRows holds CONSUMPTION and SUPPLY entries in one array, so only the
+  // rows of the table being added to decide whether the add is allowed.
+  if ((collection === 'consumptionRows' || collection === 'bunkerRows') && identify) {
+    const wanted = String(identify).toUpperCase();
+    list = list.filter((row) => String(row.identify || '').toUpperCase() === wanted);
   }
   if (!list.length) return null;
 

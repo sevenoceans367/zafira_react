@@ -13,6 +13,7 @@ export default function CollapsiblePanel({
   actions = null,
   className = '',
   icon = null,
+  round = false,
   children,
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
@@ -29,6 +30,7 @@ export default function CollapsiblePanel({
     <section
       className={[
         styles.panel,
+        round ? styles.panelRound : '',
         open ? styles.panelOpen : styles.panelClosed,
         className,
       ].filter(Boolean).join(' ')}

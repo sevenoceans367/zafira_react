@@ -9,6 +9,7 @@ import {
 import { formatIdleDays, getLaytimeRateUnitLabel } from '../../sopf/estimateCalculations.js';
 import { sanitizeDecimalInput } from '../../sopf/estimateInputSanitize.js';
 import CollapsiblePanel from '../../sopf/CollapsiblePanel.jsx';
+import WorksheetSelect from './WorksheetSelect.jsx';
 import styles from './CostSheetEstimatePage.module.css';
 
 const BUNKER_GRADE_LOOKUP = PORT_BUNKER_GRADE_OPTIONS.map((option) => ({
@@ -133,7 +134,7 @@ export default function PortLaytimeSections({
 
   if (!legs.length) {
     return (
-      <CollapsiblePanel title="Port Details" defaultOpen>
+      <CollapsiblePanel title="Port Details" defaultOpen round className={styles.roundSection}>
         <p className={styles.hintText}>Add a passage leg to configure load, discharge, and transit port details.</p>
       </CollapsiblePanel>
     );
@@ -166,7 +167,7 @@ export default function PortLaytimeSections({
   };
 
   return (
-    <CollapsiblePanel title="Port Details" defaultOpen>
+    <CollapsiblePanel title="Port Details" defaultOpen round className={styles.roundSection}>
       <div className={styles.portLaytimeStack}>
         <div className={`${styles.portLaytimeBlock} ${styles.portLaytimeLp}`}>
           <div className={styles.portLaytimeTitle}>Load Port (LP)</div>
@@ -211,17 +212,13 @@ export default function PortLaytimeSections({
                       </span>
                     </td>
                     <td className={styles.cargoSelectCell}>
-                      <select
+                      <WorksheetSelect
                         value={resolveCargoSelectValue(leg.lpCargoId, cargoOptions)}
                         disabled={readOnly || !cargoOptions.length}
-                        onChange={(e) => selectPortCargo(leg.id, e.target.value, 'load')}
-                        title={cargoOptions.find((item) => String(item.id) === normalizeCargoId(leg.lpCargoId))?.label || ''}
-                      >
-                        <option value="">— Select —</option>
-                        {cargoOptions.map((item) => (
-                          <option key={`lp-${leg.id}-${item.id}`} value={item.id}>{item.label}</option>
-                        ))}
-                      </select>
+                        ariaLabel="Load port cargo"
+                        options={cargoOptions.map((item) => ({ value: item.id, label: item.label }))}
+                        onChange={(value) => selectPortCargo(leg.id, value, 'load')}
+                      />
                     </td>
                     <td>
                       <DecimalInput
@@ -245,15 +242,12 @@ export default function PortLaytimeSections({
                       />
                     </td>
                     <td className={styles.termsSelectCell}>
-                      <select
+                      <WorksheetSelect
                         value={leg.loadPortTerms || '1'}
                         disabled={readOnly}
-                        onChange={(e) => patchLeg(leg.id, { loadPortTerms: e.target.value })}
-                      >
-                        {LAYTIME_TERM_OPTIONS.map((option) => (
-                          <option key={option.value || 'blank'} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
+                        options={LAYTIME_TERM_OPTIONS}
+                        onChange={(value) => patchLeg(leg.id, { loadPortTerms: value })}
+                      />
                     </td>
                     <td>
                       <DecimalInput
@@ -289,16 +283,12 @@ export default function PortLaytimeSections({
                       />
                     </td>
                     <td className={styles.vendorSelectCell}>
-                      <select
+                      <WorksheetSelect
                         value={leg.lpPortVendorId || ''}
                         disabled={readOnly}
-                        onChange={(e) => patchLeg(leg.id, { lpPortVendorId: e.target.value })}
-                      >
-                        <option value="">— Select —</option>
-                        {vendorSelectOptions(lookups.owners).map((vendor) => (
-                          <option key={vendor.key} value={vendor.value}>{vendor.label}</option>
-                        ))}
-                      </select>
+                        options={vendorSelectOptions(lookups.owners)}
+                        onChange={(value) => patchLeg(leg.id, { lpPortVendorId: value })}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -350,17 +340,13 @@ export default function PortLaytimeSections({
                       </span>
                     </td>
                     <td className={styles.cargoSelectCell}>
-                      <select
+                      <WorksheetSelect
                         value={resolveCargoSelectValue(leg.dpCargoId, cargoOptions)}
                         disabled={readOnly || !cargoOptions.length}
-                        onChange={(e) => selectPortCargo(leg.id, e.target.value, 'disc')}
-                        title={cargoOptions.find((item) => String(item.id) === normalizeCargoId(leg.dpCargoId))?.label || ''}
-                      >
-                        <option value="">— Select —</option>
-                        {cargoOptions.map((item) => (
-                          <option key={`dp-${leg.id}-${item.id}`} value={item.id}>{item.label}</option>
-                        ))}
-                      </select>
+                        ariaLabel="Discharge port cargo"
+                        options={cargoOptions.map((item) => ({ value: item.id, label: item.label }))}
+                        onChange={(value) => selectPortCargo(leg.id, value, 'disc')}
+                      />
                     </td>
                     <td>
                       <DecimalInput
@@ -384,15 +370,12 @@ export default function PortLaytimeSections({
                       />
                     </td>
                     <td className={styles.termsSelectCell}>
-                      <select
+                      <WorksheetSelect
                         value={leg.discPortTerms || '1'}
                         disabled={readOnly}
-                        onChange={(e) => patchLeg(leg.id, { discPortTerms: e.target.value })}
-                      >
-                        {LAYTIME_TERM_OPTIONS.map((option) => (
-                          <option key={option.value || 'blank-dp'} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
+                        options={LAYTIME_TERM_OPTIONS}
+                        onChange={(value) => patchLeg(leg.id, { discPortTerms: value })}
+                      />
                     </td>
                     <td>
                       <DecimalInput
@@ -428,16 +411,12 @@ export default function PortLaytimeSections({
                       />
                     </td>
                     <td className={styles.vendorSelectCell}>
-                      <select
+                      <WorksheetSelect
                         value={leg.dpPortVendorId || ''}
                         disabled={readOnly}
-                        onChange={(e) => patchLeg(leg.id, { dpPortVendorId: e.target.value })}
-                      >
-                        <option value="">— Select —</option>
-                        {vendorSelectOptions(lookups.owners).map((vendor) => (
-                          <option key={vendor.key} value={vendor.value}>{vendor.label}</option>
-                        ))}
-                      </select>
+                        options={vendorSelectOptions(lookups.owners)}
+                        onChange={(value) => patchLeg(leg.id, { dpPortVendorId: value })}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -525,27 +504,20 @@ export default function PortLaytimeSections({
                       />
                     </td>
                     <td className={styles.regionSelectCell}>
-                      <select
+                      <WorksheetSelect
                         value={leg.portFunction || ''}
                         disabled={readOnly}
-                        onChange={(e) => patchLeg(leg.id, { portFunction: e.target.value })}
-                      >
-                        {PORT_FUNCTION_OPTIONS.map((option) => (
-                          <option key={option.value || 'blank-pf'} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
+                        options={PORT_FUNCTION_OPTIONS}
+                        onChange={(value) => patchLeg(leg.id, { portFunction: value })}
+                      />
                     </td>
                     <td className={styles.vendorSelectCell}>
-                      <select
+                      <WorksheetSelect
                         value={leg.tpPortVendorId || ''}
                         disabled={readOnly}
-                        onChange={(e) => patchLeg(leg.id, { tpPortVendorId: e.target.value })}
-                      >
-                        <option value="">— Select —</option>
-                        {vendorSelectOptions(lookups.owners).map((vendor) => (
-                          <option key={vendor.key} value={vendor.value}>{vendor.label}</option>
-                        ))}
-                      </select>
+                        options={vendorSelectOptions(lookups.owners)}
+                        onChange={(value) => patchLeg(leg.id, { tpPortVendorId: value })}
+                      />
                     </td>
                   </tr>
                 ))}

@@ -272,6 +272,30 @@
   margin-bottom: 8px;
 }
 
+.panelRound {
+  border-radius: 12px;
+  overflow: hidden;
+  border-color: #eceef2;
+}
+
+.panelRound .panelHeader {
+  background: #fff;
+  padding: 15px 20px;
+  border-bottom-color: #eceef2;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #454c54;
+}
+
+.panelRound .panelActions {
+  margin-left: auto;
+  flex: none;
+}
+
+.panelRound .panelBody {
+  padding: 4px 20px 20px;
+}
+
 .panelClosed .panelHeader {
   border-bottom: none;
 }

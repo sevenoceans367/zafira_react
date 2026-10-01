@@ -42,6 +42,7 @@ export function CargoDetailsTable({
   addRow,
   removeRow,
   createRow,
+  SelectField,
 }) {
   const totals = sumCargoRows(rows);
 
@@ -75,39 +76,67 @@ export function CargoDetailsTable({
                   </td>
                 ) : null}
                 <td>
-                  <select
-                    value={row.charterer || row.vendorId || ''}
-                    disabled={readOnly}
-                    onChange={(e) => updateRow(collection, row.id, {
-                      charterer: e.target.value,
-                      vendorId: e.target.value,
-                    })}
-                  >
-                    <option value="">Select</option>
-                    {(lookups.owners || []).map((v) => (
-                      <option key={v.id} value={v.id}>{v.name}</option>
-                    ))}
-                  </select>
+                  {SelectField ? (
+                    <SelectField
+                      ariaLabel="Shipper/Charterer"
+                      placeholder="Select"
+                      value={String(row.charterer || row.vendorId || '')}
+                      disabled={readOnly}
+                      options={(lookups.owners || []).map((v) => ({ id: String(v.id), name: v.name }))}
+                      onChange={(value) => updateRow(collection, row.id, {
+                        charterer: value,
+                        vendorId: value,
+                      })}
+                    />
+                  ) : (
+                    <select
+                      value={row.charterer || row.vendorId || ''}
+                      disabled={readOnly}
+                      onChange={(e) => updateRow(collection, row.id, {
+                        charterer: e.target.value,
+                        vendorId: e.target.value,
+                      })}
+                    >
+                      <option value="">Select</option>
+                      {(lookups.owners || []).map((v) => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </td>
                 <td>
-                  <select
-                    value={row.cargoId}
-                    disabled={readOnly}
-                    onChange={(e) => {
-                      const cargo = (lookups.cargos || []).find(
-                        (c) => String(c.id) === String(e.target.value),
-                      );
-                      updateRow(collection, row.id, {
-                        cargoId: e.target.value,
-                        cargoName: cargo?.name || '',
-                      });
-                    }}
-                  >
-                    <option value="">Select</option>
-                    {(lookups.cargos || []).map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  {SelectField ? (
+                    <SelectField
+                      ariaLabel="Cargo"
+                      placeholder="Select"
+                      value={String(row.cargoId ?? '')}
+                      disabled={readOnly}
+                      options={(lookups.cargos || []).map((c) => ({ id: String(c.id), name: c.name }))}
+                      onChange={(value) => {
+                        const cargo = (lookups.cargos || []).find((c) => String(c.id) === String(value));
+                        updateRow(collection, row.id, { cargoId: value, cargoName: cargo?.name || '' });
+                      }}
+                    />
+                  ) : (
+                    <select
+                      value={row.cargoId}
+                      disabled={readOnly}
+                      onChange={(e) => {
+                        const cargo = (lookups.cargos || []).find(
+                          (c) => String(c.id) === String(e.target.value),
+                        );
+                        updateRow(collection, row.id, {
+                          cargoId: e.target.value,
+                          cargoName: cargo?.name || '',
+                        });
+                      }}
+                    >
+                      <option value="">Select</option>
+                      {(lookups.cargos || []).map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </td>
                 <td>
                   <input
@@ -173,8 +202,17 @@ export default function TankerFreightModeSection({
   removeRow,
   onRecalc,
   updateField,
+  SelectField,
 }) {
   const alert = useAlert();
+  const vendorOptions = (selected) => {
+    const options = [...(lookups.owners || [])];
+    const current = selected != null ? String(selected) : '';
+    if (current && !options.some((v) => String(v.code || v.id) === current)) {
+      options.unshift({ id: current, code: current, name: current });
+    }
+    return options.map((v) => ({ id: String(v.code || v.id || ''), name: v.name }));
+  };
   const isCoaSpot = String(form.coaSpot || '') === '2';
   const tankType = isCoaSpot ? '1' : String(form.tankType || '1');
   const chkLumpsum = isCoaSpot ? true : (form.chkLumpsum != null ? !!form.chkLumpsum : true);
@@ -340,33 +378,44 @@ export default function TankerFreightModeSection({
                 <input {...inputProps('lumpsum', { recalc: true })} />
               </Field>
               <Field id="lumpsumVendor" label="Shipper/Charterer">
-                <select
-                  id="lumpsumVendor"
-                  name="lumpsumVendor"
-                  value={form.lumpsumVendor || ''}
-                  disabled={readOnly}
-                  onChange={(e) => updateField('lumpsumVendor', e.target.value)}
-                >
-                  <option value="">— Select —</option>
-                  {(() => {
-                    const options = [...(lookups.owners || [])];
-                    const selected = form.lumpsumVendor != null ? String(form.lumpsumVendor) : '';
-                    if (
-                      selected
-                      && !options.some((v) => String(v.code || v.id) === selected)
-                    ) {
-                      options.unshift({ id: selected, code: selected, name: selected });
-                    }
-                    return options.map((v) => {
-                      const optionValue = String(v.code || v.id || '');
-                      return (
-                        <option key={optionValue || v.id} value={optionValue}>
-                          {v.name}
-                        </option>
-                      );
-                    });
-                  })()}
-                </select>
+                {SelectField ? (
+                  <SelectField
+                    id="lumpsumVendor"
+                    ariaLabel="Shipper/Charterer"
+                    value={String(form.lumpsumVendor || '')}
+                    disabled={readOnly}
+                    options={vendorOptions(form.lumpsumVendor)}
+                    onChange={(value) => updateField('lumpsumVendor', value)}
+                  />
+                ) : (
+                  <select
+                    id="lumpsumVendor"
+                    name="lumpsumVendor"
+                    value={form.lumpsumVendor || ''}
+                    disabled={readOnly}
+                    onChange={(e) => updateField('lumpsumVendor', e.target.value)}
+                  >
+                    <option value="">— Select —</option>
+                    {(() => {
+                      const options = [...(lookups.owners || [])];
+                      const selected = form.lumpsumVendor != null ? String(form.lumpsumVendor) : '';
+                      if (
+                        selected
+                        && !options.some((v) => String(v.code || v.id) === selected)
+                      ) {
+                        options.unshift({ id: selected, code: selected, name: selected });
+                      }
+                      return options.map((v) => {
+                        const optionValue = String(v.code || v.id || '');
+                        return (
+                          <option key={optionValue || v.id} value={optionValue}>
+                            {v.name}
+                          </option>
+                        );
+                      });
+                    })()}
+                  </select>
+                )}
               </Field>
             </div>
           ) : (
@@ -478,23 +527,35 @@ export default function TankerFreightModeSection({
                             />
                           </td>
                           <td>
-                            <select
-                              id={`tankCustomer_${rowIndex}`}
-                              name="customerId"
-                              value={row.customerId || ''}
-                              disabled={readOnly}
-                              onChange={(e) => handleTankerWsFieldChange(row, 'customerId', e.target.value)}
-                            >
-                              <option value="">Select</option>
-                              {(lookups.owners || []).map((v) => {
-                                const optionValue = String(v.code || v.id || '');
-                                return (
-                                  <option key={optionValue || v.id} value={optionValue}>
-                                    {v.name}
-                                  </option>
-                                );
-                              })}
-                            </select>
+                            {SelectField ? (
+                              <SelectField
+                                id={`tankCustomer_${rowIndex}`}
+                                ariaLabel="Customer"
+                                placeholder="Select"
+                                value={String(row.customerId || '')}
+                                disabled={readOnly}
+                                options={vendorOptions(row.customerId)}
+                                onChange={(value) => handleTankerWsFieldChange(row, 'customerId', value)}
+                              />
+                            ) : (
+                              <select
+                                id={`tankCustomer_${rowIndex}`}
+                                name="customerId"
+                                value={row.customerId || ''}
+                                disabled={readOnly}
+                                onChange={(e) => handleTankerWsFieldChange(row, 'customerId', e.target.value)}
+                              >
+                                <option value="">Select</option>
+                                {(lookups.owners || []).map((v) => {
+                                  const optionValue = String(v.code || v.id || '');
+                                  return (
+                                    <option key={optionValue || v.id} value={optionValue}>
+                                      {v.name}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            )}
                           </td>
                         </tr>
                         <tr>
@@ -589,6 +650,7 @@ export default function TankerFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(1)}
+            SelectField={SelectField}
           />
           <CargoDetailsTable
             title="Overage"
@@ -601,6 +663,7 @@ export default function TankerFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(2)}
+            SelectField={SelectField}
           />
           <CargoDetailsTable
             title="Dead-freight"
@@ -613,6 +676,7 @@ export default function TankerFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(3)}
+            SelectField={SelectField}
           />
         </>
       ) : null}

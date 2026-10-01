@@ -34,6 +34,7 @@ export default function EstimateResultsPanels({
   complianceYear = new Date().getFullYear(),
   onFieldChange,
   onRecalc,
+  round = false,
 }) {
   const editable = !readOnly;
 
@@ -52,7 +53,7 @@ export default function EstimateResultsPanels({
 
   return (
     <>
-      <CollapsiblePanel title="Freight Results" defaultOpen className={styles.panelInverse}>
+      <CollapsiblePanel title="Freight Results" defaultOpen round={round} className={styles.panelInverse}>
         <div className={styles.resultsGrid}>
           <Row label="Demurrage Revenue" value={form.demurrageRevenue} />
           <Row label="Revenue (Final Net Freight)" value={form.revenue} />
@@ -82,7 +83,7 @@ export default function EstimateResultsPanels({
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Bunker Results" defaultOpen={false} className={styles.panelInverse}>
+      <CollapsiblePanel title="Bunker Results" defaultOpen={false} round={round} className={styles.panelInverse}>
         <div className={styles.resultsGrid}>
           <Row label="Total HSFO (MT)" value={form.hsfoMt} empty={!hsfoPriced} />
           <Row label="EU ETS/Fuel EU HSFO (MT)" value={form.etsHsfoMt} empty={!hsfoPriced} />
@@ -102,6 +103,7 @@ export default function EstimateResultsPanels({
       <CollapsiblePanel
         title="Compliance Results"
         defaultOpen={false}
+        round={round}
         className={`${styles.panelInverse} ${styles.compliancePanel}`}
       >
         {editable ? (

@@ -405,9 +405,17 @@ export default function CostSheetEstimatePage({
   const sheetLabel = sheetNameProp
     || (costSheetIdProp ? `Sheet ${costSheetIdProp}` : '');
   const sheetTitle = variant === 'vc-in' ? 'VC-In Worksheet' : 'Voyage Worksheet';
-  const pageHeading = sheetLabel
-    ? `${viewOnly ? `View ${sheetTitle}` : sheetClosed ? `Closed ${sheetTitle}` : sheetTitle} — ${sheetLabel}`
-    : (viewOnly ? `View ${sheetTitle}` : sheetClosed ? `Closed ${sheetTitle}` : sheetTitle);
+  const estNo = Number(form.estimateNo) > 0 ? Number(form.estimateNo) : 1;
+  const voyageNo = String(form.voyageNo || detail?.voyageNo || '').trim();
+  const vcInHeading = voyageNo
+    ? `Worksheet ${voyageNo} (Est ${estNo}) - VC in`
+    : sheetTitle;
+  const titled = variant === 'vc-in' ? vcInHeading : (sheetLabel ? `${sheetTitle} — ${sheetLabel}` : sheetTitle);
+  const pageHeading = viewOnly
+    ? `View ${titled}`
+    : sheetClosed
+      ? `Closed ${titled}`
+      : titled;
 
   // Ensure Passage & Ports SOF links see comid/page (PHP updatecost_sheet_tci).
   const sectionsDetail = detail && isCostSheet

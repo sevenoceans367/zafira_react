@@ -51,6 +51,85 @@ import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTI
 import styles from './CostSheetEstimatePage.module.css';
 import updateEstimateStyles from '../../sopf/UpdateEstimatePage.module.css';
 
+function gradeChipClass(gradeName) {
+  const text = String(gradeName || '').toUpperCase().replace(/\s+/g, '');
+  if (text.includes('SCRUBBER')) return styles.gradeChipScrubber;
+  if (text.includes('LSMGO')) return styles.gradeChipLsmgo;
+  if (text.includes('MGO')) return styles.gradeChipMgo;
+  if (text.includes('HSFO')) return styles.gradeChipHsfo;
+  if (text.includes('VLSFO')) return styles.gradeChipVlsfo;
+  return '';
+}
+
+/** Ports chosen in Passage & Ports (from/to on each leg) — Stemmed dropdown source of truth. */
+function getPassagePorts(portLegs = []) {
+  const ports = [];
+  const seen = new Set();
+  for (const leg of portLegs || []) {
+    for (const [id, name] of [
+      [leg.fromPortId, leg.fromPortName],
+      [leg.toPortId, leg.toPortName],
+    ]) {
+      const portId = String(id || '').trim();
+      if (!portId || seen.has(portId)) continue;
+      seen.add(portId);
+      ports.push({ id: portId, name: String(name || '').trim() || portId });
+    }
+  }
+  return ports;
+}
+
+function KhakiRowActions({ onAdd, onRemove, canRemove = true, readOnly = false }) {
+  if (readOnly) return null;
+  return (
+    <div className={styles.khakiRowActions}>
+      <button type="button" className={styles.khakiAdd} onClick={onAdd} title="Add row" aria-label="Add row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        className={styles.khakiDel}
+        onClick={onRemove}
+        disabled={!canRemove}
+        title="Remove"
+        aria-label="Remove row"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M4 7h16" />
+          <path d="M6 7V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3" />
+          <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+          <path d="M10 11v6" />
+          <path d="M14 11v6" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+function DetailsBtnIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" />
+      <path d="M9 8h6" />
+      <path d="M9 12h6" />
+    </svg>
+  );
+}
+
+function TcInHireBtnIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6" />
+      <path d="M9 17h6" />
+    </svg>
+  );
+}
+
 function BunkerPriceInput({ value, readOnly, onCommit }) {
   const [draft, setDraft] = useState(null);
   const editing = draft !== null;
@@ -144,7 +223,6 @@ export default function EstimateDetailSections({
   const [itineraryOpen, setItineraryOpen] = useState(false);
   const [hireDetailsOpen, setHireDetailsOpen] = useState(false);
   const [bunkerFifoOpen, setBunkerFifoOpen] = useState(false);
-  const [stemmedOpen, setStemmedOpen] = useState(true);
 
   // PHP updatecost_sheet_tci Passage & Ports → sof.php?comid=&page=
   const sofComId = searchParams.get('comid')
@@ -391,10 +469,12 @@ export default function EstimateDetailSections({
   };
 
   const addRow = async (collection, factory, opts = {}) => {
-    const blockMessage = getAddRowBlockMessage(collection, form[collection] || [], opts);
-    if (blockMessage) {
-      await alert({ title: 'Missing Information', message: blockMessage, confirmLabel: 'OK' });
-      return;
+    if (!opts.skipBlock) {
+      const blockMessage = getAddRowBlockMessage(collection, form[collection] || [], opts);
+      if (blockMessage) {
+        await alert({ title: 'Missing Information', message: blockMessage, confirmLabel: 'OK' });
+        return;
+      }
     }
 
     if (collection === 'portLegs') {
@@ -536,22 +616,41 @@ export default function EstimateDetailSections({
   };
 
   const bunkerDisplayRows = bunkerSummaryRows.map((row) => {
+    // Qty. (MT) and Estimated (MT) were the same voyage estimate — keep one column.
+    const estimated = row.qty || row.actualQty || '';
     const manual = storedConsumed(row.grade);
-    const consumed = manual !== '' ? manual : (row.actualQty || '');
-    // A typed Consumed overrides the amount. Until then keep the worksheet
-    // amount (actual ROB qty × price, or estimated qty × price).
-    if (manual === '') return { ...row, consumed, amount: row.amount || '' };
+    const consumed = manual !== '' ? manual : (row.actualQty || estimated || '');
     const price = Number(String(row.price || '').replace(/,/g, ''));
-    const qty = Number(String(manual).replace(/,/g, ''));
-    const amount = Number.isFinite(price) && Number.isFinite(qty)
-      ? (price * qty).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const amountQty = Number(String((manual !== '' ? manual : estimated) || '').replace(/,/g, ''));
+    const amount = Number.isFinite(price) && Number.isFinite(amountQty) && (price !== 0 || amountQty !== 0)
+      ? (price * amountQty).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : '';
-    return { ...row, consumed, amount };
+    return { ...row, estimated, consumed, amount };
   });
   const bunkerDisplayTotal = bunkerDisplayRows.reduce((sum, row) => {
     const value = Number(String(row.amount || '').replace(/,/g, ''));
     return sum + (Number.isFinite(value) ? value : 0);
   }, 0);
+
+  /** Blank Estimated & Consumed rows (grade not chosen yet) — shown like the mockup entry row. */
+  const blankEstimatedRows = (form.secaBunkerRows || []).filter((row) => (
+    String(row.identify || '').toUpperCase() === 'NON_SECA'
+    && !String(row.bunkerGradeId || '').trim()
+  ));
+
+  const addEstimatedConsumedRow = async () => {
+    const lastVisible = bunkerDisplayRows[bunkerDisplayRows.length - 1];
+    const previousFilled = !lastVisible
+      || String(lastVisible.estimated || '').trim()
+      || String(lastVisible.consumed || '').trim()
+      || String(lastVisible.price || '').trim();
+    if (!previousFilled) {
+      await alert({ title: 'Missing Information', message: 'Please fill previous data', confirmLabel: 'OK' });
+      return;
+    }
+    if (blankEstimatedRows.length) return;
+    addRow('secaBunkerRows', () => createEmptySecaBunkerRow('NON_SECA', 'FO'), { skipBlock: true });
+  };
 
   const handleBunkerConsumedChange = (grade, raw) => {
     const value = sanitizeDecimalInput(raw ?? '');
@@ -1370,6 +1469,7 @@ export default function EstimateDetailSections({
                 return (
               <CountryMultiSelect
                 compact
+                variant="card"
                 options={[...optionMap.values()]}
                 value={selectedCargoIds}
                 disabled={readOnly}
@@ -2064,157 +2164,230 @@ export default function EstimateDetailSections({
           <button
             type="button"
             className={styles.bunkerDetailsBtn}
+            title="Full FIFO bunker calculations"
             onClick={() => setBunkerFifoOpen(true)}
           >
+            <DetailsBtnIcon />
             Details
           </button>
         )}
       >
         <div className={styles.bunkerSubLabel}>Estimated &amp; Consumed</div>
-        <div className={styles.tableWrap} style={{ marginBottom: 10 }}>
-          <table className={styles.portTable}>
+        <div className={`${styles.tableWrap} ${styles.bunkerTableCard}`}>
+          <table className={`${styles.portTable} ${styles.bunkerZebra}`}>
             <thead>
               <tr>
-                <th>Bunker Grade</th>
-                <th>Qty. (MT)</th>
+                {editable ? <th style={{ width: 56 }} /> : null}
+                <th>Grade</th>
                 <th>Estimated (MT)</th>
-                <th>Consumed (MT)</th>
-                <th>Price (MT)</th>
+                <th>Actual Consumed (MT)</th>
+                <th>Price ($/MT)</th>
                 <th>Amount</th>
               </tr>
             </thead>
             <tbody>
-              {bunkerDisplayRows.length ? bunkerDisplayRows.map((row) => (
-                <tr key={`summary-${row.grade}`}>
-                  <td className={styles.bunkerGrade}>{row.grade}</td>
-                  <td><input className={styles.bunkerReadonly} value={row.qty || ''} readOnly placeholder="0.00" title="Voyage quantity" /></td>
-                  <td><input className={styles.bunkerReadonly} value={row.actualQty || ''} readOnly placeholder="0.00" title="System-computed from the voyage ROB projection" /></td>
-                  <td>
-                    <div className={styles.consumedCell}>
-                      <input
-                        className={styles.bunkerLive}
-                        value={row.consumed || ''}
-                        readOnly={readOnly}
-                        placeholder="0.00"
-                        inputMode="decimal"
-                        title="FIFO consumed quantity. Editable."
-                        onChange={(e) => handleBunkerConsumedChange(row.grade, e.target.value)}
-                      />
-                      <span className={styles.fifoTag} title="Oldest stock is consumed first">FIFO</span>
-                    </div>
-                  </td>
-                  <td>
-                    <BunkerPriceInput
-                      value={row.price || ''}
-                      readOnly={readOnly}
-                      onCommit={(next) => handleBunkerSummaryPriceChange(row.grade, next)}
-                    />
-                  </td>
-                  <td><input className={styles.bunkerReadonly} value={row.amount || ''} readOnly placeholder="0.00" /></td>
-                </tr>
-              )) : (
+              {bunkerDisplayRows.length || blankEstimatedRows.length ? (
+                <>
+                  {bunkerDisplayRows.map((row) => (
+                    <tr key={`summary-${row.grade}`}>
+                      {editable ? (
+                        <td>
+                          <KhakiRowActions
+                            readOnly={readOnly}
+                            onAdd={addEstimatedConsumedRow}
+                            onRemove={() => {
+                              handleBunkerConsumedChange(row.grade, '');
+                              handleBunkerSummaryPriceChange(row.grade, '');
+                            }}
+                          />
+                        </td>
+                      ) : null}
+                      <td>
+                        <span className={`${styles.gradeChip} ${gradeChipClass(row.grade)}`}>{row.grade}</span>
+                      </td>
+                      <td>
+                        <input
+                          className={styles.bunkerReadonly}
+                          value={row.estimated || ''}
+                          readOnly
+                          placeholder="0.00"
+                          title="System-computed from the voyage worksheet's ROB projection"
+                        />
+                      </td>
+                      <td>
+                        <div className={styles.consumedCell}>
+                          <input
+                            className={styles.bunkerLive}
+                            value={row.consumed || ''}
+                            readOnly={readOnly}
+                            placeholder="0.00"
+                            inputMode="decimal"
+                            title="Comes from the ship's noon / departure / arrival reports. Opening ROB + Stemmed − Closing ROB."
+                            onChange={(e) => handleBunkerConsumedChange(row.grade, e.target.value)}
+                          />
+                          <span className={styles.fifoTag} title="Live value from ship reports — oldest stock consumed first">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+                              <path d="M21 3v6h-6" />
+                            </svg>
+                            FIFO
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <BunkerPriceInput
+                          value={row.price || ''}
+                          readOnly={readOnly}
+                          onCommit={(next) => handleBunkerSummaryPriceChange(row.grade, next)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className={styles.bunkerReadonly}
+                          value={row.amount || ''}
+                          readOnly
+                          placeholder="0.00"
+                          title="Defaults to the FIFO-costed amount; changes if a manual price is entered"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                  {blankEstimatedRows.map((row) => (
+                    <tr key={`blank-est-${row.id}`}>
+                      {editable ? (
+                        <td>
+                          <KhakiRowActions
+                            readOnly={readOnly}
+                            onAdd={addEstimatedConsumedRow}
+                            onRemove={() => removeRow('secaBunkerRows', row.id)}
+                          />
+                        </td>
+                      ) : null}
+                      <td>
+                        <div className={styles.gradeSelectWrap}>
+                          <WorksheetSelect
+                            value={row.bunkerGradeId || ''}
+                            disabled={readOnly}
+                            options={(lookups.bunkerGrades || []).map((g) => ({ value: g.id, label: g.name }))}
+                            onChange={(value) => updateRow('secaBunkerRows', row.id, { bunkerGradeId: value })}
+                          />
+                        </div>
+                      </td>
+                      <td>
+                        <input className={styles.bunkerReadonly} value="0.00" readOnly />
+                      </td>
+                      <td>
+                        <input
+                          className={styles.bunkerLive}
+                          value={row.actualQty || ''}
+                          readOnly={readOnly}
+                          placeholder="0.00"
+                          inputMode="decimal"
+                          onChange={(e) => updateRow('secaBunkerRows', row.id, { actualQty: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <BunkerPriceInput
+                          value={row.price || ''}
+                          readOnly={readOnly}
+                          onCommit={(next) => updateRow('secaBunkerRows', row.id, { price: next })}
+                        />
+                      </td>
+                      <td>
+                        <input className={styles.bunkerReadonly} value="0.00" readOnly />
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              ) : (
                 <tr>
-                  <td colSpan={6} className={styles.summaryEmptyCell}>No bunker summary available yet.</td>
+                  <td colSpan={editable ? 6 : 5} className={styles.summaryEmptyCell}>
+                    {editable ? (
+                      <button type="button" className={styles.bunkerEmptyAdd} onClick={addEstimatedConsumedRow}>
+                        + Add grade
+                      </button>
+                    ) : (
+                      'No bunker summary available yet.'
+                    )}
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
         <div className={styles.bunkerTotal}>
-          <span>Total Bunker Consumed — SECA/NON SECA</span>
+          <span>Total Bunker Consumed</span>
           <b>{bunkerDisplayTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
         </div>
-        <div className={styles.bunkerPriceRow}>
-          <Field id="co2PriceInline" label="CO2 Price / MT">
-            <input
-              id="co2PriceInline"
-              value={form.co2Price || ''}
-              readOnly={readOnly}
-              placeholder="0.00"
-              onChange={(e) => updateField('co2Price', e.target.value)}
-            />
-          </Field>
-          <Field id="euaPriceInline" label="EUA Price / MT">
-            <input
-              id="euaPriceInline"
-              value={form.euaPrice || ''}
-              readOnly={readOnly}
-              placeholder="0.00"
-              onChange={(e) => updateField('euaPrice', e.target.value)}
-            />
-          </Field>
-        </div>
 
-        <div className={styles.stemmedHead}>
-          <button
-            type="button"
-            className={styles.stemmedToggle}
-            onClick={() => setStemmedOpen((open) => !open)}
-            aria-expanded={stemmedOpen}
-          >
-            <span className={styles.stemmedChev}>{stemmedOpen ? '▾' : '▸'}</span>
-            <span>Stemmed</span>
-          </button>
-          {editable ? (
-            <AddCircleButton
-              ariaLabel="Add stem"
-              onClick={(e) => {
-                e.stopPropagation();
-                setStemmedOpen(true);
-                addRow('bunkerRows', () => createEmptyBunkerRow('SUPPLY'), { identify: 'SUPPLY' });
-              }}
-            />
-          ) : null}
-        </div>
-        {stemmedOpen ? (
-        <div className={styles.tableWrap}>
-          <table className={styles.portTable}>
+        <div className={styles.bunkerSubLabelStemmed}>Stemmed</div>
+        <div className={`${styles.tableWrap} ${styles.bunkerTableCard}`}>
+          <table className={`${styles.portTable} ${styles.bunkerZebra}`}>
             <thead>
               <tr>
-                {editable ? <th style={{ width: 36 }} /> : null}
-                <th>Bunker Grade</th>
-                <th>Qty(MT)</th>
-                <th>Price(USD)</th>
-                <th>Amount(USD)</th>
+                {editable ? <th style={{ width: 56 }} /> : null}
+                <th>Grade</th>
                 <th>Port</th>
-                <th>Vendor</th>
+                <th>Qty(MT)</th>
+                <th>Price ($/MT)</th>
+                <th>Amount</th>
+                <th>Supplier</th>
               </tr>
             </thead>
             <tbody>
               {(form.bunkerRows || [])
                 .filter((row) => String(row.identify || '').toUpperCase() === 'SUPPLY')
                 .map((row) => {
-                  const passagePorts = [];
-                  const seenPorts = new Set();
-                  for (const leg of form.portLegs || []) {
-                    for (const [id, name] of [
-                      [leg.fromPortId, leg.fromPortName],
-                      [leg.toPortId, leg.toPortName],
-                    ]) {
-                      if (!id || seenPorts.has(String(id))) continue;
-                      seenPorts.add(String(id));
-                      passagePorts.push({ id: String(id), name: name || String(id) });
-                    }
-                  }
-                  if (row.portId && !seenPorts.has(String(row.portId))) {
-                    passagePorts.unshift({
-                      id: String(row.portId),
-                      name: row.portName || String(row.portId),
-                    });
-                  }
+                  const passagePorts = getPassagePorts(form.portLegs);
+                  const portInPassage = passagePorts.some((p) => p.id === String(row.portId || ''));
+                  const gradeLabel = bunkerGradeName(row.bunkerGradeId) || '';
+                  const chipClass = gradeChipClass(gradeLabel);
+                  const addStemRow = () => {
+                    const firstPort = passagePorts[0];
+                    addRow(
+                      'bunkerRows',
+                      () => ({
+                        ...createEmptyBunkerRow('SUPPLY'),
+                        portId: firstPort?.id || '',
+                        portName: firstPort?.name || '',
+                      }),
+                      { identify: 'SUPPLY' },
+                    );
+                  };
                   return (
                     <tr key={row.id}>
                       {editable ? (
                         <td>
-                          <RowRemoveButton onClick={() => removeRow('bunkerRows', row.id)} />
+                          <KhakiRowActions
+                            readOnly={readOnly}
+                            onAdd={addStemRow}
+                            onRemove={() => removeRow('bunkerRows', row.id)}
+                          />
                         </td>
                       ) : null}
                       <td>
+                        <div className={chipClass ? `${styles.gradeSelectWrap} ${chipClass}` : styles.gradeSelectWrap}>
+                          <WorksheetSelect
+                            value={row.bunkerGradeId || ''}
+                            disabled={readOnly}
+                            options={(lookups.bunkerGrades || []).map((g) => ({ value: g.id, label: g.name }))}
+                            onChange={(value) => updateRow('bunkerRows', row.id, { bunkerGradeId: value })}
+                          />
+                        </div>
+                      </td>
+                      <td>
                         <WorksheetSelect
-                          value={row.bunkerGradeId || ''}
-                          disabled={readOnly}
-                          options={(lookups.bunkerGrades || []).map((g) => ({ value: g.id, label: g.name }))}
-                          onChange={(value) => updateRow('bunkerRows', row.id, { bunkerGradeId: value })}
+                          value={portInPassage ? (row.portId || '') : ''}
+                          disabled={readOnly || !passagePorts.length}
+                          placeholder={passagePorts.length ? '— Select —' : 'Select ports in Passage & Ports'}
+                          options={passagePorts.map((port) => ({ value: port.id, label: port.name }))}
+                          onChange={(portId) => {
+                            const match = passagePorts.find((p) => String(p.id) === String(portId));
+                            updateRow('bunkerRows', row.id, {
+                              portId: match ? String(match.id) : '',
+                              portName: match?.name || '',
+                            });
+                          }}
                         />
                       </td>
                       <td>
@@ -2234,21 +2407,7 @@ export default function EstimateDetailSections({
                         />
                       </td>
                       <td>
-                        <input value={row.cost || ''} readOnly placeholder="0.00" />
-                      </td>
-                      <td>
-                        <WorksheetSelect
-                          value={row.portId || ''}
-                          disabled={readOnly}
-                          options={passagePorts.map((port) => ({ value: port.id, label: port.name }))}
-                          onChange={(portId) => {
-                            const match = passagePorts.find((p) => String(p.id) === String(portId));
-                            updateRow('bunkerRows', row.id, {
-                              portId,
-                              portName: match?.name || '',
-                            });
-                          }}
-                        />
+                        <input className={styles.bunkerReadonly} value={row.cost || ''} readOnly placeholder="0.00" />
                       </td>
                       <td>
                         <WorksheetSelect
@@ -2264,10 +2423,33 @@ export default function EstimateDetailSections({
                     </tr>
                   );
                 })}
+              {editable && !(form.bunkerRows || []).some((row) => String(row.identify || '').toUpperCase() === 'SUPPLY') ? (
+                <tr>
+                  <td colSpan={7} className={styles.summaryEmptyCell}>
+                    <button
+                      type="button"
+                      className={styles.bunkerEmptyAdd}
+                      onClick={() => {
+                        const firstPort = getPassagePorts(form.portLegs)[0];
+                        addRow(
+                          'bunkerRows',
+                          () => ({
+                            ...createEmptyBunkerRow('SUPPLY'),
+                            portId: firstPort?.id || '',
+                            portName: firstPort?.name || '',
+                          }),
+                          { identify: 'SUPPLY' },
+                        );
+                      }}
+                    >
+                      + Add stem
+                    </button>
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
-        ) : null}
       </CollapsiblePanel>
 
       <CollapsiblePanel
@@ -2279,8 +2461,10 @@ export default function EstimateDetailSections({
           <button
             type="button"
             className={styles.tcInHireBtn}
+            title="Full hire terms, delivery / re-delivery and CVE"
             onClick={() => setHireDetailsOpen(true)}
           >
+            <TcInHireBtnIcon />
             TC-in Hire
           </button>
         ) : null}
@@ -2638,13 +2822,43 @@ export default function EstimateDetailSections({
         priceByGrade={priceByGrade}
         summaryRows={bunkerDisplayRows}
         vendorName={vendorName}
-        subtitle={[form.voyageNo, form.vesselName].filter(Boolean).join(' · ')}
-        onApply={({ alloc, fifoTotal }) => {
+        bunkerGrades={lookups.bunkerGrades || form._bunkerGrades || []}
+        vendors={lookups.owners || []}
+        voyageNo={form.voyageNo || ''}
+        vesselName={form.vesselName || ''}
+        charterer={form.charterer || form.cargoRows?.[0]?.charterer || ''}
+        onApply={({ fifoTotal }) => {
           applyPatch({
-            bunkerFifoAlloc: alloc,
             totalBunkerCost: fifoTotal ? fifoTotal.toFixed(2) : form.totalBunkerCost,
           });
         }}
+        onUpdateStem={(rowId, patch) => {
+          const current = (form.bunkerRows || []).find((row) => row.id === rowId) || {};
+          const next = { ...current, ...patch };
+          const qty = Number(String(next.qty ?? '').replace(/,/g, ''));
+          const price = Number(String(next.price ?? '').replace(/,/g, ''));
+          const addl = Number(String(next.addlCost ?? '').replace(/,/g, ''));
+          const amount = (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(price) ? price : 0);
+          updateRow('bunkerRows', rowId, {
+            ...patch,
+            cost: amount.toFixed(2),
+            totalCost: (amount + (Number.isFinite(addl) ? addl : 0)).toFixed(2),
+          });
+        }}
+        onUpdatePortLeg={(legId, patch) => updateRow('portLegs', legId, patch)}
+        onAddStem={() => {
+          const firstPort = getPassagePorts(form.portLegs)[0];
+          addRow(
+            'bunkerRows',
+            () => ({
+              ...createEmptyBunkerRow('SUPPLY'),
+              portId: firstPort?.id || '',
+              portName: firstPort?.name || '',
+            }),
+            { identify: 'SUPPLY' },
+          );
+        }}
+        onRemoveStem={(rowId) => removeRow('bunkerRows', rowId)}
       />
       <HireDetailsModal
         open={hireDetailsOpen}

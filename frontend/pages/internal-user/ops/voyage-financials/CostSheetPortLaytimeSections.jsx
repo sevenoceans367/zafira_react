@@ -134,7 +134,13 @@ export default function PortLaytimeSections({
 
   if (!legs.length) {
     return (
-      <CollapsiblePanel title="Port Details" defaultOpen round className={styles.roundSection}>
+      <CollapsiblePanel
+        title="Port Details"
+        defaultOpen
+        round
+        className={styles.roundSection}
+        bodyClassName={styles.portDetailsBody}
+      >
         <p className={styles.hintText}>Add a passage leg to configure load, discharge, and transit port details.</p>
       </CollapsiblePanel>
     );
@@ -167,7 +173,13 @@ export default function PortLaytimeSections({
   };
 
   return (
-    <CollapsiblePanel title="Port Details" defaultOpen round className={styles.roundSection}>
+    <CollapsiblePanel
+      title="Port Details"
+      defaultOpen
+      round
+      className={styles.roundSection}
+      bodyClassName={styles.portDetailsBody}
+    >
       <div className={styles.portLaytimeStack}>
         <div className={`${styles.portLaytimeBlock} ${styles.portLaytimeLp}`}>
           <div className={styles.portLaytimeTitle}>Load Port (LP)</div>

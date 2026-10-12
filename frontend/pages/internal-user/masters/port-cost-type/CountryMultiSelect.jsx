@@ -10,6 +10,8 @@ export default function CountryMultiSelect({
   searchPlaceholder = 'Search…',
   disabled = false,
   compact = false,
+  /** "card" matches the shared CardSelect trigger used on Voyage Worksheet. */
+  variant = 'default',
 }) {
   const rootRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -95,7 +97,12 @@ export default function CountryMultiSelect({
   const dropdown = open && menuStyle ? createPortal(
     <div
       ref={dropdownRef}
-      className={`${styles.dropdown} ${styles.dropdownPortal} ${compact ? styles.compactDropdown : ''}`}
+      className={[
+        styles.dropdown,
+        styles.dropdownPortal,
+        compact ? styles.compactDropdown : '',
+        variant === 'card' ? styles.cardMenu : '',
+      ].filter(Boolean).join(' ')}
       style={menuStyle}
       role="listbox"
       aria-multiselectable="true"
@@ -150,8 +157,14 @@ export default function CountryMultiSelect({
     document.body,
   ) : null;
 
+  const rootClass = [
+    styles.root,
+    compact ? styles.compact : '',
+    variant === 'card' ? styles.card : '',
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className={`${styles.root} ${compact ? styles.compact : ''}`} ref={rootRef}>
+    <div className={rootClass} ref={rootRef}>
       <button
         type="button"
         className={styles.control}

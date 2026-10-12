@@ -76,7 +76,18 @@ export function getAddRowBlockMessage(collection, rows = [], { identify } = {}) 
     },
     secaBunkerRows: {
       message: 'Please fill previous data',
-      ok: () => filled(last.bunkerGradeId) && filled(last.qty) && filled(last.price),
+      // Estimated & Consumed writes price/actualQty; qty may stay blank. Trailing
+      // empty SECA seed rows must not block add when prior grades are filled.
+      ok: () => {
+        const started = filled(last.bunkerGradeId)
+          || filled(last.qty)
+          || filled(last.actualQty)
+          || filled(last.price);
+        if (!started) return true;
+        return filled(last.bunkerGradeId)
+          && (filled(last.qty) || filled(last.actualQty))
+          && filled(last.price);
+      },
     },
     passageLocations: {
       message: 'Please fill previous data',

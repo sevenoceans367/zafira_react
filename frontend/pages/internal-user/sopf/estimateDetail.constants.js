@@ -357,6 +357,14 @@ export function createEmptyBunkerRow(identify = 'CONSUMPTION') {
     vendorId: '',
     portId: '',
     portName: '',
+    addlCost: '',
+    totalCost: '',
+    bookingDate: '',
+    deliveryDate: '',
+    bookingQtyMin: '',
+    bookingQtyMax: '',
+    termsDays: '',
+    remarks: '',
   };
 }
 
@@ -839,6 +847,14 @@ export function toFormState(detail = {}) {
       vendorId: row.vendorId != null ? String(row.vendorId) : '',
       portId: row.portId != null ? String(row.portId) : '',
       portName: row.portName ?? '',
+      addlCost: row.addlCost != null ? String(row.addlCost) : '',
+      totalCost: row.totalCost != null ? String(row.totalCost) : '',
+      bookingDate: row.bookingDate ?? '',
+      deliveryDate: row.deliveryDate ?? row.delDate ?? '',
+      bookingQtyMin: row.bookingQtyMin != null ? String(row.bookingQtyMin) : '',
+      bookingQtyMax: row.bookingQtyMax != null ? String(row.bookingQtyMax) : '',
+      termsDays: row.termsDays != null ? String(row.termsDays) : '',
+      remarks: row.remarks ?? '',
     }))
     : [createEmptyBunkerRow('CONSUMPTION'), createEmptyBunkerRow('SUPPLY')];
 

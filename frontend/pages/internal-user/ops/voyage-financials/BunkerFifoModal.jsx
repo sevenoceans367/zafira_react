@@ -1,32 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { DmyDateInput } from '@bainbridge/shared-ui';
 import {
-  allocateConsumedCost,
   buildBunkerFifo,
   fifoGrandTotal,
-  formatFifoMoney,
 } from './bunkerFifo.js';
+import WorksheetSelect from './WorksheetSelect.jsx';
 import styles from './BunkerFifoModal.module.css';
 
-function defaultAlloc(grade) {
-  return { mode: 'percent', owner: '100' };
-}
-
-function complementValue(mode, owner, consumed) {
-  const ownerNum = Number(String(owner ?? '').replace(/,/g, '')) || 0;
-  if (mode === 'qty') {
-    const left = Math.max(0, (Number(consumed) || 0) - ownerNum);
-    return left.toFixed(2);
-  }
-  return String(Math.max(0, 100 - ownerNum));
-}
-
-function ReceiptIcon() {
+function DropletIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" />
-      <path d="M9 8h6" />
-      <path d="M9 12h6" />
+      <path d="M12 3c-3 4-6 7.5-6 11a6 6 0 0 0 12 0c0-3.5-3-7-6-11z" />
     </svg>
   );
 }
@@ -48,6 +33,172 @@ function CheckIcon() {
   );
 }
 
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v5" />
+      <path d="M12 16h.01" />
+    </svg>
+  );
+}
+
+function gradeChipClass(name) {
+  const text = String(name || '').toUpperCase().replace(/\s+/g, '');
+  if (text.includes('SCRUBBER')) return styles.gScrubber;
+  if (text.includes('LSMGO')) return styles.gLsmgo;
+  if (text.includes('MGO')) return styles.gMgo;
+  if (text.includes('HSFO')) return styles.gHsfo;
+  if (text.includes('VLSFO')) return styles.gVlsfo;
+  return '';
+}
+
+function num(value) {
+  const n = Number(String(value ?? '').replace(/,/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function abbreviateMoney(value) {
+  const n = num(value);
+  if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`;
+  return `$${n.toFixed(0)}`;
+}
+
+function buildPortCards(form) {
+  const ports = [];
+  const seen = new Set();
+  for (const leg of form.portLegs || []) {
+    const candidates = [
+      {
+        id: leg.fromPortId,
+        name: leg.fromPortName,
+        sosp: leg.fromDeparture || leg.fromArrival || '',
+        sospField: 'fromDeparture',
+        robFo: leg.fromRobFoDeparture || leg.fromRobFoArrival || '',
+        robDo: leg.fromRobDoDeparture || leg.fromRobDoArrival || '',
+      },
+      {
+        id: leg.toPortId,
+        name: leg.toPortName,
+        sosp: leg.toDeparture || leg.toArrival || '',
+        sospField: 'toDeparture',
+        robFo: leg.toRobFoDeparture || leg.toRobFoArrival || '',
+        robDo: leg.toRobDoDeparture || leg.toRobDoArrival || '',
+      },
+    ];
+    for (const port of candidates) {
+      if (!port.id || seen.has(String(port.id))) continue;
+      seen.add(String(port.id));
+      ports.push({
+        id: String(port.id),
+        name: port.name || String(port.id),
+        legId: leg.id,
+        sosp: port.sosp,
+        sospField: port.sospField,
+        robFo: port.robFo,
+        robDo: port.robDo,
+      });
+    }
+  }
+  return ports;
+}
+
+function KhakiActions({ onAdd, onRemove, readOnly }) {
+  if (readOnly) return null;
+  return (
+    <div className={styles.khakiActions}>
+      <button type="button" className={styles.khakiAdd} onClick={onAdd} title="Add row" aria-label="Add row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
+      </button>
+      <button type="button" className={styles.khakiDel} onClick={onRemove} title="Remove" aria-label="Remove row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M4 7h16" />
+          <path d="M6 7V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3" />
+          <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+          <path d="M10 11v6" />
+          <path d="M14 11v6" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+function VoyageResultsChart({
+  title,
+  grades,
+  getConsumed,
+  getRob,
+  formatValue,
+  tipSuffix,
+}) {
+  const max = Math.max(
+    1,
+    ...grades.flatMap((g) => [getConsumed(g), getRob(g)]),
+  );
+  const barH = (value) => `${Math.max(4, Math.round((value / max) * 120))}px`;
+  const colors = {
+    VLSFO: { consumed: '#D97708', rob: '#8B5E3C' },
+    LSMGO: { consumed: '#AA740A', rob: '#BD9553' },
+  };
+
+  return (
+    <div className={styles.vrChart}>
+      <div className={styles.vrChartTitle}>{title}</div>
+      <div className={styles.vrLegend}>
+        {grades.map((g) => (
+          <React.Fragment key={g}>
+            <span className={styles.vrLegendItem}>
+              <span className={styles.vrSwatch} style={{ background: colors[g]?.consumed }} />
+              {g} Consumed
+            </span>
+            <span className={styles.vrLegendItem}>
+              <span className={styles.vrSwatch} style={{ background: colors[g]?.rob }} />
+              {g} ROB
+            </span>
+          </React.Fragment>
+        ))}
+      </div>
+      <div className={styles.vrBars}>
+        {grades.map((g) => {
+          const consumed = getConsumed(g);
+          const rob = getRob(g);
+          return (
+            <div key={g} className={styles.vrGroup}>
+              <div className={styles.vrBarPair}>
+                <div
+                  className={styles.vrBarCol}
+                  data-tip={`${g} · Consumed: ${formatValue(consumed)}${tipSuffix}`}
+                >
+                  <div className={styles.vrBarValue}>{formatValue(consumed)}</div>
+                  <div className={styles.vrBar} style={{ height: barH(consumed), background: colors[g]?.consumed }} />
+                </div>
+                <div
+                  className={styles.vrBarCol}
+                  data-tip={`${g} · ROB: ${formatValue(rob)}${tipSuffix}`}
+                >
+                  <div className={styles.vrBarValue}>{formatValue(rob)}</div>
+                  <div className={styles.vrBar} style={{ height: barH(rob), background: colors[g]?.rob }} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className={styles.vrLabelsRow}>
+        {grades.map((g) => (
+          <div key={g} className={styles.vrPairLabels}>
+            <span>Consumed</span>
+            <span>ROB</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function BunkerFifoModal({
   open,
   onClose,
@@ -57,9 +208,17 @@ export default function BunkerFifoModal({
   priceByGrade,
   summaryRows = [],
   vendorName,
+  bunkerGrades = [],
+  vendors = [],
+  voyageNo = '',
+  vesselName = '',
+  charterer = '',
   readOnly = false,
-  subtitle = '',
   onApply,
+  onUpdateStem,
+  onUpdatePortLeg,
+  onAddStem,
+  onRemoveStem,
 }) {
   const ledger = useMemo(
     () => buildBunkerFifo({
@@ -73,25 +232,27 @@ export default function BunkerFifoModal({
     [form, resolveGradeName, consumedByGrade, priceByGrade, summaryRows, vendorName],
   );
   const total = fifoGrandTotal(ledger);
-  const [alloc, setAlloc] = useState(() => ({ ...(form.bunkerFifoAlloc || {}) }));
+  const ports = useMemo(() => buildPortCards(form), [form]);
+  const stems = useMemo(
+    () => (form.bunkerRows || []).filter((row) => String(row.identify || '').toUpperCase() === 'SUPPLY'),
+    [form.bunkerRows],
+  );
+  const chartGrades = ['VLSFO', 'LSMGO'].filter((g) => ledger.some((row) => row.grade === g));
+  const gradesForChart = chartGrades.length ? chartGrades : ['VLSFO', 'LSMGO'];
+
+  const gradeById = (id) => resolveGradeName?.(id) || '';
+  const passagePorts = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    for (const port of ports) {
+      if (seen.has(port.id)) continue;
+      seen.add(port.id);
+      list.push({ id: port.id, name: port.name });
+    }
+    return list;
+  }, [ports]);
 
   if (!open) return null;
-
-  const setMode = (grade, mode) => {
-    setAlloc((prev) => ({
-      ...prev,
-      [grade]: { ...(prev[grade] || defaultAlloc(grade)), mode },
-    }));
-  };
-  const setOwner = (grade, owner) => {
-    setAlloc((prev) => ({
-      ...prev,
-      [grade]: { ...(prev[grade] || defaultAlloc(grade)), owner },
-    }));
-  };
-
-  const layers = ledger.flatMap((grade) => grade.layers.map((layer, index) => ({ ...layer, key: `${grade.grade}-${index}` })));
-  const subLine = [subtitle, 'FIFO costing, stem detail and Owner/Charterer cost allocation'].filter(Boolean).join(' · ');
 
   const content = (
     <div className={styles.backdrop} role="presentation" onClick={onClose}>
@@ -99,15 +260,24 @@ export default function BunkerFifoModal({
         className={styles.modal}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="bunker-fifo-title"
+        aria-labelledby="bunker-mgmt-title"
         onClick={(e) => e.stopPropagation()}
       >
         <div className={styles.header}>
           <div className={styles.headLeft}>
-            <span className={styles.headIcon}><ReceiptIcon /></span>
+            <span className={styles.headIcon}><DropletIcon /></span>
             <div>
-              <h3 id="bunker-fifo-title">Bunkers — Full Cost Calculations</h3>
-              {subLine ? <p className={styles.sub}>{subLine}</p> : null}
+              <h3 id="bunker-mgmt-title">Bunker Management</h3>
+              <div className={styles.idRow}>
+                <span className={styles.voyId}>
+                  {[voyageNo, vesselName].filter(Boolean).join(' · ') || 'Voyage worksheet'}
+                </span>
+                {charterer ? (
+                  <span className={styles.chartererChip}>
+                    CHARTERER · <b>{charterer}</b>
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
           <button type="button" className={styles.close} onClick={onClose} aria-label="Close">
@@ -117,142 +287,297 @@ export default function BunkerFifoModal({
 
         <div className={styles.body}>
           <section>
-            <h4><span>1</span>Stem Details</h4>
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Grade</th>
-                    <th>Source</th>
-                    <th>Delivery Date</th>
-                    <th>Port</th>
-                    <th>Vendor</th>
-                    <th>Quantity (MT)</th>
-                    <th>Price (MT)</th>
-                    <th>Additional Cost</th>
-                    <th>Booking Qty (Min/Max)</th>
-                    <th>Payment Terms</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {layers.length ? layers.map((layer) => (
-                    <tr key={layer.key} className={layer.carried ? styles.carried : ''}>
-                      <td className={layer.carried ? '' : styles.gradeStrong}>{layer.grade}</td>
-                      <td>
-                        {layer.source}
-                        {layer.carried ? <span className={styles.badge}>Carried Forward</span> : null}
-                      </td>
-                      <td>—</td>
-                      <td>{layer.port || '—'}</td>
-                      <td>{layer.vendor || '—'}</td>
-                      <td>{Number(layer.qty).toFixed(2)}</td>
-                      <td>{Number(layer.price).toFixed(2)}</td>
-                      <td>—</td>
-                      <td>—</td>
-                      <td>—</td>
-                      <td>{formatFifoMoney(layer.qty * layer.price)}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={11}>No bunker quantities on this worksheet yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <p className={styles.note}>
-              Opening B/F is this voyage’s arrival ROB, carried at the grade’s reference price.
-              Stems are the Bunkers → Stemmed rows, consumed oldest first.
-            </p>
-          </section>
-
-          <section>
-            <h4><span>2</span>FIFO Stock Ledger</h4>
-            {ledger.map((grade) => {
-              const remainPrice = grade.remainingQty > 0 ? grade.remainingCost / grade.remainingQty : 0;
+            <div className={styles.sectionTitle}>Port Rotation</div>
+            {ports.length ? ports.map((port, index) => {
+              const portStems = stems.filter((row) => String(row.portId) === String(port.id));
+              const hasStems = portStems.length > 0;
               return (
-                <div key={grade.grade} className={styles.ledger}>
-                  <div className={styles.ledgerHead}>{grade.grade}</div>
-                  <div className={styles.steps}>
-                    <div>
-                      <span>Available</span>
-                      <b>{grade.available.toFixed(2)} MT</b>
-                      <small>{grade.availableNote || '—'}</small>
-                    </div>
-                    <div className={styles.consumed}>
-                      <span>Consumed (FIFO)</span>
-                      <b>{grade.consumed.toFixed(2)} MT</b>
-                      <small>
-                        {grade.consumedNote
-                          ? `${grade.consumedNote} = $${formatFifoMoney(grade.consumedCost)}`
-                          : '—'}
-                      </small>
-                    </div>
-                    <div className={styles.remaining}>
-                      <span>Remaining</span>
-                      <b>{grade.remainingQty.toFixed(2)} MT</b>
-                      <small>
-                        {grade.remainingQty > 0
-                          ? `@ ${remainPrice.toFixed(2)} = $${formatFifoMoney(grade.remainingCost)} → carries to next voyage`
-                          : 'carries to next voyage'}
-                      </small>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            <p className={styles.note}>
-              This FIFO-layered cost (${formatFifoMoney(total)}) is the figure to use for invoicing.
-              The accordion Amount column is consumed × one reference price and can differ slightly.
-            </p>
-          </section>
-
-          <section>
-            <h4><span>3</span>Cost Allocation — Owner / Charterer</h4>
-            {ledger.map((grade) => {
-              const row = alloc[grade.grade] || defaultAlloc(grade.grade);
-              const split = allocateConsumedCost(grade.consumedCost, row.mode, row.owner, grade.consumed);
-              const unit = row.mode === 'qty' ? 'MT' : '%';
-              const chartererInput = complementValue(row.mode, row.owner, grade.consumed);
-              return (
-                <div key={grade.grade} className={styles.alloc}>
-                  <div className={styles.allocHead}>
-                    <div>
-                      <b>{grade.grade}</b>
-                      <small>Consumed cost: ${formatFifoMoney(grade.consumedCost)}</small>
-                    </div>
-                    <div className={styles.toggle}>
-                      <button type="button" className={row.mode !== 'qty' ? styles.on : ''} onClick={() => setMode(grade.grade, 'percent')}>By %</button>
-                      <button type="button" className={row.mode === 'qty' ? styles.on : ''} onClick={() => setMode(grade.grade, 'qty')}>By Quantity</button>
-                    </div>
-                  </div>
-                  <div className={styles.parties}>
-                    <div className={styles.party}>
-                      <span className={styles.partyLabel}><i className={styles.dotOwner} />Owner</span>
-                      <div className={styles.inputRow}>
+                <div key={port.id} className={styles.portCard}>
+                  <div className={styles.portHeader}>
+                    <span className={styles.portName}>
+                      <span className={styles.msn}>{index + 1}</span>
+                      {port.name}
+                    </span>
+                    <div className={styles.sospField}>
+                      <label>SOSP</label>
+                      {readOnly ? (
                         <input
-                          value={row.owner}
-                          readOnly={readOnly}
-                          inputMode="decimal"
-                          onChange={(e) => setOwner(grade.grade, e.target.value)}
+                          className={styles.roInput}
+                          value={port.sosp || ''}
+                          readOnly
+                          placeholder="dd-mm-yyyy HH:MM"
                         />
-                        <em>{unit}</em>
-                      </div>
-                      <strong>${formatFifoMoney(split.owner)}</strong>
+                      ) : (
+                        <DmyDateInput
+                          id={`bunker-sosp-${port.id}`}
+                          enableTime
+                          value={port.sosp || ''}
+                          onChange={(value) => onUpdatePortLeg?.(port.legId, { [port.sospField]: value })}
+                        />
+                      )}
                     </div>
-                    <div className={styles.party}>
-                      <span className={styles.partyLabel}><i className={styles.dotCharterer} />Charterer</span>
-                      <div className={styles.inputRow}>
-                        <input value={chartererInput} readOnly />
-                        <em>{unit}</em>
+                  </div>
+                  <div className={styles.portBody}>
+                    <div className={styles.portSplit}>
+                      <div className={styles.robCol}>
+                        <div className={styles.subLabel}>ROBs at SOSP</div>
+                        <div className={styles.robTableWrap}>
+                          <table className={styles.bgTable}>
+                            <thead>
+                              <tr>
+                                <th>Grade</th>
+                                <th>Qty (MT)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td><span className={`${styles.gradeChip} ${styles.gVlsfo}`}>VLSFO</span></td>
+                                <td><input className={styles.roInput} value={port.robFo || '0.00'} readOnly /></td>
+                              </tr>
+                              <tr>
+                                <td><span className={`${styles.gradeChip} ${styles.gLsmgo}`}>LSMGO</span></td>
+                                <td><input className={styles.roInput} value={port.robDo || '0.00'} readOnly /></td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
-                      <strong>${formatFifoMoney(split.charterer)}</strong>
+
+                      <div className={styles.stemCol}>
+                        {hasStems ? (
+                          <>
+                            <div className={styles.subLabel}>Stemmed</div>
+                            <div className={styles.stemScroll}>
+                              <table className={styles.stemTable}>
+                                <colgroup>
+                                  {!readOnly ? <col style={{ width: 52 }} /> : null}
+                                  <col style={{ width: 118 }} />
+                                  <col style={{ width: 122 }} />
+                                  <col style={{ width: 92 }} />
+                                  <col style={{ width: 104 }} />
+                                  <col style={{ width: 112 }} />
+                                  <col style={{ width: 100 }} />
+                                  <col style={{ width: 112 }} />
+                                  <col style={{ width: 122 }} />
+                                  <col style={{ width: 112 }} />
+                                  <col style={{ width: 112 }} />
+                                  <col style={{ width: 104 }} />
+                                  <col style={{ width: 104 }} />
+                                  <col style={{ width: 92 }} />
+                                  <col style={{ width: 140 }} />
+                                </colgroup>
+                                <thead>
+                                  <tr>
+                                    {!readOnly ? <th /> : null}
+                                    <th>Grade</th>
+                                    <th>Port</th>
+                                    <th>Qty(MT)</th>
+                                    <th>Price ($/MT)</th>
+                                    <th>Amount</th>
+                                    <th>Addl Cost</th>
+                                    <th>Total Cost</th>
+                                    <th>Supplier</th>
+                                    <th>Booking Date</th>
+                                    <th>Del Date</th>
+                                    <th>Booking Qty Min(MT)</th>
+                                    <th>Booking Qty Max(MT)</th>
+                                    <th>Terms(Days)</th>
+                                    <th>Remarks</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {portStems.map((row) => {
+                                    const gradeLabel = gradeById(row.bunkerGradeId);
+                                    const chip = gradeChipClass(gradeLabel);
+                                    const amount = num(row.qty) * num(row.price);
+                                    const totalCost = amount + num(row.addlCost);
+                                    return (
+                                      <tr key={row.id}>
+                                        {!readOnly ? (
+                                          <td>
+                                            <KhakiActions
+                                              onAdd={() => onAddStem?.()}
+                                              onRemove={() => onRemoveStem?.(row.id)}
+                                            />
+                                          </td>
+                                        ) : null}
+                                        <td>
+                                          <div className={chip ? `${styles.gradeSelectWrap} ${chip}` : styles.gradeSelectWrap}>
+                                            <WorksheetSelect
+                                              value={row.bunkerGradeId || ''}
+                                              disabled={readOnly}
+                                              options={bunkerGrades.map((g) => ({ value: g.id, label: g.name }))}
+                                              onChange={(value) => onUpdateStem?.(row.id, { bunkerGradeId: value })}
+                                            />
+                                          </div>
+                                        </td>
+                                        <td>
+                                          <WorksheetSelect
+                                            value={passagePorts.some((p) => p.id === String(row.portId || '')) ? (row.portId || '') : ''}
+                                            disabled={readOnly || !passagePorts.length}
+                                            placeholder={passagePorts.length ? '— Select —' : 'Select ports in Passage & Ports'}
+                                            options={passagePorts.map((p) => ({ value: p.id, label: p.name }))}
+                                            onChange={(portId) => {
+                                              const match = passagePorts.find((p) => String(p.id) === String(portId));
+                                              onUpdateStem?.(row.id, {
+                                                portId: match ? String(match.id) : '',
+                                                portName: match?.name || '',
+                                              });
+                                            }}
+                                          />
+                                        </td>
+                                        <td>
+                                          <input
+                                            className={styles.cellInput}
+                                            value={row.qty || ''}
+                                            readOnly={readOnly}
+                                            onChange={(e) => onUpdateStem?.(row.id, { qty: e.target.value })}
+                                          />
+                                        </td>
+                                        <td>
+                                          <input
+                                            className={styles.cellInput}
+                                            value={row.price || ''}
+                                            readOnly={readOnly}
+                                            onChange={(e) => onUpdateStem?.(row.id, { price: e.target.value })}
+                                          />
+                                        </td>
+                                        <td>
+                                          <input
+                                            className={styles.roInput}
+                                            value={row.cost || amount.toFixed(2)}
+                                            readOnly
+                                          />
+                                        </td>
+                                        <td>
+                                          <input
+                                            className={styles.cellInput}
+                                            value={row.addlCost || ''}
+                                            readOnly={readOnly}
+                                            onChange={(e) => onUpdateStem?.(row.id, { addlCost: e.target.value })}
+                                          />
+                                        </td>
+                                        <td>
+                                          <input
+                                            className={styles.roInput}
+                                            value={row.totalCost || totalCost.toFixed(2)}
+                                            readOnly
+                                          />
+                                        </td>
+                                        <td>
+                                          <WorksheetSelect
+                                            value={row.vendorId || ''}
+                                            disabled={readOnly}
+                                            options={vendors.map((vendor) => ({
+                                              value: vendor.code || vendor.id,
+                                              label: vendor.name,
+                                            }))}
+                                            onChange={(value) => onUpdateStem?.(row.id, { vendorId: value })}
+                                          />
+                                        </td>
+                                        <td className={styles.dateCell}>
+                                          {readOnly ? (
+                                            <input value={row.bookingDate || ''} readOnly />
+                                          ) : (
+                                            <DmyDateInput
+                                              id={`stem-booking-${row.id}`}
+                                              value={row.bookingDate || ''}
+                                              onChange={(value) => onUpdateStem?.(row.id, { bookingDate: value })}
+                                            />
+                                          )}
+                                        </td>
+                                        <td className={styles.dateCell}>
+                                          {readOnly ? (
+                                            <input value={row.deliveryDate || ''} readOnly />
+                                          ) : (
+                                            <DmyDateInput
+                                              id={`stem-del-${row.id}`}
+                                              value={row.deliveryDate || ''}
+                                              onChange={(value) => onUpdateStem?.(row.id, { deliveryDate: value })}
+                                            />
+                                          )}
+                                        </td>
+                                        <td>
+                                          <input
+                                            className={styles.cellInput}
+                                            value={row.bookingQtyMin || ''}
+                                            readOnly={readOnly}
+                                            onChange={(e) => onUpdateStem?.(row.id, { bookingQtyMin: e.target.value })}
+                                          />
+                                        </td>
+                                        <td>
+                                          <input
+                                            className={styles.cellInput}
+                                            value={row.bookingQtyMax || ''}
+                                            readOnly={readOnly}
+                                            onChange={(e) => onUpdateStem?.(row.id, { bookingQtyMax: e.target.value })}
+                                          />
+                                        </td>
+                                        <td>
+                                          <input
+                                            className={styles.cellInput}
+                                            value={row.termsDays || ''}
+                                            readOnly={readOnly}
+                                            onChange={(e) => onUpdateStem?.(row.id, { termsDays: e.target.value })}
+                                          />
+                                        </td>
+                                        <td>
+                                          <input
+                                            className={styles.cellInput}
+                                            value={row.remarks || ''}
+                                            readOnly={readOnly}
+                                            placeholder="Text"
+                                            onChange={(e) => onUpdateStem?.(row.id, { remarks: e.target.value })}
+                                          />
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </>
+                        ) : (
+                          <div className={styles.portEmptyNote} aria-hidden="true" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               );
-            })}
+            }) : (
+              <div className={styles.portEmptyNote}>
+                <InfoIcon />
+                No ports on this voyage yet. Add passage legs to see Port Rotation.
+              </div>
+            )}
+          </section>
+
+          <section>
+            <div className={styles.sectionTitle}>Voyage Results</div>
+            <div className={styles.vrSectionCard}>
+              <div className={styles.vrSectionHead}>Voyage Results</div>
+              <div className={styles.vrSectionBody}>
+                <div className={styles.voyageResults}>
+                  <VoyageResultsChart
+                    title="QTY (MT)"
+                    grades={gradesForChart}
+                    getConsumed={(g) => num(ledger.find((row) => row.grade === g)?.consumed)}
+                    getRob={(g) => num(ledger.find((row) => row.grade === g)?.remainingQty)}
+                    formatValue={(v) => v.toFixed(2)}
+                    tipSuffix=" MT"
+                  />
+                  <VoyageResultsChart
+                    title="Value ($)"
+                    grades={gradesForChart}
+                    getConsumed={(g) => num(ledger.find((row) => row.grade === g)?.consumedCost)}
+                    getRob={(g) => num(ledger.find((row) => row.grade === g)?.remainingCost)}
+                    formatValue={abbreviateMoney}
+                    tipSuffix=""
+                  />
+                </div>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -266,12 +591,12 @@ export default function BunkerFifoModal({
             className={styles.btnNavy}
             disabled={readOnly}
             onClick={() => {
-              onApply?.({ alloc, fifoTotal: total });
+              onApply?.({ fifoTotal: total });
               onClose();
             }}
           >
             <CheckIcon />
-            Apply Allocation
+            Save
           </button>
         </div>
       </div>

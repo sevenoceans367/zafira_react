@@ -12,6 +12,7 @@ export default function CollapsiblePanel({
   onOpenChange,
   actions = null,
   className = '',
+  bodyClassName = '',
   icon = null,
   round = false,
   children,
@@ -53,9 +54,13 @@ export default function CollapsiblePanel({
         ) : null}
       </div>
       {open ? (
-        <div className={styles.panelBody}>{children}</div>
+        <div className={[styles.panelBody, bodyClassName].filter(Boolean).join(' ')}>{children}</div>
       ) : (
-        <div className={styles.panelBodyHidden} hidden aria-hidden="true">
+        <div
+          className={[styles.panelBodyHidden, bodyClassName].filter(Boolean).join(' ')}
+          hidden
+          aria-hidden="true"
+        >
           {children}
         </div>
       )}

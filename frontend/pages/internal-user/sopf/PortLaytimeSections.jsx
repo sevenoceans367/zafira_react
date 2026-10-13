@@ -140,8 +140,21 @@ export default function PortLaytimeSections({
     const cargoRow = (form.cargoRows || []).find(
       (row) => normalizeCargoId(row.cargoId) === normalized,
     );
+    // Multiple Main Cargo rows: Qty (MT) = sum of all Cargo (MT); else selected cargo MT
+    let mtSum = 0;
+    let mtCount = 0;
+    for (const row of form.cargoRows || []) {
+      const raw = String(row.cargoMt ?? '').trim();
+      if (!raw) continue;
+      const n = Number(raw.replace(/,/g, ''));
+      if (!Number.isFinite(n)) continue;
+      mtSum += n;
+      mtCount += 1;
+    }
+    const combinedMt = mtCount > 0 ? String(Math.round(mtSum * 100) / 100) : '';
+    const singleMt = cargoRow?.cargoMt || fromOptions?.mt || '';
     const mt = normalized
-      ? (cargoRow?.cargoMt || fromOptions?.mt || '')
+      ? (mtCount > 1 ? combinedMt : (singleMt || combinedMt))
       : '';
     if (side === 'load') {
       patchLeg(legId, {

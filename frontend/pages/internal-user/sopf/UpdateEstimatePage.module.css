@@ -1570,33 +1570,43 @@
 }
 
 .vesselOpexHireTable {
-  table-layout: fixed;
+  table-layout: auto;
+  width: 100%;
 }
 
 .vesselOpexHireTable .vesselOpexColHire {
-  width: 12%;
+  width: auto;
+  min-width: 88px;
 }
 
 .vesselOpexHireTable .vesselOpexColIndex {
-  width: 34%;
+  width: auto;
+  min-width: 140px;
 }
 
 .vesselOpexHireTable .vesselOpexColTotal {
-  width: 12%;
+  width: auto;
+  min-width: 88px;
 }
 
 .vesselOpexThCheck {
   display: inline-flex;
   align-items: center;
-  margin: 0 0 0 6px;
+  margin: 0 0 0 5px;
   vertical-align: middle;
   cursor: pointer;
+  flex: none;
 }
 
 .vesselOpexThCheck input[type='checkbox'] {
   width: 13px;
   height: 13px;
+  min-width: 13px;
+  min-height: 13px;
   margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
   accent-color: #274670;
 }
@@ -1606,11 +1616,14 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
+  width: 100%;
+  flex-wrap: wrap;
 }
 
 .vesselOpexIndexCell select {
-  flex: 1 1 0;
+  flex: 1 1 72px;
   min-width: 0;
+  width: auto;
 }
 
 .vesselOpexIndexPct {
@@ -1621,15 +1634,17 @@
 }
 
 .vesselOpexIndexPctInput {
-  flex: 0 0 44px;
-  width: 44px;
-  min-width: 44px;
+  flex: 0 1 40px;
+  width: 40px;
+  min-width: 32px;
+  max-width: 48px;
 }
 
 .vesselOpexIndexRate {
-  flex: 0 0 64px;
-  width: 64px;
-  min-width: 64px;
+  flex: 0 1 56px;
+  width: 56px;
+  min-width: 44px;
+  max-width: 72px;
 }
 
 .vesselOpexTotalsTable th,

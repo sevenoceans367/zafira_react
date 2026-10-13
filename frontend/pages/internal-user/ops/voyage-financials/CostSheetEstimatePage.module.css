@@ -268,7 +268,7 @@
   letter-spacing: 0.03em;
 }
 
-.field input,
+.field input:not([type='checkbox']):not([type='radio']),
 .field select {
   width: 100%;
   min-height: 24px;
@@ -280,7 +280,7 @@
   background: #fff;
 }
 
-.field input:read-only {
+.field input:not([type='checkbox']):not([type='radio']):read-only {
   background: #f3f4f6;
   color: #6b7280;
 }
@@ -1548,14 +1548,14 @@
   color: #1b2733;
 }
 
-.roundSection input:read-only {
+.roundSection input:not([type='checkbox']):not([type='radio']):read-only {
   background: #f8f9fa;
   color: #8a93a0;
 }
 
-.roundSection .portTable input,
+.roundSection .portTable input:not([type='checkbox']):not([type='radio']),
 .roundSection .portTable select,
-.roundSection .field input,
+.roundSection .field input:not([type='checkbox']):not([type='radio']),
 .roundSection .field select,
 .roundSection .field textarea {
   min-height: 27px;
@@ -1618,6 +1618,61 @@
 .opexFields .headerGrid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px 20px;
+}
+
+.opexFields .field {
+  min-width: 0;
+}
+
+.opexCheckRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.opexCheckRow input[type='text'],
+.opexCheckRow input:not([type]),
+.opexCheckRow input[type='number'],
+.opexCheckRow > input:not([type='checkbox']) {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.opexCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  flex: none;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: #57626f;
+  line-height: 1;
+}
+
+.opexCheck input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  accent-color: #274670;
+  cursor: pointer;
+  flex: none;
+}
+
+.opexCheck input[type='checkbox']:disabled {
+  cursor: default;
+  opacity: 0.55;
 }
 
 .roundSection .portTable input:read-only,

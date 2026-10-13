@@ -374,14 +374,14 @@ export default function EstimateDetailSections({
         || Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoId')
       )
     ) {
-      const syncQty = Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoMt');
+      // Multiple: Qty syncs to sum of all Main Cargo Details Cargo (MT)
       applyPatch({
         cargoRows: rows,
         portLegs: seedPortLegsFromFirstCargo(
           form.portLegs,
           rows,
           form.lumpsumQty,
-          { syncQty },
+          { syncQty: true },
         ),
       });
       return;
@@ -435,6 +435,11 @@ export default function EstimateDetailSections({
         return;
       }
 
+      // Switching L/B → Laden: seed Port Details cargo + Qty (MT) if still empty
+      if (keys.includes('passageType') && String(cleanPatch.passageType) === '2') {
+        rows = seedPortLegsFromFirstCargo(rows, form.cargoRows, form.lumpsumQty);
+      }
+
       // PHP setROB(id, fo|do): To Port departure ROB cascades to next leg From Port
       if (keys.includes('toRobFoDeparture') || keys.includes('toRobDoDeparture')) {
         const idx = rows.findIndex((row) => String(row.id) === String(id));
@@ -483,6 +488,16 @@ export default function EstimateDetailSections({
         next.fromArrival = prev.toDeparture;
         next.fromDeparture = prev.toDeparture;
       }
+      // Port Details LP/DP only list Laden (passageType=2). Carry L/B + cargo/qty
+      // from the previous leg so a new leg appears with Cargo (MT) filled.
+      if (prev?.passageType) next.passageType = prev.passageType;
+      else if ((form.cargoRows || []).some((row) => String(row.cargoId || '').trim())) {
+        next.passageType = '2';
+      }
+      if (prev?.lpCargoId) next.lpCargoId = prev.lpCargoId;
+      if (prev?.dpCargoId) next.dpCargoId = prev.dpCargoId;
+      if (prev?.loadQty) next.loadQty = prev.loadQty;
+      if (prev?.dischargeQty) next.dischargeQty = prev.dischargeQty;
       const seeded = seedPortLegsFromFirstCargo(
         [next],
         form.cargoRows,
@@ -2459,9 +2474,9 @@ export default function EstimateDetailSections({
         {showHireSection ? (
           <div className={styles.headerGrid}>
             <Field id="hireRate" label={showIndexLinked ? 'Hire / Day ($)' : 'Hire / Day'}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className={styles.opexCheckRow}>
                 {showIndexLinked ? (
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                  <label className={styles.opexCheck} htmlFor="chkHire" title="Enable Hire / Day">
                     <input
                       type="checkbox"
                       id="chkHire"
@@ -2482,7 +2497,6 @@ export default function EstimateDetailSections({
                   readOnly={readOnly || (isDry && !showIndexLinked) || (showIndexLinked && !form.chkHire)}
                   inputMode="decimal"
                   autoComplete="off"
-                  style={{ flex: 1 }}
                   onChange={(e) => {
                     const value = sanitizeFieldDecimal('hireRate', e.target.value);
                     applyPatch({
@@ -2496,7 +2510,7 @@ export default function EstimateDetailSections({
             {showIndexLinked ? (
               <>
                 <Field id="chkIndex" label="Index Linked">
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <label className={styles.opexCheck} htmlFor="chkIndex">
                     <input
                       type="checkbox"
                       id="chkIndex"

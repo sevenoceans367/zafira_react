@@ -183,7 +183,10 @@ export function createEmptyCargoRow(status = 1) {
  * Keep Port Details Cargo/Qty in sync with the Cargo panel.
  * - Dropdown source of truth = selected Cargo Names.
  * - Removed cargos are cleared from LP/DP (or replaced with the first remaining).
- * - Empty selects are seeded from the first cargo; qty syncs when `syncQty` or selection remaps.
+ * - Empty selects are seeded from the first cargo.
+ * - Qty (MT) for Multiple Main Cargo Details = sum of all Cargo (MT) rows
+ *   (so adding another cargo row updates LP/DP Qty), falling back to the
+ *   assigned cargo's MT / lumpsum when the sum is empty.
  */
 export function seedPortLegsFromFirstCargo(
   portLegs = [],
@@ -193,19 +196,43 @@ export function seedPortLegsFromFirstCargo(
 ) {
   const selectedIds = [];
   const seen = new Set();
+  const mtByCargoId = new Map();
+  let totalMtSum = 0;
+  let hasAnyMt = false;
+
   for (const row of cargoRows || []) {
     const id = normalizeCargoId(row.cargoId);
+    const rawMt = row?.cargoMt != null ? String(row.cargoMt).trim() : '';
+    const mtNum = rawMt ? Number(String(rawMt).replace(/,/g, '')) : NaN;
+    if (rawMt && Number.isFinite(mtNum)) {
+      totalMtSum += mtNum;
+      hasAnyMt = true;
+      if (id) {
+        const prev = mtByCargoId.get(id);
+        mtByCargoId.set(id, prev != null ? prev + mtNum : mtNum);
+      }
+    }
     if (!id || seen.has(id)) continue;
     seen.add(id);
     selectedIds.push(id);
   }
 
   const firstId = selectedIds[0] || '';
-  const first = firstId
-    ? (cargoRows || []).find((row) => normalizeCargoId(row.cargoId) === firstId)
-    : null;
-  const rowQty = first?.cargoMt != null ? String(first.cargoMt).trim() : '';
-  const qty = rowQty || String(lumpsumQty || '').trim();
+  const lumpsum = String(lumpsumQty || '').trim();
+  const totalMt = hasAnyMt
+    ? String(Math.round(totalMtSum * 100) / 100)
+    : '';
+  const formatMt = (n) => (n != null && Number.isFinite(n) ? String(Math.round(n * 100) / 100) : '');
+
+  const qtyForCargoId = (cargoId) => {
+    const id = normalizeCargoId(cargoId);
+    if (id && mtByCargoId.has(id)) return formatMt(mtByCargoId.get(id));
+    return totalMt || lumpsum;
+  };
+
+  // Multiple Main Cargo rows: Port Details Qty tracks the combined Cargo (MT).
+  const combinedQty = totalMt || lumpsum;
+
   const isSelected = (raw) => {
     const id = normalizeCargoId(raw);
     return Boolean(id && seen.has(id));
@@ -233,14 +260,20 @@ export function seedPortLegsFromFirstCargo(
       if (String(leg.dpCargoId ?? '').trim()) patch.dpCargoId = '';
     }
 
+    const nextLp = normalizeCargoId(patch.lpCargoId ?? leg.lpCargoId) || firstId;
+    const nextDp = normalizeCargoId(patch.dpCargoId ?? leg.dpCargoId) || firstId;
+    // Prefer combined Main Cargo total (Multiple); else assigned cargo / lumpsum.
+    const loadQtySeed = combinedQty || qtyForCargoId(nextLp);
+    const discQtySeed = combinedQty || qtyForCargoId(nextDp);
+
     const shouldSyncQty = syncQty || lpRemoved || dpRemoved;
-    if (qty && (shouldSyncQty || !String(leg.loadQty || '').trim())) {
-      patch.loadQty = qty;
+    if (loadQtySeed && (shouldSyncQty || !String(leg.loadQty || '').trim())) {
+      patch.loadQty = loadQtySeed;
     }
-    if (qty && (shouldSyncQty || !String(leg.dischargeQty || '').trim())) {
-      patch.dischargeQty = qty;
+    if (discQtySeed && (shouldSyncQty || !String(leg.dischargeQty || '').trim())) {
+      patch.dischargeQty = discQtySeed;
     }
-    if (!firstId && (shouldSyncQty || lpRemoved || dpRemoved)) {
+    if (!combinedQty && !firstId && (shouldSyncQty || lpRemoved || dpRemoved)) {
       if (!String(leg.loadQty || '').trim() || lpRemoved) patch.loadQty = '';
       if (!String(leg.dischargeQty || '').trim() || dpRemoved) patch.dischargeQty = '';
     }

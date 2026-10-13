@@ -283,6 +283,7 @@ export default function EstimateDetailSections({
     ));
 
     // Cargo Name / Qty → auto-fill Port Details Cargo + Qty (MT)
+    // Multiple: Qty syncs to sum of all Main Cargo Details Cargo (MT)
     if (
       collection === 'cargoRows'
       && (
@@ -290,14 +291,13 @@ export default function EstimateDetailSections({
         || Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoId')
       )
     ) {
-      const syncQty = Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoMt');
       applyPatch({
         cargoRows: rows,
         portLegs: seedPortLegsFromFirstCargo(
           form.portLegs,
           rows,
           form.lumpsumQty,
-          { syncQty },
+          { syncQty: true },
         ),
       });
       return;
@@ -350,6 +350,11 @@ export default function EstimateDetailSections({
         });
         return;
       }
+
+      // Switching L/B → Laden: seed Port Details cargo + Qty (MT) if still empty
+      if (keys.includes('passageType') && String(cleanPatch.passageType) === '2') {
+        rows = seedPortLegsFromFirstCargo(rows, form.cargoRows, form.lumpsumQty);
+      }
     }
 
     if (onRecalc) {
@@ -378,6 +383,16 @@ export default function EstimateDetailSections({
         next.fromArrival = prev.toDeparture;
         next.fromDeparture = prev.toDeparture;
       }
+      // Port Details LP/DP only list Laden (passageType=2). Carry L/B + cargo/qty
+      // from the previous leg so a new leg appears with Cargo (MT) filled.
+      if (prev?.passageType) next.passageType = prev.passageType;
+      else if ((form.cargoRows || []).some((row) => String(row.cargoId || '').trim())) {
+        next.passageType = '2';
+      }
+      if (prev?.lpCargoId) next.lpCargoId = prev.lpCargoId;
+      if (prev?.dpCargoId) next.dpCargoId = prev.dpCargoId;
+      if (prev?.loadQty) next.loadQty = prev.loadQty;
+      if (prev?.dischargeQty) next.dischargeQty = prev.dischargeQty;
       const seeded = seedPortLegsFromFirstCargo(
         [next],
         form.cargoRows,

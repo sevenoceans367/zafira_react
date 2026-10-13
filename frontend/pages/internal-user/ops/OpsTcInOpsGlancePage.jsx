@@ -3,6 +3,7 @@ import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Button,
+  EditIconButton,
   EditRecapIcon,
   FilterField,
   LoadingOverlay,
@@ -467,18 +468,19 @@ export default function OpsTcInOpsGlancePage() {
           })}
         </div>
 
-        <OpsTcStatusTabs />
+        <div>
+          <OpsTcStatusTabs />
 
-        <OpsVcGlanceTable
-          accent="tc"
-          flushTop
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          showingLabel={`Showing ${rows.length} of ${total} operations`}
-        >
+          <OpsVcGlanceTable
+            accent="tc"
+            flushTop
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            showingLabel={`Showing ${rows.length} of ${total} operations`}
+          >
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>
@@ -658,8 +660,8 @@ export default function OpsTcInOpsGlancePage() {
                     </div>
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <Link
-                      className={styles.editIco}
+                    <EditIconButton
+                      as={Link}
                       to={appPath(`/internal-user/vc/tc/${encodeURIComponent(row.tcOutId)}/${isHistory ? 'view' : 'edit'}?returnTo=${encodeURIComponent(opsTcGlanceHref(statusTab))}`)}
                       title={isHistory ? 'View TC Recap' : 'Edit TC Recap'}
                     >
@@ -669,9 +671,9 @@ export default function OpsTcInOpsGlancePage() {
                           <circle cx="12" cy="12" r="3" />
                         </svg>
                       ) : (
-                        <EditRecapIcon size={14} />
+                        <EditRecapIcon size={13} />
                       )}
-                    </Link>
+                    </EditIconButton>
                   </td>
                   <td>
                     <div className={styles.alertStack}>
@@ -712,7 +714,8 @@ export default function OpsTcInOpsGlancePage() {
               );
             })}
           </tbody>
-        </OpsVcGlanceTable>
+          </OpsVcGlanceTable>
+        </div>
 
         {sheetModal.open ? (
           <div className={pageStyles.modalBackdrop} role="dialog" aria-modal="true">

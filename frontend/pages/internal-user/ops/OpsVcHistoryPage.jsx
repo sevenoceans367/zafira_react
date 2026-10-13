@@ -142,18 +142,19 @@ export default function OpsVcHistoryPage() {
 
         <OpsVcTaskWidgets rows={rows} pageContext={PAGE_CONTEXT} />
 
-        <OpsVcStatusTabs />
+        <div>
+          <OpsVcStatusTabs />
 
-        <OpsVcGlanceTable
-          accent="spot"
-          flushTop
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          showingLabel={`Showing ${rows.length} of ${total} operations`}
-        >
+          <OpsVcGlanceTable
+            accent="spot"
+            flushTop
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            showingLabel={`Showing ${rows.length} of ${total} operations`}
+          >
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>
@@ -341,7 +342,8 @@ export default function OpsVcHistoryPage() {
               );
             })}
           </tbody>
-        </OpsVcGlanceTable>
+          </OpsVcGlanceTable>
+        </div>
 
         <OpsVcCompareSheetsModal
           open={compareModal.open}

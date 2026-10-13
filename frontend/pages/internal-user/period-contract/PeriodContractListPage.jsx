@@ -469,28 +469,30 @@ export default function PeriodContractListPage() {
         ))}
       </div>
 
-      <div className={styles.statusTabs} role="tablist" aria-label="Period status">
-        {SOPF_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            className={`${styles.statusTab} ${activeTab === tab.id ? styles.statusTabActive : ''}`}
-            onClick={() => {
-              setActiveTab(tab.id);
-              updateQuery({ status: tab.id === 'closed' ? 'completed' : 'active' });
-            }}
-          >
-            <TabIcon id={tab.id} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <div>
+        <div className={styles.statusTabs} role="tablist" aria-label="Period status">
+          {SOPF_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={`${styles.statusTab} ${activeTab === tab.id ? styles.statusTabActive : ''}`}
+              onClick={() => {
+                setActiveTab(tab.id);
+                updateQuery({ status: tab.id === 'closed' ? 'completed' : 'active' });
+              }}
+            >
+              <TabIcon id={tab.id} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-      <ScrollableTable
-        pageSize={pageSize}
-        onPageSizeChange={setPageSize}
+        <ScrollableTable
+          flushTop
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
         toolbarStart={(
           <div className={styles.menuWrap} ref={menuRef}>
             <button
@@ -623,7 +625,8 @@ export default function PeriodContractListPage() {
               ))}
             </tbody>
           </table>
-      </ScrollableTable>
+        </ScrollableTable>
+      </div>
 
       {modal ? createPortal(
         <div className={styles.modalScrim} role="presentation" onClick={closeModal}>

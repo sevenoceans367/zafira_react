@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DmyDateInput } from '@bainbridge/shared-ui';
+import { HScrollButtons } from '../../sopf/ScrollableTable.jsx';
 import {
   buildBunkerFifo,
   fifoGrandTotal,
@@ -43,14 +44,14 @@ function InfoIcon() {
   );
 }
 
-function gradeChipClass(name) {
-  const text = String(name || '').toUpperCase().replace(/\s+/g, '');
-  if (text.includes('SCRUBBER')) return styles.gScrubber;
-  if (text.includes('LSMGO')) return styles.gLsmgo;
-  if (text.includes('MGO')) return styles.gMgo;
-  if (text.includes('HSFO')) return styles.gHsfo;
-  if (text.includes('VLSFO')) return styles.gVlsfo;
-  return '';
+function ChartererChipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M3 12h18" />
+    </svg>
+  );
 }
 
 function num(value) {
@@ -58,10 +59,9 @@ function num(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function abbreviateMoney(value) {
+function formatMoneyTip(value) {
   const n = num(value);
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`;
-  return `$${n.toFixed(0)}`;
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function buildPortCards(form) {
@@ -126,41 +126,77 @@ function KhakiActions({ onAdd, onRemove, readOnly }) {
   );
 }
 
+function StemScrollShell({ children }) {
+  const wrapRef = useRef(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  const updateScroll = useCallback(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const overflow = max > 4;
+    setCanLeft(overflow && el.scrollLeft > 2);
+    setCanRight(overflow && el.scrollLeft < max - 2);
+  }, []);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return undefined;
+    updateScroll();
+    el.addEventListener('scroll', updateScroll, { passive: true });
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(updateScroll) : null;
+    observer?.observe(el);
+    if (el.firstElementChild) observer?.observe(el.firstElementChild);
+    window.addEventListener('resize', updateScroll);
+    return () => {
+      el.removeEventListener('scroll', updateScroll);
+      observer?.disconnect();
+      window.removeEventListener('resize', updateScroll);
+    };
+  }, [updateScroll, children]);
+
+  const scrollByDir = (dir) => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const amount = Math.max(280, Math.round(el.clientWidth * 0.45));
+    el.scrollBy({ left: dir * amount, behavior: 'smooth' });
+  };
+
+  return (
+    <>
+      <div className={styles.subLabelRow}>
+        <div className={styles.subLabel}>Stemmed</div>
+        <HScrollButtons canLeft={canLeft} canRight={canRight} onScroll={scrollByDir} />
+      </div>
+      <div className={styles.stemScroll} ref={wrapRef} data-ops-hscroll>
+        {children}
+      </div>
+    </>
+  );
+}
+
 function VoyageResultsChart({
   title,
   grades,
   getConsumed,
   getRob,
-  formatValue,
-  tipSuffix,
+  formatTip,
 }) {
   const max = Math.max(
     1,
     ...grades.flatMap((g) => [getConsumed(g), getRob(g)]),
   );
-  const barH = (value) => `${Math.max(4, Math.round((value / max) * 120))}px`;
+  const barH = (value) => `${Math.max(4, Math.round((value / max) * 132))}px`;
   const colors = {
-    VLSFO: { consumed: '#D97708', rob: '#8B5E3C' },
-    LSMGO: { consumed: '#AA740A', rob: '#BD9553' },
+    VLSFO: { consumed: '#BF6C35', rob: '#D5A07C' },
+    LSMGO: { consumed: '#E1952F', rob: '#EBC060' },
   };
+  const fallback = { consumed: '#BF6C35', rob: '#D5A07C' };
 
   return (
     <div className={styles.vrChart}>
       <div className={styles.vrChartTitle}>{title}</div>
-      <div className={styles.vrLegend}>
-        {grades.map((g) => (
-          <React.Fragment key={g}>
-            <span className={styles.vrLegendItem}>
-              <span className={styles.vrSwatch} style={{ background: colors[g]?.consumed }} />
-              {g} Consumed
-            </span>
-            <span className={styles.vrLegendItem}>
-              <span className={styles.vrSwatch} style={{ background: colors[g]?.rob }} />
-              {g} ROB
-            </span>
-          </React.Fragment>
-        ))}
-      </div>
       <div className={styles.vrBars}>
         {grades.map((g) => {
           const consumed = getConsumed(g);
@@ -170,17 +206,15 @@ function VoyageResultsChart({
               <div className={styles.vrBarPair}>
                 <div
                   className={styles.vrBarCol}
-                  data-tip={`${g} · Consumed: ${formatValue(consumed)}${tipSuffix}`}
+                  data-tip={`${g} · Consumed: ${formatTip(consumed)}`}
                 >
-                  <div className={styles.vrBarValue}>{formatValue(consumed)}</div>
-                  <div className={styles.vrBar} style={{ height: barH(consumed), background: colors[g]?.consumed }} />
+                  <div className={styles.vrBar} style={{ height: barH(consumed), background: (colors[g] || fallback).consumed }} />
                 </div>
                 <div
                   className={styles.vrBarCol}
-                  data-tip={`${g} · ROB: ${formatValue(rob)}${tipSuffix}`}
+                  data-tip={`${g} · ROB: ${formatTip(rob)}`}
                 >
-                  <div className={styles.vrBarValue}>{formatValue(rob)}</div>
-                  <div className={styles.vrBar} style={{ height: barH(rob), background: colors[g]?.rob }} />
+                  <div className={styles.vrBar} style={{ height: barH(rob), background: (colors[g] || fallback).rob }} />
                 </div>
               </div>
             </div>
@@ -189,10 +223,7 @@ function VoyageResultsChart({
       </div>
       <div className={styles.vrLabelsRow}>
         {grades.map((g) => (
-          <div key={g} className={styles.vrPairLabels}>
-            <span>Consumed</span>
-            <span>ROB</span>
-          </div>
+          <div key={g} className={styles.vrGroupLabel}>{g}</div>
         ))}
       </div>
     </div>
@@ -270,13 +301,29 @@ export default function BunkerFifoModal({
               <h3 id="bunker-mgmt-title">Bunker Management</h3>
               <div className={styles.idRow}>
                 <span className={styles.voyId}>
-                  {[voyageNo, vesselName].filter(Boolean).join(' · ') || 'Voyage worksheet'}
+                  {voyageNo ? (
+                    <button
+                      type="button"
+                      className={styles.voyLink}
+                      title="Open this voyage's worksheet"
+                      onClick={onClose}
+                    >
+                      {`VOY ${voyageNo}`}
+                    </button>
+                  ) : (
+                    <span className={styles.voyLinkMuted}>VOY —</span>
+                  )}
+                  {vesselName ? (
+                    <>
+                      <span className={styles.vcSep}>·</span>
+                      {vesselName}
+                    </>
+                  ) : null}
                 </span>
-                {charterer ? (
-                  <span className={styles.chartererChip}>
-                    CHARTERER · <b>{charterer}</b>
-                  </span>
-                ) : null}
+                <span className={styles.chartererChip}>
+                  <ChartererChipIcon />
+                  Charterer: <b>{charterer || '—'}</b>
+                </span>
               </div>
             </div>
           </div>
@@ -345,9 +392,7 @@ export default function BunkerFifoModal({
 
                       <div className={styles.stemCol}>
                         {hasStems ? (
-                          <>
-                            <div className={styles.subLabel}>Stemmed</div>
-                            <div className={styles.stemScroll}>
+                          <StemScrollShell>
                               <table className={styles.stemTable}>
                                 <colgroup>
                                   {!readOnly ? <col style={{ width: 52 }} /> : null}
@@ -388,7 +433,6 @@ export default function BunkerFifoModal({
                                 <tbody>
                                   {portStems.map((row) => {
                                     const gradeLabel = gradeById(row.bunkerGradeId);
-                                    const chip = gradeChipClass(gradeLabel);
                                     const amount = num(row.qty) * num(row.price);
                                     const totalCost = amount + num(row.addlCost);
                                     return (
@@ -402,14 +446,13 @@ export default function BunkerFifoModal({
                                           </td>
                                         ) : null}
                                         <td>
-                                          <div className={chip ? `${styles.gradeSelectWrap} ${chip}` : styles.gradeSelectWrap}>
-                                            <WorksheetSelect
-                                              value={row.bunkerGradeId || ''}
-                                              disabled={readOnly}
-                                              options={bunkerGrades.map((g) => ({ value: g.id, label: g.name }))}
-                                              onChange={(value) => onUpdateStem?.(row.id, { bunkerGradeId: value })}
-                                            />
-                                          </div>
+                                          <WorksheetSelect
+                                            value={row.bunkerGradeId || ''}
+                                            gradeLabel={gradeLabel}
+                                            disabled={readOnly}
+                                            options={bunkerGrades.map((g) => ({ value: g.id, label: g.name }))}
+                                            onChange={(value) => onUpdateStem?.(row.id, { bunkerGradeId: value })}
+                                          />
                                         </td>
                                         <td>
                                           <WorksheetSelect
@@ -535,8 +578,7 @@ export default function BunkerFifoModal({
                                   })}
                                 </tbody>
                               </table>
-                            </div>
-                          </>
+                          </StemScrollShell>
                         ) : (
                           <div className={styles.portEmptyNote} aria-hidden="true" />
                         )}
@@ -556,7 +598,7 @@ export default function BunkerFifoModal({
           <section>
             <div className={styles.sectionTitle}>Voyage Results</div>
             <div className={styles.vrSectionCard}>
-              <div className={styles.vrSectionHead}>Voyage Results</div>
+              <div className={styles.vrSectionHead}>Consumptions & ROBs</div>
               <div className={styles.vrSectionBody}>
                 <div className={styles.voyageResults}>
                   <VoyageResultsChart
@@ -564,16 +606,14 @@ export default function BunkerFifoModal({
                     grades={gradesForChart}
                     getConsumed={(g) => num(ledger.find((row) => row.grade === g)?.consumed)}
                     getRob={(g) => num(ledger.find((row) => row.grade === g)?.remainingQty)}
-                    formatValue={(v) => v.toFixed(2)}
-                    tipSuffix=" MT"
+                    formatTip={(v) => `${v.toFixed(2)} MT`}
                   />
                   <VoyageResultsChart
                     title="Value ($)"
                     grades={gradesForChart}
                     getConsumed={(g) => num(ledger.find((row) => row.grade === g)?.consumedCost)}
                     getRob={(g) => num(ledger.find((row) => row.grade === g)?.remainingCost)}
-                    formatValue={abbreviateMoney}
-                    tipSuffix=""
+                    formatTip={formatMoneyTip}
                   />
                 </div>
               </div>

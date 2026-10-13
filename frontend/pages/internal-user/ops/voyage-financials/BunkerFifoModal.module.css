@@ -44,8 +44,8 @@
   width: 38px;
   height: 38px;
   border-radius: 11px;
-  background: #e3f4f4;
-  color: #14919b;
+  background: #e6eaf1;
+  color: #274670;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -73,21 +73,57 @@
 }
 
 .voyId {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   font-weight: 600;
   color: #454c54;
 }
 
+.voyLink {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.voyLink:hover {
+  color: #274670;
+}
+
+.voyLinkMuted {
+  font-weight: 700;
+  color: #8a93a0;
+}
+
+.vcSep {
+  opacity: 0.55;
+  font-weight: 700;
+}
+
 .chartererChip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 5px 12px;
   border-radius: 7px;
   background: #e6eaf1;
   color: #274670;
   font-size: 11.5px;
   font-weight: 600;
+}
+
+.chartererChip svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
 }
 
 .chartererChip b {
@@ -264,6 +300,30 @@
   flex-direction: column;
 }
 
+.subLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+/* Compact ◀ ▶ (~40% smaller than Spot Ops 36px controls) */
+.subLabelRow [role='group'] {
+  gap: 4px;
+}
+
+.subLabelRow [role='group'] button {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+}
+
+.subLabelRow [role='group'] button img {
+  width: 10px;
+  height: 10px;
+}
+
 .subLabel {
   display: flex;
   align-items: center;
@@ -273,7 +333,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #274670;
-  margin: 0 0 8px;
+  margin: 0;
 }
 
 .robTableWrap {
@@ -307,6 +367,10 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 12.5px;
+}
+
+.stemTable {
+  min-width: 1680px;
 }
 
 .bgTable th,
@@ -363,24 +427,6 @@
 .gMgo { background: #eee9ff; color: #6c47ff; }
 .gHsfo { background: #fcf1dd; color: #b9760a; }
 .gScrubber { background: #e3f4f4; color: #14919b; }
-
-.gradeSelectWrap {
-  min-width: 110px;
-}
-
-.gradeSelectWrap.gVlsfo :global(button) {
-  border-color: #3b82f6;
-  background: #eaf1fe;
-  color: #3b82f6;
-  font-weight: 700;
-}
-
-.gradeSelectWrap.gLsmgo :global(button) {
-  border-color: #0fa836;
-  background: #e8f8ec;
-  color: #0fa836;
-  font-weight: 700;
-}
 
 .cellInput,
 .roInput {
@@ -451,9 +497,9 @@
 }
 
 .vrSectionHead {
-  background: #e3f4f4;
-  border-bottom: 1px solid #eceef2;
-  color: #0b5a61;
+  background: #fdece4;
+  border-bottom: 1px solid #f7a47d;
+  color: #b83e12;
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -463,6 +509,7 @@
 
 .vrSectionBody {
   padding: 16px;
+  background: #fdece4;
 }
 
 .voyageResults {
@@ -491,42 +538,19 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #274670;
-  background: #e6eaf1;
+  color: #454c54;
+  background: #eceef2;
   border-radius: 7px;
   padding: 5px 11px;
-  margin: 0 0 6px;
-}
-
-.vrLegend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  font-size: 10px;
-  font-weight: 600;
-  color: #57626f;
-  margin-bottom: 14px;
-}
-
-.vrLegendItem {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.vrSwatch {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-  display: inline-block;
-  flex: none;
+  margin: 0 0 18px;
+  text-align: left;
 }
 
 .vrBars {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 36px;
+  gap: 56px;
   height: 140px;
   border-bottom: 1.5px solid #d8dce3;
   padding: 0 8px;
@@ -554,19 +578,11 @@
   justify-content: flex-end;
   height: 100%;
   cursor: default;
-  width: 48px;
-}
-
-.vrBarValue {
-  font-weight: 800;
-  font-size: 12px;
-  color: #454c54;
-  margin-bottom: 6px;
-  white-space: nowrap;
+  width: 84px;
 }
 
 .vrBar {
-  width: 48px;
+  width: 84px;
   border-radius: 4px 4px 0 0;
   transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
 }
@@ -597,7 +613,21 @@
   z-index: 5;
 }
 
-.vrBarCol:hover::after {
+.vrBarCol::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  border: 5px solid transparent;
+  border-top-color: #1b2733;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+
+.vrBarCol:hover::after,
+.vrBarCol:hover::before {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
@@ -605,22 +635,16 @@
 .vrLabelsRow {
   display: flex;
   justify-content: center;
-  gap: 36px;
+  gap: 56px;
   margin-top: 11px;
 }
 
-.vrPairLabels {
-  display: flex;
-  gap: 3px;
-}
-
-.vrPairLabels span {
-  width: 48px;
+.vrGroupLabel {
+  width: 168px;
   text-align: center;
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   color: #57626f;
-  white-space: nowrap;
 }
 
 .note {

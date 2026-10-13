@@ -107,6 +107,50 @@
   flex-shrink: 0;
 }
 
+/* Match bunker Details / TC-in Hire compact header actions (27px, no icons) */
+.panelActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 27px;
+  min-height: 27px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  text-decoration: none;
+  box-sizing: border-box;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.panelActionBtnAccent {
+  background: transparent;
+  border: 1px solid #f4652c;
+  color: #f4652c;
+}
+
+.panelActionBtnAccent:hover {
+  background: rgba(244, 101, 44, 0.1);
+  border-color: #f4652c;
+  color: #f4652c;
+}
+
+.panelActionBtnOutline {
+  background: transparent;
+  border: 1px solid #376eb8;
+  color: #376eb8;
+}
+
+.panelActionBtnOutline:hover {
+  background: #bccadb;
+  border-color: #376eb8;
+  color: #376eb8;
+}
+
 .panelActionLink {
   display: inline-flex;
   align-items: center;
@@ -293,19 +337,37 @@
   border-radius: 4px;
   background: #fff;
   padding: 6px;
+  overflow-x: auto;
 }
 
 .portLegGrid {
   display: grid;
-  grid-template-columns: minmax(420px, 1.35fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(640px, 1.35fr) minmax(300px, 1fr);
   gap: 8px;
   align-items: start;
+  min-width: 948px;
 }
 
 .portLegPorts,
 .portLegMeta {
   min-width: 0;
-  overflow-x: auto;
+}
+
+/* Passage & Ports headers: 20% smaller than roundSection .portTable th (10px) */
+.roundSection .portLegCard .portTable th {
+  font-size: 8px;
+}
+
+.roundSection .portLegCard .sheetSelect button {
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.roundSection .portLegCard .fetchBtn {
+  font-size: 8px;
+  padding: 2px 6px;
 }
 
 .portIdxCol {
@@ -1505,6 +1567,18 @@
   color: #1b2733;
 }
 
+/* Passage & Ports inputs: 20% smaller — must follow roundSection input rules
+   (same specificity as input:not([type=...]) otherwise loses on source order). */
+.roundSection .portLegCard input:not([type='checkbox']):not([type='radio']),
+.roundSection .portLegCard select,
+.roundSection .portLegCard .portTable input,
+.roundSection .portLegCard .portTable select {
+  min-height: 22px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
 .roundSection .field textarea {
   min-height: 46px;
 }
@@ -1581,24 +1655,21 @@
 .bunkerDetailsBtn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 32px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1.5px solid #2563d6;
+  justify-content: center;
+  height: 27px;
+  min-height: 27px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid #2563d6;
   background: #3b82f6;
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
   transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.bunkerDetailsBtn svg {
-  width: 14px;
-  height: 14px;
-  flex: none;
 }
 
 .bunkerDetailsBtn:hover {
@@ -1609,27 +1680,26 @@
 .tcInHireBtn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 32px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1.5px solid #9a403b;
+  justify-content: center;
+  height: 27px;
+  min-height: 27px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid #9a403b;
   background: #b5504a;
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
   font-family: inherit;
-}
-
-.tcInHireBtn svg {
-  width: 14px;
-  height: 14px;
-  flex: none;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .tcInHireBtn:hover {
   background: #9a403b;
+  border-color: #7d322d;
 }
 
 .bunkerSubLabel,
@@ -1757,6 +1827,19 @@
 
 .gradeSelectWrap {
   min-width: 110px;
+  /* Chip color classes also set background — keep wrap clear so paint
+     stays inside the rounded CardSelect button, not square corners. */
+  background: transparent;
+  border-radius: 0;
+}
+
+.gradeSelectWrap.gradeChipVlsfo,
+.gradeSelectWrap.gradeChipLsmgo,
+.gradeSelectWrap.gradeChipMgo,
+.gradeSelectWrap.gradeChipHsfo,
+.gradeSelectWrap.gradeChipScrubber {
+  background: transparent;
+  color: inherit;
 }
 
 .gradeSelectWrap.gradeChipVlsfo :global(button),
@@ -1765,6 +1848,8 @@
 .gradeSelectWrap.gradeChipHsfo :global(button),
 .gradeSelectWrap.gradeChipScrubber :global(button) {
   font-weight: 700;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .gradeSelectWrap.gradeChipVlsfo :global(button) {

@@ -237,6 +237,9 @@ export default function HireDetailsModal({
     label: vendor.name,
   }));
   const grades = bunkerGrades.map((grade) => ({ value: grade.id, label: grade.name }));
+  const gradeNameById = (id) => (
+    bunkerGrades.find((g) => String(g.id) === String(id))?.name || ''
+  );
 
   const bunkerCards = [
     {
@@ -584,6 +587,7 @@ export default function HireDetailsModal({
                               <td>
                                 <WorksheetSelect
                                   value={row.bunkerGradeId || ''}
+                                  gradeLabel={gradeNameById(row.bunkerGradeId)}
                                   disabled={readOnly}
                                   options={grades}
                                   onChange={(value) => patchBunkerList(card.key, card.rows, row.id, { bunkerGradeId: value })}
@@ -744,6 +748,7 @@ export default function HireDetailsModal({
                           <div key={bunker.id} className={styles.nbRow}>
                             <WorksheetSelect
                               value={bunker.bunkerGradeId || ''}
+                              gradeLabel={gradeNameById(bunker.bunkerGradeId)}
                               disabled={readOnly}
                               options={grades}
                               onChange={(value) => patchOffHireBunker(row.id, bunker.id, { bunkerGradeId: value })}

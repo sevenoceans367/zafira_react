@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AddCircleButton, Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
+import { AddCircleButton, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import PortSearchSelect from '../../period-contract/PortSearchSelect.jsx';
 import CountryMultiSelect from '../../masters/port-cost-type/CountryMultiSelect.jsx';
@@ -44,22 +44,12 @@ import EstimateResultsPanels from '../../sopf/EstimateResultsPanels.jsx';
 import VesselItineraryModal from '../../sopf/VesselItineraryModal.jsx';
 import HireDetailsModal from './HireDetailsModal.jsx';
 import BunkerFifoModal from './BunkerFifoModal.jsx';
-import WorksheetSelect from './WorksheetSelect.jsx';
+import WorksheetSelect, { gradeChipClass } from './WorksheetSelect.jsx';
 import { fetchCanalOrcRates, searchEstimatePorts } from '../../../../services/estimateDetail.js';
 import { focusEstimateValidationField, getAddRowBlockMessage } from '../../sopf/estimateValidation.js';
 import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from '../../sopf/estimateInputSanitize.js';
 import styles from './CostSheetEstimatePage.module.css';
 import updateEstimateStyles from '../../sopf/UpdateEstimatePage.module.css';
-
-function gradeChipClass(gradeName) {
-  const text = String(gradeName || '').toUpperCase().replace(/\s+/g, '');
-  if (text.includes('SCRUBBER')) return styles.gradeChipScrubber;
-  if (text.includes('LSMGO')) return styles.gradeChipLsmgo;
-  if (text.includes('MGO')) return styles.gradeChipMgo;
-  if (text.includes('HSFO')) return styles.gradeChipHsfo;
-  if (text.includes('VLSFO')) return styles.gradeChipVlsfo;
-  return '';
-}
 
 /** Ports chosen in Passage & Ports (from/to on each leg) — Stemmed dropdown source of truth. */
 function getPassagePorts(portLegs = []) {
@@ -77,6 +67,30 @@ function getPassagePorts(portLegs = []) {
     }
   }
   return ports;
+}
+
+/** New Stemmed row: clone last SUPPLY stem; otherwise seed first passage port. */
+function createStemRowFromLast(bunkerRows = [], passagePorts = []) {
+  const next = createEmptyBunkerRow('SUPPLY');
+  const stems = (bunkerRows || []).filter(
+    (row) => String(row.identify || '').toUpperCase() === 'SUPPLY',
+  );
+  const last = stems[stems.length - 1];
+  if (!last) {
+    const firstPort = passagePorts[0];
+    return {
+      ...next,
+      portId: firstPort?.id || '',
+      portName: firstPort?.name || '',
+    };
+  }
+  const { id: _ignoreId, ...fields } = last;
+  return {
+    ...next,
+    ...fields,
+    id: next.id,
+    identify: 'SUPPLY',
+  };
 }
 
 function KhakiRowActions({ onAdd, onRemove, canRemove = true, readOnly = false }) {
@@ -106,27 +120,6 @@ function KhakiRowActions({ onAdd, onRemove, canRemove = true, readOnly = false }
         </svg>
       </button>
     </div>
-  );
-}
-
-function DetailsBtnIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" />
-      <path d="M9 8h6" />
-      <path d="M9 12h6" />
-    </svg>
-  );
-}
-
-function TcInHireBtnIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
-      <path d="M14 3v5h5" />
-      <path d="M9 13h6" />
-      <path d="M9 17h6" />
-    </svg>
   );
 }
 
@@ -954,22 +947,24 @@ export default function EstimateDetailSections({
         actions={(
           <div className={styles.panelActionGroup}>
             {sofHref ? (
-              <Button
-                size="sm"
-                variant="accent"
-                label="SOF"
-                ariaLabel="SOF"
+              <Link
                 to={sofHref}
-              />
+                className={`${styles.panelActionBtn} ${styles.panelActionBtnAccent}`}
+                aria-label="SOF"
+                title="SOF"
+              >
+                SOF
+              </Link>
             ) : null}
-            <Button
+            <button
               type="button"
-              size="sm"
-              variant="outline"
-              label="Itinerary"
-              ariaLabel="Itinerary"
+              className={`${styles.panelActionBtn} ${styles.panelActionBtnOutline}`}
+              aria-label="Itinerary"
+              title="Itinerary"
               onClick={() => setItineraryOpen(true)}
-            />
+            >
+              Itinerary
+            </button>
           </div>
         )}
       >
@@ -1264,6 +1259,7 @@ export default function EstimateDetailSections({
                         <td>
                           <WorksheetSelect
                             value={leg.bgNonSeca || 'VLSFO'}
+                            gradeLabel={leg.bgNonSeca || 'VLSFO'}
                             disabled={readOnly}
                             options={NSBG_OPTIONS}
                             onChange={(value) => updateRow('portLegs', leg.id, { bgNonSeca: value })}
@@ -1278,6 +1274,7 @@ export default function EstimateDetailSections({
                         <td>
                           <WorksheetSelect
                             value={leg.bgSeca || 'LSMGO'}
+                            gradeLabel={leg.bgSeca || 'LSMGO'}
                             disabled={readOnly}
                             options={SBG_OPTIONS}
                             onChange={(value) => updateRow('portLegs', leg.id, { bgSeca: value })}
@@ -1352,6 +1349,7 @@ export default function EstimateDetailSections({
                           ) : (
                             <WorksheetSelect
                               value={row.bunkerGradeId || ''}
+                              gradeLabel={gradeName(row.bunkerGradeId)}
                               placeholder="Select"
                               options={(lookups.bunkerGrades || []).map((g) => ({ value: g.id, label: g.name }))}
                               onChange={(value) => updateRow('consumptionRows', row.id, {
@@ -1843,6 +1841,7 @@ export default function EstimateDetailSections({
                     <td>
                       <WorksheetSelect
                         value={row.bunkerGrade || 'VLSFO'}
+                        gradeLabel={row.bunkerGrade || 'VLSFO'}
                         disabled={readOnly}
                         options={[
                           ...BUNKER_ACTIVITY_GRADE_OPTIONS,
@@ -2167,7 +2166,6 @@ export default function EstimateDetailSections({
             title="Full FIFO bunker calculations"
             onClick={() => setBunkerFifoOpen(true)}
           >
-            <DetailsBtnIcon />
             Details
           </button>
         )}
@@ -2264,14 +2262,13 @@ export default function EstimateDetailSections({
                         </td>
                       ) : null}
                       <td>
-                        <div className={styles.gradeSelectWrap}>
-                          <WorksheetSelect
-                            value={row.bunkerGradeId || ''}
-                            disabled={readOnly}
-                            options={(lookups.bunkerGrades || []).map((g) => ({ value: g.id, label: g.name }))}
-                            onChange={(value) => updateRow('secaBunkerRows', row.id, { bunkerGradeId: value })}
-                          />
-                        </div>
+                        <WorksheetSelect
+                          value={row.bunkerGradeId || ''}
+                          gradeLabel={bunkerGradeName(row.bunkerGradeId)}
+                          disabled={readOnly}
+                          options={(lookups.bunkerGrades || []).map((g) => ({ value: g.id, label: g.name }))}
+                          onChange={(value) => updateRow('secaBunkerRows', row.id, { bunkerGradeId: value })}
+                        />
                       </td>
                       <td>
                         <input className={styles.bunkerReadonly} value="0.00" readOnly />
@@ -2341,16 +2338,10 @@ export default function EstimateDetailSections({
                   const passagePorts = getPassagePorts(form.portLegs);
                   const portInPassage = passagePorts.some((p) => p.id === String(row.portId || ''));
                   const gradeLabel = bunkerGradeName(row.bunkerGradeId) || '';
-                  const chipClass = gradeChipClass(gradeLabel);
                   const addStemRow = () => {
-                    const firstPort = passagePorts[0];
                     addRow(
                       'bunkerRows',
-                      () => ({
-                        ...createEmptyBunkerRow('SUPPLY'),
-                        portId: firstPort?.id || '',
-                        portName: firstPort?.name || '',
-                      }),
+                      () => createStemRowFromLast(form.bunkerRows, passagePorts),
                       { identify: 'SUPPLY' },
                     );
                   };
@@ -2366,14 +2357,13 @@ export default function EstimateDetailSections({
                         </td>
                       ) : null}
                       <td>
-                        <div className={chipClass ? `${styles.gradeSelectWrap} ${chipClass}` : styles.gradeSelectWrap}>
-                          <WorksheetSelect
-                            value={row.bunkerGradeId || ''}
-                            disabled={readOnly}
-                            options={(lookups.bunkerGrades || []).map((g) => ({ value: g.id, label: g.name }))}
-                            onChange={(value) => updateRow('bunkerRows', row.id, { bunkerGradeId: value })}
-                          />
-                        </div>
+                        <WorksheetSelect
+                          value={row.bunkerGradeId || ''}
+                          gradeLabel={gradeLabel}
+                          disabled={readOnly}
+                          options={(lookups.bunkerGrades || []).map((g) => ({ value: g.id, label: g.name }))}
+                          onChange={(value) => updateRow('bunkerRows', row.id, { bunkerGradeId: value })}
+                        />
                       </td>
                       <td>
                         <WorksheetSelect
@@ -2430,14 +2420,12 @@ export default function EstimateDetailSections({
                       type="button"
                       className={styles.bunkerEmptyAdd}
                       onClick={() => {
-                        const firstPort = getPassagePorts(form.portLegs)[0];
                         addRow(
                           'bunkerRows',
-                          () => ({
-                            ...createEmptyBunkerRow('SUPPLY'),
-                            portId: firstPort?.id || '',
-                            portName: firstPort?.name || '',
-                          }),
+                          () => createStemRowFromLast(
+                            form.bunkerRows,
+                            getPassagePorts(form.portLegs),
+                          ),
                           { identify: 'SUPPLY' },
                         );
                       }}
@@ -2464,7 +2452,6 @@ export default function EstimateDetailSections({
             title="Full hire terms, delivery / re-delivery and CVE"
             onClick={() => setHireDetailsOpen(true)}
           >
-            <TcInHireBtnIcon />
             TC-in Hire
           </button>
         ) : null}
@@ -2826,7 +2813,15 @@ export default function EstimateDetailSections({
         vendors={lookups.owners || []}
         voyageNo={form.voyageNo || ''}
         vesselName={form.vesselName || ''}
-        charterer={form.charterer || form.cargoRows?.[0]?.charterer || ''}
+        charterer={(() => {
+          const raw = form.charterer
+            || form.lumpsumVendor
+            || form.cargoRows?.[0]?.charterer
+            || form.cargoRows?.[0]?.vendorId
+            || '';
+          if (!raw) return '';
+          return vendorName(raw) || String(raw);
+        })()}
         onApply={({ fifoTotal }) => {
           applyPatch({
             totalBunkerCost: fifoTotal ? fifoTotal.toFixed(2) : form.totalBunkerCost,
@@ -2847,14 +2842,12 @@ export default function EstimateDetailSections({
         }}
         onUpdatePortLeg={(legId, patch) => updateRow('portLegs', legId, patch)}
         onAddStem={() => {
-          const firstPort = getPassagePorts(form.portLegs)[0];
           addRow(
             'bunkerRows',
-            () => ({
-              ...createEmptyBunkerRow('SUPPLY'),
-              portId: firstPort?.id || '',
-              portName: firstPort?.name || '',
-            }),
+            () => createStemRowFromLast(
+              form.bunkerRows,
+              getPassagePorts(form.portLegs),
+            ),
             { identify: 'SUPPLY' },
           );
         }}

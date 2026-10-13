@@ -163,16 +163,23 @@ export default function EstimateDetailSections({
     const cleanPatch = sanitizeEstimatePatch(patch);
     const touchesCargo = Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoRows')
       || Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoIds')
-      || Object.prototype.hasOwnProperty.call(cleanPatch, 'lumpsumQty');
+      || Object.prototype.hasOwnProperty.call(cleanPatch, 'lumpsumQty')
+      || Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoQuantity');
     if (touchesCargo && !Object.prototype.hasOwnProperty.call(cleanPatch, 'portLegs')) {
-      const syncQty = Object.prototype.hasOwnProperty.call(cleanPatch, 'lumpsumQty');
+      const syncQty = Object.prototype.hasOwnProperty.call(cleanPatch, 'lumpsumQty')
+        || Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoQuantity');
       cleanPatch.portLegs = seedPortLegsFromFirstCargo(
         form.portLegs,
         cleanPatch.cargoRows || form.cargoRows,
         Object.prototype.hasOwnProperty.call(cleanPatch, 'lumpsumQty')
           ? cleanPatch.lumpsumQty
           : form.lumpsumQty,
-        { syncQty },
+        {
+          syncQty,
+          cargoQuantity: Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoQuantity')
+            ? cleanPatch.cargoQuantity
+            : form.cargoQuantity,
+        },
       );
     }
     if (onApplyPatch) {
@@ -297,7 +304,7 @@ export default function EstimateDetailSections({
           form.portLegs,
           rows,
           form.lumpsumQty,
-          { syncQty: true },
+          { syncQty: true, cargoQuantity: form.cargoQuantity },
         ),
       });
       return;
@@ -353,7 +360,9 @@ export default function EstimateDetailSections({
 
       // Switching L/B → Laden: seed Port Details cargo + Qty (MT) if still empty
       if (keys.includes('passageType') && String(cleanPatch.passageType) === '2') {
-        rows = seedPortLegsFromFirstCargo(rows, form.cargoRows, form.lumpsumQty);
+        rows = seedPortLegsFromFirstCargo(rows, form.cargoRows, form.lumpsumQty, {
+          cargoQuantity: form.cargoQuantity,
+        });
       }
     }
 
@@ -397,6 +406,7 @@ export default function EstimateDetailSections({
         [next],
         form.cargoRows,
         form.lumpsumQty,
+        { cargoQuantity: form.cargoQuantity },
       )[0] || next;
       const rows = [...(form.portLegs || []), seeded];
       applyPatch({
@@ -467,9 +477,14 @@ export default function EstimateDetailSections({
         const value = decimal
           ? sanitizeFieldDecimal(key, event.target.value)
           : event.target.value;
-        // Cargo Qty (MT) / lump-sum qty → seed Port Details Qty when empty
+        // Cargo Qty (MT) / lump-sum qty → seed Port Details LP/DP Qty
         if (key === 'lumpsumQty') {
           applyPatch({ lumpsumQty: value });
+          return;
+        }
+        // Single dry/gas QTY (MT) → same Port Details sync path as lumpsum qty
+        if (key === 'cargoQuantity') {
+          applyPatch({ cargoQuantity: value });
           return;
         }
         if (opts.recalc && onRecalc) {

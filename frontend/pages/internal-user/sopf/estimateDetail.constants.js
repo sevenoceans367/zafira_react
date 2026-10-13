@@ -184,15 +184,16 @@ export function createEmptyCargoRow(status = 1) {
  * - Dropdown source of truth = selected Cargo Names.
  * - Removed cargos are cleared from LP/DP (or replaced with the first remaining).
  * - Empty selects are seeded from the first cargo.
- * - Qty (MT) for Multiple Main Cargo Details = sum of all Cargo (MT) rows
- *   (so adding another cargo row updates LP/DP Qty), falling back to the
- *   assigned cargo's MT / lumpsum when the sum is empty.
+ * - Qty (MT):
+ *   - Multiple → sum of Main Cargo Details Cargo (MT) rows
+ *   - Single → form QTY (MT) / cargoQuantity (or lumpsum qty)
+ *   - else assigned cargo MT / lumpsum fallback
  */
 export function seedPortLegsFromFirstCargo(
   portLegs = [],
   cargoRows = [],
   lumpsumQty = '',
-  { syncQty = false } = {},
+  { syncQty = false, cargoQuantity = '' } = {},
 ) {
   const selectedIds = [];
   const seen = new Set();
@@ -219,6 +220,7 @@ export function seedPortLegsFromFirstCargo(
 
   const firstId = selectedIds[0] || '';
   const lumpsum = String(lumpsumQty || '').trim();
+  const singleQty = String(cargoQuantity || '').trim();
   const totalMt = hasAnyMt
     ? String(Math.round(totalMtSum * 100) / 100)
     : '';
@@ -227,11 +229,11 @@ export function seedPortLegsFromFirstCargo(
   const qtyForCargoId = (cargoId) => {
     const id = normalizeCargoId(cargoId);
     if (id && mtByCargoId.has(id)) return formatMt(mtByCargoId.get(id));
-    return totalMt || lumpsum;
+    return totalMt || lumpsum || singleQty;
   };
 
-  // Multiple Main Cargo rows: Port Details Qty tracks the combined Cargo (MT).
-  const combinedQty = totalMt || lumpsum;
+  // Multiple → cargo-row sum; Single → QTY (MT); else lumpsum.
+  const combinedQty = totalMt || lumpsum || singleQty;
 
   const isSelected = (raw) => {
     const id = normalizeCargoId(raw);
@@ -866,6 +868,7 @@ export function toFormState(detail = {}) {
     mappedPortLegs,
     cargoRows,
     detail.lumpsumQty,
+    { cargoQuantity: detail.cargoQuantity },
   );
 
   const bunkerSeen = new Set();

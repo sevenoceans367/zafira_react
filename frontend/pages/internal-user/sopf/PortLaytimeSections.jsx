@@ -152,9 +152,10 @@ export default function PortLaytimeSections({
       mtCount += 1;
     }
     const combinedMt = mtCount > 0 ? String(Math.round(mtSum * 100) / 100) : '';
-    const singleMt = cargoRow?.cargoMt || fromOptions?.mt || '';
+    const formQty = String(form.cargoQuantity || '').trim();
+    const singleMt = cargoRow?.cargoMt || fromOptions?.mt || formQty || '';
     const mt = normalized
-      ? (mtCount > 1 ? combinedMt : (singleMt || combinedMt))
+      ? (mtCount > 1 ? combinedMt : (singleMt || combinedMt || formQty))
       : '';
     if (side === 'load') {
       patchLeg(legId, {

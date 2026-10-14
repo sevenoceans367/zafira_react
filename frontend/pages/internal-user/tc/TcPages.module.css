@@ -1677,28 +1677,28 @@
 
 /* Round 20: Bunkers mustard card — per-grade colours */
 .tsecMustard .chipGradeVlsfo > div > button:first-child {
-  background: #e3f4f4 !important;
-  color: #14919b !important;
-}
-
-.tsecMustard .chipGradeLsmgo > div > button:first-child {
-  background: #f8e6e6 !important;
-  color: #9b2c2c !important;
-}
-
-.tsecMustard .chipGradeHsfo > div > button:first-child {
-  background: #fef9c3 !important;
-  color: #ca8a04 !important;
-}
-
-.tsecMustard .chipGradeHsflo > div > button:first-child {
-  background: #e5f0fe !important;
+  background: #eaf1fe !important;
   color: #3b82f6 !important;
 }
 
+.tsecMustard .chipGradeLsmgo > div > button:first-child {
+  background: #e8f8ec !important;
+  color: #0fa836 !important;
+}
+
+.tsecMustard .chipGradeHsfo > div > button:first-child {
+  background: #fcf1dd !important;
+  color: #b9760a !important;
+}
+
+.tsecMustard .chipGradeHsflo > div > button:first-child {
+  background: #eee9ff !important;
+  color: #6c47ff !important;
+}
+
 .tsecMustard .chipGradeScrubber > div > button:first-child {
-  background: #e6eaf1 !important;
-  color: #274670 !important;
+  background: #e3f4f4 !important;
+  color: #14919b !important;
 }
 
 .itineraryGrid {
@@ -1833,34 +1833,34 @@
   cursor: not-allowed;
 }
 
-/* Mockup bunker grade chips after selection */
+/* Global bunker grade palette (match Voy WorksheetSelect chips) */
 .chipGradeVlsfo > div > button:first-child {
-  background: #e3f4f4 !important;
-  color: #14919b !important;
-  font-weight: 700 !important;
-}
-
-.chipGradeLsmgo > div > button:first-child {
-  background: #f7edd9 !important;
-  color: #a9740b !important;
-  font-weight: 700 !important;
-}
-
-.chipGradeHsfo > div > button:first-child {
-  background: #eef0f3 !important;
-  color: #5b6472 !important;
-  font-weight: 700 !important;
-}
-
-.chipGradeHsflo > div > button:first-child {
-  background: #e5f0fe !important;
+  background: #eaf1fe !important;
   color: #3b82f6 !important;
   font-weight: 700 !important;
 }
 
+.chipGradeLsmgo > div > button:first-child {
+  background: #e8f8ec !important;
+  color: #0fa836 !important;
+  font-weight: 700 !important;
+}
+
+.chipGradeHsfo > div > button:first-child {
+  background: #fcf1dd !important;
+  color: #b9760a !important;
+  font-weight: 700 !important;
+}
+
+.chipGradeHsflo > div > button:first-child {
+  background: #eee9ff !important;
+  color: #6c47ff !important;
+  font-weight: 700 !important;
+}
+
 .chipGradeScrubber > div > button:first-child {
-  background: #e6eaf1 !important;
-  color: #274670 !important;
+  background: #e3f4f4 !important;
+  color: #14919b !important;
   font-weight: 700 !important;
 }
 

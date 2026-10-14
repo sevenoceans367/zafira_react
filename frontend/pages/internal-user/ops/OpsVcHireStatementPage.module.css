@@ -3,7 +3,7 @@
   padding-bottom: 24px;
   max-width: 100%;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .toolbar {
@@ -12,6 +12,17 @@
   gap: 8px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+}
+
+.toolbarBottom {
+  margin-top: 20px;
+  margin-bottom: 0;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.toolbarBottom .toolbar {
+  margin-bottom: 0;
 }
 
 .title {
@@ -60,7 +71,7 @@
   padding: 14px 16px;
   min-width: 0;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow: visible;
 }
 
 .stackFields {
@@ -115,7 +126,17 @@
   border-bottom: 1px solid #f3f4f6;
   vertical-align: middle;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.dateCell {
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+}
+
+.dateCell:focus-within {
+  z-index: 5;
 }
 
 .hireDaysTable th,
@@ -141,7 +162,7 @@
   background: #fff;
   padding: 14px 16px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .panelLabel {
@@ -411,7 +432,8 @@
 .modalBackdrop {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  /* Below DmyDateInput flatpickr (z-index 10050) so calendar stays clickable */
+  z-index: 10040;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -425,6 +447,9 @@
   background: #fff;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
   padding: 16px 18px;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
 }
 
 .modalTitle {

@@ -32,7 +32,6 @@ import OpsVcWorksheetStack from './OpsVcWorksheetStack.jsx';
 import {
   AlertIcon,
   ArrowIcon,
-  BunkersChipIcon,
   CashflowChipIcon,
   ChipLink,
   CompareIcon,
@@ -303,7 +302,7 @@ export default function OpsVcPostOpsPage() {
               <th>CHRT DESK</th>
               <th>Charterer</th>
               <th>Voyage Letters</th>
-              <th>Ports &amp; Fuel</th>
+              <th>Ports</th>
               <th>Port Activity</th>
               <th>Contract Finance</th>
               <th>Next</th>
@@ -443,13 +442,6 @@ export default function OpsVcPostOpsPage() {
                       <ChipLink to={appPath(`/internal-user/vc/ops/pda-fda?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}>
                         <DaChipIcon />
                         DA
-                      </ChipLink>
-                      <ChipLink
-                        to={appPath(`/internal-user/vc/ops/bunker?comid=${encodeURIComponent(row.comId)}&page=${PAGE_CONTEXT}`)}
-                        disabled={!hasWorksheet}
-                      >
-                        <BunkersChipIcon />
-                        Bunkers
                       </ChipLink>
                     </div>
                   </td>

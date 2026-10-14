@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
 import {
   LAYTIME_TERM_OPTIONS,
@@ -9,7 +9,29 @@ import {
 import { formatIdleDays, getLaytimeRateUnitLabel } from './estimateCalculations.js';
 import { sanitizeDecimalInput } from './estimateInputSanitize.js';
 import CollapsiblePanel from './CollapsiblePanel.jsx';
+import CargoLoadableModal from './CargoLoadableModal.jsx';
 import styles from './UpdateEstimatePage.module.css';
+
+/** Calculator glyph for Cargo Loadable (stroke uses currentColor). */
+function LoadableCalcIcon() {
+  return (
+    <svg
+      className={styles.qtyCalcIcon}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <rect x="4" y="2.5" width="16" height="19" rx="2.5" stroke="currentColor" strokeWidth="1.75" />
+      <rect x="7" y="5.5" width="10" height="3.5" rx="0.75" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="8.5" cy="13" r="1.1" fill="currentColor" />
+      <circle cx="12" cy="13" r="1.1" fill="currentColor" />
+      <circle cx="15.5" cy="13" r="1.1" fill="currentColor" />
+      <circle cx="8.5" cy="17" r="1.1" fill="currentColor" />
+      <circle cx="12" cy="17" r="1.1" fill="currentColor" />
+      <circle cx="15.5" cy="17" r="1.1" fill="currentColor" />
+    </svg>
+  );
+}
 
 const BUNKER_GRADE_LOOKUP = PORT_BUNKER_GRADE_OPTIONS.map((option) => ({
   id: option.value,
@@ -106,9 +128,12 @@ export default function PortLaytimeSections({
   readOnly = false,
   lookups = { cargos: [] },
   updateRow,
+  onApplyPatch,
 }) {
+  const [loadableOpen, setLoadableOpen] = useState(false);
   const legs = form.portLegs || [];
   const estimateType = Number(form.estimateType) || 2;
+  const isTanker = estimateType === 2;
   const rateUnitLabel = getLaytimeRateUnitLabel(estimateType);
   const cargoOptions = useMemo(
     () => buildCargoOptions(form.cargoRows, lookups.cargos),
@@ -132,6 +157,30 @@ export default function PortLaytimeSections({
 
   const patchLeg = (legId, patch) => {
     updateRow('portLegs', legId, patch);
+  };
+
+  const applyLoadableQty = (qty) => {
+    const nextLegs = (form.portLegs || []).map((leg) => {
+      if (String(leg.passageType) !== '2') return leg;
+      return { ...leg, loadQty: qty, dischargeQty: qty };
+    });
+    const cargoRows = form.cargoRows || [];
+    const nextCargoRows = cargoRows.length === 1
+      ? [{ ...cargoRows[0], cargoMt: qty }]
+      : cargoRows;
+    if (onApplyPatch) {
+      onApplyPatch({
+        portLegs: nextLegs,
+        cargoQuantity: qty,
+        loadable: qty,
+        ...(cargoRows.length === 1 ? { cargoRows: nextCargoRows } : {}),
+      });
+      return;
+    }
+    nextLegs.forEach((leg) => {
+      if (String(leg.passageType) !== '2') return;
+      updateRow('portLegs', leg.id, { loadQty: qty, dischargeQty: qty });
+    });
   };
 
   const selectPortCargo = (legId, cargoId, side) => {
@@ -171,6 +220,7 @@ export default function PortLaytimeSections({
   };
 
   return (
+    <>
     <CollapsiblePanel title="Port Details" defaultOpen>
       <div className={styles.portLaytimeStack}>
         <div className={`${styles.portLaytimeBlock} ${styles.portLaytimeLp}`}>
@@ -183,7 +233,7 @@ export default function PortLaytimeSections({
                   <th className={styles.portNameCell}>LP</th>
                   <th className={styles.cargoSelectCell}>Cargo</th>
                   <th>Cost</th>
-                  <th>Qty (MT)</th>
+                  <th className={styles.qtyCell}>Qty (MT)</th>
                   <th className={styles.thStack}><span>Rate</span><span>{rateUnitLabel}</span></th>
                   <th>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
@@ -234,12 +284,25 @@ export default function PortLaytimeSections({
                         onChange={(value) => patchLeg(leg.id, { loadPortCost: value })}
                       />
                     </td>
-                    <td>
-                      <DecimalInput
-                        value={leg.loadQty}
-                        readOnly={readOnly}
-                        onChange={(value) => patchLeg(leg.id, { loadQty: value })}
-                      />
+                    <td className={styles.qtyCell}>
+                      <div className={styles.qtyWithCalc}>
+                        <DecimalInput
+                          value={leg.loadQty}
+                          readOnly={readOnly}
+                          onChange={(value) => patchLeg(leg.id, { loadQty: value })}
+                        />
+                        {!readOnly ? (
+                          <button
+                            type="button"
+                            className={styles.qtyCalcBtn}
+                            title="Cargo Loadable Calculation"
+                            aria-label="Cargo Loadable Calculation"
+                            onClick={() => setLoadableOpen(true)}
+                          >
+                            <LoadableCalcIcon />
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                     <td>
                       <DecimalInput
@@ -309,7 +372,7 @@ export default function PortLaytimeSections({
                   <th className={styles.portNameCell}>DP</th>
                   <th className={styles.cargoSelectCell}>Cargo</th>
                   <th>Cost</th>
-                  <th>Qty (MT)</th>
+                  <th className={styles.qtyCell}>Qty (MT)</th>
                   <th className={styles.thStack}><span>Rate</span><span>{rateUnitLabel}</span></th>
                   <th>Terms</th>
                   <th className={styles.thStack}><span>Total</span><span>Portstay Days</span></th>
@@ -360,12 +423,25 @@ export default function PortLaytimeSections({
                         onChange={(value) => patchLeg(leg.id, { discPortCost: value })}
                       />
                     </td>
-                    <td>
-                      <DecimalInput
-                        value={leg.dischargeQty}
-                        readOnly={readOnly}
-                        onChange={(value) => patchLeg(leg.id, { dischargeQty: value })}
-                      />
+                    <td className={styles.qtyCell}>
+                      <div className={styles.qtyWithCalc}>
+                        <DecimalInput
+                          value={leg.dischargeQty}
+                          readOnly={readOnly}
+                          onChange={(value) => patchLeg(leg.id, { dischargeQty: value })}
+                        />
+                        {!readOnly ? (
+                          <button
+                            type="button"
+                            className={styles.qtyCalcBtn}
+                            title="Cargo Loadable Calculation"
+                            aria-label="Cargo Loadable Calculation"
+                            onClick={() => setLoadableOpen(true)}
+                          >
+                            <LoadableCalcIcon />
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                     <td>
                       <DecimalInput
@@ -521,5 +597,14 @@ export default function PortLaytimeSections({
         </div>
       </div>
     </CollapsiblePanel>
+
+    <CargoLoadableModal
+      open={loadableOpen}
+      onClose={() => setLoadableOpen(false)}
+      form={form}
+      showStowage={!isTanker}
+      onApply={applyLoadableQty}
+    />
+    </>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AddCircleButton, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
+import { DmyDateInput, RowAddButton, RowDelButton, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import PortSearchSelect from '../../period-contract/PortSearchSelect.jsx';
 import CountryMultiSelect from '../../masters/port-cost-type/CountryMultiSelect.jsx';
@@ -34,8 +34,6 @@ import {
 } from '../../sopf/estimateDetail.constants.js';
 import { formatDemurrageCostField, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurrageLoadPortLabel, formatDemurrageDischargePortLabel, formatDays, formatDistance, syncPortstayFromPassageDates } from '../../sopf/estimateCalculations.js';
 import CollapsiblePanel from '../../sopf/CollapsiblePanel.jsx';
-import RowRemoveButton from '../../sopf/RowRemoveButton.jsx';
-
 import DistanceFetchModal from '../../sopf/DistanceFetchModal.jsx';
 import TankerFreightModeSection from '../../sopf/TankerFreightModeSection.jsx';
 import { DryFreightModeSection, GasFreightModeSection } from '../../sopf/EstimateTypeCargoFreight.jsx';
@@ -93,32 +91,13 @@ function createStemRowFromLast(bunkerRows = [], passagePorts = []) {
   };
 }
 
+/** Same + / × layout as Add TC Recap → Bunkers. */
 function KhakiRowActions({ onAdd, onRemove, canRemove = true, readOnly = false }) {
   if (readOnly) return null;
   return (
-    <div className={styles.khakiRowActions}>
-      <button type="button" className={styles.khakiAdd} onClick={onAdd} title="Add row" aria-label="Add row">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M12 5v14" />
-          <path d="M5 12h14" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        className={styles.khakiDel}
-        onClick={onRemove}
-        disabled={!canRemove}
-        title="Remove"
-        aria-label="Remove row"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M4 7h16" />
-          <path d="M6 7V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3" />
-          <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
-          <path d="M10 11v6" />
-          <path d="M14 11v6" />
-        </svg>
-      </button>
+    <div className="rowActions">
+      <RowAddButton title="Add row" onClick={onAdd} />
+      <RowDelButton title="Delete row" onClick={onRemove} disabled={!canRemove} />
     </div>
   );
 }
@@ -525,9 +504,10 @@ export default function EstimateDetailSections({
     updateField(collection, [...(form[collection] || []), factory()]);
   };
 
-  const removeRow = (collection, id) => {
+  const removeRow = (collection, id, opts = {}) => {
     const rows = (form[collection] || []).filter((row) => row.id !== id);
-    if (!rows.length) return;
+    // Default: keep at least one row (legacy). Estimated & Consumed blank rows may clear fully.
+    if (!rows.length && !opts.allowEmpty) return;
     if (onRecalc) {
       onRecalc(collection, rows);
     } else {
@@ -572,7 +552,17 @@ export default function EstimateDetailSections({
   );
 
   // PHP updatecost_sheet_tci Bunkers: qty from voyage MT, actual qty from ROB + supplied, price from SECA EST_PRICE.
+  const SUMMARY_BUNKER_GRADES = ['VLSFO', 'LSMGO', 'HSFO'];
+  const classifySummaryGradeName = (name) => {
+    const key = classifyBunkerGradeName(name);
+    return key === 'HSFO+SCRUBBER' ? 'HSFO' : key;
+  };
+  const classifySummaryGradeId = (gradeId) => classifySummaryGradeName(bunkerGradeName(gradeId));
+
   const bunkerSummaryRows = buildBunkerSummaryRows(form, bunkerGradeName);
+  const hiddenEstimatedGrades = new Set(
+    (form.bunkerEstimatedHiddenGrades || []).map((g) => String(g)),
+  );
   const {
     addressDemmComm,
     totalCommPercent,
@@ -582,21 +572,16 @@ export default function EstimateDetailSections({
 
   /** PHP txtSECABunkerPrice onKeyUp → getBunkerCalculation / getVoyageTime */
   const handleBunkerSummaryPriceChange = (grade, value) => {
-    const classify = (gradeId) => {
-      const key = classifyBunkerGradeName(bunkerGradeName(gradeId));
-      return key === 'HSFO+SCRUBBER' ? 'HSFO' : key;
-    };
-
     let matched = false;
     let nextSeca = (form.secaBunkerRows || []).map((row) => {
-      if (classify(row.bunkerGradeId) !== grade) return row;
+      if (classifySummaryGradeId(row.bunkerGradeId) !== grade) return row;
       matched = true;
       return { ...row, price: value };
     });
 
     if (!matched) {
       const gradeOpt = (lookups.bunkerGrades || form._bunkerGrades || []).find(
-        (g) => classifyBunkerGradeName(g.name) === grade,
+        (g) => classifySummaryGradeName(g.name) === grade,
       );
       const bunkerType = grade === 'LSMGO' ? 'DO' : 'FO';
       const emptyIdx = nextSeca.findIndex((row) => (
@@ -623,33 +608,38 @@ export default function EstimateDetailSections({
 
     const nextBunker = (form.bunkerRows || []).map((row) => {
       if (String(row.identify || '').toUpperCase() === 'SUPPLY') return row;
-      return classify(row.bunkerGradeId) === grade ? { ...row, price: value } : row;
+      return classifySummaryGradeId(row.bunkerGradeId) === grade ? { ...row, price: value } : row;
     });
 
     applyPatch({
       secaBunkerRows: nextSeca,
       bunkerRows: nextBunker,
+      // Editing a visible grade brings it back if it was previously removed.
+      bunkerEstimatedHiddenGrades: (form.bunkerEstimatedHiddenGrades || []).filter((g) => g !== grade),
     });
   };
 
+  /** null = use system/FIFO; string (incl. '') = user override. */
   const storedConsumed = (grade) => {
-    const manual = form.bunkerConsumedManual?.[grade];
-    if (manual != null && String(manual) !== '') return String(manual);
-    return '';
+    if (!Object.prototype.hasOwnProperty.call(form.bunkerConsumedManual || {}, grade)) return null;
+    return String(form.bunkerConsumedManual[grade] ?? '');
   };
 
-  const bunkerDisplayRows = bunkerSummaryRows.map((row) => {
-    // Qty. (MT) and Estimated (MT) were the same voyage estimate — keep one column.
-    const estimated = row.qty || row.actualQty || '';
-    const manual = storedConsumed(row.grade);
-    const consumed = manual !== '' ? manual : (row.actualQty || estimated || '');
-    const price = Number(String(row.price || '').replace(/,/g, ''));
-    const amountQty = Number(String((manual !== '' ? manual : estimated) || '').replace(/,/g, ''));
-    const amount = Number.isFinite(price) && Number.isFinite(amountQty) && (price !== 0 || amountQty !== 0)
-      ? (price * amountQty).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : '';
-    return { ...row, estimated, consumed, amount };
-  });
+  const bunkerDisplayRows = bunkerSummaryRows
+    .filter((row) => !hiddenEstimatedGrades.has(row.grade))
+    .map((row) => {
+      // Qty. (MT) and Estimated (MT) were the same voyage estimate — keep one column.
+      const estimated = row.qty || row.actualQty || '';
+      const manual = storedConsumed(row.grade);
+      const consumed = manual !== null ? manual : (row.actualQty || estimated || '');
+      const price = Number(String(row.price || '').replace(/,/g, ''));
+      const amountSource = manual !== null && manual !== '' ? manual : estimated;
+      const amountQty = Number(String(amountSource || '').replace(/,/g, ''));
+      const amount = Number.isFinite(price) && Number.isFinite(amountQty) && (price !== 0 || amountQty !== 0)
+        ? (price * amountQty).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : '';
+      return { ...row, estimated, consumed, amount };
+    });
   const bunkerDisplayTotal = bunkerDisplayRows.reduce((sum, row) => {
     const value = Number(String(row.amount || '').replace(/,/g, ''));
     return sum + (Number.isFinite(value) ? value : 0);
@@ -661,35 +651,115 @@ export default function EstimateDetailSections({
     && !String(row.bunkerGradeId || '').trim()
   ));
 
+  const visibleEstimatedGrades = new Set(bunkerDisplayRows.map((row) => row.grade));
+  const availableEstimatedGrades = SUMMARY_BUNKER_GRADES.filter((g) => !visibleEstimatedGrades.has(g));
+
   const addEstimatedConsumedRow = async () => {
-    const lastVisible = bunkerDisplayRows[bunkerDisplayRows.length - 1];
-    const previousFilled = !lastVisible
-      || String(lastVisible.estimated || '').trim()
-      || String(lastVisible.consumed || '').trim()
-      || String(lastVisible.price || '').trim();
-    if (!previousFilled) {
-      await alert({ title: 'Missing Information', message: 'Please fill previous data', confirmLabel: 'OK' });
+    if (blankEstimatedRows.length) {
+      await alert({
+        title: 'Missing Information',
+        message: 'Please select a grade on the empty row first.',
+        confirmLabel: 'OK',
+      });
       return;
     }
-    if (blankEstimatedRows.length) return;
+    // Re-show a grade the user removed (keeps voyage estimate / ROB values).
+    const hiddenList = form.bunkerEstimatedHiddenGrades || [];
+    if (hiddenList.length) {
+      const [restore, ...rest] = hiddenList;
+      const hasSeca = (form.secaBunkerRows || []).some(
+        (row) => classifySummaryGradeId(row.bunkerGradeId) === restore,
+      );
+      let nextSeca = form.secaBunkerRows || [];
+      if (!hasSeca) {
+        const gradeOpt = (lookups.bunkerGrades || form._bunkerGrades || []).find(
+          (g) => classifySummaryGradeName(g.name) === restore,
+        );
+        if (gradeOpt) {
+          nextSeca = [
+            ...nextSeca,
+            {
+              ...createEmptySecaBunkerRow('NON_SECA', restore === 'LSMGO' ? 'DO' : 'FO'),
+              bunkerGradeId: String(gradeOpt.id),
+              qty: '0',
+              actualQty: '0',
+              price: '0.00',
+            },
+          ];
+        }
+      }
+      applyPatch({
+        bunkerEstimatedHiddenGrades: rest,
+        ...(nextSeca !== form.secaBunkerRows ? { secaBunkerRows: nextSeca } : {}),
+      });
+      return;
+    }
+    if (!availableEstimatedGrades.length) {
+      await alert({
+        title: 'Alert',
+        message: 'All bunker grades are already listed.',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
     addRow('secaBunkerRows', () => createEmptySecaBunkerRow('NON_SECA', 'FO'), { skipBlock: true });
+  };
+
+  const removeEstimatedConsumedGrade = (grade) => {
+    const nextHidden = [...new Set([...(form.bunkerEstimatedHiddenGrades || []), grade])];
+    const nextManual = { ...(form.bunkerConsumedManual || {}) };
+    delete nextManual[grade];
+
+    // Drop zero-qty NON_SECA rows for this grade (user-added blanks). Keep SECA / voyage qty rows.
+    const nextSeca = (form.secaBunkerRows || []).filter((row) => {
+      const id = String(row.identify || '').toUpperCase().replace(/\s+/g, '_');
+      const isNonSeca = id === 'NON_SECA' || id === 'NONSECA' || id === '2';
+      if (!isNonSeca) return true;
+      if (classifySummaryGradeId(row.bunkerGradeId) !== grade) return true;
+      const qty = Number(String(row.qty || '').replace(/,/g, ''));
+      return Number.isFinite(qty) && qty > 0;
+    });
+
+    applyPatch({
+      bunkerEstimatedHiddenGrades: nextHidden,
+      bunkerConsumedManual: nextManual,
+      secaBunkerRows: nextSeca,
+    });
+  };
+
+  const assignBlankEstimatedGrade = (rowId, gradeId) => {
+    const grade = classifySummaryGradeId(gradeId);
+    if (!grade) return;
+    const nextSeca = (form.secaBunkerRows || []).map((row) => (
+      String(row.id) === String(rowId)
+        ? {
+          ...row,
+          bunkerGradeId: String(gradeId),
+          bunkerType: grade === 'LSMGO' ? 'DO' : 'FO',
+          // Seed zeros so buildBunkerSummaryRows keeps the grade visible after assign.
+          qty: row.qty || '0',
+          actualQty: row.actualQty || '0',
+          price: row.price || '0.00',
+        }
+        : row
+    ));
+    applyPatch({
+      secaBunkerRows: nextSeca,
+      bunkerEstimatedHiddenGrades: (form.bunkerEstimatedHiddenGrades || []).filter((g) => g !== grade),
+    });
   };
 
   const handleBunkerConsumedChange = (grade, raw) => {
     const value = sanitizeDecimalInput(raw ?? '');
-    const classify = (gradeId) => {
-      const key = classifyBunkerGradeName(bunkerGradeName(gradeId));
-      return key === 'HSFO+SCRUBBER' ? 'HSFO' : key;
-    };
     let matched = false;
     let nextSeca = (form.secaBunkerRows || []).map((row) => {
-      if (classify(row.bunkerGradeId) !== grade) return row;
+      if (classifySummaryGradeId(row.bunkerGradeId) !== grade) return row;
       matched = true;
       return { ...row, actualQty: value };
     });
     if (!matched) {
       const gradeOpt = (lookups.bunkerGrades || form._bunkerGrades || []).find(
-        (g) => classifyBunkerGradeName(g.name) === grade,
+        (g) => classifySummaryGradeName(g.name) === grade,
       );
       const bunkerType = grade === 'LSMGO' ? 'DO' : 'FO';
       if (gradeOpt) {
@@ -706,6 +776,7 @@ export default function EstimateDetailSections({
     applyPatch({
       secaBunkerRows: nextSeca,
       bunkerConsumedManual: { ...(form.bunkerConsumedManual || {}), [grade]: value },
+      bunkerEstimatedHiddenGrades: (form.bunkerEstimatedHiddenGrades || []).filter((g) => g !== grade),
     });
   };
 
@@ -1003,328 +1074,305 @@ export default function EstimateDetailSections({
             const isLastLeg = legIndex === (form.portLegs || []).length - 1;
             return (
             <div key={leg.id} className={styles.portLegCard}>
-              <div className={styles.portLegGrid}>
-                <div className={styles.portLegPorts}>
-                  <table className={`${styles.portTable} ${styles.portRobTable}`}>
-                    <thead>
-                      <tr>
-                        <th className={styles.portIdxCol}>#</th>
-                        <th>From Port</th>
-                        <th>{legIndex > 0 ? 'Arrival' : ''}</th>
-                        <th className={styles.robCol}>VLSFO ROB</th>
-                        <th className={styles.robCol}>LSMGO ROB</th>
-                        <th>Departure</th>
-                        <th className={styles.robCol}>VLSFO ROB</th>
-                        <th className={styles.robCol}>LSMGO ROB</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className={styles.portIdxCol}>
-                          {editable
-                            && (form.portLegs || []).length > 1
-                            && isLastLeg ? (
-                              <RowRemoveButton onClick={() => removeRow('portLegs', leg.id)} />
-                            ) : (
-                              <span>{legIndex + 1}</span>
-                            )}
-                        </td>
-                        <td>
-                          {readOnly ? (
-                            leg.fromPortName || leg.fromPortId || '—'
-                          ) : (
-                            <PortSearchSelect
-                              id={legIndex === 0 ? 'portFrom_0' : `portFrom_${legIndex}`}
-                              value={leg.fromPortId}
-                              label={leg.fromPortName}
-                              searchPorts={searchEstimatePorts}
-                              onChange={(portId, portName) => {
-                                updateRow('portLegs', leg.id, {
-                                  fromPortId: portId,
-                                  fromPortName: portName,
-                                });
-                              }}
-                            />
-                          )}
-                        </td>
-                        <td>
-                          {legIndex > 0 ? (
-                            readOnly ? (
-                              <input value={leg.fromArrival || ''} readOnly />
-                            ) : (
-                              <DmyDateInput
-                                id={`fromArrival_${leg.id}`}
-                                enableTime
-                                className=""
-                                value={leg.fromArrival || ''}
-                                onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
-                              />
-                            )
-                          ) : null}
-                        </td>
-                        <td className={styles.robCol}>
-                          <input
-                            value={leg.fromRobFoArrival || ''}
-                            readOnly={readOnly}
-                            placeholder="0.00"
-                            onChange={(e) => updateRow('portLegs', leg.id, { fromRobFoArrival: e.target.value })}
+              <table className={`${styles.portTable} ${styles.portLegConnected}`}>
+                <thead>
+                  <tr>
+                    <th className={styles.portIdxCol}>#</th>
+                    <th>From Port</th>
+                    <th>{legIndex > 0 ? 'Arrival' : ''}</th>
+                    <th className={styles.robCol}>VLSFO ROB</th>
+                    <th className={styles.robCol}>LSMGO ROB</th>
+                    <th>Departure</th>
+                    <th className={styles.robCol}>VLSFO ROB</th>
+                    <th className={styles.robCol}>LSMGO ROB</th>
+                    <th className={styles.wxCol}>Wx(%)</th>
+                    <th>L/B</th>
+                    <th className={styles.speedTypeCol}>Speed Type</th>
+                    <th>Route</th>
+                    <th>Total Dist</th>
+                    <th>Total Days</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className={styles.portIdxCol}>
+                      {editable && isLastLeg ? (
+                        <div className="rowActions">
+                          <RowAddButton
+                            title="Add passage leg"
+                            onClick={() => addRow('portLegs', createEmptyPortLeg)}
                           />
-                        </td>
-                        <td className={styles.robCol}>
-                          <input
-                            value={leg.fromRobDoArrival || ''}
-                            readOnly={readOnly}
-                            placeholder="0.00"
-                            onChange={(e) => updateRow('portLegs', leg.id, { fromRobDoArrival: e.target.value })}
+                          <RowDelButton
+                            title="Delete leg"
+                            onClick={() => removeRow('portLegs', leg.id)}
+                            disabled={(form.portLegs || []).length <= 1}
                           />
-                        </td>
-                        <td>
-                          {readOnly ? (
-                            <input value={leg.fromDeparture || ''} readOnly />
-                          ) : (
-                            <DmyDateInput
-                              id={`fromDeparture_${leg.id}`}
-                              enableTime
-                              className=""
-                              value={leg.fromDeparture || ''}
-                              onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
-                            />
-                          )}
-                        </td>
-                        <td className={styles.robCol}>
-                          <input
-                            value={leg.fromRobFoDeparture || ''}
-                            readOnly={readOnly}
-                            placeholder="0.00"
-                            onChange={(e) => updateRow('portLegs', leg.id, { fromRobFoDeparture: e.target.value })}
+                        </div>
+                      ) : (
+                        <span>{legIndex + 1}</span>
+                      )}
+                    </td>
+                    <td>
+                      {readOnly ? (
+                        leg.fromPortName || leg.fromPortId || '—'
+                      ) : (
+                        <PortSearchSelect
+                          id={legIndex === 0 ? 'portFrom_0' : `portFrom_${legIndex}`}
+                          value={leg.fromPortId}
+                          label={leg.fromPortName}
+                          searchPorts={searchEstimatePorts}
+                          onChange={(portId, portName) => {
+                            updateRow('portLegs', leg.id, {
+                              fromPortId: portId,
+                              fromPortName: portName,
+                            });
+                          }}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {legIndex > 0 ? (
+                        readOnly ? (
+                          <input value={leg.fromArrival || ''} readOnly />
+                        ) : (
+                          <DmyDateInput
+                            id={`fromArrival_${leg.id}`}
+                            enableTime
+                            className=""
+                            value={leg.fromArrival || ''}
+                            onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
                           />
-                        </td>
-                        <td className={styles.robCol}>
-                          <input
-                            value={leg.fromRobDoDeparture || ''}
-                            readOnly={readOnly}
-                            placeholder="0.00"
-                            onChange={(e) => updateRow('portLegs', leg.id, { fromRobDoDeparture: e.target.value })}
-                          />
-                        </td>
-                      </tr>
-                    </tbody>
-                    <thead>
-                      <tr>
-                        <th />
-                        <th>To Port</th>
-                        <th>Arrival</th>
-                        <th className={styles.robCol}>VLSFO ROB</th>
-                        <th className={styles.robCol}>LSMGO ROB</th>
-                        <th>Departure</th>
-                        <th className={styles.robCol}>VLSFO ROB</th>
-                        <th className={styles.robCol}>LSMGO ROB</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className={styles.portIdxCol}>
-                          {editable && isLastLeg ? (
-                            <AddCircleButton
-                              onClick={() => addRow('portLegs', createEmptyPortLeg)}
-                            />
-                          ) : null}
-                        </td>
-                        <td>
-                          {readOnly ? (
-                            leg.toPortName || leg.toPortId || '—'
-                          ) : (
-                            <PortSearchSelect
-                              id={legIndex === 0 ? 'portTo_0' : `portTo_${legIndex}`}
-                              value={leg.toPortId}
-                              label={leg.toPortName}
-                              searchPorts={searchEstimatePorts}
-                              onChange={(portId, portName) => {
-                                updateRow('portLegs', leg.id, {
-                                  toPortId: portId,
-                                  toPortName: portName,
-                                });
-                              }}
-                            />
-                          )}
-                        </td>
-                        <td>
-                          {readOnly ? (
-                            <input value={leg.toArrival || ''} readOnly />
-                          ) : (
-                            <DmyDateInput
-                              id={`toArrival_${leg.id}`}
-                              enableTime
-                              className=""
-                              value={leg.toArrival || ''}
-                              onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
-                            />
-                          )}
-                        </td>
-                        <td className={styles.robCol}>
-                          <input
-                            value={leg.toRobFoArrival || ''}
-                            readOnly={readOnly}
-                            placeholder="0.00"
-                            onChange={(e) => updateRow('portLegs', leg.id, { toRobFoArrival: e.target.value })}
-                          />
-                        </td>
-                        <td className={styles.robCol}>
-                          <input
-                            value={leg.toRobDoArrival || ''}
-                            readOnly={readOnly}
-                            placeholder="0.00"
-                            onChange={(e) => updateRow('portLegs', leg.id, { toRobDoArrival: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          {readOnly ? (
-                            <input value={leg.toDeparture || ''} readOnly />
-                          ) : (
-                            <DmyDateInput
-                              id={`toDeparture_${leg.id}`}
-                              enableTime
-                              className=""
-                              value={leg.toDeparture || ''}
-                              onChange={(value) => updateRow('portLegs', leg.id, { toDeparture: value })}
-                            />
-                          )}
-                        </td>
-                        <td className={styles.robCol}>
-                          <input
-                            value={leg.toRobFoDeparture || ''}
-                            readOnly={readOnly}
-                            placeholder="0.00"
-                            onChange={(e) => updateRow('portLegs', leg.id, { toRobFoDeparture: e.target.value })}
-                          />
-                        </td>
-                        <td className={styles.robCol}>
-                          <input
-                            value={leg.toRobDoDeparture || ''}
-                            readOnly={readOnly}
-                            placeholder="0.00"
-                            onChange={(e) => updateRow('portLegs', leg.id, { toRobDoDeparture: e.target.value })}
-                          />
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className={styles.portLegMeta}>
-                  <table className={styles.portTable}>
-                    <thead>
-                      <tr>
-                        <th>Wx(%)</th>
-                        <th>L/B</th>
-                        <th>Speed Type</th>
-                        {editable ? <th>Route</th> : null}
-                        <th>Total Dist</th>
-                        <th>Total Days</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                          <input
-                            value={leg.seaMargin ?? ''}
-                            readOnly={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          <WorksheetSelect
-                            id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
-                            value={leg.passageType}
-                            disabled={readOnly}
-                            options={PASSAGE_TYPE_OPTIONS}
-                            onChange={(value) => updateRow('portLegs', leg.id, { passageType: value })}
-                          />
-                        </td>
-                        <td>
-                          <WorksheetSelect
-                            id={legIndex === 0 ? 'portSpeed_0' : `portSpeed_${legIndex}`}
-                            value={leg.speedType}
-                            disabled={readOnly}
-                            options={SPEED_TYPE_OPTIONS}
-                            onChange={(value) => updateRow('portLegs', leg.id, { speedType: value })}
-                          />
-                        </td>
-                        {editable ? (
-                          <td>
-                            <button
-                              type="button"
-                              className={styles.fetchBtn}
-                              onClick={() => openDistanceFetch(leg)}
-                            >
-                              Sync
-                            </button>
-                          </td>
-                        ) : null}
-                        <td>
-                          <input
-                            id={legIndex === 0 ? 'portDistance_0' : `portDistance_${legIndex}`}
-                            value={leg.distance}
-                            readOnly={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { distance: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          <input value={leg.seaDays || ''} readOnly />
-                        </td>
-                      </tr>
-                    </tbody>
-                    <thead>
-                      <tr>
-                        <th>BG</th>
-                        <th>NSECA Dist</th>
-                        <th>NSECA Days</th>
-                        <th>BG</th>
-                        <th>SECA Dist</th>
-                        <th>SECA Days</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                          <WorksheetSelect
-                            value={leg.bgNonSeca || 'VLSFO'}
-                            gradeLabel={leg.bgNonSeca || 'VLSFO'}
-                            disabled={readOnly}
-                            options={NSBG_OPTIONS}
-                            onChange={(value) => updateRow('portLegs', leg.id, { bgNonSeca: value })}
-                          />
-                        </td>
-                        <td>
-                          <input value={leg.nonSecaDistance || ''} readOnly />
-                        </td>
-                        <td>
-                          <input value={leg.nonSecaDays || ''} readOnly />
-                        </td>
-                        <td>
-                          <WorksheetSelect
-                            value={leg.bgSeca || 'LSMGO'}
-                            gradeLabel={leg.bgSeca || 'LSMGO'}
-                            disabled={readOnly}
-                            options={SBG_OPTIONS}
-                            onChange={(value) => updateRow('portLegs', leg.id, { bgSeca: value })}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            value={leg.secaDistance || ''}
-                            readOnly={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          <input value={leg.secaDays || ''} readOnly />
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                        )
+                      ) : null}
+                    </td>
+                    <td className={styles.robCol}>
+                      <input
+                        value={leg.fromRobFoArrival || ''}
+                        readOnly={readOnly}
+                        placeholder="0.00"
+                        onChange={(e) => updateRow('portLegs', leg.id, { fromRobFoArrival: e.target.value })}
+                      />
+                    </td>
+                    <td className={styles.robCol}>
+                      <input
+                        value={leg.fromRobDoArrival || ''}
+                        readOnly={readOnly}
+                        placeholder="0.00"
+                        onChange={(e) => updateRow('portLegs', leg.id, { fromRobDoArrival: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      {readOnly ? (
+                        <input value={leg.fromDeparture || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          id={`fromDeparture_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.fromDeparture || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
+                        />
+                      )}
+                    </td>
+                    <td className={styles.robCol}>
+                      <input
+                        value={leg.fromRobFoDeparture || ''}
+                        readOnly={readOnly}
+                        placeholder="0.00"
+                        onChange={(e) => updateRow('portLegs', leg.id, { fromRobFoDeparture: e.target.value })}
+                      />
+                    </td>
+                    <td className={styles.robCol}>
+                      <input
+                        value={leg.fromRobDoDeparture || ''}
+                        readOnly={readOnly}
+                        placeholder="0.00"
+                        onChange={(e) => updateRow('portLegs', leg.id, { fromRobDoDeparture: e.target.value })}
+                      />
+                    </td>
+                    <td className={styles.wxCol}>
+                      <input
+                        value={leg.seaMargin ?? ''}
+                        readOnly={readOnly}
+                        onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <WorksheetSelect
+                        id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
+                        value={leg.passageType}
+                        disabled={readOnly}
+                        options={PASSAGE_TYPE_OPTIONS}
+                        onChange={(value) => updateRow('portLegs', leg.id, { passageType: value })}
+                      />
+                    </td>
+                    <td className={styles.speedTypeCol}>
+                      <WorksheetSelect
+                        id={legIndex === 0 ? 'portSpeed_0' : `portSpeed_${legIndex}`}
+                        value={leg.speedType}
+                        disabled={readOnly}
+                        options={SPEED_TYPE_OPTIONS}
+                        onChange={(value) => updateRow('portLegs', leg.id, { speedType: value })}
+                      />
+                    </td>
+                    <td>
+                      {editable ? (
+                        <button
+                          type="button"
+                          className={styles.fetchBtn}
+                          onClick={() => openDistanceFetch(leg)}
+                        >
+                          Sync
+                        </button>
+                      ) : null}
+                    </td>
+                    <td>
+                      <input
+                        id={legIndex === 0 ? 'portDistance_0' : `portDistance_${legIndex}`}
+                        value={leg.distance}
+                        readOnly={readOnly}
+                        onChange={(e) => updateRow('portLegs', leg.id, { distance: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input value={leg.seaDays || ''} readOnly />
+                    </td>
+                  </tr>
+                </tbody>
+                <thead>
+                  <tr>
+                    <th />
+                    <th>To Port</th>
+                    <th>Arrival</th>
+                    <th className={styles.robCol}>VLSFO ROB</th>
+                    <th className={styles.robCol}>LSMGO ROB</th>
+                    <th>Departure</th>
+                    <th className={styles.robCol}>VLSFO ROB</th>
+                    <th className={styles.robCol}>LSMGO ROB</th>
+                    <th className={styles.bgCol}>BG</th>
+                    <th>NSECA Dist</th>
+                    <th>NSECA Days</th>
+                    <th className={styles.bgCol}>BG</th>
+                    <th>SECA Dist</th>
+                    <th>SECA Days</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className={styles.portIdxCol} />
+                    <td>
+                      {readOnly ? (
+                        leg.toPortName || leg.toPortId || '—'
+                      ) : (
+                        <PortSearchSelect
+                          id={legIndex === 0 ? 'portTo_0' : `portTo_${legIndex}`}
+                          value={leg.toPortId}
+                          label={leg.toPortName}
+                          searchPorts={searchEstimatePorts}
+                          onChange={(portId, portName) => {
+                            updateRow('portLegs', leg.id, {
+                              toPortId: portId,
+                              toPortName: portName,
+                            });
+                          }}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {readOnly ? (
+                        <input value={leg.toArrival || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          id={`toArrival_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.toArrival || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
+                        />
+                      )}
+                    </td>
+                    <td className={styles.robCol}>
+                      <input
+                        value={leg.toRobFoArrival || ''}
+                        readOnly={readOnly}
+                        placeholder="0.00"
+                        onChange={(e) => updateRow('portLegs', leg.id, { toRobFoArrival: e.target.value })}
+                      />
+                    </td>
+                    <td className={styles.robCol}>
+                      <input
+                        value={leg.toRobDoArrival || ''}
+                        readOnly={readOnly}
+                        placeholder="0.00"
+                        onChange={(e) => updateRow('portLegs', leg.id, { toRobDoArrival: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      {readOnly ? (
+                        <input value={leg.toDeparture || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          id={`toDeparture_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.toDeparture || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { toDeparture: value })}
+                        />
+                      )}
+                    </td>
+                    <td className={styles.robCol}>
+                      <input
+                        value={leg.toRobFoDeparture || ''}
+                        readOnly={readOnly}
+                        placeholder="0.00"
+                        onChange={(e) => updateRow('portLegs', leg.id, { toRobFoDeparture: e.target.value })}
+                      />
+                    </td>
+                    <td className={styles.robCol}>
+                      <input
+                        value={leg.toRobDoDeparture || ''}
+                        readOnly={readOnly}
+                        placeholder="0.00"
+                        onChange={(e) => updateRow('portLegs', leg.id, { toRobDoDeparture: e.target.value })}
+                      />
+                    </td>
+                    <td className={styles.bgCol}>
+                      <WorksheetSelect
+                        value={leg.bgNonSeca || 'VLSFO'}
+                        gradeLabel={leg.bgNonSeca || 'VLSFO'}
+                        disabled={readOnly}
+                        options={NSBG_OPTIONS}
+                        onChange={(value) => updateRow('portLegs', leg.id, { bgNonSeca: value })}
+                      />
+                    </td>
+                    <td>
+                      <input value={leg.nonSecaDistance || ''} readOnly />
+                    </td>
+                    <td>
+                      <input value={leg.nonSecaDays || ''} readOnly />
+                    </td>
+                    <td className={styles.bgCol}>
+                      <WorksheetSelect
+                        value={leg.bgSeca || 'LSMGO'}
+                        gradeLabel={leg.bgSeca || 'LSMGO'}
+                        disabled={readOnly}
+                        options={SBG_OPTIONS}
+                        onChange={(value) => updateRow('portLegs', leg.id, { bgSeca: value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        value={leg.secaDistance || ''}
+                        readOnly={readOnly}
+                        onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input value={leg.secaDays || ''} readOnly />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
             );
           })}
@@ -1375,7 +1423,9 @@ export default function EstimateDetailSections({
                       <tr key={`${title}-${row.id}`}>
                         <td>
                           {readOnly ? (
-                            gradeName(row.bunkerGradeId)
+                            <span className={`${styles.gradeChip} ${gradeChipClass(gradeName(row.bunkerGradeId))}`.trim()}>
+                              {gradeName(row.bunkerGradeId)}
+                            </span>
                           ) : (
                             <WorksheetSelect
                               value={row.bunkerGradeId || ''}
@@ -1620,7 +1670,7 @@ export default function EstimateDetailSections({
           <table className={styles.portTable}>
             <thead>
               <tr>
-                <th style={{ width: 56 }} />
+                <th style={{ width: 64 }} />
                 <th />
                 <th>Percentage (%)</th>
                 <th>Freight Comm.</th>
@@ -1660,7 +1710,11 @@ export default function EstimateDetailSections({
                 <tr key={row.id}>
                   <td>
                     {editable ? (
-                      <RowRemoveButton onClick={() => removeRow('brokerRows', row.id)} />
+                      <KhakiRowActions
+                        onAdd={() => addRow('brokerRows', createEmptyBrokerRow)}
+                        onRemove={() => removeRow('brokerRows', row.id)}
+                        canRemove={(form.brokerRows || []).length > 1}
+                      />
                     ) : null}
                   </td>
                   <td>Brokerage commission</td>
@@ -1693,13 +1747,7 @@ export default function EstimateDetailSections({
                 </tr>
               ))}
               <tr>
-                <td>
-                  {editable ? (
-                    <AddCircleButton
-                      onClick={() => addRow('brokerRows', createEmptyBrokerRow)}
-                    />
-                  ) : null}
-                </td>
+                <td />
                 <td>Total</td>
                 <td>
                   <input
@@ -1744,17 +1792,12 @@ export default function EstimateDetailSections({
         defaultOpen
         round
         className={styles.roundSection}
-        actions={editable ? (
-          <AddCircleButton
-            onClick={() => addRow('orcRows', () => createDefaultOrcRow(lookups.ownerCosts))}
-          />
-        ) : null}
       >
         <div className={styles.tableWrap}>
           <table className={styles.portTable}>
             <thead>
               <tr>
-                {editable ? <th style={{ width: 36 }} /> : null}
+                {editable ? <th style={{ width: 64 }} /> : null}
                 <th>Cost</th>
                 <th>Amount</th>
               </tr>
@@ -1764,7 +1807,11 @@ export default function EstimateDetailSections({
                 <tr key={row.id}>
                   {editable ? (
                     <td>
-                      <RowRemoveButton onClick={() => removeRow('orcRows', row.id)} />
+                      <KhakiRowActions
+                        onAdd={() => addRow('orcRows', () => createDefaultOrcRow(lookups.ownerCosts))}
+                        onRemove={() => removeRow('orcRows', row.id)}
+                        canRemove={(form.orcRows || []).length > 1}
+                      />
                     </td>
                   ) : null}
                   <td>
@@ -1817,19 +1864,12 @@ export default function EstimateDetailSections({
           defaultOpen={false}
           round
           className={styles.roundSection}
-          actions={editable ? (
-            <AddCircleButton
-              onClick={() => addRow('bunkerActivityRows', () => createEmptyBunkerActivityRow({
-                price: lookups.marketPrices?.vlsfo || '',
-              }))}
-            />
-          ) : null}
         >
           <div className={styles.tableWrap}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
-                  {editable ? <th style={{ width: 36 }} /> : null}
+                  {editable ? <th style={{ width: 64 }} /> : null}
                   <th>Activity</th>
                   <th>Bunker Grade</th>
                   <th>Qty (MT)</th>
@@ -1842,7 +1882,13 @@ export default function EstimateDetailSections({
                   <tr key={row.id}>
                     {editable ? (
                       <td>
-                        <RowRemoveButton onClick={() => removeRow('bunkerActivityRows', row.id)} />
+                        <KhakiRowActions
+                          onAdd={() => addRow('bunkerActivityRows', () => createEmptyBunkerActivityRow({
+                            price: lookups.marketPrices?.vlsfo || '',
+                          }))}
+                          onRemove={() => removeRow('bunkerActivityRows', row.id)}
+                          canRemove={(form.bunkerActivityRows || []).length > 1}
+                        />
                       </td>
                     ) : null}
                     <td>
@@ -1927,6 +1973,21 @@ export default function EstimateDetailSections({
                     </td>
                   </tr>
                 ))}
+                {editable && !(form.bunkerActivityRows || []).length ? (
+                  <tr>
+                    <td>
+                      <div className="rowActions">
+                        <RowAddButton
+                          title="Add row"
+                          onClick={() => addRow('bunkerActivityRows', () => createEmptyBunkerActivityRow({
+                            price: lookups.marketPrices?.vlsfo || '',
+                          }))}
+                        />
+                      </div>
+                    </td>
+                    <td colSpan={5} className={styles.summaryEmptyCell}>No bunker activities yet.</td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -2115,17 +2176,12 @@ export default function EstimateDetailSections({
         defaultOpen={false}
         round
         className={styles.roundSection}
-        actions={editable ? (
-            <AddCircleButton
-              onClick={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)}
-            />
-          ) : null}
       >
         <div className={styles.tableWrap}>
           <table className={styles.portTable}>
             <thead>
               <tr>
-                {editable ? <th style={{ width: 36 }} /> : null}
+                {editable ? <th style={{ width: 64 }} /> : null}
                 <th>Description</th>
                 <th>Amount</th>
                 <th>Add Comm(%)</th>
@@ -2138,7 +2194,11 @@ export default function EstimateDetailSections({
                 <tr key={row.id}>
                   {editable ? (
                     <td>
-                      <RowRemoveButton onClick={() => removeRow('otherIncomeRows', row.id)} />
+                      <KhakiRowActions
+                        onAdd={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)}
+                        onRemove={() => removeRow('otherIncomeRows', row.id)}
+                        canRemove={(form.otherIncomeRows || []).length > 1}
+                      />
                     </td>
                   ) : null}
                   <td>
@@ -2178,6 +2238,19 @@ export default function EstimateDetailSections({
                   </td>
                 </tr>
               ))}
+              {editable && !(form.otherIncomeRows || []).length ? (
+                <tr>
+                  <td>
+                    <div className="rowActions">
+                      <RowAddButton
+                        title="Add row"
+                        onClick={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)}
+                      />
+                    </div>
+                  </td>
+                  <td colSpan={5} className={styles.summaryEmptyCell}>No other income rows yet.</td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -2205,7 +2278,7 @@ export default function EstimateDetailSections({
           <table className={`${styles.portTable} ${styles.bunkerZebra}`}>
             <thead>
               <tr>
-                {editable ? <th style={{ width: 56 }} /> : null}
+                {editable ? <th style={{ width: 64 }} /> : null}
                 <th>Grade</th>
                 <th>Estimated (MT)</th>
                 <th>Actual Consumed (MT)</th>
@@ -2223,10 +2296,7 @@ export default function EstimateDetailSections({
                           <KhakiRowActions
                             readOnly={readOnly}
                             onAdd={addEstimatedConsumedRow}
-                            onRemove={() => {
-                              handleBunkerConsumedChange(row.grade, '');
-                              handleBunkerSummaryPriceChange(row.grade, '');
-                            }}
+                            onRemove={() => removeEstimatedConsumedGrade(row.grade)}
                           />
                         </td>
                       ) : null}
@@ -2287,7 +2357,7 @@ export default function EstimateDetailSections({
                           <KhakiRowActions
                             readOnly={readOnly}
                             onAdd={addEstimatedConsumedRow}
-                            onRemove={() => removeRow('secaBunkerRows', row.id)}
+                            onRemove={() => removeRow('secaBunkerRows', row.id, { allowEmpty: true })}
                           />
                         </td>
                       ) : null}
@@ -2296,8 +2366,14 @@ export default function EstimateDetailSections({
                           value={row.bunkerGradeId || ''}
                           gradeLabel={bunkerGradeName(row.bunkerGradeId)}
                           disabled={readOnly}
-                          options={(lookups.bunkerGrades || []).map((g) => ({ value: g.id, label: g.name }))}
-                          onChange={(value) => updateRow('secaBunkerRows', row.id, { bunkerGradeId: value })}
+                          options={(lookups.bunkerGrades || [])
+                            .filter((g) => {
+                              const key = classifySummaryGradeName(g.name);
+                              if (!key || !SUMMARY_BUNKER_GRADES.includes(key)) return false;
+                              return availableEstimatedGrades.includes(key);
+                            })
+                            .map((g) => ({ value: g.id, label: g.name }))}
+                          onChange={(value) => assignBlankEstimatedGrade(row.id, value)}
                         />
                       </td>
                       <td>
@@ -2330,9 +2406,9 @@ export default function EstimateDetailSections({
                 <tr>
                   <td colSpan={editable ? 6 : 5} className={styles.summaryEmptyCell}>
                     {editable ? (
-                      <button type="button" className={styles.bunkerEmptyAdd} onClick={addEstimatedConsumedRow}>
-                        + Add grade
-                      </button>
+                      <div className="rowActions">
+                        <RowAddButton title="Add grade" onClick={addEstimatedConsumedRow} />
+                      </div>
                     ) : (
                       'No bunker summary available yet.'
                     )}
@@ -2352,7 +2428,7 @@ export default function EstimateDetailSections({
           <table className={`${styles.portTable} ${styles.bunkerZebra}`}>
             <thead>
               <tr>
-                {editable ? <th style={{ width: 56 }} /> : null}
+                {editable ? <th style={{ width: 64 }} /> : null}
                 <th>Grade</th>
                 <th>Port</th>
                 <th>Qty(MT)</th>
@@ -2445,24 +2521,24 @@ export default function EstimateDetailSections({
                 })}
               {editable && !(form.bunkerRows || []).some((row) => String(row.identify || '').toUpperCase() === 'SUPPLY') ? (
                 <tr>
-                  <td colSpan={7} className={styles.summaryEmptyCell}>
-                    <button
-                      type="button"
-                      className={styles.bunkerEmptyAdd}
-                      onClick={() => {
-                        addRow(
-                          'bunkerRows',
-                          () => createStemRowFromLast(
-                            form.bunkerRows,
-                            getPassagePorts(form.portLegs),
-                          ),
-                          { identify: 'SUPPLY' },
-                        );
-                      }}
-                    >
-                      + Add stem
-                    </button>
+                  <td>
+                    <div className="rowActions">
+                      <RowAddButton
+                        title="Add stem"
+                        onClick={() => {
+                          addRow(
+                            'bunkerRows',
+                            () => createStemRowFromLast(
+                              form.bunkerRows,
+                              getPassagePorts(form.portLegs),
+                            ),
+                            { identify: 'SUPPLY' },
+                          );
+                        }}
+                      />
+                    </div>
                   </td>
+                  <td colSpan={6} className={styles.summaryEmptyCell}>No stemmed bunkers yet.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -2764,17 +2840,12 @@ export default function EstimateDetailSections({
             defaultOpen={false}
             round
             className={styles.roundSection}
-            actions={editable ? (
-              <AddCircleButton
-                onClick={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
-              />
-            ) : null}
           >
             <div className={styles.tableWrap}>
               <table className={styles.portTable}>
                 <thead>
                   <tr>
-                    {editable ? <th style={{ width: 36 }} /> : null}
+                    {editable ? <th style={{ width: 64 }} /> : null}
                     <th>Company</th>
                     <th>Percentage</th>
                   </tr>
@@ -2784,7 +2855,11 @@ export default function EstimateDetailSections({
                     <tr key={row.id}>
                       {editable ? (
                         <td>
-                          <RowRemoveButton onClick={() => removeRow('profitSharingRows', row.id)} />
+                          <KhakiRowActions
+                            onAdd={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
+                            onRemove={() => removeRow('profitSharingRows', row.id)}
+                            canRemove={(form.profitSharingRows || []).length > 1}
+                          />
                         </td>
                       ) : null}
                       <td>
@@ -2808,6 +2883,19 @@ export default function EstimateDetailSections({
                       </td>
                     </tr>
                   ))}
+                  {editable && !(form.profitSharingRows || []).length ? (
+                    <tr>
+                      <td>
+                        <div className="rowActions">
+                          <RowAddButton
+                            title="Add row"
+                            onClick={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
+                          />
+                        </div>
+                      </td>
+                      <td colSpan={2} className={styles.summaryEmptyCell}>No profit sharing rows yet.</td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>

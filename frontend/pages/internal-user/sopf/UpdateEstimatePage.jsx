@@ -148,6 +148,10 @@ export default function UpdateEstimatePage() {
     ));
   }, [lookups]);
 
+  const handleCalculate = useCallback(() => {
+    setForm((current) => applyEstimateCalculations(current, lookups));
+  }, [lookups]);
+
   const handleVesselSelect = async (vessel) => {
     if (!vessel) {
       setForm((current) => applyEstimateCalculations({
@@ -165,6 +169,7 @@ export default function UpdateEstimatePage() {
         gear: '',
         builtYear: '',
         tpc: '',
+        draft: '',
         grainCap: '',
         baleCap: '',
         loadable: '',
@@ -334,7 +339,11 @@ export default function UpdateEstimatePage() {
   return (
     <div className={`zafira-page ${styles.page}`}>
       <LoadingOverlay show={loading || saving} />
-      <EstimateDetailHeaderActions listHref={listHref} disabled={saving} />
+      <EstimateDetailHeaderActions
+        listHref={listHref}
+        disabled={saving || loading}
+        onCalculate={handleCalculate}
+      />
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
@@ -352,6 +361,13 @@ export default function UpdateEstimatePage() {
             onApplyPatch={handleApplyPatch}
           />
           <div className={styles.actions}>
+            <Button
+              type="button"
+              variant="accent"
+              label="Calculate"
+              onClick={handleCalculate}
+              disabled={saving}
+            />
             <Button type="submit" variant="submit" label="Submit" disabled={saving} />
             <Button variant="close" label="Cancel" href={listHref} ariaLabel="Close" />
           </div>

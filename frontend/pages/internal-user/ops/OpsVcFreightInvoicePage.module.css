@@ -283,6 +283,66 @@
   max-width: 66%;
 }
 
+/* Exchange & Tax — exchange_tax_4.html */
+.exTaxBody {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.applyBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.applyLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fi-text-light);
+}
+
+.applyRow {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.toggleGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.taxSection {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.taxFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 22px 28px;
+  min-width: 0;
+}
+
+.taxFieldsSpacer {
+  min-width: 0;
+}
+
+.descField {
+  width: calc(50% - 14px);
+  max-width: 100%;
+}
+
+.descField .textarea {
+  min-height: 96px;
+}
+
 .autoTag {
   font-size: 8.5px;
   font-weight: 700;
@@ -386,18 +446,19 @@
 
 .toggleSwitch {
   position: relative;
-  width: 40px;
+  width: 38px;
   height: 22px;
   border-radius: 999px;
-  background: var(--fi-line-strong);
+  background: #d8dce3;
   cursor: pointer;
   flex: none;
   border: 0;
   padding: 0;
+  transition: background 0.15s ease;
 }
 
 .toggleOn {
-  background: var(--fi-blue);
+  background: #5e7ef3;
 }
 
 .toggleKnob {
@@ -408,73 +469,62 @@
   height: 18px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 3px rgba(20, 20, 40, 0.25);
   transition: left 0.15s ease;
 }
 
 .toggleOn .toggleKnob {
-  left: 20px;
+  left: 18px;
 }
 
 .toggleText {
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--fi-num-grey);
 }
 
+/* Soft grey capsule + blue active pill (exchange_tax_4) */
 .segToggle {
-  position: relative;
   display: inline-flex;
   background: var(--fi-field-grey);
   border-radius: 999px;
   padding: 3px;
-  width: 150px;
-  margin-left: 6px;
-}
-
-.segThumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: calc(50% - 3px);
-  height: calc(100% - 6px);
-  background: var(--fi-blue);
-  border-radius: 999px;
-  transition: left 0.15s ease;
-  z-index: 0;
-}
-
-.segPos2 .segThumb {
-  left: calc(50% + 0px);
+  gap: 2px;
+  transition: background 0.15s ease;
 }
 
 .segOpt {
-  flex: 1;
-  text-align: center;
-  padding: 7px 0;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--fi-text-mid);
+  border: none;
+  background: none;
+  padding: 7px 24px;
   border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--fi-num-grey);
   cursor: pointer;
-  position: relative;
-  z-index: 1;
-  background: transparent;
-  border: 0;
   font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .segActive {
+  background: #5e7ef3;
   color: #fff;
 }
 
 .segDisabled {
-  opacity: 0.45;
+  background: #edeef1;
   pointer-events: none;
 }
 
-.segDisabled .segThumb {
-  background: var(--fi-text-light);
+.segDisabled .segOpt {
+  color: #aeb3bd;
+  cursor: not-allowed;
+}
+
+.segDisabled .segActive {
+  background: none;
+  color: #aeb3bd;
 }
 
 .statusToggle {
@@ -1263,8 +1313,17 @@
 @media (max-width: 900px) {
   .grid2,
   .grid3,
-  .grid4 {
+  .grid4,
+  .taxFields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .taxFieldsSpacer {
+    display: none;
+  }
+
+  .descField {
+    width: 100%;
   }
 
   .summaryTiles {

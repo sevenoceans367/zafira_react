@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { DmyDateInput } from '@bainbridge/shared-ui';
+import { DmyDateInput, RowAddButton, RowDelButton } from '@bainbridge/shared-ui';
 import { HScrollButtons } from '../../sopf/ScrollableTable.jsx';
 import {
   buildBunkerFifo,
@@ -106,22 +106,9 @@ function buildPortCards(form) {
 function KhakiActions({ onAdd, onRemove, readOnly }) {
   if (readOnly) return null;
   return (
-    <div className={styles.khakiActions}>
-      <button type="button" className={styles.khakiAdd} onClick={onAdd} title="Add row" aria-label="Add row">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M12 5v14" />
-          <path d="M5 12h14" />
-        </svg>
-      </button>
-      <button type="button" className={styles.khakiDel} onClick={onRemove} title="Remove" aria-label="Remove row">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M4 7h16" />
-          <path d="M6 7V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3" />
-          <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
-          <path d="M10 11v6" />
-          <path d="M14 11v6" />
-        </svg>
-      </button>
+    <div className="rowActions">
+      <RowAddButton title="Add row" onClick={onAdd} />
+      <RowDelButton title="Delete row" onClick={onRemove} />
     </div>
   );
 }

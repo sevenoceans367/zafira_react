@@ -1200,6 +1200,7 @@ export function toFormState(detail = {}) {
     nrt: detail.nrt != null ? String(detail.nrt) : '',
     loa: detail.loa != null ? String(detail.loa) : '',
     tpc: detail.tpc != null ? String(detail.tpc) : '',
+    draft: detail.draft != null ? String(detail.draft) : '',
     scnt: detail.scnt != null ? String(detail.scnt) : '',
     tankWsFrom,
     tankWsTo,
@@ -1384,6 +1385,13 @@ export function toFormState(detail = {}) {
     etsVlsfoMt: detail.etsVlsfoMt != null ? String(detail.etsVlsfoMt) : '',
     lsmgoMt: detail.lsmgoMt != null ? String(detail.lsmgoMt) : '',
     etsLsmgoMt: detail.etsLsmgoMt != null ? String(detail.etsLsmgoMt) : '',
+    // UI-only: Estimated & Consumed grade remove / manual consumed overrides
+    bunkerEstimatedHiddenGrades: Array.isArray(detail.bunkerEstimatedHiddenGrades)
+      ? detail.bunkerEstimatedHiddenGrades.map(String)
+      : [],
+    bunkerConsumedManual: detail.bunkerConsumedManual && typeof detail.bunkerConsumedManual === 'object'
+      ? { ...detail.bunkerConsumedManual }
+      : {},
     bunkerResultsCost: detail.bunkerResultsCost != null ? String(detail.bunkerResultsCost) : '',
     eeoi: detail.eeoi != null ? String(detail.eeoi) : '',
     cii: detail.cii != null ? String(detail.cii) : '',

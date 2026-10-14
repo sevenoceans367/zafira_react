@@ -110,6 +110,11 @@ function withClientIds(rows, factory) {
     bunkerId: strOrEmpty(row.bunkerId),
     description: strOrEmpty(row.description || row.reason),
     reason: strOrEmpty(row.reason),
+    offFrom: strOrEmpty(row.offFrom),
+    offTo: strOrEmpty(row.offTo),
+    percent: row.percent == null || row.percent === '' ? '100' : String(row.percent),
+    days: row.days == null || row.days === '' ? '' : String(row.days),
+    hireRate: row.hireRate == null || row.hireRate === '' ? '' : String(row.hireRate),
     amount: row.amount == null || row.amount === '' ? '' : String(row.amount),
     qty: row.qty == null || row.qty === '' ? '' : String(row.qty),
     price: row.price == null || row.price === '' ? '' : String(row.price),
@@ -127,7 +132,7 @@ function toSelectOptions(rows) {
   ];
 }
 
-function FormSelect({ id, label, value, options, onChange, required = false }) {
+function FormSelect({ id, label, value, options, onChange, required = false, disabled = false }) {
   return (
     <Field id={id} label={required ? `${label} *` : label}>
       <div className={styles.cardSelect}>
@@ -137,6 +142,7 @@ function FormSelect({ id, label, value, options, onChange, required = false }) {
           placeholder="----Select From List----"
           ariaLabel={label}
           align="start"
+          disabled={disabled}
           onChange={onChange}
         />
       </div>
@@ -381,7 +387,8 @@ function PaymentModal({ invoice, onClose, onSubmit }) {
             <input id="hirePayAmt" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </div>
           <div className={styles.modalField}>
-            <DmyDateInput id="hirePayDate" label="Date" value={date} onChange={setDate} required />
+            <label htmlFor="hirePayDate">Date</label>
+            <DmyDateInput id="hirePayDate" value={date} onChange={setDate} required />
           </div>
           <div className={styles.modalField}>
             <label htmlFor="hirePayRemarks">Remarks</label>
@@ -566,10 +573,10 @@ export default function OpsVcHireStatementPage() {
     setHireDayRows((rows) => rows.map((row) => {
       if (row.id !== id && row.randomId !== id) return row;
       const next = { ...row, ...patch };
-      const utilised = daysBetween(next.hireFrom, next.hireTo);
       if (patch.hireFrom != null || patch.hireTo != null) {
-        next.utilisedDays = utilised ? String(days5(utilised)) : next.utilisedDays;
-        next.hireAmt = String(money2(parseAmount(next.utilisedDays) * parseAmount(next.dailyRate)));
+        const utilised = daysBetween(next.hireFrom, next.hireTo);
+        next.utilisedDays = String(days5(utilised));
+        next.hireAmt = String(money2(utilised * parseAmount(next.dailyRate)));
       } else if (patch.utilisedDays != null) {
         next.hireAmt = String(money2(parseAmount(next.utilisedDays) * parseAmount(next.dailyRate)));
       }
@@ -582,8 +589,7 @@ export default function OpsVcHireStatementPage() {
       if (row.id !== id) return row;
       const next = { ...row, ...patch };
       if (patch.offFrom != null || patch.offTo != null) {
-        const days = daysBetween(next.offFrom, next.offTo);
-        if (days) next.days = String(days5(days));
+        next.days = String(days5(daysBetween(next.offFrom, next.offTo)));
       }
       const percent = parseAmount(next.percent) || 100;
       next.amount = String(money2(parseAmount(next.days) * parseAmount(next.hireRate) * (percent / 100)));
@@ -796,36 +802,40 @@ export default function OpsVcHireStatementPage() {
     ? `${context.lastUpdatedBy}${context.lastUpdatedAt ? ` - ${context.lastUpdatedAt}` : ''}`
     : '';
 
+  const formActions = (
+    <div className={styles.toolbar}>
+      <Button variant="outline" label="Back" href={backHref} disabled={saving} />
+      {editableByCreator ? (
+        <>
+          <Button variant="primary" label="Save" onClick={() => handleSubmit(0)} disabled={loading || saving || !context} />
+          <Button variant="accent" label="Send for Approval" onClick={() => handleSubmit(auth.sendForApprovalStatus)} disabled={loading || saving || !context} />
+        </>
+      ) : null}
+      {showApprover1Actions ? (
+        <>
+          <Button variant="primary" label="Send for Review" onClick={() => handleSubmit(2)} disabled={loading || saving || !context} />
+          <Button variant="accent" label="Submit & Approve" onClick={() => handleSubmit(approveStatusApp1)} disabled={loading || saving || !context} />
+        </>
+      ) : null}
+      {showApprover2Actions ? (
+        <>
+          <Button variant="primary" label="Send for Review" onClick={() => handleSubmit(reviewStatusApp2)} disabled={loading || saving || !context} />
+          <Button variant="accent" label="Submit & Approve" onClick={() => handleSubmit(5)} disabled={loading || saving || !context} />
+        </>
+      ) : null}
+      {invoiceId ? (
+        <Button variant="outline" label="Generate PDF" onClick={() => handleInvoiceAction('pdf', { invoiceId })} disabled={loading || saving} />
+      ) : null}
+    </div>
+  );
+
   return (
     <div className={`zafira-page ${styles.page}`}>
       {(loading || saving) ? (
         <LoadingOverlay show label={saving ? 'Saving hire statement…' : 'Loading hire statement…'} />
       ) : null}
 
-      <div className={styles.toolbar}>
-        <Button variant="outline" label="Back" href={backHref} disabled={saving} />
-        {editableByCreator ? (
-          <>
-            <Button variant="primary" label="Save" onClick={() => handleSubmit(0)} disabled={loading || saving || !context} />
-            <Button variant="accent" label="Send for Approval" onClick={() => handleSubmit(auth.sendForApprovalStatus)} disabled={loading || saving || !context} />
-          </>
-        ) : null}
-        {showApprover1Actions ? (
-          <>
-            <Button variant="primary" label="Send for Review" onClick={() => handleSubmit(2)} disabled={loading || saving || !context} />
-            <Button variant="accent" label="Submit & Approve" onClick={() => handleSubmit(approveStatusApp1)} disabled={loading || saving || !context} />
-          </>
-        ) : null}
-        {showApprover2Actions ? (
-          <>
-            <Button variant="primary" label="Send for Review" onClick={() => handleSubmit(reviewStatusApp2)} disabled={loading || saving || !context} />
-            <Button variant="accent" label="Submit & Approve" onClick={() => handleSubmit(5)} disabled={loading || saving || !context} />
-          </>
-        ) : null}
-        {invoiceId ? (
-          <Button variant="outline" label="Generate PDF" onClick={() => handleInvoiceAction('pdf', { invoiceId })} disabled={loading || saving} />
-        ) : null}
-      </div>
+      {formActions}
 
       <h2 className={styles.title}>
         Hire Statement Creation
@@ -848,6 +858,7 @@ export default function OpsVcHireStatementPage() {
                 required
                 value={form.shipOwner}
                 options={ownerOptions}
+                disabled={!editableByCreator}
                 onChange={(value) => updateField('shipOwner', value)}
               />
             </div>
@@ -862,6 +873,7 @@ export default function OpsVcHireStatementPage() {
                 label="Banking Details"
                 value={form.bankingId || form.bankingDetailId}
                 options={bankingOptions}
+                disabled={!editableByCreator}
                 onChange={(value) => {
                   const vendorHit = (context?.vendorBanking || []).some((row) => String(row.id) === String(value));
                   updateField('bankingId', vendorHit ? value : '');
@@ -888,16 +900,30 @@ export default function OpsVcHireStatementPage() {
           <div className={styles.mainSplit}>
             <div className={styles.leftCol}>
               <div className={styles.stackFields}>
-                <FormSelect id="invoiceType" label="Statement Type" required value={form.invoiceType} options={typeOptions} onChange={(value) => updateField('invoiceType', value)} />
+                <FormSelect id="invoiceType" label="Statement Type" required value={form.invoiceType} options={typeOptions} disabled={!editableByCreator} onChange={(value) => updateField('invoiceType', value)} />
                 <Field id="invoiceNo" label="Hire Statement Number *">
-                  <input className={styles.input} value={form.invoiceNo || ''} onChange={(e) => updateField('invoiceNo', e.target.value)} />
+                  <input className={styles.input} value={form.invoiceNo || ''} onChange={(e) => updateField('invoiceNo', e.target.value)} disabled={!editableByCreator} />
                 </Field>
-                <DmyDateInput id="invoiceDate" label="Hire Statement Date *" value={form.invoiceDate || ''} onChange={(value) => updateField('invoiceDate', value)} />
+                <Field id="invoiceDate" label="Hire Statement Date *">
+                  <DmyDateInput
+                    id="invoiceDate"
+                    value={form.invoiceDate || ''}
+                    onChange={(value) => updateField('invoiceDate', value)}
+                    disabled={!editableByCreator}
+                  />
+                </Field>
                 <Field id="exchangeRate" label="Exchange Rate">
-                  <input className={styles.input} value={form.exchangeRate || ''} onChange={(e) => updateField('exchangeRate', e.target.value)} />
+                  <input className={styles.input} value={form.exchangeRate || ''} onChange={(e) => updateField('exchangeRate', e.target.value)} disabled={!editableByCreator} />
                 </Field>
-                <DmyDateInput id="exchangeDate" label="Exchange Date" value={form.exchangeDate || ''} onChange={(value) => updateField('exchangeDate', value)} />
-                <FormSelect id="exchangeCurrency" label="Exchange To Currency" value={form.exchangeCurrency} options={currencyOptions} onChange={(value) => updateField('exchangeCurrency', value)} />
+                <Field id="exchangeDate" label="Exchange Date">
+                  <DmyDateInput
+                    id="exchangeDate"
+                    value={form.exchangeDate || ''}
+                    onChange={(value) => updateField('exchangeDate', value)}
+                    disabled={!editableByCreator}
+                  />
+                </Field>
+                <FormSelect id="exchangeCurrency" label="Exchange To Currency" value={form.exchangeCurrency} options={currencyOptions} disabled={!editableByCreator} onChange={(value) => updateField('exchangeCurrency', value)} />
                 <Field id="remainingDays" label="Remaining Days to Statement">
                   <input className={styles.input} readOnly value={totals.remainingDays || ''} />
                 </Field>
@@ -965,20 +991,23 @@ export default function OpsVcHireStatementPage() {
                               <td><input className={styles.input} readOnly value={row.totalDays ?? ''} /></td>
                               <td><input className={styles.input} readOnly value={row.remainingDays ?? ''} /></td>
                               <td><input className={styles.input} readOnly value={row.dailyRate ?? ''} /></td>
-                              <td>
-                                <input
+                              <td className={styles.dateCell}>
+                                <DmyDateInput
+                                  id={`hireFrom_${row.id || row.randomId}`}
+                                  enableTime
                                   className={styles.input}
-                                  readOnly
                                   value={row.hireFrom || ''}
-                                  placeholder="dd-mm-yyyy hh:mm"
+                                  disabled
                                 />
                               </td>
-                              <td>
-                                <input
+                              <td className={styles.dateCell}>
+                                <DmyDateInput
+                                  id={`hireTo_${row.id || row.randomId}`}
+                                  enableTime
                                   className={styles.input}
                                   value={row.hireTo || ''}
-                                  placeholder="dd-mm-yyyy hh:mm"
-                                  onChange={(event) => updateHireDay(row.id || row.randomId, { hireTo: event.target.value })}
+                                  disabled={!editableByCreator}
+                                  onChange={(value) => updateHireDay(row.id || row.randomId, { hireTo: value })}
                                 />
                               </td>
                               <td><input className={styles.input} readOnly value={row.utilisedDays || ''} /></td>
@@ -1167,11 +1196,25 @@ export default function OpsVcHireStatementPage() {
                                 <td>
                                   <textarea className={styles.textarea} rows={2} value={row.reason || row.description || ''} onChange={(event) => updateOffhire(row.id, { reason: event.target.value })} />
                                 </td>
-                                <td>
-                                  <input className={styles.input} placeholder="dd-mm-yyyy HH:MM" value={row.offFrom || ''} onChange={(event) => updateOffhire(row.id, { offFrom: event.target.value })} />
+                                <td className={styles.dateCell}>
+                                  <DmyDateInput
+                                    id={`offFrom_${row.id}`}
+                                    enableTime
+                                    className={styles.input}
+                                    value={row.offFrom || ''}
+                                    disabled={!editableByCreator}
+                                    onChange={(value) => updateOffhire(row.id, { offFrom: value })}
+                                  />
                                 </td>
-                                <td>
-                                  <input className={styles.input} placeholder="dd-mm-yyyy HH:MM" value={row.offTo || ''} onChange={(event) => updateOffhire(row.id, { offTo: event.target.value })} />
+                                <td className={styles.dateCell}>
+                                  <DmyDateInput
+                                    id={`offTo_${row.id}`}
+                                    enableTime
+                                    className={styles.input}
+                                    value={row.offTo || ''}
+                                    disabled={!editableByCreator}
+                                    onChange={(value) => updateOffhire(row.id, { offTo: value })}
+                                  />
                                 </td>
                                 <td>
                                   <input className={styles.input} value={row.percent || ''} onChange={(event) => updateOffhire(row.id, { percent: event.target.value })} />
@@ -1344,6 +1387,10 @@ export default function OpsVcHireStatementPage() {
               </div>
             </div>
           ) : null}
+
+          <div className={styles.toolbarBottom}>
+            {formActions}
+          </div>
         </>
       ) : null}
 

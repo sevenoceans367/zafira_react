@@ -1,5 +1,5 @@
 import React from 'react';
-import { AddCircleButton, useAlert } from '@bainbridge/shared-ui';
+import { RowAddButton, RowDelButton, useAlert } from '@bainbridge/shared-ui';
 import { searchEstimatePorts } from '../../../services/estimateDetail.js';
 import WsPortMultiSelect from './WsPortMultiSelect.jsx';
 import {
@@ -8,7 +8,6 @@ import {
 } from './estimateDetail.constants.js';
 import { getAddRowBlockMessage } from './estimateValidation.js';
 import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
-import RowRemoveButton from './RowRemoveButton.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
 function Field({ id, label, children }) {
@@ -50,15 +49,12 @@ export function CargoDetailsTable({
     <div className={styles.nestedBlock}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <strong>{title}</strong>
-        {editable ? (
-          <AddCircleButton onClick={() => addRow(collection, createRow)} />
-        ) : null}
       </div>
       <div className={styles.tableWrap}>
         <table className={styles.portTable}>
           <thead>
             <tr>
-              {editable ? <th style={{ width: 36 }} /> : null}
+              {editable ? <th style={{ width: 64 }} /> : null}
               <th>Shipper/Charterer</th>
               <th>Cargo</th>
               <th>Cargo (CBM)</th>
@@ -72,7 +68,17 @@ export function CargoDetailsTable({
               <tr key={row.id}>
                 {editable ? (
                   <td>
-                    <RowRemoveButton onClick={() => removeRow(collection, row.id)} />
+                    <div className="rowActions">
+                      <RowAddButton
+                        title="Add row"
+                        onClick={() => addRow(collection, createRow)}
+                      />
+                      <RowDelButton
+                        title="Delete row"
+                        onClick={() => removeRow(collection, row.id)}
+                        disabled={rows.length <= 1}
+                      />
+                    </div>
                   </td>
                 ) : null}
                 <td>
@@ -174,6 +180,16 @@ export function CargoDetailsTable({
                 </td>
               </tr>
             ))}
+            {editable && !rows.length ? (
+              <tr>
+                <td>
+                  <div className="rowActions">
+                    <RowAddButton title="Add row" onClick={() => addRow(collection, createRow)} />
+                  </div>
+                </td>
+                <td colSpan={6}>No cargo rows yet.</td>
+              </tr>
+            ) : null}
           </tbody>
           <tfoot>
             <tr>
@@ -422,9 +438,6 @@ export default function TankerFreightModeSection({
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <strong className={styles.tankerSectionTitle}>Freight Adjustment</strong>
-                {editable ? (
-                  <AddCircleButton onClick={addTankerWsRow} />
-                ) : null}
               </div>
               {(form.tankerWsRows || []).map((row, rowIndex) => (
                 <div key={row.id} className={styles.tankerWsBlock}>
@@ -470,7 +483,7 @@ export default function TankerFreightModeSection({
                     <table className={styles.portTable}>
                       <thead>
                         <tr>
-                          <th style={{ width: 36 }} />
+                          <th style={{ width: 64 }} />
                           <th />
                           <th />
                           <th>Flat Rate</th>
@@ -483,7 +496,14 @@ export default function TankerFreightModeSection({
                         <tr>
                           <td>
                             {editable ? (
-                              <RowRemoveButton onClick={() => removeRow('tankerWsRows', row.id)} />
+                              <div className="rowActions">
+                                <RowAddButton title="Add row" onClick={addTankerWsRow} />
+                                <RowDelButton
+                                  title="Delete row"
+                                  onClick={() => removeRow('tankerWsRows', row.id)}
+                                  disabled={(form.tankerWsRows || []).length <= 1}
+                                />
+                              </div>
                             ) : null}
                           </td>
                           <th scope="row" className={styles.tankerWsRowLabel}>Min Cargo Qty</th>

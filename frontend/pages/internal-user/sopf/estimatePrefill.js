@@ -231,6 +231,7 @@ export function applyVesselPrefillToForm(current, prefill, lookups = {}) {
     gear: prefill.gear || current.gear,
     builtYear: prefill.builtYear || current.builtYear,
     tpc: prefill.tpc || current.tpc,
+    draft: prefill.draft || current.draft,
     grainCap: prefill.grainCap || current.grainCap,
     baleCap: prefill.baleCap || current.baleCap,
     loadable: prefill.loadable || prefill.dwtSummer || current.loadable,

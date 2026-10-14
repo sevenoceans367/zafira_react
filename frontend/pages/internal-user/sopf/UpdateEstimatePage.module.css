@@ -813,7 +813,7 @@
 .portLaytimeBlock .portTable {
   table-layout: fixed;
   width: 100%;
-  min-width: 760px;
+  min-width: 800px;
   background: transparent;
   border-collapse: separate;
   border-spacing: 0 6px;
@@ -1023,6 +1023,49 @@
 .portLaytimeBlock .portTable th.bunkerGradeCell {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.qtyCell {
+  width: 12%;
+  min-width: 110px;
+}
+
+.qtyWithCalc {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.qtyWithCalc input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.qtyCalcBtn {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--port-accent);
+  cursor: pointer;
+}
+
+.qtyCalcBtn:hover {
+  background: color-mix(in srgb, var(--port-accent) 14%, #fff);
+  color: var(--port-accent);
+}
+
+.qtyCalcIcon {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 /* LP / DP port name — max-width:0 enables ellipsis under table-layout:fixed */
@@ -1439,10 +1482,13 @@
   border-bottom: 1px solid #edf0f2;
 }
 
+/* Match CPAS / panel heading size & style */
 .speedDataLabel {
-  font-size: 11px;
-  font-weight: 700;
+  font-family: var(--font-family-heading);
+  font-size: 12px;
+  font-weight: 600;
   color: #274670;
+  text-transform: uppercase;
   padding-bottom: 4px;
   align-self: flex-end;
 }

@@ -250,17 +250,20 @@ function gradeSelectClass(name) {
   if (upper.includes('VLSFO') || upper.includes('VLS')) {
     return `${styles.tableCardSelect} ${styles.chipGradeVlsfo}`;
   }
-  if (upper.includes('LSMGO') || upper.includes('MGO') || upper.includes('MDO')) {
+  if (upper.includes('LSMGO')) {
     return `${styles.tableCardSelect} ${styles.chipGradeLsmgo}`;
+  }
+  if (upper.includes('MGO') || upper.includes('MDO')) {
+    return `${styles.tableCardSelect} ${styles.chipGradeHsflo}`;
+  }
+  if (upper.includes('SCRUB')) {
+    return `${styles.tableCardSelect} ${styles.chipGradeScrubber}`;
   }
   if (upper.includes('HSFLO') || upper.includes('HSF-LO') || upper.includes('HSF_LO')) {
     return `${styles.tableCardSelect} ${styles.chipGradeHsflo}`;
   }
   if (upper.includes('HSFO') || upper.includes('IFO') || upper.includes('HFO')) {
     return `${styles.tableCardSelect} ${styles.chipGradeHsfo}`;
-  }
-  if (upper.includes('SCRUB')) {
-    return `${styles.tableCardSelect} ${styles.chipGradeScrubber}`;
   }
   const chip = GRADE_CHIP_PALETTE[hashGradeName(upper) % GRADE_CHIP_PALETTE.length];
   return `${styles.tableCardSelect} ${chip}`;
@@ -1221,6 +1224,7 @@ export default function TcFixtureFormPage({
   const { tcOutId: paramTcOutId } = useParams();
   const tcOutId = overrideTcOutId || paramTcOutId;
   const [searchParams] = useSearchParams();
+  const replicateFrom = searchParams.get('replicateFrom') || '';
   const [lookups, setLookups] = useState(null);
   const [businessTypes, setBusinessTypes] = useState([]);
   const [form, setForm] = useState(() => {
@@ -1231,7 +1235,7 @@ export default function TcFixtureFormPage({
       contractType: periodId ? 'tcinout' : 'tcout',
     };
   });
-  const [loading, setLoading] = useState(mode !== 'add');
+  const [loading, setLoading] = useState(mode !== 'add' || Boolean(searchParams.get('replicateFrom')));
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState('');
@@ -1532,6 +1536,44 @@ export default function TcFixtureFormPage({
     return () => { cancelled = true; };
   }, [form.tcNo, mode, readOnly]);
 
+  const applyTcDetailToForm = (detail, { asReplicate = false } = {}) => {
+    const queryPeriodId = searchParams.get('periodId') || searchParams.get('periodid') || '';
+    const periodId = queryPeriodId || detail.periodId || '';
+    const next = {
+      ...emptyForm(detail.businessTypeId || searchParams.get('selBType') || '2'),
+      ...detail,
+      fixtureType: detail.fixtureType || '1',
+      charteringTeam: normalizeCharteringTeam(detail.charteringTeam),
+      ballastBonus: detail.calc?.ballastBonus || detail.ballastBonus || '',
+      cveMonth: detail.calc?.cveMonth || detail.cveMonth || '',
+      ilohcUsd: detail.ilohcUsd || detail.calc?.ilohcAmt || '',
+      deliveryBunkers: detail.deliveryBunkers?.length ? detail.deliveryBunkers : [{ ...EMPTY_BUNKER }],
+      redeliveryBunkers: detail.redeliveryBunkers?.length ? detail.redeliveryBunkers : [{ ...EMPTY_BUNKER }],
+      foConsumptions: detail.foConsumptions || [],
+      doConsumptions: detail.doConsumptions || [],
+      calc: detail.calc || null,
+      periodId,
+      contractType: periodId ? 'tcinout' : (detail.contractType || 'tcout'),
+      ...normalizeCapexFields(detail),
+    };
+    if (asReplicate) {
+      // New estimate: keep tcNo so next EstN is fetched; drop identity + attachments
+      delete next.tcOutId;
+      delete next.id;
+      next.estimateNo = 1;
+      next.attachments = [];
+      next.attachmentFiles = [];
+      next.replicateFrom = String(detail.tcOutId || replicateFrom || '');
+    } else {
+      next.attachments = (detail.attachments || []).map((item) => ({
+        ...item,
+        url: item.url || attachmentUrl(item.file),
+      }));
+      next.attachmentFiles = [];
+    }
+    return next;
+  };
+
   useEffect(() => {
     if (mode === 'add' || !tcOutId) return undefined;
     let cancelled = false;
@@ -1540,26 +1582,7 @@ export default function TcFixtureFormPage({
       try {
         const detail = await fetchTcEstimate(tcOutId);
         if (cancelled) return;
-        setForm({
-          ...emptyForm(detail.businessTypeId || '2'),
-          ...detail,
-          fixtureType: detail.fixtureType || '1',
-          charteringTeam: normalizeCharteringTeam(detail.charteringTeam),
-          ballastBonus: detail.calc?.ballastBonus || detail.ballastBonus || '',
-          cveMonth: detail.calc?.cveMonth || detail.cveMonth || '',
-          ilohcUsd: detail.ilohcUsd || detail.calc?.ilohcAmt || '',
-          attachments: (detail.attachments || []).map((item) => ({
-            ...item,
-            url: item.url || attachmentUrl(item.file),
-          })),
-          attachmentFiles: [],
-          deliveryBunkers: detail.deliveryBunkers?.length ? detail.deliveryBunkers : [{ ...EMPTY_BUNKER }],
-          redeliveryBunkers: detail.redeliveryBunkers?.length ? detail.redeliveryBunkers : [{ ...EMPTY_BUNKER }],
-          foConsumptions: detail.foConsumptions || [],
-          doConsumptions: detail.doConsumptions || [],
-          calc: detail.calc || null,
-          ...normalizeCapexFields(detail),
-        });
+        setForm(applyTcDetailToForm(detail));
         if (detail?.periodId && !hasSavedTcInHires(detail.tcInExpenses)) {
           try {
             const periodTcIn = await fetchPeriodTcInDetails(detail.periodId);
@@ -1581,6 +1604,38 @@ export default function TcFixtureFormPage({
     })();
     return () => { cancelled = true; };
   }, [mode, tcOutId]);
+
+  // Replicate: list navigates to add?replicateFrom=<tcOutId>; prefill from source estimate
+  useEffect(() => {
+    if (mode !== 'add' || !replicateFrom) return undefined;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const detail = await fetchTcEstimate(replicateFrom);
+        if (cancelled) return;
+        setForm(applyTcDetailToForm(detail, { asReplicate: true }));
+        if (detail?.periodId && !hasSavedTcInHires(detail.tcInExpenses)) {
+          try {
+            const periodTcIn = await fetchPeriodTcInDetails(detail.periodId);
+            if (!cancelled && periodTcIn) {
+              setForm((prev) => ({
+                ...prev,
+                tcInExpenses: applyPeriodTcIn(prev.tcInExpenses, periodTcIn),
+              }));
+            }
+          } catch {
+            // Keep fixture-seeded TC In if period lookup fails.
+          }
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Failed to load estimate to replicate.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [mode, replicateFrom]);
 
   useEffect(() => {
     if (!lookups) return;

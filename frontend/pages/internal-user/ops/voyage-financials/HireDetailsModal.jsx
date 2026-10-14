@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { DmyDateInput } from '@bainbridge/shared-ui';
+import { DmyDateInput, RowAddButton, RowDelButton } from '@bainbridge/shared-ui';
 import WorksheetSelect from './WorksheetSelect.jsx';
 import {
   createEmptyDeliveryBunkerRow,
@@ -16,18 +16,6 @@ function PlusIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
       <path d="M12 5v14" />
       <path d="M5 12h14" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M4 7h16" />
-      <path d="M6 7V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3" />
-      <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
     </svg>
   );
 }
@@ -297,27 +285,19 @@ export default function HireDetailsModal({
                     <tr key={row.id}>
                       <td>
                         {!readOnly ? (
-                          <div className={styles.rowActions}>
-                            <button
-                              type="button"
-                              className={styles.iconAdd}
+                          <div className="rowActions">
+                            <RowAddButton
                               title="Add hire period"
                               onClick={() => applyPatch({ hireRows: [...hireRows, createEmptyHireRow()] })}
-                            >
-                              <PlusIcon />
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.iconDel}
-                              title="Remove"
+                            />
+                            <RowDelButton
+                              title="Delete row"
                               onClick={() => applyPatch({
                                 hireRows: hireRows.length > 1
                                   ? hireRows.filter((item) => item.id !== row.id)
                                   : [createEmptyHireRow()],
                               })}
-                            >
-                              <TrashIcon />
-                            </button>
+                            />
                           </div>
                         ) : null}
                       </td>
@@ -627,29 +607,21 @@ export default function HireDetailsModal({
                               <td><input value={row.amount || ''} readOnly placeholder="0.00" /></td>
                               <td>
                                 {!readOnly ? (
-                                  <div className={styles.rowActions}>
-                                    <button
-                                      type="button"
-                                      className={styles.iconAdd}
+                                  <div className="rowActions">
+                                    <RowAddButton
                                       title="Add row"
                                       onClick={() => applyPatch({
                                         [card.key]: [...card.rows, createEmptyDeliveryBunkerRow(card.identity)],
                                       })}
-                                    >
-                                      <PlusIcon />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={styles.iconDel}
-                                      title="Remove"
+                                    />
+                                    <RowDelButton
+                                      title="Delete row"
                                       onClick={() => applyPatch({
                                         [card.key]: card.rows.length > 1
                                           ? card.rows.filter((item) => item.id !== row.id)
                                           : [createEmptyDeliveryBunkerRow(card.identity)],
                                       })}
-                                    >
-                                      <TrashIcon />
-                                    </button>
+                                    />
                                   </div>
                                 ) : null}
                               </td>
@@ -721,18 +693,14 @@ export default function HireDetailsModal({
                         />
                         <input value={row.amount || ''} readOnly placeholder="0.00" />
                         {!readOnly ? (
-                          <button
-                            type="button"
-                            className={styles.iconDel}
-                            title="Remove"
+                          <RowDelButton
+                            title="Delete row"
                             onClick={() => applyPatch({
                               offHireRows: offHireRows.length > 1
                                 ? offHireRows.filter((item) => item.id !== row.id)
                                 : [createEmptyOffHireRow()],
                             })}
-                          >
-                            <TrashIcon />
-                          </button>
+                          />
                         ) : <span />}
                       </div>
 
@@ -780,19 +748,23 @@ export default function HireDetailsModal({
                                 onChange={(e) => patchOffHireBunker(row.id, bunker.id, { calc: e.target.checked })}
                               />
                               {!readOnly ? (
-                                <button
-                                  type="button"
-                                  className={styles.iconDel}
-                                  title="Remove"
-                                  onClick={() => {
-                                    const bunkers = (row.bunkers || []).length > 1
-                                      ? row.bunkers.filter((item) => item.id !== bunker.id)
-                                      : [newOffBunker()];
-                                    patchOffHireRow(row.id, { bunkers });
-                                  }}
-                                >
-                                  <TrashIcon />
-                                </button>
+                                <div className="rowActions">
+                                  <RowAddButton
+                                    title="Add bunker"
+                                    onClick={() => patchOffHireRow(row.id, {
+                                      bunkers: [...(row.bunkers || []), newOffBunker()],
+                                    })}
+                                  />
+                                  <RowDelButton
+                                    title="Delete row"
+                                    onClick={() => {
+                                      const bunkers = (row.bunkers || []).length > 1
+                                        ? row.bunkers.filter((item) => item.id !== bunker.id)
+                                        : [newOffBunker()];
+                                      patchOffHireRow(row.id, { bunkers });
+                                    }}
+                                  />
+                                </div>
                               ) : null}
                             </div>
                           </div>

@@ -736,6 +736,8 @@ export default function OpsVcFreightInvoicePage() {
   const [summaryStuck, setSummaryStuck] = useState(false);
   const summaryRef = useRef(null);
   const summaryHeadRef = useRef(null);
+  /** Remember GST/VAT choice while "Apply GST or VAT" is off (mockup exchange_tax_4). */
+  const lastTaxTypeRef = useRef('2');
 
   const backHref = useMemo(() => {
     const comId = context?.comId || id.split(',')[0] || '';
@@ -962,7 +964,7 @@ export default function OpsVcFreightInvoicePage() {
       gstOnBrokPercent: strOrEmpty(prefill.gstOnBrokPercent ?? '0'),
       addComPercent: strOrEmpty(prefill.addComPercent ?? '0'),
       taxApplicable: strOrEmpty(prefill.taxApplicable ?? '2'),
-      gstVat: strOrEmpty(prefill.gstVat ?? '1'),
+      gstVat: strOrEmpty(prefill.gstVat ?? '2'),
       sgstPercent: strOrEmpty(prefill.sgstPercent),
       cgstPercent: strOrEmpty(prefill.cgstPercent),
       igstPercent: strOrEmpty(prefill.igstPercent),
@@ -980,6 +982,7 @@ export default function OpsVcFreightInvoicePage() {
         : [],
     });
 
+    lastTaxTypeRef.current = strOrEmpty(prefill.gstVat ?? '2') === '1' ? '1' : '2';
     setInvoiceId(strOrEmpty(current?.invoiceId));
     // PHP txtDNote1 — keep original MESSAGE key once set so renames still update the same draft
     setDraftInvoiceNo((prev) => (prev || strOrEmpty(current?.invoiceNo)));
@@ -1446,6 +1449,48 @@ export default function OpsVcFreightInvoicePage() {
 
   const taxEnabled = String(form.taxApplicable) === '1';
   const gstMode = String(form.gstVat) === '1';
+  // Simplified GST UI: one % field. Prefer IGST; else SGST+CGST (typical intra-state split).
+  const gstPercentDisplay = (() => {
+    const igst = parseAmount(form.igstPercent);
+    if (igst > 0 || String(form.igstPercent || '').trim() !== '') {
+      return form.igstPercent || '';
+    }
+    const combined = money2(parseAmount(form.sgstPercent) + parseAmount(form.cgstPercent));
+    return combined > 0 ? String(combined) : '';
+  })();
+  const gstAmountDisplay = money2(
+    (totals.sgstAmount || 0) + (totals.cgstAmount || 0) + (totals.igstAmount || 0),
+  );
+
+  const setTaxApplicable = (enabled) => {
+    if (enabled) {
+      const restore = lastTaxTypeRef.current === '1' ? '1' : '2';
+      setForm((current) => ({
+        ...current,
+        taxApplicable: '1',
+        gstVat: restore,
+      }));
+      return;
+    }
+    lastTaxTypeRef.current = String(form.gstVat) === '1' ? '1' : '2';
+    updateField('taxApplicable', '2');
+  };
+
+  const selectTaxType = (gstVat) => {
+    if (!taxEnabled) return;
+    lastTaxTypeRef.current = String(gstVat);
+    updateField('gstVat', String(gstVat));
+  };
+
+  const setGstPercent = (value) => {
+    setForm((current) => ({
+      ...current,
+      igstPercent: value,
+      sgstPercent: '',
+      cgstPercent: '',
+    }));
+  };
+
   const status = invoiceStatus;
   const hasDraft = status != null && !Number.isNaN(status);
   const editableByCreator = !hasDraft || status === 0 || status === 2;
@@ -1971,123 +2016,123 @@ export default function OpsVcFreightInvoicePage() {
           </InvoiceCard>
 
           <InvoiceCard num="5" title="Exchange & Tax">
-            <div className={`${styles.grid3} ${styles.mb14}`}>
-              <Field id="exchangeRate" label="Exchange Rate" className={styles.field}>
-                <input
-                  id="exchangeRate"
-                  className={styles.input}
-                  value={form.exchangeRate || ''}
-                  onChange={(event) => updateField('exchangeRate', event.target.value)}
+            <div className={styles.exTaxBody}>
+              <div className={styles.grid3}>
+                <Field id="exchangeRate" label="X-Rate" className={styles.field}>
+                  <input
+                    id="exchangeRate"
+                    className={styles.input}
+                    value={form.exchangeRate || ''}
+                    onChange={(event) => updateField('exchangeRate', event.target.value)}
+                  />
+                </Field>
+                <Field id="exchangeDate" label="Exchange Date" className={styles.field}>
+                  <DmyDateInput
+                    id="exchangeDate"
+                    value={form.exchangeDate || ''}
+                    onChange={(value) => updateField('exchangeDate', value)}
+                  />
+                </Field>
+                <FormSelect
+                  id="exchangeCurrency"
+                  label="Exchange To Currency"
+                  value={form.exchangeCurrency}
+                  options={currencyOptions}
+                  onChange={(value) => updateField('exchangeCurrency', value)}
                 />
-              </Field>
-              <Field id="exchangeDate" label="Exchange Date" className={styles.field}>
-                <DmyDateInput
-                  id="exchangeDate"
-                  value={form.exchangeDate || ''}
-                  onChange={(value) => updateField('exchangeDate', value)}
-                />
-              </Field>
-              <FormSelect
-                id="exchangeCurrency"
-                label="Exchange To Currency"
-                value={form.exchangeCurrency}
-                options={currencyOptions}
-                onChange={(value) => updateField('exchangeCurrency', value)}
-              />
-            </div>
-            <div className={`${styles.field} ${styles.mb14}`}>
-              <label className={styles.fieldLabel}>Apply GST or VAT</label>
-              <div className={styles.toggleRow}>
-                <button
-                  type="button"
-                  className={`${styles.toggleSwitch} ${taxEnabled ? styles.toggleOn : ''}`}
-                  aria-pressed={taxEnabled}
-                  onClick={() => updateField('taxApplicable', taxEnabled ? '2' : '1')}
-                >
-                  <span className={styles.toggleKnob} />
-                </button>
-                <span className={styles.toggleText}>{taxEnabled ? 'Yes' : 'No'}</span>
-                <div className={`${styles.segToggle} ${gstMode ? '' : styles.segPos2} ${taxEnabled ? '' : styles.segDisabled}`}>
-                  <div className={styles.segThumb} />
-                  <button
-                    type="button"
-                    className={`${styles.segOpt} ${gstMode ? styles.segActive : ''}`}
-                    onClick={() => updateField('gstVat', '1')}
-                    disabled={!taxEnabled}
+              </div>
+
+              <div className={styles.applyBlock}>
+                <div className={styles.applyLabel}>Apply GST or VAT</div>
+                <div className={styles.applyRow}>
+                  <div className={styles.toggleGroup}>
+                    <button
+                      type="button"
+                      className={`${styles.toggleSwitch} ${taxEnabled ? styles.toggleOn : ''}`}
+                      aria-pressed={taxEnabled}
+                      aria-label="Apply GST or VAT"
+                      onClick={() => setTaxApplicable(!taxEnabled)}
+                    >
+                      <span className={styles.toggleKnob} />
+                    </button>
+                    <span className={styles.toggleText}>{taxEnabled ? 'Yes' : 'No'}</span>
+                  </div>
+                  <div
+                    className={`${styles.segToggle} ${taxEnabled ? '' : styles.segDisabled}`}
+                    role="group"
+                    aria-label="Tax type"
                   >
-                    GST
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.segOpt} ${!gstMode ? styles.segActive : ''}`}
-                    onClick={() => updateField('gstVat', '2')}
-                    disabled={!taxEnabled}
-                  >
-                    VAT
-                  </button>
+                    <button
+                      type="button"
+                      className={`${styles.segOpt} ${taxEnabled && gstMode ? styles.segActive : ''}`}
+                      onClick={() => selectTaxType('1')}
+                      disabled={!taxEnabled}
+                    >
+                      GST
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.segOpt} ${taxEnabled && !gstMode ? styles.segActive : ''}`}
+                      onClick={() => selectTaxType('2')}
+                      disabled={!taxEnabled}
+                    >
+                      VAT
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {taxEnabled ? (
+                <div className={styles.taxSection}>
+                  <div className={styles.taxFields}>
+                    {gstMode ? (
+                      <>
+                        <Field id="gstPercent" label="GST (%)" className={styles.field}>
+                          <input
+                            id="gstPercent"
+                            className={styles.input}
+                            value={gstPercentDisplay}
+                            onChange={(event) => setGstPercent(event.target.value)}
+                          />
+                        </Field>
+                        <Field id="gstAmount" label="GST AMT" className={`${styles.field} ${styles.computed}`}>
+                          <input className={styles.input} readOnly placeholder="0.00" value={gstAmountDisplay.toFixed(2)} />
+                        </Field>
+                      </>
+                    ) : (
+                      <>
+                        <Field id="vatPercent" label="VAT (%)" className={styles.field}>
+                          <input
+                            id="vatPercent"
+                            className={styles.input}
+                            value={form.vatPercent || ''}
+                            onChange={(event) => updateField('vatPercent', event.target.value)}
+                          />
+                        </Field>
+                        <Field id="vatAmount" label="VAT AMT" className={`${styles.field} ${styles.computed}`}>
+                          <input
+                            className={styles.input}
+                            readOnly
+                            placeholder="0.00"
+                            value={totals.vatAmount.toFixed(2)}
+                          />
+                        </Field>
+                      </>
+                    )}
+                    <div className={styles.taxFieldsSpacer} aria-hidden="true" />
+                  </div>
+
+                  <Field id="remarks" label="Description" className={`${styles.field} ${styles.descField}`}>
+                    <textarea
+                      id="remarks"
+                      className={styles.textarea}
+                      value={form.remarks || ''}
+                      onChange={(event) => updateField('remarks', event.target.value)}
+                    />
+                  </Field>
+                </div>
+              ) : null}
             </div>
-            {taxEnabled && gstMode ? (
-              <div className={`${styles.grid3} ${styles.mb14}`}>
-                <Field id="sgstPercent" label="SGST (%)" className={styles.field}>
-                  <input
-                    id="sgstPercent"
-                    className={styles.input}
-                    value={form.sgstPercent || ''}
-                    onChange={(event) => updateField('sgstPercent', event.target.value)}
-                  />
-                </Field>
-                <Field id="cgstPercent" label="CGST (%)" className={styles.field}>
-                  <input
-                    id="cgstPercent"
-                    className={styles.input}
-                    value={form.cgstPercent || ''}
-                    onChange={(event) => updateField('cgstPercent', event.target.value)}
-                  />
-                </Field>
-                <Field id="igstPercent" label="IGST (%)" className={styles.field}>
-                  <input
-                    id="igstPercent"
-                    className={styles.input}
-                    value={form.igstPercent || ''}
-                    onChange={(event) => updateField('igstPercent', event.target.value)}
-                  />
-                </Field>
-                <Field id="sgstAmount" label="SGST Amt" className={`${styles.field} ${styles.computed}`}>
-                  <input className={styles.input} readOnly value={totals.sgstAmount.toFixed(2)} />
-                </Field>
-                <Field id="cgstAmount" label="CGST Amt" className={`${styles.field} ${styles.computed}`}>
-                  <input className={styles.input} readOnly value={totals.cgstAmount.toFixed(2)} />
-                </Field>
-                <Field id="igstAmount" label="IGST Amt" className={`${styles.field} ${styles.computed}`}>
-                  <input className={styles.input} readOnly value={totals.igstAmount.toFixed(2)} />
-                </Field>
-              </div>
-            ) : null}
-            {taxEnabled && !gstMode ? (
-              <div className={`${styles.grid2} ${styles.mb14}`}>
-                <Field id="vatPercent" label="VAT (%)" className={styles.field}>
-                  <input
-                    id="vatPercent"
-                    className={styles.input}
-                    value={form.vatPercent || ''}
-                    onChange={(event) => updateField('vatPercent', event.target.value)}
-                  />
-                </Field>
-                <Field id="vatAmount" label="VAT Amt" className={`${styles.field} ${styles.computed}`}>
-                  <input className={styles.input} readOnly value={totals.vatAmount.toFixed(2)} />
-                </Field>
-              </div>
-            ) : null}
-            <Field id="remarks" label="Description" className={`${styles.field} ${styles.narrow}`}>
-              <textarea
-                id="remarks"
-                className={styles.textarea}
-                value={form.remarks || ''}
-                onChange={(event) => updateField('remarks', event.target.value)}
-              />
-            </Field>
           </InvoiceCard>
 
           {/* Title scrolls away with the page; sticky bar is tiles-only (no "Payable Summary"). */}

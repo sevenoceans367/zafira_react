@@ -415,9 +415,9 @@
 .gradeChip {
   display: inline-flex;
   align-items: center;
-  padding: 4px 11px;
+  padding: 2px 7px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 10px;
   font-weight: 700;
   white-space: nowrap;
 }

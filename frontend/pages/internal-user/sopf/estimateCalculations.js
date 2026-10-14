@@ -811,7 +811,19 @@ export function buildBunkerSummaryRows(form, resolveGradeName) {
       price: price ? price.toFixed(2) : '',
       amount: amount ? amount.toFixed(2) : '',
     };
-  }).filter((row) => row.qty || row.actualQty || row.price || row.amount);
+  }).filter((row) => {
+    if (row.qty || row.actualQty || row.price || row.amount) return true;
+    // Keep grades the user explicitly assigned on Estimated & Consumed (even at 0).
+    return secaMatchesForGrade(form, row.grade, classify).length > 0;
+  });
+}
+
+function secaMatchesForGrade(form, grade, classify) {
+  return (form.secaBunkerRows || []).filter((row) => {
+    if (!String(row.bunkerGradeId || '').trim()) return false;
+    const key = classify(row.bunkerGradeId);
+    return (key === 'HSFO+SCRUBBER' ? 'HSFO' : key) === grade;
+  });
 }
 
 /** Brokerage-only totals for the Commissions panel Total row (excludes ADCOM Freight). */

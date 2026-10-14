@@ -46,6 +46,8 @@ import { checkVoyageNoExists, fetchCanalOrcRates, searchEstimatePorts } from '..
 import { focusEstimateValidationField, getAddRowBlockMessage } from './estimateValidation.js';
 import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import styles from './UpdateEstimatePage.module.css';
+import WorksheetSelect, { gradeChipClass } from '../ops/voyage-financials/WorksheetSelect.jsx';
+import voyStyles from '../ops/voyage-financials/CostSheetEstimatePage.module.css';
 
 /** PHP addestimate.php — Voyage No allows a-z, 0-9, and hyphen only. */
 function sanitizeVoyageNo(value) {
@@ -824,275 +826,240 @@ export default function EstimateDetailSections({
           </div>
         )}
       >
-        <div className={styles.portLegsStack}>
+        <div className={voyStyles.portLegsStack}>
           {(form.portLegs || []).map((leg, legIndex) => {
             const isLastLeg = legIndex === (form.portLegs || []).length - 1;
             return (
-            <div key={leg.id} className={styles.portLegCard}>
-              <div className={styles.portLegGrid}>
-                <div className={styles.portLegPorts}>
-                  <table className={styles.portTable}>
-                    <thead>
-                      <tr>
-                        <th className={styles.portIdxCol}>#</th>
-                        <th>From Port</th>
-                        <th>{legIndex > 0 ? 'Arrival' : null}</th>
-                        <th>Departure</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className={styles.portIdxCol}>
-                          {editable
-                            && (form.portLegs || []).length > 1
-                            && isLastLeg ? (
-                              <RowRemoveButton onClick={() => removeRow('portLegs', leg.id)} />
-                            ) : (
-                              <span>{legIndex + 1}</span>
-                            )}
-                        </td>
-                        <td>
-                          {readOnly ? (
-                            leg.fromPortName || leg.fromPortId || '—'
-                          ) : (
-                            <PortSearchSelect
-                              id={legIndex === 0 ? 'portFrom_0' : `portFrom_${legIndex}`}
-                              value={leg.fromPortId}
-                              label={leg.fromPortName}
-                              searchPorts={searchEstimatePorts}
-                              onChange={(portId, portName) => {
-                                updateRow('portLegs', leg.id, {
-                                  fromPortId: portId,
-                                  fromPortName: portName,
-                                });
-                              }}
-                            />
-                          )}
-                        </td>
-                        <td>
-                          {legIndex > 0 ? (
-                            readOnly ? (
-                              <input value={leg.fromArrival || ''} readOnly />
-                            ) : (
-                              <DmyDateInput
-                                allowClear={false}
-                                id={`fromArrival_${leg.id}`}
-                                enableTime
-                                className=""
-                                value={leg.fromArrival || ''}
-                                onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
-                              />
-                            )
-                          ) : null}
-                        </td>
-                        <td>
-                          {readOnly ? (
-                            <input value={leg.fromDeparture || ''} readOnly />
-                          ) : (
-                            <DmyDateInput
-                              allowClear={false}
-                              id={`fromDeparture_${leg.id}`}
-                              enableTime
-                              className=""
-                              value={leg.fromDeparture || ''}
-                              onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
-                            />
-                          )}
-                        </td>
-                      </tr>
-                    </tbody>
-                    <thead>
-                      <tr>
-                        <th />
-                        <th>To Port</th>
-                        <th>Arrival</th>
-                        <th>Departure</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className={styles.portIdxCol}>
-                          {editable && isLastLeg ? (
-                            <AddCircleButton
-                              onClick={() => addRow('portLegs', createEmptyPortLeg)}
-                            />
-                          ) : null}
-                        </td>
-                        <td>
-                          {readOnly ? (
-                            leg.toPortName || leg.toPortId || '—'
-                          ) : (
-                            <PortSearchSelect
-                              id={legIndex === 0 ? 'portTo_0' : `portTo_${legIndex}`}
-                              value={leg.toPortId}
-                              label={leg.toPortName}
-                              searchPorts={searchEstimatePorts}
-                              onChange={(portId, portName) => {
-                                updateRow('portLegs', leg.id, {
-                                  toPortId: portId,
-                                  toPortName: portName,
-                                });
-                              }}
-                            />
-                          )}
-                        </td>
-                        <td>
-                          {readOnly ? (
-                            <input value={leg.toArrival || ''} readOnly />
-                          ) : (
-                            <DmyDateInput
-                              allowClear={false}
-                              id={`toArrival_${leg.id}`}
-                              enableTime
-                              className=""
-                              value={leg.toArrival || ''}
-                              onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
-                            />
-                          )}
-                        </td>
-                        <td>
-                          {readOnly ? (
-                            <input value={leg.toDeparture || ''} readOnly />
-                          ) : (
-                            <DmyDateInput
-                              allowClear={false}
-                              id={`toDeparture_${leg.id}`}
-                              enableTime
-                              className=""
-                              value={leg.toDeparture || ''}
-                              onChange={(value) => updateRow('portLegs', leg.id, { toDeparture: value })}
-                            />
-                          )}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className={styles.portLegMeta}>
-                  <table className={styles.portTable}>
-                    <thead>
-                      <tr>
-                        <th>Wx(%)</th>
-                        <th>L/B</th>
-                        <th>Speed Type</th>
-                        {editable ? <th>Route</th> : null}
-                        <th>Total Dist</th>
-                        <th>Total Days</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                          <input
-                            value={leg.seaMargin ?? ''}
-                            readOnly={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
+            <div key={leg.id} className={voyStyles.portLegCard}>
+              <table className={`${styles.portTable} ${voyStyles.portLegConnected}`}>
+                <thead>
+                  <tr>
+                    <th className={styles.portIdxCol}>#</th>
+                    <th>From Port</th>
+                    <th>{legIndex > 0 ? 'Arrival' : null}</th>
+                    <th>Departure</th>
+                    <th className={voyStyles.wxCol}>Wx(%)</th>
+                    <th>L/B</th>
+                    <th className={voyStyles.speedTypeCol}>Speed Type</th>
+                    <th>Route</th>
+                    <th>Total Dist</th>
+                    <th>Total Days</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className={styles.portIdxCol}>
+                      {editable
+                        && (form.portLegs || []).length > 1
+                        && isLastLeg ? (
+                          <RowRemoveButton onClick={() => removeRow('portLegs', leg.id)} />
+                        ) : (
+                          <span>{legIndex + 1}</span>
+                        )}
+                    </td>
+                    <td>
+                      {readOnly ? (
+                        leg.fromPortName || leg.fromPortId || '—'
+                      ) : (
+                        <PortSearchSelect
+                          id={legIndex === 0 ? 'portFrom_0' : `portFrom_${legIndex}`}
+                          value={leg.fromPortId}
+                          label={leg.fromPortName}
+                          searchPorts={searchEstimatePorts}
+                          onChange={(portId, portName) => {
+                            updateRow('portLegs', leg.id, {
+                              fromPortId: portId,
+                              fromPortName: portName,
+                            });
+                          }}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {legIndex > 0 ? (
+                        readOnly ? (
+                          <input value={leg.fromArrival || ''} readOnly />
+                        ) : (
+                          <DmyDateInput
+                            allowClear={false}
+                            id={`fromArrival_${leg.id}`}
+                            enableTime
+                            className=""
+                            value={leg.fromArrival || ''}
+                            onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
                           />
-                        </td>
-                        <td>
-                          <select
-                            id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
-                            value={leg.passageType || ''}
-                            disabled={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { passageType: e.target.value })}
-                          >
-                            {PASSAGE_TYPE_OPTIONS.map((o) => (
-                              <option key={o.value || 'blank'} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <select
-                            id={legIndex === 0 ? 'portSpeed_0' : `portSpeed_${legIndex}`}
-                            value={leg.speedType}
-                            disabled={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { speedType: e.target.value })}
-                          >
-                            {SPEED_TYPE_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                        {editable ? (
-                          <td>
-                            <button
-                              type="button"
-                              className={styles.fetchBtn}
-                              onClick={() => openDistanceFetch(leg)}
-                            >
-                              Sync
-                            </button>
-                          </td>
-                        ) : null}
-                        <td>
-                          <input
-                            id={legIndex === 0 ? 'portDistance_0' : `portDistance_${legIndex}`}
-                            value={leg.distance}
-                            readOnly={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { distance: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          <input value={leg.seaDays || ''} readOnly />
-                        </td>
-                      </tr>
-                    </tbody>
-                    <thead>
-                      <tr>
-                        <th>BG</th>
-                        <th>NSECA Dist</th>
-                        <th>NSECA Days</th>
-                        <th>BG</th>
-                        <th>SECA Dist</th>
-                        <th>SECA Days</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                          <select
-                            value={leg.bgNonSeca || 'VLSFO'}
-                            disabled={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { bgNonSeca: e.target.value })}
-                          >
-                            {NSBG_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <input value={leg.nonSecaDistance || ''} readOnly />
-                        </td>
-                        <td>
-                          <input value={leg.nonSecaDays || ''} readOnly />
-                        </td>
-                        <td>
-                          <select
-                            value={leg.bgSeca || 'LSMGO'}
-                            disabled={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { bgSeca: e.target.value })}
-                          >
-                            {SBG_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            value={leg.secaDistance || ''}
-                            readOnly={readOnly}
-                            onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          <input value={leg.secaDays || ''} readOnly />
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                        )
+                      ) : null}
+                    </td>
+                    <td>
+                      {readOnly ? (
+                        <input value={leg.fromDeparture || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          allowClear={false}
+                          id={`fromDeparture_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.fromDeparture || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
+                        />
+                      )}
+                    </td>
+                    <td className={voyStyles.wxCol}>
+                      <input
+                        value={leg.seaMargin ?? ''}
+                        readOnly={readOnly}
+                        onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <WorksheetSelect
+                        id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
+                        value={leg.passageType || ''}
+                        disabled={readOnly}
+                        options={PASSAGE_TYPE_OPTIONS}
+                        onChange={(value) => updateRow('portLegs', leg.id, { passageType: value })}
+                      />
+                    </td>
+                    <td className={voyStyles.speedTypeCol}>
+                      <WorksheetSelect
+                        id={legIndex === 0 ? 'portSpeed_0' : `portSpeed_${legIndex}`}
+                        value={leg.speedType}
+                        disabled={readOnly}
+                        options={SPEED_TYPE_OPTIONS}
+                        onChange={(value) => updateRow('portLegs', leg.id, { speedType: value })}
+                      />
+                    </td>
+                    <td>
+                      {editable ? (
+                        <button
+                          type="button"
+                          className={styles.fetchBtn}
+                          onClick={() => openDistanceFetch(leg)}
+                        >
+                          Sync
+                        </button>
+                      ) : null}
+                    </td>
+                    <td>
+                      <input
+                        id={legIndex === 0 ? 'portDistance_0' : `portDistance_${legIndex}`}
+                        value={leg.distance}
+                        readOnly={readOnly}
+                        onChange={(e) => updateRow('portLegs', leg.id, { distance: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input value={leg.seaDays || ''} readOnly />
+                    </td>
+                  </tr>
+                </tbody>
+                <thead>
+                  <tr>
+                    <th />
+                    <th>To Port</th>
+                    <th>Arrival</th>
+                    <th>Departure</th>
+                    <th className={voyStyles.bgCol}>BG</th>
+                    <th>NSECA Dist</th>
+                    <th>NSECA Days</th>
+                    <th className={voyStyles.bgCol}>BG</th>
+                    <th>SECA Dist</th>
+                    <th>SECA Days</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className={styles.portIdxCol}>
+                      {editable && isLastLeg ? (
+                        <AddCircleButton
+                          onClick={() => addRow('portLegs', createEmptyPortLeg)}
+                        />
+                      ) : null}
+                    </td>
+                    <td>
+                      {readOnly ? (
+                        leg.toPortName || leg.toPortId || '—'
+                      ) : (
+                        <PortSearchSelect
+                          id={legIndex === 0 ? 'portTo_0' : `portTo_${legIndex}`}
+                          value={leg.toPortId}
+                          label={leg.toPortName}
+                          searchPorts={searchEstimatePorts}
+                          onChange={(portId, portName) => {
+                            updateRow('portLegs', leg.id, {
+                              toPortId: portId,
+                              toPortName: portName,
+                            });
+                          }}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {readOnly ? (
+                        <input value={leg.toArrival || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          allowClear={false}
+                          id={`toArrival_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.toArrival || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {readOnly ? (
+                        <input value={leg.toDeparture || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          allowClear={false}
+                          id={`toDeparture_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.toDeparture || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { toDeparture: value })}
+                        />
+                      )}
+                    </td>
+                    <td className={voyStyles.bgCol}>
+                      <WorksheetSelect
+                        value={leg.bgNonSeca || 'VLSFO'}
+                        gradeLabel={leg.bgNonSeca || 'VLSFO'}
+                        disabled={readOnly}
+                        options={NSBG_OPTIONS}
+                        onChange={(value) => updateRow('portLegs', leg.id, { bgNonSeca: value })}
+                      />
+                    </td>
+                    <td>
+                      <input value={leg.nonSecaDistance || ''} readOnly />
+                    </td>
+                    <td>
+                      <input value={leg.nonSecaDays || ''} readOnly />
+                    </td>
+                    <td className={voyStyles.bgCol}>
+                      <WorksheetSelect
+                        value={leg.bgSeca || 'LSMGO'}
+                        gradeLabel={leg.bgSeca || 'LSMGO'}
+                        disabled={readOnly}
+                        options={SBG_OPTIONS}
+                        onChange={(value) => updateRow('portLegs', leg.id, { bgSeca: value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        value={leg.secaDistance || ''}
+                        readOnly={readOnly}
+                        onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input value={leg.secaDays || ''} readOnly />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
             );
           })}
@@ -1167,20 +1134,20 @@ export default function EstimateDetailSections({
                       <tr key={`${title}-${row.id}`}>
                         <td>
                           {readOnly ? (
-                            gradeName(row.bunkerGradeId)
+                            <span className={`${voyStyles.gradeChip} ${gradeChipClass(gradeName(row.bunkerGradeId))}`.trim()}>
+                              {gradeName(row.bunkerGradeId)}
+                            </span>
                           ) : (
-                            <select
+                            <WorksheetSelect
                               value={row.bunkerGradeId || ''}
-                              onChange={(e) => commitConsumptionPatch(row.id, {
-                                bunkerGradeId: e.target.value,
+                              gradeLabel={gradeName(row.bunkerGradeId)}
+                              placeholder="Select"
+                              options={(lookups.bunkerGrades || []).map((g) => ({ value: String(g.id), label: g.name }))}
+                              onChange={(value) => commitConsumptionPatch(row.id, {
+                                bunkerGradeId: value,
                                 identify,
                               })}
-                            >
-                              <option value="">Select</option>
-                              {(lookups.bunkerGrades || []).map((g) => (
-                                <option key={g.id} value={g.id}>{g.name}</option>
-                              ))}
-                            </select>
+                            />
                           )}
                         </td>
                         {dataCols.map((col) => (
@@ -1483,6 +1450,7 @@ export default function EstimateDetailSections({
         readOnly={readOnly}
         lookups={lookups}
         updateRow={updateRow}
+        onApplyPatch={applyPatch}
       />
 
       <CollapsiblePanel
@@ -1620,11 +1588,19 @@ export default function EstimateDetailSections({
                       </select>
                     </td>
                     <td>
-                      <select
+                      <WorksheetSelect
                         value={row.bunkerGrade || 'VLSFO'}
+                        gradeLabel={row.bunkerGrade || 'VLSFO'}
                         disabled={readOnly}
-                        onChange={(e) => {
-                          const bunkerGrade = e.target.value;
+                        options={[
+                          ...BUNKER_ACTIVITY_GRADE_OPTIONS,
+                          ...(lookups.bunkerGrades || [])
+                            .filter((g) => !BUNKER_ACTIVITY_GRADE_OPTIONS.some(
+                              (o) => o.value.toUpperCase() === String(g.name || '').toUpperCase(),
+                            ))
+                            .map((g) => ({ value: g.name, label: g.name })),
+                        ]}
+                        onChange={(bunkerGrade) => {
                           const upper = String(bunkerGrade).toUpperCase();
                           let price = row.price;
                           if (upper.includes('LSMGO') || upper.includes('MGO')) {
@@ -1647,18 +1623,7 @@ export default function EstimateDetailSections({
                             ...(qtyFromRate ? { qty: qtyFromRate } : {}),
                           });
                         }}
-                      >
-                        {BUNKER_ACTIVITY_GRADE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                        {(lookups.bunkerGrades || [])
-                          .filter((g) => !BUNKER_ACTIVITY_GRADE_OPTIONS.some(
-                            (o) => o.value.toUpperCase() === String(g.name || '').toUpperCase(),
-                          ))
-                          .map((g) => (
-                            <option key={g.id} value={g.name}>{g.name}</option>
-                          ))}
-                      </select>
+                      />
                     </td>
                     <td>
                       <input
@@ -1919,7 +1884,11 @@ export default function EstimateDetailSections({
             <tbody>
               {bunkerSummaryRows.length ? bunkerSummaryRows.map((row) => (
                 <tr key={`summary-${row.grade}`}>
-                  <td>{row.grade}</td>
+                  <td>
+                    <span className={`${voyStyles.gradeChip} ${gradeChipClass(row.grade)}`.trim()}>
+                      {row.grade}
+                    </span>
+                  </td>
                   <td><input value={row.qty || ''} readOnly placeholder="0.00" /></td>
                   <td><input value={row.actualQty || ''} readOnly placeholder="0.00" /></td>
                   <td>

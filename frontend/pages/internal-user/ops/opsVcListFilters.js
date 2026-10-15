@@ -1,6 +1,10 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 
-const BUSINESS_TYPE_KEY = 'opsVc.selBType';
 const SCROLL_PREFIX = 'opsVc.scroll.';
 
 function readStored(key) {
@@ -22,16 +26,11 @@ function writeStored(key, value) {
 
 /** Spot Ops Tanker / Gas / Dry. URL wins; otherwise restore the last choice after Back. */
 export function readOpsVcBusinessType(searchParams) {
-  const fromUrl = searchParams.get('selBType');
-  if (fromUrl) {
-    writeStored(BUSINESS_TYPE_KEY, fromUrl);
-    return fromUrl;
-  }
-  return readStored(BUSINESS_TYPE_KEY) || '2';
+  return readBusinessType(searchParams, BUSINESS_TYPE_KEYS.opsVc, '2');
 }
 
 export function rememberOpsVcBusinessType(value) {
-  writeStored(BUSINESS_TYPE_KEY, value);
+  rememberBusinessType(BUSINESS_TYPE_KEYS.opsVc, value);
 }
 
 function findSpotScroller() {

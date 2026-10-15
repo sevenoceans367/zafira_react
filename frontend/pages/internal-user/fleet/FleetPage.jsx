@@ -6,6 +6,11 @@ import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useFleetModule } from '../../../hooks/useFleetModule.js';
 import { fetchFleetCompare, downloadFleetComparePdf, fetchFleetList } from '../../../services/fleet.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
@@ -151,7 +156,7 @@ export default function FleetPage() {
   const alert = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [businessType, setBusinessType] = useState(() => readBusinessType(searchParams, BUSINESS_TYPE_KEYS.fleet));
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -208,6 +213,7 @@ export default function FleetPage() {
   }, [debouncedSearch, businessType, pageSize]);
 
   const handleBusinessTypeChange = (value) => {
+    rememberBusinessType(BUSINESS_TYPE_KEYS.fleet, value);
     setBusinessType(value);
     const next = new URLSearchParams(searchParams);
     if (value) next.set('selBType', value);

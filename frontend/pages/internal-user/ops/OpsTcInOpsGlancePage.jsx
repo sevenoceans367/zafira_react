@@ -14,6 +14,11 @@ import {
 import { appPath } from '@bainbridge/shared-routing';
 import { getUser } from '@bainbridge/shared-auth';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
   createOpsTcCostSheet,
@@ -230,7 +235,7 @@ export default function OpsTcInOpsGlancePage() {
   const [businessTypes, setBusinessTypes] = useState([]);
   const [years, setYears] = useState([]);
   const [operators, setOperators] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [businessType, setBusinessType] = useState(() => readBusinessType(searchParams, BUSINESS_TYPE_KEYS.opsTc));
   const [year, setYear] = useState(searchParams.get('selYear') || String(new Date().getFullYear()));
   const [searchInput, setSearchInput] = useState(searchParams.get('voy_no') || '');
   const [rows, setRows] = useState([]);
@@ -427,6 +432,7 @@ export default function OpsTcInOpsGlancePage() {
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => {
+          rememberBusinessType(BUSINESS_TYPE_KEYS.opsTc, value);
           setBusinessType(value);
           updateQuery({ selBType: value, msg: '' });
         }}

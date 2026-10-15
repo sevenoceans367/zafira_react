@@ -7,6 +7,11 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import worksheetIcon from '../../../assets/Worksheet_Icon.png';
 import { CardSelect, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import { usePageHeaderActions, usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import LiveVesselMapControls from './LiveVesselMapControls.jsx';
 import DailyPositionsModal from './DailyPositionsModal.jsx';
@@ -294,7 +299,9 @@ export default function LiveVesselMapPage() {
   const fleetVesselsRef = useRef([]);
 
   const [loading, setLoading] = useState(true);
-  const [businessType, setBusinessType] = useState('');
+  const [businessType, setBusinessType] = useState(
+    () => readBusinessType(new URLSearchParams(), BUSINESS_TYPE_KEYS.liveVesselMap, ''),
+  );
   const [routesLoading, setRoutesLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [selectedVessel, setSelectedVessel] = useState(null);
@@ -885,7 +892,10 @@ export default function LiveVesselMapPage() {
         <CardSelect
           options={BUSINESS_TYPE_OPTIONS}
           value={businessType}
-          onChange={setBusinessType}
+          onChange={(value) => {
+            rememberBusinessType(BUSINESS_TYPE_KEYS.liveVesselMap, value);
+            setBusinessType(value);
+          }}
           placeholder="All"
           ariaLabel="Business type"
           align="end"

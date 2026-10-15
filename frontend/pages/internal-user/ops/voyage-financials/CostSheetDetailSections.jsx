@@ -1086,9 +1086,9 @@ export default function EstimateDetailSections({
                     <th className={styles.robCol}>VLSFO ROB</th>
                     <th className={styles.robCol}>LSMGO ROB</th>
                     <th className={styles.wxCol}>Wx(%)</th>
-                    <th>L/B</th>
+                    <th className={styles.lbCol}>L/B</th>
                     <th className={styles.speedTypeCol}>Speed Type</th>
-                    <th>Route</th>
+                    <th className={styles.routeCol}>Route</th>
                     <th>Total Dist</th>
                     <th>Total Days</th>
                   </tr>
@@ -1197,7 +1197,7 @@ export default function EstimateDetailSections({
                         onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.lbCol}>
                       <WorksheetSelect
                         id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
                         value={leg.passageType}
@@ -1215,7 +1215,7 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { speedType: value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.routeCol}>
                       {editable ? (
                         <button
                           type="button"
@@ -1250,11 +1250,11 @@ export default function EstimateDetailSections({
                     <th className={styles.robCol}>VLSFO ROB</th>
                     <th className={styles.robCol}>LSMGO ROB</th>
                     <th className={styles.bgCol}>BG</th>
-                    <th>NSECA Dist</th>
-                    <th>NSECA Days</th>
+                    <th className={styles.nsecaCol}>NSECA Dist</th>
+                    <th className={styles.nsecaCol}>NSECA Days</th>
                     <th className={styles.bgCol}>BG</th>
-                    <th>SECA Dist</th>
-                    <th>SECA Days</th>
+                    <th className={styles.nsecaCol}>SECA Dist</th>
+                    <th className={styles.nsecaCol}>SECA Days</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1345,10 +1345,10 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { bgNonSeca: value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.nsecaCol}>
                       <input value={leg.nonSecaDistance || ''} readOnly />
                     </td>
-                    <td>
+                    <td className={styles.nsecaCol}>
                       <input value={leg.nonSecaDays || ''} readOnly />
                     </td>
                     <td className={styles.bgCol}>
@@ -1360,14 +1360,14 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { bgSeca: value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.nsecaCol}>
                       <input
                         value={leg.secaDistance || ''}
                         readOnly={readOnly}
                         onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.nsecaCol}>
                       <input value={leg.secaDays || ''} readOnly />
                     </td>
                   </tr>
@@ -1481,10 +1481,10 @@ export default function EstimateDetailSections({
                   options={SPEED_DATA_OPTIONS}
                   onChange={(value) => updateField('speedDataType', value)}
                 />
-                <Field id={ballastKey} label="Ballast Speed (Knots)">
+                <Field id={ballastKey} label="Ballast Speed (K)">
                   <input {...inputProps(ballastKey, { recalc: true })} placeholder="0.00" />
                 </Field>
-                <Field id={ladenKey} label="Laden Speed (Knots)">
+                <Field id={ladenKey} label="Laden Speed (K)">
                   <input {...inputProps(ladenKey, { recalc: true })} placeholder="0.00" />
                 </Field>
               </div>

@@ -39,7 +39,7 @@ export function fleetAppPath(module, segment = '') {
 }
 
 export function moduleHomePath(module) {
-  if (module === 'sopf') return appPath('/internal-user/sopf/estimate_list?selBType=2&estimatetype=2');
+  if (module === 'sopf') return appPath('/internal-user/sopf/estimate_list');
   if (module === 'tc') return appPath('/internal-user/tc');
   return appPath('/internal-user/vc');
 }

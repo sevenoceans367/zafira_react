@@ -17,7 +17,7 @@ export const INTERNAL_USER_MODULES = [
     title: 'Seven Oceans PreFix',
     subtitle: 'SOPF',
     description: 'Fix estimates, trades on water, & charter desk activities',
-    href: '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2',
+    href: '/internal-user/sopf/estimate_list',
     iconSrc: sopfIcon,
     iconAlt: 'SOPF',
     visibleFor: ({ user }) => user?.sopfUser !== false,
@@ -45,7 +45,7 @@ export const INTERNAL_USER_MODULES = [
   },
 ];
 
-export const SOPF_DEFAULT_ROUTE = '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2';
+export const SOPF_DEFAULT_ROUTE = '/internal-user/sopf/estimate_list';
 export const SOC_DEFAULT_ROUTE = '/internal-user/vc';
 
 export function getVisibleModules(user) {

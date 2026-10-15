@@ -18,10 +18,16 @@ import {
 } from '../../../services/tcEstimates.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import TcListHeaderActions from './TcListHeaderActions.jsx';
 import styles from './TcBusinessPage.module.css';
 
 const DEFAULT_BUSINESS_TYPE = '2';
+const BTYPE_KEY = BUSINESS_TYPE_KEYS.tc;
 
 const STATUS_TABS = [
   { id: 'active', label: 'Active' },
@@ -143,7 +149,7 @@ export default function TcOutEstimatesListPage() {
   const [error, setError] = useState('');
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const businessType = searchParams.get('selBType') || DEFAULT_BUSINESS_TYPE;
+  const businessType = readBusinessType(searchParams, BTYPE_KEY, DEFAULT_BUSINESS_TYPE);
   const periodFrom = searchParams.get('periodFrom') || '';
   const periodTo = searchParams.get('periodTo') || '';
   const statusTab = searchParams.get('status') === 'activeInOps' ? 'activeInOps' : 'active';
@@ -159,6 +165,16 @@ export default function TcOutEstimatesListPage() {
     next.delete('msg');
     setSearchParams(next, { replace: true });
   };
+
+  useEffect(() => {
+    const current = searchParams.get('selBType');
+    if (!current || current === '') {
+      updateQuery({ selBType: businessType });
+    } else {
+      rememberBusinessType(BTYPE_KEY, current);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -273,7 +289,10 @@ export default function TcOutEstimatesListPage() {
         onSearchChange={setSearchInput}
         businessTypes={businessTypes}
         businessType={businessType}
-        onBusinessTypeChange={(value) => updateQuery({ selBType: value })}
+        onBusinessTypeChange={(value) => {
+          rememberBusinessType(BTYPE_KEY, value);
+          updateQuery({ selBType: value });
+        }}
         periodFrom={periodFrom}
         periodTo={periodTo}
         onPeriodChange={({ from, to }) => updateQuery({ periodFrom: from || '', periodTo: to || '' })}

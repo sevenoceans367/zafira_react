@@ -18,7 +18,7 @@ const HOME_CARDS = [
     title: 'Seven Oceans PreFix',
     code: 'SOPF',
     description: 'Analyse the most profitable fixtures across the book',
-    href: '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2',
+    href: '/internal-user/sopf/estimate_list',
     iconSrc: sopfIcon,
     theme: 'themeBlue',
   },
@@ -86,7 +86,7 @@ const ACTIVITY_STATS = {
       val: '7',
       delta: '+2',
       dir: 'up',
-      href: '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2',
+      href: '/internal-user/sopf/estimate_list',
     },
     {
       label: 'Awaiting your review',

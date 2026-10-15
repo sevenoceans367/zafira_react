@@ -380,21 +380,23 @@
   box-sizing: border-box;
 }
 
-/* Sync matches L/B (and Speed Type) dropdown box size */
+/* Sync — fixed compact control (do not stretch with column / viewport) */
 .roundSection .portLegCard .fetchBtn,
 .portLegConnected .fetchBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: auto;
+  min-width: 0;
+  max-width: none;
   height: 22px;
   min-height: 22px;
-  padding: 0 7px;
+  padding: 0 8px;
   border-radius: 6px;
   font-size: 10px;
   font-weight: 700;
   box-sizing: border-box;
-  width: 100%;
-  min-width: 88px;
+  white-space: nowrap;
 }
 
 .portIdxCol {
@@ -406,16 +408,20 @@
 .portLegConnected th.robCol,
 th.robCol {
   color: #274670;
+  width: 64px;
   min-width: 64px;
+  max-width: 72px;
   white-space: nowrap;
 }
 
 .portLegConnected td.robCol {
+  width: 64px;
   min-width: 64px;
+  max-width: 72px;
 }
 
 .portLegConnected td.robCol input {
-  min-width: 56px;
+  min-width: 0;
   width: 100%;
   text-align: center;
 }
@@ -425,47 +431,80 @@ th.robCol {
   text-align: center;
 }
 
-/* Wx(%) stays compact; BG / Speed Type get usable dropdown width */
+/* Compact numeric / dropdown cols — match ROB field footprint */
+.wxCol,
+.bgCol,
+.lbCol,
+.speedTypeCol,
+.routeCol,
+.nsecaCol {
+  width: 64px;
+  min-width: 64px;
+  max-width: 78px;
+  white-space: nowrap;
+}
+
 .wxCol {
+  max-width: 64px;
+}
+
+.bgCol,
+.lbCol {
+  width: 72px;
+  min-width: 72px;
+  max-width: 80px;
+}
+
+/* Slightly wider for "Most Eco Speed" / Ballast labels — still compact vs ports */
+.speedTypeCol {
+  width: 88px;
+  min-width: 80px;
+  max-width: 96px;
+}
+
+.routeCol {
   width: 52px;
-  min-width: 48px;
+  min-width: 52px;
   max-width: 60px;
+  text-align: center;
 }
 
-.bgCol {
-  min-width: 100px;
-  width: 110px;
-}
-
-.wxCol input {
+.wxCol input,
+.nsecaCol input,
+.portLegConnected td.lbCol input,
+.portLegConnected td.speedTypeCol input {
   min-width: 0;
   width: 100%;
 }
 
-.bgCol .gradeSelectWrap,
-.bgCol .sheetSelect {
-  min-width: 96px;
+.portLegConnected .wxCol .sheetSelect,
+.portLegConnected .bgCol .sheetSelect,
+.portLegConnected .bgCol .gradeSelectWrap,
+.portLegConnected .lbCol .sheetSelect,
+.portLegConnected .speedTypeCol .sheetSelect {
   width: 100%;
-  max-width: none;
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
-.speedTypeCol {
-  min-width: 110px;
-  width: 120px;
-}
-
-.speedTypeCol .sheetSelect {
-  min-width: 100px;
+.portLegConnected .bgCol .gradeSelectWrap .sheetSelect,
+.portLegConnected .bgCol .gradeSelectWrap .sheetSelect button,
+.portLegConnected .lbCol .sheetSelect button,
+.portLegConnected .speedTypeCol .sheetSelect button {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
-/* Port / L/B / distance cells — give inputs room */
-.portLegConnected td:not(.portIdxCol):not(.robCol):not(.wxCol):not(.bgCol):not(.speedTypeCol) {
-  min-width: 88px;
+/* From/To port + date/dist cells — modest room, not stretchy dropdowns */
+.portLegConnected td:not(.portIdxCol):not(.robCol):not(.wxCol):not(.bgCol):not(.lbCol):not(.speedTypeCol):not(.routeCol):not(.nsecaCol) {
+  min-width: 72px;
 }
 
 .portLegConnected .sheetSelect {
-  min-width: 88px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 .portTable th,
@@ -1362,50 +1401,75 @@ th.robCol {
   border-bottom: 1px solid #edf0f2;
 }
 
-/* Match CPAS / panel heading size & style */
+/* Same type as Ballast / Laden Speed field labels */
 .speedDataLabel {
-  font-family: var(--font-family-heading);
-  font-size: 12px;
-  font-weight: 600;
-  color: #274670;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #8a93a0;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   padding-bottom: 4px;
   align-self: flex-end;
+  font-family: inherit;
 }
 
 .speedDataBar select {
-  min-height: 24px;
+  min-height: 22px;
   width: auto;
   min-width: 120px;
   font-size: 10px;
   color: #175c84;
   border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 3px;
+  border-radius: 6px;
   padding: 2px 5px;
   text-align: left;
 }
 
 .speedDataBar .sheetSelect {
   flex: none;
-  width: 180px;
-  min-width: 180px;
+  width: 160px;
+  min-width: 140px;
+  max-width: 180px;
   padding-bottom: 1px;
+}
+
+.speedDataBar .sheetSelect button {
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 7px !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
 }
 
 .speedDataBar .field {
   flex: none;
-  width: 130px;
-  max-width: 130px;
+  width: auto;
+  max-width: none;
+  overflow: visible;
   text-align: left;
 }
 
 .speedDataBar .field label {
   text-align: left;
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #8a93a0;
+  letter-spacing: 0.03em;
 }
 
+/* Match FO/DO consp/day input footprint */
 .speedDataBar .field input {
-  width: 100%;
-  text-align: left;
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
+  min-height: 22px !important;
+  height: 22px;
+  padding: 3px 7px !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 .consBlock {

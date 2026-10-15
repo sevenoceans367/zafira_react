@@ -89,4 +89,4 @@ export const SOPF_SIDEBAR_ITEMS = [
   ...SOPF_CHARTERING_SIDEBAR_ITEMS,
 ];
 
-export const SOPF_ENTRY_ROUTE = '/internal-user/sopf/estimate_list?selBType=2&estimatetype=2';
+export const SOPF_ENTRY_ROUTE = '/internal-user/sopf/estimate_list';

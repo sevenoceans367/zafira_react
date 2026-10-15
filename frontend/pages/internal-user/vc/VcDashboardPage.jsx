@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import {
@@ -264,7 +269,9 @@ export default function VcDashboardPage() {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => tabFromSearch(searchParams));
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState('2');
+  const [businessType, setBusinessType] = useState(
+    () => readBusinessType(searchParams, BUSINESS_TYPE_KEYS.vcDashboard),
+  );
   const [icpMode, setIcpMode] = useState('mixed');
   const [periodFrom, setPeriodFrom] = useState('');
   const [periodTo, setPeriodTo] = useState('');
@@ -377,13 +384,15 @@ export default function VcDashboardPage() {
       try {
         const meta = await fetchVcDashboardMeta();
         setRefreshIntervalMs(meta.refreshIntervalMs ?? 50000);
-        const defaultType = meta.defaultBusinessType || '2';
-        setBusinessType(defaultType);
-        await loadBusinessTypes(defaultType);
+        const restored = readBusinessType(searchParams, BUSINESS_TYPE_KEYS.vcDashboard, meta.defaultBusinessType || '2');
+        setBusinessType(restored);
+        rememberBusinessType(BUSINESS_TYPE_KEYS.vcDashboard, restored);
+        await loadBusinessTypes(restored);
       } catch (err) {
         setError(err.message || 'Failed to initialize commercial performance.');
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadBusinessTypes]);
 
   useEffect(() => {
@@ -406,6 +415,7 @@ export default function VcDashboardPage() {
   }, [loadAll, refreshIntervalMs]);
 
   const handleBusinessTypeChange = useCallback(async (value) => {
+    rememberBusinessType(BUSINESS_TYPE_KEYS.vcDashboard, value);
     setBusinessType(value);
     await loadBusinessTypes(value);
   }, [loadBusinessTypes]);

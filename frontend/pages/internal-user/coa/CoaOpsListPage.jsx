@@ -7,6 +7,11 @@ import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import { coaBasePath } from '../../../constants/coaModule.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
+import {
   fetchCargoRelets,
   fetchCoaOpsVoyages,
   moveVoyageToPostOps,
@@ -137,7 +142,7 @@ export default function CoaOpsListPage() {
   const { coaPath, module } = useCoaModule();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [businessType, setBusinessType] = useState(() => readBusinessType(searchParams, BUSINESS_TYPE_KEYS.coa));
   const [tradeType, setTradeType] = useState(parseTradeType(searchParams.get('tradeType')));
   const [statusTab, setStatusTab] = useState(parseTab(searchParams.get('tab')));
   const [yearFilter, setYearFilter] = useState(searchParams.get('year') || 'all');
@@ -455,6 +460,7 @@ export default function CoaOpsListPage() {
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => {
+          rememberBusinessType(BUSINESS_TYPE_KEYS.coa, value);
           setBusinessType(value);
           updateQuery({ selBType: value });
         }}

@@ -15,7 +15,7 @@ export default function SopfComingSoonPage({ title, description }) {
         <Button
           variant="outline"
           label="Back to Spot Business"
-          href={appPath('/internal-user/sopf/estimate_list?selBType=2&estimatetype=2')}
+          href={appPath('/internal-user/sopf/estimate_list')}
         />
       </div>
     </div>

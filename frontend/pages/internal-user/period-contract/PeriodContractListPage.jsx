@@ -12,6 +12,11 @@ import {
   fetchPeriodNominations,
 } from '../../../services/periodContracts.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import PeriodContractHeaderActions from './PeriodContractHeaderActions.jsx';
@@ -179,7 +184,7 @@ export default function PeriodContractListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(parseListStatus(searchParams.get('status')));
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [businessType, setBusinessType] = useState(() => readBusinessType(searchParams, BUSINESS_TYPE_KEYS.periodContract));
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState({
     openTrades: 0,
@@ -294,6 +299,7 @@ export default function PeriodContractListPage() {
   }, [modal, closeModal]);
 
   const handleBusinessTypeChange = (value) => {
+    rememberBusinessType(BUSINESS_TYPE_KEYS.periodContract, value);
     setBusinessType(value);
     updateQuery({ selBType: value || '' });
   };

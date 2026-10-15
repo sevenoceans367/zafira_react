@@ -18,6 +18,11 @@ import {
   fetchGenericFinancesList,
   receiveGenericFinancePayment,
 } from '../../../services/genericFinances.js';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import GenericFinancesHeaderActions from './GenericFinancesHeaderActions.jsx';
 import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import SopfPagination from '../sopf/SopfPagination.jsx';
@@ -194,7 +199,9 @@ export default function GenericFinancesPage() {
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState('');
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || 'all');
+  const [businessType, setBusinessType] = useState(
+    () => readBusinessType(searchParams, BUSINESS_TYPE_KEYS.genericFinances, 'all'),
+  );
   const [year, setYear] = useState(searchParams.get('selYear') || String(new Date().getFullYear()));
   const [businessTypes, setBusinessTypes] = useState(DEFAULT_BUSINESS_TYPES);
   const [years, setYears] = useState(() => defaultYearOptions(searchParams.get('selYear')));
@@ -225,6 +232,7 @@ export default function GenericFinancesPage() {
   );
 
   const handleBusinessTypeChange = useCallback((value) => {
+    rememberBusinessType(BUSINESS_TYPE_KEYS.genericFinances, value);
     setBusinessType(value);
     updateQuery({ selBType: value, msg: '' });
   }, [updateQuery]);

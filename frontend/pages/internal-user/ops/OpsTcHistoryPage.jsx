@@ -4,6 +4,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import { fetchHistoryAtGlanceTc, fetchOpsTcYears } from '../../../services/opsTc.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
@@ -22,7 +27,7 @@ export default function OpsTcHistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
   const [years, setYears] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [businessType, setBusinessType] = useState(() => readBusinessType(searchParams, BUSINESS_TYPE_KEYS.opsTc));
   const [year, setYear] = useState(searchParams.get('selYear') || String(new Date().getFullYear()));
   const [searchInput, setSearchInput] = useState(searchParams.get('voy_no') || '');
   const [rows, setRows] = useState([]);
@@ -82,6 +87,7 @@ export default function OpsTcHistoryPage() {
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => {
+          rememberBusinessType(BUSINESS_TYPE_KEYS.opsTc, value);
           setBusinessType(value);
           updateQuery({ selBType: value, msg: '' });
         }}

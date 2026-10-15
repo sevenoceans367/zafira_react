@@ -1603,68 +1603,74 @@ export default function OpsVcHireStatementPage() {
               ) : null}
             </div>
 
-            <div className={styles.subhead}>Hold Cleaning</div>
-            {holdRows.map((row, index) => (
-              <div key={row.id} className={styles.surveyRow}>
-                <textarea
-                  className={styles.textarea}
-                  rows={2}
-                  placeholder="Description..."
-                  value={row.description}
-                  disabled={!editableByCreator}
-                  onChange={(event) => updateRows(setHoldRows, row.id, { description: event.target.value })}
-                />
-                <input
-                  className={`${styles.input} ${styles.surveyAmt}`}
-                  placeholder="0.00"
-                  value={row.amount}
-                  disabled={!editableByCreator}
-                  onChange={(event) => updateRows(setHoldRows, row.id, { amount: event.target.value })}
-                />
-                <div className={styles.rowActions}>
-                  <RowDelButton title="Remove row" onClick={() => removeOrKeep(setHoldRows, EMPTY_LINE, row.id)} disabled={!editableByCreator} />
-                  {index === holdRows.length - 1 ? (
-                    <RowAddButton title="Add row" onClick={() => setHoldRows((rows) => [...rows, EMPTY_LINE()])} disabled={!editableByCreator} />
-                  ) : null}
-                </div>
+            <div className={styles.holdSurveyGrid}>
+              <div className={styles.holdSurveyCol}>
+                <div className={styles.subhead}>Hold Cleaning</div>
+                {holdRows.map((row, index) => (
+                  <div key={row.id} className={styles.surveyRow}>
+                    <textarea
+                      className={styles.textarea}
+                      rows={1}
+                      placeholder="Description..."
+                      value={row.description}
+                      disabled={!editableByCreator}
+                      onChange={(event) => updateRows(setHoldRows, row.id, { description: event.target.value })}
+                    />
+                    <input
+                      className={`${styles.input} ${styles.surveyAmt}`}
+                      placeholder="0.00"
+                      value={row.amount}
+                      disabled={!editableByCreator}
+                      onChange={(event) => updateRows(setHoldRows, row.id, { amount: event.target.value })}
+                    />
+                    <div className={styles.rowActions}>
+                      <RowDelButton title="Remove row" onClick={() => removeOrKeep(setHoldRows, EMPTY_LINE, row.id)} disabled={!editableByCreator} />
+                      {index === holdRows.length - 1 ? (
+                        <RowAddButton title="Add row" onClick={() => setHoldRows((rows) => [...rows, EMPTY_LINE()])} disabled={!editableByCreator} />
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
 
-            <div className={styles.subhead}>On / Off Hire Survey</div>
-            {surveyRows.map((row, index) => (
-              <div key={row.id} className={styles.surveyRow}>
-                <textarea
-                  className={styles.textarea}
-                  rows={2}
-                  placeholder="Description..."
-                  value={row.description}
-                  disabled={!editableByCreator}
-                  onChange={(event) => updateRows(setSurveyRows, row.id, { description: event.target.value })}
-                />
-                <label className={styles.ownerChk}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(row.chkOwnerAcc)}
-                    disabled={!editableByCreator}
-                    onChange={(event) => updateRows(setSurveyRows, row.id, { chkOwnerAcc: event.target.checked })}
-                  />
-                  On Owner&apos;s Account
-                </label>
-                <input
-                  className={`${styles.input} ${styles.surveyAmt}`}
-                  placeholder="0.00"
-                  value={row.amount}
-                  disabled={!editableByCreator}
-                  onChange={(event) => updateRows(setSurveyRows, row.id, { amount: event.target.value })}
-                />
-                <div className={styles.rowActions}>
-                  <RowDelButton title="Remove row" onClick={() => removeOrKeep(setSurveyRows, () => EMPTY_SURVEY(), row.id)} disabled={!editableByCreator} />
-                  {index === surveyRows.length - 1 ? (
-                    <RowAddButton title="Add row" onClick={() => setSurveyRows((rows) => [...rows, EMPTY_SURVEY()])} disabled={!editableByCreator} />
-                  ) : null}
-                </div>
+              <div className={styles.holdSurveyCol}>
+                <div className={styles.subhead}>On / Off Hire Survey</div>
+                {surveyRows.map((row, index) => (
+                  <div key={row.id} className={styles.surveyRow}>
+                    <textarea
+                      className={styles.textarea}
+                      rows={1}
+                      placeholder="Description..."
+                      value={row.description}
+                      disabled={!editableByCreator}
+                      onChange={(event) => updateRows(setSurveyRows, row.id, { description: event.target.value })}
+                    />
+                    <label className={styles.ownerChk}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(row.chkOwnerAcc)}
+                        disabled={!editableByCreator}
+                        onChange={(event) => updateRows(setSurveyRows, row.id, { chkOwnerAcc: event.target.checked })}
+                      />
+                      On Owner&apos;s Account
+                    </label>
+                    <input
+                      className={`${styles.input} ${styles.surveyAmt}`}
+                      placeholder="0.00"
+                      value={row.amount}
+                      disabled={!editableByCreator}
+                      onChange={(event) => updateRows(setSurveyRows, row.id, { amount: event.target.value })}
+                    />
+                    <div className={styles.rowActions}>
+                      <RowDelButton title="Remove row" onClick={() => removeOrKeep(setSurveyRows, () => EMPTY_SURVEY(), row.id)} disabled={!editableByCreator} />
+                      {index === surveyRows.length - 1 ? (
+                        <RowAddButton title="Add row" onClick={() => setSurveyRows((rows) => [...rows, EMPTY_SURVEY()])} disabled={!editableByCreator} />
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </StatementCard>
 
           {/* Title scrolls away; sticky bar is tiles-only (same pattern as Freight Invoice). */}

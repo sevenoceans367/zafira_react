@@ -33,6 +33,11 @@ import {
   buildEstimateListPdfUrl,
   downloadEstimateListCsv,
 } from './estimateListExports.js';
+import {
+  DEFAULT_SOPF_BUSINESS_TYPE,
+  readSopfBusinessType,
+  rememberSopfBusinessType,
+} from './sopfListFilters.js';
 import styles from './EstimateListPage.module.css';
 
 const MAX_COMPARE = 5;
@@ -93,9 +98,6 @@ const STAT_CARDS = [
   },
   { key: 'vesselsOnWater', label: 'Vessels on Water', variant: 'count' },
 ];
-
-/** Gas=1, Tanker=2, Dry Cargo=3 — legacy PHP default is Tanker */
-const DEFAULT_BUSINESS_TYPE = '2';
 
 const STATUS_TABS = [
   { id: 'active', label: 'Active' },
@@ -183,12 +185,9 @@ export default function EstimateListPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const selBTypeInUrl = searchParams.get('selBType');
-  const businessType = selBTypeInUrl && selBTypeInUrl !== '' ? selBTypeInUrl : DEFAULT_BUSINESS_TYPE;
+  const businessType = readSopfBusinessType(searchParams);
   const estimateType = Number(
-    searchParams.get('estimatetype')
-      || (selBTypeInUrl === null ? DEFAULT_BUSINESS_TYPE : selBTypeInUrl)
-      || DEFAULT_BUSINESS_TYPE,
+    searchParams.get('estimatetype') || businessType || DEFAULT_SOPF_BUSINESS_TYPE,
   );
   const flashMsg = searchParams.get('msg');
   const flash = useTimedFlash(flashMsg != null ? MSG_COPY[Number(flashMsg)] : null);
@@ -247,10 +246,13 @@ export default function EstimateListPage() {
   useEffect(() => {
     const current = searchParams.get('selBType');
     if (!current || current === '') {
+      const restored = readSopfBusinessType(searchParams);
       const next = new URLSearchParams(searchParams);
-      next.set('selBType', DEFAULT_BUSINESS_TYPE);
-      next.set('estimatetype', DEFAULT_BUSINESS_TYPE);
+      next.set('selBType', restored);
+      next.set('estimatetype', restored);
       setSearchParams(next, { replace: true });
+    } else {
+      rememberSopfBusinessType(current);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -279,6 +281,7 @@ export default function EstimateListPage() {
       else next.set(key, String(value));
     });
     if (updates.selBType !== undefined) {
+      rememberSopfBusinessType(updates.selBType);
       next.set('estimatetype', String(updates.selBType));
     }
     // Keep intentional flash messages; clear only when filters/pagination change.

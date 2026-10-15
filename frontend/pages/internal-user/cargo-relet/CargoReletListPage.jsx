@@ -18,6 +18,11 @@ import {
   sendStandaloneCargoReletToOps,
 } from '../../../services/cargoRelets.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import CargoReletHeaderActions from './CargoReletHeaderActions.jsx';
@@ -227,7 +232,7 @@ export default function CargoReletListPage({ variant = 'business' }) {
   );
   const isHistoryTab = isOps && activeTab === 'history';
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [businessType, setBusinessType] = useState(() => readBusinessType(searchParams, BUSINESS_TYPE_KEYS.cargoRelet));
   const [year, setYear] = useState(searchParams.get('selYear') || (isOps ? String(new Date().getFullYear()) : 'all'));
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState({ count: 0, revenue: 0, qty: 0 });
@@ -506,7 +511,9 @@ export default function CargoReletListPage({ variant = 'business' }) {
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => {
-          setBusinessType(value || '2');
+          const next = value || '2';
+          rememberBusinessType(BUSINESS_TYPE_KEYS.cargoRelet, next);
+          setBusinessType(next);
           setPage(1);
         }}
         {...(isOps ? {

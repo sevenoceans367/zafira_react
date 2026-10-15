@@ -6,6 +6,11 @@ import { CardSelect, DownloadIcon, LoadingOverlay, useConfirm } from '@bainbridg
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
 import { coaBasePath } from '../../../constants/coaModule.js';
 import {
@@ -188,7 +193,7 @@ export default function RunningCoasListPage() {
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [businessType, setBusinessType] = useState(searchParams.get('selBType') || '2');
+  const [businessType, setBusinessType] = useState(() => readBusinessType(searchParams, BUSINESS_TYPE_KEYS.coa));
   const [statusTab, setStatusTab] = useState(parseStatusTab(searchParams.get('status')));
   const [allRows, setAllRows] = useState([]);
   const [page, setPage] = useState(1);
@@ -442,6 +447,7 @@ export default function RunningCoasListPage() {
         businessTypes={businessTypes}
         businessType={businessType}
         onBusinessTypeChange={(value) => {
+          rememberBusinessType(BUSINESS_TYPE_KEYS.coa, value);
           setBusinessType(value);
           updateQuery({ selBType: value });
         }}

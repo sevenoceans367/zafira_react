@@ -340,6 +340,11 @@
   text-align: center;
 }
 
+.grid thead th.center,
+.grid tbody td.center {
+  text-align: center;
+}
+
 .empty {
   text-align: center;
   color: #8a93a2;

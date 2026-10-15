@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -6,6 +6,8 @@ import {
   DmyDateInput,
   Field,
   LoadingOverlay,
+  RowAddButton,
+  RowDelButton,
   useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
@@ -20,7 +22,29 @@ import {
 } from '../../../services/opsVc.js';
 import { notifyRecentWorkUpdated } from '../../../services/recentWork.js';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
+import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
+import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import styles from './OpsVcHireStatementPage.module.css';
+
+function moneyLabel(currency) {
+  const code = String(currency || 'USD').toUpperCase();
+  return code === 'USD' ? '$' : code;
+}
+
+function gradeChipClass(gradeName) {
+  const text = String(gradeName || '').toUpperCase().replace(/\s+/g, '');
+  if (text.includes('SCRUBBER')) return styles.gradeChipScrubber;
+  if (text.includes('LSMGO')) return styles.gradeChipLsmgo;
+  if (text.includes('MGO')) return styles.gradeChipMgo;
+  if (text.includes('HSFO')) return styles.gradeChipHsfo;
+  if (text.includes('VLSFO')) return styles.gradeChipVlsfo;
+  return '';
+}
+
+function optionLabel(options, value) {
+  const hit = (options || []).find((row) => String(row.value) === String(value));
+  return hit?.label || '';
+}
 
 const EMPTY_LINE = () => ({
   id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -124,7 +148,7 @@ function withClientIds(rows, factory) {
 
 function toSelectOptions(rows) {
   return [
-    { value: '', label: '----Select From List----' },
+    { value: '', label: 'Select' },
     ...(rows || []).map((row) => ({
       value: String(row.id ?? row.value ?? ''),
       label: row.name || row.label || String(row.id ?? ''),
@@ -132,60 +156,261 @@ function toSelectOptions(rows) {
   ];
 }
 
-function FormSelect({ id, label, value, options, onChange, required = false, disabled = false }) {
+function splitLocChips(value) {
+  return String(value || '')
+    .split(/[,;\n]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.split('/')[0].trim())
+    .filter(Boolean);
+}
+
+function getScrollParent(node) {
+  let current = node?.parentElement || null;
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const overflowY = style.overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+
+function StatementCard({
+  num,
+  title,
+  children,
+  bodyClassName = '',
+  headExtra = null,
+  className = '',
+  cardRef = null,
+  hideHead = false,
+}) {
   return (
-    <Field id={id} label={required ? `${label} *` : label}>
+    <section
+      ref={cardRef}
+      className={[styles.card, className].filter(Boolean).join(' ')}
+    >
+      {hideHead ? null : (
+        <div className={styles.cardHead}>
+          <span className={styles.cardNum}>{num}</span>
+          <div className={styles.cardTitle}>{title}</div>
+          {headExtra}
+        </div>
+      )}
+      <div className={bodyClassName ? `${styles.cardBody} ${bodyClassName}` : styles.cardBody}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function FormSelect({
+  id,
+  label,
+  value,
+  options,
+  onChange,
+  required = false,
+  disabled = false,
+  className = '',
+  hint = '',
+}) {
+  return (
+    <Field
+      id={id}
+      label={required ? `${label} *` : label}
+      className={[styles.field, className].filter(Boolean).join(' ')}
+    >
       <div className={styles.cardSelect}>
         <CardSelect
           value={value || ''}
           options={options}
-          placeholder="----Select From List----"
+          placeholder="Select"
           ariaLabel={label}
           align="start"
           disabled={disabled}
           onChange={onChange}
         />
       </div>
+      {hint ? <div className={styles.hint}>{hint}</div> : null}
     </Field>
   );
 }
 
-function BankingPanel({ detail, cBankCheck, onCBankCheckChange }) {
-  if (!detail) return null;
+function OvalToggle({ on, onToggle, label, children }) {
   return (
-    <div className={styles.bankPanel}>
-      <table>
-        <tbody>
-          <tr><td>Address</td><td>{detail.address || '—'}</td></tr>
-          <tr><td>Beneficiary A/C No.</td><td>{detail.accountNo || '—'}</td></tr>
-          <tr><td>Beneficiary Bank</td><td>{detail.bank || detail.name || '—'}</td></tr>
-          <tr><td>Beneficiary Bank Address</td><td>{detail.bankAddress || '—'}</td></tr>
-          <tr><td>Beneficiary Bank Swift Code</td><td>{detail.swiftCode || '—'}</td></tr>
-          <tr><td>IBAN No.</td><td>{detail.ibanNo || '—'}</td></tr>
-          <tr><td>FED ABA</td><td>{detail.fedAba || '—'}</td></tr>
-          <tr className={styles.corrHead}>
-            <td colSpan={2}>
-              <label className={styles.corrCheck}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(cBankCheck)}
-                  onChange={(event) => onCBankCheckChange?.(event.target.checked)}
-                />
-                CORRESPONDENT DETAILS
-              </label>
-            </td>
-          </tr>
-          {cBankCheck ? (
-            <>
-              <tr><td>Correspondent Bank Name</td><td>{detail.correspondentBankName || '—'}</td></tr>
-              <tr><td>Correspondent Bank Address</td><td>{detail.correspondentBankAddress || '—'}</td></tr>
-              <tr><td>Account Number</td><td>{detail.correspondentAccountNo || '—'}</td></tr>
-              <tr><td>Swift Code</td><td>{detail.correspondentSwiftCode || '—'}</td></tr>
-            </>
-          ) : null}
-        </tbody>
-      </table>
+    <div className={styles.ovalToggle}>
+      <button
+        type="button"
+        className={`${styles.sw}${on ? ` ${styles.swOn}` : ''}`}
+        onClick={onToggle}
+        aria-pressed={on}
+        aria-label={label}
+      >
+        <span className={styles.kb} />
+      </button>
+      <span className={styles.otLabel}>{label}</span>
+      {children}
     </div>
+  );
+}
+
+function openBlob(file, download = false) {
+  const url = URL.createObjectURL(file);
+  if (download) {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = file.name || 'attachment';
+    anchor.click();
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
+function AttachDropzone({
+  id = 'attach_file',
+  files = [],
+  existingName,
+  existingUpload,
+  onFiles,
+  onRemoveFile,
+}) {
+  const [over, setOver] = useState(false);
+  const inputRef = useRef(null);
+  const selected = files?.length
+    ? `${files.length} file(s) selected`
+    : (existingName || existingUpload)
+      ? `Existing: ${existingName || existingUpload}`
+      : 'No documents attached yet';
+  const existingHref = existingUpload && (
+    String(existingUpload).startsWith('http')
+    || String(existingUpload).startsWith('/')
+  ) ? existingUpload : null;
+
+  return (
+    <>
+      <div
+        className={`${styles.dropzone} ${over ? styles.dropzoneOver : ''}`}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setOver(false);
+          onFiles(Array.from(event.dataTransfer.files || []));
+        }}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+          <path d="M21 12.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9.5" />
+          <path d="M16 3l5 5-9 9H7v-5z" />
+        </svg>
+        <div className={styles.dzText}>
+          Drag & drop files here, or{' '}
+          <span
+            className={styles.dzBrowse}
+            role="button"
+            tabIndex={0}
+            onClick={() => inputRef.current?.click()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click();
+            }}
+          >
+            browse
+          </span>
+        </div>
+        <div className={styles.dzSub}>{selected}</div>
+        <input
+          id={id}
+          ref={inputRef}
+          className={styles.hiddenFile}
+          type="file"
+          multiple
+          onChange={(event) => onFiles(Array.from(event.target.files || []))}
+        />
+        <button
+          type="button"
+          className={styles.attachBtn}
+          onClick={() => inputRef.current?.click()}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+            <path d="M21 12.5l-8.4 8.4a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3l7.7-7.7" />
+          </svg>
+          Attach
+        </button>
+      </div>
+
+      {(files.length || existingName || existingUpload) ? (
+        <div className={styles.docLinks}>
+          {files.map((file, index) => (
+            <div key={`${file.name}-${index}`} className={styles.docChip}>
+              <svg className={styles.docChipIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M21.44 11.05l-9.19 9.19a5 5 0 01-7.07-7.07l9.19-9.19a3.5 3.5 0 014.95 4.95l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+              </svg>
+              <span className={styles.docChipName}>{file.name}</span>
+              <span className={styles.docChipActs}>
+                <button type="button" onClick={() => openBlob(file, false)}>View</button>
+                <button type="button" onClick={() => openBlob(file, true)}>Download</button>
+                {onRemoveFile ? (
+                  <button type="button" onClick={() => onRemoveFile(index)}>Remove</button>
+                ) : null}
+              </span>
+            </div>
+          ))}
+          {!files.length && (existingName || existingUpload) ? (
+            <div className={styles.docChip}>
+              <svg className={styles.docChipIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M21.44 11.05l-9.19 9.19a5 5 0 01-7.07-7.07l9.19-9.19a3.5 3.5 0 014.95 4.95l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+              </svg>
+              <span className={styles.docChipName}>{existingName || existingUpload}</span>
+              {existingHref ? (
+                <span className={styles.docChipActs}>
+                  <a href={existingHref} target="_blank" rel="noreferrer">View</a>
+                  <a href={existingHref} download>Download</a>
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function BankingRows({ detail, cBankCheck, onCBankCheckChange }) {
+  return (
+    <>
+      <div className={styles.bankRows}>
+        <div className={styles.bankRow}><span className={styles.bkLabel}>Address</span><span className={styles.bkVal}>{detail?.address || '—'}</span></div>
+        <div className={styles.bankRow}><span className={styles.bkLabel}>Beneficiary A/C No.</span><span className={styles.bkVal}>{detail?.accountNo || '—'}</span></div>
+        <div className={styles.bankRow}><span className={styles.bkLabel}>Beneficiary Bank</span><span className={styles.bkVal}>{detail?.bank || detail?.name || '—'}</span></div>
+        <div className={styles.bankRow}><span className={styles.bkLabel}>Beneficiary Bank Address</span><span className={styles.bkVal}>{detail?.bankAddress || '—'}</span></div>
+        <div className={styles.bankRow}><span className={styles.bkLabel}>Beneficiary Bank Swift Code</span><span className={styles.bkVal}>{detail?.swiftCode || '—'}</span></div>
+        <div className={styles.bankRow}><span className={styles.bkLabel}>IBAN No.</span><span className={styles.bkVal}>{detail?.ibanNo || '—'}</span></div>
+        <div className={styles.bankRow}><span className={styles.bkLabel}>FED ABA</span><span className={styles.bkVal}>{detail?.fedAba || '—'}</span></div>
+      </div>
+      <label className={styles.corrToggle}>
+        <input
+          type="checkbox"
+          checked={Boolean(cBankCheck)}
+          onChange={(event) => onCBankCheckChange?.(event.target.checked)}
+        />
+        Correspondent Details
+      </label>
+      {cBankCheck ? (
+        <div className={styles.bankRows}>
+          <div className={styles.bankRow}><span className={styles.bkLabel}>Correspondent Bank Name</span><span className={styles.bkVal}>{detail?.correspondentBankName || '—'}</span></div>
+          <div className={styles.bankRow}><span className={styles.bkLabel}>Correspondent Bank Address</span><span className={styles.bkVal}>{detail?.correspondentBankAddress || '—'}</span></div>
+          <div className={styles.bankRow}><span className={styles.bkLabel}>Account Number</span><span className={styles.bkVal}>{detail?.correspondentAccountNo || '—'}</span></div>
+          <div className={styles.bankRow}><span className={styles.bkLabel}>Swift Code</span><span className={styles.bkVal}>{detail?.correspondentSwiftCode || '—'}</span></div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -200,155 +425,133 @@ function LineSection({
   onRemove,
   onUpdate,
   adjustment = false,
+  disabled = false,
 }) {
+  const colsClass = adjustment ? styles.colsAdjustment : styles.colsOthless;
   return (
-    <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>{title}</h3>
-      <div className={styles.sectionBody}>
-        <div className={styles.tableWrap}>
-        <table className={styles.linesTable}>
-          <thead>
-            <tr>
-              <th style={{ width: 36 }} />
-              <th style={{ width: adjustment ? '18%' : '24%' }}>Cost type</th>
-              {adjustment ? (
-                <>
-                  <th style={{ width: '16%' }}>Fixture no</th>
-                  <th style={{ width: '16%' }}>Vessel</th>
-                </>
-              ) : null}
-              <th>Description</th>
-              <th style={{ width: 96 }}>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td>
-                  <button type="button" className={styles.removeBtn} onClick={() => onRemove(row.id)} aria-label={`Remove ${title} row`}>×</button>
-                </td>
-                <td>
-                  <div className={styles.cardSelect}>
-                    <CardSelect
-                      value={row.orcId || ''}
-                      options={orcOptions}
-                      placeholder="----Select----"
-                      ariaLabel={`${title} cost type`}
-                      align="start"
-                      onChange={(value) => onUpdate(row.id, { orcId: value })}
-                    />
-                  </div>
-                </td>
-                {adjustment ? (
-                  <>
-                    <td>
-                      <div className={styles.cardSelect}>
-                        <CardSelect
-                          value={row.fixtureNo || ''}
-                          options={fixtureOptions}
-                          placeholder="----Select----"
-                          ariaLabel={`${title} fixture`}
-                          align="start"
-                          onChange={(value) => onFixtureChange?.(row.id, value)}
-                        />
-                      </div>
-                    </td>
-                    <td>
-                      <div className={styles.cardSelect}>
-                        <CardSelect
-                          value={row.vessel || ''}
-                          options={vesselOptions}
-                          placeholder="----Select----"
-                          ariaLabel={`${title} vessel`}
-                          align="start"
-                          onChange={(value) => onUpdate(row.id, { vessel: value })}
-                        />
-                      </div>
-                    </td>
-                  </>
-                ) : null}
-                <td>
-                  <textarea
-                    className={styles.textarea}
-                    rows={2}
-                    placeholder="Description..."
-                    value={row.description}
-                    onChange={(event) => onUpdate(row.id, { description: event.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.input}
-                    placeholder="Amount"
-                    value={row.amount}
-                    onChange={(event) => onUpdate(row.id, { amount: event.target.value })}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-        <div className={styles.lineActions}>
-          <Button variant="outline" size="sm" label="Add" onClick={onAdd} />
-        </div>
+    <>
+      {title ? <div className={styles.subhead}>{title}</div> : null}
+      <div className={`${styles.adjHead} ${colsClass}`}>
+        <span>Cost Type</span>
+        {adjustment ? (
+          <>
+            <span>Fixture No</span>
+            <span>Vessel</span>
+          </>
+        ) : null}
+        <span>Description</span>
+        <span>Amount</span>
+        <span />
       </div>
-    </div>
+      {rows.map((row, index) => (
+        <div key={row.id} className={`${styles.adjRow} ${colsClass}`}>
+          <div className={styles.cardSelect}>
+            <CardSelect
+              value={row.orcId || ''}
+              options={orcOptions}
+              placeholder="Select"
+              ariaLabel={`${title || 'Line'} cost type`}
+              align="start"
+              disabled={disabled}
+              onChange={(value) => onUpdate(row.id, { orcId: value })}
+            />
+          </div>
+          {adjustment ? (
+            <>
+              <div className={styles.cardSelect}>
+                <CardSelect
+                  value={row.fixtureNo || ''}
+                  options={fixtureOptions}
+                  placeholder="Select"
+                  ariaLabel={`${title || 'Line'} fixture`}
+                  align="start"
+                  disabled={disabled}
+                  onChange={(value) => onFixtureChange?.(row.id, value)}
+                />
+              </div>
+              <div className={styles.cardSelect}>
+                <CardSelect
+                  value={row.vessel || ''}
+                  options={vesselOptions}
+                  placeholder="Select"
+                  ariaLabel={`${title || 'Line'} vessel`}
+                  align="start"
+                  disabled={disabled}
+                  onChange={(value) => onUpdate(row.id, { vessel: value })}
+                />
+              </div>
+            </>
+          ) : null}
+          <textarea
+            className={`${styles.textarea} ${styles.textareaSmall}`}
+            rows={2}
+            placeholder="Description..."
+            value={row.description}
+            disabled={disabled}
+            onChange={(event) => onUpdate(row.id, { description: event.target.value })}
+          />
+          <input
+            className={styles.input}
+            placeholder="0.00"
+            value={row.amount}
+            disabled={disabled}
+            onChange={(event) => onUpdate(row.id, { amount: event.target.value })}
+          />
+          <div className={styles.rowActions}>
+            <RowDelButton title="Remove row" onClick={() => onRemove(row.id)} disabled={disabled} />
+            {index === rows.length - 1 ? (
+              <RowAddButton title="Add row" onClick={onAdd} disabled={disabled} />
+            ) : null}
+          </div>
+        </div>
+      ))}
+      {!rows.length ? (
+        <button type="button" className={styles.addDashed} onClick={onAdd} disabled={disabled}>
+          + Add row
+        </button>
+      ) : null}
+    </>
   );
 }
 
-function BunkerSection({ title, rows, bunkerOptions, onAdd, onRemove, onUpdate }) {
+function BunkerSection({ rows, bunkerOptions, onAdd, onRemove, onUpdate, disabled = false }) {
   return (
-    <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>{title}</h3>
-      <div className={styles.sectionBody}>
-        <div className={styles.tableWrap}>
-        <table className={styles.bunkerTable}>
-          <thead>
-            <tr>
-              <th style={{ width: 36 }} />
-              <th>Bunker Grade</th>
-              <th style={{ width: '18%' }}>Qty(MT)</th>
-              <th style={{ width: '18%' }}>Price</th>
-              <th style={{ width: '18%' }}>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td>
-                  <button type="button" className={styles.removeBtn} onClick={() => onRemove(row.id)} aria-label={`Remove ${title} row`}>×</button>
-                </td>
-                <td>
-                  <div className={styles.cardSelect}>
-                    <CardSelect
-                      value={row.bunkerId || ''}
-                      options={bunkerOptions}
-                      placeholder="----Select----"
-                      ariaLabel={`${title} grade`}
-                      align="start"
-                      onChange={(value) => onUpdate(row.id, { bunkerId: value })}
-                    />
-                  </div>
-                </td>
-                <td>
-                  <input className={styles.input} value={row.qty} onChange={(event) => onUpdate(row.id, { qty: event.target.value })} />
-                </td>
-                <td>
-                  <input className={styles.input} value={row.price} onChange={(event) => onUpdate(row.id, { price: event.target.value })} />
-                </td>
-                <td>
-                  <input className={styles.input} readOnly value={money2(parseAmount(row.qty) * parseAmount(row.price)).toFixed(2)} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-        <div className={styles.lineActions}>
-          <Button variant="outline" size="sm" label="Add" onClick={onAdd} />
-        </div>
+    <div className={styles.checkPanel}>
+      <div className={`${styles.adjHead} ${styles.colsBunker}`}>
+        <span>Bunker Grade</span>
+        <span>Qty (MT)</span>
+        <span>Price ($)</span>
+        <span>Amount ($)</span>
+        <span />
       </div>
+      {rows.map((row, index) => {
+        const gradeLabel = optionLabel(bunkerOptions, row.bunkerId);
+        const gradeClass = gradeChipClass(gradeLabel);
+        return (
+          <div key={row.id} className={`${styles.adjRow} ${styles.colsBunker}`}>
+            <div className={`${styles.cardSelect} ${styles.gradeSelectWrap}${gradeClass ? ` ${gradeClass}` : ''}`}>
+              <CardSelect
+                value={row.bunkerId || ''}
+                options={bunkerOptions}
+                placeholder="Select"
+                ariaLabel="Bunker grade"
+                align="start"
+                disabled={disabled}
+                onChange={(value) => onUpdate(row.id, { bunkerId: value })}
+              />
+            </div>
+            <input className={styles.input} value={row.qty} disabled={disabled} onChange={(event) => onUpdate(row.id, { qty: event.target.value })} />
+            <input className={styles.input} value={row.price} disabled={disabled} onChange={(event) => onUpdate(row.id, { price: event.target.value })} />
+            <input className={styles.input} readOnly value={money2(parseAmount(row.qty) * parseAmount(row.price)).toFixed(2)} />
+            <div className={styles.rowActions}>
+              <RowDelButton title="Remove row" onClick={() => onRemove(row.id)} disabled={disabled} />
+              {index === rows.length - 1 ? (
+                <RowAddButton title="Add row" onClick={onAdd} disabled={disabled} />
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -446,6 +649,9 @@ export default function OpsVcHireStatementPage() {
   const [cBankCheck, setCBankCheck] = useState(false);
   const [paymentInvoice, setPaymentInvoice] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [summaryStuck, setSummaryStuck] = useState(false);
+  const summaryRef = useRef(null);
+  const summaryHeadRef = useRef(null);
 
   const backHref = useMemo(() => {
     const params = new URLSearchParams({
@@ -598,6 +804,7 @@ export default function OpsVcHireStatementPage() {
   };
 
   const currency = form.exchangeCurrency || 'USD';
+  const cur = moneyLabel(currency);
   const totals = useMemo(() => {
     const hireDays = days5(hireDayRows.reduce((sum, row) => sum + parseAmount(row.utilisedDays), 0));
     const hireAmt = money2(hireDayRows.reduce((sum, row) => sum + parseAmount(row.hireAmt), 0));
@@ -790,6 +997,34 @@ export default function OpsVcHireStatementPage() {
     }
   };
 
+  useEffect(() => {
+    if (loading || !context) {
+      setSummaryStuck(false);
+      return undefined;
+    }
+
+    const el = summaryRef.current;
+    const head = summaryHeadRef.current;
+    if (!el || !head) return undefined;
+
+    const root = getScrollParent(el);
+    const rootIsDocument = root === document.scrollingElement || root === document.documentElement;
+    const ioRoot = rootIsDocument ? null : root;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const floating = !entry.isIntersecting;
+        setSummaryStuck((prev) => (prev === floating ? prev : floating));
+      },
+      { root: ioRoot, threshold: 0, rootMargin: '0px' },
+    );
+    observer.observe(head);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loading, context]);
+
   const status = invoiceStatus;
   const hasDraft = status != null && !Number.isNaN(status);
   const editableByCreator = !hasDraft || status === 0 || status === 2;
@@ -802,527 +1037,686 @@ export default function OpsVcHireStatementPage() {
     ? `${context.lastUpdatedBy}${context.lastUpdatedAt ? ` - ${context.lastUpdatedAt}` : ''}`
     : '';
 
-  const formActions = (
-    <div className={styles.toolbar}>
-      <Button variant="outline" label="Back" href={backHref} disabled={saving} />
+  const loadChips = splitLocChips(context?.loadPorts);
+  const dischargeChips = splitLocChips(context?.dischargePorts);
+  const paymentPayable = form.paymentStatus !== 'payment_hold';
+  const subRowsTotal = subRows.reduce((sum, row) => sum + parseAmount(row.amount), 0);
+
+  const routePorts = [...loadChips, ...dischargeChips];
+  const removeAttachFile = (index) => {
+    setAttachFiles((current) => current.filter((_, i) => i !== index));
+  };
+
+  const footerActions = (
+    <div className={styles.footerActions}>
       {editableByCreator ? (
         <>
-          <Button variant="primary" label="Save" onClick={() => handleSubmit(0)} disabled={loading || saving || !context} />
-          <Button variant="accent" label="Send for Approval" onClick={() => handleSubmit(auth.sendForApprovalStatus)} disabled={loading || saving || !context} />
+          <Button variant="outline" label="Save" onClick={() => handleSubmit(0)} disabled={loading || saving || !context} />
+          <Button
+            variant="accent"
+            label="Approve"
+            icon="send"
+            className={styles.sendApprovalBtn}
+            onClick={() => handleSubmit(auth.sendForApprovalStatus)}
+            disabled={loading || saving || !context}
+          />
         </>
       ) : null}
       {showApprover1Actions ? (
         <>
-          <Button variant="primary" label="Send for Review" onClick={() => handleSubmit(2)} disabled={loading || saving || !context} />
-          <Button variant="accent" label="Submit & Approve" onClick={() => handleSubmit(approveStatusApp1)} disabled={loading || saving || !context} />
+          <Button variant="primary" label="Send for Review" icon="send" onClick={() => handleSubmit(2)} disabled={loading || saving || !context} />
+          <Button variant="accent" label="Submit & Approve" icon="send" className={styles.sendApprovalBtn} onClick={() => handleSubmit(approveStatusApp1)} disabled={loading || saving || !context} />
         </>
       ) : null}
       {showApprover2Actions ? (
         <>
-          <Button variant="primary" label="Send for Review" onClick={() => handleSubmit(reviewStatusApp2)} disabled={loading || saving || !context} />
-          <Button variant="accent" label="Submit & Approve" onClick={() => handleSubmit(5)} disabled={loading || saving || !context} />
+          <Button variant="primary" label="Send for Review" icon="send" onClick={() => handleSubmit(reviewStatusApp2)} disabled={loading || saving || !context} />
+          <Button variant="accent" label="Submit & Approve" icon="send" className={styles.sendApprovalBtn} onClick={() => handleSubmit(5)} disabled={loading || saving || !context} />
         </>
       ) : null}
       {invoiceId ? (
-        <Button variant="outline" label="Generate PDF" onClick={() => handleInvoiceAction('pdf', { invoiceId })} disabled={loading || saving} />
+        <Button variant="outline" label="Generate PDF" icon="download" onClick={() => handleInvoiceAction('pdf', { invoiceId })} disabled={loading || saving} />
       ) : null}
     </div>
   );
 
   return (
     <div className={`zafira-page ${styles.page}`}>
+      <VoyageOpsHeading
+        title={hasDraft ? `New Hire Statement (Status ${status})` : 'New Hire Statement'}
+        voyageNo={context?.voyageNo || voyageNo || ''}
+        vesselName={context?.vesselName || ''}
+      />
+      <OpsVcBackHeaderActions backHref={backHref} disabled={saving} />
       {(loading || saving) ? (
         <LoadingOverlay show label={saving ? 'Saving hire statement…' : 'Loading hire statement…'} />
       ) : null}
 
-      {formActions}
-
-      <h2 className={styles.title}>
-        Hire Statement Creation
-        {hasDraft ? ` (Status ${status})` : ''}
-      </h2>
+      {context ? (
+        <div className={styles.pageHead}>
+          <div className={styles.pageSub}>
+            {context.cpDate ? <span>CP <b>{context.cpDate}</b></span> : null}
+            {routePorts.map((port, index) => (
+              <React.Fragment key={`${port}-${index}`}>
+                {index > 0 ? (
+                  <svg className={styles.locArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                    <path d="M5 12h14" />
+                    <path d="M13 6l6 6-6 6" />
+                  </svg>
+                ) : null}
+                <span className={styles.locChip}>{port}</span>
+              </React.Fragment>
+            ))}
+          </div>
+          {lastUpdated ? (
+            <p className={styles.lastUpdated}>(LAST UPDATED BY/TIME) {lastUpdated}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {error ? <div className={styles.error}>{error}</div> : null}
 
       {!loading && context ? (
         <>
-          {lastUpdated ? (
-            <p className={styles.lastUpdated}>(LAST UPDATED BY/TIME) {lastUpdated}</p>
-          ) : null}
-
-          <div className={styles.infoGrid}>
-            <div className={styles.panel}>
-              <FormSelect
-                id="shipOwner"
-                label="Creating Company"
-                required
-                value={form.shipOwner}
-                options={ownerOptions}
-                disabled={!editableByCreator}
-                onChange={(value) => updateField('shipOwner', value)}
-              />
-            </div>
-            <div className={styles.panel}>
-              <p className={styles.panelLabel}>To</p>
-              <p className={styles.metaLine}><strong>{context.vendorName || '—'}</strong></p>
-              <p className={styles.metaLine}>{context.vendorAddress || '—'}</p>
-            </div>
-            <div className={styles.panel}>
-              <FormSelect
-                id="bankingId"
-                label="Banking Details"
-                value={form.bankingId || form.bankingDetailId}
-                options={bankingOptions}
-                disabled={!editableByCreator}
-                onChange={(value) => {
-                  const vendorHit = (context?.vendorBanking || []).some((row) => String(row.id) === String(value));
-                  updateField('bankingId', vendorHit ? value : '');
-                  updateField('bankingDetailId', vendorHit ? '' : value);
-                }}
-              />
-              <BankingPanel
-                detail={bankingDetail}
-                cBankCheck={cBankCheck}
-                onCBankCheckChange={setCBankCheck}
-              />
-            </div>
-            <div className={styles.panel}>
-              <p className={styles.panelLabel}>Hire Details</p>
-              <p className={styles.metaLine}>Nom ID :- {context.nomMessage || '—'}</p>
-              <p className={styles.metaLine}>Vessel :- {context.vesselName || '—'}</p>
-              <p className={styles.metaLine}>CP Date :- {context.cpDate || '—'}</p>
-              <p className={styles.metaLine}>TC No. :- {context.tcNo || '—'}</p>
-              <p className={styles.metaLine}>Loading Port :- {context.loadPorts || '—'}</p>
-              <p className={styles.metaLine}>Discharging Port :- {context.dischargePorts || '—'}</p>
-            </div>
-          </div>
-
-          <div className={styles.mainSplit}>
-            <div className={styles.leftCol}>
-              <div className={styles.stackFields}>
-                <FormSelect id="invoiceType" label="Statement Type" required value={form.invoiceType} options={typeOptions} disabled={!editableByCreator} onChange={(value) => updateField('invoiceType', value)} />
-                <Field id="invoiceNo" label="Hire Statement Number *">
-                  <input className={styles.input} value={form.invoiceNo || ''} onChange={(e) => updateField('invoiceNo', e.target.value)} disabled={!editableByCreator} />
-                </Field>
-                <Field id="invoiceDate" label="Hire Statement Date *">
-                  <DmyDateInput
-                    id="invoiceDate"
-                    value={form.invoiceDate || ''}
-                    onChange={(value) => updateField('invoiceDate', value)}
-                    disabled={!editableByCreator}
-                  />
-                </Field>
-                <Field id="exchangeRate" label="Exchange Rate">
-                  <input className={styles.input} value={form.exchangeRate || ''} onChange={(e) => updateField('exchangeRate', e.target.value)} disabled={!editableByCreator} />
-                </Field>
-                <Field id="exchangeDate" label="Exchange Date">
-                  <DmyDateInput
-                    id="exchangeDate"
-                    value={form.exchangeDate || ''}
-                    onChange={(value) => updateField('exchangeDate', value)}
-                    disabled={!editableByCreator}
-                  />
-                </Field>
-                <FormSelect id="exchangeCurrency" label="Exchange To Currency" value={form.exchangeCurrency} options={currencyOptions} disabled={!editableByCreator} onChange={(value) => updateField('exchangeCurrency', value)} />
-                <Field id="remainingDays" label="Remaining Days to Statement">
-                  <input className={styles.input} readOnly value={totals.remainingDays || ''} />
-                </Field>
-                <Field id="paymentTerms" label="Payment Terms *">
-                  <input className={styles.input} value={form.paymentTerms || ''} onChange={(e) => updateField('paymentTerms', e.target.value)} />
-                </Field>
-                <Field id="description" label="Description">
-                  <textarea className={styles.textarea} rows={3} value={form.description || ''} onChange={(e) => updateField('description', e.target.value)} />
-                </Field>
-                <Field id="deliveryPortDate" label="Delivery Port/Date">
-                  <div className={styles.readonlyValue}>
-                    {[context.deliveryPort, context.deliveryDate].filter(Boolean).join(' / ') || '—'}
+          <StatementCard num="1" title="Statement Details">
+            <div className={styles.sdGrid}>
+              <div className={styles.sdLeft}>
+                <div className={styles.stripCard}>
+                  <div className={styles.stripLabel}>Internal Company <span className={styles.req}>*</span></div>
+                  <div className={styles.stripControl}>
+                    <div className={styles.cardSelect}>
+                      <CardSelect
+                        value={form.shipOwner || ''}
+                        options={ownerOptions}
+                        placeholder="Select"
+                        ariaLabel="Internal Company"
+                        align="start"
+                        disabled={!editableByCreator}
+                        onChange={(value) => updateField('shipOwner', value)}
+                      />
+                    </div>
                   </div>
-                </Field>
-                <Field id="redeliveryPortDate" label="Re Delivery Port/Date">
-                  <div className={styles.readonlyValue}>
-                    {[context.redeliveryPort, context.redeliveryDate].filter(Boolean).join(' / ') || '—'}
+                </div>
+
+                <div className={`${styles.stripCard} ${styles.bankStrip}`}>
+                  <div className={styles.bankTop}>
+                    <div className={styles.stripLabel}>Banking Details</div>
+                    <div className={styles.stripControl}>
+                      <div className={styles.cardSelect}>
+                        <CardSelect
+                          value={form.bankingId || form.bankingDetailId || ''}
+                          options={bankingOptions}
+                          placeholder="Select"
+                          ariaLabel="Banking Details"
+                          align="start"
+                          disabled={!editableByCreator}
+                          onChange={(value) => {
+                            const vendorHit = (context?.vendorBanking || []).some((row) => String(row.id) === String(value));
+                            updateField('bankingId', vendorHit ? value : '');
+                            updateField('bankingDetailId', vendorHit ? '' : value);
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </Field>
-                <Field id="attach_file" label="Documents">
-                  <input
-                    id="attach_file"
-                    type="file"
-                    multiple
-                    onChange={(event) => setAttachFiles(Array.from(event.target.files || []))}
+                  <BankingRows
+                    detail={bankingDetail}
+                    cBankCheck={cBankCheck}
+                    onCBankCheckChange={setCBankCheck}
                   />
-                  {attachFiles.length ? (
-                    <p className={styles.muted}>{attachFiles.length} file(s) selected</p>
-                  ) : null}
-                  {form.uploadName || form.upload ? (
-                    <p className={styles.muted}>Existing: {form.uploadName || form.upload}</p>
-                  ) : null}
-                </Field>
+                </div>
+              </div>
+
+              <div className={styles.sdRight}>
+                <div className={styles.infoBox}>
+                  <div className={styles.ibTitle}>To</div>
+                  <div className={styles.ibName}>{context.vendorName || '—'}</div>
+                  <div className={styles.ibSub}>{context.vendorAddress || '—'}</div>
+                </div>
+
+                <div className={styles.stripCard} style={{ alignItems: 'flex-start' }}>
+                  <div style={{ width: '100%' }}>
+                    <div className={styles.hireDetailsHead}>
+                      <div className={styles.stripLabel}>Hire Details</div>
+                      <span className={styles.pillNavy}>From Voyage</span>
+                    </div>
+                    <div className={styles.hdGrid}>
+                      <div className={styles.hdRow}>
+                        <span className={styles.hdLabel}>Voy No.</span>
+                        <span className={styles.hdVal}>{context.voyageNo || '—'}</span>
+                      </div>
+                      <div className={styles.hdRow}>
+                        <span className={styles.hdLabel}>Vessel</span>
+                        <span className={styles.hdVal}>{context.vesselName || '—'}</span>
+                      </div>
+                      <div className={styles.hdRow}>
+                        <span className={styles.hdLabel}>CP Date</span>
+                        <span className={styles.hdVal}>{context.cpDate || '—'}</span>
+                      </div>
+                      <div className={styles.hdRow}>
+                        <span className={styles.hdLabel}>TC No.</span>
+                        <span className={styles.hdVal}>{context.tcNo || '—'}</span>
+                      </div>
+                      <div className={`${styles.hdRow} ${styles.hdRowFull}`}>
+                        <span className={styles.hdLabel}>Loading Port</span>
+                        <span className={styles.hdVal}>{context.loadPorts || '—'}</span>
+                      </div>
+                      <div className={`${styles.hdRow} ${styles.hdRowFull}`}>
+                        <span className={styles.hdLabel}>Discharge Port</span>
+                        <span className={styles.hdVal}>{context.dischargePorts || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+          </StatementCard>
 
-            <div className={styles.rightCol}>
-              <div className={styles.freightStack}>
-                <Field id="finalHireage" label={`Final Hire-age (${currency})`}>
-                  <input className={styles.input} readOnly value={money2(context.finalHireage).toFixed(2)} />
+          <StatementCard num="2" title="Statement & Hire Details">
+            <div className={styles.s2Grid}>
+              <div className={styles.s2Fields}>
+                <div className={`${styles.grid2} ${styles.compact}`}>
+                  <FormSelect
+                    id="invoiceType"
+                    label="Statement Type"
+                    required
+                    value={form.invoiceType}
+                    options={typeOptions}
+                    disabled={!editableByCreator}
+                    onChange={(value) => updateField('invoiceType', value)}
+                  />
+                  <Field id="invoiceNo" label="Statement No. *" className={styles.field}>
+                    <input className={styles.input} value={form.invoiceNo || ''} onChange={(e) => updateField('invoiceNo', e.target.value)} disabled={!editableByCreator} />
+                  </Field>
+                  <Field id="invoiceDate" label="Date" className={styles.field}>
+                    <DmyDateInput
+                      id="invoiceDate"
+                      value={form.invoiceDate || ''}
+                      onChange={(value) => updateField('invoiceDate', value)}
+                      disabled={!editableByCreator}
+                    />
+                  </Field>
+                  <Field id="paymentTerms" label="Payment Terms *" className={styles.field}>
+                    <input className={styles.input} value={form.paymentTerms || ''} onChange={(e) => updateField('paymentTerms', e.target.value)} disabled={!editableByCreator} placeholder="e.g. Immediate" />
+                  </Field>
+                  <Field id="exchangeRate" label="X-Rate" className={styles.field}>
+                    <input className={styles.input} value={form.exchangeRate || ''} onChange={(e) => updateField('exchangeRate', e.target.value)} disabled={!editableByCreator} />
+                  </Field>
+                  <Field id="exchangeDate" label="Exchange Date" className={styles.field}>
+                    <DmyDateInput
+                      id="exchangeDate"
+                      value={form.exchangeDate || ''}
+                      onChange={(value) => updateField('exchangeDate', value)}
+                      disabled={!editableByCreator}
+                    />
+                  </Field>
+                  <FormSelect
+                    id="exchangeCurrency"
+                    label="Exchange To Currency"
+                    value={form.exchangeCurrency}
+                    options={currencyOptions}
+                    disabled={!editableByCreator}
+                    onChange={(value) => updateField('exchangeCurrency', value)}
+                  />
+                  <Field id="remainingDays" label="Remaining Days to Statement" className={styles.field}>
+                    <input className={styles.input} readOnly value={totals.remainingDays || ''} />
+                  </Field>
+                  <Field
+                    id="deliveryPortDate"
+                    label={<>Delivery Port / Date <span className={styles.pillNavy}>TC-In</span></>}
+                    className={styles.field}
+                  >
+                    <div className={styles.readonlyBox}>
+                      {[context.deliveryPort, context.deliveryDate].filter(Boolean).join(' / ') || '— / —'}
+                    </div>
+                  </Field>
+                  <Field
+                    id="redeliveryPortDate"
+                    label={<>Re-Delivery Port / Date <span className={styles.pillNavy}>TC-In</span></>}
+                    className={styles.field}
+                  >
+                    <div className={styles.readonlyBox}>
+                      {[context.redeliveryPort, context.redeliveryDate].filter(Boolean).join(' / ') || '— / —'}
+                    </div>
+                  </Field>
+                </div>
+                <Field id="description" label="Description" className={[styles.field, styles.compact].filter(Boolean).join(" ")}>
+                  <textarea className={`${styles.textarea} ${styles.textareaSmall}`} rows={3} placeholder="As per CP" value={form.description || ''} onChange={(e) => updateField('description', e.target.value)} disabled={!editableByCreator} />
                 </Field>
-                <Field id="estHireDays" label="Total Voyage Days (Sea & Port)">
-                  <input className={styles.input} readOnly value={context.estHireDays || ''} />
-                </Field>
+              </div>
 
-                <div className={styles.section}>
-                  <h3 className={styles.sectionTitle}>Hire Days</h3>
-                  <div className={styles.sectionBody}>
-                    <div className={styles.tableWrap}>
-                      <table className={styles.hireDaysTable}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: '11%' }}>TTL days</th>
-                            <th style={{ width: '11%' }}>Bal Days</th>
-                            <th style={{ width: '13%' }}>Hire(USD/Day)</th>
-                            <th style={{ width: '18%' }}>Hire From</th>
-                            <th style={{ width: '18%' }}>Hire To</th>
-                            <th style={{ width: '12%' }}>Hire Day</th>
-                            <th style={{ width: '17%' }}>Hire(USD)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {hireDayRows.map((row) => (
-                            <tr key={row.id || row.randomId}>
-                              <td><input className={styles.input} readOnly value={row.totalDays ?? ''} /></td>
-                              <td><input className={styles.input} readOnly value={row.remainingDays ?? ''} /></td>
-                              <td><input className={styles.input} readOnly value={row.dailyRate ?? ''} /></td>
-                              <td className={styles.dateCell}>
-                                <DmyDateInput
-                                  id={`hireFrom_${row.id || row.randomId}`}
-                                  enableTime
-                                  className={styles.input}
-                                  value={row.hireFrom || ''}
-                                  disabled
-                                />
-                              </td>
-                              <td className={styles.dateCell}>
-                                <DmyDateInput
-                                  id={`hireTo_${row.id || row.randomId}`}
-                                  enableTime
-                                  className={styles.input}
-                                  value={row.hireTo || ''}
-                                  disabled={!editableByCreator}
-                                  onChange={(value) => updateHireDay(row.id || row.randomId, { hireTo: value })}
-                                />
-                              </td>
-                              <td><input className={styles.input} readOnly value={row.utilisedDays || ''} /></td>
-                              <td><input className={styles.input} readOnly value={money2(row.hireAmt).toFixed(2)} /></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                <Field id="grossHire" label={`Gross Hire for this Invoice (${currency})`}>
-                  <input className={styles.input} readOnly value={totals.hireAmt.toFixed(2)} />
-                </Field>
-
-                <LineSection
-                  title="Add Adjustment"
-                  rows={adjAddRows}
-                  orcOptions={orcOptions}
-                  fixtureOptions={fixtureOptions}
-                  vesselOptions={vesselOptions}
-                  adjustment
-                  onFixtureChange={(id, fixtureNo) => updateRows(setAdjAddRows, id, {
-                    fixtureNo,
-                    vessel: fixtureVesselMap.get(String(fixtureNo)) || '',
-                  })}
-                  onAdd={() => setAdjAddRows((rows) => [...rows, EMPTY_ADJ_LINE()])}
-                  onRemove={(id) => removeOrKeep(setAdjAddRows, EMPTY_ADJ_LINE, id)}
-                  onUpdate={(id, patch) => updateRows(setAdjAddRows, id, patch)}
+              <div className={styles.docsCol}>
+                <div className={styles.docLabel}>Documents</div>
+                <AttachDropzone
+                  id="attach_file_details"
+                  files={attachFiles}
+                  existingName={form.uploadName}
+                  existingUpload={form.upload}
+                  onFiles={setAttachFiles}
+                  onRemoveFile={removeAttachFile}
                 />
+              </div>
+            </div>
+          </StatementCard>
 
-                <div className={styles.section}>
-                  <h3 className={styles.sectionTitle}>Other Add</h3>
-                  <div className={styles.sectionBody}>
-                    <label className={styles.checkRow}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(form.chkBallastBonus)}
-                        onChange={(event) => updateField('chkBallastBonus', event.target.checked)}
-                      />
-                      Ballast Bonus ({currency})
-                    </label>
-                    {form.chkBallastBonus ? (
-                      <Field id="ballastBonusAmt" label={`Ballast Bonus (${currency})`}>
-                        <input className={styles.input} readOnly value={totals.ballastBonus.toFixed(2)} />
-                      </Field>
-                    ) : null}
-                    <div className={styles.freightPair}>
-                      <Field id="cve" label={`CVE (${currency})`}>
-                        <input className={styles.input} readOnly value={form.cve || ''} />
-                      </Field>
-                      <Field id="cveAmt" label="CVE Amount">
-                        <input className={styles.input} readOnly value={totals.cveAmt.toFixed(2)} />
-                      </Field>
-                    </div>
-                  </div>
-                </div>
-
-                <LineSection
-                  title="Other Add rows"
-                  rows={addRows}
-                  orcOptions={orcOptions}
-                  onAdd={() => setAddRows((rows) => [...rows, EMPTY_LINE()])}
-                  onRemove={(id) => removeOrKeep(setAddRows, EMPTY_LINE, id)}
-                  onUpdate={(id, patch) => updateRows(setAddRows, id, patch)}
-                />
-
-                <LineSection
-                  title="Less Adjustment"
-                  rows={adjSubRows}
-                  orcOptions={orcOptions}
-                  fixtureOptions={fixtureOptions}
-                  vesselOptions={vesselOptions}
-                  adjustment
-                  onFixtureChange={(id, fixtureNo) => updateRows(setAdjSubRows, id, {
-                    fixtureNo,
-                    vessel: fixtureVesselMap.get(String(fixtureNo)) || '',
-                  })}
-                  onAdd={() => setAdjSubRows((rows) => [...rows, EMPTY_ADJ_LINE()])}
-                  onRemove={(id) => removeOrKeep(setAdjSubRows, EMPTY_ADJ_LINE, id)}
-                  onUpdate={(id, patch) => updateRows(setAdjSubRows, id, patch)}
-                />
-
-                <div className={styles.section}>
-                  <h3 className={styles.sectionTitle}>Other Less</h3>
-                  <div className={styles.sectionBody}>
-                    <div className={styles.freightPair}>
-                      <Field id="addCommPer" label="Address Commission (%)">
-                        <input className={styles.input} readOnly value={form.addCommPer || ''} />
-                      </Field>
-                      <Field id="addCommAmt" label="Amount">
-                        <input className={styles.input} readOnly value={totals.addCommAmt.toFixed(2)} />
-                      </Field>
-                    </div>
-                    <div className={styles.freightPair}>
-                      <Field id="broCommPer" label="Broker Commission (%)">
-                        <input className={styles.input} readOnly value={form.broCommPer || ''} />
-                      </Field>
-                      <Field id="broCommAmt" label="Amount">
-                        <input className={styles.input} readOnly value={totals.broCommAmt.toFixed(2)} />
-                      </Field>
-                    </div>
-                  </div>
-                </div>
-
-                <LineSection
-                  title="Other Less rows"
-                  rows={subRows}
-                  orcOptions={orcOptions}
-                  onAdd={() => setSubRows((rows) => [...rows, EMPTY_LINE()])}
-                  onRemove={(id) => removeOrKeep(setSubRows, EMPTY_LINE, id)}
-                  onUpdate={(id, patch) => updateRows(setSubRows, id, patch)}
-                />
-
-                <label className={styles.checkRow}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(form.chkDelivery)}
-                    onChange={(event) => updateField('chkDelivery', event.target.checked)}
-                  />
-                  Delivery Bunkers
-                </label>
-                {form.chkDelivery ? (
-                  <BunkerSection
-                    title="Delivery Bunkers"
-                    rows={bunkerDelRows}
-                    bunkerOptions={bunkerOptions}
-                    onAdd={() => setBunkerDelRows((rows) => [...rows, EMPTY_BUNKER()])}
-                    onRemove={(id) => removeOrKeep(setBunkerDelRows, EMPTY_BUNKER, id)}
-                    onUpdate={(id, patch) => updateRows(setBunkerDelRows, id, patch)}
-                  />
-                ) : null}
-
-                <label className={styles.checkRow}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(form.chkRedelivery)}
-                    onChange={(event) => updateField('chkRedelivery', event.target.checked)}
-                  />
-                  Re-Delivery Bunkers
-                </label>
-                {form.chkRedelivery ? (
-                  <BunkerSection
-                    title="Re-Delivery Bunkers"
-                    rows={bunkerRedelRows}
-                    bunkerOptions={bunkerOptions}
-                    onAdd={() => setBunkerRedelRows((rows) => [...rows, EMPTY_BUNKER()])}
-                    onRemove={(id) => removeOrKeep(setBunkerRedelRows, EMPTY_BUNKER, id)}
-                    onUpdate={(id, patch) => updateRows(setBunkerRedelRows, id, patch)}
-                  />
-                ) : null}
-
-                <label className={styles.checkRow}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(form.chkOffhire)}
-                    onChange={(event) => updateField('chkOffhire', event.target.checked)}
-                  />
-                  Off-hire ({currency})
-                </label>
-                {form.chkOffhire ? (
-                  <div className={styles.section}>
-                    <h3 className={styles.sectionTitle}>Off-hire</h3>
-                    <div className={styles.sectionBody}>
-                      <div className={styles.tableWrap}>
-                        <table className={styles.hireDaysTable}>
-                          <thead>
-                            <tr>
-                              <th style={{ width: 32 }} />
-                              <th>Reason</th>
-                              <th style={{ width: '16%' }}>From</th>
-                              <th style={{ width: '16%' }}>To</th>
-                              <th style={{ width: '8%' }}>%</th>
-                              <th style={{ width: '10%' }}>Days</th>
-                              <th style={{ width: '12%' }}>Hire/Day</th>
-                              <th style={{ width: '12%' }}>Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {offhireRows.map((row) => (
-                              <tr key={row.id}>
-                                <td>
-                                  <button type="button" className={styles.removeBtn} onClick={() => removeOrKeep(setOffhireRows, () => EMPTY_OFFHIRE(form.dailyHireRate), row.id)}>×</button>
-                                </td>
-                                <td>
-                                  <textarea className={styles.textarea} rows={2} value={row.reason || row.description || ''} onChange={(event) => updateOffhire(row.id, { reason: event.target.value })} />
-                                </td>
-                                <td className={styles.dateCell}>
-                                  <DmyDateInput
-                                    id={`offFrom_${row.id}`}
-                                    enableTime
-                                    className={styles.input}
-                                    value={row.offFrom || ''}
-                                    disabled={!editableByCreator}
-                                    onChange={(value) => updateOffhire(row.id, { offFrom: value })}
-                                  />
-                                </td>
-                                <td className={styles.dateCell}>
-                                  <DmyDateInput
-                                    id={`offTo_${row.id}`}
-                                    enableTime
-                                    className={styles.input}
-                                    value={row.offTo || ''}
-                                    disabled={!editableByCreator}
-                                    onChange={(value) => updateOffhire(row.id, { offTo: value })}
-                                  />
-                                </td>
-                                <td>
-                                  <input className={styles.input} value={row.percent || ''} onChange={(event) => updateOffhire(row.id, { percent: event.target.value })} />
-                                </td>
-                                <td>
-                                  <input className={styles.input} value={row.days || ''} onChange={(event) => updateOffhire(row.id, { days: event.target.value })} />
-                                </td>
-                                <td>
-                                  <input className={styles.input} value={row.hireRate || ''} onChange={(event) => updateOffhire(row.id, { hireRate: event.target.value })} />
-                                </td>
-                                <td>
-                                  <input className={styles.input} readOnly value={money2(row.amount).toFixed(2)} />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className={styles.lineActions}>
-                        <Button variant="outline" size="sm" label="Add Off-Hire" onClick={() => setOffhireRows((rows) => [...rows, EMPTY_OFFHIRE(form.dailyHireRate)])} />
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                <label className={styles.checkRow}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(form.chkOverconsp)}
-                    onChange={(event) => updateField('chkOverconsp', event.target.checked)}
-                  />
-                  Bunker Over Consumption as per Weather Routing
-                </label>
-                {form.chkOverconsp ? (
-                  <BunkerSection
-                    title="Bunker Over Consumption"
-                    rows={bunkerOverRows}
-                    bunkerOptions={bunkerOptions}
-                    onAdd={() => setBunkerOverRows((rows) => [...rows, EMPTY_BUNKER()])}
-                    onRemove={(id) => removeOrKeep(setBunkerOverRows, EMPTY_BUNKER, id)}
-                    onUpdate={(id, patch) => updateRows(setBunkerOverRows, id, patch)}
-                  />
-                ) : null}
-
-                <div className={styles.section}>
-                  <h3 className={styles.sectionTitle}>Hold Cleaning</h3>
-                  <div className={styles.sectionBody}>
-                    {holdRows.map((row) => (
-                      <div key={row.id} className={styles.lineRow}>
-                        <textarea className={styles.textarea} rows={2} placeholder="Description..." value={row.description} onChange={(event) => updateRows(setHoldRows, row.id, { description: event.target.value })} />
-                        <input className={styles.input} placeholder="Amount" value={row.amount} onChange={(event) => updateRows(setHoldRows, row.id, { amount: event.target.value })} />
-                        <button type="button" className={styles.removeBtn} onClick={() => removeOrKeep(setHoldRows, EMPTY_LINE, row.id)}>×</button>
-                      </div>
-                    ))}
-                    <Button size="sm" variant="outline" label="Add New" onClick={() => setHoldRows((rows) => [...rows, EMPTY_LINE()])} />
-                  </div>
-                </div>
-
-                <div className={styles.section}>
-                  <h3 className={styles.sectionTitle}>On/Off hire survey</h3>
-                  <div className={styles.sectionBody}>
-                    {surveyRows.map((row) => (
-                      <div key={row.id} className={styles.surveyRow}>
-                        <textarea className={styles.textarea} rows={2} placeholder="Description..." value={row.description} onChange={(event) => updateRows(setSurveyRows, row.id, { description: event.target.value })} />
-                        <label className={styles.surveyCheck}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(row.chkOwnerAcc)}
-                            onChange={(event) => updateRows(setSurveyRows, row.id, { chkOwnerAcc: event.target.checked })}
+          <StatementCard num="3" title="Hire Calculations">
+            <div className={styles.s3StatsRow}>
+              <Field id="finalHireage" label={`Final Hire-Age (${cur})`} className={[styles.field, styles.compact].filter(Boolean).join(' ')}>
+                <input className={styles.input} readOnly value={money2(context.finalHireage).toFixed(2)} />
+              </Field>
+              <Field id="estHireDays" label="Total Voy Days (Sea + Port)" className={[styles.field, styles.compact].filter(Boolean).join(' ')}>
+                <input className={styles.input} readOnly value={context.estHireDays || ''} />
+              </Field>
+              <Field id="balanceDays" label="Balance Days" className={[styles.field, styles.compact].filter(Boolean).join(' ')}>
+                <input className={styles.input} readOnly value={hireDayRows[0]?.remainingDays ?? totals.remainingDays ?? ''} />
+              </Field>
+            </div>
+            <div className={styles.tableWrap}>
+              <table className={styles.hireDaysTable}>
+                <thead>
+                  <tr>
+                    <th style={{ width: '18%' }}>Rate ({cur}/Day)</th>
+                    <th style={{ width: '22%' }}>From</th>
+                    <th style={{ width: '22%' }}>To</th>
+                    <th style={{ width: '16%' }}>Net Days</th>
+                    <th style={{ width: '22%' }}>Amount ({cur})</th>
+                  </tr>
+                </thead>
+                  <tbody>
+                    {hireDayRows.map((row) => (
+                      <tr key={row.id || row.randomId}>
+                        <td><input className={styles.input} readOnly value={row.dailyRate ?? ''} /></td>
+                        <td className={styles.dateCell}>
+                          <DmyDateInput
+                            id={`hireFrom_${row.id || row.randomId}`}
+                            enableTime
+                            className={styles.input}
+                            value={row.hireFrom || ''}
+                            disabled
                           />
-                          On Owner&apos;s Account
-                        </label>
-                        <input className={styles.input} placeholder="Amount" value={row.amount} onChange={(event) => updateRows(setSurveyRows, row.id, { amount: event.target.value })} />
-                        <button type="button" className={styles.removeBtn} onClick={() => removeOrKeep(setSurveyRows, () => EMPTY_SURVEY(), row.id)}>×</button>
-                      </div>
+                        </td>
+                        <td className={styles.dateCell}>
+                          <DmyDateInput
+                            id={`hireTo_${row.id || row.randomId}`}
+                            enableTime
+                            className={styles.input}
+                            value={row.hireTo || ''}
+                            disabled={!editableByCreator}
+                            onChange={(value) => updateHireDay(row.id || row.randomId, { hireTo: value })}
+                          />
+                        </td>
+                        <td><input className={styles.input} readOnly value={row.utilisedDays || ''} /></td>
+                        <td><input className={styles.input} readOnly value={money2(row.hireAmt).toFixed(2)} /></td>
+                      </tr>
                     ))}
-                    <Button size="sm" variant="outline" label="Add New" onClick={() => setSurveyRows((rows) => [...rows, EMPTY_SURVEY()])} />
+                </tbody>
+              </table>
+            </div>
+            <div className={styles.totalStrip}>
+              <span className={styles.tsl}>Hire Amount Total</span>
+              <span className={styles.tsv}>{cur} {totals.hireAmt.toFixed(2)}</span>
+            </div>
+          </StatementCard>
+
+          <StatementCard num="4" title="Adjustments">
+            <LineSection
+              title="Add Adjustment"
+              rows={adjAddRows}
+              orcOptions={orcOptions}
+              fixtureOptions={fixtureOptions}
+              vesselOptions={vesselOptions}
+              adjustment
+              disabled={!editableByCreator}
+              onFixtureChange={(id, fixtureNo) => updateRows(setAdjAddRows, id, {
+                fixtureNo,
+                vessel: fixtureVesselMap.get(String(fixtureNo)) || '',
+              })}
+              onAdd={() => setAdjAddRows((rows) => [...rows, EMPTY_ADJ_LINE()])}
+              onRemove={(id) => removeOrKeep(setAdjAddRows, EMPTY_ADJ_LINE, id)}
+              onUpdate={(id, patch) => updateRows(setAdjAddRows, id, patch)}
+            />
+
+            <div className={styles.inlineHeadRow}>
+              <OvalToggle
+                on={Boolean(form.chkBallastBonus)}
+                onToggle={() => updateField('chkBallastBonus', !form.chkBallastBonus)}
+                label={`Ballast Bonus (${cur})`}
+              >
+                <input
+                  className={styles.input}
+                  readOnly
+                  disabled={!form.chkBallastBonus}
+                  value={form.chkBallastBonus ? totals.ballastBonus.toFixed(2) : ''}
+                  placeholder="0.00"
+                />
+              </OvalToggle>
+            </div>
+
+            <div className={styles.subhead}>
+              CVE & Other Adjustments <span className={styles.subheadTag}>From Contract</span>
+            </div>
+            <div className={`${styles.adjHead} ${styles.colsCve}`}>
+              <span>Cost Type</span>
+              <span>Fixture No</span>
+              <span>Vessel</span>
+              <span>Description</span>
+              <span>Amount</span>
+            </div>
+            <div className={`${styles.adjRow} ${styles.colsCve}`}>
+              <input className={styles.input} readOnly value="CVE" />
+              <input className={styles.input} readOnly value={context.voyageNo || ''} />
+              <input className={styles.input} readOnly value={context.vesselName || ''} />
+              <input className={styles.input} readOnly value={form.cve ? `CVE ${form.cve}` : 'Cargo Value Element, per CP'} />
+              <input className={styles.input} readOnly value={totals.cveAmt.toFixed(2)} />
+            </div>
+
+            <LineSection
+              title="Previous Adjustments"
+              rows={adjSubRows}
+              orcOptions={orcOptions}
+              fixtureOptions={fixtureOptions}
+              vesselOptions={vesselOptions}
+              adjustment
+              disabled={!editableByCreator}
+              onFixtureChange={(id, fixtureNo) => updateRows(setAdjSubRows, id, {
+                fixtureNo,
+                vessel: fixtureVesselMap.get(String(fixtureNo)) || '',
+              })}
+              onAdd={() => setAdjSubRows((rows) => [...rows, EMPTY_ADJ_LINE()])}
+              onRemove={(id) => removeOrKeep(setAdjSubRows, EMPTY_ADJ_LINE, id)}
+              onUpdate={(id, patch) => updateRows(setAdjSubRows, id, patch)}
+            />
+
+            <div className={styles.subhead}>Other Less</div>
+            <div className={styles.grid2}>
+              <Field id="addCommPer" label="Add Comm. (%)" className={styles.field}>
+                <input className={styles.input} readOnly value={form.addCommPer || ''} />
+              </Field>
+              <Field id="addCommAmt" label="Amount" className={styles.field}>
+                <input className={styles.input} readOnly value={totals.addCommAmt.toFixed(2)} />
+              </Field>
+              <Field id="broCommPer" label="Brokerage (%)" className={styles.field}>
+                <input className={styles.input} readOnly value={form.broCommPer || ''} />
+              </Field>
+              <Field id="broCommAmt" label="Amount" className={styles.field}>
+                <input className={styles.input} readOnly value={totals.broCommAmt.toFixed(2)} />
+              </Field>
+            </div>
+
+            <LineSection
+              title="Other Less Rows"
+              rows={subRows}
+              orcOptions={orcOptions}
+              disabled={!editableByCreator}
+              onAdd={() => setSubRows((rows) => [...rows, EMPTY_LINE()])}
+              onRemove={(id) => removeOrKeep(setSubRows, EMPTY_LINE, id)}
+              onUpdate={(id, patch) => updateRows(setSubRows, id, patch)}
+            />
+
+            <LineSection
+              title="Other Add Rows"
+              rows={addRows}
+              orcOptions={orcOptions}
+              disabled={!editableByCreator}
+              onAdd={() => setAddRows((rows) => [...rows, EMPTY_LINE()])}
+              onRemove={(id) => removeOrKeep(setAddRows, EMPTY_LINE, id)}
+              onUpdate={(id, patch) => updateRows(setAddRows, id, patch)}
+            />
+
+            <div className={styles.tallyRow}>
+              <div className={styles.tallyItem}>
+                <div className={styles.tLabel}>Total Commission %</div>
+                <div className={styles.tVal}>{(parseAmount(form.addCommPer) + parseAmount(form.broCommPer)).toFixed(2)}%</div>
+              </div>
+              <div className={styles.tallyItem}>
+                <div className={styles.tLabel}>Total Amount</div>
+                <div className={styles.tVal}>{cur} {(totals.addCommAmt + totals.broCommAmt + subRowsTotal).toFixed(2)}</div>
+              </div>
+            </div>
+          </StatementCard>
+
+          <StatementCard num="5" title="Additional Charges">
+            <div className={styles.checkList}>
+              <label className={styles.checkItem}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.chkDelivery)}
+                  disabled={!editableByCreator}
+                  onChange={(event) => updateField('chkDelivery', event.target.checked)}
+                />
+                <span>Delivery Bunkers</span>
+              </label>
+              {form.chkDelivery ? (
+                <BunkerSection
+                  rows={bunkerDelRows}
+                  bunkerOptions={bunkerOptions}
+                  disabled={!editableByCreator}
+                  onAdd={() => setBunkerDelRows((rows) => [...rows, EMPTY_BUNKER()])}
+                  onRemove={(id) => removeOrKeep(setBunkerDelRows, EMPTY_BUNKER, id)}
+                  onUpdate={(id, patch) => updateRows(setBunkerDelRows, id, patch)}
+                />
+              ) : null}
+
+              <label className={styles.checkItem}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.chkRedelivery)}
+                  disabled={!editableByCreator}
+                  onChange={(event) => updateField('chkRedelivery', event.target.checked)}
+                />
+                <span>Re-Delivery Bunkers</span>
+              </label>
+              {form.chkRedelivery ? (
+                <BunkerSection
+                  rows={bunkerRedelRows}
+                  bunkerOptions={bunkerOptions}
+                  disabled={!editableByCreator}
+                  onAdd={() => setBunkerRedelRows((rows) => [...rows, EMPTY_BUNKER()])}
+                  onRemove={(id) => removeOrKeep(setBunkerRedelRows, EMPTY_BUNKER, id)}
+                  onUpdate={(id, patch) => updateRows(setBunkerRedelRows, id, patch)}
+                />
+              ) : null}
+
+              <label className={styles.checkItem}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.chkOffhire)}
+                  disabled={!editableByCreator}
+                  onChange={(event) => updateField('chkOffhire', event.target.checked)}
+                />
+                <span>Off-Hire ({cur})</span>
+              </label>
+              {form.chkOffhire ? (
+                <div className={styles.checkPanel}>
+                  <div className={styles.offhireHead}>
+                    <span>Reason</span>
+                    <span>From</span>
+                    <span>To</span>
+                    <span>%</span>
+                    <span>Days</span>
+                    <span>Hire/Day</span>
+                    <span>Amount</span>
+                    <span />
                   </div>
+                  {offhireRows.map((row, index) => (
+                    <div key={row.id} className={styles.offhireRow}>
+                      <textarea
+                        className={`${styles.textarea} ${styles.textareaSmall}`}
+                        placeholder="Off hire reason..."
+                        value={row.reason || row.description || ''}
+                        disabled={!editableByCreator}
+                        onChange={(event) => updateOffhire(row.id, { reason: event.target.value })}
+                      />
+                      <div className={styles.dateCell}>
+                        <DmyDateInput
+                          id={`offFrom_${row.id}`}
+                          enableTime
+                          className={styles.input}
+                          value={row.offFrom || ''}
+                          disabled={!editableByCreator}
+                          onChange={(value) => updateOffhire(row.id, { offFrom: value })}
+                        />
+                      </div>
+                      <div className={styles.dateCell}>
+                        <DmyDateInput
+                          id={`offTo_${row.id}`}
+                          enableTime
+                          className={styles.input}
+                          value={row.offTo || ''}
+                          disabled={!editableByCreator}
+                          onChange={(value) => updateOffhire(row.id, { offTo: value })}
+                        />
+                      </div>
+                      <input className={styles.input} value={row.percent || ''} disabled={!editableByCreator} onChange={(event) => updateOffhire(row.id, { percent: event.target.value })} />
+                      <input className={styles.input} value={row.days || ''} disabled={!editableByCreator} onChange={(event) => updateOffhire(row.id, { days: event.target.value })} />
+                      <input className={styles.input} value={row.hireRate || ''} disabled={!editableByCreator} onChange={(event) => updateOffhire(row.id, { hireRate: event.target.value })} />
+                      <input className={styles.input} readOnly value={money2(row.amount).toFixed(2)} />
+                      <div className={styles.rowActions}>
+                        <RowDelButton title="Remove row" onClick={() => removeOrKeep(setOffhireRows, () => EMPTY_OFFHIRE(form.dailyHireRate), row.id)} disabled={!editableByCreator} />
+                        {index === offhireRows.length - 1 ? (
+                          <RowAddButton title="Add row" onClick={() => setOffhireRows((rows) => [...rows, EMPTY_OFFHIRE(form.dailyHireRate)])} disabled={!editableByCreator} />
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              ) : null}
 
-                <div className={styles.totals}>
-                  <div>Total Hire for this Inv ({currency})</div>
-                  <input className={styles.input} readOnly value={totals.finalAmt.toFixed(2)} />
+              <label className={styles.checkItem}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.chkOverconsp)}
+                  disabled={!editableByCreator}
+                  onChange={(event) => updateField('chkOverconsp', event.target.checked)}
+                />
+                <span>Additional Bunker Consp. (Wx Routing)</span>
+              </label>
+              {form.chkOverconsp ? (
+                <BunkerSection
+                  rows={bunkerOverRows}
+                  bunkerOptions={bunkerOptions}
+                  disabled={!editableByCreator}
+                  onAdd={() => setBunkerOverRows((rows) => [...rows, EMPTY_BUNKER()])}
+                  onRemove={(id) => removeOrKeep(setBunkerOverRows, EMPTY_BUNKER, id)}
+                  onUpdate={(id, patch) => updateRows(setBunkerOverRows, id, patch)}
+                />
+              ) : null}
+            </div>
+
+            <div className={styles.subhead}>Hold Cleaning</div>
+            {holdRows.map((row, index) => (
+              <div key={row.id} className={styles.surveyRow}>
+                <textarea
+                  className={styles.textarea}
+                  rows={2}
+                  placeholder="Description..."
+                  value={row.description}
+                  disabled={!editableByCreator}
+                  onChange={(event) => updateRows(setHoldRows, row.id, { description: event.target.value })}
+                />
+                <input
+                  className={`${styles.input} ${styles.surveyAmt}`}
+                  placeholder="0.00"
+                  value={row.amount}
+                  disabled={!editableByCreator}
+                  onChange={(event) => updateRows(setHoldRows, row.id, { amount: event.target.value })}
+                />
+                <div className={styles.rowActions}>
+                  <RowDelButton title="Remove row" onClick={() => removeOrKeep(setHoldRows, EMPTY_LINE, row.id)} disabled={!editableByCreator} />
+                  {index === holdRows.length - 1 ? (
+                    <RowAddButton title="Add row" onClick={() => setHoldRows((rows) => [...rows, EMPTY_LINE()])} disabled={!editableByCreator} />
+                  ) : null}
                 </div>
+              </div>
+            ))}
 
-                <div className={styles.paymentStatus}>
-                  <label>
-                    <input
-                      type="radio"
-                      name="hirePaymentStatus"
-                      checked={form.paymentStatus === 'payment_hold'}
-                      onChange={() => updateField('paymentStatus', 'payment_hold')}
-                    />
-                    Payment Hold
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="hirePaymentStatus"
-                      checked={form.paymentStatus !== 'payment_hold'}
-                      onChange={() => updateField('paymentStatus', 'payment_payable')}
-                    />
-                    Payment Payable
-                  </label>
+            <div className={styles.subhead}>On / Off Hire Survey</div>
+            {surveyRows.map((row, index) => (
+              <div key={row.id} className={styles.surveyRow}>
+                <textarea
+                  className={styles.textarea}
+                  rows={2}
+                  placeholder="Description..."
+                  value={row.description}
+                  disabled={!editableByCreator}
+                  onChange={(event) => updateRows(setSurveyRows, row.id, { description: event.target.value })}
+                />
+                <label className={styles.ownerChk}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(row.chkOwnerAcc)}
+                    disabled={!editableByCreator}
+                    onChange={(event) => updateRows(setSurveyRows, row.id, { chkOwnerAcc: event.target.checked })}
+                  />
+                  On Owner&apos;s Account
+                </label>
+                <input
+                  className={`${styles.input} ${styles.surveyAmt}`}
+                  placeholder="0.00"
+                  value={row.amount}
+                  disabled={!editableByCreator}
+                  onChange={(event) => updateRows(setSurveyRows, row.id, { amount: event.target.value })}
+                />
+                <div className={styles.rowActions}>
+                  <RowDelButton title="Remove row" onClick={() => removeOrKeep(setSurveyRows, () => EMPTY_SURVEY(), row.id)} disabled={!editableByCreator} />
+                  {index === surveyRows.length - 1 ? (
+                    <RowAddButton title="Add row" onClick={() => setSurveyRows((rows) => [...rows, EMPTY_SURVEY()])} disabled={!editableByCreator} />
+                  ) : null}
                 </div>
+              </div>
+            ))}
+          </StatementCard>
 
-                <div className={styles.approverRow}>
-                  <div>Level 1 Approver</div>
+          {/* Title scrolls away; sticky bar is tiles-only (same pattern as Freight Invoice). */}
+          <div ref={summaryHeadRef} className={styles.payableSummaryInPlaceHead}>
+            <span className={styles.cardNum}>6</span>
+            <div className={styles.cardTitle}>Payables Summary</div>
+          </div>
+          <StatementCard
+            hideHead
+            cardRef={summaryRef}
+            className={[
+              styles.stickyPayableSummary,
+              summaryStuck ? styles.stickyPayableSummaryStuck : '',
+            ].filter(Boolean).join(' ')}
+            bodyClassName={styles.stickyPayableBody}
+          >
+            <div className={styles.summaryTiles}>
+              <div className={`${styles.tile} ${styles.tileNavy}`}>
+                <div className={styles.tlLabel}>Total Hire Amount ({cur})</div>
+                <div className={styles.tlVal}>{totals.finalAmt.toFixed(2)}</div>
+              </div>
+              <div className={`${styles.tile} ${styles.tilePeach}`}>
+                <div className={styles.tlLabel}>Balance ({cur})</div>
+                <div className={styles.tlVal}>{totals.finalAmt.toFixed(2)}</div>
+              </div>
+            </div>
+          </StatementCard>
+
+          <StatementCard num="7" title="Additional Documents & Approvals">
+            <div className={styles.docsApprovalGrid}>
+              <div className={styles.docsApprovalLeft}>
+                <div className={styles.docLabel}>Documents</div>
+                <AttachDropzone
+                  id="attach_file_approval"
+                  files={attachFiles}
+                  existingName={form.uploadName}
+                  existingUpload={form.upload}
+                  onFiles={setAttachFiles}
+                  onRemoveFile={removeAttachFile}
+                />
+              </div>
+              <div className={styles.docsApprovalRight}>
+                <div>
+                  <div className={styles.frLabel}>Payment Status</div>
+                  <OvalToggle
+                    on={paymentPayable}
+                    onToggle={() => updateField('paymentStatus', paymentPayable ? 'payment_hold' : 'payment_payable')}
+                    label={paymentPayable ? 'Payable' : 'Hold'}
+                  />
+                </div>
+                <div className={`${styles.field} ${styles.approverField}`}>
+                  <label className={styles.fieldLabel}>Assign an Approver</label>
                   <CountryMultiSelect
                     options={context.approvers || []}
                     value={form.selApprovers || []}
@@ -1331,66 +1725,78 @@ export default function OpsVcHireStatementPage() {
                     searchPlaceholder="Search approver…"
                   />
                 </div>
+                {footerActions}
               </div>
             </div>
-          </div>
+          </StatementCard>
 
-          {existingInvoices.length ? (
-            <div className={styles.section}>
-              <h3 className={styles.sectionTitle}>Existing Hire Statements</h3>
-              <div className={styles.sectionBody}>
-                <div className={styles.tableWrap}>
-                  <table className={styles.existingTable}>
-                    <thead>
-                      <tr>
-                        <th>Fixture No</th>
-                        <th>Statement Type</th>
-                        <th>Hire Statement Date</th>
-                        <th>Hire Statement No.</th>
-                        <th>Hire From - To</th>
-                        <th>Hire Days</th>
-                        <th>Amount</th>
-                        <th>PDF</th>
-                        <th>Payment</th>
-                        <th>Last Updated By/Time</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {existingInvoices.map((row) => (
-                        <tr key={row.invoiceId}>
-                          <td>{row.fixtureNo || context.voyageNo || '—'}</td>
-                          <td>{row.invoiceType || '—'}</td>
-                          <td>{row.invoiceDate || '—'}</td>
-                          <td>{row.invoiceNo || '—'}</td>
-                          <td>{[row.hireFrom, row.hireTo].filter(Boolean).join(' - ') || '—'}</td>
-                          <td>{row.hireDays ?? '—'}</td>
-                          <td>{row.amount != null ? money2(row.amount).toFixed(2) : '—'}</td>
-                          <td>
-                            {row.canPdf !== false ? <Button size="sm" variant="outline" label="PDF" onClick={() => handleInvoiceAction('pdf', row)} /> : null}
-                          </td>
-                          <td>
-                            {row.canReceivePayment ? <Button size="sm" variant="primary" label="Payment" onClick={() => handleInvoiceAction('payment', row)} /> : '—'}
-                          </td>
-                          <td>{[row.lastUpdatedBy, row.lastUpdatedAt].filter(Boolean).join(' / ') || '—'}</td>
-                          <td>
-                            <div className={styles.actionBtns}>
-                              {row.canReopen ? <Button size="sm" variant="outline" label="Open" onClick={() => handleInvoiceAction('reopen', row)} /> : null}
-                              {row.canDelete ? <Button size="sm" variant="danger" label="Delete" onClick={() => handleInvoiceAction('delete', row)} /> : null}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+          <StatementCard num="8" title="Statement History" bodyClassName={styles.historyBody}>
+            <div className={styles.tableWrap}>
+              <table className={styles.historyTable}>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Fixture No</th>
+                    <th>Statement Type</th>
+                    <th>Statement Date</th>
+                    <th>Statement No.</th>
+                    <th>Hire From – To</th>
+                    <th>Days</th>
+                    <th>Amount ({cur})</th>
+                    <th>Actions</th>
+                    <th>Payment Actioned</th>
+                    <th>Attach.</th>
+                    <th>Open</th>
+                    <th>Del</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {existingInvoices.length ? existingInvoices.map((row, index) => (
+                    <tr key={row.invoiceId}>
+                      <td>{index + 1}.</td>
+                      <td style={{ fontWeight: 700, color: 'var(--hs-text-dark)' }}>{row.fixtureNo || context.voyageNo || '—'}</td>
+                      <td>{row.invoiceType || '—'}</td>
+                      <td>{row.invoiceDate || '—'}</td>
+                      <td style={{ fontWeight: 700, color: 'var(--hs-text-dark)' }}>{row.invoiceNo || '—'}</td>
+                      <td>{[row.hireFrom, row.hireTo].filter(Boolean).join(' – ') || '—'}</td>
+                      <td>{row.hireDays ?? '—'}</td>
+                      <td>{row.amount != null ? money2(row.amount).toFixed(2) : '—'}</td>
+                      <td>
+                        <div className={styles.histActions}>
+                          {row.canPdf !== false ? (
+                            <Button size="sm" variant="outline" label="PDF" onClick={() => handleInvoiceAction('pdf', row)} />
+                          ) : null}
+                          {row.canReceivePayment ? (
+                            <Button size="sm" variant="primary" label="Payment" onClick={() => handleInvoiceAction('payment', row)} />
+                          ) : null}
+                        </div>
+                      </td>
+                      <td>{[row.lastUpdatedBy, row.lastUpdatedAt].filter(Boolean).join(' / ') || <span className={styles.muted} style={{ fontStyle: 'italic' }}>Pending</span>}</td>
+                      <td>{row.uploadName || row.upload || '—'}</td>
+                      <td>
+                        {row.canReopen ? (
+                          <Button size="sm" variant="outline" label="Open" onClick={() => handleInvoiceAction('reopen', row)} />
+                        ) : '—'}
+                      </td>
+                      <td>
+                        {row.canDelete ? (
+                          <button type="button" className={styles.binBtn} title="Delete" onClick={() => handleInvoiceAction('delete', row)}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z" />
+                            </svg>
+                          </button>
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={13} className={styles.historyEmpty}>No records available on this file.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          ) : null}
-
-          <div className={styles.toolbarBottom}>
-            {formActions}
-          </div>
+          </StatementCard>
         </>
       ) : null}
 

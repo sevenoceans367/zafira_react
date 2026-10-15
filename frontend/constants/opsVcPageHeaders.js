@@ -16,7 +16,7 @@ const PAGES = {
   'payment-grid': 'Contract Finance',
   'freight-invoice': 'Freight Invoice',
   'other-invoice': 'Other Invoice',
-  'hire-statement': 'Hire Statement',
+  'hire-statement': 'New Hire Statement',
   'clubbed-invoice': 'Invoice Clubbed',
   'clubbed-hire': 'Payment Clubbed',
   'request-port-cost': 'Operational Costs Payment',
@@ -82,6 +82,11 @@ export function resolveOpsVcHeader(pathname, search = '') {
     label: PAGES['payment-grid'],
     href: appPath('/internal-user/vc/ops/payment-grid'),
   };
+
+  // HTML mockup: SOC / Spot Ops / Contract Finance / New Hire Statement
+  if (pageId === 'hire-statement') {
+    return header(label, [HOME, SOC, OPS_VC, paymentGridCrumb, { label }]);
+  }
 
   if (FROM_PAYMENT_GRID.has(pageId) && label) {
     return header(label, [HOME, SOC, OPS_VC, inOpsCrumb, paymentGridCrumb, { label }]);

@@ -94,6 +94,16 @@ function EmailIcon() {
   );
 }
 
+function SaveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <path d="M17 21v-8H7v8" />
+      <path d="M7 3v5h8" />
+    </svg>
+  );
+}
+
 function dash(value) {
   const text = String(value ?? '').trim();
   return text || '—';
@@ -605,6 +615,9 @@ export default function OpsVcAgencyLetterPreviewModal({
   draft,
   comId,
   pdfRecord,
+  alreadySaved = false,
+  saving = false,
+  onSave,
 }) {
   const meta = LETTER_META[letterId] || LETTER_META.pda;
 
@@ -765,6 +778,24 @@ export default function OpsVcAgencyLetterPreviewModal({
         <div className={styles.body}>
           {body}
           <div className={styles.actions}>
+            <button
+              type="button"
+              className={`${styles.iconBtn} ${styles.iconBtnSave}`}
+              title={alreadySaved ? 'Already saved for this LP/DP' : 'Save to agent portal & Saved Letters'}
+              disabled={saving || alreadySaved || activePort?.locked}
+              onClick={() => onSave?.()}
+            >
+              <SaveIcon />
+              <span>{alreadySaved ? 'Saved' : 'Save'}</span>
+            </button>
+            <a
+              className={`${styles.iconBtn} ${styles.iconBtnSend}`}
+              href={emailHref}
+              title="Email"
+            >
+              <EmailIcon />
+              <span>Email</span>
+            </a>
             {pdfHref ? (
               <a
                 className={styles.iconBtn}
@@ -785,14 +816,6 @@ export default function OpsVcAgencyLetterPreviewModal({
                 <DownloadIcon />
               </button>
             )}
-            <a
-              className={`${styles.iconBtn} ${styles.iconBtnSend}`}
-              href={emailHref}
-              title="Email as Attachment"
-            >
-              <EmailIcon />
-              <span>Email</span>
-            </a>
           </div>
         </div>
       </div>

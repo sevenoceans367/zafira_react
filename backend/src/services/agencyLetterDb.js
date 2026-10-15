@@ -604,14 +604,17 @@ async function loadLetterForPort(pool, { comId, portType, portId, randomId }) {
   );
 
   const [allRows] = await pool.query(
-    `SELECT g.*, cm.COUNTRY_NAME AS countryName, pm.PortName AS portName, vm.NAME AS vendorName
+    `SELECT g.*, cm.COUNTRY_NAME AS countryName, pm.PortName AS portName, vm.NAME AS vendorName,
+            COALESCE(l.CONTACT_PERSON, um.CONTACT_PERSON, '') AS savedByName
      FROM generate_agency_letter g
      LEFT JOIN country_master cm ON cm.COUNTRYID = g.COUNTRY_ID
      LEFT JOIN port_master pm ON pm.PortId = g.PORTID
      LEFT JOIN vendor_master vm ON vm.CODE = g.VENDORID AND vm.MCOMPANYID = g.MCOMPANYID
+     LEFT JOIN login l ON l.LOGINID = g.LOGINID
+     LEFT JOIN user_master um ON um.USERID = g.LOGINID
      WHERE g.COMID = ? AND g.MODULEID = ? AND g.MCOMPANYID = ?
        AND g.PORT IN (?, ?) AND g.PORTID = ? AND g.RANDOMID = ?
-     ORDER BY g.GEN_AGENCY_ID`,
+     ORDER BY g.GEN_AGENCY_ID DESC`,
     [comId, MODULE_ID, COMPANY_ID, port, stored, portId, randomId],
   );
 
@@ -670,6 +673,8 @@ async function loadLetterForPort(pool, { comId, portType, portId, randomId }) {
         vendorId: row.VENDORID ?? '',
         randomId: row.RANDOMID ?? '',
         portId: row.PORTID ?? '',
+        letterType: String(row.KIND_ATTN_TO || '').trim(),
+        savedByName: String(row.savedByName || '').trim(),
       };
     })),
   };
@@ -1011,24 +1016,51 @@ export async function dbSaveAgencyLetter(payload = {}) {
 
     await connection.beginTransaction();
 
-    const [existing] = await connection.query(
-      `SELECT GEN_AGENCY_ID FROM generate_agency_letter
-       WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT = ? AND PORTID = ? AND VENDORID = ?
-         AND RANDOMID = ? AND USERNAME = ?`,
-      [comId, MODULE_ID, COMPANY_ID, port, portId, vendorId, randomId, username],
-    );
-
+    const letterType = String(payload.letterType || '').trim();
     const date = parseDmyDate(payload.date || todayDmy(), false);
     const etaDate1 = parseDmyDate(payload.etaDate1, true);
     const etaDate = parseDmyDate(payload.etaDate, true);
     const entities = Array.isArray(payload.entities) ? payload.entities : [];
     const bunkers = Array.isArray(payload.bunkers) ? payload.bunkers : [];
-    const password = String(payload.password || '').trim() || generateAgentPassword();
+    let password = String(payload.password || '').trim();
+
+    // Reuse existing agent-portal credentials for this LP/DP when saving another letter type.
+    if (!password || !username) {
+      const [[priorCreds]] = await connection.query(
+        `SELECT USERNAME, PASSWORD FROM generate_agency_letter
+         WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+           AND PORT = ? AND PORTID = ? AND RANDOMID = ?
+           AND TRIM(IFNULL(USERNAME, '')) <> ''
+           AND TRIM(IFNULL(PASSWORD, '')) <> ''
+         ORDER BY GEN_AGENCY_ID DESC
+         LIMIT 1`,
+        [comId, MODULE_ID, COMPANY_ID, port, portId, randomId],
+      );
+      if (priorCreds) {
+        if (!username) username = String(priorCreds.USERNAME || '').trim();
+        if (!password) password = String(priorCreds.PASSWORD || '').trim();
+      }
+    }
+    if (!password) password = generateAgentPassword();
 
     let savedId = genAgencyId;
 
-    if (!existing.length) {
+    if (letterType) {
+      // One saved history item per letter type per LP/DP (port + randomId).
+      const [typeExisting] = await connection.query(
+        `SELECT GEN_AGENCY_ID FROM generate_agency_letter
+         WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+           AND PORT = ? AND PORTID = ? AND RANDOMID = ?
+           AND KIND_ATTN_TO = ?`,
+        [comId, MODULE_ID, COMPANY_ID, port, portId, randomId, letterType],
+      );
+      if (typeExisting.length) {
+        const error = new Error('This letter has already been saved for this port.');
+        error.status = 409;
+        error.msg = 3;
+        throw error;
+      }
+
       const usernameId = await getMaxAgencyNumber(connection);
       const includeLpDp = await agencyLetterHasColumn(connection, 'LP_DP');
       const lpDpValue = resolveLpDpFlag(portType, payload);
@@ -1043,7 +1075,7 @@ export async function dbSaveAgencyLetter(payload = {}) {
         ...(includeLpDp ? ['LP_DP'] : []),
       ];
       const insertVals = [
-        intOrNull(comId), intOrNull(MODULE_ID), intOrNull(COMPANY_ID), port, intOrNull(portId), date, vendorId, '',
+        intOrNull(comId), intOrNull(MODULE_ID), intOrNull(COMPANY_ID), port, intOrNull(portId), date, vendorId, letterType,
         usernameId, username, password, decimalOrNull(payload.qty), intOrNull(payload.countryId), '', '',
         '', payload.shipOwner || null, '', '', '', '',
         '', '', '', '', '',
@@ -1058,36 +1090,76 @@ export async function dbSaveAgencyLetter(payload = {}) {
         insertVals,
       );
       savedId = result.insertId;
-    } else if (genAgencyId) {
-      const includeLpDp = await agencyLetterHasColumn(connection, 'LP_DP');
-      const lpDpValue = resolveLpDpFlag(portType, payload);
-      await connection.query(
-        `UPDATE generate_agency_letter SET
-           DATE = ?, VENDORID = ?, USERNAME = ?, PASSWORD = ?, QTY = ?, COUNTRY_ID = ?,
-           SHIP_OWNER = ?, TERMO_OF_TOLERANCE = ?, CARGO_PACKING_DESC = ?,
-           TOLERANCE_PERCENT_SUB = ?, RANDOMID = ?, STATUS = ?, ETA_DATE = ?,
-           BUNKER_SURVEYOR = ?, BUNKER_SURVEYORCOM = ?, ETA_DATE1 = ?
-           ${includeLpDp ? ', LP_DP = ?' : ''}
-         WHERE GEN_AGENCY_ID = ? AND COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
-           AND PORT = ? AND PORTID = ? AND VENDORID = ?`,
-        [
-          date, vendorId, username, password, decimalOrNull(payload.qty), intOrNull(payload.countryId),
-          payload.shipOwner || null, payload.masterName || '', payload.cargoDetails || '',
-          decimalOrNull(payload.tolerance), intOrNull(randomId), submitId, etaDate,
-          payload.bunkerSurveyor || '', payload.bunkerSurveyorCom || '', etaDate1,
-          ...(includeLpDp ? [lpDpValue] : []),
-          genAgencyId, intOrNull(comId), intOrNull(MODULE_ID), intOrNull(COMPANY_ID),
-          port, intOrNull(portId), vendorId,
-        ],
-      );
-      await connection.query('DELETE FROM generate_agency_letter_slave1 WHERE GEN_AGENCY_ID = ?', [genAgencyId]);
-      await connection.query('DELETE FROM generate_agency_letter_slave2 WHERE GEN_AGENCY_ID = ?', [genAgencyId]);
-      savedId = genAgencyId;
     } else {
-      const error = new Error('This agent already exists for this port.');
-      error.status = 409;
-      error.msg = 1;
-      throw error;
+      const [existing] = await connection.query(
+        `SELECT GEN_AGENCY_ID FROM generate_agency_letter
+         WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+           AND PORT = ? AND PORTID = ? AND VENDORID = ?
+           AND RANDOMID = ? AND USERNAME = ?`,
+        [comId, MODULE_ID, COMPANY_ID, port, portId, vendorId, randomId, username],
+      );
+
+      if (!existing.length) {
+        const usernameId = await getMaxAgencyNumber(connection);
+        const includeLpDp = await agencyLetterHasColumn(connection, 'LP_DP');
+        const lpDpValue = resolveLpDpFlag(portType, payload);
+        const insertCols = [
+          'COMID', 'MODULEID', 'MCOMPANYID', 'PORT', 'PORTID', 'DATE', 'VENDORID', 'KIND_ATTN_TO',
+          'USERNAMEID', 'USERNAME', 'PASSWORD', 'QTY', 'COUNTRY_ID', 'VSL_CONTACT_DETAILS', 'VSL_DETAILS',
+          'VSL_ABOUT', 'SHIP_OWNER', 'BS_SUPPLIER', 'BS_PHYSICAL', 'BS_FUEL_GR_SP', 'BS_QUANTITY',
+          'BS_DOLOR_APP', 'BA_ABOUT', 'BA_HSFO_QTY', 'BA_SUPPLIER_T_B_AD', 'BA_NECESSARY_GUID',
+          'BS_BUNKERING_PORT', 'TERMO_OF_TOLERANCE', 'CARGO_PACKING_DESC', 'TOLERANCE_PERCENT_SUB',
+          'TOLERANCE_PERCENT_ADD', 'RANDOMID', 'STATUS', 'ETA_DATE', 'BUNKER_SURVEYOR',
+          'BUNKER_SURVEYORCOM', 'LOGINID', 'ETA_DATE1',
+          ...(includeLpDp ? ['LP_DP'] : []),
+        ];
+        const insertVals = [
+          intOrNull(comId), intOrNull(MODULE_ID), intOrNull(COMPANY_ID), port, intOrNull(portId), date, vendorId, '',
+          usernameId, username, password, decimalOrNull(payload.qty), intOrNull(payload.countryId), '', '',
+          '', payload.shipOwner || null, '', '', '', '',
+          '', '', '', '', '',
+          '', payload.masterName || '', payload.cargoDetails || '', decimalOrNull(payload.tolerance),
+          decimalOrNull(payload.toleranceAdd), intOrNull(randomId), submitId, etaDate, payload.bunkerSurveyor || '',
+          payload.bunkerSurveyorCom || '', intOrNull(appContext.userId) ?? 0, etaDate1,
+          ...(includeLpDp ? [lpDpValue] : []),
+        ];
+        const [result] = await connection.query(
+          `INSERT INTO generate_agency_letter (${insertCols.join(', ')})
+           VALUES (${insertCols.map(() => '?').join(', ')})`,
+          insertVals,
+        );
+        savedId = result.insertId;
+      } else if (genAgencyId) {
+        const includeLpDp = await agencyLetterHasColumn(connection, 'LP_DP');
+        const lpDpValue = resolveLpDpFlag(portType, payload);
+        await connection.query(
+          `UPDATE generate_agency_letter SET
+             DATE = ?, VENDORID = ?, USERNAME = ?, PASSWORD = ?, QTY = ?, COUNTRY_ID = ?,
+             SHIP_OWNER = ?, TERMO_OF_TOLERANCE = ?, CARGO_PACKING_DESC = ?,
+             TOLERANCE_PERCENT_SUB = ?, RANDOMID = ?, STATUS = ?, ETA_DATE = ?,
+             BUNKER_SURVEYOR = ?, BUNKER_SURVEYORCOM = ?, ETA_DATE1 = ?
+             ${includeLpDp ? ', LP_DP = ?' : ''}
+           WHERE GEN_AGENCY_ID = ? AND COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+             AND PORT = ? AND PORTID = ? AND VENDORID = ?`,
+          [
+            date, vendorId, username, password, decimalOrNull(payload.qty), intOrNull(payload.countryId),
+            payload.shipOwner || null, payload.masterName || '', payload.cargoDetails || '',
+            decimalOrNull(payload.tolerance), intOrNull(randomId), submitId, etaDate,
+            payload.bunkerSurveyor || '', payload.bunkerSurveyorCom || '', etaDate1,
+            ...(includeLpDp ? [lpDpValue] : []),
+            genAgencyId, intOrNull(comId), intOrNull(MODULE_ID), intOrNull(COMPANY_ID),
+            port, intOrNull(portId), vendorId,
+          ],
+        );
+        await connection.query('DELETE FROM generate_agency_letter_slave1 WHERE GEN_AGENCY_ID = ?', [genAgencyId]);
+        await connection.query('DELETE FROM generate_agency_letter_slave2 WHERE GEN_AGENCY_ID = ?', [genAgencyId]);
+        savedId = genAgencyId;
+      } else {
+        const error = new Error('This agent already exists for this port.');
+        error.status = 409;
+        error.msg = 1;
+        throw error;
+      }
     }
 
     for (const entity of entities) {

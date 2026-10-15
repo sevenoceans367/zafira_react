@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
-import { isAuthenticated, login } from '@bainbridge/shared-auth';
+import {
+  isAuthenticated,
+  isInternalAppUser,
+  login,
+  redirectAfterLogin,
+} from '@bainbridge/shared-auth';
 import brandLogo from '../assets/2026_Seven_Oceans_White_Stacked_Logo.png';
 import styles from './LoginPage.module.css';
 
@@ -32,7 +37,7 @@ export default function LoginPage() {
   const redirectTo = location.state?.from || appPath('/');
   const isForgotFlow = view === VIEW_FORGOT || view === VIEW_FORGOT_SUCCESS;
 
-  if (isAuthenticated()) {
+  if (isAuthenticated('internal')) {
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -56,7 +61,12 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      await login(username.trim(), password);
+      const { user } = await login(username.trim(), password);
+      // Staff login belongs on internal/ops; company admin (and others) go to their own app.
+      if (!isInternalAppUser(user?.userType)) {
+        redirectAfterLogin(null, user);
+        return;
+      }
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');

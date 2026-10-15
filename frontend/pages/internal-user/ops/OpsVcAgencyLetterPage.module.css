@@ -772,6 +772,10 @@
   font-size: 12px;
   font-weight: 800;
   color: #1b2430;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .slMeta {
@@ -779,6 +783,50 @@
   color: #8a93a2;
   font-weight: 600;
   margin-top: 4px;
+}
+
+a.savedRow {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 8px;
+  transition: background 0.12s ease;
+}
+
+a.savedRow:hover {
+  background: #f7f8fa;
+}
+
+.chipLetter {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.chipLetterOrange {
+  background: #fff1e6;
+  color: #c05612;
+}
+
+.chipLetterBlue {
+  background: #e6eaf1;
+  color: #274670;
+}
+
+.chipLetterTeal {
+  background: #e3f4f4;
+  color: #14919b;
+}
+
+.chipLetterAmber {
+  background: #fcf1dd;
+  color: #b9760a;
 }
 
 .cardSelect {

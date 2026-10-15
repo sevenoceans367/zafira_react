@@ -17,7 +17,7 @@ export default function AgentLoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  if (isAuthenticated() && isAgentAppUser(getUser()?.userType)) {
+  if (isAuthenticated('agent') && isAgentAppUser(getUser('agent')?.userType)) {
     return <Navigate to="/agent/" replace />;
   }
 

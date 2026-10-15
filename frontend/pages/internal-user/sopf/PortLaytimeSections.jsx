@@ -131,6 +131,7 @@ export default function PortLaytimeSections({
   onApplyPatch,
 }) {
   const [loadableOpen, setLoadableOpen] = useState(false);
+  const [loadableCtx, setLoadableCtx] = useState({ portName: '', cargoName: '', side: 'lp' });
   const legs = form.portLegs || [];
   const estimateType = Number(form.estimateType) || 2;
   const isTanker = estimateType === 2;
@@ -139,6 +140,23 @@ export default function PortLaytimeSections({
     () => buildCargoOptions(form.cargoRows, lookups.cargos),
     [form.cargoRows, lookups.cargos],
   );
+
+  const openLoadableForLeg = (leg, side) => {
+    const cargoId = side === 'lp' ? leg.lpCargoId : leg.dpCargoId;
+    const fromOptions = cargoOptions.find((item) => String(item.id) === normalizeCargoId(cargoId));
+    const cargoRow = (form.cargoRows || []).find(
+      (row) => normalizeCargoId(row.cargoId) === normalizeCargoId(cargoId),
+    );
+    const cargoName = fromOptions?.label
+      || cargoRow?.cargoName
+      || (lookups.cargos || []).find((c) => String(c.id) === normalizeCargoId(cargoId))?.name
+      || '';
+    const portName = side === 'lp'
+      ? (leg.fromPortName || leg.fromPortId || '')
+      : (leg.toPortName || leg.toPortId || '');
+    setLoadableCtx({ portName, cargoName, side });
+    setLoadableOpen(true);
+  };
 
   // L/B: Laden (2) → LP + DP; Ballast stays off LP/DP.
   // TP/BP is independent of L/B and always lists every leg.
@@ -297,7 +315,7 @@ export default function PortLaytimeSections({
                             className={styles.qtyCalcBtn}
                             title="Cargo Loadable Calculation"
                             aria-label="Cargo Loadable Calculation"
-                            onClick={() => setLoadableOpen(true)}
+                            onClick={() => openLoadableForLeg(leg, 'lp')}
                           >
                             <LoadableCalcIcon />
                           </button>
@@ -436,7 +454,7 @@ export default function PortLaytimeSections({
                             className={styles.qtyCalcBtn}
                             title="Cargo Loadable Calculation"
                             aria-label="Cargo Loadable Calculation"
-                            onClick={() => setLoadableOpen(true)}
+                            onClick={() => openLoadableForLeg(leg, 'dp')}
                           >
                             <LoadableCalcIcon />
                           </button>
@@ -602,6 +620,7 @@ export default function PortLaytimeSections({
       open={loadableOpen}
       onClose={() => setLoadableOpen(false)}
       form={form}
+      context={loadableCtx}
       showStowage={!isTanker}
       onApply={applyLoadableQty}
     />

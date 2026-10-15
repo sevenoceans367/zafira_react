@@ -357,7 +357,7 @@ export default function TcOutEstimatesListPage() {
                 <th>Hire Out</th>
                 <th>Total Rev</th>
                 <th>TC Recap</th>
-                <th>Details</th>
+                <th className={styles.center}>Details</th>
               </tr>
             </thead>
             <tbody>
@@ -389,9 +389,9 @@ export default function TcOutEstimatesListPage() {
                       ) : null}
                     </ActionButtonStack>
                   </td>
-                  <td>
+                  <td className={styles.center}>
                     <Link
-                      className={styles.editIco}
+                      className={styles.iconBtn}
                       to={tcPath(`${row.tcOutId}/edit`)}
                       title="Edit TC Recap"
                     >
@@ -422,7 +422,7 @@ export default function TcOutEstimatesListPage() {
                 <th>Hire Out</th>
                 <th>Total Rev</th>
                 <th>Stage</th>
-                <th>Details</th>
+                <th className={styles.center}>Details</th>
               </tr>
             </thead>
             <tbody>
@@ -445,9 +445,9 @@ export default function TcOutEstimatesListPage() {
                         {stage === 'postops' ? 'Post Ops' : 'Ops'}
                       </span>
                     </td>
-                    <td>
+                    <td className={styles.center}>
                       <Link
-                        className={styles.editIco}
+                        className={styles.iconBtn}
                         to={tcPath(`${row.tcOutId}/view`)}
                         title="View TC Recap"
                       >

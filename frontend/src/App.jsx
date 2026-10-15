@@ -125,7 +125,7 @@ export default function App() {
           <Route
             path="/agent"
             element={(
-              <RequireAuth loginPath="/agent/login">
+              <RequireAuth loginPath="/agent/login" appKey="agent">
                 <AgentLayout />
               </RequireAuth>
             )}
@@ -137,7 +137,7 @@ export default function App() {
 
           <Route
             element={(
-              <RequireAuth>
+              <RequireAuth appKey="internal">
                 <InternalUserLayout />
               </RequireAuth>
             )}

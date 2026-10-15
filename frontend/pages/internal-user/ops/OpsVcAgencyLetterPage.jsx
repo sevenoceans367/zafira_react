@@ -1,19 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
-  Button,
   CardSelect,
   DmyDateInput,
   LoadingOverlay,
   TextInput,
   useAlert,
-  useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import {
-  deleteAgencyLetter,
   fetchAgencyLetterForm,
   saveAgencyLetter,
 } from '../../../services/opsVc.js';
@@ -31,8 +28,17 @@ const BACK_PATHS = {
 };
 
 const FLASH = {
-  0: { type: 'success', text: 'Agency Letter Generation added/updated successfully.' },
+  0: { type: 'success', text: 'Letter saved. Agent portal credentials are ready for this port.' },
   1: { type: 'error', text: 'Sorry! this agent is already exists for this port.' },
+  3: { type: 'error', text: 'This letter has already been saved for this port.' },
+};
+
+const LETTER_TYPE_META = {
+  pda: { label: 'PDA Request', color: 'orange' },
+  nomination: { label: 'Agency Nomination', color: 'blue' },
+  'agent-bunker': { label: 'Bunkers Stemmed', color: 'teal' },
+  voyage: { label: 'Voyage Instructions', color: 'amber' },
+  'master-bunker': { label: 'Bunkers Stemmed', color: 'teal' },
 };
 
 const DEFAULT_AGENT_LETTER_TEXT = 'Please quote ALL IN agency fee. In addition, please advise the usual port restrictions for this vessel type.';
@@ -239,36 +245,17 @@ function DetailsInfoPopup() {
           Adjust the <b>Letter Text</b> to suit the selected letter.
         </li>
         <li>
-          <span className={styles.infoPopIco}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 3v12" />
-              <path d="m7 10 5 5 5-5" />
-              <path d="M5 21h14" />
-            </svg>
-          </span>
-          From the preview, <b>download the PDF</b> or open it in a new tab.
+          From the preview, <b>Save</b> (enables agent portal login for this port and stores the letter once per LP/DP),
+          {' '}
+          <b>Email</b>, or <b>Download</b> the PDF.
         </li>
         <li>
-          Once sent, the letter appears under <b>Saved Letters</b> for the selected LP/DP port.
-          Open a saved entry to view the Voyage letter PDF in a new tab.
+          Saved letters appear under <b>Saved Letters</b> for the selected LP/DP port.
+          Open a saved entry to view the letter PDF in a new tab.
         </li>
       </ol>
     </div>
   );
-}
-
-/** View-only Voyage Instructions PDF for a saved letter (opens in a new tab). */
-function voyagePdfHrefFor(record, comId, activePort) {
-  const params = new URLSearchParams({
-    type: 'voyage',
-    genAgencyId: record.genAgencyId,
-    portType: record.portType || activePort?.portType || '',
-    comId,
-    portId: record.portId || activePort?.portId || '',
-    agentCode: record.vendorId || activePort?.agentCode || '',
-    randomId: record.randomId || activePort?.randomId || '',
-  });
-  return `/api/internal-user/vc/ops/agency-letter/${encodeURIComponent(record.genAgencyId)}/pdf?${params}`;
 }
 
 function portTypeChipClass(portType) {
@@ -292,12 +279,35 @@ function defaultLetterPortKey(ports, preferredKey = '') {
     || '';
 }
 
+function letterTypeLabel(letterType) {
+  return LETTER_TYPE_META[letterType]?.label || (letterType ? String(letterType) : 'Letter');
+}
+
+function letterTypeChipClass(letterType) {
+  const color = LETTER_TYPE_META[letterType]?.color || 'orange';
+  return styles[`chipLetter${color[0].toUpperCase()}${color.slice(1)}`] || styles.chipLetterOrange;
+}
+
+function pdfHrefForRecord(record, comId, activePort) {
+  const type = record.letterType && LETTER_TYPE_META[record.letterType]
+    ? record.letterType
+    : 'voyage';
+  const params = new URLSearchParams({
+    type,
+    genAgencyId: record.genAgencyId,
+    portType: record.portType || activePort?.portType || '',
+    comId,
+    portId: record.portId || activePort?.portId || '',
+    agentCode: record.vendorId || activePort?.agentCode || '',
+    randomId: record.randomId || activePort?.randomId || '',
+  });
+  return `/api/internal-user/vc/ops/agency-letter/${encodeURIComponent(record.genAgencyId)}/pdf?${params}`;
+}
+
 function SavedLettersDropdown({
   records,
   comId,
   activePort,
-  locked,
-  onDelete,
 }) {
   const [open, setOpen] = useState(false);
 
@@ -352,39 +362,37 @@ function SavedLettersDropdown({
               <div className={styles.savedEmpty}>No saved letters yet for this port.</div>
             ) : (
               records.map((record) => {
-                const portType = record.portType || activePort?.portType || '';
+                const portType = String(record.portType || activePort?.portType || '').toUpperCase();
                 const portLabel = [record.portName, record.countryName].filter(Boolean).join(', ') || '—';
-                const pdfHref = voyagePdfHrefFor(record, comId, activePort);
+                const pdfHref = pdfHrefForRecord(record, comId, activePort);
+                const agentLabel = record.agentName || 'No agent assigned on worksheet';
+                const savedBy = record.savedByName || '';
                 return (
-                  <div key={record.genAgencyId} className={styles.savedRow}>
+                  <a
+                    key={record.genAgencyId}
+                    className={styles.savedRow}
+                    href={pdfHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open letter PDF"
+                  >
                     <div className={styles.slTop}>
-                      <a
-                        className={`${styles.slPortPill} ${portTypeChipClass(portType)}`}
-                        href={pdfHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Open Voyage letter PDF"
-                      >
-                        {portLabel}
-                      </a>
-                      {!locked ? (
-                        <button
-                          type="button"
-                          className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-                          title="Remove"
-                          onClick={() => onDelete(record)}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-                            <path d="M6 6l12 12M18 6L6 18" />
-                          </svg>
-                        </button>
-                      ) : null}
+                      <div className={styles.slPortWrap}>
+                        <span className={`${styles.chipPort} ${portTypeChipClass(portType)}`}>
+                          {portType.startsWith('DP') ? 'DP' : portType.startsWith('LP') ? 'LP' : portType || '—'}
+                        </span>
+                        <span className={styles.slPort}>{portLabel}</span>
+                      </div>
+                      <span className={`${styles.chipLetter} ${letterTypeChipClass(record.letterType)}`}>
+                        {letterTypeLabel(record.letterType)}
+                      </span>
                     </div>
+                    <div className={styles.slMeta}>{agentLabel}</div>
                     <div className={styles.slMeta}>
-                      {[record.agentName || 'No agent assigned on worksheet', record.username].filter(Boolean).join(' · ')}
+                      {record.date ? `Saved on ${record.date}` : 'Saved'}
+                      {savedBy ? `, by ${savedBy}` : ''}
                     </div>
-                    {record.date ? <div className={styles.slMeta}>Saved on {record.date}</div> : null}
-                  </div>
+                  </a>
                 );
               })
             )}
@@ -537,9 +545,7 @@ function LetterQuickButtons({
 }
 
 export default function OpsVcAgencyLetterPage() {
-  const confirm = useConfirm();
   const alert = useAlert();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const comId = searchParams.get('comid') || searchParams.get('comId') || '';
   const page = searchParams.get('page') || '1';
@@ -593,21 +599,34 @@ export default function OpsVcAgencyLetterPage() {
   const lookups = form?.lookups || { entityTypes: [], countries: [], shipOwners: [], ports: [] };
   // LP/DP tabs on top drive which saved letters appear (this port only).
   const savedRecords = useMemo(
-    () => (activePort?.records || []),
+    () => (activePort?.records || []).filter((row) => row.letterType),
     [activePort],
   );
   const pdfRecord = useMemo(() => {
+    const records = activePort?.records || [];
+    if (previewLetterId) {
+      const typed = records.find((row) => row.letterType === previewLetterId);
+      if (typed) return typed;
+    }
     if (draft?.genAgencyId) {
+      const byId = records.find((row) => String(row.genAgencyId) === String(draft.genAgencyId));
+      if (byId) return byId;
       return {
         genAgencyId: draft.genAgencyId,
         portType: activePort?.portType,
         portId: activePort?.portId,
         vendorId: activePort?.agentCode,
         randomId: activePort?.randomId,
+        letterType: previewLetterId || '',
       };
     }
-    return (activePort?.records || [])[0] || null;
-  }, [draft, activePort]);
+    return records[0] || null;
+  }, [draft, activePort, previewLetterId]);
+
+  const alreadySavedPreview = useMemo(
+    () => Boolean(previewLetterId && savedRecords.some((row) => row.letterType === previewLetterId)),
+    [previewLetterId, savedRecords],
+  );
 
   const patchDraft = (patch) => {
     setDrafts((prev) => ({
@@ -641,8 +660,28 @@ export default function OpsVcAgencyLetterPage() {
     patchDraft({ bunkers: [...draft.bunkers, emptyBunker()] });
   };
 
-  const handleSubmit = async (submitId) => {
-    if (!activePort || !draft) return;
+  const openPreview = (id) => {
+    setPreviewLetterId(id);
+  };
+
+  const handlePreviewSave = async (letterId) => {
+    if (!activePort || !draft || !letterId) return;
+    if (activePort.locked) {
+      await alert({
+        title: 'Locked',
+        message: 'This port letter is locked and cannot be saved again.',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+    if (savedRecords.some((row) => row.letterType === letterId)) {
+      await alert({
+        title: 'Already saved',
+        message: 'This letter has already been saved for this LP/DP.',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
     if (!activePort.agentCode) {
       await alertThenFocus(alert, {
         title: 'Missing Information',
@@ -660,12 +699,7 @@ export default function OpsVcAgencyLetterPage() {
       return;
     }
 
-    const ok = await confirm({
-      title: 'Confirmation',
-      message: 'Are you sure you want to submit this data?',
-    });
-    if (!ok) return;
-
+    const isMasterLetter = letterId === 'voyage' || letterId === 'master-bunker';
     setSaving(true);
     setError('');
     try {
@@ -675,8 +709,9 @@ export default function OpsVcAgencyLetterPage() {
         portId: activePort.portId,
         randomId: activePort.randomId,
         vendorId: activePort.agentCode,
-        genAgencyId: draft.genAgencyId || null,
-        submitId,
+        genAgencyId: null,
+        letterType: letterId,
+        submitId: 1,
         date: draft.date,
         qty: draft.qty,
         countryId: draft.countryId,
@@ -684,7 +719,9 @@ export default function OpsVcAgencyLetterPage() {
         password: draft.password,
         etaDate1: draft.etaDate1,
         masterName: draft.masterName,
-        cargoDetails: draft.masterLetterText || draft.cargoDetails,
+        cargoDetails: isMasterLetter
+          ? (draft.masterLetterText || draft.cargoDetails)
+          : (draft.agentLetterText || draft.cargoDetails),
         tolerance: draft.tolerance,
         shipOwner: draft.shipOwner,
         etaDate: draft.etaDate,
@@ -694,87 +731,20 @@ export default function OpsVcAgencyLetterPage() {
         bunkers: draft.bunkers,
       });
 
-      if (submitId === 2) {
-        navigate(`${backHref}${backHref.includes('?') ? '&' : '?'}msg=2`);
-        return;
-      }
-
+      setPreviewLetterId(null);
       const next = new URLSearchParams(searchParams);
       next.set('msg', String(result.msg ?? 0));
-      next.set('tab', String((form.ports.findIndex((p) => p.key === activeKey) || 0) + 1));
       setSearchParams(next, { replace: true });
       await load(activeKey);
-    } catch (err) {
-      await alert({
-        title: 'Error',
-        message: err.message || 'Failed to save agency letter.',
-        confirmLabel: 'OK',
+
+      // After save: focus agent portal credentials on this page.
+      window.requestAnimationFrame(() => {
+        focusMandatoryField('vc-agency-username');
       });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const openPreview = async (id) => {
-    if (
-      id === 'pda'
-      && activePort?.agentCode
-      && !activePort.locked
-      && draft?.username
-      && draft?.password
-    ) {
-      setSaving(true);
-      setError('');
-      try {
-        await saveAgencyLetter({
-          comId,
-          portType: activePort.portType,
-          portId: activePort.portId,
-          randomId: activePort.randomId,
-          vendorId: activePort.agentCode,
-          genAgencyId: draft.genAgencyId || null,
-          submitId: 1,
-          date: draft.date,
-          qty: draft.qty,
-          countryId: draft.countryId,
-          username: draft.username,
-          password: draft.password,
-          etaDate1: draft.etaDate1,
-          masterName: draft.masterName,
-          cargoDetails: draft.masterLetterText || draft.cargoDetails,
-          tolerance: draft.tolerance,
-          shipOwner: draft.shipOwner,
-          etaDate: draft.etaDate,
-          bunkerSurveyor: draft.bunkerSurveyor,
-          bunkerSurveyorCom: draft.bunkerSurveyorCom,
-          entities: draft.entities,
-          bunkers: draft.bunkers,
-        });
-        await load(activeKey);
-      } catch (err) {
-        setError(err.message || 'Could not save agent login for this preview.');
-      } finally {
-        setSaving(false);
-      }
-    }
-    setPreviewLetterId(id);
-  };
-
-  const handleDelete = async (record) => {
-    const ok = await confirm({
-      title: 'Confirmation',
-      message: 'Are you sure you want to delete this entry permanently?',
-    });
-    if (!ok) return;
-    setSaving(true);
-    setError('');
-    try {
-      await deleteAgencyLetter(record.genAgencyId);
-      await load(activeKey);
     } catch (err) {
       await alert({
         title: 'Error',
-        message: err.message || 'Failed to delete agency letter.',
+        message: err.message || 'Failed to save letter.',
         confirmLabel: 'OK',
       });
     } finally {
@@ -974,8 +944,6 @@ export default function OpsVcAgencyLetterPage() {
                       records={savedRecords}
                       comId={comId}
                       activePort={activePort}
-                      locked={activePort.locked}
-                      onDelete={handleDelete}
                     />
                   </div>
 
@@ -1147,40 +1115,9 @@ export default function OpsVcAgencyLetterPage() {
                       records={savedRecords}
                       comId={comId}
                       activePort={activePort}
-                      locked={activePort.locked}
-                      onDelete={handleDelete}
                     />
                   </div>
                 </div>
-
-                {!activePort.locked ? (
-                  <div className={styles.gprlBottomActions}>
-                    <div className={styles.gprlNote}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M12 9v4" />
-                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                        <path d="M12 17h.01" />
-                      </svg>
-                      Click on &quot;Save&quot; to ensure that the agent fills the assigned data correctly.
-                    </div>
-                    <div className={styles.gprlFooterActions}>
-                      <Button
-                        type="button"
-                        variant="saveOutline"
-                        label="Save"
-                        onClick={() => handleSubmit(1)}
-                        disabled={saving}
-                      />
-                      <Button
-                        type="button"
-                        variant="submit"
-                        label="Submit"
-                        onClick={() => handleSubmit(2)}
-                        disabled={saving}
-                      />
-                    </div>
-                  </div>
-                ) : null}
               </div>
             ) : null}
           </>
@@ -1196,6 +1133,9 @@ export default function OpsVcAgencyLetterPage() {
         draft={draft}
         comId={comId}
         pdfRecord={pdfRecord}
+        alreadySaved={alreadySavedPreview}
+        saving={saving}
+        onSave={() => handlePreviewSave(previewLetterId)}
       />
     </>
   );

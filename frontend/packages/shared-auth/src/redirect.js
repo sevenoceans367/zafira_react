@@ -87,7 +87,7 @@ export const consumeAuthFromHash = () => {
   try {
     const payload = JSON.parse(atob(decodeURIComponent(hash.slice(6))));
     if (!payload?.token) return false;
-    storeSession(payload.token, payload.user);
+    storeSession(payload.token, payload.user, resolveAppKey(payload.user?.userType));
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
     return true;
   } catch {

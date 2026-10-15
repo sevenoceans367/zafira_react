@@ -90,15 +90,24 @@ export async function saveAgencyLetter(payload = {}) {
     throw error;
   }
 
-  const genAgencyId = payload.genAgencyId || mockNextId++;
+  const letterType = String(payload.letterType || '').trim();
+  if (letterType && port.records.some((row) => row.letterType === letterType)) {
+    const error = new Error('This letter has already been saved for this port.');
+    error.status = 409;
+    error.msg = 3;
+    throw error;
+  }
+
+  const prior = port.records[0] || port.letter;
+  const genAgencyId = letterType ? mockNextId++ : (payload.genAgencyId || mockNextId++);
   const letter = {
     genAgencyId,
     date: payload.date || '',
     qty: payload.qty || '',
     countryId: String(payload.countryId || ''),
     countryName: mockForm.lookups.countries.find((c) => c.id === String(payload.countryId))?.name || '',
-    username: payload.username || port.defaultUsername,
-    password: String(payload.password || '').trim() || `Ag${Math.random().toString(36).slice(2, 8)}`,
+    username: payload.username || prior?.username || port.defaultUsername,
+    password: String(payload.password || prior?.password || '').trim() || `Ag${Math.random().toString(36).slice(2, 8)}`,
     etaDate1: payload.etaDate1 || '',
     masterName: payload.masterName || '',
     cargoDetails: payload.cargoDetails || '',
@@ -109,6 +118,7 @@ export async function saveAgencyLetter(payload = {}) {
     bunkerSurveyorCom: payload.bunkerSurveyorCom || '',
     status: Number(payload.submitId) === 2 ? 2 : 1,
     vendorId: payload.vendorId || port.agentCode,
+    letterType,
   };
 
   port.letter = letter;
@@ -119,8 +129,9 @@ export async function saveAgencyLetter(payload = {}) {
     ? payload.bunkers
     : port.bunkers;
   port.locked = letter.status === 2;
-  port.records = [{
-    index: 1,
+
+  const record = {
+    index: (port.records?.length || 0) + 1,
     genAgencyId,
     countryName: letter.countryName,
     portName: port.portName,
@@ -133,7 +144,14 @@ export async function saveAgencyLetter(payload = {}) {
     vendorId: letter.vendorId,
     randomId: port.randomId,
     portId: port.portId,
-  }];
+    letterType,
+    savedByName: 'Mike Ross',
+  };
+  if (letterType) {
+    port.records = [record, ...(port.records || [])];
+  } else {
+    port.records = [record];
+  }
 
   return { msg: 0, genAgencyId, submitId: letter.status };
 }

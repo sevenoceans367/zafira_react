@@ -11,7 +11,7 @@ const sessions = new Map();
 const SESSION_TTL_MS = 60 * 60 * 1000;
 
 // node --watch restarts wipe in-memory Maps. Keep tokens on disk in dev so a
-// code save does not force re-login. Frontend still holds auth_token in localStorage.
+// code save does not force re-login. Frontend holds auth_token_<app> in localStorage (per app).
 const SESSION_FILE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',

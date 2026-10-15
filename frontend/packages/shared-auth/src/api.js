@@ -1,4 +1,5 @@
 import { storeSession, clearSession } from './session.js';
+import { resolveAppKey } from './redirect.js';
 
 const LOGIN_ATTEMPTS = 5;
 const LOGIN_RETRY_MS = 400;
@@ -53,7 +54,7 @@ async function postCredentials(url, username, password) {
 
 export const login = async (username, password) => {
   const data = await postCredentials('/api/auth/login', username, password);
-  storeSession(data.token, data.user);
+  storeSession(data.token, data.user, resolveAppKey(data.user?.userType));
   return { token: data.token, user: data.user };
 };
 
@@ -64,7 +65,7 @@ export const agentLogin = async (username, password) => {
     String(username || '').trim(),
     String(password || '').trim(),
   );
-  storeSession(data.token, data.user);
+  storeSession(data.token, data.user, resolveAppKey(data.user?.userType) || 'agent');
   return { token: data.token, user: data.user };
 };
 

@@ -605,13 +605,12 @@ async function loadLetterForPort(pool, { comId, portType, portId, randomId }) {
 
   const [allRows] = await pool.query(
     `SELECT g.*, cm.COUNTRY_NAME AS countryName, pm.PortName AS portName, vm.NAME AS vendorName,
-            COALESCE(l.CONTACT_PERSON, um.CONTACT_PERSON, '') AS savedByName
+            COALESCE(NULLIF(l.CONTACT_PERSON, ''), l.USERNAME, '') AS savedByName
      FROM generate_agency_letter g
      LEFT JOIN country_master cm ON cm.COUNTRYID = g.COUNTRY_ID
      LEFT JOIN port_master pm ON pm.PortId = g.PORTID
      LEFT JOIN vendor_master vm ON vm.CODE = g.VENDORID AND vm.MCOMPANYID = g.MCOMPANYID
      LEFT JOIN login l ON l.LOGINID = g.LOGINID
-     LEFT JOIN user_master um ON um.USERID = g.LOGINID
      WHERE g.COMID = ? AND g.MODULEID = ? AND g.MCOMPANYID = ?
        AND g.PORT IN (?, ?) AND g.PORTID = ? AND g.RANDOMID = ?
      ORDER BY g.GEN_AGENCY_ID DESC`,
@@ -1298,8 +1297,8 @@ export async function dbGetAgencyLetterForPdf(genAgencyId, opts = {}) {
   });
 
   const [[user]] = await pool.query(
-    `SELECT CONTACT_PERSON, ADDRESS, PHONE_NO, EMAILID, MCOMPANYID
-     FROM user_master WHERE USERID = ? LIMIT 1`,
+    `SELECT CONTACT_PERSON, USERNAME, MCOMPANYID
+     FROM login WHERE LOGINID = ? LIMIT 1`,
     [letter.LOGINID],
   ).catch(() => [[null]]);
 
@@ -1508,10 +1507,10 @@ export async function dbGetAgencyLetterForPdf(genAgencyId, opts = {}) {
     companyWebsite: company?.WEBSITE || process.env.COMPANY_WEBSITE || 'www.zafirast.com',
     agentLoginUrl: process.env.AGENT_LOGIN_URL
       || '/agent/login',
-    contactPerson: user?.CONTACT_PERSON || '',
-    contactAddress: user?.ADDRESS || '',
-    contactPhone: user?.PHONE_NO || '',
-    contactEmail: user?.EMAILID || '',
+    contactPerson: user?.CONTACT_PERSON || user?.USERNAME || '',
+    contactAddress: '',
+    contactPhone: '',
+    contactEmail: '',
     shipOwnerName: shipOwner?.NAME || '',
     shipOwnerAddress: shipOwner?.STREET_1 || '',
     shipOwnerPerson: shipOwner?.STREET_2 || '',

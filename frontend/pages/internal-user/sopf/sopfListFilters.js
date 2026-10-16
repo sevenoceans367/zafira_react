@@ -1,4 +1,4 @@
-/** Spot Business Tanker / Gas / Dry. URL wins; otherwise restore last choice after navigation. */
+/** Spot Business Tanker / Gas / Dry. Shared app-wide via businessTypeSession. */
 
 import {
   BUSINESS_TYPE_KEYS,

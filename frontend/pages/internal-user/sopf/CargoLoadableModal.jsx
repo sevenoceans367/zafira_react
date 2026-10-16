@@ -22,8 +22,35 @@ function Field({ label, children }) {
   );
 }
 
+function SectionHead({ label, tone }) {
+  return (
+    <div className={`${styles.secHead} ${tone === 'blue' ? styles.secHeadBlue : ''} ${tone === 'results' ? styles.secHeadResults : ''}`}>
+      <span className={styles.shLabel}>{label}</span>
+      <span className={styles.shDash} aria-hidden="true" />
+    </div>
+  );
+}
+
+function CalcIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="2" width="16" height="20" rx="2.5" />
+      <path d="M8 6h8" />
+      <path d="M8 11h0.01" />
+      <path d="M12 11h0.01" />
+      <path d="M16 11h0.01" />
+      <path d="M8 15h0.01" />
+      <path d="M12 15h0.01" />
+      <path d="M16 15h0.01" />
+      <path d="M8 19h0.01" />
+      <path d="M12 19h0.01" />
+      <path d="M16 19h0.01" />
+    </svg>
+  );
+}
+
 /**
- * Cargo Loadable Calculation modal — PHP fields, app chrome (DistanceFetch-style).
+ * Cargo Loadable Calculations modal — PHP fields, mockup two-column layout.
  */
 export default function CargoLoadableModal({
   open,
@@ -145,116 +172,144 @@ export default function CargoLoadableModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className={styles.header}>
-          <h2 id="cargo-loadable-title" className={styles.title}>
-            Cargo Loadable Calculation
-          </h2>
+          <div className={styles.headerLeft}>
+            <div className={styles.modalIcon} aria-hidden="true">
+              <CalcIcon />
+            </div>
+            <h2 id="cargo-loadable-title" className={styles.title}>
+              Cargo Loadable Calculations
+            </h2>
+          </div>
           <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
-            ×
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M18 6L6 18" />
+              <path d="M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
         <div className={styles.body}>
           <div className={styles.columns}>
-            <div>
-              <section className={styles.section}>
-                <p className={styles.sectionLabel}>Port</p>
-                <div className={styles.sectionBody}>
-                  <Field label="Port">
-                    <input type="text" value={portName} readOnly title={portName} />
-                  </Field>
-                  <Field label="Port Max Draft (M)">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={portMaxDraft}
-                      placeholder="0.00"
-                      onChange={(e) => setPortMaxDraft(e.target.value)}
+            <div className={styles.col}>
+              <SectionHead label="Port Details" />
+              <div className={styles.row1}>
+                <Field label="Port">
+                  <input type="text" value={portName} readOnly title={portName} />
+                </Field>
+              </div>
+              <div className={styles.row2}>
+                <Field label="Port Max Draft (M)">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={portMaxDraft}
+                    placeholder="0.00"
+                    onChange={(e) => setPortMaxDraft(e.target.value)}
+                  />
+                </Field>
+                <Field label="Water Density (KG/CU.M)">
+                  <div className={styles.cardSelect}>
+                    <CardSelect
+                      options={densityOptions}
+                      value={waterDensity}
+                      onChange={setWaterDensity}
+                      placeholder="Water Density"
+                      ariaLabel="Water Density"
+                      align="start"
                     />
-                  </Field>
-                  <Field label="Water Density (kg/Cu.M)">
-                    <div className={styles.cardSelect}>
-                      <CardSelect
-                        options={densityOptions}
-                        value={waterDensity}
-                        onChange={setWaterDensity}
-                        placeholder="Water Density"
-                        ariaLabel="Water Density"
-                        align="start"
-                      />
-                    </div>
-                  </Field>
-                </div>
-              </section>
+                  </div>
+                </Field>
+              </div>
 
-              <section className={styles.section}>
-                <p className={styles.sectionLabel}>Vessel</p>
-                <div className={styles.sectionBody}>
-                  <Field label="Vessel">
-                    <input type="text" value={vesselName} readOnly title={vesselName} />
-                  </Field>
-                  <Field label="Summer DWT (MT)">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={summerDwt}
-                      placeholder="0.00"
-                      onChange={(e) => setSummerDwt(e.target.value)}
-                    />
-                  </Field>
-                  <Field label="Summer Draft (M)">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={summerDraft}
-                      placeholder="0.00"
-                      onChange={(e) => setSummerDraft(e.target.value)}
-                    />
-                  </Field>
-                  <Field label="TPC (Ts/CM)">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={tpc}
-                      placeholder="0.00"
-                      onChange={(e) => setTpc(e.target.value)}
-                    />
-                  </Field>
-                  <Field label="Cubic Cap (Cu.M)">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={cubicCap}
-                      placeholder="0.00"
-                      onChange={(e) => setCubicCap(e.target.value)}
-                    />
-                  </Field>
-                </div>
-              </section>
+              <SectionHead label="Vessel Details" />
+              <div className={styles.row1}>
+                <Field label="Vessel">
+                  <input type="text" value={vesselName} readOnly title={vesselName} />
+                </Field>
+              </div>
+              <div className={styles.row2}>
+                <Field label="Summer DWT (MT)">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={summerDwt}
+                    placeholder="0.00"
+                    onChange={(e) => setSummerDwt(e.target.value)}
+                  />
+                </Field>
+                <Field label="Summer Draft (M)">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={summerDraft}
+                    placeholder="0.00"
+                    onChange={(e) => setSummerDraft(e.target.value)}
+                  />
+                </Field>
+              </div>
+              <div className={styles.row2}>
+                <Field label="TPC (TS/CM)">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={tpc}
+                    placeholder="0.00"
+                    onChange={(e) => setTpc(e.target.value)}
+                  />
+                </Field>
+                <Field label="Cubic Cap (CU.M)">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={cubicCap}
+                    placeholder="0.00"
+                    onChange={(e) => setCubicCap(e.target.value)}
+                  />
+                </Field>
+              </div>
 
-              <section className={styles.section}>
-                <p className={styles.sectionLabel}>Cargo</p>
-                <div className={styles.sectionBody}>
-                  <Field label="Cargo Name">
-                    <input type="text" value={cargoName} readOnly title={cargoName} />
-                  </Field>
-                </div>
-              </section>
+              <SectionHead label="Cargo Details" />
+              <div className={styles.row1}>
+                <Field label="Name">
+                  <input type="text" value={cargoName} readOnly title={cargoName} />
+                </Field>
+              </div>
             </div>
 
-            <div>
-              <section className={styles.section}>
-                <p className={styles.sectionLabel}>Calculation Selection</p>
-                <div className={`${styles.modeBlock} ${draftActive ? '' : styles.modeBlockInactive}`}>
-                  <label className={styles.modeOption}>
-                    <input
-                      type="radio"
-                      name="loadableMode"
-                      checked={draftActive}
-                      onChange={() => setMode('draft')}
-                    />
+            <div className={styles.col}>
+              <SectionHead label="Calculation Selection" tone="blue" />
+
+              {showStowage ? (
+                <div
+                  className={`${styles.calcToggle} ${stowageActive ? styles.calcToggleStowage : ''}`}
+                  role="tablist"
+                  aria-label="Calculation mode"
+                >
+                  <div className={styles.calcToggleThumb} aria-hidden="true" />
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={draftActive}
+                    className={`${styles.calcToggleOpt} ${draftActive ? styles.calcToggleOptActive : ''}`}
+                    onClick={() => setMode('draft')}
+                  >
                     Via Draft
-                  </label>
-                  <div className={styles.modeFields}>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={stowageActive}
+                    className={`${styles.calcToggleOpt} ${stowageActive ? styles.calcToggleOptActive : ''}`}
+                    onClick={() => setMode('stowage')}
+                  >
+                    Via Stowage Factor
+                  </button>
+                </div>
+              ) : null}
+
+              {draftActive ? (
+                <div className={styles.calcFields}>
+                  <div className={styles.row2}>
                     <Field label="Draft (M)">
                       <input type="text" value={result.draftM || '0.00'} readOnly />
                     </Field>
@@ -264,17 +319,17 @@ export default function CargoLoadableModal({
                         inputMode="decimal"
                         value={constantMt}
                         placeholder="0.00"
-                        disabled={!draftActive}
                         onChange={(e) => setConstantMt(e.target.value)}
                       />
                     </Field>
-                    <Field label="Bunkers on board (MT)">
+                  </div>
+                  <div className={styles.row2}>
+                    <Field label="Bunkers on Board (MT)">
                       <input
                         type="text"
                         inputMode="decimal"
                         value={bunkersMt}
                         placeholder="0.00"
-                        disabled={!draftActive}
                         onChange={(e) => setBunkersMt(e.target.value)}
                       />
                     </Field>
@@ -284,77 +339,63 @@ export default function CargoLoadableModal({
                         inputMode="decimal"
                         value={fwMt}
                         placeholder="0.00"
-                        disabled={!draftActive}
                         onChange={(e) => setFwMt(e.target.value)}
                       />
                     </Field>
                   </div>
                 </div>
+              ) : null}
 
-                {showStowage ? (
-                  <div className={`${styles.modeBlock} ${stowageActive ? '' : styles.modeBlockInactive}`}>
-                    <label className={styles.modeOption}>
+              {stowageActive ? (
+                <div className={styles.calcFields}>
+                  <div className={styles.row2}>
+                    <Field label="Stowage Factor (CU.M/MT)">
                       <input
-                        type="radio"
-                        name="loadableMode"
-                        checked={stowageActive}
-                        onChange={() => setMode('stowage')}
+                        type="text"
+                        inputMode="decimal"
+                        value={stowageCuM}
+                        placeholder="0.00"
+                        onChange={(e) => handleStowageCuM(e.target.value)}
                       />
-                      Via Stowage Factor
-                    </label>
-                    <div className={styles.modeFields}>
-                      <Field label="Stowage Factor (Cu.M/MT)">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={stowageCuM}
-                          placeholder="0.00"
-                          disabled={!stowageActive}
-                          onChange={(e) => handleStowageCuM(e.target.value)}
-                        />
-                      </Field>
-                      <Field label="Stowage Factor (Cu.Ft/MT)">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={stowageCuFt}
-                          placeholder="0.00"
-                          disabled={!stowageActive}
-                          onChange={(e) => handleStowageCuFt(e.target.value)}
-                        />
-                      </Field>
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-
-              <section className={`${styles.section} ${styles.resultsSection}`}>
-                <p className={styles.sectionLabel}>Cargo Results</p>
-                <div className={styles.resultsBody}>
-                  <div className={styles.resultRow}>
-                    <span className={styles.resultLabel}>Observed DWT (MT)</span>
-                    <span className={styles.resultValue}>{result.observedDwt || '0.00'}</span>
-                  </div>
-                  <div className={styles.resultRow}>
-                    <span className={styles.resultLabel}>Cargo Loadable (MT)</span>
-                    <span className={styles.resultValue}>{result.cargoLoadable || '0.00'}</span>
-                  </div>
-                  <div className={styles.resultRow}>
-                    <span className={styles.resultLabel}>Observed Draft (M)</span>
-                    <span className={styles.resultValue}>{result.observedDraft || '0.00'}</span>
+                    </Field>
+                    <Field label="Stowage Factor (CU.FT/MT)">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={stowageCuFt}
+                        placeholder="0.00"
+                        onChange={(e) => handleStowageCuFt(e.target.value)}
+                      />
+                    </Field>
                   </div>
                 </div>
-              </section>
+              ) : null}
+
+              <SectionHead label="Cargo Results" tone="results" />
+              <div className={styles.crPanel}>
+                <div className={styles.crRow}>
+                  <span className={styles.crLabel}>Observed DWT (MT)</span>
+                  <span className={styles.crValue}>{result.observedDwt || '0.00'}</span>
+                </div>
+                <div className={styles.crRow}>
+                  <span className={styles.crLabel}>Cargo Loadable (MT)</span>
+                  <span className={styles.crValue}>{result.cargoLoadable || '0.00'}</span>
+                </div>
+                <div className={styles.crRow}>
+                  <span className={styles.crLabel}>Observed Draft (M)</span>
+                  <span className={styles.crValue}>{result.observedDraft || '0.00'}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <div className={styles.footer}>
-          <Button type="button" variant="outline" label="Close" onClick={onClose} />
+          <Button type="button" variant="outline" label="Cancel" onClick={onClose} />
           <Button
             type="button"
             variant="accent"
-            label="Save changes"
+            label="Save"
             onClick={handleSave}
             disabled={!result.cargoLoadable || Number(result.cargoLoadable) <= 0}
           />

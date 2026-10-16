@@ -10,6 +10,7 @@ import hedgexIcon from '../../assets/hedgex-icon.png';
 import sofaIcon from '../../assets/sofa-icon.png';
 import ModuleTintIcon from '../../components/ModuleTintIcon.jsx';
 import tintStyles from '../../components/ModuleTintIcon.module.css';
+import { readBusinessType } from '../../utils/businessTypeSession.js';
 import styles from './ModuleHomePage.module.css';
 
 const HOME_CARDS = [
@@ -229,9 +230,10 @@ export default function ModuleHomePage() {
     const sopf = visibleCards.find((card) => card.id === 'sopf');
     const soc = visibleCards.find((card) => card.id === 'soc');
     if (sopf) {
+      const bType = readBusinessType(new URLSearchParams(), null, '2');
       links.push({
         label: 'New Spot Estimate — SOPF',
-        href: '/internal-user/sopf/addestimate?selBType=2&estimatetype=2',
+        href: `/internal-user/sopf/addestimate?selBType=${encodeURIComponent(bType)}&estimatetype=${encodeURIComponent(bType)}`,
         icon: 'plus',
       });
     }

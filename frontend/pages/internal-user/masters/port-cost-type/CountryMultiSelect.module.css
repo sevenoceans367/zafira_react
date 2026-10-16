@@ -61,6 +61,45 @@
   line-height: 1.35;
 }
 
+/* Port Details bunker grade chips — same palette as worksheet grade dropdowns */
+.chipGradeVlsfo,
+.chipGradeLsmgo,
+.chipGradeMgo,
+.chipGradeHsfo,
+.chipGradeScrubber {
+  font-weight: 700;
+}
+
+.chipGradeVlsfo {
+  background: #eaf1fe;
+  color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.chipGradeLsmgo {
+  background: #e8f8ec;
+  color: #0fa836;
+  border-color: #0fa836;
+}
+
+.chipGradeMgo {
+  background: #eee9ff;
+  color: #6c47ff;
+  border-color: #6c47ff;
+}
+
+.chipGradeHsfo {
+  background: #fcf1dd;
+  color: #b9760a;
+  border-color: #b9760a;
+}
+
+.chipGradeScrubber {
+  background: #e3f4f4;
+  color: #14919b;
+  border-color: #14919b;
+}
+
 .chipLabel {
   overflow: hidden;
   text-overflow: ellipsis;

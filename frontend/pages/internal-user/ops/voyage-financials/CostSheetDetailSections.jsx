@@ -1052,7 +1052,7 @@ export default function EstimateDetailSections({
                 to={sofHref}
                 className={`${styles.panelActionBtn} ${styles.panelActionBtnAccent}`}
                 aria-label="SOF"
-                title="SOF"
+                title="Statement of Facts"
               >
                 SOF
               </Link>
@@ -1078,41 +1078,27 @@ export default function EstimateDetailSections({
                 <thead>
                   <tr>
                     <th className={styles.portIdxCol}>#</th>
-                    <th>From Port</th>
-                    <th>{legIndex > 0 ? 'Arrival' : ''}</th>
+                    <th className={styles.portCol}>From Port</th>
+                    <th className={styles.dateCol}>{legIndex > 0 ? 'Arrival' : ''}</th>
                     <th className={styles.robCol}>VLSFO ROB</th>
                     <th className={styles.robCol}>LSMGO ROB</th>
-                    <th>Departure</th>
+                    <th className={styles.dateCol}>Departure</th>
                     <th className={styles.robCol}>VLSFO ROB</th>
                     <th className={styles.robCol}>LSMGO ROB</th>
                     <th className={styles.wxCol}>Wx(%)</th>
                     <th className={styles.lbCol}>L/B</th>
                     <th className={styles.speedTypeCol}>Speed Type</th>
                     <th className={styles.routeCol}>Route</th>
-                    <th>Total Dist</th>
-                    <th>Total Days</th>
+                    <th className={styles.distCol}>Total Dist</th>
+                    <th className={styles.distCol}>Total Days</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className={styles.portIdxCol}>
-                      {editable && isLastLeg ? (
-                        <div className="rowActions">
-                          <RowAddButton
-                            title="Add passage leg"
-                            onClick={() => addRow('portLegs', createEmptyPortLeg)}
-                          />
-                          <RowDelButton
-                            title="Delete leg"
-                            onClick={() => removeRow('portLegs', leg.id)}
-                            disabled={(form.portLegs || []).length <= 1}
-                          />
-                        </div>
-                      ) : (
-                        <span>{legIndex + 1}</span>
-                      )}
+                      <span className={styles.portIdxNum}>{legIndex + 1}</span>
                     </td>
-                    <td>
+                    <td className={styles.portCol}>
                       {readOnly ? (
                         leg.fromPortName || leg.fromPortId || '—'
                       ) : (
@@ -1130,7 +1116,7 @@ export default function EstimateDetailSections({
                         />
                       )}
                     </td>
-                    <td>
+                    <td className={styles.dateCol}>
                       {legIndex > 0 ? (
                         readOnly ? (
                           <input value={leg.fromArrival || ''} readOnly />
@@ -1161,7 +1147,7 @@ export default function EstimateDetailSections({
                         onChange={(e) => updateRow('portLegs', leg.id, { fromRobDoArrival: e.target.value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.dateCol}>
                       {readOnly ? (
                         <input value={leg.fromDeparture || ''} readOnly />
                       ) : (
@@ -1226,7 +1212,7 @@ export default function EstimateDetailSections({
                         </button>
                       ) : null}
                     </td>
-                    <td>
+                    <td className={styles.distCol}>
                       <input
                         id={legIndex === 0 ? 'portDistance_0' : `portDistance_${legIndex}`}
                         value={leg.distance}
@@ -1234,19 +1220,19 @@ export default function EstimateDetailSections({
                         onChange={(e) => updateRow('portLegs', leg.id, { distance: e.target.value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.distCol}>
                       <input value={leg.seaDays || ''} readOnly />
                     </td>
                   </tr>
                 </tbody>
                 <thead>
                   <tr>
-                    <th />
-                    <th>To Port</th>
-                    <th>Arrival</th>
+                    <th className={styles.portIdxCol} />
+                    <th className={styles.portCol}>To Port</th>
+                    <th className={styles.dateCol}>Arrival</th>
                     <th className={styles.robCol}>VLSFO ROB</th>
                     <th className={styles.robCol}>LSMGO ROB</th>
-                    <th>Departure</th>
+                    <th className={styles.dateCol}>Departure</th>
                     <th className={styles.robCol}>VLSFO ROB</th>
                     <th className={styles.robCol}>LSMGO ROB</th>
                     <th className={styles.bgCol}>BG</th>
@@ -1259,8 +1245,22 @@ export default function EstimateDetailSections({
                 </thead>
                 <tbody>
                   <tr>
-                    <td className={styles.portIdxCol} />
-                    <td>
+                    <td className={styles.portIdxCol}>
+                      {editable && isLastLeg ? (
+                        <div className={styles.portIdxActions}>
+                          <RowAddButton
+                            title="Add passage leg"
+                            onClick={() => addRow('portLegs', createEmptyPortLeg)}
+                          />
+                          <RowDelButton
+                            title="Delete leg"
+                            onClick={() => removeRow('portLegs', leg.id)}
+                            disabled={(form.portLegs || []).length <= 1}
+                          />
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className={styles.portCol}>
                       {readOnly ? (
                         leg.toPortName || leg.toPortId || '—'
                       ) : (
@@ -1278,7 +1278,7 @@ export default function EstimateDetailSections({
                         />
                       )}
                     </td>
-                    <td>
+                    <td className={styles.dateCol}>
                       {readOnly ? (
                         <input value={leg.toArrival || ''} readOnly />
                       ) : (
@@ -1307,7 +1307,7 @@ export default function EstimateDetailSections({
                         onChange={(e) => updateRow('portLegs', leg.id, { toRobDoArrival: e.target.value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.dateCol}>
                       {readOnly ? (
                         <input value={leg.toDeparture || ''} readOnly />
                       ) : (
@@ -1665,12 +1665,13 @@ export default function EstimateDetailSections({
         defaultOpen
         round
         className={styles.roundSection}
+        bodyClassName={styles.commissionsBody}
       >
-        <div className={styles.tableWrap}>
-          <table className={styles.portTable}>
+        <div className={`${styles.tableWrap} ${styles.commissionsTableWrap}`}>
+          <table className={`${styles.portTable} ${styles.commissionsTable}`}>
             <thead>
               <tr>
-                <th style={{ width: 64 }} />
+                <th className={styles.commissionsActionsCol} />
                 <th />
                 <th>Percentage (%)</th>
                 <th>Freight Comm.</th>
@@ -1717,7 +1718,7 @@ export default function EstimateDetailSections({
                       />
                     ) : null}
                   </td>
-                  <td>Brokerage commission</td>
+                  <td>Commission</td>
                   <td>
                     <input
                       value={row.percent || ''}

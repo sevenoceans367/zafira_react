@@ -103,7 +103,7 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -127,28 +127,30 @@
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
+/* SOF: solid orange (preview .btn-details.btn-sof) */
 .panelActionBtnAccent {
-  background: transparent;
-  border: 1px solid #f4652c;
-  color: #f4652c;
+  background: #f4652c;
+  border: 1px solid #d8531e;
+  color: #fff;
 }
 
 .panelActionBtnAccent:hover {
-  background: rgba(244, 101, 44, 0.1);
-  border-color: #f4652c;
-  color: #f4652c;
+  background: #d8531e;
+  border-color: #b83e12;
+  color: #fff;
 }
 
+/* Itinerary: same solid blue as Bunkers Details (.bunkerDetailsBtn / .btn-details) */
 .panelActionBtnOutline {
-  background: transparent;
-  border: 1px solid #376eb8;
-  color: #376eb8;
+  background: #3b82f6;
+  border: 1px solid #2563d6;
+  color: #fff;
 }
 
 .panelActionBtnOutline:hover {
-  background: #bccadb;
-  border-color: #376eb8;
-  color: #376eb8;
+  background: #2563d6;
+  border-color: #1e52b8;
+  color: #fff;
 }
 
 .panelActionLink {
@@ -329,7 +331,7 @@
 .portLegsStack {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   /* Flush to panel body edges (standard 10px body padding) */
   margin: -10px;
 }
@@ -337,28 +339,28 @@
 /* Round panels use 4px 20px 20px body padding — pull flush top/sides */
 .roundSection .portLegsStack {
   margin: -4px -20px 0;
-  padding: 0 0 4px;
+  padding: 0 0 2px;
 }
 
 .portLegCard {
   border: none;
   border-radius: 0;
   background: transparent;
-  padding: 0 8px;
+  padding: 0 4px;
   overflow-x: auto;
 }
 
 .portLegCard + .portLegCard {
   border-top: 1px solid #e5e7eb;
-  padding-top: 4px;
+  padding-top: 2px;
 }
 
-/* Single connected Passage & Ports grid (ports + Wx/BG on one table) */
+/* Single connected Passage & Ports grid — stretch full LH/RHS of panel */
 .portLegConnected {
   width: 100%;
-  min-width: 1100px;
+  min-width: 0;
   border-collapse: collapse;
-  table-layout: auto;
+  table-layout: fixed;
 }
 
 .portLegPorts,
@@ -399,9 +401,86 @@
   white-space: nowrap;
 }
 
-.portIdxCol {
+.portIdxCol,
+.portLegConnected th.portIdxCol,
+.portLegConnected td.portIdxCol,
+.portTable th.portIdxCol,
+.portTable td.portIdxCol {
   width: 28px;
+  min-width: 28px;
+  max-width: 32px;
+  text-align: center !important;
+  vertical-align: middle;
+  padding: 5px 0 !important;
+}
+
+.portIdxNum {
+  display: block;
+  width: 100%;
   text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #274670;
+  line-height: 1;
+}
+
+/* Stack + / × vertically in the # column */
+.portIdxActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.portIdxActions :global(.rowAdd),
+.portIdxActions :global(.rowDel) {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.portIdxActions :global(.rowAdd) svg,
+.portIdxActions :global(.rowDel) svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Flexible LH port/date + RHS dist columns fill remaining width */
+.portCol {
+  width: 12%;
+  min-width: 0;
+}
+
+.dateCol {
+  width: 9%;
+  min-width: 0;
+}
+
+.distCol {
+  width: 7%;
+  min-width: 0;
+}
+
+.portLegConnected .portCol,
+.portLegConnected .dateCol,
+.portLegConnected .distCol {
+  max-width: none;
+}
+
+.portLegConnected td.portCol input,
+.portLegConnected td.dateCol input,
+.portLegConnected td.distCol input,
+.portLegConnected td.portCol :global(button),
+.portLegConnected td.dateCol :global(button) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* VLSFO ROB / LSMGO ROB — navy header text */
@@ -496,15 +575,15 @@ th.robCol {
   max-width: 100%;
 }
 
-/* From/To port + date/dist cells — modest room, not stretchy dropdowns */
-.portLegConnected td:not(.portIdxCol):not(.robCol):not(.wxCol):not(.bgCol):not(.lbCol):not(.speedTypeCol):not(.routeCol):not(.nsecaCol) {
-  min-width: 72px;
-}
-
 .portLegConnected .sheetSelect {
   min-width: 0;
   width: 100%;
   max-width: 100%;
+}
+
+.roundSection .portLegCard .portTable th,
+.roundSection .portLegCard .portTable td {
+  padding: 5px 3px;
 }
 
 .portTable th,
@@ -826,7 +905,8 @@ th.robCol {
   border-radius: 0 4px 4px 0;
 }
 
-.portLaytimeBlock .portTable input,
+/* All Port Details manual fields match Cargo dropdown size/outline */
+.portLaytimeBlock .portTable input:not([type='checkbox']):not([type='radio']),
 .portLaytimeBlock .portTable select {
   border: none;
   box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--port-accent) 40%, #fff);
@@ -836,7 +916,38 @@ th.robCol {
   min-width: 0;
   max-width: 100%;
   width: 100%;
+  height: 24px;
+  min-height: 24px;
+  padding: 2px 6px;
+  font-size: 11px;
+  line-height: 1.2;
+  border-radius: 4px;
   box-sizing: border-box;
+}
+
+.portLaytimeBlock .sheetSelect,
+.portLaytimeBlock .sheetSelect > div {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.portLaytimeBlock .sheetSelect button {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  min-height: 24px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1.2;
+  border-radius: 4px;
+  border: none !important;
+  box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--port-accent) 40%, #fff) !important;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .portLaytimeBlock .portTable select {
@@ -939,9 +1050,14 @@ th.robCol {
   align-items: center;
   width: 100%;
   max-width: 100%;
+  min-height: 24px;
+  height: auto;
+  padding: 2px 6px 2px 4px !important;
+  font-size: 11px;
+  line-height: 1.2;
+  border-radius: 4px !important;
   box-sizing: border-box;
   overflow: hidden;
-  padding-right: 4px;
 }
 
 /* Match Cargo triangle caret on bunker grade dropdown */
@@ -1514,17 +1630,28 @@ th.robCol {
   width: 96px;
   min-width: 96px;
   max-width: 96px;
-  text-align: left;
+  text-align: center;
+}
+
+/* Space before "Bunker" label so it doesn’t sit flush on the panel edge. */
+.consBlock .portTable th:first-child {
+  padding-left: 12px;
 }
 
 .consBlock .portTable td {
   padding: 2px 3px;
+  text-align: center;
+}
+
+.consBlock .portTable td:first-child {
+  padding-left: 12px;
 }
 
 .consBlock .portTable td:first-child select {
   width: 100%;
   min-width: 0;
   max-width: none;
+  margin: 0 auto;
 }
 
 .consBlock .portTable td:not(:first-child) input {
@@ -1645,6 +1772,45 @@ th.robCol {
   overflow: auto;
 }
 
+/* Commissions: flush grid inside the accordion (no LHS/RHS/top/bottom inset). */
+.commissionsBody {
+  padding: 0 !important;
+}
+
+.commissionsTableWrap {
+  border: none !important;
+  border-radius: 0 !important;
+  overflow: hidden;
+  width: 100%;
+}
+
+.commissionsTable {
+  width: 100%;
+  table-layout: fixed;
+  min-width: 0;
+  border-collapse: collapse;
+}
+
+.commissionsTable th,
+.commissionsTable td {
+  width: auto;
+}
+
+.commissionsActionsCol {
+  width: 52px;
+  min-width: 52px;
+  max-width: 52px;
+}
+
+.roundSection .commissionsTable th {
+  background: #f8f9fa;
+}
+
+.roundSection .commissionsTable th,
+.roundSection .commissionsTable td {
+  padding: 6px 10px;
+}
+
 .roundSection .portLaytimeBlock .tableWrap {
   border: none;
   border-radius: 0;
@@ -1720,6 +1886,7 @@ th.robCol {
 .roundSection .consBlock .portTable td {
   padding: 2px 3px;
   border-bottom: 1px solid #eceef2;
+  text-align: center;
 }
 
 .roundSection .consBlock .portTable th {
@@ -1740,6 +1907,7 @@ th.robCol {
   border-radius: 6px !important;
   font-size: 10px !important;
   box-sizing: border-box;
+  text-align: center;
 }
 
 .roundSection .consBlock .portTable th:first-child,
@@ -1747,6 +1915,8 @@ th.robCol {
   width: 96px;
   min-width: 96px;
   max-width: 96px;
+  padding-left: 12px;
+  text-align: center;
 }
 
 .roundSection .consBlock .gradeSelectWrap,
@@ -1754,6 +1924,7 @@ th.robCol {
   width: 100%;
   max-width: 96px;
   min-width: 0;
+  margin: 0 auto;
 }
 
 .roundSection .consBlock .sheetSelect button {
@@ -1766,6 +1937,11 @@ th.robCol {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin: 0 auto;
+}
+
+.roundSection .consBlock .gradeChip {
+  margin: 0 auto;
 }
 
 .roundSection .consBlock .portTable td:not(:first-child) input {
@@ -1785,17 +1961,25 @@ th.robCol {
   border-bottom: none;
 }
 
-.roundSection .portLaytimeBlock .portTable input,
-.roundSection .portLaytimeBlock .portTable select {
+.roundSection .portLaytimeBlock .portTable input:not([type='checkbox']):not([type='radio']),
+.roundSection .portLaytimeBlock .portTable select,
+.roundSection .portLaytimeBlock .sheetSelect button {
+  height: 24px;
   min-height: 24px;
   padding: 2px 6px;
   font-size: 11px;
+  border-radius: 4px;
+  box-sizing: border-box;
 }
 
 .roundSection .portLaytimeBlock .sheetSelect button {
-  height: 24px;
   padding: 0 6px;
+}
+
+.roundSection .portLaytimeBlock .bunkerGradeCell button {
+  min-height: 24px;
   font-size: 11px;
+  border-radius: 4px !important;
 }
 
 .roundSection .field label {

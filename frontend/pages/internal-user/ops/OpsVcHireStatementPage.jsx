@@ -23,8 +23,29 @@ import {
 import { notifyRecentWorkUpdated } from '../../../services/recentWork.js';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
 import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
+import { formatLastUpdated } from './OpsVcGlanceUi.jsx';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
+import docStyles from './OpsDocumentsPage.module.css';
 import styles from './OpsVcHireStatementPage.module.css';
+
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 20V4" />
+      <path d="M5 11l7-7 7 7" />
+    </svg>
+  );
+}
 
 function moneyLabel(currency) {
   const code = String(currency || 'USD').toUpperCase();
@@ -278,71 +299,77 @@ function AttachDropzone({
   existingUpload,
   onFiles,
   onRemoveFile,
+  disabled = false,
 }) {
   const [over, setOver] = useState(false);
   const inputRef = useRef(null);
-  const selected = files?.length
-    ? `${files.length} file(s) selected`
-    : (existingName || existingUpload)
-      ? `Existing: ${existingName || existingUpload}`
-      : 'No documents attached yet';
   const existingHref = existingUpload && (
     String(existingUpload).startsWith('http')
     || String(existingUpload).startsWith('/')
   ) ? existingUpload : null;
 
+  const pickFiles = (list) => {
+    if (disabled) return;
+    onFiles(Array.from(list || []));
+  };
+
   return (
-    <>
+    <div className={styles.docsAttachWrap}>
+      <input
+        id={id}
+        ref={inputRef}
+        className={docStyles.hiddenFileInput}
+        type="file"
+        multiple
+        disabled={disabled}
+        onChange={(event) => {
+          pickFiles(event.target.files);
+          event.target.value = '';
+        }}
+      />
+      {/* Same dropzone layout as Ops Documents page */}
       <div
-        className={`${styles.dropzone} ${over ? styles.dropzoneOver : ''}`}
+        className={[
+          docStyles.dropzone,
+          over ? docStyles.dropzoneActive : '',
+          disabled ? docStyles.dropzoneDisabled : '',
+        ].filter(Boolean).join(' ')}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled}
+        onClick={() => {
+          if (!disabled) inputRef.current?.click();
+        }}
+        onKeyDown={(event) => {
+          if (disabled) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         onDragOver={(event) => {
+          if (disabled) return;
           event.preventDefault();
           setOver(true);
         }}
         onDragLeave={() => setOver(false)}
         onDrop={(event) => {
+          if (disabled) return;
           event.preventDefault();
           setOver(false);
-          onFiles(Array.from(event.dataTransfer.files || []));
+          pickFiles(event.dataTransfer?.files);
         }}
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-          <path d="M21 12.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9.5" />
-          <path d="M16 3l5 5-9 9H7v-5z" />
-        </svg>
-        <div className={styles.dzText}>
-          Drag & drop files here, or{' '}
-          <span
-            className={styles.dzBrowse}
-            role="button"
-            tabIndex={0}
-            onClick={() => inputRef.current?.click()}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click();
-            }}
-          >
-            browse
-          </span>
+        <div className={docStyles.dropzoneIcon}>
+          <UploadIcon />
         </div>
-        <div className={styles.dzSub}>{selected}</div>
-        <input
-          id={id}
-          ref={inputRef}
-          className={styles.hiddenFile}
-          type="file"
-          multiple
-          onChange={(event) => onFiles(Array.from(event.target.files || []))}
-        />
-        <button
-          type="button"
-          className={styles.attachBtn}
-          onClick={() => inputRef.current?.click()}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
-            <path d="M21 12.5l-8.4 8.4a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3l7.7-7.7" />
-          </svg>
-          Attach
-        </button>
+        <div className={docStyles.dropzoneText}>
+          <b>Click to upload</b>
+          {' '}
+          or drag and drop
+          <br />
+          PDF, Word, Excel up to 20MB
+        </div>
       </div>
 
       {(files.length || existingName || existingUpload) ? (
@@ -378,7 +405,7 @@ function AttachDropzone({
           ) : null}
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -1033,9 +1060,16 @@ export default function OpsVcHireStatementPage() {
   const approveStatusApp1 = auth.hasApp2 ? 3 : 5;
   const reviewStatusApp2 = auth.hasApp1 ? 4 : 2;
   const existingInvoices = context?.existingInvoices || [];
-  const lastUpdated = context?.lastUpdatedBy
-    ? `${context.lastUpdatedBy}${context.lastUpdatedAt ? ` - ${context.lastUpdatedAt}` : ''}`
-    : '';
+  const hasLastUpdated = Boolean(context?.lastUpdatedBy || context?.lastUpdatedAt);
+
+  const worksheetHref = useMemo(() => {
+    const sheetId = context?.fcaId || form?.fcaId || '';
+    const cid = context?.comId || comId;
+    if (!cid || !sheetId) return '';
+    return appPath(
+      `/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(cid)}&cost_sheet_id=${encodeURIComponent(sheetId)}&page=${encodeURIComponent(page || '1')}`,
+    );
+  }, [comId, context?.comId, context?.fcaId, form?.fcaId, page]);
 
   const loadChips = splitLocChips(context?.loadPorts);
   const dischargeChips = splitLocChips(context?.dischargePorts);
@@ -1075,7 +1109,16 @@ export default function OpsVcHireStatementPage() {
         </>
       ) : null}
       {invoiceId ? (
-        <Button variant="outline" label="Generate PDF" icon="download" onClick={() => handleInvoiceAction('pdf', { invoiceId })} disabled={loading || saving} />
+        <button
+          type="button"
+          className={styles.downloadIconBtn}
+          title="Download"
+          aria-label="Download"
+          onClick={() => handleInvoiceAction('pdf', { invoiceId })}
+          disabled={loading || saving}
+        >
+          <DownloadIcon />
+        </button>
       ) : null}
     </div>
   );
@@ -1086,6 +1129,7 @@ export default function OpsVcHireStatementPage() {
         title={hasDraft ? `New Hire Statement (Status ${status})` : 'New Hire Statement'}
         voyageNo={context?.voyageNo || voyageNo || ''}
         vesselName={context?.vesselName || ''}
+        worksheetHref={worksheetHref}
       />
       <OpsVcBackHeaderActions backHref={backHref} disabled={saving} />
       {(loading || saving) ? (
@@ -1108,8 +1152,14 @@ export default function OpsVcHireStatementPage() {
               </React.Fragment>
             ))}
           </div>
-          {lastUpdated ? (
-            <p className={styles.lastUpdated}>(LAST UPDATED BY/TIME) {lastUpdated}</p>
+          {hasLastUpdated ? (
+            <div className={styles.opStamp}>
+              <span className={styles.opName}>{context.lastUpdatedBy || '—'}</span>
+              <span className={styles.opTime}>
+                {formatLastUpdated(context.lastUpdatedAt)}
+                <span className={styles.localTimeTag}>Local time</span>
+              </span>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -1263,7 +1313,7 @@ export default function OpsVcHireStatementPage() {
                   </Field>
                   <Field
                     id="deliveryPortDate"
-                    label={<>Delivery Port / Date <span className={styles.pillNavy}>TC-In</span></>}
+                    label={<>Delivery Port / Date <span className={styles.pillTeal}>TC-In</span></>}
                     className={styles.field}
                   >
                     <div className={styles.readonlyBox}>
@@ -1272,7 +1322,7 @@ export default function OpsVcHireStatementPage() {
                   </Field>
                   <Field
                     id="redeliveryPortDate"
-                    label={<>Re-Delivery Port / Date <span className={styles.pillNavy}>TC-In</span></>}
+                    label={<>Re-Delivery Port / Date <span className={styles.pillTeal}>TC-In</span></>}
                     className={styles.field}
                   >
                     <div className={styles.readonlyBox}>
@@ -1294,6 +1344,7 @@ export default function OpsVcHireStatementPage() {
                   existingUpload={form.upload}
                   onFiles={setAttachFiles}
                   onRemoveFile={removeAttachFile}
+                  disabled={!editableByCreator}
                 />
               </div>
             </div>
@@ -1353,7 +1404,7 @@ export default function OpsVcHireStatementPage() {
               </table>
             </div>
             <div className={styles.totalStrip}>
-              <span className={styles.tsl}>Hire Amount Total</span>
+              <span className={styles.tsl}>Total hire amount</span>
               <span className={styles.tsv}>{cur} {totals.hireAmt.toFixed(2)}</span>
             </div>
           </StatementCard>
@@ -1463,15 +1514,11 @@ export default function OpsVcHireStatementPage() {
               onUpdate={(id, patch) => updateRows(setAddRows, id, patch)}
             />
 
-            <div className={styles.tallyRow}>
-              <div className={styles.tallyItem}>
-                <div className={styles.tLabel}>Total Commission %</div>
-                <div className={styles.tVal}>{(parseAmount(form.addCommPer) + parseAmount(form.broCommPer)).toFixed(2)}%</div>
-              </div>
-              <div className={styles.tallyItem}>
-                <div className={styles.tLabel}>Total Amount</div>
-                <div className={styles.tVal}>{cur} {(totals.addCommAmt + totals.broCommAmt + subRowsTotal).toFixed(2)}</div>
-              </div>
+            <div className={styles.totalStrip}>
+              <span className={styles.tsl}>Total Commission %</span>
+              <span className={styles.tsv}>{(parseAmount(form.addCommPer) + parseAmount(form.broCommPer)).toFixed(2)}%</span>
+              <span className={styles.tsl}>Total Amount</span>
+              <span className={styles.tsv}>{cur} {(totals.addCommAmt + totals.broCommAmt + subRowsTotal).toFixed(2)}</span>
             </div>
           </StatementCard>
 
@@ -1652,7 +1699,7 @@ export default function OpsVcHireStatementPage() {
                         disabled={!editableByCreator}
                         onChange={(event) => updateRows(setSurveyRows, row.id, { chkOwnerAcc: event.target.checked })}
                       />
-                      On Owner&apos;s Account
+                      Owner&apos;s Account
                     </label>
                     <input
                       className={`${styles.input} ${styles.surveyAmt}`}
@@ -1710,6 +1757,7 @@ export default function OpsVcHireStatementPage() {
                   existingUpload={form.upload}
                   onFiles={setAttachFiles}
                   onRemoveFile={removeAttachFile}
+                  disabled={!editableByCreator}
                 />
               </div>
               <div className={styles.docsApprovalRight}>

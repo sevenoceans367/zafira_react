@@ -2,6 +2,17 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import styles from './CountryMultiSelect.module.css';
 
+/** Bunker grade chip palette (VLSFO / LSMGO / MGO / HSFO / Scrubber). */
+export function bunkerGradeChipClass(gradeName) {
+  const text = String(gradeName || '').toUpperCase().replace(/\s+/g, '');
+  if (text.includes('SCRUBBER')) return styles.chipGradeScrubber;
+  if (text.includes('LSMGO')) return styles.chipGradeLsmgo;
+  if (text.includes('MGO')) return styles.chipGradeMgo;
+  if (text.includes('HSFO')) return styles.chipGradeHsfo;
+  if (text.includes('VLSFO')) return styles.chipGradeVlsfo;
+  return '';
+}
+
 export default function CountryMultiSelect({
   options = [],
   value = [],
@@ -12,6 +23,8 @@ export default function CountryMultiSelect({
   compact = false,
   /** "card" matches the shared CardSelect trigger used on Voyage Worksheet. */
   variant = 'default',
+  /** Tint selected chips with bunker grade colors (Port Details LP/DP/TP). */
+  coloredGradeChips = false,
 }) {
   const rootRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -179,7 +192,13 @@ export default function CountryMultiSelect({
             <span className={styles.placeholder}>{placeholder}</span>
           ) : (
             selectedOptions.map((item) => (
-              <span key={item.id} className={styles.chip}>
+              <span
+                key={item.id}
+                className={[
+                  styles.chip,
+                  coloredGradeChips ? bunkerGradeChipClass(item.name) : '',
+                ].filter(Boolean).join(' ')}
+              >
                 <span className={styles.chipLabel}>{item.name}</span>
                 {!disabled ? (
                   <span

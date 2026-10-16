@@ -101,6 +101,7 @@ function BunkerGradeSelect({ value, disabled, onChange }) {
   return (
     <CountryMultiSelect
       compact
+      coloredGradeChips
       options={BUNKER_GRADE_LOOKUP}
       value={Array.isArray(value) ? value : []}
       onChange={onChange}

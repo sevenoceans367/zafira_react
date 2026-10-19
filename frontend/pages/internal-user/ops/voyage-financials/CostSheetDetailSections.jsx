@@ -794,7 +794,7 @@ export default function EstimateDetailSections({
       <div className={styles.estimateMain}>
        <CollapsiblePanel title="Estimate Identifier" defaultOpen round className={styles.roundSection}>
           <div className={styles.headerGrid}>
-            <Field id="fixtureTypeId" label="Business Type">
+            <Field id="fixtureTypeId" label="Contract Type">
               <input id="fixtureTypeId" value={getFixtureTypeLabel(form.fixtureTypeId)} readOnly />
             </Field>
 
@@ -848,7 +848,7 @@ export default function EstimateDetailSections({
                 placeholder="Est1"
               />
             </Field>
-            <Field id="estimateType" label="Estimate Type">
+            <Field id="estimateType" label="Trade type">
               <input id="estimateType" value={detail.estimateTypeLabel} readOnly />
             </Field>
             <Field id="sdrToUsd" label="SDR Rate">

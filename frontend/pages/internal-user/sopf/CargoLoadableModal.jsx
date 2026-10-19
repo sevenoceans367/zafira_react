@@ -162,6 +162,10 @@ export default function CargoLoadableModal({
   const stowageActive = showStowage && mode === 'stowage';
   const draftActive = !showStowage || mode === 'draft';
 
+  // Match Port Details section accent: LP orange, DP blue, TP/BP navy.
+  const side = String(context.side || 'lp').toLowerCase();
+  const iconTone = side === 'dp' ? 'blue' : (side === 'tp' || side === 'bp' ? 'navy' : 'orange');
+
   return createPortal(
     <div className={styles.backdrop} role="presentation" onClick={onClose}>
       <div
@@ -173,7 +177,14 @@ export default function CargoLoadableModal({
       >
         <div className={styles.header}>
           <div className={styles.headerLeft}>
-            <div className={styles.modalIcon} aria-hidden="true">
+            <div
+              className={`${styles.modalIcon} ${
+                iconTone === 'blue' ? styles.modalIconBlue
+                  : iconTone === 'navy' ? styles.modalIconNavy
+                    : styles.modalIconOrange
+              }`}
+              aria-hidden="true"
+            >
               <CalcIcon />
             </div>
             <h2 id="cargo-loadable-title" className={styles.title}>

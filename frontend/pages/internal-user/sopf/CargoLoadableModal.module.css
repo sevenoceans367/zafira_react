@@ -59,11 +59,25 @@
   height: 36px;
   border-radius: 10px;
   flex: none;
-  background: var(--orange-tint);
-  color: var(--orange);
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Mirror Port Details section colours (LP orange / DP blue / TP navy). */
+.modalIconOrange {
+  background: #fdeee6;
+  color: #f4652c;
+}
+
+.modalIconBlue {
+  background: #e8f0fa;
+  color: #376eb8;
+}
+
+.modalIconNavy {
+  background: #e6eaf1;
+  color: #274670;
 }
 
 .modalIcon svg {
@@ -154,20 +168,20 @@
 }
 
 .secHeadBlue .shLabel {
-  color: var(--blue);
+  color: var(--navy);
 }
 
 .secHeadBlue .shDash {
-  border-top-color: var(--blue-tint-strong);
+  border-top-color: #c5d0e0;
 }
 
 .secHeadResults .shLabel {
   font-size: 15px;
-  color: var(--blue);
+  color: var(--navy);
 }
 
 .secHeadResults .shDash {
-  border-top-color: var(--blue-tint-strong);
+  border-top-color: #c5d0e0;
 }
 
 .row1 {

@@ -138,7 +138,7 @@ export function getAddRowBlockMessage(collection, rows = [], { identify } = {}) 
  */
 export function validateEstimateForm(form = {}) {
   if (!String(form.fixtureTypeId || '').trim()) {
-    return { message: 'Please select Business Type', fieldId: 'fixtureTypeId' };
+    return { message: 'Please select Contract Type', fieldId: 'fixtureTypeId' };
   }
   if (!String(form.vesselImoId || '').trim()) {
     return { message: 'Please select Vessel', fieldId: 'vesselName' };

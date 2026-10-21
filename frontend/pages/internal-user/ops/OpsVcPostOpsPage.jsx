@@ -41,10 +41,12 @@ import {
   LaytimeChipIcon,
   LettersChipIcon,
   OpsVcGlanceTable,
+  SPOT_OPS_EXPORT_COLUMNS,
   SofChipIcon,
   VoyDocsCell,
   alertLabels,
   formatLastUpdated,
+  mapSpotOpsExportRows,
   portLines,
 } from './OpsVcGlanceUi.jsx';
 import OpsVcTaskWidgets from './OpsVcTaskWidgets.jsx';
@@ -286,6 +288,10 @@ export default function OpsVcPostOpsPage() {
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
             showingLabel={`Showing ${rows.length} of ${total} operations`}
+            exportTitle="Spot Post Ops"
+            exportFilename="spot-post-ops"
+            exportColumns={SPOT_OPS_EXPORT_COLUMNS}
+            exportRows={mapSpotOpsExportRows(rows, page, pageSize)}
           >
           <thead>
             <tr>

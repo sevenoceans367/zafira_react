@@ -7,6 +7,7 @@ import {
   parseDMYDateTime,
 } from '../utils/periodContractDates.js';
 import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
+import { applyPeriodExtraFields, mapPeriodExtraFields } from './periodContractExtraFields.js';
 
 function nullOrNumber(value) {
   if (value == null || value === '') return null;
@@ -317,6 +318,7 @@ export async function dbGetPeriodContractById(periodId) {
     ilohc: asString(master.ILOHC),
     legDetails: asString(master.LEG_DETAILS),
     monthDays: master.DAYS_MONTH != null ? asString(master.DAYS_MONTH) : '',
+    ...mapPeriodExtraFields(master),
     attachments: parseAttachments(master.ATTACHMENT, master.ATTACHMENT_NAME),
     deliveryNotices: noticeRows.map((row) => ({
       notice: asString(row.DELIVERY_NOTICES),
@@ -430,6 +432,8 @@ export async function dbUpdatePeriodContract(periodId, payload, attachments = {}
         id,
       ],
     );
+
+    await applyPeriodExtraFields(connection, payload, id);
 
     await connection.query(
       `DELETE FROM period_contract_master_slave21 WHERE PERIODID = ?`,

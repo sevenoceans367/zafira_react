@@ -4,11 +4,17 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ActionButtonStack,
   EditRecapIcon,
+  GridDownloadMenu,
   LoadingOverlay,
   SecondaryActionButton,
   SendToOpsButton,
   useConfirm,
 } from '@bainbridge/shared-ui';
+import {
+  downloadReportExcel,
+  downloadReportPdf,
+  emailReportAttachment,
+} from '../reports/reportExports.js';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useTcModule } from '../../../hooks/useTcModule.js';
 import {
@@ -226,6 +232,48 @@ export default function TcOutEstimatesListPage() {
   const opsRows = useMemo(() => rows.filter((row) => isInOps(row)), [rows]);
   const visibleRows = statusTab === 'activeInOps' ? opsRows : activeRows;
 
+  const tcExportPayload = () => ({
+    columns: [
+      { key: 'index', label: 'Item' },
+      { key: 'vesselName', label: 'Vessel' },
+      { key: 'tcNo', label: 'TC No.' },
+      { key: 'cpDate', label: 'CP Date' },
+      { key: 'dwt', label: 'DWT' },
+      { key: 'delRedel', label: 'Del-Redel' },
+      { key: 'tcDays', label: 'TC Days' },
+      { key: 'hireIn', label: 'Hire In' },
+      { key: 'hireOut', label: 'Hire Out' },
+      { key: 'totalRev', label: 'Total Rev' },
+    ],
+    rows: visibleRows.map((row, index) => ({
+      index: (page - 1) * pageSize + index + 1,
+      vesselName: row.vesselName || '',
+      tcNo: row.tcNo || '',
+      cpDate: row.cpDate || '',
+      dwt: row.dwt || '',
+      delRedel: row.delRedel || [row.delPort, row.reDelPort].filter(Boolean).join(' - '),
+      tcDays: row.tcDays || '',
+      hireIn: row.hireIn || '',
+      hireOut: row.hireOut || row.dailyGrossHire || '',
+      totalRev: row.totalRev || '',
+    })),
+    filename: `time-charter-business-${statusTab}`,
+    title: `Time Charter Business — ${statusTab === 'activeInOps' ? 'Performing' : 'Active'}`,
+  });
+
+  const handleDownloadExcel = () => {
+    const payload = tcExportPayload();
+    downloadReportExcel(payload.filename, payload.columns, payload.rows);
+  };
+
+  const handleDownloadPdf = async () => {
+    await downloadReportPdf(tcExportPayload());
+  };
+
+  const handleEmailAttachment = async () => {
+    await emailReportAttachment(tcExportPayload());
+  };
+
   const handleSendToOps = async (ids = []) => {
     const next = [...new Set((ids || []).map(String).filter(Boolean))];
     if (!next.length || sending) return;
@@ -350,7 +398,13 @@ export default function TcOutEstimatesListPage() {
         flushTop
         pageSize={pageSize}
         onPageSizeChange={setPageSize}
-        toolbarStart={null}
+        toolbarStart={(
+          <GridDownloadMenu
+            onDownloadExcel={handleDownloadExcel}
+            onDownloadPdf={handleDownloadPdf}
+            onEmailAttachment={handleEmailAttachment}
+          />
+        )}
         toolbarLeft={toolbarActions}
         footer={(
           <SopfPagination

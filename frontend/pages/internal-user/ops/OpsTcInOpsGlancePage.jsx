@@ -48,8 +48,10 @@ import {
   FaChipIcon,
   LettersChipIcon,
   OpsVcGlanceTable,
+  TC_OPS_EXPORT_COLUMNS,
   VoyDocsCell,
   formatLastUpdated,
+  mapTcOpsExportRows,
 } from './OpsVcGlanceUi.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcInOpsGlancePage.module.css';
@@ -486,6 +488,10 @@ export default function OpsTcInOpsGlancePage() {
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
             showingLabel={`Showing ${rows.length} of ${total} operations`}
+            exportTitle="Time Charter Ops"
+            exportFilename="tc-ops"
+            exportColumns={TC_OPS_EXPORT_COLUMNS}
+            exportRows={mapTcOpsExportRows(rows, page, pageSize)}
           >
           <thead>
             <tr>

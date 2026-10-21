@@ -2,7 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { CardSelect, DownloadIcon, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { CardSelect, GridDownloadMenu, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import spotNavIcon from '../../../assets/010-pie-chart.png';
+import {
+  downloadReportExcel,
+  downloadReportPdf,
+  emailReportAttachment,
+} from '../reports/reportExports.js';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
@@ -153,16 +159,6 @@ function PlusIcon() {
   );
 }
 
-function MoreIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <circle cx="12" cy="5" r="1.9" />
-      <circle cx="12" cy="12" r="1.9" />
-      <circle cx="12" cy="19" r="1.9" />
-    </svg>
-  );
-}
-
 function CloseIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
@@ -206,8 +202,6 @@ export default function RunningCoasListPage() {
   const [reletFilter, setReletFilter] = useState('all');
   const [spotShow, setSpotShow] = useState(10);
   const [reletShow, setReletShow] = useState(10);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
   const openedLinkFromQuery = useRef(false);
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
@@ -239,17 +233,6 @@ export default function RunningCoasListPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [debouncedSearch, businessType, statusTab, pageSize]);
-
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-    const onPointer = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onPointer);
-    return () => document.removeEventListener('mousedown', onPointer);
-  }, [menuOpen]);
 
   useEffect(() => {
     if (!flash) return undefined;
@@ -299,37 +282,58 @@ export default function RunningCoasListPage() {
 
   const showingLabel = `Showing ${filteredRows.length} ${statusTab} COA${filteredRows.length === 1 ? '' : 's'}`;
 
-  const downloadCsv = () => {
-    const headers = [
-      '#', 'No.', 'Route', 'Date', 'Status', 'Vessel', 'Charterer', 'Cargo',
-      'QTY (MT)', 'Dur', 'Total Shipments', 'Performed Shipments', 'Bal Cargo (MT)',
+  const runningCoaExport = () => {
+    const columns = [
+      { key: 'index', label: '#' },
+      { key: 'coaNo', label: 'No.' },
+      { key: 'coaRoute', label: 'Route' },
+      { key: 'coaDate', label: 'Date' },
+      { key: 'status', label: 'Status' },
+      { key: 'vesselType', label: 'Vessel' },
+      { key: 'charterer', label: 'Charterer' },
+      { key: 'cargo', label: 'Cargo' },
+      { key: 'minQty', label: 'QTY (MT)' },
+      { key: 'duration', label: 'Dur' },
+      { key: 'totalShipments', label: 'Total Shipments' },
+      { key: 'shipmentsPerformed', label: 'Performed Shipments' },
+      { key: 'balanceCargo', label: 'Bal Cargo (MT)' },
     ];
-    const lines = [
-      headers.join(','),
-      ...filteredRows.map((row, index) => ([
-        index + 1,
-        row.coaNo || row.coaIdentity || '',
-        row.coaRoute || '',
-        row.coaDate || '',
-        statusLabel(rowTab(row)),
-        row.vesselType || '',
-        row.charterer || '',
-        row.cargo || '',
-        row.minQty || '',
-        row.duration || '',
-        row.totalShipments || '',
-        row.shipmentsPerformed || '',
-        row.balanceCargo || '',
-      ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))),
-    ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `running-coas-${statusTab}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setMenuOpen(false);
+    const rows = filteredRows.map((row, index) => ({
+      index: index + 1,
+      coaNo: row.coaNo || row.coaIdentity || '',
+      coaRoute: row.coaRoute || '',
+      coaDate: row.coaDate || '',
+      status: statusLabel(rowTab(row)),
+      vesselType: row.vesselType || '',
+      charterer: row.charterer || '',
+      cargo: row.cargo || '',
+      minQty: row.minQty || '',
+      duration: row.duration || '',
+      totalShipments: row.totalShipments || '',
+      shipmentsPerformed: row.shipmentsPerformed || '',
+      balanceCargo: row.balanceCargo || '',
+    }));
+    return {
+      columns,
+      rows,
+      filename: `running-coas-${statusTab}`,
+      title: `Running COAs — ${statusTab}`,
+    };
+  };
+
+  const handleDownloadExcel = () => {
+    const payload = runningCoaExport();
+    downloadReportExcel(payload.filename, payload.columns, payload.rows);
+  };
+
+  const handleDownloadPdf = async () => {
+    const payload = runningCoaExport();
+    await downloadReportPdf(payload);
+  };
+
+  const handleEmailAttachment = async () => {
+    const payload = runningCoaExport();
+    await emailReportAttachment(payload);
   };
 
   const handleCancel = async (row) => {
@@ -507,29 +511,11 @@ export default function RunningCoasListPage() {
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
           toolbarStart={(
-            <div className={styles.menuWrap} ref={menuRef}>
-              <button
-                type="button"
-                className={styles.btnMore}
-                aria-label="More options"
-                aria-expanded={menuOpen}
-                aria-haspopup="menu"
-                title="Download"
-                onClick={() => setMenuOpen((open) => !open)}
-              >
-                <MoreIcon />
-              </button>
-              {menuOpen ? (
-                <div className={styles.menuDropdown} role="menu">
-                  <button type="button" role="menuitem" className={styles.menuItem} onClick={downloadCsv}>
-                    <span className={styles.menuIcon} aria-hidden>
-                      <DownloadIcon size={16} title="" />
-                    </span>
-                    Download as Excel
-                  </button>
-                </div>
-              ) : null}
-            </div>
+            <GridDownloadMenu
+              onDownloadExcel={handleDownloadExcel}
+              onDownloadPdf={handleDownloadPdf}
+              onEmailAttachment={handleEmailAttachment}
+            />
           )}
           toolbarLeft={(
             <>
@@ -660,10 +646,7 @@ export default function RunningCoasListPage() {
                     <section className={styles.amSection}>
                       <div className={styles.amSectionHead}>
                         <div className={styles.amSectionTitleWrap}>
-                          <svg className={`${styles.amSectionIcon} ${styles.spotIcon}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M12 7v5l3.5 2" />
-                          </svg>
+                          <img src={spotNavIcon} alt="" className={`${styles.amSectionIcon} ${styles.spotIcon}`} />
                           <span className={`${styles.amSectionTitle} ${styles.spotTitle}`}>Voyages</span>
                         </div>
                         <div className={styles.amSectionControls}>

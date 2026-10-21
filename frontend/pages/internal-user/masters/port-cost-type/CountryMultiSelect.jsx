@@ -25,6 +25,8 @@ export default function CountryMultiSelect({
   variant = 'default',
   /** Tint selected chips with bunker grade colors (Port Details LP/DP/TP). */
   coloredGradeChips = false,
+  /** Orange cargo / blue port chip ring (estimate worksheet). */
+  chipTone = '',
 }) {
   const rootRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -174,6 +176,8 @@ export default function CountryMultiSelect({
     styles.root,
     compact ? styles.compact : '',
     variant === 'card' ? styles.card : '',
+    chipTone === 'cargo' ? styles.toneCargo : '',
+    chipTone === 'port' ? styles.tonePort : '',
   ].filter(Boolean).join(' ');
 
   return (
@@ -197,6 +201,8 @@ export default function CountryMultiSelect({
                 className={[
                   styles.chip,
                   coloredGradeChips ? bunkerGradeChipClass(item.name) : '',
+                  chipTone === 'cargo' ? styles.chipToneCargo : '',
+                  chipTone === 'port' ? styles.chipTonePort : '',
                 ].filter(Boolean).join(' ')}
               >
                 <span className={styles.chipLabel}>{item.name}</span>

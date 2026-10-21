@@ -41,10 +41,15 @@ export function filterReportRows(rows, columns, search) {
   ));
 }
 
-/**
- * Download Excel-compatible SpreadsheetML (.xls) — opens in Excel like PHP exports.
- */
-export function downloadReportExcel(filename, columns, rows) {
+export function reportFromObjectRows(objectRows = []) {
+  const keys = objectRows[0] ? Object.keys(objectRows[0]) : [];
+  return {
+    columns: keys.map((key) => ({ key, label: key })),
+    rows: objectRows,
+  };
+}
+
+export function buildReportExcelBlob(columns, rows) {
   const dataCols = (columns || []).filter((col) => !col.action);
   const headerCells = dataCols
     .map((col) => `<Cell><Data ss:Type="String">${escapeXml(col.label)}</Data></Cell>`)
@@ -71,11 +76,72 @@ export function downloadReportExcel(filename, columns, rows) {
  </Worksheet>
 </Workbook>`;
 
+  return new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+}
+
+/**
+ * Download Excel-compatible SpreadsheetML (.xls) — opens in Excel like PHP exports.
+ */
+export function downloadReportExcel(filename, columns, rows) {
   const safeName = String(filename || 'report').replace(/\.csv$/i, '').replace(/\.xlsx?$/i, '');
-  downloadBlob(
-    `${safeName}.xls`,
-    new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' }),
-  );
+  downloadBlob(`${safeName}.xls`, buildReportExcelBlob(columns, rows));
+}
+
+function uint8ToBase64(bytes) {
+  let binary = '';
+  const chunk = 8192;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function buildEmlWithAttachment({ subject, filename, mimeType, bytes, bodyText }) {
+  const boundary = `----=_GridExport_${Date.now()}`;
+  const b64 = uint8ToBase64(bytes).replace(/(.{76})/g, '$1\r\n');
+  const safeSubject = String(subject || 'Grid export').replace(/[\r\n]+/g, ' ');
+  return [
+    'X-Unsent: 1',
+    'MIME-Version: 1.0',
+    `Subject: ${safeSubject}`,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="utf-8"',
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    bodyText || 'Please find the attached grid export.',
+    '',
+    `--${boundary}`,
+    `Content-Type: ${mimeType}; name="${filename}"`,
+    'Content-Transfer-Encoding: base64',
+    `Content-Disposition: attachment; filename="${filename}"`,
+    '',
+    b64,
+    `--${boundary}--`,
+    '',
+  ].join('\r\n');
+}
+
+/**
+ * Downloads the Excel file, then a draft .eml that opens in the default mail client
+ * with that file already attached (X-Unsent: 1).
+ */
+export async function emailReportAttachment({ title, filename, columns, rows }) {
+  const excelBlob = buildReportExcelBlob(columns, rows);
+  const safeBase = String(filename || 'export').replace(/\.(csv|xlsx?|pdf|eml)$/i, '');
+  const xlsName = `${safeBase}.xls`;
+  downloadBlob(xlsName, excelBlob);
+
+  const bytes = new Uint8Array(await excelBlob.arrayBuffer());
+  const eml = buildEmlWithAttachment({
+    subject: title || 'Grid export',
+    filename: xlsName,
+    mimeType: 'application/vnd.ms-excel',
+    bytes,
+    bodyText: `${title || 'Grid export'} — ${(rows || []).length} record(s).\n\nThe Excel file is attached.`,
+  });
+  downloadBlob(`${safeBase}.eml`, new Blob([eml], { type: 'message/rfc822' }));
 }
 
 /**

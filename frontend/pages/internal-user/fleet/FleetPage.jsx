@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { EditRecapIcon, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
+import { EditRecapIcon, GridDownloadMenu, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
+import {
+  downloadReportExcel,
+  downloadReportPdf,
+  emailReportAttachment,
+} from '../reports/reportExports.js';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useFleetModule } from '../../../hooks/useFleetModule.js';
 import { fetchFleetCompare, downloadFleetComparePdf, fetchFleetList } from '../../../services/fleet.js';
@@ -270,6 +275,42 @@ export default function FleetPage() {
     }
   };
 
+  const fleetExportPayload = () => ({
+    columns: [
+      { key: 'index', label: '#' },
+      { key: 'vesselName', label: 'Vessel' },
+      { key: 'vesselType', label: 'Vessel Type' },
+      { key: 'businessType', label: 'Business Type' },
+      { key: 'imoNo', label: 'IMO No.' },
+      { key: 'dwt', label: 'Summer DWT' },
+      { key: 'yearBuilt', label: 'Built' },
+    ],
+    rows: rows.map((row) => ({
+      index: row.index,
+      vesselName: row.vesselName || '',
+      vesselType: row.vesselType || '',
+      businessType: row.businessType || '',
+      imoNo: row.imoNo || '',
+      dwt: row.dwt || '',
+      yearBuilt: row.yearBuilt || '',
+    })),
+    filename: 'operated-vessels',
+    title: 'Operated Vessels',
+  });
+
+  const handleDownloadExcel = () => {
+    const payload = fleetExportPayload();
+    downloadReportExcel(payload.filename, payload.columns, payload.rows);
+  };
+
+  const handleDownloadPdf = async () => {
+    await downloadReportPdf(fleetExportPayload());
+  };
+
+  const handleEmailAttachment = async () => {
+    await emailReportAttachment(fleetExportPayload());
+  };
+
   const particularsViewPath = (row) => vesselPath(row.vesselImoId, 'particulars');
 
   const particularsEditPath = (row) => (
@@ -300,6 +341,13 @@ export default function FleetPage() {
       <ScrollableTable
         pageSize={pageSize}
         onPageSizeChange={setPageSize}
+        toolbarStart={(
+          <GridDownloadMenu
+            onDownloadExcel={handleDownloadExcel}
+            onDownloadPdf={handleDownloadPdf}
+            onEmailAttachment={handleEmailAttachment}
+          />
+        )}
         toolbarLeft={(
           <div className={styles.toolbarActions}>
             <button

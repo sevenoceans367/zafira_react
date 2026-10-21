@@ -1,6 +1,23 @@
 import React, { useState } from 'react';
 import styles from './UpdateEstimatePage.module.css';
 
+function ChevronIcon() {
+  return (
+    <svg
+      className={styles.panelChevron}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
 /**
  * Accordion panel used on estimate forms.
  * Click the header (not action buttons) to expand/collapse.
@@ -14,7 +31,7 @@ export default function CollapsiblePanel({
   className = '',
   bodyClassName = '',
   icon = null,
-  round = false,
+  round = true,
   children,
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
@@ -43,9 +60,9 @@ export default function CollapsiblePanel({
           onClick={toggle}
           aria-expanded={open}
         >
-          <span className={styles.panelChevron} aria-hidden>{open ? '▾' : '▸'}</span>
+          <ChevronIcon />
           {icon ? <span className={styles.panelIcon} aria-hidden>{icon}</span> : null}
-          <span>{title}</span>
+          <span className={styles.panelTitle}>{title}</span>
         </button>
         {actions ? (
           <div className={styles.panelActions} onClick={(e) => e.stopPropagation()}>

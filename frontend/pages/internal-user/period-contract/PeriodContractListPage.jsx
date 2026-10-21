@@ -2,7 +2,15 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { CardSelect, DownloadIcon, LoadingOverlay, EditRecapIcon } from '@bainbridge/shared-ui';
+import { CardSelect, GridDownloadMenu, LoadingOverlay, EditRecapIcon } from '@bainbridge/shared-ui';
+import spotNavIcon from '../../../assets/010-pie-chart.png';
+import timeCharterNavIcon from '../../../assets/TIME CHARTER.png';
+import {
+  downloadReportExcel,
+  downloadReportPdf,
+  emailReportAttachment,
+  reportFromObjectRows,
+} from '../reports/reportExports.js';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.js';
 import { periodContractBasePath } from '../../../constants/periodContractModule.js';
@@ -51,28 +59,6 @@ function formatDaysPart(value) {
   const num = Number(value);
   if (!Number.isFinite(num)) return String(value);
   return num.toFixed(2);
-}
-
-function csvCell(value) {
-  const text = String(value ?? '').replace(/\r?\n/g, ' ').trim();
-  if (text.includes(',') || text.includes('"')) return `"${text.replace(/"/g, '""')}"`;
-  return text;
-}
-
-function downloadCsv(filename, headers, rows) {
-  const lines = [
-    headers.map(csvCell).join(','),
-    ...rows.map((row) => headers.map((header) => csvCell(row[header])).join(',')),
-  ];
-  const blob = new Blob([`\ufeff${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 function HighlightIcon({ name }) {
@@ -203,8 +189,6 @@ export default function PeriodContractListPage() {
   const [tcFilter, setTcFilter] = useState('all');
   const [spotShow, setSpotShow] = useState(10);
   const [tcShow, setTcShow] = useState(10);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
   const openedLinkFromQuery = useRef(false);
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
@@ -276,17 +260,6 @@ export default function PeriodContractListPage() {
     return () => window.clearTimeout(timer);
   }, [flash]);
 
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen]);
-
   const closeModal = useCallback(() => setModal(null), []);
 
   useEffect(() => {
@@ -353,46 +326,61 @@ export default function PeriodContractListPage() {
     }, { replace: true });
   }, [activeTab, loading, openNominations, rows, searchParams, setSearchParams]);
 
+  const loadPeriodExport = useCallback(async () => {
+    const data = await fetchPeriodContractList({
+      selBType: businessType,
+      status: activeTab,
+      page: 1,
+      pageSize: EXPORT_PAGE_SIZE,
+      search: debouncedSearch,
+      periodFrom,
+      periodTo,
+    });
+    const exportRows = (data.records || []).map((row) => ({
+      '#': row.index,
+      'Contract No.': row.contractNo,
+      'Contract Date': row.contractDate,
+      Vessel: row.vesselName,
+      'Vessel Type': row.vesselType,
+      DWT: row.dwt,
+      'Initial Hire': row.initialHire,
+      Status: row.status,
+      'Business Account': row.ownBusinessAccount,
+      'Re-Del Date (Min)': row.reDelMinDate,
+      'Re-Del Date (Max)': row.reDelMaxDate,
+      'Days (Total / Perf. / Bal.)': `${formatDaysPart(row.totalDays)} / ${formatDaysPart(row.performedDays)} / ${formatDaysPart(row.balanceDays)}`,
+      Remarks: row.remarks,
+      'Bunker Opening': row.bunkerOpening,
+      'Bunker Closing': row.bunkerClosing,
+    }));
+    const { columns, rows: reportRows } = reportFromObjectRows(exportRows);
+    return { columns, rows: reportRows, filename: `period-business-${activeTab}`, title: `Period Business — ${activeTab}` };
+  }, [activeTab, businessType, debouncedSearch, periodFrom, periodTo]);
+
   const handleDownloadExcel = async () => {
-    setMenuOpen(false);
     try {
-      const data = await fetchPeriodContractList({
-        selBType: businessType,
-        status: activeTab,
-        page: 1,
-        pageSize: EXPORT_PAGE_SIZE,
-        search: debouncedSearch,
-        periodFrom,
-        periodTo,
-      });
-      const exportRows = (data.records || []).map((row) => ({
-        '#': row.index,
-        'Contract No.': row.contractNo,
-        'Contract Date': row.contractDate,
-        Vessel: row.vesselName,
-        'Vessel Type': row.vesselType,
-        DWT: row.dwt,
-        'Initial Hire': row.initialHire,
-        Status: row.status,
-        'Business Account': row.ownBusinessAccount,
-        'Re-Del Date (Min)': row.reDelMinDate,
-        'Re-Del Date (Max)': row.reDelMaxDate,
-        'Days (Total / Perf. / Bal.)': `${formatDaysPart(row.totalDays)} / ${formatDaysPart(row.performedDays)} / ${formatDaysPart(row.balanceDays)}`,
-        Remarks: row.remarks,
-        'Bunker Opening': row.bunkerOpening,
-        'Bunker Closing': row.bunkerClosing,
-      }));
-      downloadCsv(
-        `period-business-${activeTab}.csv`,
-        [
-          '#', 'Contract No.', 'Contract Date', 'Vessel', 'Vessel Type', 'DWT', 'Initial Hire',
-          'Status', 'Business Account', 'Re-Del Date (Min)', 'Re-Del Date (Max)',
-          'Days (Total / Perf. / Bal.)', 'Remarks', 'Bunker Opening', 'Bunker Closing',
-        ],
-        exportRows,
-      );
+      const payload = await loadPeriodExport();
+      downloadReportExcel(payload.filename, payload.columns, payload.rows);
     } catch (err) {
       setError(err.message || 'Failed to download period contracts.');
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      const payload = await loadPeriodExport();
+      await downloadReportPdf(payload);
+    } catch (err) {
+      setError(err.message || 'Failed to download PDF.');
+    }
+  };
+
+  const handleEmailAttachment = async () => {
+    try {
+      const payload = await loadPeriodExport();
+      await emailReportAttachment(payload);
+    } catch (err) {
+      setError(err.message || 'Failed to prepare email.');
     }
   };
 
@@ -430,8 +418,11 @@ export default function PeriodContractListPage() {
   const linkReturnTo = encodeURIComponent(
     `${listPath}?selBType=${businessType}&status=${activeTab === 'closed' ? 'completed' : 'active'}&openLink=1&periodId=${modal?.periodId || ''}`,
   );
-  const addSpotHref = `/internal-user/sopf/addestimate?periodid=${encodeURIComponent(modal?.periodId || '')}&selBType=${encodeURIComponent(businessType)}&estimatetype=${encodeURIComponent(businessType)}&returnTo=${linkReturnTo}`;
-  const addTcHref = `${tcAppPath(tcHost, 'add')}?periodId=${encodeURIComponent(modal?.periodId || '')}&selBType=${encodeURIComponent(businessType)}&returnTo=${linkReturnTo}`;
+  const periodNoQuery = modal?.contractNo
+    ? `&periodNo=${encodeURIComponent(modal.contractNo)}`
+    : '';
+  const addSpotHref = `/internal-user/sopf/addestimate?periodid=${encodeURIComponent(modal?.periodId || '')}&selBType=${encodeURIComponent(businessType)}&estimatetype=${encodeURIComponent(businessType)}${periodNoQuery}&returnTo=${linkReturnTo}`;
+  const addTcHref = `${tcAppPath(tcHost, 'add')}?periodId=${encodeURIComponent(modal?.periodId || '')}&selBType=${encodeURIComponent(businessType)}${periodNoQuery}&returnTo=${linkReturnTo}`;
   const editHref = (periodId) => `/internal-user/${module}/period-contracts/edit/${periodId}`;
 
   const headerActions = (
@@ -500,32 +491,11 @@ export default function PeriodContractListPage() {
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
         toolbarStart={(
-          <div className={styles.menuWrap} ref={menuRef}>
-            <button
-              type="button"
-              className={styles.btnMore}
-              aria-label="More options"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="12" cy="5" r="1.8" />
-                <circle cx="12" cy="12" r="1.8" />
-                <circle cx="12" cy="19" r="1.8" />
-              </svg>
-            </button>
-            {menuOpen ? (
-              <div className={styles.menuDropdown} role="menu">
-                <button type="button" role="menuitem" className={styles.menuItem} onClick={handleDownloadExcel}>
-                  <span className={styles.menuIcon} aria-hidden>
-                    <DownloadIcon size={16} title="" />
-                  </span>
-                  Download Excel
-                </button>
-              </div>
-            ) : null}
-          </div>
+          <GridDownloadMenu
+            onDownloadExcel={handleDownloadExcel}
+            onDownloadPdf={handleDownloadPdf}
+            onEmailAttachment={handleEmailAttachment}
+          />
         )}
         toolbarLeft={(
           <>
@@ -661,10 +631,7 @@ export default function PeriodContractListPage() {
                   <section className={styles.amSection}>
                     <div className={styles.amSectionHead}>
                       <div className={styles.amSectionTitleWrap}>
-                        <svg className={`${styles.amSectionIcon} ${styles.spotIcon}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M12 7v5l3.5 2" />
-                        </svg>
+                        <img src={spotNavIcon} alt="" className={`${styles.amSectionIcon} ${styles.spotIcon}`} />
                         <span className={`${styles.amSectionTitle} ${styles.spotTitle}`}>Spot</span>
                       </div>
                       <div className={styles.amSectionControls}>
@@ -762,12 +729,8 @@ export default function PeriodContractListPage() {
                   <section className={styles.amSection}>
                     <div className={styles.amSectionHead}>
                       <div className={styles.amSectionTitleWrap}>
-                        <svg className={`${styles.amSectionIcon} ${styles.tcIcon}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <rect x="3" y="5" width="18" height="14" rx="2" />
-                          <path d="M3 10h18" />
-                          <path d="M8 15h3" />
-                        </svg>
-                        <span className={`${styles.amSectionTitle} ${styles.tcTitle}`}>TC</span>
+                        <img src={timeCharterNavIcon} alt="" className={`${styles.amSectionIcon} ${styles.tcIcon}`} />
+                        <span className={`${styles.amSectionTitle} ${styles.tcTitle}`}>Time Charter</span>
                       </div>
                       <div className={styles.amSectionControls}>
                         <CardSelect
@@ -798,11 +761,11 @@ export default function PeriodContractListPage() {
                           type="button"
                           className={`${styles.btnAddTrade} ${styles.btnAddTc}`}
                           disabled={!modal.allowAdd}
-                          title={modal.allowAdd ? 'Add TC' : 'Not available for completed contracts'}
+                          title={modal.allowAdd ? 'Add New TC Recap' : 'Not available for completed contracts'}
                           onClick={() => navigate(addTcHref)}
                         >
                           <PlusIcon />
-                          Add
+                          Add New TC Recap
                         </button>
                       </div>
                     </div>

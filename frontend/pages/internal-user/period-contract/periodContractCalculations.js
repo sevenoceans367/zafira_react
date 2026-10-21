@@ -108,6 +108,58 @@ export function calculateRedeliveryDates({
   };
 }
 
+export function calculatePeriodSpan({
+  deliveryDate,
+  reDelMinDate,
+  reDelMaxDate,
+  periodType,
+}) {
+  const start = parseDMYDate(deliveryDate);
+  if (!start || !periodType) {
+    return { periodMin: '', periodMax: '' };
+  }
+
+  const span = (endValue) => {
+    const end = parseDMYDate(endValue);
+    if (!end) return '';
+    if (String(periodType) === '1') {
+      let months = (end.getFullYear() - start.getFullYear()) * 12
+        + (end.getMonth() - start.getMonth());
+      if (end.getDate() + 1 < start.getDate()) months -= 1;
+      return String(Math.max(0, months));
+    }
+    const days = Math.round((end - start) / 86400000);
+    return String(Math.max(0, days));
+  };
+
+  return {
+    periodMin: span(reDelMinDate),
+    periodMax: span(reDelMaxDate),
+  };
+}
+
+export function defaultBunkerGradeId(bunkers = []) {
+  const match = bunkers.find((item) => /vlsfo|\bvls\b/i.test(String(item?.name || '')));
+  return match ? String(match.id) : '';
+}
+
+export function withDefaultBunkerGrade(form, bunkers = []) {
+  const gradeId = defaultBunkerGradeId(bunkers);
+  if (!gradeId) return form;
+  const fill = (rows = []) => rows.map((row) => (
+    row?.gradeId ? row : { ...row, gradeId }
+  ));
+  return {
+    ...form,
+    deliveryBunkers: fill(form.deliveryBunkers),
+    redeliveryBunkers: fill(form.redeliveryBunkers),
+    offHires: (form.offHires || []).map((offHire) => ({
+      ...offHire,
+      bunkers: fill(offHire.bunkers),
+    })),
+  };
+}
+
 export function periodTypeLabel(periodType) {
   if (String(periodType) === '1') return 'Months';
   if (String(periodType) === '2') return 'Days';

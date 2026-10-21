@@ -4,6 +4,7 @@ import {
 } from './estimateDetail.constants.js';
 import { sanitizeFieldDecimal } from './estimateInputSanitize.js';
 import { CargoDetailsTable } from './TankerFreightModeSection.jsx';
+import WorksheetSelect from '../ops/voyage-financials/WorksheetSelect.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
 function Field({ id, label, children }) {
@@ -39,10 +40,9 @@ export function GasFreightModeSection({
 
   return (
     <>
-      <h4 className={styles.subHeading}>Gas Freight</h4>
       <div className={styles.tankerModeControls}>
         <div className={styles.tankerModeRow}>
-          <span className={styles.tankerModeLabel}>CALCULATION METHOD:</span>
+          <span className={styles.tankerModeLabel}>Calculation Method</span>
           <div className={styles.segmented} role="group" aria-label="Gas freight method">
             <button
               type="button"
@@ -159,10 +159,9 @@ export function DryFreightModeSection({
 
   return (
     <>
-      <h4 className={styles.subHeading}>Dry Cargo Freight</h4>
       <div className={styles.tankerModeControls}>
         <div className={styles.tankerModeRow}>
-          <span className={styles.tankerModeLabel}>CARGO TYPE:</span>
+          <span className={styles.tankerModeLabel}>1. Cargo Type</span>
           <div className={styles.segmented} role="group" aria-label="Dry cargo type">
             <button
               type="button"
@@ -251,7 +250,7 @@ export function DryFreightModeSection({
         <>
           <div className={styles.tankerModeControls}>
             <div className={styles.tankerModeRow}>
-              <span className={styles.tankerModeLabel}>MARKET:</span>
+              <span className={styles.tankerModeLabel}>2. Calculation Method</span>
               <div className={styles.segmented} role="group" aria-label="Dry market method">
                 <button
                   type="button"
@@ -312,33 +311,30 @@ export function DryFreightModeSection({
               <input {...inputProps('cargoQuantity', { recalc: true })} id="cargoQuantityDry" placeholder="0.00" />
             </Field>
             <Field id="lumpsumVendorDry" label="Shipper/Charterer">
-              <select
+              <WorksheetSelect
                 id="lumpsumVendorDry"
-                name="lumpsumVendor"
                 value={form.lumpsumVendor || ''}
                 disabled={readOnly}
-                onChange={(e) => setLumpsumVendor(e.target.value)}
-              >
-                <option value="">— Select —</option>
-                {(() => {
-                  const options = [...(lookups.owners || [])];
-                  const selected = form.lumpsumVendor != null ? String(form.lumpsumVendor) : '';
-                  if (
-                    selected
-                    && !options.some((v) => String(v.code || v.id) === selected)
-                  ) {
-                    options.unshift({ id: selected, code: selected, name: selected });
-                  }
-                  return options.map((v) => {
-                    const optionValue = String(v.code || v.id || '');
-                    return (
-                      <option key={optionValue || v.id} value={optionValue}>
-                        {v.name}
-                      </option>
-                    );
-                  });
-                })()}
-              </select>
+                placeholder="— Select —"
+                options={[
+                  { value: '', label: '— Select —' },
+                  ...(() => {
+                    const options = [...(lookups.owners || [])];
+                    const selected = form.lumpsumVendor != null ? String(form.lumpsumVendor) : '';
+                    if (
+                      selected
+                      && !options.some((v) => String(v.code || v.id) === selected)
+                    ) {
+                      options.unshift({ id: selected, code: selected, name: selected });
+                    }
+                    return options.map((v) => ({
+                      value: String(v.code || v.id || ''),
+                      label: v.name,
+                    }));
+                  })(),
+                ]}
+                onChange={(value) => setLumpsumVendor(value)}
+              />
             </Field>
             {isFreightRate ? (
               <Field id="dfQty" label="DF Qty (MT)">

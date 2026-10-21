@@ -28,6 +28,7 @@ const MOCK_LOOKUPS = {
   ],
   obaVendors: [{ id: 'SO01', name: 'Seven Oceans ( SO01 )' }],
   ownerVendors: [{ id: 'SO01', name: 'Seven Oceans ( SO01 )' }],
+  managerVendors: [{ id: 'VS01', name: 'V SHIPS ( VS01 )' }],
   brokerVendors: [{ id: 'BR01', name: 'Sample Broker ( BR01 )' }],
   vesselTypesByBusiness: {
     3: [{ id: '1', name: 'Handysize' }],
@@ -35,6 +36,31 @@ const MOCK_LOOKUPS = {
   vesselsByBusiness: {
     3: [{ id: '1', name: 'ATLANTIC STAR' }],
   },
+  charterers: [
+    { id: 'C001', name: 'CHEMOIL ( C001 )', address: '1 Harbour Drive, Singapore' },
+    { id: 'C002', name: 'Shell ( C002 )', address: 'Shell Centre, London' },
+  ],
+  charteringTeams: [
+    { id: '6', name: 'Atlantic' },
+    { id: '8', name: 'Pacific' },
+    { id: '4', name: 'Southeast Asia' },
+    { id: '1', name: 'India' },
+  ],
+  charteringPics: [
+    { id: '1', name: 'Audrey T' },
+    { id: '2', name: 'Lewis H' },
+    { id: '3', name: 'Priya N' },
+  ],
+  cpTypes: [
+    { id: '1', name: 'BIMCO' },
+    { id: '2', name: 'NYPE 2015' },
+    { id: '3', name: 'Baltime 1939' },
+  ],
+  lawArbitration: [
+    { id: '1', name: 'English Law' },
+    { id: '2', name: 'New York Law' },
+    { id: '3', name: 'Singapore Law' },
+  ],
 };
 
 const MOCK_RECORDS = [
@@ -203,8 +229,16 @@ export async function getPeriodContractById(periodId) {
       currency: mock.workingCurrency || 'USD',
       owner: 'SO01',
       disOwner: '',
+      charterer: 'C001',
       manager: '',
       broker: 'BR01',
+      charteringTeam: '6',
+      charteringPic: '1',
+      opsPic: '2',
+      recapStatus: mock.status === 'Closed Period Contract' ? 'Fixed' : 'Draft',
+      cpType: '1',
+      lawArbit: '1',
+      charterersAddress: '1 Harbour Drive, Singapore',
       brokerage: '1.25',
       hire: mock.initialHire,
       addComm: '2.5',

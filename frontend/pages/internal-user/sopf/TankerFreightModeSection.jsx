@@ -8,6 +8,7 @@ import {
 } from './estimateDetail.constants.js';
 import { getAddRowBlockMessage } from './estimateValidation.js';
 import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
+import WorksheetSelect from '../ops/voyage-financials/WorksheetSelect.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
 function Field({ id, label, children }) {
@@ -41,17 +42,15 @@ export function CargoDetailsTable({
   addRow,
   removeRow,
   createRow,
-  SelectField,
+  SelectField = WorksheetSelect,
 }) {
   const totals = sumCargoRows(rows);
 
   return (
     <div className={styles.nestedBlock}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <strong>{title}</strong>
-      </div>
+      <div className={styles.consTitle}>{title}</div>
       <div className={styles.tableWrap}>
-        <table className={styles.portTable}>
+        <table className={`${styles.portTable} ${styles.flushGrid}`}>
           <thead>
             <tr>
               {editable ? <th style={{ width: 64 }} /> : null}
@@ -82,67 +81,36 @@ export function CargoDetailsTable({
                   </td>
                 ) : null}
                 <td>
-                  {SelectField ? (
-                    <SelectField
-                      ariaLabel="Shipper/Charterer"
-                      placeholder="Select"
-                      value={String(row.charterer || row.vendorId || '')}
-                      disabled={readOnly}
-                      options={(lookups.owners || []).map((v) => ({ id: String(v.id), name: v.name }))}
-                      onChange={(value) => updateRow(collection, row.id, {
-                        charterer: value,
-                        vendorId: value,
-                      })}
-                    />
-                  ) : (
-                    <select
-                      value={row.charterer || row.vendorId || ''}
-                      disabled={readOnly}
-                      onChange={(e) => updateRow(collection, row.id, {
-                        charterer: e.target.value,
-                        vendorId: e.target.value,
-                      })}
-                    >
-                      <option value="">Select</option>
-                      {(lookups.owners || []).map((v) => (
-                        <option key={v.id} value={v.id}>{v.name}</option>
-                      ))}
-                    </select>
-                  )}
+                  <SelectField
+                    ariaLabel="Shipper/Charterer"
+                    placeholder="— Select —"
+                    value={String(row.charterer || row.vendorId || '')}
+                    disabled={readOnly}
+                    options={[
+                      { id: '', name: '— Select —' },
+                      ...(lookups.owners || []).map((v) => ({ id: String(v.id), name: v.name })),
+                    ]}
+                    onChange={(value) => updateRow(collection, row.id, {
+                      charterer: value,
+                      vendorId: value,
+                    })}
+                  />
                 </td>
                 <td>
-                  {SelectField ? (
-                    <SelectField
-                      ariaLabel="Cargo"
-                      placeholder="Select"
-                      value={String(row.cargoId ?? '')}
-                      disabled={readOnly}
-                      options={(lookups.cargos || []).map((c) => ({ id: String(c.id), name: c.name }))}
-                      onChange={(value) => {
-                        const cargo = (lookups.cargos || []).find((c) => String(c.id) === String(value));
-                        updateRow(collection, row.id, { cargoId: value, cargoName: cargo?.name || '' });
-                      }}
-                    />
-                  ) : (
-                    <select
-                      value={row.cargoId}
-                      disabled={readOnly}
-                      onChange={(e) => {
-                        const cargo = (lookups.cargos || []).find(
-                          (c) => String(c.id) === String(e.target.value),
-                        );
-                        updateRow(collection, row.id, {
-                          cargoId: e.target.value,
-                          cargoName: cargo?.name || '',
-                        });
-                      }}
-                    >
-                      <option value="">Select</option>
-                      {(lookups.cargos || []).map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  )}
+                  <SelectField
+                    ariaLabel="Cargo"
+                    placeholder="— Select —"
+                    value={String(row.cargoId ?? '')}
+                    disabled={readOnly}
+                    options={[
+                      { id: '', name: '— Select —' },
+                      ...(lookups.cargos || []).map((c) => ({ id: String(c.id), name: c.name })),
+                    ]}
+                    onChange={(value) => {
+                      const cargo = (lookups.cargos || []).find((c) => String(c.id) === String(value));
+                      updateRow(collection, row.id, { cargoId: value, cargoName: cargo?.name || '' });
+                    }}
+                  />
                 </td>
                 <td>
                   <input
@@ -218,7 +186,7 @@ export default function TankerFreightModeSection({
   removeRow,
   onRecalc,
   updateField,
-  SelectField,
+  SelectField = WorksheetSelect,
 }) {
   const alert = useAlert();
   const vendorOptions = (selected) => {
@@ -320,11 +288,10 @@ export default function TankerFreightModeSection({
 
   return (
     <>
-      <h4 className={styles.subHeading}>Tanker Freight Mode</h4>
       <div className={styles.tankerModeControls}>
         <div className={styles.tankerModeRow}>
-          <span className={styles.tankerModeLabel}>1. CARGO TYPE:</span>
-          <div className={styles.segmented} role="group" aria-label="Cargo type">
+          <span className={styles.tankerModeLabel}>1. Cargo Type</span>
+          <div className={`${styles.segmented} ${cargoTypeLocked ? styles.segmentedDisabled : ''}`.trim()} role="group" aria-label="Cargo type">
             <button
               type="button"
               className={`${styles.segmentedBtn} ${isSingle ? styles.segmentedBtnActive : ''}`}
@@ -349,8 +316,8 @@ export default function TankerFreightModeSection({
         </div>
 
         <div className={styles.tankerModeRow}>
-          <span className={styles.tankerModeLabel}>2. CALCULATION METHOD:</span>
-          <div className={styles.segmented} role="group" aria-label="Calculation method">
+          <span className={styles.tankerModeLabel}>2. Calculation Method</span>
+          <div className={`${styles.segmented} ${calcMethodLocked ? styles.segmentedDisabled : ''}`.trim()} role="group" aria-label="Calculation method">
             <button
               type="button"
               className={`${styles.segmentedBtn} ${!isDistributed && chkLumpsum ? styles.segmentedBtnActive : ''}`.trim()}
@@ -386,7 +353,7 @@ export default function TankerFreightModeSection({
       {showSingleSection ? (
         <div className={styles.nestedBlock}>
           {chkLumpsum ? (
-            <div className={styles.headerGrid}>
+            <div className={`${styles.headerGrid} ${styles.gridF3}`}>
               <Field id="lumpsumQty" label="Cargo Qty (MT)">
                 <input {...inputProps('lumpsumQty', { recalc: true })} />
               </Field>
@@ -394,57 +361,26 @@ export default function TankerFreightModeSection({
                 <input {...inputProps('lumpsum', { recalc: true })} />
               </Field>
               <Field id="lumpsumVendor" label="Shipper/Charterer">
-                {SelectField ? (
-                  <SelectField
-                    id="lumpsumVendor"
-                    ariaLabel="Shipper/Charterer"
-                    value={String(form.lumpsumVendor || '')}
-                    disabled={readOnly}
-                    options={vendorOptions(form.lumpsumVendor)}
-                    onChange={(value) => updateField('lumpsumVendor', value)}
-                  />
-                ) : (
-                  <select
-                    id="lumpsumVendor"
-                    name="lumpsumVendor"
-                    value={form.lumpsumVendor || ''}
-                    disabled={readOnly}
-                    onChange={(e) => updateField('lumpsumVendor', e.target.value)}
-                  >
-                    <option value="">— Select —</option>
-                    {(() => {
-                      const options = [...(lookups.owners || [])];
-                      const selected = form.lumpsumVendor != null ? String(form.lumpsumVendor) : '';
-                      if (
-                        selected
-                        && !options.some((v) => String(v.code || v.id) === selected)
-                      ) {
-                        options.unshift({ id: selected, code: selected, name: selected });
-                      }
-                      return options.map((v) => {
-                        const optionValue = String(v.code || v.id || '');
-                        return (
-                          <option key={optionValue || v.id} value={optionValue}>
-                            {v.name}
-                          </option>
-                        );
-                      });
-                    })()}
-                  </select>
-                )}
+                <SelectField
+                  id="lumpsumVendor"
+                  ariaLabel="Shipper/Charterer"
+                  placeholder="— Select —"
+                  value={String(form.lumpsumVendor || '')}
+                  disabled={readOnly}
+                  options={[{ id: '', name: '— Select —' }, ...vendorOptions(form.lumpsumVendor)]}
+                  onChange={(value) => updateField('lumpsumVendor', value)}
+                />
               </Field>
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <strong className={styles.tankerSectionTitle}>Freight Adjustment</strong>
-              </div>
+              <div className={styles.conspGroupHead}>Freight Adjustment</div>
               {(form.tankerWsRows || []).map((row, rowIndex) => (
                 <div key={row.id} className={styles.tankerWsBlock}>
                   <div className={styles.wsPortCombo}>
                     <span className={styles.wsPortComboLabel}>WS Port(s) Combo</span>
                     <div className={styles.wsPortComboField}>
-                      <label htmlFor={`wsFromPort_${rowIndex}`}>From</label>
+                      <label htmlFor={`wsFromPort_${rowIndex}`}>WS Port(s) Combo — From</label>
                       <WsPortMultiSelect
                         id={`wsFromPort_${rowIndex}`}
                         value={row.wsFromPortId}
@@ -461,7 +397,7 @@ export default function TankerFreightModeSection({
                       />
                     </div>
                     <div className={styles.wsPortComboField}>
-                      <label htmlFor={`wsToPort_${rowIndex}`}>To</label>
+                      <label htmlFor={`wsToPort_${rowIndex}`}>WS Port(s) Combo — To</label>
                       <WsPortMultiSelect
                         id={`wsToPort_${rowIndex}`}
                         value={row.wsToPortId}
@@ -480,7 +416,7 @@ export default function TankerFreightModeSection({
                   </div>
 
                   <div className={styles.tableWrap}>
-                    <table className={styles.portTable}>
+                    <table className={`${styles.portTable} ${styles.flushGrid}`}>
                       <thead>
                         <tr>
                           <th style={{ width: 64 }} />
@@ -506,7 +442,7 @@ export default function TankerFreightModeSection({
                               </div>
                             ) : null}
                           </td>
-                          <th scope="row" className={styles.tankerWsRowLabel}>Min Cargo Qty</th>
+                          <th scope="row" className={`${styles.tankerWsRowLabel} ${styles.rowLabel}`}>Min Cargo Qty</th>
                           <td>
                             <input
                               id={`minCargoQty_${rowIndex}`}
@@ -547,40 +483,20 @@ export default function TankerFreightModeSection({
                             />
                           </td>
                           <td>
-                            {SelectField ? (
-                              <SelectField
-                                id={`tankCustomer_${rowIndex}`}
-                                ariaLabel="Customer"
-                                placeholder="Select"
-                                value={String(row.customerId || '')}
-                                disabled={readOnly}
-                                options={vendorOptions(row.customerId)}
-                                onChange={(value) => handleTankerWsFieldChange(row, 'customerId', value)}
-                              />
-                            ) : (
-                              <select
-                                id={`tankCustomer_${rowIndex}`}
-                                name="customerId"
-                                value={row.customerId || ''}
-                                disabled={readOnly}
-                                onChange={(e) => handleTankerWsFieldChange(row, 'customerId', e.target.value)}
-                              >
-                                <option value="">Select</option>
-                                {(lookups.owners || []).map((v) => {
-                                  const optionValue = String(v.code || v.id || '');
-                                  return (
-                                    <option key={optionValue || v.id} value={optionValue}>
-                                      {v.name}
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                            )}
+                            <SelectField
+                              id={`tankCustomer_${rowIndex}`}
+                              ariaLabel="Customer"
+                              placeholder="— Select —"
+                              value={String(row.customerId || '')}
+                              disabled={readOnly}
+                              options={[{ id: '', name: '— Select —' }, ...vendorOptions(row.customerId)]}
+                              onChange={(value) => handleTankerWsFieldChange(row, 'customerId', value)}
+                            />
                           </td>
                         </tr>
                         <tr>
                           <td />
-                          <th scope="row" className={styles.tankerWsRowLabel}>Overage Qty</th>
+                          <th scope="row" className={`${styles.tankerWsRowLabel} ${styles.rowLabel}`}>Overage Qty</th>
                           <td>
                             <input
                               id={`oveCargoQty_${rowIndex}`}
@@ -624,7 +540,7 @@ export default function TankerFreightModeSection({
                         </tr>
                         <tr>
                           <td />
-                          <th scope="row" className={styles.tankerWsRowLabel}>Total Cargo Qty</th>
+                          <th scope="row" className={`${styles.tankerWsRowLabel} ${styles.rowLabel}`}>Total Cargo Qty</th>
                           <td>
                             <input
                               id={`totalQty_${rowIndex}`}

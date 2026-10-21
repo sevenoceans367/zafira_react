@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
+import { LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import {
   checkVoyageNoExists,
@@ -12,8 +12,12 @@ import {
   fetchVesselEstimatePrefill,
 } from '../../../services/estimateDetail.js';
 import { fetchCoa } from '../../../services/coas.js';
+import { fetchPeriodContract } from '../../../services/periodContracts.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
-import EstimateDetailHeaderActions from './EstimateDetailHeaderActions.jsx';
+import EstimateDetailHeaderActions, {
+  ESTIMATE_FORM_ID,
+  EstimateDetailFooterActions,
+} from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { createEmptyDetail, createEmptyPortLeg, toFormState, toReplicateFormState } from './estimateDetail.constants.js';
@@ -30,7 +34,8 @@ export default function AddEstimatePage() {
   const [searchParams] = useSearchParams();
   const estimateType = searchParams.get('estimatetype') || searchParams.get('selBType') || '2';
   const businessType = searchParams.get('selBType') || estimateType;
-  const periodId = searchParams.get('periodid') || '';
+  const periodId = searchParams.get('periodid') || searchParams.get('periodId') || '';
+  const periodNoParam = searchParams.get('periodNo') || searchParams.get('contractNo') || '';
   const coaId = searchParams.get('coaid') || searchParams.get('coaId') || '';
   const replicateFrom = searchParams.get('replicateFrom') || '';
   const useTestData = import.meta.env.DEV && searchParams.get('testdata') === '1';
@@ -64,15 +69,16 @@ export default function AddEstimatePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [coaMeta, setCoaMeta] = useState(null);
+  const [periodMeta, setPeriodMeta] = useState(() => (
+    periodNoParam ? { contractNo: periodNoParam } : null
+  ));
 
   const listHref = returnTo || appPath(
-    `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
+    periodId
+      ? '/internal-user/sopf/period-contracts'
+      : `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
   );
-  const formTitle = coaId
-    ? 'New Spot Estimate'
-    : periodId
-      ? 'Nominate Voyage (New Estimate)'
-      : 'New Spot Estimate';
+  const periodChipNo = periodMeta?.contractNo || periodNoParam;
 
   useEffect(() => {
     let cancelled = false;
@@ -82,11 +88,12 @@ export default function AddEstimatePage() {
       setError('');
       try {
         const sourceTypeHint = estimateType;
-        const [lookupData, periodData, sourceDetail, coaData] = await Promise.all([
+        const [lookupData, periodData, sourceDetail, coaData, periodContract] = await Promise.all([
           fetchEstimateLookups(sourceTypeHint),
           periodId ? fetchPeriodPrefill(periodId) : Promise.resolve(null),
           replicateFrom ? fetchEstimateDetail(replicateFrom) : Promise.resolve(null),
           coaId ? fetchCoa(coaId) : Promise.resolve(null),
+          periodId ? fetchPeriodContract(periodId).catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
 
@@ -98,6 +105,9 @@ export default function AddEstimatePage() {
         } else {
           setCoaMeta(null);
         }
+
+        const resolvedPeriodNo = periodContract?.contractNo || periodNoParam || '';
+        setPeriodMeta(resolvedPeriodNo ? { contractNo: resolvedPeriodNo } : null);
 
         const resolvedType = sourceDetail?.estimateType || sourceTypeHint;
         const lookupsForType = String(resolvedType) === String(sourceTypeHint)
@@ -439,19 +449,24 @@ export default function AddEstimatePage() {
         listHref={listHref}
         disabled={saving || loading}
         onCalculate={handleCalculate}
+        showSubmit
       />
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
       {!loading ? (
-        <form onSubmit={handleSubmit}>
-          {periodId && !coaId ? (
-            <h2 className={styles.formTitle}>{formTitle}</h2>
-          ) : null}
+        <form id={ESTIMATE_FORM_ID} onSubmit={handleSubmit}>
           {coaId && (coaMeta?.coaNo || coaMeta?.coaIdentity) ? (
             <div className={styles.coaMetaRow}>
               <span className={styles.coaChip}>
                 {`COA No: ${coaMeta.coaNo || coaMeta.coaIdentity}`}
+              </span>
+            </div>
+          ) : null}
+          {periodId && !coaId && periodChipNo ? (
+            <div className={styles.coaMetaRow}>
+              <span className={`${styles.coaChip} ${styles.periodChip}`}>
+                {`Period No: ${periodChipNo}`}
               </span>
             </div>
           ) : null}
@@ -466,17 +481,7 @@ export default function AddEstimatePage() {
             onRecalc={handleRecalc}
             onApplyPatch={handleApplyPatch}
           />
-          <div className={styles.actions}>
-            <Button
-              type="button"
-              variant="accent"
-              label="Calculate"
-              onClick={handleCalculate}
-              disabled={saving}
-            />
-            <Button type="submit" variant="submit" label="Submit" disabled={saving} />
-            <Button variant="close" label="Cancel" href={listHref} ariaLabel="Close" />
-          </div>
+          <EstimateDetailFooterActions listHref={listHref} disabled={saving} />
         </form>
       ) : (
         <p className={styles.loading}>Loading estimate form…</p>

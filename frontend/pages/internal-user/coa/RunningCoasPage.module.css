@@ -586,9 +586,10 @@
 }
 
 .amSectionIcon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   flex: none;
+  object-fit: contain;
 }
 
 .spotIcon {
@@ -596,7 +597,7 @@
 }
 
 .reletIcon {
-  color: #6c47ff;
+  color: #9e1b32;
 }
 
 .spotTitle {
@@ -604,7 +605,7 @@
 }
 
 .reletTitle {
-  color: #6c47ff;
+  color: #9e1b32;
 }
 
 .amSectionControls {
@@ -657,13 +658,13 @@
 }
 
 .btnAddRelet {
-  color: #6c47ff;
-  border-color: #6c47ff;
-  background: #efeaff;
+  color: #9e1b32;
+  border-color: #9e1b32;
+  background: #f8e8eb;
 }
 
 .btnAddRelet:hover:not(:disabled) {
-  background: #ddd2ff;
+  background: #f0d0d6;
 }
 
 .btnAddTrade:disabled {

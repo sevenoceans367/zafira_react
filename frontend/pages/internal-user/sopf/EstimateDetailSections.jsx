@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AddCircleButton, AttachmentDropzone, Button, DmyDateInput, useAlert } from '@bainbridge/shared-ui';
+import { AddCircleButton, AttachmentDropzone, Button, DmyDateInput, RowAddButton, RowDelButton, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
@@ -10,9 +10,7 @@ import {
   BUNKER_ACTIVITY_OPTIONS,
   BUNKER_ACTIVITY_RATE_FIELD,
   FIXTURE_TYPE_OPTIONS,
-  NSBG_OPTIONS,
   PASSAGE_TYPE_OPTIONS,
-  SBG_OPTIONS,
   SPEED_DATA_OPTIONS,
   SPEED_TYPE_OPTIONS,
   CONSUMPTION_PORT_COLUMNS,
@@ -103,10 +101,62 @@ function BunkerPriceInput({ value, readOnly, onCommit }) {
   );
 }
 
-function Field({ id, label, children, className = '' }) {
+function PassagePlusIcon() {
   return (
-    <div className={[styles.field, className].filter(Boolean).join(' ')}>
-      <label htmlFor={id}>{label}</label>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function PassageTrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M6 7V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3" />
+      <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
+}
+
+function KhakiRowActions({ onAdd, onRemove, removeDisabled = false }) {
+  return (
+    <div className={styles.khakiRowActions}>
+      <RowAddButton title="Add" onClick={onAdd}>
+        <PassagePlusIcon />
+      </RowAddButton>
+      <RowDelButton title="Remove" disabled={removeDisabled} onClick={onRemove}>
+        <PassageTrashIcon />
+      </RowDelButton>
+    </div>
+  );
+}
+
+function SecAddButton({ onClick, title = 'Add row' }) {
+  return (
+    <div className={styles.panelActionGroup}>
+      <RowAddButton className={styles.secAddBtn} title={title} onClick={onClick}>
+        <PassagePlusIcon />
+      </RowAddButton>
+    </div>
+  );
+}
+
+function Field({ id, label, children, className = '', api = false, required = false }) {
+  return (
+    <div className={[
+      styles.field,
+      api ? styles.apiField : '',
+      required ? styles.requiredField : '',
+      className,
+    ].filter(Boolean).join(' ')}>
+      <label htmlFor={id}>
+        {label}
+        {api ? <span className={styles.apiTag}>API</span> : null}
+      </label>
       {children}
     </div>
   );
@@ -506,6 +556,10 @@ export default function EstimateDetailSections({
 
   // PHP Bunkers table: qty from consumption MT, price from SECA row (txtSECABunkerPrice / slave2 EST_PRICE).
   const bunkerSummaryRows = buildBunkerSummaryRows(form, bunkerGradeName);
+  const bunkerQtyTotal = bunkerSummaryRows.reduce((sum, row) => {
+    const n = Number(row.qty);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
   const {
     addressDemmComm,
     totalCommPercent,
@@ -569,16 +623,20 @@ export default function EstimateDetailSections({
     <div className={styles.estimateForm}>
       <div className={styles.estimateMain}>
        <CollapsiblePanel title="Estimate Identifier" defaultOpen>
-          <div className={styles.headerGrid}>
+          <div className={`${styles.headerGrid} ${styles.headerGridIdent}`}>
             <Field id="fixtureTypeId" label="Contract Type">
               {readOnly ? (
                 <input id="fixtureTypeId" value={getFixtureTypeLabel(form.fixtureTypeId)} readOnly />
               ) : (
-                <select
+                <WorksheetSelect
                   id="fixtureTypeId"
                   value={String(form.fixtureTypeId ?? '')}
-                  onChange={(e) => {
-                    const value = e.target.value;
+                  placeholder="Select from list"
+                  options={[
+                    { value: '', label: 'Select from list' },
+                    ...FIXTURE_TYPE_OPTIONS,
+                  ]}
+                  onChange={(value) => {
                     const patch = { fixtureTypeId: value };
                     // PHP makeFieldManD: VCOUT hides hire / clears index; TCIN/VCIN clear Vessel Daily Ops
                     if (value === '3') {
@@ -593,16 +651,11 @@ export default function EstimateDetailSections({
                     }
                     applyPatch(patch);
                   }}
-                >
-                  <option value="">Select from list</option>
-                  {FIXTURE_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
+                />
               )}
             </Field>
 
-            <Field id="vesselName" label="Vessel">
+            <Field id="vesselName" label="Vessel" api className={styles.apiEditable}>
               {readOnly ? (
                 <input id="vesselName" value={form.vesselName} readOnly />
               ) : (
@@ -614,10 +667,10 @@ export default function EstimateDetailSections({
               )}
             </Field>
 
-            <Field id="vesselType" label="Vessel Type">
-              <input {...inputProps('vesselType')} />
+            <Field id="vesselType" label="Vessel Type" api>
+              <input id="vesselType" value={form.vesselType || ''} readOnly />
             </Field>
-            <Field id="flag" label="Flag">
+            <Field id="flag" label="Flag" api>
               <input id="flag" value={form.flag} readOnly />
             </Field>
             <Field id="transDate" label="CP Date">
@@ -635,7 +688,7 @@ export default function EstimateDetailSections({
                 />
               )}
             </Field>
-            <Field id="voyageNo" label="Voyage No." className={styles.voyageNoField}>
+            <Field id="voyageNo" label="Voyage No." required className={styles.voyageNoField}>
               <input
                 id="voyageNo"
                 value={form.voyageNo}
@@ -645,7 +698,7 @@ export default function EstimateDetailSections({
                 onBlur={handleVoyageNoBlur}
               />
             </Field>
-            <Field id="estimateNo" label="Estimate No.">
+            <Field id="estimateNo" label="Estimate No." api>
               <input
                 id="estimateNo"
                 value={form.voyageNo
@@ -655,13 +708,13 @@ export default function EstimateDetailSections({
                 placeholder="Est1"
               />
             </Field>
-            <Field id="estimateType" label="Trade type">
+            <Field id="estimateType" label="Trade Type" api>
               <input id="estimateType" value={detail.estimateTypeLabel} readOnly />
             </Field>
             <Field id="sdrToUsd" label="SDR Rate">
               <input {...inputProps('sdrToUsd', { recalc: true })} />
             </Field>
-            <Field id="scnt" label="SCNT">
+            <Field id="scnt" label="SCNT" api>
               <input id="scnt" value={form.scnt || ''} readOnly placeholder="0.00" />
             </Field>
             <Field id="laycanStart" label="Laycan Start">
@@ -694,80 +747,91 @@ export default function EstimateDetailSections({
               )}
             </Field>
             <Field id="periodId" label="Link Period Contract">
-              <select
+              <WorksheetSelect
                 id="periodId"
                 value={form.periodId || ''}
                 disabled={readOnly}
-                onChange={(e) => {
-                  const value = e.target.value;
+                placeholder="— Select —"
+                options={[
+                  { value: '', label: '— Select —' },
+                  ...(lookups.periodContracts || []).map((row) => ({
+                    value: row.id,
+                    label: row.label || row.id,
+                  })),
+                ]}
+                onChange={(value) => {
                   updateField('periodId', value);
                   onPeriodContractChange?.(value);
                 }}
-              >
-                <option value="">— Select —</option>
-                {(lookups.periodContracts || []).map((row) => (
-                  <option key={row.id} value={row.id}>{row.label || row.id}</option>
-                ))}
-              </select>
+              />
             </Field>
             <Field id="charteringTeam" label="Chartering Team">
-              <select
+              <WorksheetSelect
                 id="charteringTeam"
                 value={form.charteringTeam || ''}
                 disabled={readOnly}
-                onChange={(e) => updateField('charteringTeam', e.target.value)}
-              >
-                <option value="">— Select —</option>
-                {(lookups.charteringTeams || []).map((row) => (
-                  <option key={row.id} value={row.id}>{row.name}</option>
-                ))}
-              </select>
+                placeholder="— Select —"
+                options={[
+                  { value: '', label: '— Select —' },
+                  ...(lookups.charteringTeams || []).map((row) => ({
+                    value: row.id,
+                    label: row.name,
+                  })),
+                ]}
+                onChange={(value) => updateField('charteringTeam', value)}
+              />
             </Field>
             <Field id="charteringPic" label="Chartering PIC">
-              <select
+              <WorksheetSelect
                 id="charteringPic"
                 value={form.charteringPic || ''}
                 disabled={readOnly}
-                onChange={(e) => updateField('charteringPic', e.target.value)}
-              >
-                <option value="">— Select —</option>
-                {(() => {
-                  const options = [...(lookups.charteringPics || [])];
-                  const id = form.charteringPic != null ? String(form.charteringPic) : '';
-                  if (id && !options.some((row) => String(row.id) === id)) {
-                    options.unshift({ id, name: form.charteringPicName || id });
-                  }
-                  return options.map((row) => (
-                    <option key={row.id} value={row.id}>{row.name}</option>
-                  ));
-                })()}
-              </select>
+                placeholder="— Select —"
+                options={[
+                  { value: '', label: '— Select —' },
+                  ...(() => {
+                    const options = [...(lookups.charteringPics || [])];
+                    const id = form.charteringPic != null ? String(form.charteringPic) : '';
+                    if (id && !options.some((row) => String(row.id) === id)) {
+                      options.unshift({ id, name: form.charteringPicName || id });
+                    }
+                    return options.map((row) => ({ value: row.id, label: row.name }));
+                  })(),
+                ]}
+                onChange={(value) => updateField('charteringPic', value)}
+              />
             </Field>
           </div>
       </CollapsiblePanel>
 
        <CollapsiblePanel title="Fixed Vessel Particulars" defaultOpen={false}>
-          <div className={styles.headerGrid}>
-            <Field id="dwtSummer" label="DWT (Summer)">
-              <input {...inputProps('dwtSummer')} />
+          <div className={`${styles.headerGrid} ${styles.headerGridAuto}`}>
+            <Field id="builtYear" label="Built Year" api className={styles.apiEditable}>
+              <input {...inputProps('builtYear')} />
             </Field>
-            <Field id="dwtTropical" label="DWT (Tropical)">
-              <input {...inputProps('dwtTropical')} />
-            </Field>
-            <Field id="gnrt" label="GRT">
+            <Field id="gnrt" label="GRT" api className={styles.apiEditable}>
               <input {...inputProps('gnrt')} />
             </Field>
-            <Field id="nrt" label="NRT">
+            <Field id="nrt" label="NRT" api>
               <input
                 id="nrt"
                 value={form.nrt || (form.gnrt ? (Number(String(form.gnrt).split('/')[0] || form.gnrt) * 0.7).toFixed(2) : '')}
                 readOnly
               />
             </Field>
-            <Field id="loa" label="LOA">
+            <Field id="loa" label="LOA (M)" api className={styles.apiEditable}>
               <input {...inputProps('loa')} />
             </Field>
-            <Field id="tpc" label="TPC">
+            <Field id="beam" label="Beam (M)" api className={styles.apiEditable}>
+              <input {...inputProps('beam')} />
+            </Field>
+            <Field id="dwtSummer" label="DWT (Summer)" api className={styles.apiEditable}>
+              <input {...inputProps('dwtSummer')} />
+            </Field>
+            <Field id="dwtTropical" label="DWT (Tropical)" api className={styles.apiEditable}>
+              <input {...inputProps('dwtTropical')} />
+            </Field>
+            <Field id="tpc" label="TPC" api className={styles.apiEditable}>
               <input {...inputProps('tpc')} />
             </Field>
             {!isTanker ? (
@@ -775,12 +839,6 @@ export default function EstimateDetailSections({
                 <input {...inputProps('gear')} />
               </Field>
             ) : null}
-            <Field id="builtYear" label="Year Built">
-              <input {...inputProps('builtYear')} />
-            </Field>
-            <Field id="beam" label="Beam">
-              <input {...inputProps('beam')} />
-            </Field>
             {!isTanker ? (
               <>
                 <Field id="loadable" label="Loadable">
@@ -804,6 +862,7 @@ export default function EstimateDetailSections({
         <CollapsiblePanel
         title="Passage & Ports"
         defaultOpen
+        bodyClassName={styles.panelBodyFlush}
         actions={(
           <div className={styles.panelActionGroup}>
             {sofHref ? (
@@ -815,51 +874,82 @@ export default function EstimateDetailSections({
                 to={sofHref}
               />
             ) : null}
-            <Button
+            <button
               type="button"
-              size="sm"
-              variant="outline"
-              label="Itinerary"
-              ariaLabel="Itinerary"
+              className={styles.btnDetails}
               onClick={() => setItineraryOpen(true)}
-            />
+            >
+              Itinerary
+            </button>
           </div>
         )}
       >
-        <div className={voyStyles.portLegsStack}>
-          {(form.portLegs || []).map((leg, legIndex) => {
-            const isLastLeg = legIndex === (form.portLegs || []).length - 1;
-            return (
-            <div key={leg.id} className={voyStyles.portLegCard}>
-              <table className={`${styles.portTable} ${voyStyles.portLegConnected}`}>
-                <thead>
+        <div className={styles.tableWrap}>
+          <table className={`${styles.portTable} ${styles.flushGrid} ${styles.passageTable}`}>
+            <colgroup>
+              <col style={{ width: 46 }} />
+              <col style={{ width: 108 }} />
+              <col style={{ width: 128 }} />
+              <col style={{ width: 128 }} />
+              <col style={{ width: 52 }} />
+              <col style={{ width: 74 }} />
+              <col style={{ width: 88 }} />
+              <col style={{ width: 54 }} />
+              <col style={{ width: 76 }} />
+              <col style={{ width: 52 }} />
+              <col style={{ width: 76 }} />
+              <col style={{ width: 52 }} />
+              <col style={{ width: 78 }} />
+              <col style={{ width: 52 }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th />
+                <th>Port</th>
+                <th>Departure</th>
+                <th>Arrival</th>
+                <th>WX (%)</th>
+                <th>L/B</th>
+                <th>Speed Type</th>
+                <th>Sync</th>
+                <th>Total Dist</th>
+                <th>Total Days</th>
+                <th>NSECA Dist</th>
+                <th>NSECA Days</th>
+                <th>SECA Dist</th>
+                <th>SECA Days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(form.portLegs || []).map((leg, legIndex) => {
+                const isLastLeg = legIndex === (form.portLegs || []).length - 1;
+                return (
+                <React.Fragment key={leg.id}>
                   <tr>
-                    <th className={styles.portIdxCol}>#</th>
-                    <th>From Port</th>
-                    <th>{legIndex > 0 ? 'Arrival' : null}</th>
-                    <th>Departure</th>
-                    <th className={voyStyles.wxCol}>Wx(%)</th>
-                    <th>L/B</th>
-                    <th className={voyStyles.speedTypeCol}>Speed Type</th>
-                    <th>Route</th>
-                    <th>Total Dist</th>
-                    <th>Total Days</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className={styles.portIdxCol}>
-                      {editable
-                        && (form.portLegs || []).length > 1
-                        && isLastLeg ? (
-                          <RowRemoveButton onClick={() => removeRow('portLegs', leg.id)} />
-                        ) : (
-                          <span>{legIndex + 1}</span>
-                        )}
+                    <td rowSpan={2} className={styles.legLead}>
+                      <span className={styles.legNum}>{legIndex + 1}</span>
+                      {editable && isLastLeg ? (
+                        <div className={styles.legActions}>
+                          <RowAddButton
+                            title="Add leg"
+                            onClick={() => addRow('portLegs', createEmptyPortLeg)}
+                          >
+                            <PassagePlusIcon />
+                          </RowAddButton>
+                          <RowDelButton
+                            title="Remove leg"
+                            disabled={(form.portLegs || []).length <= 1}
+                            onClick={() => removeRow('portLegs', leg.id)}
+                          >
+                            <PassageTrashIcon />
+                          </RowDelButton>
+                        </div>
+                      ) : null}
                     </td>
-                    <td>
+                    <td className={styles.portTd}>
+                      <div className={styles.legRowLabel}>From Port</div>
                       {readOnly ? (
-                        leg.fromPortName || leg.fromPortId || '—'
+                        <span title={leg.fromPortName || ''}>{leg.fromPortName || leg.fromPortId || '—'}</span>
                       ) : (
                         <PortSearchSelect
                           id={legIndex === 0 ? 'portFrom_0' : `portFrom_${legIndex}`}
@@ -872,6 +962,20 @@ export default function EstimateDetailSections({
                               fromPortName: portName,
                             });
                           }}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {readOnly ? (
+                        <input value={leg.fromDeparture || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          allowClear={false}
+                          id={`fromDeparture_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.fromDeparture || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
                         />
                       )}
                     </td>
@@ -889,26 +993,15 @@ export default function EstimateDetailSections({
                             onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
                           />
                         )
-                      ) : null}
-                    </td>
-                    <td>
-                      {readOnly ? (
-                        <input value={leg.fromDeparture || ''} readOnly />
                       ) : (
-                        <DmyDateInput
-                          allowClear={false}
-                          id={`fromDeparture_${leg.id}`}
-                          enableTime
-                          className=""
-                          value={leg.fromDeparture || ''}
-                          onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
-                        />
+                        <span className={styles.mutedDash}>—</span>
                       )}
                     </td>
-                    <td className={voyStyles.wxCol}>
+                    <td>
                       <input
                         value={leg.seaMargin ?? ''}
                         readOnly={readOnly}
+                        placeholder="5.00"
                         onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
                       />
                     </td>
@@ -921,7 +1014,7 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { passageType: value })}
                       />
                     </td>
-                    <td className={voyStyles.speedTypeCol}>
+                    <td>
                       <WorksheetSelect
                         id={legIndex === 0 ? 'portSpeed_0' : `portSpeed_${legIndex}`}
                         value={leg.speedType}
@@ -934,12 +1027,18 @@ export default function EstimateDetailSections({
                       {editable ? (
                         <button
                           type="button"
-                          className={styles.fetchBtn}
+                          className={styles.syncChip}
                           onClick={() => openDistanceFetch(leg)}
                         >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+                            <path d="M21 3v6h-6" />
+                          </svg>
                           Sync
                         </button>
-                      ) : null}
+                      ) : (
+                        <span className={styles.mutedDash}>—</span>
+                      )}
                     </td>
                     <td>
                       <input
@@ -952,34 +1051,13 @@ export default function EstimateDetailSections({
                     <td>
                       <input value={leg.seaDays || ''} readOnly />
                     </td>
+                    <td colSpan={4} className={styles.mutedDash}>—</td>
                   </tr>
-                </tbody>
-                <thead>
                   <tr>
-                    <th />
-                    <th>To Port</th>
-                    <th>Arrival</th>
-                    <th>Departure</th>
-                    <th className={voyStyles.bgCol}>BG</th>
-                    <th>NSECA Dist</th>
-                    <th>NSECA Days</th>
-                    <th className={voyStyles.bgCol}>BG</th>
-                    <th>SECA Dist</th>
-                    <th>SECA Days</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className={styles.portIdxCol}>
-                      {editable && isLastLeg ? (
-                        <AddCircleButton
-                          onClick={() => addRow('portLegs', createEmptyPortLeg)}
-                        />
-                      ) : null}
-                    </td>
-                    <td>
+                    <td className={styles.portTd}>
+                      <div className={styles.legRowLabel}>To Port</div>
                       {readOnly ? (
-                        leg.toPortName || leg.toPortId || '—'
+                        <span title={leg.toPortName || ''}>{leg.toPortName || leg.toPortId || '—'}</span>
                       ) : (
                         <PortSearchSelect
                           id={legIndex === 0 ? 'portTo_0' : `portTo_${legIndex}`}
@@ -997,20 +1075,6 @@ export default function EstimateDetailSections({
                     </td>
                     <td>
                       {readOnly ? (
-                        <input value={leg.toArrival || ''} readOnly />
-                      ) : (
-                        <DmyDateInput
-                          allowClear={false}
-                          id={`toArrival_${leg.id}`}
-                          enableTime
-                          className=""
-                          value={leg.toArrival || ''}
-                          onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
-                        />
-                      )}
-                    </td>
-                    <td>
-                      {readOnly ? (
                         <input value={leg.toDeparture || ''} readOnly />
                       ) : (
                         <DmyDateInput
@@ -1023,29 +1087,26 @@ export default function EstimateDetailSections({
                         />
                       )}
                     </td>
-                    <td className={voyStyles.bgCol}>
-                      <WorksheetSelect
-                        value={leg.bgNonSeca || 'VLSFO'}
-                        gradeLabel={leg.bgNonSeca || 'VLSFO'}
-                        disabled={readOnly}
-                        options={NSBG_OPTIONS}
-                        onChange={(value) => updateRow('portLegs', leg.id, { bgNonSeca: value })}
-                      />
-                    </td>
                     <td>
-                      <input value={leg.nonSecaDistance || ''} readOnly />
+                      {readOnly ? (
+                        <input value={leg.toArrival || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          allowClear={false}
+                          id={`toArrival_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.toArrival || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
+                        />
+                      )}
+                    </td>
+                    <td colSpan={6} className={styles.mutedDash}>—</td>
+                    <td>
+                      <input value={leg.nonSecaDistance || ''} readOnly={readOnly} onChange={(e) => updateRow('portLegs', leg.id, { nonSecaDistance: e.target.value })} />
                     </td>
                     <td>
                       <input value={leg.nonSecaDays || ''} readOnly />
-                    </td>
-                    <td className={voyStyles.bgCol}>
-                      <WorksheetSelect
-                        value={leg.bgSeca || 'LSMGO'}
-                        gradeLabel={leg.bgSeca || 'LSMGO'}
-                        disabled={readOnly}
-                        options={SBG_OPTIONS}
-                        onChange={(value) => updateRow('portLegs', leg.id, { bgSeca: value })}
-                      />
                     </td>
                     <td>
                       <input
@@ -1058,11 +1119,11 @@ export default function EstimateDetailSections({
                       <input value={leg.secaDays || ''} readOnly />
                     </td>
                   </tr>
-                </tbody>
-              </table>
-            </div>
-            );
-          })}
+                </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </CollapsiblePanel>
 
@@ -1120,7 +1181,7 @@ export default function EstimateDetailSections({
             <div className={styles.consBlock}>
               <div className={styles.consTitle}>{title}</div>
               <div className={styles.tableWrap}>
-                <table className={styles.portTable}>
+                <table className={`${styles.portTable} ${styles.flushGrid} ${styles.conspTable}`}>
                   <thead>
                     <tr>
                       <th>Bunker</th>
@@ -1183,29 +1244,29 @@ export default function EstimateDetailSections({
 
           return (
             <>
-              <div className={styles.speedDataBar}>
-                <span className={styles.speedDataLabel}>Speed Data</span>
-                <select
-                  id="speedDataType"
-                  value={speedDataType}
-                  disabled={readOnly}
-                  onChange={(e) => updateField('speedDataType', e.target.value)}
-                >
-                  {SPEED_DATA_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                <Field id={ballastKey} label="Ballast Speed (Knots)">
+              <div className={`${styles.headerGrid} ${styles.gridF3}`}>
+                <Field id="speedDataType" label="Speed Data">
+                  <WorksheetSelect
+                    id="speedDataType"
+                    value={speedDataType}
+                    disabled={readOnly}
+                    options={SPEED_DATA_OPTIONS}
+                    onChange={(value) => updateField('speedDataType', value)}
+                  />
+                </Field>
+                <Field id={ballastKey} label="Ballast Speed (Knots)" api className={styles.apiEditable}>
                   <input {...inputProps(ballastKey, { recalc: true })} placeholder="0.00" />
                 </Field>
-                <Field id={ladenKey} label="Laden Speed (Knots)">
+                <Field id={ladenKey} label="Laden Speed (Knots)" api className={styles.apiEditable}>
                   <input {...inputProps(ladenKey, { recalc: true })} placeholder="0.00" />
                 </Field>
               </div>
-              {renderConsTable('FO Consp/day (MT) - At Sea / In Port (SECA & NON-SECA)', foRows, 'FO', atSeaCols)}
-              {renderConsTable('DO Consp/day (MT) - At Sea / In Port (SECA & NON-SECA)', doRows, 'DO', atSeaCols)}
-              {renderConsTable('FO Consp/day (MT) - Others (SECA & NON-SECA)', foRows, 'FO', CONSUMPTION_OTHERS_COLUMNS)}
-              {renderConsTable('DO Consp/day (MT) - Others (SECA & NON-SECA)', doRows, 'DO', CONSUMPTION_OTHERS_COLUMNS)}
+              <div className={styles.conspGroupHead}>At Sea / In Port (SECA & NON-SECA)</div>
+              {renderConsTable('FO Consp/day (MT)', foRows, 'FO', atSeaCols)}
+              {renderConsTable('DO Consp/day (MT)', doRows, 'DO', atSeaCols)}
+              <div className={styles.conspGroupHead}>Others</div>
+              {renderConsTable('FO Consp/day (MT)', foRows, 'FO', CONSUMPTION_OTHERS_COLUMNS)}
+              {renderConsTable('DO Consp/day (MT)', doRows, 'DO', CONSUMPTION_OTHERS_COLUMNS)}
             </>
           );
         })()}
@@ -1220,10 +1281,10 @@ export default function EstimateDetailSections({
         title="Cargo"
         defaultOpen
       >
-        <div className={styles.headerGrid}>
+        <div className={styles.cargoHeaderGrid}>
           {!(!isGas && String(form.tankType || '1') === '2') ? (
           <Field id="cargoId_0" label="Cargo Name" className={styles.cargoMultiSelectField}>
-            <div id="cargoId_0" className={styles.cargoMultiSelectWrap}>
+            <div id="cargoId_0" className={`${styles.cargoMultiSelectWrap} ${styles.cargoChipsOrange}`}>
               {(() => {
                 const cargoLookup = (lookups.cargos || [])
                   .map((c) => ({
@@ -1259,6 +1320,7 @@ export default function EstimateDetailSections({
                 return (
               <CountryMultiSelect
                 compact
+                chipTone="cargo"
                 options={[...optionMap.values()]}
                 value={selectedCargoIds}
                 disabled={readOnly || isCoaSpot}
@@ -1349,22 +1411,25 @@ export default function EstimateDetailSections({
       <CollapsiblePanel
         title="Commissions"
         defaultOpen
+        bodyClassName={styles.panelBodyFlush}
+        actions={editable ? (
+          <SecAddButton onClick={() => addRow('brokerRows', createEmptyBrokerRow)} />
+        ) : null}
       >
         <div className={styles.tableWrap}>
-          <table className={styles.portTable}>
+          <table className={`${styles.portTable} ${styles.flushGrid}`}>
             <thead>
               <tr>
-                <th style={{ width: 56 }} />
-                <th />
+                <th>Description</th>
                 <th>Percentage (%)</th>
                 <th>Freight Comm.</th>
                 <th>Demurrage Comm.</th>
+                {editable ? <th className={styles.stickyAct} /> : null}
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td />
-                <td>ADCOM Freight</td>
+                <td className={styles.rowLabel}>ADCOM Freight</td>
                 <td>
                   <input {...inputProps('addCommPercent', { recalc: true })} id="addCommPercentCargo" placeholder="0.00" />
                 </td>
@@ -1379,15 +1444,11 @@ export default function EstimateDetailSections({
                     placeholder="0.00"
                   />
                 </td>
+                {editable ? <td className={styles.stickyAct} /> : null}
               </tr>
               {(form.brokerRows || []).map((row) => (
                 <tr key={row.id}>
-                  <td>
-                    {editable ? (
-                      <RowRemoveButton onClick={() => removeRow('brokerRows', row.id)} />
-                    ) : null}
-                  </td>
-                  <td>Brokerage commission</td>
+                  <td className={styles.rowLabel}>Brokerage commission</td>
                   <td>
                     <input
                       value={row.percent || ''}
@@ -1404,17 +1465,20 @@ export default function EstimateDetailSections({
                   <td>
                     <input value={row.demmPercent || ''} readOnly placeholder="0.00" />
                   </td>
+                  {editable ? (
+                    <td className={styles.stickyAct}>
+                      <KhakiRowActions
+                        onAdd={() => addRow('brokerRows', createEmptyBrokerRow)}
+                        onRemove={() => removeRow('brokerRows', row.id)}
+                      />
+                    </td>
+                  ) : null}
                 </tr>
               ))}
+            </tbody>
+            <tfoot>
               <tr>
-                <td>
-                  {editable ? (
-                    <AddCircleButton
-                      onClick={() => addRow('brokerRows', createEmptyBrokerRow)}
-                    />
-                  ) : null}
-                </td>
-                <td>Total</td>
+                <td className={styles.rowLabel}>Total</td>
                 <td>
                   <input
                     id="brokeragePercentCargo"
@@ -1439,8 +1503,9 @@ export default function EstimateDetailSections({
                     placeholder="0.00"
                   />
                 </td>
+                {editable ? <td className={styles.stickyAct} /> : null}
               </tr>
-            </tbody>
+            </tfoot>
           </table>
         </div>
       </CollapsiblePanel>
@@ -1456,35 +1521,36 @@ export default function EstimateDetailSections({
       <CollapsiblePanel
         title="OPEX"
         defaultOpen
+        bodyClassName={styles.panelBodyFlush}
         actions={editable ? (
-          <AddCircleButton
-            onClick={() => addRow('orcRows', () => createDefaultOrcRow(lookups.ownerCosts))}
-          />
+          <SecAddButton onClick={() => addRow('orcRows', () => createDefaultOrcRow(lookups.ownerCosts))} />
         ) : null}
       >
         <div className={styles.tableWrap}>
-          <table className={styles.portTable}>
+          <table className={`${styles.portTable} ${styles.flushGrid}`}>
             <thead>
               <tr>
-                {editable ? <th style={{ width: 36 }} /> : null}
                 <th>Cost</th>
                 <th>Amount</th>
+                {editable ? <th className={styles.stickyAct} /> : null}
               </tr>
             </thead>
             <tbody>
               {(form.orcRows || []).map((row) => (
                 <tr key={row.id}>
-                  {editable ? (
-                    <td>
-                      <RowRemoveButton onClick={() => removeRow('orcRows', row.id)} />
-                    </td>
-                  ) : null}
                   <td>
-                    <select
+                    <WorksheetSelect
                       value={row.costId || ''}
                       disabled={readOnly}
-                      onChange={(e) => {
-                        const costId = e.target.value;
+                      placeholder="— Select —"
+                      options={[
+                        { value: '', label: '— Select —' },
+                        ...(lookups.ownerCosts || []).map((cost) => ({
+                          value: cost.id,
+                          label: cost.name,
+                        })),
+                      ]}
+                      onChange={(costId) => {
                         const match = (lookups.ownerCosts || []).find(
                           (c) => String(c.id) === String(costId),
                         );
@@ -1493,12 +1559,7 @@ export default function EstimateDetailSections({
                           costName: match?.name || '',
                         });
                       }}
-                    >
-                      <option value="">— Select —</option>
-                      {(lookups.ownerCosts || []).map((cost) => (
-                        <option key={cost.id} value={cost.id}>{cost.name}</option>
-                      ))}
-                    </select>
+                    />
                   </td>
                   <td>
                     <input
@@ -1510,10 +1571,20 @@ export default function EstimateDetailSections({
                       onChange={(e) => updateRow('orcRows', row.id, { amount: e.target.value })}
                     />
                   </td>
+                  {editable ? (
+                    <td className={styles.stickyAct}>
+                      <KhakiRowActions
+                        onAdd={() => addRow('orcRows', () => createDefaultOrcRow(lookups.ownerCosts))}
+                        onRemove={() => removeRow('orcRows', row.id)}
+                      />
+                    </td>
+                  ) : null}
                 </tr>
               ))}
+            </tbody>
+            <tfoot>
               <tr>
-                <td colSpan={editable ? 2 : 1} />
+                <td className={styles.rowLabel}>Total</td>
                 <td>
                   <input
                     id="totalOrcCost"
@@ -1522,8 +1593,9 @@ export default function EstimateDetailSections({
                     placeholder="0.00"
                   />
                 </td>
+                {editable ? <td className={styles.stickyAct} /> : null}
               </tr>
-            </tbody>
+            </tfoot>
           </table>
         </div>
       </CollapsiblePanel>
@@ -1532,6 +1604,7 @@ export default function EstimateDetailSections({
         <CollapsiblePanel
           title="Additional Bunker Consumption"
           defaultOpen={false}
+          bodyClassName={styles.panelBodyFlush}
           actions={editable ? (
             <AddCircleButton
               onClick={() => addRow('bunkerActivityRows', () => createEmptyBunkerActivityRow({
@@ -1541,7 +1614,7 @@ export default function EstimateDetailSections({
           ) : null}
         >
           <div className={styles.tableWrap}>
-            <table className={styles.portTable}>
+            <table className={`${styles.portTable} ${styles.flushGrid}`}>
               <thead>
                 <tr>
                   {editable ? <th style={{ width: 36 }} /> : null}
@@ -1561,11 +1634,11 @@ export default function EstimateDetailSections({
                       </td>
                     ) : null}
                     <td>
-                      <select
+                      <WorksheetSelect
                         value={row.activity || 'Cold Wash'}
                         disabled={readOnly}
-                        onChange={(e) => {
-                          const activity = e.target.value;
+                        options={BUNKER_ACTIVITY_OPTIONS}
+                        onChange={(activity) => {
                           const field = BUNKER_ACTIVITY_RATE_FIELD[activity];
                           const rates = form.variousBunkerRates || [];
                           const grade = String(row.bunkerGrade || '').toUpperCase();
@@ -1581,11 +1654,7 @@ export default function EstimateDetailSections({
                             ...(qtyFromRate ? { qty: qtyFromRate } : {}),
                           });
                         }}
-                      >
-                        {BUNKER_ACTIVITY_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
+                      />
                     </td>
                     <td>
                       <WorksheetSelect
@@ -1652,8 +1721,8 @@ export default function EstimateDetailSections({
         </CollapsiblePanel>
       ) : null}
 
-      <CollapsiblePanel title="Demurrage Dispatch" defaultOpen={false}>
-        <div className={styles.headerGrid} style={{ marginBottom: 8 }}>
+      <CollapsiblePanel title="Demurrage Dispatch" defaultOpen={false} bodyClassName={styles.panelBodyFlush}>
+        <div className={`${styles.headerGrid} ${styles.flushPad}`} style={{ marginBottom: 8 }}>
           <Field id="timeAllowed" label="Time Allowed (hrs)">
             <input
               id="timeAllowed"
@@ -1676,7 +1745,7 @@ export default function EstimateDetailSections({
           </Field>
         </div>
         <div className={styles.tableWrap}>
-          <table className={styles.portTable}>
+          <table className={`${styles.portTable} ${styles.flushGrid}`}>
             <thead>
               <tr>
                 <th style={{ width: '40%' }} />
@@ -1809,31 +1878,25 @@ export default function EstimateDetailSections({
         <CollapsiblePanel
         title="Other Income"
         defaultOpen={false}
+        bodyClassName={styles.panelBodyFlush}
         actions={editable ? (
-            <AddCircleButton
-              onClick={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)}
-            />
-          ) : null}
+          <SecAddButton onClick={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)} />
+        ) : null}
       >
         <div className={styles.tableWrap}>
-          <table className={styles.portTable}>
+          <table className={`${styles.portTable} ${styles.flushGrid}`}>
             <thead>
               <tr>
-                {editable ? <th style={{ width: 36 }} /> : null}
                 <th>Description</th>
                 <th>Amount</th>
-                <th>Add Comm(%)</th>
+                <th>Add Comm (%)</th>
                 <th>Net Amount</th>
+                {editable ? <th className={styles.stickyAct} /> : null}
               </tr>
             </thead>
             <tbody>
               {(form.otherIncomeRows || []).map((row) => (
                 <tr key={row.id}>
-                  {editable ? (
-                    <td>
-                      <RowRemoveButton onClick={() => removeRow('otherIncomeRows', row.id)} />
-                    </td>
-                  ) : null}
                   <td>
                     <input
                       value={row.description}
@@ -1858,9 +1921,30 @@ export default function EstimateDetailSections({
                   <td>
                     <input value={row.netAmount} readOnly />
                   </td>
+                  {editable ? (
+                    <td className={styles.stickyAct}>
+                      <KhakiRowActions
+                        onAdd={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)}
+                        onRemove={() => removeRow('otherIncomeRows', row.id)}
+                      />
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={3} className={styles.rowLabel}>Total</td>
+                <td>
+                  <input
+                    value={form.totalOtherIncome || ''}
+                    readOnly
+                    placeholder="0.00"
+                  />
+                </td>
+                {editable ? <td className={styles.stickyAct} /> : null}
+              </tr>
+            </tfoot>
           </table>
         </div>
       </CollapsiblePanel>
@@ -1869,9 +1953,10 @@ export default function EstimateDetailSections({
         <CollapsiblePanel
         title="Bunkers"
         defaultOpen={false}
+        bodyClassName={styles.panelBodyFlush}
       >
-        <div className={styles.tableWrap} style={{ marginBottom: 10 }}>
-          <table className={styles.portTable}>
+        <div className={styles.tableWrap}>
+          <table className={`${styles.portTable} ${styles.flushGrid}`}>
             <thead>
               <tr>
                 <th>Bunker Grade</th>
@@ -1905,46 +1990,51 @@ export default function EstimateDetailSections({
                   <td colSpan={5} className={styles.summaryEmptyCell}>No bunker summary available yet.</td>
                 </tr>
               )}
+            </tbody>
+            <tfoot>
               <tr>
-                <td className={styles.summaryLabelCell}>Total Bunker Consumed - SECA/NON SECA</td>
-                <td colSpan={4}>
+                <td className={styles.rowLabel}>Total Bunker Consumed — SECA / NON-SECA</td>
+                <td>
+                  <input value={Number(bunkerQtyTotal).toFixed(2)} readOnly placeholder="0.00" />
+                </td>
+                <td><input value="—" readOnly /></td>
+                <td><input value="—" readOnly /></td>
+                <td>
                   <input value={form.totalBunkerCost || ''} readOnly placeholder="0.00" />
                 </td>
               </tr>
-              <tr>
-                <td className={styles.summaryLabelCell}>CO2 Price / MT</td>
-                <td>
-                  <input
-                    id="co2PriceInline"
-                    value={form.co2Price || ''}
-                    readOnly={readOnly}
-                    placeholder="0.00"
-                    onChange={(e) => updateField('co2Price', e.target.value)}
-                  />
-                </td>
-                <td className={styles.summaryLabelCell}>EUA Price / MT</td>
-                <td>
-                  <input
-                    id="euaPriceInline"
-                    value={form.euaPrice || ''}
-                    readOnly={readOnly}
-                    placeholder="0.00"
-                    onChange={(e) => updateField('euaPrice', e.target.value)}
-                  />
-                </td>
-              </tr>
-            </tbody>
+            </tfoot>
           </table>
+        </div>
+        <div className={styles.bunkerPriceGrid}>
+          <Field id="co2PriceInline" label="CO2 Price / MT">
+            <input
+              id="co2PriceInline"
+              value={form.co2Price || ''}
+              readOnly={readOnly}
+              placeholder="0.00"
+              onChange={(e) => updateField('co2Price', e.target.value)}
+            />
+          </Field>
+          <Field id="euaPriceInline" label="EUA Price / MT">
+            <input
+              id="euaPriceInline"
+              value={form.euaPrice || ''}
+              readOnly={readOnly}
+              placeholder="0.00"
+              onChange={(e) => updateField('euaPrice', e.target.value)}
+            />
+          </Field>
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Vessel OPEX" defaultOpen={false}>
+      <CollapsiblePanel title="Vessel OPEX" defaultOpen={false} bodyClassName={styles.panelBodyFlush}>
         <div className={styles.vesselOpexWrap}>
           {showHireSection ? (
             <>
               <div className={styles.tableWrap}>
                 {showIndexLinked ? (
-                  <table className={`${styles.portTable} ${styles.vesselOpexHireTable}`}>
+                  <table className={`${styles.portTable} ${styles.flushGrid} ${styles.vesselOpexHireTable}`}>
                     <thead>
                       <tr>
                         <th className={styles.vesselOpexColHire}>
@@ -2016,26 +2106,26 @@ export default function EstimateDetailSections({
                         </td>
                         <td>
                           <div className={styles.vesselOpexIndexCell}>
-                            <select
+                            <WorksheetSelect
                               id="balticIndex"
                               value={form.balticIndex || ''}
                               disabled={readOnly || !form.chkIndex}
-                              onChange={(e) => {
-                                const value = e.target.value;
+                              placeholder="— Select route —"
+                              options={[
+                                { value: '', label: '— Select route —' },
+                                ...(lookups.balticRoutes || []).map((row) => ({
+                                  value: row.id,
+                                  label: row.label || row.code || row.name,
+                                })),
+                              ]}
+                              onChange={(value) => {
                                 const match = (lookups.balticRoutes || []).find((row) => String(row.id) === String(value));
                                 const daily = Number(match?.dailyRate) || 0;
                                 const pct = Number(form.balticPercent) || 100;
                                 const nextBalticRate = daily > 0 ? ((pct * daily) / 100).toFixed(2) : '';
                                 applyPatch({ balticIndex: value, balticRate: nextBalticRate });
                               }}
-                            >
-                              <option value="">— Select route —</option>
-                              {(lookups.balticRoutes || []).map((row) => (
-                                <option key={row.id} value={row.id}>
-                                  {row.label || row.code || row.name}
-                                </option>
-                              ))}
-                            </select>
+                            />
                             <span className={styles.vesselOpexIndexPct}>%</span>
                             <input
                               id="balticPercent"
@@ -2095,7 +2185,7 @@ export default function EstimateDetailSections({
                     </tbody>
                   </table>
                 ) : (
-                  <table className={`${styles.portTable} ${styles.vesselOpexHireTable}`}>
+                  <table className={`${styles.portTable} ${styles.flushGrid} ${styles.vesselOpexHireTable}`}>
                     <thead>
                       <tr>
                         <th>Hire / Day ($)</th>
@@ -2150,7 +2240,7 @@ export default function EstimateDetailSections({
                 )}
               </div>
               <div className={styles.tableWrap}>
-                <table className={`${styles.portTable} ${styles.vesselOpexTotalsTable}`}>
+                <table className={`${styles.portTable} ${styles.flushGrid} ${styles.vesselOpexTotalsTable}`}>
                   <thead>
                     <tr>
                       <th>Add Comm Amt</th>
@@ -2190,7 +2280,7 @@ export default function EstimateDetailSections({
             </>
           ) : null}
           <div className={styles.tableWrap}>
-            <table className={`${styles.portTable} ${styles.vesselOpexCveTable}`}>
+            <table className={`${styles.portTable} ${styles.flushGrid} ${styles.vesselOpexCveTable}`}>
               <tbody>
                 <tr>
                   <td className={styles.vesselOpexLabelCell}>CVE (/Month)</td>
@@ -2261,6 +2351,7 @@ export default function EstimateDetailSections({
           <CollapsiblePanel
             title="Profit Sharing"
             defaultOpen={false}
+            className={styles.panelInverse}
             actions={editable ? (
               <AddCircleButton
                 onClick={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
@@ -2268,7 +2359,7 @@ export default function EstimateDetailSections({
             ) : null}
           >
             <div className={styles.tableWrap}>
-              <table className={styles.portTable}>
+              <table className={`${styles.portTable} ${styles.flushGrid}`}>
                 <thead>
                   <tr>
                     {editable ? <th style={{ width: 36 }} /> : null}
@@ -2285,16 +2376,19 @@ export default function EstimateDetailSections({
                         </td>
                       ) : null}
                       <td>
-                        <select
+                        <WorksheetSelect
                           value={row.vendorId || ''}
                           disabled={readOnly}
-                          onChange={(e) => updateRow('profitSharingRows', row.id, { vendorId: e.target.value })}
-                        >
-                          <option value="">— Select —</option>
-                          {(lookups.ownBusiness || lookups.owners || []).map((o) => (
-                            <option key={o.id} value={o.id}>{o.name}</option>
-                          ))}
-                        </select>
+                          placeholder="— Select —"
+                          options={[
+                            { value: '', label: '— Select —' },
+                            ...(lookups.ownBusiness || lookups.owners || []).map((o) => ({
+                              value: o.id,
+                              label: o.name,
+                            })),
+                          ]}
+                          onChange={(value) => updateRow('profitSharingRows', row.id, { vendorId: value })}
+                        />
                       </td>
                       <td>
                         <input

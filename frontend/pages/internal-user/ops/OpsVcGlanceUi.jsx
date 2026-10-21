@@ -1,6 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { SummaryCard, SummaryCardGrid } from '@bainbridge/shared-ui';
+import { GridDownloadMenu, SummaryCard, SummaryCardGrid } from '@bainbridge/shared-ui';
+import {
+  downloadReportExcel,
+  downloadReportPdf,
+  emailReportAttachment,
+} from '../reports/reportExports.js';
 import { appPath } from '@bainbridge/shared-routing';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable, {
@@ -267,6 +272,60 @@ export function OpsVcGlanceHeader({
   );
 }
 
+export const SPOT_OPS_EXPORT_COLUMNS = [
+  { key: 'index', label: '#' },
+  { key: 'voyageNo', label: 'Voy No.' },
+  { key: 'vesselName', label: 'Vessel' },
+  { key: 'vesselType', label: 'Vessel Type' },
+  { key: 'cpDate', label: 'CP Date' },
+  { key: 'operator', label: 'Operator' },
+  { key: 'cargo', label: 'Cargo' },
+  { key: 'charteringTeam', label: 'CHRT DESK' },
+  { key: 'charterer', label: 'Charterer' },
+  { key: 'ports', label: 'LP / DP' },
+];
+
+export function mapSpotOpsExportRows(rows, page = 1, pageSize = 10) {
+  return (rows || []).map((row, index) => ({
+    index: (page - 1) * pageSize + index + 1,
+    voyageNo: row.voyageNo || '',
+    vesselName: row.vesselName || '',
+    vesselType: row.vesselType || '',
+    cpDate: row.cpDate || '',
+    operator: row.operatorName || '',
+    cargo: row.materialName || row.cargo || '',
+    charteringTeam: row.charteringTeam || '',
+    charterer: row.charterer || '',
+    ports: row.ports || '',
+  }));
+}
+
+export const TC_OPS_EXPORT_COLUMNS = [
+  { key: 'index', label: '#' },
+  { key: 'tcNo', label: 'TC Number' },
+  { key: 'vesselName', label: 'Vessel' },
+  { key: 'cpDate', label: 'CP Date' },
+  { key: 'operator', label: 'Operator' },
+  { key: 'charterer', label: 'Charterer' },
+  { key: 'delRedel', label: 'Del / Re-Del' },
+  { key: 'charteringTeam', label: 'CHRT DESK' },
+  { key: 'hireDays', label: 'TC Days' },
+];
+
+export function mapTcOpsExportRows(rows, page = 1, pageSize = 10) {
+  return (rows || []).map((row, index) => ({
+    index: (page - 1) * pageSize + index + 1,
+    tcNo: row.tcNo || '',
+    vesselName: row.vesselName || '',
+    cpDate: row.cpDate || '',
+    operator: row.operatorName || '',
+    charterer: row.charterer || '',
+    delRedel: [row.delPort, row.reDelPort].filter(Boolean).join(' / '),
+    charteringTeam: row.charteringTeam || '',
+    hireDays: row.hireDays || '',
+  }));
+}
+
 export function OpsVcGlanceTable({
   children,
   compact = false,
@@ -278,14 +337,36 @@ export function OpsVcGlanceTable({
   onPageSizeChange,
   showingLabel,
   accent = '',
+  exportTitle,
+  exportFilename,
+  exportColumns,
+  exportRows,
 }) {
   const accentClass = accent ? `zafira-accent-${accent}` : '';
+  const toolbarStart = exportColumns ? (
+    <GridDownloadMenu
+      onDownloadExcel={() => downloadReportExcel(exportFilename || 'ops-export', exportColumns, exportRows)}
+      onDownloadPdf={() => downloadReportPdf({
+        title: exportTitle || 'Ops export',
+        filename: exportFilename || 'ops-export',
+        columns: exportColumns,
+        rows: exportRows,
+      })}
+      onEmailAttachment={() => emailReportAttachment({
+        title: exportTitle || 'Ops export',
+        filename: exportFilename || 'ops-export',
+        columns: exportColumns,
+        rows: exportRows,
+      })}
+    />
+  ) : null;
   return (
     <ScrollableTable
       flushTop={flushTop}
       pageSize={pageSize}
       onPageSizeChange={onPageSizeChange}
       pageSizeOptions={PAGE_SIZE_OPTIONS}
+      toolbarStart={toolbarStart}
       toolbarRight={showingLabel}
       footer={(
         <SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} />

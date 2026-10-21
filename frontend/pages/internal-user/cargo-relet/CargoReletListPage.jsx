@@ -1,14 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ActionButtonStack,
-  DownloadIcon,
+  GridDownloadMenu,
   LoadingOverlay,
   EditRecapIcon,
   SecondaryActionButton,
   SendToOpsButton,
   useConfirm,
 } from '@bainbridge/shared-ui';
+import {
+  downloadReportExcel,
+  downloadReportPdf,
+  emailReportAttachment,
+} from '../reports/reportExports.js';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useCargoReletModule } from '../../../hooks/useCargoReletModule.js';
 import {
@@ -144,27 +149,6 @@ function parseOpsStatus(value) {
   return 'ops';
 }
 
-function csvCell(value) {
-  const text = String(value ?? '').replace(/\r?\n/g, ' ').trim();
-  if (text.includes(',') || text.includes('"')) return `"${text.replace(/"/g, '""')}"`;
-  return text;
-}
-
-function downloadCsv(filename, headers, rows) {
-  const lines = [
-    headers.map(csvCell).join(','),
-    ...rows.map((row) => headers.map((header) => csvCell(row[header])).join(',')),
-  ];
-  const blob = new Blob([`\ufeff${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
 
 function exportColumns(isOps) {
   const cols = [
@@ -198,27 +182,6 @@ function mapExportRows(records, isOps) {
   });
 }
 
-function openPdfPrintWindow(title, headers, rows) {
-  const win = window.open('', '_blank');
-  if (!win) return;
-  const head = headers.map((h) => `<th>${String(h).replace(/</g, '&lt;')}</th>`).join('');
-  const body = rows.map((row) => (
-    `<tr>${headers.map((h) => `<td>${String(row[h] ?? '').replace(/</g, '&lt;')}</td>`).join('')}</tr>`
-  )).join('');
-  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
-    <style>
-      body{font-family:Arial,sans-serif;padding:24px;color:#1b2430}
-      h1{font-size:18px;margin:0 0 16px}
-      table{width:100%;border-collapse:collapse;font-size:11px}
-      th,td{border:1px solid #dfe2e7;padding:6px 8px;text-align:left}
-      th{background:#fafbfc;text-transform:uppercase;font-size:10px;color:#5b6472}
-    </style></head><body>
-    <h1>${title}</h1>
-    <table><thead><tr>${head}</tr></thead><tbody>${body || `<tr><td colspan="${headers.length}">No records</td></tr>`}</tbody></table>
-    <script>window.onload=function(){window.print();}</script>
-    </body></html>`);
-  win.document.close();
-}
 
 export default function CargoReletListPage({ variant = 'business' }) {
   const isOps = variant === 'ops';
@@ -247,8 +210,6 @@ export default function CargoReletListPage({ variant = 'business' }) {
   const [cancellingId, setCancellingId] = useState(null);
   const [error, setError] = useState('');
   const [recordsTotal, setRecordsTotal] = useState(0);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
 
   const updateQuery = useCallback((patch) => {
     setSearchParams((prev) => {
@@ -341,17 +302,6 @@ export default function CargoReletListPage({ variant = 'business' }) {
     });
   }, [activeTab, businessType, debouncedSearch, isOps, page, pageSize, updateQuery, year]);
 
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen]);
-
   const fetchExportRows = useCallback(async () => {
     const data = await fetchStandaloneCargoRelets({
       selBType: businessType,
@@ -435,44 +385,39 @@ export default function CargoReletListPage({ variant = 'business' }) {
     }
   };
 
+  const cargoReletExportPayload = async () => {
+    const exportRows = await fetchExportRows();
+    const columns = exportColumns(isOps).map((col) => ({ key: col.key, label: col.key }));
+    return {
+      columns,
+      rows: exportRows,
+      filename: `cargo-relets-${activeTab}`,
+      title: `Cargo Relets — ${activeTab}`,
+    };
+  };
+
   const handleDownloadExcel = async () => {
-    setMenuOpen(false);
     try {
-      const exportRows = await fetchExportRows();
-      const headers = exportColumns(isOps).map((col) => col.key);
-      downloadCsv(`cargo-relets-${activeTab}.csv`, headers, exportRows);
+      const payload = await cargoReletExportPayload();
+      downloadReportExcel(payload.filename, payload.columns, payload.rows);
     } catch (err) {
       setError(err.message || 'Failed to download Excel.');
     }
   };
 
   const handleDownloadPdf = async () => {
-    setMenuOpen(false);
     try {
-      const exportRows = await fetchExportRows();
-      const headers = exportColumns(isOps).map((col) => col.key);
-      openPdfPrintWindow(`Cargo Relets — ${activeTab}`, headers, exportRows);
+      const payload = await cargoReletExportPayload();
+      await downloadReportPdf(payload);
     } catch (err) {
       setError(err.message || 'Failed to download PDF.');
     }
   };
 
-  const handleEmail = async () => {
-    setMenuOpen(false);
+  const handleEmailAttachment = async () => {
     try {
-      const exportRows = await fetchExportRows();
-      const headers = exportColumns(isOps).map((col) => col.key);
-      const lines = [
-        headers.join('\t'),
-        ...exportRows.map((row) => headers.map((header) => String(row[header] ?? '')).join('\t')),
-      ];
-      const fullBody = `Cargo Relets (${activeTab}) — ${exportRows.length} record(s)\n\n${lines.join('\n')}`;
-      // mailto URLs have practical length limits across clients
-      const maxBody = 1800;
-      const body = fullBody.length > maxBody
-        ? `${fullBody.slice(0, maxBody)}\n\n…(truncated; use Download as Excel for the full list)`
-        : fullBody;
-      window.location.href = `mailto:?subject=${encodeURIComponent(`Cargo Relets — ${activeTab}`)}&body=${encodeURIComponent(body)}`;
+      const payload = await cargoReletExportPayload();
+      await emailReportAttachment(payload);
     } catch (err) {
       setError(err.message || 'Failed to prepare email.');
     }
@@ -573,47 +518,11 @@ export default function CargoReletListPage({ variant = 'business' }) {
           setPage(1);
         }}
         toolbarStart={(
-          !isOps ? (
-            <div className={styles.menuWrap} ref={menuRef}>
-              <button
-                type="button"
-                className={styles.btnMore}
-                aria-label="More options"
-                aria-expanded={menuOpen}
-                aria-haspopup="menu"
-                title="Download"
-                onClick={() => setMenuOpen((open) => !open)}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <circle cx="12" cy="5" r="1.8" />
-                  <circle cx="12" cy="12" r="1.8" />
-                  <circle cx="12" cy="19" r="1.8" />
-                </svg>
-              </button>
-              {menuOpen ? (
-                <div className={styles.menuDropdown} role="menu">
-                  <button type="button" role="menuitem" className={styles.menuItem} onClick={handleDownloadExcel}>
-                    <span className={styles.menuIcon} aria-hidden>
-                      <DownloadIcon size={16} title="" />
-                    </span>
-                    Download as Excel
-                  </button>
-                  <button type="button" role="menuitem" className={styles.menuItem} onClick={handleDownloadPdf}>
-                    <span className={styles.menuIcon} aria-hidden>
-                      <DownloadIcon size={16} title="" />
-                    </span>
-                    Download as PDF
-                  </button>
-                  <button type="button" role="menuitem" className={styles.menuItem} onClick={handleEmail}>
-                    <span className={styles.menuIcon} aria-hidden>
-                      <DownloadIcon size={16} title="" />
-                    </span>
-                    Email
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null
+          <GridDownloadMenu
+            onDownloadExcel={handleDownloadExcel}
+            onDownloadPdf={handleDownloadPdf}
+            onEmailAttachment={handleEmailAttachment}
+          />
         )}
         toolbarLeft={(
           !isOps ? (

@@ -1,5 +1,6 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
+import { applyPeriodExtraFields } from './periodContractExtraFields.js';
 import {
   formatDateTimeYMDHM,
   formatDateYMD,
@@ -113,6 +114,7 @@ export async function dbCreatePeriodContract(payload, attachments = {}) {
     );
 
     const periodId = masterResult.insertId;
+    await applyPeriodExtraFields(connection, payload, periodId);
 
     for (const row of payload.deliveryNotices || []) {
       if (!row.notice || !row.dateTime) continue;

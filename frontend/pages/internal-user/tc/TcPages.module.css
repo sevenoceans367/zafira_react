@@ -2,6 +2,24 @@
   position: relative;
 }
 
+.periodMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.periodChip {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #3b82f6;
+  background: #e8f1fe;
+  border: 1px solid #bfd4fb;
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
 .title {
   margin: 0 0 16px;
   text-align: center;

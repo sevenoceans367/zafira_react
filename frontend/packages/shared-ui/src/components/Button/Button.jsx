@@ -144,6 +144,7 @@ const Button = ({
   title,
   target,
   rel,
+  form,
 }) => {
   if (label === '+') {
     return (
@@ -280,6 +281,7 @@ const Button = ({
       className={baseClass}
       title={title || accessibleName}
       aria-label={accessibleName}
+      form={form}
     >
       {content}
     </button>

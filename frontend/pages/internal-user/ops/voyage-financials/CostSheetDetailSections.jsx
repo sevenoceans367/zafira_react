@@ -2840,7 +2840,7 @@ export default function EstimateDetailSections({
             title="Profit Sharing"
             defaultOpen={false}
             round
-            className={styles.roundSection}
+            className={`${styles.roundSection} ${updateEstimateStyles.panelInverse}`}
           >
             <div className={styles.tableWrap}>
               <table className={styles.portTable}>

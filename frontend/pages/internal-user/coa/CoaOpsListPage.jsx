@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, CardSelect, FilterField, LoadingOverlay, TextInput, useAlert, useConfirm, EditRecapIcon } from '@bainbridge/shared-ui';
+import { Button, CardSelect, FilterField, GridDownloadMenu, LoadingOverlay, TextInput, useAlert, useConfirm, EditRecapIcon } from '@bainbridge/shared-ui';
+import {
+  downloadReportExcel,
+  downloadReportPdf,
+  emailReportAttachment,
+} from '../reports/reportExports.js';
 import { appPath } from '@bainbridge/shared-routing';
 import useDebouncedValue from '../../../hooks/useDebouncedValue.js';
 import { useCoaModule } from '../../../hooks/useCoaModule.js';
@@ -365,6 +370,86 @@ export default function CoaOpsListPage() {
     ? 'Showing 0 records'
     : `Showing ${Math.min((page - 1) * pageSize + 1, total)} to ${Math.min(page * pageSize, total)} of ${total} entries`;
 
+  const coaOpsExportPayload = () => {
+    if (isRelet) {
+      return {
+        columns: [
+          { key: 'index', label: '#' },
+          { key: 'coaNo', label: 'COA No.' },
+          { key: 'reletNo', label: 'Relet No.' },
+          { key: 'coaDate', label: 'Date' },
+          { key: 'cargoQty', label: 'QTY (MT)' },
+          { key: 'ports', label: 'LP/DP' },
+          { key: 'freightInPerMt', label: 'Frt-In ($/MT)' },
+          { key: 'freightInAmt', label: 'Frt-In' },
+          { key: 'foSurcharge', label: 'FO Surcharge' },
+          { key: 'freightOutPerMt', label: 'Frt-Out ($/MT)' },
+          { key: 'freightOutAmt', label: 'Frt-Out' },
+          { key: 'profit', label: 'Profit' },
+          { key: 'vesselName', label: 'Vessel' },
+        ],
+        rows: rows.map((row) => ({
+          index: row.index,
+          coaNo: row.coaIdentity || row.coaNo || '',
+          reletNo: row.reletNo || '',
+          coaDate: row.coaDate || '',
+          cargoQty: row.cargoQty || '',
+          ports: row.ports || '',
+          freightInPerMt: row.freightInPerMt || '',
+          freightInAmt: row.freightInAmt || '',
+          foSurcharge: row.foSurcharge || '',
+          freightOutPerMt: row.freightOutPerMt || '',
+          freightOutAmt: row.freightOutAmt || '',
+          profit: row.profit || '',
+          vesselName: row.vesselName || '',
+        })),
+        filename: `coa-ops-relets-${statusTab}`,
+        title: `COA Ops — Cargo Relets — ${statusTab}`,
+      };
+    }
+    return {
+      columns: [
+        { key: 'index', label: '#' },
+        { key: 'coaNo', label: 'COA No.' },
+        { key: 'voyageNo', label: 'Voy No.' },
+        { key: 'cpDate', label: 'CP Date' },
+        { key: 'vesselName', label: 'Vessel' },
+        { key: 'operator', label: 'Operator' },
+        { key: 'charterer', label: 'Charterer' },
+        { key: 'cargo', label: 'Cargo' },
+        { key: 'ports', label: 'LP / DP' },
+        { key: 'cargoQty', label: 'QTY (MT)' },
+      ],
+      rows: rows.map((row) => ({
+        index: row.index,
+        coaNo: row.coaIdentity || row.coaNo || '',
+        voyageNo: row.voyageNo || '',
+        cpDate: row.cpDate || '',
+        vesselName: row.vesselName || '',
+        operator: row.operator || '',
+        charterer: row.charterer || '',
+        cargo: row.cargo || '',
+        ports: row.ports || '',
+        cargoQty: row.cargoQty || '',
+      })),
+      filename: `coa-ops-${statusTab}`,
+      title: `COA Ops — ${statusTab}`,
+    };
+  };
+
+  const handleDownloadExcel = () => {
+    const payload = coaOpsExportPayload();
+    downloadReportExcel(payload.filename, payload.columns, payload.rows);
+  };
+
+  const handleDownloadPdf = async () => {
+    await downloadReportPdf(coaOpsExportPayload());
+  };
+
+  const handleEmailAttachment = async () => {
+    await emailReportAttachment(coaOpsExportPayload());
+  };
+
   const emptyMessage = postOpsDisabled && statusTab === 'postops'
     ? 'Cargo relets skip Post Ops — use In Ops (Active).'
     : isHistoryTab && !isRelet
@@ -561,6 +646,13 @@ export default function CoaOpsListPage() {
           flushTop
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
+          toolbarStart={(
+            <GridDownloadMenu
+              onDownloadExcel={handleDownloadExcel}
+              onDownloadPdf={handleDownloadPdf}
+              onEmailAttachment={handleEmailAttachment}
+            />
+          )}
           toolbarRight={showingLabel}
           footer={<SopfPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
         >

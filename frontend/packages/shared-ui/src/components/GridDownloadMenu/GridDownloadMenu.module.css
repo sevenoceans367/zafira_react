@@ -1,0 +1,87 @@
+.menuWrap {
+  position: relative;
+}
+
+.btnMore {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid #dfe2e7;
+  background: #fff;
+  color: #5b6472;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+
+.btnMore:hover,
+.btnMore[aria-expanded='true'] {
+  background: #f1f2f4;
+}
+
+.btnMore:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btnMore svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btnMore:focus,
+.btnMore:active,
+.menuItem:focus,
+.menuItem:active {
+  outline: none;
+}
+
+.btnMore:focus-visible,
+.menuItem:focus-visible {
+  outline: 2px solid #376eb8;
+  outline-offset: 2px;
+}
+
+.menuDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 210px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #111827;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: #f3f4f6;
+}
+
+.menuIcon {
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  color: #374151;
+}

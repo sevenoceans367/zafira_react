@@ -26,6 +26,38 @@ function csvDisplay(value, pendingEmpty = false) {
   return value;
 }
 
+export function estimateListExportPayload(rows, { performing = false, filename = 'spot-business' } = {}) {
+  const columns = performing
+    ? [
+      ...CSV_COLUMNS,
+      { key: 'profitLoss', label: 'Fixed P&L' },
+      { key: 'liveProfitLoss', label: 'Live P&L' },
+    ]
+    : [
+      ...CSV_COLUMNS,
+      { key: 'profitLoss', label: 'Fixed P&L' },
+    ];
+  const mapped = (rows || []).map((row, index) => ({
+    rowNum: row.rowNum ?? index + 1,
+    vesselName: row.vesselName ?? '',
+    voyageNo: row.voyageNo ?? '',
+    cpDate: row.cpDate ?? '',
+    dwt: row.dwt ?? '',
+    lpDp: row.lpDp ?? '',
+    duration: row.duration ?? '',
+    cargoQuantity: row.cargoQuantity ?? '',
+    tce: row.tce ?? '',
+    profitLoss: row.profitLoss ?? '',
+    liveProfitLoss: csvDisplay(row.liveProfitLoss, performing),
+  }));
+  return {
+    columns,
+    rows: mapped,
+    filename,
+    title: performing ? 'Spot Business — Performing' : 'Spot Business — Active',
+  };
+}
+
 export function downloadEstimateListCsv(rows, filename = 'vc-out-estimates.csv', { performing = false } = {}) {
   const columns = performing
     ? [

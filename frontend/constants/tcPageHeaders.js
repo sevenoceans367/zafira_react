@@ -5,6 +5,10 @@ import {
   parseTcModuleFromPath,
   tcAppPath,
 } from './tcModule.js';
+import {
+  parsePeriodContractModuleFromPath,
+  periodContractAppPath,
+} from './periodContractModule.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
 
@@ -33,7 +37,7 @@ function listMeta(module) {
   };
 }
 
-export function resolveTcHeader(pathname) {
+export function resolveTcHeader(pathname, search = '') {
   const path = String(pathname || '');
   const isSopfTc = path.startsWith('/internal-user/sopf/time-charter');
   const isVcTc = path.startsWith('/internal-user/vc/tc')
@@ -46,6 +50,36 @@ export function resolveTcHeader(pathname) {
   const listCrumb = { label: meta.listLabel, href: meta.listHref };
 
   if (path.endsWith('/add')) {
+    const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    const isPeriod = Boolean(params.get('periodId') || params.get('periodid'));
+    if (isPeriod) {
+      let periodModule = module === 'sopf' ? 'sopf' : 'vc';
+      let periodHref = periodContractAppPath(periodModule);
+      const returnToRaw = params.get('returnTo') || '';
+      if (returnToRaw) {
+        try {
+          const decoded = decodeURIComponent(returnToRaw);
+          if (decoded.startsWith('/internal-user/')) {
+            const pathOnly = decoded.split('?')[0];
+            periodModule = parsePeriodContractModuleFromPath(pathOnly);
+            periodHref = periodContractAppPath(periodModule);
+          }
+        } catch {
+          /* ignore bad returnTo */
+        }
+      }
+      const listLabel = periodModule === 'sopf' ? 'Period Business' : 'Period';
+      return {
+        title: 'Add New TC Recap',
+        currentPage: 'Add New TC Recap',
+        breadcrumbs: [
+          HOME,
+          crumb,
+          { label: listLabel, href: periodHref },
+          { label: 'Add New TC Recap' },
+        ],
+      };
+    }
     return {
       title: 'Add TC Recap',
       currentPage: 'Add TC Recap',

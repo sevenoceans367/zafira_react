@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ActionButtonStack,
   Button,
+  GridDownloadMenu,
   LoadingOverlay,
   SecondaryActionButton,
   SendToOpsButton,
@@ -24,15 +25,16 @@ import {
 } from '../../../services/estimateList.js';
 import { CompareIcon } from '../ops/OpsVcGlanceUi.jsx';
 import EstimateListHeaderActions from './EstimateListHeaderActions.jsx';
-import EstimateListTableToolbar, { EstimateListDownloadMenu } from './EstimateListTableToolbar.jsx';
+import EstimateListTableToolbar from './EstimateListTableToolbar.jsx';
 import SensitivityAnalysisModal from './SensitivityAnalysisModal.jsx';
 import SopfPagination from './SopfPagination.jsx';
 import ScrollableTable from './ScrollableTable.jsx';
+import { estimateListExportPayload } from './estimateListExports.js';
 import {
-  buildEstimateListEmailUrl,
-  buildEstimateListPdfUrl,
-  downloadEstimateListCsv,
-} from './estimateListExports.js';
+  downloadReportExcel,
+  downloadReportPdf,
+  emailReportAttachment,
+} from '../reports/reportExports.js';
 import {
   DEFAULT_SOPF_BUSINESS_TYPE,
   readSopfBusinessType,
@@ -426,7 +428,7 @@ export default function EstimateListPage() {
     await loadData();
   };
 
-  const handleDownloadCsv = async () => {
+  const handleDownloadExcel = async () => {
     if (!filteredRows.length) {
       await alert({
         title: 'Notice',
@@ -435,15 +437,34 @@ export default function EstimateListPage() {
       });
       return;
     }
-    downloadEstimateListCsv(orderedRows, 'vc-out-estimates.csv', { performing: isCompletedTab });
+    const payload = estimateListExportPayload(orderedRows, { performing: isCompletedTab });
+    downloadReportExcel(payload.filename, payload.columns, payload.rows);
   };
 
-  const handleDownloadPdf = () => {
-    window.open(buildEstimateListPdfUrl({ estimateType, businessType }), '_blank');
+  const handleDownloadPdf = async () => {
+    if (!filteredRows.length) {
+      await alert({
+        title: 'Notice',
+        message: 'No data available to download.',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+    const payload = estimateListExportPayload(orderedRows, { performing: isCompletedTab });
+    await downloadReportPdf(payload);
   };
 
-  const handleEmailAttachment = () => {
-    window.open(buildEstimateListEmailUrl({ estimateType, businessType }), '_blank');
+  const handleEmailAttachment = async () => {
+    if (!filteredRows.length) {
+      await alert({
+        title: 'Notice',
+        message: 'No data available to download.',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+    const payload = estimateListExportPayload(orderedRows, { performing: isCompletedTab });
+    await emailReportAttachment(payload);
   };
 
   const handleSensitivityAnalysis = async () => {
@@ -553,8 +574,8 @@ export default function EstimateListPage() {
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
           toolbarStart={(
-            <EstimateListDownloadMenu
-              onDownloadCsv={handleDownloadCsv}
+            <GridDownloadMenu
+              onDownloadExcel={handleDownloadExcel}
               onDownloadPdf={handleDownloadPdf}
               onEmailAttachment={handleEmailAttachment}
             />

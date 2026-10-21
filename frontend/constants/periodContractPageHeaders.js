@@ -35,13 +35,13 @@ export function resolvePeriodContractHeader(pathname) {
 
   if (isAdd) {
     return {
-      title: listLabel,
-      currentPage: 'Add New',
+      title: 'Add Period Recap',
+      currentPage: 'Add Period Recap',
       breadcrumbs: [
         HOME,
         moduleBreadcrumb(module),
         { label: listLabel, href: listHref },
-        { label: 'Add New' },
+        { label: 'Add Period Recap' },
       ],
     };
   }
@@ -49,12 +49,12 @@ export function resolvePeriodContractHeader(pathname) {
   if (isEdit) {
     return {
       title: listLabel,
-      currentPage: 'Edit Details',
+      currentPage: 'Update Period Recap',
       breadcrumbs: [
         HOME,
         moduleBreadcrumb(module),
         { label: listLabel, href: listHref },
-        { label: 'Edit Details' },
+        { label: 'Update Period Recap' },
       ],
     };
   }

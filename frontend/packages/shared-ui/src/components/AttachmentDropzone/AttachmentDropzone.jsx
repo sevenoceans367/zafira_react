@@ -22,7 +22,7 @@ function PendingFileRow({ file, onRemove, canRemove }) {
   const href = useMemo(() => URL.createObjectURL(file), [file]);
   useEffect(() => () => URL.revokeObjectURL(href), [href]);
   return (
-    <div className={styles.fileRow}>
+    <div className={`attachment-row ${styles.fileRow}`}>
       <a
         className={styles.fileName}
         href={href}
@@ -94,7 +94,12 @@ export default function AttachmentDropzone({
             }}
           />
           <div
-            className={dropActive ? `${styles.dropzone} ${styles.dropzoneActive}` : styles.dropzone}
+            className={[
+              'dropzone',
+              styles.dropzone,
+              dropActive ? styles.dropzoneActive : '',
+              dropActive ? 'dropzone-active' : '',
+            ].filter(Boolean).join(' ')}
             role="button"
             tabIndex={0}
             onClick={() => inputRef.current?.click()}
@@ -115,14 +120,14 @@ export default function AttachmentDropzone({
               addFiles(e.dataTransfer?.files);
             }}
           >
-            <div className={styles.dropzoneIcon}>
+            <div className={`dropzone-icon ${styles.dropzoneIcon}`}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M12 16V4" />
                 <path d="M6 10l6-6 6 6" />
                 <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
               </svg>
             </div>
-            <div className={styles.dropzoneText}>
+            <div className={`dropzone-text ${styles.dropzoneText}`}>
               <b>Drag &amp; drop files here</b>, or click to browse
             </div>
           </div>
@@ -130,12 +135,12 @@ export default function AttachmentDropzone({
       ) : null}
 
       {!showEmpty ? (
-        <div className={styles.fileList}>
+        <div className={`attachment-list ${styles.fileList}`}>
           {(existing || []).map((item, index) => {
             const label = item.name || item.file || `Attachment ${index + 1}`;
             const key = item.key || item.file || item.url || label;
             return (
-              <div key={key} className={styles.fileRow}>
+              <div key={key} className={`attachment-row ${styles.fileRow}`}>
                 {item.url ? (
                   <a
                     className={styles.fileName}

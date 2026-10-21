@@ -17,6 +17,13 @@ const PERIOD_TYPES = [
   { id: '2', name: 'Days' },
 ];
 
+const CHARTERING_TEAMS = [
+  { id: '6', name: 'Atlantic' },
+  { id: '8', name: 'Pacific' },
+  { id: '4', name: 'Southeast Asia' },
+  { id: '1', name: 'India' },
+];
+
 function mapVendorRow(row) {
   return {
     id: row.CODE,
@@ -111,12 +118,53 @@ export async function dbGetPeriodContractLookups() {
     [appContext.companyId],
   );
 
+  const [managerVendors] = await pool.query(
+    `SELECT CODE, NAME FROM vendor_master
+     WHERE STATUS = 1 AND VENDOR_TYPEID IN (17) AND MCOMPANYID = ?
+     ORDER BY NAME`,
+    [appContext.companyId],
+  ).catch(() => [[]]);
+
   const [bunkers] = await pool.query(
     `SELECT BUNKERGRADEID AS id, NAME AS name
      FROM bunker_grade_master
      WHERE STATUS = 1
      ORDER BY NAME`,
   );
+
+  const [[charterers], [cpTypes], [lawArbit], [charteringPics]] = await Promise.all([
+    pool.query(
+      `SELECT CODE AS id, CONCAT(NAME, ' ( ', CODE, ' )') AS name,
+          TRIM(BOTH ', ' FROM CONCAT_WS(', ',
+            NULLIF(TRIM(STREET_1), ''),
+            NULLIF(TRIM(STREET_2), ''),
+            NULLIF(TRIM(CITY), ''),
+            NULLIF(TRIM(COUNTRY), ''),
+            NULLIF(TRIM(CITY_POSTAL_CODE), '')
+          )) AS address
+       FROM vendor_master WHERE STATUS = 1 AND MCOMPANYID = ?
+       ORDER BY NAME LIMIT 1000`,
+      [appContext.companyId],
+    ).catch(() => [[]]),
+    pool.query(
+      `SELECT CONTRACTTYPEID AS id, CONTRACT_TYPE AS name
+       FROM contract_type_master
+       WHERE STATUS = 1
+       ORDER BY CONTRACT_TYPE`,
+    ).catch(() => [[]]),
+    pool.query(
+      `SELECT LAWARBITRA_ID AS id, LAW_ARBITRATION AS name
+       FROM lawarbitration_master_list
+       WHERE STATUS = 1
+       ORDER BY LAW_ARBITRATION`,
+    ).catch(() => [[]]),
+    pool.query(
+      `SELECT LOGINID AS id, CONTACT_PERSON AS name
+       FROM login
+       WHERE STATUS = 1 AND USER_TYPE IN ('internal_user', 'mgmt_user') AND LOGINID != 126
+       ORDER BY CONTACT_PERSON`,
+    ).catch(() => [[]]),
+  ]);
 
   const vesselTypesByBusiness = { 1: [], 2: [], 3: [] };
   for (const type of vesselTypes) {
@@ -142,8 +190,18 @@ export async function dbGetPeriodContractLookups() {
     obaVendors: obaVendors.map(mapVendorRow),
     ownerVendors: ownerVendors.map(mapVendorRow),
     brokerVendors: brokerVendors.map(mapVendorRow),
+    managerVendors: (managerVendors.length ? managerVendors : ownerVendors).map(mapVendorRow),
     vesselTypesByBusiness,
     vesselsByBusiness,
+    charterers: charterers.map((row) => ({
+      id: String(row.id),
+      name: row.name,
+      address: String(row.address || '').trim(),
+    })),
+    charteringTeams: CHARTERING_TEAMS,
+    charteringPics: charteringPics.map((row) => ({ id: String(row.id), name: row.name })),
+    cpTypes: cpTypes.map((row) => ({ id: String(row.id), name: row.name })),
+    lawArbitration: lawArbit.map((row) => ({ id: String(row.id), name: row.name })),
     today: formatDateDMY(new Date()),
   };
 }

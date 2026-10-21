@@ -22,6 +22,7 @@ import {
   updateTcEstimate,
 } from '../../../services/tcEstimates.js';
 import { fetchVesselEstimatePrefill } from '../../../services/estimateDetail.js';
+import { fetchPeriodContract } from '../../../services/periodContracts.js';
 import saveIcon from '../../../assets/Save.png';
 import VesselSearchSelect from '../sopf/VesselSearchSelect.jsx';
 import CollapsiblePanel from '../sopf/CollapsiblePanel.jsx';
@@ -1225,6 +1226,8 @@ export default function TcFixtureFormPage({
   const tcOutId = overrideTcOutId || paramTcOutId;
   const [searchParams] = useSearchParams();
   const replicateFrom = searchParams.get('replicateFrom') || '';
+  const periodQueryId = searchParams.get('periodId') || searchParams.get('periodid') || '';
+  const periodNoParam = searchParams.get('periodNo') || searchParams.get('contractNo') || '';
   const [lookups, setLookups] = useState(null);
   const [businessTypes, setBusinessTypes] = useState([]);
   const [form, setForm] = useState(() => {
@@ -1241,6 +1244,9 @@ export default function TcFixtureFormPage({
   const [error, setError] = useState('');
   const [tcInOpen, setTcInOpen] = useState(false);
   const [vpModalOpen, setVpModalOpen] = useState(false);
+  const [periodMeta, setPeriodMeta] = useState(() => (
+    periodNoParam ? { contractNo: periodNoParam } : null
+  ));
 
   const returnToRaw = searchParams.get('returnTo') || '';
   const returnTo = (() => {
@@ -1512,6 +1518,20 @@ export default function TcFixtureFormPage({
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load lookups once on mount
   }, []);
+
+  useEffect(() => {
+    if (!periodQueryId) return undefined;
+    let cancelled = false;
+    if (periodNoParam) setPeriodMeta({ contractNo: periodNoParam });
+    fetchPeriodContract(periodQueryId)
+      .then((data) => {
+        if (cancelled || !data) return;
+        const contractNo = data.contractNo || periodNoParam || '';
+        if (contractNo) setPeriodMeta({ contractNo });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [periodQueryId, periodNoParam]);
 
   useEffect(() => {
     if (mode !== 'add' || readOnly) return undefined;
@@ -2371,6 +2391,13 @@ export default function TcFixtureFormPage({
       />
       {loading ? <LoadingOverlay active label="Loading TC Recap…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
+      {periodQueryId && periodMeta?.contractNo ? (
+        <div className={styles.periodMetaRow}>
+          <span className={styles.periodChip}>
+            {`Period No: ${periodMeta.contractNo}`}
+          </span>
+        </div>
+      ) : null}
 
       <form onSubmit={handleSubmit}>
           <div className={`${styles.estLayout} ${readOnly ? styles.viewModeLock : ''}`.trim()}>

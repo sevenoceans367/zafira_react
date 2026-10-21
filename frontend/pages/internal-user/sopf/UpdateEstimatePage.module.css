@@ -29,10 +29,16 @@
   padding: 4px 12px;
 }
 
+.periodChip {
+  color: #3b82f6;
+  background: #e8f1fe;
+  border-color: #bfd4fb;
+}
+
 .estimateForm {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 330px);
+  gap: 20px;
   align-items: start;
 }
 
@@ -42,7 +48,7 @@
 
 .estimateAside {
   position: sticky;
-  top: 8px;
+  top: 20px;
   align-self: start;
   width: 100%;
   max-height: calc(100vh - 64px);
@@ -66,42 +72,15 @@
  * descendant selectors work across pages that wrap the aside content.
  */
 .resultsAside .panel {
-  margin-bottom: 6px;
+  margin-bottom: 16px;
 }
 
 .resultsAside .panelHeader {
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 13px 18px;
 }
 
 .resultsAside .panelBody {
-  padding: 6px 8px;
-}
-
-.resultsAside .resultsGrid {
-  grid-template-columns: 1fr;
-  gap: 2px 0;
-}
-
-.resultsAside .resultCell {
-  font-size: 10px;
-  gap: 4px;
-  min-width: 0;
-}
-
-.resultsAside .resultCell span {
-  min-width: 0;
-  flex: 1 1 auto;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.resultsAside .resultCell input {
-  width: 84px;
-  flex: 0 0 84px;
-  min-height: 22px;
-  font-size: 10px;
-  padding: 1px 4px;
+  padding: 16px 18px;
 }
 
 .resultsAside .distGrid {
@@ -116,7 +95,6 @@
   margin-top: 6px;
   padding-top: 6px;
   gap: 8px;
-  font-size: 10px;
 }
 
 .resultsAside .headerGrid {
@@ -149,7 +127,7 @@
 }
 
 .compliancePanel .panelBody {
-  background: var(--compliance-tint);
+  background: #fff;
 }
 
 .compliancePanel .panelChevron {
@@ -268,23 +246,25 @@
 
 .panel {
   background: #fff;
-  border: 1px solid var(--color-border, #e5e7eb);
-  margin-bottom: 8px;
+  border: 1px solid #dfe2e7;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
 }
 
 .panelRound {
   border-radius: 12px;
   overflow: hidden;
-  border-color: #eceef2;
+  border-color: #dfe2e7;
 }
 
 .panelRound .panelHeader {
   background: #fff;
-  padding: 10px 16px;
+  padding: 13px 18px;
   border-bottom-color: #eceef2;
-  font-size: 13px;
-  font-weight: 700;
-  color: #454c54;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #1b2430;
 }
 
 .panelRound .panelActions {
@@ -293,30 +273,40 @@
 }
 
 .panelRound .panelBody {
-  padding: 4px 20px 20px;
+  padding: 18px;
 }
 
 .panelClosed .panelHeader {
   border-bottom: none;
 }
 
+.panelClosed .panelChevron {
+  transform: rotate(-90deg);
+}
+
 .panelHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
-  background: #f8fafc;
-  font-family: var(--font-family-heading);
-  font-size: 12px;
-  font-weight: 600;
-  color: #274670;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 18px;
+  border-bottom: 1px solid #eceef2;
+  background: #fff;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.panelTitle {
+  letter-spacing: -0.005em;
+  white-space: nowrap;
 }
 
 .panelToggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   border: none;
   background: transparent;
   padding: 0;
@@ -330,10 +320,11 @@
 }
 
 .panelChevron {
-  display: inline-block;
-  width: 12px;
-  color: #64748b;
-  font-size: 11px;
+  width: 16px;
+  height: 16px;
+  color: #8a93a2;
+  flex: none;
+  transition: transform 0.18s ease;
 }
 
 .panelIcon {
@@ -394,17 +385,18 @@
 }
 
 .panelBody {
-  padding: 10px;
+  padding: 18px;
 }
 
 /* Inverse Freight Results header only — body stays light */
 .panelInverse {
   background: #fff;
-  border-color: var(--color-border, #e5e7eb);
+  border-color: #dfe2e7;
 }
 
-.panelInverse .panelHeader {
-  background: var(--color-primary, #274670);
+.panelInverse .panelHeader,
+.panelInverse.panelRound .panelHeader {
+  background: #274670;
   border-bottom-color: #1c3558;
   color: #fff;
 }
@@ -416,7 +408,23 @@
 .headerGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 6px 8px;
+  gap: 12px;
+}
+
+.headerGridIdent {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+}
+
+@media (max-width: 1400px) {
+  .headerGridIdent {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .headerGridIdent {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .voyageNoWithEst {
@@ -445,56 +453,101 @@
 }
 
 .field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
 }
 
 .field label {
-  display: block;
-  margin-bottom: 1px;
-  font-size: 9px;
-  font-weight: 600;
-  color: #4b5563;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: #8a93a2;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
 .field input,
 .field select {
   width: 100%;
-  min-height: 24px;
-  padding: 2px 5px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 3px;
-  font-size: 10px;
-  color: #1f2937;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #1b2430;
+  background: #f7f8fa;
+  box-sizing: border-box;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: #2e6fe8;
   background: #fff;
 }
 
-.field input:read-only {
-  background: #f3f4f6;
-  color: #6b7280;
+.field input:read-only,
+.field select:disabled {
+  background: #eef0f3;
+  color: #5b6472;
 }
 
-/* Match Speed Data emphasis — must follow .field label / input for specificity */
-.field.voyageNoField label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #274670;
-  text-transform: none;
-  letter-spacing: normal;
+.apiTag {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  background: #eef0f3;
+  border-radius: 4px;
+  padding: 1px 5px;
+  text-transform: uppercase;
 }
 
-.field.voyageNoField input {
+.field.requiredField label {
+  color: #2e6fe8;
+}
+
+.field.requiredField label::after {
+  content: '*';
+  color: #2e6fe8;
+  margin-left: 2px;
+}
+
+.field.voyageNoField label,
+.field.requiredField.voyageNoField label {
+  color: #2e6fe8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.field.voyageNoField input,
+.field.requiredField input {
   font-weight: 700;
   color: #274670;
-  background: #e8f4fc;
+  background: #eaf1fe;
+  border-color: #2e6fe8;
 }
 
 .field.voyageNoField input:read-only {
   color: #274670;
-  background: #e8f4fc;
+  background: #eaf1fe;
+}
+
+.bunkerPriceGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px 0 0;
 }
 
 .metricsGrid {
@@ -1220,33 +1273,158 @@
 
 .resultsGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 12px;
+  grid-template-columns: 1fr;
+  gap: 0;
 }
 
 .resultCell {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 11px;
-  color: #374151;
-}
-
-.resultCell input {
-  width: 96px;
-  min-height: 26px;
-  padding: 2px 6px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 3px;
-  background: #f8fafc;
-  text-align: right;
-  font-size: 11px;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: #5b6472;
 }
 
 .resultAccent {
-  color: var(--color-accent, #f4652c);
+  color: #c8551e;
+  font-weight: 800;
+}
+
+.rcardBody {
+  padding: 6px 2px 10px;
+}
+
+.rrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+
+.rl {
+  color: #5b6472;
   font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rv {
+  color: #454c54;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rvNotch {
+  background: #f7f8fa;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  padding: 5px 11px;
+  min-width: 64px;
+  text-align: right;
+}
+
+.rvHl {
+  background: #fdece4;
+  border-color: #fbd9c9;
+  color: #c8551e;
+  font-weight: 800;
+}
+
+.rrowSub .rl {
+  padding-left: 10px;
+  color: #8a93a2;
+  font-weight: 500;
+}
+
+.rrowSub .rvNotch {
+  padding: 4px 9px;
+  font-size: 11.5px;
+}
+
+.rgrid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+}
+
+.rcardSectionLabel {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  padding: 12px 0 4px;
+  margin-top: 2px;
+}
+
+.complInputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.complBand {
+  margin: 10px 0 12px;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.complBandEts {
+  background: #e3f4f4;
+  border: 1px solid #c6e8e9;
+}
+
+.complBandFueleu {
+  background: #fcf1dd;
+  border: 1px solid #f8e2b8;
+}
+
+.complBandTitle {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.complBandEts .complBandTitle {
+  color: #14919b;
+}
+
+.complBandFueleu .complBandTitle {
+  color: #b9760a;
+}
+
+.complBand .rrow {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 11.5px;
+  padding: 5px 0;
+}
+
+.complBand .rrow:last-child {
+  border-bottom: none;
+}
+
+.complLinkChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f4652c;
+  cursor: pointer;
+  padding: 6px 0 2px;
+}
+
+.complLinkChip input[type='checkbox'] {
+  accent-color: #f4652c;
+  width: 15px;
+  height: 15px;
 }
 
 .distGrid {
@@ -1323,11 +1501,11 @@
 }
 
 .tankerModeLabel {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  color: #9ca3af;
-  text-transform: none;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  text-transform: uppercase;
 }
 
 .tankerSectionTitle {
@@ -1338,28 +1516,33 @@
 }
 
 .segmented {
+  position: relative;
   display: inline-flex;
-  border: 1px solid #d0d7e2;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #f3f4f6;
+  background: #eef0f3;
+  border: 1px solid #dfe2e7;
+  border-radius: 999px;
+  padding: 4px;
+  gap: 2px;
 }
 
 .segmentedBtn {
   appearance: none;
   border: none;
   margin: 0;
-  padding: 7px 16px;
-  background: #f3f4f6;
-  color: #374151;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 8px 18px;
+  background: none;
+  color: #5b6472;
+  font-size: 12.5px;
+  font-weight: 700;
   cursor: pointer;
   line-height: 1.2;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: color 0.2s ease, background 0.2s ease;
 }
 
 .segmentedBtn + .segmentedBtn {
-  border-left: 1px solid #d0d7e2;
+  border-left: none;
 }
 
 .segmentedBtnActive {
@@ -1370,15 +1553,15 @@
 .segmentedBtn:disabled {
   cursor: not-allowed;
   opacity: 1;
-  background: #f1f2f4;
+  background: none;
   color: #8a93a0;
-  border-color: #e4e6e9;
   box-shadow: none;
 }
 
 .segmentedBtnActive:disabled {
-  background: #f1f2f4;
-  color: #8a93a0;
+  background: #274670;
+  color: #fff;
+  opacity: 0.55;
 }
 
 .tankerRateField {
@@ -1473,8 +1656,10 @@
 .actions {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-top: 14px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 4px 0 8px;
 }
 
 .hint,
@@ -1544,10 +1729,10 @@
 }
 
 .consTitle {
-  font-size: 11px;
-  font-weight: 700;
-  color: #274670;
-  margin-bottom: 4px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #1b2430;
+  margin: 16px 0 8px;
 }
 
 .consBlock .addRowBtn {
@@ -1749,20 +1934,17 @@
 }
 
 .wsPortCombo {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 12px 20px;
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  background: #faf8f5;
-  border-radius: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 10px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
 }
 
 .wsPortComboLabel {
-  font-weight: 700;
-  color: #175c84;
-  min-width: 120px;
+  display: none;
 }
 
 .wsPortComboField {
@@ -1775,9 +1957,11 @@
 
 .wsPortComboField > label,
 .wsPortComboField > span {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
 }
 
 .wsPortMulti {
@@ -1795,12 +1979,14 @@
 .wsPortChip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: 5px;
+  padding: 3.5px 9px 3.5px 10px;
   border-radius: 999px;
-  background: #e8f1f8;
-  color: #175c84;
+  background: #eaf1fe;
+  color: #2e6fe8;
+  border: 1.5px solid #d3e3fd;
   font-size: 11px;
+  font-weight: 800;
 }
 
 .wsPortChipRemove {
@@ -1815,4 +2001,442 @@
 
 .wsPortReadonly {
   width: 100%;
+}
+
+/* ---- Mockup worksheet chrome (estimate page) ---- */
+
+.panelRound .panelBodyFlush,
+.panelBody.panelBodyFlush {
+  padding: 0;
+}
+
+.flushPad {
+  padding: 16px 18px 0;
+}
+
+.panelBodyFlush .bunkerPriceGrid {
+  padding: 16px 18px 18px;
+}
+
+.panelBodyFlush .vesselOpexWrap {
+  padding: 0;
+}
+
+.panelBodyFlush .vesselOpexWrap .tableWrap {
+  overflow-x: auto;
+}
+
+.btnDetails {
+  background: #2e6fe8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btnDetails:hover {
+  background: #265dc7;
+}
+
+.gridF2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gridF3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.headerGridAuto {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.apiField input,
+.apiField select {
+  background: #eef0f3;
+  color: #5b6472;
+  cursor: not-allowed;
+}
+
+.apiEditable input,
+.apiEditable select,
+.apiField.apiEditable input,
+.apiField.apiEditable select {
+  background: #f7f8fa;
+  color: #1b2430;
+  cursor: text;
+}
+
+.apiField.apiEditable input:focus,
+.apiEditable input:focus {
+  border-color: #2e6fe8;
+  background: #fff;
+}
+
+.field select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A93A2' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 12px;
+  padding-right: 26px;
+  cursor: pointer;
+}
+
+.field :global(button[aria-haspopup='listbox']) {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  min-height: 36px;
+}
+
+.conspGroupHead {
+  font-size: 14px;
+  font-weight: 800;
+  color: #274670;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 22px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid #dfe2e7;
+}
+
+.cargoHeaderGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.cargoHeaderGrid .cargoMultiSelectField {
+  grid-column: auto;
+}
+
+@media (max-width: 900px) {
+  .cargoHeaderGrid,
+  .gridF2,
+  .gridF3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.flushGrid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.flushGrid thead th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  background: #fafbfc;
+  padding: 10px 12px;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: nowrap;
+}
+
+.flushGrid tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #eceef2;
+  vertical-align: middle;
+}
+
+.flushGrid tbody tr:hover td {
+  background: #fafbfc;
+}
+
+.flushGrid tfoot td {
+  padding: 11px 12px;
+  border-top: 1.5px solid #dfe2e7;
+  background: #e6eaf1;
+  font-weight: 800;
+  font-size: 12.5px;
+  color: #274670;
+}
+
+.flushGrid tfoot td input {
+  background: transparent;
+  border-color: transparent;
+  font-weight: 800;
+  color: #274670;
+}
+
+.flushGrid input,
+.flushGrid select {
+  min-width: 72px;
+  min-height: 32px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+.flushGrid .rowLabel {
+  font-weight: 700;
+  color: #1b2430;
+  white-space: nowrap;
+}
+
+.flushGrid td.stickyAct,
+.flushGrid th.stickyAct {
+  position: sticky;
+  right: 0;
+  width: 72px;
+  text-align: center;
+  background: #fff;
+  box-shadow: -1px 0 0 #dfe2e7 inset;
+}
+
+.flushGrid th.stickyAct {
+  background: #fafbfc;
+}
+
+.flushGrid tbody tr:hover td.stickyAct {
+  background: #fafbfc;
+}
+
+.flushGrid tfoot td.stickyAct {
+  background: #e6eaf1;
+}
+
+.khakiRowActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.khakiRowActions :global(button) {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 7px;
+}
+
+.khakiRowActions :global(button:first-child) {
+  background: #eaf1fe;
+  color: #2e6fe8;
+}
+
+.khakiRowActions :global(button:first-child:hover:not(:disabled)) {
+  background: #2e6fe8;
+  color: #fff;
+}
+
+.khakiRowActions :global(button:last-child) {
+  background: #fdecea;
+  color: #e4483b;
+}
+
+.khakiRowActions :global(button:last-child:hover:not(:disabled)) {
+  background: #e4483b;
+  color: #fff;
+}
+
+.khakiRowActions :global(button svg) {
+  width: 13px;
+  height: 13px;
+}
+
+.secAddBtn {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  border-radius: 8px;
+  background: #eaf1fe;
+  color: #2e6fe8;
+}
+
+.secAddBtn:hover:not(:disabled) {
+  background: #2e6fe8;
+  color: #fff;
+}
+
+.passageTable {
+  font-size: 11px;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.passageTable thead th {
+  padding: 8px 6px;
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  background: #fafbfc;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.passageTable tbody td {
+  padding: 6px;
+  overflow: hidden;
+  border-bottom: 1px solid #eceef2;
+  vertical-align: middle;
+}
+
+.passageTable tbody tr:hover td {
+  background: #fafbfc;
+}
+
+.passageTable input,
+.passageTable select {
+  min-width: 0;
+  width: 100%;
+  min-height: 28px;
+  font-size: 10.5px;
+  padding: 5px;
+  border-radius: 8px;
+  text-overflow: ellipsis;
+}
+
+.legLead {
+  width: 46px;
+  min-width: 46px;
+  vertical-align: top;
+  text-align: left;
+  padding: 8px 6px !important;
+  border-right: 1px solid #eceef2;
+}
+
+.legNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  background: #e6eaf1;
+  color: #274670;
+}
+
+.legActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.legActions :global(button) {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
+  border-radius: 7px;
+}
+
+.legActions :global(button:first-child) {
+  background: #eaf1fe;
+  color: #2e6fe8;
+}
+
+.legActions :global(button:first-child:hover:not(:disabled)) {
+  background: #2e6fe8;
+  color: #fff;
+}
+
+.legActions :global(button:last-child) {
+  background: #fdecea;
+  color: #e4483b;
+}
+
+.legActions :global(button:last-child:hover:not(:disabled)) {
+  background: #e4483b;
+  color: #fff;
+}
+
+.legActions :global(button svg) {
+  width: 11px;
+  height: 11px;
+}
+
+.legRowLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #8a93a2;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.portTd {
+  overflow: hidden;
+}
+
+.syncChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 4px 7px;
+  white-space: nowrap;
+  background: #fdece4;
+  color: #c8551e;
+  border: 1px solid #fbd9c9;
+  cursor: pointer;
+}
+
+.syncChip svg {
+  width: 9px;
+  height: 9px;
+}
+
+.syncChip:hover {
+  background: #fbd9c9;
+}
+
+.mutedDash {
+  color: #8a93a2;
+  text-align: center;
+}
+
+.conspTable thead th:first-child {
+  min-width: 112px;
+}
+
+.consBlock .conspTable th {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-align: left;
+  padding: 10px 8px;
+}
+
+.consBlock .conspTable td:first-child {
+  width: auto;
+  min-width: 112px;
+}
+
+.consBlock .conspTable input,
+.consBlock .conspTable select {
+  min-height: 32px;
+  font-size: 12.5px;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.segmentedDisabled {
+  opacity: 0.45;
+  pointer-events: none;
 }

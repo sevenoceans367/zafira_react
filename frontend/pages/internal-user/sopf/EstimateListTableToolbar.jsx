@@ -1,14 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { DownloadIcon } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import styles from './EstimateListTableToolbar.module.css';
-
-const DOWNLOAD_OPTIONS = [
-  { id: 'csv', label: 'Download CSV' },
-  { id: 'pdf', label: 'Download PDF' },
-  { id: 'email', label: 'Email attachment' },
-];
 
 function PlusIcon() {
   return (
@@ -27,88 +20,6 @@ function SensitivityIcon() {
       <path d="M16 19v-4" />
       <path d="M20 19V6" />
     </svg>
-  );
-}
-
-function MoreIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <circle cx="12" cy="5" r="1.8" />
-      <circle cx="12" cy="12" r="1.8" />
-      <circle cx="12" cy="19" r="1.8" />
-    </svg>
-  );
-}
-
-export function EstimateListDownloadMenu({
-  onDownloadCsv,
-  onDownloadPdf,
-  onEmailAttachment,
-}) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen]);
-
-  const handleDownloadAction = (id) => {
-    setMenuOpen(false);
-    switch (id) {
-      case 'csv':
-        onDownloadCsv?.();
-        break;
-      case 'pdf':
-        onDownloadPdf?.();
-        break;
-      case 'email':
-        onEmailAttachment?.();
-        break;
-      default:
-        break;
-    }
-  };
-
-  return (
-    <div className={styles.menuWrap} ref={menuRef}>
-      <button
-        type="button"
-        className={styles.btnMore}
-        aria-label="More options"
-        aria-expanded={menuOpen}
-        aria-haspopup="menu"
-        onClick={() => setMenuOpen((open) => !open)}
-      >
-        <MoreIcon />
-      </button>
-      {menuOpen ? (
-        <div className={styles.menuDropdown} role="menu">
-          {DOWNLOAD_OPTIONS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="menuitem"
-              className={styles.menuItem}
-              onClick={() => handleDownloadAction(option.id)}
-            >
-              <span className={styles.menuIcon} aria-hidden>
-                <DownloadIcon size={16} title="" />
-              </span>
-              <span>{option.label}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
   );
 }
 

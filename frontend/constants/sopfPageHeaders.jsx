@@ -6,6 +6,10 @@ import {
   parseCoaModuleFromPath,
 } from './coaModule.js';
 import { SOPF_ENTRY_ROUTE } from './sopfSidebarMenu.js';
+import {
+  parsePeriodContractModuleFromPath,
+  periodContractAppPath,
+} from './periodContractModule.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
 const SOPF = { label: 'SOPF', href: appPath(SOPF_ENTRY_ROUTE) };
@@ -77,16 +81,47 @@ export function resolveSopfHeader(pathname, search = '') {
         ],
       };
     }
-    const isNominate = Boolean(params.get('periodid'));
-    const pageLabel = isNominate ? 'Nominate' : 'New Spot Estimate';
+    const isPeriod = Boolean(params.get('periodid') || params.get('periodId'));
+    if (isPeriod) {
+      let periodModule = 'sopf';
+      let periodHref = periodContractAppPath('sopf');
+      let moduleCrumb = SOPF;
+      const returnToRaw = params.get('returnTo') || '';
+      if (returnToRaw) {
+        try {
+          const decoded = decodeURIComponent(returnToRaw);
+          if (decoded.startsWith('/internal-user/')) {
+            const pathOnly = decoded.split('?')[0];
+            periodModule = parsePeriodContractModuleFromPath(pathOnly);
+            periodHref = periodContractAppPath(periodModule);
+            moduleCrumb = periodModule === 'sopf'
+              ? SOPF
+              : { label: 'SOC', href: appPath('/internal-user/vc') };
+          }
+        } catch {
+          /* ignore bad returnTo */
+        }
+      }
+      const listLabel = periodModule === 'sopf' ? 'Period Business' : 'Period';
+      return {
+        title: 'New Spot Business',
+        currentPage: 'New Spot Business',
+        breadcrumbs: [
+          HOME,
+          moduleCrumb,
+          { label: listLabel, href: periodHref },
+          { label: 'New Spot Business' },
+        ],
+      };
+    }
     return {
-      title: pageLabel,
-      currentPage: pageLabel,
+      title: 'New Spot Estimate',
+      currentPage: 'New Spot Estimate',
       breadcrumbs: [
         HOME,
         SOPF,
         { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
-        { label: pageLabel },
+        { label: 'New Spot Estimate' },
       ],
     };
   }

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
+import { LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import {
   checkVoyageNoExists,
@@ -11,7 +11,10 @@ import {
   updateEstimateDetail,
 } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
-import EstimateDetailHeaderActions from './EstimateDetailHeaderActions.jsx';
+import EstimateDetailHeaderActions, {
+  ESTIMATE_FORM_ID,
+  EstimateDetailFooterActions,
+} from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
 import { toFormState } from './estimateDetail.constants.js';
@@ -343,12 +346,13 @@ export default function UpdateEstimatePage() {
         listHref={listHref}
         disabled={saving || loading}
         onCalculate={handleCalculate}
+        showSubmit
       />
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
       {!loading && detail ? (
-        <form onSubmit={handleSubmit}>
+        <form id={ESTIMATE_FORM_ID} onSubmit={handleSubmit}>
           <EstimateDetailSections
             detail={detail}
             form={form}
@@ -360,17 +364,7 @@ export default function UpdateEstimatePage() {
             onRecalc={handleRecalc}
             onApplyPatch={handleApplyPatch}
           />
-          <div className={styles.actions}>
-            <Button
-              type="button"
-              variant="accent"
-              label="Calculate"
-              onClick={handleCalculate}
-              disabled={saving}
-            />
-            <Button type="submit" variant="submit" label="Submit" disabled={saving} />
-            <Button variant="close" label="Cancel" href={listHref} ariaLabel="Close" />
-          </div>
+          <EstimateDetailFooterActions listHref={listHref} disabled={saving} />
         </form>
       ) : null}
 

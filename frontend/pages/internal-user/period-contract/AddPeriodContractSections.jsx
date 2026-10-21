@@ -5,6 +5,7 @@ import {
   DmyDateInput,
   RowAddButton,
   RowDelButton,
+  useAlert,
 } from '@bainbridge/shared-ui';
 import PortSearchSelect from './PortSearchSelect.jsx';
 import {
@@ -16,6 +17,10 @@ import {
 } from './addPeriodContract.constants.js';
 import { recalcBunkerRows } from './periodContractCalculations.js';
 import styles from './AddPeriodContractPage.module.css';
+
+function alertIncompleteRow(alert, message) {
+  return alert({ title: 'Alert', message, confirmLabel: 'OK' });
+}
 
 function toSelectOptions(items = [], { idKey = 'id', nameKey = 'name', labelKey = 'label' } = {}) {
   return items.map((item) => ({
@@ -434,7 +439,7 @@ function PeriodDetailsPanel({
   periodUnit,
   updateField,
   updateForm,
-  setError,
+  alert,
   disabled,
 }) {
   const notices = form.deliveryNotices || [];
@@ -673,10 +678,9 @@ function PeriodDetailsPanel({
           onClick={() => {
             const last = notices[notices.length - 1];
             if (!last?.notice || !last?.dateTime) {
-              setError('Please fill the previous notice row before adding another.');
+              alertIncompleteRow(alert, 'Please fill the previous notice row before adding another.');
               return;
             }
-            setError('');
             updateForm({
               ...form,
               deliveryNotices: [...notices, EMPTY_DELIVERY_NOTICE()],
@@ -690,7 +694,7 @@ function PeriodDetailsPanel({
   );
 }
 
-function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, setError, disabled }) {
+function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert, disabled }) {
   const hireRates = form.hireRates || [];
   const offHires = form.offHires || [];
   const latestHireRate = [...hireRates]
@@ -803,10 +807,9 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, setErr
                           onAdd={isLast ? () => {
                             const last = hireRates[hireRates.length - 1];
                             if (!last?.hireFrom || !last?.hireTo) {
-                              setError('Please fill the previous hire row before adding another.');
+                              alertIncompleteRow(alert, 'Please fill the previous hire row before adding another.');
                               return;
                             }
-                            setError('');
                             updateForm({
                               ...form,
                               hireRates: [...hireRates, EMPTY_HIRE_RATE()],
@@ -1010,10 +1013,9 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, setErr
                     onClick={() => {
                       const last = offHire.bunkers[offHire.bunkers.length - 1];
                       if (!last?.gradeId || !last?.qty || !last?.price) {
-                        setError('Please fill the previous off-hire bunker row before adding another.');
+                        alertIncompleteRow(alert, 'Please fill the previous off-hire bunker row before adding another.');
                         return;
                       }
-                      setError('');
                       patchOffHire(offIndex, {
                         bunkers: [...offHire.bunkers, { ...EMPTY_OFF_HIRE_BUNKER(), gradeId: defaultGradeId }],
                       });
@@ -1044,10 +1046,9 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, setErr
             onClick={() => {
               const last = offHires[offHires.length - 1];
               if (!last?.reason || ((!last?.from || !last?.to) && !last?.days)) {
-                setError('Please fill the previous off-hire row before adding another.');
+                alertIncompleteRow(alert, 'Please fill the previous off-hire row before adding another.');
                 return;
               }
-              setError('');
               updateForm({
                 ...form,
                 offHires: [...offHires, {
@@ -1168,7 +1169,7 @@ function BunkersPanel({
   redeliveryBunkerTotal,
   defaultGradeId = '',
   updateForm,
-  setError,
+  alert,
   disabled,
 }) {
   const bunkers = lookups?.bunkers ?? [];
@@ -1190,10 +1191,9 @@ function BunkersPanel({
         onAdd={() => {
           const last = form.deliveryBunkers[form.deliveryBunkers.length - 1];
           if (!last?.gradeId || !last?.qty || !last?.date || !last?.price) {
-            setError('Please fill the previous delivery bunker row before adding another.');
+            alertIncompleteRow(alert, 'Please fill the previous delivery bunker row before adding another.');
             return;
           }
-          setError('');
           updateForm({
             ...form,
             deliveryBunkers: [...form.deliveryBunkers, { ...EMPTY_BUNKER_ROW(), gradeId: defaultGradeId }],
@@ -1216,10 +1216,9 @@ function BunkersPanel({
         onAdd={() => {
           const last = form.redeliveryBunkers[form.redeliveryBunkers.length - 1];
           if (!last?.gradeId || !last?.qty || !last?.date || !last?.price) {
-            setError('Please fill the previous re-delivery bunker row before adding another.');
+            alertIncompleteRow(alert, 'Please fill the previous re-delivery bunker row before adding another.');
             return;
           }
-          setError('');
           updateForm({
             ...form,
             redeliveryBunkers: [...form.redeliveryBunkers, { ...EMPTY_BUNKER_ROW(), gradeId: defaultGradeId }],
@@ -1327,7 +1326,6 @@ export default function AddPeriodContractSections({
   updateField,
   updateForm,
   setForm,
-  setError,
   files,
   setFiles,
   attachments,
@@ -1338,6 +1336,8 @@ export default function AddPeriodContractSections({
   disabled = false,
   footer = null,
 }) {
+  const alert = useAlert();
+
   return (
     <>
       <RecapIdentifiersPanel
@@ -1361,7 +1361,7 @@ export default function AddPeriodContractSections({
         periodUnit={periodUnit}
         updateField={updateField}
         updateForm={updateForm}
-        setError={setError}
+        alert={alert}
         disabled={disabled}
       />
       <HirePanel
@@ -1369,7 +1369,7 @@ export default function AddPeriodContractSections({
         bunkers={lookups?.bunkers ?? []}
         defaultGradeId={defaultGradeId}
         updateForm={updateForm}
-        setError={setError}
+        alert={alert}
         disabled={disabled}
       />
       <BunkersPanel
@@ -1379,7 +1379,7 @@ export default function AddPeriodContractSections({
         redeliveryBunkerTotal={redeliveryBunkerTotal}
         defaultGradeId={defaultGradeId}
         updateForm={updateForm}
-        setError={setError}
+        alert={alert}
         disabled={disabled}
       />
       <AdditionalInfoPanel

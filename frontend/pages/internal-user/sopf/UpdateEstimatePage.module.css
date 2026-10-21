@@ -92,9 +92,13 @@
 }
 
 .resultsAside .distDaysGrid {
-  margin-top: 6px;
-  padding-top: 6px;
-  gap: 8px;
+  margin-top: 0;
+  padding-top: 0;
+  gap: 0 12px;
+}
+
+.resultsAside .distDaysCol + .distDaysCol {
+  padding-left: 12px;
 }
 
 .resultsAside .headerGrid {
@@ -1303,6 +1307,11 @@
   gap: 10px;
   padding: 6px 0;
   font-size: 12px;
+  border-bottom: 1px solid #edf0f2;
+}
+
+.rrow:last-child {
+  border-bottom: none;
 }
 
 .rl {
@@ -1357,8 +1366,8 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #8a93a2;
-  padding: 12px 0 4px;
-  margin-top: 2px;
+  padding: 12px 0 8px;
+  margin-top: 4px;
 }
 
 .complInputs {
@@ -1452,25 +1461,42 @@
 .distDaysGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid #edf0f2;
+  gap: 0 16px;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
   font-size: 11px;
 }
 
 .distDaysCol {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
   min-width: 0;
 }
 
-.distDaysCol div {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  color: #4b5563;
+.distDaysCol + .distDaysCol {
+  padding-left: 16px;
+  border-left: 1px solid #edf0f2;
+}
+
+.distDaysColHead {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a93a2;
+  padding: 0 0 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid #edf0f2;
+}
+
+.distDaysCol .rrow {
+  border-bottom: 1px solid #edf0f2;
+}
+
+.distDaysCol .rrow:last-child {
+  border-bottom: none;
 }
 
 .distDaysCol strong {

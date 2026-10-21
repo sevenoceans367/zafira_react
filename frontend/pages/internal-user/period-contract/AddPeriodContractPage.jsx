@@ -247,7 +247,6 @@ export default function AddPeriodContractPage() {
           updateField={updateField}
           updateForm={updateForm}
           setForm={setForm}
-          setError={setError}
           files={files}
           setFiles={setFiles}
           attachments={attachments}

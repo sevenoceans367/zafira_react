@@ -34,7 +34,7 @@ const MOCK_LOOKUPS = {
     3: [{ id: '1', name: 'Handysize' }],
   },
   vesselsByBusiness: {
-    3: [{ id: '1', name: 'ATLANTIC STAR' }],
+    3: [{ id: '1', name: 'ATLANTIC STAR', vesselTypeId: '1' }],
   },
   charterers: [
     { id: 'C001', name: 'CHEMOIL ( C001 )', address: '1 Harbour Drive, Singapore' },
@@ -224,8 +224,10 @@ export async function getPeriodContractById(periodId) {
       contractDate: mock.contractDate,
       ownBusinessAccount: 'SO01',
       businessType: '3',
-      vesselType: '1',
+      vesselType: mock.vesselType || 'Aframax',
+      vesselTypeId: '1',
       vesselImoId: '1',
+      vesselName: mock.vesselName || 'ATLANTIC STAR',
       currency: mock.workingCurrency || 'USD',
       owner: 'SO01',
       disOwner: '',

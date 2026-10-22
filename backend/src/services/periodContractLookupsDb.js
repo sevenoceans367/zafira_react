@@ -31,6 +31,22 @@ function mapVendorRow(row) {
   };
 }
 
+function mapOwnerVendorRow(row) {
+  const name = String(row.NAME || '').trim();
+  const code = String(row.CODE || '').trim();
+  const shortName = String(row.SHORT_NAME || '').trim();
+  const city = String(row.CITY || '').trim();
+  const parts = [code ? `${name} ( ${code} )` : name];
+  if (shortName && shortName.toLowerCase() !== name.toLowerCase()) {
+    parts.push(shortName);
+  }
+  if (city) parts.push(city);
+  return {
+    id: code,
+    name: parts.filter(Boolean).join(' · '),
+  };
+}
+
 export async function dbGetNextPeriodContractId() {
   const pool = getPool();
   const [[row]] = await pool.query(
@@ -90,7 +106,8 @@ export async function dbGetPeriodContractLookups() {
   );
 
   const [vessels] = await pool.query(
-    `SELECT VESSEL_IMO_ID AS id, VESSEL_NAME AS name, BUSINESSTYPEID AS businessTypeId
+    `SELECT VESSEL_IMO_ID AS id, VESSEL_NAME AS name, BUSINESSTYPEID AS businessTypeId,
+            VESSEL_TYPE AS vesselTypeId
      FROM vessel_imo_master
      WHERE MCOMPANYID = ?
      ORDER BY VESSEL_NAME`,
@@ -105,8 +122,8 @@ export async function dbGetPeriodContractLookups() {
   );
 
   const [ownerVendors] = await pool.query(
-    `SELECT CODE, NAME FROM vendor_master
-     WHERE STATUS = 1 AND VENDOR_TYPEID IN (11) AND MCOMPANYID = ?
+    `SELECT CODE, NAME, SHORT_NAME, CITY FROM vendor_master
+     WHERE STATUS = 1 AND VENDOR_TYPEID IN (7, 10, 11) AND MCOMPANYID = ?
      ORDER BY NAME`,
     [appContext.companyId],
   );
@@ -177,7 +194,11 @@ export async function dbGetPeriodContractLookups() {
   for (const vessel of vessels) {
     const key = String(vessel.businessTypeId);
     if (!vesselsByBusiness[key]) vesselsByBusiness[key] = [];
-    vesselsByBusiness[key].push({ id: String(vessel.id), name: vessel.name });
+    vesselsByBusiness[key].push({
+      id: String(vessel.id),
+      name: vessel.name,
+      vesselTypeId: vessel.vesselTypeId != null ? String(vessel.vesselTypeId) : '',
+    });
   }
 
   const { contractId } = await dbGetNextPeriodContractId();
@@ -188,7 +209,7 @@ export async function dbGetPeriodContractLookups() {
     periodTypes: PERIOD_TYPES,
     bunkers: bunkers.map((row) => ({ id: String(row.id), name: row.name })),
     obaVendors: obaVendors.map(mapVendorRow),
-    ownerVendors: ownerVendors.map(mapVendorRow),
+    ownerVendors: ownerVendors.map(mapOwnerVendorRow),
     brokerVendors: brokerVendors.map(mapVendorRow),
     managerVendors: (managerVendors.length ? managerVendors : ownerVendors).map(mapVendorRow),
     vesselTypesByBusiness,

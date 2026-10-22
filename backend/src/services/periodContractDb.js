@@ -289,7 +289,7 @@ export async function dbGetPeriodContractList({
     `SELECT pcm.PERIODID, pcm.CONTRACT_ID, pcm.CONTRACT_NO, pcm.CONTRACT_DATE,
             pcm.DELIVERY_DATE, pcm.RE_DEL_MIN_DATE, pcm.RE_DEL_MAX_DATE,
             pcm.WORKING_CURRENCY, pcm.HIRE, pcm.REMARKS, pcm.UPDATE_STATUS,
-            pcm.VESSEL_IMO_ID,
+            pcm.VESSEL_IMO_ID, pcm.VESSEL_TYPE,
             vim.VESSEL_NAME, vim.DWT,
             vt.VesselType AS VESSEL_TYPE_NAME,
             (SELECT CONCAT(NAME, '(', CODE, ')')
@@ -297,7 +297,10 @@ export async function dbGetPeriodContractList({
              WHERE vendor_master.CODE = pcm.OWN_BUSINESS_ACCOUNT) AS OWN_BUSINESS_ACCOUNT
      FROM period_contract_master pcm
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = pcm.VESSEL_IMO_ID
-     LEFT JOIN vessel_type_master vt ON vt.VesselTypeId = pcm.VESSEL_TYPE
+     LEFT JOIN vessel_type_master vt
+       ON vt.VesselTypeId = pcm.VESSEL_TYPE
+       OR CAST(vt.VesselTypeId AS CHAR) = CAST(pcm.VESSEL_TYPE AS CHAR)
+       OR vt.VesselType = pcm.VESSEL_TYPE
      WHERE ${where}
      ORDER BY ${orderCol} ${orderDir}
      LIMIT ? OFFSET ?`,
@@ -322,7 +325,7 @@ export async function dbGetPeriodContractList({
       contractNo: row.CONTRACT_NO ?? '',
       contractDate: formatDateDMY(row.CONTRACT_DATE),
       vesselName: row.VESSEL_NAME ?? '',
-      vesselType: row.VESSEL_TYPE_NAME ?? '',
+      vesselType: row.VESSEL_TYPE_NAME || row.VESSEL_TYPE || '',
       dwt: row.DWT ?? '',
       initialHire: initialHire || formatNumber(row.HIRE),
       ownBusinessAccount: row.OWN_BUSINESS_ACCOUNT ?? '',

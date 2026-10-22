@@ -98,7 +98,16 @@
 .cardSelect > div > button:first-child {
   width: 100%;
   min-width: 0;
+  height: 36px;
+  min-height: 36px;
   justify-content: space-between;
+  border-radius: 12px;
+}
+
+.miniTable .cardSelect > div > button:first-child {
+  height: 32px;
+  min-height: 32px;
+  border-radius: 10px;
 }
 
 .chipGradeVlsfo > div > button:first-child {
@@ -238,6 +247,7 @@
 }
 
 .field {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -266,11 +276,59 @@
   margin-left: 4px;
 }
 
+.apiTag {
+  margin-left: 6px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  background: #eef0f3;
+  border-radius: 4px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 .fieldHint {
   display: block;
   font-size: 10px;
   color: #8a93a2;
   margin-top: 4px;
+}
+
+.dateField {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.dateFieldIco {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: #8a93a2;
+  pointer-events: none;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dateFieldIco svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dateFieldHasValue .dateFieldIco {
+  color: #274670;
+}
+
+.dateField input {
+  padding-left: 32px !important;
 }
 
 .field input,
@@ -313,6 +371,26 @@
 .field select:disabled {
   background: #f1f2f4;
   color: #5b6472;
+}
+
+.apiField input,
+.apiField select {
+  background: #eef0f3;
+  color: #5b6472;
+  cursor: not-allowed;
+}
+
+.apiEditable input,
+.apiField.apiEditable input {
+  background: #f7f8fa;
+  color: #1b2430;
+  cursor: text;
+}
+
+.apiEditable input:focus,
+.apiField.apiEditable input:focus {
+  border-color: #3b82f6;
+  background: #fff;
 }
 
 .field textarea {
@@ -432,7 +510,7 @@
   padding: 7px 8px;
   border-bottom: none;
   font-size: 12.5px;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .miniTable tbody tr:first-child td {
@@ -490,45 +568,8 @@
   text-align: center;
 }
 
-.khakiRowActions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.khakiRowActions :global(button) {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0;
-  border-radius: 7px;
-}
-
-.khakiRowActions :global(button:first-child) {
-  background: #eaf1fe;
-  color: #2e6fe8;
-}
-
-.khakiRowActions :global(button:first-child:hover:not(:disabled)) {
-  background: #2e6fe8;
-  color: #fff;
-}
-
-.khakiRowActions :global(button:last-child) {
-  background: #fdecea;
-  color: #e4483b;
-}
-
-.khakiRowActions :global(button:last-child:hover:not(:disabled)) {
-  background: #e4483b;
-  color: #fff;
-}
-
-.khakiRowActions :global(button svg) {
-  width: 13px;
-  height: 13px;
+.actCol :global(.rowActions) {
+  height: 32px;
 }
 
 .addRowBtn {
@@ -661,77 +702,44 @@
 .offHireItem {
   margin-bottom: 0;
   background: #fff;
-  border-color: #d6e2f3;
+  border-color: #b7c9e8;
 }
 
 .offHireMain {
   min-width: 760px;
 }
 
+.offHireMain th {
+  background: #d4e2f8;
+  color: #1e4a8a;
+  border-bottom: none;
+}
+
 .offHireMain th:nth-child(1),
 .offHireMain td:nth-child(1) {
-  width: 18%;
+  width: 16%;
 }
 
 .offHireMain th:nth-child(2),
-.offHireMain td:nth-child(2) {
-  width: 38%;
-}
-
+.offHireMain td:nth-child(2),
 .offHireMain th:nth-child(3),
 .offHireMain td:nth-child(3) {
-  width: 8%;
+  width: 16%;
 }
 
 .offHireMain th:nth-child(4),
 .offHireMain td:nth-child(4) {
+  width: 8%;
+}
+
+.offHireMain th:nth-child(5),
+.offHireMain td:nth-child(5) {
   width: 12%;
 }
 
-.fromToCell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.fromToCell input {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-.fromToArrow {
-  flex: none;
-  color: #8a93a2;
-  font-size: 13px;
-  line-height: 1;
-}
-
-.circleActCol {
-  width: 44px;
-  text-align: center;
-  vertical-align: middle;
-}
-
-.circleDel {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  border-radius: 50%;
-  border: none;
-  background: none;
-  color: #e4483b;
-}
-
-.circleDel:hover:not(:disabled) {
-  background: #fdecea;
-  color: #e4483b;
-}
-
-.circleDel svg {
-  width: 12px;
-  height: 12px;
+.offHireMain th:nth-child(6),
+.offHireMain td:nth-child(6) {
+  width: 14%;
 }
 
 .totalBar {
@@ -747,7 +755,8 @@
   font-size: 12.5px;
 }
 
-.offHireSection > .totalBar {
+.offHireSection > .totalBar,
+.subCardMustard + .totalBar {
   border-radius: 10px;
   margin-top: 12px;
 }
@@ -767,10 +776,11 @@
 }
 
 .offHireBunkers {
-  border-top: 1px dashed #d6e2f3;
-  background: #f8fafe;
+  border-top: 1px solid #bd9553;
+  background: #f5efe2;
   padding: 0 0 12px;
   margin: 0;
+  border-radius: 0;
 }
 
 .ohBunkerTitle {
@@ -778,7 +788,7 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #2563c9;
+  color: #92400e;
   padding: 11px 14px 0;
 }
 
@@ -806,12 +816,6 @@
   width: 17%;
 }
 
-.addBunkersBtn {
-  margin: 2px 14px 0;
-  padding: 5px 11px;
-  font-size: 11.5px;
-}
-
 .ownAcctCell {
   text-align: center;
   white-space: nowrap;
@@ -826,6 +830,8 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  height: 36px;
   cursor: pointer;
 }
 
@@ -889,6 +895,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding-top: 12px;
 }
 
 .legRemarksField {

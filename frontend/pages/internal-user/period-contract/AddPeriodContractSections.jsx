@@ -5,9 +5,11 @@ import {
   DmyDateInput,
   RowAddButton,
   RowDelButton,
+  RowActions,
   useAlert,
 } from '@bainbridge/shared-ui';
 import PortSearchSelect from './PortSearchSelect.jsx';
+import VesselSearchSelect from '../sopf/VesselSearchSelect.jsx';
 import {
   EMPTY_BUNKER_ROW,
   EMPTY_DELIVERY_NOTICE,
@@ -29,11 +31,12 @@ function toSelectOptions(items = [], { idKey = 'id', nameKey = 'name', labelKey 
   }));
 }
 
-function Field({ label, children, required = false, className = '', hint = '' }) {
+function Field({ label, children, required = false, className = '', hint = '', api = false }) {
   return (
-    <div className={[styles.field, className].filter(Boolean).join(' ')}>
+    <div className={[styles.field, api ? styles.apiField : '', className].filter(Boolean).join(' ')}>
       <label>
         {label}
+        {api ? <span className={styles.apiTag}>API</span> : null}
         {required ? <span className={styles.required}>*</span> : null}
       </label>
       {children}
@@ -128,28 +131,34 @@ function managerOptions(lookups, currentValue) {
   return options;
 }
 
-function KhakiRowActions({ onAdd, onRemove, removeDisabled = false, addTitle = 'Add', removeTitle = 'Delete row' }) {
+function CalendarIco() {
   return (
-    <div className={styles.khakiRowActions}>
-      <RowAddButton
-        title={addTitle}
-        onClick={onAdd}
-        disabled={!onAdd}
-        style={!onAdd ? { visibility: 'hidden' } : undefined}
-      />
-      <RowDelButton title={removeTitle} disabled={removeDisabled} onClick={onRemove} />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
+      <path d="M3 9.5h18" />
+      <path d="M8 2.5v4" />
+      <path d="M16 2.5v4" />
+    </svg>
+  );
+}
+
+function PeriodDateInput(props) {
+  return (
+    <div className={`${styles.dateField} ${props.value ? styles.dateFieldHasValue : ''}`}>
+      <span className={styles.dateFieldIco} aria-hidden>
+        <CalendarIco />
+      </span>
+      <DmyDateInput {...props} />
     </div>
   );
 }
 
-function CircleDelButton({ title, disabled = false, onClick }) {
+function GlobalRowActions({ onAdd, onRemove, removeDisabled = false, addTitle = 'Add', removeTitle = 'Delete row' }) {
   return (
-    <RowDelButton
-      className={styles.circleDel}
-      title={title}
-      disabled={disabled}
-      onClick={onClick}
-    />
+    <RowActions>
+      {onAdd ? <RowAddButton title={addTitle} onClick={onAdd} /> : null}
+      <RowDelButton title={removeTitle} disabled={removeDisabled} onClick={onRemove} />
+    </RowActions>
   );
 }
 
@@ -263,11 +272,9 @@ function DocsIcon() {
 function RecapIdentifiersPanel({
   form,
   lookups,
-  vesselTypes,
-  vessels,
   updateField,
-  setForm,
   disabled,
+  onVesselSelect,
 }) {
   return (
     <PeriodCard title="Recap Identifiers" defaultOpen icon={<IdentifiersIcon />}>
@@ -275,28 +282,32 @@ function RecapIdentifiersPanel({
         <Field label="Contract ID">
           <input type="text" value={form.contractId} readOnly />
         </Field>
-        <Field label="Vessel" required>
-          <ThemedCardSelect
-            label="Vessel"
-            value={form.vesselImoId}
-            required
-            disabled={disabled}
-            options={toSelectOptions(vessels)}
-            onChange={(value) => updateField('vesselImoId', value)}
-          />
+        <Field label="Vessel" api required className={disabled ? '' : styles.apiEditable}>
+          {disabled ? (
+            <input type="text" value={form.vesselName || ''} readOnly />
+          ) : (
+            <>
+              <input
+                className={styles.requiredMirror}
+                value={form.vesselImoId || ''}
+                required
+                tabIndex={-1}
+                aria-hidden
+                readOnly
+              />
+              <VesselSearchSelect
+                value={form.vesselImoId}
+                label={form.vesselName}
+                onSelect={onVesselSelect}
+              />
+            </>
+          )}
         </Field>
-        <Field label="Vessel Type" required>
-          <ThemedCardSelect
-            label="Vessel Type"
-            value={form.vesselType}
-            required
-            disabled={disabled}
-            options={toSelectOptions(vesselTypes)}
-            onChange={(value) => updateField('vesselType', value)}
-          />
+        <Field label="Vessel Type" api required>
+          <input type="text" value={form.vesselType || ''} readOnly />
         </Field>
         <Field label="CP Date" required>
-          <DmyDateInput
+          <PeriodDateInput
             value={form.contractDate}
             required
             disabled={disabled}
@@ -420,7 +431,7 @@ function CpInformationPanel({ form, lookups, updateField, disabled }) {
             onChange={(value) => updateField('lawArbit', value)}
           />
         </Field>
-        <Field label="Charterers' Address" className={styles.fieldSpan2} hint="Display from master data">
+        <Field label="Charterers' Address" className={styles.fieldSpan2}>
           <input
             type="text"
             value={form.charterersAddress}
@@ -449,7 +460,7 @@ function PeriodDetailsPanel({
       <SubLabel first>Terms</SubLabel>
       <div className={styles.termsGrid}>
         <Field label="Laycan Start" required className={styles.fieldWide}>
-          <DmyDateInput
+          <PeriodDateInput
             value={form.laycanStart}
             required
             disabled={disabled}
@@ -457,7 +468,7 @@ function PeriodDetailsPanel({
           />
         </Field>
         <Field label="Laycan End" required className={styles.fieldWide}>
-          <DmyDateInput
+          <PeriodDateInput
             value={form.laycanEnd}
             required
             disabled={disabled}
@@ -528,7 +539,7 @@ function PeriodDetailsPanel({
           />
         </Field>
         <Field label="Del Date" required>
-          <DmyDateInput
+          <PeriodDateInput
             value={form.deliveryDate}
             required
             disabled={disabled}
@@ -547,7 +558,6 @@ function PeriodDetailsPanel({
         </Field>
         <Field
           label={periodUnit ? `Time Period Minimum (${periodUnit})` : 'Time Period Minimum'}
-          hint="Calculated from Del Date and Redel Date Min"
         >
           <input
             type="text"
@@ -558,7 +568,6 @@ function PeriodDetailsPanel({
         </Field>
         <Field
           label={periodUnit ? `Time Period Maximum (${periodUnit})` : 'Time Period Maximum'}
-          hint="Calculated from Del Date and Redel Date Max"
         >
           <input
             type="text"
@@ -582,7 +591,7 @@ function PeriodDetailsPanel({
           />
         </Field>
         <Field label="Redel Date Min" required>
-          <DmyDateInput
+          <PeriodDateInput
             value={form.reDelMinDate}
             required
             disabled={disabled}
@@ -590,7 +599,7 @@ function PeriodDetailsPanel({
           />
         </Field>
         <Field label="Redel Date Max" required>
-          <DmyDateInput
+          <PeriodDateInput
             value={form.reDelMaxDate}
             required
             disabled={disabled}
@@ -598,7 +607,7 @@ function PeriodDetailsPanel({
           />
         </Field>
         <Field label="Voyage Days Fixed Until">
-          <DmyDateInput
+          <PeriodDateInput
             value={form.voyageDaysPerformed}
             disabled={disabled}
             onChange={(value) => updateField('voyageDaysPerformed', value)}
@@ -643,7 +652,7 @@ function PeriodDetailsPanel({
                       />
                     </td>
                     <td>
-                      <DmyDateInput
+                      <PeriodDateInput
                         enableTime
                         value={row.dateTime}
                         disabled={disabled}
@@ -656,7 +665,7 @@ function PeriodDetailsPanel({
                     </td>
                     {!disabled ? (
                       <td className={styles.actCol}>
-                        <KhakiRowActions
+                        <GlobalRowActions
                           removeDisabled={notices.length <= 1}
                           onRemove={() => updateForm({
                             ...form,
@@ -751,7 +760,7 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                 return (
                   <tr key={row.id}>
                     <td>
-                      <DmyDateInput
+                      <PeriodDateInput
                         enableTime
                         value={row.hireFrom}
                         disabled={disabled}
@@ -763,7 +772,7 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                       />
                     </td>
                     <td>
-                      <DmyDateInput
+                      <PeriodDateInput
                         enableTime
                         value={row.hireTo}
                         disabled={disabled}
@@ -803,7 +812,7 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                     </td>
                     {!disabled ? (
                       <td className={styles.actCol}>
-                        <KhakiRowActions
+                        <GlobalRowActions
                           onAdd={isLast ? () => {
                             const last = hireRates[hireRates.length - 1];
                             if (!last?.hireFrom || !last?.hireTo) {
@@ -861,11 +870,12 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                   <thead>
                     <tr>
                       <th>Reason</th>
-                      <th>From → To</th>
+                      <th>From</th>
+                      <th>To</th>
                       <th>Days</th>
                       <th>Rate/Day</th>
-                      <th>Off Hire Amount ($)</th>
-                      {!disabled ? <th className={styles.circleActCol} /> : null}
+                      <th>Amount</th>
+                      {!disabled ? <th className={styles.actCol} /> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -880,21 +890,20 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                         />
                       </td>
                       <td>
-                        <div className={styles.fromToCell}>
-                          <DmyDateInput
-                            enableTime
-                            value={offHire.from}
-                            disabled={disabled}
-                            onChange={(value) => patchOffHire(offIndex, { from: value })}
-                          />
-                          <span className={styles.fromToArrow} aria-hidden>→</span>
-                          <DmyDateInput
-                            enableTime
-                            value={offHire.to}
-                            disabled={disabled}
-                            onChange={(value) => patchOffHire(offIndex, { to: value })}
-                          />
-                        </div>
+                        <PeriodDateInput
+                          enableTime
+                          value={offHire.from}
+                          disabled={disabled}
+                          onChange={(value) => patchOffHire(offIndex, { from: value })}
+                        />
+                      </td>
+                      <td>
+                        <PeriodDateInput
+                          enableTime
+                          value={offHire.to}
+                          disabled={disabled}
+                          onChange={(value) => patchOffHire(offIndex, { to: value })}
+                        />
                       </td>
                       <td><input type="text" value={offHire.days} readOnly /></td>
                       <td>
@@ -910,11 +919,11 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                       </td>
                       <td><input type="text" value={offHire.amount} readOnly /></td>
                       {!disabled ? (
-                        <td className={styles.circleActCol}>
-                          <CircleDelButton
-                            title="Delete this off-hire item"
-                            disabled={offHires.length <= 1}
-                            onClick={() => updateForm({
+                        <td className={styles.actCol}>
+                          <GlobalRowActions
+                            removeTitle="Delete this off-hire item"
+                            removeDisabled={offHires.length <= 1}
+                            onRemove={() => updateForm({
                               ...form,
                               offHires: offHires.filter((item) => item.id !== offHire.id),
                             })}
@@ -926,7 +935,7 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                 </table>
               </div>
 
-              <div className={styles.offHireBunkers}>
+              <div className={`${styles.offHireBunkers} ${styles.subCardMustard}`}>
                 <div className={styles.ohBunkerTitle}>Off-Hire Bunkers</div>
                 <div className={styles.tableWrap}>
                   <table className={`${styles.miniTable} ${styles.offHireBunkerTable}`}>
@@ -934,10 +943,10 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                       <tr>
                         <th>Grade</th>
                         <th>Qty (MT)</th>
-                        <th>Price (MT)</th>
-                        <th>Amount ($)</th>
+                        <th>Price (/MT)</th>
+                        <th>Amount</th>
                         <th className={styles.ownAcctCell}>On Owner&apos;s A/C</th>
-                        {!disabled ? <th className={styles.circleActCol} /> : null}
+                        {!disabled ? <th className={styles.actCol} /> : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -947,6 +956,7 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                           nextBunkers[bunkerIndex] = { ...bunker, ...patch };
                           patchOffHire(offIndex, { bunkers: nextBunkers });
                         };
+                        const isLastBunker = bunkerIndex === offHire.bunkers.length - 1;
                         return (
                           <tr key={bunker.id}>
                             <td>
@@ -990,11 +1000,22 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                               </label>
                             </td>
                             {!disabled ? (
-                              <td className={styles.circleActCol}>
-                                <CircleDelButton
-                                  title="Remove bunker item"
-                                  disabled={offHire.bunkers.length <= 1}
-                                  onClick={() => patchOffHire(offIndex, {
+                              <td className={styles.actCol}>
+                                <GlobalRowActions
+                                  onAdd={isLastBunker ? () => {
+                                    const last = offHire.bunkers[offHire.bunkers.length - 1];
+                                    if (!last?.gradeId || !last?.qty || !last?.price) {
+                                      alertIncompleteRow(alert, 'Please fill the previous off-hire bunker row before adding another.');
+                                      return;
+                                    }
+                                    patchOffHire(offIndex, {
+                                      bunkers: [...offHire.bunkers, { ...EMPTY_OFF_HIRE_BUNKER(), gradeId: defaultGradeId }],
+                                    });
+                                  } : undefined}
+                                  addTitle="Add a new bunker line"
+                                  removeTitle="Remove bunker item"
+                                  removeDisabled={offHire.bunkers.length <= 1}
+                                  onRemove={() => patchOffHire(offIndex, {
                                     bunkers: offHire.bunkers.filter((item) => item.id !== bunker.id),
                                   })}
                                 />
@@ -1006,24 +1027,6 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                     </tbody>
                   </table>
                 </div>
-                {!disabled ? (
-                  <button
-                    type="button"
-                    className={`${styles.addRowBtn} ${styles.addBunkersBtn}`}
-                    onClick={() => {
-                      const last = offHire.bunkers[offHire.bunkers.length - 1];
-                      if (!last?.gradeId || !last?.qty || !last?.price) {
-                        alertIncompleteRow(alert, 'Please fill the previous off-hire bunker row before adding another.');
-                        return;
-                      }
-                      patchOffHire(offIndex, {
-                        bunkers: [...offHire.bunkers, { ...EMPTY_OFF_HIRE_BUNKER(), gradeId: defaultGradeId }],
-                      });
-                    }}
-                  >
-                    <span className={styles.plus}>+</span> Add Bunkers
-                  </button>
-                ) : null}
               </div>
             </div>
           ))}
@@ -1083,9 +1086,9 @@ function BunkerTable({ rows, bunkers, total, disabled, onChange, onAdd }) {
               <tr>
                 <th>Bunker Grade</th>
                 <th>Qty (MT)</th>
-                <th>Price (MT)</th>
+                <th>Price (/MT)</th>
                 <th>Bunker Date</th>
-                <th>Amount ($)</th>
+                <th>Amount</th>
                 {!disabled ? <th className={styles.actCol} /> : null}
               </tr>
             </thead>
@@ -1123,7 +1126,7 @@ function BunkerTable({ rows, bunkers, total, disabled, onChange, onAdd }) {
                       />
                     </td>
                     <td>
-                      <DmyDateInput
+                      <PeriodDateInput
                         id={`bunkerDate_${row.id}`}
                         value={row.date}
                         disabled={disabled}
@@ -1133,7 +1136,7 @@ function BunkerTable({ rows, bunkers, total, disabled, onChange, onAdd }) {
                     <td><input type="text" value={row.amount} readOnly /></td>
                     {!disabled ? (
                       <td className={styles.actCol}>
-                        <KhakiRowActions
+                        <GlobalRowActions
                           onAdd={isLast ? onAdd : undefined}
                           addTitle="Add a new bunker line"
                           removeDisabled={rows.length <= 1}
@@ -1145,18 +1148,12 @@ function BunkerTable({ rows, bunkers, total, disabled, onChange, onAdd }) {
                 );
               })}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={3} />
-                <td className={styles.bunkerTotalLabel}>Total ($)</td>
-                <td>
-                  <input type="text" value={total || '0.00'} readOnly />
-                </td>
-                {!disabled ? <td /> : null}
-              </tr>
-            </tfoot>
           </table>
         </div>
+      </div>
+      <div className={styles.totalBar}>
+        <span className={styles.totalBarLabel}>Total ($)</span>
+        <span className={styles.totalBarVal}>{total || '0.00'}</span>
       </div>
     </>
   );
@@ -1320,12 +1317,11 @@ function AdditionalInfoPanel({
 export default function AddPeriodContractSections({
   form,
   lookups,
-  vesselTypes,
-  vessels,
   periodUnit,
   updateField,
   updateForm,
   setForm,
+  onVesselSelect,
   files,
   setFiles,
   attachments,
@@ -1343,11 +1339,9 @@ export default function AddPeriodContractSections({
       <RecapIdentifiersPanel
         form={form}
         lookups={lookups}
-        vesselTypes={vesselTypes}
-        vessels={vessels}
         updateField={updateField}
-        setForm={setForm}
         disabled={disabled}
+        onVesselSelect={onVesselSelect}
       />
       <CpInformationPanel
         form={form}

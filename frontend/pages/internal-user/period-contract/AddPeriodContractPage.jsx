@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { Button, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
+import { fetchVesselEstimatePrefill } from '../../../services/estimateDetail.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
 import {
   createPeriodContract,
@@ -29,6 +30,7 @@ import styles from './AddPeriodContractPage.module.css';
 export default function AddPeriodContractPage() {
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const alert = useAlert();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const { periodContractPath } = usePeriodContractModule();
@@ -46,16 +48,6 @@ export default function AddPeriodContractPage() {
   const isLocked = Number(updateStatus) > 1;
   const periodUnit = periodTypeLabel(form.periodType);
   const defaultGradeId = defaultBunkerGradeId(lookups?.bunkers);
-
-  const vesselTypes = useMemo(
-    () => lookups?.vesselTypesByBusiness?.[form.businessType] ?? [],
-    [form.businessType, lookups],
-  );
-
-  const vessels = useMemo(
-    () => lookups?.vesselsByBusiness?.[form.businessType] ?? [],
-    [form.businessType, lookups],
-  );
 
   const deliveryBunkerTotal = useMemo(
     () => sumAmounts(form.deliveryBunkers),
@@ -77,6 +69,50 @@ export default function AddPeriodContractPage() {
       return recalcHireAndOffHireRows(next);
     });
   }, []);
+
+  const handleVesselSelect = useCallback(async (vessel) => {
+    if (isLocked) return;
+    if (!vessel) {
+      setForm((current) => ({
+        ...current,
+        vesselImoId: '',
+        vesselName: '',
+        vesselType: '',
+        vesselTypeId: '',
+      }));
+      return;
+    }
+
+    const vesselImoId = vessel.id ? String(vessel.id) : '';
+    const vesselName = vessel.vesselName || vessel.name || '';
+    const searchType = vessel.vesselType ? String(vessel.vesselType) : '';
+    const searchTypeIsId = /^\d+$/.test(searchType);
+    setForm((current) => ({
+      ...current,
+      vesselImoId,
+      vesselName,
+      vesselType: searchTypeIsId ? '' : searchType,
+      vesselTypeId: searchTypeIsId ? searchType : '',
+    }));
+
+    try {
+      const prefill = await fetchVesselEstimatePrefill(vesselImoId);
+      if (!prefill) return;
+      setForm((current) => ({
+        ...current,
+        vesselImoId: prefill.vesselImoId || vesselImoId,
+        vesselName: prefill.vesselName || vesselName,
+        vesselType: prefill.vesselType || current.vesselType,
+        vesselTypeId: prefill.vesselTypeId || current.vesselTypeId,
+      }));
+    } catch (err) {
+      await alert({
+        title: 'Error',
+        message: err.message || 'Failed to load vessel details.',
+        confirmLabel: 'OK',
+      });
+    }
+  }, [alert, isLocked]);
 
   const loadPage = useCallback(async () => {
     setLoading(true);
@@ -166,7 +202,7 @@ export default function AddPeriodContractPage() {
     const ok = await confirm({
       title: 'Confirmation',
       message: 'Are you sure you have checked each entry?',
-      confirmLabel: 'Save',
+      confirmLabel: 'Submit',
     });
     if (!ok) return;
 
@@ -241,12 +277,11 @@ export default function AddPeriodContractPage() {
         <AddPeriodContractSections
           form={form}
           lookups={lookups}
-          vesselTypes={vesselTypes}
-          vessels={vessels}
           periodUnit={periodUnit}
           updateField={updateField}
           updateForm={updateForm}
           setForm={setForm}
+          onVesselSelect={handleVesselSelect}
           files={files}
           setFiles={setFiles}
           attachments={attachments}
@@ -263,14 +298,14 @@ export default function AddPeriodContractPage() {
                   <Button
                     type="button"
                     variant="saveOutline"
-                    label="Save & Open Period Contract"
+                    label="Submit"
                     disabled={saving}
                     onClick={handleSaveOpen}
                   />
                   <Button
                     type="button"
                     variant="submit"
-                    label="Close Period Contract"
+                    label="Submit & Close"
                     disabled={saving}
                     onClick={handleSaveClose}
                   />

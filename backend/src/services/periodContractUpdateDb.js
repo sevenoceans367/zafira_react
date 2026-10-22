@@ -200,6 +200,38 @@ export async function dbGetPeriodContractById(periodId) {
     getPortLabel(pool, master.RE_DEL_PORT),
   ]);
 
+  let vesselName = '';
+  let vesselType = asString(master.VESSEL_TYPE);
+  let vesselTypeId = /^\d+$/.test(vesselType) ? vesselType : '';
+  if (master.VESSEL_IMO_ID) {
+    const [[vessel]] = await pool.query(
+      `SELECT vim.VESSEL_NAME AS name,
+              vim.VESSEL_TYPE AS typeId,
+              vtm.VesselType AS typeName
+       FROM vessel_imo_master vim
+       LEFT JOIN vessel_type_master vtm
+         ON vtm.VesselTypeId = vim.VESSEL_TYPE
+         OR CAST(vtm.VesselTypeId AS CHAR) = CAST(vim.VESSEL_TYPE AS CHAR)
+       WHERE vim.VESSEL_IMO_ID = ?
+       LIMIT 1`,
+      [master.VESSEL_IMO_ID],
+    );
+    vesselName = asString(vessel?.name);
+    if (!vesselTypeId && vessel?.typeId != null && /^\d+$/.test(String(vessel.typeId))) {
+      vesselTypeId = asString(vessel.typeId);
+    }
+    if (vessel?.typeName && (!vesselType || /^\d+$/.test(vesselType))) {
+      vesselType = asString(vessel.typeName);
+    }
+  }
+  if (vesselType && /^\d+$/.test(vesselType)) {
+    const [[typeRow]] = await pool.query(
+      `SELECT VesselType AS name FROM vessel_type_master WHERE VesselTypeId = ? LIMIT 1`,
+      [vesselType],
+    );
+    if (typeRow?.name) vesselType = asString(typeRow.name);
+  }
+
   const [noticeRows] = await pool.query(
     `SELECT DELIVERY_NOTICES, DELIVERY_DATE_TIME
      FROM period_contract_master_slave3
@@ -279,8 +311,10 @@ export async function dbGetPeriodContractById(periodId) {
     contractDate: formatOutDate(master.CONTRACT_DATE),
     ownBusinessAccount: asString(master.OWN_BUSINESS_ACCOUNT),
     businessType: asString(master.BUSINESSTYPE),
-    vesselType: asString(master.VESSEL_TYPE),
+    vesselType,
+    vesselTypeId,
     vesselImoId: master.VESSEL_IMO_ID != null ? asString(master.VESSEL_IMO_ID) : '',
+    vesselName,
     currency: asString(master.WORKING_CURRENCY),
     owner: asString(master.OWNER),
     disOwner: asString(master.DIS_OWNER),

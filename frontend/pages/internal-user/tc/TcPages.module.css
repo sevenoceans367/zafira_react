@@ -2363,6 +2363,7 @@
 .addRowBtn svg {
   width: 12px;
   height: 12px;
+  transition: transform 0.2s ease;
 }
 
 .denseGrid .field,
@@ -2730,19 +2731,37 @@
   align-items: center;
   gap: 6px;
   margin-top: 14px;
-  background: #fff;
-  border: 1px dashed var(--color-border, #d9dee8);
-  color: #6b7280;
-  font-size: 12px;
+  background: transparent;
+  border: 1.5px dashed #3b82f6;
+  color: #2563c9;
+  font-size: 12.5px;
   font-weight: 700;
   border-radius: 8px;
-  padding: 7px 12px;
+  padding: 8px 14px;
   cursor: pointer;
+  transition: background 0.16s ease, border-style 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.addRowBtn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.08);
+  border-style: solid;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 9px rgba(59, 130, 246, 0.18);
+}
+
+.addRowBtn:hover:not(:disabled) svg {
+  transform: rotate(90deg);
 }
 
 .addRowBtnSubCharter {
-  border: 1px dashed #c22a20;
+  border: 1.5px dashed #c22a20;
   color: #c22a20;
+}
+
+.addRowBtnSubCharter:hover:not(:disabled) {
+  background: rgba(194, 42, 32, 0.08);
+  border-style: solid;
+  box-shadow: 0 3px 9px rgba(194, 42, 32, 0.16);
 }
 
 .miniTable input,

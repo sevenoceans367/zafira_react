@@ -176,8 +176,8 @@ export async function dbCreateSupportTicket({
     await ensureMessageTable(connection);
 
     const [result] = await connection.query(
-      `INSERT INTO support_ticket (MESSAGE, USER_NAME, STATUS, DATE, ATTACHMENT, ATTACHMENT_NAME)
-       VALUES (?, ?, 1, CURDATE(), ?, ?)`,
+      `INSERT INTO support_ticket (MESSAGE, USER_NAME, STATUS, DATE, ATTACHMENT, ATTACHMENT_NAME, REPLY, SO_REPLY)
+       VALUES (?, ?, 1, CURDATE(), ?, ?, '', '')`,
       [message.trim(), userName, attachment, attachmentName],
     );
 

@@ -3,7 +3,7 @@ export { default as AppShell } from './components/AppShell.jsx';
 export { default as AppHeader } from './components/AppHeader.jsx';
 export { default as AppSidebar } from './components/AppSidebar.jsx';
 export { fetchRecentWork, notifyRecentWorkUpdated } from './services/recentWork.js';
-export { fetchUserAlerts, dismissUserAlert } from './services/userAlerts.js';
+export { fetchUserAlerts, dismissUserAlert, notifyAlertsUpdated } from './services/userAlerts.js';
 export { default as ScaffoldSidebar } from './components/ScaffoldSidebar.jsx';
 export { default as PageHeader } from './components/PageHeader.jsx';
 export { default as BusinessPageHeader } from './components/BusinessPageHeader/BusinessPageHeader.jsx';

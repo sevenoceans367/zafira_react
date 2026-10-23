@@ -160,9 +160,16 @@ export async function dbListSupportTickets({ page = 1, pageSize = 10, search = '
   };
 }
 
-export async function dbCreateSupportTicket({ message, attachment = '', attachmentName = '' }) {
+export async function dbCreateSupportTicket({
+  message,
+  attachment = '',
+  attachmentName = '',
+  actor,
+} = {}) {
   const pool = getPool();
   const connection = await pool.getConnection();
+  const userName = actor?.name || appContext.userName;
+  const userId = actor?.id ?? appContext.userId;
 
   try {
     await connection.beginTransaction();
@@ -171,7 +178,7 @@ export async function dbCreateSupportTicket({ message, attachment = '', attachme
     const [result] = await connection.query(
       `INSERT INTO support_ticket (MESSAGE, USER_NAME, STATUS, DATE, ATTACHMENT, ATTACHMENT_NAME)
        VALUES (?, ?, 1, CURDATE(), ?, ?)`,
-      [message.trim(), appContext.userName, attachment, attachmentName],
+      [message.trim(), userName, attachment, attachmentName],
     );
 
     const ticketId = result.insertId;
@@ -183,7 +190,7 @@ export async function dbCreateSupportTicket({ message, attachment = '', attachme
     await connection.query(
       `INSERT INTO support_ticket_message (TICKETID, MESSAGE, USER_ID, USER_NAME, SENDER_TYPE, CREATED_AT)
        VALUES (?, ?, ?, ?, 'user', NOW())`,
-      [ticketId, message.trim(), appContext.userId, appContext.userName],
+      [ticketId, message.trim(), userId, userName],
     );
 
     await connection.commit();
@@ -208,9 +215,11 @@ export async function dbGetTicketMessages(ticketId) {
   };
 }
 
-export async function dbAddTicketMessage(ticketId, { message, senderType }) {
+export async function dbAddTicketMessage(ticketId, { message, senderType, actor } = {}) {
   const pool = getPool();
   const connection = await pool.getConnection();
+  const userName = actor?.name || appContext.userName;
+  const userId = actor?.id ?? appContext.userId;
 
   try {
     await connection.beginTransaction();
@@ -224,13 +233,13 @@ export async function dbAddTicketMessage(ticketId, { message, senderType }) {
 
     const trimmed = message.trim();
     const isSupport = senderType === 'support';
-    const userName = isSupport ? appContext.userName : appContext.userName;
     const dbSenderType = isSupport ? 'support' : 'user';
+    const previousStatus = Number(ticketRow.STATUS);
 
     await connection.query(
       `INSERT INTO support_ticket_message (TICKETID, MESSAGE, USER_ID, USER_NAME, SENDER_TYPE, CREATED_AT)
        VALUES (?, ?, ?, ?, ?, NOW())`,
-      [ticketId, trimmed, appContext.userId, userName, dbSenderType],
+      [ticketId, trimmed, userId, userName, dbSenderType],
     );
 
     if (isSupport) {
@@ -253,6 +262,7 @@ export async function dbAddTicketMessage(ticketId, { message, senderType }) {
     return {
       ticket: mapTicketRecord(updatedRow, 0),
       messages,
+      previousStatus,
     };
   } catch (error) {
     await connection.rollback();
@@ -262,10 +272,12 @@ export async function dbAddTicketMessage(ticketId, { message, senderType }) {
   }
 }
 
-export async function dbUpdateSupportTicket(ticketId, { replyMessage, status }) {
+export async function dbUpdateSupportTicket(ticketId, { replyMessage, status, actor } = {}) {
   const pool = getPool();
   const connection = await pool.getConnection();
   const nextStatus = Number(status);
+  const userName = actor?.name || appContext.userName;
+  const userId = actor?.id ?? appContext.userId;
 
   if (![2, 3].includes(nextStatus)) {
     throw new Error('Status must be WIP or CLOSED.');
@@ -287,7 +299,7 @@ export async function dbUpdateSupportTicket(ticketId, { replyMessage, status }) 
       await connection.query(
         `INSERT INTO support_ticket_message (TICKETID, MESSAGE, USER_ID, USER_NAME, SENDER_TYPE, CREATED_AT)
          VALUES (?, ?, ?, ?, 'support', NOW())`,
-        [ticketId, trimmedReply, appContext.userId, appContext.userName],
+        [ticketId, trimmedReply, userId, userName],
       );
       await connection.query(
         `UPDATE support_ticket SET REPLY = ?, STATUS = ? WHERE TICKETID = ?`,

@@ -192,6 +192,61 @@ export async function dbLogRecentWork(userId, work, poolOrConn = getPool()) {
   });
 }
 
+export async function dbListMgmtUserIds({ companyId, excludeId } = {}) {
+  const pool = getPool();
+  if (!pool) return [];
+  const params = [];
+  let sql = `SELECT LOGINID
+             FROM login
+             WHERE STATUS = 1
+               AND USER_TYPE = 'mgmt_user'`;
+  if (companyId != null && companyId !== '') {
+    sql += ' AND CAST(MCOMPANYID AS CHAR) = CAST(? AS CHAR)';
+    params.push(companyId);
+  }
+  try {
+    const [rows] = await pool.query(sql, params);
+    const skip = excludeId == null || excludeId === '' ? '' : String(excludeId);
+    return (rows || [])
+      .map((row) => row.LOGINID)
+      .filter((id) => id != null && String(id) !== skip)
+      .map((id) => String(id));
+  } catch (error) {
+    console.error('dbListMgmtUserIds failed:', error?.message);
+    return [];
+  }
+}
+
+export async function dbCreateUserAlert({
+  sentBy,
+  sentTo,
+  redirectTo = '',
+  identify,
+  comments,
+  identifyId,
+  companyId,
+} = {}) {
+  if (!sentTo || !identify) return;
+  const pool = getPool();
+  if (!pool) return;
+  await pool.query(
+    `INSERT INTO alert_master
+       (ADDEDBY, ADDONDATE, SENDTO, REDIRECTTO, SHOW_STATUS, IDENTIFY, COMMENTS, IDENTIFYID, MCOMPANYID)
+     VALUES (?, NOW(), ?, ?, 1, ?, ?, ?, ?)`,
+    [
+      sentBy || '',
+      sentTo,
+      redirectTo || '',
+      identify,
+      comments || '',
+      identifyId ?? '',
+      companyId || '',
+    ],
+  ).catch((error) => {
+    console.error('dbCreateUserAlert failed:', error?.message);
+  });
+}
+
 export async function dbDismissUserAlert(userId, alertId) {
   if (userId == null || !alertId) return { ok: false };
   const pool = getPool();

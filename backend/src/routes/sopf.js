@@ -32,6 +32,7 @@ import {
   updateSupportTicket,
 } from '../services/supportTicketService.js';
 import { mapUploadedFiles, ticketUpload, estimateUpload } from '../utils/ticketAttachments.js';
+import { getRequestUser, resolveRequestIsMgmtUser } from '../services/authService.js';
 
 const router = Router();
 
@@ -381,6 +382,7 @@ router.get('/support_tickets', async (req, res) => {
       page,
       pageSize,
       search,
+      mgmtUser: resolveRequestIsMgmtUser(req),
     });
     res.json(data);
   } catch (error) {
@@ -396,6 +398,7 @@ router.post('/support_tickets', ticketUpload, async (req, res) => {
       message: req.body.message,
       attachment,
       attachmentName,
+      actor: getRequestUser(req),
     });
     res.status(201).json(result);
   } catch (error) {
@@ -417,7 +420,10 @@ router.get('/support_tickets/:ticketId/messages', async (req, res) => {
 
 router.post('/support_tickets/:ticketId/messages', async (req, res) => {
   try {
-    const data = await sendTicketMessage(req.params.ticketId, req.body.message);
+    const data = await sendTicketMessage(req.params.ticketId, req.body.message, {
+      mgmtUser: resolveRequestIsMgmtUser(req),
+      actor: getRequestUser(req),
+    });
     res.json(data);
   } catch (error) {
     console.error(error);
@@ -431,6 +437,8 @@ router.put('/support_tickets/:ticketId', async (req, res) => {
     const data = await updateSupportTicket(req.params.ticketId, {
       replyMessage: req.body.replyMessage,
       status: req.body.status,
+      mgmtUser: resolveRequestIsMgmtUser(req),
+      actor: getRequestUser(req),
     });
     res.json(data);
   } catch (error) {

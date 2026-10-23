@@ -17,3 +17,8 @@ export async function dismissUserAlert(alertId) {
   if (!alertId) return;
   await fetch(`/api/alerts/${encodeURIComponent(alertId)}/read`, { method: 'POST' }).catch(() => undefined);
 }
+
+export function notifyAlertsUpdated() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('alerts-updated'));
+}

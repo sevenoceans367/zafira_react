@@ -19,7 +19,15 @@ function normalizeSearchTerm(raw) {
   return term;
 }
 
-export default function VesselSearchSelect({ value, label, onSelect }) {
+function vesselRecordId(vessel) {
+  if (!vessel) return '';
+  const raw = vessel.id ?? vessel.vesselImoId ?? vessel.vessel_imo_id;
+  const id = String(raw ?? '').trim();
+  if (!id || id === 'undefined' || id === 'null') return '';
+  return id;
+}
+
+export default function VesselSearchSelect({ value, label, onSelect, required = false }) {
   const [query, setQuery] = useState(label || '');
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
@@ -28,7 +36,10 @@ export default function VesselSearchSelect({ value, label, onSelect }) {
   const [menuStyle, setMenuStyle] = useState(null);
   const wrapRef = useRef(null);
   const menuRef = useRef(null);
+  const inputRef = useRef(null);
   const skipSearchRef = useRef(false);
+  const resultsRef = useRef([]);
+  resultsRef.current = results;
 
   useEffect(() => {
     setQuery(label || '');
@@ -129,14 +140,56 @@ export default function VesselSearchSelect({ value, label, onSelect }) {
     setQuery(display);
     setResults([]);
     setOpen(false);
-    onSelect?.(vessel);
+    onSelect?.({
+      ...vessel,
+      id: vesselRecordId(vessel) || vessel.id,
+    });
   };
+
+  const commitTypedMatch = () => {
+    if (value) return false;
+    const term = query.trim().toLowerCase();
+    if (!term) return false;
+    const rows = resultsRef.current || [];
+    const exact = rows.filter((row) => {
+      const name = String(row.vesselName || '').trim().toLowerCase();
+      const display = String(row.name || '').trim().toLowerCase();
+      const imo = String(row.imoNo || '').trim().toLowerCase();
+      const id = vesselRecordId(row).toLowerCase();
+      return name === term
+        || display === term
+        || imo === term
+        || id === term
+        || display.startsWith(`${term}(`);
+    });
+    const match = exact[0] || (rows.length === 1 ? rows[0] : null);
+    if (!match || !vesselRecordId(match)) return false;
+    handlePick(match);
+    return true;
+  };
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    if (!required) {
+      el.setCustomValidity('');
+      return;
+    }
+    if (value) {
+      el.setCustomValidity('');
+    } else if (query.trim()) {
+      el.setCustomValidity('Please select a vessel from the list.');
+    } else {
+      el.setCustomValidity('Vessel is required.');
+    }
+  }, [required, value, query]);
 
   const showMenu = open && menuStyle && (loading || error || results.length > 0 || query.trim().length >= 2);
 
   return (
     <div className={styles.wrap} ref={wrapRef} data-estimate-field-wrap="vesselName">
       <input
+        ref={inputRef}
         id="vesselName"
         type="text"
         value={query}
@@ -150,6 +203,14 @@ export default function VesselSearchSelect({ value, label, onSelect }) {
         }}
         onFocus={() => {
           if (results.length || query.trim().length >= 2) setOpen(true);
+        }}
+        onBlur={() => {
+          window.setTimeout(() => {
+            if (wrapRef.current?.contains(document.activeElement)) return;
+            if (menuRef.current?.contains(document.activeElement)) return;
+            commitTypedMatch();
+            setOpen(false);
+          }, 150);
         }}
       />
       {showMenu
@@ -167,12 +228,13 @@ export default function VesselSearchSelect({ value, label, onSelect }) {
             ) : null}
             {!loading && !error
               ? results.map((vessel) => (
-                <li key={vessel.id}>
+                <li key={vesselRecordId(vessel) || vessel.name || vessel.vesselName}>
                   <button
                     type="button"
                     className={styles.option}
                     role="option"
-                    aria-selected={String(value) === String(vessel.id)}
+                    aria-selected={String(value) === vesselRecordId(vessel)}
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => handlePick(vessel)}
                   >
                     {vessel.name || vessel.vesselName}

@@ -78,7 +78,6 @@ export default function EstimateResultsPanels({
           <Row label="Net Hireage" value={form.netHireage} />
           <Row label="P&L" value={form.profitLoss} accent />
 
-          <div className={styles.rcardSectionLabel}>Distance & Days</div>
           <div className={styles.distDaysGrid}>
             <div className={styles.distDaysCol}>
               <div className={styles.distDaysColHead}>Distance</div>
@@ -162,12 +161,15 @@ export default function EstimateResultsPanels({
           <Row label={`EUA CO2 ${complianceYear} (MT)`} value={form.euaCo2mt} />
           <Row label={`EUA CO2 ${complianceYear} Cost`} value={form.euaCo2Usd} />
           {editable ? (
-            <label className={styles.complLinkChip}>
-              <input
-                type="checkbox"
-                checked={!!form.euEtsAddToFreight}
-                onChange={(e) => setField('euEtsAddToFreight', e.target.checked)}
-              />
+            <label className={styles.complToggle}>
+              <span className={styles.complToggleSwitch}>
+                <input
+                  type="checkbox"
+                  checked={!!form.euEtsAddToFreight}
+                  onChange={(e) => setField('euEtsAddToFreight', e.target.checked)}
+                />
+                <span className={styles.complToggleSlider} aria-hidden />
+              </span>
               Add to freight cost
             </label>
           ) : null}
@@ -186,12 +188,15 @@ export default function EstimateResultsPanels({
           <Row label="LSMGO Penalty / Per MT" value={joinPenalty(form.lsmgoPenalty, form.lsmgoPenaltyPerMt)} />
           <Row label="Total Carbon Cost" value={form.totalCarbonCost} accent />
           {editable ? (
-            <label className={styles.complLinkChip}>
-              <input
-                type="checkbox"
-                checked={!!form.fuelEuAddToFreight}
-                onChange={(e) => setField('fuelEuAddToFreight', e.target.checked)}
-              />
+            <label className={styles.complToggle}>
+              <span className={styles.complToggleSwitch}>
+                <input
+                  type="checkbox"
+                  checked={!!form.fuelEuAddToFreight}
+                  onChange={(e) => setField('fuelEuAddToFreight', e.target.checked)}
+                />
+                <span className={styles.complToggleSlider} aria-hidden />
+              </span>
               Add to freight cost
             </label>
           ) : null}

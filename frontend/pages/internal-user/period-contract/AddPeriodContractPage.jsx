@@ -13,6 +13,7 @@ import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.
 import {
   EMPTY_FORM,
   formFromPeriodContract,
+  resolveChartererAddress,
   toCreatePayload,
 } from './addPeriodContract.constants.js';
 import {
@@ -44,6 +45,9 @@ export default function AddPeriodContractPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const formRef = useRef(null);
+  const formStateRef = useRef(form);
+  const selectedVesselRef = useRef({ vesselImoId: '', vesselName: '' });
+  formStateRef.current = form;
 
   const isLocked = Number(updateStatus) > 1;
   const periodUnit = periodTypeLabel(form.periodType);
@@ -73,6 +77,7 @@ export default function AddPeriodContractPage() {
   const handleVesselSelect = useCallback(async (vessel) => {
     if (isLocked) return;
     if (!vessel) {
+      selectedVesselRef.current = { vesselImoId: '', vesselName: '' };
       setForm((current) => ({
         ...current,
         vesselImoId: '',
@@ -83,8 +88,9 @@ export default function AddPeriodContractPage() {
       return;
     }
 
-    const vesselImoId = vessel.id ? String(vessel.id) : '';
+    const vesselImoId = String(vessel.id ?? vessel.vesselImoId ?? '').trim();
     const vesselName = vessel.vesselName || vessel.name || '';
+    selectedVesselRef.current = { vesselImoId, vesselName };
     const searchType = vessel.vesselType ? String(vessel.vesselType) : '';
     const searchTypeIsId = /^\d+$/.test(searchType);
     setForm((current) => ({
@@ -164,6 +170,19 @@ export default function AddPeriodContractPage() {
   }, [loadPage]);
 
   useEffect(() => {
+    if (!lookups) return;
+    setForm((current) => {
+      if (!current.charterer) {
+        return current.charterersAddress ? { ...current, charterersAddress: '' } : current;
+      }
+      const nextAddress = resolveChartererAddress(lookups, current.charterer);
+      return current.charterersAddress === nextAddress
+        ? current
+        : { ...current, charterersAddress: nextAddress };
+    });
+  }, [lookups, form.charterer]);
+
+  useEffect(() => {
     if (!form.deliveryDate || !form.periodType) return;
     const span = calculatePeriodSpan({
       deliveryDate: form.deliveryDate,
@@ -209,7 +228,12 @@ export default function AddPeriodContractPage() {
     setSaving(true);
     setError('');
     try {
-      const payload = toCreatePayload(form, nextStatus);
+      const latest = formStateRef.current;
+      const payload = toCreatePayload({
+        ...latest,
+        vesselImoId: latest.vesselImoId || selectedVesselRef.current.vesselImoId,
+        vesselName: latest.vesselName || selectedVesselRef.current.vesselName,
+      }, nextStatus);
       if (isEdit) {
         await updatePeriodContract(id, payload, {
           files,

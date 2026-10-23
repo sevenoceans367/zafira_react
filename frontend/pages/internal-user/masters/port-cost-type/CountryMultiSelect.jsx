@@ -176,6 +176,7 @@ export default function CountryMultiSelect({
     styles.root,
     compact ? styles.compact : '',
     variant === 'card' ? styles.card : '',
+    coloredGradeChips ? styles.gradeChips : '',
     chipTone === 'cargo' ? styles.toneCargo : '',
     chipTone === 'port' ? styles.tonePort : '',
   ].filter(Boolean).join(' ');

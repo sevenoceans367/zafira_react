@@ -3,6 +3,8 @@ import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CardSelect, GridDownloadMenu, LoadingOverlay, EditRecapIcon } from '@bainbridge/shared-ui';
+import ModuleTintIcon from '../../../components/ModuleTintIcon.jsx';
+import tintStyles from '../../../components/ModuleTintIcon.module.css';
 import spotNavIcon from '../../../assets/010-pie-chart.png';
 import timeCharterNavIcon from '../../../assets/TIME CHARTER.png';
 import {
@@ -617,7 +619,6 @@ export default function PeriodContractListPage() {
               <div className={styles.amTitleRow}>
                 <span id="period-linked-title" className={styles.amTitle}>Period Business - Linked Contracts</span>
                 {modal.contractNo ? <span className={styles.cttChip}>{modal.contractNo}</span> : null}
-                <span className={styles.usdChip}>usd</span>
               </div>
               <button type="button" className={styles.btnClose} aria-label="Close" onClick={closeModal}>
                 <CloseIcon />
@@ -631,7 +632,10 @@ export default function PeriodContractListPage() {
                   <section className={styles.amSection}>
                     <div className={styles.amSectionHead}>
                       <div className={styles.amSectionTitleWrap}>
-                        <img src={spotNavIcon} alt="" className={`${styles.amSectionIcon} ${styles.spotIcon}`} />
+                        <ModuleTintIcon
+                          src={spotNavIcon}
+                          className={`${tintStyles.icon} ${styles.amSectionIcon} ${styles.spotIcon}`}
+                        />
                         <span className={`${styles.amSectionTitle} ${styles.spotTitle}`}>Spot</span>
                       </div>
                       <div className={styles.amSectionControls}>
@@ -729,7 +733,10 @@ export default function PeriodContractListPage() {
                   <section className={styles.amSection}>
                     <div className={styles.amSectionHead}>
                       <div className={styles.amSectionTitleWrap}>
-                        <img src={timeCharterNavIcon} alt="" className={`${styles.amSectionIcon} ${styles.tcIcon}`} />
+                        <ModuleTintIcon
+                          src={timeCharterNavIcon}
+                          className={`${tintStyles.icon} ${styles.amSectionIcon} ${styles.tcIcon}`}
+                        />
                         <span className={`${styles.amSectionTitle} ${styles.tcTitle}`}>Time Charter</span>
                       </div>
                       <div className={styles.amSectionControls}>

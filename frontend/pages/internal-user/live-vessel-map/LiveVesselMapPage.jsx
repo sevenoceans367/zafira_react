@@ -74,6 +74,25 @@ const REFRESH_ICON = (
 
 const LEG_PREVIEW = { color: '#B7BEC9', weight: 2, opacity: 0.85, dashArray: '8 8' };
 const LEG_ACTIVE = { color: '#f4652c', weight: 3, opacity: 1, dashArray: '8 8' };
+const BUBBLE_WIDTH = 240;
+const BUBBLE_EST_HEIGHT = 240;
+const BUBBLE_PIN_GAP = 34;
+const BUBBLE_EDGE_PAD = 18;
+
+function clampNumber(value, min, max) {
+  if (!Number.isFinite(value)) return min;
+  if (min > max) return min;
+  return Math.min(Math.max(value, min), max);
+}
+
+function isBubbleOffScreen(point, size) {
+  return (
+    point.x - BUBBLE_WIDTH / 2 < BUBBLE_EDGE_PAD
+    || point.x + BUBBLE_WIDTH / 2 > size.x - BUBBLE_EDGE_PAD
+    || point.y - BUBBLE_EST_HEIGHT - BUBBLE_PIN_GAP < BUBBLE_EDGE_PAD
+    || point.y > size.y - BUBBLE_EDGE_PAD
+  );
+}
 
 /** Gas=1, Tankers=2, Dry=3. Empty id keeps every In Ops business type. */
 const BUSINESS_TYPE_OPTIONS = [
@@ -288,6 +307,7 @@ export default function LiveVesselMapPage() {
   const activeLegTokenRef = useRef(0);
   const vesselMarkersRef = useRef(new Map());
   const selectedVesselRef = useRef(null);
+  const centeringPanRef = useRef(false);
   const selectedLegKeyRef = useRef(null);
   const loadFleetRef = useRef(async () => {});
   const businessTypeRef = useRef('');
@@ -347,7 +367,7 @@ export default function LiveVesselMapPage() {
     return [...ais, ...fleet];
   }, [aisVessels, fleetVessels, filters, showAis, showFleet]);
 
-  const updateBubblePosition = useCallback((vessel) => {
+  const updateBubblePosition = useCallback((vessel, { bringToCenter = false } = {}) => {
     const map = mapRef.current;
     const wrap = mapWrapRef.current;
     if (!map || !wrap || !vessel) {
@@ -360,8 +380,55 @@ export default function LiveVesselMapPage() {
       setBubblePos(null);
       return;
     }
-    const point = map.latLngToContainerPoint([lat, lng]);
-    setBubblePos({ left: point.x, top: point.y });
+
+    const size = map.getSize();
+    let point = map.latLngToContainerPoint([lat, lng]);
+
+    if (
+      bringToCenter
+      && !centeringPanRef.current
+      && isBubbleOffScreen(point, size)
+    ) {
+      const desired = L.point(
+        size.x / 2,
+        size.y / 2 + (BUBBLE_EST_HEIGHT + BUBBLE_PIN_GAP) / 2,
+      );
+      const dx = point.x - desired.x;
+      const dy = point.y - desired.y;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        centeringPanRef.current = true;
+        map.panBy([dx, dy], { animate: true, duration: 0.4 });
+        map.once('moveend', () => {
+          centeringPanRef.current = false;
+          const current = selectedVesselRef.current;
+          if (current && vesselKey(current) === vesselKey(vessel)) {
+            updateBubblePosition(current);
+          }
+        });
+      }
+    }
+
+    point = map.latLngToContainerPoint([lat, lng]);
+    const halfW = Math.min(BUBBLE_WIDTH, Math.max(96, size.x - BUBBLE_EDGE_PAD * 2)) / 2;
+    const placeBelow = point.y - BUBBLE_EST_HEIGHT - BUBBLE_PIN_GAP < BUBBLE_EDGE_PAD;
+    const left = clampNumber(
+      point.x,
+      BUBBLE_EDGE_PAD + halfW,
+      size.x - BUBBLE_EDGE_PAD - halfW,
+    );
+    const top = clampNumber(
+      point.y,
+      placeBelow ? BUBBLE_EDGE_PAD + 10 : BUBBLE_EDGE_PAD + BUBBLE_EST_HEIGHT + BUBBLE_PIN_GAP,
+      size.y - BUBBLE_EDGE_PAD,
+    );
+    const maxArrow = Math.max(12, halfW - 16);
+
+    setBubblePos({
+      left,
+      top,
+      placeBelow,
+      arrowShift: clampNumber(point.x - left, -maxArrow, maxArrow),
+    });
   }, []);
 
   const clearLegLayer = useCallback((layerRef) => {
@@ -488,7 +555,7 @@ export default function LiveVesselMapPage() {
       financials: false,
       agents: false,
     });
-    updateBubblePosition(vessel);
+    updateBubblePosition(vessel, { bringToCenter: true });
     clearPreviewLeg();
 
     const leg = vesselVoyageLeg(vessel);
@@ -1027,8 +1094,12 @@ export default function LiveVesselMapPage() {
 
         {selectedVessel && commercial && bubblePos && !panelOpen ? (
           <div
-            className={styles.bubble}
-            style={{ left: bubblePos.left, top: bubblePos.top }}
+            className={`${styles.bubble}${bubblePos.placeBelow ? ` ${styles.bubbleBelow}` : ''}`}
+            style={{
+              left: bubblePos.left,
+              top: bubblePos.top,
+              '--bubble-arrow-shift': `${bubblePos.arrowShift || 0}px`,
+            }}
             role="dialog"
             aria-label={`${commercial.name} summary`}
             onClick={(event) => event.stopPropagation()}

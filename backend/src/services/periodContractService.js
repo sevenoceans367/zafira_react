@@ -1,4 +1,5 @@
 import { isDbConfigured } from '../config.js';
+import { getPool } from '../db.js';
 import { dbCreatePeriodContract } from './periodContractCreateDb.js';
 import { dbGetPeriodContractList, dbGetPeriodLinkedVoyage, dbGetPeriodNominations } from './periodContractDb.js';
 import {
@@ -10,6 +11,7 @@ import {
   dbGetPeriodContractById,
   dbUpdatePeriodContract,
 } from './periodContractUpdateDb.js';
+import { formatDateDMY } from '../utils/periodContractDates.js';
 
 const MOCK_LOOKUPS = {
   contractId: 'PERIOD-001-2026',
@@ -161,30 +163,81 @@ export async function searchPeriodContractPorts(query) {
   return dbSearchPorts(query);
 }
 
+function applyHiddenFieldDefaults(payload) {
+  if (!payload.businessType) payload.businessType = '2';
+  if (payload.ownBusinessAccount == null) payload.ownBusinessAccount = '';
+  if (!payload.contractNo && payload.contractId) {
+    payload.contractNo = payload.contractId;
+  }
+  if (!payload.contractDate) {
+    payload.contractDate = formatDateDMY(new Date());
+  }
+  if (!payload.currency) payload.currency = 'USD';
+}
+
+async function resolveVesselImoId(payload) {
+  if (payload.vesselImoId || !isDbConfigured()) return;
+  const name = String(payload.vesselName || '').trim();
+  if (!name) return;
+  try {
+    const pool = getPool();
+    if (!pool) return;
+    const [[row]] = await pool.query(
+      `SELECT VESSEL_IMO_ID AS id
+       FROM vessel_imo_master
+       WHERE VESSEL_NAME = ?
+          OR IMO_NO = ?
+          OR VESSEL_NAME LIKE ?
+       ORDER BY
+         CASE
+           WHEN VESSEL_NAME = ? THEN 0
+           WHEN IMO_NO = ? THEN 1
+           ELSE 2
+         END
+       LIMIT 1`,
+      [name, name, `${name}%`, name, name],
+    );
+    if (row?.id) payload.vesselImoId = String(row.id);
+  } catch {
+    // Leave empty; validatePeriodContractPayload will report the field.
+  }
+}
+
+async function resolveVesselTypeFromVessel(payload) {
+  if (payload.vesselType || !payload.vesselImoId || !isDbConfigured()) return;
+  try {
+    const pool = getPool();
+    if (!pool) return;
+    const [[row]] = await pool.query(
+      `SELECT vim.VESSEL_TYPE AS typeId, vtm.VesselType AS typeName
+       FROM vessel_imo_master vim
+       LEFT JOIN vessel_type_master vtm
+         ON vtm.VesselTypeId = vim.VESSEL_TYPE
+         OR CAST(vtm.VesselTypeId AS CHAR) = CAST(vim.VESSEL_TYPE AS CHAR)
+       WHERE vim.VESSEL_IMO_ID = ?
+       LIMIT 1`,
+      [payload.vesselImoId],
+    );
+    if (!row) return;
+    if (row.typeId != null && String(row.typeId).trim() !== '') {
+      payload.vesselType = String(row.typeId);
+    } else if (row.typeName) {
+      payload.vesselType = String(row.typeName);
+    }
+  } catch {
+    // Vessel type is API-derived and optional if the vessel has none.
+  }
+}
+
 function validatePeriodContractPayload(payload) {
-  if (!payload?.contractNo) {
-    throw new Error('Contract No. is required.');
-  }
-  if (!payload?.contractDate) {
-    throw new Error('Contract Date is required.');
-  }
-  if (!payload?.ownBusinessAccount) {
-    throw new Error('Own Business Account is required.');
-  }
-  if (!payload?.businessType) {
-    throw new Error('Business Type is required.');
-  }
-  if (!payload?.vesselType) {
-    throw new Error('Vessel Type is required.');
-  }
   if (!payload?.vesselImoId) {
     throw new Error('Vessel is required.');
   }
   if (!payload?.currency) {
-    throw new Error('Working Currency is required.');
+    throw new Error('Hire Currency is required.');
   }
   if (!payload?.delPort) {
-    throw new Error('Delivery Port is required.');
+    throw new Error('Del Port/Range is required.');
   }
   if (!payload?.redelRange) {
     throw new Error('Redelivery Range is required.');
@@ -192,19 +245,25 @@ function validatePeriodContractPayload(payload) {
 }
 
 export async function createPeriodContract(payload, attachments = {}) {
+  if (!payload.contractId) {
+    if (isDbConfigured()) {
+      const next = await dbGetNextPeriodContractId();
+      payload.contractId = next.contractId;
+    } else {
+      payload.contractId = MOCK_LOOKUPS.contractId;
+    }
+  }
+  applyHiddenFieldDefaults(payload);
+  await resolveVesselImoId(payload);
+  await resolveVesselTypeFromVessel(payload);
   validatePeriodContractPayload(payload);
 
   if (!isDbConfigured()) {
     return {
       periodId: 999,
-      contractId: payload.contractId || MOCK_LOOKUPS.contractId,
+      contractId: payload.contractId,
       msg: 0,
     };
-  }
-
-  if (!payload.contractId) {
-    const next = await dbGetNextPeriodContractId();
-    payload.contractId = next.contractId;
   }
 
   return dbCreatePeriodContract(payload, attachments);
@@ -298,6 +357,9 @@ export async function getPeriodContractById(periodId) {
 }
 
 export async function updatePeriodContract(periodId, payload, attachments = {}) {
+  applyHiddenFieldDefaults(payload);
+  await resolveVesselImoId(payload);
+  await resolveVesselTypeFromVessel(payload);
   validatePeriodContractPayload(payload);
 
   if (!isDbConfigured()) {

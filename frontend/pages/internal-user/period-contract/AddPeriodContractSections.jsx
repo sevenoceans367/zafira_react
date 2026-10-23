@@ -16,6 +16,7 @@ import {
   EMPTY_HIRE_RATE,
   EMPTY_OFF_HIRE,
   EMPTY_OFF_HIRE_BUNKER,
+  resolveChartererAddress,
 } from './addPeriodContract.constants.js';
 import { recalcBunkerRows } from './periodContractCalculations.js';
 import styles from './AddPeriodContractPage.module.css';
@@ -36,7 +37,6 @@ function Field({ label, children, required = false, className = '', hint = '', a
     <div className={[styles.field, api ? styles.apiField : '', className].filter(Boolean).join(' ')}>
       <label>
         {label}
-        {api ? <span className={styles.apiTag}>API</span> : null}
         {required ? <span className={styles.required}>*</span> : null}
       </label>
       {children}
@@ -273,6 +273,7 @@ function RecapIdentifiersPanel({
   form,
   lookups,
   updateField,
+  setForm,
   disabled,
   onVesselSelect,
 }) {
@@ -282,34 +283,26 @@ function RecapIdentifiersPanel({
         <Field label="Contract ID">
           <input type="text" value={form.contractId} readOnly />
         </Field>
-        <Field label="Vessel" api required className={disabled ? '' : styles.apiEditable}>
+        <Field label="Vessel" required className={disabled ? '' : styles.apiEditable}>
           {disabled ? (
             <input type="text" value={form.vesselName || ''} readOnly />
           ) : (
             <>
-              <input
-                className={styles.requiredMirror}
-                value={form.vesselImoId || ''}
-                required
-                tabIndex={-1}
-                aria-hidden
-                readOnly
-              />
               <VesselSearchSelect
                 value={form.vesselImoId}
                 label={form.vesselName}
+                required
                 onSelect={onVesselSelect}
               />
             </>
           )}
         </Field>
-        <Field label="Vessel Type" api required>
+        <Field label="Vessel Type">
           <input type="text" value={form.vesselType || ''} readOnly />
         </Field>
-        <Field label="CP Date" required>
+        <Field label="CP Date">
           <PeriodDateInput
             value={form.contractDate}
-            required
             disabled={disabled}
             onChange={(value) => updateField('contractDate', value)}
           />
@@ -341,11 +334,10 @@ function RecapIdentifiersPanel({
             disabled={disabled}
             options={toSelectOptions(lookups?.charterers)}
             onChange={(value) => {
-              const selected = (lookups?.charterers || []).find((item) => String(item.id) === String(value));
               setForm((current) => ({
                 ...current,
                 charterer: value,
-                charterersAddress: selected?.address || '',
+                charterersAddress: resolveChartererAddress(lookups, value),
               }));
             }}
           />
@@ -434,9 +426,9 @@ function CpInformationPanel({ form, lookups, updateField, disabled }) {
         <Field label="Charterers' Address" className={styles.fieldSpan2}>
           <input
             type="text"
-            value={form.charterersAddress}
-            disabled
+            value={form.charterersAddress || ''}
             readOnly
+            placeholder="Display from Vendor"
           />
         </Field>
       </div>
@@ -1340,6 +1332,7 @@ export default function AddPeriodContractSections({
         form={form}
         lookups={lookups}
         updateField={updateField}
+        setForm={setForm}
         disabled={disabled}
         onVesselSelect={onVesselSelect}
       />

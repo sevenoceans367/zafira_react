@@ -203,7 +203,7 @@ export default function PortSearchSelect({
           }, 0);
         }}
       />
-      {showClear ? (
+      {showClear && !open ? (
         <button
           type="button"
           className={styles.clearBtn}

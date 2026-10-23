@@ -152,10 +152,18 @@ function BunkerPriceInput({ value, readOnly, onCommit }) {
   );
 }
 
-function Field({ id, label, children, className = '' }) {
+function Field({ id, label, children, className = '', api = false, required = false }) {
   return (
-    <div className={[styles.field, className].filter(Boolean).join(' ')}>
-      <label htmlFor={id}>{label}</label>
+    <div className={[
+      styles.field,
+      api ? styles.apiField : '',
+      required ? styles.requiredField : '',
+      className,
+    ].filter(Boolean).join(' ')}>
+      <label htmlFor={id}>
+        {label}
+        {api ? <span className={styles.apiTag}>API</span> : null}
+      </label>
       {children}
     </div>
   );
@@ -986,27 +994,33 @@ export default function EstimateDetailSections({
       </CollapsiblePanel>
 
        <CollapsiblePanel title="Fixed Vessel Particulars" defaultOpen={false} round className={styles.roundSection}>
-          <div className={styles.headerGrid}>
-            <Field id="dwtSummer" label="DWT (Summer)">
-              <input {...inputProps('dwtSummer')} />
+          <div className={`${styles.headerGrid} ${styles.headerGridAuto}`}>
+            <Field id="builtYear" label="Built Year" api className={styles.apiEditable}>
+              <input {...inputProps('builtYear')} />
             </Field>
-            <Field id="dwtTropical" label="DWT (Tropical)">
-              <input {...inputProps('dwtTropical')} />
-            </Field>
-            <Field id="gnrt" label="GRT">
+            <Field id="gnrt" label="GRT" api className={styles.apiEditable}>
               <input {...inputProps('gnrt')} />
             </Field>
-            <Field id="nrt" label="NRT">
+            <Field id="nrt" label="NRT" api>
               <input
                 id="nrt"
                 value={form.nrt || (form.gnrt ? (Number(String(form.gnrt).split('/')[0] || form.gnrt) * 0.7).toFixed(2) : '')}
                 readOnly
               />
             </Field>
-            <Field id="loa" label="LOA">
+            <Field id="loa" label="LOA (M)" api className={styles.apiEditable}>
               <input {...inputProps('loa')} />
             </Field>
-            <Field id="tpc" label="TPC">
+            <Field id="beam" label="Beam (M)" api className={styles.apiEditable}>
+              <input {...inputProps('beam')} />
+            </Field>
+            <Field id="dwtSummer" label="DWT (Summer)" api className={styles.apiEditable}>
+              <input {...inputProps('dwtSummer')} />
+            </Field>
+            <Field id="dwtTropical" label="DWT (Tropical)" api className={styles.apiEditable}>
+              <input {...inputProps('dwtTropical')} />
+            </Field>
+            <Field id="tpc" label="TPC" api className={styles.apiEditable}>
               <input {...inputProps('tpc')} />
             </Field>
             {!isTanker ? (
@@ -1014,12 +1028,6 @@ export default function EstimateDetailSections({
                 <input {...inputProps('gear')} />
               </Field>
             ) : null}
-            <Field id="builtYear" label="Year Built">
-              <input {...inputProps('builtYear')} />
-            </Field>
-            <Field id="beam" label="Beam">
-              <input {...inputProps('beam')} />
-            </Field>
             {!isTanker ? (
               <>
                 <Field id="loadable" label="Loadable">

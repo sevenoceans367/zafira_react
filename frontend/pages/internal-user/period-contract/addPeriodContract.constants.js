@@ -8,6 +8,23 @@ export function createRowId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+const ADDRESS_NOT_FOUND = 'address not found';
+
+export function resolveChartererAddress(lookups, chartererCode) {
+  const code = String(chartererCode || '').trim();
+  if (!code) return '';
+  const match = (lookups?.charterers || []).find((opt) => String(opt.id) === code);
+  const address = String(match?.address || '').trim();
+  return address || ADDRESS_NOT_FOUND;
+}
+
+function todayDmy() {
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2, '0');
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  return `${d}-${m}-${now.getFullYear()}`;
+}
+
 export const EMPTY_DELIVERY_NOTICE = () => ({
   id: createRowId(),
   notice: '',
@@ -246,13 +263,14 @@ export function formFromPeriodContract(record) {
 export function toCreatePayload(form, updateStatus) {
   return {
     contractId: form.contractId,
-    contractNo: form.contractNo,
-    contractDate: form.contractDate,
-    ownBusinessAccount: form.ownBusinessAccount,
-    businessType: form.businessType,
-    vesselType: form.vesselTypeId || form.vesselType,
+    contractNo: form.contractNo || form.contractId,
+    contractDate: form.contractDate || todayDmy(),
+    ownBusinessAccount: form.ownBusinessAccount || '',
+    businessType: form.businessType || '2',
+    vesselType: form.vesselTypeId || form.vesselType || '',
     vesselImoId: form.vesselImoId,
-    currency: form.currency,
+    vesselName: form.vesselName || '',
+    currency: form.currency || 'USD',
     owner: form.owner,
     disOwner: form.disOwner,
     charterer: form.charterer,

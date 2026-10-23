@@ -712,6 +712,7 @@
   z-index: 650;
   width: 240px;
   max-width: calc(100% - 24px);
+  --bubble-arrow-shift: 0px;
   transform: translate(-50%, calc(-100% - 34px));
   background: #fff;
   border-radius: 12px;
@@ -725,13 +726,27 @@
 .bubble::after {
   content: '';
   position: absolute;
-  left: 50%;
+  left: calc(50% + var(--bubble-arrow-shift));
   bottom: -7px;
   width: 14px;
   height: 14px;
   background: #fff;
   border-right: 1px solid var(--line-strong);
   border-bottom: 1px solid var(--line-strong);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.bubbleBelow {
+  transform: translate(-50%, 18px);
+}
+
+.bubbleBelow::after {
+  top: -7px;
+  bottom: auto;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 1px solid var(--line-strong);
+  border-top: 1px solid var(--line-strong);
   transform: translateX(-50%) rotate(45deg);
 }
 

@@ -100,6 +100,28 @@
   border-color: #14919b;
 }
 
+/* Bunker grades: keep at least two letters in the chip; extra letters may overflow. */
+.gradeChips .chips {
+  overflow: visible;
+  flex-wrap: wrap;
+}
+
+.gradeChips .chipGradeVlsfo,
+.gradeChips .chipGradeLsmgo,
+.gradeChips .chipGradeMgo,
+.gradeChips .chipGradeHsfo,
+.gradeChips .chipGradeScrubber {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.gradeChips .chipLabel {
+  min-width: 2ch;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .chipLabel {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -309,6 +331,14 @@
   padding: 1px 0;
 }
 
+.compact.gradeChips .chips {
+  overflow: visible;
+}
+
+.compact.gradeChips .chip {
+  max-width: none;
+}
+
 .compact .placeholder {
   font-size: 10px;
   line-height: 18px;
@@ -324,6 +354,13 @@
 
 .compact .chipLabel {
   max-width: 100%;
+}
+
+.compact.gradeChips .chipLabel {
+  min-width: 2ch;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .compact .chipRemove {

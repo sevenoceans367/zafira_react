@@ -474,9 +474,15 @@
 
 .portLegConnected td.portCol input,
 .portLegConnected td.dateCol input,
-.portLegConnected td.distCol input,
-.portLegConnected td.portCol :global(button),
-.portLegConnected td.dateCol :global(button) {
+.portLegConnected td.distCol input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.portLegConnected td.portCol .sheetSelect :global(button),
+.portLegConnected td.dateCol .sheetSelect :global(button) {
   width: 100%;
   min-width: 0;
   max-width: 100%;
@@ -527,7 +533,15 @@ th.robCol {
   max-width: 64px;
 }
 
-.bgCol,
+.bgCol {
+  width: 96px;
+  min-width: 92px;
+  max-width: 110px;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+}
+
 .lbCol {
   width: 72px;
   min-width: 72px;
@@ -573,6 +587,17 @@ th.robCol {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+}
+
+.portLegConnected .bgCol .sheetSelect button {
+  overflow: visible;
+  gap: 4px;
+}
+
+.portLegConnected .bgCol .sheetSelect button > span {
+  min-width: 2ch;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .portLegConnected .sheetSelect {
@@ -1057,7 +1082,7 @@ th.robCol {
   line-height: 1.2;
   border-radius: 4px !important;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Match Cargo triangle caret on bunker grade dropdown */
@@ -1337,6 +1362,7 @@ th.robCol {
   grid-template-columns: repeat(2, minmax(220px, max-content));
   gap: 16px 48px;
   align-items: start;
+  margin-top: 22px;
   margin-bottom: 14px;
 }
 
@@ -1890,11 +1916,12 @@ th.robCol {
 }
 
 .roundSection .consBlock .portTable th {
-  font-size: 8px;
-  letter-spacing: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   white-space: normal;
-  line-height: 1.2;
-  padding: 5px 4px 6px;
+  line-height: 1.25;
+  padding: 6px 4px 7px;
 }
 
 .roundSection .consBlock input:not([type='checkbox']):not([type='radio']),
@@ -1912,9 +1939,9 @@ th.robCol {
 
 .roundSection .consBlock .portTable th:first-child,
 .roundSection .consBlock .portTable td:first-child {
-  width: 96px;
-  min-width: 96px;
-  max-width: 96px;
+  width: 112px;
+  min-width: 112px;
+  max-width: 112px;
   padding-left: 12px;
   text-align: center;
 }
@@ -1922,7 +1949,7 @@ th.robCol {
 .roundSection .consBlock .gradeSelectWrap,
 .roundSection .consBlock .sheetSelect {
   width: 100%;
-  max-width: 96px;
+  max-width: 112px;
   min-width: 0;
   margin: 0 auto;
 }
@@ -1930,12 +1957,12 @@ th.robCol {
 .roundSection .consBlock .sheetSelect button {
   height: 22px !important;
   min-height: 22px !important;
-  max-width: 96px;
+  max-width: 112px;
   padding: 0 6px !important;
   border-radius: 6px !important;
   font-size: 10px !important;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
   margin: 0 auto;
 }
@@ -1991,6 +2018,64 @@ th.robCol {
 
 .roundSection .headerGrid {
   gap: 14px 20px;
+}
+
+.headerGridAuto {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.apiTag {
+  margin-left: 6px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+  background: #eef0f3;
+  border-radius: 4px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.apiField input,
+.apiField select {
+  background: #eef0f3;
+  color: #5b6472;
+  cursor: not-allowed;
+}
+
+.apiEditable input,
+.apiField.apiEditable input,
+.apiEditable select,
+.apiField.apiEditable select {
+  background: #f7f8fa;
+  color: #1b2430;
+  cursor: text;
+}
+
+.apiEditable input:focus,
+.apiField.apiEditable input:focus {
+  border-color: #2e6fe8;
+  background: #fff;
+}
+
+.roundSection .apiField input:not([type='checkbox']):not([type='radio']),
+.roundSection .apiField select {
+  background: #eef0f3;
+  color: #5b6472;
+}
+
+.roundSection .apiEditable input:not([type='checkbox']):not([type='radio']),
+.roundSection .apiField.apiEditable input:not([type='checkbox']):not([type='radio']) {
+  background: #f7f8fa;
+  color: #1b2430;
+  cursor: text;
+}
+
+.roundSection .apiEditable input:not([type='checkbox']):not([type='radio']):focus,
+.roundSection .apiField.apiEditable input:not([type='checkbox']):not([type='radio']):focus {
+  border-color: #2e6fe8;
+  background: #fff;
 }
 
 .opexFields .headerGrid {
@@ -2271,6 +2356,14 @@ th.robCol {
   min-height: 22px;
   padding: 0 6px;
   font-size: 10px;
+  gap: 4px;
+  overflow: visible;
+}
+
+.gradeSelectWrap .sheetSelect button > span {
+  min-width: 2ch;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .gradeSelectWrap.gradeChipVlsfo,
@@ -2289,7 +2382,7 @@ th.robCol {
 .gradeSelectWrap.gradeChipScrubber :global(button) {
   font-weight: 700;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .gradeSelectWrap.gradeChipVlsfo :global(button) {

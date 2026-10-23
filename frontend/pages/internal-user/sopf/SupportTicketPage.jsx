@@ -129,6 +129,32 @@ function SendIcon() {
   );
 }
 
+function AttachIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21.4 11.1l-8.5 8.5a5 5 0 0 1-7.1-7.1l8.5-8.5a3.5 3.5 0 0 1 5 5l-8.1 8.1a1.5 1.5 0 0 1-2.1-2.1l7.4-7.4" />
+    </svg>
+  );
+}
+
+function AttachmentList({ items, tone = 'default' }) {
+  if (!items?.length) return null;
+  return (
+    <div className={`${styles.attachmentLinks} ${tone === 'me' ? styles.attachmentLinksMe : ''}`}>
+      {items.map((attachment) => (
+        <a
+          key={attachment.file || attachment.name}
+          href={attachment.url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {attachment.name}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 function PlusIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -206,6 +232,8 @@ export default function SupportTicketPage() {
   const [newMessage, setNewMessage] = useState('');
   const [categoryInvalid, setCategoryInvalid] = useState(false);
   const [messageInvalid, setMessageInvalid] = useState(false);
+  const [newFiles, setNewFiles] = useState([]);
+  const [composerFiles, setComposerFiles] = useState([]);
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState('');
@@ -217,6 +245,8 @@ export default function SupportTicketPage() {
   const chatThreadRef = useRef(null);
   const inviteWrapRef = useRef(null);
   const openedFromUrlRef = useRef(false);
+  const composerFileRef = useRef(null);
+  const newFileRef = useRef(null);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const flashMsg = searchParams.get('msg');
   const ticketFromUrl = searchParams.get('ticketId') || searchParams.get('ticketid');
@@ -309,6 +339,7 @@ export default function SupportTicketPage() {
     setInviteOpen(false);
     setInviteChips([]);
     setInviteName('');
+    setComposerFiles([]);
     setSeenTickets(markTicketSeen(id));
     loadChat(id);
   }, [loadChat, rows]);
@@ -357,6 +388,7 @@ export default function SupportTicketPage() {
     setNewMessage('');
     setCategoryInvalid(false);
     setMessageInvalid(false);
+    setNewFiles([]);
     setNewOpen(true);
   };
 
@@ -382,7 +414,7 @@ export default function SupportTicketPage() {
     setError('');
     setSuccess('');
     try {
-      const result = await createSupportTicket({ message: payload });
+      const result = await createSupportTicket({ message: payload, files: newFiles });
       closeNewThread();
       setSearchParams({ msg: '0' }, { replace: true });
       refreshHeaderFeeds();
@@ -393,6 +425,8 @@ export default function SupportTicketPage() {
         setChatMessages([]);
         setChatInput('');
         setChatError('');
+        setComposerFiles([]);
+        setNewFiles([]);
         setSeenTickets(markTicketSeen(result.ticketId));
         await loadChat(result.ticketId);
       }
@@ -405,13 +439,14 @@ export default function SupportTicketPage() {
   };
 
   const handleSendMessage = async () => {
-    if (!chatTicket || !chatInput.trim()) return;
+    if (!chatTicket || (!chatInput.trim() && !composerFiles.length)) return;
     setSubmitting(true);
     setChatError('');
     try {
-      const result = await sendTicketMessage(chatTicket.ticketId, chatInput.trim());
+      const result = await sendTicketMessage(chatTicket.ticketId, chatInput.trim(), composerFiles);
       applyTicketUpdate(result.ticket, result.messages);
       setChatInput('');
+      setComposerFiles([]);
       refreshHeaderFeeds();
       await loadTickets();
     } catch (err) {
@@ -496,7 +531,7 @@ export default function SupportTicketPage() {
       const text = index === 0 && msg.senderType !== 'support'
         ? stripHelpDeskMeta(msg.message)
         : msg.message;
-      return { ...msg, isMe, text };
+      return { ...msg, isMe, text, attachments: msg.attachments || [] };
     });
     return mapped;
   }, [chatMessages, isMgmtUser]);
@@ -505,7 +540,6 @@ export default function SupportTicketPage() {
     <div className={`zafira-page ${styles.page}`}>
       <HelpDeskHeading />
       <LoadingOverlay show={loading || submitting} />
-      <p className={styles.subtitle}>Chat with support across products.</p>
 
       {flash ? (
         <div className={`alert alert-${flash.type} alert-dismissible ${styles.flash}`} role="alert">
@@ -693,7 +727,10 @@ export default function SupportTicketPage() {
                       </div>
                       <div className={styles.msgWrap}>
                         {msg.isMe ? null : <div className={styles.msgName}>{msg.userName || 'Support'}</div>}
-                        <div className={styles.msgBubble}>{msg.text}</div>
+                        <div className={styles.msgBubble}>
+                          {msg.text}
+                          <AttachmentList items={msg.attachments} tone={msg.isMe ? 'me' : 'default'} />
+                        </div>
                         <div className={styles.msgTime}>{formatClock(msg.createdAt)}</div>
                       </div>
                     </div>
@@ -713,20 +750,6 @@ export default function SupportTicketPage() {
                     <div className={styles.msgBubble}>{note.text}</div>
                   </div>
                 ))}
-                {chatTicket?.attachments?.length ? (
-                  <div className={`${styles.msgRow} ${styles.msgSystem}`}>
-                    <div className={styles.msgBubble}>
-                      Attachments
-                      <div className={styles.attachmentLinks}>
-                        {chatTicket.attachments.map((attachment) => (
-                          <a key={attachment.file} href={attachment.url} target="_blank" rel="noreferrer">
-                            {attachment.name}
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
               </div>
 
               {chatError ? <div className={`alert alert-danger ${styles.threadError}`}>{chatError}</div> : null}
@@ -738,19 +761,61 @@ export default function SupportTicketPage() {
                   handleSendMessage();
                 }}
               >
-                <textarea
-                  rows={1}
-                  placeholder={composerPlaceholder}
-                  value={chatInput}
-                  onChange={(event) => setChatInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
-                      handleSendMessage();
-                    }
+                <input
+                  ref={composerFileRef}
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={(event) => {
+                    setComposerFiles(Array.from(event.target.files ?? []));
+                    event.target.value = '';
                   }}
                 />
-                <button type="submit" className={styles.sendBtn} title="Send" disabled={submitting || !chatInput.trim()}>
+                <button
+                  type="button"
+                  className={styles.composerAttach}
+                  title="Attach a file"
+                  onClick={() => composerFileRef.current?.click()}
+                >
+                  <AttachIcon />
+                </button>
+                <div className={styles.composerMain}>
+                  <textarea
+                    rows={1}
+                    placeholder={composerPlaceholder}
+                    value={chatInput}
+                    onChange={(event) => setChatInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                  />
+                  {composerFiles.length ? (
+                    <div className={styles.fileChips}>
+                      {composerFiles.map((file, index) => (
+                        <span key={`${file.name}-${index}`} className={styles.fileChip}>
+                          {file.name}
+                          <button
+                            type="button"
+                            className={styles.fileChipX}
+                            onClick={() => setComposerFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                            aria-label={`Remove ${file.name}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  type="submit"
+                  className={styles.sendBtn}
+                  title="Send"
+                  disabled={submitting || (!chatInput.trim() && !composerFiles.length)}
+                >
                   <SendIcon />
                 </button>
               </form>
@@ -843,6 +908,37 @@ export default function SupportTicketPage() {
                 setMessageInvalid(false);
               }}
             />
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="helpdesk-new-files">Attachment</label>
+            <input
+              ref={newFileRef}
+              id="helpdesk-new-files"
+              type="file"
+              multiple
+              onChange={(event) => setNewFiles(Array.from(event.target.files ?? []))}
+            />
+            {newFiles.length ? (
+              <div className={styles.fileChips}>
+                {newFiles.map((file, index) => (
+                  <span key={`${file.name}-${index}`} className={styles.fileChip}>
+                    {file.name}
+                    <button
+                      type="button"
+                      className={styles.fileChipX}
+                      onClick={() => {
+                        setNewFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
+                        if (newFileRef.current) newFileRef.current.value = '';
+                      }}
+                      aria-label={`Remove ${file.name}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className={styles.modalFoot}>

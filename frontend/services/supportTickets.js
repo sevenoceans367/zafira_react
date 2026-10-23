@@ -42,11 +42,21 @@ export async function fetchTicketMessages(ticketId) {
   return data;
 }
 
-export async function sendTicketMessage(ticketId, message) {
+export async function sendTicketMessage(ticketId, message, files = []) {
+  const hasFiles = Array.isArray(files) && files.length > 0;
   const response = await fetch(`${BASE}/support_tickets/${encodeURIComponent(ticketId)}/messages`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    ...(hasFiles
+      ? (() => {
+        const formData = new FormData();
+        formData.append('message', message || '');
+        for (const file of files) formData.append('mul_file', file);
+        return { body: formData };
+      })()
+      : {
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {

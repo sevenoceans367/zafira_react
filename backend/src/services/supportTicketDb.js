@@ -40,6 +40,13 @@ function mapTicketRecord(row, index) {
   };
 }
 
+function joinCsv(existing, extra) {
+  return [existing, extra]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(',');
+}
+
 function mapMessageRow(row) {
   return {
     messageId: row.MESSAGE_ID,
@@ -49,24 +56,41 @@ function mapMessageRow(row) {
     userName: row.USER_NAME ?? '',
     senderType: row.SENDER_TYPE === 'support' ? 'support' : 'user',
     createdAt: row.CREATED_AT,
+    attachments: parseAttachments(row.ATTACHMENT, row.ATTACHMENT_NAME),
   };
 }
 
 async function ensureMessageTable(pool) {
-  if (messageTableReady) return;
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS support_ticket_message (
-      MESSAGE_ID INT AUTO_INCREMENT PRIMARY KEY,
-      TICKETID INT NOT NULL,
-      MESSAGE TEXT,
-      USER_ID INT,
-      USER_NAME VARCHAR(255),
-      SENDER_TYPE ENUM('user','support') NOT NULL DEFAULT 'user',
-      CREATED_AT DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_ticket_created (TICKETID, CREATED_AT)
-    )
-  `);
-  messageTableReady = true;
+  if (!messageTableReady) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS support_ticket_message (
+        MESSAGE_ID INT AUTO_INCREMENT PRIMARY KEY,
+        TICKETID INT NOT NULL,
+        MESSAGE TEXT,
+        USER_ID INT,
+        USER_NAME VARCHAR(255),
+        SENDER_TYPE ENUM('user','support') NOT NULL DEFAULT 'user',
+        CREATED_AT DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        ATTACHMENT TEXT NULL,
+        ATTACHMENT_NAME TEXT NULL,
+        INDEX idx_ticket_created (TICKETID, CREATED_AT)
+      )
+    `);
+    messageTableReady = true;
+  }
+
+  try {
+    const [cols] = await pool.query(`SHOW COLUMNS FROM support_ticket_message LIKE 'ATTACHMENT'`);
+    if (!cols.length) {
+      await pool.query(`
+        ALTER TABLE support_ticket_message
+          ADD COLUMN ATTACHMENT TEXT NULL,
+          ADD COLUMN ATTACHMENT_NAME TEXT NULL
+      `);
+    }
+  } catch (error) {
+    console.error('Failed to ensure support ticket message attachments:', error?.message);
+  }
 }
 
 async function getTicketRow(pool, ticketId) {
@@ -82,7 +106,7 @@ async function getTicketRow(pool, ticketId) {
 async function fetchMessages(pool, ticketRow) {
   await ensureMessageTable(pool);
   const [rows] = await pool.query(
-    `SELECT MESSAGE_ID, TICKETID, MESSAGE, USER_ID, USER_NAME, SENDER_TYPE, CREATED_AT
+    `SELECT MESSAGE_ID, TICKETID, MESSAGE, USER_ID, USER_NAME, SENDER_TYPE, CREATED_AT, ATTACHMENT, ATTACHMENT_NAME
      FROM support_ticket_message
      WHERE TICKETID = ?
      ORDER BY CREATED_AT ASC, MESSAGE_ID ASC`,
@@ -90,7 +114,12 @@ async function fetchMessages(pool, ticketRow) {
   );
 
   if (rows.length) {
-    return rows.map(mapMessageRow);
+    const mapped = rows.map(mapMessageRow);
+    const ticketFiles = parseAttachments(ticketRow.ATTACHMENT, ticketRow.ATTACHMENT_NAME);
+    if (ticketFiles.length && !mapped.some((row) => row.attachments?.length)) {
+      mapped[0] = { ...mapped[0], attachments: ticketFiles };
+    }
+    return mapped;
   }
 
   const legacy = [];
@@ -103,6 +132,7 @@ async function fetchMessages(pool, ticketRow) {
       userName: ticketRow.USER_NAME ?? '',
       senderType: 'user',
       createdAt: ticketRow.DATE,
+      attachments: parseAttachments(ticketRow.ATTACHMENT, ticketRow.ATTACHMENT_NAME),
     });
   }
   if (ticketRow.REPLY) {
@@ -114,6 +144,7 @@ async function fetchMessages(pool, ticketRow) {
       userName: 'Support',
       senderType: 'support',
       createdAt: ticketRow.DATE,
+      attachments: [],
     });
   }
   return legacy;
@@ -188,9 +219,9 @@ export async function dbCreateSupportTicket({
     }
 
     await connection.query(
-      `INSERT INTO support_ticket_message (TICKETID, MESSAGE, USER_ID, USER_NAME, SENDER_TYPE, CREATED_AT)
-       VALUES (?, ?, ?, ?, 'user', NOW())`,
-      [ticketId, message.trim(), userId, userName],
+      `INSERT INTO support_ticket_message (TICKETID, MESSAGE, USER_ID, USER_NAME, SENDER_TYPE, CREATED_AT, ATTACHMENT, ATTACHMENT_NAME)
+       VALUES (?, ?, ?, ?, 'user', NOW(), ?, ?)`,
+      [ticketId, message.trim(), userId, userName, attachment, attachmentName],
     );
 
     await connection.commit();
@@ -215,7 +246,13 @@ export async function dbGetTicketMessages(ticketId) {
   };
 }
 
-export async function dbAddTicketMessage(ticketId, { message, senderType, actor } = {}) {
+export async function dbAddTicketMessage(ticketId, {
+  message,
+  senderType,
+  actor,
+  attachment = '',
+  attachmentName = '',
+} = {}) {
   const pool = getPool();
   const connection = await pool.getConnection();
   const userName = actor?.name || appContext.userName;
@@ -237,21 +274,31 @@ export async function dbAddTicketMessage(ticketId, { message, senderType, actor 
     const previousStatus = Number(ticketRow.STATUS);
 
     await connection.query(
-      `INSERT INTO support_ticket_message (TICKETID, MESSAGE, USER_ID, USER_NAME, SENDER_TYPE, CREATED_AT)
-       VALUES (?, ?, ?, ?, ?, NOW())`,
-      [ticketId, trimmed, userId, userName, dbSenderType],
+      `INSERT INTO support_ticket_message (TICKETID, MESSAGE, USER_ID, USER_NAME, SENDER_TYPE, CREATED_AT, ATTACHMENT, ATTACHMENT_NAME)
+       VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)`,
+      [ticketId, trimmed, userId, userName, dbSenderType, attachment, attachmentName],
     );
 
     if (isSupport) {
       const nextStatus = Number(ticketRow.STATUS) === 1 ? 2 : Number(ticketRow.STATUS);
       await connection.query(
-        `UPDATE support_ticket SET REPLY = ?, STATUS = ? WHERE TICKETID = ?`,
-        [trimmed, nextStatus, ticketId],
+        `UPDATE support_ticket SET REPLY = ?, STATUS = ?, ATTACHMENT = ?, ATTACHMENT_NAME = ? WHERE TICKETID = ?`,
+        [
+          trimmed || ticketRow.REPLY || '',
+          nextStatus,
+          joinCsv(ticketRow.ATTACHMENT, attachment),
+          joinCsv(ticketRow.ATTACHMENT_NAME, attachmentName),
+          ticketId,
+        ],
       );
     } else {
       await connection.query(
-        `UPDATE support_ticket SET STATUS = 1 WHERE TICKETID = ?`,
-        [ticketId],
+        `UPDATE support_ticket SET STATUS = 1, ATTACHMENT = ?, ATTACHMENT_NAME = ? WHERE TICKETID = ?`,
+        [
+          joinCsv(ticketRow.ATTACHMENT, attachment),
+          joinCsv(ticketRow.ATTACHMENT_NAME, attachmentName),
+          ticketId,
+        ],
       );
     }
 

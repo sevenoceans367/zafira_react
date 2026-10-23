@@ -716,6 +716,10 @@
   text-decoration: underline;
 }
 
+.attachmentLinksMe a {
+  color: #fff;
+}
+
 .composer {
   flex: none;
   border-top: 1px solid var(--hd-line);
@@ -725,8 +729,39 @@
   gap: 10px;
 }
 
-.composer textarea {
+.composerAttach {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hd-mid);
+  cursor: pointer;
+  flex: none;
+  background: none;
+  border: none;
+}
+
+.composerAttach:hover {
+  background: var(--hd-field);
+}
+
+.composerAttach svg {
+  width: 17px;
+  height: 17px;
+}
+
+.composerMain {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.composer textarea {
+  width: 100%;
   resize: none;
   border: 1px solid var(--hd-line-strong);
   border-radius: 11px;
@@ -737,6 +772,45 @@
   outline: none;
   max-height: 110px;
   min-height: 40px;
+}
+
+.composer textarea:focus {
+  border-color: var(--hd-navy);
+}
+
+.fileChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fileChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--hd-field);
+  color: var(--hd-text);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  max-width: 100%;
+}
+
+.fileChipX {
+  border: none;
+  background: none;
+  color: var(--hd-mid);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.field input[type='file'] {
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--hd-text);
 }
 
 .composer textarea:focus {

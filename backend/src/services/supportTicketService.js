@@ -264,17 +264,29 @@ export async function getTicketMessages(ticketId) {
   };
 }
 
-export async function sendTicketMessage(ticketId, message, { mgmtUser, actor } = {}) {
-  if (!message?.trim()) {
+export async function sendTicketMessage(ticketId, message, {
+  mgmtUser,
+  actor,
+  attachment = '',
+  attachmentName = '',
+} = {}) {
+  if (!message?.trim() && !attachment) {
     throw new Error('Message is required.');
   }
 
   const isMgmt = resolveMgmtUser(mgmtUser);
   const senderType = isMgmt ? 'support' : 'user';
   const user = resolveActor(actor);
+  const text = message?.trim() || '';
 
   if (isSupportTicketDbAvailable()) {
-    const result = await dbAddTicketMessage(ticketId, { message, senderType, actor: user });
+    const result = await dbAddTicketMessage(ticketId, {
+      message: text,
+      senderType,
+      actor: user,
+      attachment,
+      attachmentName,
+    });
     if (!result) throw new Error('Support ticket not found.');
     const kind = isMgmt
       ? 'support_reply'
@@ -294,11 +306,18 @@ export async function sendTicketMessage(ticketId, message, { mgmtUser, actor } =
   const entry = {
     messageId: mockMessageCounter++,
     ticketId: Number(ticketId),
-    message: message.trim(),
+    message: text,
     userId: 1,
     userName: isMgmt ? 'Support User' : 'Internal User',
     senderType,
     createdAt: new Date().toISOString(),
+    attachments: attachment
+      ? attachment.split(',').map((file, index) => ({
+        file,
+        name: attachmentName.split(',')[index] || file,
+        url: attachmentPublicUrl(file),
+      }))
+      : [],
   };
   mockMessages[ticket.ticketId] = [...(mockMessages[ticket.ticketId] ?? []), entry];
 
@@ -307,7 +326,7 @@ export async function sendTicketMessage(ticketId, message, { mgmtUser, actor } =
     if (senderType === 'support') {
       return {
         ...row,
-        reply: message.trim(),
+        reply: text,
         status: row.status === 1 ? 2 : row.status,
         statusLabel: row.status === 1 ? 'WIP' : row.statusLabel,
       };

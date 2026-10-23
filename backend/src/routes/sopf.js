@@ -418,11 +418,14 @@ router.get('/support_tickets/:ticketId/messages', async (req, res) => {
   }
 });
 
-router.post('/support_tickets/:ticketId/messages', async (req, res) => {
+router.post('/support_tickets/:ticketId/messages', ticketUpload, async (req, res) => {
   try {
+    const { attachment, attachmentName } = mapUploadedFiles(req.files);
     const data = await sendTicketMessage(req.params.ticketId, req.body.message, {
       mgmtUser: resolveRequestIsMgmtUser(req),
       actor: getRequestUser(req),
+      attachment,
+      attachmentName,
     });
     res.json(data);
   } catch (error) {

@@ -1,4 +1,4 @@
-const META_PREFIX = /^\[HD\]\s*(.+?)\s*·\s*(.+?)\s*·\s*(.+?)\n/;
+const META_PREFIX = /^(?:\[HD\]\s*)?(.+?)\s*·\s*(.+?)\s*·\s*(.+?)(?:\r?\n|$)/;
 const SEEN_KEY = 'zafira.helpDesk.seenTickets';
 const LOCAL_KEY = 'zafira.helpDesk.localState';
 
@@ -71,11 +71,11 @@ export const FAQ_LINKS = {
 };
 
 export function encodeHelpDeskMessage({ product, module, category, message }) {
-  return `[HD] ${product} · ${module} · ${category}\n${message}`;
+  return `${product} · ${module} · ${category}\n${message}`;
 }
 
 export function stripHelpDeskMeta(raw) {
-  return String(raw || '').replace(META_PREFIX, '');
+  return String(raw || '').replace(META_PREFIX, '').replace(/^\[HD\]\s*/i, '').trimStart();
 }
 
 export function truncateSubject(text, max = 70) {
@@ -84,11 +84,17 @@ export function truncateSubject(text, max = 70) {
   return `${value.slice(0, max)}…`;
 }
 
+function headingFromMeta(product, module, category, body) {
+  const title = [product, module, category].filter(Boolean).join(' · ');
+  const description = String(body || '').replace(/\s+/g, ' ').trim();
+  return truncateSubject(description ? `${title} ${description}` : title);
+}
+
 export function parseHelpDeskMeta(raw) {
   const text = String(raw || '');
   const match = text.match(META_PREFIX);
   if (!match) {
-    const body = text.trim();
+    const body = stripHelpDeskMeta(text).trim();
     return {
       product: 'SOPF',
       module: 'Help Desk',
@@ -97,12 +103,15 @@ export function parseHelpDeskMeta(raw) {
       body,
     };
   }
-  const body = text.slice(match[0].length);
+  const body = text.slice(match[0].length).trim();
+  const product = match[1].trim() || 'SOPF';
+  const module = match[2].trim() || 'Help Desk';
+  const category = match[3].trim() || 'General Question';
   return {
-    product: match[1].trim() || 'SOPF',
-    module: match[2].trim() || 'Help Desk',
-    category: match[3].trim() || 'General Question',
-    subject: truncateSubject(body),
+    product,
+    module,
+    category,
+    subject: headingFromMeta(product, module, category, body),
     body,
   };
 }

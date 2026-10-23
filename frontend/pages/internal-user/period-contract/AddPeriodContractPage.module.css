@@ -310,7 +310,7 @@
   transform: translateY(-50%);
   width: 14px;
   height: 14px;
-  color: #8a93a2;
+  color: #274670;
   pointer-events: none;
   z-index: 1;
   display: flex;
@@ -564,12 +564,39 @@
 }
 
 .actCol {
-  width: 72px;
+  width: 64px;
   text-align: center;
 }
 
-.actCol :global(.rowActions) {
+.actColNarrow {
+  width: 44px;
+  text-align: center;
+}
+
+.actCol :global(.rowActions),
+.actColNarrow :global(.rowActions) {
   height: 32px;
+}
+
+.hireMain {
+  min-width: 720px;
+}
+
+.hireMain th:nth-child(1),
+.hireMain td:nth-child(1),
+.hireMain th:nth-child(2),
+.hireMain td:nth-child(2) {
+  width: 23%;
+}
+
+.hireMain th:nth-child(3),
+.hireMain td:nth-child(3) {
+  width: 9%;
+}
+
+.hireMain th:nth-child(4),
+.hireMain td:nth-child(4) {
+  width: 15%;
 }
 
 .addRowBtn {
@@ -687,10 +714,15 @@
 
 .ohRateField {
   width: 200px;
+  flex: none;
 }
 
 .ohRateField input {
   min-height: 34px;
+}
+
+.ohRateField .fieldHint {
+  margin-top: 4px;
 }
 
 .offHireList {
@@ -717,29 +749,42 @@
 
 .offHireMain th:nth-child(1),
 .offHireMain td:nth-child(1) {
-  width: 16%;
+  width: 18%;
 }
 
 .offHireMain th:nth-child(2),
-.offHireMain td:nth-child(2),
+.offHireMain td:nth-child(2) {
+  width: 38%;
+}
+
 .offHireMain th:nth-child(3),
 .offHireMain td:nth-child(3) {
-  width: 16%;
+  width: 8%;
 }
 
 .offHireMain th:nth-child(4),
 .offHireMain td:nth-child(4) {
-  width: 8%;
-}
-
-.offHireMain th:nth-child(5),
-.offHireMain td:nth-child(5) {
   width: 12%;
 }
 
-.offHireMain th:nth-child(6),
-.offHireMain td:nth-child(6) {
-  width: 14%;
+.offHireRangeWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.offHireRangeWrap > .dateField {
+  flex: 1;
+  min-width: 0;
+}
+
+.rangeArrow {
+  flex: none;
+  color: #8a93a2;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .totalBar {
@@ -776,20 +821,33 @@
 }
 
 .offHireBunkers {
-  border-top: 1px solid #bd9553;
-  background: #f5efe2;
+  border-top: 1px dashed #d6e2f3;
+  background: #f8fafe;
   padding: 0 0 12px;
   margin: 0;
   border-radius: 0;
 }
 
+.offHireBunkersInner {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
 .ohBunkerTitle {
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #92400e;
+  color: #2563c9;
   padding: 11px 14px 0;
+}
+
+.offHireAddBunkersBtn {
+  margin: 2px 14px 0;
+  padding: 5px 11px;
+  font-size: 11.5px;
 }
 
 .offHireBunkerTable th {

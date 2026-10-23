@@ -6,6 +6,7 @@ import {
   periodContractAppPath,
 } from './periodContractModule.js';
 import { SOPF_ENTRY_ROUTE } from './sopfSidebarMenu.js';
+import { periodListReturnPath } from '../utils/periodContractListSession.js';
 
 const HOME = { label: 'Home', href: appPath('/') };
 
@@ -28,7 +29,7 @@ export function resolvePeriodContractHeader(pathname) {
   if (!PERIOD_CONTRACT_MODULE_IDS.includes(module)) return null;
   if (!pathname.includes('/period-contracts')) return null;
 
-  const listHref = periodContractAppPath(module);
+  const listHref = periodListReturnPath(periodContractAppPath(module));
   const listLabel = periodPageLabel(module);
   const isAdd = pathname.includes('/period-contracts/add');
   const isEdit = /\/period-contracts\/edit\//.test(pathname);

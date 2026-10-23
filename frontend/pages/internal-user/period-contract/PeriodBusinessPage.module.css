@@ -305,6 +305,11 @@
   font-weight: 600;
 }
 
+.grid thead th.cellCenter,
+.grid tbody td.cellCenter {
+  text-align: center;
+}
+
 .cellVessel {
   font-weight: 700;
   color: #1b2430;

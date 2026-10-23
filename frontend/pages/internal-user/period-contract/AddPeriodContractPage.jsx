@@ -10,6 +10,7 @@ import {
   updatePeriodContract,
 } from '../../../services/periodContracts.js';
 import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.js';
+import { periodListReturnPath } from '../../../utils/periodContractListSession.js';
 import {
   EMPTY_FORM,
   formFromPeriodContract,
@@ -35,6 +36,7 @@ export default function AddPeriodContractPage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const { periodContractPath } = usePeriodContractModule();
+  const listPath = periodListReturnPath(periodContractPath);
 
   const [lookups, setLookups] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -221,7 +223,7 @@ export default function AddPeriodContractPage() {
     const ok = await confirm({
       title: 'Confirmation',
       message: 'Are you sure you have checked each entry?',
-      confirmLabel: 'Submit',
+      confirmLabel: Number(nextStatus) > 1 ? 'Submit and Close' : 'Save',
     });
     if (!ok) return;
 
@@ -243,7 +245,7 @@ export default function AddPeriodContractPage() {
       } else {
         await createPeriodContract(payload, files);
       }
-      navigate(`${periodContractPath}?msg=0`, { replace: true });
+      navigate(periodListReturnPath(periodContractPath, { msg: 0 }), { replace: true });
     } catch (err) {
       setError(err.message || 'Failed to save period contract.');
     } finally {
@@ -267,7 +269,7 @@ export default function AddPeriodContractPage() {
     return (
       <div className={`zafira-page ${styles.page}`}>
         <AddPeriodContractHeaderActions
-          listPath={periodContractPath}
+          listPath={listPath}
           saving={saving}
           showSaveActions={!isLocked}
           onSaveOpen={handleSaveOpen}
@@ -281,7 +283,7 @@ export default function AddPeriodContractPage() {
   return (
     <div className={`zafira-page ${styles.page}`}>
       <AddPeriodContractHeaderActions
-        listPath={periodContractPath}
+        listPath={listPath}
         saving={saving}
         showSaveActions={!isLocked}
         onSaveOpen={handleSaveOpen}
@@ -316,20 +318,21 @@ export default function AddPeriodContractPage() {
           disabled={isLocked}
           footer={(
             <div className={styles.footerActions}>
-              <Button variant="close" label="Cancel" to={periodContractPath} disabled={saving} />
+              <Button variant="close" label="Cancel" to={listPath} disabled={saving} />
               {!isLocked ? (
                 <>
                   <Button
                     type="button"
                     variant="saveOutline"
-                    label="Submit"
+                    label="Save"
                     disabled={saving}
                     onClick={handleSaveOpen}
                   />
                   <Button
                     type="button"
                     variant="submit"
-                    label="Submit & Close"
+                    label="Submit and Close"
+                    icon="lock"
                     disabled={saving}
                     onClick={handleSaveClose}
                   />

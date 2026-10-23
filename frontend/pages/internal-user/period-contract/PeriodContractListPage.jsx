@@ -27,6 +27,11 @@ import {
   readBusinessType,
   rememberBusinessType,
 } from '../../../utils/businessTypeSession.js';
+import {
+  periodListStatusQuery,
+  readPeriodListStatus,
+  rememberPeriodListStatus,
+} from '../../../utils/periodContractListSession.js';
 import SopfPagination from '../sopf/SopfPagination.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
 import PeriodContractHeaderActions from './PeriodContractHeaderActions.jsx';
@@ -161,16 +166,11 @@ function MultilineCell({ value, className }) {
   return <span className={className}>{text}</span>;
 }
 
-function parseListStatus(value) {
-  if (value === 'closed' || value === 'completed' || value === '2') return 'closed';
-  return 'open';
-}
-
 export default function PeriodContractListPage() {
   const navigate = useNavigate();
   const { module } = usePeriodContractModule();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(parseListStatus(searchParams.get('status')));
+  const [activeTab, setActiveTab] = useState(() => readPeriodListStatus(searchParams));
   const [businessTypes, setBusinessTypes] = useState([]);
   const [businessType, setBusinessType] = useState(() => readBusinessType(searchParams, BUSINESS_TYPE_KEYS.periodContract));
   const [rows, setRows] = useState([]);
@@ -210,6 +210,11 @@ export default function PeriodContractListPage() {
     next.delete('msg');
     setSearchParams(next, { replace: true });
   };
+
+  useEffect(() => {
+    if (searchParams.get('status')) return;
+    updateQuery({ status: periodListStatusQuery(activeTab) });
+  }, []);
 
   const loadBusinessTypes = useCallback(async (selectedId) => {
     const types = await fetchVcBusinessTypes(selectedId);
@@ -478,8 +483,9 @@ export default function PeriodContractListPage() {
               aria-selected={activeTab === tab.id}
               className={`${styles.statusTab} ${activeTab === tab.id ? styles.statusTabActive : ''}`}
               onClick={() => {
+                rememberPeriodListStatus(tab.id);
                 setActiveTab(tab.id);
-                updateQuery({ status: tab.id === 'closed' ? 'completed' : 'active' });
+                updateQuery({ status: periodListStatusQuery(tab.id) });
               }}
             >
               <TabIcon id={tab.id} />
@@ -521,6 +527,7 @@ export default function PeriodContractListPage() {
                 <th>#</th>
                 <th>Contract No.</th>
                 <th>Contract Date</th>
+                <th className={styles.cellCenter}>Recap</th>
                 <th>Vessel</th>
                 <th>DWT</th>
                 <th>Initial Hire</th>
@@ -532,14 +539,12 @@ export default function PeriodContractListPage() {
                 <th>Remarks</th>
                 <th>Bunker Opening</th>
                 <th>Bunker Closing</th>
-                <th>Recap</th>
-                <th>Details</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className={styles.emptyCell}>
+                  <td colSpan={15} className={styles.emptyCell}>
                     SORRY CURRENTLY THERE ARE ZERO(0) RECORDS
                   </td>
                 </tr>
@@ -559,6 +564,11 @@ export default function PeriodContractListPage() {
                     </div>
                   </td>
                   <td className={styles.cellNum}>{liveValue(row.contractDate)}</td>
+                  <td className={styles.cellCenter}>
+                    <Link className={styles.iconBtn} to={editHref(row.periodId)} title="Recap">
+                      <PencilIcon />
+                    </Link>
+                  </td>
                   <td>
                     <div className={styles.cellVessel}>{liveValue(row.vesselName)}</div>
                     {row.vesselType ? <div className={styles.cellVtype}>{row.vesselType}</div> : null}
@@ -588,16 +598,6 @@ export default function PeriodContractListPage() {
                   </td>
                   <td className={styles.cellWrap}>
                     <MultilineCell value={row.bunkerClosing} />
-                  </td>
-                  <td>
-                    <Link className={styles.iconBtn} to={editHref(row.periodId)} title="Recap">
-                      <PencilIcon />
-                    </Link>
-                  </td>
-                  <td>
-                    <Link className={styles.iconBtn} to={editHref(row.periodId)} title="Details">
-                      <DocIcon />
-                    </Link>
                   </td>
                 </tr>
               ))}
@@ -772,7 +772,7 @@ export default function PeriodContractListPage() {
                           onClick={() => navigate(addTcHref)}
                         >
                           <PlusIcon />
-                          Add New TC Recap
+                          Add
                         </button>
                       </div>
                     </div>

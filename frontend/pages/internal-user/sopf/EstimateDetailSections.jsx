@@ -155,7 +155,6 @@ function Field({ id, label, children, className = '', api = false, required = fa
     ].filter(Boolean).join(' ')}>
       <label htmlFor={id}>
         {label}
-        {api ? <span className={styles.apiTag}>API</span> : null}
       </label>
       {children}
     </div>

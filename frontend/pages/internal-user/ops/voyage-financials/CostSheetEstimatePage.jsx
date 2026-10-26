@@ -16,7 +16,12 @@ import { usePageHeaderHeading } from '../../PageHeaderContext.jsx';
 import { applyEstimateCalculations } from '../../sopf/estimateCalculations.js';
 import { buildEstimateSubmitPayload } from '../../sopf/buildEstimateSubmitPayload.js';
 import { toFormState } from '../../sopf/estimateDetail.constants.js';
-import { applyPeriodPrefillToForm, applyVesselPrefillToForm } from '../../sopf/estimatePrefill.js';
+import {
+  applyHirePeriodOffHireRates,
+  applyPeriodPrefillToForm,
+  applyVesselPrefillToForm,
+  offHireRowsHaveData,
+} from '../../sopf/estimatePrefill.js';
 import { validateEstimateForm, focusEstimateValidationField } from '../../sopf/estimateValidation.js';
 import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from '../../sopf/estimateInputSanitize.js';
 import styles from './CostSheetEstimatePage.module.css';
@@ -133,7 +138,23 @@ export default function CostSheetEstimatePage({
         marketPrices: lookupsForType.marketPrices ?? {},
       };
       setLookups(nextLookups);
-      setForm(applyEstimateCalculations(toFormState(data), nextLookups));
+      let nextForm = applyEstimateCalculations(toFormState(data), nextLookups);
+      if (nextForm.periodId && !offHireRowsHaveData(nextForm.offHireRows)) {
+        try {
+          const periodData = await fetchPeriodPrefill(nextForm.periodId);
+          if (periodData) {
+            nextForm = applyPeriodPrefillToForm(nextForm, {
+              ...periodData,
+              hireRows: [],
+              deliveryBunkerRows: [],
+              redeliveryBunkerRows: [],
+            });
+          }
+        } catch {
+          /* Keep worksheet off-hire if period lookup fails. */
+        }
+      }
+      setForm(applyEstimateCalculations(applyHirePeriodOffHireRates(nextForm), nextLookups));
     } catch (err) {
       setError(err.message || 'Failed to load estimate.');
     } finally {

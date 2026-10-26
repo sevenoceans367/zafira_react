@@ -204,7 +204,7 @@ function SubLabel({ children, first = false, mustard = false }) {
   );
 }
 
-function PeriodCard({ title, icon, defaultOpen = false, children }) {
+function PeriodCard({ title, icon, defaultOpen = false, bodyClassName = '', children }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <section className={`${styles.estCard} ${open ? styles.estCardOpen : ''}`}>
@@ -229,7 +229,10 @@ function PeriodCard({ title, icon, defaultOpen = false, children }) {
         {icon}
         {title}
       </button>
-      <div className={open ? styles.estBody : styles.estBodyHidden} hidden={!open}>
+      <div
+        className={[open ? styles.estBody : styles.estBodyHidden, bodyClassName].filter(Boolean).join(' ')}
+        hidden={!open}
+      >
         {children}
       </div>
     </section>
@@ -852,7 +855,7 @@ function OffHirePanel({ form, lookups, bunkers = [], defaultGradeId = '', update
   };
 
   return (
-    <PeriodCard title="Off Hire" defaultOpen icon={<OffHireIcon />}>
+    <PeriodCard title="Off Hire" defaultOpen icon={<OffHireIcon />} bodyClassName={styles.offHireBody}>
       <div className={styles.offHireList}>
         {offHires.map((offHire, offIndex) => (
           <div key={offHire.id} className={`${styles.offHireItem} ${styles.subCard}`}>

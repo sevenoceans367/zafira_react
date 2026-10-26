@@ -514,7 +514,7 @@ export default function PeriodContractListPage() {
                 onClick={() => navigate(`/internal-user/${module}/period-contracts/add`)}
               >
                 <PlusIcon />
-                Add New
+                Add
               </button>
             ) : null}
           </>
@@ -688,7 +688,7 @@ export default function PeriodContractListPage() {
                             <th>LP/DP</th>
                             <th>Days</th>
                             <th>QTY</th>
-                            <th>Fixture</th>
+                            <th>Details</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -718,7 +718,7 @@ export default function PeriodContractListPage() {
                                 <Link
                                   className={styles.iconBtn}
                                   to={`/internal-user/sopf/viewestimate?id=${encodeURIComponent(voyage.fcaId)}&estimatetype=${encodeURIComponent(businessType)}&selBType=${encodeURIComponent(businessType)}&returnTo=${encodeURIComponent(listPath)}`}
-                                  title="Fixture"
+                                  title="Details"
                                 >
                                   <DocIcon />
                                 </Link>
@@ -790,7 +790,7 @@ export default function PeriodContractListPage() {
                             <th>Days</th>
                             <th>Hire In</th>
                             <th>Hire Out</th>
-                            <th>Fixture</th>
+                            <th>Details</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -823,7 +823,7 @@ export default function PeriodContractListPage() {
                                 <Link
                                   className={styles.iconBtn}
                                   to={tcAppPath(tcHost, `${tc.tcOutId}/view`)}
-                                  title="Fixture"
+                                  title="Details"
                                 >
                                   <DocIcon />
                                 </Link>

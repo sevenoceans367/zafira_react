@@ -9,6 +9,8 @@ import {
 } from '../../sopf/estimateDetail.constants.js';
 import { diffDays } from '../../sopf/estimateCalculations.js';
 import { sanitizeFieldDecimal } from '../../sopf/estimateInputSanitize.js';
+import { hireRateForOffHireEvent } from '../../../../services/tcEstimates.js';
+import { applyHirePeriodOffHireRates } from '../../sopf/estimatePrefill.js';
 import styles from './HireDetailsModal.module.css';
 
 function PlusIcon() {
@@ -147,6 +149,18 @@ export default function HireDetailsModal({
       formPatch.hireRate = first.hireRate || '';
       formPatch._hireRateCleared = !first.hireRate;
     }
+    if (
+      Object.prototype.hasOwnProperty.call(patch, 'hireFrom')
+      || Object.prototype.hasOwnProperty.call(patch, 'hireTo')
+      || Object.prototype.hasOwnProperty.call(patch, 'hireRate')
+    ) {
+      formPatch.offHireRows = applyHirePeriodOffHireRates({
+        ...form,
+        hireRows: next,
+        hireRate: formPatch.hireRate ?? form.hireRate,
+        offHireRows,
+      }, { overwrite: true }).offHireRows;
+    }
     applyPatch(formPatch);
   };
 
@@ -181,6 +195,17 @@ export default function HireDetailsModal({
           const days = diffDays(from, to);
           merged.days = days > 0 ? days.toFixed(4) : '';
         }
+        const matchedRate = hireRateForOffHireEvent({
+          from,
+          to,
+          hirePeriods: hireRows.map((hire) => ({
+            delDate: hire.hireFrom,
+            reDelDate: hire.hireTo,
+            hireRate: hire.hireRate,
+          })),
+          fallback: form.hireRate || hireRows[0]?.hireRate || '',
+        });
+        if (matchedRate) merged.rate = matchedRate;
       }
       if (
         Object.prototype.hasOwnProperty.call(patch, 'days')

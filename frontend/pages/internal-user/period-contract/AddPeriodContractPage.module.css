@@ -674,6 +674,10 @@
   box-sizing: border-box;
 }
 
+.offHireBody {
+  padding: 20px 24px 28px;
+}
+
 .offHireSection {
   margin-top: 24px;
   background: #eef3fa;
@@ -726,7 +730,7 @@
 .offHireList {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .offHireItem {

@@ -11,6 +11,7 @@ import {
   createEmptySecaBunkerRow,
 } from './estimateDetail.constants.js';
 import { calcCargoAmount, classifyBunkerGradeName } from './estimateCalculations.js';
+import { hireRateForOffHireEvent } from '../../../services/tcEstimates.js';
 
 const PORT_BUNKER_GRADE_ORDER = PORT_BUNKER_GRADE_OPTIONS.map((option) => option.value);
 
@@ -259,6 +260,48 @@ export function applyVesselPrefillToForm(current, prefill, lookups = {}) {
   };
 }
 
+export function offHireRowsHaveData(rows = []) {
+  return rows.some((row) => (
+    String(row?.reason || '').trim()
+    || String(row?.from || '').trim()
+    || String(row?.to || '').trim()
+    || Number(row?.rate)
+    || Number(row?.amount)
+    || (row?.bunkers || []).some((bunker) => (
+      String(bunker?.bunkerGradeId || '').trim()
+      || Number(bunker?.qty)
+      || Number(bunker?.price)
+    ))
+  ));
+}
+
+function hirePeriodsFromRows(hireRows = [], fallbackRate = '') {
+  return (hireRows || []).map((row) => ({
+    delDate: row.hireFrom,
+    reDelDate: row.hireTo,
+    hireRate: row.hireRate || fallbackRate,
+  }));
+}
+
+export function applyHirePeriodOffHireRates(form, { overwrite = false } = {}) {
+  const hireRows = form.hireRows || [];
+  const hirePeriods = hirePeriodsFromRows(hireRows, form.hireRate);
+  const offHireRows = (form.offHireRows || []).map((row) => {
+    if (!overwrite && String(row.rate || '').trim()) return row;
+    const rate = hireRateForOffHireEvent({
+      from: row.from,
+      to: row.to,
+      hirePeriods,
+      fallback: form.hireRate || hireRows[0]?.hireRate || '',
+    });
+    if (!rate) return row;
+    const days = Number(row.days) || 0;
+    const amount = days && Number(rate) ? (days * Number(rate)).toFixed(2) : row.amount;
+    return { ...row, rate, amount };
+  });
+  return { ...form, offHireRows };
+}
+
 export function applyPeriodPrefillToForm(current, periodData) {
   if (!periodData) return current;
 
@@ -278,7 +321,7 @@ export function applyPeriodPrefillToForm(current, periodData) {
         from: row.from || '',
         to: row.to || '',
         days: row.days || '',
-        rate: row.rate || '',
+        rate: row.rate || row.hireRate || '',
         amount: row.amount || '',
         bunkers: (row.bunkers || []).length
           ? row.bunkers.map((b) => ({
@@ -308,7 +351,7 @@ export function applyPeriodPrefillToForm(current, periodData) {
     }))
     : current.redeliveryBunkerRows;
 
-  return {
+  return applyHirePeriodOffHireRates({
     ...current,
     periodId: periodData.periodId || current.periodId,
     // PHP periodAdComm / periodBComm fill dummyAdcom / dummyBrokerage → hireage only.
@@ -321,7 +364,7 @@ export function applyPeriodPrefillToForm(current, periodData) {
     offHireRows,
     deliveryBunkerRows,
     redeliveryBunkerRows,
-  };
+  });
 }
 
 function resolveCoaShipmentQty(coaData = {}) {

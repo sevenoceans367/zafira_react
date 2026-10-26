@@ -73,6 +73,22 @@ async function ensureExtraColumns(connection, have) {
   return names;
 }
 
+export async function ensureOffHireVendorColumn(connection) {
+  try {
+    const [rows] = await connection.query(
+      "SHOW COLUMNS FROM period_contract_master_slave2 LIKE 'VENDOR'",
+    );
+    if (rows?.length) return true;
+    await connection.query(
+      'ALTER TABLE period_contract_master_slave2 ADD COLUMN VENDOR VARCHAR(50) NULL',
+    );
+    return true;
+  } catch (error) {
+    console.error('Could not add period_contract_master_slave2.VENDOR:', error.message || error);
+    return false;
+  }
+}
+
 export async function applyPeriodExtraFields(connection, payload, periodId) {
   let have = [];
   try {

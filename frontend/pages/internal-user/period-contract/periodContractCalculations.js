@@ -24,6 +24,28 @@ export function diffDays(fromValue, toValue) {
   return diff.toFixed(4);
 }
 
+export function hireRateForOffHireStart(hireRates = [], offFrom) {
+  const start = parseDMYDateTime(offFrom);
+  if (!start) return null;
+  for (const row of hireRates) {
+    const from = parseDMYDateTime(row.hireFrom);
+    const to = parseDMYDateTime(row.hireTo);
+    if (!from || !to) continue;
+    if (start >= from && start <= to) {
+      const rate = String(row.hireRate ?? '').trim();
+      if (rate !== '') return rate;
+    }
+  }
+  return null;
+}
+
+export function applyOffHireRatesFromHire(offHires = [], hireRates = []) {
+  return offHires.map((row) => {
+    const rate = hireRateForOffHireStart(hireRates, row.from);
+    return rate == null ? row : { ...row, rate };
+  });
+}
+
 export function multiplyAmount(qty, price) {
   const q = Number(qty);
   const p = Number(price);

@@ -583,19 +583,17 @@
 }
 
 .hireMain th:nth-child(1),
-.hireMain td:nth-child(1),
+.hireMain td:nth-child(1) {
+  width: 42%;
+}
+
 .hireMain th:nth-child(2),
 .hireMain td:nth-child(2) {
-  width: 23%;
+  width: 9%;
 }
 
 .hireMain th:nth-child(3),
 .hireMain td:nth-child(3) {
-  width: 9%;
-}
-
-.hireMain th:nth-child(4),
-.hireMain td:nth-child(4) {
   width: 15%;
 }
 
@@ -738,7 +736,7 @@
 }
 
 .offHireMain {
-  min-width: 760px;
+  min-width: 980px;
 }
 
 .offHireMain th {
@@ -749,22 +747,29 @@
 
 .offHireMain th:nth-child(1),
 .offHireMain td:nth-child(1) {
-  width: 18%;
+  width: 16%;
 }
 
 .offHireMain th:nth-child(2),
-.offHireMain td:nth-child(2) {
-  width: 38%;
-}
-
+.offHireMain td:nth-child(2),
 .offHireMain th:nth-child(3),
 .offHireMain td:nth-child(3) {
-  width: 8%;
+  width: 14%;
 }
 
 .offHireMain th:nth-child(4),
 .offHireMain td:nth-child(4) {
+  width: 8%;
+}
+
+.offHireMain th:nth-child(5),
+.offHireMain td:nth-child(5) {
   width: 12%;
+}
+
+.offHireMain th:nth-child(6),
+.offHireMain td:nth-child(6) {
+  width: 16%;
 }
 
 .offHireRangeWrap {
@@ -787,6 +792,12 @@
   line-height: 1;
 }
 
+.rangeHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .totalBar {
   display: flex;
   flex-wrap: wrap;
@@ -801,6 +812,7 @@
 }
 
 .offHireSection > .totalBar,
+.offHireList + .totalBar,
 .subCardMustard + .totalBar {
   border-radius: 10px;
   margin-top: 12px;

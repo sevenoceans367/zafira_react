@@ -681,13 +681,13 @@ export default function PeriodContractListPage() {
                           <tr>
                             <th>#</th>
                             <th>Vessel</th>
+                            <th>TCE</th>
                             <th>Voy</th>
                             <th>CP Date</th>
                             <th>DWT</th>
                             <th>LP/DP</th>
                             <th>Days</th>
                             <th>QTY</th>
-                            <th>TC</th>
                             <th>Fixture</th>
                           </tr>
                         </thead>
@@ -705,6 +705,7 @@ export default function PeriodContractListPage() {
                                   <div className={styles.vesselType}>{liveValue(voyage.vesselType)}</div>
                                 ) : null}
                               </td>
+                              <td className={styles.cellNum}>{liveValue(voyage.netTce)}</td>
                               <td>{liveValue(voyage.voyageNo)}</td>
                               <td className={styles.cellNum}>{liveValue(voyage.cpDate)}</td>
                               <td className={styles.cellNum}>{liveValue(voyage.dwt)}</td>
@@ -713,7 +714,6 @@ export default function PeriodContractListPage() {
                               </td>
                               <td className={styles.cellNum}>{liveValue(voyage.duration)}</td>
                               <td className={styles.cellNum}>{liveValue(voyage.cargoQuantity)}</td>
-                              <td className={styles.cellNum}>{liveValue(voyage.netTce)}</td>
                               <td>
                                 <Link
                                   className={styles.iconBtn}
@@ -782,7 +782,7 @@ export default function PeriodContractListPage() {
                           <tr>
                             <th>#</th>
                             <th>Vessel</th>
-                            <th>TC</th>
+                            <th>TCE</th>
                             <th>CP Date</th>
                             <th>DWT</th>
                             <th>Del</th>

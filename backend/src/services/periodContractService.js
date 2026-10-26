@@ -344,6 +344,7 @@ export async function getPeriodContractById(periodId) {
         days: '',
         rate: '',
         amount: '',
+        vendorId: '',
         bunkers: [{ gradeId: '', qty: '', price: '', amount: '', ownerAccount: false }],
       }],
     };

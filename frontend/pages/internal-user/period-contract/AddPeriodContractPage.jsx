@@ -223,7 +223,7 @@ export default function AddPeriodContractPage() {
     const ok = await confirm({
       title: 'Confirmation',
       message: 'Are you sure you have checked each entry?',
-      confirmLabel: Number(nextStatus) > 1 ? 'Submit and Close' : 'Save',
+      confirmLabel: Number(nextStatus) > 1 ? 'Submit & Close' : 'Save',
     });
     if (!ok) return;
 
@@ -331,7 +331,7 @@ export default function AddPeriodContractPage() {
                   <Button
                     type="button"
                     variant="submit"
-                    label="Submit and Close"
+                    label="Submit & Close"
                     icon="lock"
                     disabled={saving}
                     onClick={handleSaveClose}

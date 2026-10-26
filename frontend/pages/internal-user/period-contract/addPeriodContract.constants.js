@@ -66,6 +66,7 @@ export const EMPTY_OFF_HIRE = () => ({
   days: '',
   rate: '',
   amount: '',
+  vendorId: '',
   bunkers: [EMPTY_OFF_HIRE_BUNKER()],
 });
 
@@ -243,6 +244,7 @@ export function formFromPeriodContract(record) {
         days: row.days || '',
         rate: row.rate || '',
         amount: row.amount || '',
+        vendorId: row.vendorId || '',
         bunkers: withAtLeastOne(
           (row.bunkers || []).map((bunker) => ({
             ...EMPTY_OFF_HIRE_BUNKER(),
@@ -353,6 +355,7 @@ export function toCreatePayload(form, updateStatus) {
         days: row.days,
         rate: row.rate,
         amount: row.amount,
+        vendorId: row.vendorId || '',
         bunkers: row.bunkers
           .filter((bunker) => bunker.gradeId && bunker.amount !== '')
           .map((bunker) => ({

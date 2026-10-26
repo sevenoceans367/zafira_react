@@ -7,7 +7,7 @@ import {
   parseDMYDateTime,
 } from '../utils/periodContractDates.js';
 import { attachmentPublicUrl } from '../utils/attachmentUrl.js';
-import { applyPeriodExtraFields, mapPeriodExtraFields } from './periodContractExtraFields.js';
+import { applyPeriodExtraFields, ensureOffHireVendorColumn, mapPeriodExtraFields } from './periodContractExtraFields.js';
 
 function nullOrNumber(value) {
   if (value == null || value === '') return null;
@@ -85,6 +85,7 @@ async function insertSlaves(connection, periodId, payload) {
     );
   }
 
+  const hasOffHireVendor = await ensureOffHireVendorColumn(connection);
   for (const offHire of payload.offHires || []) {
     if (!offHire.reason) continue;
 
@@ -92,10 +93,15 @@ async function insertSlaves(connection, periodId, payload) {
     const offTo = toSqlDateTime(offHire.to) || '1970-01-01 08:00:00';
 
     const [offResult] = await connection.query(
-      `INSERT INTO period_contract_master_slave2 (
-        PERIODID, OFF_REASON, OFF_FROM, OFF_TO,
-        OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      hasOffHireVendor
+        ? `INSERT INTO period_contract_master_slave2 (
+            PERIODID, OFF_REASON, OFF_FROM, OFF_TO,
+            OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE, VENDOR
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        : `INSERT INTO period_contract_master_slave2 (
+            PERIODID, OFF_REASON, OFF_FROM, OFF_TO,
+            OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         periodId,
         offHire.reason,
@@ -104,6 +110,7 @@ async function insertSlaves(connection, periodId, payload) {
         nullOrNumber(offHire.days),
         nullOrNumber(offHire.rate),
         nullOrNumber(offHire.amount),
+        ...(hasOffHireVendor ? [nullOrString(offHire.vendorId)] : []),
       ],
     );
 
@@ -256,12 +263,19 @@ export async function dbGetPeriodContractById(periodId) {
     [id],
   );
 
+  const hasOffHireVendor = await ensureOffHireVendorColumn(pool);
   const [offHireRows] = await pool.query(
-    `SELECT PERIOD_SLAVEID, OFF_REASON, OFF_FROM, OFF_TO,
-            OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE
-     FROM period_contract_master_slave2
-     WHERE PERIODID = ?
-     ORDER BY PERIOD_SLAVEID ASC`,
+    hasOffHireVendor
+      ? `SELECT PERIOD_SLAVEID, OFF_REASON, OFF_FROM, OFF_TO,
+                OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE, VENDOR
+         FROM period_contract_master_slave2
+         WHERE PERIODID = ?
+         ORDER BY PERIOD_SLAVEID ASC`
+      : `SELECT PERIOD_SLAVEID, OFF_REASON, OFF_FROM, OFF_TO,
+                OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE
+         FROM period_contract_master_slave2
+         WHERE PERIODID = ?
+         ORDER BY PERIOD_SLAVEID ASC`,
     [id],
   );
 
@@ -281,6 +295,7 @@ export async function dbGetPeriodContractById(periodId) {
       days: row.OFF_HIRE_DAYS != null ? asString(row.OFF_HIRE_DAYS) : '',
       rate: row.HIRE_RATE != null ? asString(row.HIRE_RATE) : '',
       amount: row.OFF_HIRE != null ? asString(row.OFF_HIRE) : '',
+      vendorId: asString(row.VENDOR),
       bunkers: bunkers.map((bunker) => ({
         gradeId: bunker.BUNKERID != null ? asString(bunker.BUNKERID) : '',
         qty: bunker.BUNKERQTY != null ? asString(bunker.BUNKERQTY) : '',

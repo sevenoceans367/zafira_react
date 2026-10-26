@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   AttachmentDropzone,
   CardSelect,
@@ -18,7 +18,7 @@ import {
   EMPTY_OFF_HIRE_BUNKER,
   resolveChartererAddress,
 } from './addPeriodContract.constants.js';
-import { recalcBunkerRows } from './periodContractCalculations.js';
+import { applyOffHireRatesFromHire, hireRateForOffHireStart, recalcBunkerRows } from './periodContractCalculations.js';
 import styles from './AddPeriodContractPage.module.css';
 
 function alertIncompleteRow(alert, message) {
@@ -160,7 +160,7 @@ function PeriodDateRangeInput({ from, to, disabled, onFrom, onTo }) {
         enableTime
         value={from}
         disabled={disabled}
-        placeholder="Select dates & times"
+        placeholder="Select dates and times"
         onChange={onFrom}
       />
       <span className={styles.rangeArrow} aria-hidden>→</span>
@@ -168,10 +168,18 @@ function PeriodDateRangeInput({ from, to, disabled, onFrom, onTo }) {
         enableTime
         value={to}
         disabled={disabled}
-        placeholder="dd-mm-yyyy hh:mm"
+        placeholder="Select dates and times"
         onChange={onTo}
       />
     </div>
+  );
+}
+
+function RangeHead() {
+  return (
+    <span className={styles.rangeHead}>
+      From <span className={styles.rangeArrow}>→</span> To
+    </span>
   );
 }
 
@@ -271,6 +279,15 @@ function HireIcon() {
     <svg className={styles.sectionIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M7 3.5h10v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4z" />
       <path d="M9.5 8h5M9.5 11.5h5M9.5 15h3" />
+    </svg>
+  );
+}
+
+function OffHireIcon() {
+  return (
+    <svg className={styles.sectionIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
     </svg>
   );
 }
@@ -717,52 +734,17 @@ function PeriodDetailsPanel({
   );
 }
 
-function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert, disabled }) {
+function HirePanel({ form, updateForm, alert, disabled }) {
   const hireRates = form.hireRates || [];
   const offHires = form.offHires || [];
-  const latestHireRate = [...hireRates]
-    .map((row) => String(row.hireRate ?? '').trim())
-    .filter(Boolean)
-    .at(-1) || '';
-  const [masterRate, setMasterRate] = useState('');
-  const [masterTouched, setMasterTouched] = useState(false);
-  const manualOffHireRatesRef = useRef(new Set());
-  const displayedMaster = masterTouched ? masterRate : (latestHireRate || masterRate);
 
-  useEffect(() => {
-    if (masterTouched || !latestHireRate) return undefined;
-    setMasterRate(latestHireRate);
-    updateForm((current) => {
-      const rows = current.offHires || [];
-      const skipped = manualOffHireRatesRef.current;
-      const nextRows = rows.map((row) => (
-        skipped.has(row.id) ? row : { ...row, rate: latestHireRate }
-      ));
-      if (nextRows.every((row, index) => row === rows[index])) {
-        return current;
-      }
-      return { ...current, offHires: nextRows };
-    });
-    return undefined;
-  }, [latestHireRate, masterTouched, updateForm]);
-
-  const patchOffHire = (offIndex, patch) => {
-    const next = [...offHires];
-    next[offIndex] = { ...offHires[offIndex], ...patch };
-    updateForm({ ...form, offHires: next });
-  };
-
-  const onMasterRateChange = (value) => {
-    setMasterTouched(true);
-    setMasterRate(value);
-    updateForm((current) => {
-      const skipped = manualOffHireRatesRef.current;
-      return {
-        ...current,
-        offHires: (current.offHires || []).map((row) => (
-          skipped.has(row.id) ? row : { ...row, rate: value }
-        )),
-      };
+  const patchHire = (index, patch) => {
+    const next = [...hireRates];
+    next[index] = { ...hireRates[index], ...patch };
+    updateForm({
+      ...form,
+      hireRates: next,
+      offHires: applyOffHireRatesFromHire(offHires, next),
     });
   };
 
@@ -773,8 +755,7 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
           <table className={`${styles.miniTable} ${styles.hireMain}`}>
             <thead>
               <tr>
-                <th>From</th>
-                <th>To</th>
+                <th><RangeHead /></th>
                 <th>Days</th>
                 <th>Hire ($/day)</th>
                 <th>Hire Amount ($)</th>
@@ -787,29 +768,12 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                 return (
                   <tr key={row.id}>
                     <td>
-                      <PeriodDateInput
-                        enableTime
-                        value={row.hireFrom}
+                      <PeriodDateRangeInput
+                        from={row.hireFrom}
+                        to={row.hireTo}
                         disabled={disabled}
-                        placeholder="dd-mm-yyyy hh:mm"
-                        onChange={(value) => {
-                          const next = [...hireRates];
-                          next[index] = { ...row, hireFrom: value };
-                          updateForm({ ...form, hireRates: next });
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <PeriodDateInput
-                        enableTime
-                        value={row.hireTo}
-                        disabled={disabled}
-                        placeholder="dd-mm-yyyy hh:mm"
-                        onChange={(value) => {
-                          const next = [...hireRates];
-                          next[index] = { ...row, hireTo: value };
-                          updateForm({ ...form, hireRates: next });
-                        }}
+                        onFrom={(value) => patchHire(index, { hireFrom: value })}
+                        onTo={(value) => patchHire(index, { hireTo: value })}
                       />
                     </td>
                     <td><input type="text" value={row.hireDays} readOnly /></td>
@@ -819,11 +783,7 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                         placeholder="0.00"
                         value={row.hireRate}
                         disabled={disabled}
-                        onChange={(e) => {
-                          const next = [...hireRates];
-                          next[index] = { ...row, hireRate: e.target.value };
-                          updateForm({ ...form, hireRates: next });
-                        }}
+                        onChange={(e) => patchHire(index, { hireRate: e.target.value })}
                       />
                     </td>
                     <td><input type="text" value={hireAmount(row)} readOnly /></td>
@@ -843,10 +803,14 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
                           } : undefined}
                           addTitle="Add a new hire period"
                           removeDisabled={hireRates.length <= 1}
-                          onRemove={() => updateForm({
-                            ...form,
-                            hireRates: hireRates.filter((item) => item.id !== row.id),
-                          })}
+                          onRemove={() => {
+                            const next = hireRates.filter((item) => item.id !== row.id);
+                            updateForm({
+                              ...form,
+                              hireRates: next,
+                              offHires: applyOffHireRatesFromHire(offHires, next),
+                            });
+                          }}
                         />
                       </td>
                     ) : null}
@@ -867,234 +831,248 @@ function HirePanel({ form, bunkers = [], defaultGradeId = '', updateForm, alert,
           </span>
         </div>
       </div>
+    </PeriodCard>
+  );
+}
 
-      <div className={styles.offHireSection}>
-        <div className={styles.ohSecHead}>
-          <div className={styles.ohChip}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <circle cx="12" cy="12" r="8.5" />
-              <path d="M12 7.5V12l3 2" />
-            </svg>
-            Off Hire
-          </div>
-          <Field
-            label="Off-Hire Rate/Day ($)"
-            className={styles.ohRateField}
-            hint="Defaults to the Hire rate above · editable"
-          >
-            <input
-              type="text"
-              value={displayedMaster}
-              disabled={disabled}
-              onChange={(e) => onMasterRateChange(e.target.value)}
-            />
-          </Field>
-        </div>
+function OffHirePanel({ form, lookups, bunkers = [], defaultGradeId = '', updateForm, alert, disabled }) {
+  const hireRates = form.hireRates || [];
+  const offHires = form.offHires || [];
+  const vendorOptions = toSelectOptions(lookups?.charterers);
 
-        <div className={styles.offHireList}>
-          {offHires.map((offHire, offIndex) => (
-            <div key={offHire.id} className={`${styles.offHireItem} ${styles.subCard}`}>
-              <div className={styles.tableWrap}>
-                <table className={`${styles.miniTable} ${styles.offHireMain}`}>
-                  <thead>
-                    <tr>
-                      <th>Reason</th>
-                      <th>From → To</th>
-                      <th>Days</th>
-                      <th>Rate/Day</th>
-                      <th>Off Hire Amount ($)</th>
-                      {!disabled ? <th className={styles.actColNarrow} /> : null}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>
-                        <input
-                          type="text"
-                          placeholder="Description"
-                          value={offHire.reason}
-                          disabled={disabled}
-                          onChange={(e) => patchOffHire(offIndex, { reason: e.target.value })}
+  const patchOffHire = (offIndex, patch) => {
+    const next = [...offHires];
+    const merged = { ...offHires[offIndex], ...patch };
+    if (Object.prototype.hasOwnProperty.call(patch, 'from')) {
+      const matchedRate = hireRateForOffHireStart(hireRates, merged.from);
+      if (matchedRate != null) merged.rate = matchedRate;
+    }
+    next[offIndex] = merged;
+    updateForm({ ...form, offHires: next });
+  };
+
+  return (
+    <PeriodCard title="Off Hire" defaultOpen icon={<OffHireIcon />}>
+      <div className={styles.offHireList}>
+        {offHires.map((offHire, offIndex) => (
+          <div key={offHire.id} className={`${styles.offHireItem} ${styles.subCard}`}>
+            <div className={styles.tableWrap}>
+              <table className={`${styles.miniTable} ${styles.offHireMain}`}>
+                <thead>
+                  <tr>
+                    <th>Reason</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Days</th>
+                    <th>Hire ($/day)</th>
+                    <th>Vendor</th>
+                    <th>Amount</th>
+                    {!disabled ? <th className={styles.actColNarrow} /> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <input
+                        type="text"
+                        placeholder="Description"
+                        value={offHire.reason}
+                        disabled={disabled}
+                        onChange={(e) => patchOffHire(offIndex, { reason: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <PeriodDateInput
+                        enableTime
+                        value={offHire.from}
+                        disabled={disabled}
+                        placeholder="Select dates and times"
+                        onChange={(value) => patchOffHire(offIndex, { from: value })}
+                      />
+                    </td>
+                    <td>
+                      <PeriodDateInput
+                        enableTime
+                        value={offHire.to}
+                        disabled={disabled}
+                        placeholder="Select dates and times"
+                        onChange={(value) => patchOffHire(offIndex, { to: value })}
+                      />
+                    </td>
+                    <td><input type="text" value={offHire.days} readOnly /></td>
+                    <td>
+                      <input
+                        type="text"
+                        placeholder="0.00"
+                        value={offHire.rate}
+                        disabled={disabled}
+                        onChange={(e) => patchOffHire(offIndex, { rate: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <ThemedCardSelect
+                        label="Off hire vendor"
+                        value={offHire.vendorId}
+                        disabled={disabled}
+                        options={vendorOptions}
+                        onChange={(value) => patchOffHire(offIndex, { vendorId: value })}
+                      />
+                    </td>
+                    <td><input type="text" value={offHire.amount} readOnly /></td>
+                    {!disabled ? (
+                      <td className={styles.actColNarrow}>
+                        <GlobalRowActions
+                          removeTitle="Delete this off-hire item"
+                          removeDisabled={offHires.length <= 1}
+                          onRemove={() => updateForm({
+                            ...form,
+                            offHires: offHires.filter((item) => item.id !== offHire.id),
+                          })}
                         />
                       </td>
-                      <td>
-                        <PeriodDateRangeInput
-                          from={offHire.from}
-                          to={offHire.to}
-                          disabled={disabled}
-                          onFrom={(value) => patchOffHire(offIndex, { from: value })}
-                          onTo={(value) => patchOffHire(offIndex, { to: value })}
-                        />
-                      </td>
-                      <td><input type="text" value={offHire.days} readOnly /></td>
-                      <td>
-                        <input
-                          type="text"
-                          value={offHire.rate}
-                          disabled={disabled}
-                          onChange={(e) => {
-                            manualOffHireRatesRef.current.add(offHire.id);
-                            patchOffHire(offIndex, { rate: e.target.value });
-                          }}
-                        />
-                      </td>
-                      <td><input type="text" value={offHire.amount} readOnly /></td>
-                      {!disabled ? (
-                        <td className={styles.actColNarrow}>
-                          <GlobalRowActions
-                            removeTitle="Delete this off-hire item"
-                            removeDisabled={offHires.length <= 1}
-                            onRemove={() => updateForm({
-                              ...form,
-                              offHires: offHires.filter((item) => item.id !== offHire.id),
-                            })}
-                          />
-                        </td>
-                      ) : null}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div className={styles.offHireBunkers}>
-                <div className={styles.ohBunkerTitle}>Off-Hire Bunkers</div>
-                <div className={styles.offHireBunkersInner}>
-                  <div className={styles.tableWrap}>
-                    <table className={`${styles.miniTable} ${styles.offHireBunkerTable}`}>
-                      <thead>
-                        <tr>
-                          <th>Grade</th>
-                          <th>Qty (MT)</th>
-                          <th>Price (MT)</th>
-                          <th>Amount ($)</th>
-                          <th className={styles.ownAcctCell}>On Owner&apos;s A/C</th>
-                          {!disabled ? <th className={styles.actColNarrow} /> : null}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {offHire.bunkers.map((bunker, bunkerIndex) => {
-                          const patchBunker = (patch) => {
-                            const nextBunkers = [...offHire.bunkers];
-                            nextBunkers[bunkerIndex] = { ...bunker, ...patch };
-                            patchOffHire(offIndex, { bunkers: nextBunkers });
-                          };
-                          return (
-                            <tr key={bunker.id}>
-                              <td>
-                                <ThemedCardSelect
-                                  label="Bunker Grade"
-                                  value={bunker.gradeId}
-                                  disabled={disabled}
-                                  className={gradeSelectClass(bunkerGradeName(bunkers, bunker.gradeId))}
-                                  options={toSelectOptions(bunkers)}
-                                  onChange={(value) => patchBunker({ gradeId: value })}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="text"
-                                  placeholder="0.00"
-                                  value={bunker.qty}
-                                  disabled={disabled}
-                                  onChange={(e) => patchBunker({ qty: e.target.value })}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="text"
-                                  placeholder="0.00"
-                                  value={bunker.price}
-                                  disabled={disabled}
-                                  onChange={(e) => patchBunker({ price: e.target.value })}
-                                />
-                              </td>
-                              <td><input type="text" value={bunker.amount} readOnly /></td>
-                              <td className={styles.ownAcctCell}>
-                                <label className={styles.ownToggle}>
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(bunker.ownerAccount)}
-                                    disabled={disabled}
-                                    onChange={(e) => patchBunker({ ownerAccount: e.target.checked })}
-                                  />
-                                  <span className={styles.ownTrack} />
-                                </label>
-                              </td>
-                              {!disabled ? (
-                                <td className={styles.actColNarrow}>
-                                  <GlobalRowActions
-                                    removeTitle="Remove bunker item"
-                                    removeDisabled={offHire.bunkers.length <= 1}
-                                    onRemove={() => patchOffHire(offIndex, {
-                                      bunkers: offHire.bunkers.filter((item) => item.id !== bunker.id),
-                                    })}
-                                  />
-                                </td>
-                              ) : null}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                {!disabled ? (
-                  <button
-                    type="button"
-                    className={`${styles.addRowBtn} ${styles.offHireAddBunkersBtn}`}
-                    onClick={() => {
-                      const last = offHire.bunkers[offHire.bunkers.length - 1];
-                      if (last && (!last.gradeId || !last.qty || !last.price)) {
-                        alertIncompleteRow(alert, 'Please fill the previous off-hire bunker row before adding another.');
-                        return;
-                      }
-                      patchOffHire(offIndex, {
-                        bunkers: [...offHire.bunkers, { ...EMPTY_OFF_HIRE_BUNKER(), gradeId: defaultGradeId }],
-                      });
-                    }}
-                  >
-                    <span className={styles.plus}>+</span> Add Bunkers
-                  </button>
-                ) : null}
-              </div>
+                    ) : null}
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          ))}
-        </div>
 
-        <div className={styles.totalBar}>
-          <span className={styles.totalBarLabel}>Total Off-Hire Days</span>
-          <span className={styles.totalBarVal}>
-            {offHires.reduce((sum, row) => sum + (Number(row.days) || 0), 0).toFixed(1)}
-          </span>
-          <span className={styles.totalBarLabel}>Total Off-Hire Amount ($)</span>
-          <span className={styles.totalBarVal}>
-            {offHires.reduce((sum, row) => sum + (Number(row.amount) || 0), 0).toFixed(2)}
-          </span>
-        </div>
-        {!disabled ? (
-          <button
-            type="button"
-            className={styles.addRowBtn}
-            onClick={() => {
-              const last = offHires[offHires.length - 1];
-              if (!last?.reason || ((!last?.from || !last?.to) && !last?.days)) {
-                alertIncompleteRow(alert, 'Please fill the previous off-hire row before adding another.');
-                return;
-              }
-              updateForm({
-                ...form,
-                offHires: [...offHires, {
-                  ...EMPTY_OFF_HIRE(),
-                  rate: displayedMaster,
-                  bunkers: [{ ...EMPTY_OFF_HIRE_BUNKER(), gradeId: defaultGradeId }],
-                }],
-              });
-            }}
-          >
-            <span className={styles.plus}>+</span> Add Reason
-          </button>
-        ) : null}
+            <div className={styles.offHireBunkers}>
+              <div className={styles.ohBunkerTitle}>Off-Hire Bunkers</div>
+              <div className={styles.offHireBunkersInner}>
+                <div className={styles.tableWrap}>
+                  <table className={`${styles.miniTable} ${styles.offHireBunkerTable}`}>
+                    <thead>
+                      <tr>
+                        <th>Grade</th>
+                        <th>Qty (MT)</th>
+                        <th>Price (/MT)</th>
+                        <th>Amount</th>
+                        <th className={styles.ownAcctCell}>On Owner&apos;s A/C</th>
+                        {!disabled ? <th className={styles.actColNarrow} /> : null}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {offHire.bunkers.map((bunker, bunkerIndex) => {
+                        const patchBunker = (patch) => {
+                          const nextBunkers = [...offHire.bunkers];
+                          nextBunkers[bunkerIndex] = { ...bunker, ...patch };
+                          patchOffHire(offIndex, { bunkers: nextBunkers });
+                        };
+                        return (
+                          <tr key={bunker.id}>
+                            <td>
+                              <ThemedCardSelect
+                                label="Bunker Grade"
+                                value={bunker.gradeId}
+                                disabled={disabled}
+                                className={gradeSelectClass(bunkerGradeName(bunkers, bunker.gradeId))}
+                                options={toSelectOptions(bunkers)}
+                                onChange={(value) => patchBunker({ gradeId: value })}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="text"
+                                placeholder="0.00"
+                                value={bunker.qty}
+                                disabled={disabled}
+                                onChange={(e) => patchBunker({ qty: e.target.value })}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="text"
+                                placeholder="0.00"
+                                value={bunker.price}
+                                disabled={disabled}
+                                onChange={(e) => patchBunker({ price: e.target.value })}
+                              />
+                            </td>
+                            <td><input type="text" value={bunker.amount} readOnly /></td>
+                            <td className={styles.ownAcctCell}>
+                              <label className={styles.ownToggle}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(bunker.ownerAccount)}
+                                  disabled={disabled}
+                                  onChange={(e) => patchBunker({ ownerAccount: e.target.checked })}
+                                />
+                                <span className={styles.ownTrack} />
+                              </label>
+                            </td>
+                            {!disabled ? (
+                              <td className={styles.actColNarrow}>
+                                <GlobalRowActions
+                                  removeTitle="Remove bunker item"
+                                  removeDisabled={offHire.bunkers.length <= 1}
+                                  onRemove={() => patchOffHire(offIndex, {
+                                    bunkers: offHire.bunkers.filter((item) => item.id !== bunker.id),
+                                  })}
+                                />
+                              </td>
+                            ) : null}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {!disabled ? (
+                <button
+                  type="button"
+                  className={`${styles.addRowBtn} ${styles.offHireAddBunkersBtn}`}
+                  onClick={() => {
+                    const last = offHire.bunkers[offHire.bunkers.length - 1];
+                    if (last && (!last.gradeId || !last.qty || !last.price)) {
+                      alertIncompleteRow(alert, 'Please fill the previous off-hire bunker row before adding another.');
+                      return;
+                    }
+                    patchOffHire(offIndex, {
+                      bunkers: [...offHire.bunkers, { ...EMPTY_OFF_HIRE_BUNKER(), gradeId: defaultGradeId }],
+                    });
+                  }}
+                >
+                  <span className={styles.plus}>+</span> Add Bunkers
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ))}
       </div>
+
+      <div className={styles.totalBar}>
+        <span className={styles.totalBarLabel}>Total Off-Hire Days</span>
+        <span className={styles.totalBarVal}>
+          {offHires.reduce((sum, row) => sum + (Number(row.days) || 0), 0).toFixed(1)}
+        </span>
+        <span className={styles.totalBarLabel}>Total Off-Hire Amount ($)</span>
+        <span className={styles.totalBarVal}>
+          {offHires.reduce((sum, row) => sum + (Number(row.amount) || 0), 0).toFixed(2)}
+        </span>
+      </div>
+      {!disabled ? (
+        <button
+          type="button"
+          className={styles.addRowBtn}
+          onClick={() => {
+            const last = offHires[offHires.length - 1];
+            if (!last?.reason || ((!last?.from || !last?.to) && !last?.days)) {
+              alertIncompleteRow(alert, 'Please fill the previous off-hire row before adding another.');
+              return;
+            }
+            updateForm({
+              ...form,
+              offHires: [...offHires, {
+                ...EMPTY_OFF_HIRE(),
+                bunkers: [{ ...EMPTY_OFF_HIRE_BUNKER(), gradeId: defaultGradeId }],
+              }],
+            });
+          }}
+        >
+          <span className={styles.plus}>+</span> Add Reason
+        </button>
+      ) : null}
     </PeriodCard>
   );
 }
@@ -1390,6 +1368,13 @@ export default function AddPeriodContractSections({
       />
       <HirePanel
         form={form}
+        updateForm={updateForm}
+        alert={alert}
+        disabled={disabled}
+      />
+      <OffHirePanel
+        form={form}
+        lookups={lookups}
         bunkers={lookups?.bunkers ?? []}
         defaultGradeId={defaultGradeId}
         updateForm={updateForm}

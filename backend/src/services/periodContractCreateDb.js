@@ -1,6 +1,6 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
-import { applyPeriodExtraFields } from './periodContractExtraFields.js';
+import { applyPeriodExtraFields, ensureOffHireVendorColumn } from './periodContractExtraFields.js';
 import {
   formatDateTimeYMDHM,
   formatDateYMD,
@@ -126,6 +126,7 @@ export async function dbCreatePeriodContract(payload, attachments = {}) {
       );
     }
 
+    const hasOffHireVendor = await ensureOffHireVendorColumn(connection);
     for (const offHire of payload.offHires || []) {
       if (!offHire.reason) continue;
 
@@ -133,10 +134,15 @@ export async function dbCreatePeriodContract(payload, attachments = {}) {
       const offTo = toSqlDateTime(offHire.to) || '1970-01-01 08:00:00';
 
       const [offResult] = await connection.query(
-        `INSERT INTO period_contract_master_slave2 (
-          PERIODID, OFF_REASON, OFF_FROM, OFF_TO,
-          OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        hasOffHireVendor
+          ? `INSERT INTO period_contract_master_slave2 (
+              PERIODID, OFF_REASON, OFF_FROM, OFF_TO,
+              OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE, VENDOR
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          : `INSERT INTO period_contract_master_slave2 (
+              PERIODID, OFF_REASON, OFF_FROM, OFF_TO,
+              OFF_HIRE_DAYS, HIRE_RATE, OFF_HIRE
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           periodId,
           offHire.reason,
@@ -145,6 +151,7 @@ export async function dbCreatePeriodContract(payload, attachments = {}) {
           nullOrNumber(offHire.days),
           nullOrNumber(offHire.rate),
           nullOrNumber(offHire.amount),
+          ...(hasOffHireVendor ? [nullOrString(offHire.vendorId)] : []),
         ],
       );
 

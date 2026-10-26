@@ -25,7 +25,7 @@ export default function AddPeriodContractHeaderActions({
             <Button
               type="button"
               variant="submit"
-              label="Submit and Close"
+              label="Submit & Close"
               icon="lock"
               disabled={saving}
               onClick={onSaveClose}

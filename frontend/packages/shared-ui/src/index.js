@@ -32,6 +32,7 @@ export {
   ActionButtonStack,
 } from './components/ActionButtons/ActionButtons.jsx';
 export { default as LoadingOverlay } from './components/LoadingOverlay.jsx';
+export { default as TextShimmer } from './components/loading-ui/TextShimmer.jsx';
 export { default as DmyDateInput } from './components/DmyDateInput.jsx';
 export { default as PeriodCardPicker } from './components/PeriodCardPicker/PeriodCardPicker.jsx';
 export { default as CardSelect } from './components/CardSelect/CardSelect.jsx';

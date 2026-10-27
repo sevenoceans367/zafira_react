@@ -1,13 +1,16 @@
 import React from 'react';
+import TextShimmer from './loading-ui/TextShimmer.jsx';
 import styles from './LoadingOverlay.module.css';
+
+const LOADING_TEXT = 'Loading';
 
 const LoadingOverlay = ({
   show = false,
-  label = 'Loading...',
+  active = false,
+  label,
   fullScreen = true,
-  size = 'md',
 }) => {
-  if (!show) return null;
+  if (!show && !active) return null;
 
   const overlayClass = fullScreen ? styles.fullScreen : styles.contained;
 
@@ -17,13 +20,11 @@ const LoadingOverlay = ({
       role="status"
       aria-live="polite"
       aria-busy="true"
-      aria-label={label}
+      aria-label={label || LOADING_TEXT}
     >
-      <div
-        className={`spinner-border text-primary ${size === 'sm' ? styles.spinnerSm : styles.spinner}`}
-        aria-hidden="true"
-      />
-      {label ? <span className={styles.label}>{label}</span> : null}
+      <TextShimmer as="span" className={styles.label} duration={2} spread={3}>
+        {LOADING_TEXT}
+      </TextShimmer>
     </div>
   );
 };

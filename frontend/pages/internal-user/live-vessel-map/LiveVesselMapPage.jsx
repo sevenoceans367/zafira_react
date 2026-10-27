@@ -1075,7 +1075,7 @@ export default function LiveVesselMapPage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
-      <LoadingOverlay show={loading || routesLoading || searching} />
+      <LoadingOverlay show={loading || routesLoading || searching} label="Loading" />
 
       <DailyPositionsModal
         open={dailyPositionsOpen}

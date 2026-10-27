@@ -166,6 +166,7 @@ export default function CardSelect({
         aria-label={ariaLabel}
         aria-expanded={menuOpen}
         aria-haspopup="listbox"
+        title={selectedLabel}
         disabled={disabled}
         onClick={() => setMenuOpen((open) => !open)}
       >

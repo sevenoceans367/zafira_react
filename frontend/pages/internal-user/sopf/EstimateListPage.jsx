@@ -329,6 +329,7 @@ export default function EstimateListPage() {
       row.voyageNo,
       row.voyageLabel,
       row.estimateNo,
+      row.contractType,
       row.sheetName,
       row.charteringPic,
       row.lpDp,
@@ -659,10 +660,17 @@ export default function EstimateListPage() {
                         {(safePage - 1) * pageSize + index + 1}.
                       </td>
                       <td className={styles.cellVessel}>{row.vesselName}</td>
-                      <td className={styles.cellNum}>
-                        {row.voyageLabel || (row.voyageNo
-                          ? `${row.voyageNo}-Est${row.estimateNo || 1}`
-                          : '—')}
+                      <td className={`${styles.cellNum} ${styles.cellVoyage}`}>
+                        <div className={styles.voyageStack}>
+                          <span className={styles.voyagePrimary}>
+                            {row.voyageLabel || (row.voyageNo
+                              ? `${row.voyageNo}-Est${row.estimateNo || 1}`
+                              : '—')}
+                          </span>
+                          {row.contractType ? (
+                            <span className={styles.voyageContract}>{row.contractType}</span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className={styles.cellNum}>{row.cpDate}</td>
                       <td className={styles.cellNum}>{row.dwt}</td>

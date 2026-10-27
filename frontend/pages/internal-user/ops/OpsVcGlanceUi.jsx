@@ -275,6 +275,7 @@ export function OpsVcGlanceHeader({
 export const SPOT_OPS_EXPORT_COLUMNS = [
   { key: 'index', label: '#' },
   { key: 'voyageNo', label: 'Voy No.' },
+  { key: 'contractType', label: 'Contract Type' },
   { key: 'vesselName', label: 'Vessel' },
   { key: 'vesselType', label: 'Vessel Type' },
   { key: 'cpDate', label: 'CP Date' },
@@ -289,6 +290,7 @@ export function mapSpotOpsExportRows(rows, page = 1, pageSize = 10) {
   return (rows || []).map((row, index) => ({
     index: (page - 1) * pageSize + index + 1,
     voyageNo: row.voyageNo || '',
+    contractType: row.contractType || '',
     vesselName: row.vesselName || '',
     vesselType: row.vesselType || '',
     cpDate: row.cpDate || '',

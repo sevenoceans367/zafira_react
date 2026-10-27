@@ -10,6 +10,26 @@ export const ESTIMATE_TYPE_LABELS = {
   3: 'Dry',
 };
 
+export const FIXTURE_TYPE_LABELS = {
+  1: 'TCIN-VCOUT',
+  2: 'VCIN-VCOUT',
+  3: 'VCOUT',
+};
+
+function resolveFixtureTypeId(...candidates) {
+  for (const candidate of candidates) {
+    if (candidate == null || candidate === '') continue;
+    const value = String(candidate).trim();
+    if (value === '1' || value === '2' || value === '3') return value;
+  }
+  return '';
+}
+
+export function fixtureTypeLabel(...candidates) {
+  const id = resolveFixtureTypeId(...candidates);
+  return id ? FIXTURE_TYPE_LABELS[Number(id)] : '';
+}
+
 export function formatDateDMY(value) {
   if (!value) return '';
 
@@ -174,6 +194,8 @@ export function mapListRow(row, index, portLegs = {}, { voyageLocked = false } =
     voyageNo: row.voyageNo || '',
     estimateNo,
     voyageLabel,
+    fixtureTypeId: resolveFixtureTypeId(row.fixtureTypeId, row.selBusiType, row.FIXTURETYPEID, row.SEL_BUSI_TYPE),
+    contractType: fixtureTypeLabel(row.fixtureTypeId, row.selBusiType, row.FIXTURETYPEID, row.SEL_BUSI_TYPE),
     vesselDisplay: [
       `${row.vesselName || ''}/ ${row.vesselType || ''}`.trim(),
       voyageLabel,

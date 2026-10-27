@@ -192,6 +192,39 @@
   color: #1b2430;
 }
 
+.grid tbody td.cellVoyage {
+  white-space: normal;
+}
+
+.voyageStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  line-height: 1.25;
+}
+
+.voyagePrimary {
+  font-weight: 700;
+  color: #1b2430;
+}
+
+.voyageContract {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin-top: 1px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #f0f2f5;
+  color: #5b6472;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
 .pending {
   color: #8a93a2;
   font-style: italic;

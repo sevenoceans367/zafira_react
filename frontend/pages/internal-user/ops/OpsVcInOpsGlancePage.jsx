@@ -364,6 +364,9 @@ export default function OpsVcInOpsGlancePage() {
                               onClick={() => setVoyageStatusRow(row)}
                             />
                           </span>
+                          {row.contractType ? (
+                            <span className={styles.contractChip}>{row.contractType}</span>
+                          ) : null}
                           <span className={styles.sub}>{row.message || '—'}</span>
                         </div>
                       </td>

@@ -406,12 +406,14 @@
 .portLegConnected td.portIdxCol,
 .portTable th.portIdxCol,
 .portTable td.portIdxCol {
-  width: 28px;
-  min-width: 28px;
-  max-width: 32px;
+  width: 18px !important;
+  min-width: 18px !important;
+  max-width: 18px !important;
   text-align: center !important;
   vertical-align: middle;
-  padding: 5px 0 !important;
+  padding: 4px 0 !important;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .portIdxNum {
@@ -457,13 +459,13 @@
 }
 
 .dateCol {
-  width: 9%;
-  min-width: 0;
+  width: 14%;
+  min-width: 118px;
 }
 
 .distCol {
-  width: 7%;
-  min-width: 0;
+  width: 9%;
+  min-width: 64px;
 }
 
 .portLegConnected .portCol,
@@ -530,36 +532,57 @@ th.robCol {
 }
 
 .wxCol {
-  max-width: 64px;
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
 }
 
 .bgCol {
   width: 96px;
   min-width: 92px;
   max-width: 110px;
-  overflow: visible;
+  overflow: hidden;
   position: relative;
   z-index: 2;
 }
 
 .lbCol {
-  width: 72px;
-  min-width: 72px;
-  max-width: 80px;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  text-align: center;
 }
 
-/* Slightly wider for "Most Eco Speed" / Ballast labels — still compact vs ports */
 .speedTypeCol {
-  width: 88px;
-  min-width: 80px;
-  max-width: 96px;
+  width: 52px !important;
+  min-width: 52px !important;
+  max-width: 52px !important;
+  text-align: center;
+  white-space: normal;
 }
 
 .routeCol {
-  width: 52px;
-  min-width: 52px;
-  max-width: 60px;
+  width: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
   text-align: center;
+}
+
+.portLegConnected th.lbCol,
+.portLegConnected th.speedTypeCol,
+.portLegConnected td.lbCol,
+.portLegConnected td.speedTypeCol {
+  text-align: center;
+}
+
+.portLegConnected th.speedTypeCol {
+  white-space: normal;
+  line-height: 1.1;
+}
+
+.portLegConnected .routeCol .fetchBtn {
+  padding: 0 4px;
+  font-size: 9px;
 }
 
 .wxCol input,
@@ -589,15 +612,34 @@ th.robCol {
   max-width: 100%;
 }
 
+.portLegConnected .lbCol .sheetSelect button,
+.portLegConnected .speedTypeCol .sheetSelect button {
+  justify-content: center;
+  padding: 0 4px;
+  gap: 2px;
+}
+
+.portLegConnected .lbCol .sheetSelect button > span,
+.portLegConnected .speedTypeCol .sheetSelect button > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
 .portLegConnected .bgCol .sheetSelect button {
-  overflow: visible;
+  overflow: hidden;
   gap: 4px;
 }
 
 .portLegConnected .bgCol .sheetSelect button > span {
-  min-width: 2ch;
-  overflow: visible;
-  text-overflow: clip;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .portLegConnected .sheetSelect {
@@ -1082,7 +1124,7 @@ th.robCol {
   line-height: 1.2;
   border-radius: 4px !important;
   box-sizing: border-box;
-  overflow: visible;
+  overflow: hidden;
 }
 
 /* Match Cargo triangle caret on bunker grade dropdown */
@@ -1189,7 +1231,7 @@ th.robCol {
   max-width: 0;
   min-width: 120px;
   vertical-align: middle;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .portLaytimeBlock .bunkerGradeCell > div {
@@ -1961,8 +2003,8 @@ th.robCol {
   padding: 0 6px !important;
   border-radius: 6px !important;
   font-size: 10px !important;
-  overflow: visible;
-  text-overflow: clip;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   margin: 0 auto;
 }
@@ -2352,26 +2394,31 @@ th.robCol {
 }
 
 .gradeSelectWrap {
-  min-width: 72px;
+  min-width: 0;
   max-width: 118px;
+  width: 100%;
   /* Chip color classes also set background — keep wrap clear so paint
      stays inside the rounded CardSelect button, not square corners. */
   background: transparent;
   border-radius: 0;
+  overflow: hidden;
 }
 
 .gradeSelectWrap .sheetSelect button {
+  min-width: 0 !important;
   min-height: 22px;
   padding: 0 6px;
   font-size: 10px;
   gap: 4px;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .gradeSelectWrap .sheetSelect button > span {
-  min-width: 2ch;
-  overflow: visible;
-  text-overflow: clip;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gradeSelectWrap.gradeChipVlsfo,
@@ -2390,7 +2437,7 @@ th.robCol {
 .gradeSelectWrap.gradeChipScrubber :global(button) {
   font-weight: 700;
   border-radius: 8px;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .gradeSelectWrap.gradeChipVlsfo :global(button) {

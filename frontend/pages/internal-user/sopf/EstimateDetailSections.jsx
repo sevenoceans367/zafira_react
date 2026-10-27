@@ -928,12 +928,12 @@ export default function EstimateDetailSections({
                 <colgroup>
                   <col className={voyStyles.portIdxCol} />
                   <col className={voyStyles.portCol} />
-                  <col className={voyStyles.dateCol} />
-                  <col className={voyStyles.dateCol} />
-                  <col className={voyStyles.wxCol} />
+                  <col className={`${voyStyles.dateCol} ${styles.dateCol}`} />
+                  <col className={`${voyStyles.dateCol} ${styles.dateCol}`} />
+                  <col className={`${voyStyles.wxCol} ${styles.wxCol}`} />
                   <col className={`${voyStyles.lbCol} ${styles.lbCol}`} />
                   <col className={`${voyStyles.speedTypeCol} ${styles.speedTypeCol}`} />
-                  <col className={voyStyles.routeCol} />
+                  <col className={`${voyStyles.routeCol} ${styles.routeCol}`} />
                   <col className={voyStyles.distCol} />
                   <col className={voyStyles.distCol} />
                 </colgroup>
@@ -941,12 +941,12 @@ export default function EstimateDetailSections({
                   <tr>
                     <th className={voyStyles.portIdxCol}>#</th>
                     <th className={voyStyles.portCol}>From Port</th>
-                    <th className={voyStyles.dateCol}>{legIndex > 0 ? 'Arrival' : ''}</th>
-                    <th className={voyStyles.dateCol}>Departure</th>
-                    <th className={voyStyles.wxCol}>Wx(%)</th>
+                    <th className={`${voyStyles.dateCol} ${styles.dateCol}`}>{legIndex > 0 ? 'Arrival' : ''}</th>
+                    <th className={`${voyStyles.dateCol} ${styles.dateCol}`}>Departure</th>
+                    <th className={`${voyStyles.wxCol} ${styles.wxCol}`}>Wx(%)</th>
                     <th className={`${voyStyles.lbCol} ${styles.lbCol}`}>L/B</th>
                     <th className={`${voyStyles.speedTypeCol} ${styles.speedTypeCol}`}>Speed Type</th>
-                    <th className={voyStyles.routeCol}>Route</th>
+                    <th className={`${voyStyles.routeCol} ${styles.routeCol}`}>Route</th>
                     <th className={voyStyles.distCol}>Total Dist</th>
                     <th className={voyStyles.distCol}>Total Days</th>
                   </tr>
@@ -974,7 +974,7 @@ export default function EstimateDetailSections({
                         />
                       )}
                     </td>
-                    <td className={voyStyles.dateCol}>
+                    <td className={`${voyStyles.dateCol} ${styles.dateCol}`}>
                       {legIndex > 0 ? (
                         readOnly ? (
                           <input value={leg.fromArrival || ''} readOnly />
@@ -989,7 +989,7 @@ export default function EstimateDetailSections({
                         )
                       ) : null}
                     </td>
-                    <td className={voyStyles.dateCol}>
+                    <td className={`${voyStyles.dateCol} ${styles.dateCol}`}>
                       {readOnly ? (
                         <input value={leg.fromDeparture || ''} readOnly />
                       ) : (
@@ -1002,7 +1002,7 @@ export default function EstimateDetailSections({
                         />
                       )}
                     </td>
-                    <td className={voyStyles.wxCol}>
+                    <td className={`${voyStyles.wxCol} ${styles.wxCol}`}>
                       <input
                         value={leg.seaMargin ?? ''}
                         readOnly={readOnly}
@@ -1027,7 +1027,7 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { speedType: value })}
                       />
                     </td>
-                    <td className={voyStyles.routeCol}>
+                    <td className={`${voyStyles.routeCol} ${styles.routeCol}`}>
                       {editable ? (
                         <button
                           type="button"

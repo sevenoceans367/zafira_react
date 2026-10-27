@@ -100,9 +100,9 @@
   border-color: #14919b;
 }
 
-/* Bunker grades: keep at least two letters in the chip; extra letters may overflow. */
+/* Bunker grades: clip long names with ellipsis so chips stay in the cell. */
 .gradeChips .chips {
-  overflow: visible;
+  overflow: hidden;
   flex-wrap: wrap;
 }
 
@@ -111,15 +111,18 @@
 .gradeChips .chipGradeMgo,
 .gradeChips .chipGradeHsfo,
 .gradeChips .chipGradeScrubber {
-  flex: 0 0 auto;
-  overflow: visible;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .gradeChips .chipLabel {
-  min-width: 2ch;
-  max-width: none;
-  overflow: visible;
-  text-overflow: clip;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chipLabel {
@@ -332,11 +335,11 @@
 }
 
 .compact.gradeChips .chips {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .compact.gradeChips .chip {
-  max-width: none;
+  max-width: 100%;
 }
 
 .compact .placeholder {
@@ -357,10 +360,11 @@
 }
 
 .compact.gradeChips .chipLabel {
-  min-width: 2ch;
-  max-width: none;
-  overflow: visible;
-  text-overflow: clip;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .compact .chipRemove {

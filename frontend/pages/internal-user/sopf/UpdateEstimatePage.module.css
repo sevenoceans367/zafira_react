@@ -618,7 +618,7 @@
 }
 
 .portIdxCol {
-  width: 28px;
+  width: 18px;
   text-align: center;
   vertical-align: top;
 }
@@ -627,12 +627,13 @@
 .portTable td.portIdxCol,
 .portLegConnected th.portIdxCol,
 .portLegConnected td.portIdxCol {
-  width: 28px !important;
-  max-width: 28px !important;
+  width: 18px !important;
+  min-width: 18px !important;
+  max-width: 18px !important;
   white-space: nowrap;
   text-align: center;
   vertical-align: top;
-  padding: 6px 0 2px !important;
+  padding: 4px 0 !important;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -657,10 +658,10 @@
 }
 
 .portIdxActions :global(button) {
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
-  min-height: 16px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
   padding: 0;
   border-radius: 4px;
 }
@@ -682,15 +683,26 @@
 }
 
 .dateCol {
-  width: 11%;
+  width: 14% !important;
+  min-width: 118px !important;
+}
+
+.wxCol {
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.nsecaCol {
+  width: 8%;
   min-width: 0;
 }
 
-.wxCol,
-.nsecaCol,
 .distCol {
-  width: 8%;
-  min-width: 0;
+  width: 10%;
+  min-width: 64px;
 }
 
 .bgCol {
@@ -700,19 +712,22 @@
 }
 
 .lbCol {
-  width: 58px !important;
-  min-width: 58px !important;
-  max-width: 58px !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
   overflow: hidden;
   box-sizing: border-box;
+  text-align: center;
 }
 
 .speedTypeCol {
-  width: 72px !important;
-  min-width: 72px !important;
-  max-width: 72px !important;
+  width: 52px !important;
+  min-width: 52px !important;
+  max-width: 52px !important;
   overflow: hidden;
   box-sizing: border-box;
+  text-align: center;
+  white-space: normal;
 }
 
 .lbCol :global(button),
@@ -722,12 +737,29 @@
   max-width: 100% !important;
   padding: 0 4px !important;
   gap: 2px !important;
+  justify-content: center;
+}
+
+.lbCol :global(button span),
+.speedTypeCol :global(button span) {
+  text-align: center;
 }
 
 .routeCol {
-  width: 7%;
-  min-width: 52px;
+  width: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
   text-align: center;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.wxCol :global(input),
+.routeCol :global(button) {
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 0 4px !important;
 }
 
 .portLegConnected th,
@@ -770,6 +802,11 @@
   overflow: hidden !important;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.portLegConnected .lbCol :global(button span),
+.portLegConnected .speedTypeCol :global(button span) {
+  text-align: center;
 }
 
 .portLegConnected input,
@@ -1230,7 +1267,7 @@
   line-height: 1.2;
   border-radius: 4px !important;
   box-sizing: border-box;
-  overflow: visible;
+  overflow: hidden;
 }
 
 /* Match Cargo triangle caret on bunker grade dropdown */
@@ -1359,7 +1396,7 @@
   max-width: 0;
   min-width: 120px;
   vertical-align: middle;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .portLaytimeBlock .bunkerGradeCell > div {

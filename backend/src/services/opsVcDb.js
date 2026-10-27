@@ -1,6 +1,6 @@
 import { appContext, compareSheetsEnabled, isMgmtUser } from '../config.js';
 import { getPool } from '../db.js';
-import { formatDateDMY } from './estimateListMappers.js';
+import { formatDateDMY, fixtureTypeLabel } from './estimateListMappers.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -344,11 +344,14 @@ async function dbListOpsVcGlance({
         m.VESSEL_IMO_ID,
         m.PERIODID,
         m.SEL_BUSI_TYPE,
+        m.FIXTURETYPEID,
         m.ESTIMATE_TYPE,
         m.FINAL_DATETIME,
         vim.VESSEL_NAME,
         vim.IMO_NO,
         latest.VOYAGE_NO,
+        latest.FIXTURETYPEID AS LATEST_FIXTURETYPEID,
+        latest.SEL_BUSI_TYPE AS LATEST_SEL_BUSI_TYPE,
         latest.VESSEL_TYPE,
         latest.CARGO_ID,
         latest.TRANS_DATE,
@@ -376,6 +379,7 @@ async function dbListOpsVcGlance({
      LEFT JOIN (
        SELECT t.COMID, t.VOYAGE_NO, t.VESSEL_TYPE, t.CARGO_ID, t.TRANS_DATE,
               t.CHARTERING_PIC, t.L_UPDATED_BY, t.L_UP_TIME, t.ADDED_BY, t.ADD_ON_DATE,
+              t.FIXTURETYPEID, t.SEL_BUSI_TYPE,
               la.CONTACT_PERSON AS ADDED_NAME
        FROM freight_cost_estimete_master t
        LEFT JOIN login la ON la.LOGINID = t.ADDED_BY
@@ -482,6 +486,12 @@ async function dbListOpsVcGlance({
       fcaId: row.FCAID,
       message: row.MESSAGE ?? '',
       voyageNo: row.VOYAGE_NO ?? '',
+      contractType: fixtureTypeLabel(
+        row.LATEST_FIXTURETYPEID,
+        row.LATEST_SEL_BUSI_TYPE,
+        row.FIXTURETYPEID,
+        row.SEL_BUSI_TYPE,
+      ),
       businessType: BUSINESS_TYPE_NAMES[Number(row.ESTIMATE_TYPE)] || '',
       materialName: await resolveCargoNames(pool, row.CARGO_ID),
       vesselName: row.VESSEL_NAME ?? '',

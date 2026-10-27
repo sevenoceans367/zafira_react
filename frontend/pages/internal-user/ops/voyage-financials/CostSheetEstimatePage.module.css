@@ -2212,12 +2212,20 @@ th.robCol {
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
+  text-decoration: none;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .tcInHireBtn:hover {
   background: #9a403b;
   border-color: #7d322d;
+  color: #fff;
+  text-decoration: none;
+}
+
+.tcInHireBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .bunkerSubLabel,

@@ -1342,18 +1342,20 @@ async function seedVcInEstimate(pool, source, comId) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const [[again]] = await connection.query(
-      `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
-       FROM freight_cost_estimete_in_master
-       WHERE COMID = ?
-       ORDER BY FCAID DESC
-       LIMIT 1
-       FOR UPDATE`,
-      [comId],
-    );
-    if (again?.FCAID) {
-      await connection.commit();
-      return again;
+    if (Number(comId) > 0) {
+      const [[again]] = await connection.query(
+        `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
+         FROM freight_cost_estimete_in_master
+         WHERE COMID = ?
+         ORDER BY FCAID DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [comId],
+      );
+      if (again?.FCAID) {
+        await connection.commit();
+        return again;
+      }
     }
 
     const sourceCols = await getInsertableColumns(connection, 'freight_cost_estimete_master');
@@ -1448,6 +1450,79 @@ export async function dbGetOpsVcCostSheetIn(comId) {
     finalStatus: Number(row.FINAL_STATUS || 0),
     vesselImoId: row.VESSEL_IMO_ID || source?.VESSEL_IMO_ID || '',
   };
+}
+
+function mapVcInRow(row, extras = {}) {
+  return {
+    fcaId: row.FCAID,
+    estimateType: row.ESTIMATE_TYPE != null ? String(row.ESTIMATE_TYPE) : '2',
+    voyageNo: row.VOYAGE_NO || '',
+    finalStatus: Number(row.FINAL_STATUS || 0),
+    vesselImoId: row.VESSEL_IMO_ID || '',
+    ...extras,
+  };
+}
+
+/** SOPF Estimate VC-In — open/seed freight_cost_estimete_in_* from an estimate FCAID. */
+export async function dbGetEstimateVcIn(fcaId) {
+  const safeId = Number(fcaId);
+  if (!safeId) {
+    const error = new Error('Estimate id is required.');
+    error.status = 400;
+    throw error;
+  }
+
+  const pool = getPool();
+  const [[alreadyIn]] = await pool.query(
+    `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
+     FROM freight_cost_estimete_in_master
+     WHERE FCAID = ?
+     LIMIT 1`,
+    [safeId],
+  );
+  if (alreadyIn?.FCAID) {
+    return mapVcInRow(alreadyIn, { sourceFcaId: safeId });
+  }
+
+  const [[source]] = await pool.query(
+    `SELECT * FROM freight_cost_estimete_master WHERE FCAID = ? LIMIT 1`,
+    [safeId],
+  );
+  if (!source?.FCAID) {
+    const error = new Error('Estimate not found.');
+    error.status = 404;
+    throw error;
+  }
+
+  if (Number(source.COMID) > 0) {
+    const opened = await dbGetOpsVcCostSheetIn(source.COMID);
+    return { sourceFcaId: safeId, ...opened };
+  }
+
+  if (source.VOYAGE_NO) {
+    const params = [source.VOYAGE_NO];
+    let sql = `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
+               FROM freight_cost_estimete_in_master
+               WHERE VOYAGE_NO = ?`;
+    if (source.VESSEL_IMO_ID) {
+      sql += ' AND (VESSEL_IMO_ID = ? OR VESSEL_IMO_ID IS NULL OR VESSEL_IMO_ID = 0)';
+      params.push(source.VESSEL_IMO_ID);
+    }
+    sql += ' ORDER BY FCAID DESC LIMIT 1';
+    const [[byVoyage]] = await pool.query(sql, params);
+    if (byVoyage?.FCAID) {
+      return mapVcInRow(byVoyage, {
+        sourceFcaId: safeId,
+        voyageNo: byVoyage.VOYAGE_NO || source.VOYAGE_NO || '',
+      });
+    }
+  }
+
+  const row = await seedVcInEstimate(pool, source, Number(source.COMID) || 0);
+  return mapVcInRow(row, {
+    sourceFcaId: safeId,
+    voyageNo: row.VOYAGE_NO || source.VOYAGE_NO || '',
+  });
 }
 
 /** PHP insertActualCostSheetName — Voyage Worksheet "A" button. */

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AddCircleButton, AttachmentDropzone, Button, DmyDateInput, RowAddButton, RowDelButton, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
@@ -42,6 +42,7 @@ import { DryFreightModeSection, GasFreightModeSection } from './EstimateTypeCarg
 import PortLaytimeSections from './PortLaytimeSections.jsx';
 import EstimateResultsPanels from './EstimateResultsPanels.jsx';
 import VesselItineraryModal from './VesselItineraryModal.jsx';
+import HireDetailsModal from '../ops/voyage-financials/HireDetailsModal.jsx';
 import { checkVoyageNoExists, fetchCanalOrcRates, searchEstimatePorts } from '../../../services/estimateDetail.js';
 import { focusEstimateValidationField, getAddRowBlockMessage } from './estimateValidation.js';
 import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
@@ -175,6 +176,7 @@ export default function EstimateDetailSections({
   onPeriodContractChange,
   onRecalc,
   onApplyPatch,
+  variant = '',
 }) {
   const estimateType = Number(detail?.estimateType) || 2;
   const isGas = estimateType === 1;
@@ -185,12 +187,17 @@ export default function EstimateDetailSections({
   // PHP makeFieldManD: hire table for TCIN/VCIN (1|2); Vessel Daily Ops for VCOUT (3)
   const showHireSection = fixtureType === '1' || fixtureType === '2';
   const showVesselDailyOps = fixtureType === '3';
+  // PHP .tcin — Hire Details button only for TCIN-VCOUT
+  const showHireDetailsButton = fixtureType === '1';
+  // PHP updatecost_sheet_tci_in — VCIN-VCOUT opens the VC-In worksheet
+  const showVcInButton = fixtureType === '2' && variant !== 'vc-in';
   const showIndexLinked = isDry && showHireSection;
   const editable = !readOnly;
   const alert = useAlert();
   const [searchParams] = useSearchParams();
   const [distanceLegId, setDistanceLegId] = useState(null);
   const [itineraryOpen, setItineraryOpen] = useState(false);
+  const [hireDetailsOpen, setHireDetailsOpen] = useState(false);
 
   // PHP updatecost_sheet_tci Passage & Ports → sof.php?comid=&page=
   const sofComId = searchParams.get('comid')
@@ -204,6 +211,29 @@ export default function EstimateDetailSections({
       `/internal-user/vc/ops/sof?comid=${encodeURIComponent(sofComId)}&page=${encodeURIComponent(sofPage)}`,
     )
     : '';
+  const estimateId = searchParams.get('id') || detail?.id || '';
+  const estimateTypeParam = searchParams.get('estimatetype')
+    || searchParams.get('selBType')
+    || String(detail?.estimateType || estimateType || '2');
+  const businessTypeParam = searchParams.get('selBType') || estimateTypeParam;
+  const costSheetId = searchParams.get('cost_sheet_id') || searchParams.get('costSheetId') || '';
+  const vcInHref = (() => {
+    if (!showVcInButton) return '';
+    if (Number(sofComId) > 0) {
+      return appPath(
+        `/internal-user/vc/ops/cost-sheet-in?comid=${encodeURIComponent(sofComId)}&page=${encodeURIComponent(sofPage)}${costSheetId ? `&cost_sheet_id=${encodeURIComponent(costSheetId)}` : ''}`,
+      );
+    }
+    if (!estimateId) return '';
+    const params = new URLSearchParams();
+    params.set('id', estimateId);
+    params.set('estimatetype', estimateTypeParam);
+    params.set('selBType', businessTypeParam);
+    params.set('variant', 'vc-in');
+    const returnTo = searchParams.get('returnTo');
+    if (returnTo) params.set('returnTo', returnTo);
+    return appPath(`/internal-user/sopf/${readOnly ? 'viewestimate' : 'updateestimate'}?${params}`);
+  })();
 
   const updateField = (key, value) => {
     const next = ESTIMATE_DECIMAL_FIELDS.has(key)
@@ -863,21 +893,25 @@ export default function EstimateDetailSections({
         <CollapsiblePanel
         title="Passage & Ports"
         defaultOpen
-        bodyClassName={styles.panelBodyFlush}
+        round
+        className={voyStyles.roundSection}
         actions={(
-          <div className={styles.panelActionGroup}>
+          <div className={voyStyles.panelActionGroup}>
             {sofHref ? (
-              <Button
-                size="sm"
-                variant="accent"
-                label="SOF"
-                ariaLabel="SOF"
+              <Link
                 to={sofHref}
-              />
+                className={`${voyStyles.panelActionBtn} ${voyStyles.panelActionBtnAccent}`}
+                aria-label="SOF"
+                title="Statement of Facts"
+              >
+                SOF
+              </Link>
             ) : null}
             <button
               type="button"
-              className={styles.btnDetails}
+              className={`${voyStyles.panelActionBtn} ${voyStyles.panelActionBtnOutline}`}
+              aria-label="Itinerary"
+              title="Itinerary"
               onClick={() => setItineraryOpen(true)}
             >
               Itinerary
@@ -885,48 +919,46 @@ export default function EstimateDetailSections({
           </div>
         )}
       >
-        <div className={styles.portLegsStack}>
+        <div className={voyStyles.portLegsStack}>
           {(form.portLegs || []).map((leg, legIndex) => {
             const isLastLeg = legIndex === (form.portLegs || []).length - 1;
-            const dateInput = (id, value, onChange) => (
-              readOnly ? (
-                <input value={value || ''} readOnly />
-              ) : (
-                <DmyDateInput
-                  allowClear={false}
-                  id={id}
-                  enableTime
-                  className=""
-                  value={value || ''}
-                  onChange={onChange}
-                />
-              )
-            );
             return (
-            <div key={leg.id} className={styles.portLegCard}>
-              <table className={`${styles.portTable} ${styles.portLegConnected}`}>
+            <div key={leg.id} className={voyStyles.portLegCard}>
+              <table className={`${voyStyles.portTable} ${voyStyles.portLegConnected}`}>
+                <colgroup>
+                  <col className={voyStyles.portIdxCol} />
+                  <col className={voyStyles.portCol} />
+                  <col className={voyStyles.dateCol} />
+                  <col className={voyStyles.dateCol} />
+                  <col className={voyStyles.wxCol} />
+                  <col className={`${voyStyles.lbCol} ${styles.lbCol}`} />
+                  <col className={`${voyStyles.speedTypeCol} ${styles.speedTypeCol}`} />
+                  <col className={voyStyles.routeCol} />
+                  <col className={voyStyles.distCol} />
+                  <col className={voyStyles.distCol} />
+                </colgroup>
                 <thead>
                   <tr>
-                    <th className={styles.portIdxCol}>#</th>
-                    <th className={styles.portCol}>From Port</th>
-                    <th className={styles.dateCol}>{legIndex > 0 ? 'Arrival' : ''}</th>
-                    <th className={styles.dateCol}>Departure</th>
-                    <th className={styles.wxCol}>Wx(%)</th>
-                    <th className={styles.lbCol}>L/B</th>
-                    <th className={styles.speedTypeCol}>Speed Type</th>
-                    <th className={styles.routeCol}>Route</th>
-                    <th className={styles.distCol}>Total Dist</th>
-                    <th className={styles.distCol}>Total Days</th>
+                    <th className={voyStyles.portIdxCol}>#</th>
+                    <th className={voyStyles.portCol}>From Port</th>
+                    <th className={voyStyles.dateCol}>{legIndex > 0 ? 'Arrival' : ''}</th>
+                    <th className={voyStyles.dateCol}>Departure</th>
+                    <th className={voyStyles.wxCol}>Wx(%)</th>
+                    <th className={`${voyStyles.lbCol} ${styles.lbCol}`}>L/B</th>
+                    <th className={`${voyStyles.speedTypeCol} ${styles.speedTypeCol}`}>Speed Type</th>
+                    <th className={voyStyles.routeCol}>Route</th>
+                    <th className={voyStyles.distCol}>Total Dist</th>
+                    <th className={voyStyles.distCol}>Total Days</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className={styles.portIdxCol}>
-                      <span className={styles.portIdxNum}>{legIndex + 1}</span>
+                    <td className={voyStyles.portIdxCol}>
+                      <span className={voyStyles.portIdxNum}>{legIndex + 1}</span>
                     </td>
-                    <td className={styles.portCol}>
+                    <td className={voyStyles.portCol}>
                       {readOnly ? (
-                        <span title={leg.fromPortName || ''}>{leg.fromPortName || leg.fromPortId || '—'}</span>
+                        leg.fromPortName || leg.fromPortId || '—'
                       ) : (
                         <PortSearchSelect
                           id={legIndex === 0 ? 'portFrom_0' : `portFrom_${legIndex}`}
@@ -942,40 +974,51 @@ export default function EstimateDetailSections({
                         />
                       )}
                     </td>
-                    <td className={styles.dateCol}>
-                      {legIndex > 0
-                        ? dateInput(
-                          `fromArrival_${leg.id}`,
-                          leg.fromArrival,
-                          (value) => updateRow('portLegs', leg.id, { fromArrival: value }),
+                    <td className={voyStyles.dateCol}>
+                      {legIndex > 0 ? (
+                        readOnly ? (
+                          <input value={leg.fromArrival || ''} readOnly />
+                        ) : (
+                          <DmyDateInput
+                            id={`fromArrival_${leg.id}`}
+                            enableTime
+                            className=""
+                            value={leg.fromArrival || ''}
+                            onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
+                          />
                         )
-                        : null}
+                      ) : null}
                     </td>
-                    <td className={styles.dateCol}>
-                      {dateInput(
-                        `fromDeparture_${leg.id}`,
-                        leg.fromDeparture,
-                        (value) => updateRow('portLegs', leg.id, { fromDeparture: value }),
+                    <td className={voyStyles.dateCol}>
+                      {readOnly ? (
+                        <input value={leg.fromDeparture || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          id={`fromDeparture_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.fromDeparture || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
+                        />
                       )}
                     </td>
-                    <td className={styles.wxCol}>
+                    <td className={voyStyles.wxCol}>
                       <input
                         value={leg.seaMargin ?? ''}
                         readOnly={readOnly}
-                        placeholder="5.00"
                         onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
                       />
                     </td>
-                    <td className={styles.lbCol}>
+                    <td className={`${voyStyles.lbCol} ${styles.lbCol}`}>
                       <WorksheetSelect
                         id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
-                        value={leg.passageType || ''}
+                        value={leg.passageType}
                         disabled={readOnly}
                         options={PASSAGE_TYPE_OPTIONS}
                         onChange={(value) => updateRow('portLegs', leg.id, { passageType: value })}
                       />
                     </td>
-                    <td className={styles.speedTypeCol}>
+                    <td className={`${voyStyles.speedTypeCol} ${styles.speedTypeCol}`}>
                       <WorksheetSelect
                         id={legIndex === 0 ? 'portSpeed_0' : `portSpeed_${legIndex}`}
                         value={leg.speedType}
@@ -984,18 +1027,18 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { speedType: value })}
                       />
                     </td>
-                    <td className={styles.routeCol}>
+                    <td className={voyStyles.routeCol}>
                       {editable ? (
                         <button
                           type="button"
-                          className={styles.fetchBtn}
+                          className={voyStyles.fetchBtn}
                           onClick={() => openDistanceFetch(leg)}
                         >
                           Sync
                         </button>
                       ) : null}
                     </td>
-                    <td className={styles.distCol}>
+                    <td className={voyStyles.distCol}>
                       <input
                         id={legIndex === 0 ? 'portDistance_0' : `portDistance_${legIndex}`}
                         value={leg.distance}
@@ -1003,49 +1046,45 @@ export default function EstimateDetailSections({
                         onChange={(e) => updateRow('portLegs', leg.id, { distance: e.target.value })}
                       />
                     </td>
-                    <td className={styles.distCol}>
+                    <td className={voyStyles.distCol}>
                       <input value={leg.seaDays || ''} readOnly />
                     </td>
                   </tr>
                 </tbody>
                 <thead>
                   <tr>
-                    <th className={styles.portIdxCol} />
-                    <th className={styles.portCol}>To Port</th>
-                    <th className={styles.dateCol}>Arrival</th>
-                    <th className={styles.dateCol}>Departure</th>
-                    <th className={styles.bgCol}>BG</th>
-                    <th className={styles.nsecaCol}>NSECA Dist</th>
-                    <th className={styles.nsecaCol}>NSECA Days</th>
-                    <th className={styles.bgCol}>BG</th>
-                    <th className={styles.nsecaCol}>SECA Dist</th>
-                    <th className={styles.nsecaCol}>SECA Days</th>
+                    <th className={voyStyles.portIdxCol} />
+                    <th className={voyStyles.portCol}>To Port</th>
+                    <th className={voyStyles.dateCol}>Arrival</th>
+                    <th className={voyStyles.dateCol}>Departure</th>
+                    <th className={voyStyles.bgCol}>BG</th>
+                    <th className={voyStyles.nsecaCol}>NSECA Dist</th>
+                    <th className={voyStyles.nsecaCol}>NSECA Days</th>
+                    <th className={voyStyles.bgCol}>BG</th>
+                    <th className={voyStyles.nsecaCol}>SECA Dist</th>
+                    <th className={voyStyles.nsecaCol}>SECA Days</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className={styles.portIdxCol}>
+                    <td className={voyStyles.portIdxCol}>
                       {editable && isLastLeg ? (
-                        <div className={styles.portIdxActions}>
+                        <div className={voyStyles.portIdxActions}>
                           <RowAddButton
-                            title="Add leg"
+                            title="Add passage leg"
                             onClick={() => addRow('portLegs', createEmptyPortLeg)}
-                          >
-                            <PassagePlusIcon />
-                          </RowAddButton>
+                          />
                           <RowDelButton
-                            title="Remove leg"
-                            disabled={(form.portLegs || []).length <= 1}
+                            title="Delete leg"
                             onClick={() => removeRow('portLegs', leg.id)}
-                          >
-                            <PassageTrashIcon />
-                          </RowDelButton>
+                            disabled={(form.portLegs || []).length <= 1}
+                          />
                         </div>
                       ) : null}
                     </td>
-                    <td className={styles.portCol}>
+                    <td className={voyStyles.portCol}>
                       {readOnly ? (
-                        <span title={leg.toPortName || ''}>{leg.toPortName || leg.toPortId || '—'}</span>
+                        leg.toPortName || leg.toPortId || '—'
                       ) : (
                         <PortSearchSelect
                           id={legIndex === 0 ? 'portTo_0' : `portTo_${legIndex}`}
@@ -1061,21 +1100,33 @@ export default function EstimateDetailSections({
                         />
                       )}
                     </td>
-                    <td className={styles.dateCol}>
-                      {dateInput(
-                        `toArrival_${leg.id}`,
-                        leg.toArrival,
-                        (value) => updateRow('portLegs', leg.id, { toArrival: value }),
+                    <td className={voyStyles.dateCol}>
+                      {readOnly ? (
+                        <input value={leg.toArrival || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          id={`toArrival_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.toArrival || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
+                        />
                       )}
                     </td>
-                    <td className={styles.dateCol}>
-                      {dateInput(
-                        `toDeparture_${leg.id}`,
-                        leg.toDeparture,
-                        (value) => updateRow('portLegs', leg.id, { toDeparture: value }),
+                    <td className={voyStyles.dateCol}>
+                      {readOnly ? (
+                        <input value={leg.toDeparture || ''} readOnly />
+                      ) : (
+                        <DmyDateInput
+                          id={`toDeparture_${leg.id}`}
+                          enableTime
+                          className=""
+                          value={leg.toDeparture || ''}
+                          onChange={(value) => updateRow('portLegs', leg.id, { toDeparture: value })}
+                        />
                       )}
                     </td>
-                    <td className={styles.bgCol}>
+                    <td className={voyStyles.bgCol}>
                       <WorksheetSelect
                         value={leg.bgNonSeca || 'VLSFO'}
                         gradeLabel={leg.bgNonSeca || 'VLSFO'}
@@ -1084,13 +1135,13 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { bgNonSeca: value })}
                       />
                     </td>
-                    <td className={styles.nsecaCol}>
+                    <td className={voyStyles.nsecaCol}>
                       <input value={leg.nonSecaDistance || ''} readOnly />
                     </td>
-                    <td className={styles.nsecaCol}>
+                    <td className={voyStyles.nsecaCol}>
                       <input value={leg.nonSecaDays || ''} readOnly />
                     </td>
-                    <td className={styles.bgCol}>
+                    <td className={voyStyles.bgCol}>
                       <WorksheetSelect
                         value={leg.bgSeca || 'LSMGO'}
                         gradeLabel={leg.bgSeca || 'LSMGO'}
@@ -1099,14 +1150,14 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { bgSeca: value })}
                       />
                     </td>
-                    <td className={styles.nsecaCol}>
+                    <td className={voyStyles.nsecaCol}>
                       <input
                         value={leg.secaDistance || ''}
                         readOnly={readOnly}
                         onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
                       />
                     </td>
-                    <td className={styles.nsecaCol}>
+                    <td className={voyStyles.nsecaCol}>
                       <input value={leg.secaDays || ''} readOnly />
                     </td>
                   </tr>
@@ -2019,7 +2070,47 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Vessel OPEX" defaultOpen={false} bodyClassName={styles.panelBodyFlush}>
+      <CollapsiblePanel
+        title={showHireSection ? 'Hire / Vessel OPEX' : 'Vessel OPEX'}
+        defaultOpen={false}
+        bodyClassName={styles.panelBodyFlush}
+        actions={(showHireDetailsButton || showVcInButton) ? (
+          <div className={styles.panelActionGroup}>
+            {showHireDetailsButton ? (
+              <button
+                type="button"
+                className={voyStyles.tcInHireBtn}
+                title="Full hire terms, delivery / re-delivery and CVE"
+                onClick={() => setHireDetailsOpen(true)}
+              >
+                TC-in Hire
+              </button>
+            ) : null}
+            {showVcInButton ? (
+              vcInHref ? (
+                <Link
+                  id="vcInSheetBtn"
+                  className={voyStyles.tcInHireBtn}
+                  to={vcInHref}
+                  title="Open VC-In worksheet"
+                >
+                  VC-In
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  id="vcInSheetBtn"
+                  className={voyStyles.tcInHireBtn}
+                  disabled
+                  title="Save the estimate first to open VC-In"
+                >
+                  VC-In
+                </button>
+              )
+            ) : null}
+          </div>
+        ) : null}
+      >
         <div className={styles.vesselOpexWrap}>
           {showHireSection ? (
             <>
@@ -2410,6 +2501,14 @@ export default function EstimateDetailSections({
         open={itineraryOpen}
         onClose={() => setItineraryOpen(false)}
         form={form}
+      />
+      <HireDetailsModal
+        open={hireDetailsOpen}
+        onClose={() => setHireDetailsOpen(false)}
+        form={form}
+        readOnly={readOnly}
+        lookups={lookups}
+        applyPatch={applyPatch}
       />
     </div>
   );

@@ -12,7 +12,21 @@ import {
   dbUpdateEstimateDetail,
   runWithVcInTables,
 } from './estimateDetailDb.js';
+import { dbGetEstimateVcIn } from './opsVcDb.js';
 import { normalizeEstimateNo } from './estimateVoyage.js';
+
+export async function getEstimateVcIn(id) {
+  if (isDbConfigured()) {
+    return dbGetEstimateVcIn(id);
+  }
+  return {
+    sourceFcaId: Number(id) || id,
+    fcaId: Number(id) || id,
+    estimateType: '2',
+    voyageNo: '',
+    finalStatus: 0,
+  };
+}
 
 export async function getEstimateDetail(id, { variant } = {}) {
   if (variant === 'vc-in' && isDbConfigured()) {

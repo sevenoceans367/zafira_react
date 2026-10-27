@@ -2560,15 +2560,41 @@ export default function EstimateDetailSections({
         defaultOpen={false}
         round
         className={`${styles.roundSection} ${styles.opexFields}`}
-        actions={showHireDetailsButton ? (
-          <button
-            type="button"
-            className={styles.tcInHireBtn}
-            title="Full hire terms, delivery / re-delivery and CVE"
-            onClick={() => setHireDetailsOpen(true)}
-          >
-            TC-in Hire
-          </button>
+        actions={(showHireDetailsButton || showVcInButton) ? (
+          <div className={styles.panelActionGroup}>
+            {showHireDetailsButton ? (
+              <button
+                type="button"
+                className={styles.tcInHireBtn}
+                title="Full hire terms, delivery / re-delivery and CVE"
+                onClick={() => setHireDetailsOpen(true)}
+              >
+                TC-in Hire
+              </button>
+            ) : null}
+            {showVcInButton ? (
+              vcInHref ? (
+                <Link
+                  id="vcInSheetBtn"
+                  className={styles.tcInHireBtn}
+                  to={vcInHref}
+                  title="Open VC-In worksheet"
+                >
+                  VC-In
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  id="vcInSheetBtn"
+                  className={styles.tcInHireBtn}
+                  disabled
+                  title="Save the voyage first to open VC-In"
+                >
+                  VC-In
+                </button>
+              )
+            ) : null}
+          </div>
         ) : null}
       >
         {showHireSection ? (
@@ -2726,19 +2752,6 @@ export default function EstimateDetailSections({
             <Field id="lessOffHire" label="Less Off Hire">
               <input id="lessOffHire" value={form.lessOffHire || form.totalOffHireAmt || ''} readOnly placeholder="0.00" />
             </Field>
-            {showVcInButton ? (
-              <Field id="hireDetailsBtn" label=" ">
-                <div className={styles.hireBtnRow}>
-                  <Link
-                    id="vcInSheetBtn"
-                    className={styles.hireDetailsBtn}
-                    to={vcInHref}
-                  >
-                    VC-In
-                  </Link>
-                </div>
-              </Field>
-            ) : null}
           </div>
         ) : null}
         <div className={styles.headerGrid} style={{ marginTop: showHireSection ? 8 : 0 }}>

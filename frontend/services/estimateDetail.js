@@ -1,5 +1,14 @@
 const BASE = '/api/internal-user/sopf';
 
+export async function fetchEstimateVcIn(id) {
+  const response = await fetch(`${BASE}/estimates/${encodeURIComponent(id)}/vc-in`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to open VC-In estimate.');
+  }
+  return data;
+}
+
 export async function fetchEstimateDetail(id, { variant } = {}) {
   const query = variant === 'vc-in' ? '?variant=vc-in' : '';
   const response = await fetch(`${BASE}/estimates/${encodeURIComponent(id)}${query}`);

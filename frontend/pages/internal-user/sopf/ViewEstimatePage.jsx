@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
-import { fetchEstimateDetail, fetchEstimateLookups } from '../../../services/estimateDetail.js';
+import { fetchEstimateDetail, fetchEstimateLookups, fetchEstimateVcIn } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
 import EstimateDetailHeaderActions from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
@@ -38,6 +38,7 @@ export default function ViewEstimatePage() {
   const estimateId = searchParams.get('id');
   const estimateType = searchParams.get('estimatetype') || searchParams.get('selBType') || '2';
   const businessType = searchParams.get('selBType') || estimateType;
+  const variant = searchParams.get('variant') === 'vc-in' ? 'vc-in' : '';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,7 +53,14 @@ export default function ViewEstimatePage() {
     complianceYear: new Date().getFullYear(),
   });
 
-  const listHref = resolveViewEstimateBackHref(searchParams, { businessType, estimateType });
+  const mainEstimateHref = (() => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('variant');
+    return appPath(`/internal-user/sopf/viewestimate?${params}`);
+  })();
+  const listHref = variant === 'vc-in'
+    ? mainEstimateHref
+    : resolveViewEstimateBackHref(searchParams, { businessType, estimateType });
 
   const loadDetail = useCallback(async () => {
     if (!estimateId) {
@@ -64,8 +72,13 @@ export default function ViewEstimatePage() {
     setLoading(true);
     setError('');
     try {
+      let loadId = estimateId;
+      if (variant === 'vc-in') {
+        const resolved = await fetchEstimateVcIn(estimateId);
+        loadId = String(resolved.fcaId || estimateId);
+      }
       const [data, lookupData] = await Promise.all([
-        fetchEstimateDetail(estimateId),
+        fetchEstimateDetail(loadId, { variant }),
         fetchEstimateLookups(estimateType),
       ]);
       const resolvedType = data?.estimateType || estimateType;
@@ -90,7 +103,7 @@ export default function ViewEstimatePage() {
     } finally {
       setLoading(false);
     }
-  }, [estimateId, estimateType]);
+  }, [estimateId, estimateType, variant]);
 
   useEffect(() => {
     loadDetail();
@@ -109,7 +122,13 @@ export default function ViewEstimatePage() {
 
       {!loading && detail ? (
         <div>
-          <EstimateDetailSections detail={detail} form={form} readOnly lookups={lookups} />
+          <EstimateDetailSections
+            detail={detail}
+            form={form}
+            readOnly
+            lookups={lookups}
+            variant={variant}
+          />
           <div className={styles.actions}>
             <Button variant="outline" label="Back to List" href={listHref} />
           </div>

@@ -6,6 +6,7 @@ import {
   checkVoyageNoExists,
   fetchEstimateDetail,
   fetchEstimateLookups,
+  fetchEstimateVcIn,
   fetchPeriodPrefill,
   fetchVesselEstimatePrefill,
   updateEstimateDetail,
@@ -33,6 +34,7 @@ export default function UpdateEstimatePage() {
   const estimateId = searchParams.get('id');
   const estimateType = searchParams.get('estimatetype') || '2';
   const businessType = searchParams.get('selBType') || estimateType;
+  const variant = searchParams.get('variant') === 'vc-in' ? 'vc-in' : '';
   // Ops VC Voyage Financials (updatecost_sheet_tci) returns to In Ops / Post Ops / History
   const returnToRaw = searchParams.get('returnTo') || '';
   const returnTo = (() => {
@@ -50,6 +52,7 @@ export default function UpdateEstimatePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [detail, setDetail] = useState(null);
+  const [sheetId, setSheetId] = useState(estimateId);
   const [form, setForm] = useState(EMPTY_FORM);
   const [lookups, setLookups] = useState({
     cargos: [],
@@ -60,9 +63,16 @@ export default function UpdateEstimatePage() {
     complianceYear: new Date().getFullYear(),
   });
 
-  const listHref = returnTo || appPath(
-    `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
-  );
+  const mainEstimateHref = (() => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('variant');
+    return appPath(`/internal-user/sopf/updateestimate?${params}`);
+  })();
+  const listHref = variant === 'vc-in'
+    ? mainEstimateHref
+    : (returnTo || appPath(
+      `/internal-user/sopf/estimate_list?selBType=${businessType}&estimatetype=${estimateType}`,
+    ));
 
   const loadDetail = useCallback(async () => {
     if (!estimateId) {
@@ -74,8 +84,14 @@ export default function UpdateEstimatePage() {
     setLoading(true);
     setError('');
     try {
+      let loadId = estimateId;
+      if (variant === 'vc-in') {
+        const resolved = await fetchEstimateVcIn(estimateId);
+        loadId = String(resolved.fcaId || estimateId);
+      }
+      setSheetId(loadId);
       const [data, lookupData] = await Promise.all([
-        fetchEstimateDetail(estimateId),
+        fetchEstimateDetail(loadId, { variant }),
         fetchEstimateLookups(estimateType),
       ]);
       const resolvedType = data?.estimateType || estimateType;
@@ -107,7 +123,7 @@ export default function UpdateEstimatePage() {
     } finally {
       setLoading(false);
     }
-  }, [estimateId, estimateType]);
+  }, [estimateId, estimateType, variant]);
 
   useEffect(() => {
     loadDetail();
@@ -266,19 +282,21 @@ export default function UpdateEstimatePage() {
     }
 
     try {
-      const voyageExists = await checkVoyageNoExists(form.voyageNo, {
-        excludeId: estimateId,
-        estimateNo: form.estimateNo || 1,
-        allowSameVoyage: true,
-      });
-      if (voyageExists) {
-        await alert({
-          title: 'Alert',
-          message: 'Voyage / estimate number combination already exists',
-          confirmLabel: 'OK',
+      if (variant !== 'vc-in') {
+        const voyageExists = await checkVoyageNoExists(form.voyageNo, {
+          excludeId: estimateId,
+          estimateNo: form.estimateNo || 1,
+          allowSameVoyage: true,
         });
-        focusEstimateValidationField('voyageNo');
-        return;
+        if (voyageExists) {
+          await alert({
+            title: 'Alert',
+            message: 'Voyage / estimate number combination already exists',
+            confirmLabel: 'OK',
+          });
+          focusEstimateValidationField('voyageNo');
+          return;
+        }
       }
     } catch (err) {
       await alert({
@@ -303,9 +321,10 @@ export default function UpdateEstimatePage() {
       setForm(computed);
       const files = computed.attachmentFiles || [];
       await updateEstimateDetail(
-        estimateId,
+        sheetId || estimateId,
         buildEstimateSubmitPayload(computed, estimateType),
         files,
+        { variant },
       );
       // Clear overlay before alert — LoadingOverlay sits above the dialog and would block OK.
       setSaving(false);
@@ -314,7 +333,10 @@ export default function UpdateEstimatePage() {
         message: 'Congratulations! Estimate updated successfully.',
         confirmLabel: 'OK',
       });
-      navigate(returnTo ? `${returnTo}${returnTo.includes('?') ? '&' : '?'}msg=0` : `${listHref}&msg=0`, {
+      const afterSaveHref = variant === 'vc-in'
+        ? `${listHref}${listHref.includes('?') ? '&' : '?'}msg=0`
+        : (returnTo ? `${returnTo}${returnTo.includes('?') ? '&' : '?'}msg=0` : `${listHref}&msg=0`);
+      navigate(afterSaveHref, {
         replace: true,
       });
     } catch (err) {
@@ -358,6 +380,7 @@ export default function UpdateEstimatePage() {
             onPeriodContractChange={handlePeriodContractChange}
             onRecalc={handleRecalc}
             onApplyPatch={handleApplyPatch}
+            variant={variant}
           />
           <EstimateDetailFooterActions listHref={listHref} disabled={saving} />
         </form>

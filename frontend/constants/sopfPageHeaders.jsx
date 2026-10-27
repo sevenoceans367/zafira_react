@@ -128,6 +128,18 @@ export function resolveSopfHeader(pathname, search = '') {
 
   if (pathname.includes('/viewestimate')) {
     const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    if (params.get('variant') === 'vc-in') {
+      return {
+        title: 'VC-in',
+        currentPage: 'VC-in',
+        breadcrumbs: [
+          HOME,
+          SOPF,
+          { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
+          { label: 'VC-in' },
+        ],
+      };
+    }
     const rttype = String(params.get('rttype') || '');
     if (rttype === '1' || rttype === '3' || rttype === '4') {
       const opsBack = rttype === '3'
@@ -160,6 +172,19 @@ export function resolveSopfHeader(pathname, search = '') {
   }
 
   if (pathname.includes('/updateestimate')) {
+    const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    if (params.get('variant') === 'vc-in') {
+      return {
+        title: 'VC-in',
+        currentPage: 'VC-in',
+        breadcrumbs: [
+          HOME,
+          SOPF,
+          { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
+          { label: 'VC-in' },
+        ],
+      };
+    }
     return {
       title: SPOT_BUSINESS,
       currentPage: 'Update Estimate',

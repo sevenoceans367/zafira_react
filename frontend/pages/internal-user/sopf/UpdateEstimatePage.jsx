@@ -15,6 +15,7 @@ import EstimateDetailSections from './EstimateDetailSections.jsx';
 import EstimateDetailHeaderActions, {
   ESTIMATE_FORM_ID,
   EstimateDetailFooterActions,
+  EstimateVcInHeading,
 } from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
@@ -359,6 +360,12 @@ export default function UpdateEstimatePage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
+      {variant === 'vc-in' ? (
+        <EstimateVcInHeading
+          voyageNo={form.voyageNo || detail?.voyageNo || ''}
+          estimateNo={form.estimateNo || detail?.estimateNo || 1}
+        />
+      ) : null}
       <LoadingOverlay show={loading || saving} />
       <EstimateDetailHeaderActions
         listHref={listHref}

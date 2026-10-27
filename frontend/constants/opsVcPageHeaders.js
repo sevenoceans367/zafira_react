@@ -26,7 +26,7 @@ const PAGES = {
   bunker: 'Bunker Calculations',
   'soa-report': 'Cash',
   'cost-sheet': 'Voyage Worksheet',
-  'cost-sheet-in': 'VC-In Worksheet',
+  'cost-sheet-in': 'VC-in',
 };
 
 const FROM_PAYMENT_GRID = new Set([

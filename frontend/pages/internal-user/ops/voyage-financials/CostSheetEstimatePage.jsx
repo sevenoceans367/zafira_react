@@ -11,7 +11,7 @@ import {
   updateEstimateDetail,
 } from '../../../../services/estimateDetail.js';
 import EstimateDetailSections from './CostSheetDetailSections.jsx';
-import EstimateDetailHeaderActions from '../../sopf/EstimateDetailHeaderActions.jsx';
+import EstimateDetailHeaderActions, { formatVcInHeading } from '../../sopf/EstimateDetailHeaderActions.jsx';
 import { usePageHeaderHeading } from '../../PageHeaderContext.jsx';
 import { applyEstimateCalculations } from '../../sopf/estimateCalculations.js';
 import { buildEstimateSubmitPayload } from '../../sopf/buildEstimateSubmitPayload.js';
@@ -425,18 +425,20 @@ export default function CostSheetEstimatePage({
   const locked = sheetClosed || viewOnly;
   const sheetLabel = sheetNameProp
     || (costSheetIdProp ? `Sheet ${costSheetIdProp}` : '');
-  const sheetTitle = variant === 'vc-in' ? 'VC-In Worksheet' : 'Voyage Worksheet';
-  const estNo = Number(form.estimateNo) > 0 ? Number(form.estimateNo) : 1;
+  const sheetTitle = variant === 'vc-in' ? 'VC-in' : 'Voyage Worksheet';
   const voyageNo = String(form.voyageNo || detail?.voyageNo || '').trim();
-  const vcInHeading = voyageNo
-    ? `Worksheet ${voyageNo} (Est ${estNo}) - VC in`
-    : sheetTitle;
+  const estNo = Number(form.estimateNo || detail?.estimateNo) > 0
+    ? Number(form.estimateNo || detail?.estimateNo)
+    : 1;
+  const vcInHeading = formatVcInHeading(voyageNo, estNo);
   const titled = variant === 'vc-in' ? vcInHeading : (sheetLabel ? `${sheetTitle} — ${sheetLabel}` : sheetTitle);
-  const pageHeading = viewOnly
-    ? `View ${titled}`
-    : sheetClosed
-      ? `Closed ${titled}`
-      : titled;
+  const pageHeading = variant === 'vc-in'
+    ? titled
+    : viewOnly
+      ? `View ${titled}`
+      : sheetClosed
+        ? `Closed ${titled}`
+        : titled;
 
   // Ensure Passage & Ports SOF links see comid/page (PHP updatecost_sheet_tci).
   const sectionsDetail = detail && isCostSheet

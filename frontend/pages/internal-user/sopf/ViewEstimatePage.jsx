@@ -4,7 +4,7 @@ import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchEstimateDetail, fetchEstimateLookups, fetchEstimateVcIn } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
-import EstimateDetailHeaderActions from './EstimateDetailHeaderActions.jsx';
+import EstimateDetailHeaderActions, { EstimateVcInHeading } from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { toFormState } from './estimateDetail.constants.js';
 import styles from './UpdateEstimatePage.module.css';
@@ -115,6 +115,12 @@ export default function ViewEstimatePage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
+      {variant === 'vc-in' ? (
+        <EstimateVcInHeading
+          voyageNo={form.voyageNo || detail?.voyageNo || ''}
+          estimateNo={form.estimateNo || detail?.estimateNo || 1}
+        />
+      ) : null}
       <LoadingOverlay show={loading} />
       <EstimateDetailHeaderActions listHref={listHref} />
 

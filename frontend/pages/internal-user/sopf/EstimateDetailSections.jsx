@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AddCircleButton, AttachmentDropzone, Button, DmyDateInput, RowAddButton, RowDelButton, useAlert } from '@bainbridge/shared-ui';
+import { AttachmentDropzone, Button, DmyDateInput, RowAddButton, RowDelButton, useAlert } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import PortSearchSelect from '../period-contract/PortSearchSelect.jsx';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
@@ -1169,7 +1169,7 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
-      <CollapsiblePanel title="Speed & Consumption" defaultOpen>
+      <CollapsiblePanel title="Speed & Consumption" defaultOpen bodyClassName={`${styles.panelBodyFlush} ${styles.speedConsBody}`}>
         {(() => {
           const speedDataType = form.speedDataType || 'full';
           const speedCols = CONSUMPTION_SPEED_COLUMNS[speedDataType] || CONSUMPTION_SPEED_COLUMNS.full;
@@ -2415,9 +2415,7 @@ export default function EstimateDetailSections({
             defaultOpen={false}
             className={styles.panelInverse}
             actions={editable ? (
-              <AddCircleButton
-                onClick={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
-              />
+              <SecAddButton onClick={() => addRow('profitSharingRows', createEmptyProfitSharingRow)} />
             ) : null}
           >
             <div className={styles.tableWrap}>

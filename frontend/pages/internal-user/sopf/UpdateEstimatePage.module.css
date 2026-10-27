@@ -2491,13 +2491,26 @@
 }
 
 .secAddBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 26px;
   height: 26px;
   min-width: 26px;
   min-height: 26px;
+  padding: 0;
   border-radius: 8px;
   background: #eaf1fe;
   color: #2e6fe8;
+  line-height: 0;
+  font-size: 0;
+}
+
+.secAddBtn :global(svg) {
+  display: block;
+  width: 13px;
+  height: 13px;
+  flex: none;
 }
 
 .secAddBtn:hover:not(:disabled) {
@@ -2634,7 +2647,7 @@
 }
 
 .consBlock .conspTable th {
-  font-size: 11.5px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -2653,6 +2666,94 @@
   font-size: 12.5px;
   padding: 6px 8px;
   text-align: left;
+}
+
+/* Speed & Consumption — tables flush to panel edges; header fields stay inset */
+.speedConsBody .headerGrid {
+  padding: 16px 18px 8px;
+}
+
+.speedConsBody .conspGroupHead {
+  margin-top: 12px;
+  padding: 0 18px 8px;
+}
+
+.speedConsBody .consBlock {
+  margin-top: 0;
+}
+
+.speedConsBody .consTitle {
+  padding: 0 18px;
+  margin: 14px 0 2px;
+}
+
+.speedConsBody .consBlock .tableWrap {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.speedConsBody .consBlock .conspTable {
+  width: 100%;
+}
+
+.speedConsBody .consBlock .conspTable thead,
+.speedConsBody .consBlock .conspTable thead th {
+  background: #fafbfc;
+}
+
+.speedConsBody .consBlock .conspTable thead th:first-child {
+  box-shadow: -18px 0 0 #fafbfc;
+}
+
+.speedConsBody .consBlock .conspTable thead th:last-child {
+  box-shadow: 18px 0 0 #fafbfc;
+}
+
+.speedConsBody .consBlock .conspTable th:first-child,
+.speedConsBody .consBlock .conspTable td:first-child {
+  padding-left: 18px;
+}
+
+.speedConsBody .consBlock .conspTable th:last-child,
+.speedConsBody .consBlock .conspTable td:last-child {
+  padding-right: 18px;
+}
+
+.speedConsBody .consBlock .conspTable tbody td {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+/* Speed & Consumption — inputs / dropdowns 20% shorter than other estimate fields */
+.speedConsBody .field input,
+.speedConsBody .field select {
+  min-height: 29px;
+  height: 29px;
+  padding: 5px 10px;
+}
+
+.speedConsBody .field :global(button) {
+  height: 29px;
+  min-height: 29px;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.speedConsBody .consBlock .conspTable input,
+.speedConsBody .consBlock .conspTable select {
+  min-height: 26px;
+  height: 26px;
+  padding: 4px 8px;
+  box-sizing: border-box;
+}
+
+.speedConsBody .consBlock :global(button) {
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 6px !important;
+  box-sizing: border-box;
 }
 
 .segmentedDisabled {

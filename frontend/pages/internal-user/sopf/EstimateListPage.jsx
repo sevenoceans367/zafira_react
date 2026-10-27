@@ -626,7 +626,7 @@ export default function EstimateListPage() {
                       />
                     </th>
                   )}
-                  <th>Details</th>
+                  <th className={isCompletedTab ? styles.detailsCol : undefined}>Details</th>
                 </tr>
               </thead>
               <tbody>
@@ -700,7 +700,7 @@ export default function EstimateListPage() {
                               onClick={() => handleSendToOps(row.id, row.sheetName)}
                               ariaLabel={`Send to Ops ${row.sheetName}`}
                             />
-                          ) : row.sendToOpsDisabled || row.voyageLocked ? (
+                          ) : !isCompletedTab && (row.sendToOpsDisabled || row.voyageLocked) ? (
                             <span className={styles.sentSiblingHint} title="Another estimate for this voyage was sent to Ops">
                               Locked
                             </span>
@@ -718,7 +718,7 @@ export default function EstimateListPage() {
                           />
                         </td>
                       )}
-                      <td>
+                      <td className={isCompletedTab ? styles.detailsCol : undefined}>
                         <div className={styles.iconPair}>
                           {row.canSendToOps ? (
                             <>

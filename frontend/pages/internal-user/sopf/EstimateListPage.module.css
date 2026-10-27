@@ -339,6 +339,14 @@
   gap: 2px;
 }
 
+.detailsCol {
+  text-align: center;
+}
+
+.detailsCol .iconPair {
+  justify-content: center;
+}
+
 .iconBtn {
   min-width: 26px !important;
   min-height: 26px !important;

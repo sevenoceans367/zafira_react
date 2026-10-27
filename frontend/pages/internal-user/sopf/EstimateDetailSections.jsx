@@ -2048,26 +2048,6 @@ export default function EstimateDetailSections({
             </tfoot>
           </table>
         </div>
-        <div className={styles.bunkerPriceGrid}>
-          <Field id="co2PriceInline" label="CO2 Price / MT">
-            <input
-              id="co2PriceInline"
-              value={form.co2Price || ''}
-              readOnly={readOnly}
-              placeholder="0.00"
-              onChange={(e) => updateField('co2Price', e.target.value)}
-            />
-          </Field>
-          <Field id="euaPriceInline" label="EUA Price / MT">
-            <input
-              id="euaPriceInline"
-              value={form.euaPrice || ''}
-              readOnly={readOnly}
-              placeholder="0.00"
-              onChange={(e) => updateField('euaPrice', e.target.value)}
-            />
-          </Field>
-        </div>
       </CollapsiblePanel>
 
       <CollapsiblePanel

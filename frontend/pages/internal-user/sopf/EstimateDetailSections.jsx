@@ -10,7 +10,9 @@ import {
   BUNKER_ACTIVITY_OPTIONS,
   BUNKER_ACTIVITY_RATE_FIELD,
   FIXTURE_TYPE_OPTIONS,
+  NSBG_OPTIONS,
   PASSAGE_TYPE_OPTIONS,
+  SBG_OPTIONS,
   SPEED_DATA_OPTIONS,
   SPEED_TYPE_OPTIONS,
   CONSUMPTION_PORT_COLUMNS,
@@ -883,70 +885,46 @@ export default function EstimateDetailSections({
           </div>
         )}
       >
-        <div className={styles.tableWrap}>
-          <table className={`${styles.portTable} ${styles.flushGrid} ${styles.passageTable}`}>
-            <colgroup>
-              <col style={{ width: 46 }} />
-              <col style={{ width: 108 }} />
-              <col style={{ width: 128 }} />
-              <col style={{ width: 128 }} />
-              <col style={{ width: 52 }} />
-              <col style={{ width: 74 }} />
-              <col style={{ width: 88 }} />
-              <col style={{ width: 54 }} />
-              <col style={{ width: 76 }} />
-              <col style={{ width: 52 }} />
-              <col style={{ width: 76 }} />
-              <col style={{ width: 52 }} />
-              <col style={{ width: 78 }} />
-              <col style={{ width: 52 }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th />
-                <th>Port</th>
-                <th>Departure</th>
-                <th>Arrival</th>
-                <th>WX (%)</th>
-                <th>L/B</th>
-                <th>Speed Type</th>
-                <th>Sync</th>
-                <th>Total Dist</th>
-                <th>Total Days</th>
-                <th>NSECA Dist</th>
-                <th>NSECA Days</th>
-                <th>SECA Dist</th>
-                <th>SECA Days</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(form.portLegs || []).map((leg, legIndex) => {
-                const isLastLeg = legIndex === (form.portLegs || []).length - 1;
-                return (
-                <React.Fragment key={leg.id}>
+        <div className={styles.portLegsStack}>
+          {(form.portLegs || []).map((leg, legIndex) => {
+            const isLastLeg = legIndex === (form.portLegs || []).length - 1;
+            const dateInput = (id, value, onChange) => (
+              readOnly ? (
+                <input value={value || ''} readOnly />
+              ) : (
+                <DmyDateInput
+                  allowClear={false}
+                  id={id}
+                  enableTime
+                  className=""
+                  value={value || ''}
+                  onChange={onChange}
+                />
+              )
+            );
+            return (
+            <div key={leg.id} className={styles.portLegCard}>
+              <table className={`${styles.portTable} ${styles.portLegConnected}`}>
+                <thead>
                   <tr>
-                    <td rowSpan={2} className={styles.legLead}>
-                      <span className={styles.legNum}>{legIndex + 1}</span>
-                      {editable && isLastLeg ? (
-                        <div className={styles.legActions}>
-                          <RowAddButton
-                            title="Add leg"
-                            onClick={() => addRow('portLegs', createEmptyPortLeg)}
-                          >
-                            <PassagePlusIcon />
-                          </RowAddButton>
-                          <RowDelButton
-                            title="Remove leg"
-                            disabled={(form.portLegs || []).length <= 1}
-                            onClick={() => removeRow('portLegs', leg.id)}
-                          >
-                            <PassageTrashIcon />
-                          </RowDelButton>
-                        </div>
-                      ) : null}
+                    <th className={styles.portIdxCol}>#</th>
+                    <th className={styles.portCol}>From Port</th>
+                    <th className={styles.dateCol}>{legIndex > 0 ? 'Arrival' : ''}</th>
+                    <th className={styles.dateCol}>Departure</th>
+                    <th className={styles.wxCol}>Wx(%)</th>
+                    <th className={styles.lbCol}>L/B</th>
+                    <th className={styles.speedTypeCol}>Speed Type</th>
+                    <th className={styles.routeCol}>Route</th>
+                    <th className={styles.distCol}>Total Dist</th>
+                    <th className={styles.distCol}>Total Days</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className={styles.portIdxCol}>
+                      <span className={styles.portIdxNum}>{legIndex + 1}</span>
                     </td>
-                    <td className={styles.portTd}>
-                      <div className={styles.legRowLabel}>From Port</div>
+                    <td className={styles.portCol}>
                       {readOnly ? (
                         <span title={leg.fromPortName || ''}>{leg.fromPortName || leg.fromPortId || '—'}</span>
                       ) : (
@@ -964,39 +942,23 @@ export default function EstimateDetailSections({
                         />
                       )}
                     </td>
-                    <td>
-                      {readOnly ? (
-                        <input value={leg.fromDeparture || ''} readOnly />
-                      ) : (
-                        <DmyDateInput
-                          allowClear={false}
-                          id={`fromDeparture_${leg.id}`}
-                          enableTime
-                          className=""
-                          value={leg.fromDeparture || ''}
-                          onChange={(value) => updateRow('portLegs', leg.id, { fromDeparture: value })}
-                        />
-                      )}
-                    </td>
-                    <td>
-                      {legIndex > 0 ? (
-                        readOnly ? (
-                          <input value={leg.fromArrival || ''} readOnly />
-                        ) : (
-                          <DmyDateInput
-                            allowClear={false}
-                            id={`fromArrival_${leg.id}`}
-                            enableTime
-                            className=""
-                            value={leg.fromArrival || ''}
-                            onChange={(value) => updateRow('portLegs', leg.id, { fromArrival: value })}
-                          />
+                    <td className={styles.dateCol}>
+                      {legIndex > 0
+                        ? dateInput(
+                          `fromArrival_${leg.id}`,
+                          leg.fromArrival,
+                          (value) => updateRow('portLegs', leg.id, { fromArrival: value }),
                         )
-                      ) : (
-                        <span className={styles.mutedDash}>—</span>
+                        : null}
+                    </td>
+                    <td className={styles.dateCol}>
+                      {dateInput(
+                        `fromDeparture_${leg.id}`,
+                        leg.fromDeparture,
+                        (value) => updateRow('portLegs', leg.id, { fromDeparture: value }),
                       )}
                     </td>
-                    <td>
+                    <td className={styles.wxCol}>
                       <input
                         value={leg.seaMargin ?? ''}
                         readOnly={readOnly}
@@ -1004,7 +966,7 @@ export default function EstimateDetailSections({
                         onChange={(e) => updateRow('portLegs', leg.id, { seaMargin: e.target.value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.lbCol}>
                       <WorksheetSelect
                         id={legIndex === 0 ? 'portPassage_0' : `portPassage_${legIndex}`}
                         value={leg.passageType || ''}
@@ -1013,7 +975,7 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { passageType: value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.speedTypeCol}>
                       <WorksheetSelect
                         id={legIndex === 0 ? 'portSpeed_0' : `portSpeed_${legIndex}`}
                         value={leg.speedType}
@@ -1022,24 +984,18 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { speedType: value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.routeCol}>
                       {editable ? (
                         <button
                           type="button"
-                          className={styles.syncChip}
+                          className={styles.fetchBtn}
                           onClick={() => openDistanceFetch(leg)}
                         >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M21 12a9 9 0 1 1-2.6-6.4" />
-                            <path d="M21 3v6h-6" />
-                          </svg>
                           Sync
                         </button>
-                      ) : (
-                        <span className={styles.mutedDash}>—</span>
-                      )}
+                      ) : null}
                     </td>
-                    <td>
+                    <td className={styles.distCol}>
                       <input
                         id={legIndex === 0 ? 'portDistance_0' : `portDistance_${legIndex}`}
                         value={leg.distance}
@@ -1047,14 +1003,47 @@ export default function EstimateDetailSections({
                         onChange={(e) => updateRow('portLegs', leg.id, { distance: e.target.value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.distCol}>
                       <input value={leg.seaDays || ''} readOnly />
                     </td>
-                    <td colSpan={4} className={styles.mutedDash}>—</td>
                   </tr>
+                </tbody>
+                <thead>
                   <tr>
-                    <td className={styles.portTd}>
-                      <div className={styles.legRowLabel}>To Port</div>
+                    <th className={styles.portIdxCol} />
+                    <th className={styles.portCol}>To Port</th>
+                    <th className={styles.dateCol}>Arrival</th>
+                    <th className={styles.dateCol}>Departure</th>
+                    <th className={styles.bgCol}>BG</th>
+                    <th className={styles.nsecaCol}>NSECA Dist</th>
+                    <th className={styles.nsecaCol}>NSECA Days</th>
+                    <th className={styles.bgCol}>BG</th>
+                    <th className={styles.nsecaCol}>SECA Dist</th>
+                    <th className={styles.nsecaCol}>SECA Days</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className={styles.portIdxCol}>
+                      {editable && isLastLeg ? (
+                        <div className={styles.portIdxActions}>
+                          <RowAddButton
+                            title="Add leg"
+                            onClick={() => addRow('portLegs', createEmptyPortLeg)}
+                          >
+                            <PassagePlusIcon />
+                          </RowAddButton>
+                          <RowDelButton
+                            title="Remove leg"
+                            disabled={(form.portLegs || []).length <= 1}
+                            onClick={() => removeRow('portLegs', leg.id)}
+                          >
+                            <PassageTrashIcon />
+                          </RowDelButton>
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className={styles.portCol}>
                       {readOnly ? (
                         <span title={leg.toPortName || ''}>{leg.toPortName || leg.toPortId || '—'}</span>
                       ) : (
@@ -1072,57 +1061,60 @@ export default function EstimateDetailSections({
                         />
                       )}
                     </td>
-                    <td>
-                      {readOnly ? (
-                        <input value={leg.toDeparture || ''} readOnly />
-                      ) : (
-                        <DmyDateInput
-                          allowClear={false}
-                          id={`toDeparture_${leg.id}`}
-                          enableTime
-                          className=""
-                          value={leg.toDeparture || ''}
-                          onChange={(value) => updateRow('portLegs', leg.id, { toDeparture: value })}
-                        />
+                    <td className={styles.dateCol}>
+                      {dateInput(
+                        `toArrival_${leg.id}`,
+                        leg.toArrival,
+                        (value) => updateRow('portLegs', leg.id, { toArrival: value }),
                       )}
                     </td>
-                    <td>
-                      {readOnly ? (
-                        <input value={leg.toArrival || ''} readOnly />
-                      ) : (
-                        <DmyDateInput
-                          allowClear={false}
-                          id={`toArrival_${leg.id}`}
-                          enableTime
-                          className=""
-                          value={leg.toArrival || ''}
-                          onChange={(value) => updateRow('portLegs', leg.id, { toArrival: value })}
-                        />
+                    <td className={styles.dateCol}>
+                      {dateInput(
+                        `toDeparture_${leg.id}`,
+                        leg.toDeparture,
+                        (value) => updateRow('portLegs', leg.id, { toDeparture: value }),
                       )}
                     </td>
-                    <td colSpan={6} className={styles.mutedDash}>—</td>
-                    <td>
-                      <input value={leg.nonSecaDistance || ''} readOnly={readOnly} onChange={(e) => updateRow('portLegs', leg.id, { nonSecaDistance: e.target.value })} />
+                    <td className={styles.bgCol}>
+                      <WorksheetSelect
+                        value={leg.bgNonSeca || 'VLSFO'}
+                        gradeLabel={leg.bgNonSeca || 'VLSFO'}
+                        disabled={readOnly}
+                        options={NSBG_OPTIONS}
+                        onChange={(value) => updateRow('portLegs', leg.id, { bgNonSeca: value })}
+                      />
                     </td>
-                    <td>
+                    <td className={styles.nsecaCol}>
+                      <input value={leg.nonSecaDistance || ''} readOnly />
+                    </td>
+                    <td className={styles.nsecaCol}>
                       <input value={leg.nonSecaDays || ''} readOnly />
                     </td>
-                    <td>
+                    <td className={styles.bgCol}>
+                      <WorksheetSelect
+                        value={leg.bgSeca || 'LSMGO'}
+                        gradeLabel={leg.bgSeca || 'LSMGO'}
+                        disabled={readOnly}
+                        options={SBG_OPTIONS}
+                        onChange={(value) => updateRow('portLegs', leg.id, { bgSeca: value })}
+                      />
+                    </td>
+                    <td className={styles.nsecaCol}>
                       <input
                         value={leg.secaDistance || ''}
                         readOnly={readOnly}
                         onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
                       />
                     </td>
-                    <td>
+                    <td className={styles.nsecaCol}>
                       <input value={leg.secaDays || ''} readOnly />
                     </td>
                   </tr>
-                </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                </tbody>
+              </table>
+            </div>
+            );
+          })}
         </div>
       </CollapsiblePanel>
 
@@ -1605,7 +1597,7 @@ export default function EstimateDetailSections({
           defaultOpen={false}
           bodyClassName={styles.panelBodyFlush}
           actions={editable ? (
-            <AddCircleButton
+            <SecAddButton
               onClick={() => addRow('bunkerActivityRows', () => createEmptyBunkerActivityRow({
                 price: lookups.marketPrices?.vlsfo || '',
               }))}

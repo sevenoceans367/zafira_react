@@ -260,10 +260,6 @@ export default function AddEstimatePage() {
     ));
   }, [lookups]);
 
-  const handleCalculate = useCallback(() => {
-    setForm((current) => applyEstimateCalculations(current, lookups));
-  }, [lookups]);
-
   const handleVesselSelect = async (vessel) => {
     if (!vessel) {
       setForm((current) => applyEstimateCalculations({
@@ -448,7 +444,6 @@ export default function AddEstimatePage() {
       <EstimateDetailHeaderActions
         listHref={listHref}
         disabled={saving || loading}
-        onCalculate={handleCalculate}
         showSubmit
       />
 

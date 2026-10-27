@@ -94,11 +94,7 @@
 .resultsAside .distDaysGrid {
   margin-top: 16px;
   padding-top: 14px;
-  gap: 0 12px;
-}
-
-.resultsAside .distDaysCol + .distDaysCol {
-  padding-left: 12px;
+  column-gap: 16px;
 }
 
 .resultsAside .headerGrid {
@@ -623,7 +619,135 @@
 
 .portIdxCol {
   width: 28px;
+  min-width: 28px;
   text-align: center;
+  vertical-align: middle;
+}
+
+.portIdxNum {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #274670;
+  line-height: 1;
+}
+
+.portIdxActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.portIdxActions :global(button) {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0;
+  border-radius: 4px;
+}
+
+.portIdxActions :global(button svg) {
+  width: 11px;
+  height: 11px;
+}
+
+.portLegConnected {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.portCol {
+  width: 18%;
+  min-width: 0;
+}
+
+.dateCol {
+  width: 11%;
+  min-width: 0;
+}
+
+.wxCol,
+.nsecaCol,
+.distCol {
+  width: 8%;
+  min-width: 0;
+}
+
+.bgCol {
+  width: 11%;
+  min-width: 84px;
+  overflow: hidden;
+}
+
+.lbCol {
+  width: 9%;
+  min-width: 72px;
+}
+
+.speedTypeCol {
+  width: 11%;
+  min-width: 80px;
+}
+
+.routeCol {
+  width: 7%;
+  min-width: 52px;
+  text-align: center;
+}
+
+.portLegConnected th,
+.portLegConnected td {
+  overflow: hidden;
+}
+
+.portLegConnected .bgCol,
+.portLegConnected .lbCol,
+.portLegConnected .speedTypeCol {
+  overflow: hidden;
+}
+
+.portLegConnected .bgCol :global(div),
+.portLegConnected .lbCol :global(div),
+.portLegConnected .speedTypeCol :global(div) {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+.portLegConnected .bgCol :global(button),
+.portLegConnected .lbCol :global(button),
+.portLegConnected .speedTypeCol :global(button) {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: 22px;
+  min-height: 22px;
+  padding: 0 6px !important;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.portLegConnected .bgCol :global(button span),
+.portLegConnected .lbCol :global(button span),
+.portLegConnected .speedTypeCol :global(button span) {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portLegConnected input,
+.portLegConnected select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 @media (max-width: 1100px) {
@@ -719,15 +843,23 @@
 }
 
 .fetchBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  height: 22px;
+  min-height: 22px;
   border: 1px solid #f87171;
   background: #fca5a5;
   color: #7f1d1d;
   font-size: 10px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 3px;
+  padding: 0 8px;
+  border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
+  box-sizing: border-box;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
@@ -1493,48 +1625,28 @@
 
 .distDaysGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 16px;
+  grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1.2fr) auto;
+  column-gap: 16px;
+  row-gap: 6px;
   margin-top: 16px;
   padding-top: 14px;
-  border-top: none;
-  font-size: 11px;
+  align-items: baseline;
+  font-size: 10px;
 }
 
-.distDaysCol {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+.distDaysLabel {
+  color: #5b6472;
+  font-weight: 600;
   min-width: 0;
 }
 
-.distDaysCol + .distDaysCol {
-  padding-left: 16px;
-  border-left: 1px solid #edf0f2;
-}
-
-.distDaysColHead {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #8a93a2;
-  padding: 0 0 6px;
-  margin-bottom: 2px;
-  border-bottom: 1px solid #edf0f2;
-}
-
-.distDaysCol .rrow {
-  border-bottom: 1px solid #edf0f2;
-}
-
-.distDaysCol .rrow:last-child {
-  border-bottom: none;
-}
-
-.distDaysCol strong {
+.distDaysValue {
   color: #1f2937;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .subHeading {
@@ -1663,9 +1775,12 @@
 
 @media (max-width: 900px) {
   .resultsGrid,
-  .distGrid,
-  .distDaysGrid {
+  .distGrid {
     grid-template-columns: 1fr;
+  }
+
+  .distDaysGrid {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .stickyKpis {
@@ -2441,30 +2556,6 @@
 
 .portTd {
   overflow: hidden;
-}
-
-.syncChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 9.5px;
-  font-weight: 800;
-  border-radius: 999px;
-  padding: 4px 7px;
-  white-space: nowrap;
-  background: #fdece4;
-  color: #c8551e;
-  border: 1px solid #fbd9c9;
-  cursor: pointer;
-}
-
-.syncChip svg {
-  width: 9px;
-  height: 9px;
-}
-
-.syncChip:hover {
-  background: #fbd9c9;
 }
 
 .mutedDash {

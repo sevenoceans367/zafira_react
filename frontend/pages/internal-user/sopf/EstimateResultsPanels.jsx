@@ -79,21 +79,24 @@ export default function EstimateResultsPanels({
           <Row label="P&L" value={form.profitLoss} accent />
 
           <div className={styles.distDaysGrid}>
-            <div className={styles.distDaysCol}>
-              <div className={styles.distDaysColHead}>Distance</div>
-              <Row sub label="Total Dist" value={form.totalDistance || '0.00'} />
-              <Row sub label="Ballast Dist" value={form.ballastDist || '0.00'} />
-              <Row sub label="Laden Dist" value={form.ladenDist || '0.00'} />
-            </div>
-            <div className={styles.distDaysCol}>
-              <div className={styles.distDaysColHead}>Days</div>
-              <Row sub label="Total Days" value={form.totalDays || '0.00'} />
-              <Row sub label="Total Sea Days" value={form.totalSeaDays || '0.000'} />
-              <Row sub label="Ballast Days" value={form.ballastDays || '0.000'} />
-              <Row sub label="Laden Days" value={form.ladenDays || '0.000'} />
-              <Row sub label="Total Portstay Days" value={form.portStayDays || '0.000'} />
-              <Row sub label="Total Port Idle Days" value={form.portIdleDays || '0.000'} />
-            </div>
+            <span className={styles.distDaysLabel}>Laden Dist</span>
+            <span className={styles.distDaysValue}>{formatResult(form.ladenDist || '0.00')}</span>
+            <span className={styles.distDaysLabel}>Ballast Dist</span>
+            <span className={styles.distDaysValue}>{formatResult(form.ballastDist || '0.00')}</span>
+            <span className={styles.distDaysLabel}>Total Dist</span>
+            <span className={styles.distDaysValue}>{formatResult(form.totalDistance || '0.00')}</span>
+            <span className={styles.distDaysLabel}>Laden Days</span>
+            <span className={styles.distDaysValue}>{formatResult(form.ladenDays || '0.000')}</span>
+            <span className={styles.distDaysLabel}>Ballast Days</span>
+            <span className={styles.distDaysValue}>{formatResult(form.ballastDays || '0.000')}</span>
+            <span className={styles.distDaysLabel}>Total Sea Days</span>
+            <span className={styles.distDaysValue}>{formatResult(form.totalSeaDays || '0.000')}</span>
+            <span className={styles.distDaysLabel}>Ttl Port Idle Days</span>
+            <span className={styles.distDaysValue}>{formatResult(form.portIdleDays || '0.000')}</span>
+            <span className={styles.distDaysLabel}>Ttl Portstay Days</span>
+            <span className={styles.distDaysValue}>{formatResult(form.portStayDays || '0.000')}</span>
+            <span className={styles.distDaysLabel}>Total Days</span>
+            <span className={styles.distDaysValue}>{formatResult(form.totalDays || '0.00')}</span>
           </div>
         </div>
       </CollapsiblePanel>

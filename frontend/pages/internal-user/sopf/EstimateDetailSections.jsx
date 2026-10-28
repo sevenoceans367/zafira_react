@@ -654,7 +654,7 @@ export default function EstimateDetailSections({
     <div className={styles.estimateForm}>
       <div className={styles.estimateMain}>
        <CollapsiblePanel title="Estimate Identifier" defaultOpen>
-          <div className={`${styles.headerGrid} ${styles.headerGridIdent}`}>
+          <div className={`${styles.headerGrid} ${styles.headerGridIdent} ${styles.compactHeaderFields}`}>
             <Field id="fixtureTypeId" label="Contract Type">
               {readOnly ? (
                 <input id="fixtureTypeId" value={getFixtureTypeLabel(form.fixtureTypeId)} readOnly />
@@ -836,7 +836,7 @@ export default function EstimateDetailSections({
       </CollapsiblePanel>
 
        <CollapsiblePanel title="Fixed Vessel Particulars" defaultOpen={false}>
-          <div className={`${styles.headerGrid} ${styles.headerGridAuto}`}>
+          <div className={`${styles.headerGrid} ${styles.headerGridAuto} ${styles.compactHeaderFields}`}>
             <Field id="builtYear" label="Built Year" api className={styles.apiEditable}>
               <input {...inputProps('builtYear')} />
             </Field>
@@ -1322,6 +1322,7 @@ export default function EstimateDetailSections({
         <CollapsiblePanel
         title="Cargo"
         defaultOpen
+        bodyClassName={styles.compactFields}
       >
         <div className={styles.cargoHeaderGrid}>
           {!(!isGas && String(form.tankType || '1') === '2') ? (
@@ -1453,7 +1454,7 @@ export default function EstimateDetailSections({
       <CollapsiblePanel
         title="Commissions"
         defaultOpen
-        bodyClassName={styles.panelBodyFlush}
+        bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}
         actions={editable ? (
           <SecAddButton onClick={() => addRow('brokerRows', createEmptyBrokerRow)} />
         ) : null}
@@ -1563,7 +1564,7 @@ export default function EstimateDetailSections({
       <CollapsiblePanel
         title="OPEX"
         defaultOpen
-        bodyClassName={styles.panelBodyFlush}
+        bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}
         actions={editable ? (
           <SecAddButton onClick={() => addRow('orcRows', () => createDefaultOrcRow(lookups.ownerCosts))} />
         ) : null}
@@ -1763,7 +1764,7 @@ export default function EstimateDetailSections({
         </CollapsiblePanel>
       ) : null}
 
-      <CollapsiblePanel title="Demurrage Dispatch" defaultOpen={false} bodyClassName={styles.panelBodyFlush}>
+      <CollapsiblePanel title="Demurrage Dispatch" defaultOpen={false} bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}>
         <div className={`${styles.headerGrid} ${styles.flushPad}`} style={{ marginBottom: 8 }}>
           <Field id="timeAllowed" label="Time Allowed (hrs)">
             <input
@@ -1920,7 +1921,7 @@ export default function EstimateDetailSections({
         <CollapsiblePanel
         title="Other Income"
         defaultOpen={false}
-        bodyClassName={styles.panelBodyFlush}
+        bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}
         actions={editable ? (
           <SecAddButton onClick={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)} />
         ) : null}
@@ -1995,7 +1996,7 @@ export default function EstimateDetailSections({
         <CollapsiblePanel
         title="Bunkers"
         defaultOpen={false}
-        bodyClassName={styles.panelBodyFlush}
+        bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}
       >
         <div className={styles.tableWrap}>
           <table className={`${styles.portTable} ${styles.flushGrid}`}>
@@ -2053,7 +2054,7 @@ export default function EstimateDetailSections({
       <CollapsiblePanel
         title={showHireSection ? 'Hire / Vessel OPEX' : 'Vessel OPEX'}
         defaultOpen={false}
-        bodyClassName={styles.panelBodyFlush}
+        bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}
         actions={(showHireDetailsButton || showVcInButton) ? (
           <div className={styles.panelActionGroup}>
             {showHireDetailsButton ? (
@@ -2100,46 +2101,52 @@ export default function EstimateDetailSections({
                     <thead>
                       <tr>
                         <th className={styles.vesselOpexColHire}>
-                          Hire / Day ($)
-                          <label className={styles.vesselOpexThCheck} htmlFor="chkHire">
-                            <input
-                              type="checkbox"
-                              id="chkHire"
-                              checked={!!form.chkHire}
-                              disabled={readOnly}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                applyPatch(checked
-                                  ? { chkHire: true }
-                                  : { chkHire: false, hireRate: '', _hireRateCleared: true });
-                              }}
-                            />
-                          </label>
+                          <span className={styles.vesselOpexThLabel}>
+                            Hire / Day ($)
+                            <label className={styles.vesselOpexToggle} htmlFor="chkHire" title="Enable Hire / Day">
+                              <input
+                                type="checkbox"
+                                id="chkHire"
+                                checked={!!form.chkHire}
+                                disabled={readOnly}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  applyPatch(checked
+                                    ? { chkHire: true }
+                                    : { chkHire: false, hireRate: '', _hireRateCleared: true });
+                                }}
+                              />
+                              <span className={styles.vesselOpexToggleSlider} />
+                            </label>
+                          </span>
                         </th>
                         <th className={styles.vesselOpexColIndex}>
-                          Index Linked
-                          <label className={styles.vesselOpexThCheck} htmlFor="chkIndex">
-                            <input
-                              type="checkbox"
-                              id="chkIndex"
-                              checked={!!form.chkIndex}
-                              disabled={readOnly}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                if (!checked) {
-                                  applyPatch({
-                                    chkIndex: false,
-                                    balticIndex: '',
-                                    balticPercent: '100',
-                                    balticRate: '',
-                                    totalHireRate: '',
-                                  });
-                                  return;
-                                }
-                                applyPatch({ chkIndex: true, balticPercent: form.balticPercent || '100' });
-                              }}
-                            />
-                          </label>
+                          <span className={styles.vesselOpexThLabel}>
+                            Index Linked
+                            <label className={styles.vesselOpexToggle} htmlFor="chkIndex" title="Enable Index Linked">
+                              <input
+                                type="checkbox"
+                                id="chkIndex"
+                                checked={!!form.chkIndex}
+                                disabled={readOnly}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  if (!checked) {
+                                    applyPatch({
+                                      chkIndex: false,
+                                      balticIndex: '',
+                                      balticPercent: '100',
+                                      balticRate: '',
+                                      totalHireRate: '',
+                                    });
+                                    return;
+                                  }
+                                  applyPatch({ chkIndex: true, balticPercent: form.balticPercent || '100' });
+                                }}
+                              />
+                              <span className={styles.vesselOpexToggleSlider} />
+                            </label>
+                          </span>
                         </th>
                         <th className={styles.vesselOpexColTotal}>Total Hire / Day ($)</th>
                         <th>Add Comm (%)</th>
@@ -2168,55 +2175,59 @@ export default function EstimateDetailSections({
                         </td>
                         <td>
                           <div className={styles.vesselOpexIndexCell}>
-                            <WorksheetSelect
-                              id="balticIndex"
-                              value={form.balticIndex || ''}
-                              disabled={readOnly || !form.chkIndex}
-                              placeholder="— Select route —"
-                              options={[
-                                { value: '', label: '— Select route —' },
-                                ...(lookups.balticRoutes || []).map((row) => ({
-                                  value: row.id,
-                                  label: row.label || row.code || row.name,
-                                })),
-                              ]}
-                              onChange={(value) => {
-                                const match = (lookups.balticRoutes || []).find((row) => String(row.id) === String(value));
-                                const daily = Number(match?.dailyRate) || 0;
-                                const pct = Number(form.balticPercent) || 100;
-                                const nextBalticRate = daily > 0 ? ((pct * daily) / 100).toFixed(2) : '';
-                                applyPatch({ balticIndex: value, balticRate: nextBalticRate });
-                              }}
-                            />
-                            <span className={styles.vesselOpexIndexPct}>%</span>
-                            <input
-                              id="balticPercent"
-                              className={styles.vesselOpexIndexPctInput}
-                              value={form.balticPercent || ''}
-                              readOnly={readOnly || !form.chkIndex}
-                              inputMode="decimal"
-                              autoComplete="off"
-                              placeholder="100"
-                              title="Index percentage"
-                              onChange={(e) => {
-                                const value = sanitizeFieldDecimal('balticPercent', e.target.value);
-                                const match = (lookups.balticRoutes || []).find(
-                                  (row) => String(row.id) === String(form.balticIndex),
-                                );
-                                const daily = Number(match?.dailyRate) || 0;
-                                const pct = Number(value) || 0;
-                                const nextBalticRate = daily > 0 ? ((pct * daily) / 100).toFixed(2) : '';
-                                applyPatch({ balticPercent: value, balticRate: nextBalticRate });
-                              }}
-                            />
-                            <input
-                              id="balticRate"
-                              className={styles.vesselOpexIndexRate}
-                              value={form.balticRate || ''}
-                              readOnly
-                              placeholder="0.00"
-                              title="Calculated index rate"
-                            />
+                            <div className={styles.vesselOpexIndexSelect}>
+                              <WorksheetSelect
+                                id="balticIndex"
+                                value={form.balticIndex || ''}
+                                disabled={readOnly || !form.chkIndex}
+                                placeholder="— Select route —"
+                                options={[
+                                  { value: '', label: '— Select route —' },
+                                  ...(lookups.balticRoutes || []).map((row) => ({
+                                    value: row.id,
+                                    label: row.label || row.code || row.name,
+                                  })),
+                                ]}
+                                onChange={(value) => {
+                                  const match = (lookups.balticRoutes || []).find((row) => String(row.id) === String(value));
+                                  const daily = Number(match?.dailyRate) || 0;
+                                  const pct = Number(form.balticPercent) || 100;
+                                  const nextBalticRate = daily > 0 ? ((pct * daily) / 100).toFixed(2) : '';
+                                  applyPatch({ balticIndex: value, balticRate: nextBalticRate });
+                                }}
+                              />
+                            </div>
+                            <div className={styles.vesselOpexIndexBottom}>
+                              <span className={styles.vesselOpexIndexPct}>%</span>
+                              <input
+                                id="balticPercent"
+                                className={styles.vesselOpexIndexPctInput}
+                                value={form.balticPercent || ''}
+                                readOnly={readOnly || !form.chkIndex}
+                                inputMode="decimal"
+                                autoComplete="off"
+                                placeholder="100"
+                                title="Index percentage"
+                                onChange={(e) => {
+                                  const value = sanitizeFieldDecimal('balticPercent', e.target.value);
+                                  const match = (lookups.balticRoutes || []).find(
+                                    (row) => String(row.id) === String(form.balticIndex),
+                                  );
+                                  const daily = Number(match?.dailyRate) || 0;
+                                  const pct = Number(value) || 0;
+                                  const nextBalticRate = daily > 0 ? ((pct * daily) / 100).toFixed(2) : '';
+                                  applyPatch({ balticPercent: value, balticRate: nextBalticRate });
+                                }}
+                              />
+                              <input
+                                id="balticRate"
+                                className={styles.vesselOpexIndexRate}
+                                value={form.balticRate || ''}
+                                readOnly
+                                placeholder="0.00"
+                                title="Calculated index rate"
+                              />
+                            </div>
                           </div>
                         </td>
                         <td>

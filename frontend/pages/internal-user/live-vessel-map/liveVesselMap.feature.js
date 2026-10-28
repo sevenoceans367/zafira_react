@@ -14,4 +14,4 @@ export const LIVE_VESSEL_MAP_PATH = '/internal-user/live-vessels';
 export const LIVE_VESSEL_MAP_TITLE = 'Vessels on Water';
 export const LIVE_VESSEL_MAP_HINT =
   'Spot Ops In Ops vessels only. Select a pin for voyage details.';
-export const LIVE_VESSEL_MAP_BADGE = 'LIVE Dashboard';
+export const LIVE_VESSEL_MAP_BADGE = 'Live';

@@ -182,24 +182,22 @@ export function DryFreightModeSection({
               Multiple
             </button>
           </div>
-          {isMultiple ? (
-            <label className={styles.tankerRateField} htmlFor="tankerFreightRateDry">
-              Freight Rate / MT
-              <input
-                id="tankerFreightRateDry"
-                value={form.tankerFreightRate || form.marketRate || ''}
-                readOnly={readOnly}
-                placeholder="0.00"
-                inputMode="decimal"
-                autoComplete="off"
-                onChange={(e) => {
-                  const value = sanitizeFieldDecimal('tankerFreightRate', e.target.value);
-                  applyPatch({ tankerFreightRate: value, marketRate: value });
-                }}
-              />
-            </label>
-          ) : null}
         </div>
+        {isMultiple || isFreightRate ? (
+          <div className={styles.tankerModeRow}>
+            <span className={styles.tankerModeLabel}>Freight Rate Per Metric Ton</span>
+            <input
+              id="tankerFreightRateDry"
+              className={styles.tankerModeInput}
+              value={form.tankerFreightRate || form.marketRate || ''}
+              readOnly={readOnly}
+              placeholder="0.00"
+              inputMode="decimal"
+              autoComplete="off"
+              onChange={(e) => setDryFreightRate(e.target.value)}
+            />
+          </div>
+        ) : null}
       </div>
 
       {isMultiple ? (
@@ -275,19 +273,7 @@ export function DryFreightModeSection({
           </div>
 
           <div className={styles.headerGrid}>
-            {isFreightRate ? (
-              <Field id="marketRateDry" label="Freight ($/MT)">
-                <input
-                  id="marketRateDry"
-                  value={form.marketRate || ''}
-                  readOnly={readOnly}
-                  placeholder="0.00"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  onChange={(e) => setDryFreightRate(e.target.value)}
-                />
-              </Field>
-            ) : (
+            {isFreightRate ? null : (
               <Field id="lumpsumDry" label="LS ($)">
                 <input
                   id="lumpsumDry"

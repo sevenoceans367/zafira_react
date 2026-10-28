@@ -12,7 +12,7 @@
 .modal {
   width: min(100%, 420px);
   background: #fff;
-  border-radius: 12px;
+  border-radius: 6px;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
   overflow: hidden;
 }
@@ -52,7 +52,7 @@
   overflow: auto;
   padding: 8px 10px;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .statusOption {

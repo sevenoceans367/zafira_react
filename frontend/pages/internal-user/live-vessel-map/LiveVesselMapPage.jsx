@@ -956,17 +956,19 @@ export default function LiveVesselMapPage() {
     const ownerId = headerOwnerIdRef.current;
     setActions(
       <>
-        <CardSelect
-          options={BUSINESS_TYPE_OPTIONS}
-          value={businessType}
-          onChange={(value) => {
-            rememberBusinessType(BUSINESS_TYPE_KEYS.liveVesselMap, value);
-            setBusinessType(value);
-          }}
-          placeholder="All"
-          ariaLabel="Business type"
-          align="end"
-        />
+        <span className={styles.headerSelect}>
+          <CardSelect
+            options={BUSINESS_TYPE_OPTIONS}
+            value={businessType}
+            onChange={(value) => {
+              rememberBusinessType(BUSINESS_TYPE_KEYS.liveVesselMap, value);
+              setBusinessType(value);
+            }}
+            placeholder="All"
+            ariaLabel="Business type"
+            align="end"
+          />
+        </span>
         <button
           type="button"
           className={modalStyles.dailyPosBtn}

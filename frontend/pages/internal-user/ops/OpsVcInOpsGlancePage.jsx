@@ -364,9 +364,6 @@ export default function OpsVcInOpsGlancePage() {
                               onClick={() => setVoyageStatusRow(row)}
                             />
                           </span>
-                          {row.contractType ? (
-                            <span className={styles.contractChip}>{row.contractType}</span>
-                          ) : null}
                           <span className={styles.sub}>{row.message || '—'}</span>
                         </div>
                       </td>
@@ -396,7 +393,12 @@ export default function OpsVcInOpsGlancePage() {
                         </div>
                       </td>
                       <td>
-                        <span className={styles.cpDate}>{row.cpDate || '—'}</span>
+                        <div className={styles.opsCell}>
+                          <span className={styles.cpDate}>{row.cpDate || '—'}</span>
+                          {row.contractType ? (
+                            <span className={styles.contractChip}>{row.contractType}</span>
+                          ) : null}
+                        </div>
                       </td>
                       <td>
                         <div className={styles.opCell}>

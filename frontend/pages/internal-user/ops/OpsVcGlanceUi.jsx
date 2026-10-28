@@ -275,10 +275,10 @@ export function OpsVcGlanceHeader({
 export const SPOT_OPS_EXPORT_COLUMNS = [
   { key: 'index', label: '#' },
   { key: 'voyageNo', label: 'Voy No.' },
-  { key: 'contractType', label: 'Contract Type' },
   { key: 'vesselName', label: 'Vessel' },
   { key: 'vesselType', label: 'Vessel Type' },
   { key: 'cpDate', label: 'CP Date' },
+  { key: 'contractType', label: 'Contract Type' },
   { key: 'operator', label: 'Operator' },
   { key: 'cargo', label: 'Cargo' },
   { key: 'charteringTeam', label: 'CHRT DESK' },

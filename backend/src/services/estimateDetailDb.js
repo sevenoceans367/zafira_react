@@ -45,34 +45,98 @@ export function runWithVcInTables(fn) {
   return vcInTableStore.run({ vcIn: true }, fn);
 }
 
-let estimateMasterColumnsPromise = null;
-let estimateNoColumnReady = false;
+const ESTIMATE_MASTER_TABLES = [
+  'freight_cost_estimete_master',
+  'freight_cost_estimete_in_master',
+];
+const estimateNoReadyByTable = new Map();
+let vcInSchemaSynced = false;
 
-async function getEstimateMasterColumns(pool) {
-  if (!estimateMasterColumnsPromise) {
-    estimateMasterColumnsPromise = pool.query('SHOW COLUMNS FROM freight_cost_estimete_master')
-      .then(([rows]) => new Set(rows.map((row) => row.Field)));
+function quoteMysqlDefault(value, columnType) {
+  if (value == null) return 'NULL';
+  const raw = String(value);
+  if (/^current_timestamp(?:\(\d+\))?$/i.test(raw)) return raw;
+  if (/int|decimal|float|double|bit/i.test(columnType)) return raw;
+  return `'${raw.replace(/'/g, "''")}'`;
+}
+
+function addColumnSql(col) {
+  let sql = `ADD COLUMN \`${col.COLUMN_NAME}\` ${col.COLUMN_TYPE}`;
+  sql += col.IS_NULLABLE === 'YES' ? ' NULL' : ' NOT NULL';
+  if (col.COLUMN_DEFAULT != null) {
+    sql += ` DEFAULT ${quoteMysqlDefault(col.COLUMN_DEFAULT, col.COLUMN_TYPE)}`;
+  } else if (col.IS_NULLABLE === 'YES') {
+    sql += ' DEFAULT NULL';
   }
-  return estimateMasterColumnsPromise;
+  return sql;
+}
+
+/** Copy columns present on spot tables but missing on matching VC-in tables. */
+async function ensureVcInTableColumns(rawPool) {
+  if (vcInSchemaSynced) return true;
+  try {
+    const [tables] = await rawPool.query(
+      `SELECT TABLE_NAME
+       FROM INFORMATION_SCHEMA.TABLES
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME LIKE 'freight_cost_estimete_in_%'`,
+    );
+    for (const { TABLE_NAME: targetTable } of tables) {
+      const sourceTable = targetTable.replace('freight_cost_estimete_in_', 'freight_cost_estimete_');
+      const [missing] = await rawPool.query(
+        `SELECT s.COLUMN_NAME, s.COLUMN_TYPE, s.IS_NULLABLE, s.COLUMN_DEFAULT, s.EXTRA
+         FROM INFORMATION_SCHEMA.COLUMNS s
+         LEFT JOIN INFORMATION_SCHEMA.COLUMNS t
+           ON t.TABLE_SCHEMA = s.TABLE_SCHEMA
+          AND t.TABLE_NAME = ?
+          AND t.COLUMN_NAME = s.COLUMN_NAME
+         WHERE s.TABLE_SCHEMA = DATABASE()
+           AND s.TABLE_NAME = ?
+           AND t.COLUMN_NAME IS NULL
+         ORDER BY s.ORDINAL_POSITION`,
+        [targetTable, sourceTable],
+      );
+      const addable = missing.filter((col) => !String(col.EXTRA || '').toLowerCase().includes('auto_increment'));
+      if (!addable.length) continue;
+      // Existing 0000-00-00 datetimes fail ALTER under STRICT / NO_ZERO_DATE.
+      await rawPool.query(`SET SESSION sql_mode = ''`);
+      await rawPool.query(`ALTER TABLE \`${targetTable}\` ${addable.map(addColumnSql).join(', ')}`);
+    }
+    vcInSchemaSynced = true;
+    return true;
+  } catch (error) {
+    console.warn('[estimateDetailDb] Could not sync VC-in table columns:', error.message);
+    return false;
+  }
 }
 
 /** Multi-estimate per voyage: VOYAGE_NO + ESTIMATE_NO (Est1, Est2, …). */
-export async function ensureEstimateNoColumn(pool = getPool()) {
-  const columns = await getEstimateMasterColumns(pool);
-  if (estimateNoColumnReady) return columns.has('ESTIMATE_NO');
-  try {
-    if (!columns.has('ESTIMATE_NO')) {
-      await pool.query(
-        `ALTER TABLE freight_cost_estimete_master
-         ADD COLUMN ESTIMATE_NO INT NOT NULL DEFAULT 1`,
+export async function ensureEstimateNoColumn(_pool = getPool()) {
+  const rawPool = getRawPool();
+  if (!rawPool) return false;
+
+  const results = await Promise.all(ESTIMATE_MASTER_TABLES.map(async (tableName) => {
+    if (estimateNoReadyByTable.get(tableName)) return true;
+    try {
+      const [cols] = await rawPool.query(
+        `SHOW COLUMNS FROM \`${tableName}\` LIKE 'ESTIMATE_NO'`,
       );
-      columns.add('ESTIMATE_NO');
+      if (!cols.length) {
+        await rawPool.query(
+          `ALTER TABLE \`${tableName}\`
+           ADD COLUMN ESTIMATE_NO INT NOT NULL DEFAULT 1`,
+        );
+      }
+      estimateNoReadyByTable.set(tableName, true);
+      return true;
+    } catch (error) {
+      console.warn(`[estimateDetailDb] Could not add ESTIMATE_NO on ${tableName}:`, error.message);
+      return false;
     }
-  } catch (error) {
-    console.warn('[estimateDetailDb] Could not add ESTIMATE_NO column:', error.message);
-  }
-  estimateNoColumnReady = true;
-  return columns.has('ESTIMATE_NO');
+  }));
+
+  await ensureVcInTableColumns(rawPool);
+  return results.some(Boolean);
 }
 
 function pickRowId(...candidates) {
@@ -3553,6 +3617,7 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
 
 export async function dbUpdateEstimateDetail(id, payload, upload = {}) {
   const pool = getPool();
+  await ensureEstimateNoColumn(pool);
   const connection = await pool.getConnection();
   const fcaId = Number(id);
   const hasNewAttachment = Boolean(upload.attachment);

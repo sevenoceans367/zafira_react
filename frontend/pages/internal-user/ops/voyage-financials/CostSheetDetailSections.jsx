@@ -162,7 +162,6 @@ function Field({ id, label, children, className = '', api = false, required = fa
     ].filter(Boolean).join(' ')}>
       <label htmlFor={id}>
         {label}
-        {api ? <span className={styles.apiTag}>API</span> : null}
       </label>
       {children}
     </div>
@@ -1245,10 +1244,10 @@ export default function EstimateDetailSections({
                     <th className={styles.robCol}>LSMGO ROB</th>
                     <th className={styles.bgCol}>BG</th>
                     <th className={styles.nsecaCol}>NSECA Dist</th>
-                    <th className={styles.nsecaCol}>NSECA Days</th>
+                    <th className={styles.nsecaDaysCol}>NSECA Days</th>
                     <th className={styles.bgCol}>BG</th>
-                    <th className={styles.nsecaCol}>SECA Dist</th>
-                    <th className={styles.nsecaCol}>SECA Days</th>
+                    <th className={styles.distCol}>SECA Dist</th>
+                    <th className={styles.distCol}>SECA Days</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1356,7 +1355,7 @@ export default function EstimateDetailSections({
                     <td className={styles.nsecaCol}>
                       <input value={leg.nonSecaDistance || ''} readOnly />
                     </td>
-                    <td className={styles.nsecaCol}>
+                    <td className={styles.nsecaDaysCol}>
                       <input value={leg.nonSecaDays || ''} readOnly />
                     </td>
                     <td className={styles.bgCol}>
@@ -1368,14 +1367,14 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { bgSeca: value })}
                       />
                     </td>
-                    <td className={styles.nsecaCol}>
+                    <td className={styles.distCol}>
                       <input
                         value={leg.secaDistance || ''}
                         readOnly={readOnly}
                         onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
                       />
                     </td>
-                    <td className={styles.nsecaCol}>
+                    <td className={styles.distCol}>
                       <input value={leg.secaDays || ''} readOnly />
                     </td>
                   </tr>

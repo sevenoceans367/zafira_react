@@ -334,12 +334,14 @@
   gap: 2px;
   /* Flush to panel body edges (standard 10px body padding) */
   margin: -10px;
+  overflow-x: auto;
 }
 
 /* Round panels use 4px 20px 20px body padding — pull flush top/sides */
 .roundSection .portLegsStack {
   margin: -4px -20px 0;
   padding: 0 0 2px;
+  overflow-x: auto;
 }
 
 .portLegCard {
@@ -347,7 +349,9 @@
   border-radius: 0;
   background: transparent;
   padding: 0 4px;
-  overflow-x: auto;
+  overflow: visible;
+  min-width: 0;
+  width: 100%;
 }
 
 .portLegCard + .portLegCard {
@@ -355,12 +359,18 @@
   padding-top: 2px;
 }
 
-/* Single connected Passage & Ports grid — stretch full LH/RHS of panel */
+/* Fill the panel; extra space goes to From/To Port. Scroll only if columns overflow. */
 .portLegConnected {
-  width: 100%;
-  min-width: 0;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+}
+
+.portLegConnected th,
+.portLegConnected td {
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .portLegPorts,
@@ -376,24 +386,28 @@
 .roundSection .portLegCard .sheetSelect button {
   height: 22px;
   min-height: 22px;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
   padding: 0 7px;
   border-radius: 6px;
   font-size: 10px;
   box-sizing: border-box;
 }
 
-/* Sync — fixed compact control (do not stretch with column / viewport) */
+/* Sync — same width as Speed Type / NSECA Days */
 .roundSection .portLegCard .fetchBtn,
-.portLegConnected .fetchBtn {
+.portLegConnected .fetchBtn,
+.portLegConnected .routeCol .fetchBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: auto;
+  width: 100%;
   min-width: 0;
-  max-width: none;
+  max-width: 100%;
   height: 22px;
   min-height: 22px;
-  padding: 0 8px;
+  padding: 0 6px;
   border-radius: 6px;
   font-size: 10px;
   font-weight: 700;
@@ -454,23 +468,23 @@
 
 /* Flexible LH port/date + RHS dist columns fill remaining width */
 .portCol {
-  width: 12%;
-  min-width: 0;
+  width: auto;
+  min-width: 140px;
 }
 
 .dateCol {
-  width: 14%;
-  min-width: 118px;
+  width: 102px;
+  min-width: 102px;
+  max-width: 102px;
 }
 
 .distCol {
-  width: 9%;
-  min-width: 64px;
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
 }
 
-.portLegConnected .portCol,
-.portLegConnected .dateCol,
-.portLegConnected .distCol {
+.portLegConnected .portCol {
   max-width: none;
 }
 
@@ -518,53 +532,46 @@ th.robCol {
   text-align: center;
 }
 
-/* Compact numeric / dropdown cols — match ROB field footprint */
 .wxCol,
-.bgCol,
-.lbCol,
-.speedTypeCol,
-.routeCol,
-.nsecaCol {
-  width: 64px;
-  min-width: 64px;
-  max-width: 78px;
-  white-space: nowrap;
-}
-
-.wxCol {
-  width: 44px !important;
-  min-width: 44px !important;
-  max-width: 44px !important;
+.bgCol {
+  width: 70px !important;
+  min-width: 70px !important;
+  max-width: 70px !important;
 }
 
 .bgCol {
-  width: 96px;
-  min-width: 92px;
-  max-width: 110px;
   overflow: hidden;
   position: relative;
   z-index: 2;
 }
 
+.lbCol,
+.nsecaCol {
+  width: 60px !important;
+  min-width: 60px !important;
+  max-width: 60px !important;
+  white-space: nowrap;
+}
+
 .lbCol {
-  width: 36px !important;
-  min-width: 36px !important;
-  max-width: 36px !important;
   text-align: center;
 }
 
-.speedTypeCol {
-  width: 52px !important;
-  min-width: 52px !important;
-  max-width: 52px !important;
+.speedTypeCol,
+.nsecaDaysCol {
+  width: 76px !important;
+  min-width: 76px !important;
+  max-width: 76px !important;
   text-align: center;
-  white-space: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .routeCol {
-  width: 46px !important;
-  min-width: 46px !important;
-  max-width: 46px !important;
+  width: 76px !important;
+  min-width: 76px !important;
+  max-width: 76px !important;
   text-align: center;
 }
 
@@ -575,18 +582,15 @@ th.robCol {
   text-align: center;
 }
 
-.portLegConnected th.speedTypeCol {
-  white-space: normal;
+.portLegConnected th.speedTypeCol,
+.portLegConnected th.nsecaDaysCol {
+  white-space: nowrap;
   line-height: 1.1;
-}
-
-.portLegConnected .routeCol .fetchBtn {
-  padding: 0 4px;
-  font-size: 9px;
 }
 
 .wxCol input,
 .nsecaCol input,
+.nsecaDaysCol input,
 .portLegConnected td.lbCol input,
 .portLegConnected td.speedTypeCol input {
   min-width: 0;
@@ -603,13 +607,17 @@ th.robCol {
   max-width: 100% !important;
 }
 
+.portLegConnected .bgCol .gradeSelectWrap {
+  max-width: 100% !important;
+}
+
 .portLegConnected .bgCol .gradeSelectWrap .sheetSelect,
 .portLegConnected .bgCol .gradeSelectWrap .sheetSelect button,
 .portLegConnected .lbCol .sheetSelect button,
 .portLegConnected .speedTypeCol .sheetSelect button {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
 .portLegConnected .lbCol .sheetSelect button,

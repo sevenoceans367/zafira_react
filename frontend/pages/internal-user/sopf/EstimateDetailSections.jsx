@@ -1065,10 +1065,10 @@ export default function EstimateDetailSections({
                     <th className={voyStyles.dateCol}>Departure</th>
                     <th className={voyStyles.bgCol}>BG</th>
                     <th className={voyStyles.nsecaCol}>NSECA Dist</th>
-                    <th className={voyStyles.nsecaCol}>NSECA Days</th>
+                    <th className={voyStyles.nsecaDaysCol}>NSECA Days</th>
                     <th className={voyStyles.bgCol}>BG</th>
-                    <th className={voyStyles.nsecaCol}>SECA Dist</th>
-                    <th className={voyStyles.nsecaCol}>SECA Days</th>
+                    <th className={voyStyles.distCol}>SECA Dist</th>
+                    <th className={voyStyles.distCol}>SECA Days</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1144,7 +1144,7 @@ export default function EstimateDetailSections({
                     <td className={voyStyles.nsecaCol}>
                       <input value={leg.nonSecaDistance || ''} readOnly />
                     </td>
-                    <td className={voyStyles.nsecaCol}>
+                    <td className={voyStyles.nsecaDaysCol}>
                       <input value={leg.nonSecaDays || ''} readOnly />
                     </td>
                     <td className={voyStyles.bgCol}>
@@ -1156,14 +1156,14 @@ export default function EstimateDetailSections({
                         onChange={(value) => updateRow('portLegs', leg.id, { bgSeca: value })}
                       />
                     </td>
-                    <td className={voyStyles.nsecaCol}>
+                    <td className={voyStyles.distCol}>
                       <input
                         value={leg.secaDistance || ''}
                         readOnly={readOnly}
                         onChange={(e) => updateRow('portLegs', leg.id, { secaDistance: e.target.value })}
                       />
                     </td>
-                    <td className={voyStyles.nsecaCol}>
+                    <td className={voyStyles.distCol}>
                       <input value={leg.secaDays || ''} readOnly />
                     </td>
                   </tr>

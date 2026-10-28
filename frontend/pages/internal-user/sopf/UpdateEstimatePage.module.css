@@ -706,55 +706,58 @@
 }
 
 .dateCol {
-  width: 14% !important;
-  min-width: 118px !important;
+  width: 102px !important;
+  min-width: 102px !important;
+  max-width: 102px !important;
 }
 
-.wxCol {
-  width: 44px !important;
-  min-width: 44px !important;
-  max-width: 44px !important;
-  overflow: hidden;
+.wxCol,
+.bgCol,
+.nsecaCol,
+.lbCol {
   box-sizing: border-box;
 }
 
-.nsecaCol {
-  width: 8%;
-  min-width: 0;
+.wxCol,
+.bgCol {
+  width: 70px !important;
+  min-width: 70px !important;
+  max-width: 70px !important;
+  overflow: hidden;
+}
+
+.nsecaCol,
+.lbCol {
+  width: 60px !important;
+  min-width: 60px !important;
+  max-width: 60px !important;
 }
 
 .distCol {
-  width: 10%;
-  min-width: 64px;
-}
-
-.bgCol {
-  width: 11%;
-  min-width: 84px;
-  overflow: hidden;
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
 }
 
 .lbCol {
-  width: 36px !important;
-  min-width: 36px !important;
-  max-width: 36px !important;
   overflow: hidden;
-  box-sizing: border-box;
   text-align: center;
 }
 
-.speedTypeCol {
-  width: 52px !important;
-  min-width: 52px !important;
-  max-width: 52px !important;
+.speedTypeCol,
+.nsecaDaysCol {
+  width: 76px !important;
+  min-width: 76px !important;
+  max-width: 76px !important;
   overflow: hidden;
   box-sizing: border-box;
   text-align: center;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .lbCol :global(button),
-.speedTypeCol :global(button) {
+.speedTypeCol :global(button),
+.nsecaDaysCol :global(button) {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
@@ -769,9 +772,9 @@
 }
 
 .routeCol {
-  width: 46px !important;
-  min-width: 46px !important;
-  max-width: 46px !important;
+  width: 76px !important;
+  min-width: 76px !important;
+  max-width: 76px !important;
   text-align: center;
   overflow: hidden;
   box-sizing: border-box;

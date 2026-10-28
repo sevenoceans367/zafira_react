@@ -372,9 +372,9 @@
   font-weight: 600;
   font-size: var(--font-size-body, 12px);
   line-height: 1;
-  color: #275e9b;
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  color: #fff;
+  background: #274670;
+  border: 1px solid #274670;
   border-radius: 6px;
   padding: 0 14px;
   cursor: pointer;
@@ -383,15 +383,14 @@
 
 .dailyPosBtn:hover,
 .dailyPosBtn:focus-visible {
-  background: #f8fafc;
-  color: #1f4f86;
-  border-color: #c9d4e3;
+  background: #1d3759;
+  color: #fff;
+  border-color: #1d3759;
   outline: none;
 }
 
 .dailyPosBtn:focus-visible {
-  border-color: #275e9b;
-  box-shadow: 0 0 0 3px rgba(39, 94, 155, 0.15);
+  box-shadow: 0 0 0 3px rgba(39, 70, 112, 0.22);
 }
 
 .dailyPosBtn svg {

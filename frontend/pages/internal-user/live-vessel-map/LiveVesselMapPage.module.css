@@ -159,17 +159,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  width: 36px;
   height: 36px;
-  padding: 0 14px;
+  padding: 0;
   border-radius: 6px;
   box-sizing: border-box;
   flex: none;
   cursor: pointer;
-  font-family: var(--font-family-body);
-  font-size: var(--font-size-body, 12px);
-  font-weight: 600;
-  line-height: 1;
   color: #275e9b;
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -202,10 +198,6 @@
   width: 14px;
   height: 14px;
   display: block;
-}
-
-.refreshLabel {
-  white-space: nowrap;
 }
 
 .legLinePreview,

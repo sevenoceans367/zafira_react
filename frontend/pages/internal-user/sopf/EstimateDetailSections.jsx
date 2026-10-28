@@ -198,6 +198,7 @@ export default function EstimateDetailSections({
   const [distanceLegId, setDistanceLegId] = useState(null);
   const [itineraryOpen, setItineraryOpen] = useState(false);
   const [hireDetailsOpen, setHireDetailsOpen] = useState(false);
+  const [otherIncomeOpen, setOtherIncomeOpen] = useState(false);
 
   // PHP updatecost_sheet_tci Passage & Ports → sof.php?comid=&page=
   const sofComId = searchParams.get('comid')
@@ -500,6 +501,11 @@ export default function EstimateDetailSections({
       return;
     }
     updateField(collection, [...(form[collection] || []), factory()]);
+  };
+
+  const addOtherIncomeRow = async () => {
+    setOtherIncomeOpen(true);
+    await addRow('otherIncomeRows', createEmptyOtherIncomeRow);
   };
 
   const removeRow = (collection, id) => {
@@ -1920,10 +1926,11 @@ export default function EstimateDetailSections({
       
         <CollapsiblePanel
         title="Other Income"
-        defaultOpen={false}
+        open={otherIncomeOpen}
+        onOpenChange={setOtherIncomeOpen}
         bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}
         actions={editable ? (
-          <SecAddButton onClick={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)} />
+          <SecAddButton onClick={addOtherIncomeRow} />
         ) : null}
       >
         <div className={styles.tableWrap}>
@@ -1967,7 +1974,7 @@ export default function EstimateDetailSections({
                   {editable ? (
                     <td className={styles.stickyAct}>
                       <KhakiRowActions
-                        onAdd={() => addRow('otherIncomeRows', createEmptyOtherIncomeRow)}
+                        onAdd={addOtherIncomeRow}
                         onRemove={() => removeRow('otherIncomeRows', row.id)}
                       />
                     </td>

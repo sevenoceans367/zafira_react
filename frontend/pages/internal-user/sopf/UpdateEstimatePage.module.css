@@ -1636,7 +1636,7 @@
   gap: 8px;
   font-size: 11px;
   font-weight: 700;
-  color: #f4652c;
+  color: #5e7ef3;
   cursor: pointer;
   padding: 8px 0 2px;
   user-select: none;
@@ -1679,7 +1679,7 @@
 }
 
 .complToggleSwitch input:checked + .complToggleSlider {
-  background: #f4652c;
+  background: #5e7ef3;
 }
 
 .complToggleSwitch input:checked + .complToggleSlider::before {
@@ -1687,7 +1687,7 @@
 }
 
 .complToggleSwitch input:focus-visible + .complToggleSlider {
-  box-shadow: 0 0 0 3px rgba(244, 101, 44, 0.28);
+  box-shadow: 0 0 0 3px rgba(94, 126, 243, 0.28);
 }
 
 .distGrid {
@@ -2166,7 +2166,7 @@
 }
 
 .vesselOpexToggle input:checked + .vesselOpexToggleSlider {
-  background: #274670;
+  background: #5e7ef3;
 }
 
 .vesselOpexToggle input:checked + .vesselOpexToggleSlider::before {

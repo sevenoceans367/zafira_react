@@ -987,7 +987,6 @@ export default function LiveVesselMapPage() {
           onClick={() => loadFleetRef.current()}
         >
           <span className={styles.refreshIcon} aria-hidden="true">{REFRESH_ICON}</span>
-          <span className={styles.refreshLabel}>Refresh</span>
         </button>
       </>,
       ownerId,

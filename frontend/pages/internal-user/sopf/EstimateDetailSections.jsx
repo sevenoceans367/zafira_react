@@ -148,7 +148,28 @@ function SecAddButton({ onClick, title = 'Add row' }) {
   );
 }
 
-function Field({ id, label, children, className = '', api = false, required = false }) {
+function PeriodLinkIcon() {
+  return (
+    <svg className={styles.periodLinkIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M10 13a5 5 0 0 0 7.54.54l1.07-1.07a5 5 0 0 0-7.07-7.07L10.47 6.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 11a5 5 0 0 0-7.54-.54L5.39 11.53a5 5 0 0 0 7.07 7.07L13.53 17.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function Field({ id, label, children, className = '', api = false, required = false, icon = null }) {
   return (
     <div className={[
       styles.field,
@@ -157,6 +178,7 @@ function Field({ id, label, children, className = '', api = false, required = fa
       className,
     ].filter(Boolean).join(' ')}>
       <label htmlFor={id}>
+        {icon}
         {label}
       </label>
       {children}
@@ -199,6 +221,7 @@ export default function EstimateDetailSections({
   const [itineraryOpen, setItineraryOpen] = useState(false);
   const [hireDetailsOpen, setHireDetailsOpen] = useState(false);
   const [otherIncomeOpen, setOtherIncomeOpen] = useState(false);
+  const [opexOpen, setOpexOpen] = useState(true);
 
   // PHP updatecost_sheet_tci Passage & Ports → sof.php?comid=&page=
   const sofComId = searchParams.get('comid')
@@ -508,6 +531,11 @@ export default function EstimateDetailSections({
     await addRow('otherIncomeRows', createEmptyOtherIncomeRow);
   };
 
+  const addOpexRow = async () => {
+    setOpexOpen(true);
+    await addRow('orcRows', () => createDefaultOrcRow(lookups.ownerCosts));
+  };
+
   const removeRow = (collection, id) => {
     const rows = (form[collection] || []).filter((row) => row.id !== id);
     if (!rows.length) return;
@@ -783,7 +811,7 @@ export default function EstimateDetailSections({
                 />
               )}
             </Field>
-            <Field id="periodId" label="Link Period Contract">
+            <Field id="periodId" label="Period Ctt" icon={<PeriodLinkIcon />}>
               <WorksheetSelect
                 id="periodId"
                 value={form.periodId || ''}
@@ -901,6 +929,7 @@ export default function EstimateDetailSections({
         defaultOpen
         round
         className={voyStyles.roundSection}
+        bodyClassName={styles.panelBodyFlush}
         actions={(
           <div className={voyStyles.panelActionGroup}>
             {sofHref ? (
@@ -1569,10 +1598,11 @@ export default function EstimateDetailSections({
 
       <CollapsiblePanel
         title="OPEX"
-        defaultOpen
+        open={opexOpen}
+        onOpenChange={setOpexOpen}
         bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}
         actions={editable ? (
-          <SecAddButton onClick={() => addRow('orcRows', () => createDefaultOrcRow(lookups.ownerCosts))} />
+          <SecAddButton onClick={addOpexRow} />
         ) : null}
       >
         <div className={styles.tableWrap}>
@@ -1623,7 +1653,7 @@ export default function EstimateDetailSections({
                   {editable ? (
                     <td className={styles.stickyAct}>
                       <KhakiRowActions
-                        onAdd={() => addRow('orcRows', () => createDefaultOrcRow(lookups.ownerCosts))}
+                        onAdd={addOpexRow}
                         onRemove={() => removeRow('orcRows', row.id)}
                       />
                     </td>
@@ -1771,7 +1801,7 @@ export default function EstimateDetailSections({
       ) : null}
 
       <CollapsiblePanel title="Demurrage Dispatch" defaultOpen={false} bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}>
-        <div className={`${styles.headerGrid} ${styles.flushPad}`} style={{ marginBottom: 8 }}>
+        <div className={`${styles.headerGrid} ${styles.flushPad} ${styles.demurrageMetaGrid}`} style={{ marginBottom: 8 }}>
           <Field id="timeAllowed" label="Time Allowed (hrs)">
             <input
               id="timeAllowed"
@@ -2043,7 +2073,7 @@ export default function EstimateDetailSections({
             </tbody>
             <tfoot>
               <tr>
-                <td className={styles.rowLabel}>Total Bunker Consumed — SECA / NON-SECA</td>
+                <td className={styles.rowLabel}>Total Bunker Consumed -SECA / NON-SECA</td>
                 <td>
                   <input value={Number(bunkerQtyTotal).toFixed(2)} readOnly placeholder="0.00" />
                 </td>
@@ -2102,7 +2132,7 @@ export default function EstimateDetailSections({
         <div className={styles.vesselOpexWrap}>
           {showHireSection ? (
             <>
-              <div className={styles.tableWrap}>
+              <div className={`${styles.tableWrap} ${styles.vesselOpexHireWrap}`}>
                 {showIndexLinked ? (
                   <table className={`${styles.portTable} ${styles.flushGrid} ${styles.vesselOpexHireTable}`}>
                     <thead>
@@ -2319,7 +2349,7 @@ export default function EstimateDetailSections({
                   </table>
                 )}
               </div>
-              <div className={styles.tableWrap}>
+              <div className={`${styles.tableWrap} ${styles.vesselOpexTotalsWrap}`}>
                 <table className={`${styles.portTable} ${styles.flushGrid} ${styles.vesselOpexTotalsTable}`}>
                   <thead>
                     <tr>

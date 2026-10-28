@@ -411,6 +411,10 @@
   gap: 12px;
 }
 
+.demurrageMetaGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .headerGridIdent {
   grid-template-columns: repeat(8, minmax(0, 1fr));
 }
@@ -430,12 +434,44 @@
 
 .compactHeaderFields .field :global(button),
 .compactFields .field :global(button),
-.compactFields table :global(button),
 .compactFields .cargoMultiSelectWrap :global(button) {
   height: 26px !important;
   min-height: 26px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
   padding: 0 6px !important;
   box-sizing: border-box;
+}
+
+.compactFields table :global(button) {
+  height: 26px !important;
+  min-height: 26px !important;
+  box-sizing: border-box;
+}
+
+.compactFields table :global(.sheetSelect) :global(button) {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  padding: 0 6px !important;
+}
+
+.headerGridIdent .field {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.headerGridIdent .field label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.periodLinkIcon {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  color: #8a93a2;
 }
 
 @media (max-width: 1400px) {
@@ -1757,6 +1793,11 @@
   margin-bottom: 14px;
 }
 
+.tankerModeControlsInline {
+  grid-template-columns: max-content max-content;
+  column-gap: 16px;
+}
+
 .tankerModeRow {
   display: flex;
   flex-direction: column;
@@ -1850,13 +1891,22 @@
 .tankerModeInput {
   width: 160px;
   max-width: 100%;
+  height: 38px;
+  min-height: 38px;
   border: 1px solid #dfe2e7;
   border-radius: 8px;
   background: #f7f8fa;
   color: #1b2430;
   font-size: 12.5px;
   font-weight: 500;
-  padding: 4px 8px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+}
+
+.compactFields .tankerModeControls input.tankerModeInput {
+  height: 38px;
+  min-height: 38px;
+  padding: 6px 10px;
   box-sizing: border-box;
 }
 
@@ -2111,9 +2161,18 @@
   gap: 8px;
 }
 
+.vesselOpexTotalsWrap {
+  margin-top: -8px;
+}
+
 .vesselOpexHireTable {
   table-layout: fixed;
   width: 100%;
+  margin-bottom: 0;
+}
+
+.vesselOpexTotalsTable thead th {
+  border-top: none;
 }
 
 .vesselOpexHireTable .vesselOpexColHire,
@@ -2466,10 +2525,23 @@
   grid-template-columns: 2fr 1fr;
   gap: 12px;
   margin-bottom: 24px;
+  align-items: start;
 }
 
 .cargoHeaderGrid .cargoMultiSelectField {
   grid-column: auto;
+}
+
+.compactFields .cargoHeaderGrid .cargoMultiSelectWrap :global(button) {
+  height: auto !important;
+  min-height: 38px !important;
+  padding: 6px 10px !important;
+}
+
+.compactFields .cargoHeaderGrid .field input {
+  height: 38px;
+  min-height: 38px;
+  padding: 6px 10px;
 }
 
 @media (max-width: 900px) {
@@ -2569,12 +2641,14 @@
   gap: 6px;
 }
 
-.khakiRowActions :global(button) {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0;
+.khakiRowActions :global(button),
+.compactFields .khakiRowActions :global(button) {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  max-width: 24px !important;
+  padding: 0 !important;
   border-radius: 7px;
 }
 
@@ -2607,11 +2681,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  min-width: 26px;
-  min-height: 26px;
-  padding: 0;
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: 26px !important;
+  max-width: 26px !important;
+  padding: 0 !important;
   border-radius: 8px;
   background: #eaf1fe;
   color: #2e6fe8;

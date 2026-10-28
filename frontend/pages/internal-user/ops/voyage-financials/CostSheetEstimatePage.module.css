@@ -332,23 +332,25 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  /* Flush to panel body edges (standard 10px body padding) */
-  margin: -10px;
+  margin: 0;
   overflow-x: auto;
 }
 
-/* Round panels use 4px 20px 20px body padding — pull flush top/sides */
 .roundSection .portLegsStack {
-  margin: -4px -20px 0;
-  padding: 0 0 2px;
+  margin: 0;
+  padding: 0;
   overflow-x: auto;
+}
+
+.passageFlush {
+  padding: 0 !important;
 }
 
 .portLegCard {
   border: none;
   border-radius: 0;
   background: transparent;
-  padding: 0 4px;
+  padding: 0;
   overflow: visible;
   min-width: 0;
   width: 100%;

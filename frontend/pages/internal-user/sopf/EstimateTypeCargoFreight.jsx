@@ -159,7 +159,7 @@ export function DryFreightModeSection({
 
   return (
     <>
-      <div className={styles.tankerModeControls}>
+      <div className={`${styles.tankerModeControls} ${styles.tankerModeControlsInline}`}>
         <div className={styles.tankerModeRow}>
           <span className={styles.tankerModeLabel}>1. Cargo Type</span>
           <div className={styles.segmented} role="group" aria-label="Dry cargo type">
@@ -185,7 +185,7 @@ export function DryFreightModeSection({
         </div>
         {isMultiple || isFreightRate ? (
           <div className={styles.tankerModeRow}>
-            <span className={styles.tankerModeLabel}>Freight Rate Per Metric Ton</span>
+            <span className={styles.tankerModeLabel}>Freight ($/MT)</span>
             <input
               id="tankerFreightRateDry"
               className={styles.tankerModeInput}

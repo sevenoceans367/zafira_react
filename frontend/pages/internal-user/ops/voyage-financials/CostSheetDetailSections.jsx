@@ -1052,6 +1052,7 @@ export default function EstimateDetailSections({
         defaultOpen
         round
         className={styles.roundSection}
+        bodyClassName={styles.passageFlush}
         actions={(
           <div className={styles.panelActionGroup}>
             {sofHref ? (

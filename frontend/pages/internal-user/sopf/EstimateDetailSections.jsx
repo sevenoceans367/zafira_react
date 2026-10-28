@@ -208,6 +208,9 @@ export default function EstimateDetailSections({
   const fixtureType = String(form.fixtureTypeId ?? '');
   // PHP makeFieldManD: hire table for TCIN/VCIN (1|2); Vessel Daily Ops for VCOUT (3)
   const showHireSection = fixtureType === '1' || fixtureType === '2';
+  const hireOpexTitle = fixtureType === '2'
+    ? 'Freight Expense'
+    : (showHireSection ? 'Hire / Vessel OPEX' : 'Vessel OPEX');
   const showVesselDailyOps = fixtureType === '3';
   // PHP .tcin — Hire Details button only for TCIN-VCOUT
   const showHireDetailsButton = fixtureType === '1';
@@ -1605,7 +1608,7 @@ export default function EstimateDetailSections({
           <SecAddButton onClick={addOpexRow} />
         ) : null}
       >
-        <div className={styles.tableWrap}>
+        <div className={`${styles.tableWrap} ${styles.flushTableWrap}`}>
           <table className={`${styles.portTable} ${styles.flushGrid}`}>
             <thead>
               <tr>
@@ -1692,7 +1695,7 @@ export default function EstimateDetailSections({
             />
           ) : null}
         >
-          <div className={styles.tableWrap}>
+          <div className={`${styles.tableWrap} ${styles.flushTableWrap}`}>
             <table className={`${styles.portTable} ${styles.flushGrid}`}>
               <thead>
                 <tr>
@@ -1823,7 +1826,7 @@ export default function EstimateDetailSections({
             />
           </Field>
         </div>
-        <div className={styles.tableWrap}>
+        <div className={`${styles.tableWrap} ${styles.flushTableWrap}`}>
           <table className={`${styles.portTable} ${styles.flushGrid}`}>
             <thead>
               <tr>
@@ -1963,7 +1966,7 @@ export default function EstimateDetailSections({
           <SecAddButton onClick={addOtherIncomeRow} />
         ) : null}
       >
-        <div className={styles.tableWrap}>
+        <div className={`${styles.tableWrap} ${styles.flushTableWrap}`}>
           <table className={`${styles.portTable} ${styles.flushGrid}`}>
             <thead>
               <tr>
@@ -2035,7 +2038,7 @@ export default function EstimateDetailSections({
         defaultOpen={false}
         bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}
       >
-        <div className={styles.tableWrap}>
+        <div className={`${styles.tableWrap} ${styles.flushTableWrap}`}>
           <table className={`${styles.portTable} ${styles.flushGrid}`}>
             <thead>
               <tr>
@@ -2089,7 +2092,7 @@ export default function EstimateDetailSections({
       </CollapsiblePanel>
 
       <CollapsiblePanel
-        title={showHireSection ? 'Hire / Vessel OPEX' : 'Vessel OPEX'}
+        title={hireOpexTitle}
         defaultOpen={false}
         bodyClassName={`${styles.panelBodyFlush} ${styles.compactFields}`}
         actions={(showHireDetailsButton || showVcInButton) ? (

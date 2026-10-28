@@ -188,6 +188,9 @@ export default function EstimateDetailSections({
   const fixtureType = String(form.fixtureTypeId ?? '');
   // PHP makeFieldManD: hire table for TCIN/VCIN (1|2); Vessel Daily Ops for VCOUT (3)
   const showHireSection = fixtureType === '1' || fixtureType === '2';
+  const hireOpexTitle = fixtureType === '2'
+    ? 'Freight Expense'
+    : (showHireSection ? 'Hire / Vessel OPEX' : 'Vessel OPEX');
   const showVesselDailyOps = fixtureType === '3';
   // PHP .tcin — Hire Details button only for TCIN-VCOUT
   const showHireDetailsButton = fixtureType === '1';
@@ -1801,8 +1804,9 @@ export default function EstimateDetailSections({
         defaultOpen
         round
         className={styles.roundSection}
+        bodyClassName={styles.sectionFlush}
       >
-        <div className={styles.tableWrap}>
+        <div className={`${styles.tableWrap} ${styles.flushTableWrap}`}>
           <table className={styles.portTable}>
             <thead>
               <tr>
@@ -1873,8 +1877,9 @@ export default function EstimateDetailSections({
           defaultOpen={false}
           round
           className={styles.roundSection}
+          bodyClassName={styles.sectionFlush}
         >
-          <div className={styles.tableWrap}>
+          <div className={`${styles.tableWrap} ${styles.flushTableWrap}`}>
             <table className={styles.portTable}>
               <thead>
                 <tr>
@@ -2003,8 +2008,8 @@ export default function EstimateDetailSections({
         </CollapsiblePanel>
       ) : null}
 
-      <CollapsiblePanel title="Demurrage Dispatch" defaultOpen={false} round className={styles.roundSection}>
-        <div className={styles.headerGrid} style={{ marginBottom: 8 }}>
+      <CollapsiblePanel title="Demurrage Dispatch" defaultOpen={false} round className={styles.roundSection} bodyClassName={styles.sectionFlush}>
+        <div className={`${styles.headerGrid} ${styles.flushPad}`} style={{ marginBottom: 8 }}>
           <Field id="timeAllowed" label="Time Allowed (hrs)">
             <input
               id="timeAllowed"
@@ -2026,7 +2031,7 @@ export default function EstimateDetailSections({
             />
           </Field>
         </div>
-        <div className={styles.tableWrap}>
+        <div className={`${styles.tableWrap} ${styles.flushTableWrap}`}>
           <table className={styles.portTable}>
             <thead>
               <tr>
@@ -2185,8 +2190,9 @@ export default function EstimateDetailSections({
         defaultOpen={false}
         round
         className={styles.roundSection}
+        bodyClassName={styles.sectionFlush}
       >
-        <div className={styles.tableWrap}>
+        <div className={`${styles.tableWrap} ${styles.flushTableWrap}`}>
           <table className={styles.portTable}>
             <thead>
               <tr>
@@ -2271,6 +2277,7 @@ export default function EstimateDetailSections({
         defaultOpen={false}
         round
         className={styles.roundSection}
+        bodyClassName={styles.sectionFlush}
         actions={(
           <button
             type="button"
@@ -2283,7 +2290,7 @@ export default function EstimateDetailSections({
         )}
       >
         <div className={styles.bunkerSubLabel}>Estimated &amp; Consumed</div>
-        <div className={`${styles.tableWrap} ${styles.bunkerTableCard}`}>
+        <div className={`${styles.tableWrap} ${styles.bunkerTableCard} ${styles.flushTableWrap}`}>
           <table className={`${styles.portTable} ${styles.bunkerZebra}`}>
             <thead>
               <tr>
@@ -2433,7 +2440,7 @@ export default function EstimateDetailSections({
         </div>
 
         <div className={styles.bunkerSubLabelStemmed}>Stemmed</div>
-        <div className={`${styles.tableWrap} ${styles.bunkerTableCard}`}>
+        <div className={`${styles.tableWrap} ${styles.bunkerTableCard} ${styles.flushTableWrap}`}>
           <table className={`${styles.portTable} ${styles.bunkerZebra}`}>
             <thead>
               <tr>
@@ -2556,7 +2563,7 @@ export default function EstimateDetailSections({
       </CollapsiblePanel>
 
       <CollapsiblePanel
-        title={showHireSection ? 'Hire / Vessel OPEX' : 'Vessel OPEX'}
+        title={hireOpexTitle}
         defaultOpen={false}
         round
         className={`${styles.roundSection} ${styles.opexFields}`}

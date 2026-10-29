@@ -480,12 +480,18 @@ function mapProfitSharingRow(row, index) {
 function mapBrokerRow(row, index) {
   return {
     id: pickRowId(row.RANDOMID) || `brk-${row.FCAID}-${index}`,
+    commType: row.COMM_TYPE ?? '',
     percent: row.BROKAGE_PERCENT ?? '',
     amount: row.BROKAGE_AMT ?? '',
     vendorId: row.VENDORID != null ? String(row.VENDORID) : '',
     demmPercent: row.DEMM_BROKAGE_PERCENT != null && row.DEMM_BROKAGE_PERCENT !== ''
       ? String(row.DEMM_BROKAGE_PERCENT)
       : '',
+    demmAmt: row.DEMM_BROKAGE_PERCENT != null && row.DEMM_BROKAGE_PERCENT !== ''
+      ? String(row.DEMM_BROKAGE_PERCENT)
+      : '',
+    cargoLineId: row.CARGO_LINE_ID != null ? String(row.CARGO_LINE_ID) : '',
+    cargoStatus: row.CARGO_STATUS != null && row.CARGO_STATUS !== '' ? Number(row.CARGO_STATUS) : '',
   };
 }
 
@@ -1512,12 +1518,25 @@ export async function dbGetEstimateDetail(id) {
     [id],
   );
 
-  const [brokerageRows] = await pool.query(
-    `SELECT BROKAGE_PERCENT, BROKAGE_AMT, DEMM_BROKAGE_PERCENT, VENDORID, FCAID
-     FROM freight_cost_estimete_slave4
-     WHERE FCAID = ?`,
-    [id],
-  );
+  let brokerageRows = [];
+  try {
+    const [rows] = await pool.query(
+      `SELECT BROKAGE_PERCENT, BROKAGE_AMT, DEMM_BROKAGE_PERCENT, VENDORID, FCAID,
+              COMM_TYPE, CARGO_LINE_ID, CARGO_STATUS
+       FROM freight_cost_estimete_slave4
+       WHERE FCAID = ?`,
+      [id],
+    );
+    brokerageRows = rows;
+  } catch {
+    const [rows] = await pool.query(
+      `SELECT BROKAGE_PERCENT, BROKAGE_AMT, DEMM_BROKAGE_PERCENT, VENDORID, FCAID
+       FROM freight_cost_estimete_slave4
+       WHERE FCAID = ?`,
+      [id],
+    );
+    brokerageRows = rows;
+  }
 
   const [orcRows] = await pool.query(
     `SELECT s.*, o.NAME AS COST_NAME
@@ -3072,8 +3091,28 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
     ...(payload.deadfreightCargoRows || []).map((row) => ({ ...row, status: 3 })),
   ];
 
+  const cargoRidByFrontId = new Map();
   for (const cargo of allCargos) {
-    if (!cargo.cargoId && !cargo.cargoMt && !cargo.charterer && !cargo.vendorId) continue;
+    const frontId = String(cargo.id || '');
+    const rid = /^\d{1,10}$/.test(frontId) && frontId !== PLACEHOLDER_RANDOM_ID
+      ? frontId
+      : randomId();
+    if (frontId) cargoRidByFrontId.set(frontId, rid);
+  }
+
+  const cargoHasPersistData = (cargo) => (
+    cargo.cargoId || cargo.cargoMt || cargo.cargoCbm || cargo.charterer || cargo.vendorId
+    || (cargo.commissions || []).some((comm) => (
+      comm.percent
+      || comm.vendorId
+      || comm.demmAmt
+      || (comm.amount && Number(comm.amount) !== 0)
+    ))
+  );
+
+  for (const cargo of allCargos) {
+    if (!cargoHasPersistData(cargo)) continue;
+    const persistId = cargoRidByFrontId.get(String(cargo.id || '')) || randomId();
     await connection.query(
       `INSERT INTO freight_cost_estimete_slave10 (
         FCAID, SHIPPER_CHARTER, CARGO_CBM, CARGO_MT, RATE_USD_MT, AMOUNT_USD,
@@ -3088,7 +3127,7 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
         numOrNull(cargo.amountUsd),
         cargo.status || 1,
         cargo.cargoId || null,
-        randomId(),
+        persistId,
         numOrNull(cargo.demAmt),
         cargo.vendorId || null,
       ],
@@ -3175,19 +3214,43 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
       ? [{ percent: payload.brokeragePercent, amount: payload.brokerageAmt, vendorId: '' }]
       : []);
   for (const broker of brokerRows) {
-    if (!broker.percent && !broker.amount && !broker.vendorId) continue;
-    await connection.query(
-      `INSERT INTO freight_cost_estimete_slave4 (
-        FCAID, BROKAGE_PERCENT, BROKAGE_AMT, DEMM_BROKAGE_PERCENT, VENDORID
-      ) VALUES (?, ?, ?, ?, ?)`,
-      [
-        fcaId,
-        numOrNull(broker.percent),
-        numOrNull(broker.amount),
-        numOrNull(broker.demmPercent),
-        broker.vendorId || null,
-      ],
-    );
+    if (!broker.percent && !broker.amount && !broker.vendorId && !broker.demmPercent && !broker.demmAmt) continue;
+    const cargoLineId = cargoRidByFrontId.get(String(broker.cargoLineId || ''))
+      || (broker.cargoLineId ? String(broker.cargoLineId) : null);
+    const demmVal = broker.demmAmt != null && broker.demmAmt !== ''
+      ? broker.demmAmt
+      : broker.demmPercent;
+    try {
+      await connection.query(
+        `INSERT INTO freight_cost_estimete_slave4 (
+          FCAID, COMM_TYPE, BROKAGE_PERCENT, BROKAGE_AMT, DEMM_BROKAGE_PERCENT, VENDORID,
+          CARGO_LINE_ID, CARGO_STATUS
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          fcaId,
+          broker.commType || null,
+          numOrNull(broker.percent),
+          numOrNull(broker.amount),
+          numOrNull(demmVal),
+          broker.vendorId || null,
+          cargoLineId,
+          broker.cargoStatus != null && broker.cargoStatus !== '' ? Number(broker.cargoStatus) : null,
+        ],
+      );
+    } catch {
+      await connection.query(
+        `INSERT INTO freight_cost_estimete_slave4 (
+          FCAID, BROKAGE_PERCENT, BROKAGE_AMT, DEMM_BROKAGE_PERCENT, VENDORID
+        ) VALUES (?, ?, ?, ?, ?)`,
+        [
+          fcaId,
+          numOrNull(broker.percent),
+          numOrNull(broker.amount),
+          numOrNull(demmVal),
+          broker.vendorId || null,
+        ],
+      );
+    }
   }
 
   for (const orc of payload.orcRows || []) {

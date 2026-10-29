@@ -18,7 +18,6 @@ import {
   CONSUMPTION_PORT_COLUMNS,
   CONSUMPTION_SPEED_COLUMNS,
   CONSUMPTION_OTHERS_COLUMNS,
-  createEmptyBrokerRow,
   createEmptyBunkerActivityRow,
   createEmptyCargoRow,
   createEmptyHireRow,
@@ -32,8 +31,9 @@ import {
   getFixtureTypeLabel,
   seedPortLegsFromFirstCargo,
 } from '../../sopf/estimateDetail.constants.js';
-import { formatDemurrageCostField, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, calcDemurrageCommissionDisplay, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurrageLoadPortLabel, formatDemurrageDischargePortLabel, formatDays, formatDistance, syncPortstayFromPassageDates } from '../../sopf/estimateCalculations.js';
+import { formatDemurrageCostField, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurrageLoadPortLabel, formatDemurrageDischargePortLabel, formatDays, formatDistance, syncPortstayFromPassageDates } from '../../sopf/estimateCalculations.js';
 import CollapsiblePanel from '../../sopf/CollapsiblePanel.jsx';
+import { EstimateTrashIcon } from '../../sopf/RowRemoveButton.jsx';
 import DistanceFetchModal from '../../sopf/DistanceFetchModal.jsx';
 import TankerFreightModeSection from '../../sopf/TankerFreightModeSection.jsx';
 import { DryFreightModeSection, GasFreightModeSection } from '../../sopf/EstimateTypeCargoFreight.jsx';
@@ -573,13 +573,6 @@ export default function EstimateDetailSections({
   const hiddenEstimatedGrades = new Set(
     (form.bunkerEstimatedHiddenGrades || []).map((g) => String(g)),
   );
-  const {
-    addressDemmComm,
-    totalCommPercent,
-    totalFreightComm,
-    totalDemmComm,
-  } = calcDemurrageCommissionDisplay(form);
-
   /** PHP txtSECABunkerPrice onKeyUp → getBunkerCalculation / getVoyageTime */
   const handleBunkerSummaryPriceChange = (grade, value) => {
     let matched = false;
@@ -1267,7 +1260,9 @@ export default function EstimateDetailSections({
                             title="Delete leg"
                             onClick={() => removeRow('portLegs', leg.id)}
                             disabled={(form.portLegs || []).length <= 1}
-                          />
+                          >
+                            <EstimateTrashIcon />
+                          </RowDelButton>
                         </div>
                       ) : null}
                     </td>
@@ -1633,6 +1628,8 @@ export default function EstimateDetailSections({
           <GasFreightModeSection
             form={form}
             readOnly={readOnly}
+            editable={editable}
+            lookups={lookups}
             inputProps={inputProps}
             applyPatch={applyPatch}
             onRecalc={onRecalc}
@@ -1669,127 +1666,6 @@ export default function EstimateDetailSections({
             updateField={updateField}
           />
         ) : null}
-      </CollapsiblePanel>
-
-      <CollapsiblePanel
-        title="Commissions"
-        defaultOpen
-        round
-        className={styles.roundSection}
-        bodyClassName={styles.commissionsBody}
-      >
-        <div className={`${styles.tableWrap} ${styles.commissionsTableWrap}`}>
-          <table className={`${styles.portTable} ${styles.commissionsTable}`}>
-            <thead>
-              <tr>
-                <th className={styles.commissionsActionsCol} />
-                <th />
-                <th>Percentage (%)</th>
-                <th>Freight Comm.</th>
-                <th>Demurrage Comm.</th>
-                <th>Vendor</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td />
-                <td>ADCOM Freight</td>
-                <td>
-                  <input
-                    {...inputProps('addCommPercent', {
-                      recalc: true,
-                      // PHP updatecost_sheet_tci: Address Commission % is read-only
-                      readOnly: readOnly || Boolean(searchParams.get('cost_sheet_id')),
-                    })}
-                    id="addCommPercentCargo"
-                    placeholder="0.00"
-                  />
-                </td>
-                <td>
-                  <input id="addressCommAmtCargo" value={form.addressCommAmt || ''} readOnly placeholder="0.00" />
-                </td>
-                <td>
-                  <input
-                    id="addressDemmCommCargo"
-                    value={addressDemmComm ? addressDemmComm.toFixed(2) : ''}
-                    readOnly
-                    placeholder="0.00"
-                  />
-                </td>
-                <td />
-              </tr>
-              {(form.brokerRows || []).map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    {editable ? (
-                      <KhakiRowActions
-                        onAdd={() => addRow('brokerRows', createEmptyBrokerRow)}
-                        onRemove={() => removeRow('brokerRows', row.id)}
-                        canRemove={(form.brokerRows || []).length > 1}
-                      />
-                    ) : null}
-                  </td>
-                  <td>Commission</td>
-                  <td>
-                    <input
-                      value={row.percent || ''}
-                      readOnly={readOnly}
-                      placeholder="0.00"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      onChange={(e) => updateRow('brokerRows', row.id, {
-                        percent: sanitizeDecimalInput(e.target.value),
-                      })}
-                    />
-                  </td>
-                  <td>
-                    <input value={row.amount || ''} readOnly placeholder="0.00" />
-                  </td>
-                  <td>
-                    <input value={row.demmPercent || ''} readOnly placeholder="0.00" />
-                  </td>
-                  <td>
-                    <WorksheetSelect
-                      value={row.vendorId || ''}
-                      disabled={readOnly}
-                      options={(lookups.owners || []).map((vendor) => ({ value: vendor.id, label: vendor.name }))}
-                      onChange={(value) => updateRow('brokerRows', row.id, { vendorId: value })}
-                    />
-                  </td>
-                </tr>
-              ))}
-              <tr>
-                <td />
-                <td>Total</td>
-                <td>
-                  <input
-                    id="brokeragePercentCargo"
-                    value={Number.isFinite(totalCommPercent) ? totalCommPercent.toFixed(2) : ''}
-                    readOnly
-                    placeholder="0.00"
-                  />
-                </td>
-                <td>
-                  <input
-                    id="brokerageAmtCargo"
-                    value={Number.isFinite(totalFreightComm) ? totalFreightComm.toFixed(2) : ''}
-                    readOnly
-                    placeholder="0.00"
-                  />
-                </td>
-                <td>
-                  <input
-                    id="totalDemmCommCargo"
-                    value={Number.isFinite(totalDemmComm) ? totalDemmComm.toFixed(2) : ''}
-                    readOnly
-                    placeholder="0.00"
-                  />
-                </td>
-                <td />
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </CollapsiblePanel>
 
       <PortLaytimeSections
@@ -2869,28 +2745,20 @@ export default function EstimateDetailSections({
             defaultOpen={false}
             round
             className={`${styles.roundSection} ${updateEstimateStyles.panelInverse}`}
+            bodyClassName={`${styles.sectionFlush} ${updateEstimateStyles.panelBodyFlush}`}
           >
-            <div className={styles.tableWrap}>
-              <table className={styles.portTable}>
+            <div className={`${styles.tableWrap} ${styles.flushTableWrap}`}>
+              <table className={`${styles.portTable} ${updateEstimateStyles.flushGrid} ${updateEstimateStyles.profitSharingTable}`}>
                 <thead>
                   <tr>
-                    {editable ? <th style={{ width: 64 }} /> : null}
                     <th>Company</th>
                     <th>Percentage</th>
+                    {editable ? <th className={updateEstimateStyles.stickyAct} /> : null}
                   </tr>
                 </thead>
                 <tbody>
                   {(form.profitSharingRows || []).map((row) => (
                     <tr key={row.id}>
-                      {editable ? (
-                        <td>
-                          <KhakiRowActions
-                            onAdd={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
-                            onRemove={() => removeRow('profitSharingRows', row.id)}
-                            canRemove={(form.profitSharingRows || []).length > 1}
-                          />
-                        </td>
-                      ) : null}
                       <td>
                         <WorksheetSelect
                           value={row.vendorId || ''}
@@ -2910,11 +2778,21 @@ export default function EstimateDetailSections({
                           onChange={(e) => updateRow('profitSharingRows', row.id, { percentage: e.target.value })}
                         />
                       </td>
+                      {editable ? (
+                        <td className={updateEstimateStyles.stickyAct}>
+                          <KhakiRowActions
+                            onAdd={() => addRow('profitSharingRows', createEmptyProfitSharingRow)}
+                            onRemove={() => removeRow('profitSharingRows', row.id)}
+                            canRemove={(form.profitSharingRows || []).length > 1}
+                          />
+                        </td>
+                      ) : null}
                     </tr>
                   ))}
                   {editable && !(form.profitSharingRows || []).length ? (
                     <tr>
-                      <td>
+                      <td colSpan={2} className={styles.summaryEmptyCell}>No profit sharing rows yet.</td>
+                      <td className={updateEstimateStyles.stickyAct}>
                         <div className="rowActions">
                           <RowAddButton
                             title="Add row"
@@ -2922,7 +2800,6 @@ export default function EstimateDetailSections({
                           />
                         </div>
                       </td>
-                      <td colSpan={2} className={styles.summaryEmptyCell}>No profit sharing rows yet.</td>
                     </tr>
                   ) : null}
                 </tbody>

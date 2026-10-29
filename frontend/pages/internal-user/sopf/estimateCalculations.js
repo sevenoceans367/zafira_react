@@ -1,3 +1,9 @@
+import {
+  defaultCargoCommissions,
+  flattenCargoCommissions,
+  isAdcomCommission,
+} from './estimateDetail.constants.js';
+
 /**
  * Single source of truth for SOPF estimate calculations.
  * Port dates / laycan / demurrage schedule logic ported from php/common.js.
@@ -832,13 +838,20 @@ export function calcDemurrageCommissionDisplay(form) {
   const addCommPercent = num(form.addCommPercent);
   const addressDemmComm = round2((demurrageRevenue * addCommPercent) / 100);
 
-  const brokerRows = Array.isArray(form.brokerRows) && form.brokerRows.length
-    ? form.brokerRows
-    : [{
-      percent: form.brokeragePercent,
-      amount: form.brokerageAmt,
-      demmPercent: '',
-    }];
+  const fromCargo = flattenCargoCommissions(
+    form.cargoRows,
+    form.overageCargoRows,
+    form.deadfreightCargoRows,
+  ).filter((row) => !isAdcomCommission(row.commType));
+  const brokerRows = fromCargo.length
+    ? fromCargo
+    : (Array.isArray(form.brokerRows) && form.brokerRows.length
+      ? form.brokerRows
+      : [{
+        percent: form.brokeragePercent,
+        amount: form.brokerageAmt,
+        demmPercent: '',
+      }]);
 
   const brokerPercentTotal = round2(
     brokerRows.reduce((sum, row) => sum + num(row.percent), 0),
@@ -1305,31 +1318,48 @@ export function computeEstimateTotals(form) {
     );
   }
 
-  const brokerRows = form.brokerRows || [];
-  // PHP: brokerage_comm_usd = rev × percent / 100 (always recompute; same base as address commission)
-  const brokers = (brokerRows.length
-    ? brokerRows
-    : [{ percent: form.brokeragePercent, amount: form.brokerageAmt }]
-  ).map((row) => {
-    // Keep the typed percent string (e.g. "2." / "1.25"); coercing via num()
-    // on every recalc strips trailing decimals while the user is typing.
-    const rawPercent = row.percent ?? row.brokeragePercent ?? '';
-    const percent = num(rawPercent);
-    const amount = round2((freightGross * percent) / 100);
-    return {
-      ...row,
-      percent: rawPercent === '' || rawPercent == null ? '' : String(rawPercent),
-      amount: amount.toFixed(2),
-    };
+  const applyLineCommissions = (rows, fallbackGross) => (rows || []).map((row) => {
+    const gross = num(row.amountUsd) || fallbackGross || 0;
+    const list = (Array.isArray(row.commissions) && row.commissions.length)
+      ? row.commissions
+      : defaultCargoCommissions();
+    const commissions = list.map((comm) => {
+      const rawPercent = comm.percent ?? '';
+      const percent = num(rawPercent);
+      const amount = round2((gross * percent) / 100);
+      return {
+        ...comm,
+        percent: rawPercent === '' || rawPercent == null ? '' : String(rawPercent),
+        amount: amount.toFixed(2),
+      };
+    });
+    return { ...row, commissions };
   });
-  const brokeragePercent = round2(
-    brokers.reduce((sum, row) => sum + num(row.percent), 0),
+
+  const singleFallback = String(form.tankType || '1') !== '2' ? freightGross : 0;
+  const cargoRowsWithComm = applyLineCommissions(cargoRows, singleFallback);
+  const overageCargoRowsWithComm = applyLineCommissions(overageCargoRows, 0);
+  const deadfreightCargoRowsWithComm = applyLineCommissions(deadfreightCargoRows, 0);
+
+  const brokers = flattenCargoCommissions(
+    cargoRowsWithComm,
+    overageCargoRowsWithComm,
+    deadfreightCargoRowsWithComm,
+  );
+  const adcomRows = brokers.filter((row) => isAdcomCommission(row.commType));
+  const brokerageOnly = brokers.filter((row) => !isAdcomCommission(row.commType));
+  const addressCommAmt = round2(
+    adcomRows.reduce((sum, row) => sum + num(row.amount), 0),
   );
   const brokerageAmt = round2(
-    brokers.reduce((sum, row) => sum + num(row.amount), 0),
+    brokerageOnly.reduce((sum, row) => sum + num(row.amount), 0),
   );
-  const addCommPercent = num(form.addCommPercent);
-  const addressCommAmt = round2((freightGross * addCommPercent) / 100);
+  const brokeragePercent = round2(
+    brokerageOnly.reduce((sum, row) => sum + num(row.percent), 0),
+  );
+  const addCommPercent = freightGross > 0
+    ? round2((addressCommAmt / freightGross) * 100)
+    : num(adcomRows[0]?.percent ?? form.addCommPercent);
 
   // Hire / Day: prefer Vessel OpEx field; fall back to hire row 1 (PHP dummyHireRate).
   // `_hireRateCleared` lets the user blank the field without snapping back from hire rows.
@@ -1468,12 +1498,10 @@ export function computeEstimateTotals(form) {
   const demurrageRevenue = demurrageNett;
   const demurrageBrokerAmt = round2((demurrageRevenue * demurrageBrokerPercent) / 100);
   const brokersWithDemm = brokers.map((row) => {
-    const pct = num(row.percent);
-    const demmAmt = round2((demurrageRevenue * pct) / 100);
-    return {
-      ...row,
-      demmPercent: demmAmt.toFixed(2),
-    };
+    const typed = row.demmAmt != null && String(row.demmAmt).trim() !== ''
+      ? String(row.demmAmt)
+      : (row.demmPercent != null && String(row.demmPercent).trim() !== '' ? String(row.demmPercent) : '');
+    return { ...row, demmAmt: typed, demmPercent: typed };
   });
 
   const deliveryTotal = round2(deliveryBunkers.reduce((sum, row) => sum + num(row.amount), 0));
@@ -1878,9 +1906,27 @@ export function computeEstimateTotals(form) {
   return {
     portLegs: legsWithDemurrage,
     brokerRows: brokersWithDemm,
-    cargoRows,
-    overageCargoRows,
-    deadfreightCargoRows,
+    cargoRows: cargoRowsWithComm.map((row) => ({
+      ...row,
+      commissions: (row.commissions || []).map((comm) => {
+        const match = brokersWithDemm.find((b) => b.id === comm.id);
+        return match ? { ...comm, demmAmt: match.demmAmt, amount: match.amount } : comm;
+      }),
+    })),
+    overageCargoRows: overageCargoRowsWithComm.map((row) => ({
+      ...row,
+      commissions: (row.commissions || []).map((comm) => {
+        const match = brokersWithDemm.find((b) => b.id === comm.id);
+        return match ? { ...comm, demmAmt: match.demmAmt, amount: match.amount } : comm;
+      }),
+    })),
+    deadfreightCargoRows: deadfreightCargoRowsWithComm.map((row) => ({
+      ...row,
+      commissions: (row.commissions || []).map((comm) => {
+        const match = brokersWithDemm.find((b) => b.id === comm.id);
+        return match ? { ...comm, demmAmt: match.demmAmt, amount: match.amount } : comm;
+      }),
+    })),
     bunkerRows: bunkers,
     bunkerActivityRows: bunkerActivities,
     orcRows: orcs,
@@ -1926,6 +1972,7 @@ export function computeEstimateTotals(form) {
     deadFreightAmt: String(deadFreightAmt || ''),
     brokeragePercent: brokeragePercent ? brokeragePercent.toFixed(2) : '',
     brokerageAmt: brokerageAmt ? brokerageAmt.toFixed(2) : '',
+    addCommPercent: addCommPercent ? addCommPercent.toFixed(2) : '',
     addressCommAmt: addressCommAmt ? addressCommAmt.toFixed(2) : '',
     // Hire Amt is derived (rate × days). Hire / Day: keep typed value, or seed from row when not cleared.
     hireAmt: hireAmt ? hireAmt.toFixed(2) : '',

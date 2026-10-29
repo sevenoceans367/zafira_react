@@ -163,6 +163,28 @@ function resolveUniqueRowId(rawId, prefix, seen) {
   return id;
 }
 
+export const ADCOM_COMM_TYPE = 'ADCOM Freight';
+export const BROKERAGE_COMM_TYPE = 'Brokerage commission';
+
+export function isAdcomCommission(type) {
+  return /adcom/i.test(String(type || ''));
+}
+
+export function createEmptyCargoCommissionRow(commType = ADCOM_COMM_TYPE) {
+  return {
+    id: newRowId('ccomm'),
+    commType,
+    percent: '',
+    amount: '',
+    demmAmt: '',
+    vendorId: '',
+  };
+}
+
+export function defaultCargoCommissions() {
+  return [createEmptyCargoCommissionRow(ADCOM_COMM_TYPE)];
+}
+
 export function createEmptyCargoRow(status = 1) {
   return {
     id: newRowId('cargo'),
@@ -176,7 +198,112 @@ export function createEmptyCargoRow(status = 1) {
     demAmt: '',
     vendorId: '',
     status,
+    commissions: defaultCargoCommissions(),
   };
+}
+
+function toCargoCommission(row) {
+  return {
+    id: row.id || newRowId('ccomm'),
+    commType: row.commType || (isAdcomCommission(row.commType) ? ADCOM_COMM_TYPE : (row.commType || BROKERAGE_COMM_TYPE)),
+    percent: row.percent != null ? String(row.percent) : '',
+    amount: row.amount != null ? String(row.amount) : '',
+    demmAmt: row.demmAmt != null && row.demmAmt !== ''
+      ? String(row.demmAmt)
+      : (row.demmPercent != null ? String(row.demmPercent) : ''),
+    vendorId: row.vendorId != null ? String(row.vendorId) : '',
+  };
+}
+
+function withDefaultCommissions(row) {
+  const commissions = Array.isArray(row.commissions) && row.commissions.length
+    ? row.commissions.map(toCargoCommission)
+    : defaultCargoCommissions();
+  return { ...row, commissions };
+}
+
+/** Spread slave4 / brokerRows onto cargo lines. Legacy unlinked rows go on the first main cargo. */
+export function assignCargoCommissions(cargoRows, overageRows, deadfreightRows, brokerRows = [], detail = {}) {
+  const brokers = Array.isArray(brokerRows) ? brokerRows : [];
+  const linked = brokers.filter((row) => String(row.cargoLineId || '').trim());
+  const unlinked = brokers.filter((row) => !String(row.cargoLineId || '').trim());
+  const byLine = new Map();
+  for (const row of linked) {
+    const key = String(row.cargoLineId);
+    if (!byLine.has(key)) byLine.set(key, []);
+    byLine.get(key).push(row);
+  }
+
+  const apply = (rows = []) => rows.map((row) => {
+    const fromLine = byLine.get(String(row.id));
+    if (fromLine?.length) {
+      return { ...row, commissions: fromLine.map(toCargoCommission) };
+    }
+    return withDefaultCommissions(row);
+  });
+
+  let nextCargo = apply(cargoRows);
+  let nextOverage = apply(overageRows);
+  let nextDead = apply(deadfreightRows);
+
+  if (!linked.length) {
+    const seed = [];
+    const adcomPct = detail.addCommPercent != null ? String(detail.addCommPercent) : '';
+    const adcomAmt = detail.addressCommAmt != null ? String(detail.addressCommAmt) : '';
+    if (adcomPct || adcomAmt || !unlinked.length) {
+      seed.push({
+        ...createEmptyCargoCommissionRow(ADCOM_COMM_TYPE),
+        percent: adcomPct,
+        amount: adcomAmt,
+      });
+    }
+    for (const row of unlinked) {
+      if (!row.percent && !row.amount && !row.vendorId && !row.demmPercent && !row.demmAmt) continue;
+      seed.push(toCargoCommission({
+        ...row,
+        commType: row.commType || BROKERAGE_COMM_TYPE,
+      }));
+    }
+    if (!nextCargo.length) nextCargo = [createEmptyCargoRow(1)];
+    nextCargo[0] = { ...nextCargo[0], commissions: seed.length ? seed : defaultCargoCommissions() };
+  }
+
+  return {
+    cargoRows: nextCargo.length ? nextCargo : [createEmptyCargoRow(1)],
+    overageCargoRows: nextOverage.length ? nextOverage : [createEmptyCargoRow(2)],
+    deadfreightCargoRows: nextDead.length ? nextDead : [createEmptyCargoRow(3)],
+  };
+}
+
+export function flattenCargoCommissions(cargoRows = [], overageRows = [], deadfreightRows = []) {
+  const out = [];
+  const collect = (rows, status) => {
+    for (const row of rows || []) {
+      for (const comm of row.commissions || []) {
+        const hasPercent = comm.percent != null && String(comm.percent).trim() !== '';
+        const hasAmount = comm.amount != null && String(comm.amount).trim() !== ''
+          && Number(String(comm.amount).replace(/,/g, '')) !== 0;
+        const hasDemm = comm.demmAmt != null && String(comm.demmAmt).trim() !== '';
+        const hasVendor = comm.vendorId != null && String(comm.vendorId).trim() !== '';
+        if (!hasPercent && !hasAmount && !hasDemm && !hasVendor) continue;
+        out.push({
+          id: comm.id,
+          commType: comm.commType || ADCOM_COMM_TYPE,
+          percent: comm.percent,
+          amount: comm.amount,
+          demmPercent: comm.demmAmt ?? comm.demmPercent ?? '',
+          demmAmt: comm.demmAmt ?? comm.demmPercent ?? '',
+          vendorId: comm.vendorId || '',
+          cargoLineId: row.id,
+          cargoStatus: status,
+        });
+      }
+    }
+  };
+  collect(cargoRows, 1);
+  collect(overageRows, 2);
+  collect(deadfreightRows, 3);
+  return out;
 }
 
 /**
@@ -730,6 +857,14 @@ export function toFormState(detail = {}) {
       demAmt: row.demAmt != null ? String(row.demAmt) : '',
       vendorId: row.vendorId != null ? String(row.vendorId) : '',
       status: row.status ?? 1,
+      commissions: Array.isArray(row.commissions) ? row.commissions.map((comm) => ({
+        id: comm.id || newRowId('ccomm'),
+        commType: comm.commType || ADCOM_COMM_TYPE,
+        percent: comm.percent != null ? String(comm.percent) : '',
+        amount: comm.amount != null ? String(comm.amount) : '',
+        demmAmt: comm.demmAmt != null ? String(comm.demmAmt) : (comm.demmPercent != null ? String(comm.demmPercent) : ''),
+        vendorId: comm.vendorId != null ? String(comm.vendorId) : '',
+      })) : undefined,
     };
   };
 
@@ -773,11 +908,11 @@ export function toFormState(detail = {}) {
     cargoRows = [createEmptyCargoRow(1)];
   }
 
-  const overageCargoRows = Array.isArray(detail.overageCargoRows) && detail.overageCargoRows.length
+  let overageCargoRows = Array.isArray(detail.overageCargoRows) && detail.overageCargoRows.length
     ? detail.overageCargoRows.map(mapCargo)
     : [createEmptyCargoRow(2)];
 
-  const deadfreightCargoRows = Array.isArray(detail.deadfreightCargoRows) && detail.deadfreightCargoRows.length
+  let deadfreightCargoRows = Array.isArray(detail.deadfreightCargoRows) && detail.deadfreightCargoRows.length
     ? detail.deadfreightCargoRows.map(mapCargo)
     : [createEmptyCargoRow(3)];
 
@@ -935,20 +1070,36 @@ export function toFormState(detail = {}) {
   const brokerRows = Array.isArray(detail.brokerRows) && detail.brokerRows.length
     ? detail.brokerRows.map((row) => ({
       id: resolveUniqueRowId(row.id, 'brk', brkSeen),
+      commType: row.commType || '',
       percent: row.percent != null ? String(row.percent) : '',
       amount: row.amount != null ? String(row.amount) : '',
       vendorId: row.vendorId != null ? String(row.vendorId) : '',
       demmPercent: row.demmPercent != null ? String(row.demmPercent) : '',
+      demmAmt: row.demmAmt != null ? String(row.demmAmt) : (row.demmPercent != null ? String(row.demmPercent) : ''),
+      cargoLineId: row.cargoLineId != null ? String(row.cargoLineId) : '',
+      cargoStatus: row.cargoStatus != null && row.cargoStatus !== '' ? Number(row.cargoStatus) : '',
     }))
     : (detail.brokeragePercent || detail.brokerageAmt
       ? [{
         id: newRowId('brk'),
+        commType: BROKERAGE_COMM_TYPE,
         percent: detail.brokeragePercent != null ? String(detail.brokeragePercent) : '',
         amount: detail.brokerageAmt != null ? String(detail.brokerageAmt) : '',
         vendorId: '',
         demmPercent: '',
+        demmAmt: '',
+        cargoLineId: '',
+        cargoStatus: '',
       }]
-      : [createEmptyBrokerRow()]);
+      : []);
+
+  ({ cargoRows, overageCargoRows, deadfreightCargoRows } = assignCargoCommissions(
+    cargoRows,
+    overageCargoRows,
+    deadfreightCargoRows,
+    brokerRows,
+    detail,
+  ));
 
   const hireSeen = new Set();
   const hireRows = Array.isArray(detail.hireRows) && detail.hireRows.length

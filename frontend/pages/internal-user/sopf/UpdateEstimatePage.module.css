@@ -83,6 +83,41 @@
   padding: 16px 18px;
 }
 
+.resultsAside .panelBody.panelBodyFlush {
+  padding: 0;
+}
+
+.profitSharingTable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.profitSharingTable th:nth-child(1),
+.profitSharingTable td:nth-child(1) {
+  width: auto;
+  min-width: 0;
+}
+
+.profitSharingTable th:nth-child(2),
+.profitSharingTable td:nth-child(2) {
+  width: 118px;
+  min-width: 118px;
+  overflow: visible;
+}
+
+.profitSharingTable th.stickyAct,
+.profitSharingTable td.stickyAct {
+  width: 72px;
+  min-width: 72px;
+}
+
+.profitSharingTable td:nth-child(2) input {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .resultsAside .distGrid {
   grid-template-columns: 1fr 1fr;
   gap: 2px 8px;
@@ -677,7 +712,7 @@
 }
 
 .portIdxCol {
-  width: 18px;
+  width: 26px;
   text-align: center;
   vertical-align: top;
 }
@@ -686,9 +721,9 @@
 .portTable td.portIdxCol,
 .portLegConnected th.portIdxCol,
 .portLegConnected td.portIdxCol {
-  width: 18px !important;
-  min-width: 18px !important;
-  max-width: 18px !important;
+  width: 26px !important;
+  min-width: 26px !important;
+  max-width: 26px !important;
   white-space: nowrap;
   text-align: center;
   vertical-align: top;
@@ -1490,10 +1525,209 @@
   border-bottom: 1px solid #edf0f2;
 }
 
+.cargoGroup {
+  margin-bottom: 14px;
+}
+
+.cargoGroup:last-child {
+  margin-bottom: 0;
+}
+
+.cargoGroup .consTitle {
+  margin-top: 4px;
+}
+
+.cargoCard {
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.cargoCardNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  padding: 0;
+  border-radius: 7px;
+  background: #e6eaf1;
+  color: #274670;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.cargoFieldsTable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.cargoIdxCol {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  text-align: center;
+  padding-left: 8px !important;
+  padding-right: 6px !important;
+}
+
+.cargoNameCol {
+  width: 180px !important;
+  min-width: 180px !important;
+  max-width: 180px !important;
+  overflow: hidden;
+}
+
+.cargoNameCol > * {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.cargoNameCol :global(div) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cargoNameCol :global(button),
+.cargoNameCol :global(button span) {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cargoCard:last-child {
+  margin-bottom: 0;
+}
+
+.cargoCard .tableWrap {
+  overflow: visible;
+}
+
+.cargoCard .flushGrid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cargoCard .cargoCommWrap {
+  border-top: 1px solid #eceef2;
+}
+
+.cargoCardEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
 .nestedBlock:last-child {
   margin-bottom: 0;
   padding-bottom: 0;
   border-bottom: none;
+}
+
+.cargoCommRow > td {
+  padding: 0 !important;
+  background: #f4f5f7 !important;
+  border-bottom: 1px solid #dfe2e7;
+  vertical-align: top;
+}
+
+.flushGrid tbody tr.cargoCommRow:hover > td {
+  background: #f4f5f7 !important;
+}
+
+.cargoCommWrap {
+  background: #f4f5f7;
+  padding: 11px 14px 13px;
+}
+
+.cargoCommStandalone {
+  margin-top: 14px;
+  border: 1px solid #dfe2e7;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cargoCommTitle {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #c2410c;
+  margin-bottom: 7px;
+}
+
+.cargoCommTableWrap {
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cargoCommTable {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.cargoCommTypeCol {
+  width: 32%;
+}
+
+.cargoCommTypeCol input {
+  width: 100%;
+  min-width: 0;
+}
+
+.cargoCommVendorCol {
+  width: 18%;
+  overflow: hidden;
+}
+
+.cargoCommVendorCol > * {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.cargoCommVendorCol :global(button),
+.cargoCommVendorCol :global(button span) {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cargoCommWrap .flushGrid thead th {
+  background: #f4f5f7;
+  font-size: 9px;
+}
+
+.cargoCommWrap .flushGrid tbody td {
+  padding: 7px 9px;
+}
+
+.cargoCommWrap td.stickyAct :global(button) {
+  width: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  padding: 0 !important;
 }
 
 .nestedHeader {
@@ -1794,7 +2028,7 @@
 }
 
 .tankerModeControlsInline {
-  grid-template-columns: max-content max-content;
+  grid-template-columns: repeat(3, max-content);
   column-gap: 16px;
 }
 
@@ -2143,15 +2377,13 @@
 }
 
 .tankerWsBlock {
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e8e4df;
+  margin-top: 12px;
 }
 
-.tankerWsBlock:last-child {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: none;
+.tankerWsBlock + .tankerWsBlock {
+  margin-top: 22px;
+  padding-top: 8px;
+  border-top: 1px solid #edf0f2;
 }
 
 /* Vessel OPEX — hire / totals / CVE tables (PHP hire_tbl parity) */
@@ -2342,58 +2574,110 @@
 
 .tankerWsRowLabel {
   text-align: left;
-  font-weight: 600;
-  color: #334155;
+  font-weight: 700;
+  color: #1b2430;
   white-space: nowrap;
 }
 
-.wsPortCombo {
-  display: grid;
+.freightAdjHead {
+  margin-top: 4px;
+}
+
+.tankerWsBlock .headerGrid {
+  margin-bottom: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin: 12px 0 10px;
-  padding: 0;
-  background: transparent;
-  border-radius: 0;
 }
 
-.wsPortComboLabel {
-  display: none;
+.tankerWsBlock .field {
+  min-width: 0;
+  overflow: hidden;
 }
 
-.wsPortComboField {
+.tankerWsBlock .tableWrap {
+  margin-top: 0;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.wsAdjTable .num {
+  text-align: right;
+}
+
+.wsAdjTable .num input {
+  text-align: right;
+  width: 100%;
+}
+
+.wsCustomerCol {
+  width: 180px;
+  max-width: 180px;
+  overflow: hidden;
+}
+
+.wsCustomerCol > * {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.wsCustomerCol :global(button),
+.wsCustomerCol :global(button span) {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wsPortChipBox {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 220px;
-  flex: 1 1 220px;
-}
-
-.wsPortComboField > label,
-.wsPortComboField > span {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #8a93a2;
-}
-
-.wsPortMulti {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.wsPortChips {
-  display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  background: #f1f2f4;
+  border: 1px solid #dfe2e7;
+  border-radius: 8px;
+  padding: 6px 8px;
+  min-height: 38px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.wsPortChipBox > :last-child {
+  flex: 1 1 80px;
+  min-width: 80px;
+  max-width: 100%;
+}
+
+.wsPortChipBox :global(input) {
+  border: none !important;
+  background: transparent !important;
+  outline: none;
+  box-shadow: none !important;
+  min-height: 24px !important;
+  height: 24px !important;
+  min-width: 0 !important;
+  width: 100%;
+  max-width: 100%;
+  font-size: 12px;
+  padding: 0 4px !important;
+  color: #8a93a2;
 }
 
 .wsPortChip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  max-width: 100%;
+  min-width: 0;
   padding: 3.5px 9px 3.5px 10px;
   border-radius: 999px;
   background: #eaf1fe;
@@ -2401,16 +2685,40 @@
   border: 1.5px solid #d3e3fd;
   font-size: 11px;
   font-weight: 800;
+  overflow: hidden;
+}
+
+.wsPortChipLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wsPortChipBox :global(button),
+.compactFields .wsPortChipBox :global(button),
+.wsPortChipRemove {
+  width: auto !important;
+  min-width: 14px !important;
+  max-width: 18px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  flex: none !important;
 }
 
 .wsPortChipRemove {
   border: none;
   background: transparent;
-  color: #64748b;
+  color: #2e6fe8;
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
-  padding: 0;
+  opacity: 0.7;
+}
+
+.wsPortChipRemove:hover {
+  opacity: 1;
 }
 
 .wsPortReadonly {
@@ -2550,6 +2858,29 @@
   height: 38px;
   min-height: 38px;
   padding: 6px 10px;
+}
+
+/* Dry Single: QTY / Shipper / DF Qty / Gross / Dead / Total Freight — 3% over 38px cargo fields */
+.drySingleFields {
+  grid-template-columns: repeat(auto-fit, minmax(124px, 1fr));
+}
+
+.drySingleFields .field input,
+.drySingleFields .field select,
+.compactFields .drySingleFields .field input,
+.compactFields .drySingleFields .field select {
+  height: 39px;
+  min-height: 39px;
+  padding: 6px 10px;
+  font-size: 12.9px;
+}
+
+.drySingleFields .field :global(button),
+.compactFields .drySingleFields .field :global(button) {
+  height: 39px !important;
+  min-height: 39px !important;
+  padding: 0 10px !important;
+  font-size: 12.9px !important;
 }
 
 @media (max-width: 900px) {

@@ -1,11 +1,13 @@
 import React from 'react';
 import { RowAddButton, RowDelButton, useAlert } from '@bainbridge/shared-ui';
+import { EstimateTrashIcon } from './RowRemoveButton.jsx';
 import { searchEstimatePorts } from '../../../services/estimateDetail.js';
 import WsPortMultiSelect from './WsPortMultiSelect.jsx';
 import {
   createEmptyCargoRow,
   createEmptyTankerWsRow,
 } from './estimateDetail.constants.js';
+import CargoCommissionBlock, { SingleCargoCommission } from './CargoCommissionBlock.jsx';
 import { getAddRowBlockMessage } from './estimateValidation.js';
 import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
 import WorksheetSelect from '../ops/voyage-financials/WorksheetSelect.jsx';
@@ -20,14 +22,127 @@ function Field({ id, label, children }) {
   );
 }
 
-function sumCargoRows(rows = []) {
-  return rows.reduce(
-    (acc, row) => ({
-      cbm: acc.cbm + (Number(String(row.cargoCbm || '').replace(/,/g, '')) || 0),
-      mt: acc.mt + (Number(String(row.cargoMt || '').replace(/,/g, '')) || 0),
-      amount: acc.amount + (Number(String(row.amountUsd || '').replace(/,/g, '')) || 0),
-    }),
-    { cbm: 0, mt: 0, amount: 0 },
+function CargoFieldsTable({
+  row,
+  index,
+  collection,
+  rows,
+  readOnly,
+  editable,
+  lookups,
+  updateRow,
+  addRow,
+  removeRow,
+  createRow,
+  SelectField,
+}) {
+  return (
+    <div className={styles.tableWrap}>
+      <table className={`${styles.portTable} ${styles.flushGrid} ${styles.cargoFieldsTable}`}>
+        <thead>
+          <tr>
+            <th className={styles.cargoIdxCol}>#</th>
+            <th className={styles.cargoNameCol}>Shipper/Charterer</th>
+            <th className={styles.cargoNameCol}>Cargo</th>
+            <th>Cargo (CBM)</th>
+            <th>Cargo (MT)</th>
+            <th>Rate / MT</th>
+            <th>Amount</th>
+            {editable ? <th className={styles.stickyAct} /> : null}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className={styles.cargoIdxCol}>
+              <span className={styles.cargoCardNum}>{index + 1}</span>
+            </td>
+            <td className={styles.cargoNameCol}>
+              <SelectField
+                ariaLabel="Shipper/Charterer"
+                placeholder="— Select —"
+                value={String(row.charterer || row.vendorId || '')}
+                disabled={readOnly}
+                options={[
+                  { id: '', name: '— Select —' },
+                  ...(lookups.owners || []).map((v) => ({ id: String(v.id), name: v.name })),
+                ]}
+                onChange={(value) => updateRow(collection, row.id, {
+                  charterer: value,
+                  vendorId: value,
+                })}
+              />
+            </td>
+            <td className={styles.cargoNameCol}>
+              <SelectField
+                ariaLabel="Cargo"
+                placeholder="— Select —"
+                value={String(row.cargoId ?? '')}
+                disabled={readOnly}
+                options={[
+                  { id: '', name: '— Select —' },
+                  ...(lookups.cargos || []).map((c) => ({ id: String(c.id), name: c.name })),
+                ]}
+                onChange={(value) => {
+                  const cargo = (lookups.cargos || []).find((c) => String(c.id) === String(value));
+                  updateRow(collection, row.id, { cargoId: value, cargoName: cargo?.name || '' });
+                }}
+              />
+            </td>
+            <td>
+              <input
+                value={row.cargoCbm || ''}
+                readOnly={readOnly}
+                placeholder="0.00"
+                inputMode="decimal"
+                onChange={(e) => updateRow(collection, row.id, { cargoCbm: e.target.value })}
+              />
+            </td>
+            <td>
+              <input
+                value={row.cargoMt || ''}
+                readOnly={readOnly}
+                placeholder="0.00"
+                inputMode="decimal"
+                onChange={(e) => updateRow(collection, row.id, { cargoMt: e.target.value })}
+              />
+            </td>
+            <td>
+              <input
+                value={row.rateUsdMt || ''}
+                readOnly={readOnly}
+                placeholder="0.00"
+                inputMode="decimal"
+                onChange={(e) => updateRow(collection, row.id, { rateUsdMt: e.target.value })}
+              />
+            </td>
+            <td>
+              <input
+                value={row.amountUsd !== '' && row.amountUsd != null ? row.amountUsd : ''}
+                readOnly
+                placeholder="0.00"
+              />
+            </td>
+            {editable ? (
+              <td className={styles.stickyAct}>
+                <div className={styles.khakiRowActions}>
+                  <RowAddButton
+                    title="Add row"
+                    onClick={() => addRow(collection, createRow)}
+                  />
+                  <RowDelButton
+                    title="Delete row"
+                    onClick={() => removeRow(collection, row.id)}
+                    disabled={rows.length <= 1}
+                  >
+                    <EstimateTrashIcon />
+                  </RowDelButton>
+                </div>
+              </td>
+            ) : null}
+          </tr>
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -44,132 +159,45 @@ export function CargoDetailsTable({
   createRow,
   SelectField = WorksheetSelect,
 }) {
-  const totals = sumCargoRows(rows);
-
   return (
-    <div className={styles.nestedBlock}>
+    <div className={styles.cargoGroup}>
       <div className={styles.consTitle}>{title}</div>
-      <div className={styles.tableWrap}>
-        <table className={`${styles.portTable} ${styles.flushGrid}`}>
-          <thead>
-            <tr>
-              {editable ? <th style={{ width: 64 }} /> : null}
-              <th>Shipper/Charterer</th>
-              <th>Cargo</th>
-              <th>Cargo (CBM)</th>
-              <th>Cargo (MT)</th>
-              <th>Rate / MT</th>
-              <th>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                {editable ? (
-                  <td>
-                    <div className="rowActions">
-                      <RowAddButton
-                        title="Add row"
-                        onClick={() => addRow(collection, createRow)}
-                      />
-                      <RowDelButton
-                        title="Delete row"
-                        onClick={() => removeRow(collection, row.id)}
-                        disabled={rows.length <= 1}
-                      />
-                    </div>
-                  </td>
-                ) : null}
-                <td>
-                  <SelectField
-                    ariaLabel="Shipper/Charterer"
-                    placeholder="— Select —"
-                    value={String(row.charterer || row.vendorId || '')}
-                    disabled={readOnly}
-                    options={[
-                      { id: '', name: '— Select —' },
-                      ...(lookups.owners || []).map((v) => ({ id: String(v.id), name: v.name })),
-                    ]}
-                    onChange={(value) => updateRow(collection, row.id, {
-                      charterer: value,
-                      vendorId: value,
-                    })}
-                  />
-                </td>
-                <td>
-                  <SelectField
-                    ariaLabel="Cargo"
-                    placeholder="— Select —"
-                    value={String(row.cargoId ?? '')}
-                    disabled={readOnly}
-                    options={[
-                      { id: '', name: '— Select —' },
-                      ...(lookups.cargos || []).map((c) => ({ id: String(c.id), name: c.name })),
-                    ]}
-                    onChange={(value) => {
-                      const cargo = (lookups.cargos || []).find((c) => String(c.id) === String(value));
-                      updateRow(collection, row.id, { cargoId: value, cargoName: cargo?.name || '' });
-                    }}
-                  />
-                </td>
-                <td>
-                  <input
-                    value={row.cargoCbm || ''}
-                    readOnly={readOnly}
-                    placeholder="0.00"
-                    inputMode="decimal"
-                    onChange={(e) => updateRow(collection, row.id, { cargoCbm: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    value={row.cargoMt || ''}
-                    readOnly={readOnly}
-                    placeholder="0.00"
-                    inputMode="decimal"
-                    onChange={(e) => updateRow(collection, row.id, { cargoMt: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    value={row.rateUsdMt || ''}
-                    readOnly={readOnly}
-                    placeholder="0.00"
-                    inputMode="decimal"
-                    onChange={(e) => updateRow(collection, row.id, { rateUsdMt: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    value={row.amountUsd !== '' && row.amountUsd != null ? row.amountUsd : ''}
-                    readOnly
-                    placeholder="0.00"
-                  />
-                </td>
-              </tr>
-            ))}
-            {editable && !rows.length ? (
-              <tr>
-                <td>
-                  <div className="rowActions">
-                    <RowAddButton title="Add row" onClick={() => addRow(collection, createRow)} />
-                  </div>
-                </td>
-                <td colSpan={6}>No cargo rows yet.</td>
-              </tr>
-            ) : null}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={editable ? 3 : 2}><strong>Total</strong></td>
-              <td>{totals.cbm.toFixed(2)}</td>
-              <td>{totals.mt.toFixed(2)}</td>
-              <td />
-              <td>{totals.amount.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      {rows.map((row, index) => (
+        <div key={row.id} className={styles.cargoCard}>
+          <CargoFieldsTable
+            row={row}
+            index={index}
+            collection={collection}
+            rows={rows}
+            readOnly={readOnly}
+            editable={editable}
+            lookups={lookups}
+            updateRow={updateRow}
+            addRow={addRow}
+            removeRow={removeRow}
+            createRow={createRow}
+            SelectField={SelectField}
+          />
+          <CargoCommissionBlock
+            commissions={row.commissions}
+            readOnly={readOnly}
+            editable={editable}
+            lookups={lookups}
+            SelectField={SelectField}
+            onChange={(next) => updateRow(collection, row.id, { commissions: next })}
+          />
+        </div>
+      ))}
+      {editable && !rows.length ? (
+        <div className={styles.cargoCard}>
+          <div className={styles.cargoCardEmpty}>
+            <span>No cargo rows yet.</span>
+            <div className={styles.khakiRowActions}>
+              <RowAddButton title="Add row" onClick={() => addRow(collection, createRow)} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -288,7 +316,7 @@ export default function TankerFreightModeSection({
 
   return (
     <>
-      <div className={styles.tankerModeControls}>
+      <div className={`${styles.tankerModeControls} ${styles.tankerModeControlsInline}`}>
         <div className={styles.tankerModeRow}>
           <span className={styles.tankerModeLabel}>1. Cargo Type</span>
           <div className={`${styles.segmented} ${cargoTypeLocked ? styles.segmentedDisabled : ''}`.trim()} role="group" aria-label="Cargo type">
@@ -374,19 +402,17 @@ export default function TankerFreightModeSection({
             </div>
           ) : (
             <>
-              <div className={styles.conspGroupHead}>Freight Adjustment</div>
+              <div className={`${styles.conspGroupHead} ${styles.freightAdjHead}`}>Freight Adjustment</div>
               {(form.tankerWsRows || []).map((row, rowIndex) => (
                 <div key={row.id} className={styles.tankerWsBlock}>
-                  <div className={styles.wsPortCombo}>
-                    <span className={styles.wsPortComboLabel}>WS Port(s) Combo</span>
-                    <div className={styles.wsPortComboField}>
-                      <label htmlFor={`wsFromPort_${rowIndex}`}>WS Port(s) Combo — From</label>
+                  <div className={`${styles.headerGrid} ${styles.gridF2}`}>
+                    <Field id={`wsFromPort_${rowIndex}`} label="WS Port(s) Combo — From">
                       <WsPortMultiSelect
                         id={`wsFromPort_${rowIndex}`}
                         value={row.wsFromPortId}
                         label={row.wsFromPortName}
                         readOnly={readOnly}
-                        placeholder="Choose Port…"
+                        placeholder="Choose port…"
                         searchPorts={searchEstimatePorts}
                         onChange={(portIds, portNames) => {
                           updateTankerWsRow(row.id, {
@@ -395,15 +421,14 @@ export default function TankerFreightModeSection({
                           });
                         }}
                       />
-                    </div>
-                    <div className={styles.wsPortComboField}>
-                      <label htmlFor={`wsToPort_${rowIndex}`}>WS Port(s) Combo — To</label>
+                    </Field>
+                    <Field id={`wsToPort_${rowIndex}`} label="WS Port(s) Combo — To">
                       <WsPortMultiSelect
                         id={`wsToPort_${rowIndex}`}
                         value={row.wsToPortId}
                         label={row.wsToPortName}
                         readOnly={readOnly}
-                        placeholder="Choose Port…"
+                        placeholder="Choose port…"
                         searchPorts={searchEstimatePorts}
                         onChange={(portIds, portNames) => {
                           updateTankerWsRow(row.id, {
@@ -412,68 +437,59 @@ export default function TankerFreightModeSection({
                           });
                         }}
                       />
-                    </div>
+                    </Field>
                   </div>
 
                   <div className={styles.tableWrap}>
-                    <table className={`${styles.portTable} ${styles.flushGrid}`}>
+                    <table className={`${styles.portTable} ${styles.flushGrid} ${styles.wsAdjTable}`}>
                       <thead>
                         <tr>
-                          <th style={{ width: 64 }} />
                           <th />
-                          <th />
-                          <th>Flat Rate</th>
-                          <th>WS</th>
-                          <th>Amount</th>
+                          <th className={styles.num}>Qty</th>
+                          <th className={styles.num}>Flat Rate</th>
+                          <th className={styles.num}>WS</th>
+                          <th className={styles.num}>Amount</th>
                           <th>Customer</th>
+                          {editable ? <th className={styles.stickyAct} /> : null}
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td>
-                            {editable ? (
-                              <div className="rowActions">
-                                <RowAddButton title="Add row" onClick={addTankerWsRow} />
-                                <RowDelButton
-                                  title="Delete row"
-                                  onClick={() => removeRow('tankerWsRows', row.id)}
-                                  disabled={(form.tankerWsRows || []).length <= 1}
-                                />
-                              </div>
-                            ) : null}
-                          </td>
-                          <th scope="row" className={`${styles.tankerWsRowLabel} ${styles.rowLabel}`}>Min Cargo Qty</th>
-                          <td>
+                          <td className={`${styles.tankerWsRowLabel} ${styles.rowLabel}`}>Min Cargo Qty</td>
+                          <td className={styles.num}>
                             <input
                               id={`minCargoQty_${rowIndex}`}
                               name="minCargoQty"
                               value={row.minCargoQty || ''}
                               readOnly={readOnly}
                               placeholder="0.00"
+                              inputMode="decimal"
                               onChange={(e) => handleTankerWsFieldChange(row, 'minCargoQty', e.target.value)}
                             />
                           </td>
-                          <td>
+                          <td className={styles.num}>
                             <input
                               id={`minFlatRate_${rowIndex}`}
                               name="minFlatRate"
                               value={row.minFlatRate || ''}
                               readOnly={readOnly}
                               placeholder="0.00"
+                              inputMode="decimal"
                               onChange={(e) => handleTankerWsFieldChange(row, 'minFlatRate', e.target.value)}
                             />
                           </td>
-                          <td>
+                          <td className={styles.num}>
                             <input
                               id={`minWs_${rowIndex}`}
                               name="minWs"
                               value={row.minWs || ''}
                               readOnly={readOnly}
                               placeholder="0.00"
+                              inputMode="decimal"
                               onChange={(e) => handleTankerWsFieldChange(row, 'minWs', e.target.value)}
                             />
                           </td>
-                          <td>
+                          <td className={styles.num}>
                             <input
                               id={`minAmount_${rowIndex}`}
                               name="minAmount"
@@ -482,7 +498,7 @@ export default function TankerFreightModeSection({
                               placeholder="0.00"
                             />
                           </td>
-                          <td>
+                          <td className={styles.wsCustomerCol}>
                             <SelectField
                               id={`tankCustomer_${rowIndex}`}
                               ariaLabel="Customer"
@@ -493,41 +509,57 @@ export default function TankerFreightModeSection({
                               onChange={(value) => handleTankerWsFieldChange(row, 'customerId', value)}
                             />
                           </td>
+                          {editable ? (
+                            <td className={styles.stickyAct}>
+                              <div className={styles.khakiRowActions}>
+                                <RowAddButton title="Add row" onClick={addTankerWsRow} />
+                                <RowDelButton
+                                  title="Delete row"
+                                  onClick={() => removeRow('tankerWsRows', row.id)}
+                                  disabled={(form.tankerWsRows || []).length <= 1}
+                                >
+                                  <EstimateTrashIcon />
+                                </RowDelButton>
+                              </div>
+                            </td>
+                          ) : null}
                         </tr>
                         <tr>
-                          <td />
-                          <th scope="row" className={`${styles.tankerWsRowLabel} ${styles.rowLabel}`}>Overage Qty</th>
-                          <td>
+                          <td className={`${styles.tankerWsRowLabel} ${styles.rowLabel}`}>Overage Qty</td>
+                          <td className={styles.num}>
                             <input
                               id={`oveCargoQty_${rowIndex}`}
                               name="oveCargoQty"
                               value={row.oveCargoQty || ''}
                               readOnly={readOnly}
                               placeholder="0.00"
+                              inputMode="decimal"
                               onChange={(e) => handleTankerWsFieldChange(row, 'oveCargoQty', e.target.value)}
                             />
                           </td>
-                          <td>
+                          <td className={styles.num}>
                             <input
                               id={`oveFlatRate_${rowIndex}`}
                               name="oveFlatRate"
                               value={row.oveFlatRate || ''}
                               readOnly={readOnly}
                               placeholder="0.00"
+                              inputMode="decimal"
                               onChange={(e) => handleTankerWsFieldChange(row, 'oveFlatRate', e.target.value)}
                             />
                           </td>
-                          <td>
+                          <td className={styles.num}>
                             <input
                               id={`oveWs_${rowIndex}`}
                               name="oveWs"
                               value={row.oveWs || ''}
                               readOnly={readOnly}
                               placeholder="0.00"
+                              inputMode="decimal"
                               onChange={(e) => handleTankerWsFieldChange(row, 'oveWs', e.target.value)}
                             />
                           </td>
-                          <td>
+                          <td className={styles.num}>
                             <input
                               id={`oveAmount_${rowIndex}`}
                               name="oveAmount"
@@ -537,11 +569,13 @@ export default function TankerFreightModeSection({
                             />
                           </td>
                           <td />
+                          {editable ? <td className={styles.stickyAct} /> : null}
                         </tr>
+                      </tbody>
+                      <tfoot>
                         <tr>
-                          <td />
-                          <th scope="row" className={`${styles.tankerWsRowLabel} ${styles.rowLabel}`}>Total Cargo Qty</th>
-                          <td>
+                          <td className={`${styles.tankerWsRowLabel} ${styles.rowLabel}`}>Total Cargo Qty</td>
+                          <td className={styles.num}>
                             <input
                               id={`totalQty_${rowIndex}`}
                               name="totalQty"
@@ -552,7 +586,7 @@ export default function TankerFreightModeSection({
                           </td>
                           <td />
                           <td />
-                          <td>
+                          <td className={styles.num}>
                             <input
                               id={`totalAmount_${rowIndex}`}
                               name="totalAmount"
@@ -562,14 +596,24 @@ export default function TankerFreightModeSection({
                             />
                           </td>
                           <td />
+                          {editable ? <td className={styles.stickyAct} /> : null}
                         </tr>
-                      </tbody>
+                      </tfoot>
                     </table>
                   </div>
                 </div>
               ))}
             </>
           )}
+          <SingleCargoCommission
+            form={form}
+            readOnly={readOnly}
+            editable={editable}
+            lookups={lookups}
+            applyPatch={applyPatch}
+            onRecalc={onRecalc}
+            SelectField={SelectField}
+          />
         </div>
       ) : null}
 

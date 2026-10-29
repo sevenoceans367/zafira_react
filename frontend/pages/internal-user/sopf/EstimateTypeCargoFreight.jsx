@@ -4,6 +4,7 @@ import {
 } from './estimateDetail.constants.js';
 import { sanitizeFieldDecimal } from './estimateInputSanitize.js';
 import { CargoDetailsTable } from './TankerFreightModeSection.jsx';
+import { SingleCargoCommission } from './CargoCommissionBlock.jsx';
 import WorksheetSelect from '../ops/voyage-financials/WorksheetSelect.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
@@ -20,6 +21,8 @@ function Field({ id, label, children }) {
 export function GasFreightModeSection({
   form,
   readOnly = false,
+  editable = true,
+  lookups = { owners: [] },
   inputProps,
   applyPatch,
   onRecalc,
@@ -99,6 +102,14 @@ export function GasFreightModeSection({
           <input id="freightGrossGas" value={form.freightGross || ''} readOnly placeholder="0.00" />
         </Field>
       </div>
+      <SingleCargoCommission
+        form={form}
+        readOnly={readOnly}
+        editable={editable}
+        lookups={lookups}
+        applyPatch={applyPatch}
+        onRecalc={onRecalc}
+      />
     </>
   );
 }
@@ -183,6 +194,31 @@ export function DryFreightModeSection({
             </button>
           </div>
         </div>
+        {isSingle ? (
+          <div className={styles.tankerModeRow}>
+            <span className={styles.tankerModeLabel}>2. Calculation Method</span>
+            <div className={styles.segmented} role="group" aria-label="Dry market method">
+              <button
+                type="button"
+                className={`${styles.segmentedBtn} ${isFreightRate ? styles.segmentedBtnActive : ''}`}
+                disabled={readOnly}
+                aria-pressed={isFreightRate}
+                onClick={() => setDryMarket('1')}
+              >
+                Freight ($/MT)
+              </button>
+              <button
+                type="button"
+                className={`${styles.segmentedBtn} ${!isFreightRate ? styles.segmentedBtnActive : ''}`}
+                disabled={readOnly}
+                aria-pressed={!isFreightRate}
+                onClick={() => setDryMarket('2')}
+              >
+                LS ($)
+              </button>
+            </div>
+          </div>
+        ) : null}
         {isMultiple || isFreightRate ? (
           <div className={styles.tankerModeRow}>
             <span className={styles.tankerModeLabel}>Freight ($/MT)</span>
@@ -238,41 +274,10 @@ export function DryFreightModeSection({
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(3)}
           />
-          <div className={styles.headerGrid}>
-            <Field id="freightGrossDryMulti" label="Total Freight">
-              <input id="freightGrossDryMulti" value={form.freightGross || ''} readOnly placeholder="0.00" />
-            </Field>
-          </div>
         </>
       ) : (
         <>
-          <div className={styles.tankerModeControls}>
-            <div className={styles.tankerModeRow}>
-              <span className={styles.tankerModeLabel}>2. Calculation Method</span>
-              <div className={styles.segmented} role="group" aria-label="Dry market method">
-                <button
-                  type="button"
-                  className={`${styles.segmentedBtn} ${isFreightRate ? styles.segmentedBtnActive : ''}`}
-                  disabled={readOnly}
-                  aria-pressed={isFreightRate}
-                  onClick={() => setDryMarket('1')}
-                >
-                  Freight ($/MT)
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.segmentedBtn} ${!isFreightRate ? styles.segmentedBtnActive : ''}`}
-                  disabled={readOnly}
-                  aria-pressed={!isFreightRate}
-                  onClick={() => setDryMarket('2')}
-                >
-                  LS ($)
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.headerGrid}>
+          <div className={`${styles.headerGrid} ${styles.drySingleFields}`}>
             {isFreightRate ? null : (
               <Field id="lumpsumDry" label="LS ($)">
                 <input
@@ -337,6 +342,14 @@ export function DryFreightModeSection({
               <input id="freightGrossDryTotal" value={form.freightGross || ''} readOnly placeholder="0.00" />
             </Field>
           </div>
+          <SingleCargoCommission
+            form={form}
+            readOnly={readOnly}
+            editable={editable}
+            lookups={lookups}
+            applyPatch={applyPatch}
+            onRecalc={onRecalc}
+          />
         </>
       )}
     </>

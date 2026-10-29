@@ -1,4 +1,5 @@
 import { formatVoyageEstimateLabel, normalizeEstimateNo } from './estimateVoyage.js';
+import { flattenCargoCommissions } from './estimateDetail.constants.js';
 
 /**
  * CARGO_RATE persistence: dry single edits `marketRate`; tanker / dry-multiple use
@@ -21,7 +22,13 @@ function resolveCargoRateFields(form, estimateType) {
 /** Shared Add/Update estimate API payload from computed form state. */
 export function buildEstimateSubmitPayload(form, estimateType, periodId = null) {
   const filterCargo = (rows) => (rows || []).filter(
-    (row) => row.cargoId || row.cargoMt || row.charterer || row.vendorId,
+    (row) => row.cargoId || row.cargoMt || row.charterer || row.vendorId
+      || (row.commissions || []).some((comm) => (
+        comm.percent
+        || comm.vendorId
+        || comm.demmAmt
+        || (comm.amount && Number(String(comm.amount).replace(/,/g, '')) !== 0)
+      )),
   );
   const estimateNo = normalizeEstimateNo(form.estimateNo);
   const voyageNo = String(form.voyageNo || '').trim();
@@ -77,9 +84,17 @@ export function buildEstimateSubmitPayload(form, estimateType, periodId = null) 
     freightGross: form.freightGross,
     brokeragePercent: form.brokeragePercent,
     brokerageAmt: form.brokerageAmt,
-    brokerRows: (form.brokerRows || []).filter(
-      (row) => row.percent || row.amount || row.vendorId,
-    ),
+    brokerRows: (() => {
+      const fromCargo = flattenCargoCommissions(
+        form.cargoRows,
+        form.overageCargoRows,
+        form.deadfreightCargoRows,
+      );
+      const rows = fromCargo.length ? fromCargo : (form.brokerRows || []);
+      return rows.filter(
+        (row) => row.percent || row.amount || row.vendorId || row.demmPercent || row.demmAmt || row.commType,
+      );
+    })(),
     hireRate: form.hireRate,
     hireAmt: form.hireAmt,
     cvePerMonth: form.cvePerMonth,

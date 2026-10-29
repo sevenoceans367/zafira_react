@@ -31,7 +31,7 @@ export default function WsPortMultiSelect({
   searchPorts,
   readOnly = false,
   id,
-  placeholder = 'Add port…',
+  placeholder = 'Choose port…',
 }) {
   const ports = useMemo(() => parsePortList(value, label), [value, label]);
 
@@ -50,38 +50,34 @@ export default function WsPortMultiSelect({
 
   if (readOnly) {
     return (
-      <input
-        id={id}
-        value={joinPortNames(ports) || '—'}
-        readOnly
-        className={styles.wsPortReadonly}
-      />
+      <div className={styles.wsPortChipBox}>
+        {ports.length ? ports.map((port) => (
+          <span key={port.id} className={styles.wsPortChip}>{port.name}</span>
+        )) : '—'}
+      </div>
     );
   }
 
   return (
-    <div className={styles.wsPortMulti} data-estimate-field-wrap={id || undefined}>
-      {ports.length ? (
-        <div className={styles.wsPortChips}>
-          {ports.map((port) => (
-            <span key={port.id} className={styles.wsPortChip}>
-              {port.name}
-              <button
-                type="button"
-                className={styles.wsPortChipRemove}
-                onClick={() => removePort(port.id)}
-                aria-label={`Remove ${port.name}`}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      ) : null}
+    <div className={styles.wsPortChipBox} data-estimate-field-wrap={id || undefined}>
+      {ports.map((port) => (
+        <span key={port.id} className={styles.wsPortChip}>
+          <span className={styles.wsPortChipLabel}>{port.name}</span>
+          <button
+            type="button"
+            className={styles.wsPortChipRemove}
+            onClick={() => removePort(port.id)}
+            aria-label={`Remove ${port.name}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
       <PortSearchSelect
         id={id}
         value=""
         label=""
+        clearable={false}
         placeholder={placeholder}
         searchPorts={searchPorts}
         onChange={addPort}

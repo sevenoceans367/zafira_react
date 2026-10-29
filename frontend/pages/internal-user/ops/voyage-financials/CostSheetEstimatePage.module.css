@@ -361,10 +361,10 @@
   padding-top: 2px;
 }
 
-/* Fill the panel; extra space goes to From/To Port. Scroll only if columns overflow. */
+/* Fill the section; From/To Port stay pinned, leftover goes to dates / NSECA / SECA. */
 .portLegConnected {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  min-width: 0;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -422,9 +422,9 @@
 .portLegConnected td.portIdxCol,
 .portTable th.portIdxCol,
 .portTable td.portIdxCol {
-  width: 18px !important;
-  min-width: 18px !important;
-  max-width: 18px !important;
+  width: 26px !important;
+  min-width: 26px !important;
+  max-width: 26px !important;
   text-align: center !important;
   vertical-align: middle;
   padding: 4px 0 !important;
@@ -468,10 +468,14 @@
   height: 11px;
 }
 
-/* Flexible From/To Port column — 20% narrower than leftover share */
-.portCol {
-  width: auto;
-  min-width: 112px;
+/* From/To Port — fixed width so leftover panel space cannot stretch them */
+.portCol,
+.portLegConnected .portCol,
+.portLegConnected th.portCol,
+.portLegConnected td.portCol {
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
 }
 
 .dateCol {
@@ -484,12 +488,6 @@
   width: 70px;
   min-width: 70px;
   max-width: 70px;
-}
-
-.portLegConnected .portCol {
-  width: calc((100% - 900px) * 0.8);
-  min-width: 112px;
-  max-width: calc((100% - 900px) * 0.8);
 }
 
 .portLegConnected td.portCol input,
@@ -507,6 +505,29 @@
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+/* Arrival / Departure + NSECA / SECA dist & days absorb leftover width */
+.portLegConnected th.dateCol,
+.portLegConnected td.dateCol {
+  width: auto !important;
+  min-width: 128px !important;
+  max-width: none !important;
+}
+
+.portLegConnected th.nsecaCol,
+.portLegConnected td.nsecaCol,
+.portLegConnected th.nsecaDaysCol,
+.portLegConnected td.nsecaDaysCol,
+.portLegConnected th.distCol,
+.portLegConnected td.distCol,
+.portLegConnected th.lbCol,
+.portLegConnected td.lbCol,
+.portLegConnected th.speedTypeCol,
+.portLegConnected td.speedTypeCol {
+  width: auto !important;
+  min-width: 100px !important;
+  max-width: none !important;
 }
 
 /* VLSFO ROB / LSMGO ROB — navy header text */

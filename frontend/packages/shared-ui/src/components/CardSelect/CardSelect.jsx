@@ -53,7 +53,14 @@ export default function CardSelect({
     const available = openUp ? spaceAbove : spaceBelow;
     const maxHeight = Math.max(120, Math.min(maxMenuHeight, available));
 
-    const width = Math.max(rect.width, 160);
+    const longestPx = normalizedOptions.reduce((max, option) => {
+      const label = String(option.name || '');
+      return Math.max(max, 48 + label.length * 7.2);
+    }, 0);
+    const width = Math.min(
+      Math.min(window.innerWidth - 16, 420),
+      Math.max(rect.width, 160, longestPx),
+    );
     let left = align === 'start' ? rect.left : rect.right - width;
     left = Math.min(Math.max(8, left), window.innerWidth - width - 8);
 

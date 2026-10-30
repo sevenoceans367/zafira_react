@@ -54,7 +54,7 @@ const STANDALONE_LIVE_KEYS = new Set([
   'contractFoPrice',
   'addCom',
   'brokerage',
-  'freightUsdOut',
+  'freightUsdOut' ,
   'bafUsdOut',
   'currentFoPrice',
   'addComOut',

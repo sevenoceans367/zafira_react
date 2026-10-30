@@ -1,3 +1,5 @@
+import { cargoQtyDwtViolation } from './cargoQtyDwtLimit.js';
+
 const ERROR_CLASS = 'estimate-field-error';
 
 function filled(value) {
@@ -175,6 +177,9 @@ export function validateEstimateForm(form = {}) {
   if (!String(form.charteringPic || '').trim()) {
     return { message: 'Please select Chartering PIC', fieldId: 'charteringPic' };
   }
+
+  const dwtError = cargoQtyDwtViolation(form);
+  if (dwtError) return dwtError;
 
   return null;
 }

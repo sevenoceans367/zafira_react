@@ -168,6 +168,23 @@ export function DryFreightModeSection({
     applyPatch({ marketRate: value, tankerFreightRate: value });
   };
 
+  const shipperOptions = (() => {
+    const options = [...(lookups.owners || [])];
+    const selected = form.lumpsumVendor != null ? String(form.lumpsumVendor) : '';
+    if (selected && !options.some((v) => String(v.code || v.id) === selected)) {
+      options.unshift({ id: selected, code: selected, name: selected });
+    }
+    return [
+      { value: '', label: '— Select —' },
+      ...options.map((v) => ({
+        value: String(v.code || v.id || ''),
+        label: v.name,
+      })),
+    ];
+  })();
+
+  const freightRateValue = form.tankerFreightRate || form.marketRate || '';
+
   return (
     <>
       <div className={`${styles.tankerModeControls} ${styles.tankerModeControlsInline}`}>
@@ -194,46 +211,58 @@ export function DryFreightModeSection({
             </button>
           </div>
         </div>
+        <div className={styles.tankerModeRow}>
+          <span className={styles.tankerModeLabel}>2. Calculation Method</span>
+          <div className={`${styles.segmented} ${isMultiple ? styles.segmentedDisabled : ''}`.trim()} role="group" aria-label="Dry market method">
+            <button
+              type="button"
+              className={`${styles.segmentedBtn} ${!isMultiple && isFreightRate ? styles.segmentedBtnActive : ''}`.trim()}
+              disabled={readOnly || isMultiple}
+              aria-pressed={!isMultiple && isFreightRate}
+              title={isMultiple ? 'Calculation method is only available for Single cargo type' : undefined}
+              onClick={() => setDryMarket('1')}
+            >
+              Freight ($/MT)
+            </button>
+            <button
+              type="button"
+              className={`${styles.segmentedBtn} ${!isMultiple && !isFreightRate ? styles.segmentedBtnActive : ''}`.trim()}
+              disabled={readOnly || isMultiple}
+              aria-pressed={!isMultiple && !isFreightRate}
+              title={isMultiple ? 'Calculation method is only available for Single cargo type' : undefined}
+              onClick={() => setDryMarket('2')}
+            >
+              Lump Sum ($)
+            </button>
+          </div>
+        </div>
         {isSingle ? (
           <div className={styles.tankerModeRow}>
-            <span className={styles.tankerModeLabel}>2. Calculation Method</span>
-            <div className={styles.segmented} role="group" aria-label="Dry market method">
-              <button
-                type="button"
-                className={`${styles.segmentedBtn} ${isFreightRate ? styles.segmentedBtnActive : ''}`}
+            <span className={styles.tankerModeLabel}>Shipper/Charterer</span>
+            <div className={styles.tankerModeSelect}>
+              <WorksheetSelect
+                id="lumpsumVendorDry"
+                ariaLabel="Shipper/Charterer"
+                value={form.lumpsumVendor || ''}
                 disabled={readOnly}
-                aria-pressed={isFreightRate}
-                onClick={() => setDryMarket('1')}
-              >
-                Freight ($/MT)
-              </button>
-              <button
-                type="button"
-                className={`${styles.segmentedBtn} ${!isFreightRate ? styles.segmentedBtnActive : ''}`}
-                disabled={readOnly}
-                aria-pressed={!isFreightRate}
-                onClick={() => setDryMarket('2')}
-              >
-                LS ($)
-              </button>
+                placeholder="— Select —"
+                options={shipperOptions}
+                onChange={(value) => setLumpsumVendor(value)}
+              />
             </div>
           </div>
-        ) : null}
-        {isMultiple || isFreightRate ? (
+        ) : (
           <div className={styles.tankerModeRow}>
-            <span className={styles.tankerModeLabel}>Freight ($/MT)</span>
+            <span className={styles.tankerModeLabel}>Total Freight</span>
             <input
-              id="tankerFreightRateDry"
+              id="freightGrossDryMultiple"
               className={styles.tankerModeInput}
-              value={form.tankerFreightRate || form.marketRate || ''}
-              readOnly={readOnly}
+              value={form.freightGross || ''}
+              readOnly
               placeholder="0.00"
-              inputMode="decimal"
-              autoComplete="off"
-              onChange={(e) => setDryFreightRate(e.target.value)}
             />
           </div>
-        ) : null}
+        )}
       </div>
 
       {isMultiple ? (
@@ -249,6 +278,7 @@ export function DryFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(1)}
+            SelectField={WorksheetSelect}
           />
           <CargoDetailsTable
             title="Overage"
@@ -261,9 +291,12 @@ export function DryFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(2)}
+            SelectField={WorksheetSelect}
+            collapsible
+            defaultOpen={false}
           />
           <CargoDetailsTable
-            title="Deadfreight"
+            title="Dead-freight"
             collection="deadfreightCargoRows"
             rows={form.deadfreightCargoRows || []}
             readOnly={readOnly}
@@ -273,13 +306,28 @@ export function DryFreightModeSection({
             addRow={addRow}
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(3)}
+            SelectField={WorksheetSelect}
+            collapsible
+            defaultOpen={false}
           />
         </>
       ) : (
         <>
           <div className={`${styles.headerGrid} ${styles.drySingleFields}`}>
-            {isFreightRate ? null : (
-              <Field id="lumpsumDry" label="LS ($)">
+            {isFreightRate ? (
+              <Field id="tankerFreightRateDry" label="Freight ($/MT)">
+                <input
+                  id="tankerFreightRateDry"
+                  value={freightRateValue}
+                  readOnly={readOnly}
+                  placeholder="0.00"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  onChange={(e) => setDryFreightRate(e.target.value)}
+                />
+              </Field>
+            ) : (
+              <Field id="lumpsumDry" label="Lump Sum ($)">
                 <input
                   id="lumpsumDry"
                   value={form.lumpsum || ''}
@@ -301,43 +349,19 @@ export function DryFreightModeSection({
             <Field id="cargoQuantityDry" label="QTY (MT)">
               <input {...inputProps('cargoQuantity', { recalc: true })} id="cargoQuantityDry" placeholder="0.00" />
             </Field>
-            <Field id="lumpsumVendorDry" label="Shipper/Charterer">
-              <WorksheetSelect
-                id="lumpsumVendorDry"
-                value={form.lumpsumVendor || ''}
-                disabled={readOnly}
-                placeholder="— Select —"
-                options={[
-                  { value: '', label: '— Select —' },
-                  ...(() => {
-                    const options = [...(lookups.owners || [])];
-                    const selected = form.lumpsumVendor != null ? String(form.lumpsumVendor) : '';
-                    if (
-                      selected
-                      && !options.some((v) => String(v.code || v.id) === selected)
-                    ) {
-                      options.unshift({ id: selected, code: selected, name: selected });
-                    }
-                    return options.map((v) => ({
-                      value: String(v.code || v.id || ''),
-                      label: v.name,
-                    }));
-                  })(),
-                ]}
-                onChange={(value) => setLumpsumVendor(value)}
-              />
-            </Field>
             {isFreightRate ? (
-              <Field id="dfQty" label="DF Qty (MT)">
+              <Field id="dfQty" label="Dead freight QTY (MT)">
                 <input {...inputProps('dfQty', { recalc: true })} placeholder="0.00" />
               </Field>
             ) : null}
             <Field id="freightGrossDry" label="Gross Freight">
               <input id="freightGrossDry" value={form.dryGrossFreight || form.freightGross || ''} readOnly placeholder="0.00" />
             </Field>
-            <Field id="deadFreightAmt" label="Dead Freight">
-              <input id="deadFreightAmt" value={form.deadFreightAmt || ''} readOnly placeholder="0.00" />
-            </Field>
+            {isFreightRate ? (
+              <Field id="deadFreightAmt" label="Dead Freight">
+                <input id="deadFreightAmt" value={form.deadFreightAmt || ''} readOnly placeholder="0.00" />
+              </Field>
+            ) : null}
             <Field id="freightGrossDryTotal" label="Total Freight">
               <input id="freightGrossDryTotal" value={form.freightGross || ''} readOnly placeholder="0.00" />
             </Field>

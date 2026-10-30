@@ -45,6 +45,11 @@ import HireDetailsModal from '../ops/voyage-financials/HireDetailsModal.jsx';
 import { checkVoyageNoExists, fetchCanalOrcRates, searchEstimatePorts } from '../../../services/estimateDetail.js';
 import { focusEstimateValidationField, getAddRowBlockMessage } from './estimateValidation.js';
 import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
+import {
+  applyCargoQtyDwtToRecalc,
+  capCargoQtyFormPatch,
+  capCargoQtyRowPatch,
+} from './cargoQtyDwtLimit.js';
 import styles from './UpdateEstimatePage.module.css';
 import WorksheetSelect, { gradeChipClass } from '../ops/voyage-financials/WorksheetSelect.jsx';
 import voyStyles from '../ops/voyage-financials/CostSheetEstimatePage.module.css';
@@ -195,7 +200,7 @@ export default function EstimateDetailSections({
   onFieldChange,
   onVesselSelect,
   onPeriodContractChange,
-  onRecalc,
+  onRecalc: emitRecalc,
   onApplyPatch,
   variant = '',
 }) {
@@ -203,6 +208,14 @@ export default function EstimateDetailSections({
   const isGas = estimateType === 1;
   const isTanker = estimateType === 2;
   const isDry = estimateType === 3;
+  const isMultipleCargo = String(form.tankType || '1') === '2';
+  const showCargoNameHeader = isGas || !isMultipleCargo;
+  const showHeaderTotalFreight = !isDry && !(
+    isTanker && (
+      isMultipleCargo
+      || (form.chkLumpsum != null ? !!form.chkLumpsum : true)
+    )
+  );
   const isCoaSpot = String(form.coaSpot || '') === '2';
   const fixtureType = String(form.fixtureTypeId ?? '');
   // PHP makeFieldManD: hire table for TCIN/VCIN (1|2); Vessel Daily Ops for VCOUT (3)
@@ -261,15 +274,24 @@ export default function EstimateDetailSections({
     return appPath(`/internal-user/sopf/${readOnly ? 'viewestimate' : 'updateestimate'}?${params}`);
   })();
 
+  const onRecalc = (key, value) => {
+    if (!emitRecalc) return;
+    emitRecalc(key, applyCargoQtyDwtToRecalc(key, value, form));
+  };
+
   const updateField = (key, value) => {
-    const next = ESTIMATE_DECIMAL_FIELDS.has(key)
-      ? sanitizeFieldDecimal(key, value)
-      : value;
+    const next = applyCargoQtyDwtToRecalc(
+      key,
+      ESTIMATE_DECIMAL_FIELDS.has(key)
+        ? sanitizeFieldDecimal(key, value)
+        : value,
+      form,
+    );
     onFieldChange?.(key, next);
   };
 
   const applyPatch = (patch) => {
-    const cleanPatch = sanitizeEstimatePatch(patch);
+    const cleanPatch = capCargoQtyFormPatch(sanitizeEstimatePatch(patch), form);
     const touchesCargo = Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoRows')
       || Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoIds')
       || Object.prototype.hasOwnProperty.call(cleanPatch, 'lumpsumQty')
@@ -393,7 +415,12 @@ export default function EstimateDetailSections({
   };
 
   const updateRow = (collection, id, patch) => {
-    const cleanPatch = sanitizeEstimatePatch(patch);
+    const cleanPatch = capCargoQtyRowPatch(
+      collection,
+      id,
+      sanitizeEstimatePatch(patch),
+      form,
+    );
     let rows = (form[collection] || []).map((row) => (
       String(row.id) === String(id) ? { ...row, ...cleanPatch } : row
     ));
@@ -1356,8 +1383,9 @@ export default function EstimateDetailSections({
         defaultOpen
         bodyClassName={styles.compactFields}
       >
+        {showCargoNameHeader || showHeaderTotalFreight ? (
         <div className={styles.cargoHeaderGrid}>
-          {!(!isGas && String(form.tankType || '1') === '2') ? (
+          {showCargoNameHeader ? (
           <Field id="cargoId_0" label="Cargo Name" className={styles.cargoMultiSelectField}>
             <div id="cargoId_0" className={`${styles.cargoMultiSelectWrap} ${styles.cargoChipsOrange}`}>
               {(() => {
@@ -1437,10 +1465,13 @@ export default function EstimateDetailSections({
             </div>
           </Field>
           ) : null}
+          {showHeaderTotalFreight ? (
           <Field id="freightGrossCargoHeader" label="Total Freight">
             <input id="freightGrossCargoHeader" value={form.freightGross || ''} readOnly />
           </Field>
+          ) : null}
         </div>
+        ) : null}
 
         {isGas ? (
           <GasFreightModeSection

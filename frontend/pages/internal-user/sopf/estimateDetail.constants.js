@@ -163,11 +163,23 @@ function resolveUniqueRowId(rawId, prefix, seen) {
   return id;
 }
 
-export const ADCOM_COMM_TYPE = 'ADCOM Freight';
+export const ADCOM_COMM_TYPE = 'Add comm freight';
 export const BROKERAGE_COMM_TYPE = 'Brokerage commission';
+export const ADCOM_COMM_PERCENT = '3.75';
+export const BROKERAGE_COMM_PERCENT = '1.25';
+
+export const CARGO_COMM_TYPE_OPTIONS = [
+  { id: ADCOM_COMM_TYPE, name: ADCOM_COMM_TYPE },
+  { id: BROKERAGE_COMM_TYPE, name: BROKERAGE_COMM_TYPE },
+];
 
 export function isAdcomCommission(type) {
-  return /adcom/i.test(String(type || ''));
+  return /adcom|add\s*comm/i.test(String(type || ''));
+}
+
+export function defaultPercentForCommType(type) {
+  if (isAdcomCommission(type)) return ADCOM_COMM_PERCENT;
+  return BROKERAGE_COMM_PERCENT;
 }
 
 export function createEmptyCargoCommissionRow(commType = ADCOM_COMM_TYPE) {
@@ -181,8 +193,24 @@ export function createEmptyCargoCommissionRow(commType = ADCOM_COMM_TYPE) {
   };
 }
 
+export function ensureStandardCargoCommissions(commissions) {
+  const source = Array.isArray(commissions) ? commissions : [];
+  const hasAdcom = source.some((row) => isAdcomCommission(row.commType));
+  const hasBrokerage = source.some((row) => !isAdcomCommission(row.commType));
+  const next = source.map((row) => ({
+    ...row,
+    commType: row.commType || (isAdcomCommission(row.commType) ? ADCOM_COMM_TYPE : BROKERAGE_COMM_TYPE),
+  }));
+  if (!hasAdcom) next.unshift(createEmptyCargoCommissionRow(ADCOM_COMM_TYPE));
+  if (!hasBrokerage) next.push(createEmptyCargoCommissionRow(BROKERAGE_COMM_TYPE));
+  return next.length ? next : [
+    createEmptyCargoCommissionRow(ADCOM_COMM_TYPE),
+    createEmptyCargoCommissionRow(BROKERAGE_COMM_TYPE),
+  ];
+}
+
 export function defaultCargoCommissions() {
-  return [createEmptyCargoCommissionRow(ADCOM_COMM_TYPE)];
+  return ensureStandardCargoCommissions([]);
 }
 
 export function createEmptyCargoRow(status = 1) {
@@ -218,8 +246,8 @@ function toCargoCommission(row) {
 function withDefaultCommissions(row) {
   const commissions = Array.isArray(row.commissions) && row.commissions.length
     ? row.commissions.map(toCargoCommission)
-    : defaultCargoCommissions();
-  return { ...row, commissions };
+    : [];
+  return { ...row, commissions: ensureStandardCargoCommissions(commissions) };
 }
 
 /** Spread slave4 / brokerRows onto cargo lines. Legacy unlinked rows go on the first main cargo. */
@@ -265,7 +293,10 @@ export function assignCargoCommissions(cargoRows, overageRows, deadfreightRows, 
       }));
     }
     if (!nextCargo.length) nextCargo = [createEmptyCargoRow(1)];
-    nextCargo[0] = { ...nextCargo[0], commissions: seed.length ? seed : defaultCargoCommissions() };
+    nextCargo[0] = {
+      ...nextCargo[0],
+      commissions: ensureStandardCargoCommissions(seed.length ? seed : []),
+    };
   }
 
   return {
@@ -857,14 +888,18 @@ export function toFormState(detail = {}) {
       demAmt: row.demAmt != null ? String(row.demAmt) : '',
       vendorId: row.vendorId != null ? String(row.vendorId) : '',
       status: row.status ?? 1,
-      commissions: Array.isArray(row.commissions) ? row.commissions.map((comm) => ({
-        id: comm.id || newRowId('ccomm'),
-        commType: comm.commType || ADCOM_COMM_TYPE,
-        percent: comm.percent != null ? String(comm.percent) : '',
-        amount: comm.amount != null ? String(comm.amount) : '',
-        demmAmt: comm.demmAmt != null ? String(comm.demmAmt) : (comm.demmPercent != null ? String(comm.demmPercent) : ''),
-        vendorId: comm.vendorId != null ? String(comm.vendorId) : '',
-      })) : undefined,
+      commissions: ensureStandardCargoCommissions(
+        Array.isArray(row.commissions)
+          ? row.commissions.map((comm) => ({
+            id: comm.id || newRowId('ccomm'),
+            commType: comm.commType || ADCOM_COMM_TYPE,
+            percent: comm.percent != null ? String(comm.percent) : '',
+            amount: comm.amount != null ? String(comm.amount) : '',
+            demmAmt: comm.demmAmt != null ? String(comm.demmAmt) : (comm.demmPercent != null ? String(comm.demmPercent) : ''),
+            vendorId: comm.vendorId != null ? String(comm.vendorId) : '',
+          }))
+          : [],
+      ),
     };
   };
 

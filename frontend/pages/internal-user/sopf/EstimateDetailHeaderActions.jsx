@@ -31,7 +31,7 @@ export default function EstimateDetailHeaderActions({
           <Button
             type="submit"
             variant="submit"
-            label="Submit"
+            label="Save"
             form={formId}
             disabled={disabled}
           />
@@ -48,7 +48,7 @@ export function EstimateDetailFooterActions({
   return (
     <div className={styles.actions}>
       <Button variant="close" label="Cancel" href={listHref} ariaLabel="Cancel" disabled={disabled} />
-      <Button type="submit" variant="submit" label="Submit" disabled={disabled} />
+      <Button type="submit" variant="submit" label="Save" disabled={disabled} />
     </div>
   );
 }

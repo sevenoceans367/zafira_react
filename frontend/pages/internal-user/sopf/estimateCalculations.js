@@ -1,5 +1,5 @@
 import {
-  defaultCargoCommissions,
+  ensureStandardCargoCommissions,
   flattenCargoCommissions,
   isAdcomCommission,
 } from './estimateDetail.constants.js';
@@ -1320,16 +1320,14 @@ export function computeEstimateTotals(form) {
 
   const applyLineCommissions = (rows, fallbackGross) => (rows || []).map((row) => {
     const gross = num(row.amountUsd) || fallbackGross || 0;
-    const list = (Array.isArray(row.commissions) && row.commissions.length)
-      ? row.commissions
-      : defaultCargoCommissions();
+    const list = ensureStandardCargoCommissions(row.commissions);
     const commissions = list.map((comm) => {
-      const rawPercent = comm.percent ?? '';
+      const rawPercent = String(comm.percent ?? '').trim();
       const percent = num(rawPercent);
       const amount = round2((gross * percent) / 100);
       return {
         ...comm,
-        percent: rawPercent === '' || rawPercent == null ? '' : String(rawPercent),
+        percent: rawPercent,
         amount: amount.toFixed(2),
       };
     });

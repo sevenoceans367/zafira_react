@@ -2,11 +2,11 @@ import React from 'react';
 import { RowAddButton, RowDelButton } from '@bainbridge/shared-ui';
 import { EstimateTrashIcon } from './RowRemoveButton.jsx';
 import {
-  ADCOM_COMM_TYPE,
   BROKERAGE_COMM_TYPE,
   createEmptyCargoCommissionRow,
   createEmptyCargoRow,
-  defaultCargoCommissions,
+  ensureStandardCargoCommissions,
+  isAdcomCommission,
 } from './estimateDetail.constants.js';
 import { sanitizeDecimalInput } from './estimateInputSanitize.js';
 import WorksheetSelect from '../ops/voyage-financials/WorksheetSelect.jsx';
@@ -33,12 +33,15 @@ export default function CargoCommissionBlock({
   onChange,
   className = '',
 }) {
-  const rows = Array.isArray(commissions) && commissions.length
-    ? commissions
-    : defaultCargoCommissions();
+  const rows = ensureStandardCargoCommissions(commissions);
+  const brokerageCount = rows.filter((row) => !isAdcomCommission(row.commType)).length;
 
   const patchRow = (id, patch) => {
     onChange(rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const setCommType = (id, commType) => {
+    patchRow(id, { commType });
   };
 
   const addRow = () => {
@@ -46,8 +49,9 @@ export default function CargoCommissionBlock({
   };
 
   const removeRow = (id) => {
-    const next = rows.filter((row) => row.id !== id);
-    onChange(next.length ? next : defaultCargoCommissions());
+    const target = rows.find((row) => row.id === id);
+    if (!target || isAdcomCommission(target.commType) || brokerageCount <= 1) return;
+    onChange(ensureStandardCargoCommissions(rows.filter((row) => row.id !== id)));
   };
 
   return (
@@ -61,7 +65,7 @@ export default function CargoCommissionBlock({
               <th style={{ width: 110 }}>Percentage (%)</th>
               <th style={{ width: 120 }}>Freight Comm.</th>
               <th style={{ width: 130 }}>Demurrage Comm.</th>
-              <th className={styles.cargoCommVendorCol}>Vendor</th>
+              <th className={styles.cargoCommVendorCol}>Customer</th>
               {editable ? <th className={styles.stickyAct} /> : null}
             </tr>
           </thead>
@@ -70,16 +74,17 @@ export default function CargoCommissionBlock({
               <tr key={row.id}>
                 <td className={styles.cargoCommTypeCol}>
                   <input
-                    value={row.commType || ADCOM_COMM_TYPE}
+                    aria-label="Type"
+                    value={row.commType || ''}
                     readOnly={readOnly}
-                    onChange={(e) => patchRow(row.id, { commType: e.target.value })}
+                    onChange={(e) => setCommType(row.id, e.target.value)}
                   />
                 </td>
                 <td>
                   <input
                     value={row.percent || ''}
                     readOnly={readOnly}
-                    placeholder="0.00"
+                    placeholder={isAdcomCommission(row.commType) ? '3.75%' : '1.25%'}
                     inputMode="decimal"
                     autoComplete="off"
                     onChange={(e) => patchRow(row.id, {
@@ -104,7 +109,7 @@ export default function CargoCommissionBlock({
                 </td>
                 <td className={styles.cargoCommVendorCol}>
                   <SelectField
-                    ariaLabel="Vendor"
+                    ariaLabel="Customer"
                     placeholder="— Select —"
                     value={String(row.vendorId || '')}
                     disabled={readOnly}
@@ -114,16 +119,18 @@ export default function CargoCommissionBlock({
                 </td>
                 {editable ? (
                   <td className={styles.stickyAct}>
-                    <div className={styles.khakiRowActions}>
-                      <RowAddButton title="Add" onClick={addRow} />
-                      <RowDelButton
-                        title="Remove"
-                        onClick={() => removeRow(row.id)}
-                        disabled={rows.length <= 1}
-                      >
-                        <EstimateTrashIcon />
-                      </RowDelButton>
-                    </div>
+                    {isAdcomCommission(row.commType) ? null : (
+                      <div className={styles.khakiRowActions}>
+                        <RowAddButton title="Add brokerage commission" onClick={addRow} />
+                        <RowDelButton
+                          title="Remove"
+                          onClick={() => removeRow(row.id)}
+                          disabled={brokerageCount <= 1}
+                        >
+                          <EstimateTrashIcon />
+                        </RowDelButton>
+                      </div>
+                    )}
                   </td>
                 ) : null}
               </tr>
@@ -145,7 +152,7 @@ export function SingleCargoCommission({
   SelectField = WorksheetSelect,
 }) {
   const row = (form.cargoRows && form.cargoRows[0]) || createEmptyCargoRow(1);
-  const commissions = row.commissions?.length ? row.commissions : defaultCargoCommissions();
+  const commissions = ensureStandardCargoCommissions(row.commissions);
 
   const setCommissions = (next) => {
     const rest = (form.cargoRows || []).slice(1);

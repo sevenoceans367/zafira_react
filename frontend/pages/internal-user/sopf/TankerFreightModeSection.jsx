@@ -1,15 +1,12 @@
-import React from 'react';
-import { RowAddButton, RowDelButton, useAlert } from '@bainbridge/shared-ui';
+import React, { useState } from 'react';
+import { RowAddButton, RowDelButton } from '@bainbridge/shared-ui';
 import { EstimateTrashIcon } from './RowRemoveButton.jsx';
 import { searchEstimatePorts } from '../../../services/estimateDetail.js';
 import WsPortMultiSelect from './WsPortMultiSelect.jsx';
-import {
-  createEmptyCargoRow,
-  createEmptyTankerWsRow,
-} from './estimateDetail.constants.js';
+import { createEmptyCargoRow } from './estimateDetail.constants.js';
 import CargoCommissionBlock, { SingleCargoCommission } from './CargoCommissionBlock.jsx';
-import { getAddRowBlockMessage } from './estimateValidation.js';
 import { sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from './estimateInputSanitize.js';
+import { capCargoQtyRowPatch } from './cargoQtyDwtLimit.js';
 import WorksheetSelect from '../ops/voyage-financials/WorksheetSelect.jsx';
 import styles from './UpdateEstimatePage.module.css';
 
@@ -44,7 +41,6 @@ function CargoFieldsTable({
             <th className={styles.cargoIdxCol}>#</th>
             <th className={styles.cargoNameCol}>Shipper/Charterer</th>
             <th className={styles.cargoNameCol}>Cargo</th>
-            <th>Cargo (CBM)</th>
             <th>Cargo (MT)</th>
             <th>Rate / MT</th>
             <th>Amount</th>
@@ -90,15 +86,7 @@ function CargoFieldsTable({
             </td>
             <td>
               <input
-                value={row.cargoCbm || ''}
-                readOnly={readOnly}
-                placeholder="0.00"
-                inputMode="decimal"
-                onChange={(e) => updateRow(collection, row.id, { cargoCbm: e.target.value })}
-              />
-            </td>
-            <td>
-              <input
+                id={`cargoMt_${row.id}`}
                 value={row.cargoMt || ''}
                 readOnly={readOnly}
                 placeholder="0.00"
@@ -146,6 +134,23 @@ function CargoFieldsTable({
   );
 }
 
+function CargoGroupChevron() {
+  return (
+    <svg
+      className={styles.cargoGroupChevron}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
 export function CargoDetailsTable({
   title,
   collection,
@@ -158,10 +163,12 @@ export function CargoDetailsTable({
   removeRow,
   createRow,
   SelectField = WorksheetSelect,
+  collapsible = false,
+  defaultOpen = true,
 }) {
-  return (
-    <div className={styles.cargoGroup}>
-      <div className={styles.consTitle}>{title}</div>
+  const [open, setOpen] = useState(defaultOpen);
+  const body = (
+    <>
       {rows.map((row, index) => (
         <div key={row.id} className={styles.cargoCard}>
           <CargoFieldsTable
@@ -198,6 +205,30 @@ export function CargoDetailsTable({
           </div>
         </div>
       ) : null}
+    </>
+  );
+
+  if (!collapsible) {
+    return (
+      <div className={styles.cargoGroup}>
+        <div className={styles.consTitle}>{title}</div>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${styles.cargoGroup} ${styles.cargoGroupCollapsible} ${open ? styles.cargoGroupOpen : ''}`.trim()}>
+      <button
+        type="button"
+        className={styles.cargoGroupHead}
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <span className={styles.cargoGroupHeadTitle}>{title}</span>
+        <CargoGroupChevron />
+      </button>
+      {open ? <div className={styles.cargoGroupBody}>{body}</div> : null}
     </div>
   );
 }
@@ -216,7 +247,6 @@ export default function TankerFreightModeSection({
   updateField,
   SelectField = WorksheetSelect,
 }) {
-  const alert = useAlert();
   const vendorOptions = (selected) => {
     const options = [...(lookups.owners || [])];
     const current = selected != null ? String(selected) : '';
@@ -269,24 +299,7 @@ export default function TankerFreightModeSection({
     if (key === 'minWs' && nextValue) {
       patch.oveWs = nextValue;
     }
-    updateTankerWsRow(row.id, patch);
-  };
-
-  const addTankerWsRow = async () => {
-    const blockMessage = getAddRowBlockMessage('tankerWsRows', form.tankerWsRows || []);
-    if (blockMessage) {
-      await alert({ title: 'Missing Information', message: blockMessage, confirmLabel: 'OK' });
-      return;
-    }
-    const row = createEmptyTankerWsRow();
-    const distance = form.totalDistance != null ? String(form.totalDistance) : '';
-    if (distance) {
-      row.minDistance = distance;
-      row.oveDistance = distance;
-    }
-    const rows = [...(form.tankerWsRows || []), row];
-    if (onRecalc) onRecalc('tankerWsRows', rows);
-    else updateField('tankerWsRows', rows);
+    updateTankerWsRow(row.id, capCargoQtyRowPatch('tankerWsRows', row.id, patch, form));
   };
 
   const handleChkLumpsumChange = (checked) => {
@@ -376,6 +389,19 @@ export default function TankerFreightModeSection({
             </button>
           </div>
         </div>
+
+        {isDistributed ? (
+          <div className={styles.tankerModeRow}>
+            <span className={styles.tankerModeLabel}>Total Freight</span>
+            <input
+              id="freightGrossTankerMultiple"
+              className={styles.tankerModeInput}
+              value={form.freightGross || ''}
+              readOnly
+              placeholder="0.00"
+            />
+          </div>
+        ) : null}
       </div>
 
       {showSingleSection ? (
@@ -385,7 +411,7 @@ export default function TankerFreightModeSection({
               <Field id="lumpsumQty" label="Cargo Qty (MT)">
                 <input {...inputProps('lumpsumQty', { recalc: true })} />
               </Field>
-              <Field id="lumpsum" label="Amount">
+              <Field id="lumpsum" label="Total Freight">
                 <input {...inputProps('lumpsum', { recalc: true })} />
               </Field>
               <Field id="lumpsumVendor" label="Shipper/Charterer">
@@ -403,7 +429,7 @@ export default function TankerFreightModeSection({
           ) : (
             <>
               <div className={`${styles.conspGroupHead} ${styles.freightAdjHead}`}>Freight Adjustment</div>
-              {(form.tankerWsRows || []).map((row, rowIndex) => (
+              {(form.tankerWsRows || []).slice(0, 1).map((row, rowIndex) => (
                 <div key={row.id} className={styles.tankerWsBlock}>
                   <div className={`${styles.headerGrid} ${styles.gridF2}`}>
                     <Field id={`wsFromPort_${rowIndex}`} label="WS Port(s) Combo — From">
@@ -450,7 +476,6 @@ export default function TankerFreightModeSection({
                           <th className={styles.num}>WS</th>
                           <th className={styles.num}>Amount</th>
                           <th>Customer</th>
-                          {editable ? <th className={styles.stickyAct} /> : null}
                         </tr>
                       </thead>
                       <tbody>
@@ -509,20 +534,6 @@ export default function TankerFreightModeSection({
                               onChange={(value) => handleTankerWsFieldChange(row, 'customerId', value)}
                             />
                           </td>
-                          {editable ? (
-                            <td className={styles.stickyAct}>
-                              <div className={styles.khakiRowActions}>
-                                <RowAddButton title="Add row" onClick={addTankerWsRow} />
-                                <RowDelButton
-                                  title="Delete row"
-                                  onClick={() => removeRow('tankerWsRows', row.id)}
-                                  disabled={(form.tankerWsRows || []).length <= 1}
-                                >
-                                  <EstimateTrashIcon />
-                                </RowDelButton>
-                              </div>
-                            </td>
-                          ) : null}
                         </tr>
                         <tr>
                           <td className={`${styles.tankerWsRowLabel} ${styles.rowLabel}`}>Overage Qty</td>
@@ -569,7 +580,6 @@ export default function TankerFreightModeSection({
                             />
                           </td>
                           <td />
-                          {editable ? <td className={styles.stickyAct} /> : null}
                         </tr>
                       </tbody>
                       <tfoot>
@@ -596,7 +606,6 @@ export default function TankerFreightModeSection({
                             />
                           </td>
                           <td />
-                          {editable ? <td className={styles.stickyAct} /> : null}
                         </tr>
                       </tfoot>
                     </table>
@@ -644,6 +653,8 @@ export default function TankerFreightModeSection({
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(2)}
             SelectField={SelectField}
+            collapsible
+            defaultOpen={false}
           />
           <CargoDetailsTable
             title="Dead-freight"
@@ -657,6 +668,8 @@ export default function TankerFreightModeSection({
             removeRow={removeRow}
             createRow={() => createEmptyCargoRow(3)}
             SelectField={SelectField}
+            collapsible
+            defaultOpen={false}
           />
         </>
       ) : null}

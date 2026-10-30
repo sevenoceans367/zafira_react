@@ -1537,6 +1537,62 @@
   margin-top: 4px;
 }
 
+.cargoGroupCollapsible {
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cargoGroupHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.cargoGroupHeadTitle {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.cargoGroupChevron {
+  width: 16px;
+  height: 16px;
+  color: #8a93a2;
+  flex: none;
+  transition: transform 0.18s ease;
+}
+
+.cargoGroupOpen .cargoGroupChevron {
+  transform: rotate(180deg);
+}
+
+.cargoGroupBody {
+  padding: 0;
+  border-top: 1px solid #edf0f2;
+}
+
+.cargoGroupBody .cargoCard {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  width: 100%;
+}
+
+.cargoGroupBody .cargoCard + .cargoCard {
+  border-top: 1px solid #edf0f2;
+}
+
 .cargoCard {
   background: #fff;
   border: 1px solid #dfe2e7;
@@ -1685,9 +1741,21 @@
   width: 32%;
 }
 
-.cargoCommTypeCol input {
+.cargoCommTypeCol input,
+.cargoCommTypeCol > * {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
+}
+
+.cargoCommTypeCol :global(button),
+.cargoCommTypeCol :global(button span) {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cargoCommVendorCol {
@@ -2027,6 +2095,11 @@
   margin-bottom: 14px;
 }
 
+.compactFields > .tankerModeControls:first-child,
+.panelBody > .tankerModeControls:first-child {
+  margin-top: 0;
+}
+
 .tankerModeControlsInline {
   grid-template-columns: repeat(3, max-content);
   column-gap: 16px;
@@ -2153,6 +2226,24 @@
 .tankerModeInput:read-only {
   background: #eef0f3;
   color: #5b6472;
+}
+
+.tankerModeSelect {
+  width: 240px;
+  min-width: 220px;
+  max-width: 100%;
+}
+
+.tankerModeSelect :global(button) {
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  box-sizing: border-box;
+}
+
+.compactFields .tankerModeSelect :global(button) {
+  height: 38px;
+  min-height: 38px;
 }
 
 @media (max-width: 700px) {

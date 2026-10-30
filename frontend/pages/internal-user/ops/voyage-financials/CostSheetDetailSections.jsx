@@ -46,6 +46,11 @@ import WorksheetSelect, { gradeChipClass } from './WorksheetSelect.jsx';
 import { fetchCanalOrcRates, searchEstimatePorts } from '../../../../services/estimateDetail.js';
 import { focusEstimateValidationField, getAddRowBlockMessage } from '../../sopf/estimateValidation.js';
 import { sanitizeDecimalInput, sanitizeFieldDecimal, sanitizeEstimatePatch, ESTIMATE_DECIMAL_FIELDS } from '../../sopf/estimateInputSanitize.js';
+import {
+  applyCargoQtyDwtToRecalc,
+  capCargoQtyFormPatch,
+  capCargoQtyRowPatch,
+} from '../../sopf/cargoQtyDwtLimit.js';
 import styles from './CostSheetEstimatePage.module.css';
 import updateEstimateStyles from '../../sopf/UpdateEstimatePage.module.css';
 
@@ -177,7 +182,7 @@ export default function EstimateDetailSections({
   onFieldChange,
   onVesselSelect,
   onPeriodContractChange,
-  onRecalc,
+  onRecalc: emitRecalc,
   onApplyPatch,
   variant = '',
 }) {
@@ -225,15 +230,24 @@ export default function EstimateDetailSections({
     )
     : '';
 
+  const onRecalc = (key, value) => {
+    if (!emitRecalc) return;
+    emitRecalc(key, applyCargoQtyDwtToRecalc(key, value, form));
+  };
+
   const updateField = (key, value) => {
-    const next = ESTIMATE_DECIMAL_FIELDS.has(key)
-      ? sanitizeFieldDecimal(key, value)
-      : value;
+    const next = applyCargoQtyDwtToRecalc(
+      key,
+      ESTIMATE_DECIMAL_FIELDS.has(key)
+        ? sanitizeFieldDecimal(key, value)
+        : value,
+      form,
+    );
     onFieldChange?.(key, next);
   };
 
   const applyPatch = (patch) => {
-    const cleanPatch = sanitizeEstimatePatch(patch);
+    const cleanPatch = capCargoQtyFormPatch(sanitizeEstimatePatch(patch), form);
     const touchesCargo = Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoRows')
       || Object.prototype.hasOwnProperty.call(cleanPatch, 'cargoIds')
       || Object.prototype.hasOwnProperty.call(cleanPatch, 'lumpsumQty')
@@ -357,7 +371,12 @@ export default function EstimateDetailSections({
   };
 
   const updateRow = (collection, id, patch) => {
-    const cleanPatch = sanitizeEstimatePatch(patch);
+    const cleanPatch = capCargoQtyRowPatch(
+      collection,
+      id,
+      sanitizeEstimatePatch(patch),
+      form,
+    );
     let rows = (form[collection] || []).map((row) => (
       String(row.id) === String(id) ? { ...row, ...cleanPatch } : row
     ));
@@ -1619,9 +1638,18 @@ export default function EstimateDetailSections({
               onChange={(value) => updateField('charteringPic', value)}
             />
           </Field>
+          {!(isDry || isTanker
+            && (
+              String(form.tankType || '1') === '2'
+              || (
+                String(form.tankType || '1') === '1'
+                && (form.chkLumpsum != null ? !!form.chkLumpsum : true)
+              )
+            )) ? (
           <Field id="freightGrossCargoHeader" label="Total Freight">
             <input id="freightGrossCargoHeader" value={form.freightGross || ''} readOnly />
           </Field>
+          ) : null}
         </div>
 
         {isGas ? (

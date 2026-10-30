@@ -27,6 +27,7 @@
 
   width: min(96vw, 1080px);
   max-height: 94vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -45,7 +46,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 18px 24px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
@@ -86,13 +87,14 @@
 }
 
 .body {
-  padding: 22px 24px 20px;
+  padding: 12px 20px 10px;
   overflow: auto;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .section {
-  margin-bottom: 22px;
+  margin-bottom: 12px;
 }
 
 .sectionLabel {
@@ -117,7 +119,7 @@
 .formGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 10px;
 }
 
 .routeRow {
@@ -159,8 +161,8 @@
   background: var(--field-grey);
   border: 1px solid var(--field-grey-border);
   border-radius: 8px;
-  padding: 10px 12px;
-  min-height: 52px;
+  padding: 8px 10px;
+  min-height: 42px;
 }
 
 .portPrimary {
@@ -214,8 +216,8 @@
 .workRow {
   display: grid;
   grid-template-columns: 1fr 210px;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .mapCard {
@@ -223,7 +225,7 @@
   background: #d9e6ee;
   border: 1px solid var(--line-strong);
   border-radius: 12px;
-  height: 320px;
+  height: 250px;
   overflow: hidden;
 }
 
@@ -249,7 +251,7 @@
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  height: 320px;
+  height: 250px;
   overflow: hidden;
   background: #fff;
 }
@@ -393,16 +395,17 @@
 
 .resultsRow {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
+  padding: 0 20px 8px;
 }
 
 .statCard {
-  flex: 1;
-  max-width: 220px;
-  border-radius: 10px;
-  padding: 12px 16px;
+  flex: 0 0 auto;
   min-width: 140px;
+  border-radius: 8px;
+  padding: 6px 12px;
 }
 
 .statCardPrimary {
@@ -430,7 +433,7 @@
 }
 
 .statLabel {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -438,8 +441,8 @@
 
 .statValue {
   font-weight: 700;
-  font-size: 24px;
-  margin-top: 2px;
+  font-size: 16px;
+  margin-top: 1px;
   line-height: 1.2;
 }
 
@@ -456,9 +459,9 @@
 .footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
-  padding: 16px 24px;
+  padding: 10px 20px;
   border-top: 1px solid var(--line);
   background: #fbfbfc;
   flex-shrink: 0;
@@ -483,11 +486,11 @@
 
   .mapCard,
   .passageCard {
-    height: 260px;
+    height: 220px;
   }
 
   .footer {
-    flex-direction: column-reverse;
+    flex-direction: column;
     align-items: stretch;
   }
 

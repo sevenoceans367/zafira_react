@@ -654,18 +654,17 @@ export default function EstimateDetailSections({
     const n = Number(row.qty);
     return sum + (Number.isFinite(n) ? n : 0);
   }, 0);
-  /** PHP txtSECABunkerPrice onKeyUp → getBunkerCalculation / getVoyageTime */
-  const handleBunkerSummaryPriceChange = (grade, value) => {
-    const classify = (gradeId) => {
-      const key = classifyBunkerGradeName(bunkerGradeName(gradeId));
-      return key === 'HSFO+SCRUBBER' ? 'HSFO' : key;
-    };
+  const classifyBunkerSummaryGrade = (gradeId) => {
+    const key = classifyBunkerGradeName(bunkerGradeName(gradeId));
+    return key === 'HSFO+SCRUBBER' ? 'HSFO' : key;
+  };
 
+  const patchBunkerSummaryRows = (grade, fieldPatch) => {
     let matched = false;
     let nextSeca = (form.secaBunkerRows || []).map((row) => {
-      if (classify(row.bunkerGradeId) !== grade) return row;
+      if (classifyBunkerSummaryGrade(row.bunkerGradeId) !== grade) return row;
       matched = true;
-      return { ...row, price: value };
+      return { ...row, ...fieldPatch };
     });
 
     if (!matched) {
@@ -680,7 +679,7 @@ export default function EstimateDetailSections({
       if (emptyIdx >= 0 && gradeOpt) {
         nextSeca = nextSeca.map((row, index) => (
           index === emptyIdx
-            ? { ...row, bunkerGradeId: String(gradeOpt.id), price: value, bunkerType }
+            ? { ...row, bunkerGradeId: String(gradeOpt.id), bunkerType, ...fieldPatch }
             : row
         ));
       } else if (gradeOpt) {
@@ -689,7 +688,7 @@ export default function EstimateDetailSections({
           {
             ...createEmptySecaBunkerRow('SECA', bunkerType),
             bunkerGradeId: String(gradeOpt.id),
-            price: value,
+            ...fieldPatch,
           },
         ];
       }
@@ -697,12 +696,31 @@ export default function EstimateDetailSections({
 
     const nextBunker = (form.bunkerRows || []).map((row) => {
       if (String(row.identify || '').toUpperCase() === 'SUPPLY') return row;
-      return classify(row.bunkerGradeId) === grade ? { ...row, price: value } : row;
+      return classifyBunkerSummaryGrade(row.bunkerGradeId) === grade
+        ? { ...row, ...fieldPatch }
+        : row;
     });
 
+    return { nextSeca, nextBunker };
+  };
+
+  /** PHP txtSECABunkerPrice onKeyUp → getBunkerCalculation / getVoyageTime */
+  const handleBunkerSummaryPriceChange = (grade, value) => {
+    const { nextSeca, nextBunker } = patchBunkerSummaryRows(grade, { price: value });
     applyPatch({
       secaBunkerRows: nextSeca,
       bunkerRows: nextBunker,
+    });
+  };
+
+  const handleBunkerSummaryQtyChange = (grade, value) => {
+    const { nextSeca, nextBunker } = patchBunkerSummaryRows(grade, { qty: value });
+    const mtKey = grade === 'HSFO' ? 'hsfoMt' : grade === 'LSMGO' ? 'lsmgoMt' : 'vlsfoMt';
+    applyPatch({
+      secaBunkerRows: nextSeca,
+      bunkerRows: nextBunker,
+      bunkerQtyManual: { ...(form.bunkerQtyManual || {}), [grade]: value },
+      [mtKey]: value,
     });
   };
 
@@ -926,7 +944,7 @@ export default function EstimateDetailSections({
                 <input {...inputProps('gear')} />
               </Field>
             ) : null}
-            {!isTanker ? (
+            {isDry ? (
               <>
                 <Field id="loadable" label="Loadable">
                   <input {...inputProps('loadable')} />
@@ -1969,7 +1987,6 @@ export default function EstimateDetailSections({
               <tr>
                 <th>Bunker Grade</th>
                 <th>Qty. (MT)</th>
-                <th>Actual Qty. (MT)</th>
                 <th>Price (MT)</th>
                 <th>Amount</th>
               </tr>
@@ -1982,8 +1999,13 @@ export default function EstimateDetailSections({
                       {row.grade}
                     </span>
                   </td>
-                  <td><input value={row.qty || ''} readOnly placeholder="0.00" /></td>
-                  <td><input value={row.actualQty || ''} readOnly placeholder="0.00" /></td>
+                  <td>
+                    <BunkerPriceInput
+                      value={row.qty || ''}
+                      readOnly={readOnly}
+                      onCommit={(next) => handleBunkerSummaryQtyChange(row.grade, next)}
+                    />
+                  </td>
                   <td>
                     <BunkerPriceInput
                       value={row.price || ''}
@@ -1995,17 +2017,16 @@ export default function EstimateDetailSections({
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={5} className={styles.summaryEmptyCell}>No bunker summary available yet.</td>
+                  <td colSpan={4} className={styles.summaryEmptyCell}>No bunker summary available yet.</td>
                 </tr>
               )}
             </tbody>
             <tfoot>
               <tr>
-                <td className={styles.rowLabel}>Total Bunker Consumed -SECA / NON-SECA</td>
+                <td className={styles.rowLabel}>Total Bunkers Consumed</td>
                 <td>
                   <input value={Number(bunkerQtyTotal).toFixed(2)} readOnly placeholder="0.00" />
                 </td>
-                <td><input value="—" readOnly /></td>
                 <td><input value="—" readOnly /></td>
                 <td>
                   <input value={form.totalBunkerCost || ''} readOnly placeholder="0.00" />

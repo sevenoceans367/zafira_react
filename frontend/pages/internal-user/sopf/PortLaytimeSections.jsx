@@ -135,7 +135,8 @@ export default function PortLaytimeSections({
   const [loadableCtx, setLoadableCtx] = useState({ portName: '', cargoName: '', side: 'lp' });
   const legs = form.portLegs || [];
   const estimateType = Number(form.estimateType) || 2;
-  const isTanker = estimateType === 2;
+  const isDry = estimateType === 3;
+  const showLoadableCalc = isDry && !readOnly;
   const rateUnitLabel = getLaytimeRateUnitLabel(estimateType);
   const cargoOptions = useMemo(
     () => buildCargoOptions(form.cargoRows, lookups.cargos),
@@ -310,7 +311,7 @@ export default function PortLaytimeSections({
                           readOnly={readOnly}
                           onChange={(value) => patchLeg(leg.id, { loadQty: value })}
                         />
-                        {!readOnly ? (
+                        {showLoadableCalc ? (
                           <button
                             type="button"
                             className={styles.qtyCalcBtn}
@@ -449,7 +450,7 @@ export default function PortLaytimeSections({
                           readOnly={readOnly}
                           onChange={(value) => patchLeg(leg.id, { dischargeQty: value })}
                         />
-                        {!readOnly ? (
+                        {showLoadableCalc ? (
                           <button
                             type="button"
                             className={styles.qtyCalcBtn}
@@ -617,14 +618,16 @@ export default function PortLaytimeSections({
       </div>
     </CollapsiblePanel>
 
+    {isDry ? (
     <CargoLoadableModal
       open={loadableOpen}
       onClose={() => setLoadableOpen(false)}
       form={form}
       context={loadableCtx}
-      showStowage={!isTanker}
+      showStowage
       onApply={applyLoadableQty}
     />
+    ) : null}
     </>
   );
 }

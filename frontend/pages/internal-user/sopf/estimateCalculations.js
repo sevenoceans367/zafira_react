@@ -1,4 +1,5 @@
 import {
+  defaultPercentForCommType,
   ensureStandardCargoCommissions,
   flattenCargoCommissions,
   isAdcomCommission,
@@ -719,6 +720,10 @@ function calcCostSheetBunkerExpenseTotal(form, classify, bunkerMt, priceByGrade,
   for (const grade of ['VLSFO', 'LSMGO', 'HSFO']) {
     const price = num(priceByGrade?.[grade]);
     if (!(price > 0)) continue;
+    if (form.bunkerQtyManual && Object.prototype.hasOwnProperty.call(form.bunkerQtyManual, grade)) {
+      total = round2(total + num(form.bunkerQtyManual[grade]) * price);
+      continue;
+    }
     const secaMatches = (secaBunkerRows || []).filter((row) => {
       const key = classify(row.bunkerGradeId);
       return (key === 'HSFO+SCRUBBER' ? 'HSFO' : key) === grade;
@@ -790,7 +795,10 @@ export function buildBunkerSummaryRows(form, resolveGradeName) {
 
     const qtyFromSeca = pickEstimateQtyFromSecaRows(form, grade, classify);
     const qtyField = grade === 'HSFO' ? form.hsfoMt : grade === 'LSMGO' ? form.lsmgoMt : form.vlsfoMt;
-    const qty = qtyFromSeca || num(qtyField);
+    const qtyManual = form.bunkerQtyManual && Object.prototype.hasOwnProperty.call(form.bunkerQtyManual, grade)
+      ? num(form.bunkerQtyManual[grade])
+      : null;
+    const qty = qtyManual != null ? qtyManual : (qtyFromSeca || num(qtyField));
     let actualQty = 0;
     if (grade === 'VLSFO' || grade === 'LSMGO') {
       actualQty = robActual[grade];
@@ -799,13 +807,7 @@ export function buildBunkerSummaryRows(form, resolveGradeName) {
         .filter((row) => isSecaBunkerIdentify(row.identify))
         .reduce((sum, row) => sum + num(row.actualQty), 0));
     }
-    const amountMt = calcCostSheetBunkerAmountMt({
-      grade,
-      estimateQty: qty,
-      actualQty,
-      secaMatches,
-    });
-    const amount = round2(amountMt * price);
+    const amount = round2(qty * price);
     const hasOther = qty || price || amount;
     const actualStr = actualQty
       ? Number(actualQty).toFixed(2)
@@ -1323,11 +1325,12 @@ export function computeEstimateTotals(form) {
     const list = ensureStandardCargoCommissions(row.commissions);
     const commissions = list.map((comm) => {
       const rawPercent = String(comm.percent ?? '').trim();
-      const percent = num(rawPercent);
+      const percentStr = rawPercent || defaultPercentForCommType(comm.commType);
+      const percent = num(percentStr);
       const amount = round2((gross * percent) / 100);
       return {
         ...comm,
-        percent: rawPercent,
+        percent: percentStr,
         amount: amount.toFixed(2),
       };
     });
@@ -1721,6 +1724,11 @@ export function computeEstimateTotals(form) {
     for (const k of Object.keys(bunkerMt)) bunkerMt[k] = round2(bunkerMt[k]);
     for (const k of Object.keys(etsMt)) etsMt[k] = round2(etsMt[k]);
   }
+  for (const grade of ['HSFO', 'VLSFO', 'LSMGO']) {
+    if (form.bunkerQtyManual && Object.prototype.hasOwnProperty.call(form.bunkerQtyManual, grade)) {
+      bunkerMt[grade] = num(form.bunkerQtyManual[grade]);
+    }
+  }
 
   // PHP stores $/MT on SECA row (txtSECABunkerPrice); NON_SECA row often has empty EST_PRICE
   const priceByGrade = {};
@@ -1769,7 +1777,11 @@ export function computeEstimateTotals(form) {
       const hasNonSeca = siblings.some((r) => isNonSecaIdentify(r.identify));
       const siblingPrice = siblings.reduce((p, r) => (num(r.price) > 0 ? num(r.price) : p), 0);
       let qtyVal = 0;
-      if (mtByKey[key] != null || mtByKey[displayKey] != null) {
+      if (form.bunkerQtyManual && Object.prototype.hasOwnProperty.call(form.bunkerQtyManual, displayKey)) {
+        qtyVal = isNonSecaIdentify(row.identify) || !hasNonSeca
+          ? num(form.bunkerQtyManual[displayKey])
+          : 0;
+      } else if (mtByKey[key] != null || mtByKey[displayKey] != null) {
         const mt = mtByKey[key] != null ? mtByKey[key] : mtByKey[displayKey];
         if (hasNonSeca) {
           // PHP: qty lives on NON_SECA; SECA qty field is hidden/0

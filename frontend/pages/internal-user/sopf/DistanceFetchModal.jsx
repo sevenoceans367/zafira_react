@@ -426,29 +426,28 @@ export default function DistanceFetchModal({
           </div>
 
           {error ? <div className={styles.error}>{error}</div> : null}
+        </div>
 
-          <div className={styles.resultsRow}>
-            <div className={`${styles.statCard} ${styles.statCardPrimary}`}>
-              <div className={styles.statLabel}>Total Distance</div>
-              <div className={styles.statValue}>
-                {result ? formatDistance(result.totalDistance) || '0.000' : '0.000'}
-              </div>
+        <div className={styles.resultsRow}>
+          <div className={`${styles.statCard} ${styles.statCardPrimary}`}>
+            <div className={styles.statLabel}>Total Distance</div>
+            <div className={styles.statValue}>
+              {result ? formatDistance(result.totalDistance) || '0.000' : '0.000'}
             </div>
-            <div className={`${styles.statCard} ${styles.statCardSecondary}`}>
-              <div className={styles.statLabel}>Total SECA Distance</div>
-              <div className={styles.statValue}>
-                {result ? formatDistance(result.secaDistance) || '0.000' : '0.000'}
-              </div>
+          </div>
+          <div className={`${styles.statCard} ${styles.statCardSecondary}`}>
+            <div className={styles.statLabel}>Total SECA Distance</div>
+            <div className={styles.statValue}>
+              {result ? formatDistance(result.secaDistance) || '0.000' : '0.000'}
             </div>
           </div>
         </div>
 
         <div className={styles.footer}>
-          <Button type="button" variant="close" label="Close" onClick={onClose} />
           <div className={styles.footerActions}>
             <Button
               type="button"
-              variant="outlineAccent"
+              variant="outline"
               label={loading ? 'Calculating…' : 'Calculate'}
               onClick={handleGetDistance}
               disabled={loading}

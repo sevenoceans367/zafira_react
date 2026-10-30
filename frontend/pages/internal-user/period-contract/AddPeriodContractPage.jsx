@@ -317,28 +317,28 @@ export default function AddPeriodContractPage() {
           defaultGradeId={defaultGradeId}
           disabled={isLocked}
           footer={(
-            <div className={styles.footerActions}>
+        <div className={styles.footerActions}>
               <Button variant="close" label="Cancel" to={listPath} disabled={saving} />
-              {!isLocked ? (
-                <>
-                  <Button
-                    type="button"
+          {!isLocked ? (
+            <>
+              <Button
+                type="button"
                     variant="saveOutline"
                     label="Save"
-                    disabled={saving}
-                    onClick={handleSaveOpen}
-                  />
-                  <Button
-                    type="button"
+                disabled={saving}
+                onClick={handleSaveOpen}
+              />
+              <Button
+                type="button"
                     variant="submit"
                     label="Submit & Close"
                     icon="lock"
-                    disabled={saving}
-                    onClick={handleSaveClose}
-                  />
-                </>
-              ) : null}
-            </div>
+                disabled={saving}
+                onClick={handleSaveClose}
+              />
+            </>
+          ) : null}
+        </div>
           )}
         />
       </form>

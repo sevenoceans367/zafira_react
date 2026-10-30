@@ -83,6 +83,10 @@
   padding: 16px 18px;
 }
 
+.resultsAside .freightResultsBody {
+  padding-top: 4px;
+}
+
 .resultsAside .panelBody.panelBodyFlush {
   padding: 0;
 }
@@ -127,8 +131,8 @@
 }
 
 .resultsAside .distDaysGrid {
-  margin-top: 16px;
-  padding-top: 14px;
+  margin-top: 6px;
+  padding-top: 6px;
   column-gap: 16px;
 }
 
@@ -1862,6 +1866,14 @@
   padding: 6px 2px 10px;
 }
 
+.freightResultsBody .rcardBody {
+  padding-top: 0;
+}
+
+.freightResultsBody .rrow:first-child {
+  padding-top: 0;
+}
+
 .rrow {
   display: flex;
   align-items: center;
@@ -1881,6 +1893,11 @@
   font-weight: 600;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.rlMuted {
+  color: #9ca3af;
+  font-weight: 500;
 }
 
 .rv {
@@ -2055,13 +2072,27 @@
 
 .distDaysGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1.2fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   column-gap: 16px;
   row-gap: 6px;
-  margin-top: 16px;
-  padding-top: 14px;
-  align-items: baseline;
+  margin-top: 6px;
+  padding-top: 6px;
+  align-items: start;
   font-size: 10px;
+}
+
+.distDaysCol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.distDaysCol > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .distDaysLabel {
@@ -2271,7 +2302,7 @@
   }
 
   .distDaysGrid {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 1fr;
   }
 
   .stickyKpis {

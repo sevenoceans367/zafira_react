@@ -186,7 +186,7 @@ export function createEmptyCargoCommissionRow(commType = ADCOM_COMM_TYPE) {
   return {
     id: newRowId('ccomm'),
     commType,
-    percent: '',
+    percent: defaultPercentForCommType(commType),
     amount: '',
     demmAmt: '',
     vendorId: '',
@@ -197,10 +197,17 @@ export function ensureStandardCargoCommissions(commissions) {
   const source = Array.isArray(commissions) ? commissions : [];
   const hasAdcom = source.some((row) => isAdcomCommission(row.commType));
   const hasBrokerage = source.some((row) => !isAdcomCommission(row.commType));
-  const next = source.map((row) => ({
-    ...row,
-    commType: row.commType || (isAdcomCommission(row.commType) ? ADCOM_COMM_TYPE : BROKERAGE_COMM_TYPE),
-  }));
+  const next = source.map((row) => {
+    const commType = row.commType
+      || (isAdcomCommission(row.commType) ? ADCOM_COMM_TYPE : BROKERAGE_COMM_TYPE);
+    return {
+      ...row,
+      commType,
+      percent: String(row.percent ?? '').trim()
+        ? row.percent
+        : defaultPercentForCommType(commType),
+    };
+  });
   if (!hasAdcom) next.unshift(createEmptyCargoCommissionRow(ADCOM_COMM_TYPE));
   if (!hasBrokerage) next.push(createEmptyCargoCommissionRow(BROKERAGE_COMM_TYPE));
   return next.length ? next : [
@@ -1577,6 +1584,9 @@ export function toFormState(detail = {}) {
       : [],
     bunkerConsumedManual: detail.bunkerConsumedManual && typeof detail.bunkerConsumedManual === 'object'
       ? { ...detail.bunkerConsumedManual }
+      : {},
+    bunkerQtyManual: detail.bunkerQtyManual && typeof detail.bunkerQtyManual === 'object'
+      ? { ...detail.bunkerQtyManual }
       : {},
     bunkerResultsCost: detail.bunkerResultsCost != null ? String(detail.bunkerResultsCost) : '',
     eeoi: detail.eeoi != null ? String(detail.eeoi) : '',

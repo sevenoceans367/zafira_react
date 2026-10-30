@@ -1042,7 +1042,7 @@ export default function EstimateDetailSections({
                 <input {...inputProps('gear')} />
               </Field>
             ) : null}
-            {!isTanker ? (
+            {isDry ? (
               <>
                 <Field id="loadable" label="Loadable">
                   <input {...inputProps('loadable')} />

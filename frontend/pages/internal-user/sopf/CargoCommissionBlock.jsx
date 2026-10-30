@@ -5,6 +5,7 @@ import {
   BROKERAGE_COMM_TYPE,
   createEmptyCargoCommissionRow,
   createEmptyCargoRow,
+  defaultPercentForCommType,
   ensureStandardCargoCommissions,
   isAdcomCommission,
 } from './estimateDetail.constants.js';
@@ -41,7 +42,14 @@ export default function CargoCommissionBlock({
   };
 
   const setCommType = (id, commType) => {
-    patchRow(id, { commType });
+    const row = rows.find((item) => item.id === id);
+    const current = String(row?.percent ?? '').trim();
+    const prevDefault = defaultPercentForCommType(row?.commType);
+    const patch = { commType };
+    if (!current || current === prevDefault) {
+      patch.percent = defaultPercentForCommType(commType);
+    }
+    patchRow(id, patch);
   };
 
   const addRow = () => {
@@ -82,7 +90,7 @@ export default function CargoCommissionBlock({
                 </td>
                 <td>
                   <input
-                    value={row.percent || ''}
+                    value={row.percent || defaultPercentForCommType(row.commType)}
                     readOnly={readOnly}
                     placeholder={isAdcomCommission(row.commType) ? '3.75%' : '1.25%'}
                     inputMode="decimal"

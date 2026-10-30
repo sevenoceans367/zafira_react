@@ -66,10 +66,25 @@ export default function EstimateResultsPanels({
 
   return (
     <>
-      <CollapsiblePanel title="Freight Results" defaultOpen round={round} className={styles.panelInverse}>
+      <CollapsiblePanel
+        title="Freight Results"
+        defaultOpen
+        round={round}
+        className={styles.panelInverse}
+        bodyClassName={styles.freightResultsBody}
+      >
         <div className={styles.rcardBody}>
           <Row label="Demurrage Revenue" value={form.demurrageRevenue} />
-          <Row label="Revenue (Final Net Freight)" value={form.revenue} />
+          <Row
+            label={(
+              <>
+                Revenue
+                {' '}
+                <span className={styles.rlMuted}>(Final Net Freight)</span>
+              </>
+            )}
+            value={form.revenue}
+          />
           <Row label="Operational Expenses" value={form.operationalExpenses} />
           <Row label="Port Expenses" value={form.totalPortCost} />
           <Row label="Bunker Expenses" value={form.totalBunkerCost} />
@@ -79,35 +94,57 @@ export default function EstimateResultsPanels({
           <Row label="P&L" value={form.profitLoss} accent />
 
           <div className={styles.distDaysGrid}>
-            <span className={styles.distDaysLabel}>Laden Dist</span>
-            <span className={styles.distDaysValue}>{formatResult(form.ladenDist || '0.00')}</span>
-            <span className={styles.distDaysLabel}>Ballast Dist</span>
-            <span className={styles.distDaysValue}>{formatResult(form.ballastDist || '0.00')}</span>
-            <span className={styles.distDaysLabel}>Total Dist</span>
-            <span className={styles.distDaysValue}>{formatResult(form.totalDistance || '0.00')}</span>
-            <span className={styles.distDaysLabel}>Laden Days</span>
-            <span className={styles.distDaysValue}>{formatResult(form.ladenDays || '0.000')}</span>
-            <span className={styles.distDaysLabel}>Ballast Days</span>
-            <span className={styles.distDaysValue}>{formatResult(form.ballastDays || '0.000')}</span>
-            <span className={styles.distDaysLabel}>Total Sea Days</span>
-            <span className={styles.distDaysValue}>{formatResult(form.totalSeaDays || '0.000')}</span>
-            <span className={styles.distDaysLabel}>Ttl Port Idle Days</span>
-            <span className={styles.distDaysValue}>{formatResult(form.portIdleDays || '0.000')}</span>
-            <span className={styles.distDaysLabel}>Ttl Portstay Days</span>
-            <span className={styles.distDaysValue}>{formatResult(form.portStayDays || '0.000')}</span>
-            <span className={styles.distDaysLabel}>Total Days</span>
-            <span className={styles.distDaysValue}>{formatResult(form.totalDays || '0.00')}</span>
+            <div className={styles.distDaysCol}>
+              <div>
+                <span className={styles.distDaysLabel}>Laden Days</span>
+                <span className={styles.distDaysValue}>{formatResult(form.ladenDays || '0.000')}</span>
+              </div>
+              <div>
+                <span className={styles.distDaysLabel}>Ballast Days</span>
+                <span className={styles.distDaysValue}>{formatResult(form.ballastDays || '0.000')}</span>
+              </div>
+              <div>
+                <span className={styles.distDaysLabel}>Total Sea Days</span>
+                <span className={styles.distDaysValue}>{formatResult(form.totalSeaDays || '0.000')}</span>
+              </div>
+              <div>
+                <span className={styles.distDaysLabel}>Ttl Port Idle Days</span>
+                <span className={styles.distDaysValue}>{formatResult(form.portIdleDays || '0.000')}</span>
+              </div>
+              <div>
+                <span className={styles.distDaysLabel}>Ttl Portstay Days</span>
+                <span className={styles.distDaysValue}>{formatResult(form.portStayDays || '0.000')}</span>
+              </div>
+              <div>
+                <span className={styles.distDaysLabel}>Total Days</span>
+                <span className={styles.distDaysValue}>{formatResult(form.totalDays || '0.00')}</span>
+              </div>
+            </div>
+            <div className={styles.distDaysCol}>
+              <div>
+                <span className={styles.distDaysLabel}>Laden Dist</span>
+                <span className={styles.distDaysValue}>{formatResult(form.ladenDist || '0.00')}</span>
+              </div>
+              <div>
+                <span className={styles.distDaysLabel}>Ballast Dist</span>
+                <span className={styles.distDaysValue}>{formatResult(form.ballastDist || '0.00')}</span>
+              </div>
+              <div>
+                <span className={styles.distDaysLabel}>Total Dist</span>
+                <span className={styles.distDaysValue}>{formatResult(form.totalDistance || '0.00')}</span>
+              </div>
+            </div>
           </div>
         </div>
       </CollapsiblePanel>
 
       <CollapsiblePanel title="Bunker Results" defaultOpen={false} round={round} className={styles.panelInverse}>
         <div className={styles.rcardBody}>
-          <Row label="Total HSFO (MT)" value={form.hsfoMt} empty={!hsfoPriced} />
-          <Row label="EU ETS/Fuel EU HSFO (MT)" value={form.etsHsfoMt} empty={!hsfoPriced} />
           <Row label="Total VLSFO (MT)" value={form.vlsfoMt} empty={!vlsfoPriced} />
-          <Row label="EU ETS/Fuel EU VLSFO (MT)" value={form.etsVlsfoMt} empty={!vlsfoPriced} />
+          <Row label="Total HSFO (MT)" value={form.hsfoMt} empty={!hsfoPriced} />
           <Row label="Total LSMGO (MT)" value={form.lsmgoMt} empty={!lsmgoPriced} />
+          <Row label="EU ETS/Fuel EU VLSFO (MT)" value={form.etsVlsfoMt} empty={!vlsfoPriced} />
+          <Row label="EU ETS/Fuel EU HSFO (MT)" value={form.etsHsfoMt} empty={!hsfoPriced} />
           <Row label="EU ETS/Fuel EU LSMGO (MT)" value={form.etsLsmgoMt} empty={!lsmgoPriced} />
           <Row
             label="Total Cost"

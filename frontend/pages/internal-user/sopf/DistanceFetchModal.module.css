@@ -473,6 +473,17 @@
   gap: 10px;
 }
 
+/* Same white/grey outline as estimate Back; height matches primary Confirm. */
+.calcBtn {
+  min-height: 36px;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.calcBtn svg {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .formGrid,
   .routeRow,

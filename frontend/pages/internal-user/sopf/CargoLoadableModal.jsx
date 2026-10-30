@@ -405,7 +405,8 @@ export default function CargoLoadableModal({
           <Button type="button" variant="outline" label="Cancel" onClick={onClose} />
           <Button
             type="button"
-            variant="accent"
+            variant="submit"
+            className={styles.saveBtn}
             label="Save"
             onClick={handleSave}
             disabled={!result.cargoLoadable || Number(result.cargoLoadable) <= 0}

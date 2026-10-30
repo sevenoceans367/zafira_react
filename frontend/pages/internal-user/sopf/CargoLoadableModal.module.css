@@ -369,6 +369,10 @@
   flex-shrink: 0;
 }
 
+.saveBtn svg {
+  display: none;
+}
+
 @media (max-width: 720px) {
   .columns {
     grid-template-columns: 1fr;

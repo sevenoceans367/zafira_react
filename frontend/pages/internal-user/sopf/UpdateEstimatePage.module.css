@@ -1858,7 +1858,7 @@
 }
 
 .resultAccent {
-  color: #c8551e;
+  color: #f4652c;
   font-weight: 800;
 }
 
@@ -1895,6 +1895,11 @@
   overflow-wrap: anywhere;
 }
 
+.rl.resultAccent {
+  color: #f4652c;
+  font-weight: 800;
+}
+
 .rlMuted {
   color: #9ca3af;
   font-weight: 500;
@@ -1918,7 +1923,12 @@
 .rvHl {
   background: #fdece4;
   border-color: #fbd9c9;
-  color: #c8551e;
+  color: #f4652c;
+  font-weight: 800;
+}
+
+.rv.rvHl {
+  color: #f4652c;
   font-weight: 800;
 }
 

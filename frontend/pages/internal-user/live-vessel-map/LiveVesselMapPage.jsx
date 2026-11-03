@@ -104,21 +104,52 @@ const BUSINESS_TYPE_OPTIONS = [
 
 function currentLegPorts(vessel) {
   const commercial = resolveCommercial(vessel);
-  const destination = commercial.legTo || commercial.to || '';
-  const origin = commercial.legFrom || commercial.from || '';
+  // Prefer full declared labels for Seametrix cache keys; short commercial labels are aliases.
+  const declared = vesselVoyageLeg(vessel);
+  const destination = declared?.destination
+    || commercial.legTo
+    || commercial.to
+    || '';
+  const origin = declared?.origin
+    || commercial.legFrom
+    || commercial.from
+    || '';
   return { origin, destination };
+}
+
+function legCacheKeys(origin, destination) {
+  const keys = [];
+  const push = (from, to) => {
+    if (!from || !to) return;
+    keys.push(voyageLegKey(from, to));
+    const shortFrom = routeQueryPort(from);
+    const shortTo = routeQueryPort(to);
+    if (shortFrom && shortTo) keys.push(voyageLegKey(shortFrom, shortTo));
+  };
+  push(origin, destination);
+  return [...new Set(keys.filter(Boolean))];
+}
+
+function rememberRouteInCache(cache, route, origin, destination) {
+  if (!cache || !route?.waypoints?.length) return;
+  const keys = legCacheKeys(origin, destination);
+  if (route.legKey) keys.push(route.legKey);
+  keys.forEach((key) => {
+    if (key) cache.set(key, { ...route, legKey: key });
+  });
 }
 
 function cachedRouteForVessel(vessel, cache) {
   if (!vessel || !cache) return null;
   const { origin, destination } = currentLegPorts(vessel);
-  const commercialKey = origin && destination ? voyageLegKey(origin, destination) : '';
-  if (commercialKey && cache.get(commercialKey)?.waypoints?.length) {
-    return cache.get(commercialKey);
-  }
   const declared = vesselVoyageLeg(vessel);
-  if (declared?.key && cache.get(declared.key)?.waypoints?.length) {
-    return cache.get(declared.key);
+  const keys = [
+    ...legCacheKeys(origin, destination),
+    ...legCacheKeys(declared?.origin, declared?.destination),
+    declared?.key,
+  ];
+  for (const key of keys) {
+    if (key && cache.get(key)?.waypoints?.length) return cache.get(key);
   }
   return null;
 }
@@ -582,10 +613,10 @@ export default function LiveVesselMapPage() {
   }, [clearLegLayer]);
 
   const resolveLegSeaRoute = useCallback(async (origin, destination) => {
-    const legKey = origin && destination ? voyageLegKey(origin, destination) : '';
-    const cachedRoute = legKey ? routesCacheRef.current.get(legKey) : null;
-    if (cachedRoute?.waypoints?.length) {
-      return cachedRoute;
+    const keys = legCacheKeys(origin, destination);
+    for (const key of keys) {
+      const cachedRoute = routesCacheRef.current.get(key);
+      if (cachedRoute?.waypoints?.length) return cachedRoute;
     }
 
     const route = await fetchVesselRoute({
@@ -593,14 +624,13 @@ export default function LiveVesselMapPage() {
       destination: routeQueryPort(destination) || destination,
     });
     if (route?.waypoints?.length) {
-      const withKey = legKey ? { ...route, legKey } : route;
-      if (legKey) routesCacheRef.current.set(legKey, withKey);
+      rememberRouteInCache(routesCacheRef.current, route, origin, destination);
       const last = route.waypoints[route.waypoints.length - 1];
       if (Number.isFinite(last?.lat) && Number.isFinite(last?.lng)) {
         const destKey = String(destination || '').trim().toLowerCase();
         if (destKey) destCoordCacheRef.current.set(destKey, last);
       }
-      return withKey;
+      return routesCacheRef.current.get(keys[0]) || { ...route, legKey: keys[0] || '' };
     }
     return null;
   }, []);
@@ -638,6 +668,12 @@ export default function LiveVesselMapPage() {
       const snapped = markerPosForVessel(vessel, route.waypoints);
       const marker = vesselMarkersRef.current.get(key);
       if (snapped && marker) {
+        vessel.Latitude = snapped.lat;
+        vessel.Longitude = snapped.lng;
+        if (marker.vesselData) {
+          marker.vesselData.Latitude = snapped.lat;
+          marker.vesselData.Longitude = snapped.lng;
+        }
         marker.setLatLng([snapped.lat, snapped.lng]);
         if (mode === 'active') updateBubblePosition(vessel);
       }
@@ -713,24 +749,59 @@ export default function LiveVesselMapPage() {
       if (!route?.waypoints?.length) return;
       const snapped = markerPosForVessel(vessel, route.waypoints);
       if (!snapped) return;
+      // Persist so later re-renders don't drop the pin back onto raw AIS/origin.
+      vessel.Latitude = snapped.lat;
+      vessel.Longitude = snapped.lng;
       marker.setLatLng([snapped.lat, snapped.lng]);
     });
     const selected = selectedVesselRef.current;
     if (selected) updateBubblePosition(selected);
   }, [updateBubblePosition]);
 
+  const cacheFleetRoutes = useCallback((routes) => {
+    const fleet = fleetVesselsRef.current || [];
+    (routes || []).forEach((route) => {
+      if (!route?.waypoints?.length) return;
+      if (route.legKey) {
+        routesCacheRef.current.set(route.legKey, route);
+      }
+      const routeShort = String(route.legKey || '')
+        .split('|')
+        .map((part) => routeQueryPort(part))
+        .join('|');
+      // Alias full + short port keys for every vessel that shares this leg.
+      fleet.forEach((vessel) => {
+        const declared = vesselVoyageLeg(vessel);
+        const { origin, destination } = currentLegPorts(vessel);
+        const vesselKeys = [
+          declared?.key,
+          ...legCacheKeys(declared?.origin, declared?.destination),
+          ...legCacheKeys(origin, destination),
+        ].filter(Boolean);
+        const matches = route.legKey && vesselKeys.includes(route.legKey)
+          || (routeShort && vesselKeys.some((key) => {
+            const short = String(key).split('|').map((part) => routeQueryPort(part)).join('|');
+            return short === routeShort;
+          }));
+        if (!matches) return;
+        rememberRouteInCache(
+          routesCacheRef.current,
+          route,
+          declared?.origin || origin,
+          declared?.destination || destination,
+        );
+      });
+    });
+  }, []);
+
   const drawFleetRoutes = useCallback((routes) => {
     const map = mapRef.current;
     if (!map || !routes?.length) return;
 
     clearAllRoutes();
-    if (!showRoutesRef.current) {
-      routes.forEach((route) => {
-        if (route?.legKey) routesCacheRef.current.set(route.legKey, route);
-      });
-      snapMarkersOntoRoutes();
-      return;
-    }
+    cacheFleetRoutes(routes);
+    snapMarkersOntoRoutes();
+    if (!showRoutesRef.current) return;
 
     const layer = L.layerGroup();
     routes.forEach((route, index) => {
@@ -745,13 +816,11 @@ export default function LiveVesselMapPage() {
       }).addTo(layer);
 
       routeLayersRef.current.set(route.legKey, { polyline, color });
-      routesCacheRef.current.set(route.legKey, route);
     });
 
     layer.addTo(map);
     routesLayerRef.current = layer;
-    snapMarkersOntoRoutes();
-  }, [clearAllRoutes, snapMarkersOntoRoutes]);
+  }, [cacheFleetRoutes, clearAllRoutes, snapMarkersOntoRoutes]);
 
   const loadFleetRoutes = useCallback(async (vessels) => {
     setRoutesLoading(true);

@@ -77,20 +77,24 @@ export function routeQueryPort(label) {
 
 export function collectVoyageLegs(vessels, maxLegs = 20) {
   const legs = new Map();
+  const addLeg = (origin, destination) => {
+    const from = String(origin || '').trim();
+    const to = String(destination || '').trim();
+    if (!from || !to) return;
+    const key = `${from.toLowerCase()}|${to.toLowerCase()}`;
+    if (legs.has(key)) return;
+    legs.set(key, {
+      origin: from,
+      destination: to,
+      queryOrigin: routeQueryPort(from),
+      queryDestination: routeQueryPort(to),
+      key,
+    });
+  };
   (vessels || []).forEach((vessel) => {
-    const origin = String(vessel?.OriginDeclared || '').trim();
-    const destination = String(vessel?.DestDeclared || '').trim();
-    if (!origin || !destination) return;
-    const key = `${origin.toLowerCase()}|${destination.toLowerCase()}`;
-    if (!legs.has(key)) {
-      legs.set(key, {
-        origin,
-        destination,
-        queryOrigin: routeQueryPort(origin),
-        queryDestination: routeQueryPort(destination),
-        key,
-      });
-    }
+    addLeg(vessel?.OriginDeclared, vessel?.DestDeclared);
+    const commercial = vessel?.commercial || {};
+    addLeg(commercial.legFrom || commercial.from, commercial.legTo || commercial.to);
   });
   return [...legs.values()].slice(0, maxLegs);
 }

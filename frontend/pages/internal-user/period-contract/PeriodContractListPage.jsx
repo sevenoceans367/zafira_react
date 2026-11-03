@@ -511,7 +511,9 @@ export default function PeriodContractListPage() {
               <button
                 type="button"
                 className={styles.btnAdd}
-                onClick={() => navigate(`/internal-user/${module}/period-contracts/add`)}
+                onClick={() => navigate(
+                  `/internal-user/${module}/period-contracts/add?selBType=${encodeURIComponent(businessType)}`,
+                )}
               >
                 <PlusIcon />
                 Add

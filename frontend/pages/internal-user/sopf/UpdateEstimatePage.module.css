@@ -1729,6 +1729,12 @@
   margin-bottom: 7px;
 }
 
+.cargoCommEmptyHint {
+  color: var(--text-mid, #6b7280);
+  font-size: 12px;
+  padding: 10px 12px;
+}
+
 .cargoCommTableWrap {
   background: #fff;
   border: 1px solid #dfe2e7;

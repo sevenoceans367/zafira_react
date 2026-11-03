@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button, LoadingOverlay, useAlert, useConfirm } from '@bainbridge/shared-ui';
 import { fetchVesselEstimatePrefill } from '../../../services/estimateDetail.js';
 import { fetchVcBusinessTypes } from '../../../services/vcDashboard.js';
@@ -10,6 +10,11 @@ import {
   updatePeriodContract,
 } from '../../../services/periodContracts.js';
 import { usePeriodContractModule } from '../../../hooks/usePeriodContractModule.js';
+import {
+  BUSINESS_TYPE_KEYS,
+  readBusinessType,
+  rememberBusinessType,
+} from '../../../utils/businessTypeSession.js';
 import { periodListReturnPath } from '../../../utils/periodContractListSession.js';
 import {
   EMPTY_FORM,
@@ -34,9 +39,16 @@ export default function AddPeriodContractPage() {
   const confirm = useConfirm();
   const alert = useAlert();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const isEdit = Boolean(id);
   const { periodContractPath } = usePeriodContractModule();
-  const listPath = periodListReturnPath(periodContractPath);
+  const activeBusinessType = readBusinessType(
+    searchParams,
+    BUSINESS_TYPE_KEYS.periodContract,
+  );
+  const listPath = periodListReturnPath(periodContractPath, {
+    selBType: activeBusinessType,
+  });
 
   const [lookups, setLookups] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -126,15 +138,21 @@ export default function AddPeriodContractPage() {
     setLoading(true);
     setError('');
     try {
+      const selBType = readBusinessType(searchParams, BUSINESS_TYPE_KEYS.periodContract);
+      rememberBusinessType(BUSINESS_TYPE_KEYS.periodContract, selBType);
       const [lookupData, types] = await Promise.all([
         fetchPeriodContractLookups(),
-        fetchVcBusinessTypes('2'),
+        fetchVcBusinessTypes(selBType),
       ]);
       setLookups(lookupData);
 
       const usd = lookupData.currencies?.find((item) => String(item.id).toUpperCase() === 'USD')
         || lookupData.currencies?.find((item) => /USD/i.test(item.name || ''));
       const firstPeriodType = lookupData.periodTypes?.[0]?.id || '1';
+      const selectedType = types.find((item) => item.selected)?.id
+        || types.find((item) => String(item.id) === String(selBType))?.id
+        || selBType
+        || '2';
 
       if (isEdit) {
         const record = await fetchPeriodContract(id);
@@ -154,7 +172,7 @@ export default function AddPeriodContractPage() {
           contractId: lookupData.contractId,
           contractNo: lookupData.contractId || EMPTY_FORM.contractNo,
           contractDate: lookupData.today || EMPTY_FORM.contractDate,
-          businessType: types[0]?.id || '2',
+          businessType: selectedType,
           ownBusinessAccount: lookupData.obaVendors?.[0]?.id || '',
           currency: usd?.id || 'USD',
           periodType: firstPeriodType,
@@ -165,7 +183,7 @@ export default function AddPeriodContractPage() {
     } finally {
       setLoading(false);
     }
-  }, [id, isEdit]);
+  }, [id, isEdit, searchParams]);
 
   useEffect(() => {
     loadPage();
@@ -245,7 +263,10 @@ export default function AddPeriodContractPage() {
       } else {
         await createPeriodContract(payload, files);
       }
-      navigate(periodListReturnPath(periodContractPath, { msg: 0 }), { replace: true });
+      navigate(periodListReturnPath(periodContractPath, {
+        msg: 0,
+        selBType: latest.businessType || activeBusinessType,
+      }), { replace: true });
     } catch (err) {
       setError(err.message || 'Failed to save period contract.');
     } finally {

@@ -35,7 +35,6 @@ export default function CargoCommissionBlock({
   className = '',
 }) {
   const rows = ensureStandardCargoCommissions(commissions);
-  const brokerageCount = rows.filter((row) => !isAdcomCommission(row.commType)).length;
 
   const patchRow = (id, patch) => {
     onChange(rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -57,9 +56,7 @@ export default function CargoCommissionBlock({
   };
 
   const removeRow = (id) => {
-    const target = rows.find((row) => row.id === id);
-    if (!target || isAdcomCommission(target.commType) || brokerageCount <= 1) return;
-    onChange(ensureStandardCargoCommissions(rows.filter((row) => row.id !== id)));
+    onChange(rows.filter((row) => row.id !== id));
   };
 
   return (
@@ -78,7 +75,7 @@ export default function CargoCommissionBlock({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {rows.map((row, index) => (
               <tr key={row.id}>
                 <td className={styles.cargoCommTypeCol}>
                   <input
@@ -127,22 +124,33 @@ export default function CargoCommissionBlock({
                 </td>
                 {editable ? (
                   <td className={styles.stickyAct}>
-                    {isAdcomCommission(row.commType) ? null : (
-                      <div className={styles.khakiRowActions}>
-                        <RowAddButton title="Add brokerage commission" onClick={addRow} />
-                        <RowDelButton
-                          title="Remove"
-                          onClick={() => removeRow(row.id)}
-                          disabled={brokerageCount <= 1}
-                        >
-                          <EstimateTrashIcon />
-                        </RowDelButton>
-                      </div>
-                    )}
+                    <div className={styles.khakiRowActions}>
+                      {index === rows.length - 1 ? (
+                        <RowAddButton title="Add commission" onClick={addRow} />
+                      ) : null}
+                      <RowDelButton
+                        title="Remove"
+                        onClick={() => removeRow(row.id)}
+                      >
+                        <EstimateTrashIcon />
+                      </RowDelButton>
+                    </div>
                   </td>
                 ) : null}
               </tr>
             ))}
+            {editable && !rows.length ? (
+              <tr>
+                <td colSpan={5} className={styles.cargoCommEmptyHint}>
+                  No commission rows
+                </td>
+                <td className={styles.stickyAct}>
+                  <div className={styles.khakiRowActions}>
+                    <RowAddButton title="Add commission" onClick={addRow} />
+                  </div>
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>

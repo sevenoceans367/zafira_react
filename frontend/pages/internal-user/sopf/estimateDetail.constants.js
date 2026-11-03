@@ -193,31 +193,28 @@ export function createEmptyCargoCommissionRow(commType = ADCOM_COMM_TYPE) {
   };
 }
 
+/** Normalize commission rows. Does not re-insert Ad com / Brokerage after the user removes them. */
 export function ensureStandardCargoCommissions(commissions) {
+  if (commissions == null) return defaultCargoCommissions();
   const source = Array.isArray(commissions) ? commissions : [];
-  const hasAdcom = source.some((row) => isAdcomCommission(row.commType));
-  const hasBrokerage = source.some((row) => !isAdcomCommission(row.commType));
-  const next = source.map((row) => {
-    const commType = row.commType
-      || (isAdcomCommission(row.commType) ? ADCOM_COMM_TYPE : BROKERAGE_COMM_TYPE);
+  return source.map((row) => {
+    const commType = String(row.commType || '').trim() || BROKERAGE_COMM_TYPE;
     return {
       ...row,
+      id: row.id || newRowId('ccomm'),
       commType,
       percent: String(row.percent ?? '').trim()
         ? row.percent
         : defaultPercentForCommType(commType),
     };
   });
-  if (!hasAdcom) next.unshift(createEmptyCargoCommissionRow(ADCOM_COMM_TYPE));
-  if (!hasBrokerage) next.push(createEmptyCargoCommissionRow(BROKERAGE_COMM_TYPE));
-  return next.length ? next : [
-    createEmptyCargoCommissionRow(ADCOM_COMM_TYPE),
-    createEmptyCargoCommissionRow(BROKERAGE_COMM_TYPE),
-  ];
 }
 
 export function defaultCargoCommissions() {
-  return ensureStandardCargoCommissions([]);
+  return [
+    createEmptyCargoCommissionRow(ADCOM_COMM_TYPE),
+    createEmptyCargoCommissionRow(BROKERAGE_COMM_TYPE),
+  ];
 }
 
 export function createEmptyCargoRow(status = 1) {
@@ -251,10 +248,13 @@ function toCargoCommission(row) {
 }
 
 function withDefaultCommissions(row) {
-  const commissions = Array.isArray(row.commissions) && row.commissions.length
-    ? row.commissions.map(toCargoCommission)
-    : [];
-  return { ...row, commissions: ensureStandardCargoCommissions(commissions) };
+  if (!Array.isArray(row.commissions)) {
+    return { ...row, commissions: defaultCargoCommissions() };
+  }
+  if (!row.commissions.length) {
+    return { ...row, commissions: defaultCargoCommissions() };
+  }
+  return { ...row, commissions: ensureStandardCargoCommissions(row.commissions.map(toCargoCommission)) };
 }
 
 /** Spread slave4 / brokerRows onto cargo lines. Legacy unlinked rows go on the first main cargo. */
@@ -302,7 +302,9 @@ export function assignCargoCommissions(cargoRows, overageRows, deadfreightRows, 
     if (!nextCargo.length) nextCargo = [createEmptyCargoRow(1)];
     nextCargo[0] = {
       ...nextCargo[0],
-      commissions: ensureStandardCargoCommissions(seed.length ? seed : []),
+      commissions: seed.length
+        ? ensureStandardCargoCommissions(seed)
+        : defaultCargoCommissions(),
     };
   }
 

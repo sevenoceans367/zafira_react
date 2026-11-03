@@ -11,7 +11,7 @@ import {
   updateEstimateDetail,
 } from '../../../../services/estimateDetail.js';
 import EstimateDetailSections from './CostSheetDetailSections.jsx';
-import EstimateDetailHeaderActions, { formatVcInHeading } from '../../sopf/EstimateDetailHeaderActions.jsx';
+import EstimateDetailHeaderActions, { EstimateVcInHeading } from '../../sopf/EstimateDetailHeaderActions.jsx';
 import { usePageHeaderHeading } from '../../PageHeaderContext.jsx';
 import { applyEstimateCalculations } from '../../sopf/estimateCalculations.js';
 import { buildEstimateSubmitPayload } from '../../sopf/buildEstimateSubmitPayload.js';
@@ -425,20 +425,17 @@ export default function CostSheetEstimatePage({
   const locked = sheetClosed || viewOnly;
   const sheetLabel = sheetNameProp
     || (costSheetIdProp ? `Sheet ${costSheetIdProp}` : '');
-  const sheetTitle = variant === 'vc-in' ? 'VC-in' : 'Voyage Worksheet';
+  const sheetTitle = 'Voyage Worksheet';
   const voyageNo = String(form.voyageNo || detail?.voyageNo || '').trim();
   const estNo = Number(form.estimateNo || detail?.estimateNo) > 0
     ? Number(form.estimateNo || detail?.estimateNo)
     : 1;
-  const vcInHeading = formatVcInHeading(voyageNo, estNo);
-  const titled = variant === 'vc-in' ? vcInHeading : (sheetLabel ? `${sheetTitle} — ${sheetLabel}` : sheetTitle);
-  const pageHeading = variant === 'vc-in'
-    ? titled
-    : viewOnly
-      ? `View ${titled}`
-      : sheetClosed
-        ? `Closed ${titled}`
-        : titled;
+  const titled = sheetLabel ? `${sheetTitle} — ${sheetLabel}` : sheetTitle;
+  const pageHeading = viewOnly
+    ? `View ${titled}`
+    : sheetClosed
+      ? `Closed ${titled}`
+      : titled;
 
   // Ensure Passage & Ports SOF links see comid/page (PHP updatecost_sheet_tci).
   const sectionsDetail = detail && isCostSheet
@@ -451,7 +448,15 @@ export default function CostSheetEstimatePage({
 
   return (
     <div className={`zafira-page ${styles.page}`}>
-      <VoyageWorksheetHeading title={pageHeading} />
+      {variant === 'vc-in' ? (
+        <EstimateVcInHeading
+          voyageNo={voyageNo}
+          estimateNo={estNo}
+          chipHref={listHref}
+        />
+      ) : (
+        <VoyageWorksheetHeading title={pageHeading} />
+      )}
       <LoadingOverlay show={loading || saving} />
       <EstimateDetailHeaderActions listHref={listHref} disabled={saving} />
 

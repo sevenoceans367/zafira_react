@@ -4,7 +4,10 @@ import { Button, LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchEstimateDetail, fetchEstimateLookups, fetchEstimateVcIn } from '../../../services/estimateDetail.js';
 import EstimateDetailSections from './EstimateDetailSections.jsx';
-import EstimateDetailHeaderActions, { EstimateVcInHeading } from './EstimateDetailHeaderActions.jsx';
+import EstimateDetailHeaderActions, {
+  EstimateVcInHeading,
+  EstimateSpotBreadcrumbSync,
+} from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { toFormState } from './estimateDetail.constants.js';
 import styles from './UpdateEstimatePage.module.css';
@@ -119,8 +122,12 @@ export default function ViewEstimatePage() {
         <EstimateVcInHeading
           voyageNo={form.voyageNo || detail?.voyageNo || ''}
           estimateNo={form.estimateNo || detail?.estimateNo || 1}
+          chipHref={mainEstimateHref}
+          estimateMode="view"
         />
-      ) : null}
+      ) : (
+        <EstimateSpotBreadcrumbSync mode="view" fixtureTypeId={form.fixtureTypeId} />
+      )}
       <LoadingOverlay show={loading} />
       <EstimateDetailHeaderActions listHref={listHref} />
 

@@ -115,13 +115,13 @@ export function resolveSopfHeader(pathname, search = '') {
       };
     }
     return {
-      title: 'New Spot Estimate',
-      currentPage: 'New Spot Estimate',
+      title: 'Spot Estimate',
+      currentPage: 'Add Estimate',
       breadcrumbs: [
         HOME,
         SOPF,
         { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
-        { label: 'New Spot Estimate' },
+        { label: 'Add Estimate' },
       ],
     };
   }
@@ -129,6 +129,9 @@ export function resolveSopfHeader(pathname, search = '') {
   if (pathname.includes('/viewestimate')) {
     const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
     if (params.get('variant') === 'vc-in') {
+      const parentParams = new URLSearchParams(params);
+      parentParams.delete('variant');
+      const parentQs = parentParams.toString();
       return {
         title: 'VC-in',
         currentPage: 'VC-in',
@@ -136,7 +139,10 @@ export function resolveSopfHeader(pathname, search = '') {
           HOME,
           SOPF,
           { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
-          { label: 'VC-in' },
+          {
+            label: 'View Estimate',
+            href: appPath(`/internal-user/sopf/viewestimate${parentQs ? `?${parentQs}` : ''}`),
+          },
         ],
       };
     }
@@ -160,7 +166,7 @@ export function resolveSopfHeader(pathname, search = '') {
       };
     }
     return {
-      title: SPOT_BUSINESS,
+      title: 'Spot Estimate',
       currentPage: 'View Estimate',
       breadcrumbs: [
         HOME,
@@ -174,6 +180,9 @@ export function resolveSopfHeader(pathname, search = '') {
   if (pathname.includes('/updateestimate')) {
     const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
     if (params.get('variant') === 'vc-in') {
+      const parentParams = new URLSearchParams(params);
+      parentParams.delete('variant');
+      const parentQs = parentParams.toString();
       return {
         title: 'VC-in',
         currentPage: 'VC-in',
@@ -181,18 +190,21 @@ export function resolveSopfHeader(pathname, search = '') {
           HOME,
           SOPF,
           { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
-          { label: 'VC-in' },
+          {
+            label: 'Edit Estimate',
+            href: appPath(`/internal-user/sopf/updateestimate${parentQs ? `?${parentQs}` : ''}`),
+          },
         ],
       };
     }
     return {
-      title: SPOT_BUSINESS,
-      currentPage: 'Update Estimate',
+      title: 'Spot Estimate',
+      currentPage: 'Edit Estimate',
       breadcrumbs: [
         HOME,
         SOPF,
         { label: SPOT_BUSINESS, href: appPath('/internal-user/sopf/estimate_list') },
-        { label: 'Update Estimate' },
+        { label: 'Edit Estimate' },
       ],
     };
   }

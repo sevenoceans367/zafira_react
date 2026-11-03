@@ -17,6 +17,7 @@ import EstimateDetailSections from './EstimateDetailSections.jsx';
 import EstimateDetailHeaderActions, {
   ESTIMATE_FORM_ID,
   EstimateDetailFooterActions,
+  EstimateSpotBreadcrumbSync,
 } from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
@@ -440,6 +441,9 @@ export default function AddEstimatePage() {
 
   return (
     <div className={`zafira-page ${styles.page}`}>
+      {!periodId && !coaId ? (
+        <EstimateSpotBreadcrumbSync mode="add" fixtureTypeId={form.fixtureTypeId} />
+      ) : null}
       <LoadingOverlay show={saving || loading} />
       <EstimateDetailHeaderActions
         listHref={listHref}

@@ -16,6 +16,7 @@ import EstimateDetailHeaderActions, {
   ESTIMATE_FORM_ID,
   EstimateDetailFooterActions,
   EstimateVcInHeading,
+  EstimateSpotBreadcrumbSync,
 } from './EstimateDetailHeaderActions.jsx';
 import { applyEstimateCalculations } from './estimateCalculations.js';
 import { buildEstimateSubmitPayload } from './buildEstimateSubmitPayload.js';
@@ -364,8 +365,12 @@ export default function UpdateEstimatePage() {
         <EstimateVcInHeading
           voyageNo={form.voyageNo || detail?.voyageNo || ''}
           estimateNo={form.estimateNo || detail?.estimateNo || 1}
+          chipHref={mainEstimateHref}
+          estimateMode="edit"
         />
-      ) : null}
+      ) : (
+        <EstimateSpotBreadcrumbSync mode="edit" fixtureTypeId={form.fixtureTypeId} />
+      )}
       <LoadingOverlay show={loading || saving} />
       <EstimateDetailHeaderActions
         listHref={listHref}

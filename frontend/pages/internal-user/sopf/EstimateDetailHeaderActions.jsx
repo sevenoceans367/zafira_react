@@ -1,10 +1,32 @@
 import React, { useEffect, useLayoutEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Button, HeaderFilterControls } from '@bainbridge/shared-ui';
+import { appPath } from '@bainbridge/shared-routing';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
+import { getFixtureTypeLabel } from './estimateDetail.constants.js';
+import headingStyles from '../ops/VoyageOpsHeading.module.css';
 import styles from './UpdateEstimatePage.module.css';
 
 const ESTIMATE_FORM_ID = 'estimate-worksheet-form';
+
+const HOME_CRUMB = { label: 'Home', href: appPath('/') };
+const SOPF_CRUMB = { label: 'SOPF', href: appPath('/internal-user/sopf/estimate_list') };
+const SPOT_CRUMB = { label: 'Spot Business', href: appPath('/internal-user/sopf/estimate_list') };
+
+const ANCHOR_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="5" r="3" />
+    <path d="M12 22V8" />
+    <path d="M5 12H2a10 10 0 0 0 20 0h-3" />
+  </svg>
+);
+
+function estimateModeLabel(mode) {
+  if (mode === 'add') return 'Add Estimate';
+  if (mode === 'view') return 'View Estimate';
+  return 'Edit Estimate';
+}
 
 /** Injects Back (+ optional Calculate / Submit) into the layout page header. */
 export default function EstimateDetailHeaderActions({
@@ -13,11 +35,12 @@ export default function EstimateDetailHeaderActions({
   onCalculate,
   showSubmit = false,
   formId = ESTIMATE_FORM_ID,
+  backLabel = 'Back',
 }) {
   return (
-    <PageHeaderActions deps={[listHref, disabled, onCalculate, showSubmit, formId]}>
+    <PageHeaderActions deps={[listHref, disabled, onCalculate, showSubmit, formId, backLabel]}>
       <HeaderFilterControls>
-        <Button variant="outline" label="Back" href={listHref} disabled={disabled} />
+        <Button variant="outline" label={backLabel} href={listHref} disabled={disabled} />
         {typeof onCalculate === 'function' ? (
           <Button
             type="button"
@@ -53,20 +76,83 @@ export function EstimateDetailFooterActions({
   );
 }
 
-/** VC-In page title: VC-in → {voyage no} Est {n}. */
-export function formatVcInHeading(voyageNo = '', estimateNo = 1) {
+/** Chip text under VC-in title: `{voyage} Est {n}` (Contract Finance–style header). */
+export function formatVcInChipLabel(voyageNo = '', estimateNo = 1) {
   const voy = String(voyageNo || '').trim();
   const est = Number(estimateNo) > 0 ? Number(estimateNo) : 1;
-  return voy ? `VC-in → ${voy} Est ${est}` : `VC-in → Est ${est}`;
+  return voy ? `${voy} Est ${est}` : `Est ${est}`;
 }
 
-export function EstimateVcInHeading({ voyageNo = '', estimateNo = 1 }) {
+/** @deprecated Prefer formatVcInChipLabel + EstimateVcInHeading chip header. */
+export function formatVcInHeading(voyageNo = '', estimateNo = 1) {
+  return `VC-in → ${formatVcInChipLabel(voyageNo, estimateNo)}`;
+}
+
+/** Page header: “VC-in” title + grey estimate chip (same pattern as Contract Finance). */
+export function EstimateVcInHeading({
+  voyageNo = '',
+  estimateNo = 1,
+  chipHref = '',
+  /** Parent estimate mode for breadcrumb: 'edit' | 'view' */
+  estimateMode = 'edit',
+}) {
   const setHeading = usePageHeaderHeading();
-  const title = formatVcInHeading(voyageNo, estimateNo);
+  const chipLabel = formatVcInChipLabel(voyageNo, estimateNo);
+  const modeLabel = estimateModeLabel(estimateMode);
   useLayoutEffect(() => {
-    setHeading({ title });
+    setHeading({
+      title: 'VC-in',
+      titleExtra: (
+        <span className={headingStyles.headerVoyageChip}>
+          {ANCHOR_ICON}
+          {chipHref ? (
+            <Link
+              to={chipHref}
+              className={headingStyles.headerVoyLink}
+              title="Open voyage worksheet"
+            >
+              {chipLabel}
+            </Link>
+          ) : chipLabel}
+        </span>
+      ),
+      // AppHeader appends currentPage after breadcrumbs — do not repeat the leaf in the trail.
+      currentPage: 'VC-in',
+      breadcrumbs: [
+        HOME_CRUMB,
+        SOPF_CRUMB,
+        SPOT_CRUMB,
+        { label: modeLabel, href: chipHref || undefined },
+      ],
+    });
     return undefined;
-  }, [setHeading, title]);
+  }, [setHeading, chipLabel, chipHref, modeLabel]);
+  useEffect(() => () => setHeading(null), [setHeading]);
+  return null;
+}
+
+/**
+ * SOPF Spot estimate crumbs: SOPF › Spot Business › Add|Edit|View Estimate › {Contract Type}.
+ * Skip on VC-in (EstimateVcInHeading owns crumbs) and COA/period add flows.
+ */
+export function EstimateSpotBreadcrumbSync({ mode = 'edit', fixtureTypeId = '' }) {
+  const setHeading = usePageHeaderHeading();
+  const modeLabel = estimateModeLabel(mode);
+  const contractLabel = getFixtureTypeLabel(fixtureTypeId);
+  useLayoutEffect(() => {
+    setHeading({
+      title: 'Spot Estimate',
+      // Leaf is currentPage only (AppHeader appends it after the trail).
+      breadcrumbs: [
+        HOME_CRUMB,
+        SOPF_CRUMB,
+        SPOT_CRUMB,
+        { label: modeLabel },
+      ],
+      currentPage: contractLabel || modeLabel,
+    });
+    return undefined;
+  }, [setHeading, modeLabel, contractLabel]);
   useEffect(() => () => setHeading(null), [setHeading]);
   return null;
 }

@@ -55,8 +55,8 @@ export default function InternalUserPageHeader() {
       icon={heading?.icon ?? null}
       titleExtra={heading?.titleExtra ?? null}
       stacked={Boolean(heading?.stacked)}
-      breadcrumbs={config.breadcrumbs}
-      currentPage={config.currentPage}
+      breadcrumbs={heading?.breadcrumbs ?? config.breadcrumbs}
+      currentPage={heading?.currentPage ?? config.currentPage}
       actions={actions}
     />
   );

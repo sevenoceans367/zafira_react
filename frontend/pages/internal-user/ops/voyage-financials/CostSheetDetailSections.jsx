@@ -817,7 +817,11 @@ export default function EstimateDetailSections({
        <CollapsiblePanel title="Estimate Identifier" defaultOpen round className={styles.roundSection}>
           <div className={styles.headerGrid}>
             <Field id="fixtureTypeId" label="Contract Type">
-              <input id="fixtureTypeId" value={getFixtureTypeLabel(form.fixtureTypeId)} readOnly />
+              <input
+                id="fixtureTypeId"
+                value={variant === 'vc-in' ? 'VC In' : getFixtureTypeLabel(form.fixtureTypeId)}
+                readOnly
+              />
             </Field>
 
             <Field id="vesselName" label="Vessel">
@@ -2767,7 +2771,9 @@ export default function EstimateDetailSections({
             onFieldChange={onFieldChange}
             onRecalc={onRecalc}
             round
+            variant={variant}
           />
+          {variant === 'vc-in' ? null : (
           <CollapsiblePanel
             title="Profit Sharing"
             defaultOpen={false}
@@ -2834,6 +2840,7 @@ export default function EstimateDetailSections({
               </table>
             </div>
           </CollapsiblePanel>
+          )}
         </div>
       </aside>
 

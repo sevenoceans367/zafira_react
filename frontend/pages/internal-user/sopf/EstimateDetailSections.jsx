@@ -730,8 +730,12 @@ export default function EstimateDetailSections({
        <CollapsiblePanel title="Estimate Identifier" defaultOpen>
           <div className={`${styles.headerGrid} ${styles.headerGridIdent} ${styles.compactHeaderFields}`}>
             <Field id="fixtureTypeId" label="Contract Type">
-              {readOnly ? (
-                <input id="fixtureTypeId" value={getFixtureTypeLabel(form.fixtureTypeId)} readOnly />
+              {variant === 'vc-in' || readOnly ? (
+                <input
+                  id="fixtureTypeId"
+                  value={variant === 'vc-in' ? 'VC In' : getFixtureTypeLabel(form.fixtureTypeId)}
+                  readOnly
+                />
               ) : (
                 <WorksheetSelect
                   id="fixtureTypeId"
@@ -2406,7 +2410,9 @@ export default function EstimateDetailSections({
             complianceYear={lookups.complianceYear || new Date().getFullYear()}
             onFieldChange={onFieldChange}
             onRecalc={onRecalc}
+            variant={variant}
           />
+          {variant === 'vc-in' ? null : (
           <CollapsiblePanel
             title="Profit Sharing"
             defaultOpen={false}
@@ -2478,6 +2484,7 @@ export default function EstimateDetailSections({
               </table>
             </div>
           </CollapsiblePanel>
+          )}
         </div>
       </aside>
 

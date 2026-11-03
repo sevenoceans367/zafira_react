@@ -40,6 +40,15 @@ function joinPenalty(penalty, perMt) {
   return `${left} / ${right}`;
 }
 
+function resultNum(value) {
+  const n = parseFloat(String(value ?? '').replace(/,/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function round2Str(value) {
+  return (Math.round(resultNum(value) * 100) / 100).toFixed(2);
+}
+
 export default function EstimateResultsPanels({
   form,
   bunkerSummaryRows = [],
@@ -48,8 +57,11 @@ export default function EstimateResultsPanels({
   onFieldChange,
   onRecalc,
   round = true,
+  /** VC-In worksheet: expense-oriented Freight Results labels + voy expense daily calc. */
+  variant = '',
 }) {
   const editable = !readOnly;
+  const isVcIn = variant === 'vc-in';
 
   const setField = (key, value) => {
     const next = ESTIMATE_DECIMAL_FIELDS.has(key)
@@ -64,6 +76,22 @@ export default function EstimateResultsPanels({
   const lsmgoPriced = hasBunkerGradePrice(bunkerSummaryRows, 'LSMGO');
   const showBunkerTotalCost = hasAnyBunkerGradePrice(bunkerSummaryRows);
 
+  // VC-In: Total Voy Expense = demurrage + freight + ops + port + bunker;
+  // Net Daily Voy Expense = Total Voy Expense / Total Days
+  const vcInTotalVoyExpense = isVcIn
+    ? round2Str(
+      resultNum(form.demurrageRevenue)
+      + resultNum(form.revenue)
+      + resultNum(form.operationalExpenses)
+      + resultNum(form.totalPortCost)
+      + resultNum(form.totalBunkerCost),
+    )
+    : '';
+  const vcInDays = Math.max(resultNum(form.totalDays), 0);
+  const vcInNetDailyVoyExpense = isVcIn
+    ? round2Str(vcInDays > 0 ? resultNum(vcInTotalVoyExpense) / vcInDays : 0)
+    : '';
+
   return (
     <>
       <CollapsiblePanel
@@ -74,9 +102,14 @@ export default function EstimateResultsPanels({
         bodyClassName={styles.freightResultsBody}
       >
         <div className={styles.rcardBody}>
-          <Row label="Demurrage Revenue" value={form.demurrageRevenue} />
           <Row
-            label={(
+            label={isVcIn ? 'Demurrage Expense' : 'Demurrage Revenue'}
+            value={form.demurrageRevenue}
+          />
+          <Row
+            label={isVcIn ? (
+              'Freight Expense'
+            ) : (
               <>
                 Revenue
                 {' '}
@@ -88,10 +121,17 @@ export default function EstimateResultsPanels({
           <Row label="Operational Expenses" value={form.operationalExpenses} />
           <Row label="Port Expenses" value={form.totalPortCost} />
           <Row label="Bunker Expenses" value={form.totalBunkerCost} />
-          <Row label="Net Daily TCE" value={form.nettDailyTce} accent />
-          <Row label="Voyage Earnings" value={form.voyageEarnings} />
-          <Row label="Net Hireage" value={form.netHireage} />
-          <Row label="P&L" value={form.profitLoss} accent />
+          <Row
+            label={isVcIn ? 'Net Daily Voy Expense' : 'Net Daily TCE'}
+            value={isVcIn ? vcInNetDailyVoyExpense : form.nettDailyTce}
+            accent
+          />
+          <Row
+            label={isVcIn ? 'Total Voy Expense' : 'Voyage Earnings'}
+            value={isVcIn ? vcInTotalVoyExpense : form.voyageEarnings}
+          />
+          {isVcIn ? null : <Row label="Net Hireage" value={form.netHireage} />}
+          {isVcIn ? null : <Row label="P&L" value={form.profitLoss} accent />}
 
           <div className={styles.distDaysGrid}>
             <div className={styles.distDaysCol}>

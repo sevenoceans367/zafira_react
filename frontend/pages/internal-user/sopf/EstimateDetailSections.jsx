@@ -2041,6 +2041,7 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
+      {variant === 'vc-in' ? null : (
       <CollapsiblePanel
         title={hireOpexTitle}
         defaultOpen={false}
@@ -2380,6 +2381,7 @@ export default function EstimateDetailSections({
           </div>
         </div>
       </CollapsiblePanel>
+      )}
 
       <CollapsiblePanel title="Attachments" defaultOpen={false}>
         <AttachmentDropzone

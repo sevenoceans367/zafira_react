@@ -2470,6 +2470,7 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
+      {variant === 'vc-in' ? null : (
       <CollapsiblePanel
         title={hireOpexTitle}
         defaultOpen={false}
@@ -2705,6 +2706,7 @@ export default function EstimateDetailSections({
           ) : null}
         </div>
       </CollapsiblePanel>
+      )}
 
 
 {estimateType === 3 ? (

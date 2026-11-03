@@ -972,9 +972,15 @@ export default function OpsVcFreightInvoicePage() {
       atten: strOrEmpty(prefill.atten),
       grossFreight: (() => {
         const fromPrefill = strOrEmpty(prefill.grossFreight);
+        const distributed = Boolean(data.freightBreakdown?.isDistributed);
+        const lumpsum = Boolean(data.isLumpsum);
+        const computed = (!distributed && !lumpsum)
+          ? computeGrossFreight(prefill.blQuantity, prefill.freightRate)
+          : '';
+        // Dry / $/MT cargo: fill Gross from BL qty × rate when worksheet amount is missing.
         if (parseAmount(fromPrefill) > 0) return fromPrefill;
-        if (data.freightBreakdown?.isDistributed || data.isLumpsum) return fromPrefill;
-        return computeGrossFreight(prefill.blQuantity, prefill.freightRate) || fromPrefill;
+        if (distributed || lumpsum) return fromPrefill;
+        return computed || fromPrefill;
       })(),
       brokeragePercent: strOrEmpty(prefill.brokeragePercent ?? '0'),
       gstOnBrokPercent: strOrEmpty(prefill.gstOnBrokPercent ?? '0'),
@@ -1105,16 +1111,12 @@ export default function OpsVcFreightInvoicePage() {
   const updateField = (key, value) => {
     setForm((current) => {
       const next = { ...current, [key]: value };
-      if (
-        (key === 'blQuantity' || key === 'freightRate')
-        && !context?.freightBreakdown?.isDistributed
-        && !context?.isLumpsum
-      ) {
+      const canAutoGross = !context?.freightBreakdown?.isDistributed && !context?.isLumpsum;
+      if ((key === 'blQuantity' || key === 'freightRate') && canAutoGross) {
         const qty = key === 'blQuantity' ? value : current.blQuantity;
         const rate = key === 'freightRate' ? value : current.freightRate;
-        if (parseAmount(qty) > 0 && parseAmount(rate) > 0) {
-          next.grossFreight = computeGrossFreight(qty, rate, clubRows);
-        }
+        const computed = computeGrossFreight(qty, rate, clubRows);
+        if (computed) next.grossFreight = computed;
       }
       return next;
     });

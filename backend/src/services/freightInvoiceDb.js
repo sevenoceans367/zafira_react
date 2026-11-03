@@ -794,6 +794,8 @@ async function loadClubCharterers(pool, {
 
 /**
  * PHP invoice.php Net/Dead/Gross freight display from slave7 or master adj.
+ * isDistributed only for true multi-cargo / COA qty vendors — NOT every dry
+ * worksheet that happens to have a slave7 row (that locked Gross and blocked qty×rate).
  */
 async function loadFreightBreakdown(pool, {
   fcaId,
@@ -801,8 +803,14 @@ async function loadFreightBreakdown(pool, {
   cargoId,
   master,
 }) {
+  const tankType = Number(master?.TANKER_RADIO_SINGLE_DIS || 0);
+  const qtyTypeRadio = Number(master?.QTY_TYPE_RADIO || 0);
+  // Multiple cargo (tank/dry) or COA qty-by-vendor distribution.
+  const expectsDistributed = tankType === 2 || qtyTypeRadio === 2;
+
   const [[slave7]] = await pool.query(
-    `SELECT GROSS_FREIGHT, NET_FREIGHT, DF_QUANTITY, AGREED_GROSS_FREIGHT_LOCAL
+    `SELECT GROSS_FREIGHT, NET_FREIGHT, DF_QUANTITY, QUANTITY,
+            AGREED_GROSS_FREIGHT, AGREED_GROSS_FREIGHT_LOCAL
      FROM freight_cost_estimete_slave7
      WHERE FCAID = ?
        AND CARGO = ?
@@ -812,15 +820,32 @@ async function loadFreightBreakdown(pool, {
   ).catch(() => [[null]]);
 
   if (slave7) {
-    const deadFreight = money2(
-      parseAmount(slave7.DF_QUANTITY) * parseAmount(slave7.AGREED_GROSS_FREIGHT_LOCAL),
-    );
+    const agreed = parseAmount(slave7.AGREED_GROSS_FREIGHT)
+      || parseAmount(slave7.AGREED_GROSS_FREIGHT_LOCAL);
+    const deadFreight = money2(parseAmount(slave7.DF_QUANTITY) * agreed);
+    // Payment-grid invoice amount uses GROSS_FREIGHT; fall back to qty × rate / NET.
+    const grossFreight = money2(slave7.GROSS_FREIGHT)
+      || money2(parseAmount(slave7.QUANTITY) * agreed)
+      || money2(slave7.NET_FREIGHT);
+    const netFreight = money2(slave7.NET_FREIGHT) || money2(slave7.GROSS_FREIGHT);
+
+    if (expectsDistributed) {
+      return {
+        isDistributed: true,
+        showNetDead: true,
+        netFreight,
+        deadFreight,
+        grossFreight,
+      };
+    }
+
+    // Dry/tanker single: keep Net/Dead hints but leave Gross editable for qty×rate.
     return {
-      isDistributed: true,
-      showNetDead: true,
-      netFreight: money2(slave7.GROSS_FREIGHT),
+      isDistributed: false,
+      showNetDead: deadFreight > 0 || grossFreight > 0 || netFreight > 0,
+      netFreight,
       deadFreight,
-      grossFreight: money2(slave7.NET_FREIGHT),
+      grossFreight,
     };
   }
 
@@ -1657,11 +1682,23 @@ export async function dbGetFreightInvoiceForm({
     master?.TOTAL_PREIGHT_ADJ,
     compare?.TOTAL_PREIGHT_ADJ,
     parsed.amount,
-    parsed.agreedLocal,
   ].some((value) => sameMoney(storedRate, value));
-  const freightRate = cargoRate && (!storedRate || storedIsWorksheetAmount)
-    ? cargoRate
-    : (storedRate || cargoRate);
+  // Dry worksheets often keep $/MT on CARGO_RATE / MARKET_RATE; agreedLocal in the
+  // payment-grid CSV can be FREIGHT_GROSS (a total) — never treat that as the rate.
+  const sheetRate = parseAmount(master?.CARGO_RATE)
+    || parseAmount(master?.MARKET_RATE)
+    || parseAmount(compare?.CARGO_RATE)
+    || parseAmount(compare?.MARKET_RATE);
+  const agreedAsRate = parseAmount(parsed.agreedLocal);
+  const agreedLooksLikeRate = agreedAsRate > 0
+    && !sameMoney(agreedAsRate, parsed.amount)
+    && !sameMoney(agreedAsRate, master?.FREIGHT_GROSS)
+    && !sameMoney(agreedAsRate, master?.TOTAL_PREIGHT_ADJ)
+    && !sameMoney(agreedAsRate, compare?.TOTAL_PREIGHT_ADJ);
+  const resolvedRate = cargoRate || sheetRate || (agreedLooksLikeRate ? agreedAsRate : 0);
+  const freightRate = resolvedRate && (!storedRate || storedIsWorksheetAmount)
+    ? resolvedRate
+    : (storedRate || resolvedRate);
   if (currentInvoice) {
     currentInvoice.freightRate = freightRate ? String(freightRate) : '';
   }
@@ -1678,15 +1715,22 @@ export async function dbGetFreightInvoiceForm({
     vcIn: inMode,
   });
 
-  const isLumpsum = Number(master?.CHK_LUMPSUM ?? compare?.CHK_LUMPSUM) === 1;
+  const dryMarketLumpsum = Number(estimateType) === 3
+    && Number(master?.DRY_MARKET ?? compare?.DRY_MARKET) === 2;
+  const isLumpsum = Number(master?.CHK_LUMPSUM ?? compare?.CHK_LUMPSUM) === 1
+    || dryMarketLumpsum;
   const qtyTimesRate = (!isLumpsum && quantity > 0 && freightRate > 0)
     ? money2(quantity * freightRate)
     : 0;
+  // Prefer worksheet/payment amount, then slave gross, then qty × rate (dry auto-calc).
   const defaultGross = currentInvoice?.grossFreight
     || (freightBreakdown.isDistributed && freightBreakdown.grossFreight
       ? String(freightBreakdown.grossFreight)
       : '')
     || (grossFreight ? String(grossFreight) : '')
+    || (!freightBreakdown.isDistributed && freightBreakdown.grossFreight
+      ? String(freightBreakdown.grossFreight)
+      : '')
     || (qtyTimesRate ? String(qtyTimesRate) : '');
 
   const defaults = {

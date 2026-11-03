@@ -1,5 +1,4 @@
 import {
-  defaultPercentForCommType,
   ensureStandardCargoCommissions,
   flattenCargoCommissions,
   isAdcomCommission,
@@ -1324,14 +1323,13 @@ export function computeEstimateTotals(form) {
     const gross = num(row.amountUsd) || fallbackGross || 0;
     const list = ensureStandardCargoCommissions(row.commissions);
     const commissions = list.map((comm) => {
-      const rawPercent = String(comm.percent ?? '').trim();
-      const percentStr = rawPercent || defaultPercentForCommType(comm.commType);
+      const percentStr = String(comm.percent ?? '').trim();
       const percent = num(percentStr);
       const amount = round2((gross * percent) / 100);
       return {
         ...comm,
         percent: percentStr,
-        amount: amount.toFixed(2),
+        amount: amount ? amount.toFixed(2) : '',
       };
     });
     return { ...row, commissions };

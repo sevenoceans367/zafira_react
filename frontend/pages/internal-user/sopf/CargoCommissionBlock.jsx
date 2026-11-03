@@ -45,7 +45,8 @@ export default function CargoCommissionBlock({
     const current = String(row?.percent ?? '').trim();
     const prevDefault = defaultPercentForCommType(row?.commType);
     const patch = { commType };
-    if (!current || current === prevDefault) {
+    // Only auto-fill % when switching type away from the previous default — not when user cleared it.
+    if (current && current === prevDefault) {
       patch.percent = defaultPercentForCommType(commType);
     }
     patchRow(id, patch);
@@ -87,9 +88,9 @@ export default function CargoCommissionBlock({
                 </td>
                 <td>
                   <input
-                    value={row.percent || defaultPercentForCommType(row.commType)}
+                    value={row.percent ?? ''}
                     readOnly={readOnly}
-                    placeholder={isAdcomCommission(row.commType) ? '3.75%' : '1.25%'}
+                    placeholder={isAdcomCommission(row.commType) ? '3.75' : '1.25'}
                     inputMode="decimal"
                     autoComplete="off"
                     onChange={(e) => patchRow(row.id, {

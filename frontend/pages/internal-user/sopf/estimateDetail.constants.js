@@ -193,7 +193,8 @@ export function createEmptyCargoCommissionRow(commType = ADCOM_COMM_TYPE) {
   };
 }
 
-/** Normalize commission rows. Does not re-insert Ad com / Brokerage after the user removes them. */
+/** Normalize commission rows. Does not re-insert Ad com / Brokerage after the user removes them.
+ * Empty percent stays empty (do not snap back to 3.75 / 1.25). */
 export function ensureStandardCargoCommissions(commissions) {
   if (commissions == null) return defaultCargoCommissions();
   const source = Array.isArray(commissions) ? commissions : [];
@@ -203,9 +204,7 @@ export function ensureStandardCargoCommissions(commissions) {
       ...row,
       id: row.id || newRowId('ccomm'),
       commType,
-      percent: String(row.percent ?? '').trim()
-        ? row.percent
-        : defaultPercentForCommType(commType),
+      percent: row.percent == null ? '' : String(row.percent),
     };
   });
 }

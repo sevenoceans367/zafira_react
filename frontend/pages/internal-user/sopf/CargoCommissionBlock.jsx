@@ -7,7 +7,6 @@ import {
   createEmptyCargoRow,
   defaultPercentForCommType,
   ensureStandardCargoCommissions,
-  isAdcomCommission,
 } from './estimateDetail.constants.js';
 import { sanitizeDecimalInput } from './estimateInputSanitize.js';
 import WorksheetSelect from '../ops/voyage-financials/WorksheetSelect.jsx';
@@ -20,7 +19,7 @@ function vendorOptions(lookups, selected) {
     options.unshift({ id: current, code: current, name: current });
   }
   return [
-    { id: '', name: '— Select —' },
+    { id: '', name: '' },
     ...options.map((v) => ({ id: String(v.code || v.id || ''), name: v.name })),
   ];
 }
@@ -90,7 +89,6 @@ export default function CargoCommissionBlock({
                   <input
                     value={row.percent ?? ''}
                     readOnly={readOnly}
-                    placeholder={isAdcomCommission(row.commType) ? '3.75' : '1.25'}
                     inputMode="decimal"
                     autoComplete="off"
                     onChange={(e) => patchRow(row.id, {
@@ -99,13 +97,12 @@ export default function CargoCommissionBlock({
                   />
                 </td>
                 <td>
-                  <input value={row.amount || ''} readOnly placeholder="0.00" />
+                  <input value={row.amount || ''} readOnly />
                 </td>
                 <td>
                   <input
                     value={row.demmAmt || ''}
                     readOnly={readOnly}
-                    placeholder="0.00"
                     inputMode="decimal"
                     autoComplete="off"
                     onChange={(e) => patchRow(row.id, {
@@ -116,7 +113,7 @@ export default function CargoCommissionBlock({
                 <td className={styles.cargoCommVendorCol}>
                   <SelectField
                     ariaLabel="Customer"
-                    placeholder="— Select —"
+                    placeholder=""
                     value={String(row.vendorId || '')}
                     disabled={readOnly}
                     options={vendorOptions(lookups, row.vendorId)}

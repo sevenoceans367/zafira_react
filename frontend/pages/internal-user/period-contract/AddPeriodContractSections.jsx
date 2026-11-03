@@ -1248,7 +1248,7 @@ function AdditionalInfoPanel({
 }) {
   return (
     <>
-    <PeriodCard title="Additional Info & Documents" defaultOpen icon={<DocsIcon />}>
+    <PeriodCard title="Additional Info & Documents" icon={<DocsIcon />}>
       <div className={styles.addinfoLayout}>
         <div className={styles.addinfoFields}>
           <Field label="Trade Exclusions">

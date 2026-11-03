@@ -20,8 +20,8 @@ function moduleBreadcrumb(module) {
   return { label: PERIOD_CONTRACT_MODULE_LABELS.vc, href: appPath('/internal-user/vc') };
 }
 
-function periodPageLabel(module) {
-  return module === 'sopf' ? 'Period Business' : 'Period';
+function periodPageLabel() {
+  return 'Period Business';
 }
 
 export function resolvePeriodContractHeader(pathname) {
@@ -30,10 +30,9 @@ export function resolvePeriodContractHeader(pathname) {
   if (!pathname.includes('/period-contracts')) return null;
 
   const listHref = periodListReturnPath(periodContractAppPath(module));
-  const listLabel = periodPageLabel(module);
+  const listLabel = periodPageLabel();
   const moduleCrumb = moduleBreadcrumb(module);
   const listCrumb = { label: listLabel, href: listHref };
-  const recapCrumb = { label: 'Period Recap' };
   const isAdd = pathname.includes('/period-contracts/add');
   const isEdit = /\/period-contracts\/edit\//.test(pathname);
 
@@ -41,7 +40,7 @@ export function resolvePeriodContractHeader(pathname) {
     return {
       title: 'Add Period Recap',
       currentPage: 'Add Period Recap',
-      breadcrumbs: [HOME, moduleCrumb, listCrumb, recapCrumb],
+      breadcrumbs: [HOME, moduleCrumb, listCrumb, { label: 'Add Period Recap' }],
     };
   }
 
@@ -49,7 +48,7 @@ export function resolvePeriodContractHeader(pathname) {
     return {
       title: 'Edit Period Recap',
       currentPage: 'Edit Period Recap',
-      breadcrumbs: [HOME, moduleCrumb, listCrumb, recapCrumb],
+      breadcrumbs: [HOME, moduleCrumb, listCrumb, { label: 'Edit Period Recap' }],
     };
   }
 

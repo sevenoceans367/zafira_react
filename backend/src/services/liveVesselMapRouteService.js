@@ -13,6 +13,9 @@ const SEAMETRIX_PORTS_URL =
 
 const FALLBACK_PORTS = {
   singapore: { lat: 1.2644, lng: 103.82, portName: 'Singapore', portCode: 'SGSIN' },
+  advario: { lat: 1.2644, lng: 103.82, portName: 'Singapore', portCode: 'SGSIN' },
+  pelepas: { lat: 1.362, lng: 103.551, portName: 'Tanjung Pelepas', portCode: 'MYTPP' },
+  'tanjung pelepas': { lat: 1.362, lng: 103.551, portName: 'Tanjung Pelepas', portCode: 'MYTPP' },
   rotterdam: { lat: 51.95, lng: 4.14, portName: 'Rotterdam', portCode: 'NLRTM' },
   fujairah: { lat: 25.12, lng: 56.35, portName: 'Fujairah', portCode: 'AEFJR' },
   houston: { lat: 29.73, lng: -95.27, portName: 'Houston', portCode: 'USHOU' },
@@ -23,6 +26,11 @@ const FALLBACK_PORTS = {
   sikka: { lat: 22.43, lng: 69.83, portName: 'Sikka', portCode: 'INSIK' },
   venice: { lat: 45.438, lng: 12.336, portName: 'Venice', portCode: 'ITVCE' },
   venezia: { lat: 45.438, lng: 12.336, portName: 'Venice', portCode: 'ITVCE' },
+  skikda: { lat: 36.89, lng: 6.91, portName: 'Skikda', portCode: 'DZSKI' },
+  beirut: { lat: 33.90, lng: 35.51, portName: 'Beirut', portCode: 'LBBEY' },
+  beyrut: { lat: 33.90, lng: 35.51, portName: 'Beirut', portCode: 'LBBEY' },
+  bayrut: { lat: 33.90, lng: 35.51, portName: 'Beirut', portCode: 'LBBEY' },
+  beyrouth: { lat: 33.90, lng: 35.51, portName: 'Beirut', portCode: 'LBBEY' },
 };
 
 function portCoords(port) {

@@ -77,6 +77,17 @@ function strOrEmpty(value) {
   return String(value).trim();
 }
 
+/** Non-lumpsum Gross Freight = BL qty × freight rate (+ checked club/overage/DF lines). */
+function computeGrossFreight(qty, rate, clubRows = []) {
+  const qtyN = parseAmount(qty);
+  const rateN = parseAmount(rate);
+  if (!(qtyN > 0 && rateN > 0)) return '';
+  const clubExtra = (clubRows || [])
+    .filter((row) => row.checked)
+    .reduce((sum, row) => sum + parseAmount(row.amount), 0);
+  return money2((qtyN * rateN) + clubExtra).toFixed(2);
+}
+
 function withClientIds(rows, factory) {
   if (!Array.isArray(rows) || !rows.length) return [factory()];
   return rows.map((row) => ({
@@ -959,7 +970,12 @@ export default function OpsVcFreightInvoicePage() {
       paymentTerms: strOrEmpty(prefill.paymentTerms),
       remarks: strOrEmpty(prefill.remarks),
       atten: strOrEmpty(prefill.atten),
-      grossFreight: strOrEmpty(prefill.grossFreight),
+      grossFreight: (() => {
+        const fromPrefill = strOrEmpty(prefill.grossFreight);
+        if (parseAmount(fromPrefill) > 0) return fromPrefill;
+        if (data.freightBreakdown?.isDistributed || data.isLumpsum) return fromPrefill;
+        return computeGrossFreight(prefill.blQuantity, prefill.freightRate) || fromPrefill;
+      })(),
       brokeragePercent: strOrEmpty(prefill.brokeragePercent ?? '0'),
       gstOnBrokPercent: strOrEmpty(prefill.gstOnBrokPercent ?? '0'),
       addComPercent: strOrEmpty(prefill.addComPercent ?? '0'),
@@ -1087,7 +1103,21 @@ export default function OpsVcFreightInvoicePage() {
   }, [form.nob]);
 
   const updateField = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (
+        (key === 'blQuantity' || key === 'freightRate')
+        && !context?.freightBreakdown?.isDistributed
+        && !context?.isLumpsum
+      ) {
+        const qty = key === 'blQuantity' ? value : current.blQuantity;
+        const rate = key === 'freightRate' ? value : current.freightRate;
+        if (parseAmount(qty) > 0 && parseAmount(rate) > 0) {
+          next.grossFreight = computeGrossFreight(qty, rate, clubRows);
+        }
+      }
+      return next;
+    });
   };
 
   const updateLine = (rows, setRows, lineId, patch) => {

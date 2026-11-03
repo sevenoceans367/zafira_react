@@ -72,8 +72,8 @@ const REFRESH_ICON = (
   </svg>
 );
 
-const LEG_PREVIEW = { color: '#B7BEC9', weight: 2, opacity: 0.85, dashArray: '8 8' };
-const LEG_ACTIVE = { color: '#f4652c', weight: 3, opacity: 1, dashArray: '8 8' };
+const LEG_PREVIEW = { color: '#B7BEC9', weight: 2, opacity: 0.85, dashArray: '2 8' };
+const LEG_ACTIVE = { color: '#f4652c', weight: 3, opacity: 1, dashArray: '2 8' };
 const BUBBLE_WIDTH = 240;
 const BUBBLE_EST_HEIGHT = 240;
 const BUBBLE_PIN_GAP = 34;
@@ -109,6 +109,20 @@ function currentLegPorts(vessel) {
   return { origin, destination };
 }
 
+function cachedRouteForVessel(vessel, cache) {
+  if (!vessel || !cache) return null;
+  const { origin, destination } = currentLegPorts(vessel);
+  const commercialKey = origin && destination ? voyageLegKey(origin, destination) : '';
+  if (commercialKey && cache.get(commercialKey)?.waypoints?.length) {
+    return cache.get(commercialKey);
+  }
+  const declared = vesselVoyageLeg(vessel);
+  if (declared?.key && cache.get(declared.key)?.waypoints?.length) {
+    return cache.get(declared.key);
+  }
+  return null;
+}
+
 function haversineKm(a, b) {
   const toRad = (value) => (value * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
@@ -120,39 +134,123 @@ function haversineKm(a, b) {
   return 6371 * 2 * Math.asin(Math.sqrt(h));
 }
 
-/** Clip Seametrix sea route from the vessel’s nearest waypoint onward.
- * Never draw a long straight connector (that crosses land) when the ship is far off-route. */
+/** Max distance to pull an AIS pin onto the Seametrix sea corridor. */
 const LEG_SNAP_MAX_KM = 180;
+/** Tip of the teardrop sits on the lat/lng (label floats below, outside the hit box). */
+const PIN_ICON_SIZE = [28, 36];
+const PIN_ICON_ANCHOR = [14, 36];
 
-function remainingSeaRoute(vesselPos, waypoints) {
+function normalizeLng(lng) {
+  let lon = lng;
+  while (lon > 180) lon -= 360;
+  while (lon < -180) lon += 360;
+  return lon;
+}
+
+function unwrapLng(prevLng, lng) {
+  let lon = lng;
+  while (lon - prevLng > 180) lon -= 360;
+  while (prevLng - lon > 180) lon += 360;
+  return lon;
+}
+
+function closestPointOnSegment(pos, a, b) {
+  const aLng = a.lng;
+  const bLng = unwrapLng(aLng, b.lng);
+  const pLng = unwrapLng(aLng, pos.lng);
+  const dx = bLng - aLng;
+  const dy = b.lat - a.lat;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) {
+    return { lat: a.lat, lng: normalizeLng(a.lng), distKm: haversineKm(pos, a) };
+  }
+  let t = ((pLng - aLng) * dx + (pos.lat - a.lat) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const lat = a.lat + t * dy;
+  const lng = normalizeLng(aLng + t * dx);
+  return { lat, lng, distKm: haversineKm(pos, { lat, lng }) };
+}
+
+function closestPointOnRoute(pos, waypoints) {
   const valid = (waypoints || []).filter(
     (wp) => Number.isFinite(wp?.lat) && Number.isFinite(wp?.lng),
   );
-  if (!valid.length || !vesselPos) return valid;
-
-  let bestIdx = 0;
-  let bestDist = Infinity;
-  valid.forEach((wp, index) => {
-    const dist = haversineKm(vesselPos, wp);
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestIdx = index;
-    }
-  });
-
-  // Off the sea corridor — show the declared sea path only (no land shortcut).
-  if (bestDist > LEG_SNAP_MAX_KM) {
-    return valid;
+  if (!valid.length || !pos) return null;
+  if (valid.length === 1) {
+    return {
+      lat: valid[0].lat,
+      lng: valid[0].lng,
+      distKm: haversineKm(pos, valid[0]),
+      segmentIndex: 0,
+    };
   }
-
-  const tail = valid.slice(bestIdx);
-  const first = tail[0];
-  const alreadyOnRoute = first
-    && Math.abs(first.lat - vesselPos.lat) < 0.01
-    && Math.abs(first.lng - vesselPos.lng) < 0.01;
-  if (alreadyOnRoute) return tail;
-  return [{ lat: vesselPos.lat, lng: vesselPos.lng }, ...tail];
+  let best = null;
+  for (let i = 0; i < valid.length - 1; i += 1) {
+    const hit = closestPointOnSegment(pos, valid[i], valid[i + 1]);
+    if (!best || hit.distKm < best.distKm) {
+      best = { ...hit, segmentIndex: i };
+    }
+  }
+  return best;
 }
+
+function snapToSeaRoute(pos, waypoints, maxKm = LEG_SNAP_MAX_KM) {
+  const hit = closestPointOnRoute(pos, waypoints);
+  if (!hit || hit.distKm > maxKm) return null;
+  return hit;
+}
+
+/** Place approx (no-AIS) pins on the sea path instead of sitting on the destination port. */
+function pointAlongRoute(waypoints, fraction = 0.4) {
+  const valid = (waypoints || []).filter(
+    (wp) => Number.isFinite(wp?.lat) && Number.isFinite(wp?.lng),
+  );
+  if (!valid.length) return null;
+  if (valid.length === 1) return { lat: valid[0].lat, lng: valid[0].lng };
+
+  const segs = [];
+  let total = 0;
+  for (let i = 0; i < valid.length - 1; i += 1) {
+    const dist = haversineKm(valid[i], valid[i + 1]);
+    segs.push({ a: valid[i], b: valid[i + 1], dist });
+    total += dist;
+  }
+  if (!(total > 0)) return { lat: valid[0].lat, lng: valid[0].lng };
+
+  let remain = Math.max(0, Math.min(1, fraction)) * total;
+  for (let i = 0; i < segs.length; i += 1) {
+    const { a, b, dist } = segs[i];
+    if (remain > dist && i < segs.length - 1) {
+      remain -= dist;
+      continue;
+    }
+    const t = dist > 0 ? remain / dist : 0;
+    const aLng = a.lng;
+    const bLng = unwrapLng(aLng, b.lng);
+    return {
+      lat: a.lat + (b.lat - a.lat) * t,
+      lng: normalizeLng(aLng + (bLng - aLng) * t),
+      segmentIndex: i,
+      distKm: 0,
+    };
+  }
+  const last = valid[valid.length - 1];
+  return { lat: last.lat, lng: last.lng, segmentIndex: valid.length - 2, distKm: 0 };
+}
+
+function markerPosForVessel(vessel, waypoints) {
+  if (!waypoints?.length) return null;
+  if (vessel?.fleetPositionApprox) {
+    return pointAlongRoute(waypoints, 0.4);
+  }
+  const pos = {
+    lat: Number(vessel?.Latitude),
+    lng: Number(vessel?.Longitude),
+  };
+  if (!Number.isFinite(pos.lat) || !Number.isFinite(pos.lng)) return null;
+  return snapToSeaRoute(pos, waypoints) || null;
+}
+
 const EYE_OPEN = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
@@ -196,8 +294,9 @@ function createVesselIcon(name, active, { fleet = false } = {}) {
         <div class="${styles.pinLabel}">${escapeHtml(label)}</div>
       </div>
     `,
-    iconSize: [140, 52],
-    iconAnchor: [70, 40],
+    iconSize: PIN_ICON_SIZE,
+    iconAnchor: PIN_ICON_ANCHOR,
+    popupAnchor: [0, -36],
   });
 }
 
@@ -210,9 +309,10 @@ function escapeHtml(value) {
 }
 
 function vesselKey(vessel) {
-  return String(
-    `${vessel?.isFleet ? 'fleet' : 'ais'}|${vessel?.ImoNumber || vessel?.MmsiNumber || vessel?.ShipName || ''}|${vessel?.Latitude}|${vessel?.Longitude}`,
-  );
+  const id = vessel?.ImoNumber || vessel?.MmsiNumber || vessel?.ShipName || '';
+  const kind = vessel?.isFleet ? 'fleet' : 'ais';
+  if (id) return `${kind}|${id}`;
+  return `${kind}|${vessel?.Latitude}|${vessel?.Longitude}`;
 }
 
 const VF_ICON = (
@@ -374,8 +474,10 @@ export default function LiveVesselMapPage() {
       setBubblePos(null);
       return;
     }
-    const lat = Number(vessel.Latitude);
-    const lng = Number(vessel.Longitude);
+    const marker = vesselMarkersRef.current.get(vesselKey(vessel));
+    const ll = marker?.getLatLng();
+    const lat = Number.isFinite(ll?.lat) ? ll.lat : Number(vessel.Latitude);
+    const lng = Number.isFinite(ll?.lng) ? ll.lng : Number(vessel.Longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       setBubblePos(null);
       return;
@@ -533,7 +635,15 @@ export default function LiveVesselMapPage() {
         if (mode === 'preview') clearPreviewLeg();
         return;
       }
-      const path = remainingSeaRoute({ lat, lng }, route.waypoints);
+      const snapped = markerPosForVessel(vessel, route.waypoints);
+      const marker = vesselMarkersRef.current.get(key);
+      if (snapped && marker) {
+        marker.setLatLng([snapped.lat, snapped.lng]);
+        if (mode === 'active') updateBubblePosition(vessel);
+      }
+      const path = route.waypoints.filter(
+        (wp) => Number.isFinite(wp?.lat) && Number.isFinite(wp?.lng),
+      );
       if (path.length < 2) {
         if (mode === 'preview') clearPreviewLeg();
         return;
@@ -542,7 +652,7 @@ export default function LiveVesselMapPage() {
     } catch {
       if (token === tokenRef.current && mode === 'preview') clearPreviewLeg();
     }
-  }, [clearPreviewLeg, drawLegPath, resolveLegSeaRoute]);
+  }, [clearPreviewLeg, drawLegPath, resolveLegSeaRoute, updateBubblePosition]);
 
   const selectVessel = useCallback((vessel) => {
     selectedVesselRef.current = vessel;
@@ -595,6 +705,20 @@ export default function LiveVesselMapPage() {
     setRouteInfo(null);
   }, []);
 
+  const snapMarkersOntoRoutes = useCallback(() => {
+    vesselMarkersRef.current.forEach((marker) => {
+      const vessel = marker.vesselData;
+      if (!vessel) return;
+      const route = cachedRouteForVessel(vessel, routesCacheRef.current);
+      if (!route?.waypoints?.length) return;
+      const snapped = markerPosForVessel(vessel, route.waypoints);
+      if (!snapped) return;
+      marker.setLatLng([snapped.lat, snapped.lng]);
+    });
+    const selected = selectedVesselRef.current;
+    if (selected) updateBubblePosition(selected);
+  }, [updateBubblePosition]);
+
   const drawFleetRoutes = useCallback((routes) => {
     const map = mapRef.current;
     if (!map || !routes?.length) return;
@@ -604,6 +728,7 @@ export default function LiveVesselMapPage() {
       routes.forEach((route) => {
         if (route?.legKey) routesCacheRef.current.set(route.legKey, route);
       });
+      snapMarkersOntoRoutes();
       return;
     }
 
@@ -625,7 +750,8 @@ export default function LiveVesselMapPage() {
 
     layer.addTo(map);
     routesLayerRef.current = layer;
-  }, [clearAllRoutes]);
+    snapMarkersOntoRoutes();
+  }, [clearAllRoutes, snapMarkersOntoRoutes]);
 
   const loadFleetRoutes = useCallback(async (vessels) => {
     setRoutesLoading(true);
@@ -692,25 +818,16 @@ export default function LiveVesselMapPage() {
       marker.vesselData = vessel;
       vesselMarkersRef.current.set(vesselKey(vessel), marker);
 
-      marker.on('mouseover', () => {
-        if (selectedVesselRef.current && vesselKey(selectedVesselRef.current) === vesselKey(vessel)) {
-          clearPreviewLeg();
-          return;
-        }
-        showCurrentLeg(vessel, 'preview');
-      });
-      marker.on('mouseout', () => {
-        if (selectedVesselRef.current && vesselKey(selectedVesselRef.current) === vesselKey(vessel)) {
-          return;
-        }
-        clearPreviewLeg();
-      });
       marker.on('click', (event) => {
         L.DomEvent.stopPropagation(event);
         selectVessel(vessel);
       });
+    });
 
-      bounds.push([lat, lng]);
+    snapMarkersOntoRoutes();
+    vesselMarkersRef.current.forEach((marker) => {
+      const ll = marker.getLatLng();
+      if (ll) bounds.push([ll.lat, ll.lng]);
     });
 
     if (fit && bounds.length > 0) {
@@ -724,7 +841,7 @@ export default function LiveVesselMapPage() {
       if (stillVisible) selectVessel(stillVisible);
       else clearSelection();
     }
-  }, [clearMarkers, clearPreviewLeg, clearSelection, selectVessel, showCurrentLeg]);
+  }, [clearMarkers, clearSelection, selectVessel, snapMarkersOntoRoutes]);
 
   const applyVisibility = useCallback(({ fit = false } = {}) => {
     const ais = showAisRef.current

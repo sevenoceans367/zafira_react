@@ -203,6 +203,8 @@
 .legLinePreview,
 .legLineActive {
   pointer-events: none;
+  stroke-linecap: round;
+  stroke-dasharray: 2, 8;
 }
 
 
@@ -610,17 +612,21 @@
 .pinIconRoot {
   background: transparent !important;
   border: none !important;
+  overflow: visible !important;
 }
 
 .vesselPin {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  position: relative;
+  display: block;
+  width: 28px;
+  height: 36px;
   cursor: pointer;
-  transform: translateY(0);
 }
 
 .pinIcon {
+  position: absolute;
+  left: 1px;
+  top: 0;
   width: 26px;
   height: 26px;
   border-radius: 50% 50% 50% 0;
@@ -647,7 +653,11 @@
 }
 
 .pinLabel {
-  margin-top: 4px;
+  position: absolute;
+  top: 38px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
   font-family: var(--font-family-heading);
   font-weight: 700;
   font-size: 10px;

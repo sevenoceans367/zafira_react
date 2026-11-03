@@ -1091,15 +1091,12 @@ export async function fetchFleetOverlay({ selBType = '' } = {}) {
       }
     }
 
-    // AIS missing / timed out: place near destination (then origin) port — not random hubs.
-    const nearPort = approxCoordsForPortLabel(commercial.to || row.routeTo)
-      || approxCoordsForPortLabel(commercial.from || row.routeFrom);
-    const lat = nearPort
-      ? nearPort.lat + ((index % 5) - 2) * 0.04
-      : 20 + (index % 7) * 2;
-    const lng = nearPort
-      ? nearPort.lng + ((index % 4) - 1.5) * 0.04
-      : 60 + (index % 6) * 3;
+    // AIS missing / timed out: park near ORIGIN (voyage start). Frontend moves the pin
+    // onto the Seametrix sea route once waypoints load — never leave it on the dest tip.
+    const nearPort = approxCoordsForPortLabel(commercial.from || row.routeFrom)
+      || approxCoordsForPortLabel(commercial.to || row.routeTo);
+    const lat = nearPort ? nearPort.lat : 20 + (index % 7) * 2;
+    const lng = nearPort ? nearPort.lng : 60 + (index % 6) * 3;
     return {
       ShipName: worksheetVesselName || row.shipName || `Fleet ${row.imo}`,
       ImoNumber: identity.imoNo || row.imo,

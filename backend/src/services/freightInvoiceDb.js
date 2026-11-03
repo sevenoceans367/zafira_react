@@ -1678,11 +1678,16 @@ export async function dbGetFreightInvoiceForm({
     vcIn: inMode,
   });
 
+  const isLumpsum = Number(master?.CHK_LUMPSUM ?? compare?.CHK_LUMPSUM) === 1;
+  const qtyTimesRate = (!isLumpsum && quantity > 0 && freightRate > 0)
+    ? money2(quantity * freightRate)
+    : 0;
   const defaultGross = currentInvoice?.grossFreight
     || (freightBreakdown.isDistributed && freightBreakdown.grossFreight
       ? String(freightBreakdown.grossFreight)
       : '')
-    || (grossFreight ? String(grossFreight) : '');
+    || (grossFreight ? String(grossFreight) : '')
+    || (qtyTimesRate ? String(qtyTimesRate) : '');
 
   const defaults = {
     shipOwner: currentInvoice?.shipOwner || '',
@@ -1758,6 +1763,8 @@ export async function dbGetFreightInvoiceForm({
     currencies: CURRENCY_OPTIONS,
     invoiceTypes: invoiceTypeOptionsFor(invoiceType),
     freightBreakdown,
+    estimateType,
+    isLumpsum,
     clubCharterers,
     demurrageRows,
     daRows,

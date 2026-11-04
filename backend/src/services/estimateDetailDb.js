@@ -1070,7 +1070,7 @@ function mapEstimateDetail(
     attachments: parseAttachments(master.ATTACHMENT, master.ATTACHMENT_NAME),
     charteringTeam: master.CHARTERING_PIC != null && String(master.CHARTERING_PIC).trim() !== '' && String(master.CHARTERING_PIC) !== '0'
       ? String(master.CHARTERING_PIC)
-      : '7',
+      : '',
     charteringPic: master.CHARTERING_PIC_1 != null && String(master.CHARTERING_PIC_1).trim() !== '' && String(master.CHARTERING_PIC_1) !== '0'
       ? String(master.CHARTERING_PIC_1)
       : '',
@@ -2926,7 +2926,7 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     toDbDateTime(payload.laycanEnd),
     numOrNull(payload.timeAllowed),
     payload.periodId || null,
-    payload.charteringTeam || '7',
+    payload.charteringTeam || null,
     payload.charteringPic || null,
     payload.tankType != null && payload.tankType !== '' ? Number(payload.tankType) : 1,
     payload.chkLumpsum ? 1 : 0,

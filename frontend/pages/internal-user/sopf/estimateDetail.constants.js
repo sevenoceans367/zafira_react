@@ -1479,7 +1479,7 @@ export function toFormState(detail = {}) {
     ownerId: detail.ownerId != null ? String(detail.ownerId) : '',
     disponentOwner: detail.disponentOwner ?? '',
     attachments: detail.attachments ?? [],
-    charteringTeam: detail.charteringTeam != null ? String(detail.charteringTeam) : '7',
+    charteringTeam: detail.charteringTeam != null ? String(detail.charteringTeam) : '',
     charteringPic: detail.charteringPic != null ? String(detail.charteringPic) : '',
     charteringPicName: detail.charteringPicName ?? '',
 

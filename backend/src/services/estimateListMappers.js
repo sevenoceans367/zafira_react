@@ -14,13 +14,14 @@ export const FIXTURE_TYPE_LABELS = {
   1: 'TCIN-VCOUT',
   2: 'VCIN-VCOUT',
   3: 'VCOUT',
+  4: 'VC In',
 };
 
 function resolveFixtureTypeId(...candidates) {
   for (const candidate of candidates) {
     if (candidate == null || candidate === '') continue;
     const value = String(candidate).trim();
-    if (value === '1' || value === '2' || value === '3') return value;
+    if (value === '1' || value === '2' || value === '3' || value === '4') return value;
   }
   return '';
 }

@@ -785,7 +785,7 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
 
     // VC-In expense — first expense line when the spot dropdown is VCIN-VCOUT
     const [[vcIn]] = await pool.query(
-      `SELECT * FROM freight_cost_estimete_in_master WHERE COMID = ? LIMIT 1`,
+      `SELECT * FROM freight_cost_estimete_in_master_vc WHERE COMID = ? LIMIT 1`,
       [comId],
     ).catch(() => [[null]]);
     if (isVcInOut) {

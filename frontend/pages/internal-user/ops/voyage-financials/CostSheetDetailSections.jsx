@@ -29,6 +29,7 @@ import {
   createEmptyProfitSharingRow,
   createEmptySecaBunkerRow,
   getFixtureTypeLabel,
+  isVcInDryFixture,
   seedPortLegsFromFirstCargo,
 } from '../../sopf/estimateDetail.constants.js';
 import { formatDemurrageCostField, calcSeaDays, calcSeaDaysWithSeca, pickPassageSpeedKnots, buildBunkerSummaryRows, resolveNrtFromGnrt, classifyBunkerGradeName, formatDemurrageLoadPortLabel, formatDemurrageDischargePortLabel, formatDays, formatDistance, syncPortstayFromPassageDates } from '../../sopf/estimateCalculations.js';
@@ -191,7 +192,10 @@ export default function EstimateDetailSections({
   const isTanker = estimateType === 2;
   const isDry = estimateType === 3;
   const fixtureType = String(form.fixtureTypeId ?? '');
+  // Standalone VC In (4) UI only on Dry; VC-in worksheet (`variant`) always
+  const isVcInContract = variant === 'vc-in' || isVcInDryFixture(fixtureType, estimateType);
   // PHP makeFieldManD: hire table for TCIN/VCIN (1|2); Vessel Daily Ops for VCOUT (3)
+  // Dry + VC In (4): no hire section (same as VC-in worksheet)
   const showHireSection = fixtureType === '1' || fixtureType === '2';
   const hireOpexTitle = fixtureType === '2'
     ? 'Freight Expense'
@@ -199,7 +203,7 @@ export default function EstimateDetailSections({
   const showVesselDailyOps = fixtureType === '3';
   // PHP .tcin — Hire Details button only for TCIN-VCOUT
   const showHireDetailsButton = fixtureType === '1';
-  // PHP updatecost_sheet_tci_in — VCIN-VCOUT opens the VC-In worksheet
+  // VCIN-VCOUT opens the VC-In worksheet; Dry VC In (4) has no sheet button
   const showVcInButton = fixtureType === '2' && variant !== 'vc-in';
   const showCoaFields = String(form.coaSpot || '') === '2';
   const showIndexLinked = isDry && showHireSection;
@@ -2470,7 +2474,7 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
-      {variant === 'vc-in' ? null : (
+      {isVcInContract ? null : (
       <CollapsiblePanel
         title={hireOpexTitle}
         defaultOpen={false}
@@ -2775,7 +2779,7 @@ export default function EstimateDetailSections({
             round
             variant={variant}
           />
-          {variant === 'vc-in' ? null : (
+          {isVcInContract ? null : (
           <CollapsiblePanel
             title="Profit Sharing"
             defaultOpen={false}

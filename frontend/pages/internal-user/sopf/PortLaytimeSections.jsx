@@ -189,10 +189,11 @@ export default function PortLaytimeSections({
       ? [{ ...cargoRows[0], cargoMt: qty }]
       : cargoRows;
     if (onApplyPatch) {
+      // Do not write qty into form.loadable — that field is vessel LODABLE / DWT
+      // fallback. Overwriting it made later cargo qty edits clamp to the calc result.
       onApplyPatch({
         portLegs: nextLegs,
         cargoQuantity: qty,
-        loadable: qty,
         ...(cargoRows.length === 1 ? { cargoRows: nextCargoRows } : {}),
       });
       return;

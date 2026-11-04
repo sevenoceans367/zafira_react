@@ -3,8 +3,27 @@ import { formatDistance, formatIdleDays } from './estimateCalculations.js';
 export const FIXTURE_TYPE_OPTIONS = [
   { value: '1', label: 'TCIN-VCOUT' },
   { value: '2', label: 'VCIN-VCOUT' },
+  { value: '4', label: 'VC In' },
   { value: '3', label: 'VCOUT' },
 ];
+
+/** Contract Type id for standalone VC In — Dry only (Freight Results expense mode; no VC-In button). */
+export const FIXTURE_TYPE_VC_IN = '4';
+
+export function isVcInFixtureType(fixtureTypeId) {
+  return String(fixtureTypeId ?? '') === FIXTURE_TYPE_VC_IN;
+}
+
+/** True when Contract Type is VC In on a Dry estimate (not tanker/gas). */
+export function isVcInDryFixture(fixtureTypeId, estimateType) {
+  return isVcInFixtureType(fixtureTypeId) && Number(estimateType) === 3;
+}
+
+/** Dropdown options; VC In only for Dry (estimateType 3). */
+export function fixtureTypeOptionsForEstimate(estimateType) {
+  if (Number(estimateType) === 3) return FIXTURE_TYPE_OPTIONS;
+  return FIXTURE_TYPE_OPTIONS.filter((opt) => opt.value !== FIXTURE_TYPE_VC_IN);
+}
 
 /** Format API distance values to 3dp when present. */
 function distStr(value) {

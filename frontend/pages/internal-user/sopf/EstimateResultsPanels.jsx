@@ -61,7 +61,9 @@ export default function EstimateResultsPanels({
   variant = '',
 }) {
   const editable = !readOnly;
-  const isVcIn = variant === 'vc-in';
+  // VC-in page (`variant`) or Dry + Contract Type “VC In” (fixtureTypeId 4)
+  const isVcIn = variant === 'vc-in'
+    || (String(form.fixtureTypeId ?? '') === '4' && Number(form.estimateType) === 3);
 
   const setField = (key, value) => {
     const next = ESTIMATE_DECIMAL_FIELDS.has(key)

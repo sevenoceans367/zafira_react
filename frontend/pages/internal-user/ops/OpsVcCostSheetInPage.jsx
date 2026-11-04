@@ -15,7 +15,7 @@ const BACK_BY_PAGE = {
 
 /**
  * VC-In worksheet (PHP updatecost_sheet_tci_in).
- * Same form as Voyage Worksheet, bound to freight_cost_estimete_in_* .
+ * Same form as Voyage Worksheet, bound to freight_cost_estimete_in_*_vc .
  */
 export default function OpsVcCostSheetInPage() {
   const [searchParams] = useSearchParams();

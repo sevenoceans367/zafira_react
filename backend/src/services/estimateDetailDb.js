@@ -15,9 +15,16 @@ const PLACEHOLDER_RANDOM_ID = '2147483647';
 
 const vcInTableStore = new AsyncLocalStorage();
 
+/**
+ * Spot estimate SQL → VC-In tables (DBA rename: freight_cost_estimete_in_*_vc).
+ * e.g. freight_cost_estimete_master → freight_cost_estimete_in_master_vc
+ */
 function rewriteVcInSql(sql) {
   if (typeof sql !== 'string' || !vcInTableStore.getStore()?.vcIn) return sql;
-  return sql.replace(/freight_cost_estimete_(?!in_)/g, 'freight_cost_estimete_in_');
+  return sql.replace(
+    /freight_cost_estimete_(?!in_)(\w+)/g,
+    'freight_cost_estimete_in_$1_vc',
+  );
 }
 
 function wrapQueryTarget(target) {
@@ -40,14 +47,17 @@ function getPool() {
   return vcInTableStore.getStore()?.vcIn ? wrapQueryTarget(pool) : pool;
 }
 
-/** Run estimate load/save against freight_cost_estimete_in_* (PHP updatecost_sheet_tci_in). */
+/** Run estimate load/save against freight_cost_estimete_in_*_vc (PHP updatecost_sheet_tci_in). */
 export function runWithVcInTables(fn) {
   return vcInTableStore.run({ vcIn: true }, fn);
 }
 
+/** VC-In worksheet master (DBA: …_in_master_vc). */
+export const VC_IN_MASTER_TABLE = 'freight_cost_estimete_in_master_vc';
+
 const ESTIMATE_MASTER_TABLES = [
   'freight_cost_estimete_master',
-  'freight_cost_estimete_in_master',
+  VC_IN_MASTER_TABLE,
 ];
 const estimateNoReadyByTable = new Map();
 let vcInSchemaSynced = false;
@@ -71,7 +81,14 @@ function addColumnSql(col) {
   return sql;
 }
 
-/** Copy columns present on spot tables but missing on matching VC-in tables. */
+/** Spot source for a VC-In *_vc table: in_master_vc → master, in_slave1_vc → slave1. */
+function spotSourceTableForVcIn(targetTable) {
+  return String(targetTable || '')
+    .replace(/^freight_cost_estimete_in_/, 'freight_cost_estimete_')
+    .replace(/_vc$/, '');
+}
+
+/** Copy columns present on spot tables but missing on matching VC-in *_vc tables. */
 async function ensureVcInTableColumns(rawPool) {
   if (vcInSchemaSynced) return true;
   try {
@@ -79,10 +96,11 @@ async function ensureVcInTableColumns(rawPool) {
       `SELECT TABLE_NAME
        FROM INFORMATION_SCHEMA.TABLES
        WHERE TABLE_SCHEMA = DATABASE()
-         AND TABLE_NAME LIKE 'freight_cost_estimete_in_%'`,
+         AND TABLE_NAME LIKE 'freight_cost_estimete_in_%'
+         AND TABLE_NAME REGEXP '_vc$'`,
     );
     for (const { TABLE_NAME: targetTable } of tables) {
-      const sourceTable = targetTable.replace('freight_cost_estimete_in_', 'freight_cost_estimete_');
+      const sourceTable = spotSourceTableForVcIn(targetTable);
       const [missing] = await rawPool.query(
         `SELECT s.COLUMN_NAME, s.COLUMN_TYPE, s.IS_NULLABLE, s.COLUMN_DEFAULT, s.EXTRA
          FROM INFORMATION_SCHEMA.COLUMNS s
@@ -781,7 +799,8 @@ function resolveFixtureTypeId(...candidates) {
     const value = String(candidate).trim();
     // PHP getCheckNullValue() stores empty as 0 — treat as missing.
     if (!value || value === '0') continue;
-    if (value === '1' || value === '2' || value === '3') return value;
+    // 1 TCIN-VCOUT, 2 VCIN-VCOUT, 3 VCOUT, 4 VC In
+    if (value === '1' || value === '2' || value === '3' || value === '4') return value;
   }
   return null;
 }

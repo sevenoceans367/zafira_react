@@ -45,21 +45,21 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- ADCOM remains on freight_cost_estimete_master.ADDRESS_COMMISSION_PER / ADDRESS_COMMISSION_AMT
 -- and is also written as a COMM_TYPE='ADCOM Freight' slave4 row on save.
 
--- VCIN copy of slave4 (freight_cost_estimete_in_slave4) — skip if the table is absent.
+-- VCIN copy of slave4 (freight_cost_estimete_in_slave4_vc) — skip if the table is absent.
 SET @tbl := (
   SELECT COUNT(*) FROM information_schema.TABLES
   WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'freight_cost_estimete_in_slave4'
+    AND TABLE_NAME = 'freight_cost_estimete_in_slave4_vc'
 );
 
 SET @col := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'freight_cost_estimete_in_slave4'
+    AND TABLE_NAME = 'freight_cost_estimete_in_slave4_vc'
     AND COLUMN_NAME = 'COMM_TYPE'
 );
 SET @sql := IF(@tbl > 0 AND @col = 0,
-  'ALTER TABLE freight_cost_estimete_in_slave4 ADD COLUMN COMM_TYPE VARCHAR(120) NULL DEFAULT NULL AFTER FCAID',
+  'ALTER TABLE freight_cost_estimete_in_slave4_vc ADD COLUMN COMM_TYPE VARCHAR(120) NULL DEFAULT NULL AFTER FCAID',
   'SELECT 1'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -67,11 +67,11 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @col := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'freight_cost_estimete_in_slave4'
+    AND TABLE_NAME = 'freight_cost_estimete_in_slave4_vc'
     AND COLUMN_NAME = 'CARGO_LINE_ID'
 );
 SET @sql := IF(@tbl > 0 AND @col = 0,
-  'ALTER TABLE freight_cost_estimete_in_slave4 ADD COLUMN CARGO_LINE_ID VARCHAR(64) NULL DEFAULT NULL AFTER VENDORID',
+  'ALTER TABLE freight_cost_estimete_in_slave4_vc ADD COLUMN CARGO_LINE_ID VARCHAR(64) NULL DEFAULT NULL AFTER VENDORID',
   'SELECT 1'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -79,11 +79,11 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @col := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'freight_cost_estimete_in_slave4'
+    AND TABLE_NAME = 'freight_cost_estimete_in_slave4_vc'
     AND COLUMN_NAME = 'CARGO_STATUS'
 );
 SET @sql := IF(@tbl > 0 AND @col = 0,
-  'ALTER TABLE freight_cost_estimete_in_slave4 ADD COLUMN CARGO_STATUS TINYINT NULL DEFAULT NULL AFTER CARGO_LINE_ID',
+  'ALTER TABLE freight_cost_estimete_in_slave4_vc ADD COLUMN CARGO_STATUS TINYINT NULL DEFAULT NULL AFTER CARGO_LINE_ID',
   'SELECT 1'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

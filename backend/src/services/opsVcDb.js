@@ -1330,7 +1330,7 @@ const VC_IN_SLAVE_TABLES = [
 
 async function copySlaveIntoVcIn(connection, suffix, sourceFcaId, targetFcaId) {
   const sourceTable = `freight_cost_estimete_${suffix}`;
-  const targetTable = `freight_cost_estimete_in_${suffix}`;
+  const targetTable = `freight_cost_estimete_in_${suffix}_vc`;
   try {
     const sourceCols = await getInsertableColumns(connection, sourceTable);
     const targetCols = new Set(await getInsertableColumns(connection, targetTable));
@@ -1355,7 +1355,7 @@ async function seedVcInEstimate(pool, source, comId) {
     if (Number(comId) > 0) {
       const [[again]] = await connection.query(
         `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
-         FROM freight_cost_estimete_in_master
+         FROM freight_cost_estimete_in_master_vc
          WHERE COMID = ?
          ORDER BY FCAID DESC
          LIMIT 1
@@ -1369,7 +1369,7 @@ async function seedVcInEstimate(pool, source, comId) {
     }
 
     const sourceCols = await getInsertableColumns(connection, 'freight_cost_estimete_master');
-    const targetCols = new Set(await getInsertableColumns(connection, 'freight_cost_estimete_in_master'));
+    const targetCols = new Set(await getInsertableColumns(connection, 'freight_cost_estimete_in_master_vc'));
     const dataColumns = sourceCols.filter((column) => column !== 'FCAID' && targetCols.has(column));
     if (!dataColumns.length) {
       const error = new Error('VC-In worksheet table is not available.');
@@ -1380,7 +1380,7 @@ async function seedVcInEstimate(pool, source, comId) {
     const insertCols = dataColumns.map((column) => `\`${column}\``).join(', ');
     const placeholders = dataColumns.map(() => '?').join(', ');
     const [insertResult] = await connection.query(
-      `INSERT INTO freight_cost_estimete_in_master (${insertCols}) VALUES (${placeholders})`,
+      `INSERT INTO freight_cost_estimete_in_master_vc (${insertCols}) VALUES (${placeholders})`,
       values,
     );
     const newId = insertResult.insertId;
@@ -1413,7 +1413,7 @@ export async function dbGetOpsVcCostSheetIn(comId) {
   const pool = getPool();
   const [[byCom]] = await pool.query(
     `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
-     FROM freight_cost_estimete_in_master
+     FROM freight_cost_estimete_in_master_vc
      WHERE COMID = ?
      ORDER BY FCAID DESC
      LIMIT 1`,
@@ -1432,7 +1432,7 @@ export async function dbGetOpsVcCostSheetIn(comId) {
   if (!row?.FCAID && source?.VOYAGE_NO) {
     const params = [source.VOYAGE_NO];
     let sql = `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
-               FROM freight_cost_estimete_in_master
+               FROM freight_cost_estimete_in_master_vc
                WHERE VOYAGE_NO = ?`;
     if (source.VESSEL_IMO_ID) {
       sql += ' AND (VESSEL_IMO_ID = ? OR VESSEL_IMO_ID IS NULL OR VESSEL_IMO_ID = 0)';
@@ -1473,7 +1473,7 @@ function mapVcInRow(row, extras = {}) {
   };
 }
 
-/** SOPF Estimate VC-In — open/seed freight_cost_estimete_in_* from an estimate FCAID. */
+/** SOPF Estimate VC-In — open/seed freight_cost_estimete_in_*_vc from an estimate FCAID. */
 export async function dbGetEstimateVcIn(fcaId) {
   const safeId = Number(fcaId);
   if (!safeId) {
@@ -1485,7 +1485,7 @@ export async function dbGetEstimateVcIn(fcaId) {
   const pool = getPool();
   const [[alreadyIn]] = await pool.query(
     `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
-     FROM freight_cost_estimete_in_master
+     FROM freight_cost_estimete_in_master_vc
      WHERE FCAID = ?
      LIMIT 1`,
     [safeId],
@@ -1512,7 +1512,7 @@ export async function dbGetEstimateVcIn(fcaId) {
   if (source.VOYAGE_NO) {
     const params = [source.VOYAGE_NO];
     let sql = `SELECT FCAID, ESTIMATE_TYPE, VOYAGE_NO, FINAL_STATUS, VESSEL_IMO_ID
-               FROM freight_cost_estimete_in_master
+               FROM freight_cost_estimete_in_master_vc
                WHERE VOYAGE_NO = ?`;
     if (source.VESSEL_IMO_ID) {
       sql += ' AND (VESSEL_IMO_ID = ? OR VESSEL_IMO_ID IS NULL OR VESSEL_IMO_ID = 0)';

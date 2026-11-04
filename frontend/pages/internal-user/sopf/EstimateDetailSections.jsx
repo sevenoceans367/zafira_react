@@ -9,7 +9,8 @@ import {
   BUNKER_ACTIVITY_GRADE_OPTIONS,
   BUNKER_ACTIVITY_OPTIONS,
   BUNKER_ACTIVITY_RATE_FIELD,
-  FIXTURE_TYPE_OPTIONS,
+  fixtureTypeOptionsForEstimate,
+  isVcInDryFixture,
   NSBG_OPTIONS,
   PASSAGE_TYPE_OPTIONS,
   SBG_OPTIONS,
@@ -218,7 +219,10 @@ export default function EstimateDetailSections({
   );
   const isCoaSpot = String(form.coaSpot || '') === '2';
   const fixtureType = String(form.fixtureTypeId ?? '');
+  // Standalone VC In (4) UI only on Dry; VC-in worksheet (`variant`) always
+  const isVcInContract = variant === 'vc-in' || isVcInDryFixture(fixtureType, estimateType);
   // PHP makeFieldManD: hire table for TCIN/VCIN (1|2); Vessel Daily Ops for VCOUT (3)
+  // Dry + VC In (4): no hire section (same as VC-in worksheet)
   const showHireSection = fixtureType === '1' || fixtureType === '2';
   const hireOpexTitle = fixtureType === '2'
     ? 'Freight Expense'
@@ -226,7 +230,7 @@ export default function EstimateDetailSections({
   const showVesselDailyOps = fixtureType === '3';
   // PHP .tcin — Hire Details button only for TCIN-VCOUT
   const showHireDetailsButton = fixtureType === '1';
-  // PHP updatecost_sheet_tci_in — VCIN-VCOUT opens the VC-In worksheet
+  // VCIN-VCOUT opens the VC-In worksheet; Dry VC In (4) has no sheet button
   const showVcInButton = fixtureType === '2' && variant !== 'vc-in';
   const showIndexLinked = isDry && showHireSection;
   const editable = !readOnly;
@@ -743,7 +747,7 @@ export default function EstimateDetailSections({
                   placeholder="Select from list"
                   options={[
                     { value: '', label: 'Select from list' },
-                    ...FIXTURE_TYPE_OPTIONS,
+                    ...fixtureTypeOptionsForEstimate(estimateType),
                   ]}
                   onChange={(value) => {
                     const patch = { fixtureTypeId: value };
@@ -756,6 +760,15 @@ export default function EstimateDetailSections({
                       patch.balticRate = '';
                       patch.totalHireRate = '';
                     } else if (value === '1' || value === '2') {
+                      patch.vesselDailyOps = '';
+                    } else if (value === '4') {
+                      // Dry VC In — clear hire / index like leaving hire contract types
+                      patch.chkHire = false;
+                      patch.chkIndex = false;
+                      patch.balticIndex = '';
+                      patch.balticPercent = '100';
+                      patch.balticRate = '';
+                      patch.totalHireRate = '';
                       patch.vesselDailyOps = '';
                     }
                     applyPatch(patch);
@@ -2041,7 +2054,7 @@ export default function EstimateDetailSections({
         </div>
       </CollapsiblePanel>
 
-      {variant === 'vc-in' ? null : (
+      {isVcInContract ? null : (
       <CollapsiblePanel
         title={hireOpexTitle}
         defaultOpen={false}
@@ -2414,7 +2427,7 @@ export default function EstimateDetailSections({
             onRecalc={onRecalc}
             variant={variant}
           />
-          {variant === 'vc-in' ? null : (
+          {isVcInContract ? null : (
           <CollapsiblePanel
             title="Profit Sharing"
             defaultOpen={false}

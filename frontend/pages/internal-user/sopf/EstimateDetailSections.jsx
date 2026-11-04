@@ -737,7 +737,7 @@ export default function EstimateDetailSections({
               {variant === 'vc-in' || readOnly ? (
                 <input
                   id="fixtureTypeId"
-                  value={variant === 'vc-in' ? 'VC In' : getFixtureTypeLabel(form.fixtureTypeId)}
+                  value={variant === 'vc-in' ? 'VCIN' : getFixtureTypeLabel(form.fixtureTypeId)}
                   readOnly
                 />
               ) : (

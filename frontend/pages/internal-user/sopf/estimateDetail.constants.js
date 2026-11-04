@@ -3,7 +3,7 @@ import { formatDistance, formatIdleDays } from './estimateCalculations.js';
 export const FIXTURE_TYPE_OPTIONS = [
   { value: '1', label: 'TCIN-VCOUT' },
   { value: '2', label: 'VCIN-VCOUT' },
-  { value: '4', label: 'VC In' },
+  { value: '4', label: 'VCIN' },
   { value: '3', label: 'VCOUT' },
 ];
 

@@ -1039,7 +1039,7 @@ function mapEstimateDetail(
       && !(Number(master.CARGO_RATE || 0) > 0)
       ? '2'
       : '1',
-    dfQty: master.DF_QTY ?? master.DEAD_FREIGHT_QTY ?? '',
+    dfQty: master.DF_QUANTITY ?? master.DF_QTY ?? master.DEAD_FREIGHT_QTY ?? '',
     addnlPremium: master.ADDNL_PRENIUM ?? '',
     baseRateFloat: master.BASERATE_FLOAT ?? '',
     baseRateFixed: master.BASERATE_FIXED ?? '',
@@ -2806,6 +2806,7 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     'GAS_BASE_RATE = ?',
     'GAS_MARKET = ?',
     'GAS_LUMSUM = ?',
+    'DF_QUANTITY = ?',
     'ADDNL_PRENIUM = ?',
     'BASERATE_FLOAT = ?',
     'BASERATE_FIXED = ?',
@@ -2944,6 +2945,7 @@ async function updateMasterEstimateFields(connection, fcaId, payload, opts = {})
     Number(payload.estimateType) === 1
       ? numOrNull(payload.gasLumsum || payload.lumpsum)
       : null,
+    numOrNull(payload.dfQty),
     numOrNull(payload.addnlPremium),
     numOrNull(payload.baseRateFloat),
     numOrNull(payload.baseRateFixed),

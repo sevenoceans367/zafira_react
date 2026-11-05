@@ -700,14 +700,14 @@ async function loadClubCharterers(pool, {
 
   if (!rows.some((row) => Number(row.status) === 3)) {
     const [[sheet]] = await pool.query(
-      `SELECT DEAD_PREIGHT_ADJ, DF_QTY, CARGO_RATE
+      `SELECT DEAD_PREIGHT_ADJ, DF_QUANTITY, CARGO_RATE
        FROM freight_cost_estimete_master
        WHERE FCAID = ?
        LIMIT 1`,
       [fcaId],
     ).catch(() => [[null]]);
     const deadAmount = parseAmount(sheet?.DEAD_PREIGHT_ADJ)
-      || (parseAmount(sheet?.DF_QTY) * parseAmount(sheet?.CARGO_RATE));
+      || (parseAmount(sheet?.DF_QUANTITY) * parseAmount(sheet?.CARGO_RATE));
     if (deadAmount) {
       rows.push({
         vendorId: invoiceVendor,

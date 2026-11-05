@@ -78,13 +78,14 @@ export default function EstimateResultsPanels({
   const lsmgoPriced = hasBunkerGradePrice(bunkerSummaryRows, 'LSMGO');
   const showBunkerTotalCost = hasAnyBunkerGradePrice(bunkerSummaryRows);
 
-  // VC-In: Total Voy Expense = demurrage + freight + ops + port + bunker;
-  // Net Daily Voy Expense = Total Voy Expense / Total Days
+  // VC-In: Total Voy Expense = demurrage + Final Net Freight + ops + port + bunker.
+  // Freight brokerage is already deducted in revenue (Final Net Freight) and still
+  // listed under Operational Expenses for display — exclude it here so it is not added back.
   const vcInTotalVoyExpense = isVcIn
     ? round2Str(
       resultNum(form.demurrageRevenue)
       + resultNum(form.revenue)
-      + resultNum(form.operationalExpenses)
+      + Math.max(0, resultNum(form.operationalExpenses) - resultNum(form.brokerageAmt))
       + resultNum(form.totalPortCost)
       + resultNum(form.totalBunkerCost),
     )

@@ -1262,7 +1262,8 @@ export function computeEstimateTotals(form) {
     : 0;
   const dryQty = num(form.cargoQuantity) || cargoQtyTotal;
   const dfQty = num(form.dfQty);
-  const dryRate = num(form.marketRate);
+  // Align with Dry UI (tankerFreightRate || marketRate) and tanker calc path above.
+  const dryRate = num(form.marketRate || form.tankerFreightRate);
   const dryGrossFreight = dryMarket === '2'
     ? round2(num(form.lumpsum))
     : round2(dryRate * dryQty);
@@ -1285,20 +1286,12 @@ export function computeEstimateTotals(form) {
   } else if (isDry) {
     // PHP: Multiple (rdoTankType=2) → sum Main/Overage/Deadfreight cargo amounts.
     // Single → Market freight×qty (+ DF) or LS, plus freight-qty vendor nets.
+    // Always recompute — do not keep loaded freightGross when live calc is 0.
     if (tankType === '2') {
-      freightGross = round2(
-        freightFromCargo
-        || num(form.freightGross)
-        || rateTimesQty
-        || totalFreightQty,
-      );
+      freightGross = round2(freightFromCargo || totalFreightQty);
     } else {
       const dryTotal = round2(dryGrossFreight + deadFreightAmt + totalFreightQty);
-      freightGross = round2(
-        dryTotal
-        || num(form.freightGross)
-        || freightFromCargo,
-      );
+      freightGross = round2(dryTotal || freightFromCargo);
     }
   } else if (tankType === '1') {
     freightGross = round2(
@@ -1865,7 +1858,10 @@ export function computeEstimateTotals(form) {
 
   const totalCarbonCost = round2(euaCo2Usd + hsfoPenal + vlsfoPenal + lsmgoPenal);
 
-  // PHP ops = ORC + brokerage + vessel daily ops + demurrage commission (address comm is NOT in ops)
+  // Ops display (PHP): ORC + brokerage + vessel daily ops + demurrage commission.
+  // Brokerage still appears here so Operational Expenses is not blank when only
+  // freight commissions are set — but it is already deducted in Final Net Freight,
+  // so P&L / VC-In totals use ops excluding brokerage (see below).
   let operationalExpenses = round2(
     totalOrcCost + brokerageAmt + vesselDailyOpsAmt + demurrageBrokerAmt,
   );
@@ -1873,6 +1869,7 @@ export function computeEstimateTotals(form) {
   if (form.fuelEuAddToFreight) {
     operationalExpenses = round2(operationalExpenses + hsfoPenal + vlsfoPenal + lsmgoPenal);
   }
+  const opsExFreightBrokerage = round2(Math.max(0, operationalExpenses - brokerageAmt));
 
   // PHP Bunker Expenses (getBunkerCalculation):
   //   Default: Σ SECA/NON-SECA grade amounts (qty × price; ROB replaces NON_SECA when set)
@@ -1889,11 +1886,11 @@ export function computeEstimateTotals(form) {
       : (storedSecaExpense > 0
         ? storedSecaExpense
         : round2(num(form.bunkerResultsCost) || num(form.totalBunkerCost) || 0)));
-  // PHP: revenue = freight − address commission + other income (lumpsum already in freight when used)
-  const revenue = round2((freightGross - addressCommAmt) + totalOtherIncome);
-  // totalExpensesOpsPortBunker = ops + port + bunker
+  // Final Net Freight = gross − address commission − brokerage + other income
+  const revenue = round2((freightGross - addressCommAmt - brokerageAmt) + totalOtherIncome);
+  // Exclude freight brokerage from ops here — already in revenue — so it is not double-counted
   const totalExpensesOpsPortBunker = round2(
-    operationalExpenses + totalPortCost + bunkerExpenseTotal,
+    opsExFreightBrokerage + totalPortCost + bunkerExpenseTotal,
   );
   // Voyage Earnings (UI / PHP costbeforebamarage): subtracts hireage CVE only, NOT full hire
   //   revenue − ops − port − bunker − hireageCVE + demurrage

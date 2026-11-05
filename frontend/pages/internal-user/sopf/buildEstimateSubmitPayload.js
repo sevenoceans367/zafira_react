@@ -84,17 +84,13 @@ export function buildEstimateSubmitPayload(form, estimateType, periodId = null) 
     freightGross: form.freightGross,
     brokeragePercent: form.brokeragePercent,
     brokerageAmt: form.brokerageAmt,
-    brokerRows: (() => {
-      const fromCargo = flattenCargoCommissions(
-        form.cargoRows,
-        form.overageCargoRows,
-        form.deadfreightCargoRows,
-      );
-      const rows = fromCargo.length ? fromCargo : (form.brokerRows || []);
-      return rows.filter(
-        (row) => row.percent || row.amount || row.vendorId || row.demmPercent || row.demmAmt || row.commType,
-      );
-    })(),
+    // Cargo commissions are the source of truth. Empty flatten = user cleared them —
+    // do not fall back to stale form.brokerRows (that re-saved deleted commissions).
+    brokerRows: flattenCargoCommissions(
+      form.cargoRows,
+      form.overageCargoRows,
+      form.deadfreightCargoRows,
+    ),
     hireRate: form.hireRate,
     hireAmt: form.hireAmt,
     cvePerMonth: form.cvePerMonth,

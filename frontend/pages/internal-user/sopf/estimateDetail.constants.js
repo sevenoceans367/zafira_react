@@ -265,14 +265,27 @@ function toCargoCommission(row) {
   };
 }
 
-function withDefaultCommissions(row) {
+function withLoadedCommissions(row) {
+  // Missing commissions (legacy / new row shape) → defaults for UX.
+  // Explicit empty array means the user cleared commissions — keep empty on reload.
   if (!Array.isArray(row.commissions)) {
     return { ...row, commissions: defaultCargoCommissions() };
   }
-  if (!row.commissions.length) {
-    return { ...row, commissions: defaultCargoCommissions() };
-  }
-  return { ...row, commissions: ensureStandardCargoCommissions(row.commissions.map(toCargoCommission)) };
+  return {
+    ...row,
+    commissions: ensureStandardCargoCommissions(row.commissions.map(toCargoCommission)),
+  };
+}
+
+function brokerRowHasValue(row) {
+  return !!(
+    (row.percent != null && String(row.percent).trim() !== '')
+    || (row.amount != null && String(row.amount).trim() !== ''
+      && Number(String(row.amount).replace(/,/g, '')) !== 0)
+    || (row.vendorId != null && String(row.vendorId).trim() !== '')
+    || (row.demmPercent != null && String(row.demmPercent).trim() !== '')
+    || (row.demmAmt != null && String(row.demmAmt).trim() !== '')
+  );
 }
 
 /** Spread slave4 / brokerRows onto cargo lines. Legacy unlinked rows go on the first main cargo. */
@@ -286,13 +299,19 @@ export function assignCargoCommissions(cargoRows, overageRows, deadfreightRows, 
     if (!byLine.has(key)) byLine.set(key, []);
     byLine.get(key).push(row);
   }
+  // Saved estimate (edit) vs blank Add form — only Add should auto-seed ADCOM/Brokerage.
+  const isExistingEstimate = !!(detail.id || detail.fcaId || detail.FCAID);
 
   const apply = (rows = []) => rows.map((row) => {
     const fromLine = byLine.get(String(row.id));
     if (fromLine?.length) {
       return { ...row, commissions: fromLine.map(toCargoCommission) };
     }
-    return withDefaultCommissions(row);
+    // Other cargo lines with no saved commissions stay empty on edit.
+    if (isExistingEstimate || linked.length || unlinked.some(brokerRowHasValue)) {
+      return { ...row, commissions: [] };
+    }
+    return withLoadedCommissions(row);
   });
 
   let nextCargo = apply(cargoRows);
@@ -301,28 +320,41 @@ export function assignCargoCommissions(cargoRows, overageRows, deadfreightRows, 
 
   if (!linked.length) {
     const seed = [];
-    const adcomPct = detail.addCommPercent != null ? String(detail.addCommPercent) : '';
-    const adcomAmt = detail.addressCommAmt != null ? String(detail.addressCommAmt) : '';
-    if (adcomPct || adcomAmt || !unlinked.length) {
-      seed.push({
-        ...createEmptyCargoCommissionRow(ADCOM_COMM_TYPE),
-        percent: adcomPct,
-        amount: adcomAmt,
-      });
+    const meaningfulUnlinked = unlinked.filter(brokerRowHasValue);
+    // Existing estimates: only restore what is actually in slave4.
+    // Do not re-create ADCOM from master ADDRESS_COMMISSION_* — that brought
+    // commissions back after the user deleted them and saved.
+    if (!isExistingEstimate) {
+      const adcomPct = detail.addCommPercent != null ? String(detail.addCommPercent).trim() : '';
+      const adcomAmt = detail.addressCommAmt != null ? String(detail.addressCommAmt).trim() : '';
+      if (adcomPct || adcomAmt) {
+        seed.push({
+          ...createEmptyCargoCommissionRow(ADCOM_COMM_TYPE),
+          percent: adcomPct,
+          amount: adcomAmt,
+        });
+      }
     }
-    for (const row of unlinked) {
-      if (!row.percent && !row.amount && !row.vendorId && !row.demmPercent && !row.demmAmt) continue;
+    for (const row of meaningfulUnlinked) {
       seed.push(toCargoCommission({
         ...row,
         commType: row.commType || BROKERAGE_COMM_TYPE,
       }));
     }
     if (!nextCargo.length) nextCargo = [createEmptyCargoRow(1)];
+    let commissions;
+    if (seed.length) {
+      commissions = ensureStandardCargoCommissions(seed);
+    } else if (isExistingEstimate) {
+      // Edit reload with no slave4 rows = commissions were cleared — keep empty.
+      commissions = [];
+    } else {
+      // New Add Estimate — default ADCOM + Brokerage rows for UX.
+      commissions = defaultCargoCommissions();
+    }
     nextCargo[0] = {
       ...nextCargo[0],
-      commissions: seed.length
-        ? ensureStandardCargoCommissions(seed)
-        : defaultCargoCommissions(),
+      commissions,
     };
   }
 
@@ -1128,6 +1160,8 @@ export function toFormState(detail = {}) {
     }))
     : [createEmptyOtherIncomeRow()];
 
+  // slave4 is the source of truth. Do not invent brokerage rows from master
+  // BROKERAGE_PER/AMT — that recreated commissions after the user cleared them.
   const brkSeen = new Set();
   const brokerRows = Array.isArray(detail.brokerRows) && detail.brokerRows.length
     ? detail.brokerRows.map((row) => ({
@@ -1141,19 +1175,7 @@ export function toFormState(detail = {}) {
       cargoLineId: row.cargoLineId != null ? String(row.cargoLineId) : '',
       cargoStatus: row.cargoStatus != null && row.cargoStatus !== '' ? Number(row.cargoStatus) : '',
     }))
-    : (detail.brokeragePercent || detail.brokerageAmt
-      ? [{
-        id: newRowId('brk'),
-        commType: BROKERAGE_COMM_TYPE,
-        percent: detail.brokeragePercent != null ? String(detail.brokeragePercent) : '',
-        amount: detail.brokerageAmt != null ? String(detail.brokerageAmt) : '',
-        vendorId: '',
-        demmPercent: '',
-        demmAmt: '',
-        cargoLineId: '',
-        cargoStatus: '',
-      }]
-      : []);
+    : [];
 
   ({ cargoRows, overageCargoRows, deadfreightCargoRows } = assignCargoCommissions(
     cargoRows,

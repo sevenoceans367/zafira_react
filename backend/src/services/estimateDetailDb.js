@@ -3227,7 +3227,9 @@ async function insertEstimateSlaves(connection, fcaId, payload) {
     }
   }
 
-  const brokerRows = (payload.brokerRows && payload.brokerRows.length)
+  // Explicit brokerRows array (including []) wins — empty means commissions were cleared.
+  // Only fall back to master brokerage %/amt when brokerRows was omitted (legacy clients).
+  const brokerRows = Array.isArray(payload.brokerRows)
     ? payload.brokerRows
     : ((payload.brokeragePercent || payload.brokerageAmt)
       ? [{ percent: payload.brokeragePercent, amount: payload.brokerageAmt, vendorId: '' }]

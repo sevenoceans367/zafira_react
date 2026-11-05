@@ -734,6 +734,8 @@ export async function dbGetSoaReport(comId) {
     },
   };
 
+  const fixtureTypeRaw = Number(master.FIXTURETYPEID || master.SEL_BUSI_TYPE || 0);
+
   return {
     comId: str(comId),
     fcaId: fcaId != null ? str(fcaId) : '',
@@ -741,6 +743,7 @@ export async function dbGetSoaReport(comId) {
     vesselName: str(vesselName),
     message: str(compare.MESSAGE),
     voyageNo: str(voyageNo),
+    fixtureTypeId: fixtureTypeRaw ? String(fixtureTypeRaw) : '',
     cpDate: str(cpDate),
     currency: 'USD',
     title: 'CONSOLIDATED STATEMENT OF ACCOUNTS - VC/COA',

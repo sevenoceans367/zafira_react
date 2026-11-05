@@ -365,6 +365,7 @@ export default function UpdateEstimatePage() {
         <EstimateVcInHeading
           voyageNo={form.voyageNo || detail?.voyageNo || ''}
           estimateNo={form.estimateNo || detail?.estimateNo || 1}
+          vesselName={form.vesselName || detail?.vesselName || ''}
           chipHref={mainEstimateHref}
           estimateMode="edit"
         />

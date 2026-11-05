@@ -118,6 +118,11 @@
   flex: none;
 }
 
+.headerVcType {
+  opacity: 0.8;
+  font-weight: 700;
+}
+
 .vcSep {
   opacity: 0.5;
   font-weight: 600;

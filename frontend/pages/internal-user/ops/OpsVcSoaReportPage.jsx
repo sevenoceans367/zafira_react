@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchSoaReport } from '../../../services/opsVc.js';
+import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import OpsVcSoaReportHeaderActions from './OpsVcSoaReportHeaderActions.jsx';
 import styles from './OpsVcSoaReportPage.module.css';
@@ -354,7 +355,7 @@ function SoaSectionTable({ section, variant }) {
 }
 
 /**
- * Spot Ops Cash — Statement of Accounts (legacy soa_report.php).
+ * Spot Ops Voyage Cashflow — Statement of Accounts (legacy soa_report.php).
  */
 export default function OpsVcSoaReportPage() {
   const [searchParams] = useSearchParams();
@@ -412,7 +413,7 @@ export default function OpsVcSoaReportPage() {
       } catch (err) {
         if (!cancelled) {
           setData(null);
-          setError(err.message || 'Failed to load Cashflow report.');
+          setError(err.message || 'Failed to load Voyage Cashflow report.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -426,7 +427,8 @@ export default function OpsVcSoaReportPage() {
   return (
     <div className={`zafira-page ${styles.page}`}>
       <VoyageOpsHeading
-        title="Cash"
+        title="Voyage Cashflow"
+        contractType={getFixtureTypeLabel(data?.fixtureTypeId)}
         voyageNo={data?.voyageNo || voyageNoParam || ''}
         vesselName={data?.vesselName || ''}
         worksheetHref={worksheetHref}
@@ -437,7 +439,7 @@ export default function OpsVcSoaReportPage() {
         comId={comId}
         disabled={loading}
       />
-      {loading ? <LoadingOverlay active label="Loading Cashflow…" /> : null}
+      {loading ? <LoadingOverlay active label="Loading Voyage Cashflow…" /> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
       {data ? (
@@ -447,10 +449,9 @@ export default function OpsVcSoaReportPage() {
               <div className={`${styles.cfKpi} ${styles.cfKpiReceivable}`}>
                 <div className={styles.cfKpiLabel}>
                   <span className={styles.cfKpiIco}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M12 3v12" />
-                      <path d="M7 10l5 5 5-5" />
-                      <path d="M4 19h16" />
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M12 4v16" />
+                      <path d="M17 15l-5 5-5-5" />
                     </svg>
                   </span>
                   Receivables Balance
@@ -463,10 +464,9 @@ export default function OpsVcSoaReportPage() {
               <div className={`${styles.cfKpi} ${styles.cfKpiPayable}`}>
                 <div className={styles.cfKpiLabel}>
                   <span className={styles.cfKpiIco}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M12 21V9" />
-                      <path d="M17 14l-5-5-5 5" />
-                      <path d="M4 5h16" />
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M12 20V4" />
+                      <path d="M7 9l5-5 5 5" />
                     </svg>
                   </span>
                   Payables Balance
@@ -479,9 +479,9 @@ export default function OpsVcSoaReportPage() {
               <div className={`${styles.cfKpi} ${styles.cfKpiNet}`}>
                 <div className={styles.cfKpiLabel}>
                   <span className={styles.cfKpiIco}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M3 17l6-6 4 4 8-8" />
-                      <path d="M15 7h6v6" />
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M4 15l5-5 4 4 7-8" />
+                      <path d="M15 6h5v5" />
                     </svg>
                   </span>
                   Net Position
@@ -499,7 +499,7 @@ export default function OpsVcSoaReportPage() {
       ) : null}
 
       {!loading && !error && !data ? (
-        <div className={styles.empty}>No Cashflow data available.</div>
+        <div className={styles.empty}>No Voyage Cashflow data available.</div>
       ) : null}
     </div>
   );

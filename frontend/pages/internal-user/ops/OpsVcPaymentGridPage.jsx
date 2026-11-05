@@ -3,13 +3,17 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoadingOverlay } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchPaymentGridVc } from '../../../services/opsVc.js';
-import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
+import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import OpsVcPaymentGridHeaderActions from './OpsVcPaymentGridHeaderActions.jsx';
+import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import {
   buildWaterfallSegments,
+  buildWaterfallSegmentsVcIn,
   deriveStatus,
   formatMoney,
   groupPaymentGridSections,
+  groupPaymentGridSectionsVcIn,
+  isVcInFixtureTypeId,
   pillToneClass,
   restyleActionLabel,
 } from './opsVcPaymentGridModel.js';
@@ -21,14 +25,6 @@ const BACK_PATHS = {
   2: '/internal-user/vc/ops/in-ops-glance?tab=post-ops',
   3: '/internal-user/vc/ops/in-ops-glance?tab=history',
 };
-
-const ANCHOR_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="5" r="3" />
-    <path d="M12 22V8" />
-    <path d="M5 12H2a10 10 0 0 0 20 0h-3" />
-  </svg>
-);
 
 function StatusChip({ tone, label }) {
   if (!label) return null;
@@ -58,42 +54,6 @@ function StatusChip({ tone, label }) {
   );
 }
 
-function PaymentGridHeading({ voyageNo, vesselName, comId, costSheetId, page }) {
-  const setHeading = usePageHeaderHeading();
-  const worksheetHref = comId && costSheetId
-    ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(costSheetId)}&page=${encodeURIComponent(page || '1')}`)
-    : '';
-  useEffect(() => {
-    const hasVoyage = Boolean(voyageNo || vesselName);
-    const voyLabel = voyageNo ? `VOY ${voyageNo}` : 'VOY —';
-    setHeading({
-      title: (
-        <span className={styles.headerTitleStack}>
-          <span className={styles.headerTitleText}>Contract Finance</span>
-          {hasVoyage ? (
-            <span className={styles.headerVoyageChip}>
-              {ANCHOR_ICON}
-              {worksheetHref && voyageNo ? (
-                <Link to={worksheetHref} className={styles.headerVoyLink} title="Open latest voyage worksheet">
-                  {voyLabel}
-                </Link>
-              ) : voyLabel}
-              {vesselName ? (
-                <>
-                  <span className={styles.vcSep}>·</span>
-                  {vesselName}
-                </>
-              ) : null}
-            </span>
-          ) : null}
-        </span>
-      ),
-    });
-  }, [setHeading, voyageNo, vesselName, worksheetHref]);
-  useEffect(() => () => setHeading(null), [setHeading]);
-  return null;
-}
-
 function dash(value) {
   const text = value == null ? '' : String(value).trim();
   return text || '—';
@@ -116,7 +76,7 @@ function ActionButtons({ actions, badges, kind, onAction }) {
           <button
             key={`${action.key}-${action.label}-${action.href || action.vendorId || ''}`}
             type="button"
-            className={`${styles.miniPill} ${pillToneClass(kind, action, styles)}`}
+            className={`${styles.miniPill} ${pillToneClass(kind, { ...action, label }, styles)}`}
             disabled={!canOpen}
             title={
               canOpen
@@ -161,9 +121,11 @@ function FinanceSectionCard({
   columns,
   onAction,
   flashKey,
+  labels = {},
 }) {
   const count = bucket.count;
-  const settledLabel = kind === 'income' ? 'Collected' : 'Paid';
+  const settledLabel = labels.settled
+    || (kind === 'income' ? 'Collected' : 'Paid');
   const chips = [];
   if (bucket.settled > 0 || bucket.hasAmounts) {
     chips.push({
@@ -181,7 +143,13 @@ function FinanceSectionCard({
   }
 
   const showDate = Boolean(columns?.showDate);
-  const amountHeader = kind === 'income' ? 'Net Amount ($)' : 'Amount ($)';
+  const typeHeader = labels.typeHeader
+    || (kind === 'income' ? 'Income Type' : 'Expense Type');
+  const partyHeader = labels.partyHeader || 'Customer';
+  const actionHeader = labels.actionHeader
+    || (kind === 'income' ? 'Invoice' : 'Payment');
+  const amountHeader = labels.amountHeader
+    || (kind === 'income' ? 'Net Amount ($)' : 'Amount ($)');
 
   return (
     <div className={styles.card}>
@@ -205,9 +173,9 @@ function FinanceSectionCard({
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>{kind === 'income' ? 'Income Type' : 'Expense Type'}</th>
-                <th>Customer</th>
-                <th>{kind === 'income' ? 'Invoice' : 'Payment'}</th>
+                <th>{typeHeader}</th>
+                <th>{partyHeader}</th>
+                <th>{actionHeader}</th>
                 <th>{amountHeader}</th>
                 {showDate ? <th>Date Paid</th> : null}
                 <th>Status</th>
@@ -275,12 +243,14 @@ function FinanceSectionCard({
 const WF_KIND_CLASS = {
   income: styles.wfIncome,
   expense: styles.wfExpense,
+  others: styles.wfOthers,
   hire: styles.wfHire,
   net: styles.wfNet,
 };
 
-function WaterfallCard({ segments, onSegmentClick }) {
+function WaterfallCard({ segments, onSegmentClick, mode = 'spot' }) {
   const [tip, setTip] = useState(null);
+  const isVcIn = mode === 'vcin';
 
   const showTip = (seg, x, y) => {
     setTip({
@@ -293,7 +263,7 @@ function WaterfallCard({ segments, onSegmentClick }) {
 
   const renderTrack = (segs) => (
     <div className={styles.wfTrack}>
-      {segs.map((seg) => (
+      {(segs || []).map((seg) => (
         <div
           key={seg.id}
           className={`${styles.wfSeg} ${WF_KIND_CLASS[seg.kind] || ''}`}
@@ -327,18 +297,41 @@ function WaterfallCard({ segments, onSegmentClick }) {
     <div className={styles.card}>
       <div className={styles.cardHead}>
         <div className={styles.cardTitleRow}>
-          <span className={`${styles.cardNum} ${styles.cardNumTeal}`}>
+          <span className={`${styles.cardNum} ${isVcIn ? styles.cardNumOrange : styles.cardNumTeal}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
               <path d="M12 2.5v4.3" />
               <path d="M9.3 4.8L12 6.8l2.7-2" />
               <rect x="3.2" y="9" width="17.6" height="10.5" rx="2.2" />
             </svg>
           </span>
-          <div className={styles.cardTitle}>Income vs Expenses</div>
+          <div className={styles.cardTitle}>
+            {isVcIn ? 'Freight & Demurrage Expenses vs Others' : 'Income vs Expenses'}
+          </div>
         </div>
       </div>
       {!segments.hasData ? (
         <p className={styles.emptyNote}>Amount breakdown appears when line amounts are available.</p>
+      ) : isVcIn ? (
+        <>
+          <div className={styles.wfLegend}>
+            <span className={styles.lgItem}>
+              <span className={`${styles.lgSwatch} ${styles.lgExpense}`} />
+              Freight &amp; Demurrage
+            </span>
+            <span className={styles.lgItem}>
+              <span className={`${styles.lgSwatch} ${styles.lgOthers}`} />
+              Others
+            </span>
+          </div>
+          <div className={styles.wfRow}>
+            <span className={styles.wfRowLabel}>Freight &amp; Dem.</span>
+            {renderTrack(segments.freight)}
+          </div>
+          <div className={styles.wfRow}>
+            <span className={styles.wfRowLabel}>Others</span>
+            {renderTrack(segments.others)}
+          </div>
+        </>
       ) : (
         <>
           <div className={styles.wfLegend}>
@@ -443,9 +436,21 @@ export default function OpsVcPaymentGridPage() {
   const voyageNo = data?.voyageNo || voyageNoParam || '';
   const costSheetId = data?.costSheetId || '';
   const sections = data?.sections || [];
+  const isVcIn = isVcInFixtureTypeId(data?.fixtureTypeId);
+  const contractType = getFixtureTypeLabel(data?.fixtureTypeId);
+  const worksheetHref = comId && costSheetId
+    ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(costSheetId)}&page=${encodeURIComponent(page || '1')}`)
+    : '';
 
-  const model = useMemo(() => groupPaymentGridSections(sections), [sections]);
-  const waterfall = useMemo(() => buildWaterfallSegments(model), [model]);
+  const model = useMemo(() => (
+    isVcIn
+      ? groupPaymentGridSectionsVcIn(sections, { totalDays: data?.totalDays })
+      : groupPaymentGridSections(sections)
+  ), [sections, isVcIn, data?.totalDays]);
+
+  const waterfall = useMemo(() => (
+    isVcIn ? buildWaterfallSegmentsVcIn(model) : buildWaterfallSegments(model)
+  ), [model, isVcIn]);
 
   const handleSegmentClick = (rowKey) => {
     const el = document.getElementById(`cf-row-${rowKey}`);
@@ -457,9 +462,19 @@ export default function OpsVcPaymentGridPage() {
   };
 
   const kpis = model.kpis;
-  const incomeStatus = kpis.incomeOpen ? { label: 'Outstanding', tone: 'warn' } : { label: 'Collected', tone: 'good' };
-  const expenseStatus = kpis.expenseOpen ? { label: 'Due Soon', tone: 'warn' } : { label: 'Paid', tone: 'good' };
-  const netPos = kpis.net >= 0;
+  const incomeStatus = !isVcIn && kpis.incomeOpen
+    ? { label: 'Outstanding', tone: 'warn' }
+    : { label: 'Collected', tone: 'good' };
+  const expenseStatus = !isVcIn && kpis.expenseOpen
+    ? { label: 'Due Soon', tone: 'warn' }
+    : { label: 'Paid', tone: 'good' };
+  const freightStatus = isVcIn && kpis.freightDemOpen
+    ? { label: 'Outstanding', tone: 'warn' }
+    : { label: 'Paid', tone: 'good' };
+  const othersStatus = isVcIn && kpis.othersOpen
+    ? { label: 'Due Soon', tone: 'warn' }
+    : { label: 'Paid', tone: 'good' };
+  const netPos = !isVcIn && kpis.net >= 0;
 
   const incomeIcon = (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -476,14 +491,22 @@ export default function OpsVcPaymentGridPage() {
     </svg>
   );
 
+  const vcinExpenseLabels = {
+    settled: 'Paid',
+    typeHeader: 'Expense Type',
+    partyHeader: 'Customer',
+    actionHeader: 'Payment',
+    amountHeader: 'Amount ($)',
+  };
+
   return (
     <>
-      <PaymentGridHeading
+      <VoyageOpsHeading
+        title="Contract Finance"
+        contractType={contractType}
         voyageNo={voyageNo}
         vesselName={vesselName}
-        comId={comId}
-        costSheetId={costSheetId}
-        page={page}
+        worksheetHref={worksheetHref}
       />
       <OpsVcPaymentGridHeaderActions
         backHref={backHref}
@@ -496,95 +519,193 @@ export default function OpsVcPaymentGridPage() {
         {error ? <div className={styles.error}>{error}</div> : null}
 
         {!loading && !error && data ? (
-          <>
-            <div className={styles.summaryTiles}>
-              <div className={`${styles.summaryTile} ${styles.tileTeal}`}>
-                <div className={styles.stHead}>
-                  <span className={styles.stIcon}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M12 4v16" />
-                      <path d="M17 15l-5 5-5-5" />
-                    </svg>
-                  </span>
-                  <span className={styles.stLabel}>Total Income</span>
+          isVcIn ? (
+            <>
+              <div className={styles.summaryTiles}>
+                <div className={`${styles.summaryTile} ${styles.tileOrange}`}>
+                  <div className={styles.stHead}>
+                    <span className={styles.stIcon}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M12 20V4" />
+                        <path d="M7 9l5-5 5 5" />
+                      </svg>
+                    </span>
+                    <span className={styles.stLabel}>Total Freight &amp; Demurrage Expenses</span>
+                  </div>
+                  <div className={styles.stValue}>{formatMoney(kpis.freightDemTotal) || '$0'}</div>
+                  <div className={styles.stSub}>
+                    {kpis.freightDemCount} item{kpis.freightDemCount === 1 ? '' : 's'}
+                  </div>
+                  <StatusChip {...freightStatus} />
                 </div>
-                <div className={styles.stValue}>{formatMoney(kpis.incomeTotal) || '$0'}</div>
-                <div className={styles.stSub}>{kpis.incomeCount} item{kpis.incomeCount === 1 ? '' : 's'}</div>
-                <StatusChip {...incomeStatus} />
+
+                <div className={`${styles.summaryTile} ${styles.tileOrange}`}>
+                  <div className={styles.stHead}>
+                    <span className={styles.stIcon}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M12 20V4" />
+                        <path d="M7 9l5-5 5 5" />
+                      </svg>
+                    </span>
+                    <span className={styles.stLabel}>Total Others</span>
+                  </div>
+                  <div className={styles.stValue}>{formatMoney(kpis.othersTotal) || '$0'}</div>
+                  <div className={styles.stSub}>
+                    {kpis.othersCount} item{kpis.othersCount === 1 ? '' : 's'}
+                  </div>
+                  <StatusChip {...othersStatus} />
+                </div>
+
+                <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
+                  <div className={styles.stHead}>
+                    <span className={styles.stIcon}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M4 15l5-5 4 4 7-8" />
+                        <path d="M15 6h5v5" />
+                      </svg>
+                    </span>
+                    <span className={styles.stLabel}>Total Contract Cost</span>
+                  </div>
+                  <div className={styles.stValue}>{formatMoney(kpis.contractCost) || '$0'}</div>
+                </div>
+
+                <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
+                  <div className={styles.stHead}>
+                    <span className={styles.stIcon}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M4.5 16a8 8 0 1 1 15 0" />
+                        <path d="M12 13l3.2-3.2" />
+                        <circle cx="12" cy="13" r="1.1" fill="currentColor" stroke="none" />
+                      </svg>
+                    </span>
+                    <span className={styles.stLabel}>Cost / Day</span>
+                  </div>
+                  <div className={styles.stValue}>
+                    {kpis.costPerDay != null ? formatMoney(kpis.costPerDay) : '—'}
+                  </div>
+                </div>
               </div>
 
-              <div className={`${styles.summaryTile} ${styles.tileOrange}`}>
-                <div className={styles.stHead}>
-                  <span className={styles.stIcon}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M12 20V4" />
-                      <path d="M7 9l5-5 5 5" />
-                    </svg>
-                  </span>
-                  <span className={styles.stLabel}>Total Expenses</span>
+              <WaterfallCard
+                mode="vcin"
+                segments={waterfall}
+                onSegmentClick={handleSegmentClick}
+              />
+
+              <FinanceSectionCard
+                title="Freight & Demurrage Expenses"
+                kind="expense"
+                iconClass={styles.cardNumOrange}
+                icon={expenseIcon}
+                bucket={model.freightDem}
+                columns={{ showDate: false }}
+                labels={vcinExpenseLabels}
+                onAction={handleAction}
+                flashKey={flashKey}
+              />
+              <FinanceSectionCard
+                title="Others"
+                kind="expense"
+                iconClass={styles.cardNumOrange}
+                icon={expenseIcon}
+                bucket={model.others}
+                columns={{ showDate: true }}
+                labels={vcinExpenseLabels}
+                onAction={handleAction}
+                flashKey={flashKey}
+              />
+            </>
+          ) : (
+            <>
+              <div className={styles.summaryTiles}>
+                <div className={`${styles.summaryTile} ${styles.tileTeal}`}>
+                  <div className={styles.stHead}>
+                    <span className={styles.stIcon}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M12 4v16" />
+                        <path d="M17 15l-5 5-5-5" />
+                      </svg>
+                    </span>
+                    <span className={styles.stLabel}>Total Income</span>
+                  </div>
+                  <div className={styles.stValue}>{formatMoney(kpis.incomeTotal) || '$0'}</div>
+                  <div className={styles.stSub}>{kpis.incomeCount} item{kpis.incomeCount === 1 ? '' : 's'}</div>
+                  <StatusChip {...incomeStatus} />
                 </div>
-                <div className={styles.stValue}>{formatMoney(kpis.expenseTotal) || '$0'}</div>
-                <div className={styles.stSub}>
-                  {model.expenses.count} item{model.expenses.count === 1 ? '' : 's'}
-                  {model.hireage.count
-                    ? ` (incl. ${model.hireage.count} hire)`
-                    : ''}
+
+                <div className={`${styles.summaryTile} ${styles.tileOrange}`}>
+                  <div className={styles.stHead}>
+                    <span className={styles.stIcon}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M12 20V4" />
+                        <path d="M7 9l5-5 5 5" />
+                      </svg>
+                    </span>
+                    <span className={styles.stLabel}>Total Expenses</span>
+                  </div>
+                  <div className={styles.stValue}>{formatMoney(kpis.expenseTotal) || '$0'}</div>
+                  <div className={styles.stSub}>
+                    {model.expenses.count} item{model.expenses.count === 1 ? '' : 's'}
+                    {model.hireage.count
+                      ? ` (incl. ${model.hireage.count} hire)`
+                      : ''}
+                  </div>
+                  <StatusChip {...expenseStatus} />
                 </div>
-                <StatusChip {...expenseStatus} />
+
+                <div className={`${styles.summaryTile} ${netPos ? styles.tileNetPos : styles.tileNetNeg}`}>
+                  <div className={styles.stHead}>
+                    <span className={styles.stIcon}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M4 15l5-5 4 4 7-8" />
+                        <path d="M15 6h5v5" />
+                      </svg>
+                    </span>
+                    <span className={styles.stLabel}>Net Result</span>
+                  </div>
+                  <div className={styles.stValue}>{formatMoney(kpis.net, { signed: true }) || '$0'}</div>
+                </div>
+
+                <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
+                  <div className={styles.stHead}>
+                    <span className={styles.stIcon}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M4.5 16a8 8 0 1 1 15 0" />
+                        <path d="M12 13l3.2-3.2" />
+                        <circle cx="12" cy="13" r="1.1" fill="currentColor" stroke="none" />
+                      </svg>
+                    </span>
+                    <span className={styles.stLabel}>TCE</span>
+                  </div>
+                  <div className={styles.stValue}>—</div>
+                  <div className={styles.stSub}>Voyage days not available yet</div>
+                </div>
               </div>
 
-              <div className={`${styles.summaryTile} ${netPos ? styles.tileNetPos : styles.tileNetNeg}`}>
-                <div className={styles.stHead}>
-                  <span className={styles.stIcon}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M4 15l5-5 4 4 7-8" />
-                      <path d="M15 6h5v5" />
-                    </svg>
-                  </span>
-                  <span className={styles.stLabel}>Net Result</span>
-                </div>
-                <div className={styles.stValue}>{formatMoney(kpis.net, { signed: true }) || '$0'}</div>
-              </div>
+              <WaterfallCard segments={waterfall} onSegmentClick={handleSegmentClick} />
 
-              <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
-                <div className={styles.stHead}>
-                  <span className={styles.stIcon}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M4.5 16a8 8 0 1 1 15 0" />
-                      <path d="M12 13l3.2-3.2" />
-                      <circle cx="12" cy="13" r="1.1" fill="currentColor" stroke="none" />
-                    </svg>
-                  </span>
-                  <span className={styles.stLabel}>TCE</span>
-                </div>
-                <div className={styles.stValue}>—</div>
-                <div className={styles.stSub}>Voyage days not available yet</div>
-              </div>
-            </div>
-
-            <WaterfallCard segments={waterfall} onSegmentClick={handleSegmentClick} />
-
-            <FinanceSectionCard
-              title="Income"
-              kind="income"
-              iconClass={styles.cardNumTeal}
-              icon={incomeIcon}
-              bucket={model.income}
-              columns={{ showDate: false }}
-              onAction={handleAction}
-              flashKey={flashKey}
-            />
-            <FinanceSectionCard
-              title="Expenses"
-              kind="expense"
-              iconClass={styles.cardNumOrange}
-              icon={expenseIcon}
-              bucket={model.expenses.table}
-              columns={{ showDate: true }}
-              onAction={handleAction}
-              flashKey={flashKey}
-            />
-          </>
+              <FinanceSectionCard
+                title="Income"
+                kind="income"
+                iconClass={styles.cardNumTeal}
+                icon={incomeIcon}
+                bucket={model.income}
+                columns={{ showDate: false }}
+                onAction={handleAction}
+                flashKey={flashKey}
+              />
+              <FinanceSectionCard
+                title="Expenses"
+                kind="expense"
+                iconClass={styles.cardNumOrange}
+                icon={expenseIcon}
+                bucket={model.expenses.table}
+                columns={{ showDate: true }}
+                onAction={handleAction}
+                flashKey={flashKey}
+              />
+            </>
+          )
         ) : null}
 
         {!loading && !error && data && !sections.length ? (

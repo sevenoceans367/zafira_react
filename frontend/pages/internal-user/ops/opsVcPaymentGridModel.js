@@ -9,6 +9,9 @@
  * - Expense/Payment actions only when a Customer (vendor) is present
  * - Income: Freight + Demurrage always present; freight labeled Freight - [Cargo], net amounts
  * - Expense order: VC-In Expense → Hire → LP → DP → canal → brokerage → bunkers
+ *
+ * Standalone Dry VCIN (fixture type 4) uses groupPaymentGridSectionsVcIn /
+ * buildWaterfallSegmentsVcIn — expense-only Freight & Demurrage + Others.
  */
 
 const INCOME_SECTION_ORDER = ['freight', 'demurrage', 'other-income'];
@@ -152,15 +155,17 @@ export function restyleActionLabel(label, kind) {
   return raw;
 }
 
-/** Hue + completed classes per mockup Round 4–6 body action buttons. */
+/** Hue + completed classes per mockup Round 4–6 body action buttons (all fixture types). */
 export function pillToneClass(kind, action, styles) {
   const label = String(action?.label || '').toLowerCase();
+  const key = String(action?.key || '').toLowerCase();
   const completed = label.includes('completed') || label.includes('view');
+  const isFinal = label.includes('final') || key.includes('final');
   let hue = styles.miniPillOrange;
   if (kind === 'hire') hue = styles.miniPillDullRed;
-  else if (kind === 'income') {
-    hue = label.includes('final') ? styles.miniPillNavy : styles.miniPillTeal;
-  }
+  // HTML: Final · Create / Final Invoice → navy on Spot, VCIN, and every Contract Finance
+  else if (isFinal) hue = styles.miniPillNavy;
+  else if (kind === 'income') hue = styles.miniPillTeal;
   return completed ? `${hue} ${styles.miniPillCompleted}` : hue;
 }
 
@@ -508,5 +513,88 @@ export function buildWaterfallSegments(model) {
     income: withBasis(incomeSegs),
     expenses: expenseTrack,
     hasData: incomeSegs.length + hireSegs.length + expenseSegs.length > 0,
+  };
+}
+
+/** Standalone Dry VC In (fixture type 4) — expense-only Contract Finance. */
+export function isVcInFixtureTypeId(fixtureTypeId) {
+  return String(fixtureTypeId ?? '') === '4';
+}
+
+/**
+ * VCIN layout: freight+demurrage → Freight & Demurrage Expenses;
+ * port/ops/bunkers → Others. No hire / income KPIs.
+ */
+export function groupPaymentGridSectionsVcIn(sections = [], { totalDays = null } = {}) {
+  const freightDemRaw = flattenLines(sections, INCOME_KEYS, INCOME_SECTION_ORDER)
+    .filter((r) => r.sectionKey === 'freight' || r.sectionKey === 'demurrage');
+  // Treat as expenses for status (Paid) while keeping freight naming helpers
+  const freightNamed = ensureIncomeDefaults(freightDemRaw).map((row) => {
+    if (row.isGroupHeader) return row;
+    return {
+      ...row,
+      lineKind: 'expense',
+      amountValue: row.amountValue ?? parseMoney(row.netAmount) ?? parseMoney(row.amount),
+    };
+  });
+  const freightDem = summarize(freightNamed, 'expense');
+
+  const othersRaw = flattenLines(sections, EXPENSE_KEYS, EXPENSE_SECTION_ORDER)
+    .filter((r) => !r.isGroupHeader)
+    .map((r) => ({ ...r, lineKind: 'expense' }));
+  const others = summarize(sortExpenseRows(othersRaw), 'expense');
+
+  const freightTotal = freightDem.total;
+  const othersTotal = others.total;
+  const contractCost = freightTotal + othersTotal;
+  const days = Number(totalDays);
+  const costPerDay = Number.isFinite(days) && days > 0
+    ? contractCost / days
+    : null;
+
+  return {
+    mode: 'vcin',
+    freightDem,
+    others,
+    kpis: {
+      freightDemTotal: freightTotal,
+      freightDemCount: freightDem.count,
+      freightDemOpen: freightDem.openCount > 0,
+      othersTotal,
+      othersCount: others.count,
+      othersOpen: others.openCount > 0,
+      contractCost,
+      costPerDay,
+      totalDays: Number.isFinite(days) && days > 0 ? days : null,
+    },
+  };
+}
+
+/** Two independent cost bars (each normalised to its own total). */
+export function buildWaterfallSegmentsVcIn(model) {
+  const withOwnBasis = (rows, kind) => {
+    const segs = rows
+      .filter((r) => r.amountValue != null && r.amountValue > 0)
+      .map((r) => ({
+        id: r.key,
+        kind,
+        amount: r.amountValue,
+        label: `${r.name}${r.vendorName ? ` · ${r.vendorName}` : ''}`,
+        status: deriveStatus(r, 'expense').label,
+      }));
+    const sum = segs.reduce((s, x) => s + x.amount, 0) || 1;
+    return segs.map((s) => ({
+      ...s,
+      basis: `${Math.max(0.8, (s.amount / sum) * 100).toFixed(2)}%`,
+    }));
+  };
+
+  const freight = withOwnBasis(model.freightDem.dataRows, 'expense');
+  const others = withOwnBasis(model.others.dataRows, 'others');
+
+  return {
+    freight,
+    others,
+    hasData: freight.length + others.length > 0,
   };
 }

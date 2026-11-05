@@ -46,11 +46,12 @@ async function getVcCompareMeta(pool, comId) {
     [comId, MODULE_ID, COMPANY_ID],
   );
   if (!compare?.FCAID) {
-    return { fcaId: null, nomId: '', vesselName: '', vesselAttachments: [] };
+    return { fcaId: null, nomId: '', vesselName: '', fixtureTypeId: '', vesselAttachments: [] };
   }
 
   const [[sheet]] = await pool.query(
-    `SELECT m.ATTACHMENT, m.ATTACHMENT_NAME, m.VESSEL_IMO_ID, vim.VESSEL_NAME
+    `SELECT m.ATTACHMENT, m.ATTACHMENT_NAME, m.VESSEL_IMO_ID, m.FIXTURETYPEID, m.SEL_BUSI_TYPE,
+            vim.VESSEL_NAME
      FROM freight_cost_estimete_master m
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
      WHERE m.FCAID = ?
@@ -58,10 +59,13 @@ async function getVcCompareMeta(pool, comId) {
     [compare.FCAID],
   );
 
+  const fixtureTypeRaw = Number(sheet?.FIXTURETYPEID || sheet?.SEL_BUSI_TYPE || 0);
+
   return {
     fcaId: String(compare.FCAID),
     nomId: compare.MESSAGE || '',
     vesselName: sheet?.VESSEL_NAME || '',
+    fixtureTypeId: fixtureTypeRaw ? String(fixtureTypeRaw) : '',
     vesselAttachments: parseAttachments(sheet?.ATTACHMENT, sheet?.ATTACHMENT_NAME),
   };
 }
@@ -75,7 +79,7 @@ async function getTcCompareMeta(pool, comId) {
     [comId, MODULE_ID, COMPANY_ID],
   );
   if (!compare?.TCOUTID) {
-    return { fcaId: null, tcOutId: null, nomId: '', vesselName: '', vesselAttachments: [] };
+    return { fcaId: null, tcOutId: null, nomId: '', vesselName: '', fixtureTypeId: '', vesselAttachments: [] };
   }
 
   let sheet = null;
@@ -106,6 +110,7 @@ async function getTcCompareMeta(pool, comId) {
     tcOutId: String(compare.TCOUTID),
     nomId: compare.MESSAGE || '',
     vesselName: sheet?.VESSEL_NAME || '',
+    fixtureTypeId: '',
     vesselAttachments: parseAttachments(sheet?.ATTACHMENT, sheet?.ATTACHMENT_NAME),
   };
 }
@@ -235,6 +240,7 @@ export async function dbGetOpsDocuments(comId, kind = 'vc') {
     tcOutId: meta.tcOutId || '',
     nomId: meta.nomId || '',
     vesselName: meta.vesselName || '',
+    fixtureTypeId: meta.fixtureTypeId || '',
     documents,
     vesselAttachments: meta.vesselAttachments || [],
     invoiceAttachments,

@@ -12,6 +12,7 @@ import {
 } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
 import { fetchBunkerForm, saveBunker } from '../../../services/opsVc.js';
+import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import OpsVcBunkerHeaderActions from './OpsVcBunkerHeaderActions.jsx';
 import { recomputeBunkerForm } from './bunkerCalculations.js';
 import styles from './OpsVcBunkerPage.module.css';
@@ -596,7 +597,8 @@ export default function OpsVcBunkerPage() {
     ));
   };
 
-  const voyLabelParts = [form?.voyageNo, form?.vesselName].filter(Boolean);
+  const contractType = getFixtureTypeLabel(form?.fixtureTypeId);
+  const voyLabelParts = [contractType, form?.voyageNo, form?.vesselName].filter(Boolean);
 
   return (
     <>
@@ -641,7 +643,13 @@ export default function OpsVcBunkerPage() {
                     <path d="M8 10h8" />
                     <path d="M4 13a8 8 0 0 0 16 0" />
                   </svg>
-                  {form.voyageNo || '—'}
+                  {contractType ? (
+                    <>
+                      <span className={styles.headerVcType}>{contractType}</span>
+                      <span className={styles.vcSep}>·</span>
+                    </>
+                  ) : null}
+                  {form.voyageNo ? `VOY ${form.voyageNo}` : 'VOY —'}
                   {form.vesselName ? (
                     <>
                       <span className={styles.vcSep}>·</span>

@@ -649,7 +649,8 @@ export async function dbGetSofForm(comId) {
 
   const fcaId = await getLatestCostSheetId(pool, comId) || compare.FCAID;
   const [[master]] = await pool.query(
-    `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO
+    `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO,
+            FIXTURETYPEID, SEL_BUSI_TYPE
      FROM freight_cost_estimete_master
      WHERE FCAID = ?
      LIMIT 1`,
@@ -752,12 +753,15 @@ export async function dbGetSofForm(comId) {
     });
   }
 
+  const fixtureTypeRaw = Number(master?.FIXTURETYPEID || master?.SEL_BUSI_TYPE || 0);
+
   return {
     comId: String(comId),
     fcaId: fcaId != null ? String(fcaId) : '',
     costSheetId,
     voyageNo,
     vesselName,
+    fixtureTypeId: fixtureTypeRaw ? String(fixtureTypeRaw) : '',
     cpDate,
     message: compare.MESSAGE || '',
     cargo,

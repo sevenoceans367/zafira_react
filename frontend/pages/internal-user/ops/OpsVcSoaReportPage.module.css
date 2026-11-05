@@ -158,7 +158,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  background: rgba(255, 255, 255, 0.7);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(20, 20, 40, 0.08);
 }
 
 .cfKpiIco svg {
@@ -266,7 +267,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  background: rgba(255, 255, 255, 0.72);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(20, 20, 40, 0.08);
 }
 
 .sectionIco svg {

@@ -4,7 +4,7 @@ import { Button, HeaderFilterControls } from '@bainbridge/shared-ui';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 import styles from './OpsVcPaymentGridPage.module.css';
 
-/** Back + Go to Cash Flow (same cross-nav layout as Aging Report Payables). */
+/** Back + Go to Voyage Cashflow (same cross-nav layout as Aging Report Payables). */
 export default function OpsVcPaymentGridHeaderActions({
   backHref,
   cashHref,
@@ -16,7 +16,7 @@ export default function OpsVcPaymentGridHeaderActions({
         <Button variant="secondary" label="Back" href={backHref} disabled={disabled} />
         {cashHref ? (
           <Link to={cashHref} className={styles.crossNavBtn} aria-disabled={disabled || undefined}>
-            Go to Cash Flow
+            Go to Voyage Cashflow
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M5 12h13" />
               <path d="M13 6l6 6-6 6" />

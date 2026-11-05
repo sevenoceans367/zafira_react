@@ -742,7 +742,8 @@ export async function dbGetAgencyLetterForm(comId) {
   );
 
   const [[sheet]] = await pool.query(
-    `SELECT m.FCAID, m.VESSEL_IMO_ID, m.VOYAGE_NO, m.CP_DATE, m.SHEET_NO, vim.VESSEL_NAME, vim.IMO_NO
+    `SELECT m.FCAID, m.VESSEL_IMO_ID, m.VOYAGE_NO, m.CP_DATE, m.SHEET_NO,
+            m.FIXTURETYPEID, m.SEL_BUSI_TYPE, vim.VESSEL_NAME, vim.IMO_NO
      FROM freight_cost_estimete_master m
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
      WHERE m.FCAID = ?
@@ -960,11 +961,14 @@ export async function dbGetAgencyLetterForm(comId) {
     }
   }
 
+  const fixtureTypeRaw = Number(sheet?.FIXTURETYPEID || sheet?.SEL_BUSI_TYPE || 0);
+
   return {
     comId: String(comId),
     costSheetId: String(costSheetId),
     worksheetId,
     voyageNo: sheet?.VOYAGE_NO ? String(sheet.VOYAGE_NO) : '',
+    fixtureTypeId: fixtureTypeRaw ? String(fixtureTypeRaw) : '',
     cpDate,
     nomId: compare?.MESSAGE || '',
     vesselName: sheet?.VESSEL_NAME || vesselNameFromParticulars || '',

@@ -5,7 +5,7 @@ import { getLegacyDryoutHref } from '@bainbridge/shared-routing';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 import styles from './OpsVcSoaReportPage.module.css';
 
-/** PDF + Back + Go to Contract Finance (mirrors Contract Finance → Cash Flow). */
+/** PDF + Back + Go to Contract Finance (mirrors Contract Finance → Voyage Cashflow). */
 export default function OpsVcSoaReportHeaderActions({
   backHref,
   financeHref,

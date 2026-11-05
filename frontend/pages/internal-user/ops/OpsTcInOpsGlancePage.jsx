@@ -667,7 +667,7 @@ export default function OpsTcInOpsGlancePage() {
                         to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=${pageContext}`)}
                       >
                         <CashflowChipIcon />
-                        Cash
+                        Voyage Cashflow
                       </ChipLink>
                     </div>
                   </td>

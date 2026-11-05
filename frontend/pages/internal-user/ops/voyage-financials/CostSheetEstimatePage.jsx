@@ -452,6 +452,7 @@ export default function CostSheetEstimatePage({
         <EstimateVcInHeading
           voyageNo={voyageNo}
           estimateNo={estNo}
+          vesselName={form.vesselName || detail?.vesselName || ''}
           chipHref={listHref}
         />
       ) : (

@@ -43,6 +43,11 @@
   color: #274670;
 }
 
+.headerVcType {
+  opacity: 0.8;
+  font-weight: 700;
+}
+
 .vcSep {
   opacity: 0.55;
   font-weight: 700;

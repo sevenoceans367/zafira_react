@@ -592,10 +592,11 @@ export async function dbGetBunkerForm(comId, prevComIdOverride) {
   let voyageNo = compare.VOYAGE_NO || '';
   let vesselName = compare.VESSEL_NAME || '';
   let vendorCode = compare.FGFF_VENDORID;
+  let fixtureTypeId = '';
 
   if (fcaId) {
     const [[master]] = await pool.query(
-      `SELECT VOYAGE_NO, VESSEL_IMO_ID, FGFF_VENDORID
+      `SELECT VOYAGE_NO, VESSEL_IMO_ID, FGFF_VENDORID, FIXTURETYPEID, SEL_BUSI_TYPE
        FROM freight_cost_estimete_master
        WHERE FCAID = ?
        LIMIT 1`,
@@ -605,6 +606,8 @@ export async function dbGetBunkerForm(comId, prevComIdOverride) {
       voyageNo = master.VOYAGE_NO || voyageNo;
       vesselImoId = master.VESSEL_IMO_ID || vesselImoId;
       vendorCode = master.FGFF_VENDORID || vendorCode;
+      const raw = Number(master.FIXTURETYPEID || master.SEL_BUSI_TYPE || 0);
+      fixtureTypeId = raw ? String(raw) : '';
       if (!vesselName && vesselImoId) {
         const [[vim]] = await pool.query(
           `SELECT VESSEL_NAME FROM vessel_imo_master WHERE VESSEL_IMO_ID = ? LIMIT 1`,
@@ -684,6 +687,7 @@ export async function dbGetBunkerForm(comId, prevComIdOverride) {
     costSheetId: costSheetId != null ? str(costSheetId) : '',
     voyageNo: str(voyageNo),
     vesselName: str(vesselName),
+    fixtureTypeId: str(fixtureTypeId),
     message: str(compare.MESSAGE),
     charterer,
     currency: 'USD',

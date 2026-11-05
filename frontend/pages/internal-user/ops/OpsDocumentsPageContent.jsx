@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
+import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import styles from './OpsDocumentsPage.module.css';
 
 function InfoIcon() {
@@ -422,7 +423,8 @@ export default function OpsDocumentsPageContent({
     };
   }, [data, pendingFinancial, loading]);
 
-  const voyLabelParts = [data?.nomId, data?.vesselName].filter(Boolean);
+  const contractType = getFixtureTypeLabel(data?.fixtureTypeId);
+  const voyLabelParts = [contractType, data?.nomId, data?.vesselName].filter(Boolean);
   const financialRows = [
     ...pendingFinancial,
     ...(data?.invoiceAttachments || []).map((row, index) => ({
@@ -452,7 +454,13 @@ export default function OpsDocumentsPageContent({
             <path d="M8 10h8" />
             <path d="M4 13a8 8 0 0 0 16 0" />
           </svg>
-          {data?.nomId || '—'}
+          {contractType ? (
+            <>
+              <span className={styles.headerVcType}>{contractType}</span>
+              <span className={styles.vcSep}>·</span>
+            </>
+          ) : null}
+          {data?.nomId ? `VOY ${data.nomId}` : 'VOY —'}
           {data?.vesselName ? (
             <>
               <span className={styles.vcSep}>·</span>
@@ -570,7 +578,7 @@ export default function OpsDocumentsPageContent({
             iconClass={styles.sectionIcoTeal}
             title="Financial Elements"
             subtitle="Financial paperwork supporting the SOA for this voyage"
-            note="Attach the source document behind an invoice, statement or payment — tag its type and reference so it's easy to match against the Cashflow page."
+            note="Attach the source document behind an invoice, statement or payment — tag its type and reference so it's easy to match against the Voyage Cashflow page."
             icon={(
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" />

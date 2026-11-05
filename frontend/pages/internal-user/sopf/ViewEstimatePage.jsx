@@ -122,6 +122,7 @@ export default function ViewEstimatePage() {
         <EstimateVcInHeading
           voyageNo={form.voyageNo || detail?.voyageNo || ''}
           estimateNo={form.estimateNo || detail?.estimateNo || 1}
+          vesselName={form.vesselName || detail?.vesselName || ''}
           chipHref={mainEstimateHref}
           estimateMode="view"
         />

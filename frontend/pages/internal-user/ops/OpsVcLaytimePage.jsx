@@ -11,6 +11,7 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchLaytimeForm, openLaytime, saveLaytime } from '../../../services/opsVc.js';
 import OpsVcLaytimeHeaderActions from './OpsVcLaytimeHeaderActions.jsx';
+import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
@@ -762,6 +763,7 @@ export default function OpsVcLaytimePage() {
     <>
       <VoyageOpsHeading
         title="Laytime"
+        contractType={getFixtureTypeLabel(form?.fixtureTypeId)}
         voyageNo={form?.voyageNo || ''}
         vesselName={form?.vesselName || ''}
         worksheetHref={worksheetHref}

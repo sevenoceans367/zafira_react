@@ -15,6 +15,7 @@ import {
   saveAgencyLetter,
 } from '../../../services/opsVc.js';
 import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
+import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import OpsVcAgencyLetterPreviewModal from './OpsVcAgencyLetterPreviewModal.jsx';
@@ -768,6 +769,7 @@ export default function OpsVcAgencyLetterPage() {
     <>
       <VoyageOpsHeading
         title="Letters"
+        contractType={getFixtureTypeLabel(form?.fixtureTypeId)}
         voyageNo={voyageNo}
         vesselName={form?.vesselName || ''}
         worksheetHref={worksheetHref}

@@ -116,7 +116,7 @@
 .summaryTile {
   position: relative;
   background: #fff;
-  border: 1.5px solid var(--pg-line-strong);
+  border: 1px solid #dfe2e7;
   border-radius: 14px;
   padding: 16px 18px 14px;
   overflow: hidden;
@@ -148,7 +148,6 @@
   height: 26px;
   border-radius: 8px;
   background: #fff;
-  border: 1px solid var(--pg-line-strong);
   box-shadow: 0 1px 3px rgba(20, 20, 40, 0.08);
   display: flex;
   align-items: center;
@@ -264,7 +263,7 @@
 /* ---- Cards ---- */
 .card {
   background: #fff;
-  border: 1px solid var(--pg-line);
+  border: 1px solid #dfe2e7;
   border-radius: 12px;
   padding: 20px 22px;
   min-width: 0;
@@ -429,6 +428,15 @@
   background: var(--pg-green);
 }
 
+.lgOthers {
+  background: var(--pg-amber);
+}
+
+.headerVcType {
+  opacity: 0.8;
+  font-weight: 700;
+}
+
 .wfRow {
   display: flex;
   align-items: center;
@@ -484,6 +492,10 @@
 
 .wfExpense {
   background: var(--pg-orange);
+}
+
+.wfOthers {
+  background: var(--pg-amber);
 }
 
 .wfHire {
@@ -740,7 +752,7 @@
   font-weight: 700;
 }
 
-/* Header: Go to Cash Flow — match Back button size (.back in shared Button) */
+/* Header: Go to Voyage Cashflow — match Back button size (.back in shared Button) */
 .crossNavBtn {
   display: inline-flex;
   align-items: center;

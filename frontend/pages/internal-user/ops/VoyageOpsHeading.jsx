@@ -11,24 +11,35 @@ const ANCHOR_ICON = (
   </svg>
 );
 
-/** Contract Finance page heading: title, then grey VOY · vessel chip. */
+/**
+ * Ops page heading: title + grey chip
+ * `{Contract Type} · VOY {n} · {Vessel}` (Contract Finance pattern).
+ */
 export default function VoyageOpsHeading({
   title,
+  contractType = '',
   voyageNo = '',
   vesselName = '',
   worksheetHref = '',
 }) {
   const setHeading = usePageHeaderHeading();
   useEffect(() => {
-    const hasVoyage = Boolean(voyageNo || vesselName);
+    const typeLabel = String(contractType || '').trim();
+    const hasChip = Boolean(typeLabel || voyageNo || vesselName);
     const voyLabel = voyageNo ? `VOY ${voyageNo}` : 'VOY —';
     setHeading({
       title: (
         <span className={styles.headerTitleStack}>
           <span className={styles.headerTitleText}>{title}</span>
-          {hasVoyage ? (
+          {hasChip ? (
             <span className={styles.headerVoyageChip}>
               {ANCHOR_ICON}
+              {typeLabel ? (
+                <>
+                  <span className={styles.headerVcType}>{typeLabel}</span>
+                  <span className={styles.vcSep}>·</span>
+                </>
+              ) : null}
               {worksheetHref && voyageNo ? (
                 <Link to={worksheetHref} className={styles.headerVoyLink} title="Open latest voyage worksheet">
                   {voyLabel}
@@ -45,7 +56,7 @@ export default function VoyageOpsHeading({
         </span>
       ),
     });
-  }, [setHeading, title, voyageNo, vesselName, worksheetHref]);
+  }, [setHeading, title, contractType, voyageNo, vesselName, worksheetHref]);
   useEffect(() => () => setHeading(null), [setHeading]);
   return null;
 }

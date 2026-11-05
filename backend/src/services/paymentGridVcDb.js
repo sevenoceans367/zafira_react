@@ -1587,6 +1587,9 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
     }
   }
 
+  const totalDaysRaw = master.TOTAL_DAYS ?? compare.TOTAL_DAYS ?? '';
+  const totalDaysNum = Number(String(totalDaysRaw).replace(/,/g, ''));
+
   return {
     comId: String(comId),
     fcaId: String(fcaId),
@@ -1594,6 +1597,8 @@ export async function dbGetPaymentGridVc(comId, options = {}) {
     voyageNo,
     message: compare.MESSAGE || '',
     vesselName: vesselName || '',
+    fixtureTypeId: fixtureTypeId ? String(fixtureTypeId) : '',
+    totalDays: Number.isFinite(totalDaysNum) && totalDaysNum > 0 ? totalDaysNum : null,
     sections,
   };
 }

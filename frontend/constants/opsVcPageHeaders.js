@@ -24,7 +24,7 @@ const PAGES = {
   checklist: 'Ops Checklist',
   laytime: 'Laytime',
   bunker: 'Bunker Calculations',
-  'soa-report': 'Cash',
+  'soa-report': 'Voyage Cashflow',
   'cost-sheet': 'Voyage Worksheet',
   'cost-sheet-in': 'VC-in',
 };

@@ -24,6 +24,7 @@ import { notifyRecentWorkUpdated } from '../../../services/recentWork.js';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
 import OpsVcBackHeaderActions from './OpsVcBackHeaderActions.jsx';
 import { formatLastUpdated } from './OpsVcGlanceUi.jsx';
+import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import docStyles from './OpsDocumentsPage.module.css';
 import styles from './OpsVcHireStatementPage.module.css';
@@ -1127,6 +1128,7 @@ export default function OpsVcHireStatementPage() {
     <div className={`zafira-page ${styles.page}`}>
       <VoyageOpsHeading
         title={hasDraft ? `New Hire Statement (Status ${status})` : 'New Hire Statement'}
+        contractType={getFixtureTypeLabel(context?.fixtureTypeId)}
         voyageNo={context?.voyageNo || voyageNo || ''}
         vesselName={context?.vesselName || ''}
         worksheetHref={worksheetHref}

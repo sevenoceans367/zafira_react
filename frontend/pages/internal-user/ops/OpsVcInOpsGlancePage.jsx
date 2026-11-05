@@ -505,7 +505,7 @@ export default function OpsVcInOpsGlancePage() {
                           </ChipLink>
                           <ChipLink to={appPath(`/internal-user/vc/ops/soa-report?comid=${encodeURIComponent(row.comId)}&page=1`)}>
                             <CashflowChipIcon />
-                            Cash
+                            Voyage Cashflow
                           </ChipLink>
                         </div>
                       </td>

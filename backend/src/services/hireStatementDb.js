@@ -1143,7 +1143,7 @@ export async function dbGetHireStatementForm({
               m.HIREAGE_PERCENT, m.HIERAGE_CVE, m.HIERAGE_BROKER_PERCENT, m.BALLAST_BONUS,
               m.FINAL_HIERAGE_AMOUNT, m.TC_HIRE_DAYS, m.TOTAL_DAYS, m.PERIODID, m.EXPECTED_HIRE,
               m.EXCHANGE_RATE, m.DTCVENDORID, m.TC_DELIVERY_RANGE, m.TC_RE_DELIVERY_RANGE,
-              m.TC_DELIVERY_DATE, m.TC_RE_DELIVERY_DATE, vim.VESSEL_NAME
+              m.TC_DELIVERY_DATE, m.TC_RE_DELIVERY_DATE, m.FIXTURETYPEID, m.SEL_BUSI_TYPE, vim.VESSEL_NAME
        FROM freight_cost_estimete_master m
        LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
        WHERE CAST(m.COMID AS CHAR) = CAST(? AS CHAR) AND m.MODULEID = ?
@@ -1157,7 +1157,7 @@ export async function dbGetHireStatementForm({
       `SELECT m.FCAID, m.COMID, m.TRANS_DATE, m.CP_DATE, m.TC_CP_DATE, m.VESSEL_IMO_ID, m.VOYAGE_NO, m.TC_NO,
               m.HIREAGE_PERCENT, m.HIERAGE_CVE, m.HIERAGE_BROKER_PERCENT, m.BALLAST_BONUS,
               m.FINAL_HIERAGE_AMOUNT, m.TC_HIRE_DAYS, m.TOTAL_DAYS, m.PERIODID, m.EXPECTED_HIRE,
-              m.EXCHANGE_RATE, m.DTCVENDORID, vim.VESSEL_NAME
+              m.EXCHANGE_RATE, m.DTCVENDORID, m.FIXTURETYPEID, m.SEL_BUSI_TYPE, vim.VESSEL_NAME
        FROM freight_cost_estimete_master m
        LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
        WHERE CAST(m.COMID AS CHAR) = CAST(? AS CHAR) AND m.MODULEID = ?
@@ -1352,6 +1352,10 @@ export async function dbGetHireStatementForm({
     voyageNo: voyage,
     tcNo,
     vesselName,
+    fixtureTypeId: (() => {
+      const raw = Number(latest?.FIXTURETYPEID || latest?.SEL_BUSI_TYPE || 0);
+      return raw ? String(raw) : '';
+    })(),
     vesselImoId,
     nomMessage,
     cpDate,

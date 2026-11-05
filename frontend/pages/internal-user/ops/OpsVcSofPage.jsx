@@ -12,6 +12,7 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchSofForm, saveSof } from '../../../services/opsVc.js';
 import OpsVcSofHeaderActions from './OpsVcSofHeaderActions.jsx';
+import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import pageStyles from './OpsPages.module.css';
@@ -562,6 +563,7 @@ export default function OpsVcSofPage() {
     <>
       <VoyageOpsHeading
         title="SOF"
+        contractType={getFixtureTypeLabel(form?.fixtureTypeId)}
         voyageNo={form?.voyageNo || ''}
         vesselName={form?.vesselName || ''}
         worksheetHref={worksheetHref}

@@ -76,22 +76,23 @@ export function EstimateDetailFooterActions({
   );
 }
 
-/** Chip text under VC-in title: `{voyage} Est {n}` (Contract Finance–style header). */
+/** Chip voyage segment: `VOY {voyage}` or estimate fallback. */
 export function formatVcInChipLabel(voyageNo = '', estimateNo = 1) {
   const voy = String(voyageNo || '').trim();
   const est = Number(estimateNo) > 0 ? Number(estimateNo) : 1;
-  return voy ? `${voy} Est ${est}` : `Est ${est}`;
+  return voy ? `VOY ${voy}` : `Est ${est}`;
 }
 
 /** @deprecated Prefer formatVcInChipLabel + EstimateVcInHeading chip header. */
 export function formatVcInHeading(voyageNo = '', estimateNo = 1) {
-  return `VC-in → ${formatVcInChipLabel(voyageNo, estimateNo)}`;
+  return `VCIN → ${formatVcInChipLabel(voyageNo, estimateNo)}`;
 }
 
-/** Page header: “VC-in” title + grey estimate chip (same pattern as Contract Finance). */
+/** Page header: “VC-in” title + grey chip `VCIN · VOY … · Vessel`. */
 export function EstimateVcInHeading({
   voyageNo = '',
   estimateNo = 1,
+  vesselName = '',
   chipHref = '',
   /** Parent estimate mode for breadcrumb: 'edit' | 'view' */
   estimateMode = 'edit',
@@ -99,21 +100,32 @@ export function EstimateVcInHeading({
   const setHeading = usePageHeaderHeading();
   const chipLabel = formatVcInChipLabel(voyageNo, estimateNo);
   const modeLabel = estimateModeLabel(estimateMode);
+  const vessel = String(vesselName || '').trim();
   useLayoutEffect(() => {
     setHeading({
-      title: 'VC-in',
-      titleExtra: (
-        <span className={headingStyles.headerVoyageChip}>
-          {ANCHOR_ICON}
-          {chipHref ? (
-            <Link
-              to={chipHref}
-              className={headingStyles.headerVoyLink}
-              title="Open voyage worksheet"
-            >
-              {chipLabel}
-            </Link>
-          ) : chipLabel}
+      title: (
+        <span className={headingStyles.headerTitleStack}>
+          <span className={headingStyles.headerTitleText}>VC-in</span>
+          <span className={headingStyles.headerVoyageChip}>
+            {ANCHOR_ICON}
+            <span className={headingStyles.headerVcType}>VCIN</span>
+            <span className={headingStyles.vcSep}>·</span>
+            {chipHref ? (
+              <Link
+                to={chipHref}
+                className={headingStyles.headerVoyLink}
+                title="Open voyage worksheet"
+              >
+                {chipLabel}
+              </Link>
+            ) : chipLabel}
+            {vessel ? (
+              <>
+                <span className={headingStyles.vcSep}>·</span>
+                {vessel}
+              </>
+            ) : null}
+          </span>
         </span>
       ),
       // AppHeader appends currentPage after breadcrumbs — do not repeat the leaf in the trail.
@@ -126,7 +138,7 @@ export function EstimateVcInHeading({
       ],
     });
     return undefined;
-  }, [setHeading, chipLabel, chipHref, modeLabel]);
+  }, [setHeading, chipLabel, chipHref, modeLabel, vessel]);
   useEffect(() => () => setHeading(null), [setHeading]);
   return null;
 }

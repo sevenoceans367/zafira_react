@@ -21,6 +21,8 @@ export default function VoyageOpsHeading({
   voyageNo = '',
   vesselName = '',
   worksheetHref = '',
+  breadcrumbs,
+  currentPage,
 }) {
   const setHeading = usePageHeaderHeading();
   useEffect(() => {
@@ -28,6 +30,8 @@ export default function VoyageOpsHeading({
     const hasChip = Boolean(typeLabel || voyageNo || vesselName);
     const voyLabel = voyageNo ? `VOY ${voyageNo}` : 'VOY —';
     setHeading({
+      ...(breadcrumbs ? { breadcrumbs } : {}),
+      ...(currentPage ? { currentPage } : {}),
       title: (
         <span className={styles.headerTitleStack}>
           <span className={styles.headerTitleText}>{title}</span>
@@ -56,7 +60,7 @@ export default function VoyageOpsHeading({
         </span>
       ),
     });
-  }, [setHeading, title, contractType, voyageNo, vesselName, worksheetHref]);
+  }, [setHeading, title, contractType, voyageNo, vesselName, worksheetHref, breadcrumbs, currentPage]);
   useEffect(() => () => setHeading(null), [setHeading]);
   return null;
 }

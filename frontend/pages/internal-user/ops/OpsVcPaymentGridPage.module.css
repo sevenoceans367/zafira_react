@@ -104,7 +104,7 @@
 .summaryTiles {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
+  gap: 16px;
 }
 
 @media (max-width: 900px) {
@@ -114,33 +114,22 @@
 }
 
 .summaryTile {
-  position: relative;
-  background: #fff;
-  border: 1px solid #dfe2e7;
+  background: linear-gradient(135deg, var(--tile-wash, #fff) 0%, #ffffff 65%);
+  border: 1px solid;
+  border-color: #eceef2;
   border-radius: 14px;
-  padding: 16px 18px 14px;
+  padding: 17px 19px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   overflow: hidden;
-}
-
-.summaryTile::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.6;
-  background: linear-gradient(135deg, var(--tile-wash, transparent) 0%, transparent 62%);
-}
-
-.summaryTile > * {
-  position: relative;
-  z-index: 1;
 }
 
 .stHead {
   display: flex;
   align-items: center;
-  gap: 9px;
-  margin-bottom: 13px;
+  gap: 8px;
+  margin: 0;
 }
 
 .stIcon {
@@ -148,7 +137,7 @@
   height: 26px;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(20, 20, 40, 0.08);
+  box-shadow: 0 1px 2px rgba(20, 30, 50, 0.08), 0 2px 6px rgba(20, 30, 50, 0.14);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -156,35 +145,37 @@
 }
 
 .stIcon svg {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
 }
 
 .stLabel {
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--pg-text-mid);
+  color: #5b6472;
 }
 
 .stValue {
-  font-family: var(--font-family-heading);
-  font-weight: 800;
-  font-size: 23px;
-  color: var(--pg-text-dark);
-  margin-bottom: 4px;
+  font-weight: 700;
+  font-size: 27px;
+  line-height: 1;
+  color: #2b3444;
+  margin: 0;
 }
 
 .stSub {
-  font-size: 10.5px;
-  color: var(--pg-text-light);
-  margin-bottom: 11px;
+  font-size: 11.5px;
+  color: #8a93a2;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0;
 }
 
 .tileTeal {
   --tile-wash: var(--pg-teal-tint);
-  border-color: var(--pg-teal-line);
+  border-color: #d4eeef;
 }
 
 .tileTeal .stIcon {
@@ -193,7 +184,7 @@
 
 .tileOrange {
   --tile-wash: var(--pg-orange-tint);
-  border-color: var(--pg-orange-line);
+  border-color: #fac4ad;
 }
 
 .tileOrange .stIcon {
@@ -202,7 +193,7 @@
 
 .tileNetPos {
   --tile-wash: var(--pg-green-tint);
-  border-color: #bfe3c7;
+  border-color: #d4eed8;
 }
 
 .tileNetPos .stIcon {
@@ -211,7 +202,7 @@
 
 .tileNetNeg {
   --tile-wash: var(--pg-red-tint);
-  border-color: var(--pg-red-line);
+  border-color: #f8d9d5;
 }
 
 .tileNetNeg .stIcon {
@@ -220,7 +211,7 @@
 
 .tileNavy {
   --tile-wash: var(--pg-navy-tint);
-  border-color: var(--pg-navy-line);
+  border-color: #c5d0e0;
 }
 
 .tileNavy .stIcon {
@@ -263,8 +254,10 @@
 /* ---- Cards ---- */
 .card {
   background: #fff;
-  border: 1px solid #dfe2e7;
-  border-radius: 12px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: #eceef2;
+  border-radius: 14px;
   padding: 20px 22px;
   min-width: 0;
   box-sizing: border-box;

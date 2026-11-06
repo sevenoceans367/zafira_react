@@ -438,6 +438,12 @@ export default function OpsVcPaymentGridPage() {
   const sections = data?.sections || [];
   const isVcIn = isVcInFixtureTypeId(data?.fixtureTypeId);
   const contractType = getFixtureTypeLabel(data?.fixtureTypeId);
+  const financeBreadcrumbs = useMemo(() => ([
+    { label: 'SOC', href: appPath('/internal-user/vc') },
+    { label: 'Spot Ops', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+    { label: 'Contract Finance' },
+  ]), []);
+  const paymentsCrumb = contractType ? `${contractType} Payments` : 'Payments';
   const worksheetHref = comId && costSheetId
     ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(costSheetId)}&page=${encodeURIComponent(page || '1')}`)
     : '';
@@ -507,6 +513,8 @@ export default function OpsVcPaymentGridPage() {
         voyageNo={voyageNo}
         vesselName={vesselName}
         worksheetHref={worksheetHref}
+        breadcrumbs={financeBreadcrumbs}
+        currentPage={paymentsCrumb}
       />
       <OpsVcPaymentGridHeaderActions
         backHref={backHref}

@@ -396,6 +396,14 @@ export default function OpsVcSoaReportPage() {
     );
   }, [comId, data?.costSheetId, page]);
 
+  const contractType = getFixtureTypeLabel(data?.fixtureTypeId);
+  const cashflowBreadcrumbs = useMemo(() => ([
+    { label: 'SOC', href: appPath('/internal-user/vc') },
+    { label: 'Spot Ops', href: appPath('/internal-user/vc/ops/in-ops-glance') },
+    { label: 'Voyage Cashflow' },
+  ]), []);
+  const cashflowCrumb = contractType ? `${contractType} Cashflow` : 'Cashflow';
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -428,10 +436,12 @@ export default function OpsVcSoaReportPage() {
     <div className={`zafira-page ${styles.page}`}>
       <VoyageOpsHeading
         title="Voyage Cashflow"
-        contractType={getFixtureTypeLabel(data?.fixtureTypeId)}
+        contractType={contractType}
         voyageNo={data?.voyageNo || voyageNoParam || ''}
         vesselName={data?.vesselName || ''}
         worksheetHref={worksheetHref}
+        breadcrumbs={cashflowBreadcrumbs}
+        currentPage={cashflowCrumb}
       />
       <OpsVcSoaReportHeaderActions
         backHref={backHref}

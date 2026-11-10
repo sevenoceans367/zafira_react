@@ -41,10 +41,22 @@ export const VESSEL_TYPE_VC = [
   { n: 'Aframax', v: 9 },
 ];
 
+export const VESSEL_TYPE_VC_DRY = [
+  { n: 'Handy', v: 16 },
+  { n: 'Supra', v: 14 },
+  { n: 'Cape', v: 9 },
+];
+
 export const VESSEL_TYPE_TC = [
   { n: 'Suezmax', v: 7 },
   { n: 'Aframax', v: 6 },
   { n: 'MR', v: 3 },
+];
+
+export const VESSEL_TYPE_TC_DRY = [
+  { n: 'Cape', v: 7 },
+  { n: 'Supra', v: 6 },
+  { n: 'Handy', v: 3 },
 ];
 
 export const VC_VESSEL_SHADES = ['#F4652C', '#C74A1C', '#8B5E3C'];
@@ -65,6 +77,13 @@ export const CARGO_BREAKDOWN = [
   { n: 'Chemical Products', v: 95 },
   { n: 'Veg Oil', v: 110 },
   { n: 'Crude', v: 57 },
+];
+
+export const CARGO_BREAKDOWN_DRY = [
+  { n: 'Industrial Ores', v: 220 },
+  { n: 'Thermal', v: 95 },
+  { n: 'Agri-Chemicals', v: 110 },
+  { n: 'Grain', v: 57 },
 ];
 
 export const CARGO_CATEGORY_COLORS = ['#F4652C', '#FBB988', '#C74A1C', '#8B5E3C'];
@@ -90,13 +109,32 @@ export const OWNERS_OWNER = [
   { n: 'Kalymnos Shipping Co.', v: 0.3 },
 ];
 
+export const OWNERS_OWNER_DRY = [
+  { n: 'Star Bulk Carriers Corp.', v: 0.6 },
+  { n: 'Oldendorff Carriers', v: 0.5 },
+  { n: 'Pacific Basin Shipping Ltd', v: 0.3 },
+];
+
 export const CHARTERERS = [
   { n: 'Zafira Shipping & Trading', v: 2.4 },
-  { n: 'Nordic Tankers AS', v: 1.9 },
+  { n: 'Golden Ocean Group', v: 1.9 },
   { n: 'Anchor Energy LLC', v: 1.5 },
   { n: 'Orient Bulk Pte Ltd', v: 1.2 },
   { n: 'Meridian Tanker Pool', v: 1.0 },
 ];
+
+export const CHARTERERS_DRY = [
+  { n: 'Cargill Ocean Transportation', v: 2.4 },
+  { n: 'Vale S.A.', v: 1.9 },
+  { n: 'Bunge', v: 1.5 },
+  { n: 'Ameropa', v: 1.2 },
+  { n: 'ED&F Man', v: 1.0 },
+];
+
+/** Dry Cargo = 3; Tanker/Gas keep tanker sample names. */
+export function isDryBusinessType(selBType) {
+  return String(selBType ?? '') === '3';
+}
 
 export const OWNERS_TC_OPERATOR = [
   { n: 'Farstad Marine Holdings', v: 1.6 },
@@ -112,10 +150,21 @@ export const OWNERS_TC_OWNER = [
   { n: 'Meridian Tanker Owners Ltd', v: 0.3 },
 ];
 
+export const OWNERS_TC_OWNER_DRY = [
+  { n: 'Star Bulk Carriers Corp.', v: 0.4 },
+  { n: 'Oldendorff Carriers', v: 0.3 },
+];
+
 export const CHARTERERS_TC = [
-  { n: 'Nordic Tankers AS', v: 3.1 },
+  { n: 'Golden Ocean Group', v: 3.1 },
   { n: 'Meridian Tanker Pool', v: 2.6 },
   { n: 'Anchor Energy LLC', v: 1.9 },
+];
+
+export const CHARTERERS_TC_DRY = [
+  { n: 'Golden Ocean Group', v: 3.1 },
+  { n: 'Genco Shipping & Trading', v: 2.6 },
+  { n: 'Diana Shipping Inc.', v: 1.9 },
 ];
 
 export const FLEET_MIX = { owned: 64, charteredIn: 36 };
@@ -124,6 +173,12 @@ export const AVG_HIRE_BY_TYPE = [
   { n: 'Suezmax', v: 26800, c: '#0B5E66' },
   { n: 'Aframax', v: 23450, c: '#14919B' },
   { n: 'MR', v: 18900, c: '#22B8CF' },
+];
+
+export const AVG_HIRE_BY_TYPE_DRY = [
+  { n: 'Cape', v: 26800, c: '#0B5E66' },
+  { n: 'Supra', v: 23450, c: '#14919B' },
+  { n: 'Handy', v: 18900, c: '#22B8CF' },
 ];
 
 export const ZONES_VC = [
@@ -200,12 +255,23 @@ export const PERIOD_CARDS = [
   {
     id: 'PERIOD-002-2025',
     vessel: 'SLF TRINITY',
-    charterer: 'Nordic Tankers AS',
+    charterer: 'Golden Ocean Group',
     pct: 58,
     performed: 210,
     total: 365,
     status: 'onhire',
     note: '155 days remaining on this 12-month period.',
+  },
+];
+
+export const PERIOD_CARDS_DRY = [
+  {
+    ...PERIOD_CARDS[0],
+    vessel: 'Golden Horizon',
+  },
+  {
+    ...PERIOD_CARDS[1],
+    vessel: 'Star Martha',
   },
 ];
 
@@ -215,11 +281,17 @@ export const PIPELINE = [
   { vessel: 'KALYMNOS DAWN', days: 75 },
 ];
 
+export const PIPELINE_DRY = [
+  { vessel: 'Ultra Dynamic', days: 18 },
+  { vessel: 'Star Martha', days: 45 },
+  { vessel: 'Eagle Munich', days: 75 },
+];
+
 export const PERIOD_RECORDS = [
   {
     id: 'PERIOD-002-2025',
     vessel: 'SLF TRINITY',
-    charterer: 'Nordic Tankers AS',
+    charterer: 'Golden Ocean Group',
     onHireDays: 199,
     onHireEarned: '4.67 mil',
     offHireDays: 11,
@@ -257,14 +329,25 @@ export const PERIOD_RECORDS = [
   },
 ];
 
+export const PERIOD_RECORDS_DRY = PERIOD_RECORDS.map((row) => (
+  row.vessel === 'SLF TRINITY'
+    ? { ...row, vessel: 'Star Martha' }
+    : row
+));
+
 export const MARK_TO_MARKET = {
   vessel: 'SLF TRINITY',
   contract: 'PERIOD-002-2025',
-  charterer: 'Nordic Tankers AS',
+  charterer: 'Golden Ocean Group',
   locked: 23450,
   market: 21800,
   favorable: true,
   deltaPct: 7.6,
+};
+
+export const MARK_TO_MARKET_DRY = {
+  ...MARK_TO_MARKET,
+  vessel: 'Star Martha',
 };
 
 export const TYPE_MIX = [
@@ -302,6 +385,14 @@ export const REVENUE_DRILL = {
   ],
 };
 
+export const REVENUE_DRILL_DRY = {
+  ...REVENUE_DRILL,
+  Periods: [
+    { n: 'Eagle Munich (PERIOD-002-2025)', v: 4.7, c: '#3B82F6' },
+    { n: 'Golden Horizon (PERIOD-001-2026)', v: 0, c: '#9CC7F5' },
+  ],
+};
+
 export const RECEIVABLE_VS_INVOICED = [
   { n: 'Receivable', v: 14.6, c: '#22B8CF' },
   { n: 'Invoiced', v: 3.2, c: '#0B5E66' },
@@ -318,3 +409,13 @@ export const ATTENTION_ITEMS = [
   { title: 'SLF TRINITY — 15 days hire overdue', meta: 'PERIOD-002-2025 · $351,750 outstanding', chip: 'Overdue', type: 'Periods', color: '#3B82F6', sev: 'urgent' },
   { title: 'Spot Business — unsettled freight & demurrage', meta: '6 invoices awaiting settlement', chip: 'Review', type: 'Spot', color: '#F4652C', sev: 'review' },
 ];
+
+export const ATTENTION_ITEMS_DRY = ATTENTION_ITEMS.map((item) => {
+  if (item.title.startsWith('GISELE')) {
+    return { ...item, title: item.title.replace('GISELE', 'Star Martha') };
+  }
+  if (item.title.startsWith('SLF TRINITY')) {
+    return { ...item, title: item.title.replace('SLF TRINITY', 'Eagle Munich') };
+  }
+  return item;
+});

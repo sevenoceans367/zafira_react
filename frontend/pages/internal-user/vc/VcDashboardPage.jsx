@@ -13,6 +13,7 @@ import {
   fetchCoaList,
   fetchCoaShipments,
   fetchPeriodList,
+  fetchPerformingVessels,
   fetchTcBusinessDashboard,
   fetchVcBusinessTypes,
   fetchVcDashboardMeta,
@@ -21,28 +22,40 @@ import VcDashboardHeaderActions from './VcDashboardHeaderActions.jsx';
 import {
   ALL_KPI,
   ATTENTION_ITEMS,
+  ATTENTION_ITEMS_DRY,
+  REVENUE_DRILL,
+  REVENUE_DRILL_DRY,
   AVG_HIRE_BY_TYPE,
+  AVG_HIRE_BY_TYPE_DRY,
   CARGO_BREAKDOWN,
+  CARGO_BREAKDOWN_DRY,
   CARGO_CATEGORY_COLORS,
   CARGO_OFFICE,
   CHARTERERS,
+  CHARTERERS_DRY,
   CHARTERERS_TC,
+  CHARTERERS_TC_DRY,
   CHARTERER_SHADES,
   DESK_OFFICE_TC,
   DESK_OFFICE_VC,
   FLEET_MIX,
+  isDryBusinessType,
   MARK_TO_MARKET,
   OFFICE_SHADES,
   OWNER_SHADES,
   OWNERS_OPERATOR,
   OWNERS_OWNER,
+  OWNERS_OWNER_DRY,
   OWNERS_TC_OPERATOR,
   OWNERS_TC_OWNER,
+  OWNERS_TC_OWNER_DRY,
   PERIOD_CARDS,
+  PERIOD_CARDS_DRY,
   PERIOD_RECORDS,
-  PERFORMING_TC,
-  PERFORMING_VC,
+  PERIOD_RECORDS_DRY,
   PIPELINE,
+  PIPELINE_DRY,
+  MARK_TO_MARKET_DRY,
   COA_PACE,
   QUARTER_TRADES,
   RECEIVABLE_VS_INVOICED,
@@ -52,7 +65,9 @@ import {
   VC_SPARK,
   VC_VESSEL_SHADES,
   VESSEL_TYPE_TC,
+  VESSEL_TYPE_TC_DRY,
   VESSEL_TYPE_VC,
+  VESSEL_TYPE_VC_DRY,
   ZONES_TC,
   ZONES_VC,
 } from './dashboardDemoData.js';
@@ -96,26 +111,14 @@ function SectionHead({ title, showUsd = false }) {
   );
 }
 
-const SPOT_DEMO_PERFORMING = PERFORMING_VC.map((row, index) => ({
-  ...row,
-  id: `demo-vc-${index}`,
-}));
-
-const TC_DEMO_PERFORMING = PERFORMING_TC.map((row, index) => ({
-  ...row,
-  id: `demo-tc-${index}`,
-}));
-
-const ALL_DEMO_PERFORMING = [
-  ...SPOT_DEMO_PERFORMING,
-  ...TC_DEMO_PERFORMING.map((row, index) => ({
-    ...row,
-    id: `demo-all-tc-${index}`,
-    voy: row.tcNo || row.voy,
-  })),
-];
-
 const PAGE_SIZE = 10;
+
+function performingKindForTab(tab) {
+  if (tab === 'vc') return 'vc';
+  if (tab === 'tc') return 'tc';
+  if (tab === 'all') return 'all';
+  return null;
+}
 
 function DataTable({
   columns,
@@ -173,7 +176,7 @@ function DataTable({
 
 function PerformingVesselsCard({ title = 'Performing Vessels', rows, columns, loading }) {
   return (
-    <ChartCard title={title}>
+    <ChartCard title={title} className={styles.performingSection}>
       <DataTable
         columns={columns}
         rows={rows}
@@ -294,6 +297,9 @@ export default function VcDashboardPage() {
   const [coaModalRows, setCoaModalRows] = useState([]);
   const [coaModalLoading, setCoaModalLoading] = useState(false);
 
+  const [performingRows, setPerformingRows] = useState([]);
+  const [performingLoading, setPerformingLoading] = useState(false);
+
   useEffect(() => {
     if (activeTab !== 'all' || window.location.hash !== '#needs-attention') return undefined;
     const timer = window.setTimeout(() => {
@@ -338,15 +344,31 @@ export default function VcDashboardPage() {
     setPeriodTotal(data.recordsTotal ?? 0);
   }, [businessType, periodPage, periodPageSize]);
 
+  const loadPerforming = useCallback(async (kind) => {
+    if (!kind) {
+      setPerformingRows([]);
+      return;
+    }
+    setPerformingLoading(true);
+    try {
+      const data = await fetchPerformingVessels({ kind, selBType: businessType });
+      setPerformingRows(data.records ?? []);
+    } finally {
+      setPerformingLoading(false);
+    }
+  }, [businessType]);
+
   const loadActiveTab = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
+      const performingKind = performingKindForTab(activeTab);
       switch (activeTab) {
         case 'vc':
+          await loadPerforming(performingKind);
           break;
         case 'tc':
-          await loadTc();
+          await Promise.all([loadTc(), loadPerforming(performingKind)]);
           break;
         case 'coas':
           await loadCoas();
@@ -355,7 +377,7 @@ export default function VcDashboardPage() {
           await loadPeriods();
           break;
         case 'all':
-          await Promise.all([loadTc(), loadCoas(), loadPeriods()]);
+          await Promise.all([loadTc(), loadCoas(), loadPeriods(), loadPerforming(performingKind)]);
           break;
         default:
           break;
@@ -365,19 +387,24 @@ export default function VcDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, loadTc, loadCoas, loadPeriods]);
+  }, [activeTab, loadTc, loadCoas, loadPeriods, loadPerforming]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      await Promise.all([loadTc(), loadCoas(), loadPeriods()]);
+      await Promise.all([
+        loadTc(),
+        loadCoas(),
+        loadPeriods(),
+        loadPerforming(performingKindForTab(activeTab) || 'all'),
+      ]);
     } catch (err) {
       setError(err.message || 'Failed to load commercial performance.');
     } finally {
       setLoading(false);
     }
-  }, [loadTc, loadCoas, loadPeriods]);
+  }, [activeTab, loadTc, loadCoas, loadPeriods, loadPerforming]);
 
   useEffect(() => {
     (async () => {
@@ -499,12 +526,27 @@ export default function VcDashboardPage() {
     { key: 'tcShipments', label: 'Total Shipment (TC)' },
   ];
 
+  const isDry = isDryBusinessType(businessType);
   const isOwnerIcp = icpMode === 'owner';
   const spotOwnersTitle = icpMode === 'operator'
     ? 'Business with Top Owners'
     : 'Business with Top Third-Party Owners (Chartered-In)';
-  const spotOwnersData = icpMode === 'operator' ? OWNERS_OPERATOR : OWNERS_OWNER;
-  const tcOwnersData = icpMode === 'operator' ? OWNERS_TC_OPERATOR : OWNERS_TC_OWNER;
+  const ownersOwnerData = isDry ? OWNERS_OWNER_DRY : OWNERS_OWNER;
+  const cargoOwnersData = isDry ? CHARTERERS_DRY : CHARTERERS;
+  const vesselTypeVcData = isDry ? VESSEL_TYPE_VC_DRY : VESSEL_TYPE_VC;
+  const vesselTypeTcData = isDry ? VESSEL_TYPE_TC_DRY : VESSEL_TYPE_TC;
+  const cargoBreakdownData = isDry ? CARGO_BREAKDOWN_DRY : CARGO_BREAKDOWN;
+  const avgHireByTypeData = isDry ? AVG_HIRE_BY_TYPE_DRY : AVG_HIRE_BY_TYPE;
+  const spotOwnersData = icpMode === 'operator' ? OWNERS_OPERATOR : ownersOwnerData;
+  const tcOwnersOwnerData = isDry ? OWNERS_TC_OWNER_DRY : OWNERS_TC_OWNER;
+  const tcOwnersData = icpMode === 'operator' ? OWNERS_TC_OPERATOR : tcOwnersOwnerData;
+  const tcCharteredOutData = isDry ? CHARTERERS_TC_DRY : CHARTERERS_TC;
+  const periodCardsData = isDry ? PERIOD_CARDS_DRY : PERIOD_CARDS;
+  const periodRecordsData = isDry ? PERIOD_RECORDS_DRY : PERIOD_RECORDS;
+  const pipelineData = isDry ? PIPELINE_DRY : PIPELINE;
+  const markToMarketData = isDry ? MARK_TO_MARKET_DRY : MARK_TO_MARKET;
+  const attentionItemsData = isDry ? ATTENTION_ITEMS_DRY : ATTENTION_ITEMS;
+  const revenueDrillData = isDry ? REVENUE_DRILL_DRY : REVENUE_DRILL;
   const showFleetMix = icpMode === 'mixed';
 
   return (
@@ -559,13 +601,13 @@ export default function VcDashboardPage() {
                   <VerticalBars data={DESK_OFFICE_VC} colors={OFFICE_SHADES} />
                 </ChartCard>
                 <ChartCard title="Trades by Vessel Type" sub="YTD">
-                  <VerticalBars data={VESSEL_TYPE_VC} colors={VC_VESSEL_SHADES} />
+                  <VerticalBars data={vesselTypeVcData} colors={VC_VESSEL_SHADES} />
                 </ChartCard>
                 <ChartCard title="Cargo Handled" sub="YTD · Metric Tons">
                   <PieLegend data={CARGO_OFFICE} colors={OFFICE_SHADES} valueFmt={(v) => `${v.toLocaleString()} MT`} />
                 </ChartCard>
                 <ChartCard title="Cargo Traded Breakdown" sub="By category · YTD · Metric Tons">
-                  <PieLegend data={CARGO_BREAKDOWN} colors={CARGO_CATEGORY_COLORS} valueFmt={(v) => `${v.toLocaleString()} MT`} />
+                  <PieLegend data={cargoBreakdownData} colors={CARGO_CATEGORY_COLORS} valueFmt={(v) => `${v.toLocaleString()} MT`} />
                 </ChartCard>
               </div>
               <div className={styles.shellStack}>
@@ -583,7 +625,7 @@ export default function VcDashboardPage() {
                   </ChartCard>
                 )}
                 <ChartCard title="Business with Top Cargo Owners" sub="Billed-to party · YTD · USD (millions)">
-                  <HorizontalBars data={CHARTERERS} colors={CHARTERER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
+                  <HorizontalBars data={cargoOwnersData} colors={CHARTERER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
                 </ChartCard>
               </div>
               <ChartCard title="Vessel Redelivery Zones" sub="YTD · open positions">
@@ -591,9 +633,9 @@ export default function VcDashboardPage() {
                 <SopFCta />
               </ChartCard>
               <PerformingVesselsCard
-                rows={SPOT_DEMO_PERFORMING}
+                rows={performingRows}
                 columns={PERFORMING_VC_COLUMNS}
-                loading={false}
+                loading={performingLoading}
               />
             </section>
           </>
@@ -613,12 +655,12 @@ export default function VcDashboardPage() {
                   <VerticalBars data={DESK_OFFICE_TC} colors={OFFICE_SHADES} />
                 </ChartCard>
                 <ChartCard title="Trades by Vessel Type" sub="TC · YTD">
-                  <VerticalBars data={VESSEL_TYPE_TC} colors={TC_VESSEL_SHADES} />
+                  <VerticalBars data={vesselTypeTcData} colors={TC_VESSEL_SHADES} />
                 </ChartCard>
               </div>
               <div className={styles.shellStack}>
                 <ChartCard title="Average Hire by Vessel Type" sub="TC · YTD · not cut by office — mixes tanker classes otherwise">
-                  <HorizontalBars data={AVG_HIRE_BY_TYPE} valueFmt={(v) => `$${v.toLocaleString('en-US')}/day`} />
+                  <HorizontalBars data={avgHireByTypeData} valueFmt={(v) => `$${v.toLocaleString('en-US')}/day`} />
                 </ChartCard>
               </div>
               <div className={`${styles.shellGrid}${isOwnerIcp ? ` ${styles.shellGridSingle}` : ''}`}>
@@ -631,7 +673,7 @@ export default function VcDashboardPage() {
                   </ChartCard>
                 )}
                 <ChartCard title="Chartered-Out Business" sub="TC · YTD · USD (millions)">
-                  <HorizontalBars data={CHARTERERS_TC} colors={CHARTERER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
+                  <HorizontalBars data={tcCharteredOutData} colors={CHARTERER_SHADES} valueFmt={(v) => `${v.toFixed(1)} mil`} />
                 </ChartCard>
               </div>
               <ChartCard title="Vessel Redelivery Zones" sub="TC · YTD">
@@ -639,9 +681,9 @@ export default function VcDashboardPage() {
                 <SopFCta />
               </ChartCard>
               <PerformingVesselsCard
-                rows={TC_DEMO_PERFORMING}
+                rows={performingRows}
                 columns={PERFORMING_TC_COLUMNS}
-                loading={false}
+                loading={performingLoading}
               />
             </section>
 
@@ -726,25 +768,25 @@ export default function VcDashboardPage() {
           <section className={styles.secBlock}>
             <SectionHead title="Period Business Overview" showUsd />
             <div className={styles.shellGrid}>
-              {PERIOD_CARDS.map((item) => (
+              {periodCardsData.map((item) => (
                 <PeriodPaceCard key={item.id} item={item} />
               ))}
             </div>
             <div className={styles.shellStack}>
               <ChartCard title="Redelivery & Option Pipeline" sub="Next 90 days">
-                <PipelineList items={PIPELINE} />
+                <PipelineList items={pipelineData} />
               </ChartCard>
             </div>
             <div className={styles.shellGrid}>
               <ChartCard title="On-Hire vs. Off-Hire" sub="Days & USD impact by reason, per period contract">
-                <OffHirePanel records={PERIOD_RECORDS} />
+                <OffHirePanel records={periodRecordsData} />
               </ChartCard>
               <ChartCard title="Revenue Due vs Received" sub="Days performed, with value impact">
-                <HireDuePanel records={PERIOD_RECORDS} />
+                <HireDuePanel records={periodRecordsData} />
               </ChartCard>
             </div>
             <div className={styles.shellStack}>
-              <MarkToMarketCard data={MARK_TO_MARKET} />
+              <MarkToMarketCard data={markToMarketData} />
             </div>
             <SectionHead title="Contracts" />
             <DataTable
@@ -779,19 +821,19 @@ export default function VcDashboardPage() {
               <ContractMixPanel />
             </section>
             <section className={styles.secBlock}>
-              <RevenueByContractCard />
+              <RevenueByContractCard revenueDrill={revenueDrillData} />
             </section>
             <section className={styles.secBlock} id="needs-attention">
               <ChartCard title="Needs Attention">
-                <AttentionList items={ATTENTION_ITEMS} />
+                <AttentionList items={attentionItemsData} />
               </ChartCard>
             </section>
             <section className={styles.secBlock}>
               <PerformingVesselsCard
                 title="Performing Vessels (All)"
-                rows={ALL_DEMO_PERFORMING}
+                rows={performingRows}
                 columns={PERFORMING_ALL_COLUMNS}
-                loading={false}
+                loading={performingLoading}
               />
             </section>
             <section className={styles.secBlock}>

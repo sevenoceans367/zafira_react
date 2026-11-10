@@ -624,9 +624,9 @@ export function ContractMixPanel({ items = TYPE_MIX }) {
   );
 }
 
-export function RevenueByContractCard() {
+export function RevenueByContractCard({ revenueDrill = REVENUE_DRILL } = {}) {
   const [rtype, setRtype] = useState('all');
-  const data = rtype === 'all' ? REVENUE_BY_TYPE : REVENUE_DRILL[rtype];
+  const data = rtype === 'all' ? REVENUE_BY_TYPE : revenueDrill[rtype];
   const sub = rtype === 'all'
     ? 'In-progress + completed value, all types'
     : `${rtype} · by ${rtype === 'COA' || rtype === 'Periods' ? 'contract' : 'chartering desk'}`;
@@ -694,7 +694,13 @@ export function QuarterlyAreaChart({ data }) {
 
   return (
     <div className={styles.linechartWrap}>
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className={styles.linechartSvg}>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="xMidYMid meet"
+        className={styles.linechartSvg}
+        role="img"
+        aria-label="Quarterly revenue chart"
+      >
         <defs>
           <linearGradient id="allRevenueFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#8A93A2" stopOpacity="0.30" />

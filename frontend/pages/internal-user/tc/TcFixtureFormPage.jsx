@@ -23,7 +23,9 @@ import {
 } from '../../../services/tcEstimates.js';
 import { fetchVesselEstimatePrefill } from '../../../services/estimateDetail.js';
 import { fetchPeriodContract } from '../../../services/periodContracts.js';
+import { fetchTankerParticulars } from '../../../services/vesselTankerParticulars.js';
 import saveIcon from '../../../assets/Save.png';
+import VesselParticularsReadonlyContent from '../fleet/VesselParticularsReadonlyContent.jsx';
 import VesselSearchSelect from '../sopf/VesselSearchSelect.jsx';
 import CollapsiblePanel from '../sopf/CollapsiblePanel.jsx';
 import { focusEstimateValidationField } from '../sopf/estimateValidation.js';
@@ -1268,6 +1270,9 @@ export default function TcFixtureFormPage({
   const [error, setError] = useState('');
   const [tcInOpen, setTcInOpen] = useState(false);
   const [vpModalOpen, setVpModalOpen] = useState(false);
+  const [vpData, setVpData] = useState(null);
+  const [vpLoading, setVpLoading] = useState(false);
+  const [vpError, setVpError] = useState('');
   const [periodMeta, setPeriodMeta] = useState(() => (
     periodNoParam ? { contractNo: periodNoParam } : null
   ));
@@ -1290,6 +1295,34 @@ export default function TcFixtureFormPage({
   const showSubCharter = form.contractType === 'tcinout'
     || isSubCharterBusinessType(businessTypes, form.businessTypeId)
     || Boolean(form.periodId);
+
+  useEffect(() => {
+    if (!vpModalOpen) return undefined;
+    const vesselId = String(form.vesselImoId || form.vesselCode || '').trim();
+    if (!vesselId) {
+      setVpData(null);
+      setVpError('Select a vessel to load Operated Vessels particulars.');
+      setVpLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      setVpLoading(true);
+      setVpError('');
+      try {
+        const response = await fetchTankerParticulars(vesselId);
+        if (!cancelled) setVpData(response);
+      } catch (err) {
+        if (!cancelled) {
+          setVpData(null);
+          setVpError(err.message || 'Failed to load vessel particulars.');
+        }
+      } finally {
+        if (!cancelled) setVpLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [vpModalOpen, form.vesselImoId, form.vesselCode]);
 
   const itineraryExpenseTotal = useMemo(
     () => (form.itineraryExpenses || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
@@ -3300,8 +3333,14 @@ export default function TcFixtureFormPage({
                     {SECTION_ICONS.vessel}
                   </div>
                   <div>
-                    <div id="vp-modal-title" className={styles.thdTitle}>Full Vessel Particulars</div>
-                    <div className={styles.thdSubtitle}>Complete vessel record from Operated Vessels</div>
+                    <div id="vp-modal-title" className={styles.thdTitle}>
+                      {`Full Vessel Particulars - (${(
+                        vpData?.vessel?.name
+                        || form.vesselName
+                        || 'VESSEL'
+                      ).toUpperCase()})`}
+                    </div>
+                    <div className={styles.thdSubtitle}>Same record as Operated Vessels</div>
                   </div>
                 </div>
                 <button
@@ -3315,33 +3354,26 @@ export default function TcFixtureFormPage({
                 </button>
               </div>
               <div className={styles.vpModalBody}>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Identity & Survey</div>
-                <div className={`${styles.denseGrid} ${styles.dense9}`}>
-                  <TextInput
-                    label="Master's Name"
-                    value={form.mastersName}
-                    onChange={(v) => setField('mastersName', v)}
-                    readOnly={readOnly}
+                {vpLoading ? (
+                  <LoadingOverlay active label="Loading vessel particulars…" />
+                ) : null}
+                {vpError ? <div className={styles.error}>{vpError}</div> : null}
+                {!vpLoading && vpData ? (
+                  <VesselParticularsReadonlyContent
+                    data={vpData}
+                    vesselId={String(form.vesselImoId || form.vesselCode || '').trim()}
+                    canUpload
+                    onRefresh={async () => {
+                      const vesselId = String(form.vesselImoId || form.vesselCode || '').trim();
+                      if (!vesselId) return;
+                      const response = await fetchTankerParticulars(vesselId);
+                      setVpData(response);
+                    }}
                   />
-                  <TextInput label="Yard" value={form.buildYard} readOnly />
-                  <TextInput label="Class ID" value={form.classId} readOnly />
-                  <TextInput label="Last SS" value={form.lastSpSurvey} readOnly />
-                  <TextInput label="Last DD" value={form.lastDd} readOnly />
-                  <TextInput label="Owners' P&I" value={form.ownersPi} readOnly />
-                </div>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPadAbove}`}>Communications</div>
-                <div className={`${styles.denseGrid} ${styles.dense9}`}>
-                  <TextInput label="Call Sign" value={form.callSign} readOnly />
-                  <TextInput label="Inmar Tel" value={form.inmarsatTel} readOnly />
-                  <TextInput label="Inmar Email" value={form.inmarsatMail} readOnly />
-                </div>
-                <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPadAbove}`}>Dimensions</div>
-                <div className={`${styles.denseGrid} ${styles.dense9}`}>
-                  <TextInput label="LOA" value={form.loa1} readOnly />
-                  <TextInput label="TPC" value={form.tpc1} readOnly />
-                  <TextInput label="Keel to Mast Top" value={form.keelTopMast} readOnly />
-                  <TextInput label="WL to Mast Top" value={form.waterlineTopMast} readOnly />
-                </div>
+                ) : null}
+                {!vpLoading && !vpError && !vpData ? (
+                  <div className={styles.thdSubtitle}>No vessel particulars available.</div>
+                ) : null}
               </div>
               <div className={styles.thdFooter}>
                 <button type="button" className={styles.thdCloseBtn} onClick={() => setVpModalOpen(false)}>

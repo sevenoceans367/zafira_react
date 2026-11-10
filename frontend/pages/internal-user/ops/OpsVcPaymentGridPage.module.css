@@ -100,7 +100,7 @@
   font-weight: 700;
 }
 
-/* ---- Summary tiles ---- */
+/* ---- Summary tiles (HTML Round 6/7: white + wash + gradient icon badge) ---- */
 .summaryTiles {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -114,39 +114,53 @@
 }
 
 .summaryTile {
-  background: linear-gradient(135deg, var(--tile-wash, #fff) 0%, #ffffff 65%);
-  border: 1px solid;
-  border-color: #eceef2;
-  border-radius: 14px;
-  padding: 17px 19px;
+  position: relative;
+  background: #fff;
+  border: 1.5px solid var(--pg-line-strong);
+  border-radius: 18px;
+  padding: 20px 20px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
   overflow: hidden;
+}
+
+.summaryTile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.7;
+  background: linear-gradient(135deg, var(--tile-wash, transparent) 0%, transparent 62%);
+}
+
+.summaryTile > * {
+  position: relative;
+  z-index: 1;
 }
 
 .stHead {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0;
+  gap: 10px;
+  margin: 0 0 16px;
 }
 
 .stIcon {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(20, 30, 50, 0.08), 0 2px 6px rgba(20, 30, 50, 0.14);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--tile-icon-grad, var(--pg-text-mid));
   display: flex;
   align-items: center;
   justify-content: center;
   flex: none;
+  color: #fff;
+  box-shadow: none;
 }
 
 .stIcon svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 .stLabel {
@@ -154,20 +168,20 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #5b6472;
+  color: var(--pg-text-mid);
 }
 
 .stValue {
   font-weight: 700;
-  font-size: 27px;
+  font-size: 30px;
   line-height: 1;
-  color: #2b3444;
-  margin: 0;
+  color: var(--pg-num-grey);
+  margin: 0 0 6px;
 }
 
 .stSub {
-  font-size: 11.5px;
-  color: #8a93a2;
+  font-size: 12px;
+  color: var(--pg-text-mid);
   font-weight: 600;
   line-height: 1.4;
   margin: 0;
@@ -175,47 +189,32 @@
 
 .tileTeal {
   --tile-wash: var(--pg-teal-tint);
-  border-color: #d4eeef;
-}
-
-.tileTeal .stIcon {
-  color: var(--pg-teal);
+  border-color: var(--pg-teal-line);
+  --tile-icon-grad: linear-gradient(135deg, #3fc6ce, var(--pg-teal));
 }
 
 .tileOrange {
   --tile-wash: var(--pg-orange-tint);
-  border-color: #fac4ad;
-}
-
-.tileOrange .stIcon {
-  color: var(--pg-orange);
+  border-color: var(--pg-orange-line);
+  --tile-icon-grad: linear-gradient(135deg, #fb9a6e, var(--pg-orange));
 }
 
 .tileNetPos {
   --tile-wash: var(--pg-green-tint);
-  border-color: #d4eed8;
-}
-
-.tileNetPos .stIcon {
-  color: #0b7a28;
+  border-color: #bfe3c7;
+  --tile-icon-grad: linear-gradient(135deg, #4ed17a, var(--pg-green));
 }
 
 .tileNetNeg {
   --tile-wash: var(--pg-red-tint);
-  border-color: #f8d9d5;
-}
-
-.tileNetNeg .stIcon {
-  color: #b4291f;
+  border-color: var(--pg-red-line);
+  --tile-icon-grad: linear-gradient(135deg, #ff7a6e, var(--pg-red));
 }
 
 .tileNavy {
   --tile-wash: var(--pg-navy-tint);
-  border-color: #c5d0e0;
-}
-
-.tileNavy .stIcon {
-  color: var(--pg-navy);
+  border-color: var(--pg-navy-line);
+  --tile-icon-grad: linear-gradient(135deg, #5d82b8, var(--pg-navy));
 }
 
 /* ---- Status chips ---- */

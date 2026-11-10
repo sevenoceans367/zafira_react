@@ -329,7 +329,7 @@ export default function TcPeriodBlock({
                       <div className={styles.fgHead}>To</div>
                       <div className={styles.fgHead}>Days</div>
                       <div className={styles.fgHead}>Rate/Day</div>
-                      <div className={styles.fgHead}>Vendor</div>
+                      <div className={styles.fgHead}>Charterer</div>
                       <div className={styles.fgHead}>Amount</div>
                       <div className={styles.fgHead} />
                     </>
@@ -382,7 +382,7 @@ export default function TcPeriodBlock({
                       onChange={(v) => onPatchOff(index, { vendorId: v })}
                       disabled={readOnly}
                       placeholder="Select"
-                      ariaLabel="Off hire vendor"
+                      ariaLabel="Off hire charterer"
                     />
                   </div>
                   <div className={styles.fgCell}>

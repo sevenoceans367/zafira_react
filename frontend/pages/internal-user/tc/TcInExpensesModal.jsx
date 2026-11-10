@@ -147,6 +147,17 @@ export default function TcInExpensesModal({
     });
   };
 
+  const copyDeliveryToRedelivery = (deliveryRows = [], reDelDate = '') => (
+    (deliveryRows.length ? deliveryRows : [{ ...EMPTY_BUNKER }]).map((row) => ({
+      ...EMPTY_BUNKER,
+      bunkerId: row.bunkerId || '',
+      qty: row.qty || '',
+      price: row.price || '',
+      amount: row.amount || bunkerAmount(row),
+      bunkerDate: reDelDate || '',
+    }))
+  );
+
   const patchBunker = (side, index, fields) => {
     const key = side === 'del' ? 'deliveryBunkers' : 'redeliveryBunkers';
     setDraft((prev) => {
@@ -154,6 +165,14 @@ export default function TcInExpensesModal({
       const next = { ...rows[index], ...fields };
       next.amount = bunkerAmount(next);
       rows[index] = next;
+      if (side === 'del') {
+        const reDelDate = (prev.hires || [])[(prev.hires || []).length - 1]?.redeliveryDate || '';
+        return {
+          ...prev,
+          deliveryBunkers: rows,
+          redeliveryBunkers: copyDeliveryToRedelivery(rows, reDelDate),
+        };
+      }
       return { ...prev, [key]: rows };
     });
   };
@@ -460,16 +479,26 @@ export default function TcInExpensesModal({
                   bunkers={lookups?.bunkers}
                   readOnly={readOnly}
                   onChange={(i, f) => patchBunker('del', i, f)}
-                  onAdd={() => setDraft((prev) => ({
-                    ...prev,
-                    deliveryBunkers: [...(prev.deliveryBunkers || []), { ...EMPTY_BUNKER }],
-                  }))}
-                  onRemove={(i) => setDraft((prev) => ({
-                    ...prev,
-                    deliveryBunkers: prev.deliveryBunkers.length > 1
+                  onAdd={() => setDraft((prev) => {
+                    const deliveryBunkers = [...(prev.deliveryBunkers || []), { ...EMPTY_BUNKER }];
+                    const reDelDate = (prev.hires || [])[(prev.hires || []).length - 1]?.redeliveryDate || '';
+                    return {
+                      ...prev,
+                      deliveryBunkers,
+                      redeliveryBunkers: copyDeliveryToRedelivery(deliveryBunkers, reDelDate),
+                    };
+                  })}
+                  onRemove={(i) => setDraft((prev) => {
+                    const deliveryBunkers = prev.deliveryBunkers.length > 1
                       ? prev.deliveryBunkers.filter((_, idx) => idx !== i)
-                      : [{ ...EMPTY_BUNKER }],
-                  }))}
+                      : [{ ...EMPTY_BUNKER }];
+                    const reDelDate = (prev.hires || [])[(prev.hires || []).length - 1]?.redeliveryDate || '';
+                    return {
+                      ...prev,
+                      deliveryBunkers,
+                      redeliveryBunkers: copyDeliveryToRedelivery(deliveryBunkers, reDelDate),
+                    };
+                  })}
                 />
               </div>
               <div>

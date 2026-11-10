@@ -451,7 +451,7 @@ export default function OpsVcPaymentGridPage() {
   const model = useMemo(() => (
     isVcIn
       ? groupPaymentGridSectionsVcIn(sections, { totalDays: data?.totalDays })
-      : groupPaymentGridSections(sections)
+      : groupPaymentGridSections(sections, { totalDays: data?.totalDays })
   ), [sections, isVcIn, data?.totalDays]);
 
   const waterfall = useMemo(() => (
@@ -468,19 +468,76 @@ export default function OpsVcPaymentGridPage() {
   };
 
   const kpis = model.kpis;
-  const incomeStatus = !isVcIn && kpis.incomeOpen
-    ? { label: 'Outstanding', tone: 'warn' }
-    : { label: 'Collected', tone: 'good' };
-  const expenseStatus = !isVcIn && kpis.expenseOpen
-    ? { label: 'Due Soon', tone: 'warn' }
-    : { label: 'Paid', tone: 'good' };
-  const freightStatus = isVcIn && kpis.freightDemOpen
-    ? { label: 'Outstanding', tone: 'warn' }
-    : { label: 'Paid', tone: 'good' };
-  const othersStatus = isVcIn && kpis.othersOpen
-    ? { label: 'Due Soon', tone: 'warn' }
-    : { label: 'Paid', tone: 'good' };
-  const netPos = !isVcIn && kpis.net >= 0;
+  const netPos = Number(kpis.net) >= 0;
+  const hireCount = Number(kpis.hireCount) || 0;
+  const expenseOnlyCount = Number(kpis.expenseOnlyCount) || 0;
+  const expenseSub = hireCount > 0
+    ? `${expenseOnlyCount} expense${expenseOnlyCount === 1 ? '' : 's'} + ${hireCount} hire item${hireCount === 1 ? '' : 's'}`
+    : `${Number(kpis.expenseCount) || 0} expense${(Number(kpis.expenseCount) || 0) === 1 ? '' : 's'}`;
+  const incomeSub = `${Number(kpis.incomeCount) || 0} line item${(Number(kpis.incomeCount) || 0) === 1 ? '' : 's'}`;
+  const tceValue = kpis.tce != null
+    ? `${formatMoney(kpis.tce) || '$0'}/day`
+    : '—';
+
+  const summaryTiles = (
+    <div className={styles.summaryTiles}>
+      <div className={`${styles.summaryTile} ${styles.tileTeal}`}>
+        <div className={styles.stHead}>
+          <span className={styles.stIcon}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 4v16" />
+              <path d="M17 15l-5 5-5-5" />
+            </svg>
+          </span>
+          <span className={styles.stLabel}>Total Income</span>
+        </div>
+        <div className={styles.stValue}>{formatMoney(kpis.incomeTotal) || '$0'}</div>
+        <div className={styles.stSub}>{incomeSub}</div>
+      </div>
+
+      <div className={`${styles.summaryTile} ${styles.tileOrange}`}>
+        <div className={styles.stHead}>
+          <span className={styles.stIcon}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 20V4" />
+              <path d="M7 9l5-5 5 5" />
+            </svg>
+          </span>
+          <span className={styles.stLabel}>Total Expenses</span>
+        </div>
+        <div className={styles.stValue}>{formatMoney(kpis.expenseTotal) || '$0'}</div>
+        <div className={styles.stSub}>{expenseSub}</div>
+      </div>
+
+      <div className={`${styles.summaryTile} ${netPos ? styles.tileNetPos : styles.tileNetNeg}`}>
+        <div className={styles.stHead}>
+          <span className={styles.stIcon}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 15l5-5 4 4 7-8" />
+              <path d="M15 6h5v5" />
+            </svg>
+          </span>
+          <span className={styles.stLabel}>Net Result</span>
+        </div>
+        <div className={styles.stValue}>{formatMoney(kpis.net, { signed: true }) || '$0'}</div>
+        <div className={styles.stSub}>Income − Expenses (incl. Hire)</div>
+      </div>
+
+      <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
+        <div className={styles.stHead}>
+          <span className={styles.stIcon}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4.5 16a8 8 0 1 1 15 0" />
+              <path d="M12 13l3.2-3.2" />
+              <circle cx="12" cy="13" r="1.1" fill="currentColor" stroke="none" />
+            </svg>
+          </span>
+          <span className={styles.stLabel}>TCE</span>
+        </div>
+        <div className={styles.stValue}>{tceValue}</div>
+      </div>
+    </div>
+  );
 
   const incomeIcon = (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -529,70 +586,7 @@ export default function OpsVcPaymentGridPage() {
         {!loading && !error && data ? (
           isVcIn ? (
             <>
-              <div className={styles.summaryTiles}>
-                <div className={`${styles.summaryTile} ${styles.tileOrange}`}>
-                  <div className={styles.stHead}>
-                    <span className={styles.stIcon}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M12 20V4" />
-                        <path d="M7 9l5-5 5 5" />
-                      </svg>
-                    </span>
-                    <span className={styles.stLabel}>Total Freight &amp; Demurrage Expenses</span>
-                  </div>
-                  <div className={styles.stValue}>{formatMoney(kpis.freightDemTotal) || '$0'}</div>
-                  <div className={styles.stSub}>
-                    {kpis.freightDemCount} item{kpis.freightDemCount === 1 ? '' : 's'}
-                  </div>
-                  <StatusChip {...freightStatus} />
-                </div>
-
-                <div className={`${styles.summaryTile} ${styles.tileOrange}`}>
-                  <div className={styles.stHead}>
-                    <span className={styles.stIcon}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M12 20V4" />
-                        <path d="M7 9l5-5 5 5" />
-                      </svg>
-                    </span>
-                    <span className={styles.stLabel}>Total Others</span>
-                  </div>
-                  <div className={styles.stValue}>{formatMoney(kpis.othersTotal) || '$0'}</div>
-                  <div className={styles.stSub}>
-                    {kpis.othersCount} item{kpis.othersCount === 1 ? '' : 's'}
-                  </div>
-                  <StatusChip {...othersStatus} />
-                </div>
-
-                <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
-                  <div className={styles.stHead}>
-                    <span className={styles.stIcon}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M4 15l5-5 4 4 7-8" />
-                        <path d="M15 6h5v5" />
-                      </svg>
-                    </span>
-                    <span className={styles.stLabel}>Total Contract Cost</span>
-                  </div>
-                  <div className={styles.stValue}>{formatMoney(kpis.contractCost) || '$0'}</div>
-                </div>
-
-                <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
-                  <div className={styles.stHead}>
-                    <span className={styles.stIcon}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M4.5 16a8 8 0 1 1 15 0" />
-                        <path d="M12 13l3.2-3.2" />
-                        <circle cx="12" cy="13" r="1.1" fill="currentColor" stroke="none" />
-                      </svg>
-                    </span>
-                    <span className={styles.stLabel}>Cost / Day</span>
-                  </div>
-                  <div className={styles.stValue}>
-                    {kpis.costPerDay != null ? formatMoney(kpis.costPerDay) : '—'}
-                  </div>
-                </div>
-              </div>
+              {summaryTiles}
 
               <WaterfallCard
                 mode="vcin"
@@ -625,70 +619,7 @@ export default function OpsVcPaymentGridPage() {
             </>
           ) : (
             <>
-              <div className={styles.summaryTiles}>
-                <div className={`${styles.summaryTile} ${styles.tileTeal}`}>
-                  <div className={styles.stHead}>
-                    <span className={styles.stIcon}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M12 4v16" />
-                        <path d="M17 15l-5 5-5-5" />
-                      </svg>
-                    </span>
-                    <span className={styles.stLabel}>Total Income</span>
-                  </div>
-                  <div className={styles.stValue}>{formatMoney(kpis.incomeTotal) || '$0'}</div>
-                  <div className={styles.stSub}>{kpis.incomeCount} item{kpis.incomeCount === 1 ? '' : 's'}</div>
-                  <StatusChip {...incomeStatus} />
-                </div>
-
-                <div className={`${styles.summaryTile} ${styles.tileOrange}`}>
-                  <div className={styles.stHead}>
-                    <span className={styles.stIcon}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M12 20V4" />
-                        <path d="M7 9l5-5 5 5" />
-                      </svg>
-                    </span>
-                    <span className={styles.stLabel}>Total Expenses</span>
-                  </div>
-                  <div className={styles.stValue}>{formatMoney(kpis.expenseTotal) || '$0'}</div>
-                  <div className={styles.stSub}>
-                    {model.expenses.count} item{model.expenses.count === 1 ? '' : 's'}
-                    {model.hireage.count
-                      ? ` (incl. ${model.hireage.count} hire)`
-                      : ''}
-                  </div>
-                  <StatusChip {...expenseStatus} />
-                </div>
-
-                <div className={`${styles.summaryTile} ${netPos ? styles.tileNetPos : styles.tileNetNeg}`}>
-                  <div className={styles.stHead}>
-                    <span className={styles.stIcon}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M4 15l5-5 4 4 7-8" />
-                        <path d="M15 6h5v5" />
-                      </svg>
-                    </span>
-                    <span className={styles.stLabel}>Net Result</span>
-                  </div>
-                  <div className={styles.stValue}>{formatMoney(kpis.net, { signed: true }) || '$0'}</div>
-                </div>
-
-                <div className={`${styles.summaryTile} ${styles.tileNavy}`}>
-                  <div className={styles.stHead}>
-                    <span className={styles.stIcon}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M4.5 16a8 8 0 1 1 15 0" />
-                        <path d="M12 13l3.2-3.2" />
-                        <circle cx="12" cy="13" r="1.1" fill="currentColor" stroke="none" />
-                      </svg>
-                    </span>
-                    <span className={styles.stLabel}>TCE</span>
-                  </div>
-                  <div className={styles.stValue}>—</div>
-                  <div className={styles.stSub}>Voyage days not available yet</div>
-                </div>
-              </div>
+              {summaryTiles}
 
               <WaterfallCard segments={waterfall} onSegmentClick={handleSegmentClick} />
 

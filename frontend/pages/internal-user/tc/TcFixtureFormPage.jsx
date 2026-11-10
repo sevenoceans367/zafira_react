@@ -1096,6 +1096,35 @@ function sumBunkerAmounts(rows = []) {
   return rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0).toFixed(2);
 }
 
+function redeliveryBunkerDateFromForm(form = {}) {
+  const periods = form.hirePeriods || [];
+  const last = periods[periods.length - 1];
+  return last?.reDelDate || form.reDelDate || '';
+}
+
+function bunkerRowHasValues(row = {}) {
+  return Boolean(
+    String(row.bunkerId || '').trim()
+    || String(row.qty || '').trim()
+    || String(row.price || '').trim()
+    || String(row.amount || '').trim(),
+  );
+}
+
+/** Copy delivery bunker line items onto redelivery (same grades/qty/price); dates use redelivery. */
+function copyDeliveryBunkersToRedelivery(deliveryRows = [], reDelDate = '') {
+  const source = deliveryRows?.length ? deliveryRows : [{ ...EMPTY_BUNKER }];
+  return source.map((row) => ({
+    ...EMPTY_BUNKER,
+    bunkerId: row.bunkerId != null && String(row.bunkerId).trim() !== '' ? String(row.bunkerId) : '',
+    gradeName: row.gradeName || '',
+    qty: row.qty || '',
+    price: row.price || '',
+    amount: row.amount || bunkerAmount(row.qty, row.price),
+    bunkerDate: reDelDate || '',
+  }));
+}
+
 function isSubCharterBusinessType(businessTypes, businessTypeId) {
   const match = (businessTypes || []).find((opt) => String(opt.id) === String(businessTypeId));
   const label = String(match?.name || match?.label || '').toLowerCase();
@@ -1667,11 +1696,18 @@ export default function TcFixtureFormPage({
     if (!lookups?.bunkers?.length || readOnly) return;
     setForm((prev) => {
       const nextDelivery = seedEmptyBunkerRows(prev.deliveryBunkers, lookups.bunkers);
-      const nextRedelivery = seedEmptyBunkerRows(prev.redeliveryBunkers, lookups.bunkers);
-      const deliveryChanged = nextDelivery !== prev.deliveryBunkers
-        && JSON.stringify(nextDelivery) !== JSON.stringify(prev.deliveryBunkers);
-      const redeliveryChanged = nextRedelivery !== prev.redeliveryBunkers
-        && JSON.stringify(nextRedelivery) !== JSON.stringify(prev.redeliveryBunkers);
+      let nextRedelivery = seedEmptyBunkerRows(prev.redeliveryBunkers, lookups.bunkers);
+      // If redelivery is still blank but delivery has lines, seed redelivery as a copy.
+      const deliveryHasValues = (nextDelivery || []).some(bunkerRowHasValues);
+      const redeliveryBlank = !(nextRedelivery || []).some(bunkerRowHasValues);
+      if (deliveryHasValues && redeliveryBlank) {
+        nextRedelivery = copyDeliveryBunkersToRedelivery(
+          nextDelivery,
+          redeliveryBunkerDateFromForm(prev),
+        );
+      }
+      const deliveryChanged = JSON.stringify(nextDelivery) !== JSON.stringify(prev.deliveryBunkers || []);
+      const redeliveryChanged = JSON.stringify(nextRedelivery) !== JSON.stringify(prev.redeliveryBunkers || []);
       if (!deliveryChanged && !redeliveryChanged) return prev;
       return {
         ...prev,
@@ -1686,6 +1722,15 @@ export default function TcFixtureFormPage({
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const withRedeliveryCopiedFromDelivery = (prev, deliveryRows) => ({
+    ...prev,
+    deliveryBunkers: deliveryRows,
+    redeliveryBunkers: copyDeliveryBunkersToRedelivery(
+      deliveryRows,
+      redeliveryBunkerDateFromForm(prev),
+    ),
+  });
+
   const updateBunker = (kind, index, key, value) => {
     if (readOnly) return;
     setForm((prev) => {
@@ -1699,6 +1744,9 @@ export default function TcFixtureFormPage({
         next.gradeName = match?.name || '';
       }
       rows[index] = next;
+      if (kind === 'deliveryBunkers') {
+        return withRedeliveryCopiedFromDelivery(prev, rows);
+      }
       return { ...prev, [kind]: rows };
     });
   };
@@ -1710,7 +1758,13 @@ export default function TcFixtureFormPage({
       await alert({ title: 'Alert', message: block, confirmLabel: 'OK' });
       return;
     }
-    setForm((prev) => ({ ...prev, [kind]: [...(prev[kind] || []), defaultBunkerRow(lookups?.bunkers)] }));
+    setForm((prev) => {
+      const rows = [...(prev[kind] || []), defaultBunkerRow(lookups?.bunkers)];
+      if (kind === 'deliveryBunkers') {
+        return withRedeliveryCopiedFromDelivery(prev, rows);
+      }
+      return { ...prev, [kind]: rows };
+    });
   };
 
   const removeBunker = (kind, index) => {
@@ -1718,7 +1772,11 @@ export default function TcFixtureFormPage({
     setForm((prev) => {
       const rows = [...(prev[kind] || [])];
       rows.splice(index, 1);
-      return { ...prev, [kind]: rows.length ? rows : [defaultBunkerRow(lookups?.bunkers)] };
+      const nextRows = rows.length ? rows : [defaultBunkerRow(lookups?.bunkers)];
+      if (kind === 'deliveryBunkers') {
+        return withRedeliveryCopiedFromDelivery(prev, nextRows);
+      }
+      return { ...prev, [kind]: nextRows };
     });
   };
 
@@ -1928,6 +1986,7 @@ export default function TcFixtureFormPage({
         ...(prev.offHires || []),
         resolveOffHire({
           ...EMPTY_OFF,
+          vendorId: prev.charterer || '',
           hireRate: hireRateForOffHireEvent({
             hirePeriods: prev.hirePeriods,
             fallback: prev.hireFixPer || '',
@@ -2118,6 +2177,7 @@ export default function TcFixtureFormPage({
         ...(p.offHires || []),
         resolveOffHire({
           ...EMPTY_OFF,
+          vendorId: form.charterer || '',
           hireRate: hireRateForOffHireEvent({
             hirePeriods: p.hirePeriods,
             fallback: '',
@@ -2203,7 +2263,10 @@ export default function TcFixtureFormPage({
     }
     setForm((prev) => ({
       ...prev,
-      otherExpenses: [...(prev.otherExpenses || []), { ...EMPTY_EXPENSE }],
+      otherExpenses: [
+        ...(prev.otherExpenses || []),
+        { ...EMPTY_EXPENSE, vendorId: prev.charterer || '' },
+      ],
     }));
   };
 
@@ -2529,13 +2592,18 @@ export default function TcFixtureFormPage({
                       value={form.charterer}
                       onChange={(v) => {
                         if (readOnly) return;
+                        const seedVendor = (row) => (row.vendorId ? row : { ...row, vendorId: v || '' });
                         setForm((prev) => ({
                           ...prev,
                           charterer: v,
                           charOperAdd: resolveChartererAddress(lookups, v),
-                          otherExpenses: (prev.otherExpenses || []).map((row) => (
-                            row.vendorId ? row : { ...row, vendorId: v || '' }
-                          )),
+                          // Empty Off Hire / TC Expenses charterer rows inherit CP Charterer (still editable).
+                          offHires: (prev.offHires || []).map(seedVendor),
+                          otherExpenses: (prev.otherExpenses || []).map(seedVendor),
+                          tcPeriodExtensions: (prev.tcPeriodExtensions || []).map((period) => ({
+                            ...period,
+                            offHires: (period.offHires || []).map(seedVendor),
+                          })),
                         }));
                       }}
                       placeholder="Select charterer"
@@ -2679,7 +2747,7 @@ export default function TcFixtureFormPage({
                   <div className={styles.fgHead}>Notes</div>
                   <div className={styles.fgHead}>Add to Total</div>
                   <div className={styles.fgHead}>Expense Amt</div>
-                  <div className={styles.fgHead}>Vendor</div>
+                  <div className={styles.fgHead}>Charterer</div>
                   <div className={styles.fgHead} />
                   {(form.otherExpenses?.length ? form.otherExpenses : [{ ...EMPTY_EXPENSE }]).map((row, index) => {
                     const expenseDescOptions = lookups?.ownerRelatedCosts || [];
@@ -2768,7 +2836,7 @@ export default function TcFixtureFormPage({
                           onChange={(v) => patchOtherExpense(index, { vendorId: v })}
                           disabled={readOnly}
                           placeholder="Select from"
-                          ariaLabel="Vendor"
+                          ariaLabel="Charterer"
                         />
                       </div>
                       <div className={styles.fgCell}>
@@ -2869,18 +2937,6 @@ export default function TcFixtureFormPage({
                   <span>{formatResult(expensePartyTotals.tcAddToTotal)}</span>
                 </div>
                 </TsecCard>
-                {showSubCharter ? (
-                  <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
-                    <button
-                      type="button"
-                      className={`${styles.addRowBtn} ${styles.addRowBtnSubCharter}`}
-                      onClick={() => setTcInOpen(true)}
-                    >
-                      <PlusIcon />
-                      Add Sub-Charter Expense
-                    </button>
-                  </div>
-                ) : null}
               </CollapsiblePanel>
               <CollapsiblePanel title="Vessel Particulars" defaultOpen={false} className={styles.estCard} icon={SECTION_ICONS.vessel}>
                 <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Primary Data</div>

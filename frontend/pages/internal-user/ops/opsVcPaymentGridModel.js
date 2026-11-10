@@ -379,7 +379,7 @@ function summarize(lines, kind) {
   };
 }
 
-export function groupPaymentGridSections(sections = []) {
+export function groupPaymentGridSections(sections = [], { totalDays = null } = {}) {
   const incomeRaw = flattenLines(sections, INCOME_KEYS, INCOME_SECTION_ORDER);
   const income = summarize(ensureIncomeDefaults(incomeRaw), 'income');
 
@@ -422,7 +422,11 @@ export function groupPaymentGridSections(sections = []) {
   const expenseCount = expensesOnly.count;
 
   const net = income.total - expenseTotal;
-  const tce = null;
+  const days = Number(totalDays);
+  const hasDays = Number.isFinite(days) && days > 0;
+  const tce = hasDays ? net / days : null;
+  // Expense-only count excludes hire rows for the “N expenses + H hire” subtitle
+  const expenseOnlyCount = Math.max(0, expenseCount - (hireage.count || 0));
 
   return {
     income,
@@ -442,9 +446,12 @@ export function groupPaymentGridSections(sections = []) {
       incomeOpen: income.openCount > 0,
       expenseTotal,
       expenseCount,
+      expenseOnlyCount,
+      hireCount: hireage.count || 0,
       expenseOpen: expensesOnly.openCount > 0,
       net,
       tce,
+      totalDays: hasDays ? days : null,
     },
   };
 }
@@ -548,9 +555,14 @@ export function groupPaymentGridSectionsVcIn(sections = [], { totalDays = null }
   const othersTotal = others.total;
   const contractCost = freightTotal + othersTotal;
   const days = Number(totalDays);
-  const costPerDay = Number.isFinite(days) && days > 0
-    ? contractCost / days
-    : null;
+  const hasDays = Number.isFinite(days) && days > 0;
+  const costPerDay = hasDays ? contractCost / days : null;
+  // Top tiles match standard Income / Expenses / Net / TCE (expense-only voyage → $0 income).
+  const incomeTotal = 0;
+  const expenseTotal = contractCost;
+  const net = incomeTotal - expenseTotal;
+  const tce = hasDays ? net / days : null;
+  const expenseCount = (freightDem.count || 0) + (others.count || 0);
 
   return {
     mode: 'vcin',
@@ -565,7 +577,15 @@ export function groupPaymentGridSectionsVcIn(sections = [], { totalDays = null }
       othersOpen: others.openCount > 0,
       contractCost,
       costPerDay,
-      totalDays: Number.isFinite(days) && days > 0 ? days : null,
+      incomeTotal,
+      incomeCount: 0,
+      expenseTotal,
+      expenseCount,
+      expenseOnlyCount: expenseCount,
+      hireCount: 0,
+      net,
+      tce,
+      totalDays: hasDays ? days : null,
     },
   };
 }

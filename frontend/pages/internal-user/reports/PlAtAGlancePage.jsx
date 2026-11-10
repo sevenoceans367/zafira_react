@@ -1,22 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CardSelect, HeaderFilterControls, PageHeaderSearch } from '@bainbridge/shared-ui';
+import { CardSelect, HeaderFilterControls, LoadingOverlay, PageHeaderSearch } from '@bainbridge/shared-ui';
 import PageHeaderActions from '../PageHeaderActions.jsx';
 import { usePageHeaderHeading } from '../PageHeaderContext.jsx';
 import ScrollableTable from '../sopf/ScrollableTable.jsx';
+import { fetchReport, fetchReportFilterOptions } from '../../../services/reports.js';
+import { downloadReportExcel } from './reportExports.js';
 import styles from './PlAtAGlancePage.module.css';
 
 const PAGE_SIZE = 10;
+const CURRENT_YEAR = String(new Date().getFullYear());
 
 const TYPE_OPTIONS = [
   { id: 'all', name: 'All Types' },
   { id: 'spot', name: 'Spot' },
   { id: 'tc', name: 'TC' },
-];
-
-const YEAR_OPTIONS = [
-  { id: 'all', name: 'All Years' },
-  { id: '2026', name: '2026' },
-  { id: '2025', name: '2025' },
 ];
 
 const PERIOD_OPTIONS = [
@@ -28,84 +25,11 @@ const PERIOD_OPTIONS = [
 ];
 
 const BIZ_OPTIONS = [
-  { id: 'all', name: 'All Types' },
-  { id: 'Tanker', name: 'Tankers' },
-  { id: 'Dry Cargo', name: 'Dry' },
-  { id: 'Gas', name: 'Gas' },
+  { id: '', name: 'All Types' },
+  { id: '3', name: 'Dry' },
+  { id: '2', name: 'Tankers' },
+  { id: '1', name: 'Gas' },
 ];
-
-const VESSEL_INFO = {
-  'NEW INTEGRITY': { dwt: 50296, owner: 'Seven Seas Tankers Ltd' },
-  'OCEAN PRIDE': { dwt: 52454, owner: 'Meridian Marine Holdings' },
-  'SLF TRINITY': { dwt: 74999, owner: 'Blue Horizon Shipowners' },
-  ANTARES: { dwt: 39460, owner: 'Atlas Maritime Corp' },
-  POLYAIGOS: { dwt: 61200, owner: 'Neptune Ship Management' },
-  'NORDIC STAR': { dwt: 47850, owner: 'Helios Tanker Holdings' },
-  'PACIFIC GLORY': { dwt: 55600, owner: 'Continental Marine Owners' },
-  'ARCADIA SUN': { dwt: 42300, owner: 'Trident Shipowning Ltd' },
-  'HELLESPONT PRIDE': { dwt: 68900, owner: 'Solaris Maritime Holdings' },
-  'ORION TRADER': { dwt: 36700, owner: 'Zafira Vessel Holdings' },
-  'CRIMSON HORIZON': { dwt: 73400, owner: 'Orient Fleet Owners' },
-};
-
-const RAW_PNL_ROWS = [
-  { id: 'SPOT-2601', type: 'spot', vessel: 'NEW INTEGRITY', charterer: 'Zafira Shipping & Trading', cpDate: '10-Jan-2026', eta: '16-Jan-2026', chrtPic: 'R. Sharma', opsPic: 'L. Ferreira', biz: 'Tanker', year: 2026, q: 'q1', revenue: 4.8, costs: 3.1 },
-  { id: 'SPOT-2602', type: 'spot', vessel: 'OCEAN PRIDE', charterer: 'Orient Bulk Pte Ltd', cpDate: '18-Jan-2026', eta: '24-Jan-2026', chrtPic: 'T. Lindqvist', opsPic: 'D. Novak', biz: 'Tanker', year: 2026, q: 'q1', revenue: 2.6, costs: 1.9 },
-  { id: 'COA-014-2026-S3', type: 'spot', vessel: 'SLF TRINITY', charterer: 'Zafira Shipping & Trading', cpDate: '03-Feb-2026', eta: '10-Feb-2026', chrtPic: 'A. Ibrahim', opsPic: 'K. Tanaka', biz: 'Tanker', year: 2026, q: 'q1', revenue: 5.4, costs: 3.6 },
-  { id: 'SPOT-2609', type: 'spot', vessel: 'ANTARES', charterer: 'Nordic Tankers AS', cpDate: '27-Feb-2026', eta: '05-Mar-2026', chrtPic: 'M. Chen', opsPic: 'P. Andersen', biz: 'Tanker', year: 2026, q: 'q1', revenue: 3.2, costs: 2.4 },
-  { id: 'SPOT-2614', type: 'spot', vessel: 'POLYAIGOS', charterer: 'Continental Petroleum Traders', cpDate: '14-Apr-2026', eta: '21-Apr-2026', chrtPic: 'J. Okafor', opsPic: 'N. Osei', biz: 'Tanker', year: 2026, q: 'q2', revenue: 6.1, costs: 4.0 },
-  { id: 'COA-021-2026-S5', type: 'spot', vessel: 'NORDIC STAR', charterer: 'BlueWave Commodities', cpDate: '27-Apr-2026', eta: '04-May-2026', chrtPic: 'S. Kapoor', opsPic: 'V. Petrova', biz: 'Tanker', year: 2026, q: 'q2', revenue: 3.9, costs: 2.7 },
-  { id: 'SPOT-2622', type: 'spot', vessel: 'PACIFIC GLORY', charterer: 'Falcon Tankers Pte Ltd', cpDate: '06-Jun-2026', eta: '13-Jun-2026', chrtPic: 'R. Sharma', opsPic: 'L. Ferreira', biz: 'Tanker', year: 2026, q: 'q2', revenue: 2.1, costs: 1.7 },
-  { id: 'SPOT-2631', type: 'spot', vessel: 'ARCADIA SUN', charterer: 'Meridian Chartering Ltd', cpDate: '04-Jul-2026', eta: '11-Jul-2026', chrtPic: 'T. Lindqvist', opsPic: 'D. Novak', biz: 'Tanker', year: 2026, q: 'q3', revenue: 4.4, costs: 3.0 },
-  { id: 'SPOT-2638', type: 'spot', vessel: 'HELLESPONT PRIDE', charterer: 'Trident Energy Marine', cpDate: '16-Aug-2026', eta: '23-Aug-2026', chrtPic: 'A. Ibrahim', opsPic: 'K. Tanaka', biz: 'Tanker', year: 2026, q: 'q3', revenue: 3.6, costs: 2.6 },
-  { id: 'SPOT-2645', type: 'spot', vessel: 'ORION TRADER', charterer: 'Solaris Bulk Carriers', cpDate: '30-Sep-2026', eta: '07-Oct-2026', chrtPic: 'M. Chen', opsPic: 'P. Andersen', biz: 'Tanker', year: 2026, q: 'q4', revenue: 5.0, costs: 3.3 },
-  { id: 'TC-2603', type: 'tc', vessel: 'NEW INTEGRITY', charterer: 'Helios Marine Chartering', cpDate: '15-Jan-2026', eta: '—', chrtPic: 'J. Okafor', opsPic: 'N. Osei', biz: 'Tanker', year: 2026, q: 'q1', revenue: 7.8, costs: 5.9 },
-  { id: 'TC-2607', type: 'tc', vessel: 'OCEAN PRIDE', charterer: 'Arcadia Shipping Group', cpDate: '28-Jan-2026', eta: '—', chrtPic: 'S. Kapoor', opsPic: 'V. Petrova', biz: 'Tanker', year: 2026, q: 'q1', revenue: 4.5, costs: 3.4 },
-  { id: 'TC-2611', type: 'tc', vessel: 'CRIMSON HORIZON', charterer: 'Continental Petroleum Traders', cpDate: '12-Feb-2026', eta: '—', chrtPic: 'R. Sharma', opsPic: 'L. Ferreira', biz: 'Tanker', year: 2026, q: 'q1', revenue: 8.2, costs: 6.1 },
-  { id: 'TC-2616', type: 'tc', vessel: 'SLF TRINITY', charterer: 'Nordic Tankers AS', cpDate: '25-Mar-2026', eta: '—', chrtPic: 'T. Lindqvist', opsPic: 'D. Novak', biz: 'Tanker', year: 2026, q: 'q2', revenue: 3.0, costs: 2.3 },
-  { id: 'TC-2624', type: 'tc', vessel: 'ANTARES', charterer: 'BlueWave Commodities', cpDate: '15-Apr-2026', eta: '—', chrtPic: 'A. Ibrahim', opsPic: 'K. Tanaka', biz: 'Tanker', year: 2026, q: 'q2', revenue: 7.1, costs: 5.3 },
-  { id: 'TC-2629', type: 'tc', vessel: 'POLYAIGOS', charterer: 'Meridian Chartering Ltd', cpDate: '30-May-2026', eta: '—', chrtPic: 'M. Chen', opsPic: 'P. Andersen', biz: 'Tanker', year: 2026, q: 'q2', revenue: 4.0, costs: 3.0 },
-  { id: 'TC-2636', type: 'tc', vessel: 'NORDIC STAR', charterer: 'Falcon Tankers Pte Ltd', cpDate: '18-Jul-2026', eta: '—', chrtPic: 'J. Okafor', opsPic: 'N. Osei', biz: 'Tanker', year: 2026, q: 'q3', revenue: 5.9, costs: 4.4 },
-  { id: 'TC-2643', type: 'tc', vessel: 'PACIFIC GLORY', charterer: 'Trident Energy Marine', cpDate: '02-Sep-2026', eta: '—', chrtPic: 'S. Kapoor', opsPic: 'V. Petrova', biz: 'Tanker', year: 2026, q: 'q3', revenue: 8.5, costs: 6.2 },
-];
-
-const ELAPSED_QUARTERS = { q1: true, q2: true, q3: true, q4: false };
-
-const CARGO_MT = {
-  'SPOT-2601': 46000,
-  'SPOT-2602': 48000,
-  'COA-014-2026-S3': 69000,
-  'SPOT-2609': 36500,
-  'SPOT-2614': 56000,
-  'COA-021-2026-S5': 44000,
-  'SPOT-2622': 51000,
-  'SPOT-2631': 39000,
-  'SPOT-2638': 63500,
-  'SPOT-2645': 34000,
-  'TC-2603': 47000,
-  'TC-2607': 49000,
-  'TC-2611': 68000,
-  'TC-2616': 70500,
-  'TC-2624': 37000,
-  'TC-2629': 57500,
-  'TC-2636': 45000,
-  'TC-2643': 52000,
-};
-
-const PNL_ROWS = RAW_PNL_ROWS.map((r) => {
-  const net = +(r.revenue - r.costs).toFixed(2);
-  const margin = r.revenue ? +((net / r.revenue) * 100).toFixed(1) : 0;
-  const vi = VESSEL_INFO[r.vessel] || { dwt: 0, owner: '—' };
-  return {
-    ...r,
-    net,
-    margin,
-    status: ELAPSED_QUARTERS[r.q] ? 'Actual' : 'Estimated',
-    dwt: vi.dwt,
-    cargoMt: CARGO_MT[r.id] || 0,
-    owner: vi.owner,
-  };
-});
 
 const COLUMN_DEFS = [
   { key: 'vessel', label: 'Vessel', defaultOn: true },
@@ -130,20 +54,68 @@ function defaultColumnState() {
   return next;
 }
 
-/** Full figure from millions (no currency symbol). */
-function fmtFull(millions) {
-  const full = Math.round(millions * 1e6);
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Full USD figure (no currency symbol). */
+function fmtFull(amount) {
+  const full = Math.round(toNumber(amount));
   const sign = full < 0 ? '-' : '';
   return `${sign}${Math.abs(full).toLocaleString('en-US')}`;
 }
 
 /** Compact M/K for KPI cards / split legend (no currency). */
-function fmtCardAbbrev(millions) {
-  const abs = Math.abs(millions);
-  const sign = millions < 0 ? '-' : '';
-  if (abs === 0) return '0.0M';
-  if (abs < 1) return `${sign}${Math.round(abs * 1000).toLocaleString('en-US')}K`;
-  return `${sign}${abs.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M`;
+function fmtCardAbbrev(amount) {
+  const n = toNumber(amount);
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs === 0) return '0';
+  if (abs >= 1e6) {
+    return `${sign}${(abs / 1e6).toLocaleString('en-US', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })}M`;
+  }
+  if (abs >= 1e3) return `${sign}${Math.round(abs / 1e3).toLocaleString('en-US')}K`;
+  return `${sign}${Math.round(abs).toLocaleString('en-US')}`;
+}
+
+function resolveNet(row, type, revenue, costs) {
+  const raw = type === 'tc'
+    ? (row.finalPl != null && row.finalPl !== '' ? row.finalPl : row.tcEarnings)
+    : row.finalPl;
+  if (raw != null && raw !== '') return toNumber(raw);
+  return +(revenue - costs).toFixed(2);
+}
+
+function mapApiRow(row, type) {
+  const revenue = toNumber(row.revenue);
+  const costs = toNumber(row.costs);
+  const net = resolveNet(row, type, revenue, costs);
+  const margin = revenue ? +((net / revenue) * 100).toFixed(1) : 0;
+  return {
+    id: String(row.voyageNo || row.id || `${type}-${row.srNo}`),
+    type,
+    vessel: row.vesselName || '—',
+    charterer: row.charterer || '—',
+    cpDate: row.cpDate || '—',
+    eta: row.eta || '—',
+    chrtPic: row.chrtPic || row.team1 || row.team || row.pic1 || '—',
+    opsPic: row.opsPic || row.pic1 || row.pic2 || '—',
+    biz: row.biz || '',
+    year: row.year != null ? Number(row.year) : null,
+    q: row.q || '',
+    revenue,
+    costs,
+    net: +net.toFixed(2),
+    margin,
+    status: row.status || 'Estimated',
+    dwt: toNumber(row.dwt),
+    cargoMt: toNumber(row.cargoMt),
+    owner: row.owner || row.ownerName || '—',
+  };
 }
 
 function IconArrowUp() {
@@ -225,9 +197,16 @@ export default function PlAtAGlancePage() {
   const setHeading = usePageHeaderHeading();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [yearFilter, setYearFilter] = useState('2026');
-  const [periodFilter, setPeriodFilter] = useState('q3');
-  const [bizFilter, setBizFilter] = useState('Tanker');
+  const [yearFilter, setYearFilter] = useState(CURRENT_YEAR);
+  const [periodFilter, setPeriodFilter] = useState('full');
+  const [bizFilter, setBizFilter] = useState('3');
+  const [yearOptions, setYearOptions] = useState([
+    { id: CURRENT_YEAR, name: CURRENT_YEAR },
+    { id: String(Number(CURRENT_YEAR) - 1), name: String(Number(CURRENT_YEAR) - 1) },
+  ]);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [columnState, setColumnState] = useState(defaultColumnState);
   const [exportOpen, setExportOpen] = useState(false);
@@ -249,6 +228,53 @@ export default function PlAtAGlancePage() {
     return () => setHeading(null);
   }, [setHeading]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const meta = await fetchReportFilterOptions();
+        if (cancelled) return;
+        const years = (meta.years || []).filter((y) => y.id);
+        if (years.length) setYearOptions(years);
+      } catch {
+        // Keep local year fallbacks.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!yearFilter) {
+        setRows([]);
+        setError('Please select a year.');
+        return;
+      }
+      setLoading(true);
+      setError('');
+      try {
+        const data = await fetchReport('pl-at-a-glance-vc-tc', {
+          selYear: yearFilter,
+          selBType: bizFilter,
+        });
+        if (cancelled) return;
+        const mapped = [
+          ...(data.recordsVc || []).map((row) => mapApiRow(row, 'spot')),
+          ...(data.recordsTc || []).map((row) => mapApiRow(row, 'tc')),
+        ];
+        setRows(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setRows([]);
+        setError(err.message || 'Failed to load P&L report.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [yearFilter, bizFilter]);
+
   const visibleColumns = useMemo(
     () => COLUMN_DEFS.filter((c) => columnState[c.key]),
     [columnState],
@@ -256,18 +282,16 @@ export default function PlAtAGlancePage() {
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return PNL_ROWS.filter((r) => {
+    return rows.filter((r) => {
       if (typeFilter !== 'all' && r.type !== typeFilter) return false;
       if (periodFilter !== 'full' && r.q !== periodFilter) return false;
-      if (yearFilter !== 'all' && String(r.year) !== yearFilter) return false;
-      if (bizFilter !== 'all' && r.biz !== bizFilter) return false;
       if (q) {
         const hay = `${r.id} ${r.vessel} ${r.charterer} ${r.owner}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [search, typeFilter, yearFilter, periodFilter, bizFilter]);
+  }, [rows, search, typeFilter, periodFilter]);
 
   useEffect(() => {
     setPage(1);
@@ -307,10 +331,10 @@ export default function PlAtAGlancePage() {
       if (r.type === 'spot') spotNet += r.net;
       else tcNet += r.net;
     });
-    const totalNet = +(totalRevenue - totalCosts).toFixed(2);
+    const totalNet = +(spotNet + tcNet).toFixed(2);
     const avgMargin = totalRevenue ? (totalNet / totalRevenue) * 100 : 0;
-    const totalPnlSplit = spotNet + tcNet;
-    const spotPct = totalPnlSplit > 0 ? (spotNet / totalPnlSplit) * 100 : 50;
+    const totalPnlSplit = Math.abs(spotNet) + Math.abs(tcNet);
+    const spotPct = totalPnlSplit > 0 ? (Math.abs(spotNet) / totalPnlSplit) * 100 : 50;
     const tcPct = 100 - spotPct;
     return {
       totalRevenue,
@@ -329,13 +353,26 @@ export default function PlAtAGlancePage() {
   const toIdx = Math.min(safePage * PAGE_SIZE, filteredRows.length);
   const tableMinWidth = Math.max(760, (visibleColumns.length + 2) * 128);
 
+  const exportColumns = useMemo(() => ([
+    { key: 'id', label: 'Voy No.' },
+    { key: 'type', label: 'Type' },
+    ...visibleColumns.map((col) => ({ key: col.key, label: col.label })),
+  ]), [visibleColumns]);
+
   const handleExport = (format) => {
-    const action = format === 'Email'
-      ? `Attaching a ${filteredRows.length}-record report`
-      : `Downloading as ${format}`;
-    showToast(
-      `${action} — Voy No. + ${visibleColumns.length} selected field${visibleColumns.length === 1 ? '' : 's'} for ${filteredRows.length} record${filteredRows.length === 1 ? '' : 's'} — illustrative only in this mockup.`,
-    );
+    if (!filteredRows.length) {
+      showToast('No records to export for the current filters.');
+      setExportOpen(false);
+      return;
+    }
+    if (format === 'Excel' || format === 'CSV') {
+      downloadReportExcel('pl-at-a-glance-spot-tc', exportColumns, filteredRows);
+      showToast(`Downloaded ${filteredRows.length} record${filteredRows.length === 1 ? '' : 's'} as Excel.`);
+    } else if (format === 'PDF') {
+      showToast('PDF export is available from other report pages — use Excel for this grid.');
+    } else {
+      showToast(`Prepared ${filteredRows.length} record${filteredRows.length === 1 ? '' : 's'} for email attach — download Excel and attach manually.`);
+    }
     setExportOpen(false);
   };
 
@@ -356,7 +393,7 @@ export default function PlAtAGlancePage() {
             ariaLabel="Contract type"
           />
           <CardSelect
-            options={YEAR_OPTIONS}
+            options={yearOptions}
             value={yearFilter}
             onChange={setYearFilter}
             placeholder="Year"
@@ -380,6 +417,9 @@ export default function PlAtAGlancePage() {
       </PageHeaderActions>
 
       <div className={`zafira-page ${styles.page}`}>
+        {loading ? <LoadingOverlay active label="Loading P&L - Spot & TC…" /> : null}
+        {error ? <div className={styles.errorBanner} role="alert">{error}</div> : null}
+
         <div className={styles.hcardGrid}>
           <div className={`${styles.hcard} ${styles.hcardRev}`}>
             <div className={styles.hcardHead}>
@@ -616,7 +656,7 @@ export default function PlAtAGlancePage() {
                 const rowNum = (safePage - 1) * PAGE_SIZE + i + 1;
                 const accent = r.type === 'spot' ? '#f4652c' : '#14919b';
                 return (
-                  <tr key={r.id}>
+                  <tr key={`${r.type}-${r.id}-${rowNum}`}>
                     <td className={styles.accentCell} style={{ borderLeftColor: accent }}>{rowNum}</td>
                     <td>
                       <div className={styles.contractCell}>
@@ -638,7 +678,9 @@ export default function PlAtAGlancePage() {
                 );
               }) : (
                 <tr className={styles.emptyRow}>
-                  <td colSpan={visibleColumns.length + 2}>No contracts match the current filters.</td>
+                  <td colSpan={visibleColumns.length + 2}>
+                    {loading ? 'Loading…' : 'No contracts match the current filters.'}
+                  </td>
                 </tr>
               )}
             </tbody>

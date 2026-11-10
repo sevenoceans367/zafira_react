@@ -58,22 +58,77 @@ async function chartererForMaster(pool, master) {
   return vendorName(pool, master.FGFF_VENDORID);
 }
 
+function pickFinalSheet(sheets = []) {
+  const withSheet = sheets.filter((s) => s.SHEET_NO != null && s.SHEET_NO !== '');
+  if (withSheet.length) return withSheet[withSheet.length - 1];
+  return sheets[sheets.length - 1] || null;
+}
+
 async function plBoundsForCom(pool, comId) {
   const [sheets] = await pool.query(
-    `SELECT ACTUAL_PL, SHEET_NO
+    `SELECT FCAID, ACTUAL_PL, PROFIT_LOSS, SHEET_NO, REVENUES_FREIGHT, VOYAGE_EARNING,
+            BUNKER_EXPENSES, PORT_EXPENSES, DWT_SUMMER, QUANTITY,
+            GAS_QUANTITY, TANK_QUANTITY, QTY_TYPE_RADIO, ESTIMATE_TYPE,
+            CP_DATE, ETA_DATE, TRANS_DATE, ADD_ON_DATE
      FROM freight_cost_estimete_master
      WHERE COMID = ?
      ORDER BY FCAID ASC`,
     [comId],
   );
   const initial = sheets.find((s) => s.SHEET_NO == null || s.SHEET_NO === '');
-  const withSheet = sheets.filter((s) => s.SHEET_NO != null && s.SHEET_NO !== '');
-  return {
-    initial: initial?.ACTUAL_PL ?? sheets[0]?.ACTUAL_PL ?? '',
-    final: withSheet.length
-      ? withSheet[withSheet.length - 1]?.ACTUAL_PL ?? ''
-      : (sheets[sheets.length - 1]?.ACTUAL_PL ?? ''),
+  const finalSheet = pickFinalSheet(sheets);
+  const revenue = Number(finalSheet?.REVENUES_FREIGHT || finalSheet?.VOYAGE_EARNING) || 0;
+  const bunker = Number(finalSheet?.BUNKER_EXPENSES) || 0;
+  const port = Number(finalSheet?.PORT_EXPENSES) || 0;
+  const pickPl = (sheet) => {
+    if (!sheet) return '';
+    if (sheet.ACTUAL_PL != null && sheet.ACTUAL_PL !== '') return sheet.ACTUAL_PL;
+    if (sheet.PROFIT_LOSS != null && sheet.PROFIT_LOSS !== '') return sheet.PROFIT_LOSS;
+    return '';
   };
+  const finalPl = pickPl(finalSheet);
+  const net = Number(finalPl);
+  const expense = bunker + port;
+  const costs = expense > 0
+    ? expense
+    : (Number.isFinite(net) && finalPl !== '' && revenue ? Math.max(0, revenue - net) : expense);
+  return {
+    initial: pickPl(initial) || pickPl(sheets[0]) || '',
+    final: finalPl,
+    revenue,
+    costs,
+    dwt: Number(finalSheet?.DWT_SUMMER) || 0,
+    cpDate: finalSheet?.CP_DATE || finalSheet?.TRANS_DATE || finalSheet?.ADD_ON_DATE || null,
+    etaDate: finalSheet?.ETA_DATE || null,
+    quantityType: finalSheet?.QTY_TYPE_RADIO,
+    estimateType: finalSheet?.ESTIMATE_TYPE,
+    quantity: finalSheet?.QUANTITY,
+    gasQuantity: finalSheet?.GAS_QUANTITY,
+    tankQuantity: finalSheet?.TANK_QUANTITY,
+    fcaId: finalSheet?.FCAID,
+  };
+}
+
+function statusLabel(status) {
+  const value = Number(status);
+  if (value === 1) return 'Estimated';
+  if (value === 2 || value === 3 || value === 4) return 'Actual';
+  return 'Estimated';
+}
+
+function quarterFromDate(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `q${Math.floor(date.getMonth() / 3) + 1}`;
+}
+
+function bizLabel(estimateType) {
+  const value = Number(estimateType);
+  if (value === 1) return 'Gas';
+  if (value === 2) return 'Tanker';
+  if (value === 3) return 'Dry Cargo';
+  return '';
 }
 
 async function cargoQtyForMaster(pool, master) {
@@ -234,8 +289,9 @@ export async function dbPlAtAGlanceVc(filters = {}) {
   const team = teamFilter(filters.selTeam);
 
   const [rows] = await pool.query(
-    `SELECT c.COMID, m.FCAID, m.VOYAGE_NO, m.VESSEL_IMO_ID, m.ESTIMATE_TYPE,
-            m.QTY_TYPE_RADIO, m.FGFF_VENDORID, m.ADD_ON_DATE,
+    `SELECT c.COMID, c.STATUS AS OPS_STATUS, m.FCAID, m.VOYAGE_NO, m.VESSEL_IMO_ID, m.ESTIMATE_TYPE,
+            m.QTY_TYPE_RADIO, m.FGFF_VENDORID, m.ADD_ON_DATE, m.CP_DATE, m.ETA_DATE,
+            m.QUANTITY, m.GAS_QUANTITY, m.TANK_QUANTITY, m.DWT_SUMMER,
             m.CHARTERING_PIC, m.CHARTERING_PIC_1, m.CHARTERING_PIC_2, m.CHARTERING_PIC_3,
             m.CHARTERING_TEAM_1, v.VESSEL_NAME
      FROM freight_cost_estimate_compare c
@@ -258,9 +314,19 @@ export async function dbPlAtAGlanceVc(filters = {}) {
   for (let i = 0; i < rows.length; i += 1) {
     const row = rows[i];
     const pl = await plBoundsForCom(pool, row.COMID);
+    const cargoMaster = {
+      FCAID: pl.fcaId || row.FCAID,
+      ESTIMATE_TYPE: pl.estimateType ?? row.ESTIMATE_TYPE,
+      QTY_TYPE_RADIO: pl.quantityType ?? row.QTY_TYPE_RADIO,
+      QUANTITY: pl.quantity ?? row.QUANTITY,
+      GAS_QUANTITY: pl.gasQuantity ?? row.GAS_QUANTITY,
+      TANK_QUANTITY: pl.tankQuantity ?? row.TANK_QUANTITY,
+    };
+    const cpSource = pl.cpDate || row.CP_DATE || row.ADD_ON_DATE;
     records.push({
       id: row.COMID,
       srNo: i + 1,
+      type: 'spot',
       voyageNo: row.VOYAGE_NO || '',
       vesselName: row.VESSEL_NAME || '',
       charterer: await chartererForMaster(pool, row),
@@ -269,9 +335,22 @@ export async function dbPlAtAGlanceVc(filters = {}) {
       pic1: await loginName(pool, row.CHARTERING_PIC_1),
       pic2: await loginName(pool, row.CHARTERING_PIC_2),
       pic3: await loginName(pool, row.CHARTERING_PIC_3),
-      year: row.ADD_ON_DATE ? String(new Date(row.ADD_ON_DATE).getFullYear()) : year,
+      chrtPic: await loginName(pool, row.CHARTERING_PIC),
+      opsPic: await loginName(pool, row.CHARTERING_PIC_1),
+      year: cpSource ? String(new Date(cpSource).getFullYear()) : year,
+      q: quarterFromDate(cpSource),
+      biz: bizLabel(row.ESTIMATE_TYPE),
+      cpDate: safeDate(cpSource),
+      eta: safeDate(pl.etaDate || row.ETA_DATE) || '—',
+      dwt: pl.dwt || Number(row.DWT_SUMMER) || 0,
+      cargoMt: await cargoQtyForMaster(pool, cargoMaster),
+      owner: '',
+      revenue: pl.revenue,
+      costs: pl.costs,
       initialPl: pl.initial,
       finalPl: pl.final,
+      status: statusLabel(row.OPS_STATUS),
+      opsStatus: row.OPS_STATUS,
     });
   }
 
@@ -290,8 +369,9 @@ export async function dbPlAtAGlanceTc(filters = {}, { includeInitial = false } =
   const companyName = company?.COMPANY_NAME || '';
 
   const [rows] = await pool.query(
-    `SELECT c.COMID, m.TCOUTID, m.TC_NO, m.VESSEL_IMO_ID, m.SEL_CHARTERER,
-            m.CHARTERING_PIC, m.CHARTERING_PIC_1, m.UPDATE_ON_DATE,
+    `SELECT c.COMID, c.STATUS AS OPS_STATUS, m.TCOUTID, m.TC_NO, m.VESSEL_IMO_ID, m.SEL_CHARTERER,
+            m.CHARTERING_PIC, m.CHARTERING_PIC_1, m.UPDATE_ON_DATE, m.TC_DATE, m.CP_DATE1,
+            m.ESTIMATE_TYPE, m.DWT_SUMMER_CP,
             v.VESSEL_NAME, vend.NAME AS CHARTERER_NAME,
             (SELECT VOYAGE_EARN_EST FROM chartering_tc_estimate_slave1 s
              WHERE s.TCOUTID = m.TCOUTID ORDER BY s.TC_SLAVE1ID DESC LIMIT 1) AS TC_EARNINGS,
@@ -319,33 +399,45 @@ export async function dbPlAtAGlanceTc(filters = {}, { includeInitial = false } =
     [MODULE_ID, COMPANY_ID, year, ...typeFilter.params, ...team.params],
   );
 
-  const records = rows.map((row, index) => {
-    const base = {
+  const records = [];
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    const earnings = row.TC_EARNINGS != null ? Number(row.TC_EARNINGS) : 0;
+    const cpSource = row.CP_DATE1 || row.UPDATE_ON_DATE || row.TC_DATE;
+    const record = {
       id: row.COMID || row.TCOUTID,
       srNo: index + 1,
+      type: 'tc',
       voyageNo: row.TC_NO || '',
       vesselName: row.VESSEL_NAME || '',
       charterer: row.CHARTERER_NAME || '',
-      team: '',
-      pic1: '',
-      pic2: '',
+      team: await loginName(pool, row.CHARTERING_PIC),
+      pic1: await loginName(pool, row.CHARTERING_PIC),
+      pic2: await loginName(pool, row.CHARTERING_PIC_1),
+      chrtPic: await loginName(pool, row.CHARTERING_PIC),
+      opsPic: await loginName(pool, row.CHARTERING_PIC_1),
       ownerName: companyName,
+      owner: companyName,
+      year: cpSource ? String(new Date(cpSource).getFullYear()) : year,
+      q: quarterFromDate(cpSource),
+      biz: bizLabel(row.ESTIMATE_TYPE),
+      cpDate: safeDate(cpSource),
+      eta: '—',
+      dwt: Number(row.DWT_SUMMER_CP) || 0,
+      cargoMt: 0,
+      revenue: Number.isFinite(earnings) ? Math.max(0, earnings) : 0,
+      costs: 0,
+      finalPl: Number.isFinite(earnings) ? earnings : 0,
       tcEarnings: row.TC_EARNINGS != null ? Number(row.TC_EARNINGS).toFixed(2) : '',
+      status: statusLabel(row.OPS_STATUS),
+      opsStatus: row.OPS_STATUS,
     };
     if (includeInitial) {
-      base.tcEarningsInitial = row.TC_EARNINGS_INITIAL != null
+      record.tcEarningsInitial = row.TC_EARNINGS_INITIAL != null
         ? Number(row.TC_EARNINGS_INITIAL).toFixed(2)
         : '';
     }
-    return base;
-  });
-
-  for (const record of records) {
-    const source = rows.find((r) => String(r.COMID || r.TCOUTID) === String(record.id));
-    if (!source) continue;
-    record.team = await loginName(pool, source.CHARTERING_PIC);
-    record.pic1 = await loginName(pool, source.CHARTERING_PIC);
-    record.pic2 = await loginName(pool, source.CHARTERING_PIC_1);
+    records.push(record);
   }
 
   return { records, recordsTotal: records.length, isMgmtUser: isMgmtUser() };

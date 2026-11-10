@@ -679,7 +679,9 @@ export default function PlAtAGlancePage() {
               }) : (
                 <tr className={styles.emptyRow}>
                   <td colSpan={visibleColumns.length + 2}>
-                    {loading ? 'Loading…' : 'No contracts match the current filters.'}
+                    {loading
+                      ? 'Loading…'
+                      : `No Spot/TC fixtures for ${bizFilter === '3' ? 'Dry' : bizFilter === '2' ? 'Tankers' : bizFilter === '1' ? 'Gas' : 'this business'} in ${yearFilter}${periodFilter !== 'full' ? ` / ${periodFilter.toUpperCase()}` : ''}. Try another year or All Types.`}
                   </td>
                 </tr>
               )}

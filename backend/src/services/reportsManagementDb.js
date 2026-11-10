@@ -282,15 +282,81 @@ export async function dbComparisonSheets(comId) {
   };
 }
 
+const YEAR_SQL_VC = 'YEAR(COALESCE(m.CP_DATE, m.ADD_ON_DATE, m.TRANS_DATE))';
+const YEAR_SQL_TC = 'YEAR(COALESCE(m.CP_DATE1, m.UPDATE_ON_DATE, m.TC_DATE))';
+
+async function mapVcPlRow(pool, row, year, { status, opsStatus }) {
+  const hasCom = row.COMID != null && String(row.COMID) !== '' && Number(row.COMID) !== 0;
+  const pl = hasCom
+    ? await plBoundsForCom(pool, row.COMID)
+    : {
+      initial: row.PROFIT_LOSS ?? row.ACTUAL_PL ?? '',
+      final: row.ACTUAL_PL ?? row.PROFIT_LOSS ?? '',
+      revenue: Number(row.REVENUES_FREIGHT || row.VOYAGE_EARNING) || 0,
+      costs: (Number(row.BUNKER_EXPENSES) || 0) + (Number(row.PORT_EXPENSES) || 0),
+      dwt: Number(row.DWT_SUMMER) || 0,
+      cpDate: row.CP_DATE || row.ADD_ON_DATE || row.TRANS_DATE || null,
+      etaDate: row.ETA_DATE || null,
+      quantityType: row.QTY_TYPE_RADIO,
+      estimateType: row.ESTIMATE_TYPE,
+      quantity: row.QUANTITY,
+      gasQuantity: row.GAS_QUANTITY,
+      tankQuantity: row.TANK_QUANTITY,
+      fcaId: row.FCAID,
+    };
+  if (!hasCom && !pl.costs && pl.revenue && pl.final !== '') {
+    const net = Number(pl.final);
+    if (Number.isFinite(net)) pl.costs = Math.max(0, pl.revenue - net);
+  }
+  const cargoMaster = {
+    FCAID: pl.fcaId || row.FCAID,
+    ESTIMATE_TYPE: pl.estimateType ?? row.ESTIMATE_TYPE,
+    QTY_TYPE_RADIO: pl.quantityType ?? row.QTY_TYPE_RADIO,
+    QUANTITY: pl.quantity ?? row.QUANTITY,
+    GAS_QUANTITY: pl.gasQuantity ?? row.GAS_QUANTITY,
+    TANK_QUANTITY: pl.tankQuantity ?? row.TANK_QUANTITY,
+  };
+  const cpSource = pl.cpDate || row.CP_DATE || row.ADD_ON_DATE || row.TRANS_DATE;
+  return {
+    id: hasCom ? row.COMID : `fca-${row.FCAID}`,
+    type: 'spot',
+    voyageNo: row.VOYAGE_NO || '',
+    vesselName: row.VESSEL_NAME || '',
+    charterer: await chartererForMaster(pool, row),
+    team1: await loginName(pool, row.CHARTERING_PIC),
+    team2: await loginName(pool, row.CHARTERING_TEAM_1),
+    pic1: await loginName(pool, row.CHARTERING_PIC_1),
+    pic2: await loginName(pool, row.CHARTERING_PIC_2),
+    pic3: await loginName(pool, row.CHARTERING_PIC_3),
+    chrtPic: await loginName(pool, row.CHARTERING_PIC),
+    opsPic: await loginName(pool, row.CHARTERING_PIC_1),
+    year: cpSource ? String(new Date(cpSource).getFullYear()) : year,
+    q: quarterFromDate(cpSource),
+    biz: bizLabel(row.ESTIMATE_TYPE),
+    cpDate: safeDate(cpSource),
+    eta: safeDate(pl.etaDate || row.ETA_DATE) || '—',
+    dwt: pl.dwt || Number(row.DWT_SUMMER) || 0,
+    cargoMt: await cargoQtyForMaster(pool, cargoMaster),
+    owner: '',
+    revenue: pl.revenue,
+    costs: pl.costs,
+    initialPl: pl.initial,
+    finalPl: pl.final,
+    status,
+    opsStatus,
+    source: hasCom ? 'ops' : 'business',
+  };
+}
+
 export async function dbPlAtAGlanceVc(filters = {}) {
   const pool = getPool();
   const year = filters.selYear || String(new Date().getFullYear());
   const typeFilter = estimateTypeFilter(filters.selBType);
   const team = teamFilter(filters.selTeam);
 
-  const [rows] = await pool.query(
+  const [opsRows] = await pool.query(
     `SELECT c.COMID, c.STATUS AS OPS_STATUS, m.FCAID, m.VOYAGE_NO, m.VESSEL_IMO_ID, m.ESTIMATE_TYPE,
-            m.QTY_TYPE_RADIO, m.FGFF_VENDORID, m.ADD_ON_DATE, m.CP_DATE, m.ETA_DATE,
+            m.QTY_TYPE_RADIO, m.FGFF_VENDORID, m.ADD_ON_DATE, m.CP_DATE, m.ETA_DATE, m.TRANS_DATE,
             m.QUANTITY, m.GAS_QUANTITY, m.TANK_QUANTITY, m.DWT_SUMMER,
             m.CHARTERING_PIC, m.CHARTERING_PIC_1, m.CHARTERING_PIC_2, m.CHARTERING_PIC_3,
             m.CHARTERING_TEAM_1, v.VESSEL_NAME
@@ -302,57 +368,56 @@ export async function dbPlAtAGlanceVc(filters = {}) {
        AND c.FINAL_ID IS NOT NULL AND c.FINAL_ID != ''
        AND m.FIXED = 1
        AND c.STATUS IN (1, 2, 3, 4)
-       AND YEAR(COALESCE(m.ADD_ON_DATE, m.TRANS_DATE)) = ?
+       AND ${YEAR_SQL_VC} = ?
        ${typeFilter.sql}
        ${team.sql}
      GROUP BY c.COMID
-     ORDER BY m.ADD_ON_DATE DESC`,
+     ORDER BY COALESCE(m.CP_DATE, m.ADD_ON_DATE, m.TRANS_DATE) DESC`,
+    [MODULE_ID, COMPANY_ID, year, ...typeFilter.params, ...team.params],
+  );
+
+  const seenCom = new Set(opsRows.map((row) => String(row.COMID)));
+  const [businessRows] = await pool.query(
+    `SELECT m.COMID, m.FCAID, m.VOYAGE_NO, m.VESSEL_IMO_ID, m.ESTIMATE_TYPE,
+            m.QTY_TYPE_RADIO, m.FGFF_VENDORID, m.ADD_ON_DATE, m.CP_DATE, m.ETA_DATE, m.TRANS_DATE,
+            m.QUANTITY, m.GAS_QUANTITY, m.TANK_QUANTITY, m.DWT_SUMMER,
+            m.ACTUAL_PL, m.PROFIT_LOSS, m.REVENUES_FREIGHT, m.VOYAGE_EARNING,
+            m.BUNKER_EXPENSES, m.PORT_EXPENSES,
+            m.CHARTERING_PIC, m.CHARTERING_PIC_1, m.CHARTERING_PIC_2, m.CHARTERING_PIC_3,
+            m.CHARTERING_TEAM_1, v.VESSEL_NAME
+     FROM freight_cost_estimete_master m
+     LEFT JOIN vessel_imo_master v ON v.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+     WHERE m.MODULEID = ?
+       AND m.MCOMPANYID = ?
+       AND m.FIXED = 1
+       AND m.COAID IS NULL
+       AND (m.SHEET_NO IS NULL OR m.SHEET_NO = '')
+       AND ${YEAR_SQL_VC} = ?
+       ${typeFilter.sql}
+       ${team.sql}
+     ORDER BY COALESCE(m.CP_DATE, m.ADD_ON_DATE, m.TRANS_DATE) DESC`,
     [MODULE_ID, COMPANY_ID, year, ...typeFilter.params, ...team.params],
   );
 
   const records = [];
-  for (let i = 0; i < rows.length; i += 1) {
-    const row = rows[i];
-    const pl = await plBoundsForCom(pool, row.COMID);
-    const cargoMaster = {
-      FCAID: pl.fcaId || row.FCAID,
-      ESTIMATE_TYPE: pl.estimateType ?? row.ESTIMATE_TYPE,
-      QTY_TYPE_RADIO: pl.quantityType ?? row.QTY_TYPE_RADIO,
-      QUANTITY: pl.quantity ?? row.QUANTITY,
-      GAS_QUANTITY: pl.gasQuantity ?? row.GAS_QUANTITY,
-      TANK_QUANTITY: pl.tankQuantity ?? row.TANK_QUANTITY,
-    };
-    const cpSource = pl.cpDate || row.CP_DATE || row.ADD_ON_DATE;
-    records.push({
-      id: row.COMID,
-      srNo: i + 1,
-      type: 'spot',
-      voyageNo: row.VOYAGE_NO || '',
-      vesselName: row.VESSEL_NAME || '',
-      charterer: await chartererForMaster(pool, row),
-      team1: await loginName(pool, row.CHARTERING_PIC),
-      team2: await loginName(pool, row.CHARTERING_TEAM_1),
-      pic1: await loginName(pool, row.CHARTERING_PIC_1),
-      pic2: await loginName(pool, row.CHARTERING_PIC_2),
-      pic3: await loginName(pool, row.CHARTERING_PIC_3),
-      chrtPic: await loginName(pool, row.CHARTERING_PIC),
-      opsPic: await loginName(pool, row.CHARTERING_PIC_1),
-      year: cpSource ? String(new Date(cpSource).getFullYear()) : year,
-      q: quarterFromDate(cpSource),
-      biz: bizLabel(row.ESTIMATE_TYPE),
-      cpDate: safeDate(cpSource),
-      eta: safeDate(pl.etaDate || row.ETA_DATE) || '—',
-      dwt: pl.dwt || Number(row.DWT_SUMMER) || 0,
-      cargoMt: await cargoQtyForMaster(pool, cargoMaster),
-      owner: '',
-      revenue: pl.revenue,
-      costs: pl.costs,
-      initialPl: pl.initial,
-      finalPl: pl.final,
+  for (const row of opsRows) {
+    records.push(await mapVcPlRow(pool, row, year, {
       status: statusLabel(row.OPS_STATUS),
       opsStatus: row.OPS_STATUS,
-    });
+    }));
   }
+  for (const row of businessRows) {
+    const comKey = row.COMID != null && Number(row.COMID) !== 0 ? String(row.COMID) : '';
+    if (comKey && seenCom.has(comKey)) continue;
+    records.push(await mapVcPlRow(pool, row, year, {
+      status: 'Estimated',
+      opsStatus: null,
+    }));
+  }
+
+  records.forEach((record, index) => {
+    record.srNo = index + 1;
+  });
 
   return { records, recordsTotal: records.length, isMgmtUser: isMgmtUser() };
 }
@@ -368,13 +433,15 @@ export async function dbPlAtAGlanceTc(filters = {}, { includeInitial = false } =
   );
   const companyName = company?.COMPANY_NAME || '';
 
-  const [rows] = await pool.query(
+  const earningsSelect = `(SELECT VOYAGE_EARN_EST FROM chartering_tc_estimate_slave1 s
+             WHERE s.TCOUTID = m.TCOUTID ORDER BY s.TC_SLAVE1ID DESC LIMIT 1) AS TC_EARNINGS`;
+
+  const [opsRows] = await pool.query(
     `SELECT c.COMID, c.STATUS AS OPS_STATUS, m.TCOUTID, m.TC_NO, m.VESSEL_IMO_ID, m.SEL_CHARTERER,
             m.CHARTERING_PIC, m.CHARTERING_PIC_1, m.UPDATE_ON_DATE, m.TC_DATE, m.CP_DATE1,
             m.ESTIMATE_TYPE, m.DWT_SUMMER_CP,
             v.VESSEL_NAME, vend.NAME AS CHARTERER_NAME,
-            (SELECT VOYAGE_EARN_EST FROM chartering_tc_estimate_slave1 s
-             WHERE s.TCOUTID = m.TCOUTID ORDER BY s.TC_SLAVE1ID DESC LIMIT 1) AS TC_EARNINGS,
+            ${earningsSelect},
             (SELECT VOYAGE_EARN_EST FROM chartering_tc_estimate_slave1 s
              WHERE s.TCOUTID = (
                SELECT TCOUTID FROM chartering_estimate_tc_master
@@ -391,22 +458,46 @@ export async function dbPlAtAGlanceTc(filters = {}, { includeInitial = false } =
        AND c.FINAL_ID IS NOT NULL AND c.FINAL_ID != ''
        AND m.FIXED = 1
        AND c.STATUS IN (1, 2, 3, 4)
-       AND YEAR(COALESCE(m.UPDATE_ON_DATE, m.TC_DATE, m.CP_DATE1)) = ?
+       AND ${YEAR_SQL_TC} = ?
        ${typeFilter.sql}
        ${team.sql}
      GROUP BY c.COMID
-     ORDER BY m.UPDATE_ON_DATE DESC`,
+     ORDER BY COALESCE(m.CP_DATE1, m.UPDATE_ON_DATE, m.TC_DATE) DESC`,
     [MODULE_ID, COMPANY_ID, year, ...typeFilter.params, ...team.params],
   );
 
-  const records = [];
-  for (let index = 0; index < rows.length; index += 1) {
-    const row = rows[index];
+  const seenCom = new Set(
+    opsRows
+      .map((row) => (row.COMID != null && Number(row.COMID) !== 0 ? String(row.COMID) : ''))
+      .filter(Boolean),
+  );
+  const seenTc = new Set(opsRows.map((row) => String(row.TCOUTID)));
+
+  const [businessRows] = await pool.query(
+    `SELECT m.COMID, m.TCOUTID, m.TC_NO, m.VESSEL_IMO_ID, m.SEL_CHARTERER,
+            m.CHARTERING_PIC, m.CHARTERING_PIC_1, m.UPDATE_ON_DATE, m.TC_DATE, m.CP_DATE1,
+            m.ESTIMATE_TYPE, m.DWT_SUMMER_CP,
+            v.VESSEL_NAME, vend.NAME AS CHARTERER_NAME,
+            ${earningsSelect}
+     FROM chartering_estimate_tc_master m
+     LEFT JOIN vessel_imo_master v ON v.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+     LEFT JOIN vendor_master vend ON vend.CODE = m.SEL_CHARTERER
+     WHERE m.MODULEID = ?
+       AND m.MCOMPANYID = ?
+       AND m.FIXED = 1
+       AND (m.SHEET_NO IS NULL OR m.SHEET_NO = '')
+       AND ${YEAR_SQL_TC} = ?
+       ${typeFilter.sql}
+       ${team.sql}
+     ORDER BY COALESCE(m.CP_DATE1, m.UPDATE_ON_DATE, m.TC_DATE) DESC`,
+    [MODULE_ID, COMPANY_ID, year, ...typeFilter.params, ...team.params],
+  );
+
+  const mapTcRow = async (row, { status, opsStatus, includeInitialRow = false }) => {
     const earnings = row.TC_EARNINGS != null ? Number(row.TC_EARNINGS) : 0;
     const cpSource = row.CP_DATE1 || row.UPDATE_ON_DATE || row.TC_DATE;
     const record = {
       id: row.COMID || row.TCOUTID,
-      srNo: index + 1,
       type: 'tc',
       voyageNo: row.TC_NO || '',
       vesselName: row.VESSEL_NAME || '',
@@ -429,16 +520,39 @@ export async function dbPlAtAGlanceTc(filters = {}, { includeInitial = false } =
       costs: 0,
       finalPl: Number.isFinite(earnings) ? earnings : 0,
       tcEarnings: row.TC_EARNINGS != null ? Number(row.TC_EARNINGS).toFixed(2) : '',
-      status: statusLabel(row.OPS_STATUS),
-      opsStatus: row.OPS_STATUS,
+      status,
+      opsStatus,
+      source: opsStatus != null ? 'ops' : 'business',
     };
-    if (includeInitial) {
+    if (includeInitialRow) {
       record.tcEarningsInitial = row.TC_EARNINGS_INITIAL != null
         ? Number(row.TC_EARNINGS_INITIAL).toFixed(2)
         : '';
     }
-    records.push(record);
+    return record;
+  };
+
+  const records = [];
+  for (const row of opsRows) {
+    records.push(await mapTcRow(row, {
+      status: statusLabel(row.OPS_STATUS),
+      opsStatus: row.OPS_STATUS,
+      includeInitialRow: includeInitial,
+    }));
   }
+  for (const row of businessRows) {
+    const comKey = row.COMID != null && Number(row.COMID) !== 0 ? String(row.COMID) : '';
+    if (comKey && seenCom.has(comKey)) continue;
+    if (seenTc.has(String(row.TCOUTID))) continue;
+    records.push(await mapTcRow(row, {
+      status: 'Estimated',
+      opsStatus: null,
+    }));
+  }
+
+  records.forEach((record, index) => {
+    record.srNo = index + 1;
+  });
 
   return { records, recordsTotal: records.length, isMgmtUser: isMgmtUser() };
 }

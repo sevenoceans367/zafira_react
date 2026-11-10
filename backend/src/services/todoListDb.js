@@ -81,12 +81,29 @@ function statusMeta(statusCode, addonDate) {
 }
 
 async function getVendorName(pool, code) {
-  if (!code) return '';
-  const [[row]] = await pool.query(
-    'SELECT CONCAT(NAME, \' (\', CODE, \')\') AS name FROM vendor_master WHERE CODE = ? LIMIT 1',
-    [code],
+  const raw = String(code ?? '').trim();
+  if (!raw) return '';
+
+  // Transactions sometimes store vendor CODE (CH0011) and sometimes numeric VENDORID (28).
+  const [[byCode]] = await pool.query(
+    `SELECT CONCAT(NAME, ' (', CODE, ')') AS name
+     FROM vendor_master
+     WHERE CODE = ? OR TRIM(CODE) = ?
+     LIMIT 1`,
+    [raw, raw],
   );
-  return row?.name ?? String(code);
+  if (byCode?.name) return byCode.name;
+
+  const [[byId]] = await pool.query(
+    `SELECT CONCAT(NAME, ' (', CODE, ')') AS name
+     FROM vendor_master
+     WHERE CAST(VENDORID AS CHAR) = ?
+     LIMIT 1`,
+    [raw],
+  );
+  if (byId?.name) return byId.name;
+
+  return raw;
 }
 
 async function getUserName(pool, loginId) {

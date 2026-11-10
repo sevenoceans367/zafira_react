@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CardSelect, GridDownloadMenu, LoadingOverlay, useConfirm } from '@bainbridge/shared-ui';
 import spotNavIcon from '../../../assets/010-pie-chart.png';
+import ModuleTintIcon from '../../../components/ModuleTintIcon.jsx';
+import tintStyles from '../../../components/ModuleTintIcon.module.css';
 import {
   downloadReportExcel,
   downloadReportPdf,
@@ -646,7 +648,10 @@ export default function RunningCoasListPage() {
                     <section className={styles.amSection}>
                       <div className={styles.amSectionHead}>
                         <div className={styles.amSectionTitleWrap}>
-                          <img src={spotNavIcon} alt="" className={`${styles.amSectionIcon} ${styles.spotIcon}`} />
+                          <ModuleTintIcon
+                            src={spotNavIcon}
+                            className={`${tintStyles.icon} ${styles.amSectionIcon} ${styles.spotIcon}`}
+                          />
                           <span className={`${styles.amSectionTitle} ${styles.spotTitle}`}>Voyages</span>
                         </div>
                         <div className={styles.amSectionControls}>

@@ -589,6 +589,7 @@
   width: 18px;
   height: 18px;
   flex: none;
+  display: block;
   object-fit: contain;
 }
 

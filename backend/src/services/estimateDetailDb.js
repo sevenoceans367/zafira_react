@@ -1637,10 +1637,17 @@ export async function dbGetEstimateDetail(id) {
     [id],
   );
 
-  const [voyageEventRows] = await pool.query(
-    `SELECT * FROM freight_cost_estimete_slave18 WHERE FCAID = ?`,
-    [id],
-  );
+  let voyageEventRows = [];
+  try {
+    const [eventRows] = await pool.query(
+      `SELECT * FROM freight_cost_estimete_slave18 WHERE FCAID = ?`,
+      [id],
+    );
+    voyageEventRows = eventRows;
+  } catch {
+    // slave18 / …_in_slave18_vc may be absent until DBA rename/create
+    voyageEventRows = [];
+  }
 
   let bunkerActivityRows = [];
   try {

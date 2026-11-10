@@ -480,15 +480,10 @@ function PeriodConnectSelect({
                 </div>
               </div>
             </div>
-            <button type="button" className={styles.thdClose} title="Close" onClick={closeModal} aria-label="Close">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
-            </button>
           </div>
 
           <div className={styles.lpcBody}>
-            <div className={styles.lpcList}>
+            <div className={`${styles.lpcList}${normalized.length === 0 ? ` ${styles.lpcListEmpty}` : ''}`.trim()}>
               {normalized.length === 0 ? (
                 <div className={styles.lpcEmpty}>No period contracts found.</div>
               ) : normalized.map((opt) => {

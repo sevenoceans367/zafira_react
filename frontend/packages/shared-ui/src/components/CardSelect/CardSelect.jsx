@@ -72,7 +72,8 @@ export default function CardSelect({
         left: `${left}px`,
         width: `${width}px`,
         maxHeight: `${maxHeight}px`,
-        zIndex: 10050,
+        // Above TC In Hire Recap / other high-z modals (backdrop ~20000)
+        zIndex: 30000,
       });
       return;
     }
@@ -84,7 +85,7 @@ export default function CardSelect({
       left: `${left}px`,
       width: `${width}px`,
       maxHeight: `${maxHeight}px`,
-      zIndex: 10050,
+      zIndex: 30000,
     });
   };
 

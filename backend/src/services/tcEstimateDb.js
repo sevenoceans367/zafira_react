@@ -20,6 +20,7 @@ const USER_ID = process.env.USER_ID || appContext.userId;
 
 let tcEstimateNoColumnReady = false;
 let tcAttachmentColumnsReady = false;
+let tcInRecapJsonColumnReady = false;
 
 async function ensureTcEstimateNoColumn(pool) {
   if (tcEstimateNoColumnReady) return true;
@@ -58,6 +59,64 @@ async function ensureTcAttachmentColumns(pool) {
     return true;
   } catch (error) {
     console.warn('[tcEstimateDb] Could not ensure ATTACHMENT columns:', error.message);
+    return false;
+  }
+}
+
+async function ensureTcInRecapJsonColumn(pool) {
+  if (tcInRecapJsonColumnReady) return true;
+  try {
+    const [cols] = await pool.query(
+      `SHOW COLUMNS FROM chartering_estimate_tc_master LIKE 'TC_IN_RECAP_JSON'`,
+    );
+    if (!cols.length) {
+      await pool.query(
+        `ALTER TABLE chartering_estimate_tc_master
+         ADD COLUMN TC_IN_RECAP_JSON LONGTEXT NULL`,
+      );
+    }
+    tcInRecapJsonColumnReady = true;
+    return true;
+  } catch (error) {
+    console.warn('[tcEstimateDb] Could not ensure TC_IN_RECAP_JSON column:', error.message);
+    return false;
+  }
+}
+
+function serializeTcInRecapJson(tcInExpenses) {
+  if (tcInExpenses == null) return null;
+  try {
+    return JSON.stringify(tcInExpenses);
+  } catch {
+    return null;
+  }
+}
+
+function parseTcInRecapJson(raw) {
+  if (raw == null || raw === '') return null;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function persistTcInRecapJson(connectionOrPool, tcOutId, tcInExpenses) {
+  const hasCol = await ensureTcInRecapJsonColumn(connectionOrPool);
+  if (!hasCol) return false;
+  const json = serializeTcInRecapJson(tcInExpenses);
+  if (json == null && tcInExpenses !== null) return false;
+  try {
+    await connectionOrPool.query(
+      `UPDATE chartering_estimate_tc_master
+       SET TC_IN_RECAP_JSON = ?
+       WHERE TCOUTID = ? AND MODULEID = ? AND MCOMPANYID = ?`,
+      [json, tcOutId, MODULE_ID, COMPANY_ID],
+    );
+    return true;
+  } catch (error) {
+    console.warn('[tcEstimateDb] Could not persist TC_IN_RECAP_JSON:', error.message);
     return false;
   }
 }
@@ -899,6 +958,7 @@ export async function dbGetPeriodTcInDetails(periodId) {
 
 export async function dbGetTcEstimate(tcOutId) {
   const pool = getPool();
+  await ensureTcInRecapJsonColumn(pool);
   const [rows] = await pool.query(
     `SELECT * FROM chartering_estimate_tc_master
      WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`,
@@ -947,23 +1007,36 @@ export async function dbGetTcEstimate(tcOutId) {
     hirePeriods: extras.hirePeriods,
     itinerary: extras.itinerary,
     itineraryExpenses: extras.itineraryExpenses,
-    tcInExpenses: extras.tcInExpenses
-      ? {
-          ...extras.tcInExpenses,
-          cpDate: calc.tcCpDate || formatDateDMY(rows[0].CP_DATE1),
-          contractRef: calc.tcCpNumber || rows[0].TC_NO || '',
-          deliveryPort: calc.tcDeliveryPort || rows[0].DEL_RANGE_PORT || '',
-          redeliveryPort: calc.tcRedeliveryPort || rows[0].RE_DEL_RANGE || '',
-          offHireCveMonth: calc.tcOffHireCveMonth || '',
-          offHireCveAmt: calc.tcOffHireCveAmt || '',
-          bunkerOnOwner: calc.tcBunkerOnOwner || '',
-          lessOffHire: calc.tcLessOffHire || '',
-          ilohc: calc.tcIlohc || '',
-          awrpCost: calc.awrpCost || '',
-          finalHireage: calc.tcFinalHireage || '',
-          finalVendor: calc.tcFinalVendor || '',
-        }
-      : null,
+    tcInExpenses: (() => {
+      const fromJson = parseTcInRecapJson(rows[0].TC_IN_RECAP_JSON);
+      const fromSlaves = extras.tcInExpenses
+        ? {
+            ...extras.tcInExpenses,
+            cpDate: calc.tcCpDate || formatDateDMY(rows[0].CP_DATE1),
+            contractRef: calc.tcCpNumber || rows[0].TC_NO || '',
+            deliveryPort: calc.tcDeliveryPort || rows[0].DEL_RANGE_PORT || '',
+            redeliveryPort: calc.tcRedeliveryPort || rows[0].RE_DEL_RANGE || '',
+            offHireCveMonth: calc.tcOffHireCveMonth || '',
+            offHireCveAmt: calc.tcOffHireCveAmt || '',
+            bunkerOnOwner: calc.tcBunkerOnOwner || '',
+            lessOffHire: calc.tcLessOffHire || '',
+            ilohc: calc.tcIlohc || '',
+            awrpCost: calc.awrpCost || '',
+            finalHireage: calc.tcFinalHireage || '',
+            finalVendor: calc.tcFinalVendor || '',
+          }
+        : null;
+      if (fromJson) {
+        return {
+          ...(fromSlaves || {}),
+          ...fromJson,
+          // Prefer JSON hire/bunker/off-hire when present; keep calc scalars as fallback.
+          finalHireage: fromJson.finalHireage ?? fromSlaves?.finalHireage ?? calc.tcFinalHireage ?? '',
+          finalVendor: fromJson.finalVendor ?? fromSlaves?.finalVendor ?? calc.tcFinalVendor ?? '',
+        };
+      }
+      return fromSlaves;
+    })(),
   });
 }
 
@@ -971,10 +1044,17 @@ export async function dbCreateTcEstimate(body = {}, upload = {}) {
   const pool = getPool();
   const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
   const hasAttachments = await ensureTcAttachmentColumns(pool);
+  const hasTcInRecapJson = await ensureTcInRecapJsonColumn(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
+    if (hasTcInRecapJson && body.tcInExpenses != null) {
+      payload = {
+        ...payload,
+        TC_IN_RECAP_JSON: serializeTcInRecapJson(body.tcInExpenses),
+      };
+    }
     if (hasAttachments) {
       const attachmentFields = resolveAttachmentFields(body, upload);
       if (attachmentFields) {
@@ -1010,6 +1090,7 @@ export async function dbUpdateTcEstimate(tcOutId, body = {}, upload = {}) {
   const pool = getPool();
   const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
   const hasAttachments = await ensureTcAttachmentColumns(pool);
+  const hasTcInRecapJson = await ensureTcInRecapJsonColumn(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -1028,6 +1109,12 @@ export async function dbUpdateTcEstimate(tcOutId, body = {}, upload = {}) {
       return null;
     }
     let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
+    if (hasTcInRecapJson && body.tcInExpenses != null) {
+      payload = {
+        ...payload,
+        TC_IN_RECAP_JSON: serializeTcInRecapJson(body.tcInExpenses),
+      };
+    }
     if (hasAttachments) {
       const attachmentFields = resolveAttachmentFields(
         {
@@ -1483,6 +1570,9 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
         hirePeriods: body.hirePeriods || merged.hirePeriods,
       },
     });
+    if (body.tcInExpenses != null) {
+      await persistTcInRecapJson(connection, tcOutId, body.tcInExpenses);
+    }
     await connection.commit();
     return { msg: 0, tcOutId, slave1Id, calc: merged };
   } catch (error) {

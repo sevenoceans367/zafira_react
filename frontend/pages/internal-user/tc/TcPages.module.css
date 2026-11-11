@@ -538,8 +538,10 @@
   align-items: flex-start;
   justify-content: center;
   z-index: 1000;
-  padding: 34px 20px;
+  padding: 24px 16px;
+  overflow-x: hidden;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .modal {
@@ -573,6 +575,575 @@
   box-shadow: 0 30px 70px rgba(20, 20, 40, 0.28);
 }
 
+/* Sit above app sidebar (z-index 1000/1100) and other chrome */
+.modalBackdrop.tcinRecapBackdrop,
+.tcinRecapBackdrop {
+  z-index: 20000 !important;
+  padding: 32px 40px;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.tcInRecapModal {
+  /* Explicit height so flex:1 body scrolls; narrower so it clears the left nav visually */
+  width: min(1280px, 100%);
+  max-width: 100%;
+  height: min(88vh, 880px);
+  max-height: min(88vh, 880px);
+  margin: 0 auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid #c9d4e4;
+  padding: 0 !important;
+  box-sizing: border-box;
+  background: #fff;
+  box-shadow: 0 30px 70px rgba(20, 20, 40, 0.28);
+  flex: 0 1 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.tcinRecapBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(270px, 300px);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px 18px 10px;
+  overflow: hidden;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.tcinRecapLhs {
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Keep accordion radii visible inside the scroll pane */
+  padding: 8px 12px 16px 10px;
+  min-height: 0;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.tcinRecapRhs {
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  min-width: 0;
+  align-self: stretch;
+  padding: 4px 4px 12px 0;
+}
+
+.tcinAccord {
+  border: 1px solid #d7e0ec;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden; /* clip summary bg to rounded corners */
+  flex: none;
+}
+
+.tcinAccordSummary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  color: #1f2937;
+  background: #f7f9fc;
+  border-bottom: 1px solid transparent;
+  border-radius: 12px;
+}
+
+.tcinAccordSummary::-webkit-details-marker {
+  display: none;
+}
+
+.tcinAccord[open] > .tcinAccordSummary {
+  border-bottom-color: #e5e7eb;
+  border-radius: 12px 12px 0 0;
+}
+
+.tcinAccordChev {
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+  display: inline-flex;
+  transition: transform 0.15s ease;
+}
+
+.tcinAccord[open] .tcinAccordChev {
+  transform: rotate(90deg);
+}
+
+.tcinAccordChev svg,
+.tcinAccordIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tcinAccordIcon {
+  color: #0d9488;
+  display: inline-flex;
+}
+
+.tcinAccordBody {
+  padding: 14px 14px 16px;
+}
+
+.tcinDenseGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 14px;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+}
+
+/* Mockup dense7 — flex wrap so rows pack evenly */
+.tcinDenseFlex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 10px;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+}
+
+.tcinDenseFlex > .field {
+  flex: 1 1 140px;
+  min-width: 120px;
+  max-width: 220px;
+}
+
+/* Mockup cpinfo — all four fields on one row; Address a bit wider */
+.tcinCpInfoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.4fr;
+  gap: 12px 14px;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+}
+
+.tcinCpInfoGrid .field label {
+  font-size: 9.5px;
+}
+
+/* Mockup tcdetails — flex wrap for TC Terms */
+.tcinTermsFlex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 10px;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+}
+
+.tcinTermsFlex > .field {
+  flex: 1 1 130px;
+  min-width: 110px;
+  max-width: 200px;
+}
+
+.tcinTermsFlex > .tcinFieldWide,
+.tcinTermsFlex > .field.tcinFieldWide {
+  flex: 1 1 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.tcinDenseGrid .field,
+.tcinCpInfoGrid .field {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tcinDenseGrid .field input,
+.tcinDenseGrid .field select,
+.tcinDenseGrid .field textarea,
+.tcinDenseFlex .field input,
+.tcinDenseFlex .field select,
+.tcinDenseFlex .field textarea,
+.tcinCpInfoGrid .field input,
+.tcinCpInfoGrid .field select,
+.tcinCpInfoGrid .field textarea,
+.tcinTermsFlex .field input,
+.tcinTermsFlex .field select,
+.tcinTermsFlex .field textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 32px;
+}
+
+.tcinFieldWide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1100px) {
+  .tcinCpInfoGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .tcinCpInfoGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tcinSecCard {
+  position: relative;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  padding: 40px 16px 16px;
+  margin-top: 16px;
+  background: #eef2ff;
+  overflow: hidden; /* keep card radii clean; tabs sit inside */
+  flex: none;
+}
+
+.tcinSecCard .miniTableWrap {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.tcinSecCard .miniTable input,
+.tcinSecCard .miniTable select,
+.tcinSecCard .miniTable textarea {
+  min-height: 32px;
+}
+
+.tcinSecCard .miniTable td:has(.tcinReasonCell) {
+  vertical-align: middle;
+}
+
+.tcinSecLight {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.tcinSecMid {
+  background: #e8eef8;
+  border-color: #bfdbfe;
+}
+
+.tcinSecNavy {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.tcinSecMustard {
+  background: #f5efe2;
+  border-color: #bd9553;
+}
+
+.tcinBunkerStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+.tcinBunkerStack > .tcinSecCard:first-child {
+  margin-top: 0;
+}
+
+.tcinSecTab {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 11px 0 12px 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.tcinSecTabLight { background: #23426b; }
+.tcinSecTabMid { background: #1e3a8a; }
+.tcinSecTabNavy { background: #1e3a8a; }
+.tcinSecTabMustard { background: #a9740a; }
+
+.tcinDirChip {
+  display: inline-block;
+  background: #fff;
+  color: #ea580c;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 4px;
+  font-size: 10px;
+}
+
+/* Mockup reason-cell — Off Hire reason input + inline + (same row, not wrapped) */
+.tcinReasonCell {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.tcinReasonCell input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto !important; /* override .miniTable input { width:100% } so + stays beside field */
+}
+
+.tcinReasonCell button {
+  flex: none;
+}
+
+.tcinOffBunkerRow > td {
+  border-top: none !important;
+  padding-top: 0 !important;
+  padding-bottom: 10px !important;
+  background: transparent;
+}
+
+.tcinOffBunkers {
+  margin: 4px 0 0 20px;
+  padding-left: 12px;
+  border-left: 2px solid #cbd5e1;
+}
+
+.tcinOffBunkersInner {
+  background: #fff;
+  border: 1px solid #d7e0ec;
+  border-radius: 10px;
+  padding: 2px 10px 8px;
+  margin-top: 6px;
+}
+
+.tcinOffAddBunkers {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed #94a3b8;
+  background: #f8fafc;
+  color: #334155;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tcinOffAddBunkers:hover {
+  background: #f1f5f9;
+  border-color: #64748b;
+}
+
+.tcinTotalRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(30, 58, 138, 0.08);
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.tcinSecMustard .tcinTotalRow {
+  background: #fcebe3;
+  color: #92400e;
+}
+
+/* Match mockup results-block / res-row (navy headers, grey value pills, accent rows) */
+.tcinResBlock {
+  background: #fff;
+  border: 1px solid #d7e0ec;
+  border-radius: 14px;
+  overflow: hidden;
+  flex: none;
+}
+
+.tcinResHead {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+  background: #274670;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tcinResHead::-webkit-details-marker {
+  display: none;
+}
+
+.tcinResChev {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: #fff;
+  opacity: 0.85;
+  transition: transform 0.15s ease;
+}
+
+.tcinResBlock[open] > .tcinResHead .tcinResChev {
+  transform: rotate(90deg);
+}
+
+.tcinResBody {
+  padding: 6px 18px 14px;
+}
+
+.tcinResRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid #d7e0ec;
+}
+
+.tcinResRow:last-child {
+  border-bottom: none;
+}
+
+.tcinResLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #5b6472;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.tcinResVal {
+  background: #f1f2f4;
+  border-radius: 7px;
+  padding: 7px 12px;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #4b5563;
+  font-variant-numeric: tabular-nums;
+  min-width: 96px;
+  text-align: right;
+  white-space: nowrap;
+  flex: none;
+}
+
+.tcinResAccent .tcinResLabel {
+  color: #274670;
+  font-weight: 700;
+}
+
+.tcinResAccent .tcinResVal {
+  background: #e6eaf1;
+  color: #274670;
+}
+
+.tcinResOrange .tcinResLabel {
+  color: #f4652c;
+  font-weight: 700;
+}
+
+.tcinResOrange .tcinResVal {
+  background: #fdece4;
+  color: #f4652c;
+}
+
+.tcinResHint {
+  padding: 4px 0 0;
+  font-size: 10.5px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.tcinDropzone {
+  margin-top: 10px;
+  border: 1.5px dashed #c9d4e4;
+  border-radius: 12px;
+  padding: 18px;
+  text-align: center;
+  background: #f8fafc;
+}
+
+.tcinDropzoneText {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.tcinFileLabel {
+  display: inline-block;
+  margin-left: 8px;
+  color: #274670;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.tcinDocList {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  text-align: left;
+}
+
+.tcinDocList li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.tcinExtNote {
+  margin-top: 8px;
+}
+
+@media (max-width: 1200px) {
+  .tcinRecapBody {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .tcinRecapRhs {
+    max-height: 240px;
+  }
+
+  .tcinDenseGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .tcinDenseGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .tcinDenseGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .thdHead {
   display: flex;
   align-items: center;
@@ -580,7 +1151,7 @@
   gap: 14px;
   padding: 16px 22px;
   border-bottom: 1px solid #e5e7eb;
-  flex: none;
+  flex: 0 0 auto;
 }
 
 .thdTitleWrap {
@@ -778,7 +1349,7 @@
   padding: 16px 22px;
   border-top: 1px solid #e5e7eb;
   background: #fafbfc;
-  flex: none;
+  flex: 0 0 auto;
 }
 
 .thdCloseBtn {

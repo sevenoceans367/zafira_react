@@ -29,12 +29,12 @@ export default function TcFormHeaderActions({
           <button
             type="button"
             className={styles.tcInRecapBtn}
-            title="Add the linked TC In leg of this sub-charter"
+            title="Add TC In Hire Recap"
             onClick={onTcInRecap}
             disabled={disabled}
           >
             <TcInRecapIcon />
-            TC In Recap
+            Add TC In Hire Recap
           </button>
         ) : null}
         {onGeneratePdf ? (

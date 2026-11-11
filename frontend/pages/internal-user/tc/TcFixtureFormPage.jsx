@@ -31,12 +31,12 @@ import CollapsiblePanel from '../sopf/CollapsiblePanel.jsx';
 import { focusEstimateValidationField } from '../sopf/estimateValidation.js';
 import { getTcAddRowBlockMessage, validateTcRecapForm } from './tcRecapValidation.js';
 import TcFormHeaderActions from './TcFormHeaderActions.jsx';
-import TcInExpensesModal, {
+import TcInHireRecapModal, {
   EMPTY_TC_IN_BUNKER,
   EMPTY_TC_IN_HIRE,
   EMPTY_TC_IN_OFF,
   calcTcInFinalHireage,
-} from './TcInExpensesModal.jsx';
+} from './TcInHireRecapModal.jsx';
 import TcPeriodBlock from './TcPeriodBlock.jsx';
 import styles from './TcPages.module.css';
 
@@ -3386,7 +3386,7 @@ export default function TcFixtureFormPage({
         )
         : null}
 
-      <TcInExpensesModal
+      <TcInHireRecapModal
         open={tcInOpen}
         value={form.tcInExpenses}
         detail={form}

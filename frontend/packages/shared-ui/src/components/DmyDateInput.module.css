@@ -26,7 +26,8 @@
   --fp-red: #e4483b;
   --fp-red-tint: #fdecea;
 
-  z-index: 10050 !important;
+  /* Above TC In Hire Recap modal (20000) and other high overlays; match CardSelect menus */
+  z-index: 30000 !important;
   width: 270px !important;
   min-width: 270px !important;
   border: 1px solid var(--fp-border);

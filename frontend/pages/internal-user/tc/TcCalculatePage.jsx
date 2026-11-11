@@ -12,12 +12,12 @@ import {
   saveTcCalculation,
 } from '../../../services/tcEstimates.js';
 import TcFormHeaderActions from './TcFormHeaderActions.jsx';
-import TcInExpensesModal, {
+import TcInHireRecapModal, {
   EMPTY_TC_IN_BUNKER,
   EMPTY_TC_IN_HIRE,
   EMPTY_TC_IN_OFF,
   calcTcInFinalHireage,
-} from './TcInExpensesModal.jsx';
+} from './TcInHireRecapModal.jsx';
 import styles from './TcPages.module.css';
 
 const EMPTY_BUNKER = { bunkerId: '', qty: '', price: '', amount: '', bunkerDate: '' };
@@ -1056,7 +1056,7 @@ export default function TcCalculatePage({
               <strong>TC In Expenses</strong>
               <Button
                 variant="outline"
-                label={readOnly ? 'View TC In Expenses' : 'TC In Expenses'}
+                label={readOnly ? 'View TC In Hire Recap' : 'Add TC In Hire Recap'}
                 onClick={() => setTcInOpen(true)}
               />
               {tcInFinalHireage ? (
@@ -1095,7 +1095,7 @@ export default function TcCalculatePage({
         </div>
       </form>
 
-      <TcInExpensesModal
+      <TcInHireRecapModal
         open={tcInOpen}
         value={form.tcInExpenses}
         detail={detail}

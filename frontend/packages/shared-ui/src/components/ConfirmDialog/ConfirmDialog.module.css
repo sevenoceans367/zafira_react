@@ -3,8 +3,8 @@
 .overlay {
   position: fixed;
   inset: 0;
-  /* Above LoadingOverlay (1990) so alerts/confirms remain clickable during save. */
-  z-index: 2100;
+  /* Above TC In Hire Recap modal (20000) and flatpickr/CardSelect (30000). */
+  z-index: 40000;
   display: flex;
   align-items: center;
   justify-content: center;

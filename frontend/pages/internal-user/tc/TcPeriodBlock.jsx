@@ -118,10 +118,14 @@ export default function TcPeriodBlock({
   gradeSelectClass,
   sortBunkersVlsfoFirst,
   readOnly = false,
+  /** "tcIn" = Add_TC_Recap_8.html TC In popup layout (no charterer, Hire Payable label, etc.) */
+  variant = 'default',
 }) {
+  const isTcIn = variant === 'tcIn';
   const hireRows = hirePeriods?.length ? hirePeriods : [emptyHire];
   const offRows = offHires?.length ? offHires : [emptyOff];
   const idPrefix = isPrimary ? '' : `ext${periodNumber}_`;
+  const req = (label) => (isTcIn || !isPrimary ? label : `${label} *`);
 
   return (
     <div className={styles.tcdPeriodBlock}>
@@ -130,7 +134,7 @@ export default function TcPeriodBlock({
           <span className={styles.tcdPeriodLabel}>Period {periodNumber}</span>
           {!readOnly && onRemove ? (
             <button type="button" className={styles.tcdPeriodRemove} onClick={onRemove} title="Remove period">
-              Remove
+              {isTcIn ? 'Remove Period' : 'Remove'}
             </button>
           ) : null}
         </div>
@@ -138,7 +142,7 @@ export default function TcPeriodBlock({
 
       <TsecCard theme="tcdLight" tab="TC Terms">
         <div className={styles.tcDetailsGrid} style={{ marginTop: 0 }}>
-          <Field label={isPrimary ? 'Laycan From/To *' : 'Laycan From/To'} className={styles.laycanWide}>
+          <Field label={req('Laycan From/To')} className={styles.laycanWide}>
             <div className={styles.dateRangePair}>
               <DmyDateInput
                 id={isPrimary ? 'laycanFrom' : undefined}
@@ -156,13 +160,13 @@ export default function TcPeriodBlock({
               />
             </div>
           </Field>
-          <Field label={isPrimary ? 'Hire Currency *' : 'Hire Currency'} id={isPrimary ? 'exchangeCurrency' : undefined}>
+          <Field label={req('Hire Currency')} id={isPrimary ? 'exchangeCurrency' : undefined}>
             <CardSelect
               id={isPrimary ? 'exchangeCurrency' : undefined}
               options={currencyOptions}
               value={terms.exchangeCurrency}
               onChange={(v) => onTermChange('exchangeCurrency', v)}
-              placeholder="Currency"
+              placeholder="Select"
               ariaLabel="Hire currency"
               disabled={readOnly}
             />
@@ -175,38 +179,65 @@ export default function TcPeriodBlock({
           />
           <TextInput
             id={isPrimary ? 'delRangePort' : undefined}
-            label={isPrimary ? 'Del Port/Range *' : 'Del Port/Range'}
+            label={req('Del Port/Range')}
             value={terms.delRangePort}
             onChange={(v) => onTermChange('delRangePort', v)}
             readOnly={readOnly}
           />
           <TextInput
             id={isPrimary ? 'reDelRange' : undefined}
-            label={isPrimary ? 'Re-Del Port/Range *' : 'Re-Del Port/Range'}
+            label={req('Re-Del Port/Range')}
             value={terms.reDelRange}
             onChange={(v) => onTermChange('reDelRange', v)}
             readOnly={readOnly}
           />
-          <TextInput
-            id={isPrimary ? 'ballastBonus' : undefined}
-            label="Ballast Bonus ($)"
-            value={terms.ballastBonus}
-            onChange={(v) => onTermChange('ballastBonus', v)}
-            readOnly={readOnly}
-          />
-          <TextInput
-            label="CVE/Month ($)"
-            value={terms.cveMonth}
-            onChange={(v) => onTermChange('cveMonth', v)}
-            readOnly={readOnly}
-          />
-          <TextInput
-            id={isPrimary ? 'ilohcUsd' : undefined}
-            label={isPrimary ? 'ILOHC *' : 'ILOHC'}
-            value={terms.ilohcUsd}
-            onChange={(v) => onTermChange('ilohcUsd', v)}
-            readOnly={readOnly}
-          />
+          {isTcIn ? (
+            <>
+              <TextInput
+                label="CVE/Month ($)"
+                value={terms.cveMonth}
+                onChange={(v) => onTermChange('cveMonth', v)}
+                readOnly={readOnly}
+              />
+              <TextInput
+                id={isPrimary ? 'ilohcUsd' : undefined}
+                label="ILOHC"
+                value={terms.ilohcUsd}
+                onChange={(v) => onTermChange('ilohcUsd', v)}
+                readOnly={readOnly}
+              />
+              <TextInput
+                id={isPrimary ? 'ballastBonus' : undefined}
+                label="Ballast Bonus"
+                value={terms.ballastBonus}
+                onChange={(v) => onTermChange('ballastBonus', v)}
+                readOnly={readOnly}
+              />
+            </>
+          ) : (
+            <>
+              <TextInput
+                id={isPrimary ? 'ballastBonus' : undefined}
+                label="Ballast Bonus ($)"
+                value={terms.ballastBonus}
+                onChange={(v) => onTermChange('ballastBonus', v)}
+                readOnly={readOnly}
+              />
+              <TextInput
+                label="CVE/Month ($)"
+                value={terms.cveMonth}
+                onChange={(v) => onTermChange('cveMonth', v)}
+                readOnly={readOnly}
+              />
+              <TextInput
+                id={isPrimary ? 'ilohcUsd' : undefined}
+                label={req('ILOHC')}
+                value={terms.ilohcUsd}
+                onChange={(v) => onTermChange('ilohcUsd', v)}
+                readOnly={readOnly}
+              />
+            </>
+          )}
           <TextInput
             label="AD Comm (%)"
             value={terms.addComm}
@@ -219,7 +250,7 @@ export default function TcPeriodBlock({
             onChange={(v) => onTermChange('brokerComm', v)}
             readOnly={readOnly}
           />
-          <Field label={isPrimary ? 'Brokerage Paid By *' : 'Brokerage Paid By'} id={isPrimary ? 'broCommPayable' : undefined}>
+          <Field label={req('Brokerage Paid By')} id={isPrimary ? 'broCommPayable' : undefined}>
             <CardSelect
               id={isPrimary ? 'broCommPayable' : undefined}
               options={payableByOptions}
@@ -238,14 +269,15 @@ export default function TcPeriodBlock({
           className={styles.fieldGrid}
           style={{ '--cols': '1.3fr 1.3fr 0.6fr 0.9fr 1fr 64px', marginTop: 0 }}
         >
-          <div className={styles.fgHead}>Delivery Date (From) *</div>
-          <div className={styles.fgHead}>Redelivery Date (To) *</div>
+          <div className={styles.fgHead}>{isTcIn ? 'Delivery Date (From)' : 'Delivery Date (From) *'}</div>
+          <div className={styles.fgHead}>{isTcIn ? 'Redelivery Date (To)' : 'Redelivery Date (To) *'}</div>
           <div className={styles.fgHead}>Days</div>
-          <div className={styles.fgHead}>Hire ($/day) *</div>
-          <div className={styles.fgHead}>Hire Amt ($)</div>
+          <div className={styles.fgHead}>{isTcIn ? 'Hire ($/day)' : 'Hire ($/day) *'}</div>
+          <div className={styles.fgHead}>{isTcIn ? 'Hire Payable ($)' : 'Hire Amt ($)'}</div>
           <div className={styles.fgHead} />
           {hireRows.map((row, index) => {
             const resolved = hireTotals?.rows?.[index] || resolveHirePeriod(row);
+            const daysLocked = !isTcIn && Boolean(row.delDate && row.reDelDate);
             return (
               <React.Fragment key={`${idPrefix}hire-${index}`}>
                 <div className={styles.fgCell}>
@@ -270,8 +302,8 @@ export default function TcPeriodBlock({
                   <input
                     value={resolved.days || ''}
                     onChange={(e) => onPatchHire(index, { days: e.target.value })}
-                    readOnly={readOnly || Boolean(row.delDate && row.reDelDate)}
-                    className={(readOnly || (row.delDate && row.reDelDate)) ? styles.inputReadonly : undefined}
+                    readOnly={readOnly || daysLocked}
+                    className={(readOnly || daysLocked) ? styles.inputReadonly : undefined}
                     placeholder="0"
                   />
                 </div>
@@ -287,7 +319,7 @@ export default function TcPeriodBlock({
                 </div>
                 <div className={styles.fgCell}>
                   <input
-                    value={resolved.amount || (isPrimary ? dailyHireFallback : '')}
+                    value={resolved.amount || (isPrimary && !isTcIn ? dailyHireFallback : '')}
                     readOnly
                     className={styles.inputReadonly}
                     placeholder="0.00"
@@ -307,20 +339,43 @@ export default function TcPeriodBlock({
         </div>
         <div className={styles.tsecTotalRow}>
           <span className={styles.tsecTotalLabel}>Total</span>
-          <span>{hireTotals?.totalDays || '0'} days / {hireTotals?.totalAmt || '0.00'}</span>
+          {isTcIn ? (
+            <>
+              <span>{hireTotals?.totalDays || '0'} days</span>
+              <span>
+                $
+                {Number(hireTotals?.totalAmt || 0).toLocaleString(undefined, {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
+                })}
+              </span>
+            </>
+          ) : (
+            <span>{hireTotals?.totalDays || '0'} days / {hireTotals?.totalAmt || '0.00'}</span>
+          )}
         </div>
       </TsecCard>
 
       <TsecCard theme="navy" tab="Off Hire">
+        {isTcIn ? (
+          <p className={styles.tcinCopiedNote}>
+            Off-hire copied from the previous page (TC Out), including bunkers. Rate/Day is taken from
+            the Trip Schedule Hire ($/day) when the off-hire dates fall inside a delivery–redelivery leg.
+          </p>
+        ) : null}
         <div className={styles.offhireList}>
           {offRows.map((row, index) => {
             const resolved = resolveOffHire(row);
             const showBunkers = row.bunkersOpen || (row.bunkers || []).length > 0;
+            const offDaysLocked = !isTcIn && Boolean(row.from && row.to);
+            const offCols = isTcIn
+              ? '2fr 1fr 1fr 0.55fr 0.8fr 0.9fr 44px'
+              : '1.8fr 1fr 1fr 0.55fr 0.8fr 1.6fr 0.9fr 44px';
             return (
               <div key={`${idPrefix}off-${index}`} className={styles.offhireItem}>
                 <div
                   className={styles.fieldGrid}
-                  style={{ '--cols': '1.8fr 1fr 1fr 0.55fr 0.8fr 1.6fr 0.9fr 44px', marginTop: index === 0 ? 0 : undefined }}
+                  style={{ '--cols': offCols, marginTop: index === 0 ? 0 : undefined }}
                 >
                   {index === 0 ? (
                     <>
@@ -329,12 +384,12 @@ export default function TcPeriodBlock({
                       <div className={styles.fgHead}>To</div>
                       <div className={styles.fgHead}>Days</div>
                       <div className={styles.fgHead}>Rate/Day</div>
-                      <div className={styles.fgHead}>Charterer</div>
-                      <div className={styles.fgHead}>Amount</div>
+                      {isTcIn ? null : <div className={styles.fgHead}>Charterer</div>}
+                      <div className={styles.fgHead}>{isTcIn ? 'Credit Amount' : 'Amount'}</div>
                       <div className={styles.fgHead} />
                     </>
                   ) : null}
-                  <div className={styles.fgCell}>
+                  <div className={`${styles.fgCell} ${isTcIn ? styles.tcinReasonCell : ''}`.trim()}>
                     <input
                       value={row.reason || ''}
                       onChange={(e) => onPatchOff(index, { reason: e.target.value })}
@@ -342,6 +397,9 @@ export default function TcPeriodBlock({
                       readOnly={readOnly}
                       className={readOnly ? styles.inputReadonly : undefined}
                     />
+                    {isTcIn && !readOnly ? (
+                      <RowAddButton title="Add another off-hire reason" onClick={onAddOff} />
+                    ) : null}
                   </div>
                   <div className={styles.fgCell}>
                     <DmyDateInput
@@ -363,8 +421,8 @@ export default function TcPeriodBlock({
                     <input
                       value={resolved.days || ''}
                       onChange={(e) => onPatchOff(index, { days: e.target.value })}
-                      readOnly={readOnly || Boolean(row.from && row.to)}
-                      className={(readOnly || (row.from && row.to)) ? styles.inputReadonly : undefined}
+                      readOnly={readOnly || offDaysLocked}
+                      className={(readOnly || offDaysLocked) ? styles.inputReadonly : undefined}
                     />
                   </div>
                   <div className={styles.fgCell}>
@@ -373,18 +431,21 @@ export default function TcPeriodBlock({
                       onChange={(e) => onPatchOff(index, { hireRate: e.target.value })}
                       readOnly={readOnly}
                       className={readOnly ? styles.inputReadonly : undefined}
+                      title={isTcIn ? 'Auto-copied from the Trip Schedule leg covering these dates — still editable' : undefined}
                     />
                   </div>
-                  <div className={styles.fgCell}>
-                    <TableCardSelect
-                      options={vendorOptions}
-                      value={row.vendorId || ''}
-                      onChange={(v) => onPatchOff(index, { vendorId: v })}
-                      disabled={readOnly}
-                      placeholder="Select"
-                      ariaLabel="Off hire charterer"
-                    />
-                  </div>
+                  {isTcIn ? null : (
+                    <div className={styles.fgCell}>
+                      <TableCardSelect
+                        options={vendorOptions}
+                        value={row.vendorId || ''}
+                        onChange={(v) => onPatchOff(index, { vendorId: v })}
+                        disabled={readOnly}
+                        placeholder="Select"
+                        ariaLabel="Off hire charterer"
+                      />
+                    </div>
+                  )}
                   <div className={styles.fgCell}>
                     <input value={resolved.amount || ''} readOnly className={styles.inputReadonly} />
                   </div>
@@ -492,7 +553,11 @@ export default function TcPeriodBlock({
         </div>
         <div className={styles.tsecTotalRow}>
           <span className={styles.tsecTotalLabel}>Total</span>
-          <span>{offTotals?.totalDays || '0'} days / {offTotals?.totalAmt || '0.00'}</span>
+          {isTcIn ? (
+            <span>{offTotals?.totalDays || '0'} days</span>
+          ) : (
+            <span>{offTotals?.totalDays || '0'} days / {offTotals?.totalAmt || '0.00'}</span>
+          )}
         </div>
         {!readOnly ? (
           <button

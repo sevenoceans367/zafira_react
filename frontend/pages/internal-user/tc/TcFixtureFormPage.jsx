@@ -3389,7 +3389,7 @@ export default function TcFixtureFormPage({
       <TcInHireRecapModal
         open={tcInOpen}
         value={form.tcInExpenses}
-        detail={form}
+        detail={{ ...form, businessTypeName: businessTypeLabel }}
         lookups={lookups}
         readOnly={readOnly}
         onClose={() => setTcInOpen(false)}

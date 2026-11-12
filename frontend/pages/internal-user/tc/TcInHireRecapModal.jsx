@@ -610,13 +610,15 @@ export default function TcInHireRecapModal({
     return syncPeriodOneToLegacy({ ...prev, periods, offHires: rows });
   });
 
-  const updateOffBunkers = (offIndex, mutator) => setDraft((prev) => {
+  const updateOffBunkers = (offIndex, mutator, { open = true } = {}) => setDraft((prev) => {
     const periods = [...(prev.periods || [{ ...EMPTY_TC_IN_PERIOD }])];
     const p0 = { ...(periods[0] || { ...EMPTY_TC_IN_PERIOD }) };
     const rows = [...(p0.offHires || [])];
-    const row = { ...rows[offIndex], bunkersOpen: true };
+    const row = { ...rows[offIndex] };
     const bunkers = mutator([...(row.bunkers || [])]);
     row.bunkers = bunkers;
+    // Close the bunker grid when the last row is removed (same as TC Out).
+    row.bunkersOpen = bunkers.length > 0 ? (open || Boolean(row.bunkersOpen)) : false;
     rows[offIndex] = row;
     p0.offHires = rows;
     periods[0] = p0;
@@ -632,13 +634,13 @@ export default function TcInHireRecapModal({
 
   const addOffBunkers = (offIndex) => updateOffBunkers(offIndex, (bunkers) => (
     [...bunkers, { ...EMPTY_TC_IN_BUNKER }]
-  ));
+  ), { open: true });
 
   const removeOffBunker = (offIndex, bunkerIndex) => updateOffBunkers(offIndex, (bunkers) => (
     bunkers.length > 1
       ? bunkers.filter((_, i) => i !== bunkerIndex)
       : []
-  ));
+  ), { open: false });
 
   const redeliveryBunkerDateFromDraft = (prev = {}) => {
     const hireRows = hiresToPeriodRows(prev.periods?.[0]?.hires || prev.hires || []);
@@ -1011,7 +1013,7 @@ export default function TcInHireRecapModal({
                   onAddOffBunkers={(offIndex) => updateOffBunkers(offIndex, (bunkers) => {
                     if (bunkers.length) return [...bunkers, { ...EMPTY_OFF_BUNKER }];
                     return defaultOffHireBunkers(lookups?.bunkers);
-                  })}
+                  }, { open: true })}
                   onRemoveOffBunker={removeOffBunker}
                   resolveHirePeriod={resolveHirePeriod}
                   resolveOffHire={resolveOffHirePeriod}
@@ -1143,7 +1145,11 @@ export default function TcInHireRecapModal({
                       const rows = [...(p.offHires || [])];
                       const row = { ...rows[offIndex] };
                       const bunkers = [...(row.bunkers || [])];
-                      row.bunkers = bunkers.length > 1 ? bunkers.filter((_, i) => i !== bIndex) : [];
+                      const nextBunkers = bunkers.length > 1
+                        ? bunkers.filter((_, i) => i !== bIndex)
+                        : [];
+                      row.bunkers = nextBunkers;
+                      row.bunkersOpen = nextBunkers.length > 0;
                       rows[offIndex] = row;
                       p.offHires = rows;
                       periods[extIndex + 1] = p;
@@ -1731,7 +1737,7 @@ export default function TcInHireRecapModal({
             </Accordion>
 
             <Accordion title="TC Terms for Voyage" open={openSections.terms} onToggle={toggleSection('terms')} icon={SECTION_ICONS.terms}>
-              <div className={styles.subBlockLabel}>Sea Passage</div>
+              <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Sea Passage</div>
               <div className={styles.tcinDenseGrid}>
                 {[
                   ['windForce', 'Wind Force'],
@@ -1887,7 +1893,7 @@ export default function TcInHireRecapModal({
                 <path d="M17 21v-8H7v8" />
                 <path d="M7 3v5h8" />
               </svg>
-              Save TC In Hire Recap
+              Save
             </button>
           ) : null}
         </div>

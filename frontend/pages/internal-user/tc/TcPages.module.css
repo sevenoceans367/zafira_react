@@ -2153,13 +2153,14 @@
   border-radius: 0;
 }
 
+/* Match Period Recap bunkers total bar (light blue) */
 .tsecMustard .tsecTotalRow {
-  background: var(--tsec-mustard-chip-bg);
-  color: var(--tsec-mustard-chip-text);
+  background: #dbe8fd;
+  color: #2563c9;
 }
 
 .tsecMustard .tsecTotalLabel {
-  color: var(--tsec-mustard-chip-text);
+  color: #2563c9;
   opacity: 1;
 }
 

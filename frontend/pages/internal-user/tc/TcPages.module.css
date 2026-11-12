@@ -2153,14 +2153,14 @@
   border-radius: 0;
 }
 
-/* Match Period Recap bunkers total bar (light blue) */
+/* Match bunkers grade column header (mustard chip) */
 .tsecMustard .tsecTotalRow {
-  background: #dbe8fd;
-  color: #2563c9;
+  background: var(--tsec-mustard-chip-bg);
+  color: var(--tsec-mustard-chip-text);
 }
 
 .tsecMustard .tsecTotalLabel {
-  color: #2563c9;
+  color: var(--tsec-mustard-chip-text);
   opacity: 1;
 }
 

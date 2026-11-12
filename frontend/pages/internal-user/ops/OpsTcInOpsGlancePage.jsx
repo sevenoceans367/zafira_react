@@ -569,6 +569,9 @@ export default function OpsTcInOpsGlancePage() {
                   <td>
                     <div className={styles.opsCell}>
                       <span className={styles.cpDate} title={row.cpDate || ''}>{row.cpDate || '—'}</span>
+                      {row.contractType ? (
+                        <span className={styles.contractChip}>{row.contractType}</span>
+                      ) : null}
                       <span className={styles.sub}>
                         TC Days: {row.hireDays || '—'}
                       </span>

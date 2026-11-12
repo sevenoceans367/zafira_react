@@ -46,6 +46,19 @@ function isCancelLabel(label) {
   return typeof label === 'string' && /^Cancel$/i.test(label.trim());
 }
 
+/** Header / toolbar PDF actions — latest UI is download-icon only (no "PDF" text). */
+function isPdfDownloadLabel(label) {
+  if (typeof label !== 'string') return false;
+  const t = label.trim().toLowerCase().replace(/…/g, '...');
+  return (
+    t === 'pdf'
+    || t === 'generate pdf'
+    || t === 'generating...'
+    || t === 'generating pdf...'
+    || t === 'download pdf'
+  );
+}
+
 function BackChevronIcon() {
   return (
     <svg
@@ -138,6 +151,8 @@ function LockIcon() {
  * Design-system button.
  * When `label` is "+", renders the shared circular AddCircleButton.
  * When `icon` is "download", uses the brand DownloadIcon (gloablDownload.svg).
+ * PDF labels ("PDF", "Generate PDF", …) auto-render as icon-only download
+ * (latest header style). Pass `iconOnly` to force icon-only for any action.
  * Labels starting with "Back" (with outline/secondary) use the Update COA
  * outline-sm style (+ chevron). Pass `variant="back"` to force that look.
  * Form primary CTA: prefer `variant="submit"` (navy SOF-style Submit).
@@ -153,6 +168,7 @@ const Button = ({
   icon,
   iconSrc,
   iconAlt = '',
+  iconOnly = false,
   variant = 'outline',
   type = 'button',
   disabled = false,
@@ -192,6 +208,8 @@ const Button = ({
     isSaveLabel(label)
     && (variant === 'primary' || variant === 'outline' || variant === 'secondary' || variant === 'saveOutline')
   ));
+  const pdfIconOnly = isPdfDownloadLabel(label);
+  const useIconOnly = Boolean(iconOnly) || pdfIconOnly;
   const resolvedVariant = useBackStyle
     ? 'back'
     : useCloseStyle
@@ -207,6 +225,7 @@ const Button = ({
     || resolvedVariant === 'submit'
     || resolvedVariant === 'saveOutline'
     || resolvedVariant === 'close'
+    || useIconOnly
   )
     ? ''
     : (styles[size] || styles.md);
@@ -214,15 +233,23 @@ const Button = ({
     styles.button,
     variantClass,
     sizeClass,
+    useIconOnly ? styles.iconOnly : '',
     className,
   ]
     .filter(Boolean)
     .join(' ');
 
-  const accessibleName = ariaLabel || (useCloseStyle ? 'Close' : null) || label || icon || iconAlt;
+  const accessibleName = ariaLabel
+    || (useCloseStyle ? 'Close' : null)
+    || (pdfIconOnly ? (title || 'Download PDF') : null)
+    || label
+    || icon
+    || iconAlt;
   const resolvedIcon =
-    variant === 'add' && (!icon || icon === 'plus') ? 'plus-circle' : icon;
-  const iconSize = size === 'sm' ? 14 : 16;
+    variant === 'add' && (!icon || icon === 'plus')
+      ? 'plus-circle'
+      : (icon || (pdfIconOnly ? 'download' : icon));
+  const iconSize = useIconOnly ? 16 : (size === 'sm' ? 14 : 16);
 
   let iconNode = null;
   if (useCloseStyle && !icon && !iconSrc) {
@@ -257,7 +284,7 @@ const Button = ({
   const content = (
     <>
       {iconNode}
-      {useCloseStyle ? null : label}
+      {useCloseStyle || useIconOnly ? null : label}
     </>
   );
 

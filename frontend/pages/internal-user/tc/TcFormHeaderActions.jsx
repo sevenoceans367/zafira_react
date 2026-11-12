@@ -45,7 +45,7 @@ export default function TcFormHeaderActions({
             onClick={onGeneratePdf}
             disabled={disabled || pdfLoading}
             title={pdfLoading ? 'Generating PDF…' : 'Download PDF'}
-            ariaLabel={pdfLoading ? 'Generating PDF…' : 'PDF'}
+            ariaLabel={pdfLoading ? 'Generating PDF…' : 'Download PDF'}
           />
         ) : null}
         <Button variant="back" label="Back" href={listHref} disabled={disabled} />

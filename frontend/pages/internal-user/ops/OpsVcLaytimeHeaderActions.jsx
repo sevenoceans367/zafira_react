@@ -51,7 +51,7 @@ export default function OpsVcLaytimeHeaderActions({
           rel="noopener noreferrer"
           disabled={disabled || !canPdf}
           title={canPdf ? 'Download Laytime Report' : 'Save laytime for this port before downloading PDF.'}
-          ariaLabel="PDF"
+          ariaLabel="Download PDF"
         />
         <Button variant="back" label="Back" href={backHref} disabled={disabled} />
       </HeaderFilterControls>

@@ -124,6 +124,22 @@ export function computeTcListStats(rows = []) {
   };
 }
 
+/** Label for the grey contract-type chip (matches Recap Identifiers dropdown). */
+export function tcContractTypeLabel({
+  periodId = '',
+  hasTcInRecap = false,
+  contractType = '',
+} = {}) {
+  const code = String(contractType || '').trim().toLowerCase();
+  if (code === 'tcinout' || code === 'tc in/tc out' || code === 'tc in - tc out') {
+    return 'TC In/TC Out';
+  }
+  if (code === 'tcout' || code === 'tc out') return 'TC Out';
+  const hasPeriod = Number(periodId) > 0 || String(periodId || '').trim() !== '';
+  if (hasPeriod || hasTcInRecap) return 'TC In/TC Out';
+  return 'TC Out';
+}
+
 export function mapTcListRow(row, index = 0) {
   const exchangeRate = Number(row.EXCHANGE_RATE);
   const hasRevenue = Number(row.TOTAL_REV_EST || 0) > 0;
@@ -131,12 +147,18 @@ export function mapTcListRow(row, index = 0) {
   const delPort = row.DEL_RANGE_PORT ?? '';
   const reDelPort = row.RE_DEL_RANGE ?? '';
   const delRedel = [delPort, reDelPort].filter((part) => String(part).trim() !== '').join(' - ');
+  const periodId = row.PERIODID != null && String(row.PERIODID).trim() !== '' && String(row.PERIODID) !== '0'
+    ? String(row.PERIODID)
+    : '';
+  const hasTcInRecap = Number(row.HAS_TC_IN) === 1
+    || (row.TC_IN_RECAP_JSON != null && String(row.TC_IN_RECAP_JSON).trim() !== '');
   return {
     index: index + 1,
     tcOutId: row.TCOUTID,
     vesselName: row.VESSEL_NAME ?? '',
     vesselType: row.VESSEL_TYPE ?? '',
     tcNo: row.TC_NO ?? '',
+    contractType: tcContractTypeLabel({ periodId, hasTcInRecap }),
     cpDate: formatDateDMY(row.CP_DATE1),
     dwt: row.DWT_SUMMER_CP ?? '',
     delPort,

@@ -770,6 +770,7 @@ export async function dbListTcEstimates({
   pageSize = 10,
 } = {}) {
   const pool = getPool();
+  const hasTcInRecapJson = await ensureTcInRecapJsonColumn(pool);
   const params = [COMPANY_ID, selBType || '2'];
   let where = `
     chartering_estimate_tc_master.MCOMPANYID = ?
@@ -811,11 +812,21 @@ export async function dbListTcEstimates({
   const safeSize = Math.max(1, Math.min(100, Number(pageSize) || 10));
   const offset = (safePage - 1) * safeSize;
 
+  const hasTcInSelect = hasTcInRecapJson
+    ? `CASE
+             WHEN chartering_estimate_tc_master.TC_IN_RECAP_JSON IS NOT NULL
+               AND TRIM(chartering_estimate_tc_master.TC_IN_RECAP_JSON) <> ''
+             THEN 1 ELSE 0
+           END AS HAS_TC_IN,`
+    : '0 AS HAS_TC_IN,';
+
   const listSql = `
     SELECT TCOUTID,
            chartering_estimate_tc_master.VESSEL_TYPE,
            chartering_estimate_tc_master.EXCHANGE_RATE,
            chartering_estimate_tc_master.COMID,
+           chartering_estimate_tc_master.PERIODID,
+           ${hasTcInSelect}
            vessel_imo_master.VESSEL_NAME,
            (SELECT SUM(TC_DAYS_EST) FROM chartering_tc_estimate_slave1
             WHERE chartering_tc_estimate_slave1.TCOUTID = chartering_estimate_tc_master.TCOUTID) AS TC_DAYS_EST,

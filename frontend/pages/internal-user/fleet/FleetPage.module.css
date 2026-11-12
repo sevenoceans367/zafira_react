@@ -342,23 +342,26 @@
 .btnPdf {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   background: #fff;
-  color: #274670;
-  font-weight: 700;
-  font-size: 12.5px;
-  border: 1px solid #d3dae7;
+  color: #5b6472;
+  border: 1px solid #dfe2e7;
   border-radius: 9px;
-  padding: 8px 14px;
   cursor: pointer;
   font-family: inherit;
+  flex-shrink: 0;
 }
 
 .btnPdf:hover:not(:disabled) {
-  background: #e6eaf1;
+  background: #f1f2f4;
+  color: #1b2430;
 }
 
 .btnPdf:disabled {
-  color: #8a93a2;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 

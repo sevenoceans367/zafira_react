@@ -3,7 +3,7 @@ import { Button, HeaderFilterControls, PageHeaderSearch } from '@bainbridge/shar
 import PageHeaderActions from '../PageHeaderActions.jsx';
 
 /**
- * Reports page-header: search + Generate Excel / Generate PDF (PHP-style labels).
+ * Reports page-header: search + Generate Excel / PDF (PDF is icon-only download).
  */
 export default function ReportsHeaderActions({
   search = '',

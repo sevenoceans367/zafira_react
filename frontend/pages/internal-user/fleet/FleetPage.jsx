@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { EditRecapIcon, GridDownloadMenu, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
+import { DownloadIcon, EditRecapIcon, GridDownloadMenu, LoadingOverlay, useAlert } from '@bainbridge/shared-ui';
 import {
   downloadReportExcel,
   downloadReportPdf,
@@ -101,8 +101,10 @@ function FleetCompareModal({ open, loading, data, vesselIds, onClose }) {
               className={styles.btnPdf}
               onClick={handlePdf}
               disabled={loading || pdfLoading || !vessels.length}
+              title={pdfLoading ? 'Generating PDF…' : 'Download PDF'}
+              aria-label={pdfLoading ? 'Generating PDF…' : 'Download PDF'}
             >
-              {pdfLoading ? 'Generating PDF…' : 'Generate PDF'}
+              <DownloadIcon size={16} title="" />
             </button>
             <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close">
               <CloseIcon />

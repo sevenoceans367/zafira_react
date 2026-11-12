@@ -438,7 +438,14 @@ export default function TcOutEstimatesListPage() {
                 <tr key={row.tcOutId}>
                   <td className={styles.cellItem}>{(page - 1) * pageSize + index + 1}.</td>
                   <td className={styles.cellVessel}>{liveValue(row.vesselName)}</td>
-                  <td className={styles.cellNum}>{liveValue(row.tcNo)}</td>
+                  <td className={styles.cellNum}>
+                    <div className={styles.tcNoStack}>
+                      <span className={styles.tcNoPrimary}>{liveValue(row.tcNo)}</span>
+                      {row.contractType ? (
+                        <span className={styles.voyageContract}>{row.contractType}</span>
+                      ) : null}
+                    </div>
+                  </td>
                   <td className={styles.cellNum}>{liveValue(row.cpDate)}</td>
                   <td className={styles.cellNum}>{liveValue(row.dwt)}</td>
                   <td className={styles.cellRoute}>{liveValue(row.delRedel || [row.delPort, row.reDelPort].filter(Boolean).join(' - '))}</td>
@@ -505,7 +512,14 @@ export default function TcOutEstimatesListPage() {
                   <tr key={row.tcOutId}>
                     <td className={styles.cellItem}>{(page - 1) * pageSize + index + 1}.</td>
                     <td className={styles.cellVessel}>{liveValue(row.vesselName)}</td>
-                    <td className={styles.cellNum}>{liveValue(row.tcNo)}</td>
+                    <td className={styles.cellNum}>
+                      <div className={styles.tcNoStack}>
+                        <span className={styles.tcNoPrimary}>{liveValue(row.tcNo)}</span>
+                        {row.contractType ? (
+                          <span className={styles.voyageContract}>{row.contractType}</span>
+                        ) : null}
+                      </div>
+                    </td>
                     <td className={styles.cellNum}>{liveValue(row.cpDate)}</td>
                     <td className={styles.cellNum}>{liveValue(row.dwt)}</td>
                     <td className={styles.cellRoute}>{liveValue(row.delRedel || [row.delPort, row.reDelPort].filter(Boolean).join(' - '))}</td>

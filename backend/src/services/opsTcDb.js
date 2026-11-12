@@ -1,6 +1,7 @@
 import { appContext, compareSheetsEnabled, isMgmtUser } from '../config.js';
 import { getPool } from '../db.js';
 import { formatDateDMY } from './estimateListMappers.js';
+import { tcContractTypeLabel } from './tcEstimateMappers.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -361,6 +362,11 @@ export async function dbListOpsTcGlance({
         op.CONTACT_PERSON AS OPERATOR_NAME,
         m.VESSEL_IMO_ID,
         m.PERIODID,
+        CASE
+          WHEN m.TC_IN_RECAP_JSON IS NOT NULL
+            AND TRIM(m.TC_IN_RECAP_JSON) <> ''
+          THEN 1 ELSE 0
+        END AS HAS_TC_IN,
         m.ESTIMATE_TYPE,
         m.TC_NO,
         m.RE_DEL_DATE,
@@ -441,6 +447,10 @@ export async function dbListOpsTcGlance({
       vesselType: row.VESSEL_TYPE ?? '',
       vesselImoNo: row.IMO_NO ?? '',
       isPeriod: Number(row.PERIODID) > 0,
+      contractType: tcContractTypeLabel({
+        periodId: row.PERIODID,
+        hasTcInRecap: Number(row.HAS_TC_IN) === 1,
+      }),
       charterer: row.CHARTERER_NAME ?? '',
       cpDate: formatCpDate(row.CP_DATE1),
       delPort: row.DEL_RANGE_PORT || '',

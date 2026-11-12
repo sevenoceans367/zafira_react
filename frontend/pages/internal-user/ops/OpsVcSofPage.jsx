@@ -915,9 +915,9 @@ export default function OpsVcSofPage() {
                       className={styles.btnPdfOutline}
                       disabled
                       title="PDF generation is not migrated yet."
+                      aria-label="Download PDF"
                     >
                       <DownloadIcon />
-                      PDF
                     </button>
                   </div>
 

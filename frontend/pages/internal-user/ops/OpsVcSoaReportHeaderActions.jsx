@@ -28,7 +28,8 @@ export default function OpsVcSoaReportHeaderActions({
             target="_blank"
             rel="noopener noreferrer"
             disabled={disabled}
-            ariaLabel="PDF"
+            title="Download PDF"
+            ariaLabel="Download PDF"
           />
         ) : null}
         <Button variant="back" label="Back" href={backHref} disabled={disabled} />

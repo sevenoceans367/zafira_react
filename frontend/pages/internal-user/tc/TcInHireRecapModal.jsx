@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  AttachmentDropzone, CardSelect, DmyDateInput, RowAddButton, RowActions, RowDelButton, useAlert,
+  AttachmentDropzone, CardSelect, DmyDateInput, LoadingOverlay, RowAddButton, RowActions, RowDelButton, useAlert,
 } from '@bainbridge/shared-ui';
 import { daysBetween, hasDateValue } from '../../../services/tcEstimates.js';
+import { fetchTankerParticulars } from '../../../services/vesselTankerParticulars.js';
+import VesselParticularsReadonlyContent from '../fleet/VesselParticularsReadonlyContent.jsx';
 import {
   EMPTY_TC_IN_BUNKER,
   EMPTY_TC_IN_EXPENSE,
@@ -246,20 +248,24 @@ function sumBunkerAmounts(rows = []) {
 }
 
 function TsecCard({ theme = 'navy', tab, className = '', children }) {
-  const themeClass = theme === 'mustard'
-    ? styles.tsecMustard
-    : theme === 'tcdLight'
-      ? styles.tsecTcdLight
-      : theme === 'tcdMid'
-        ? styles.tsecTcdMid
-        : styles.tsecNavy;
-  const tabClass = theme === 'mustard'
-    ? styles.tsecTabMustard
-    : theme === 'tcdLight'
-      ? styles.tsecTabTcdLight
-      : theme === 'tcdMid'
-        ? styles.tsecTabTcdMid
-        : styles.tsecTabNavy;
+  const themeClass = theme === 'lblue'
+    ? styles.tsecLblue
+    : theme === 'mustard'
+      ? styles.tsecMustard
+      : theme === 'tcdLight'
+        ? styles.tsecTcdLight
+        : theme === 'tcdMid'
+          ? styles.tsecTcdMid
+          : styles.tsecNavy;
+  const tabClass = theme === 'lblue'
+    ? styles.tsecTabLblue
+    : theme === 'mustard'
+      ? styles.tsecTabMustard
+      : theme === 'tcdLight'
+        ? styles.tsecTabTcdLight
+        : theme === 'tcdMid'
+          ? styles.tsecTabTcdMid
+          : styles.tsecTabNavy;
   return (
     <div className={`${styles.tsecCard} ${themeClass} ${className}`.trim()}>
       <span className={`${styles.tsecTab} ${tabClass}`}>{tab}</span>
@@ -344,9 +350,16 @@ function TableCardSelect({
   );
 }
 
-function Accordion({ title, icon, defaultOpen = false, children }) {
+function Accordion({ title, icon, open = false, onToggle, children }) {
   return (
-    <details className={styles.tcinAccord} defaultOpen={defaultOpen}>
+    <details
+      className={styles.tcinAccord}
+      open={open}
+      onToggle={(e) => {
+        // Keep React state as source of truth (avoid fighting native details).
+        onToggle?.(e.currentTarget.open);
+      }}
+    >
       <summary className={styles.tcinAccordSummary}>
         <span className={styles.tcinAccordChev} aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -360,6 +373,18 @@ function Accordion({ title, icon, defaultOpen = false, children }) {
     </details>
   );
 }
+
+const DEFAULT_OPEN_SECTIONS = {
+  identifiers: true,
+  cp: false,
+  tcDetails: true,
+  expenses: false,
+  vessel: false,
+  preTc: false,
+  bunkers: false,
+  terms: false,
+  docs: false,
+};
 
 function Field({ label, children, wide, className = '' }) {
   return (
@@ -386,20 +411,67 @@ export default function TcInHireRecapModal({
   readOnly = false,
 }) {
   const [draft, setDraft] = useState(null);
+  const [openSections, setOpenSections] = useState(DEFAULT_OPEN_SECTIONS);
+  const [vpModalOpen, setVpModalOpen] = useState(false);
+  const [vpData, setVpData] = useState(null);
+  const [vpLoading, setVpLoading] = useState(false);
+  const [vpError, setVpError] = useState('');
   const alert = useAlert();
+
+  const toggleSection = (key) => (nextOpen) => {
+    setOpenSections((prev) => ({ ...prev, [key]: nextOpen }));
+  };
 
   // Hydrate only when the modal opens. Rebuilding on every `detail`/`value` identity
   // change (e.g. alert open → parent re-render) was wiping in-progress edits.
   useEffect(() => {
     if (!open) {
       setDraft(null);
+      setVpModalOpen(false);
+      setVpData(null);
+      setVpError('');
       return;
     }
     setDraft(buildTcInRecapDraft(detail || {}, value || null));
+    setOpenSections({ ...DEFAULT_OPEN_SECTIONS });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: open-edge only
   }, [open]);
 
   const grossCalc = useMemo(() => calcTcInGrossHireExpense(draft || {}), [draft]);
+
+  const vesselIdForVp = useMemo(() => String(
+    detail?.vesselImoId
+    || draft?.vesselParticulars?.vesselCode
+    || detail?.vesselCode
+    || '',
+  ).trim(), [detail?.vesselImoId, detail?.vesselCode, draft?.vesselParticulars?.vesselCode]);
+
+  useEffect(() => {
+    if (!vpModalOpen) return undefined;
+    if (!vesselIdForVp) {
+      setVpData(null);
+      setVpError('Select a vessel to load Operated Vessels particulars.');
+      setVpLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      setVpLoading(true);
+      setVpError('');
+      try {
+        const response = await fetchTankerParticulars(vesselIdForVp);
+        if (!cancelled) setVpData(response);
+      } catch (err) {
+        if (!cancelled) {
+          setVpData(null);
+          setVpError(err.message || 'Failed to load vessel particulars.');
+        }
+      } finally {
+        if (!cancelled) setVpLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [vpModalOpen, vesselIdForVp]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -417,6 +489,12 @@ export default function TcInHireRecapModal({
   const title = readOnly
     ? 'View TC In Hire Recap'
     : (isEdit ? 'Edit TC In Hire Recap' : 'Add TC In Hire Recap');
+  const vesselNameForVp = (
+    detail?.vesselName
+    || draft.identifiers?.vesselName
+    || draft.vesselParticulars?.vesselName
+    || 'VESSEL'
+  );
 
   const patch = (fields) => setDraft((prev) => syncPeriodOneToLegacy({ ...prev, ...fields }));
 
@@ -752,7 +830,9 @@ export default function TcInHireRecapModal({
 
   const ro = readOnly ? styles.inputReadonly : undefined;
 
-  return createPortal(
+  return (
+    <>
+    {createPortal(
     <div
       className={`${styles.modalBackdrop} ${styles.tcinRecapBackdrop}`}
       role="dialog"
@@ -770,12 +850,7 @@ export default function TcInHireRecapModal({
                 <path d="M12 20l-4-4 4-4" />
               </svg>
             </div>
-            <div>
-              <div id="tc-in-hire-recap-title" className={styles.thdTitle}>{title}</div>
-              <div className={styles.thdSubtitle}>
-                Charter-in leg of this sub-charter — pre-filled from the TC Out recap
-              </div>
-            </div>
+            <div id="tc-in-hire-recap-title" className={styles.thdTitle}>{title}</div>
           </div>
           <button type="button" className={styles.thdClose} title="Close" onClick={onClose} aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
@@ -786,7 +861,7 @@ export default function TcInHireRecapModal({
 
         <div className={`${styles.tcinRecapBody} ${readOnly ? styles.viewModeLock : ''}`.trim()}>
           <div className={styles.tcinRecapLhs}>
-            <Accordion title="Recap Identifiers" defaultOpen icon={SECTION_ICONS.identifiers}>
+            <Accordion title="Recap Identifiers" open={openSections.identifiers} onToggle={toggleSection('identifiers')} icon={SECTION_ICONS.identifiers}>
               <div className={`${styles.denseGrid} ${styles.dense7}`}>
                 <Field label="Contract Type">
                   <input className={styles.inputReadonly} readOnly value="TC In" />
@@ -849,7 +924,7 @@ export default function TcInHireRecapModal({
               </div>
             </Accordion>
 
-            <Accordion title="CP Information" icon={SECTION_ICONS.cp}>
+            <Accordion title="CP Information" open={openSections.cp} onToggle={toggleSection('cp')} icon={SECTION_ICONS.cp}>
               <div className={styles.tcinCpInfoGrid}>
                 <Field label="CP Type">
                   <CardSelect
@@ -896,7 +971,7 @@ export default function TcInHireRecapModal({
               </div>
             </Accordion>
 
-            <Accordion title="TC Details" defaultOpen icon={SECTION_ICONS.tcDetails}>
+            <Accordion title="TC Details" open={openSections.tcDetails} onToggle={toggleSection('tcDetails')} icon={SECTION_ICONS.tcDetails}>
               <div className={styles.tcdPeriods}>
                 <TcPeriodBlock
                   isPrimary
@@ -1101,9 +1176,8 @@ export default function TcInHireRecapModal({
               ) : null}
             </Accordion>
 
-            <Accordion title="TC Expenses" icon={SECTION_ICONS.expenses}>
-              <div className={`${styles.tcinSecCard} ${styles.tcinSecNavy}`}>
-                <span className={`${styles.tcinSecTab} ${styles.tcinSecTabNavy}`}>TC Expenses</span>
+            <Accordion title="TC Expenses" open={openSections.expenses} onToggle={toggleSection('expenses')} icon={SECTION_ICONS.expenses}>
+              <TsecCard theme="navy" tab="TC Expenses">
                 <div className={styles.miniTableWrap}>
                   <table className={styles.miniTable}>
                     <thead>
@@ -1232,111 +1306,94 @@ export default function TcInHireRecapModal({
                     </tbody>
                   </table>
                 </div>
-                <div className={styles.tcinTotalRow}>
-                  <span>Total Expenses</span>
+                <div className={styles.tsecTotalRow}>
+                  <span className={styles.tsecTotalLabel}>Total Expenses</span>
                   <span>${money(grossCalc.tcExpensesTotal)}</span>
                 </div>
-              </div>
+              </TsecCard>
             </Accordion>
 
-            <Accordion title="Vessel Particulars" icon={SECTION_ICONS.vessel}>
+            <Accordion title="Vessel Particulars" open={openSections.vessel} onToggle={toggleSection('vessel')} icon={SECTION_ICONS.vessel}>
               <div className={`${styles.subBlockLabel} ${styles.subBlockLabelFirst}`}>Primary Data</div>
               <div className={`${styles.denseGrid} ${styles.dense9}`}>
-                {[
-                  ['mastersName', "Master's Name"],
-                  ['vesselCode', 'Vessel Code'],
-                  ['imoNo', 'IMO Number'],
-                  ['yearBuild', 'Year Built'],
-                  ['flag', 'Flag'],
-                  ['summerDwt', 'Summer DWT (MT)'],
-                  ['summerDraft', 'Summer Draft (M)'],
-                  ['loa1', 'LOA (M)'],
-                  ['breadth', 'Extreme Breadth (M)'],
-                  ['grossTonn', 'GRT'],
-                  ['netTonn', 'NRT'],
-                ].map(([key, label]) => {
+                {(() => {
                   const vp = draft.vesselParticulars || {};
-                  const value = key === 'mastersName'
-                    ? (vp.mastersName || vp.masterName || '')
-                    : key === 'flag'
-                      ? (vp.flag1 || vp.flag || '')
-                      : key === 'loa1'
-                        ? (vp.loa1 || vp.loa || '')
-                        : key === 'breadth'
-                          ? (vp.breadth || vp.extremeBreadth || '')
-                          : key === 'grossTonn'
-                            ? (vp.grossTonn || vp.grt || '')
-                            : key === 'netTonn'
-                              ? (vp.netTonn || vp.nrt || '')
-                              : (vp[key] || '');
-                  return (
-                    <Field key={key} label={label}>
-                      <input
-                        value={value}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (key === 'mastersName') patchVp({ mastersName: v, masterName: v });
-                          else if (key === 'flag') patchVp({ flag: v, flag1: v });
-                          else if (key === 'loa1') patchVp({ loa1: v, loa: v });
-                          else if (key === 'breadth') patchVp({ breadth: v, extremeBreadth: v });
-                          else if (key === 'grossTonn') patchVp({ grossTonn: v, grt: v });
-                          else if (key === 'netTonn') patchVp({ netTonn: v, nrt: v });
-                          else patchVp({ [key]: v });
-                        }}
-                        readOnly={readOnly}
-                        className={readOnly ? styles.inputReadonly : undefined}
-                      />
-                    </Field>
-                  );
-                })}
+                  const mastersName = vp.mastersName || vp.masterName || '';
+                  const vesselCode = vp.vesselCode || detail?.vesselImoId || detail?.vesselCode || '';
+                  const primaryRows = [
+                    { key: 'mastersName', label: "Master's Name", value: mastersName, editable: true },
+                    { key: 'vesselCode', label: 'Vessel Code', value: vesselCode },
+                    { key: 'imoNo', label: 'IMO Number', value: vp.imoNo || '' },
+                    { key: 'yearBuild', label: 'Year Built', value: vp.yearBuild || '' },
+                    { key: 'flag', label: 'Flag', value: vp.flag1 || vp.flag || '' },
+                    { key: 'summerDwt', label: 'Summer DWT (MT)', value: vp.summerDwt || '' },
+                    { key: 'summerDraft', label: 'Summer Draft (M)', value: vp.summerDraft || '' },
+                    { key: 'loa1', label: 'LOA (M)', value: vp.loa1 || vp.loa || '' },
+                    { key: 'breadth', label: 'Extreme Breadth (M)', value: vp.breadth || vp.extremeBreadth || '' },
+                    { key: 'grossTonn', label: 'GRT', value: vp.grossTonn || vp.grt || '' },
+                    { key: 'netTonn', label: 'NRT', value: vp.netTonn || vp.nrt || '' },
+                  ];
+                  return primaryRows.map((row) => {
+                    const fieldReadOnly = row.editable ? readOnly : true;
+                    return (
+                      <Field key={row.key} label={row.label}>
+                        <input
+                          value={row.value}
+                          onChange={row.editable ? (e) => {
+                            const v = e.target.value;
+                            patchVp({ mastersName: v, masterName: v });
+                          } : undefined}
+                          readOnly={fieldReadOnly}
+                          className={fieldReadOnly ? styles.inputReadonly : undefined}
+                        />
+                      </Field>
+                    );
+                  });
+                })()}
               </div>
               {String(detail?.businessTypeId) !== '3' ? (
                 <>
                   <div className={`${styles.subBlockLabel} ${styles.subBlockLabelPadAbove}`}>Tanker Particulars</div>
                   <div className={`${styles.denseGrid} ${styles.dense9}`}>
-                    {[
-                      ['cargoTankCap', 'Cargo Tank Capacity (CBM)'],
-                      ['noOfGrades', 'No. of Grades (Double V/V Seg)'],
-                      ['noOfCargoPumps', 'No. of Cargo Pump (Main)'],
-                      ['totalSbtCap', 'Total SBT Capacity (CBM)'],
-                      ['cargoPumpCap', 'Cargo Pump Main Cap (CBM/HR)'],
-                    ].map(([key, label]) => {
+                    {(() => {
                       const vp = draft.vesselParticulars || {};
-                      const value = key === 'cargoTankCap'
-                        ? (vp.cargoTankCap || vp.cargoTkCap || '')
-                        : key === 'noOfCargoPumps'
-                          ? (vp.noOfCargoPumps || vp.noOfCargoPump || '')
-                          : key === 'totalSbtCap'
-                            ? (vp.totalSbtCap || vp.sbtCap || '')
-                            : key === 'cargoPumpCap'
-                              ? (vp.cargoPumpCap || vp.cargoPpCap || '')
-                              : (vp[key] || '');
-                      return (
-                        <Field key={key} label={label}>
+                      const tankerRows = [
+                        { key: 'cargoTankCap', label: 'Cargo Tank Capacity (CBM)', value: vp.cargoTankCap || vp.cargoTkCap || '' },
+                        { key: 'noOfGrades', label: 'No. of Grades (Double V/V Seg)', value: vp.noOfGrades || '' },
+                        { key: 'noOfCargoPumps', label: 'No. of Cargo Pump (Main)', value: vp.noOfCargoPumps || vp.noOfCargoPump || '' },
+                        { key: 'totalSbtCap', label: 'Total SBT Capacity (CBM)', value: vp.totalSbtCap || vp.sbtCap || '' },
+                        { key: 'cargoPumpCap', label: 'Cargo Pump Main Cap (CBM/HR)', value: vp.cargoPumpCap || vp.cargoPpCap || '' },
+                      ];
+                      return tankerRows.map((row) => (
+                        <Field key={row.key} label={row.label}>
                           <input
-                            value={value}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              if (key === 'cargoTankCap') patchVp({ cargoTankCap: v, cargoTkCap: v });
-                              else if (key === 'noOfCargoPumps') patchVp({ noOfCargoPumps: v, noOfCargoPump: v });
-                              else if (key === 'totalSbtCap') patchVp({ totalSbtCap: v, sbtCap: v });
-                              else if (key === 'cargoPumpCap') patchVp({ cargoPumpCap: v, cargoPpCap: v });
-                              else patchVp({ [key]: v });
-                            }}
-                            readOnly={readOnly}
-                            className={readOnly ? styles.inputReadonly : undefined}
+                            value={row.value}
+                            readOnly
+                            className={styles.inputReadonly}
                           />
                         </Field>
-                      );
-                    })}
+                      ));
+                    })()}
                   </div>
                 </>
               ) : null}
+              <button
+                type="button"
+                className={`${styles.connectBtn} ${styles.vpFullBtn} ${styles.viewModeAllow}`}
+                title="Opens the full vessel particulars"
+                onClick={() => setVpModalOpen(true)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ width: 13, height: 13 }}>
+                  <rect x="4" y="4" width="16" height="16" rx="2.5" />
+                  <path d="M4 9.5h16" />
+                  <path d="M8 4v3M16 4v3" />
+                </svg>
+                <span>Full Vessel Particulars</span>
+              </button>
             </Accordion>
 
-            <Accordion title="Pre-TC Details" icon={SECTION_ICONS.preTc}>
-              <div className={`${styles.tcinSecCard} ${styles.tcinSecLight}`}>
-                <span className={`${styles.tcinSecTab} ${styles.tcinSecTabLight}`}>Itinerary</span>
+            <Accordion title="Pre-TC Details" open={openSections.preTc} onToggle={toggleSection('preTc')} icon={SECTION_ICONS.preTc}>
+              <TsecCard theme="lblue" tab="Itinerary">
                 <div className={styles.tcinDenseGrid}>
                   <Field label="From">
                     <input
@@ -1441,9 +1498,8 @@ export default function TcInHireRecapModal({
                     />
                   </Field>
                 </div>
-              </div>
-              <div className={`${styles.tcinSecCard} ${styles.tcinSecNavy}`}>
-                <span className={`${styles.tcinSecTab} ${styles.tcinSecTabNavy}`}>Expenses</span>
+              </TsecCard>
+              <TsecCard theme="navy" tab="Expenses">
                 <div className={styles.miniTableWrap}>
                   <table className={styles.miniTable}>
                     <thead>
@@ -1560,14 +1616,14 @@ export default function TcInHireRecapModal({
                     </tbody>
                   </table>
                 </div>
-                <div className={styles.tcinTotalRow}>
-                  <span>Total</span>
+                <div className={styles.tsecTotalRow}>
+                  <span className={styles.tsecTotalLabel}>Total</span>
                   <span>${money(grossCalc.preTcTotal)}</span>
                 </div>
-              </div>
+              </TsecCard>
             </Accordion>
 
-            <Accordion title="Bunkers" icon={SECTION_ICONS.bunkers}>
+            <Accordion title="Bunkers" open={openSections.bunkers} onToggle={toggleSection('bunkers')} icon={SECTION_ICONS.bunkers}>
               <div className={styles.tcinBunkerStack}>
                 {(['deliveryBunkers', 'redeliveryBunkers']).map((kind, kindIndex) => {
                   const dirLabel = kind === 'deliveryBunkers' ? 'Delivery' : 'Redelivery';
@@ -1674,7 +1730,7 @@ export default function TcInHireRecapModal({
               </div>
             </Accordion>
 
-            <Accordion title="TC Terms for Voyage" icon={SECTION_ICONS.terms}>
+            <Accordion title="TC Terms for Voyage" open={openSections.terms} onToggle={toggleSection('terms')} icon={SECTION_ICONS.terms}>
               <div className={styles.subBlockLabel}>Sea Passage</div>
               <div className={styles.tcinDenseGrid}>
                 {[
@@ -1721,7 +1777,7 @@ export default function TcInHireRecapModal({
               </div>
             </Accordion>
 
-            <Accordion title="Additional Info & Documents" icon={SECTION_ICONS.docs}>
+            <Accordion title="Additional Info & Documents" open={openSections.docs} onToggle={toggleSection('docs')} icon={SECTION_ICONS.docs}>
               <div className={styles.docsSectionStack}>
                 <Field label="More Info" className={styles.moreInfoField}>
                   <textarea
@@ -1807,7 +1863,7 @@ export default function TcInHireRecapModal({
                 </svg>
               </summary>
               <div className={styles.tcinResBody}>
-                <div className={`${styles.tcinResRow} ${styles.tcinResOrange}`}>
+                <div className={`${styles.tcinResRow} ${styles.tcinResAccent}`}>
                   <span className={styles.tcinResLabel}>Total Pre-TC Expenses</span>
                   <span className={styles.tcinResVal}>{money(grossCalc.preTcTotal)}</span>
                 </div>
@@ -1838,6 +1894,75 @@ export default function TcInHireRecapModal({
       </div>
     </div>,
     document.body,
+  )}
+    {vpModalOpen && typeof document !== 'undefined'
+      ? createPortal(
+        <div
+          className={`${styles.modalBackdrop} ${styles.vpNestedBackdrop}`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tc-in-vp-modal-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setVpModalOpen(false);
+          }}
+        >
+          <div className={styles.vpModal}>
+            <div className={styles.thdHead}>
+              <div className={styles.thdTitleWrap}>
+                <div className={styles.thdTitleIco} aria-hidden="true">
+                  {SECTION_ICONS.vessel}
+                </div>
+                <div>
+                  <div id="tc-in-vp-modal-title" className={styles.thdTitle}>
+                    {`Full Vessel Particulars - (${String(vesselNameForVp).toUpperCase()})`}
+                  </div>
+                  <div className={styles.thdSubtitle}>Same record as Operated Vessels</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.thdClose}
+                title="Close"
+                onClick={() => setVpModalOpen(false)}
+                aria-label="Close"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+            <div className={styles.vpModalBody}>
+              {vpLoading ? (
+                <LoadingOverlay active label="Loading vessel particulars…" />
+              ) : null}
+              {vpError ? <div className={styles.error}>{vpError}</div> : null}
+              {!vpLoading && vpData ? (
+                <VesselParticularsReadonlyContent
+                  data={vpData}
+                  vesselId={vesselIdForVp}
+                  canUpload={!readOnly}
+                  onRefresh={async () => {
+                    if (!vesselIdForVp) return;
+                    const response = await fetchTankerParticulars(vesselIdForVp);
+                    setVpData(response);
+                  }}
+                />
+              ) : null}
+              {!vpLoading && !vpError && !vpData ? (
+                <div className={styles.thdSubtitle}>No vessel particulars available.</div>
+              ) : null}
+            </div>
+            <div className={styles.thdFooter}>
+              <button type="button" className={styles.thdCloseBtn} onClick={() => setVpModalOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
+      : null}
+    </>
   );
 }
 

@@ -2543,11 +2543,6 @@ export default function TcFixtureFormPage({
                     onChange={(v) => setField('tcNo', v)}
                     readOnly={mode === 'edit' || readOnly}
                   />
-                  <TextInput
-                    label="Est No."
-                    value={`EST${Number(form.estimateNo) > 0 ? Number(form.estimateNo) : 1}`}
-                    readOnly
-                  />
                   <Field label="Chartering Team *" id="charteringTeam">
                     <CardSelect
                       id="charteringTeam"

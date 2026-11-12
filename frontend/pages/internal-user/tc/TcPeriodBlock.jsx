@@ -357,12 +357,6 @@ export default function TcPeriodBlock({
       </TsecCard>
 
       <TsecCard theme="navy" tab="Off Hire">
-        {isTcIn ? (
-          <p className={styles.tcinCopiedNote}>
-            Off-hire copied from the previous page (TC Out), including bunkers. Rate/Day is taken from
-            the Trip Schedule Hire ($/day) when the off-hire dates fall inside a delivery–redelivery leg.
-          </p>
-        ) : null}
         <div className={styles.offhireList}>
           {offRows.map((row, index) => {
             const resolved = resolveOffHire(row);
@@ -385,11 +379,11 @@ export default function TcPeriodBlock({
                       <div className={styles.fgHead}>Days</div>
                       <div className={styles.fgHead}>Rate/Day</div>
                       {isTcIn ? null : <div className={styles.fgHead}>Charterer</div>}
-                      <div className={styles.fgHead}>{isTcIn ? 'Credit Amount' : 'Amount'}</div>
+                      <div className={styles.fgHead}>Amount</div>
                       <div className={styles.fgHead} />
                     </>
                   ) : null}
-                  <div className={`${styles.fgCell} ${isTcIn ? styles.tcinReasonCell : ''}`.trim()}>
+                  <div className={styles.fgCell}>
                     <input
                       value={row.reason || ''}
                       onChange={(e) => onPatchOff(index, { reason: e.target.value })}
@@ -397,9 +391,6 @@ export default function TcPeriodBlock({
                       readOnly={readOnly}
                       className={readOnly ? styles.inputReadonly : undefined}
                     />
-                    {isTcIn && !readOnly ? (
-                      <RowAddButton title="Add another off-hire reason" onClick={onAddOff} />
-                    ) : null}
                   </div>
                   <div className={styles.fgCell}>
                     <DmyDateInput
@@ -431,7 +422,6 @@ export default function TcPeriodBlock({
                       onChange={(e) => onPatchOff(index, { hireRate: e.target.value })}
                       readOnly={readOnly}
                       className={readOnly ? styles.inputReadonly : undefined}
-                      title={isTcIn ? 'Auto-copied from the Trip Schedule leg covering these dates — still editable' : undefined}
                     />
                   </div>
                   {isTcIn ? null : (
@@ -452,6 +442,7 @@ export default function TcPeriodBlock({
                   <div className={styles.fgCell}>
                     {!readOnly ? (
                       <div className="rowActions">
+                        <RowAddButton title="Add another off-hire reason" onClick={onAddOff} />
                         <RowDelButton
                           title="Delete this off-hire item"
                           onClick={() => onRemoveOff(index)}
@@ -559,7 +550,7 @@ export default function TcPeriodBlock({
             <span>{offTotals?.totalDays || '0'} days / {offTotals?.totalAmt || '0.00'}</span>
           )}
         </div>
-        {!readOnly ? (
+        {!readOnly && !isTcIn ? (
           <button
             type="button"
             className={`${styles.tsecAddBtn} ${styles.tsecAddBtnNavy}`}

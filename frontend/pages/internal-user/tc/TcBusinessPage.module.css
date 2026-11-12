@@ -332,6 +332,36 @@
   font-variant-numeric: tabular-nums;
 }
 
+.tcNoStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  line-height: 1.25;
+}
+
+.tcNoPrimary {
+  font-weight: 700;
+  color: #1b2430;
+  font-variant-numeric: tabular-nums;
+}
+
+.voyageContract {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin-top: 1px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #f0f2f5;
+  color: #5b6472;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
 .cellRoute {
   color: #5b6472;
 }

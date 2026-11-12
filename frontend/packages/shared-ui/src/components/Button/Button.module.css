@@ -275,6 +275,49 @@
   color: #f4652c;
 }
 
+/**
+ * Latest PDF / download control — icon only (brand DownloadIcon), grey chrome.
+ * Used automatically for PDF labels; pass iconOnly for other icon-only actions.
+ */
+.iconOnly {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  gap: 0;
+  border-radius: 9px;
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  color: #5b6472;
+  font-weight: 600;
+}
+
+.iconOnly:hover:not(:disabled) {
+  background: #f1f2f4;
+  border-color: #dfe2e7;
+  color: #1b2430;
+}
+
+.iconOnly.outline,
+.iconOnly.secondary,
+.iconOnly.accent,
+.iconOnly.outlineAccent,
+.iconOnly.primary {
+  background: #fff;
+  border: 1px solid #dfe2e7;
+  color: #5b6472;
+}
+
+.iconOnly.outline:hover:not(:disabled),
+.iconOnly.secondary:hover:not(:disabled),
+.iconOnly.accent:hover:not(:disabled),
+.iconOnly.outlineAccent:hover:not(:disabled),
+.iconOnly.primary:hover:not(:disabled) {
+  background: #f1f2f4;
+  border-color: #dfe2e7;
+  color: #1b2430;
+}
+
 .close {
   width: 34px;
   height: 34px;

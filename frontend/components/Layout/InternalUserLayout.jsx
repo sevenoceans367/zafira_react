@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AppShell } from '@bainbridge/shared-ui';
 import { appPath } from '@bainbridge/shared-routing';
@@ -18,11 +18,25 @@ const COLLAPSE_SIDEBAR_PATHS = [
 export default function InternalUserLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isCompactViewport, setIsCompactViewport] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches
+  ));
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 900px)');
+    const syncViewport = () => setIsCompactViewport(mediaQuery.matches);
+    syncViewport();
+    mediaQuery.addEventListener('change', syncViewport);
+    return () => mediaQuery.removeEventListener('change', syncViewport);
+  }, []);
+
   const user = getUser();
   const displayName = String(user?.name || user?.username || '').trim() || 'User';
   const collapseSidebar = COLLAPSE_SIDEBAR_PATHS.some((path) => (
     location.pathname === path || location.pathname.startsWith(`${path}/`)
-  ));
+  )) || (
+    location.pathname === '/internal-user/vc/ops/sof' && isCompactViewport
+  );
   const hideSidebar = location.pathname === '/';
 
   const handleSignOut = async () => {

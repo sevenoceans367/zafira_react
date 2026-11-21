@@ -133,9 +133,13 @@ function strOrNull(value) {
   return s === '' ? null : s;
 }
 
-function numOrNull(value) {
+export function numOrNull(value) {
   if (value === '' || value == null) return null;
-  const n = Number(value);
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const hasGroupedThousands = /^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(raw);
+  if (raw.includes(',') && !hasGroupedThousands) return null;
+  const n = Number(hasGroupedThousands ? raw.replace(/,/g, '') : raw);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -771,9 +775,8 @@ export async function dbGetSofForm(comId) {
   };
 }
 
-async function replaceSlaveRows(connection, sofId, keyOperations, cargoRows) {
+async function replaceKeyOperationRows(connection, sofId, keyOperations) {
   await connection.query(`DELETE FROM sof_slave_6 WHERE SOFID = ?`, [sofId]);
-  await connection.query(`DELETE FROM sof_slave_7 WHERE SOFID = ?`, [sofId]);
 
   const hasToColumn = await ensureSofActivityDateTimeToColumn(connection);
 
@@ -815,6 +818,10 @@ async function replaceSlaveRows(connection, sofId, keyOperations, cargoRows) {
       );
     }
   }
+}
+
+async function replaceCargoRows(connection, sofId, cargoRows) {
+  await connection.query(`DELETE FROM sof_slave_7 WHERE SOFID = ?`, [sofId]);
 
   for (const row of cargoRows || []) {
     const activity = String(row.activity || '').trim();
@@ -980,8 +987,95 @@ async function replaceDailyQty(connection, {
 }
 
 /**
+ * Resolve which master fields and child collections should be written on SOF save.
+ * Any omitted optional field/collection preserves existing database state instead of wiping it.
+ */
+export function resolveSofSavePlan(payload = {}, existing = null) {
+  const hasKeyOperations = Array.isArray(payload.keyOperations);
+  const hasCargoRows = Array.isArray(payload.cargoRows);
+  const keyOperations = hasKeyOperations ? payload.keyOperations : [];
+  const cargoRows = hasCargoRows ? payload.cargoRows : [];
+  const derived = deriveMasterFieldsFromKeyOperations(keyOperations, cargoRows, payload);
+
+  const terminal = payload.terminal !== undefined
+    ? derived.terminal
+    : str(existing?.TERMINAL);
+  const stowageQty = (payload.stowageQty !== undefined || hasCargoRows)
+    ? derived.stowageQty
+    : (existing?.VA_1 ?? null);
+  const vesselArrived = (payload.vesselArrived !== undefined || hasKeyOperations)
+    ? derived.vesselArrived
+    : (existing?.VAPS_1 ?? null);
+  const norTendered = (payload.norTendered !== undefined || hasKeyOperations)
+    ? derived.norTendered
+    : (existing?.NT_1 ?? null);
+  const pilotOnBoard = (payload.pilotOnBoard !== undefined || hasKeyOperations)
+    ? derived.pilotOnBoard
+    : (existing?.PBFB_1 ?? null);
+  const loadCommenced = (payload.loadCommenced !== undefined || hasKeyOperations)
+    ? derived.loadCommenced
+    : (existing?.LC ?? null);
+  const loadCompleted = (payload.loadCompleted !== undefined || hasKeyOperations)
+    ? derived.loadCompleted
+    : (existing?.LC1 ?? null);
+  const vesselSailed = (payload.vesselSailed !== undefined || hasKeyOperations)
+    ? derived.vesselSailed
+    : (existing?.VS ?? null);
+  const agentRemarks = payload.agentRemarks !== undefined
+    ? str(payload.agentRemarks)
+    : str(existing?.SHIPPER_REMARKS);
+
+  const keepFiles = Array.isArray(payload.keepFiles)
+    ? payload.keepFiles.map(str).filter(Boolean)
+    : null;
+  const appendFiles = Array.isArray(payload.appendFiles)
+    ? payload.appendFiles.map(str).filter(Boolean)
+    : [];
+  const existingUploads = str(existing?.UPLOAD || '').split(',').map((name) => name.trim()).filter(Boolean);
+  const upload = keepFiles != null
+    ? keepFiles.join(',')
+    : [...existingUploads, ...appendFiles].join(',');
+
+  const hasPreArrival = Boolean(
+    payload.preArrival
+    && typeof payload.preArrival === 'object'
+    && !Array.isArray(payload.preArrival),
+  );
+
+  return {
+    master: {
+      terminal,
+      stowageQty,
+      vesselArrived,
+      norTendered,
+      pilotOnBoard,
+      loadCommenced,
+      loadCompleted,
+      vesselSailed,
+      agentRemarks,
+      upload,
+    },
+    replaceKeyOperations: hasKeyOperations,
+    keyOperations,
+    replaceCargoRows: hasCargoRows,
+    cargoRows,
+    replaceEntityRows: Array.isArray(payload.entityRows),
+    entityRows: Array.isArray(payload.entityRows) ? payload.entityRows : [],
+    replaceBlRows: Array.isArray(payload.blRows),
+    blRows: Array.isArray(payload.blRows) ? payload.blRows : [],
+    replacePortActivities: Array.isArray(payload.portActivities),
+    portActivities: Array.isArray(payload.portActivities) ? payload.portActivities : [],
+    upsertPreArrival: hasPreArrival,
+    preArrival: hasPreArrival ? payload.preArrival : null,
+    replaceDailyQty: Array.isArray(payload.dailyQty),
+    dailyQty: Array.isArray(payload.dailyQty) ? payload.dailyQty : [],
+  };
+}
+
+/**
  * PHP updationSOFRecords — sof_master (items 9-16 + remarks) + slave_1/3/4/5/6/(slave GROUP_NAME=1)/7.
  * UPLOAD list is preserved / filtered by keepFiles; new files are merged in the route handler.
+ * Child collections are only replaced when explicitly provided in payload.
  */
 export async function dbSaveSof(payload = {}) {
   const pool = getPool();
@@ -990,24 +1084,6 @@ export async function dbSaveSof(payload = {}) {
   const portId = str(payload.portId || payload.portid);
   const randomId = str(payload.randomId || payload.randomid);
   const submitId = Number(payload.submitId || payload.submitid || 1);
-  const keyOperations = payload.keyOperations || [];
-  const cargoRows = payload.cargoRows || [];
-  const derived = deriveMasterFieldsFromKeyOperations(keyOperations, cargoRows, payload);
-  const terminal = derived.terminal;
-  const stowageQty = derived.stowageQty;
-  const vesselArrived = derived.vesselArrived;
-  const norTendered = derived.norTendered;
-  const pilotOnBoard = derived.pilotOnBoard;
-  const loadCommenced = derived.loadCommenced;
-  const loadCompleted = derived.loadCompleted;
-  const vesselSailed = derived.vesselSailed;
-  const agentRemarks = str(payload.agentRemarks);
-  const entityRows = payload.entityRows || [];
-  const blRows = payload.blRows || [];
-  const portActivities = payload.portActivities || [];
-  const preArrival = payload.preArrival || {};
-  const dailyQty = payload.dailyQty || [];
-  const keepFiles = Array.isArray(payload.keepFiles) ? payload.keepFiles.map(str).filter(Boolean) : null;
 
   if (!comId || !portType || !portId || !randomId) {
     const error = new Error('comId, portType, portId and randomId are required.');
@@ -1034,9 +1110,19 @@ export async function dbSaveSof(payload = {}) {
       throw error;
     }
 
-    const upload = keepFiles != null
-      ? keepFiles.join(',')
-      : str(existing?.UPLOAD || '');
+    const plan = resolveSofSavePlan(payload, existing || null);
+    const {
+      terminal,
+      stowageQty,
+      vesselArrived,
+      norTendered,
+      pilotOnBoard,
+      loadCommenced,
+      loadCompleted,
+      vesselSailed,
+      agentRemarks,
+      upload,
+    } = plan.master;
 
     let sofId = existing?.SOFID;
     if (!sofId) {
@@ -1091,16 +1177,31 @@ export async function dbSaveSof(payload = {}) {
       );
     }
 
-    await replaceEntityRows(connection, sofId, entityRows);
-    await replaceBlRows(connection, sofId, blRows);
-    await replacePortActivities(connection, sofId, portActivities);
-    await upsertPreArrival(connection, {
-      comId, portType, portId, randomId, preArrival,
-    });
-    await replaceDailyQty(connection, {
-      comId, portType, portId, randomId, dailyQty,
-    });
-    await replaceSlaveRows(connection, sofId, keyOperations, cargoRows);
+    if (plan.replaceEntityRows) {
+      await replaceEntityRows(connection, sofId, plan.entityRows);
+    }
+    if (plan.replaceBlRows) {
+      await replaceBlRows(connection, sofId, plan.blRows);
+    }
+    if (plan.replacePortActivities) {
+      await replacePortActivities(connection, sofId, plan.portActivities);
+    }
+    if (plan.upsertPreArrival) {
+      await upsertPreArrival(connection, {
+        comId, portType, portId, randomId, preArrival: plan.preArrival,
+      });
+    }
+    if (plan.replaceDailyQty) {
+      await replaceDailyQty(connection, {
+        comId, portType, portId, randomId, dailyQty: plan.dailyQty,
+      });
+    }
+    if (plan.replaceKeyOperations) {
+      await replaceKeyOperationRows(connection, sofId, plan.keyOperations);
+    }
+    if (plan.replaceCargoRows) {
+      await replaceCargoRows(connection, sofId, plan.cargoRows);
+    }
     await connection.commit();
 
     return {

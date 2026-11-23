@@ -15,9 +15,9 @@ describe('sofTankerHelpers', () => {
     assert.equal(DEFAULT_SOF_ROW_SIZE, 5);
   });
 
-  it('computes activity duration in hours to 1 decimal place', () => {
+  it('computes valid activity duration and leaves reversed or incomplete ranges blank', () => {
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', '10-05-2026 10:30'), '2.5');
-    assert.equal(computeActivityDurationHours('10-05-2026 12:00', '10-05-2026 10:00'), '0.0');
+    assert.equal(computeActivityDurationHours('10-05-2026 12:00', '10-05-2026 10:00'), '');
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', ''), '');
   });
 
@@ -55,7 +55,7 @@ describe('sofTankerHelpers', () => {
     assert.equal(next.find((r) => r.activity === 'Remarks/delays/interuptions').remarks, 'Legacy delay note');
   });
 
-  it('round-trips all port collections, robIfo/robMdo, and agentRemarks in save payload', () => {
+  it('saves layout-owned values and omits hidden child collections from the payload', () => {
     const port = {
       key: 'LP-10-101',
       portType: 'LP',
@@ -95,10 +95,10 @@ describe('sofTankerHelpers', () => {
     assert.equal(payload.keyOperations[0].robMdo, '120.25');
     assert.equal(payload.cargoRows.length, 2);
     assert.equal(payload.portActivities[0].activity, 'Hose connection');
-    assert.deepEqual(payload.entityRows, [{ name: 'Agent', value: 'Seven Seas' }]);
-    assert.deepEqual(payload.blRows, [{ blDate: '02-05-2026', cargo: 'ULSD', blQty: '29980' }]);
-    assert.deepEqual(payload.preArrival, { cargoDecl: true, stowPlanQty: '30000' });
-    assert.equal(payload.dailyQty.length, 1);
+    assert.equal(Object.hasOwn(payload, 'entityRows'), false);
+    assert.equal(Object.hasOwn(payload, 'blRows'), false);
+    assert.equal(Object.hasOwn(payload, 'preArrival'), false);
+    assert.equal(Object.hasOwn(payload, 'dailyQty'), false);
   });
 
   it('clamps pagination safely when rows shrink', () => {

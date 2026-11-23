@@ -16,6 +16,7 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchSofForm, saveSof } from '../../../services/opsVc.js';
 import OpsVcSofHeaderActions from './OpsVcSofHeaderActions.jsx';
+import OpsVcSofLegacyPage from './OpsVcSofLegacyPage.jsx';
 import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
@@ -392,6 +393,12 @@ export default function OpsVcSofPage() {
     }
   };
 
+  // The redesigned layout is for tanker SOFs only. Keep the established editor
+  // for Dry/Gas records, reusing the form data already fetched above.
+  if (!loading && form && Number(form.estimateType) !== 2) {
+    return <OpsVcSofLegacyPage initialForm={form} />;
+  }
+
   const cargoSummary = (form?.cargo || []).join(', ') || '—';
   const worksheetHref = comId && form?.costSheetId
     ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.costSheetId)}&page=${encodeURIComponent(page || '1')}`)
@@ -599,6 +606,8 @@ export default function OpsVcSofPage() {
                             <th style={{ width: 34 }} />
                             <th>Key Operation</th>
                             <th>Date / Time</th>
+                            <th>ROB IFO</th>
+                            <th>ROB MDO</th>
                             <th>Notes</th>
                           </tr>
                         </thead>
@@ -650,6 +659,30 @@ export default function OpsVcSofPage() {
                                 </div>
                               </td>
                               <td>
+                                <input
+                                  className={styles.cfInp}
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={row.robIfo ?? ''}
+                                  onChange={(e) => updateKeyOpRow(index, { robIfo: e.target.value })}
+                                  disabled={locked}
+                                  placeholder="0.00"
+                                  aria-label={`ROB IFO, row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  className={styles.cfInp}
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={row.robMdo ?? ''}
+                                  onChange={(e) => updateKeyOpRow(index, { robMdo: e.target.value })}
+                                  disabled={locked}
+                                  placeholder="0.00"
+                                  aria-label={`ROB MDO, row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
                                 <textarea
                                   className={styles.koNotes}
                                   value={row.comments || ''}
@@ -662,7 +695,7 @@ export default function OpsVcSofPage() {
                             </tr>
                           )) : (
                             <tr className={styles.emptyTableRow}>
-                              <td colSpan={4}>No key operations match your search.</td>
+                              <td colSpan={6}>No key operations match your search.</td>
                             </tr>
                           )}
                         </tbody>
@@ -771,29 +804,17 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm}`}
-                                  value={row.duration || '0.0'}
+                                  value={row.duration || '—'}
                                   placeholder="Auto"
                                   readOnly
                                   aria-label={`Activity duration hours, row ${index + 1}`}
                                 />
                               </td>
-                              <td className={styles.chkCell}>
-                                <input
-                                  type="checkbox"
-                                  checked={false}
-                                  disabled
-                                  title={LAYTIME_ONLY_FIELD_TITLE}
-                                  aria-label={`LT (C), row ${index + 1}`}
-                                />
+                              <td className={styles.chkCell} title={LAYTIME_ONLY_FIELD_TITLE}>
+                                <span aria-label={`LT (C) unavailable, row ${index + 1}`}>—</span>
                               </td>
-                              <td className={styles.chkCell}>
-                                <input
-                                  type="checkbox"
-                                  checked={false}
-                                  disabled
-                                  title={LAYTIME_ONLY_FIELD_TITLE}
-                                  aria-label={`LT (NC), row ${index + 1}`}
-                                />
+                              <td className={styles.chkCell} title={LAYTIME_ONLY_FIELD_TITLE}>
+                                <span aria-label={`LT (NC) unavailable, row ${index + 1}`}>—</span>
                               </td>
                               <td>
                                 <input
@@ -810,7 +831,7 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                  value="0.00"
+                                  value="—"
                                   readOnly
                                   disabled
                                   title={LAYTIME_ONLY_FIELD_TITLE}
@@ -903,7 +924,7 @@ export default function OpsVcSofPage() {
                               <input
                                 type="text"
                                 className={`${styles.cfInp} ${styles.numSm}`}
-                                value="0.0"
+                                value="—"
                                 placeholder="Auto"
                                 readOnly
                                 disabled
@@ -926,7 +947,7 @@ export default function OpsVcSofPage() {
                               <input
                                 type="text"
                                 className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                value="0"
+                                value="—"
                                 readOnly
                                 disabled
                                 title={DEDUCTIONS_RO_TITLE}
@@ -952,7 +973,7 @@ export default function OpsVcSofPage() {
                               <input
                                 type="text"
                                 className={styles.totalsRowInput}
-                                value="0.0000"
+                                value="—"
                                 readOnly
                                 aria-label="Total deduction duration"
                               />
@@ -962,7 +983,7 @@ export default function OpsVcSofPage() {
                               <input
                                 type="text"
                                 className={styles.totalsRowInput}
-                                value="0.0000"
+                                value="—"
                                 readOnly
                                 aria-label="Total net deduction duration"
                               />

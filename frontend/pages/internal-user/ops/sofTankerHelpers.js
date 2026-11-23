@@ -52,13 +52,22 @@ export function pageForIndex(index, pageSize) {
 export function parseDisplayDateTime(value) {
   const raw = String(value || '').trim();
   if (!raw) return null;
-  const match = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+  const match = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
   if (!match) return null;
   const [, dd, mm, yyyy, hh = '0', min = '0'] = match;
   const year = Number(yyyy);
-  if (year < 1971) return null;
-  const dt = new Date(year, Number(mm) - 1, Number(dd), Number(hh), Number(min));
-  return Number.isNaN(dt.getTime()) ? null : dt;
+  const day = Number(dd);
+  const month = Number(mm);
+  const hour = Number(hh);
+  const minute = Number(min);
+  if (year < 1971 || month < 1 || month > 12 || hour > 23 || minute > 59) return null;
+  const dt = new Date(year, month - 1, day, hour, minute);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.getFullYear() === year
+    && dt.getMonth() === month - 1
+    && dt.getDate() === day
+    ? dt
+    : null;
 }
 
 /** Hours between two display datetimes, formatted to 1 decimal matching the SOF mockup. */
@@ -67,7 +76,7 @@ export function computeActivityDurationHours(from, to) {
   const fd = parseDisplayDateTime(to);
   if (!sd || !fd) return '';
   const hrs = (fd.getTime() - sd.getTime()) / 3600000;
-  return (hrs >= 0 ? hrs : 0).toFixed(1);
+  return hrs >= 0 ? hrs.toFixed(1) : '';
 }
 
 function isCargoLoadedRow(row) {
@@ -197,7 +206,8 @@ export function draftFromPort(port = {}) {
 }
 
 /**
- * Build the complete saveSof payload so no existing SOF collections or remarks are lost on save.
+ * Include only collections this layout owns. The API preserves omitted collections,
+ * which avoids replacing fields this screen does not display or edit.
  */
 export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
   const payload = {
@@ -211,13 +221,7 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
     keyOperations: draft.keyOperations,
     cargoRows: draft.cargoRows,
     portActivities: draft.portActivities,
-    entityRows: draft.entityRows,
-    blRows: draft.blRows,
-    dailyQty: draft.dailyQty,
     keepFiles: draft.keepFiles,
   };
-  if (draft.preArrival && typeof draft.preArrival === 'object') {
-    payload.preArrival = draft.preArrival;
-  }
   return payload;
 }

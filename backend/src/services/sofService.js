@@ -121,6 +121,10 @@ const MOCK_FORM = {
 
 let mockForm = structuredClone(MOCK_FORM);
 
+export function __resetSofMockForTests() {
+  mockForm = structuredClone(MOCK_FORM);
+}
+
 export async function getSofForm(comId) {
   if (isDbConfigured()) return dbGetSofForm(comId);
   if (String(comId) !== String(mockForm.comId)) {
@@ -146,24 +150,31 @@ export async function saveSof(payload = {}) {
     error.status = 400;
     throw error;
   }
-  port.terminal = payload.terminal || '';
-  port.stowageQty = payload.stowageQty || '';
-  port.vesselArrived = payload.vesselArrived || '';
-  port.norTendered = payload.norTendered || '';
-  port.pilotOnBoard = payload.pilotOnBoard || '';
-  port.loadCommenced = payload.loadCommenced || '';
-  port.loadCompleted = payload.loadCompleted || '';
-  port.vesselSailed = payload.vesselSailed || '';
-  port.agentRemarks = payload.agentRemarks || '';
-  port.entityRows = payload.entityRows || port.entityRows;
-  port.blRows = payload.blRows || port.blRows;
-  port.portActivities = payload.portActivities || port.portActivities;
-  port.preArrival = payload.preArrival || port.preArrival;
-  port.dailyQty = payload.dailyQty || port.dailyQty;
-  port.keyOperations = payload.keyOperations || port.keyOperations;
-  port.cargoRows = payload.cargoRows || port.cargoRows;
+  if (payload.terminal !== undefined) port.terminal = payload.terminal || '';
+  if (payload.stowageQty !== undefined) port.stowageQty = payload.stowageQty || '';
+  if (payload.vesselArrived !== undefined) port.vesselArrived = payload.vesselArrived || '';
+  if (payload.norTendered !== undefined) port.norTendered = payload.norTendered || '';
+  if (payload.pilotOnBoard !== undefined) port.pilotOnBoard = payload.pilotOnBoard || '';
+  if (payload.loadCommenced !== undefined) port.loadCommenced = payload.loadCommenced || '';
+  if (payload.loadCompleted !== undefined) port.loadCompleted = payload.loadCompleted || '';
+  if (payload.vesselSailed !== undefined) port.vesselSailed = payload.vesselSailed || '';
+  if (payload.agentRemarks !== undefined) port.agentRemarks = payload.agentRemarks || '';
+  if (Array.isArray(payload.entityRows)) port.entityRows = payload.entityRows;
+  if (Array.isArray(payload.blRows)) port.blRows = payload.blRows;
+  if (Array.isArray(payload.portActivities)) port.portActivities = payload.portActivities;
+  if (payload.preArrival && typeof payload.preArrival === 'object' && !Array.isArray(payload.preArrival)) {
+    port.preArrival = payload.preArrival;
+  }
+  if (Array.isArray(payload.dailyQty)) port.dailyQty = payload.dailyQty;
+  if (Array.isArray(payload.keyOperations)) port.keyOperations = payload.keyOperations;
+  if (Array.isArray(payload.cargoRows)) port.cargoRows = payload.cargoRows;
   if (Array.isArray(payload.keepFiles)) {
     port.uploads = payload.keepFiles.map(String).filter(Boolean);
+  } else if (Array.isArray(payload.appendFiles)) {
+    port.uploads = [
+      ...(port.uploads || []),
+      ...payload.appendFiles.map(String).filter(Boolean),
+    ];
   }
   port.submitId = Number(payload.submitId || 1);
   port.locked = port.submitId === 2;

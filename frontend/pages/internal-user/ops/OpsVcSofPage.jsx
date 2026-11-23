@@ -3,20 +3,40 @@ import useTimedFlash from '../../../hooks/useTimedFlash.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AttachmentDropzone,
+  Button,
+  CardSelect,
   DmyDateInput,
-  DownloadIcon,
   LoadingOverlay,
+  RowActions,
+  RowAddButton,
+  RowDelButton,
   useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchSofForm, saveSof } from '../../../services/opsVc.js';
 import OpsVcSofHeaderActions from './OpsVcSofHeaderActions.jsx';
+import OpsVcSofLegacyPage from './OpsVcSofLegacyPage.jsx';
 import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
+import {
+  DEFAULT_SOF_ROW_SIZE,
+  SOF_ROW_SIZE_OPTIONS,
+  buildSofSavePayload,
+  computeActivityDurationHours,
+  displayStoredFileName,
+  draftFromPort,
+  emptyKeyOp,
+  emptyPortActivityRow,
+  getCargoCardValues,
+  isBlankKeyOp,
+  pageForIndex,
+  paginateRows,
+  patchCargoCardField,
+} from './sofTankerHelpers.js';
 import pageStyles from './OpsPages.module.css';
-import styles from './OpsVcSofPage.module.css';
+import styles from './OpsVcSofTanker.module.css';
 
 const BACK_PATHS = {
   1: '/internal-user/vc/ops/in-ops-glance',
@@ -29,260 +49,95 @@ const FLASH = {
   1: { type: 'error', text: 'Sorry! this SOF already exists for this port.' },
 };
 
-const SOF_ROW_SIZE_OPTIONS = [5, 10, 15, 25];
-const DEFAULT_SOF_ROW_SIZE = 25;
-
-function paginateRows(items, page, pageSize) {
-  const total = items.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
-  const safePage = Math.min(Math.max(1, page), totalPages);
-  const start = (safePage - 1) * pageSize;
-  return {
-    items: items.slice(start, start + pageSize),
-    total,
-    totalPages,
-    safePage,
-  };
-}
+const RO_AUTO_FETCH_TITLE = 'Auto-fetch source not yet wired to SOF persistence.';
+const LAYTIME_ONLY_FIELD_TITLE = 'Managed in Laytime Calculations; not persisted on SOF.';
+const DEDUCTIONS_RO_TITLE = 'Deductions are managed in Laytime Calculations and are not persisted on SOF yet.';
 
 function SearchIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="11" cy="11" r="7" />
       <path d="m21 21-4.3-4.3" />
     </svg>
   );
 }
 
-function SectionFilterControls({
-  search,
-  onSearchChange,
-  rowSize,
-  onRowSizeChange,
-  filteredCount,
-  totalCount,
-  page,
-  totalPages,
-  onPageChange,
-}) {
-  return (
-    <div className={styles.cfFilterWrap}>
-      <div className={styles.cfFilterBox}>
-        <SearchIcon />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search"
-        />
-      </div>
-      <label className={styles.rowsSelectWrap}>
-        <span className={styles.rowsSelectLabel}>Show</span>
-        <select
-          className={styles.rowsSelect}
-          value={rowSize}
-          onChange={(e) => onRowSizeChange(Number(e.target.value))}
-          aria-label="Rows to show"
-        >
-          {SOF_ROW_SIZE_OPTIONS.map((size) => (
-            <option key={size} value={size}>{size}</option>
-          ))}
-        </select>
-      </label>
-      {totalPages > 1 ? (
-        <div className={styles.cfPageNav}>
-          <button
-            type="button"
-            className={styles.cfPageBtn}
-            disabled={page <= 1}
-            onClick={() => onPageChange(page - 1)}
-            aria-label="Previous page"
-          >
-            ‹
-          </button>
-          <span className={styles.cfPageLabel}>{page} / {totalPages}</span>
-          <button
-            type="button"
-            className={styles.cfPageBtn}
-            disabled={page >= totalPages}
-            onClick={() => onPageChange(page + 1)}
-            aria-label="Next page"
-          >
-            ›
-          </button>
-        </div>
-      ) : null}
-      <span className={styles.cfFilterCount}>
-        {filteredCount} of {totalCount} shown
-      </span>
-    </div>
-  );
-}
-
 function PortTypeIcon({ portType }) {
   if (portType === 'DP') {
     return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M12 22V9" />
-        <path d="M18 15l-6-6-6 6" />
-        <path d="M4 4h16" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 21V9" />
+        <path d="M17 14l-5-5-5 5" />
+        <path d="M4 5h16" />
       </svg>
     );
   }
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 2v13" />
-      <path d="M6 9l6 6 6-6" />
-      <path d="M4 20h16" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M4 19h16" />
     </svg>
   );
 }
 
-function InfoIcon() {
+function CalendarIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v5.5" />
-      <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
+      <path d="M3 9.5h18" />
+      <path d="M8 2.5v4" />
+      <path d="M16 2.5v4" />
     </svg>
   );
 }
 
-function SofInfoPopup() {
+function RangeArrowIcon() {
   return (
-    <div className={styles.infoPop}>
-      <div className={styles.infoPopTitle}>How this page works</div>
-      <ol className={styles.infoPopSteps}>
-        <li>Fill in the port header and <b>Key Operations</b> with From/To datetimes as events occur.</li>
-        <li>Complete <b>Cargo / Figures</b> where applicable.</li>
-        <li><b>Save</b> keeps a draft you can return to.</li>
-        <li><b>Submit</b> locks the SOF once all entries prior to sailing are complete.</li>
-        <li>Key Operations with From and To feed Laytime activities; timestamps also seed Laytime header fields.</li>
-      </ol>
+    <svg className={styles.dtRangeArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12h14" />
+      <path d="M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+function SofDateField({
+  id,
+  label,
+  value,
+  onChange,
+  disabled = false,
+  placeholder = 'Select date & time',
+  title,
+}) {
+  const hasValue = Boolean(String(value || '').trim());
+  return (
+    <div
+      className={`${styles.sofDateField} ${hasValue ? styles.sofDateFieldHasValue : ''}`}
+      title={title}
+    >
+      <span className={styles.sofDateFieldIco}>
+        <CalendarIcon />
+      </span>
+      <DmyDateInput
+        id={id}
+        ariaLabel={label}
+        enableTime
+        strict24Hour
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        placeholder={placeholder}
+        className={styles.sofDateFieldInput}
+      />
     </div>
   );
 }
 
-function AddRowButton({ onClick, disabled, label = 'Add' }) {
-  if (disabled) return null;
-  return (
-    <button type="button" className={styles.addRowBtn} onClick={onClick}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-      {label}
-    </button>
-  );
-}
-
-function CircleDeleteButton({ onClick, disabled }) {
-  if (disabled) return null;
-  return (
-    <button
-      type="button"
-      className={`${styles.circleBtn} ${styles.circleBtnDel}`}
-      title="Remove row"
-      onClick={onClick}
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-        <path d="M18 6 6 18" />
-        <path d="M6 6l12 12" />
-      </svg>
-    </button>
-  );
-}
-
-function isRobActivity(activity) {
-  return activity === 'EOSP' || activity === 'Full away on passage';
-}
-
-function isRemarksCargoActivity(activity) {
-  const name = String(activity || '').toLowerCase();
-  return ![
-    'cargo loaded',
-    'bunkers taken',
-    'tugs used arrival',
-    'tugs used for shifting',
-    'tugs used for departure',
-    'arrival draft',
-    'departure draft',
-  ].includes(name);
-}
-
-function isDraftCargoActivity(activity) {
-  const name = String(activity || '').toLowerCase();
-  return name === 'arrival draft' || name === 'departure draft';
-}
-
-function cargoActivityLabel(activity, portType) {
-  if (activity === 'Cargo Loaded' && portType === 'DP') return 'Cargo Discharged';
-  return activity || '';
-}
-
-function cargoFigureLabels(activity) {
-  const name = String(activity || '');
-  if (name === 'Cargo Loaded') return { col1: "Ship's Figures", col2: 'B/L Figures' };
-  if (name === 'Bunkers taken' || name === 'Bunkers Taken') return { col1: 'IFO', col2: 'MDO' };
-  return { col1: 'F', col2: 'A' };
-}
-
-function emptyKeyOp() {
-  return {
-    activity: '',
-    activityDateTime: '',
-    activityDateTimeTo: '',
-    robIfo: '',
-    robMdo: '',
-    comments: '',
-    tDefault: 0,
-  };
-}
-
-function emptyCargoRow() {
-  return {
-    activity: '',
-    shipFigure: '',
-    blFigure: '',
-    waterDensity: '',
-    remarks: '',
-    tDefault: 0,
-  };
-}
-
-function isBlankKeyOp(row) {
-  return Number(row?.tDefault) !== 1 && !String(row?.activity || '').trim();
-}
-
-function isBlankCargoRow(row) {
-  return Number(row?.tDefault) !== 1 && !String(row?.activity || '').trim();
-}
-
-function pageForIndex(index, pageSize) {
-  return Math.max(1, Math.floor(index / pageSize) + 1);
-}
-
-function displayStoredFileName(stored) {
-  const raw = String(stored || '').trim();
-  const match = raw.match(/^\d+_(.+)$/);
-  return match ? match[1] : raw;
-}
-
-function attachmentHref(stored) {
-  return attachmentUrl(stored);
-}
-
-function draftFromPort(port) {
-  return {
-    terminal: port.terminal || '',
-    keyOperations: (port.keyOperations || []).map((row) => ({ ...row })),
-    cargoRows: (port.cargoRows || []).map((row) => ({ ...row })),
-    keepFiles: [...(port.uploads || [])],
-  };
-}
-
 /**
- * PHP sof.php — Statement of Facts (Ops VC).
- * Header summary, key operations (From/To), cargo figures, and documents.
+ * Statement of Facts (Internal Ops VC — Tanker layout).
+ * Single-column flow: Identifiers → Key Operations → Activity (From/To) + Deductions
+ * → Cargo → Remarks → Documents & Attachments, with sticky Save/Submit footer.
  */
 export default function OpsVcSofPage() {
   const confirm = useConfirm();
@@ -294,6 +149,7 @@ export default function OpsVcSofPage() {
   const tabParam = Number(searchParams.get('tabs') || searchParams.get('tab') || 1);
   const flashMsg = searchParams.get('msg');
   const flash = useTimedFlash(flashMsg != null && flashMsg !== '' ? FLASH[Number(flashMsg)] : null);
+
   const [form, setForm] = useState(null);
   const [activeKey, setActiveKey] = useState('');
   const [drafts, setDrafts] = useState({});
@@ -304,11 +160,7 @@ export default function OpsVcSofPage() {
   const [keyOpsSearch, setKeyOpsSearch] = useState('');
   const [keyOpsRowSize, setKeyOpsRowSize] = useState(DEFAULT_SOF_ROW_SIZE);
   const [keyOpsPage, setKeyOpsPage] = useState(1);
-  const [cargoSearch, setCargoSearch] = useState('');
-  const [cargoRowSize, setCargoRowSize] = useState(DEFAULT_SOF_ROW_SIZE);
-  const [cargoPage, setCargoPage] = useState(1);
   const skipKeyOpsPageResetRef = useRef(false);
-  const skipCargoPageResetRef = useRef(false);
 
   const backHref = useMemo(() => {
     const path = BACK_PATHS[Number(page)] || BACK_PATHS[1];
@@ -358,8 +210,6 @@ export default function OpsVcSofPage() {
   useEffect(() => {
     setKeyOpsSearch('');
     setKeyOpsPage(1);
-    setCargoSearch('');
-    setCargoPage(1);
   }, [activeKey]);
 
   useEffect(() => {
@@ -369,14 +219,6 @@ export default function OpsVcSofPage() {
     }
     setKeyOpsPage(1);
   }, [keyOpsSearch, keyOpsRowSize]);
-
-  useEffect(() => {
-    if (skipCargoPageResetRef.current) {
-      skipCargoPageResetRef.current = false;
-      return;
-    }
-    setCargoPage(1);
-  }, [cargoSearch, cargoRowSize]);
 
   const keyOpsRows = draft?.keyOperations || [];
   const keyOpsTerm = keyOpsSearch.trim().toLowerCase();
@@ -391,21 +233,15 @@ export default function OpsVcSofPage() {
     [filteredKeyOps, keyOpsPage, keyOpsRowSize],
   );
 
-  const cargoRows = draft?.cargoRows || [];
-  const cargoTerm = cargoSearch.trim().toLowerCase();
-  const filteredCargoRows = useMemo(() => {
-    const indexed = cargoRows.map((row, index) => ({ row, index }));
-    if (!cargoTerm) return indexed;
-    return indexed.filter(({ row }) => {
-      const label = cargoActivityLabel(row.activity, activePort?.portType);
-      const haystack = `${label} ${row.activity || ''}`.toLowerCase();
-      return haystack.includes(cargoTerm);
-    });
-  }, [cargoRows, cargoTerm, activePort?.portType]);
+  useEffect(() => {
+    if (keyOpsPage !== paginatedKeyOps.safePage) {
+      setKeyOpsPage(paginatedKeyOps.safePage);
+    }
+  }, [keyOpsPage, paginatedKeyOps.safePage]);
 
-  const paginatedCargoRows = useMemo(
-    () => paginateRows(filteredCargoRows, cargoPage, cargoRowSize),
-    [filteredCargoRows, cargoPage, cargoRowSize],
+  const cargoValues = useMemo(
+    () => getCargoCardValues(draft?.cargoRows),
+    [draft?.cargoRows],
   );
 
   const patchDraft = (patch) => {
@@ -415,10 +251,10 @@ export default function OpsVcSofPage() {
     }));
   };
 
-  const updateListRow = (field, index, patch) => {
-    const rows = [...(draft[field] || [])];
+  const updateKeyOpRow = (index, patch) => {
+    const rows = [...(draft?.keyOperations || [])];
     rows[index] = { ...rows[index], ...patch };
-    patchDraft({ [field]: rows });
+    patchDraft({ keyOperations: rows });
   };
 
   const addKeyOperationRow = async () => {
@@ -447,41 +283,48 @@ export default function OpsVcSofPage() {
     setKeyOpsPage(lastPage);
   };
 
-  const addCargoRow = async () => {
-    const rows = draft?.cargoRows || [];
-    const blankIndex = rows.findIndex(isBlankCargoRow);
-    if (blankIndex >= 0) {
-      if (cargoSearch) {
-        skipCargoPageResetRef.current = true;
-        setCargoSearch('');
-      }
-      setCargoPage(pageForIndex(blankIndex, cargoRowSize));
-      await alert({
-        title: 'Alert',
-        message: 'Please fill in the Cargo / Figures name on the empty row before adding another.',
-      });
-      return;
-    }
-
-    const next = [...rows, emptyCargoRow()];
-    const lastPage = Math.max(1, Math.ceil(next.length / cargoRowSize));
-    if (cargoSearch) {
-      skipCargoPageResetRef.current = true;
-      setCargoSearch('');
-    }
-    patchDraft({ cargoRows: next });
-    setCargoPage(lastPage);
-  };
-
-  const removeListRow = async (field, index, factory, keepMinOne = true) => {
+  const removeKeyOpRow = async (index) => {
     const ok = await confirm({
       title: 'Confirmation',
       message: 'Are you sure you want to delete this entry permanently?',
       confirmLabel: 'Delete',
     });
     if (!ok) return;
-    const rows = (draft[field] || []).filter((_, i) => i !== index);
-    patchDraft({ [field]: (rows.length || !keepMinOne) ? rows : [factory()] });
+    const rows = (draft?.keyOperations || []).filter((_, i) => i !== index);
+    patchDraft({ keyOperations: rows });
+  };
+
+  const updatePortActivityRow = (index, patch) => {
+    const rows = [...(draft?.portActivities || [])];
+    const nextRow = { ...rows[index], ...patch };
+    if ('from' in patch || 'to' in patch) {
+      nextRow.duration = computeActivityDurationHours(nextRow.from, nextRow.to);
+    }
+    rows[index] = nextRow;
+    patchDraft({ portActivities: rows });
+  };
+
+  const insertPortActivityAfter = (index) => {
+    const rows = [...(draft?.portActivities || [])];
+    rows.splice(index + 1, 0, emptyPortActivityRow());
+    patchDraft({ portActivities: rows });
+  };
+
+  const removePortActivityRow = async (index) => {
+    const ok = await confirm({
+      title: 'Confirmation',
+      message: 'Are you sure you want to delete this entry permanently?',
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
+    const rows = (draft?.portActivities || []).filter((_, i) => i !== index);
+    patchDraft({ portActivities: rows.length ? rows : [emptyPortActivityRow()] });
+  };
+
+  const updateCargoField = (field, value) => {
+    patchDraft({
+      cargoRows: patchCargoCardField(draft?.cargoRows, field, value),
+    });
   };
 
   const addPendingFiles = (fileList) => {
@@ -516,17 +359,13 @@ export default function OpsVcSofPage() {
     setSaving(true);
     setError('');
     try {
-      const result = await saveSof({
+      const payload = buildSofSavePayload({
         comId,
-        portType: activePort.portType,
-        portId: activePort.portId,
-        randomId: activePort.randomId,
+        activePort,
+        draft,
         submitId,
-        terminal: draft.terminal,
-        keyOperations: draft.keyOperations,
-        cargoRows: draft.cargoRows,
-        keepFiles: draft.keepFiles,
-      }, pendingFiles);
+      });
+      const result = await saveSof(payload, pendingFiles);
 
       setPendingFilesByKey((current) => ({
         ...current,
@@ -534,7 +373,8 @@ export default function OpsVcSofPage() {
       }));
 
       if (result.closed) {
-        navigate(`${backHref}?msg=3`);
+        const sep = backHref.includes('?') ? '&' : '?';
+        navigate(`${backHref}${sep}msg=3`);
         return;
       }
 
@@ -553,11 +393,17 @@ export default function OpsVcSofPage() {
     }
   };
 
+  // The redesigned layout is for tanker SOFs only. Keep the established editor
+  // for Dry/Gas records, reusing the form data already fetched above.
+  if (!loading && form && Number(form.estimateType) !== 2) {
+    return <OpsVcSofLegacyPage initialForm={form} />;
+  }
+
   const cargoSummary = (form?.cargo || []).join(', ') || '—';
   const worksheetHref = comId && form?.costSheetId
     ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.costSheetId)}&page=${encodeURIComponent(page || '1')}`)
     : '';
-  const docCount = (draft?.keepFiles?.length || 0) + pendingFiles.length;
+  const portActivities = draft?.portActivities?.length ? draft.portActivities : [emptyPortActivityRow()];
 
   return (
     <>
@@ -588,41 +434,48 @@ export default function OpsVcSofPage() {
 
         {form?.ports?.length ? (
           <>
-            <div className={styles.portTabs}>
-              {form.ports.map((port) => (
-                <button
-                  key={port.key}
-                  type="button"
-                  className={port.key === activeKey ? `${styles.portTab} ${styles.portTabActive}` : styles.portTab}
-                  onClick={() => setActiveKey(port.key)}
-                >
-                  <span className={styles.ptIco}>
-                    <PortTypeIcon portType={port.portType} />
-                  </span>
-                  <PortTabLabel label={port.tabLabel} />
-                </button>
-              ))}
+            <div className={styles.portTabs} role="group" aria-label="SOF port calls">
+              {form.ports.map((port) => {
+                const isActive = port.key === activeKey;
+                const icoTone = port.portType === 'DP' ? styles.ptIcoDp : styles.ptIcoLp;
+                return (
+                  <button
+                    key={port.key}
+                    type="button"
+                    className={isActive ? `${styles.portTab} ${styles.portTabActive}` : styles.portTab}
+                    onClick={() => setActiveKey(port.key)}
+                    aria-pressed={isActive}
+                  >
+                    <span className={`${styles.ptIco} ${icoTone}`}>
+                      <PortTypeIcon portType={port.portType} />
+                    </span>
+                    <PortTabLabel label={port.tabLabel} />
+                  </button>
+                );
+              })}
             </div>
 
             {activePort && draft ? (
-              <div className={styles.gprlLayout}>
-                <div className={styles.gprlMain}>
+              <>
+                <div className={styles.sofMain}>
+                  {/* ============ IDENTIFIERS ============ */}
                   <div className={styles.cfSection}>
                     <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadNavy}`}>
                       <div className={styles.cfSectionTitleWrap}>
-                        <div
-                          className={`${styles.sectionIco} ${styles.sectionIcoNavy} ${styles.infoTrigger}`}
-                          tabIndex={0}
-                        >
-                          <InfoIcon />
-                          <SofInfoPopup />
+                        <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <rect x="4" y="3" width="16" height="18" rx="2" />
+                            <path d="M8 7h8" />
+                            <path d="M8 11h8" />
+                            <path d="M8 15h5" />
+                          </svg>
                         </div>
                         <div>
-                          <div className={styles.cfSectionTitle}>Port Call</div>
-                          <div className={styles.cfSectionSub}>Vessel, voyage and terminal details</div>
+                          <div className={styles.cfSectionTitle}>Identifiers</div>
                         </div>
                       </div>
                     </div>
+
                     <div className={styles.pcGrid}>
                       <div className={styles.pcCell}>
                         <span className={styles.pcLabel}>Vessel</span>
@@ -645,295 +498,621 @@ export default function OpsVcSofPage() {
                         <span className={styles.pcVal}>{cargoSummary}</span>
                       </div>
                       <div className={styles.pcCell}>
-                        <span className={styles.pcLabel}>Terminal</span>
+                        <span className={styles.pcLabel}>Berth</span>
                         <input
                           type="text"
+                          className={styles.pcBerthInput}
                           value={draft.terminal}
                           onChange={(e) => patchDraft({ terminal: e.target.value })}
                           disabled={locked}
-                          placeholder="Enter terminal here"
+                          placeholder="Jetty"
+                          aria-label="Berth"
                         />
+                      </div>
+                    </div>
+
+                    <div className={styles.idSubGrid}>
+                      <div className={styles.idSubCell}>
+                        <span className={styles.idSubLabel}>ROB VLSFO</span>
+                        <span className={`${styles.roBox} ${styles.roBoxMuted}`} title={RO_AUTO_FETCH_TITLE}>—</span>
+                      </div>
+                      <div className={styles.idSubCell}>
+                        <span className={styles.idSubLabel}>ROB LSMGO</span>
+                        <span className={`${styles.roBox} ${styles.roBoxMuted}`} title={RO_AUTO_FETCH_TITLE}>—</span>
+                      </div>
+                      <div className={styles.idSubCell}>
+                        <span className={styles.idSubLabel}>Draft Arr. (Fore / Aft)</span>
+                        <span className={`${styles.roBox} ${styles.roBoxMuted}`} title={RO_AUTO_FETCH_TITLE}>—</span>
+                      </div>
+                      <div className={styles.idSubCell}>
+                        <span className={styles.idSubLabel}>Draft Dep. (Fore / Aft)</span>
+                        <span className={`${styles.roBox} ${styles.roBoxMuted}`} title={RO_AUTO_FETCH_TITLE}>—</span>
                       </div>
                     </div>
                   </div>
 
+                  {/* ============ KEY OPERATIONS ============ */}
                   <div className={styles.cfSection}>
                     <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadOrange}`}>
                       <div className={styles.cfSectionTitleWrap}>
                         <div className={`${styles.sectionIco} ${styles.sectionIcoOrange}`}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <rect x="6" y="3.5" width="12" height="17" rx="2" />
-                            <path d="M9 3.5V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5" />
-                            <path d="M9 12.5l2 2 4-4.5" />
-                          </svg>
+                          <CalendarIcon />
                         </div>
                         <div>
                           <div className={styles.cfSectionTitle}>Key Operations</div>
                           <div className={styles.cfSectionSub}>Log each event as it happens</div>
                         </div>
                       </div>
-                      <SectionFilterControls
-                        search={keyOpsSearch}
-                        onSearchChange={setKeyOpsSearch}
-                        rowSize={keyOpsRowSize}
-                        onRowSizeChange={setKeyOpsRowSize}
-                        filteredCount={filteredKeyOps.length}
-                        totalCount={keyOpsRows.length}
-                        page={paginatedKeyOps.safePage}
-                        totalPages={paginatedKeyOps.totalPages}
-                        onPageChange={setKeyOpsPage}
-                      />
                     </div>
+
+                    <div className={styles.koToolbar}>
+                      <div className={styles.searchBox}>
+                        <SearchIcon />
+                        <input
+                          type="text"
+                          value={keyOpsSearch}
+                          onChange={(e) => setKeyOpsSearch(e.target.value)}
+                          placeholder="Search"
+                          aria-label="Search key operations"
+                        />
+                      </div>
+                      <div className={styles.koToolbarRight}>
+                        <div className={styles.koShowWrap}>
+                          <span>Show</span>
+                          <CardSelect
+                            options={SOF_ROW_SIZE_OPTIONS.map((size) => ({ value: size, label: String(size) }))}
+                            value={String(keyOpsRowSize)}
+                            onChange={(value) => setKeyOpsRowSize(Number(value))}
+                            ariaLabel="Key operations rows per page"
+                          />
+                        </div>
+                        <div className={styles.koPager}>
+                          <button
+                            type="button"
+                            className={styles.pagerBtn}
+                            disabled={paginatedKeyOps.safePage <= 1}
+                            onClick={() => setKeyOpsPage(paginatedKeyOps.safePage - 1)}
+                            aria-label="Previous key operations page"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M15 6l-6 6 6 6" />
+                            </svg>
+                          </button>
+                          <span className={styles.pagerChip}>
+                            {paginatedKeyOps.safePage} / {paginatedKeyOps.totalPages}
+                          </span>
+                          <button
+                            type="button"
+                            className={styles.pagerBtn}
+                            disabled={paginatedKeyOps.safePage >= paginatedKeyOps.totalPages}
+                            onClick={() => setKeyOpsPage(paginatedKeyOps.safePage + 1)}
+                            aria-label="Next key operations page"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M9 6l6 6-6 6" />
+                            </svg>
+                          </button>
+                        </div>
+                        <span className={styles.koCount}>
+                          {paginatedKeyOps.items.length} of {filteredKeyOps.length} shown
+                        </span>
+                      </div>
+                    </div>
+
                     <div className={styles.tableWrap}>
                       <table className={styles.cfTable}>
                         <thead>
                           <tr>
                             <th style={{ width: 34 }} />
                             <th>Key Operation</th>
-                            <th>Date/Time From</th>
-                            <th>Date/Time To</th>
-                            <th colSpan={2}>Comments</th>
+                            <th>Date / Time</th>
+                            <th>ROB IFO</th>
+                            <th>ROB MDO</th>
+                            <th>Notes</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {paginatedKeyOps.items.map(({ row, index }) => (
+                          {paginatedKeyOps.items.length ? paginatedKeyOps.items.map(({ row, index }) => (
                             <tr key={`kop-${index}`}>
                               <td style={{ width: 34 }}>
-                                <CircleDeleteButton
-                                  disabled={locked}
-                                  onClick={() => removeListRow('keyOperations', index, emptyKeyOp, false)}
-                                />
+                                {!locked ? (
+                                  <RowDelButton
+                                    title="Remove row"
+                                    onClick={() => removeKeyOpRow(index)}
+                                  />
+                                ) : null}
                               </td>
-                              <td className={styles.opName}>
+                              <td className={styles.opNameCol}>
                                 {Number(row.tDefault) === 1 ? (
-                                  row.activity || '—'
+                                  <span className={styles.opBadge}>{row.activity || '—'}</span>
                                 ) : (
                                   <input
                                     className={styles.cfInp}
                                     type="text"
                                     value={row.activity}
-                                    onChange={(e) => updateListRow('keyOperations', index, { activity: e.target.value })}
+                                    onChange={(e) => updateKeyOpRow(index, { activity: e.target.value })}
                                     disabled={locked}
-                                    placeholder="Enter text here……"
+                                    placeholder="New operation / delay"
+                                    aria-label={`Key operation name, row ${index + 1}`}
                                   />
                                 )}
                               </td>
-                              <td>
-                                <DmyDateInput
-                                  enableTime
-                                  value={row.activityDateTime || ''}
-                                  onChange={(v) => updateListRow('keyOperations', index, { activityDateTime: v })}
-                                  disabled={locked}
-                                />
-                              </td>
-                              <td>
-                                <DmyDateInput
-                                  enableTime
-                                  value={row.activityDateTimeTo || ''}
-                                  onChange={(v) => updateListRow('keyOperations', index, { activityDateTimeTo: v })}
-                                  disabled={locked}
-                                />
-                              </td>
-                              {isRobActivity(row.activity) ? (
-                                <td colSpan={2}>
-                                  <div className={styles.cfRobPair}>
-                                    <div className={styles.cfRob}>
-                                      <label>ROB IFO</label>
-                                      <input
-                                        className={styles.cfInp}
-                                        type="text"
-                                        value={row.robIfo}
-                                        onChange={(e) => updateListRow('keyOperations', index, { robIfo: e.target.value })}
-                                        disabled={locked}
-                                        placeholder="0.00"
-                                      />
-                                    </div>
-                                    <div className={styles.cfRob}>
-                                      <label>ROB MDO</label>
-                                      <input
-                                        className={styles.cfInp}
-                                        type="text"
-                                        value={row.robMdo}
-                                        onChange={(e) => updateListRow('keyOperations', index, { robMdo: e.target.value })}
-                                        disabled={locked}
-                                        placeholder="0.00"
-                                      />
-                                    </div>
-                                  </div>
-                                </td>
-                              ) : (
-                                <td colSpan={2}>
-                                  <input
-                                    className={styles.cfInp}
-                                    type="text"
-                                    value={row.comments}
-                                    onChange={(e) => updateListRow('keyOperations', index, { comments: e.target.value })}
+                              <td className={styles.koDateCol}>
+                                <div className={styles.dtRangeBox}>
+                                  <SofDateField
+                                    id={`sof-key-op-from-${activeKey}-${index}`}
+                                    label={`Key operation start date and time, row ${index + 1}`}
+                                    value={row.activityDateTime || ''}
+                                    onChange={(v) => updateKeyOpRow(index, { activityDateTime: v })}
                                     disabled={locked}
-                                    placeholder="Comments"
+                                    placeholder="Select date & time"
                                   />
-                                </td>
-                              )}
+                                  <RangeArrowIcon />
+                                  <SofDateField
+                                    id={`sof-key-op-to-${activeKey}-${index}`}
+                                    label={`Key operation finish date and time, row ${index + 1}`}
+                                    value={row.activityDateTimeTo || ''}
+                                    onChange={(v) => updateKeyOpRow(index, { activityDateTimeTo: v })}
+                                    disabled={locked}
+                                    placeholder="Select date & time"
+                                  />
+                                </div>
+                              </td>
+                              <td>
+                                <input
+                                  className={styles.cfInp}
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={row.robIfo ?? ''}
+                                  onChange={(e) => updateKeyOpRow(index, { robIfo: e.target.value })}
+                                  disabled={locked}
+                                  placeholder="0.00"
+                                  aria-label={`ROB IFO, row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  className={styles.cfInp}
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={row.robMdo ?? ''}
+                                  onChange={(e) => updateKeyOpRow(index, { robMdo: e.target.value })}
+                                  disabled={locked}
+                                  placeholder="0.00"
+                                  aria-label={`ROB MDO, row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
+                                <textarea
+                                  className={styles.koNotes}
+                                  value={row.comments || ''}
+                                  onChange={(e) => updateKeyOpRow(index, { comments: e.target.value })}
+                                  disabled={locked}
+                                  placeholder="Notes"
+                                  aria-label={`Key operation notes, row ${index + 1}`}
+                                />
+                              </td>
+                            </tr>
+                          )) : (
+                            <tr className={styles.emptyTableRow}>
+                              <td colSpan={6}>No key operations match your search.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {!locked ? (
+                      <div className={styles.koFooter}>
+                        <button
+                          type="button"
+                          className={styles.btnAddRowBlue}
+                          onClick={addKeyOperationRow}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                          </svg>
+                          Add
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* ============ ACTIVITY (FROM/TO) + DEDUCTIONS ============ */}
+                  <div className={styles.cfSection}>
+                    <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadTeal}`}>
+                      <div className={styles.cfSectionTitleWrap}>
+                        <div className={`${styles.sectionIco} ${styles.sectionIcoTeal}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 7v5l3.5 2" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className={styles.cfSectionTitle}>Activity (From/To)</div>
+                          <div className={styles.cfSectionSub}>Laytime-counting activity for this port call</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={styles.tableWrap}>
+                      <table className={styles.cfTable}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: 62 }} />
+                            <th>Activity in Port</th>
+                            <th>Date / Time – Start</th>
+                            <th>Date / Time – Finish</th>
+                            <th>Duration (Hrs)</th>
+                            <th>LT (C)</th>
+                            <th>LT (NC)</th>
+                            <th>LT (Partial %)</th>
+                            <th>Cumulative Duration (Hrs)</th>
+                            <th>Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {portActivities.map((row, index) => (
+                            <tr key={`act-${index}`}>
+                              <td>
+                                <RowActions>
+                                  <RowAddButton
+                                    title="Add row"
+                                    disabled={locked}
+                                    onClick={() => insertPortActivityAfter(index)}
+                                  />
+                                  <RowDelButton
+                                    title="Remove row"
+                                    disabled={locked}
+                                    onClick={() => removePortActivityRow(index)}
+                                  />
+                                </RowActions>
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  className={styles.cfInp}
+                                  value={row.activity}
+                                  onChange={(e) => updatePortActivityRow(index, { activity: e.target.value })}
+                                  disabled={locked}
+                                  placeholder="Activity in port"
+                                  aria-label={`Activity in port, row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
+                                <SofDateField
+                                  id={`sof-port-activity-from-${activeKey}-${index}`}
+                                  label={`Activity start date and time, row ${index + 1}`}
+                                  value={row.from}
+                                  onChange={(v) => updatePortActivityRow(index, { from: v })}
+                                  disabled={locked}
+                                  placeholder="Select date & time"
+                                />
+                              </td>
+                              <td>
+                                <SofDateField
+                                  id={`sof-port-activity-to-${activeKey}-${index}`}
+                                  label={`Activity finish date and time, row ${index + 1}`}
+                                  value={row.to}
+                                  onChange={(v) => updatePortActivityRow(index, { to: v })}
+                                  disabled={locked}
+                                  placeholder="Select date & time"
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  className={`${styles.cfInp} ${styles.numSm}`}
+                                  value={row.duration || '—'}
+                                  placeholder="Auto"
+                                  readOnly
+                                  aria-label={`Activity duration hours, row ${index + 1}`}
+                                />
+                              </td>
+                              <td className={styles.chkCell} title={LAYTIME_ONLY_FIELD_TITLE}>
+                                <span aria-label={`LT (C) unavailable, row ${index + 1}`}>—</span>
+                              </td>
+                              <td className={styles.chkCell} title={LAYTIME_ONLY_FIELD_TITLE}>
+                                <span aria-label={`LT (NC) unavailable, row ${index + 1}`}>—</span>
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  className={`${styles.cfInp} ${styles.numSm}`}
+                                  value=""
+                                  placeholder="0"
+                                  disabled
+                                  title={LAYTIME_ONLY_FIELD_TITLE}
+                                  aria-label={`LT (Partial %), row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
+                                  value="—"
+                                  readOnly
+                                  disabled
+                                  title={LAYTIME_ONLY_FIELD_TITLE}
+                                  aria-label={`Cumulative duration hours, row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
+                                <textarea
+                                  className={styles.ltNotesSm}
+                                  value={row.notes}
+                                  onChange={(e) => updatePortActivityRow(index, { notes: e.target.value })}
+                                  disabled={locked}
+                                  placeholder="Notes"
+                                  aria-label={`Activity notes, row ${index + 1}`}
+                                />
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
-                    <div className={styles.tableFooter}>
-                      <AddRowButton
-                        label="Add Key Operation"
-                        onClick={addKeyOperationRow}
-                        disabled={locked}
-                      />
-                    </div>
-                  </div>
 
-                  <div className={styles.cfSection}>
-                    <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadTeal}`}>
+                    <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadOrange} ${styles.subBanner}`}>
                       <div className={styles.cfSectionTitleWrap}>
-                        <div className={`${styles.sectionIco} ${styles.sectionIcoTeal}`}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M12 2s6 6.9 6 11.2A6 6 0 0 1 6 13.2C6 8.9 12 2 12 2z" />
+                        <div className={`${styles.sectionIco} ${styles.sectionIcoOrange}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M8 12h8" />
                           </svg>
                         </div>
                         <div>
-                          <div className={styles.cfSectionTitle}>Cargo / Figures</div>
-                          <div className={styles.cfSectionSub}>Quantities, drafts and remarks for this port</div>
+                          <div className={styles.cfSectionTitle}>Deductions</div>
+                          <div className={styles.cfSectionSub}>Time excluded from laytime counting</div>
                         </div>
                       </div>
-                      <SectionFilterControls
-                        search={cargoSearch}
-                        onSearchChange={setCargoSearch}
-                        rowSize={cargoRowSize}
-                        onRowSizeChange={setCargoRowSize}
-                        filteredCount={filteredCargoRows.length}
-                        totalCount={cargoRows.length}
-                        page={paginatedCargoRows.safePage}
-                        totalPages={paginatedCargoRows.totalPages}
-                        onPageChange={setCargoPage}
-                      />
                     </div>
+
                     <div className={styles.tableWrap}>
                       <table className={styles.cfTable}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: 62 }} />
+                            <th>Activity in Port</th>
+                            <th>Date / Time – Start</th>
+                            <th>Date / Time – Finish</th>
+                            <th>Duration (Hrs)</th>
+                            <th>LT (Partial %)</th>
+                            <th>Net Duration (Hrs)</th>
+                            <th>Notes</th>
+                          </tr>
+                        </thead>
                         <tbody>
-                          {paginatedCargoRows.items.map(({ row, index }) => {
-                            const labels = cargoFigureLabels(row.activity);
-                            const activityLabel = cargoActivityLabel(row.activity, activePort.portType);
-                            return (
-                              <tr key={`cargo-${index}`}>
-                                <td style={{ width: 34 }}>
-                                  <CircleDeleteButton
-                                    disabled={locked}
-                                    onClick={() => removeListRow('cargoRows', index, emptyCargoRow, false)}
-                                  />
-                                </td>
-                                <td className={styles.cffRowLabel}>
-                                  {Number(row.tDefault) === 1 ? (
-                                    activityLabel || '—'
-                                  ) : (
-                                    <input
-                                      className={styles.cfInp}
-                                      type="text"
-                                      value={row.activity}
-                                      onChange={(e) => updateListRow('cargoRows', index, { activity: e.target.value })}
-                                      disabled={locked}
-                                      placeholder="Enter text here……"
-                                    />
-                                  )}
-                                </td>
-                                {isRemarksCargoActivity(row.activity) ? (
-                                  <td colSpan={4}>
-                                    <input
-                                      className={styles.cfInp}
-                                      type="text"
-                                      value={row.remarks}
-                                      onChange={(e) => updateListRow('cargoRows', index, { remarks: e.target.value })}
-                                      disabled={locked}
-                                      placeholder="Text here"
-                                    />
-                                  </td>
-                                ) : (
-                                  <td colSpan={4}>
-                                    <div className={styles.cffPairRow}>
-                                      <div className={styles.cffPair}>
-                                        <label>{labels.col1}</label>
-                                        <input
-                                          className={styles.cfInp}
-                                          type="text"
-                                          value={row.shipFigure}
-                                          onChange={(e) => updateListRow('cargoRows', index, { shipFigure: e.target.value })}
-                                          disabled={locked}
-                                          placeholder="0.00"
-                                        />
-                                      </div>
-                                      <div className={styles.cffPair}>
-                                        <label>{labels.col2}</label>
-                                        <input
-                                          className={styles.cfInp}
-                                          type="text"
-                                          value={row.blFigure}
-                                          onChange={(e) => updateListRow('cargoRows', index, { blFigure: e.target.value })}
-                                          disabled={locked}
-                                          placeholder="0.00"
-                                        />
-                                      </div>
-                                      {isDraftCargoActivity(row.activity) ? (
-                                        <div className={styles.cffPair}>
-                                          <label>Water Density</label>
-                                          <input
-                                            className={styles.cfInp}
-                                            type="text"
-                                            value={row.waterDensity}
-                                            onChange={(e) => updateListRow('cargoRows', index, { waterDensity: e.target.value })}
-                                            disabled={locked}
-                                            placeholder="0.00"
-                                          />
-                                        </div>
-                                      ) : null}
-                                    </div>
-                                  </td>
-                                )}
-                              </tr>
-                            );
-                          })}
+                          <tr>
+                            <td>
+                              <RowActions>
+                                <RowAddButton title={DEDUCTIONS_RO_TITLE} disabled />
+                                <RowDelButton title={DEDUCTIONS_RO_TITLE} disabled />
+                              </RowActions>
+                            </td>
+                            <td>
+                              <input
+                                type="text"
+                                className={styles.cfInp}
+                                value=""
+                                placeholder="Activity in port"
+                                disabled
+                                title={DEDUCTIONS_RO_TITLE}
+                                aria-label="Deduction activity"
+                              />
+                            </td>
+                            <td>
+                              <SofDateField
+                                value=""
+                                onChange={() => {}}
+                                disabled
+                                placeholder="Select date & time"
+                                title={DEDUCTIONS_RO_TITLE}
+                              />
+                            </td>
+                            <td>
+                              <SofDateField
+                                value=""
+                                onChange={() => {}}
+                                disabled
+                                placeholder="Select date & time"
+                                title={DEDUCTIONS_RO_TITLE}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="text"
+                                className={`${styles.cfInp} ${styles.numSm}`}
+                                value="—"
+                                placeholder="Auto"
+                                readOnly
+                                disabled
+                                title={DEDUCTIONS_RO_TITLE}
+                                aria-label="Deduction duration"
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="text"
+                                className={`${styles.cfInp} ${styles.numSm}`}
+                                value=""
+                                placeholder="100"
+                                disabled
+                                title={DEDUCTIONS_RO_TITLE}
+                                aria-label="Deduction partial percent"
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="text"
+                                className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
+                                value="—"
+                                readOnly
+                                disabled
+                                title={DEDUCTIONS_RO_TITLE}
+                                aria-label="Deduction net duration hours"
+                              />
+                            </td>
+                            <td>
+                              <textarea
+                                className={styles.ltNotesSm}
+                                value=""
+                                placeholder="Notes"
+                                disabled
+                                title={DEDUCTIONS_RO_TITLE}
+                                aria-label="Deduction notes"
+                              />
+                            </td>
+                          </tr>
                         </tbody>
+                        <tfoot>
+                          <tr className={styles.totalsRow}>
+                            <td colSpan={4} style={{ textAlign: 'right' }}>Total</td>
+                            <td>
+                              <input
+                                type="text"
+                                className={styles.totalsRowInput}
+                                value="—"
+                                readOnly
+                                aria-label="Total deduction duration"
+                              />
+                            </td>
+                            <td />
+                            <td>
+                              <input
+                                type="text"
+                                className={styles.totalsRowInput}
+                                value="—"
+                                readOnly
+                                aria-label="Total net deduction duration"
+                              />
+                            </td>
+                            <td />
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
-                    <div className={styles.tableFooter}>
-                      <AddRowButton
-                        label="Add Line"
-                        onClick={addCargoRow}
-                        disabled={locked}
-                      />
+                  </div>
+
+                  {/* ============ CARGO ============ */}
+                  <div className={styles.cfSection}>
+                    <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadBlue}`}>
+                      <div className={styles.cfSectionTitleWrap}>
+                        <div className={`${styles.sectionIco} ${styles.sectionIcoBlue}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                            <path d="M3.3 7 12 12l8.7-5" />
+                            <path d="M12 22V12" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className={styles.cfSectionTitle}>Cargo</div>
+                          <div className={styles.cfSectionSub}>Figures and letters of protest for this port call</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={styles.cargoGrid}>
+                      <div className={styles.cargoCell}>
+                        <label className={styles.cargoCellLabel} htmlFor="sof-ship-fig">Ship&rsquo;s Fig (MT)</label>
+                        <input
+                          id="sof-ship-fig"
+                          type="text"
+                          inputMode="decimal"
+                          className={styles.cfNumInp}
+                          value={cargoValues.shipFigure}
+                          onChange={(e) => updateCargoField('shipFigure', e.target.value)}
+                          disabled={locked}
+                          placeholder="Numeric entry"
+                        />
+                      </div>
+                      <div className={styles.cargoCell}>
+                        <label className={styles.cargoCellLabel} htmlFor="sof-bl-fig">B/L Fig (MT)</label>
+                        <input
+                          id="sof-bl-fig"
+                          type="text"
+                          inputMode="decimal"
+                          className={styles.cfNumInp}
+                          value={cargoValues.blFigure}
+                          onChange={(e) => updateCargoField('blFigure', e.target.value)}
+                          disabled={locked}
+                          placeholder="Numeric entry"
+                        />
+                      </div>
+                      <div className={`${styles.cargoCell} ${styles.cargoCellLop}`}>
+                        <label className={styles.cargoCellLabel} htmlFor="sof-lop-issued">LOPs Issued</label>
+                        <input
+                          id="sof-lop-issued"
+                          type="text"
+                          className={styles.cfTextInp}
+                          value={cargoValues.lopIssued}
+                          onChange={(e) => updateCargoField('lopIssued', e.target.value)}
+                          disabled={locked}
+                          placeholder="Text"
+                        />
+                      </div>
+                      <div className={`${styles.cargoCell} ${styles.cargoCellLop}`}>
+                        <label className={styles.cargoCellLabel} htmlFor="sof-lop-received">LOPs Received</label>
+                        <input
+                          id="sof-lop-received"
+                          type="text"
+                          className={styles.cfTextInp}
+                          value={cargoValues.lopReceived}
+                          onChange={(e) => updateCargoField('lopReceived', e.target.value)}
+                          disabled={locked}
+                          placeholder="Text"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className={styles.gprlSide}>
-                  <div className={styles.sidePdf}>
-                    <button
-                      type="button"
-                      className={styles.btnPdfOutline}
-                      disabled
-                      title="PDF generation is not migrated yet."
-                      aria-label="Download PDF"
-                    >
-                      <DownloadIcon />
-                    </button>
-                  </div>
-
+                  {/* ============ REMARKS ============ */}
                   <div className={styles.cfSection}>
                     <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadGrey}`}>
                       <div className={styles.cfSectionTitleWrap}>
-                        <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`} style={{ width: 28, height: 28 }}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        <div className={`${styles.sectionIco} ${styles.sectionIcoGrey}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                           </svg>
                         </div>
-                        <div className={styles.cfSectionTitle} style={{ fontSize: 13.5 }}>Documents</div>
-                        {docCount ? <div className={styles.sideCount}>{docCount}</div> : null}
+                        <div>
+                          <div className={styles.cfSectionTitle}>Remarks</div>
+                        </div>
                       </div>
                     </div>
-                    <div className={styles.sideCardBody}>
+
+                    <div className={styles.remarksBody}>
+                      <textarea
+                        className={styles.remarksBox}
+                        value={draft.agentRemarks}
+                        onChange={(e) => patchDraft({ agentRemarks: e.target.value })}
+                        disabled={locked}
+                        placeholder="Additional remarks for this port call…"
+                        aria-label="Remarks"
+                      />
+                    </div>
+                  </div>
+
+                  {/* ============ DOCUMENTS & ATTACHMENTS ============ */}
+                  <div className={styles.cfSection}>
+                    <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadFieldGrey}`}>
+                      <div className={styles.cfSectionTitleWrap}>
+                        <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <path d="M14 2v6h6" />
+                            <path d="M9 13h6" />
+                            <path d="M9 17h6" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className={styles.cfSectionTitle}>Documents &amp; Attachments</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={styles.docsBody}>
                       <AttachmentDropzone
                         readOnly={locked}
                         files={pendingFiles}
@@ -941,7 +1120,7 @@ export default function OpsVcSofPage() {
                           key: file,
                           file,
                           name: displayStoredFileName(file),
-                          url: attachmentHref(file),
+                          url: attachmentUrl(file),
                         }))}
                         onAddFiles={addPendingFiles}
                         onRemoveFile={removePendingFile}
@@ -952,50 +1131,42 @@ export default function OpsVcSofPage() {
                       />
                     </div>
                   </div>
+                </div>
 
+                {/* ============ STICKY FOOTER BAR ============ */}
+                <div className={styles.sofFooterBar}>
                   {!locked ? (
-                    <div className={styles.gprlBottomActions}>
-                      <div className={styles.gprlNote}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <>
+                      <div className={styles.sofFooterNote}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <path d="M12 9v4" />
                           <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                           <path d="M12 17h.01" />
                         </svg>
-                        Use &quot;Submit&quot; only when all entries prior to sailing are complete.
+                        Use &ldquo;Submit&rdquo; only when all entries prior to sailing are complete.
                       </div>
-                      <div className={styles.gprlFooterActions}>
-                        <button
+                      <div className={styles.sofFooterActions}>
+                        <Button
                           type="button"
-                          className={styles.btnSaveOutline}
+                          variant="saveOutline"
+                          label="Save"
                           onClick={() => handleSubmit(1)}
                           disabled={saving}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                            <path d="M17 21v-8H7v8" />
-                            <path d="M7 3v5h8" />
-                          </svg>
-                          Save
-                        </button>
-                        <button
+                        />
+                        <Button
                           type="button"
-                          className={styles.btnSubmitClose}
+                          variant="submit"
+                          label="Submit"
                           onClick={() => handleSubmit(2)}
                           disabled={saving}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="m22 2-7 20-4-9-9-4Z" />
-                            <path d="M22 2 11 13" />
-                          </svg>
-                          Submit
-                        </button>
+                        />
                       </div>
-                    </div>
+                    </>
                   ) : (
                     <p className={styles.lockedNote}>This SOF has been closed. It is now read-only.</p>
                   )}
                 </div>
-              </div>
+              </>
             ) : null}
           </>
         ) : null}

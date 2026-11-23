@@ -1,13 +1,18 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { recomputePortDraft } from './laytimeCalculations.js';
 import {
   DEFAULT_SOF_ROW_SIZE,
   buildSofSavePayload,
   computeActivityDurationHours,
   draftFromPort,
+  emptyDeductionRow,
   getCargoCardValues,
+  insertDeductionRowAfter,
+  isValidLtPartialPercent,
   paginateRows,
   patchCargoCardField,
+  removeDeductionRowAt,
 } from './sofTankerHelpers.js';
 
 describe('sofTankerHelpers', () => {
@@ -19,6 +24,15 @@ describe('sofTankerHelpers', () => {
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', '10-05-2026 10:30'), '2.5');
     assert.equal(computeActivityDurationHours('10-05-2026 12:00', '10-05-2026 10:00'), '');
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', ''), '');
+  });
+
+  it('accepts only whole LT partial percentages from 0 to 100', () => {
+    for (const value of ['', '0', '35', '100']) {
+      assert.equal(isValidLtPartialPercent(value), true, `Expected ${value} to be valid`);
+    }
+    for (const value of ['-1', '101', '12.5', 'abc']) {
+      assert.equal(isValidLtPartialPercent(value), false, `Expected ${value} to be invalid`);
+    }
   });
 
   it('maps and updates Cargo card fields while preserving all other sof_slave_7 rows', () => {
@@ -65,7 +79,7 @@ describe('sofTankerHelpers', () => {
       agentRemarks: 'Terminal restriction noted',
       uploads: ['170000_sof.pdf'],
       keyOperations: [
-        { activity: 'EOSP', activityDateTime: '01-05-2026 06:00', activityDateTimeTo: '', robIfo: '1200.50', robMdo: '120.25', comments: 'Arrived', tDefault: 1 },
+        { activity: 'EOSP', activityDateTime: '01-05-2026 06:00', activityDateTimeTo: '01-05-2026 06:15', robIfo: '1200.50', robMdo: '120.25', comments: 'Arrived', tDefault: 1 },
       ],
       cargoRows: [
         { activity: 'Cargo Loaded', shipFigure: '30000', blFigure: '29980', waterDensity: '', remarks: '', tDefault: 1 },
@@ -93,8 +107,9 @@ describe('sofTankerHelpers', () => {
     assert.deepEqual(payload.keepFiles, ['170000_sof.pdf']);
     assert.equal(payload.keyOperations[0].robIfo, '1200.50');
     assert.equal(payload.keyOperations[0].robMdo, '120.25');
+    assert.equal(payload.keyOperations[0].activityDateTimeTo, '01-05-2026 06:15');
     assert.equal(payload.cargoRows.length, 2);
-    assert.equal(payload.portActivities[0].activity, 'Hose connection');
+    assert.equal(Object.hasOwn(payload, 'portActivities'), false);
     assert.equal(Object.hasOwn(payload, 'entityRows'), false);
     assert.equal(Object.hasOwn(payload, 'blRows'), false);
     assert.equal(Object.hasOwn(payload, 'preArrival'), false);
@@ -106,6 +121,56 @@ describe('sofTankerHelpers', () => {
     assert.equal(page.safePage, 1);
     assert.equal(page.totalPages, 1);
     assert.deepEqual(page.items, [1, 2, 3]);
+  });
+
+  it('adds a visible row when deductions start empty and removes rows without leaving the table empty', () => {
+    const twoRows = insertDeductionRowAfter([], 0);
+    assert.equal(twoRows.length, 2);
+    assert.deepEqual(twoRows[0], emptyDeductionRow());
+    assert.deepEqual(twoRows[1], emptyDeductionRow());
+
+    const oneRow = removeDeductionRowAt(twoRows, 0);
+    assert.equal(oneRow.length, 1);
+    assert.deepEqual(oneRow[0], emptyDeductionRow());
+
+    const fallbackRow = removeDeductionRowAt(oneRow, 0);
+    assert.deepEqual(fallbackRow, []);
+  });
+
+  it('round-trips Laytime-linked Activity fields in the SOF draft and save payload', () => {
+    const port = {
+      key: 'LP-10-101',
+      portType: 'LP',
+      portId: '10',
+      randomId: '101',
+      portActivities: [{
+        activity: 'Loading', from: '10-04-2026 10:00', to: '10-04-2026 12:00',
+        duration: '2.0', layTimeCount: true, portTimeCount: false,
+        ltPartial: '75', cumulative: '4.9375', laytimeActivityId: '37', notes: 'First hold',
+      }],
+    };
+    const draft = draftFromPort(port);
+    draft.portActivities[0] = { ...draft.portActivities[0], ltPartial: '50' };
+    const payload = buildSofSavePayload({ comId: '42', activePort: port, draft, submitId: 1 });
+    assert.equal(payload.portActivities[0].ltPartial, '50');
+    assert.equal(payload.portActivities[0].laytimeActivityId, '37');
+    assert.equal(payload.portActivities[0].cumulative, '4.9375');
+    assert.equal(payload.portActivities[0].layTimeCount, true);
+    assert.equal(payload.portActivities[0].portTimeCount, false);
+  });
+
+  it('uses Laytime remaining-allowance cumulative values for SOF activities', () => {
+    const result = recomputePortDraft({
+      laytimeAllowed: '2',
+      activities: [
+        { duration: '12', ltCounts: true, ltPartial: '50' },
+        { duration: '12', ltCounts: true, ltPartial: '100' },
+        { duration: '8', ltCounts: false, ltPartial: '100' },
+      ],
+      deductions: [],
+    }, 'days');
+
+    assert.deepEqual(result.activities.map((row) => row.cumulative), ['1.7500', '1.2500', '0.00']);
   });
 
 });

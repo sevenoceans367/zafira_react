@@ -20,6 +20,7 @@ import OpsVcSofLegacyPage from './OpsVcSofLegacyPage.jsx';
 import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
+import { recomputePortDraft } from './laytimeCalculations.js';
 import {
   DEFAULT_SOF_ROW_SIZE,
   SOF_ROW_SIZE_OPTIONS,
@@ -28,12 +29,16 @@ import {
   displayStoredFileName,
   draftFromPort,
   emptyKeyOp,
+  emptyDeductionRow,
   emptyPortActivityRow,
   getCargoCardValues,
   isBlankKeyOp,
+  insertDeductionRowAfter,
+  isValidLtPartialPercent,
   pageForIndex,
   paginateRows,
   patchCargoCardField,
+  removeDeductionRowAt,
 } from './sofTankerHelpers.js';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcSofTanker.module.css';
@@ -50,8 +55,7 @@ const FLASH = {
 };
 
 const RO_AUTO_FETCH_TITLE = 'Auto-fetch source not yet wired to SOF persistence.';
-const LAYTIME_ONLY_FIELD_TITLE = 'Managed in Laytime Calculations; not persisted on SOF.';
-const DEDUCTIONS_RO_TITLE = 'Deductions are managed in Laytime Calculations and are not persisted on SOF yet.';
+const DEDUCTIONS_LOCKED_TITLE = 'This Laytime record is closed. Reopen it in Laytime to edit deductions.';
 
 function SearchIcon() {
   return (
@@ -92,13 +96,26 @@ function CalendarIcon() {
   );
 }
 
-function RangeArrowIcon() {
-  return (
-    <svg className={styles.dtRangeArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12h14" />
-      <path d="M13 6l6 6-6 6" />
-    </svg>
-  );
+function recomputeSofActivityRows(port, rows) {
+  const calculation = recomputePortDraft({
+    laytimeAllowed: port?.laytimeAllowed || '',
+    activities: rows.map((row) => ({
+      activity: row.activity,
+      start: '',
+      end: '',
+      duration: row.duration,
+      ltCounts: Boolean(row.layTimeCount),
+      ltNoCounts: Boolean(row.portTimeCount),
+      ltPartial: row.ltPartial,
+      notes: row.notes,
+    })),
+    deductions: [],
+  }, port?.rateUnit || 'days');
+
+  return rows.map((row, rowIndex) => ({
+    ...row,
+    cumulative: calculation.activities[rowIndex]?.cumulative || '0.0000',
+  }));
 }
 
 function SofDateField({
@@ -175,7 +192,9 @@ export default function OpsVcSofPage() {
       setForm(data);
       const nextDrafts = {};
       (data.ports || []).forEach((port) => {
-        nextDrafts[port.key] = draftFromPort(port);
+        const portDraft = draftFromPort(port);
+        portDraft.portActivities = recomputeSofActivityRows(port, portDraft.portActivities);
+        nextDrafts[port.key] = portDraft;
       });
       setDrafts(nextDrafts);
       setPendingFilesByKey({});
@@ -301,7 +320,7 @@ export default function OpsVcSofPage() {
       nextRow.duration = computeActivityDurationHours(nextRow.from, nextRow.to);
     }
     rows[index] = nextRow;
-    patchDraft({ portActivities: rows });
+    patchDraft({ portActivities: recomputeSofActivityRows(activePort, rows) });
   };
 
   const insertPortActivityAfter = (index) => {
@@ -319,6 +338,31 @@ export default function OpsVcSofPage() {
     if (!ok) return;
     const rows = (draft?.portActivities || []).filter((_, i) => i !== index);
     patchDraft({ portActivities: rows.length ? rows : [emptyPortActivityRow()] });
+  };
+
+  const updateDeductionRow = (index, patch) => {
+    const rows = [...(draft?.deductions || [])];
+    while (rows.length <= index) rows.push(emptyDeductionRow());
+    rows[index] = { ...rows[index], ...patch };
+    const recomputed = recomputePortDraft({ ...draft, deductions: rows }, form?.rateUnit || 'days');
+    patchDraft({ deductions: recomputed.deductions });
+  };
+
+  const addDeductionAfter = (index) => {
+    const rows = insertDeductionRowAfter(draft?.deductions || [], index);
+    patchDraft({ deductions: rows });
+  };
+
+  const removeDeductionRow = async (index) => {
+    const ok = await confirm({
+      title: 'Confirmation',
+      message: 'Are you sure you want to delete this deduction permanently?',
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
+    const next = removeDeductionRowAt(draft?.deductions || [], index);
+    const recomputed = recomputePortDraft({ ...draft, deductions: next }, form?.rateUnit || 'days');
+    patchDraft({ deductions: recomputed.deductions });
   };
 
   const updateCargoField = (field, value) => {
@@ -346,6 +390,17 @@ export default function OpsVcSofPage() {
 
   const handleSubmit = async (submitId) => {
     if (!activePort || !draft) return;
+
+    const invalidDeduction = (draft.deductions || []).find(
+      (row) => !isValidLtPartialPercent(row.ltPartial),
+    );
+    if (invalidDeduction) {
+      await alert({
+        title: 'Invalid percentage',
+        message: 'Deduction LT (Partial %) must be a whole percentage from 0 to 100.',
+      });
+      return;
+    }
 
     const ok = await confirm({
       title: 'Confirmation',
@@ -404,6 +459,13 @@ export default function OpsVcSofPage() {
     ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.costSheetId)}&page=${encodeURIComponent(page || '1')}`)
     : '';
   const portActivities = draft?.portActivities?.length ? draft.portActivities : [emptyPortActivityRow()];
+  const deductionRows = draft?.deductions?.length ? draft.deductions : [emptyDeductionRow()];
+  const completedDeductions = deductionRows.filter((row) => row.start && row.end);
+  const totalDeductionDuration = completedDeductions.reduce((sum, row) => sum + (Number(row.duration) || 0), 0);
+  const totalNetDeductionDuration = completedDeductions.reduce((sum, row) => sum + (Number(row.cumulative) || 0), 0);
+  const deductionsDisabled = locked || Boolean(activePort?.laytimeLocked);
+  const deductionsDisabledTitle = activePort?.laytimeLocked ? DEDUCTIONS_LOCKED_TITLE : undefined;
+  const activityDisabled = deductionsDisabled;
 
   return (
     <>
@@ -505,7 +567,7 @@ export default function OpsVcSofPage() {
                           value={draft.terminal}
                           onChange={(e) => patchDraft({ terminal: e.target.value })}
                           disabled={locked}
-                          placeholder="Jetty"
+                          placeholder="e.g. Jetty"
                           aria-label="Berth"
                         />
                       </div>
@@ -606,8 +668,6 @@ export default function OpsVcSofPage() {
                             <th style={{ width: 34 }} />
                             <th>Key Operation</th>
                             <th>Date / Time</th>
-                            <th>ROB IFO</th>
-                            <th>ROB MDO</th>
                             <th>Notes</th>
                           </tr>
                         </thead>
@@ -638,48 +698,13 @@ export default function OpsVcSofPage() {
                                 )}
                               </td>
                               <td className={styles.koDateCol}>
-                                <div className={styles.dtRangeBox}>
-                                  <SofDateField
-                                    id={`sof-key-op-from-${activeKey}-${index}`}
-                                    label={`Key operation start date and time, row ${index + 1}`}
-                                    value={row.activityDateTime || ''}
-                                    onChange={(v) => updateKeyOpRow(index, { activityDateTime: v })}
-                                    disabled={locked}
-                                    placeholder="Select date & time"
-                                  />
-                                  <RangeArrowIcon />
-                                  <SofDateField
-                                    id={`sof-key-op-to-${activeKey}-${index}`}
-                                    label={`Key operation finish date and time, row ${index + 1}`}
-                                    value={row.activityDateTimeTo || ''}
-                                    onChange={(v) => updateKeyOpRow(index, { activityDateTimeTo: v })}
-                                    disabled={locked}
-                                    placeholder="Select date & time"
-                                  />
-                                </div>
-                              </td>
-                              <td>
-                                <input
-                                  className={styles.cfInp}
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={row.robIfo ?? ''}
-                                  onChange={(e) => updateKeyOpRow(index, { robIfo: e.target.value })}
+                                <SofDateField
+                                  id={`sof-key-op-from-${activeKey}-${index}`}
+                                  label={`Key operation date and time, row ${index + 1}`}
+                                  value={row.activityDateTime || ''}
+                                  onChange={(v) => updateKeyOpRow(index, { activityDateTime: v })}
                                   disabled={locked}
-                                  placeholder="0.00"
-                                  aria-label={`ROB IFO, row ${index + 1}`}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  className={styles.cfInp}
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={row.robMdo ?? ''}
-                                  onChange={(e) => updateKeyOpRow(index, { robMdo: e.target.value })}
-                                  disabled={locked}
-                                  placeholder="0.00"
-                                  aria-label={`ROB MDO, row ${index + 1}`}
+                                  placeholder="Select date & time"
                                 />
                               </td>
                               <td>
@@ -695,7 +720,7 @@ export default function OpsVcSofPage() {
                             </tr>
                           )) : (
                             <tr className={styles.emptyTableRow}>
-                              <td colSpan={6}>No key operations match your search.</td>
+                              <td colSpan={4}>No key operations match your search.</td>
                             </tr>
                           )}
                         </tbody>
@@ -759,12 +784,12 @@ export default function OpsVcSofPage() {
                                 <RowActions>
                                   <RowAddButton
                                     title="Add row"
-                                    disabled={locked}
+                                    disabled={activityDisabled}
                                     onClick={() => insertPortActivityAfter(index)}
                                   />
                                   <RowDelButton
                                     title="Remove row"
-                                    disabled={locked}
+                                    disabled={activityDisabled}
                                     onClick={() => removePortActivityRow(index)}
                                   />
                                 </RowActions>
@@ -775,7 +800,7 @@ export default function OpsVcSofPage() {
                                   className={styles.cfInp}
                                   value={row.activity}
                                   onChange={(e) => updatePortActivityRow(index, { activity: e.target.value })}
-                                  disabled={locked}
+                                  disabled={activityDisabled}
                                   placeholder="Activity in port"
                                   aria-label={`Activity in port, row ${index + 1}`}
                                 />
@@ -786,7 +811,7 @@ export default function OpsVcSofPage() {
                                   label={`Activity start date and time, row ${index + 1}`}
                                   value={row.from}
                                   onChange={(v) => updatePortActivityRow(index, { from: v })}
-                                  disabled={locked}
+                                  disabled={activityDisabled}
                                   placeholder="Select date & time"
                                 />
                               </td>
@@ -796,7 +821,7 @@ export default function OpsVcSofPage() {
                                   label={`Activity finish date and time, row ${index + 1}`}
                                   value={row.to}
                                   onChange={(v) => updatePortActivityRow(index, { to: v })}
-                                  disabled={locked}
+                                  disabled={activityDisabled}
                                   placeholder="Select date & time"
                                 />
                               </td>
@@ -810,20 +835,40 @@ export default function OpsVcSofPage() {
                                   aria-label={`Activity duration hours, row ${index + 1}`}
                                 />
                               </td>
-                              <td className={styles.chkCell} title={LAYTIME_ONLY_FIELD_TITLE}>
-                                <span aria-label={`LT (C) unavailable, row ${index + 1}`}>—</span>
+                              <td className={styles.chkCell}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(row.layTimeCount)}
+                                  onChange={(e) => updatePortActivityRow(index, { layTimeCount: e.target.checked })}
+                                  disabled={activityDisabled}
+                                  aria-label={`LT (C), row ${index + 1}`}
+                                />
                               </td>
-                              <td className={styles.chkCell} title={LAYTIME_ONLY_FIELD_TITLE}>
-                                <span aria-label={`LT (NC) unavailable, row ${index + 1}`}>—</span>
+                              <td className={styles.chkCell}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(row.portTimeCount)}
+                                  onChange={(e) => updatePortActivityRow(index, { portTimeCount: e.target.checked })}
+                                  disabled={activityDisabled}
+                                  aria-label={`LT (NC), row ${index + 1}`}
+                                />
                               </td>
                               <td>
                                 <input
-                                  type="text"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
                                   className={`${styles.cfInp} ${styles.numSm}`}
-                                  value=""
+                                  value={row.ltPartial ?? ''}
                                   placeholder="0"
-                                  disabled
-                                  title={LAYTIME_ONLY_FIELD_TITLE}
+                                  onChange={(e) => {
+                                    if (isValidLtPartialPercent(e.target.value)) {
+                                      updatePortActivityRow(index, { ltPartial: e.target.value });
+                                    }
+                                  }}
+                                  disabled={activityDisabled}
+                                  title={deductionsDisabledTitle}
                                   aria-label={`LT (Partial %), row ${index + 1}`}
                                 />
                               </td>
@@ -831,10 +876,8 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                  value="—"
+                                  value={row.cumulative || '0.0000'}
                                   readOnly
-                                  disabled
-                                  title={LAYTIME_ONLY_FIELD_TITLE}
                                   aria-label={`Cumulative duration hours, row ${index + 1}`}
                                 />
                               </td>
@@ -843,7 +886,7 @@ export default function OpsVcSofPage() {
                                   className={styles.ltNotesSm}
                                   value={row.notes}
                                   onChange={(e) => updatePortActivityRow(index, { notes: e.target.value })}
-                                  disabled={locked}
+                                  disabled={activityDisabled}
                                   placeholder="Notes"
                                   aria-label={`Activity notes, row ${index + 1}`}
                                 />
@@ -884,87 +927,111 @@ export default function OpsVcSofPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          <tr>
-                            <td>
-                              <RowActions>
-                                <RowAddButton title={DEDUCTIONS_RO_TITLE} disabled />
-                                <RowDelButton title={DEDUCTIONS_RO_TITLE} disabled />
-                              </RowActions>
-                            </td>
-                            <td>
-                              <input
-                                type="text"
-                                className={styles.cfInp}
-                                value=""
-                                placeholder="Activity in port"
-                                disabled
-                                title={DEDUCTIONS_RO_TITLE}
-                                aria-label="Deduction activity"
-                              />
-                            </td>
-                            <td>
-                              <SofDateField
-                                value=""
-                                onChange={() => {}}
-                                disabled
-                                placeholder="Select date & time"
-                                title={DEDUCTIONS_RO_TITLE}
-                              />
-                            </td>
-                            <td>
-                              <SofDateField
-                                value=""
-                                onChange={() => {}}
-                                disabled
-                                placeholder="Select date & time"
-                                title={DEDUCTIONS_RO_TITLE}
-                              />
-                            </td>
-                            <td>
-                              <input
-                                type="text"
-                                className={`${styles.cfInp} ${styles.numSm}`}
-                                value="—"
-                                placeholder="Auto"
-                                readOnly
-                                disabled
-                                title={DEDUCTIONS_RO_TITLE}
-                                aria-label="Deduction duration"
-                              />
-                            </td>
-                            <td>
-                              <input
-                                type="text"
-                                className={`${styles.cfInp} ${styles.numSm}`}
-                                value=""
-                                placeholder="100"
-                                disabled
-                                title={DEDUCTIONS_RO_TITLE}
-                                aria-label="Deduction partial percent"
-                              />
-                            </td>
-                            <td>
-                              <input
-                                type="text"
-                                className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                value="—"
-                                readOnly
-                                disabled
-                                title={DEDUCTIONS_RO_TITLE}
-                                aria-label="Deduction net duration hours"
-                              />
-                            </td>
-                            <td>
-                              <textarea
-                                className={styles.ltNotesSm}
-                                value=""
-                                placeholder="Notes"
-                                disabled
-                                title={DEDUCTIONS_RO_TITLE}
-                                aria-label="Deduction notes"
-                              />
-                            </td>
-                          </tr>
+                          {deductionRows.map((row, index) => (
+                            <tr key={`ded-${activeKey}-${index}`}>
+                              <td>
+                                <RowActions>
+                                  <RowAddButton
+                                    title="Add deduction row"
+                                    aria-label="Add deduction row"
+                                    onClick={() => addDeductionAfter(index)}
+                                    disabled={deductionsDisabled}
+                                  />
+                                  <RowDelButton
+                                    title="Remove deduction row"
+                                    aria-label="Remove deduction row"
+                                    onClick={() => removeDeductionRow(index)}
+                                    disabled={deductionsDisabled}
+                                  />
+                                </RowActions>
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  className={styles.cfInp}
+                                  value={row.activity || ''}
+                                  onChange={(e) => updateDeductionRow(index, { activity: e.target.value })}
+                                  placeholder="Activity in port"
+                                  disabled={deductionsDisabled}
+                                  title={deductionsDisabledTitle}
+                                  aria-label={`Deduction activity, row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
+                                <SofDateField
+                                  label={`Deduction start date and time, row ${index + 1}`}
+                                  value={row.start || ''}
+                                  onChange={(value) => updateDeductionRow(index, { start: value })}
+                                  disabled={deductionsDisabled}
+                                  placeholder="Select date & time"
+                                  title={deductionsDisabledTitle}
+                                />
+                              </td>
+                              <td>
+                                <SofDateField
+                                  label={`Deduction finish date and time, row ${index + 1}`}
+                                  value={row.end || ''}
+                                  onChange={(value) => updateDeductionRow(index, { end: value })}
+                                  disabled={deductionsDisabled}
+                                  placeholder="Select date & time"
+                                  title={deductionsDisabledTitle}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  className={`${styles.cfInp} ${styles.numSm}`}
+                                  value={row.start && row.end ? row.duration || '0.0' : '—'}
+                                  placeholder="Auto"
+                                  readOnly
+                                  disabled={deductionsDisabled}
+                                  title={deductionsDisabledTitle}
+                                  aria-label={`Deduction duration hours, row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                  className={`${styles.cfInp} ${styles.numSm}`}
+                                  value={row.ltPartial ?? ''}
+                                  onChange={(e) => {
+                                    if (isValidLtPartialPercent(e.target.value)) {
+                                      updateDeductionRow(index, { ltPartial: e.target.value });
+                                    }
+                                  }}
+                                  placeholder="100"
+                                  disabled={deductionsDisabled}
+                                  title={deductionsDisabledTitle}
+                                  aria-label={`Deduction partial percent, row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
+                                  value={row.start && row.end ? row.cumulative || '0.0000' : '—'}
+                                  readOnly
+                                  disabled={deductionsDisabled}
+                                  title={deductionsDisabledTitle}
+                                  aria-label={`Deduction net duration hours, row ${index + 1}`}
+                                />
+                              </td>
+                              <td>
+                                <textarea
+                                  className={styles.ltNotesSm}
+                                  value={row.notes || ''}
+                                  onChange={(e) => updateDeductionRow(index, { notes: e.target.value })}
+                                  placeholder="Notes"
+                                  disabled={deductionsDisabled}
+                                  title={deductionsDisabledTitle}
+                                  aria-label={`Deduction notes, row ${index + 1}`}
+                                />
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                         <tfoot>
                           <tr className={styles.totalsRow}>
@@ -973,7 +1040,7 @@ export default function OpsVcSofPage() {
                               <input
                                 type="text"
                                 className={styles.totalsRowInput}
-                                value="—"
+                                value={completedDeductions.length ? totalDeductionDuration.toFixed(4) : '—'}
                                 readOnly
                                 aria-label="Total deduction duration"
                               />
@@ -983,7 +1050,7 @@ export default function OpsVcSofPage() {
                               <input
                                 type="text"
                                 className={styles.totalsRowInput}
-                                value="—"
+                                value={completedDeductions.length ? totalNetDeductionDuration.toFixed(4) : '—'}
                                 readOnly
                                 aria-label="Total net deduction duration"
                               />

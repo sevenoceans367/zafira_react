@@ -510,21 +510,8 @@
 }
 
 .koDateCol {
-  width: 340px;
-  min-width: 320px;
-}
-
-.dtRangeBox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.dtRangeArrow {
-  flex: none;
-  width: 13px;
-  height: 13px;
-  color: #8a93a2;
+  width: 190px;
+  min-width: 190px;
 }
 
 /* Compact datetime field using shared DmyDateInput */

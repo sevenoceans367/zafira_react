@@ -1,5 +1,10 @@
 import { isDbConfigured } from '../config.js';
-import { dbGetSofForm, dbSaveSof } from './sofDb.js';
+import {
+  dbGetSofForm,
+  dbSaveSof,
+  validateSofActivityPartialPercentages,
+  validateSofDeductionPartialPercentages,
+} from './sofDb.js';
 
 const MOCK_FORM = {
   comId: '8',
@@ -48,8 +53,12 @@ const MOCK_FORM = {
       entityRows: [],
       blRows: [{ blDate: '', cargo: '', blQty: '' }],
       portActivities: [{
-        activity: '', from: '', to: '', duration: '', notes: '',
+        activity: '', from: '', to: '', duration: '',
+        layTimeCount: false, portTimeCount: false, notes: '',
       }],
+      deductions: [],
+      laytimeId: '',
+      laytimeLocked: false,
       preArrival: {
         cargoDecl: false,
         stowPlanQty: '',
@@ -137,6 +146,12 @@ export async function getSofForm(comId) {
 
 export async function saveSof(payload = {}) {
   if (isDbConfigured()) return dbSaveSof(payload);
+  if (Array.isArray(payload.portActivities)) {
+    validateSofActivityPartialPercentages(payload.portActivities);
+  }
+  if (Array.isArray(payload.deductions)) {
+    validateSofDeductionPartialPercentages(payload.deductions);
+  }
   const port = mockForm.ports.find(
     (item) => item.key === `${payload.portType}-${payload.portId}-${payload.randomId}`,
   );
@@ -162,6 +177,7 @@ export async function saveSof(payload = {}) {
   if (Array.isArray(payload.entityRows)) port.entityRows = payload.entityRows;
   if (Array.isArray(payload.blRows)) port.blRows = payload.blRows;
   if (Array.isArray(payload.portActivities)) port.portActivities = payload.portActivities;
+  if (Array.isArray(payload.deductions) && !port.laytimeLocked) port.deductions = payload.deductions;
   if (payload.preArrival && typeof payload.preArrival === 'object' && !Array.isArray(payload.preArrival)) {
     port.preArrival = payload.preArrival;
   }

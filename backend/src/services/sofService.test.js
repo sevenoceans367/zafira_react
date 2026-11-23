@@ -1,7 +1,12 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { isDbConfigured } from '../config.js';
-import { DEFAULT_KEY_OPERATIONS, numOrNull, resolveSofSavePlan } from './sofDb.js';
+import {
+  DEFAULT_KEY_OPERATIONS,
+  numOrNull,
+  resolveSofSavePlan,
+  validateSofActivityPartialPercentages,
+} from './sofDb.js';
 import { __resetSofMockForTests, getSofForm, saveSof } from './sofService.js';
 
 describe('sofDb resolveSofSavePlan data-preservation contract', () => {
@@ -9,6 +14,18 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
     assert.equal(numOrNull('50,000'), 50000);
     assert.equal(numOrNull('1,234.5'), 1234.5);
     assert.equal(numOrNull('1,2'), null);
+  });
+
+  it('validates SOF Activity LT partial percentages at the service boundary', () => {
+    assert.doesNotThrow(() => validateSofActivityPartialPercentages([
+      { ltPartial: '' }, { ltPartial: '0' }, { ltPartial: '55' }, { ltPartial: '100' },
+    ]));
+    for (const ltPartial of ['-1', '101', '25.5', 'invalid']) {
+      assert.throws(
+        () => validateSofActivityPartialPercentages([{ ltPartial }]),
+        { status: 400, message: 'LT (Partial %) must be a whole percentage from 0 to 100.' },
+      );
+    }
   });
 
   it('preserves existing master fields and skips child replacements when omitted', () => {
@@ -155,5 +172,15 @@ describe('sofService mock persistence preservation', { skip: isDbConfigured() },
     assert.deepEqual(port.blRows, [{ blDate: '02-01-2026', cargo: 'WHEAT', blQty: '12000' }]);
     assert.equal(port.portActivities.length, 1);
     assert.equal(port.portActivities[0].activity, 'Loading');
+  });
+
+  it('rejects invalid LT partial percentages before mock persistence', async () => {
+    await assert.rejects(
+      saveSof({
+        comId: '8', portType: 'LP', portId: '10', randomId: '101',
+        portActivities: [{ activity: 'Loading', ltPartial: '101' }],
+      }),
+      { status: 400, message: 'LT (Partial %) must be a whole percentage from 0 to 100.' },
+    );
   });
 });

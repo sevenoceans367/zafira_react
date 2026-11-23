@@ -342,6 +342,7 @@ export default function OpsVcSofPage() {
 
   const updateDeductionRow = (index, patch) => {
     const rows = [...(draft?.deductions || [])];
+    while (rows.length <= index) rows.push(emptyDeductionRow());
     rows[index] = { ...rows[index], ...patch };
     const recomputed = recomputePortDraft({ ...draft, deductions: rows }, form?.rateUnit || 'days');
     patchDraft({ deductions: recomputed.deductions });

@@ -109,7 +109,7 @@ describe('sofTankerHelpers', () => {
     assert.equal(payload.keyOperations[0].robMdo, '120.25');
     assert.equal(payload.keyOperations[0].activityDateTimeTo, '01-05-2026 06:15');
     assert.equal(payload.cargoRows.length, 2);
-    assert.equal(payload.portActivities[0].activity, 'Hose connection');
+    assert.equal(Object.hasOwn(payload, 'portActivities'), false);
     assert.equal(Object.hasOwn(payload, 'entityRows'), false);
     assert.equal(Object.hasOwn(payload, 'blRows'), false);
     assert.equal(Object.hasOwn(payload, 'preArrival'), false);
@@ -134,8 +134,7 @@ describe('sofTankerHelpers', () => {
     assert.deepEqual(oneRow[0], emptyDeductionRow());
 
     const fallbackRow = removeDeductionRowAt(oneRow, 0);
-    assert.equal(fallbackRow.length, 1);
-    assert.deepEqual(fallbackRow[0], emptyDeductionRow());
+    assert.deepEqual(fallbackRow, []);
   });
 
   it('round-trips Laytime-linked Activity fields in the SOF draft and save payload', () => {
@@ -151,8 +150,9 @@ describe('sofTankerHelpers', () => {
       }],
     };
     const draft = draftFromPort(port);
+    draft.portActivities[0] = { ...draft.portActivities[0], ltPartial: '50' };
     const payload = buildSofSavePayload({ comId: '42', activePort: port, draft, submitId: 1 });
-    assert.equal(payload.portActivities[0].ltPartial, '75');
+    assert.equal(payload.portActivities[0].ltPartial, '50');
     assert.equal(payload.portActivities[0].laytimeActivityId, '37');
     assert.equal(payload.portActivities[0].cumulative, '4.9375');
     assert.equal(payload.portActivities[0].layTimeCount, true);

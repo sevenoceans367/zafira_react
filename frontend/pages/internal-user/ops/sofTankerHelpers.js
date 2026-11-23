@@ -92,7 +92,7 @@ function deductionRowsForComparison(rows = []) {
 }
 
 export function insertDeductionRowAfter(rows = [], index = -1) {
-  if (!rows.length) return [emptyDeductionRow()];
+  if (!rows.length) return [emptyDeductionRow(), emptyDeductionRow()];
   const next = [...rows];
   next.splice(index + 1, 0, emptyDeductionRow());
   return next;

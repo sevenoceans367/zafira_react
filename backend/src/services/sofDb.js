@@ -1344,6 +1344,16 @@ export async function dbSaveSof(payload = {}) {
   if (Array.isArray(payload.deductions)) {
     validateSofDeductionPartialPercentages(payload.deductions);
   }
+  if (Array.isArray(payload.portActivities) && !payload.expectedLaytimeActivityVersion) {
+    const error = new Error('A Laytime Activity version is required. Reload the SOF and try again.');
+    error.status = 428;
+    throw error;
+  }
+  if (Array.isArray(payload.deductions) && !payload.expectedLaytimeDeductionVersion) {
+    const error = new Error('A Laytime Deductions version is required. Reload the SOF and try again.');
+    error.status = 428;
+    throw error;
+  }
 
   if (!comId || !portType || !portId || !randomId) {
     const error = new Error('comId, portType, portId and randomId are required.');

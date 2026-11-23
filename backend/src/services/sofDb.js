@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 
@@ -469,6 +470,8 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId) {
   if (!laytime?.LAYTIME_ID) {
     return {
       activities: [], deductions: [], laytimeId: '', laytimeLocked: false,
+      laytimeActivityVersion: laytimeRowsVersion([], 'activities'),
+      laytimeDeductionVersion: laytimeRowsVersion([], 'deductions'),
       laytimeAllowed: '', rateUnit: 'days',
     };
   }
@@ -481,7 +484,7 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId) {
     [laytime.LAYTIME_ID],
   );
   const [deductionRows] = await pool.query(
-    `SELECT ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION,
+    `SELECT LAYTIME_LP_SLAVEID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION,
             LT_PARTIAL, CUMMULATIVE_TIME, NOTES
      FROM laytime_slave1 WHERE LAYTIME_ID = ? ORDER BY LAYTIME_LP_SLAVEID`,
     [laytime.LAYTIME_ID],
@@ -501,6 +504,7 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId) {
       notes: str(row.NOTES),
     })),
     deductions: (deductionRows || []).map((row) => ({
+      laytimeDeductionId: String(row.LAYTIME_LP_SLAVEID),
       activity: str(row.ACTIVITYID),
       start: blankDateTime(row.START_DATETIME),
       end: blankDateTime(row.FINISH_DATETIME),
@@ -511,9 +515,23 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId) {
     })),
     laytimeId: String(laytime.LAYTIME_ID),
     laytimeLocked: Number(laytime.SUBMITID) === 5,
+    laytimeActivityVersion: laytimeRowsVersion(activityRows, 'activities'),
+    laytimeDeductionVersion: laytimeRowsVersion(deductionRows, 'deductions'),
     laytimeAllowed: str(laytime.LAYTIME_ALLOWED),
     rateUnit: 'days',
   };
+}
+
+function laytimeRowsVersion(rows = [], kind) {
+  const columns = kind === 'activities'
+    ? ['LAYTIME_LP_SLAVEID', 'SOFLOADPORTID', 'ACTIVITYID', 'START_DATETIME', 'FINISH_DATETIME', 'DURATION', 'LT_C', 'LT_NC', 'LT_PARTIAL', 'CUMMULATIVE_TIME', 'NOTES']
+    : ['LAYTIME_LP_SLAVEID', 'ACTIVITYID', 'START_DATETIME', 'FINISH_DATETIME', 'DURATION', 'LT_PARTIAL', 'CUMMULATIVE_TIME', 'NOTES'];
+  const snapshot = rows.map((row) => columns.map((column) => {
+    const value = row[column];
+    if (value instanceof Date) return value.toISOString();
+    return value == null ? null : String(value);
+  }));
+  return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
 }
 
 function laytimeActivityKey(row = {}) {
@@ -847,6 +865,8 @@ export async function dbGetSofForm(comId) {
       deductions: laytime.deductions,
       laytimeId: laytime.laytimeId,
       laytimeLocked: laytime.laytimeLocked,
+      laytimeActivityVersion: laytime.laytimeActivityVersion,
+      laytimeDeductionVersion: laytime.laytimeDeductionVersion,
       laytimeAllowed: laytime.laytimeAllowed,
       rateUnit: laytime.rateUnit,
     });
@@ -994,6 +1014,7 @@ async function replaceLaytimeDeductions(connection, laytimeId, rows) {
     const start = parseDmyDateTime(row.start);
     const end = parseDmyDateTime(row.end);
     const notes = String(row.notes || '').trim();
+    if (!activity && !start && !end && !notes) continue;
     await connection.query(
       `INSERT INTO laytime_slave1
         (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LT_PARTIAL, CUMMULATIVE_TIME, NOTES)
@@ -1030,6 +1051,18 @@ export function validateSofActivityPartialPercentages(rows = []) {
     const value = Number(row.ltPartial);
     if (!Number.isInteger(value) || value < 0 || value > 100) {
       const error = new Error('LT (Partial %) must be a whole percentage from 0 to 100.');
+      error.status = 400;
+      throw error;
+    }
+  }
+}
+
+export function validateSofDeductionPartialPercentages(rows = []) {
+  for (const row of rows) {
+    if (row?.ltPartial == null || String(row.ltPartial).trim() === '') continue;
+    const value = Number(row.ltPartial);
+    if (!Number.isInteger(value) || value < 0 || value > 100) {
+      const error = new Error('Deduction LT (Partial %) must be a whole percentage from 0 to 100.');
       error.status = 400;
       throw error;
     }
@@ -1308,6 +1341,9 @@ export async function dbSaveSof(payload = {}) {
   if (Array.isArray(payload.portActivities)) {
     validateSofActivityPartialPercentages(payload.portActivities);
   }
+  if (Array.isArray(payload.deductions)) {
+    validateSofDeductionPartialPercentages(payload.deductions);
+  }
 
   if (!comId || !portType || !portId || !randomId) {
     const error = new Error('comId, portType, portId and randomId are required.');
@@ -1442,13 +1478,42 @@ export async function dbSaveSof(payload = {}) {
         throw error;
       }
 
+      if (payload.expectedLaytimeActivityVersion || payload.expectedLaytimeDeductionVersion) {
+        const laytimeIdForSnapshot = laytime?.LAYTIME_ID;
+        const [currentActivityRows] = laytimeIdForSnapshot
+          ? await connection.query(
+            `SELECT LAYTIME_LP_SLAVEID, SOFLOADPORTID, ACTIVITYID, START_DATETIME,
+                    FINISH_DATETIME, DURATION, LT_C, LT_NC, LT_PARTIAL, CUMMULATIVE_TIME, NOTES
+             FROM laytime_slave WHERE LAYTIME_ID = ? ORDER BY LAYTIME_LP_SLAVEID FOR UPDATE`,
+            [laytimeIdForSnapshot],
+          )
+          : [[]];
+        const [currentDeductionRows] = laytimeIdForSnapshot
+          ? await connection.query(
+            `SELECT LAYTIME_LP_SLAVEID, ACTIVITYID, START_DATETIME, FINISH_DATETIME,
+                    DURATION, LT_PARTIAL, CUMMULATIVE_TIME, NOTES
+             FROM laytime_slave1 WHERE LAYTIME_ID = ? ORDER BY LAYTIME_LP_SLAVEID FOR UPDATE`,
+            [laytimeIdForSnapshot],
+          )
+          : [[]];
+
+        const activityChanged = payload.expectedLaytimeActivityVersion
+          && payload.expectedLaytimeActivityVersion !== laytimeRowsVersion(currentActivityRows, 'activities');
+        const deductionsChanged = payload.expectedLaytimeDeductionVersion
+          && payload.expectedLaytimeDeductionVersion !== laytimeRowsVersion(currentDeductionRows, 'deductions');
+        if (activityChanged || deductionsChanged) {
+          const error = new Error('Laytime was updated after this SOF was loaded. Reload the page before saving Activity or Deductions.');
+          error.status = 409;
+          throw error;
+        }
+      }
+
       const deductionRows = Array.isArray(payload.deductions)
         ? payload.deductions.filter((row) => (
           String(row?.activity || '').trim()
           || String(row?.start || '').trim()
           || String(row?.end || '').trim()
           || String(row?.notes || '').trim()
-          || (row?.ltPartial != null && String(row.ltPartial).trim() !== '')
         ))
         : [];
       const activityRows = Array.isArray(payload.portActivities)

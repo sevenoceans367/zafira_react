@@ -390,6 +390,17 @@ export default function OpsVcSofPage() {
   const handleSubmit = async (submitId) => {
     if (!activePort || !draft) return;
 
+    const invalidDeduction = (draft.deductions || []).find(
+      (row) => !isValidLtPartialPercent(row.ltPartial),
+    );
+    if (invalidDeduction) {
+      await alert({
+        title: 'Invalid percentage',
+        message: 'Deduction LT (Partial %) must be a whole percentage from 0 to 100.',
+      });
+      return;
+    }
+
     const ok = await confirm({
       title: 'Confirmation',
       message: submitId === 2
@@ -985,7 +996,11 @@ export default function OpsVcSofPage() {
                                   step="1"
                                   className={`${styles.cfInp} ${styles.numSm}`}
                                   value={row.ltPartial ?? ''}
-                                  onChange={(e) => updateDeductionRow(index, { ltPartial: e.target.value })}
+                                  onChange={(e) => {
+                                    if (isValidLtPartialPercent(e.target.value)) {
+                                      updateDeductionRow(index, { ltPartial: e.target.value });
+                                    }
+                                  }}
                                   placeholder="100"
                                   disabled={deductionsDisabled}
                                   title={deductionsDisabledTitle}

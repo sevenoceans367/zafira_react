@@ -3,6 +3,7 @@ import {
   dbGetSofForm,
   dbSaveSof,
   validateSofActivityPartialPercentages,
+  validateSofDeductionPartialPercentages,
 } from './sofDb.js';
 
 const MOCK_FORM = {
@@ -147,6 +148,9 @@ export async function saveSof(payload = {}) {
   if (isDbConfigured()) return dbSaveSof(payload);
   if (Array.isArray(payload.portActivities)) {
     validateSofActivityPartialPercentages(payload.portActivities);
+  }
+  if (Array.isArray(payload.deductions)) {
+    validateSofDeductionPartialPercentages(payload.deductions);
   }
   const port = mockForm.ports.find(
     (item) => item.key === `${payload.portType}-${payload.portId}-${payload.randomId}`,

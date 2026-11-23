@@ -54,15 +54,53 @@ export function emptyDeductionRow() {
   };
 }
 
+function normalizeActivityForSave(row = {}) {
+  return [
+    String(row.activity || ''),
+    String(row.from || ''),
+    String(row.to || ''),
+    row.layTimeCount === true || Number(row.layTimeCount) === 1,
+    row.portTimeCount === true || Number(row.portTimeCount) === 1,
+    String(row.ltPartial ?? ''),
+    String(row.notes || ''),
+  ];
+}
+
+function normalizeDeductionForSave(row = {}) {
+  return [
+    String(row.laytimeDeductionId || ''),
+    String(row.activity || ''),
+    String(row.start || ''),
+    String(row.end || ''),
+    String(row.ltPartial ?? ''),
+    String(row.notes || ''),
+  ];
+}
+
+function activityRowsForSave(rows = []) {
+  return rows.filter((row) => normalizeActivityForSave(row).some((value) => value !== '' && value !== false));
+}
+
+function deductionRowsForComparison(rows = []) {
+  return rows.filter((row) => (
+    row.laytimeDeductionId
+    || String(row.activity || '').trim()
+    || String(row.start || '').trim()
+    || String(row.end || '').trim()
+    || String(row.notes || '').trim()
+  ));
+}
+
 export function insertDeductionRowAfter(rows = [], index = -1) {
-  const next = rows.length ? [...rows] : [emptyDeductionRow()];
+  if (!rows.length) return [emptyDeductionRow()];
+  const next = [...rows];
   next.splice(index + 1, 0, emptyDeductionRow());
   return next;
 }
 
 export function removeDeductionRowAt(rows = [], index = -1) {
   const next = rows.filter((_, rowIndex) => rowIndex !== index);
-  return next.length ? next : [emptyDeductionRow()];
+  return next;
 }
 
 export function paginateRows(items, page, pageSize) {
@@ -260,9 +298,28 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
     agentRemarks: draft.agentRemarks,
     keyOperations: draft.keyOperations,
     cargoRows: draft.cargoRows,
-    portActivities: draft.portActivities,
-    ...(activePort.laytimeLocked ? {} : { deductions: draft.deductions }),
     keepFiles: draft.keepFiles,
   };
+  if (!activePort.laytimeLocked) {
+    const originalActivities = activePort.portActivities || [];
+    const currentActivities = draft.portActivities || [];
+    if (JSON.stringify(activityRowsForSave(originalActivities).map(normalizeActivityForSave))
+      !== JSON.stringify(activityRowsForSave(currentActivities).map(normalizeActivityForSave))) {
+      payload.portActivities = currentActivities;
+      if (activePort.laytimeActivityVersion) {
+        payload.expectedLaytimeActivityVersion = activePort.laytimeActivityVersion;
+      }
+    }
+
+    const originalDeductions = activePort.deductions || [];
+    const currentDeductions = draft.deductions || [];
+    if (JSON.stringify(deductionRowsForComparison(originalDeductions).map(normalizeDeductionForSave))
+      !== JSON.stringify(deductionRowsForComparison(currentDeductions).map(normalizeDeductionForSave))) {
+      payload.deductions = currentDeductions;
+      if (activePort.laytimeDeductionVersion) {
+        payload.expectedLaytimeDeductionVersion = activePort.laytimeDeductionVersion;
+      }
+    }
+  }
   return payload;
 }

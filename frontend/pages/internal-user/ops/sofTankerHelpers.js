@@ -27,8 +27,33 @@ export function emptyPortActivityRow() {
     from: '',
     to: '',
     duration: '',
+    layTimeCount: false,
+    portTimeCount: false,
     notes: '',
   };
+}
+
+export function emptyDeductionRow() {
+  return {
+    activity: '',
+    start: '',
+    end: '',
+    duration: '',
+    ltPartial: '100',
+    cumulative: '',
+    notes: '',
+  };
+}
+
+export function insertDeductionRowAfter(rows = [], index = -1) {
+  const next = rows.length ? [...rows] : [emptyDeductionRow()];
+  next.splice(index + 1, 0, emptyDeductionRow());
+  return next;
+}
+
+export function removeDeductionRowAt(rows = [], index = -1) {
+  const next = rows.filter((_, rowIndex) => rowIndex !== index);
+  return next.length ? next : [emptyDeductionRow()];
 }
 
 export function paginateRows(items, page, pageSize) {
@@ -188,6 +213,8 @@ export function draftFromPort(port = {}) {
       from: row.from || '',
       to: row.to || '',
       duration: row.duration || computeActivityDurationHours(row.from, row.to),
+      layTimeCount: row.layTimeCount === true || Number(row.layTimeCount) === 1,
+      portTimeCount: row.portTimeCount === true || Number(row.portTimeCount) === 1,
       notes: row.notes || '',
     }));
 
@@ -197,6 +224,7 @@ export function draftFromPort(port = {}) {
     keyOperations: (port.keyOperations || []).map((row) => ({ ...row })),
     cargoRows: (port.cargoRows || []).map((row) => ({ ...row })),
     portActivities,
+    deductions: (port.deductions || []).map((row) => ({ ...row })),
     entityRows: (port.entityRows || []).map((row) => ({ ...row })),
     blRows: (port.blRows || []).map((row) => ({ ...row })),
     preArrival: port.preArrival && typeof port.preArrival === 'object' ? { ...port.preArrival } : null,
@@ -221,6 +249,7 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
     keyOperations: draft.keyOperations,
     cargoRows: draft.cargoRows,
     portActivities: draft.portActivities,
+    ...(activePort.laytimeLocked ? {} : { deductions: draft.deductions }),
     keepFiles: draft.keepFiles,
   };
   return payload;

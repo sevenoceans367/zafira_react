@@ -399,7 +399,8 @@ function emptyBlRow() {
 
 function emptyPortActivityRow() {
   return {
-    activity: '', from: '', to: '', duration: '', notes: '',
+    activity: '', from: '', to: '', duration: '',
+    layTimeCount: false, portTimeCount: false, notes: '',
   };
 }
 
@@ -453,6 +454,41 @@ async function loadSofRecord(pool, comId, portType, portId, randomId) {
   ).catch(() => [[null]]);
 
   return agent || null;
+}
+
+async function loadLaytimeDeductions(pool, comId, portType, portId, randomId) {
+  const [[laytime]] = await pool.query(
+    `SELECT LAYTIME_ID, SUBMITID FROM laytime_master
+     WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
+       AND MODULEID = ? AND MCOMPANYID = ?
+       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
+     LIMIT 1`,
+    [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
+  );
+
+  if (!laytime?.LAYTIME_ID) {
+    return { deductions: [], laytimeId: '', laytimeLocked: false };
+  }
+
+  const [rows] = await pool.query(
+    `SELECT ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION,
+            LT_PARTIAL, CUMMULATIVE_TIME, NOTES
+     FROM laytime_slave1 WHERE LAYTIME_ID = ? ORDER BY LAYTIME_LP_SLAVEID`,
+    [laytime.LAYTIME_ID],
+  );
+  return {
+    deductions: (rows || []).map((row) => ({
+      activity: str(row.ACTIVITYID),
+      start: blankDateTime(row.START_DATETIME),
+      end: blankDateTime(row.FINISH_DATETIME),
+      duration: str(row.DURATION),
+      ltPartial: str(row.LT_PARTIAL),
+      cumulative: str(row.CUMMULATIVE_TIME),
+      notes: str(row.NOTES),
+    })),
+    laytimeId: String(laytime.LAYTIME_ID),
+    laytimeLocked: Number(laytime.SUBMITID) === 5,
+  };
 }
 
 async function loadKeyOperations(pool, sofId, defaults) {
@@ -525,7 +561,8 @@ async function loadBlRows(pool, sofId) {
 async function loadPortActivities(pool, sofId) {
   if (!sofId) return [emptyPortActivityRow()];
   const [rows] = await pool.query(
-    `SELECT ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES
+    `SELECT ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION,
+            LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES
      FROM sof_slave WHERE SOFID = ? AND GROUP_NAME = '1' ORDER BY SOF_SLAVEID ASC`,
     [sofId],
   ).catch(() => [[]]);
@@ -535,6 +572,8 @@ async function loadPortActivities(pool, sofId) {
     from: blankDateTime(row.START_DATETIME),
     to: blankDateTime(row.FINISH_DATETIME),
     duration: str(row.DURATION),
+    layTimeCount: Number(row.LAY_TIME_COUNT) === 1,
+    portTimeCount: Number(row.PORT_TIME_COUNT) === 1,
     notes: str(row.NOTES),
   }));
 }
@@ -719,6 +758,7 @@ export async function dbGetSofForm(comId) {
     const portActivities = await loadPortActivities(pool, sofId);
     const preArrival = await loadPreArrival(pool, comId, tab.portType, tab.portId, tab.randomId);
     const dailyQty = await loadDailyQty(pool, comId, tab.portType, tab.portId, tab.randomId);
+    const laytime = await loadLaytimeDeductions(pool, comId, tab.portType, tab.portId, tab.randomId);
     const operation = tab.portType === 'LP'
       ? 'Loading'
       : tab.portType === 'DP'
@@ -754,6 +794,9 @@ export async function dbGetSofForm(comId) {
       dailyQty,
       keyOperations,
       cargoRows,
+      deductions: laytime.deductions,
+      laytimeId: laytime.laytimeId,
+      laytimeLocked: laytime.laytimeLocked,
     });
   }
 
@@ -880,13 +923,38 @@ async function replacePortActivities(connection, sofId, rows) {
     const from = parseDmyDateTime(row.from);
     const to = parseDmyDateTime(row.to);
     const notes = String(row.notes || '').trim();
-    if (!activity && !from && !to && !notes) continue;
+    const layTimeCount = row.layTimeCount === true || Number(row.layTimeCount) === 1 ? 1 : 0;
+    const portTimeCount = row.portTimeCount === true || Number(row.portTimeCount) === 1 ? 1 : 0;
+    if (!activity && !from && !to && !notes && !layTimeCount && !portTimeCount) continue;
     await connection.query(
       `INSERT INTO sof_slave
         (SOFID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES, GROUP_NAME)
-       VALUES (?, ?, ?, ?, ?, 0, 0, ?, '1')`,
-      [sofId, activity, from, to, str(row.duration), notes],
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, '1')`,
+      [sofId, activity, from, to, str(row.duration), layTimeCount, portTimeCount, notes],
     );
+  }
+}
+
+async function replaceLaytimeDeductions(connection, laytimeId, rows) {
+  await connection.query(`DELETE FROM laytime_slave1 WHERE LAYTIME_ID = ?`, [laytimeId]);
+  for (const row of rows || []) {
+    const activity = String(row.activity || '').trim();
+    const start = parseDmyDateTime(row.start);
+    const end = parseDmyDateTime(row.end);
+    const notes = String(row.notes || '').trim();
+    await connection.query(
+      `INSERT INTO laytime_slave1
+        (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LT_PARTIAL, CUMMULATIVE_TIME, NOTES)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [laytimeId, activity, start, end, str(row.duration), strOrNull(row.ltPartial), str(row.cumulative), notes],
+    ).catch(async () => {
+      await connection.query(
+        `INSERT INTO laytime_slave1
+          (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [laytimeId, activity, start, end, str(row.duration), notes],
+      );
+    });
   }
 }
 
@@ -1201,6 +1269,50 @@ export async function dbSaveSof(payload = {}) {
     }
     if (plan.replaceCargoRows) {
       await replaceCargoRows(connection, sofId, plan.cargoRows);
+    }
+    if (Array.isArray(payload.deductions)) {
+      const [[laytime]] = await connection.query(
+        `SELECT LAYTIME_ID, SUBMITID FROM laytime_master
+         WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
+           AND MODULEID = ? AND MCOMPANYID = ?
+           AND PORT = ? AND PORTID = ? AND RANDOMID = ?
+         LIMIT 1 FOR UPDATE`,
+        [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
+      );
+
+      if (laytime && Number(laytime.SUBMITID) === 5) {
+        const error = new Error('This Laytime is locked (Submit & Close).');
+        error.status = 400;
+        throw error;
+      }
+
+      const deductionRows = payload.deductions.filter((row) => (
+        String(row?.activity || '').trim()
+        || String(row?.start || '').trim()
+        || String(row?.end || '').trim()
+        || String(row?.notes || '').trim()
+      ));
+
+      let laytimeId = laytime?.LAYTIME_ID;
+      if (!laytimeId && deductionRows.length) {
+        const [result] = await connection.query(
+          `INSERT INTO laytime_master
+            (COMID, LOGIN, LOGINID, MODULEID, MCOMPANYID, PORT, PORTID, RANDOMID,
+             TERMINAL, STOWAGE_QTY, VESSEL_ARRIVED, NOR_TENDERED, PILOT_ON_BOARD,
+             LOAD_DIS_COMMENCED, LOAD_DIS_COMPLETED, VESSEL_SAILED, SOF_LOADPORTID, SUBMITID)
+           VALUES (?, 'INTERNAL_USER', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+          [
+            comId, appContext.userId || 0, MODULE_ID, COMPANY_ID, portType, portId, randomId,
+            terminal, stowageQty, vesselArrived, norTendered, pilotOnBoard,
+            loadCommenced, loadCompleted, vesselSailed, sofId,
+          ],
+        );
+        laytimeId = result.insertId;
+      }
+
+      if (laytimeId) {
+        await replaceLaytimeDeductions(connection, laytimeId, deductionRows);
+      }
     }
     await connection.commit();
 

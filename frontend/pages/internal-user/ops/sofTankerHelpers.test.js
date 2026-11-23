@@ -5,9 +5,12 @@ import {
   buildSofSavePayload,
   computeActivityDurationHours,
   draftFromPort,
+  emptyDeductionRow,
   getCargoCardValues,
+  insertDeductionRowAfter,
   paginateRows,
   patchCargoCardField,
+  removeDeductionRowAt,
 } from './sofTankerHelpers.js';
 
 describe('sofTankerHelpers', () => {
@@ -106,6 +109,21 @@ describe('sofTankerHelpers', () => {
     assert.equal(page.safePage, 1);
     assert.equal(page.totalPages, 1);
     assert.deepEqual(page.items, [1, 2, 3]);
+  });
+
+  it('adds a visible row when deductions start empty and removes rows without leaving the table empty', () => {
+    const twoRows = insertDeductionRowAfter([], 0);
+    assert.equal(twoRows.length, 2);
+    assert.deepEqual(twoRows[0], emptyDeductionRow());
+    assert.deepEqual(twoRows[1], emptyDeductionRow());
+
+    const oneRow = removeDeductionRowAt(twoRows, 0);
+    assert.equal(oneRow.length, 1);
+    assert.deepEqual(oneRow[0], emptyDeductionRow());
+
+    const fallbackRow = removeDeductionRowAt(oneRow, 0);
+    assert.equal(fallbackRow.length, 1);
+    assert.deepEqual(fallbackRow[0], emptyDeductionRow());
   });
 
 });

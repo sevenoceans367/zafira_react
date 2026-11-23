@@ -48,8 +48,12 @@ const MOCK_FORM = {
       entityRows: [],
       blRows: [{ blDate: '', cargo: '', blQty: '' }],
       portActivities: [{
-        activity: '', from: '', to: '', duration: '', notes: '',
+        activity: '', from: '', to: '', duration: '',
+        layTimeCount: false, portTimeCount: false, notes: '',
       }],
+      deductions: [],
+      laytimeId: '',
+      laytimeLocked: false,
       preArrival: {
         cargoDecl: false,
         stowPlanQty: '',
@@ -162,6 +166,7 @@ export async function saveSof(payload = {}) {
   if (Array.isArray(payload.entityRows)) port.entityRows = payload.entityRows;
   if (Array.isArray(payload.blRows)) port.blRows = payload.blRows;
   if (Array.isArray(payload.portActivities)) port.portActivities = payload.portActivities;
+  if (Array.isArray(payload.deductions) && !port.laytimeLocked) port.deductions = payload.deductions;
   if (payload.preArrival && typeof payload.preArrival === 'object' && !Array.isArray(payload.preArrival)) {
     port.preArrival = payload.preArrival;
   }

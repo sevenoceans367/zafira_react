@@ -497,7 +497,9 @@ function mapMasterFields(record, sof, defaults = {}) {
     vesselSailed: hasLaytime
       ? (blankDateTime(record.VESSEL_SAILED) || str(record.VESSEL_SAILED))
       : (blankDateTime(sof?.VS) || str(sof?.VS)),
-    loadedQty: hasLaytime ? str(record.LOADED_QTY) : str(defaults.loadedQty || ''),
+    loadedQty: hasLaytime && record.LOADED_QTY != null && record.LOADED_QTY !== ''
+      ? str(record.LOADED_QTY)
+      : str(defaults.loadedQty || ''),
     loadedRate: hasLaytime ? str(record.LOADED_RATE) : '',
     laytimeAllowed: str(record?.LAYTIME_ALLOWED),
     actualLaytime: str(record?.ACTUAL_LAYTIME),

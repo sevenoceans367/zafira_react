@@ -79,7 +79,7 @@ describe('sofTankerHelpers', () => {
       agentRemarks: 'Terminal restriction noted',
       uploads: ['170000_sof.pdf'],
       keyOperations: [
-        { activity: 'EOSP', activityDateTime: '01-05-2026 06:00', activityDateTimeTo: '', robIfo: '1200.50', robMdo: '120.25', comments: 'Arrived', tDefault: 1 },
+        { activity: 'EOSP', activityDateTime: '01-05-2026 06:00', activityDateTimeTo: '01-05-2026 06:15', robIfo: '1200.50', robMdo: '120.25', comments: 'Arrived', tDefault: 1 },
       ],
       cargoRows: [
         { activity: 'Cargo Loaded', shipFigure: '30000', blFigure: '29980', waterDensity: '', remarks: '', tDefault: 1 },
@@ -107,6 +107,7 @@ describe('sofTankerHelpers', () => {
     assert.deepEqual(payload.keepFiles, ['170000_sof.pdf']);
     assert.equal(payload.keyOperations[0].robIfo, '1200.50');
     assert.equal(payload.keyOperations[0].robMdo, '120.25');
+    assert.equal(payload.keyOperations[0].activityDateTimeTo, '01-05-2026 06:15');
     assert.equal(payload.cargoRows.length, 2);
     assert.equal(payload.portActivities[0].activity, 'Hose connection');
     assert.equal(Object.hasOwn(payload, 'entityRows'), false);

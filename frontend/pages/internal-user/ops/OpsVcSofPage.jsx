@@ -96,15 +96,6 @@ function CalendarIcon() {
   );
 }
 
-function RangeArrowIcon() {
-  return (
-    <svg className={styles.dtRangeArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12h14" />
-      <path d="M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-
 function recomputeSofActivityRows(port, rows) {
   const calculation = recomputePortDraft({
     laytimeAllowed: port?.laytimeAllowed || '',
@@ -665,8 +656,6 @@ export default function OpsVcSofPage() {
                             <th style={{ width: 34 }} />
                             <th>Key Operation</th>
                             <th>Date / Time</th>
-                            <th>ROB IFO</th>
-                            <th>ROB MDO</th>
                             <th>Notes</th>
                           </tr>
                         </thead>
@@ -697,48 +686,13 @@ export default function OpsVcSofPage() {
                                 )}
                               </td>
                               <td className={styles.koDateCol}>
-                                <div className={styles.dtRangeBox}>
-                                  <SofDateField
-                                    id={`sof-key-op-from-${activeKey}-${index}`}
-                                    label={`Key operation start date and time, row ${index + 1}`}
-                                    value={row.activityDateTime || ''}
-                                    onChange={(v) => updateKeyOpRow(index, { activityDateTime: v })}
-                                    disabled={locked}
-                                    placeholder="Select date & time"
-                                  />
-                                  <RangeArrowIcon />
-                                  <SofDateField
-                                    id={`sof-key-op-to-${activeKey}-${index}`}
-                                    label={`Key operation finish date and time, row ${index + 1}`}
-                                    value={row.activityDateTimeTo || ''}
-                                    onChange={(v) => updateKeyOpRow(index, { activityDateTimeTo: v })}
-                                    disabled={locked}
-                                    placeholder="Select date & time"
-                                  />
-                                </div>
-                              </td>
-                              <td>
-                                <input
-                                  className={styles.cfInp}
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={row.robIfo ?? ''}
-                                  onChange={(e) => updateKeyOpRow(index, { robIfo: e.target.value })}
+                                <SofDateField
+                                  id={`sof-key-op-from-${activeKey}-${index}`}
+                                  label={`Key operation date and time, row ${index + 1}`}
+                                  value={row.activityDateTime || ''}
+                                  onChange={(v) => updateKeyOpRow(index, { activityDateTime: v })}
                                   disabled={locked}
-                                  placeholder="0.00"
-                                  aria-label={`ROB IFO, row ${index + 1}`}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  className={styles.cfInp}
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={row.robMdo ?? ''}
-                                  onChange={(e) => updateKeyOpRow(index, { robMdo: e.target.value })}
-                                  disabled={locked}
-                                  placeholder="0.00"
-                                  aria-label={`ROB MDO, row ${index + 1}`}
+                                  placeholder="Select date & time"
                                 />
                               </td>
                               <td>
@@ -754,7 +708,7 @@ export default function OpsVcSofPage() {
                             </tr>
                           )) : (
                             <tr className={styles.emptyTableRow}>
-                              <td colSpan={6}>No key operations match your search.</td>
+                              <td colSpan={4}>No key operations match your search.</td>
                             </tr>
                           )}
                         </tbody>

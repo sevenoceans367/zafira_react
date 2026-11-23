@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AttachmentDropzone,
   Button,
+  CardSelect,
   DmyDateInput,
   LoadingOverlay,
   RowActions,
@@ -121,6 +122,7 @@ function SofDateField({
         id={id}
         ariaLabel={label}
         enableTime
+        strict24Hour
         value={value}
         onChange={onChange}
         disabled={disabled}
@@ -548,19 +550,15 @@ export default function OpsVcSofPage() {
                         />
                       </div>
                       <div className={styles.koToolbarRight}>
-                        <label className={styles.koShowWrap}>
+                        <div className={styles.koShowWrap}>
                           <span>Show</span>
-                          <select
-                            className={styles.koShowSelect}
-                            value={keyOpsRowSize}
-                            onChange={(e) => setKeyOpsRowSize(Number(e.target.value))}
-                            aria-label="Key operations rows per page"
-                          >
-                            {SOF_ROW_SIZE_OPTIONS.map((size) => (
-                              <option key={size} value={size}>{size}</option>
-                            ))}
-                          </select>
-                        </label>
+                          <CardSelect
+                            options={SOF_ROW_SIZE_OPTIONS.map((size) => ({ value: size, label: String(size) }))}
+                            value={String(keyOpsRowSize)}
+                            onChange={(value) => setKeyOpsRowSize(Number(value))}
+                            ariaLabel="Key operations rows per page"
+                          />
+                        </div>
                         <div className={styles.koPager}>
                           <button
                             type="button"
@@ -717,7 +715,7 @@ export default function OpsVcSofPage() {
                             <th>LT (C)</th>
                             <th>LT (NC)</th>
                             <th>LT (Partial %)</th>
-                            <th>Cumulative Time</th>
+                            <th>Cumulative Duration (Hrs)</th>
                             <th>Notes</th>
                           </tr>
                         </thead>
@@ -816,7 +814,7 @@ export default function OpsVcSofPage() {
                                   readOnly
                                   disabled
                                   title={LAYTIME_ONLY_FIELD_TITLE}
-                                  aria-label={`Cumulative Time, row ${index + 1}`}
+                                  aria-label={`Cumulative duration hours, row ${index + 1}`}
                                 />
                               </td>
                               <td>
@@ -860,7 +858,7 @@ export default function OpsVcSofPage() {
                             <th>Date / Time – Finish</th>
                             <th>Duration (Hrs)</th>
                             <th>LT (Partial %)</th>
-                            <th>Duration (Hrs)</th>
+                            <th>Net Duration (Hrs)</th>
                             <th>Notes</th>
                           </tr>
                         </thead>
@@ -932,7 +930,7 @@ export default function OpsVcSofPage() {
                                 readOnly
                                 disabled
                                 title={DEDUCTIONS_RO_TITLE}
-                                aria-label="Deduction weighted duration"
+                                aria-label="Deduction net duration hours"
                               />
                             </td>
                             <td>
@@ -966,7 +964,7 @@ export default function OpsVcSofPage() {
                                 className={styles.totalsRowInput}
                                 value="0.0000"
                                 readOnly
-                                aria-label="Total weighted deduction duration"
+                                aria-label="Total net deduction duration"
                               />
                             </td>
                             <td />

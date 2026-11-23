@@ -22,26 +22,33 @@ function sanitizeValue(value) {
  * Parse common pasted/typed date strings into a Date.
  * Supports: dd-mm-yyyy, dd/mm/yyyy, yyyy-mm-dd, with optional HH:MM / HH:MM:SS.
  */
-function parseFlexibleDate(datestr) {
+function parseFlexibleDate(datestr, strict24Hour = false) {
   const raw = sanitizeValue(datestr);
   if (!raw) return null;
 
-  let match = raw.match(
-    /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})(?:[ T]+(\d{1,2}):(\d{2})(?::\d{2})?)?/,
-  );
+  const timePart = String.raw`(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?`;
+  const endOfInput = strict24Hour ? '$' : '';
+
+  let match = raw.match(new RegExp(
+    String.raw`^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})${timePart}${endOfInput}`,
+  ));
   if (match) {
-    const [, d, mo, y, h = '0', mi = '0'] = match;
+    const [, d, mo, y, h = '0', mi = '0', sec = '0'] = match;
+    if (strict24Hour && match[4] !== undefined
+      && (Number(h) > 23 || Number(mi) > 59 || Number(sec) > 59)) return null;
     const year = Number(y);
     if (year < 1971) return null;
     const dt = new Date(year, Number(mo) - 1, Number(d), Number(h), Number(mi));
     return Number.isNaN(dt.getTime()) ? null : dt;
   }
 
-  match = raw.match(
-    /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T]+(\d{1,2}):(\d{2})(?::\d{2})?)?/,
-  );
+  match = raw.match(new RegExp(
+    String.raw`^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})${timePart}${endOfInput}`,
+  ));
   if (match) {
-    const [, y, mo, d, h = '0', mi = '0'] = match;
+    const [, y, mo, d, h = '0', mi = '0', sec = '0'] = match;
+    if (strict24Hour && match[4] !== undefined
+      && (Number(h) > 23 || Number(mi) > 59 || Number(sec) > 59)) return null;
     const year = Number(y);
     if (year < 1971) return null;
     const dt = new Date(year, Number(mo) - 1, Number(d), Number(h), Number(mi));
@@ -78,7 +85,7 @@ function toDateOnly(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function applyCommittedValue(fp, raw) {
+function applyCommittedValue(fp, raw, strict24Hour = false) {
   if (!fp) return;
   const next = sanitizeValue(raw);
   try {
@@ -87,7 +94,7 @@ function applyCommittedValue(fp, raw) {
       if (fp.input) fp.input.value = '';
       return;
     }
-    const parsed = parseFlexibleDate(next);
+    const parsed = parseFlexibleDate(next, strict24Hour);
     if (parsed) {
       const dateOnly = toDateOnly(parsed);
       fp.setDate(dateOnly, false);
@@ -110,6 +117,7 @@ function applyCommittedValue(fp, raw) {
  *
  * @param {boolean} [allowClear=true] When false, an existing value cannot be
  *   cleared (keyboard delete / empty blur restores the last committed date).
+ * @param {boolean} [strict24Hour=false] Require a valid 24-hour time without AM/PM when entering a time.
  */
 const DmyDateInput = ({
   value = '',
@@ -123,6 +131,7 @@ const DmyDateInput = ({
   size,
   enableTime = false,
   allowClear = true,
+  strict24Hour = false,
 }) => {
   const inputRef = useRef(null);
   const fpRef = useRef(null);
@@ -174,7 +183,7 @@ const DmyDateInput = ({
     const syncMinuteHighlight = (fp) => {
       const grid = fp.calendarContainer?.querySelector(`.${styles.minuteGrid}`);
       if (!grid) return;
-      const committed = parseFlexibleDate(valueRef.current);
+      const committed = parseFlexibleDate(valueRef.current, strict24Hour);
       const minute = committed?.getMinutes?.() ?? -1;
       grid.querySelectorAll(`.${styles.minuteBtn}`).forEach((btn) => {
         const m = Number(btn.dataset.minute);
@@ -193,7 +202,7 @@ const DmyDateInput = ({
       const hour = pendingHourRef.current;
       fp.calendarContainer?.querySelectorAll(`.${styles.minuteBtn}`).forEach((btn) => {
         const minute = Number(btn.dataset.minute);
-        btn.textContent = `${hour}:${String(minute).padStart(2, '0')}`;
+        btn.textContent = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
       });
     };
 
@@ -221,7 +230,7 @@ const DmyDateInput = ({
 
     const clearInput = (fp) => {
       if (!allowClearRef.current && valueRef.current) {
-        applyCommittedValue(fp, valueRef.current);
+        applyCommittedValue(fp, valueRef.current, strict24Hour);
         return;
       }
       suppressChange = true;
@@ -238,14 +247,14 @@ const DmyDateInput = ({
       const cleaned = sanitizeValue(raw);
       if (!cleaned) {
         if (!allowClearRef.current && valueRef.current) {
-          applyCommittedValue(fp, valueRef.current);
+          applyCommittedValue(fp, valueRef.current, strict24Hour);
           return true;
         }
         clearInput(fp);
         return true;
       }
 
-      const parsed = parseFlexibleDate(cleaned);
+      const parsed = parseFlexibleDate(cleaned, strict24Hour);
       if (!parsed) return false;
 
       if (!enableTime) {
@@ -701,7 +710,7 @@ const DmyDateInput = ({
         btn.type = 'button';
         btn.className = styles.hourBtn;
         btn.dataset.hour = String(hour);
-        btn.textContent = `${hour}:00`;
+        btn.textContent = `${String(hour).padStart(2, '0')}:00`;
         btn.addEventListener('mousedown', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -726,7 +735,7 @@ const DmyDateInput = ({
         btn.type = 'button';
         btn.className = styles.minuteBtn;
         btn.dataset.minute = String(minute);
-        btn.textContent = `0:${String(minute).padStart(2, '0')}`;
+        btn.textContent = `00:${String(minute).padStart(2, '0')}`;
         btn.addEventListener('mousedown', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -802,7 +811,7 @@ const DmyDateInput = ({
       if (fp.isOpen) return;
       const raw = fp.input?.value ?? '';
       if (!commitRawInput(fp, raw)) {
-        applyCommittedValue(fp, valueRef.current);
+        applyCommittedValue(fp, valueRef.current, strict24Hour);
       }
     };
 
@@ -833,7 +842,7 @@ const DmyDateInput = ({
       appendTo: typeof document !== 'undefined' ? document.body : undefined,
       clickOpens: !disabled,
       parseDate: (datestr) => {
-        const parsed = parseFlexibleDate(datestr);
+        const parsed = parseFlexibleDate(datestr, strict24Hour);
         if (!parsed) return undefined;
         return toDateOnly(parsed);
       },
@@ -853,7 +862,7 @@ const DmyDateInput = ({
         ensureYearSelect(fp);
         closeMonthSelectMenu(fp);
         closeYearSelectMenu(fp);
-        const committed = parseFlexibleDate(valueRef.current);
+        const committed = parseFlexibleDate(valueRef.current, strict24Hour);
         const committedDate = committed ? toDateOnly(committed) : null;
         pendingDateRef.current = committedDate;
         suppressChange = true;
@@ -915,7 +924,7 @@ const DmyDateInput = ({
 
         // Date → hour step (picker stays open via closeOnSelect: false)
         if (stepRef.current !== 'date') return;
-        const committed = parseFlexibleDate(valueRef.current);
+        const committed = parseFlexibleDate(valueRef.current, strict24Hour);
         pendingHourRef.current = committed?.getHours?.() ?? 0;
         suppressChange = true;
         fp.setDate(dateOnly, false);
@@ -930,26 +939,26 @@ const DmyDateInput = ({
           setStep(fp, 'date');
           pendingDateRef.current = null;
           // Keep last fully committed value (minute/Real-time/typed). Do not save hour-only drafts.
-          applyCommittedValue(fp, valueRef.current);
+          applyCommittedValue(fp, valueRef.current, strict24Hour);
           return;
         }
 
         if (appliedViaFooterRef.current) {
           appliedViaFooterRef.current = false;
-          pendingDateRef.current = parseFlexibleDate(valueRef.current)
-            ? toDateOnly(parseFlexibleDate(valueRef.current))
+          pendingDateRef.current = parseFlexibleDate(valueRef.current, strict24Hour)
+            ? toDateOnly(parseFlexibleDate(valueRef.current, strict24Hour))
             : null;
           return;
         }
 
         // Cancel / click-outside: discard pending selection.
         pendingDateRef.current = null;
-        applyCommittedValue(fp, valueRef.current);
+        applyCommittedValue(fp, valueRef.current, strict24Hour);
         syncApplyEnabled(fp);
       },
     });
 
-    applyCommittedValue(fpRef.current, valueRef.current);
+    applyCommittedValue(fpRef.current, valueRef.current, strict24Hour);
 
     return () => {
       inputEl.removeEventListener('paste', handlePaste);
@@ -959,14 +968,14 @@ const DmyDateInput = ({
       fpRef.current?.destroy();
       fpRef.current = null;
     };
-  }, [enableTime, disabled]);
+  }, [enableTime, disabled, strict24Hour]);
 
   useEffect(() => {
     const fp = fpRef.current;
     if (!fp) return;
     valueRef.current = sanitizeValue(value);
-    applyCommittedValue(fp, valueRef.current);
-  }, [value]);
+    applyCommittedValue(fp, valueRef.current, strict24Hour);
+  }, [value, strict24Hour]);
 
   useEffect(() => {
     const fp = fpRef.current;

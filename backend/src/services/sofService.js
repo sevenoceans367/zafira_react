@@ -1,5 +1,9 @@
 import { isDbConfigured } from '../config.js';
-import { dbGetSofForm, dbSaveSof } from './sofDb.js';
+import {
+  dbGetSofForm,
+  dbSaveSof,
+  validateSofActivityPartialPercentages,
+} from './sofDb.js';
 
 const MOCK_FORM = {
   comId: '8',
@@ -141,6 +145,9 @@ export async function getSofForm(comId) {
 
 export async function saveSof(payload = {}) {
   if (isDbConfigured()) return dbSaveSof(payload);
+  if (Array.isArray(payload.portActivities)) {
+    validateSofActivityPartialPercentages(payload.portActivities);
+  }
   const port = mockForm.ports.find(
     (item) => item.key === `${payload.portType}-${payload.portId}-${payload.randomId}`,
   );

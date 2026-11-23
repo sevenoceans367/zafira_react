@@ -354,6 +354,7 @@ function emptyActivity() {
     ltNoCounts: false,
     ltPartial: '',
     cumulative: '',
+    sofLoadPortId: '',
     notes: '',
   };
 }
@@ -386,6 +387,7 @@ async function loadActivities(pool, laytimeId, sofId) {
         ltNoCounts: Number(row.LT_NC) === 1,
         ltPartial: str(row.LT_PARTIAL),
         cumulative: str(row.CUMMULATIVE_TIME),
+        sofLoadPortId: row.SOFLOADPORTID == null ? '' : String(row.SOFLOADPORTID),
         notes: str(row.NOTES),
       }));
     }
@@ -548,10 +550,11 @@ async function replaceActivities(connection, laytimeId, activities) {
     if (!activity && !start && !end && !notes) continue;
     await connection.query(
       `INSERT INTO laytime_slave
-        (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LT_C, LT_NC, LT_PARTIAL, CUMMULATIVE_TIME, NOTES)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (LAYTIME_ID, SOFLOADPORTID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LT_C, LT_NC, LT_PARTIAL, CUMMULATIVE_TIME, NOTES)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         laytimeId,
+        strOrNull(row.sofLoadPortId),
         activity,
         start,
         end,

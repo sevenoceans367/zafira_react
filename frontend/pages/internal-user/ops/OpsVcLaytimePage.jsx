@@ -238,6 +238,7 @@ function emptyActivityRow(seedFrom = '') {
     ltNoCounts: false,
     ltPartial: '100',
     cumulative: '',
+    sofLoadPortId: '',
     notes: '',
   };
 }
@@ -420,15 +421,17 @@ function draftFromPort(port, rateUnit = 'days') {
     activities: (port.activities?.length ? port.activities : [emptyActivityRow()])
       .map((row) => {
         const hasCountFlag = Boolean(row.ltCounts) || Boolean(row.ltNoCounts);
+        const isSofSynced = Boolean(row.sofLoadPortId);
         return {
           activity: row.activity || '',
           start: row.start || '',
           end: row.end || '',
           duration: row.duration || '',
-          ltCounts: hasCountFlag ? Boolean(row.ltCounts) : true,
+          ltCounts: hasCountFlag || isSofSynced ? Boolean(row.ltCounts) : true,
           ltNoCounts: Boolean(row.ltNoCounts),
-          ltPartial: row.ltPartial ?? (hasCountFlag && !row.ltCounts ? '' : '100'),
+          ltPartial: row.ltPartial ?? ((hasCountFlag && !row.ltCounts) || isSofSynced ? '' : '100'),
           cumulative: row.cumulative ?? '',
+          sofLoadPortId: row.sofLoadPortId || '',
           notes: row.notes || '',
         };
       }),

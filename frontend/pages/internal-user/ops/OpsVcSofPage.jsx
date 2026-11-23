@@ -34,6 +34,7 @@ import {
   getCargoCardValues,
   isBlankKeyOp,
   insertDeductionRowAfter,
+  isValidLtPartialPercent,
   pageForIndex,
   paginateRows,
   patchCargoCardField,
@@ -54,7 +55,6 @@ const FLASH = {
 };
 
 const RO_AUTO_FETCH_TITLE = 'Auto-fetch source not yet wired to SOF persistence.';
-const LAYTIME_ONLY_FIELD_TITLE = 'Managed in Laytime Calculations; not persisted on SOF.';
 const DEDUCTIONS_LOCKED_TITLE = 'This Laytime record is closed. Reopen it in Laytime to edit deductions.';
 
 function SearchIcon() {
@@ -103,6 +103,28 @@ function RangeArrowIcon() {
       <path d="M13 6l6 6-6 6" />
     </svg>
   );
+}
+
+function recomputeSofActivityRows(port, rows) {
+  const calculation = recomputePortDraft({
+    laytimeAllowed: port?.laytimeAllowed || '',
+    activities: rows.map((row) => ({
+      activity: row.activity,
+      start: '',
+      end: '',
+      duration: row.duration,
+      ltCounts: Boolean(row.layTimeCount),
+      ltNoCounts: Boolean(row.portTimeCount),
+      ltPartial: row.ltPartial,
+      notes: row.notes,
+    })),
+    deductions: [],
+  }, port?.rateUnit || 'days');
+
+  return rows.map((row, rowIndex) => ({
+    ...row,
+    cumulative: calculation.activities[rowIndex]?.cumulative || '0.0000',
+  }));
 }
 
 function SofDateField({
@@ -179,7 +201,9 @@ export default function OpsVcSofPage() {
       setForm(data);
       const nextDrafts = {};
       (data.ports || []).forEach((port) => {
-        nextDrafts[port.key] = draftFromPort(port);
+        const portDraft = draftFromPort(port);
+        portDraft.portActivities = recomputeSofActivityRows(port, portDraft.portActivities);
+        nextDrafts[port.key] = portDraft;
       });
       setDrafts(nextDrafts);
       setPendingFilesByKey({});
@@ -305,7 +329,7 @@ export default function OpsVcSofPage() {
       nextRow.duration = computeActivityDurationHours(nextRow.from, nextRow.to);
     }
     rows[index] = nextRow;
-    patchDraft({ portActivities: rows });
+    patchDraft({ portActivities: recomputeSofActivityRows(activePort, rows) });
   };
 
   const insertPortActivityAfter = (index) => {
@@ -438,6 +462,7 @@ export default function OpsVcSofPage() {
   const totalNetDeductionDuration = completedDeductions.reduce((sum, row) => sum + (Number(row.cumulative) || 0), 0);
   const deductionsDisabled = locked || Boolean(activePort?.laytimeLocked);
   const deductionsDisabledTitle = activePort?.laytimeLocked ? DEDUCTIONS_LOCKED_TITLE : undefined;
+  const activityDisabled = deductionsDisabled;
 
   return (
     <>
@@ -793,12 +818,12 @@ export default function OpsVcSofPage() {
                                 <RowActions>
                                   <RowAddButton
                                     title="Add row"
-                                    disabled={locked}
+                                    disabled={activityDisabled}
                                     onClick={() => insertPortActivityAfter(index)}
                                   />
                                   <RowDelButton
                                     title="Remove row"
-                                    disabled={locked}
+                                    disabled={activityDisabled}
                                     onClick={() => removePortActivityRow(index)}
                                   />
                                 </RowActions>
@@ -809,7 +834,7 @@ export default function OpsVcSofPage() {
                                   className={styles.cfInp}
                                   value={row.activity}
                                   onChange={(e) => updatePortActivityRow(index, { activity: e.target.value })}
-                                  disabled={locked}
+                                  disabled={activityDisabled}
                                   placeholder="Activity in port"
                                   aria-label={`Activity in port, row ${index + 1}`}
                                 />
@@ -820,7 +845,7 @@ export default function OpsVcSofPage() {
                                   label={`Activity start date and time, row ${index + 1}`}
                                   value={row.from}
                                   onChange={(v) => updatePortActivityRow(index, { from: v })}
-                                  disabled={locked}
+                                  disabled={activityDisabled}
                                   placeholder="Select date & time"
                                 />
                               </td>
@@ -830,7 +855,7 @@ export default function OpsVcSofPage() {
                                   label={`Activity finish date and time, row ${index + 1}`}
                                   value={row.to}
                                   onChange={(v) => updatePortActivityRow(index, { to: v })}
-                                  disabled={locked}
+                                  disabled={activityDisabled}
                                   placeholder="Select date & time"
                                 />
                               </td>
@@ -849,7 +874,7 @@ export default function OpsVcSofPage() {
                                   type="checkbox"
                                   checked={Boolean(row.layTimeCount)}
                                   onChange={(e) => updatePortActivityRow(index, { layTimeCount: e.target.checked })}
-                                  disabled={locked}
+                                  disabled={activityDisabled}
                                   aria-label={`LT (C), row ${index + 1}`}
                                 />
                               </td>
@@ -858,18 +883,26 @@ export default function OpsVcSofPage() {
                                   type="checkbox"
                                   checked={Boolean(row.portTimeCount)}
                                   onChange={(e) => updatePortActivityRow(index, { portTimeCount: e.target.checked })}
-                                  disabled={locked}
+                                  disabled={activityDisabled}
                                   aria-label={`LT (NC), row ${index + 1}`}
                                 />
                               </td>
                               <td>
                                 <input
-                                  type="text"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
                                   className={`${styles.cfInp} ${styles.numSm}`}
-                                  value=""
+                                  value={row.ltPartial ?? ''}
                                   placeholder="0"
-                                  disabled
-                                  title={LAYTIME_ONLY_FIELD_TITLE}
+                                  onChange={(e) => {
+                                    if (isValidLtPartialPercent(e.target.value)) {
+                                      updatePortActivityRow(index, { ltPartial: e.target.value });
+                                    }
+                                  }}
+                                  disabled={activityDisabled}
+                                  title={deductionsDisabledTitle}
                                   aria-label={`LT (Partial %), row ${index + 1}`}
                                 />
                               </td>
@@ -877,10 +910,8 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                  value="—"
+                                  value={row.cumulative || '0.0000'}
                                   readOnly
-                                  disabled
-                                  title={LAYTIME_ONLY_FIELD_TITLE}
                                   aria-label={`Cumulative duration hours, row ${index + 1}`}
                                 />
                               </td>
@@ -889,7 +920,7 @@ export default function OpsVcSofPage() {
                                   className={styles.ltNotesSm}
                                   value={row.notes}
                                   onChange={(e) => updatePortActivityRow(index, { notes: e.target.value })}
-                                  disabled={locked}
+                                  disabled={activityDisabled}
                                   placeholder="Notes"
                                   aria-label={`Activity notes, row ${index + 1}`}
                                 />

@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { recomputePortDraft } from './laytimeCalculations.js';
 import {
   DEFAULT_SOF_ROW_SIZE,
   buildSofSavePayload,
@@ -8,6 +9,7 @@ import {
   emptyDeductionRow,
   getCargoCardValues,
   insertDeductionRowAfter,
+  isValidLtPartialPercent,
   paginateRows,
   patchCargoCardField,
   removeDeductionRowAt,
@@ -22,6 +24,15 @@ describe('sofTankerHelpers', () => {
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', '10-05-2026 10:30'), '2.5');
     assert.equal(computeActivityDurationHours('10-05-2026 12:00', '10-05-2026 10:00'), '');
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', ''), '');
+  });
+
+  it('accepts only whole LT partial percentages from 0 to 100', () => {
+    for (const value of ['', '0', '35', '100']) {
+      assert.equal(isValidLtPartialPercent(value), true, `Expected ${value} to be valid`);
+    }
+    for (const value of ['-1', '101', '12.5', 'abc']) {
+      assert.equal(isValidLtPartialPercent(value), false, `Expected ${value} to be invalid`);
+    }
   });
 
   it('maps and updates Cargo card fields while preserving all other sof_slave_7 rows', () => {
@@ -124,6 +135,41 @@ describe('sofTankerHelpers', () => {
     const fallbackRow = removeDeductionRowAt(oneRow, 0);
     assert.equal(fallbackRow.length, 1);
     assert.deepEqual(fallbackRow[0], emptyDeductionRow());
+  });
+
+  it('round-trips Laytime-linked Activity fields in the SOF draft and save payload', () => {
+    const port = {
+      key: 'LP-10-101',
+      portType: 'LP',
+      portId: '10',
+      randomId: '101',
+      portActivities: [{
+        activity: 'Loading', from: '10-04-2026 10:00', to: '10-04-2026 12:00',
+        duration: '2.0', layTimeCount: true, portTimeCount: false,
+        ltPartial: '75', cumulative: '4.9375', laytimeActivityId: '37', notes: 'First hold',
+      }],
+    };
+    const draft = draftFromPort(port);
+    const payload = buildSofSavePayload({ comId: '42', activePort: port, draft, submitId: 1 });
+    assert.equal(payload.portActivities[0].ltPartial, '75');
+    assert.equal(payload.portActivities[0].laytimeActivityId, '37');
+    assert.equal(payload.portActivities[0].cumulative, '4.9375');
+    assert.equal(payload.portActivities[0].layTimeCount, true);
+    assert.equal(payload.portActivities[0].portTimeCount, false);
+  });
+
+  it('uses Laytime remaining-allowance cumulative values for SOF activities', () => {
+    const result = recomputePortDraft({
+      laytimeAllowed: '2',
+      activities: [
+        { duration: '12', ltCounts: true, ltPartial: '50' },
+        { duration: '12', ltCounts: true, ltPartial: '100' },
+        { duration: '8', ltCounts: false, ltPartial: '100' },
+      ],
+      deductions: [],
+    }, 'days');
+
+    assert.deepEqual(result.activities.map((row) => row.cumulative), ['1.7500', '1.2500', '0.00']);
   });
 
 });

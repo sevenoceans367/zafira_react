@@ -29,8 +29,17 @@ export function emptyPortActivityRow() {
     duration: '',
     layTimeCount: false,
     portTimeCount: false,
+    ltPartial: '',
+    cumulative: '',
+    laytimeActivityId: '',
     notes: '',
   };
+}
+
+export function isValidLtPartialPercent(value) {
+  if (value == null || String(value).trim() === '') return true;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 100;
 }
 
 export function emptyDeductionRow() {
@@ -215,6 +224,9 @@ export function draftFromPort(port = {}) {
       duration: row.duration || computeActivityDurationHours(row.from, row.to),
       layTimeCount: row.layTimeCount === true || Number(row.layTimeCount) === 1,
       portTimeCount: row.portTimeCount === true || Number(row.portTimeCount) === 1,
+      ltPartial: row.ltPartial == null ? '' : String(row.ltPartial),
+      cumulative: row.cumulative || '',
+      laytimeActivityId: row.laytimeActivityId || '',
       notes: row.notes || '',
     }));
 

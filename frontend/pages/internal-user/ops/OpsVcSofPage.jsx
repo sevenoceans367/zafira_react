@@ -555,7 +555,7 @@ export default function OpsVcSofPage() {
                           value={draft.terminal}
                           onChange={(e) => patchDraft({ terminal: e.target.value })}
                           disabled={locked}
-                          placeholder="Jetty"
+                          placeholder="e.g. Jetty"
                           aria-label="Berth"
                         />
                       </div>

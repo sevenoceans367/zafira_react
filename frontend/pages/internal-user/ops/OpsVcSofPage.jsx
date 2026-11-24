@@ -110,7 +110,7 @@ function recomputeSofActivityRows(port, rows) {
       notes: row.notes,
     })),
     deductions: [],
-  }, port?.rateUnit || 'days');
+  }, port?.rateUnit || 'hours');
 
   return rows.map((row, rowIndex) => ({
     ...row,
@@ -344,7 +344,7 @@ export default function OpsVcSofPage() {
     const rows = [...(draft?.deductions || [])];
     while (rows.length <= index) rows.push(emptyDeductionRow());
     rows[index] = { ...rows[index], ...patch };
-    const recomputed = recomputePortDraft({ ...draft, deductions: rows }, form?.rateUnit || 'days');
+    const recomputed = recomputePortDraft({ ...draft, deductions: rows }, activePort?.rateUnit || 'hours');
     patchDraft({ deductions: recomputed.deductions });
   };
 
@@ -361,7 +361,7 @@ export default function OpsVcSofPage() {
     });
     if (!ok) return;
     const next = removeDeductionRowAt(draft?.deductions || [], index);
-    const recomputed = recomputePortDraft({ ...draft, deductions: next }, form?.rateUnit || 'days');
+    const recomputed = recomputePortDraft({ ...draft, deductions: next }, activePort?.rateUnit || 'hours');
     patchDraft({ deductions: recomputed.deductions });
   };
 

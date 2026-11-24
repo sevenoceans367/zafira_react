@@ -159,18 +159,39 @@ describe('sofTankerHelpers', () => {
     assert.equal(payload.portActivities[0].portTimeCount, false);
   });
 
-  it('uses Laytime remaining-allowance cumulative values for SOF activities', () => {
+  it('uses Laytime remaining-allowance cumulative values for SOF activities in hours', () => {
+    // Tanker Legacy Fun158=1|2: divider=1 → remaining hours, not days.
     const result = recomputePortDraft({
-      laytimeAllowed: '2',
+      laytimeAllowed: '48',
       activities: [
         { duration: '12', ltCounts: true, ltPartial: '50' },
         { duration: '12', ltCounts: true, ltPartial: '100' },
         { duration: '8', ltCounts: false, ltPartial: '100' },
       ],
       deductions: [],
-    }, 'days');
+    }, 'hours');
 
-    assert.deepEqual(result.activities.map((row) => row.cumulative), ['1.7500', '1.2500', '0.00']);
+    // 48 - 6 = 42; 48 - (6+12) = 30; NC → 0.00
+    assert.deepEqual(result.activities.map((row) => row.cumulative), ['42.0000', '30.0000', '0.00']);
+  });
+
+  it('matches the reported screenshot case in hours instead of negative days', () => {
+    // Before (days/divider=24, blank allowed→0): 0 - (246*0.25)/24 = -2.5625
+    // After  (hours/divider=1, blank allowed→0): 0 - (246*0.25)/1  = -61.5000
+    const blankAllowed = recomputePortDraft({
+      laytimeAllowed: '',
+      activities: [{ duration: '246.0', ltCounts: true, ltPartial: '25' }],
+      deductions: [],
+    }, 'hours');
+    assert.equal(blankAllowed.activities[0].cumulative, '-61.5000');
+
+    const withAllowance = recomputePortDraft({
+      laytimeAllowed: '72',
+      activities: [{ duration: '246.0', ltCounts: true, ltPartial: '25' }],
+      deductions: [],
+    }, 'hours');
+    // 72 - 61.5 = 10.5 remaining hours
+    assert.equal(withAllowance.activities[0].cumulative, '10.5000');
   });
 
 });

@@ -44,7 +44,17 @@ export function calcLaytimeAllowed(loadedQty, loadedRate, turnTimeToAdd, rateUni
 
 /**
  * Recompute durations, cumulatives, actual/demurrage/despatch fields.
- * Follows PHP getFinalCalculation literally (incl. double-subtract of deductions on demurrage).
+ * Follows PHP laytime_calculation.php getFinalCalculation literally
+ * (incl. double-subtract of deductions on demurrage).
+ *
+ * Legacy divider (getFun158):
+ *   Fun158==1|2 (CBM/Hr, MT/Hr tanker) → divider=1  → Cumulative Time in Hrs
+ *   Fun158==3   (MT/Day dry)           → divider=24 → Cumulative Time in Days
+ *
+ * Activity cumulative = remaining allowance:
+ *   laytimeAllowed - Σ(durationHrs × LT_PARTIAL / 100) / divider
+ * when LT(C) is checked; otherwise 0.00.
+ *
  * Returns a new draft object (immutable).
  */
 export function recomputePortDraft(draft, rateUnit = 'days') {

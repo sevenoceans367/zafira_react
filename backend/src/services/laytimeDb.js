@@ -742,6 +742,9 @@ export async function dbGetLaytimeForm(comId) {
   }
 
   const fixtureTypeRaw = Number(master?.FIXTURETYPEID || master?.SEL_BUSI_TYPE || 0);
+  // Legacy getFun158()==1|2 → divider=1 (Hrs); ==3 → divider=24 (Days).
+  const estimateType = Number(vesselParticulars?.estimateType);
+  const rateUnit = (estimateType === 1 || estimateType === 2) ? 'hours' : 'days';
 
   return {
     comId: String(comId),
@@ -755,7 +758,7 @@ export async function dbGetLaytimeForm(comId) {
     cargo,
     currency: 'USD',
     vesselParticulars,
-    rateUnit: 'days',
+    rateUnit,
     canOpen: true,
     approverOptions: [],
     ports,

@@ -472,7 +472,8 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId) {
       activities: [], deductions: [], laytimeId: '', laytimeLocked: false,
       laytimeActivityVersion: laytimeRowsVersion([], 'activities'),
       laytimeDeductionVersion: laytimeRowsVersion([], 'deductions'),
-      laytimeAllowed: '', rateUnit: 'days',
+      // Tanker SOF matches Legacy Fun158=1|2 (hourly): divider=1 in getFinalCalculation.
+      laytimeAllowed: '', rateUnit: 'hours',
     };
   }
 
@@ -518,7 +519,8 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId) {
     laytimeActivityVersion: laytimeRowsVersion(activityRows, 'activities'),
     laytimeDeductionVersion: laytimeRowsVersion(deductionRows, 'deductions'),
     laytimeAllowed: str(laytime.LAYTIME_ALLOWED),
-    rateUnit: 'days',
+    // Tanker SOF matches Legacy Fun158=1|2 (hourly): divider=1 in getFinalCalculation.
+    rateUnit: 'hours',
   };
 }
 

@@ -145,9 +145,10 @@ export function recomputePortDraft(draft, rateUnit = 'days') {
   const despatchRate = num(draft.despatchRate);
   let ttlDespatch = ((despatch / divider1) * despatchRate).toFixed(2);
 
-  // PHP quirk when actual laytime rounds to 0
+  // PHP quirk when actual laytime rounds to 0: still convert allowance
+  // into day-equivalent money when rateUnit is hours (USD/day).
   if (allowanceKnown && Number(actualLaytime.toFixed(4)) === 0) {
-    ttlDespatch = String(laytimeAllowed * despatchRate);
+    ttlDespatch = ((laytimeAllowed / divider1) * despatchRate).toFixed(2);
   }
 
   return {

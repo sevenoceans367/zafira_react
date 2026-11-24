@@ -896,6 +896,9 @@ export async function dbGetSofForm(comId) {
     cargo,
     vesselParticulars,
     estimateType: vesselParticulars.estimateType,
+    allowanceUnitBasis: laytimeRateUnitFromEstimateType(vesselParticulars.estimateType)
+      ? 'fun158-estimateType'
+      : null,
     ports,
   };
 }

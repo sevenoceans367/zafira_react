@@ -743,10 +743,9 @@ export async function dbGetLaytimeForm(comId) {
   }
 
   const fixtureTypeRaw = Number(master?.FIXTURETYPEID || master?.SEL_BUSI_TYPE || 0);
-  // Same Fun158 contract as sofDb — do not diverge SOF hours vs Laytime days.
-  const resolvedUnit = laytimeRateUnitFromEstimateType(vesselParticulars?.estimateType);
-  // Dry/Gas default to days when estimateType is absent; tanker/gas carrier use hours.
-  const rateUnit = resolvedUnit || 'days';
+  // Same Fun158 contract as sofDb. Unknown estimateType fails closed (null)
+  // — do not guess days vs hours for ambiguous records.
+  const rateUnit = laytimeRateUnitFromEstimateType(vesselParticulars?.estimateType);
 
   return {
     comId: String(comId),
@@ -761,6 +760,9 @@ export async function dbGetLaytimeForm(comId) {
     currency: 'USD',
     vesselParticulars,
     rateUnit,
+    // Fun158 estimate type is the unit basis; historical day-mode tanker writes
+    // are not auto-converted (no blanket ×24). Unknown type → rateUnit null.
+    allowanceUnitBasis: rateUnit ? 'fun158-estimateType' : null,
     canOpen: true,
     approverOptions: [],
     ports,

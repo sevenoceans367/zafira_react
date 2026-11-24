@@ -202,6 +202,53 @@ describe('sofTankerHelpers', () => {
     assert.equal(withAllowance.activities[0].cumulative, '10.5000');
   });
 
+  it('converts zero-actual despatch money through the hours divider (USD/day)', () => {
+    const hourly = recomputePortDraft({
+      laytimeAllowed: '108',
+      demurrageRate: '0',
+      despatchRate: '1000',
+      activities: [],
+      deductions: [],
+    }, 'hours');
+    // 108h / 24 * 1000 = 4500 (not 108000)
+    assert.equal(hourly.ttlDespatch, '4500.00');
+
+    const daily = recomputePortDraft({
+      laytimeAllowed: '2',
+      demurrageRate: '0',
+      despatchRate: '1000',
+      activities: [],
+      deductions: [],
+    }, 'days');
+    assert.equal(daily.ttlDespatch, '2000.00');
+  });
+
+  it('maps Tanker hours acceptance table for LP-Balongan 108h / 24h Activity', () => {
+    // Same shape sofDb returns for estimateType=2 (rateUnit hours, allowed 108).
+    const cases = [
+      [{ duration: '24.0', ltCounts: true, ltPartial: '100' }, '84.0000'],
+      [{ duration: '24.0', ltCounts: true, ltPartial: '50' }, '96.0000'],
+      [{ duration: '24.0', ltCounts: true, ltPartial: '25' }, '102.0000'],
+      [{ duration: '24.0', ltCounts: true, ltPartial: '0' }, '108.0000'],
+      [{ duration: '24.0', ltCounts: false, ltPartial: '0' }, '0.00'],
+    ];
+    for (const [activity, want] of cases) {
+      const result = recomputePortDraft({
+        laytimeAllowed: '108',
+        activities: [activity],
+        deductions: [],
+      }, 'hours');
+      assert.equal(result.activities[0].cumulative, want);
+    }
+    // Stale day-mode divider reproduces the 107.7500 screenshot (vite→Desktop :3000).
+    const stale = recomputePortDraft({
+      laytimeAllowed: '108',
+      activities: [{ duration: '24.0', ltCounts: true, ltPartial: '25' }],
+      deductions: [],
+    }, 'days');
+    assert.equal(stale.activities[0].cumulative, '107.7500');
+  });
+
   it('preserves blank cumulative through display/coalesce (no fictitious zero)', () => {
     const timedUnknown = recomputePortDraft({
       laytimeAllowed: '',

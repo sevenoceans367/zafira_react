@@ -482,9 +482,12 @@ export default function OpsVcLaytimePage() {
   const [error, setError] = useState('');
   const [pendingFilesByKey, setPendingFilesByKey] = useState({});
 
-  const rateUnit = form?.rateUnit === 'hours' ? 'hours' : 'days';
-  const unitLabel = rateUnit === 'hours' ? 'Hrs' : 'Days';
+  const rateUnit = form?.rateUnit === 'hours' || form?.rateUnit === 'days'
+    ? form.rateUnit
+    : null;
+  const unitLabel = rateUnit === 'hours' ? 'Hrs' : rateUnit === 'days' ? 'Days' : '—';
   const currency = form?.currency || 'USD';
+  const unitUnknown = Boolean(form) && rateUnit == null;
 
   const backHref = useMemo(() => {
     const path = BACK_PATHS[Number(page)] || BACK_PATHS[1];
@@ -497,10 +500,13 @@ export default function OpsVcLaytimePage() {
     try {
       const data = await fetchLaytimeForm(comId);
       setForm(data);
-      const unit = data.rateUnit === 'hours' ? 'hours' : 'days';
+      const unit = data.rateUnit === 'hours' || data.rateUnit === 'days' ? data.rateUnit : null;
       const nextDrafts = {};
       (data.ports || []).forEach((port) => {
-        nextDrafts[port.key] = draftFromPort(port, unit);
+        // Unknown unit: still snapshot fields but withhold invented day/hour math.
+        nextDrafts[port.key] = unit
+          ? draftFromPort(port, unit)
+          : { ...draftFromPort(port, 'days'), laytimeAllowed: '', actualLaytime: '', timeToDemurrage: '', timeToDespatch: '', ttlDemurrage: '', ttlDespatch: '' };
       });
       setDrafts(nextDrafts);
       const preferred = preferredKey
@@ -533,12 +539,17 @@ export default function OpsVcLaytimePage() {
   const vesselParticulars = form?.vesselParticulars || {};
   const isLoadPort = activePort?.portType === 'LP';
   const qtyLabel = isLoadPort ? 'Load Qty (MT)' : 'Discharge Qty (MT)';
-  const rateLabel = `Rate (${rateUnit === 'hours' ? 'MT/Hr' : 'MT/Day'})`;
+  const rateLabel = unitUnknown
+    ? 'Rate (unit unknown)'
+    : `Rate (${rateUnit === 'hours' ? 'MT/Hr' : 'MT/Day'})`;
   const approverOptions = form?.approverOptions || [];
 
   const patchDraft = (patch, { recompute = false, refreshAllowed = false } = {}) => {
     setDrafts((current) => {
       let base = { ...current[activeKey], ...patch };
+      if (unitUnknown) {
+        return { ...current, [activeKey]: base };
+      }
       if (refreshAllowed) {
         const allowed = calcLaytimeAllowed(
           base.loadedQty,
@@ -789,6 +800,11 @@ export default function OpsVcLaytimePage() {
           <div className={flash.type === 'error' ? pageStyles.error : pageStyles.flashSuccess}>{flash.text}</div>
         ) : null}
         {error ? <div className={pageStyles.error}>{error}</div> : null}
+        {unitUnknown ? (
+          <div className={pageStyles.error}>
+            Laytime unit unknown (missing vessel estimate type). Allowance calculations are withheld — no days/hours guess.
+          </div>
+        ) : null}
 
         {!loading && !form?.ports?.length ? (
           <div className={pageStyles.empty}>

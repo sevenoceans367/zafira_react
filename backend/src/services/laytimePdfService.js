@@ -124,8 +124,10 @@ function tableRow(doc, columns, values, scale) {
 
 function renderPort(doc, form, port) {
   // Shared Fun158 contract returns 'hours' | 'days' (legacy PDF compared 'hrs').
+  // Unknown/null must not be labeled as DAYS.
   const isHours = form.rateUnit === 'hours' || form.rateUnit === 'hrs';
-  const rateUnit = isHours ? 'HRS' : 'DAYS';
+  const isDays = form.rateUnit === 'days';
+  const rateUnit = isHours ? 'HRS' : isDays ? 'DAYS' : 'UNIT UNKNOWN';
   const isDetention = String(port.detention) === '1';
   const title = isDetention ? 'DETENTION STATEMENT' : 'LAYTIME STATEMENT / PORT';
   const portLabel = port.portType === 'DP' ? 'Discharge Port' : 'Load Port';
@@ -133,8 +135,8 @@ function renderPort(doc, form, port) {
   const cargo = Array.isArray(form.cargo) ? form.cargo.filter(Boolean).join(', ') : dash(form.cargo);
   const demLabel = isDetention ? 'Detention Rate' : 'Demurrage Rate';
   const rateLabel = port.portType === 'DP'
-    ? (isHours ? 'Discharge rate (MTPH)' : 'Discharge rate (Mts/Day)')
-    : (isHours ? 'Loading rate (MTPH)' : 'Loading rate (Mts/Day)');
+    ? (isHours ? 'Discharge rate (MTPH)' : isDays ? 'Discharge rate (Mts/Day)' : 'Discharge rate (unit unknown)')
+    : (isHours ? 'Loading rate (MTPH)' : isDays ? 'Loading rate (Mts/Day)' : 'Loading rate (unit unknown)');
 
   drawBanner(doc, title);
   doc.font('Helvetica').fontSize(9).fillColor(TEXT)

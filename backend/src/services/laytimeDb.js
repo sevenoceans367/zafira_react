@@ -958,6 +958,19 @@ export async function dbSaveLaytime(payload = {}) {
     throw error;
   }
 
+  // Fail closed: unknown Fun158 estimate type must not persist blanked allowance/financials.
+  if (action !== 'open') {
+    const fcaId = await getLatestCostSheetId(pool, comId);
+    const particulars = fcaId ? await loadVesselParticulars(pool, fcaId) : { estimateType: null };
+    if (laytimeRateUnitFromEstimateType(particulars.estimateType) == null) {
+      const error = new Error(
+        'Laytime unit unknown (missing vessel estimate type). Save rejected to preserve existing allowance values.',
+      );
+      error.status = 409;
+      throw error;
+    }
+  }
+
   const approvers = Array.isArray(payload.approvers)
     ? payload.approvers.map(str).filter(Boolean).join(',')
     : str(payload.approvers);

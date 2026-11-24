@@ -135,7 +135,7 @@ export function tcContractTypeLabel({
     return 'TC In/TC Out';
   }
   if (code === 'tcout' || code === 'tc out') return 'TC Out';
-  const hasPeriod = Number(periodId) > 0 || String(periodId || '').trim() !== '';
+  const hasPeriod = Number(periodId) > 0;
   if (hasPeriod || hasTcInRecap) return 'TC In/TC Out';
   return 'TC Out';
 }
@@ -315,7 +315,10 @@ export function mapTcDetail(row, extras = {}) {
     balticRoute: row.BALTIC_ROUTE != null ? String(row.BALTIC_ROUTE) : '',
     balticDate: formatDateDMY(row.BALTIC_DATE),
     balticRate: row.BALTIC_RATE != null ? String(row.BALTIC_RATE) : '',
-    periodId: row.PERIODID != null ? String(row.PERIODID) : '',
+    periodId: (() => {
+      const raw = row.PERIODID != null ? String(row.PERIODID).trim() : '';
+      return (!raw || raw === '0') ? '' : raw;
+    })(),
     comId: row.COMID != null ? String(row.COMID) : '',
     vesselName: extras.vesselName || row.VESSEL_NAME || '',
     deliveryBunkers: extras.deliveryBunkers || [],

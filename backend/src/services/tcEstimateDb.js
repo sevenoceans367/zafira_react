@@ -1060,7 +1060,7 @@ export async function dbCreateTcEstimate(body = {}, upload = {}) {
   try {
     await connection.beginTransaction();
     let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
-    if (hasTcInRecapJson && body.tcInExpenses != null) {
+    if (hasTcInRecapJson && Object.prototype.hasOwnProperty.call(body, 'tcInExpenses')) {
       payload = {
         ...payload,
         TC_IN_RECAP_JSON: serializeTcInRecapJson(body.tcInExpenses),
@@ -1120,7 +1120,7 @@ export async function dbUpdateTcEstimate(tcOutId, body = {}, upload = {}) {
       return null;
     }
     let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
-    if (hasTcInRecapJson && body.tcInExpenses != null) {
+    if (hasTcInRecapJson && Object.prototype.hasOwnProperty.call(body, 'tcInExpenses')) {
       payload = {
         ...payload,
         TC_IN_RECAP_JSON: serializeTcInRecapJson(body.tcInExpenses),
@@ -1581,7 +1581,7 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
         hirePeriods: body.hirePeriods || merged.hirePeriods,
       },
     });
-    if (body.tcInExpenses != null) {
+    if (Object.prototype.hasOwnProperty.call(body, 'tcInExpenses')) {
       await persistTcInRecapJson(connection, tcOutId, body.tcInExpenses);
     }
     await connection.commit();

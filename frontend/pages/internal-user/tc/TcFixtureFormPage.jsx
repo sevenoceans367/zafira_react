@@ -782,10 +782,19 @@ function emptyTcIn(detail = {}, calc = {}) {
   };
 }
 
+function normalizePeriodId(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw === '0') return '';
+  return raw;
+}
+
+/** True only for persisted TC In recap data — not emptyTcIn() fixture seeds. */
 function hasSavedTcInHires(tcIn) {
+  if (!tcIn) return false;
+  if (tcIn.recapVersion || tcIn.identifiers || tcIn.terms || tcIn.periods) return true;
   return Boolean(tcIn?.hires?.some((row) => (
     (row.dailyHire != null && String(row.dailyHire).trim() !== '')
-    || (row.deliveryDate != null && String(row.deliveryDate).trim() !== '')
+    || hasDateValue(row.deliveryDate)
     || (row.hireage != null && String(row.hireage).trim() !== '' && Number(row.hireage) !== 0)
   )));
 }
@@ -835,12 +844,7 @@ function normalizeCapexFields(detail = {}) {
     };
   }
   const defaultOffHireRate = detail.hireFixPer || calc.dailyGrossHire || '';
-  // ponytail: no DB column — same signals as list badge (period / saved TC In JSON)
-  const periodLinked = Boolean(detail.periodId) && String(detail.periodId) !== '0';
-  const contractType = detail.contractType
-    || (periodLinked || hasSavedTcInHires(detail.tcInExpenses) ? 'tcinout' : 'tcout');
   return {
-    contractType,
     itinerary: {
       from: { ...EMPTY_ITINERARY.from, ...(detail.itinerary?.from || {}) },
       to: { ...EMPTY_ITINERARY.to, ...(detail.itinerary?.to || {}) },
@@ -1259,7 +1263,9 @@ export default function TcFixtureFormPage({
   const [lookups, setLookups] = useState(null);
   const [businessTypes, setBusinessTypes] = useState([]);
   const [form, setForm] = useState(() => {
-    const periodId = searchParams.get('periodId') || searchParams.get('periodid') || '';
+    const periodId = normalizePeriodId(
+      searchParams.get('periodId') || searchParams.get('periodid') || '',
+    );
     return {
       ...emptyForm(searchParams.get('selBType') || '2'),
       periodId,
@@ -1296,8 +1302,7 @@ export default function TcFixtureFormPage({
   const isDry = String(form.businessTypeId) === '3';
   const showSubCharter = form.contractType === 'tcinout'
     || isSubCharterBusinessType(businessTypes, form.businessTypeId)
-    || (Boolean(form.periodId) && String(form.periodId) !== '0')
-    || hasSavedTcInHires(form.tcInExpenses);
+    || Boolean(normalizePeriodId(form.periodId));
 
   useEffect(() => {
     if (!vpModalOpen) return undefined;
@@ -1618,7 +1623,11 @@ export default function TcFixtureFormPage({
 
   const applyTcDetailToForm = (detail, { asReplicate = false } = {}) => {
     const queryPeriodId = searchParams.get('periodId') || searchParams.get('periodid') || '';
-    const periodId = queryPeriodId || detail.periodId || '';
+    const periodId = normalizePeriodId(queryPeriodId || detail.periodId);
+    // Infer from raw JSON before emptyTcIn seeding in normalizeCapexFields.
+    const contractType = periodId || hasSavedTcInHires(detail.tcInExpenses)
+      ? 'tcinout'
+      : (detail.contractType || 'tcout');
     const next = {
       ...emptyForm(detail.businessTypeId || searchParams.get('selBType') || '2'),
       ...detail,
@@ -1632,11 +1641,9 @@ export default function TcFixtureFormPage({
       foConsumptions: detail.foConsumptions || [],
       doConsumptions: detail.doConsumptions || [],
       calc: detail.calc || null,
-      periodId,
-      contractType: (periodId && String(periodId) !== '0') || hasSavedTcInHires(detail.tcInExpenses)
-        ? 'tcinout'
-        : (detail.contractType || 'tcout'),
       ...normalizeCapexFields(detail),
+      periodId,
+      contractType,
     };
     if (asReplicate) {
       // New estimate: keep tcNo so next EstN is fetched; drop identity + attachments
@@ -1665,9 +1672,10 @@ export default function TcFixtureFormPage({
         const detail = await fetchTcEstimate(tcOutId);
         if (cancelled) return;
         setForm(applyTcDetailToForm(detail));
-        if (detail?.periodId && !hasSavedTcInHires(detail.tcInExpenses)) {
+        const linkedPeriodId = normalizePeriodId(detail?.periodId);
+        if (linkedPeriodId && !hasSavedTcInHires(detail.tcInExpenses)) {
           try {
-            const periodTcIn = await fetchPeriodTcInDetails(detail.periodId);
+            const periodTcIn = await fetchPeriodTcInDetails(linkedPeriodId);
             if (!cancelled && periodTcIn) {
               setForm((prev) => ({
                 ...prev,
@@ -1697,9 +1705,10 @@ export default function TcFixtureFormPage({
         const detail = await fetchTcEstimate(replicateFrom);
         if (cancelled) return;
         setForm(applyTcDetailToForm(detail, { asReplicate: true }));
-        if (detail?.periodId && !hasSavedTcInHires(detail.tcInExpenses)) {
+        const linkedPeriodId = normalizePeriodId(detail?.periodId);
+        if (linkedPeriodId && !hasSavedTcInHires(detail.tcInExpenses)) {
           try {
-            const periodTcIn = await fetchPeriodTcInDetails(detail.periodId);
+            const periodTcIn = await fetchPeriodTcInDetails(linkedPeriodId);
             if (!cancelled && periodTcIn) {
               setForm((prev) => ({
                 ...prev,
@@ -1889,6 +1898,7 @@ export default function TcFixtureFormPage({
       const payload = {
         ...form,
         fixtureType: form.fixtureType || '1',
+        periodId: normalizePeriodId(form.periodId),
         delDate: firstHire.delDate || form.delDate,
         reDelDate: firstHire.reDelDate || form.reDelDate,
         durFixPer: firstHire.days || form.durFixPer,
@@ -1896,6 +1906,8 @@ export default function TcFixtureFormPage({
         hirePeriods,
         offHires,
         otherExpenses: form.otherExpenses || [],
+        // No contractType column — persist/clear TC In JSON as the mode signal.
+        tcInExpenses: showSubCharter ? form.tcInExpenses : null,
         keepAttachment: attachments.map((item) => item.file).filter(Boolean).join(','),
         keepAttachmentName: attachments.map((item) => item.name || item.file).filter(Boolean).join(','),
       };
@@ -1947,7 +1959,7 @@ export default function TcFixtureFormPage({
         offHires,
         itinerary: form.itinerary,
         itineraryExpenses: form.itineraryExpenses,
-        tcInExpenses: form.tcInExpenses,
+        tcInExpenses: showSubCharter ? form.tcInExpenses : null,
       });
 
       if (mode === 'add') {
@@ -2319,18 +2331,19 @@ export default function TcFixtureFormPage({
 
   const handlePeriodChange = async (periodId) => {
     if (readOnly) return;
+    const linkedPeriodId = normalizePeriodId(periodId);
     setForm((prev) => ({
       ...prev,
-      periodId,
-      contractType: periodId ? 'tcinout' : prev.contractType,
+      periodId: linkedPeriodId,
+      contractType: linkedPeriodId ? 'tcinout' : prev.contractType,
     }));
-    if (!periodId || hasSavedTcInHires(form.tcInExpenses)) return;
+    if (!linkedPeriodId || hasSavedTcInHires(form.tcInExpenses)) return;
     try {
-      const periodTcIn = await fetchPeriodTcInDetails(periodId);
+      const periodTcIn = await fetchPeriodTcInDetails(linkedPeriodId);
       if (periodTcIn) {
         setForm((prev) => ({
           ...prev,
-          periodId,
+          periodId: linkedPeriodId,
           contractType: 'tcinout',
           tcInExpenses: applyPeriodTcIn(prev.tcInExpenses, periodTcIn),
         }));

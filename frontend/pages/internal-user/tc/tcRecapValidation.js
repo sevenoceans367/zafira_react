@@ -21,8 +21,9 @@ function firstHirePeriod(form = {}) {
 }
 
 function isSubCharterForm(form = {}) {
+  const periodId = String(form.periodId ?? '').trim();
   return String(form.contractType || '').toLowerCase() === 'tcinout'
-    || filled(form.periodId);
+    || (filled(periodId) && periodId !== '0');
 }
 
 /**

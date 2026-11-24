@@ -4,7 +4,10 @@ import {
   calcTcTotals,
   computeTcListStats,
   dailyGrossHire,
+  mapTcDetail,
   mapTcListRow,
+  normalizeContractType,
+  tcContractTypeLabel,
 } from './tcEstimateMappers.js';
 
 describe('tcEstimateMappers', () => {
@@ -309,5 +312,44 @@ describe('tcEstimateMappers', () => {
       offHires: [],
     });
     assert.equal(totals.bunkerDiffAmt, '500.00');
+  });
+
+  it('normalizes contract type codes', () => {
+    assert.equal(normalizeContractType('tcout'), 'tcout');
+    assert.equal(normalizeContractType('TC In/TC Out'), 'tcinout');
+    assert.equal(normalizeContractType(''), '');
+  });
+
+  it('prefers CONTRACT_TYPE column over dormant JSON for list badge', () => {
+    assert.equal(
+      tcContractTypeLabel({ contractType: 'tcout', hasTcInRecap: true, periodId: '55' }),
+      'TC Out',
+    );
+    assert.equal(
+      tcContractTypeLabel({ contractType: '', hasTcInRecap: true }),
+      'TC In/TC Out',
+    );
+    const row = mapTcListRow({
+      TCOUTID: 9,
+      CONTRACT_TYPE: 'tcout',
+      HAS_TC_IN: 1,
+      PERIODID: 55,
+      HIRE_FIX_PER: 1000,
+      EXCHANGE_RATE: 1,
+      TOTAL_REV_EST: 0,
+      COMID: null,
+    });
+    assert.equal(row.contractType, 'TC Out');
+  });
+
+  it('maps detail contractType and treats periodId 0 as empty', () => {
+    const detail = mapTcDetail({
+      TCOUTID: 1,
+      CONTRACT_TYPE: 'tcout',
+      PERIODID: 0,
+      ESTIMATE_TYPE: 2,
+    });
+    assert.equal(detail.contractType, 'tcout');
+    assert.equal(detail.periodId, '');
   });
 });

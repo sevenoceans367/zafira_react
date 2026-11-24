@@ -124,18 +124,27 @@ export function computeTcListStats(rows = []) {
   };
 }
 
+/** Normalize form/API/DB contract mode to 'tcout' | 'tcinout' | ''. */
+export function normalizeContractType(value) {
+  const code = String(value || '').trim().toLowerCase();
+  if (code === 'tcinout' || code === 'tc in/tc out' || code === 'tc in - tc out') {
+    return 'tcinout';
+  }
+  if (code === 'tcout' || code === 'tc out') return 'tcout';
+  return '';
+}
+
 /** Label for the grey contract-type chip (matches Recap Identifiers dropdown). */
 export function tcContractTypeLabel({
   periodId = '',
   hasTcInRecap = false,
   contractType = '',
 } = {}) {
-  const code = String(contractType || '').trim().toLowerCase();
-  if (code === 'tcinout' || code === 'tc in/tc out' || code === 'tc in - tc out') {
-    return 'TC In/TC Out';
-  }
-  if (code === 'tcout' || code === 'tc out') return 'TC Out';
-  const hasPeriod = Number(periodId) > 0 || String(periodId || '').trim() !== '';
+  const code = normalizeContractType(contractType);
+  if (code === 'tcinout') return 'TC In/TC Out';
+  if (code === 'tcout') return 'TC Out';
+  const hasPeriod = Number(periodId) > 0
+    || (String(periodId || '').trim() !== '' && String(periodId).trim() !== '0');
   if (hasPeriod || hasTcInRecap) return 'TC In/TC Out';
   return 'TC Out';
 }
@@ -152,13 +161,18 @@ export function mapTcListRow(row, index = 0) {
     : '';
   const hasTcInRecap = Number(row.HAS_TC_IN) === 1
     || (row.TC_IN_RECAP_JSON != null && String(row.TC_IN_RECAP_JSON).trim() !== '');
+  const contractTypeCode = normalizeContractType(row.CONTRACT_TYPE);
   return {
     index: index + 1,
     tcOutId: row.TCOUTID,
     vesselName: row.VESSEL_NAME ?? '',
     vesselType: row.VESSEL_TYPE ?? '',
     tcNo: row.TC_NO ?? '',
-    contractType: tcContractTypeLabel({ periodId, hasTcInRecap }),
+    contractType: tcContractTypeLabel({
+      periodId,
+      hasTcInRecap,
+      contractType: contractTypeCode,
+    }),
     cpDate: formatDateDMY(row.CP_DATE1),
     dwt: row.DWT_SUMMER_CP ?? '',
     delPort,
@@ -315,7 +329,10 @@ export function mapTcDetail(row, extras = {}) {
     balticRoute: row.BALTIC_ROUTE != null ? String(row.BALTIC_ROUTE) : '',
     balticDate: formatDateDMY(row.BALTIC_DATE),
     balticRate: row.BALTIC_RATE != null ? String(row.BALTIC_RATE) : '',
-    periodId: row.PERIODID != null ? String(row.PERIODID) : '',
+    periodId: row.PERIODID != null && String(row.PERIODID).trim() !== '' && String(row.PERIODID) !== '0'
+      ? String(row.PERIODID)
+      : '',
+    contractType: normalizeContractType(row.CONTRACT_TYPE),
     comId: row.COMID != null ? String(row.COMID) : '',
     vesselName: extras.vesselName || row.VESSEL_NAME || '',
     deliveryBunkers: extras.deliveryBunkers || [],

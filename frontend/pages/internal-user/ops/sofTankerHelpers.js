@@ -1,5 +1,13 @@
+import { recomputePortDraft } from './laytimeCalculations.js';
+
 export const SOF_ROW_SIZE_OPTIONS = [5, 10, 25];
 export const DEFAULT_SOF_ROW_SIZE = 5;
+
+/** Preserve intentional blank cumulative; only default when the value is missing. */
+export function coalesceActivityCumulative(computed) {
+  if (computed === '') return '';
+  return computed ?? '0.0000';
+}
 
 const CANONICAL_CARGO_LOADED = 'Cargo Loaded';
 const CANONICAL_LOP_ISSUED = 'Lop Issued (Pls specify)';
@@ -27,13 +35,94 @@ export function emptyPortActivityRow() {
     from: '',
     to: '',
     duration: '',
-    layTimeCount: false,
+    // Default LT(C): counts toward laytime (Legacy mutual C/NC).
+    layTimeCount: true,
     portTimeCount: false,
-    ltPartial: '',
+    ltPartial: '100',
     cumulative: '',
     laytimeActivityId: '',
     notes: '',
   };
+}
+
+/**
+ * Mutual LT(C) / LT(NC) toggle — mirrors Legacy iCheck exclusivity.
+ * counts=true  → LT(C), partial defaults to 100 when empty/0
+ * counts=false → LT(NC), partial forced to 0 (non-counting)
+ */
+export function applyLtCountToggle(row = {}, counts = true) {
+  if (counts) {
+    const partial = String(row.ltPartial ?? '').trim();
+    const nextPartial = partial === '' || partial === '0' ? '100' : partial;
+    return {
+      ...row,
+      layTimeCount: true,
+      portTimeCount: false,
+      ltPartial: nextPartial,
+    };
+  }
+  return {
+    ...row,
+    layTimeCount: false,
+    portTimeCount: true,
+    ltPartial: '0',
+  };
+}
+
+/** Toggle ON when LT(C) is set. */
+export function isLtCounting(row = {}) {
+  return row.layTimeCount === true || Number(row.layTimeCount) === 1;
+}
+
+/** True when From/To are both set (SOF Duration is derived from the range). */
+export function hasActivityTimeRange(row = {}) {
+  return Boolean(String(row.from || '').trim() && String(row.to || '').trim());
+}
+
+/**
+ * Recompute SOF Activity cumulative hours from Laytime remaining-allowance math.
+ * Incomplete rows (no From/To) stay blank and do not enter the running sum —
+ * otherwise empty LT(C) rows would show Laytime Allowed (e.g. 108.0000).
+ */
+export function recomputeSofActivityRows(port, rows = []) {
+  const timed = rows.map((row) => hasActivityTimeRange(row));
+  const rateUnit = port?.rateUnit === 'days' ? 'days' : 'hours';
+  const calculation = recomputePortDraft({
+    laytimeAllowed: port?.laytimeAllowed || '',
+    activities: rows.map((row, index) => ({
+      activity: row.activity,
+      start: '',
+      end: '',
+      duration: timed[index] ? row.duration : '',
+      ltCounts: Boolean(row.layTimeCount) && timed[index],
+      ltNoCounts: Boolean(row.portTimeCount),
+      ltPartial: row.ltPartial,
+      notes: row.notes,
+    })),
+    deductions: [],
+  }, rateUnit);
+
+  return rows.map((row, rowIndex) => ({
+    ...row,
+    // Do not coerce intentional blank (unknown allowance) to '0.0000'.
+    cumulative: timed[rowIndex]
+      ? coalesceActivityCumulative(calculation.activities[rowIndex]?.cumulative)
+      : '',
+  }));
+}
+
+/**
+ * Display value for Cumulative Duration (Hrs).
+ * Accepts an activity row (preferred) or a raw cumulative string.
+ */
+export function displayActivityCumulative(rowOrValue = {}) {
+  if (rowOrValue != null && typeof rowOrValue === 'object') {
+    if (!hasActivityTimeRange(rowOrValue)) return '—';
+    if (rowOrValue.cumulative === '' || rowOrValue.cumulative == null) return '—';
+    return String(rowOrValue.cumulative);
+  }
+  if (rowOrValue === '' || rowOrValue == null) return '—';
+  return String(rowOrValue);
 }
 
 export function isValidLtPartialPercent(value) {
@@ -52,6 +141,16 @@ export function emptyDeductionRow() {
     cumulative: '',
     notes: '',
   };
+}
+
+/** Meaningful Activity content — flags/partial alone are not enough to persist. */
+export function isMeaningfulActivityRow(row = {}) {
+  return Boolean(
+    String(row.activity || '').trim()
+    || String(row.from || '').trim()
+    || String(row.to || '').trim()
+    || String(row.notes || '').trim(),
+  );
 }
 
 function normalizeActivityForSave(row = {}) {
@@ -78,7 +177,7 @@ function normalizeDeductionForSave(row = {}) {
 }
 
 function activityRowsForSave(rows = []) {
-  return rows.filter((row) => normalizeActivityForSave(row).some((value) => value !== '' && value !== false));
+  return rows.filter(isMeaningfulActivityRow);
 }
 
 function deductionRowsForComparison(rows = []) {
@@ -254,6 +353,8 @@ export function displayStoredFileName(stored) {
  * (entityRows, blRows, portActivities, preArrival, dailyQty, cargoRows, keyOperations, agentRemarks).
  */
 export function draftFromPort(port = {}) {
+  // New placeholder rows use emptyPortActivityRow() defaults (C/100).
+  // Loaded rows keep stored flags/partial — do not silently rewrite C/0% or neither.
   const portActivities = (port.portActivities?.length ? port.portActivities : [emptyPortActivityRow()])
     .map((row) => ({
       activity: row.activity || '',
@@ -305,7 +406,8 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
     const currentActivities = draft.portActivities || [];
     if (JSON.stringify(activityRowsForSave(originalActivities).map(normalizeActivityForSave))
       !== JSON.stringify(activityRowsForSave(currentActivities).map(normalizeActivityForSave))) {
-      payload.portActivities = currentActivities;
+      // Persist only meaningful rows; synthetic C/100 placeholders stay out of the payload.
+      payload.portActivities = activityRowsForSave(currentActivities);
       if (activePort.laytimeActivityVersion) {
         payload.expectedLaytimeActivityVersion = activePort.laytimeActivityVersion;
       }

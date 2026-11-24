@@ -10,6 +10,7 @@ import {
   RowActions,
   RowAddButton,
   RowDelButton,
+  Toggle,
   useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
@@ -24,8 +25,10 @@ import { recomputePortDraft } from './laytimeCalculations.js';
 import {
   DEFAULT_SOF_ROW_SIZE,
   SOF_ROW_SIZE_OPTIONS,
+  applyLtCountToggle,
   buildSofSavePayload,
   computeActivityDurationHours,
+  displayActivityCumulative,
   displayStoredFileName,
   draftFromPort,
   emptyKeyOp,
@@ -34,10 +37,12 @@ import {
   getCargoCardValues,
   isBlankKeyOp,
   insertDeductionRowAfter,
+  isLtCounting,
   isValidLtPartialPercent,
   pageForIndex,
   paginateRows,
   patchCargoCardField,
+  recomputeSofActivityRows,
   removeDeductionRowAt,
 } from './sofTankerHelpers.js';
 import pageStyles from './OpsPages.module.css';
@@ -94,28 +99,6 @@ function CalendarIcon() {
       <path d="M16 2.5v4" />
     </svg>
   );
-}
-
-function recomputeSofActivityRows(port, rows) {
-  const calculation = recomputePortDraft({
-    laytimeAllowed: port?.laytimeAllowed || '',
-    activities: rows.map((row) => ({
-      activity: row.activity,
-      start: '',
-      end: '',
-      duration: row.duration,
-      ltCounts: Boolean(row.layTimeCount),
-      ltNoCounts: Boolean(row.portTimeCount),
-      ltPartial: row.ltPartial,
-      notes: row.notes,
-    })),
-    deductions: [],
-  }, port?.rateUnit || 'days');
-
-  return rows.map((row, rowIndex) => ({
-    ...row,
-    cumulative: calculation.activities[rowIndex]?.cumulative || '0.0000',
-  }));
 }
 
 function SofDateField({
@@ -315,11 +298,23 @@ export default function OpsVcSofPage() {
 
   const updatePortActivityRow = (index, patch) => {
     const rows = [...(draft?.portActivities || [])];
-    const nextRow = { ...rows[index], ...patch };
+    let nextRow = { ...rows[index], ...patch };
     if ('from' in patch || 'to' in patch) {
       nextRow.duration = computeActivityDurationHours(nextRow.from, nextRow.to);
     }
+    if ('layTimeCount' in patch || 'portTimeCount' in patch) {
+      const counts = 'layTimeCount' in patch
+        ? Boolean(patch.layTimeCount)
+        : !Boolean(patch.portTimeCount);
+      nextRow = applyLtCountToggle(nextRow, counts);
+    }
     rows[index] = nextRow;
+    patchDraft({ portActivities: recomputeSofActivityRows(activePort, rows) });
+  };
+
+  const setPortActivityLtCounting = (index, counts) => {
+    const rows = [...(draft?.portActivities || [])];
+    rows[index] = applyLtCountToggle(rows[index], counts);
     patchDraft({ portActivities: recomputeSofActivityRows(activePort, rows) });
   };
 
@@ -337,14 +332,15 @@ export default function OpsVcSofPage() {
     });
     if (!ok) return;
     const rows = (draft?.portActivities || []).filter((_, i) => i !== index);
-    patchDraft({ portActivities: rows.length ? rows : [emptyPortActivityRow()] });
+    const next = rows.length ? rows : [emptyPortActivityRow()];
+    patchDraft({ portActivities: recomputeSofActivityRows(activePort, next) });
   };
 
   const updateDeductionRow = (index, patch) => {
     const rows = [...(draft?.deductions || [])];
     while (rows.length <= index) rows.push(emptyDeductionRow());
     rows[index] = { ...rows[index], ...patch };
-    const recomputed = recomputePortDraft({ ...draft, deductions: rows }, form?.rateUnit || 'days');
+    const recomputed = recomputePortDraft({ ...draft, deductions: rows }, activePort?.rateUnit || 'hours');
     patchDraft({ deductions: recomputed.deductions });
   };
 
@@ -361,7 +357,7 @@ export default function OpsVcSofPage() {
     });
     if (!ok) return;
     const next = removeDeductionRowAt(draft?.deductions || [], index);
-    const recomputed = recomputePortDraft({ ...draft, deductions: next }, form?.rateUnit || 'days');
+    const recomputed = recomputePortDraft({ ...draft, deductions: next }, activePort?.rateUnit || 'hours');
     patchDraft({ deductions: recomputed.deductions });
   };
 
@@ -770,8 +766,7 @@ export default function OpsVcSofPage() {
                             <th>Date / Time – Start</th>
                             <th>Date / Time – Finish</th>
                             <th>Duration (Hrs)</th>
-                            <th>LT (C)</th>
-                            <th>LT (NC)</th>
+                            <th>LT (C / NC)</th>
                             <th>LT (Partial %)</th>
                             <th>Cumulative Duration (Hrs)</th>
                             <th>Notes</th>
@@ -835,23 +830,16 @@ export default function OpsVcSofPage() {
                                   aria-label={`Activity duration hours, row ${index + 1}`}
                                 />
                               </td>
-                              <td className={styles.chkCell}>
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(row.layTimeCount)}
-                                  onChange={(e) => updatePortActivityRow(index, { layTimeCount: e.target.checked })}
+                              <td className={styles.ltToggleCell}>
+                                <span className={styles.ltToggleLabel} aria-hidden="true">NC</span>
+                                <Toggle
+                                  checked={isLtCounting(row)}
                                   disabled={activityDisabled}
-                                  aria-label={`LT (C), row ${index + 1}`}
+                                  aria-label={`Laytime counting, row ${index + 1}. On is LT (C), off is LT (NC)`}
+                                  title={isLtCounting(row) ? 'LT (C) — counts' : 'LT (NC) — does not count'}
+                                  onChange={(e) => setPortActivityLtCounting(index, e.target.checked)}
                                 />
-                              </td>
-                              <td className={styles.chkCell}>
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(row.portTimeCount)}
-                                  onChange={(e) => updatePortActivityRow(index, { portTimeCount: e.target.checked })}
-                                  disabled={activityDisabled}
-                                  aria-label={`LT (NC), row ${index + 1}`}
-                                />
+                                <span className={styles.ltToggleLabel} aria-hidden="true">C</span>
                               </td>
                               <td>
                                 <input
@@ -867,8 +855,9 @@ export default function OpsVcSofPage() {
                                       updatePortActivityRow(index, { ltPartial: e.target.value });
                                     }
                                   }}
-                                  disabled={activityDisabled}
-                                  title={deductionsDisabledTitle}
+                                  disabled={activityDisabled || !isLtCounting(row)}
+                                  readOnly={!isLtCounting(row)}
+                                  title={isLtCounting(row) ? deductionsDisabledTitle : 'LT (NC) forces Partial % to 0'}
                                   aria-label={`LT (Partial %), row ${index + 1}`}
                                 />
                               </td>
@@ -876,7 +865,7 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                  value={row.cumulative || '0.0000'}
+                                  value={displayActivityCumulative(row)}
                                   readOnly
                                   aria-label={`Cumulative duration hours, row ${index + 1}`}
                                 />
@@ -1012,7 +1001,7 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                  value={row.start && row.end ? row.cumulative || '0.0000' : '—'}
+                                  value={row.start && row.end ? displayActivityCumulative(row.cumulative) : '—'}
                                   readOnly
                                   disabled={deductionsDisabled}
                                   title={deductionsDisabledTitle}

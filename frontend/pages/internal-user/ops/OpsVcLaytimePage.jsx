@@ -383,7 +383,7 @@ function truthyFlag(value) {
   return value === true || value === 1 || value === '1';
 }
 
-function draftFromPort(port, rateUnit = 'days') {
+function draftFromPort(port, rateUnit = 'days', { recompute = true } = {}) {
   const draft = {
     terminal: port.terminal || '',
     stowageQty: port.stowageQty || '',
@@ -448,6 +448,10 @@ function draftFromPort(port, rateUnit = 'days') {
     approvers: normalizeApprovers(port.approvers),
     keepFiles: [...(port.uploads || [])],
   };
+  // Unknown unit: keep stored values verbatim — never invent day/hour math or blank for save.
+  if (!recompute || (rateUnit !== 'hours' && rateUnit !== 'days')) {
+    return draft;
+  }
   if (!String(draft.laytimeAllowed || '').trim()) {
     const allowed = calcLaytimeAllowed(
       draft.loadedQty,
@@ -482,9 +486,12 @@ export default function OpsVcLaytimePage() {
   const [error, setError] = useState('');
   const [pendingFilesByKey, setPendingFilesByKey] = useState({});
 
-  const rateUnit = form?.rateUnit === 'hours' ? 'hours' : 'days';
-  const unitLabel = rateUnit === 'hours' ? 'Hrs' : 'Days';
+  const rateUnit = form?.rateUnit === 'hours' || form?.rateUnit === 'days'
+    ? form.rateUnit
+    : null;
+  const unitLabel = rateUnit === 'hours' ? 'Hrs' : rateUnit === 'days' ? 'Days' : '—';
   const currency = form?.currency || 'USD';
+  const unitUnknown = Boolean(form) && rateUnit == null;
 
   const backHref = useMemo(() => {
     const path = BACK_PATHS[Number(page)] || BACK_PATHS[1];
@@ -497,10 +504,13 @@ export default function OpsVcLaytimePage() {
     try {
       const data = await fetchLaytimeForm(comId);
       setForm(data);
-      const unit = data.rateUnit === 'hours' ? 'hours' : 'days';
+      const unit = data.rateUnit === 'hours' || data.rateUnit === 'days' ? data.rateUnit : null;
       const nextDrafts = {};
       (data.ports || []).forEach((port) => {
-        nextDrafts[port.key] = draftFromPort(port, unit);
+        // Unknown unit: snapshot stored values only (no blanking, no recompute).
+        nextDrafts[port.key] = unit
+          ? draftFromPort(port, unit)
+          : draftFromPort(port, null, { recompute: false });
       });
       setDrafts(nextDrafts);
       const preferred = preferredKey
@@ -533,12 +543,17 @@ export default function OpsVcLaytimePage() {
   const vesselParticulars = form?.vesselParticulars || {};
   const isLoadPort = activePort?.portType === 'LP';
   const qtyLabel = isLoadPort ? 'Load Qty (MT)' : 'Discharge Qty (MT)';
-  const rateLabel = `Rate (${rateUnit === 'hours' ? 'MT/Hr' : 'MT/Day'})`;
+  const rateLabel = unitUnknown
+    ? 'Rate (unit unknown)'
+    : `Rate (${rateUnit === 'hours' ? 'MT/Hr' : 'MT/Day'})`;
   const approverOptions = form?.approverOptions || [];
 
   const patchDraft = (patch, { recompute = false, refreshAllowed = false } = {}) => {
     setDrafts((current) => {
       let base = { ...current[activeKey], ...patch };
+      if (unitUnknown) {
+        return { ...current, [activeKey]: base };
+      }
       if (refreshAllowed) {
         const allowed = calcLaytimeAllowed(
           base.loadedQty,
@@ -614,6 +629,14 @@ export default function OpsVcLaytimePage() {
 
   const handleSubmit = async (submitId) => {
     if (!activePort || !draft) return;
+
+    if (unitUnknown) {
+      await alert({
+        title: 'Alert',
+        message: 'Laytime unit unknown (missing vessel estimate type). Save/Submit/Close are blocked so existing allowance and financial values are not overwritten.',
+      });
+      return;
+    }
 
     const missingMandatory = LAYTIME_MANDATORY_FIELDS.filter(
       ({ key }) => !String(draft[key] || '').trim(),
@@ -696,6 +719,13 @@ export default function OpsVcLaytimePage() {
   };
 
   const handleOpen = async () => {
+    if (unitUnknown) {
+      await alert({
+        title: 'Alert',
+        message: 'Laytime unit unknown (missing vessel estimate type). Open is blocked so existing allowance and activity rows are not overwritten.',
+      });
+      return;
+    }
     const ok = await confirm({
       title: 'Confirmation',
       message: 'Are you sure you want to open Laytime?. After submit laytime for all below ports will open.',
@@ -738,7 +768,7 @@ export default function OpsVcLaytimePage() {
   const summarySub = activePort
     ? `${activePort.portName || '—'} · ${activePort.portType || ''}`
     : '';
-  const unitShort = rateUnit === 'hours' ? 'hrs' : 'days';
+  const unitShort = rateUnit === 'hours' ? 'hrs' : rateUnit === 'days' ? 'days' : '—';
   const docCount = (draft?.keepFiles || []).length + pendingFiles.length;
 
   const renderCircleDelete = (onClick) => {
@@ -789,6 +819,11 @@ export default function OpsVcLaytimePage() {
           <div className={flash.type === 'error' ? pageStyles.error : pageStyles.flashSuccess}>{flash.text}</div>
         ) : null}
         {error ? <div className={pageStyles.error}>{error}</div> : null}
+        {unitUnknown ? (
+          <div className={pageStyles.error}>
+            Laytime unit unknown (missing vessel estimate type). Stored allowance/financial values are preserved; Save/Submit/Close/Open are blocked until provenance is resolved.
+          </div>
+        ) : null}
 
         {!loading && !form?.ports?.length ? (
           <div className={pageStyles.empty}>
@@ -1205,7 +1240,8 @@ export default function OpsVcLaytimePage() {
                           type="button"
                           className={styles.btnSubmitClose}
                           onClick={() => handleSubmit(1)}
-                          disabled={saving}
+                          disabled={saving || unitUnknown}
+                          title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
                         >
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                             <path d="m22 2-7 20-4-9-9-4Z" />
@@ -1224,7 +1260,8 @@ export default function OpsVcLaytimePage() {
                           type="button"
                           className={sofStyles.btnSaveOutline}
                           onClick={() => handleSubmit(0)}
-                          disabled={saving}
+                          disabled={saving || unitUnknown}
+                          title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
                         >
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
@@ -1238,7 +1275,8 @@ export default function OpsVcLaytimePage() {
                         type="button"
                         className={styles.btnCloseLaytime}
                         onClick={() => handleSubmit(5)}
-                        disabled={saving}
+                        disabled={saving || unitUnknown}
+                        title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                           <rect x="5" y="11" width="14" height="10" rx="2" />
@@ -1263,7 +1301,8 @@ export default function OpsVcLaytimePage() {
                           type="button"
                           className={styles.btnSubmitClose}
                           onClick={handleOpen}
-                          disabled={saving}
+                          disabled={saving || unitUnknown}
+                          title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
                           style={{ width: '100%' }}
                         >
                           Open

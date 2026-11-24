@@ -1,6 +1,7 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 import { ensureSofActivityDateTimeToColumn } from './sofDb.js';
+import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -120,6 +121,19 @@ export async function getLatestCostSheetId(pool, comId) {
     [comId, MODULE_ID],
   );
   return row?.FCAID || null;
+}
+
+/** Same FCAID resolution as GET laytime form: latest sheet, else compare.FCAID. */
+export async function resolveLaytimeFcaId(pool, comId) {
+  const latest = await getLatestCostSheetId(pool, comId);
+  if (latest) return latest;
+  const [[compare]] = await pool.query(
+    `SELECT FCAID FROM freight_cost_estimate_compare
+     WHERE COMID = ? AND MODULEID = ?
+     LIMIT 1`,
+    [comId, MODULE_ID],
+  ).catch(() => [[null]]);
+  return compare?.FCAID || null;
 }
 
 async function loadVesselParticulars(pool, fcaId) {
@@ -649,7 +663,7 @@ export async function dbGetLaytimeForm(comId) {
     throw error;
   }
 
-  const fcaId = await getLatestCostSheetId(pool, comId) || compare.FCAID;
+  const fcaId = await resolveLaytimeFcaId(pool, comId) || compare.FCAID;
   const [[master]] = await pool.query(
     `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO,
             FIXTURETYPEID, SEL_BUSI_TYPE
@@ -742,6 +756,9 @@ export async function dbGetLaytimeForm(comId) {
   }
 
   const fixtureTypeRaw = Number(master?.FIXTURETYPEID || master?.SEL_BUSI_TYPE || 0);
+  // Same Fun158 contract as sofDb. Unknown estimateType fails closed (null)
+  // — do not guess days vs hours for ambiguous records.
+  const rateUnit = laytimeRateUnitFromEstimateType(vesselParticulars?.estimateType);
 
   return {
     comId: String(comId),
@@ -755,7 +772,10 @@ export async function dbGetLaytimeForm(comId) {
     cargo,
     currency: 'USD',
     vesselParticulars,
-    rateUnit: 'days',
+    rateUnit,
+    // Fun158 estimate type is the unit basis; historical day-mode tanker writes
+    // are not auto-converted (no blanket ×24). Unknown type → rateUnit null.
+    allowanceUnitBasis: rateUnit ? 'fun158-estimateType' : null,
     canOpen: true,
     approverOptions: [],
     ports,
@@ -951,6 +971,55 @@ export async function dbSaveLaytime(payload = {}) {
     throw error;
   }
 
+  // Fail closed for every write path (including Open): unknown Fun158 estimate type
+  // must not persist blanked allowance/financials or wipe child rows.
+  const fcaId = await resolveLaytimeFcaId(pool, comId);
+  const particulars = fcaId ? await loadVesselParticulars(pool, fcaId) : { estimateType: null };
+  if (laytimeRateUnitFromEstimateType(particulars.estimateType) == null) {
+    const error = new Error(
+      'Laytime unit unknown (missing vessel estimate type). Save/Open rejected to preserve existing allowance values.',
+    );
+    error.status = 409;
+    throw error;
+  }
+
+  // Open is status-only: clear SUBMITID lock without rewriting fields or children.
+  if (action === 'open') {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [[existing]] = await connection.query(
+        `SELECT LAYTIME_ID, SUBMITID FROM laytime_master
+         WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
+           AND MODULEID = ? AND MCOMPANYID = ?
+           AND PORT = ? AND PORTID = ? AND RANDOMID = ?
+         LIMIT 1`,
+        [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
+      );
+      if (!existing?.LAYTIME_ID) {
+        const error = new Error('Laytime record not found to open.');
+        error.status = 404;
+        throw error;
+      }
+      await connection.query(
+        `UPDATE laytime_master SET SUBMITID = 0 WHERE LAYTIME_ID = ?`,
+        [existing.LAYTIME_ID],
+      );
+      await connection.commit();
+      return {
+        msg: 2,
+        laytimeId: String(existing.LAYTIME_ID),
+        submitId: 0,
+        closed: false,
+      };
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+  }
+
   const approvers = Array.isArray(payload.approvers)
     ? payload.approvers.map(str).filter(Boolean).join(',')
     : str(payload.approvers);
@@ -1014,7 +1083,7 @@ export async function dbSaveLaytime(payload = {}) {
       [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
     );
 
-    if (existing && Number(existing.SUBMITID) === 5 && action !== 'open') {
+    if (existing && Number(existing.SUBMITID) === 5) {
       const error = new Error('This Laytime is locked (Submit & Close).');
       error.status = 400;
       throw error;

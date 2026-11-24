@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
+import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -457,7 +458,13 @@ async function loadSofRecord(pool, comId, portType, portId, randomId) {
   return agent || null;
 }
 
-async function loadLaytimeData(pool, comId, portType, portId, randomId) {
+async function loadLaytimeData(pool, comId, portType, portId, randomId, estimateType) {
+  // Shared Fun158 contract with laytimeDb. Unknown estimateType → fail closed
+  // (do not feed ambiguous LAYTIME_ALLOWED into SOF cumulative math).
+  const resolvedUnit = laytimeRateUnitFromEstimateType(estimateType);
+  const rateUnit = resolvedUnit || 'hours';
+  const allowanceTrusted = resolvedUnit != null;
+
   const [[laytime]] = await pool.query(
     `SELECT LAYTIME_ID, SUBMITID, LAYTIME_ALLOWED FROM laytime_master
      WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
@@ -472,7 +479,7 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId) {
       activities: [], deductions: [], laytimeId: '', laytimeLocked: false,
       laytimeActivityVersion: laytimeRowsVersion([], 'activities'),
       laytimeDeductionVersion: laytimeRowsVersion([], 'deductions'),
-      laytimeAllowed: '', rateUnit: 'days',
+      laytimeAllowed: '', rateUnit,
     };
   }
 
@@ -517,8 +524,9 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId) {
     laytimeLocked: Number(laytime.SUBMITID) === 5,
     laytimeActivityVersion: laytimeRowsVersion(activityRows, 'activities'),
     laytimeDeductionVersion: laytimeRowsVersion(deductionRows, 'deductions'),
-    laytimeAllowed: str(laytime.LAYTIME_ALLOWED),
-    rateUnit: 'days',
+    // Withhold allowance when Fun158 provenance is unknown (fail closed).
+    laytimeAllowed: allowanceTrusted ? str(laytime.LAYTIME_ALLOWED) : '',
+    rateUnit,
   };
 }
 
@@ -823,7 +831,9 @@ export async function dbGetSofForm(comId) {
     const cargoRows = await loadCargoRows(pool, sofId);
     const entityRows = await loadEntityRows(pool, sofId);
     const blRows = await loadBlRows(pool, sofId);
-    const laytime = await loadLaytimeData(pool, comId, tab.portType, tab.portId, tab.randomId);
+    const laytime = await loadLaytimeData(
+      pool, comId, tab.portType, tab.portId, tab.randomId, vesselParticulars.estimateType,
+    );
     const portActivities = await loadPortActivities(pool, sofId, laytime.activities);
     const preArrival = await loadPreArrival(pool, comId, tab.portType, tab.portId, tab.randomId);
     const dailyQty = await loadDailyQty(pool, comId, tab.portType, tab.portId, tab.randomId);
@@ -886,6 +896,9 @@ export async function dbGetSofForm(comId) {
     cargo,
     vesselParticulars,
     estimateType: vesselParticulars.estimateType,
+    allowanceUnitBasis: laytimeRateUnitFromEstimateType(vesselParticulars.estimateType)
+      ? 'fun158-estimateType'
+      : null,
     ports,
   };
 }
@@ -997,7 +1010,7 @@ async function replacePortActivities(connection, sofId, rows) {
     const notes = String(row.notes || '').trim();
     const layTimeCount = row.layTimeCount === true || Number(row.layTimeCount) === 1 ? 1 : 0;
     const portTimeCount = row.portTimeCount === true || Number(row.portTimeCount) === 1 ? 1 : 0;
-    if (!activity && !from && !to && !notes && !layTimeCount && !portTimeCount) continue;
+    if (!activity && !from && !to && !notes) continue;
     await connection.query(
       `INSERT INTO sof_slave
         (SOFID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES, GROUP_NAME)
@@ -1032,16 +1045,12 @@ async function replaceLaytimeDeductions(connection, laytimeId, rows) {
 }
 
 function hasSofActivityData(row = {}) {
+  // Flags / LT partial alone must not create blank SOF or Laytime activity rows.
   return Boolean(
     String(row.activity || '').trim()
     || String(row.from || '').trim()
     || String(row.to || '').trim()
-    || String(row.notes || '').trim()
-    || row.layTimeCount === true
-    || Number(row.layTimeCount) === 1
-    || row.portTimeCount === true
-    || Number(row.portTimeCount) === 1
-    || (row.ltPartial != null && String(row.ltPartial).trim() !== ''),
+    || String(row.notes || '').trim(),
   );
 }
 
@@ -1117,7 +1126,8 @@ async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows }
       row.layTimeCount === true || Number(row.layTimeCount) === 1 ? 1 : 0,
       row.portTimeCount === true || Number(row.portTimeCount) === 1 ? 1 : 0,
       partial,
-      str(row.cumulative),
+      // Blank cumulative = unknown remaining (do not invent balances).
+      strOrNull(row.cumulative),
       String(row.notes || '').trim(),
     ];
 

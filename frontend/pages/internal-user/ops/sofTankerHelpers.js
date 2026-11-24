@@ -1,6 +1,18 @@
 export const SOF_ROW_SIZE_OPTIONS = [5, 10, 25];
 export const DEFAULT_SOF_ROW_SIZE = 5;
 
+/** Preserve intentional blank cumulative; only default when the value is missing. */
+export function coalesceActivityCumulative(computed) {
+  if (computed === '') return '';
+  return computed ?? '0.0000';
+}
+
+/** Blank/unknown remaining shows an em dash; explicit 0.00 / 0.0000 stay numeric. */
+export function displayActivityCumulative(cumulative) {
+  if (cumulative === '' || cumulative == null) return '—';
+  return String(cumulative);
+}
+
 const CANONICAL_CARGO_LOADED = 'Cargo Loaded';
 const CANONICAL_LOP_ISSUED = 'Lop Issued (Pls specify)';
 const CANONICAL_LOP_RECEIVED = 'Lop received (Pls Specify)';

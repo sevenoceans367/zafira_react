@@ -25,7 +25,9 @@ import {
   DEFAULT_SOF_ROW_SIZE,
   SOF_ROW_SIZE_OPTIONS,
   buildSofSavePayload,
+  coalesceActivityCumulative,
   computeActivityDurationHours,
+  displayActivityCumulative,
   displayStoredFileName,
   draftFromPort,
   emptyKeyOp,
@@ -97,6 +99,7 @@ function CalendarIcon() {
 }
 
 function recomputeSofActivityRows(port, rows) {
+  const rateUnit = port?.rateUnit === 'days' ? 'days' : 'hours';
   const calculation = recomputePortDraft({
     laytimeAllowed: port?.laytimeAllowed || '',
     activities: rows.map((row) => ({
@@ -110,11 +113,12 @@ function recomputeSofActivityRows(port, rows) {
       notes: row.notes,
     })),
     deductions: [],
-  }, port?.rateUnit || 'hours');
+  }, rateUnit);
 
   return rows.map((row, rowIndex) => ({
     ...row,
-    cumulative: calculation.activities[rowIndex]?.cumulative || '0.0000',
+    // Do not coerce intentional blank (unknown allowance) to '0.0000'.
+    cumulative: coalesceActivityCumulative(calculation.activities[rowIndex]?.cumulative),
   }));
 }
 
@@ -876,7 +880,7 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                  value={row.cumulative || '0.0000'}
+                                  value={displayActivityCumulative(row.cumulative)}
                                   readOnly
                                   aria-label={`Cumulative duration hours, row ${index + 1}`}
                                 />
@@ -1012,7 +1016,7 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                  value={row.start && row.end ? row.cumulative || '0.0000' : '—'}
+                                  value={row.start && row.end ? displayActivityCumulative(row.cumulative) : '—'}
                                   readOnly
                                   disabled={deductionsDisabled}
                                   title={deductionsDisabledTitle}

@@ -1,6 +1,7 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 import { ensureSofActivityDateTimeToColumn } from './sofDb.js';
+import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -742,6 +743,10 @@ export async function dbGetLaytimeForm(comId) {
   }
 
   const fixtureTypeRaw = Number(master?.FIXTURETYPEID || master?.SEL_BUSI_TYPE || 0);
+  // Same Fun158 contract as sofDb — do not diverge SOF hours vs Laytime days.
+  const resolvedUnit = laytimeRateUnitFromEstimateType(vesselParticulars?.estimateType);
+  // Dry/Gas default to days when estimateType is absent; tanker/gas carrier use hours.
+  const rateUnit = resolvedUnit || 'days';
 
   return {
     comId: String(comId),
@@ -755,9 +760,7 @@ export async function dbGetLaytimeForm(comId) {
     cargo,
     currency: 'USD',
     vesselParticulars,
-    // Keep Laytime page on days until stored LOADED_RATE / LAYTIME_ALLOWED
-    // provenance is migrated. Tanker SOF uses hours via sofDb.rateUnit.
-    rateUnit: 'days',
+    rateUnit,
     canOpen: true,
     approverOptions: [],
     ports,

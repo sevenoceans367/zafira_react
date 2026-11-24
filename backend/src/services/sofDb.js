@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
+import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -457,7 +458,13 @@ async function loadSofRecord(pool, comId, portType, portId, randomId) {
   return agent || null;
 }
 
-async function loadLaytimeData(pool, comId, portType, portId, randomId) {
+async function loadLaytimeData(pool, comId, portType, portId, randomId, estimateType) {
+  // Shared Fun158 contract with laytimeDb. Unknown estimateType → fail closed
+  // (do not feed ambiguous LAYTIME_ALLOWED into SOF cumulative math).
+  const resolvedUnit = laytimeRateUnitFromEstimateType(estimateType);
+  const rateUnit = resolvedUnit || 'hours';
+  const allowanceTrusted = resolvedUnit != null;
+
   const [[laytime]] = await pool.query(
     `SELECT LAYTIME_ID, SUBMITID, LAYTIME_ALLOWED FROM laytime_master
      WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
@@ -472,8 +479,7 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId) {
       activities: [], deductions: [], laytimeId: '', laytimeLocked: false,
       laytimeActivityVersion: laytimeRowsVersion([], 'activities'),
       laytimeDeductionVersion: laytimeRowsVersion([], 'deductions'),
-      // Tanker SOF matches Legacy Fun158=1|2 (hourly): divider=1 in getFinalCalculation.
-      laytimeAllowed: '', rateUnit: 'hours',
+      laytimeAllowed: '', rateUnit,
     };
   }
 
@@ -518,9 +524,9 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId) {
     laytimeLocked: Number(laytime.SUBMITID) === 5,
     laytimeActivityVersion: laytimeRowsVersion(activityRows, 'activities'),
     laytimeDeductionVersion: laytimeRowsVersion(deductionRows, 'deductions'),
-    laytimeAllowed: str(laytime.LAYTIME_ALLOWED),
-    // Tanker SOF matches Legacy Fun158=1|2 (hourly): divider=1 in getFinalCalculation.
-    rateUnit: 'hours',
+    // Withhold allowance when Fun158 provenance is unknown (fail closed).
+    laytimeAllowed: allowanceTrusted ? str(laytime.LAYTIME_ALLOWED) : '',
+    rateUnit,
   };
 }
 
@@ -825,7 +831,9 @@ export async function dbGetSofForm(comId) {
     const cargoRows = await loadCargoRows(pool, sofId);
     const entityRows = await loadEntityRows(pool, sofId);
     const blRows = await loadBlRows(pool, sofId);
-    const laytime = await loadLaytimeData(pool, comId, tab.portType, tab.portId, tab.randomId);
+    const laytime = await loadLaytimeData(
+      pool, comId, tab.portType, tab.portId, tab.randomId, vesselParticulars.estimateType,
+    );
     const portActivities = await loadPortActivities(pool, sofId, laytime.activities);
     const preArrival = await loadPreArrival(pool, comId, tab.portType, tab.portId, tab.randomId);
     const dailyQty = await loadDailyQty(pool, comId, tab.portType, tab.portId, tab.randomId);

@@ -4,7 +4,9 @@ import { recomputePortDraft } from './laytimeCalculations.js';
 import {
   DEFAULT_SOF_ROW_SIZE,
   buildSofSavePayload,
+  coalesceActivityCumulative,
   computeActivityDurationHours,
+  displayActivityCumulative,
   draftFromPort,
   emptyDeductionRow,
   getCargoCardValues,
@@ -198,6 +200,37 @@ describe('sofTankerHelpers', () => {
     }, 'hours');
     // 72 - 61.5 = 10.5 remaining hours
     assert.equal(withAllowance.activities[0].cumulative, '10.5000');
+  });
+
+  it('preserves blank cumulative through display/coalesce (no fictitious zero)', () => {
+    const timedUnknown = recomputePortDraft({
+      laytimeAllowed: '',
+      activities: [{ duration: '24', ltCounts: true, ltPartial: '100' }],
+      deductions: [],
+    }, 'hours');
+    assert.equal(timedUnknown.activities[0].cumulative, '');
+    assert.equal(coalesceActivityCumulative(timedUnknown.activities[0].cumulative), '');
+    assert.equal(displayActivityCumulative(timedUnknown.activities[0].cumulative), '—');
+
+    const explicitZeroAllowed = recomputePortDraft({
+      laytimeAllowed: '0',
+      activities: [{ duration: '24', ltCounts: true, ltPartial: '100' }],
+      deductions: [],
+    }, 'hours');
+    assert.equal(explicitZeroAllowed.activities[0].cumulative, '-24.0000');
+    assert.equal(coalesceActivityCumulative(explicitZeroAllowed.activities[0].cumulative), '-24.0000');
+
+    const nc = recomputePortDraft({
+      laytimeAllowed: '48',
+      activities: [{ duration: '24', ltCounts: false, ltPartial: '100' }],
+      deductions: [],
+    }, 'hours');
+    assert.equal(nc.activities[0].cumulative, '0.00');
+    assert.equal(displayActivityCumulative(nc.activities[0].cumulative), '0.00');
+
+    // Missing computed value still defaults; intentional blank does not.
+    assert.equal(coalesceActivityCumulative(undefined), '0.0000');
+    assert.equal(coalesceActivityCumulative(''), '');
   });
 
 });

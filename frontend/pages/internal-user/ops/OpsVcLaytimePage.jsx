@@ -719,6 +719,13 @@ export default function OpsVcLaytimePage() {
   };
 
   const handleOpen = async () => {
+    if (unitUnknown) {
+      await alert({
+        title: 'Alert',
+        message: 'Laytime unit unknown (missing vessel estimate type). Open is blocked so existing allowance and activity rows are not overwritten.',
+      });
+      return;
+    }
     const ok = await confirm({
       title: 'Confirmation',
       message: 'Are you sure you want to open Laytime?. After submit laytime for all below ports will open.',
@@ -814,7 +821,7 @@ export default function OpsVcLaytimePage() {
         {error ? <div className={pageStyles.error}>{error}</div> : null}
         {unitUnknown ? (
           <div className={pageStyles.error}>
-            Laytime unit unknown (missing vessel estimate type). Stored allowance/financial values are preserved; Save/Submit/Close are blocked until provenance is resolved.
+            Laytime unit unknown (missing vessel estimate type). Stored allowance/financial values are preserved; Save/Submit/Close/Open are blocked until provenance is resolved.
           </div>
         ) : null}
 
@@ -1294,7 +1301,8 @@ export default function OpsVcLaytimePage() {
                           type="button"
                           className={styles.btnSubmitClose}
                           onClick={handleOpen}
-                          disabled={saving}
+                          disabled={saving || unitUnknown}
+                          title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
                           style={{ width: '100%' }}
                         >
                           Open

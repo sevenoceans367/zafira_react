@@ -10,6 +10,7 @@ import {
   RowActions,
   RowAddButton,
   RowDelButton,
+  Toggle,
   useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
@@ -30,12 +31,14 @@ import {
   displayActivityCumulative,
   displayStoredFileName,
   draftFromPort,
+  applyLtCountToggle,
   emptyKeyOp,
   emptyDeductionRow,
   emptyPortActivityRow,
   getCargoCardValues,
   isBlankKeyOp,
   insertDeductionRowAfter,
+  isLtCounting,
   isValidLtPartialPercent,
   pageForIndex,
   paginateRows,
@@ -319,11 +322,23 @@ export default function OpsVcSofPage() {
 
   const updatePortActivityRow = (index, patch) => {
     const rows = [...(draft?.portActivities || [])];
-    const nextRow = { ...rows[index], ...patch };
+    let nextRow = { ...rows[index], ...patch };
     if ('from' in patch || 'to' in patch) {
       nextRow.duration = computeActivityDurationHours(nextRow.from, nextRow.to);
     }
+    if ('layTimeCount' in patch || 'portTimeCount' in patch) {
+      const counts = 'layTimeCount' in patch
+        ? Boolean(patch.layTimeCount)
+        : !Boolean(patch.portTimeCount);
+      nextRow = applyLtCountToggle(nextRow, counts);
+    }
     rows[index] = nextRow;
+    patchDraft({ portActivities: recomputeSofActivityRows(activePort, rows) });
+  };
+
+  const setPortActivityLtCounting = (index, counts) => {
+    const rows = [...(draft?.portActivities || [])];
+    rows[index] = applyLtCountToggle(rows[index], counts);
     patchDraft({ portActivities: recomputeSofActivityRows(activePort, rows) });
   };
 
@@ -774,8 +789,7 @@ export default function OpsVcSofPage() {
                             <th>Date / Time – Start</th>
                             <th>Date / Time – Finish</th>
                             <th>Duration (Hrs)</th>
-                            <th>LT (C)</th>
-                            <th>LT (NC)</th>
+                            <th>LT (C / NC)</th>
                             <th>LT (Partial %)</th>
                             <th>Cumulative Duration (Hrs)</th>
                             <th>Notes</th>
@@ -839,23 +853,16 @@ export default function OpsVcSofPage() {
                                   aria-label={`Activity duration hours, row ${index + 1}`}
                                 />
                               </td>
-                              <td className={styles.chkCell}>
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(row.layTimeCount)}
-                                  onChange={(e) => updatePortActivityRow(index, { layTimeCount: e.target.checked })}
+                              <td className={styles.ltToggleCell}>
+                                <span className={styles.ltToggleLabel} aria-hidden="true">NC</span>
+                                <Toggle
+                                  checked={isLtCounting(row)}
                                   disabled={activityDisabled}
-                                  aria-label={`LT (C), row ${index + 1}`}
+                                  aria-label={`Laytime counting, row ${index + 1}. On is LT (C), off is LT (NC)`}
+                                  title={isLtCounting(row) ? 'LT (C) — counts' : 'LT (NC) — does not count'}
+                                  onChange={(e) => setPortActivityLtCounting(index, e.target.checked)}
                                 />
-                              </td>
-                              <td className={styles.chkCell}>
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(row.portTimeCount)}
-                                  onChange={(e) => updatePortActivityRow(index, { portTimeCount: e.target.checked })}
-                                  disabled={activityDisabled}
-                                  aria-label={`LT (NC), row ${index + 1}`}
-                                />
+                                <span className={styles.ltToggleLabel} aria-hidden="true">C</span>
                               </td>
                               <td>
                                 <input
@@ -871,8 +878,9 @@ export default function OpsVcSofPage() {
                                       updatePortActivityRow(index, { ltPartial: e.target.value });
                                     }
                                   }}
-                                  disabled={activityDisabled}
-                                  title={deductionsDisabledTitle}
+                                  disabled={activityDisabled || !isLtCounting(row)}
+                                  readOnly={!isLtCounting(row)}
+                                  title={isLtCounting(row) ? deductionsDisabledTitle : 'LT (NC) forces Partial % to 0'}
                                   aria-label={`LT (Partial %), row ${index + 1}`}
                                 />
                               </td>

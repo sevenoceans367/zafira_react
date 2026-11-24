@@ -39,13 +39,43 @@ export function emptyPortActivityRow() {
     from: '',
     to: '',
     duration: '',
-    layTimeCount: false,
+    // Default LT(C): counts toward laytime (Legacy mutual C/NC).
+    layTimeCount: true,
     portTimeCount: false,
-    ltPartial: '',
+    ltPartial: '100',
     cumulative: '',
     laytimeActivityId: '',
     notes: '',
   };
+}
+
+/**
+ * Mutual LT(C) / LT(NC) toggle — mirrors Legacy iCheck exclusivity.
+ * counts=true  → LT(C), partial defaults to 100 when empty/0
+ * counts=false → LT(NC), partial forced to 0 (non-counting)
+ */
+export function applyLtCountToggle(row = {}, counts = true) {
+  if (counts) {
+    const partial = String(row.ltPartial ?? '').trim();
+    const nextPartial = partial === '' || partial === '0' ? '100' : partial;
+    return {
+      ...row,
+      layTimeCount: true,
+      portTimeCount: false,
+      ltPartial: nextPartial,
+    };
+  }
+  return {
+    ...row,
+    layTimeCount: false,
+    portTimeCount: true,
+    ltPartial: '0',
+  };
+}
+
+/** Toggle ON when LT(C) is set. */
+export function isLtCounting(row = {}) {
+  return row.layTimeCount === true || Number(row.layTimeCount) === 1;
 }
 
 export function isValidLtPartialPercent(value) {
@@ -267,18 +297,23 @@ export function displayStoredFileName(stored) {
  */
 export function draftFromPort(port = {}) {
   const portActivities = (port.portActivities?.length ? port.portActivities : [emptyPortActivityRow()])
-    .map((row) => ({
-      activity: row.activity || '',
-      from: row.from || '',
-      to: row.to || '',
-      duration: row.duration || computeActivityDurationHours(row.from, row.to),
-      layTimeCount: row.layTimeCount === true || Number(row.layTimeCount) === 1,
-      portTimeCount: row.portTimeCount === true || Number(row.portTimeCount) === 1,
-      ltPartial: row.ltPartial == null ? '' : String(row.ltPartial),
-      cumulative: row.cumulative || '',
-      laytimeActivityId: row.laytimeActivityId || '',
-      notes: row.notes || '',
-    }));
+    .map((row) => {
+      const mapped = {
+        activity: row.activity || '',
+        from: row.from || '',
+        to: row.to || '',
+        duration: row.duration || computeActivityDurationHours(row.from, row.to),
+        layTimeCount: row.layTimeCount === true || Number(row.layTimeCount) === 1,
+        portTimeCount: row.portTimeCount === true || Number(row.portTimeCount) === 1,
+        ltPartial: row.ltPartial == null ? '' : String(row.ltPartial),
+        cumulative: row.cumulative || '',
+        laytimeActivityId: row.laytimeActivityId || '',
+        notes: row.notes || '',
+      };
+      // Mutual C/NC: NC wins only when explicitly set without C; otherwise default C.
+      const counts = mapped.layTimeCount || !mapped.portTimeCount;
+      return applyLtCountToggle(mapped, counts);
+    });
 
   return {
     terminal: port.terminal || '',

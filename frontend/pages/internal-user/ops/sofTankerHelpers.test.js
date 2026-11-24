@@ -3,14 +3,17 @@ import assert from 'node:assert/strict';
 import { recomputePortDraft } from './laytimeCalculations.js';
 import {
   DEFAULT_SOF_ROW_SIZE,
+  applyLtCountToggle,
   buildSofSavePayload,
   coalesceActivityCumulative,
   computeActivityDurationHours,
   displayActivityCumulative,
   draftFromPort,
   emptyDeductionRow,
+  emptyPortActivityRow,
   getCargoCardValues,
   insertDeductionRowAfter,
+  isLtCounting,
   isValidLtPartialPercent,
   paginateRows,
   patchCargoCardField,
@@ -111,7 +114,10 @@ describe('sofTankerHelpers', () => {
     assert.equal(payload.keyOperations[0].robMdo, '120.25');
     assert.equal(payload.keyOperations[0].activityDateTimeTo, '01-05-2026 06:15');
     assert.equal(payload.cargoRows.length, 2);
-    assert.equal(Object.hasOwn(payload, 'portActivities'), false);
+    // draftFromPort defaults missing LT flags to LT(C), so Activity is dirty vs raw port.
+    assert.equal(payload.portActivities?.[0]?.layTimeCount, true);
+    assert.equal(payload.portActivities?.[0]?.portTimeCount, false);
+    assert.equal(payload.portActivities?.[0]?.ltPartial, '100');
     assert.equal(Object.hasOwn(payload, 'entityRows'), false);
     assert.equal(Object.hasOwn(payload, 'blRows'), false);
     assert.equal(Object.hasOwn(payload, 'preArrival'), false);
@@ -175,6 +181,46 @@ describe('sofTankerHelpers', () => {
 
     // 48 - 6 = 42; 48 - (6+12) = 30; NC → 0.00
     assert.deepEqual(result.activities.map((row) => row.cumulative), ['42.0000', '30.0000', '0.00']);
+  });
+
+  it('defaults new Activity rows to LT(C) and toggles mutually to LT(NC)', () => {
+    const blank = emptyPortActivityRow();
+    assert.equal(blank.layTimeCount, true);
+    assert.equal(blank.portTimeCount, false);
+    assert.equal(blank.ltPartial, '100');
+    assert.equal(isLtCounting(blank), true);
+
+    const asNc = applyLtCountToggle(blank, false);
+    assert.equal(asNc.layTimeCount, false);
+    assert.equal(asNc.portTimeCount, true);
+    assert.equal(asNc.ltPartial, '0');
+    assert.equal(isLtCounting(asNc), false);
+
+    const backToC = applyLtCountToggle({ ...asNc, ltPartial: '0' }, true);
+    assert.equal(backToC.layTimeCount, true);
+    assert.equal(backToC.portTimeCount, false);
+    assert.equal(backToC.ltPartial, '100');
+
+    const keepPartial = applyLtCountToggle({
+      layTimeCount: false, portTimeCount: true, ltPartial: '40',
+    }, true);
+    assert.equal(keepPartial.ltPartial, '40');
+  });
+
+  it('keeps cumulative hours in sync when toggling LT(C) off to LT(NC)', () => {
+    const counting = recomputePortDraft({
+      laytimeAllowed: '48',
+      activities: [{ duration: '12', ltCounts: true, ltPartial: '100' }],
+      deductions: [],
+    }, 'hours');
+    assert.equal(counting.activities[0].cumulative, '36.0000');
+
+    const nonCounting = recomputePortDraft({
+      laytimeAllowed: '48',
+      activities: [{ duration: '12', ltCounts: false, ltPartial: '0' }],
+      deductions: [],
+    }, 'hours');
+    assert.equal(nonCounting.activities[0].cumulative, '0.00');
   });
 
   it('leaves cumulative blank when Laytime Allowed is unknown; computes hours when known', () => {
@@ -281,3 +327,4 @@ describe('sofTankerHelpers', () => {
   });
 
 });
+

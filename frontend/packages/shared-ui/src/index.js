@@ -46,6 +46,7 @@ export {
   FilterField,
 } from './components/FormControls/index.js';
 export { default as StatusBadge } from './components/StatusBadge/StatusBadge.jsx';
+export { default as Toggle } from './components/Toggle/Toggle.jsx';
 export { ConfirmProvider, useConfirm, useAlert } from './components/ConfirmDialog/ConfirmContext.jsx';
 export { default as ConfirmDialog } from './components/ConfirmDialog/ConfirmDialog.jsx';
 export {

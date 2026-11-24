@@ -650,6 +650,23 @@
   opacity: 0.6;
 }
 
+.ltToggleCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ltToggleLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  min-width: 1.4em;
+}
+
 .koNotes {
   font-family: inherit;
   font-size: 12px;

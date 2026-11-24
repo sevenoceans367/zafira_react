@@ -835,8 +835,10 @@ function normalizeCapexFields(detail = {}) {
     };
   }
   const defaultOffHireRate = detail.hireFixPer || calc.dailyGrossHire || '';
+  // ponytail: no DB column — same signals as list badge (period / saved TC In JSON)
+  const periodLinked = Boolean(detail.periodId) && String(detail.periodId) !== '0';
   const contractType = detail.contractType
-    || (detail.periodId ? 'tcinout' : 'tcout');
+    || (periodLinked || hasSavedTcInHires(detail.tcInExpenses) ? 'tcinout' : 'tcout');
   return {
     contractType,
     itinerary: {
@@ -1294,7 +1296,8 @@ export default function TcFixtureFormPage({
   const isDry = String(form.businessTypeId) === '3';
   const showSubCharter = form.contractType === 'tcinout'
     || isSubCharterBusinessType(businessTypes, form.businessTypeId)
-    || Boolean(form.periodId);
+    || (Boolean(form.periodId) && String(form.periodId) !== '0')
+    || hasSavedTcInHires(form.tcInExpenses);
 
   useEffect(() => {
     if (!vpModalOpen) return undefined;
@@ -1630,7 +1633,9 @@ export default function TcFixtureFormPage({
       doConsumptions: detail.doConsumptions || [],
       calc: detail.calc || null,
       periodId,
-      contractType: periodId ? 'tcinout' : (detail.contractType || 'tcout'),
+      contractType: (periodId && String(periodId) !== '0') || hasSavedTcInHires(detail.tcInExpenses)
+        ? 'tcinout'
+        : (detail.contractType || 'tcout'),
       ...normalizeCapexFields(detail),
     };
     if (asReplicate) {

@@ -25,13 +25,12 @@ import { recomputePortDraft } from './laytimeCalculations.js';
 import {
   DEFAULT_SOF_ROW_SIZE,
   SOF_ROW_SIZE_OPTIONS,
+  applyLtCountToggle,
   buildSofSavePayload,
-  coalesceActivityCumulative,
   computeActivityDurationHours,
   displayActivityCumulative,
   displayStoredFileName,
   draftFromPort,
-  applyLtCountToggle,
   emptyKeyOp,
   emptyDeductionRow,
   emptyPortActivityRow,
@@ -43,6 +42,7 @@ import {
   pageForIndex,
   paginateRows,
   patchCargoCardField,
+  recomputeSofActivityRows,
   removeDeductionRowAt,
 } from './sofTankerHelpers.js';
 import pageStyles from './OpsPages.module.css';
@@ -99,30 +99,6 @@ function CalendarIcon() {
       <path d="M16 2.5v4" />
     </svg>
   );
-}
-
-function recomputeSofActivityRows(port, rows) {
-  const rateUnit = port?.rateUnit === 'days' ? 'days' : 'hours';
-  const calculation = recomputePortDraft({
-    laytimeAllowed: port?.laytimeAllowed || '',
-    activities: rows.map((row) => ({
-      activity: row.activity,
-      start: '',
-      end: '',
-      duration: row.duration,
-      ltCounts: Boolean(row.layTimeCount),
-      ltNoCounts: Boolean(row.portTimeCount),
-      ltPartial: row.ltPartial,
-      notes: row.notes,
-    })),
-    deductions: [],
-  }, rateUnit);
-
-  return rows.map((row, rowIndex) => ({
-    ...row,
-    // Do not coerce intentional blank (unknown allowance) to '0.0000'.
-    cumulative: coalesceActivityCumulative(calculation.activities[rowIndex]?.cumulative),
-  }));
 }
 
 function SofDateField({
@@ -888,7 +864,7 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                  value={displayActivityCumulative(row.cumulative)}
+                                  value={displayActivityCumulative(row)}
                                   readOnly
                                   aria-label={`Cumulative duration hours, row ${index + 1}`}
                                 />

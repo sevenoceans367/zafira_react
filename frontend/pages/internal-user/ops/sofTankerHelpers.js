@@ -1,3 +1,5 @@
+import { recomputePortDraft } from './laytimeCalculations.js';
+
 export const SOF_ROW_SIZE_OPTIONS = [5, 10, 25];
 export const DEFAULT_SOF_ROW_SIZE = 5;
 
@@ -5,12 +7,6 @@ export const DEFAULT_SOF_ROW_SIZE = 5;
 export function coalesceActivityCumulative(computed) {
   if (computed === '') return '';
   return computed ?? '0.0000';
-}
-
-/** Blank/unknown remaining shows an em dash; explicit 0.00 / 0.0000 stay numeric. */
-export function displayActivityCumulative(cumulative) {
-  if (cumulative === '' || cumulative == null) return '—';
-  return String(cumulative);
 }
 
 const CANONICAL_CARGO_LOADED = 'Cargo Loaded';
@@ -76,6 +72,57 @@ export function applyLtCountToggle(row = {}, counts = true) {
 /** Toggle ON when LT(C) is set. */
 export function isLtCounting(row = {}) {
   return row.layTimeCount === true || Number(row.layTimeCount) === 1;
+}
+
+/** True when From/To are both set (SOF Duration is derived from the range). */
+export function hasActivityTimeRange(row = {}) {
+  return Boolean(String(row.from || '').trim() && String(row.to || '').trim());
+}
+
+/**
+ * Recompute SOF Activity cumulative hours from Laytime remaining-allowance math.
+ * Incomplete rows (no From/To) stay blank and do not enter the running sum —
+ * otherwise empty LT(C) rows would show Laytime Allowed (e.g. 108.0000).
+ */
+export function recomputeSofActivityRows(port, rows = []) {
+  const timed = rows.map((row) => hasActivityTimeRange(row));
+  const rateUnit = port?.rateUnit === 'days' ? 'days' : 'hours';
+  const calculation = recomputePortDraft({
+    laytimeAllowed: port?.laytimeAllowed || '',
+    activities: rows.map((row, index) => ({
+      activity: row.activity,
+      start: '',
+      end: '',
+      duration: timed[index] ? row.duration : '',
+      ltCounts: Boolean(row.layTimeCount) && timed[index],
+      ltNoCounts: Boolean(row.portTimeCount),
+      ltPartial: row.ltPartial,
+      notes: row.notes,
+    })),
+    deductions: [],
+  }, rateUnit);
+
+  return rows.map((row, rowIndex) => ({
+    ...row,
+    // Do not coerce intentional blank (unknown allowance) to '0.0000'.
+    cumulative: timed[rowIndex]
+      ? coalesceActivityCumulative(calculation.activities[rowIndex]?.cumulative)
+      : '',
+  }));
+}
+
+/**
+ * Display value for Cumulative Duration (Hrs).
+ * Accepts an activity row (preferred) or a raw cumulative string.
+ */
+export function displayActivityCumulative(rowOrValue = {}) {
+  if (rowOrValue != null && typeof rowOrValue === 'object') {
+    if (!hasActivityTimeRange(rowOrValue)) return '—';
+    if (rowOrValue.cumulative === '' || rowOrValue.cumulative == null) return '—';
+    return String(rowOrValue.cumulative);
+  }
+  if (rowOrValue === '' || rowOrValue == null) return '—';
+  return String(rowOrValue);
 }
 
 export function isValidLtPartialPercent(value) {

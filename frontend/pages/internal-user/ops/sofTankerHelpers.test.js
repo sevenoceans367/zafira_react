@@ -17,6 +17,7 @@ import {
   isValidLtPartialPercent,
   paginateRows,
   patchCargoCardField,
+  recomputeSofActivityRows,
   removeDeductionRowAt,
 } from './sofTankerHelpers.js';
 
@@ -223,6 +224,42 @@ describe('sofTankerHelpers', () => {
     assert.equal(nonCounting.activities[0].cumulative, '0.00');
   });
 
+  it('does not show Laytime Allowed on empty LT(C) rows (POLYAIGOS 108 case)', () => {
+    const port = { laytimeAllowed: '108', rateUnit: 'hours' };
+    const emptyC = {
+      ...emptyPortActivityRow(),
+      layTimeCount: true,
+      portTimeCount: false,
+      ltPartial: '100',
+    };
+    const [blank] = recomputeSofActivityRows(port, [emptyC]);
+    assert.equal(blank.cumulative, '');
+    assert.equal(displayActivityCumulative(blank), '—');
+
+    const emptyNc = applyLtCountToggle(emptyC, false);
+    const [ncBlank] = recomputeSofActivityRows(port, [emptyNc]);
+    assert.equal(ncBlank.cumulative, '');
+    assert.equal(displayActivityCumulative(ncBlank), '—');
+
+    const timedC = {
+      ...emptyC,
+      from: '01-05-2026 08:00',
+      to: '01-05-2026 20:00',
+      duration: '12',
+    };
+    const timedNc = {
+      ...applyLtCountToggle(emptyC, false),
+      from: '01-05-2026 08:00',
+      to: '01-05-2026 20:00',
+      duration: '12',
+    };
+    const [cRow, ncRow] = recomputeSofActivityRows(port, [timedC, timedNc]);
+    assert.equal(cRow.cumulative, '96.0000'); // 108 - 12
+    assert.equal(ncRow.cumulative, '0.00');
+    assert.equal(displayActivityCumulative(cRow), '96.0000');
+    assert.equal(displayActivityCumulative(ncRow), '0.00');
+  });
+
   it('leaves cumulative blank when Laytime Allowed is unknown; computes hours when known', () => {
     // Blank/null allowance is unknown — do not invent 0 - weighted as a balance.
     const blankAllowed = recomputePortDraft({
@@ -327,4 +364,5 @@ describe('sofTankerHelpers', () => {
   });
 
 });
+
 

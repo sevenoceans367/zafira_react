@@ -1010,7 +1010,7 @@ async function replacePortActivities(connection, sofId, rows) {
     const notes = String(row.notes || '').trim();
     const layTimeCount = row.layTimeCount === true || Number(row.layTimeCount) === 1 ? 1 : 0;
     const portTimeCount = row.portTimeCount === true || Number(row.portTimeCount) === 1 ? 1 : 0;
-    if (!activity && !from && !to && !notes && !layTimeCount && !portTimeCount) continue;
+    if (!activity && !from && !to && !notes) continue;
     await connection.query(
       `INSERT INTO sof_slave
         (SOFID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES, GROUP_NAME)
@@ -1045,16 +1045,12 @@ async function replaceLaytimeDeductions(connection, laytimeId, rows) {
 }
 
 function hasSofActivityData(row = {}) {
+  // Flags / LT partial alone must not create blank SOF or Laytime activity rows.
   return Boolean(
     String(row.activity || '').trim()
     || String(row.from || '').trim()
     || String(row.to || '').trim()
-    || String(row.notes || '').trim()
-    || row.layTimeCount === true
-    || Number(row.layTimeCount) === 1
-    || row.portTimeCount === true
-    || Number(row.portTimeCount) === 1
-    || (row.ltPartial != null && String(row.ltPartial).trim() !== ''),
+    || String(row.notes || '').trim(),
   );
 }
 

@@ -143,6 +143,16 @@ export function emptyDeductionRow() {
   };
 }
 
+/** Meaningful Activity content — flags/partial alone are not enough to persist. */
+export function isMeaningfulActivityRow(row = {}) {
+  return Boolean(
+    String(row.activity || '').trim()
+    || String(row.from || '').trim()
+    || String(row.to || '').trim()
+    || String(row.notes || '').trim(),
+  );
+}
+
 function normalizeActivityForSave(row = {}) {
   return [
     String(row.activity || ''),
@@ -167,7 +177,7 @@ function normalizeDeductionForSave(row = {}) {
 }
 
 function activityRowsForSave(rows = []) {
-  return rows.filter((row) => normalizeActivityForSave(row).some((value) => value !== '' && value !== false));
+  return rows.filter(isMeaningfulActivityRow);
 }
 
 function deductionRowsForComparison(rows = []) {
@@ -343,24 +353,21 @@ export function displayStoredFileName(stored) {
  * (entityRows, blRows, portActivities, preArrival, dailyQty, cargoRows, keyOperations, agentRemarks).
  */
 export function draftFromPort(port = {}) {
+  // New placeholder rows use emptyPortActivityRow() defaults (C/100).
+  // Loaded rows keep stored flags/partial — do not silently rewrite C/0% or neither.
   const portActivities = (port.portActivities?.length ? port.portActivities : [emptyPortActivityRow()])
-    .map((row) => {
-      const mapped = {
-        activity: row.activity || '',
-        from: row.from || '',
-        to: row.to || '',
-        duration: row.duration || computeActivityDurationHours(row.from, row.to),
-        layTimeCount: row.layTimeCount === true || Number(row.layTimeCount) === 1,
-        portTimeCount: row.portTimeCount === true || Number(row.portTimeCount) === 1,
-        ltPartial: row.ltPartial == null ? '' : String(row.ltPartial),
-        cumulative: row.cumulative || '',
-        laytimeActivityId: row.laytimeActivityId || '',
-        notes: row.notes || '',
-      };
-      // Mutual C/NC: NC wins only when explicitly set without C; otherwise default C.
-      const counts = mapped.layTimeCount || !mapped.portTimeCount;
-      return applyLtCountToggle(mapped, counts);
-    });
+    .map((row) => ({
+      activity: row.activity || '',
+      from: row.from || '',
+      to: row.to || '',
+      duration: row.duration || computeActivityDurationHours(row.from, row.to),
+      layTimeCount: row.layTimeCount === true || Number(row.layTimeCount) === 1,
+      portTimeCount: row.portTimeCount === true || Number(row.portTimeCount) === 1,
+      ltPartial: row.ltPartial == null ? '' : String(row.ltPartial),
+      cumulative: row.cumulative || '',
+      laytimeActivityId: row.laytimeActivityId || '',
+      notes: row.notes || '',
+    }));
 
   return {
     terminal: port.terminal || '',
@@ -399,7 +406,8 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
     const currentActivities = draft.portActivities || [];
     if (JSON.stringify(activityRowsForSave(originalActivities).map(normalizeActivityForSave))
       !== JSON.stringify(activityRowsForSave(currentActivities).map(normalizeActivityForSave))) {
-      payload.portActivities = currentActivities;
+      // Persist only meaningful rows; synthetic C/100 placeholders stay out of the payload.
+      payload.portActivities = activityRowsForSave(currentActivities);
       if (activePort.laytimeActivityVersion) {
         payload.expectedLaytimeActivityVersion = activePort.laytimeActivityVersion;
       }

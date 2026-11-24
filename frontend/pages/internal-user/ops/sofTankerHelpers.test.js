@@ -115,10 +115,8 @@ describe('sofTankerHelpers', () => {
     assert.equal(payload.keyOperations[0].robMdo, '120.25');
     assert.equal(payload.keyOperations[0].activityDateTimeTo, '01-05-2026 06:15');
     assert.equal(payload.cargoRows.length, 2);
-    // draftFromPort defaults missing LT flags to LT(C), so Activity is dirty vs raw port.
-    assert.equal(payload.portActivities?.[0]?.layTimeCount, true);
-    assert.equal(payload.portActivities?.[0]?.portTimeCount, false);
-    assert.equal(payload.portActivities?.[0]?.ltPartial, '100');
+    // Loaded Activity without LT edits stays out of the payload (flags not silently rewritten).
+    assert.equal(Object.hasOwn(payload, 'portActivities'), false);
     assert.equal(Object.hasOwn(payload, 'entityRows'), false);
     assert.equal(Object.hasOwn(payload, 'blRows'), false);
     assert.equal(Object.hasOwn(payload, 'preArrival'), false);
@@ -206,6 +204,80 @@ describe('sofTankerHelpers', () => {
       layTimeCount: false, portTimeCount: true, ltPartial: '40',
     }, true);
     assert.equal(keepPartial.ltPartial, '40');
+  });
+
+  it('does not persist synthetic blank Activity rows on unrelated Save', () => {
+    const port = {
+      key: 'LP-10-101',
+      portType: 'LP',
+      portId: '10',
+      randomId: '101',
+      terminal: 'Jetty A',
+      portActivities: [],
+    };
+    const draft = draftFromPort(port);
+    draft.terminal = 'Jetty B';
+    assert.equal(draft.portActivities.length, 1);
+    assert.equal(draft.portActivities[0].layTimeCount, true);
+    assert.equal(draft.portActivities[0].ltPartial, '100');
+
+    const payload = buildSofSavePayload({ comId: '42', activePort: port, draft, submitId: 1 });
+    assert.equal(payload.terminal, 'Jetty B');
+    assert.equal(Object.hasOwn(payload, 'portActivities'), false);
+  });
+
+  it('preserves saved C/0% on reload without dirtying unrelated Save', () => {
+    const port = {
+      key: 'LP-10-101',
+      portType: 'LP',
+      portId: '10',
+      randomId: '101',
+      laytimeAllowed: '48',
+      rateUnit: 'hours',
+      portActivities: [{
+        activity: 'Loading',
+        from: '10-04-2026 10:00',
+        to: '10-04-2026 22:00',
+        duration: '12',
+        layTimeCount: true,
+        portTimeCount: false,
+        ltPartial: '0',
+        cumulative: '48.0000',
+        notes: '',
+      }],
+    };
+    const draft = draftFromPort(port);
+    assert.equal(draft.portActivities[0].layTimeCount, true);
+    assert.equal(draft.portActivities[0].ltPartial, '0');
+
+    const recomputed = recomputeSofActivityRows(port, draft.portActivities);
+    assert.equal(recomputed[0].cumulative, '48.0000');
+
+    draft.terminal = 'Edited berth';
+    const payload = buildSofSavePayload({
+      comId: '42',
+      activePort: { ...port, terminal: 'Jetty A' },
+      draft: { ...draft, terminal: 'Edited berth' },
+      submitId: 1,
+    });
+    assert.equal(payload.terminal, 'Edited berth');
+    assert.equal(Object.hasOwn(payload, 'portActivities'), false);
+  });
+
+  it('recomputes remaining hours after deleting an earlier Activity row', () => {
+    const port = { laytimeAllowed: '48', rateUnit: 'hours' };
+    const rows = [
+      {
+        activity: 'A', from: '01-05-2026 08:00', to: '01-05-2026 20:00', duration: '12',
+        layTimeCount: true, portTimeCount: false, ltPartial: '100', cumulative: '36.0000', notes: '',
+      },
+      {
+        activity: 'B', from: '02-05-2026 08:00', to: '02-05-2026 20:00', duration: '12',
+        layTimeCount: true, portTimeCount: false, ltPartial: '50', cumulative: '30.0000', notes: '',
+      },
+    ];
+    const afterDelete = recomputeSofActivityRows(port, [rows[1]]);
+    assert.equal(afterDelete[0].cumulative, '42.0000');
   });
 
   it('keeps cumulative hours in sync when toggling LT(C) off to LT(NC)', () => {

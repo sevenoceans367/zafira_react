@@ -332,7 +332,8 @@ export default function OpsVcSofPage() {
     });
     if (!ok) return;
     const rows = (draft?.portActivities || []).filter((_, i) => i !== index);
-    patchDraft({ portActivities: rows.length ? rows : [emptyPortActivityRow()] });
+    const next = rows.length ? rows : [emptyPortActivityRow()];
+    patchDraft({ portActivities: recomputeSofActivityRows(activePort, next) });
   };
 
   const updateDeductionRow = (index, patch) => {

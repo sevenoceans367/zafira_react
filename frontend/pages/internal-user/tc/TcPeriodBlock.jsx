@@ -362,9 +362,10 @@ export default function TcPeriodBlock({
             const resolved = resolveOffHire(row);
             const showBunkers = row.bunkersOpen || (row.bunkers || []).length > 0;
             const offDaysLocked = !isTcIn && Boolean(row.from && row.to);
+            // Reason stays compact; From/To need room for dd-mm-yyyy HH:mm.
             const offCols = isTcIn
-              ? '2fr 1fr 1fr 0.55fr 0.8fr 0.9fr 44px'
-              : '1.8fr 1fr 1fr 0.55fr 0.8fr 1.6fr 0.9fr 44px';
+              ? '1fr minmax(9.75rem, 1.4fr) minmax(9.75rem, 1.4fr) 0.55fr 0.75fr 0.85fr 44px'
+              : '1fr minmax(9.75rem, 1.4fr) minmax(9.75rem, 1.4fr) 0.55fr 0.75fr 1.15fr 0.85fr 44px';
             return (
               <div key={`${idPrefix}off-${index}`} className={styles.offhireItem}>
                 <div

@@ -175,15 +175,21 @@ describe('sofTankerHelpers', () => {
     assert.deepEqual(result.activities.map((row) => row.cumulative), ['42.0000', '30.0000', '0.00']);
   });
 
-  it('matches the reported screenshot case in hours instead of negative days', () => {
-    // Before (days/divider=24, blank allowed→0): 0 - (246*0.25)/24 = -2.5625
-    // After  (hours/divider=1, blank allowed→0): 0 - (246*0.25)/1  = -61.5000
+  it('leaves cumulative blank when Laytime Allowed is unknown; computes hours when known', () => {
+    // Blank/null allowance is unknown — do not invent 0 - weighted as a balance.
     const blankAllowed = recomputePortDraft({
       laytimeAllowed: '',
       activities: [{ duration: '246.0', ltCounts: true, ltPartial: '25' }],
       deductions: [],
     }, 'hours');
-    assert.equal(blankAllowed.activities[0].cumulative, '-61.5000');
+    assert.equal(blankAllowed.activities[0].cumulative, '');
+
+    const explicitZero = recomputePortDraft({
+      laytimeAllowed: '0',
+      activities: [{ duration: '246.0', ltCounts: true, ltPartial: '25' }],
+      deductions: [],
+    }, 'hours');
+    assert.equal(explicitZero.activities[0].cumulative, '-61.5000');
 
     const withAllowance = recomputePortDraft({
       laytimeAllowed: '72',

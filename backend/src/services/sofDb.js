@@ -1119,7 +1119,8 @@ async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows }
       row.layTimeCount === true || Number(row.layTimeCount) === 1 ? 1 : 0,
       row.portTimeCount === true || Number(row.portTimeCount) === 1 ? 1 : 0,
       partial,
-      str(row.cumulative),
+      // Blank cumulative = unknown remaining (do not invent balances).
+      strOrNull(row.cumulative),
       String(row.notes || '').trim(),
     ];
 

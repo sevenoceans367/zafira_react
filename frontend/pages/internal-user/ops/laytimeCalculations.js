@@ -55,6 +55,9 @@ export function calcLaytimeAllowed(loadedQty, loadedRate, turnTimeToAdd, rateUni
  *   laytimeAllowed - Σ(durationHrs × LT_PARTIAL / 100) / divider
  * when LT(C) is checked; otherwise 0.00.
  *
+ * Blank/null laytimeAllowed is unknown (not zero). Counting rows then leave
+ * cumulative blank so we do not invent a remaining balance.
+ *
  * Returns a new draft object (immutable).
  */
 export function recomputePortDraft(draft, rateUnit = 'days') {
@@ -77,8 +80,10 @@ export function recomputePortDraft(draft, rateUnit = 'days') {
   const sumDeductionPartial = deductions.reduce((acc, row) => acc + num(row.cumulative), 0);
   const daysTode = num((sumDeductionPartial / divider).toFixed(2));
 
-  const laytimeAllowedStr = draft.laytimeAllowed || '';
-  const laytimeAllowed = num(laytimeAllowedStr);
+  // Distinguish unknown (blank/null) from an explicit numeric zero allowance.
+  const allowanceRaw = draft.laytimeAllowed;
+  const allowanceKnown = !(allowanceRaw == null || String(allowanceRaw).trim() === '');
+  const laytimeAllowed = allowanceKnown ? num(allowanceRaw) : NaN;
 
   let sum = 0;
   const activities = (draft.activities || []).map((row) => {
@@ -90,8 +95,12 @@ export function recomputePortDraft(draft, rateUnit = 'days') {
     let cumulative = '0.00';
     if (row.ltCounts) {
       sum += weighted;
-      const remaining = laytimeAllowed - (sum / divider);
-      cumulative = Number.isFinite(remaining) ? remaining.toFixed(4) : '';
+      if (!allowanceKnown) {
+        cumulative = '';
+      } else {
+        const remaining = laytimeAllowed - (sum / divider);
+        cumulative = Number.isFinite(remaining) ? remaining.toFixed(4) : '';
+      }
     }
     return {
       ...row,
@@ -108,14 +117,14 @@ export function recomputePortDraft(draft, rateUnit = 'days') {
 
   const activityCount = (draft.activities || []).length;
   if (activityCount === 0) {
-    if (laytimeAllowed > 0) {
+    if (allowanceKnown && laytimeAllowed > 0) {
       timeToDemurrage = '00.00';
       timeToDespatch = String(laytimeAllowed);
-    } else if (laytimeAllowed < 0) {
+    } else if (allowanceKnown && laytimeAllowed < 0) {
       timeToDemurrage = '';
       timeToDespatch = '00.00';
     }
-  } else if (!Number.isNaN(actualLaytime) && !Number.isNaN(laytimeAllowed)) {
+  } else if (allowanceKnown && !Number.isNaN(actualLaytime) && !Number.isNaN(laytimeAllowed)) {
     if (actualLaytime > laytimeAllowed) {
       // PHP: dem = actual - allowed - (deductionPartialSum / divider) — deductions already in actual.
       const deductions2 = sumDeductionPartial / divider;
@@ -137,7 +146,7 @@ export function recomputePortDraft(draft, rateUnit = 'days') {
   let ttlDespatch = ((despatch / divider1) * despatchRate).toFixed(2);
 
   // PHP quirk when actual laytime rounds to 0
-  if (Number(actualLaytime.toFixed(4)) === 0) {
+  if (allowanceKnown && Number(actualLaytime.toFixed(4)) === 0) {
     ttlDespatch = String(laytimeAllowed * despatchRate);
   }
 

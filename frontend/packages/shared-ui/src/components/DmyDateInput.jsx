@@ -903,6 +903,12 @@ const DmyDateInput = ({
       },
       onChange: (selectedDates, _dateStr, fp) => {
         if (suppressChange) return;
+        // Flatpickr blur may call setDate(true) while closed; never start the
+        // hour/minute wizard from that path — only restore the timed display.
+        if (enableTime && !fp.isOpen) {
+          restoreInputDisplay(fp);
+          return;
+        }
         if (!selectedDates?.length) {
           if (!enableTime) {
             pendingDateRef.current = null;
@@ -932,6 +938,11 @@ const DmyDateInput = ({
         syncTimeHeading(fp);
         syncHourHighlight(fp);
         setStep(fp, 'hour');
+      },
+      // Flatpickr dateFormat is date-only; blur/updateValue would strip HH:mm.
+      // Re-apply the committed timed string whenever Flatpickr rewrites the input.
+      onValueUpdate: (_dates, _str, fp) => {
+        if (enableTime) restoreInputDisplay(fp);
       },
       onClose: (_dates, _str, fp) => {
         closeMonthSelectMenu(fp);

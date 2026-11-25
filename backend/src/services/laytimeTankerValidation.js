@@ -132,6 +132,20 @@ export function hoursBetweenDmy(start, end) {
   return Number(((to - from) / (1000 * 60 * 60)).toFixed(4));
 }
 
+/**
+ * Persist contract: when both dates parse, store derived hours (never blank/stale/negative).
+ * Otherwise keep the client-supplied duration string.
+ */
+export function durationForPersist(row) {
+  const start = String(row?.start || '').trim();
+  const end = String(row?.end || '').trim();
+  if (start && end) {
+    const hours = hoursBetweenDmy(start, end);
+    if (hours != null && hours >= 0) return Number(hours).toFixed(4);
+  }
+  return String(row?.duration ?? '').trim();
+}
+
 export function verifyRowDurations(rows, kindLabel) {
   for (let i = 0; i < (rows || []).length; i += 1) {
     const row = rows[i] || {};
@@ -141,7 +155,15 @@ export function verifyRowDurations(rows, kindLabel) {
     if (!start || !end) continue;
     const expected = hoursBetweenDmy(start, end);
     if (expected == null) continue;
+    if (expected < 0) {
+      return {
+        ok: false,
+        field: kindLabel === 'Activity' ? 'activities' : 'deductions',
+        message: `${kindLabel} #${i + 1} finish must be on or after start.`,
+      };
+    }
     const rawDur = String(row.duration ?? '').trim();
+    // Blank duration with valid dates is OK — persistence derives via durationForPersist.
     if (rawDur === '') continue;
     const parsed = parseStrictDecimal(rawDur);
     if (!parsed.ok || parsed.blank) {

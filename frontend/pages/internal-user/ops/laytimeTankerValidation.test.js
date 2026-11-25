@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  durationFromStrictDates,
   hoursBetweenStrict,
   isBlankOrFiniteNumber,
   isValidLtPartialPercent,
   parseStrictDecimal,
   parseStrictDisplayDateTime,
   recomputeTankerPortDraft,
-  sanitizeTankerDraftForRecompute,
   tankerCalcInputsValid,
   validateDateRangeOrder,
   validateTankerLaytimeDraft,
@@ -180,25 +180,23 @@ describe('centralized tanker recompute — unavailable when invalid', () => {
     assert.equal(next.ttlDemurrage, '');
   });
 
-  it('sanitize helper still zeros invalid % for callers that need a calc clone', () => {
-    const draft = baseDraft({
-      activities: [{
-        activity: 'A',
-        start: '01-11-2026 00:00',
-        end: '01-11-2026 10:00',
-        duration: '10.0000',
-        ltCounts: true,
-        ltPartial: '150',
-        notes: '',
-      }],
-    });
-    const safe = sanitizeTankerDraftForRecompute(draft);
-    assert.equal(safe.activities[0].ltPartial, '0');
-    assert.equal(draft.activities[0].ltPartial, '150');
-  });
-
   it('hoursBetweenStrict matches 00:00–12:00 → 12h', () => {
     assert.equal(hoursBetweenStrict('01-11-2026 00:00', '01-11-2026 12:00'), 12);
+  });
+
+  it('clears stale/negative duration when dates missing, unparseable, or reversed', () => {
+    assert.equal(durationFromStrictDates({
+      start: '', end: '', duration: '10.0000',
+    }), '');
+    assert.equal(durationFromStrictDates({
+      start: '01-11-2026 00:00', end: '31-02-2026 12:00', duration: '10.0000',
+    }), '');
+    assert.equal(durationFromStrictDates({
+      start: '01-11-2026 12:00', end: '01-11-2026 00:00', duration: '12.0000',
+    }), '');
+    assert.equal(durationFromStrictDates({
+      start: '01-11-2026 00:00', end: '01-11-2026 12:00', duration: '10.0000',
+    }), '12.0000');
   });
 });
 

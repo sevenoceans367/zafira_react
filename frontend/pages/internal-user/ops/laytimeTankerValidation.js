@@ -163,12 +163,16 @@ export function hoursBetweenStrict(start, end) {
   return Number(((to.getTime() - from.getTime()) / (1000 * 60 * 60)).toFixed(4));
 }
 
-function durationFromStrictDates(row) {
+/**
+ * Duration from strict dates only. Never keep stale or negative values when
+ * dates are missing, unparseable, or reversed.
+ */
+export function durationFromStrictDates(row) {
   const start = String(row?.start || '').trim();
   const end = String(row?.end || '').trim();
-  if (!start || !end) return row?.duration ?? '';
+  if (!start || !end) return '';
   const hours = hoursBetweenStrict(start, end);
-  if (hours == null) return row?.duration ?? '';
+  if (hours == null || hours < 0) return '';
   return hours.toFixed(4);
 }
 
@@ -237,39 +241,6 @@ export function tankerCalcInputsValid(draft) {
   }
 
   return { ok: true };
-}
-
-/**
- * Kept for tests / callers that need a calc-only clone.
- * Prefer recomputeTankerPortDraft which marks results unavailable when invalid.
- */
-export function sanitizeTankerDraftForRecompute(draft) {
-  if (!draft) return draft;
-  return {
-    ...draft,
-    laytimeAllowed: isBlankOrFiniteNumber(draft.laytimeAllowed) ? draft.laytimeAllowed : '',
-    demurrageRate: isBlankOrFiniteNumber(draft.demurrageRate) ? draft.demurrageRate : '',
-    despatchRate: isBlankOrFiniteNumber(draft.despatchRate) ? draft.despatchRate : '',
-    loadedQty: isBlankOrFiniteNumber(draft.loadedQty) ? draft.loadedQty : '',
-    activities: (draft.activities || []).map((row) => {
-      const datesOk = validateDateRangeOrder(row.start, row.end).ok;
-      const partialOk = isValidLtPartialPercent(row.ltPartial);
-      return {
-        ...row,
-        ltPartial: partialOk ? row.ltPartial : '0',
-        ...(datesOk ? {} : { start: '', end: '', duration: '0.0' }),
-      };
-    }),
-    deductions: (draft.deductions || []).map((row) => {
-      const datesOk = validateDateRangeOrder(row.start, row.end).ok;
-      const partialOk = isValidLtPartialPercent(row.ltPartial);
-      return {
-        ...row,
-        ltPartial: partialOk ? row.ltPartial : '0',
-        ...(datesOk ? {} : { start: '', end: '', duration: '0.0' }),
-      };
-    }),
-  };
 }
 
 function markRowsDurationOnly(rows) {

@@ -3,6 +3,7 @@ import { getPool } from '../db.js';
 import { ensureSofActivityDateTimeToColumn } from './sofDb.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
 import {
+  durationForPersist,
   tankerLtInsertFailClosed,
   validateTankerLaytimePayload,
 } from './laytimeTankerValidation.js';
@@ -685,13 +686,15 @@ async function replaceActivities(connection, laytimeId, activities, { failClosed
     const end = parseDmyDateTime(row.end);
     const notes = String(row.notes || '').trim();
     if (!activity && !start && !end && !notes) continue;
+    // Tanker: derive DURATION from dates when present (blank/stale client duration must not win).
+    const duration = failClosed ? durationForPersist(row) : str(row.duration);
     const fullParams = [
       laytimeId,
       strOrNull(row.sofLoadPortId),
       activity,
       start,
       end,
-      str(row.duration),
+      duration,
       row.ltCounts ? 1 : 0,
       row.ltNoCounts ? 1 : 0,
       strOrNull(row.ltPartial),
@@ -712,7 +715,7 @@ async function replaceActivities(connection, laytimeId, activities, { failClosed
         `INSERT INTO laytime_slave
           (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [laytimeId, activity, start, end, str(row.duration), notes],
+        [laytimeId, activity, start, end, duration, notes],
       );
     }
   }
@@ -726,6 +729,7 @@ async function replaceDeductions(connection, laytimeId, deductions, { failClosed
     const end = parseDmyDateTime(row.end);
     const notes = String(row.notes || '').trim();
     if (!activity && !start && !end && !notes) continue;
+    const duration = failClosed ? durationForPersist(row) : str(row.duration);
     try {
       await connection.query(
         `INSERT INTO laytime_slave1
@@ -736,7 +740,7 @@ async function replaceDeductions(connection, laytimeId, deductions, { failClosed
           activity,
           start,
           end,
-          str(row.duration),
+          duration,
           strOrNull(row.ltPartial),
           str(row.cumulative),
           notes,
@@ -749,7 +753,7 @@ async function replaceDeductions(connection, laytimeId, deductions, { failClosed
         `INSERT INTO laytime_slave1
           (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [laytimeId, activity, start, end, str(row.duration), notes],
+        [laytimeId, activity, start, end, duration, notes],
       );
     }
   }

@@ -9,13 +9,8 @@ import { PortTabLabel } from './portTabLabel.jsx';
 import sofStyles from './OpsVcSofTanker.module.css';
 import styles from './OpsVcLaytimePage.module.css';
 
-function optionalDateInvalid(value) {
-  const raw = String(value ?? '').trim();
-  if (!raw) return false;
-  return !parseStrictDisplayDateTime(raw);
-}
-
-function requiredDateInvalid(value) {
+/** Blank OK; non-blank must parse strictly. */
+function dateFieldInvalid(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return false;
   return !parseStrictDisplayDateTime(raw);
@@ -216,7 +211,7 @@ export default function LaytimeTankerLayout({
                   onChange={(v) => patchDraft({ norTendered: v })}
                   disabled={locked}
                   ariaLabel="NOR Tendered"
-                  invalid={requiredDateInvalid(draft.norTendered)}
+                  invalid={dateFieldInvalid(draft.norTendered)}
                 />
               </div>
               <div className={styles.ltTimingCell} data-field="norAccepted">
@@ -227,7 +222,7 @@ export default function LaytimeTankerLayout({
                   onChange={(v) => patchDraft({ norAccepted: v })}
                   disabled={locked}
                   ariaLabel="NOR Accepted"
-                  invalid={optionalDateInvalid(draft.norAccepted)}
+                  invalid={dateFieldInvalid(draft.norAccepted)}
                 />
               </div>
               <div className={styles.ltTimingCell}>
@@ -243,7 +238,7 @@ export default function LaytimeTankerLayout({
                   onChange={(v) => patchDraft({ loadCommenced: v })}
                   disabled={locked}
                   ariaLabel="Cargo Commenced"
-                  invalid={requiredDateInvalid(draft.loadCommenced)}
+                  invalid={dateFieldInvalid(draft.loadCommenced)}
                 />
               </div>
               <div className={styles.ltTimingCell} data-field="loadCompleted">
@@ -254,7 +249,7 @@ export default function LaytimeTankerLayout({
                   onChange={(v) => patchDraft({ loadCompleted: v })}
                   disabled={locked}
                   ariaLabel="Cargo Completed"
-                  invalid={requiredDateInvalid(draft.loadCompleted)}
+                  invalid={dateFieldInvalid(draft.loadCompleted)}
                 />
               </div>
               <div className={styles.ltTimingCell} data-field="startCounting">
@@ -265,7 +260,7 @@ export default function LaytimeTankerLayout({
                   onChange={(v) => patchDraft({ startCounting: v })}
                   disabled={locked}
                   ariaLabel="Laytime Starts"
-                  invalid={optionalDateInvalid(draft.startCounting)}
+                  invalid={dateFieldInvalid(draft.startCounting)}
                 />
               </div>
               <div className={styles.ltTimingCell}>
@@ -400,70 +395,73 @@ export default function LaytimeTankerLayout({
             </div>
           </div>
 
-          <div className={styles.sofFooterSpacer} />
+          {/* Sticky bottom chrome: summary + footer share content width (not viewport-fixed). */}
+          <div className={styles.ltTankerBottomChrome}>
+            <div className={styles.ltSummaryDock}>
+              <LaytimeTankerSummaryPill
+                open={summaryOpen}
+                onOpen={() => setSummaryOpen(true)}
+                onClose={() => setSummaryOpen(false)}
+                draft={draft}
+                unitShort={unitShort}
+                locked={locked}
+                unitUnknown={unitUnknown}
+                saving={saving}
+                approverOptions={approverOptions}
+                ApproverTagField={ApproverTagField}
+                setApprovers={setApprovers}
+                onPatchDraft={patchDraft}
+                onSendForApproval={() => handleSubmit(1)}
+              />
+            </div>
 
-          <div className={styles.sofFooterBar}>
-            {!locked ? (
-              <>
-                <div className={styles.sofFooterNote}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  Use “Submit” once laytime figures for every port call are finalised; “Close Laytime” locks the calculation entirely.
-                </div>
-                <div className={styles.sofFooterActions}>
-                  <Button
-                    type="button"
-                    variant="saveOutline"
-                    label="Save"
-                    onClick={() => handleSubmit(0)}
-                    disabled={saving || unitUnknown}
-                    title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
-                  />
-                  <Button
-                    type="button"
-                    variant="saveOutline"
-                    label="Close Laytime"
-                    onClick={() => handleSubmit(5)}
-                    disabled={saving || unitUnknown}
-                    title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <p className={styles.lockedNote}>This Laytime is locked / closed.</p>
-                {form?.canOpen ? (
-                  <Button
-                    type="button"
-                    variant="submit"
-                    label="Open"
-                    onClick={handleOpen}
-                    disabled={saving || unitUnknown}
-                    title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
-                  />
-                ) : null}
-              </>
-            )}
+            <div className={styles.sofFooterBar}>
+              {!locked ? (
+                <>
+                  <div className={styles.sofFooterNote}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    Use “Submit” once laytime figures for every port call are finalised; “Close Laytime” locks the calculation entirely.
+                  </div>
+                  <div className={styles.sofFooterActions}>
+                    <Button
+                      type="button"
+                      variant="saveOutline"
+                      label="Save"
+                      onClick={() => handleSubmit(0)}
+                      disabled={saving || unitUnknown}
+                      title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
+                    />
+                    <Button
+                      type="button"
+                      variant="saveOutline"
+                      label="Close Laytime"
+                      onClick={() => handleSubmit(5)}
+                      disabled={saving || unitUnknown}
+                      title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className={styles.lockedNote}>This Laytime is locked / closed.</p>
+                  {form?.canOpen ? (
+                    <Button
+                      type="button"
+                      variant="submit"
+                      label="Open"
+                      onClick={handleOpen}
+                      disabled={saving || unitUnknown}
+                      title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
+                    />
+                  ) : null}
+                </>
+              )}
+            </div>
           </div>
-
-          <LaytimeTankerSummaryPill
-            open={summaryOpen}
-            onOpen={() => setSummaryOpen(true)}
-            onClose={() => setSummaryOpen(false)}
-            draft={draft}
-            unitShort={unitShort}
-            locked={locked}
-            unitUnknown={unitUnknown}
-            saving={saving}
-            approverOptions={approverOptions}
-            ApproverTagField={ApproverTagField}
-            setApprovers={setApprovers}
-            onPatchDraft={patchDraft}
-            onSendForApproval={() => handleSubmit(1)}
-          />
         </div>
       ) : null}
     </div>

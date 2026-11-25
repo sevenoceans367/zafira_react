@@ -158,7 +158,11 @@ export default function LaytimeTankerTables({
   const actPage = usePagedSearch(activities, ACT_FIELDS);
   const dedPage = usePagedSearch(deductions, DED_FIELDS);
 
+  const calcUnavailable = Boolean(draft?.calcUnavailable);
   const dedTotals = useMemo(() => {
+    if (calcUnavailable) {
+      return { dur: '—', net: '—' };
+    }
     let dur = 0;
     let net = 0;
     (deductions || []).forEach((row) => {
@@ -166,7 +170,7 @@ export default function LaytimeTankerTables({
       net += Number(row.cumulative) || 0;
     });
     return { dur: dur.toFixed(2), net: net.toFixed(2) };
-  }, [deductions]);
+  }, [deductions, calcUnavailable]);
 
   return (
     <div className={styles.cfSection} id="sect-act-ded">

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  durationForPersist,
   isBlankOrFiniteNumber,
   isValidLtPartialPercent,
   parseDmyDateTimeMs,
@@ -95,7 +96,7 @@ describe('backend tanker validation', () => {
     assert.equal(badStart.field, 'startCounting');
   });
 
-  it('skips blank duration when dates are present; rejects mismatched supplied duration', () => {
+  it('allows blank duration when dates are present; rejects mismatched supplied duration', () => {
     const blankDur = verifyRowDurations([
       { activity: 'A', start: '01-11-2026 00:00', end: '01-11-2026 12:00', duration: '', notes: '' },
     ], 'Activity');
@@ -104,6 +105,18 @@ describe('backend tanker validation', () => {
       { activity: 'A', start: '01-11-2026 00:00', end: '01-11-2026 12:00', duration: '10.0000', notes: '' },
     ], 'Activity');
     assert.equal(mismatch.ok, false);
+  });
+
+  it('durationForPersist derives 12h for 00:00–12:00 even when client duration blank/stale', () => {
+    assert.equal(durationForPersist({
+      start: '01-11-2026 00:00', end: '01-11-2026 12:00', duration: '',
+    }), '12.0000');
+    assert.equal(durationForPersist({
+      start: '01-11-2026 00:00', end: '01-11-2026 12:00', duration: '10.0000',
+    }), '12.0000');
+    assert.equal(durationForPersist({
+      start: '', end: '', duration: '3.5',
+    }), '3.5');
   });
 });
 

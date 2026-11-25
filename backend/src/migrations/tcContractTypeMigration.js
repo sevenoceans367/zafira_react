@@ -67,8 +67,9 @@ async function ensureLongtextColumn(conn, column) {
 
 async function slave2AccountTypeExists(conn) {
   try {
+    // otherIncome/expense table (STATUS=1/2) — not TC In hire rows (chartering_tc_estimate_slave2).
     const [cols] = await conn.query(
-      `SHOW COLUMNS FROM chartering_tc_estimate_slave2 LIKE 'ACCOUNT_TYPE'`,
+      `SHOW COLUMNS FROM chartering_estimate_tc_slave2 LIKE 'ACCOUNT_TYPE'`,
     );
     return cols.length > 0;
   } catch {
@@ -81,7 +82,7 @@ async function ensureSlave2AccountTypeColumn(conn) {
   if (await slave2AccountTypeExists(conn)) return;
   try {
     await conn.query(
-      `ALTER TABLE chartering_tc_estimate_slave2
+      `ALTER TABLE chartering_estimate_tc_slave2
        ADD COLUMN ACCOUNT_TYPE VARCHAR(16) NULL`,
     );
   } catch (error) {
@@ -90,30 +91,40 @@ async function ensureSlave2AccountTypeColumn(conn) {
   }
 }
 
+/** True when parsed Hire Recap JSON has a recoverable TC In signal (Node-side; no JSON_VALID). */
+function jsonRecapHasTcInSignal(raw) {
+  if (raw == null) return false;
+  const trimmed = String(raw).trim();
+  if (!trimmed || trimmed === 'null' || trimmed === '{}' || trimmed === '[]') return false;
+  let parsed;
+  try {
+    parsed = typeof raw === 'string' ? JSON.parse(trimmed) : raw;
+  } catch {
+    return false; // malformed → ambiguous, leave NULL
+  }
+  if (!parsed || typeof parsed !== 'object') return false;
+  const fh = parsed.finalHireage;
+  if (fh != null && String(fh).trim() !== '' && String(fh).trim() !== 'null') return true;
+  if (Array.isArray(parsed.hires) && parsed.hires.length > 0) return true;
+  if (Array.isArray(parsed.offHires) && parsed.offHires.length > 0) return true;
+  if (Array.isArray(parsed.deliveryBunkers) && parsed.deliveryBunkers.length > 0) return true;
+  if (Array.isArray(parsed.redeliveryBunkers) && parsed.redeliveryBunkers.length > 0) return true;
+  return false;
+}
+
 /**
  * Conservative backfill: clear tcinout / tcout only; leave NULL when ambiguous.
+ * JSON classification is done in Node (MySQL 5.5/MariaDB without JSON_VALID).
  * Malformed or placeholder-only JSON does NOT count as TC In.
  */
 async function backfillContractType(conn) {
-  // Clear tcinout signals only.
+  // Clear tcinout from period / relational signals (no JSON functions required).
   await conn.query(`
     UPDATE chartering_estimate_tc_master m
     SET CONTRACT_TYPE = 'tcinout'
     WHERE m.CONTRACT_TYPE IS NULL
       AND (
         (m.PERIODID IS NOT NULL AND TRIM(CAST(m.PERIODID AS CHAR)) NOT IN ('', '0'))
-        OR (
-          m.TC_IN_RECAP_JSON IS NOT NULL
-          AND TRIM(m.TC_IN_RECAP_JSON) NOT IN ('', 'null', '{}', '[]')
-          AND JSON_VALID(m.TC_IN_RECAP_JSON)
-          AND (
-            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(m.TC_IN_RECAP_JSON, '$.finalHireage')), 'null') IS NOT NULL
-            OR IFNULL(JSON_LENGTH(JSON_EXTRACT(m.TC_IN_RECAP_JSON, '$.hires')), 0) > 0
-            OR IFNULL(JSON_LENGTH(JSON_EXTRACT(m.TC_IN_RECAP_JSON, '$.offHires')), 0) > 0
-            OR IFNULL(JSON_LENGTH(JSON_EXTRACT(m.TC_IN_RECAP_JSON, '$.deliveryBunkers')), 0) > 0
-            OR IFNULL(JSON_LENGTH(JSON_EXTRACT(m.TC_IN_RECAP_JSON, '$.redeliveryBunkers')), 0) > 0
-          )
-        )
         OR EXISTS (
           SELECT 1 FROM chartering_tc_estimate_slave1 s1
           WHERE s1.TCOUTID = m.TCOUTID
@@ -128,8 +139,26 @@ async function backfillContractType(conn) {
       )
   `);
 
-  // Clear tcout only when no period, no valid signal JSON, no relational hireage/children.
-  // Rows with malformed nonempty JSON remain NULL (ambiguous quarantine).
+  // JSON signal rows — parse in Node so malformed stays NULL on older servers.
+  const [jsonCandidates] = await conn.query(`
+    SELECT TCOUTID, TC_IN_RECAP_JSON
+    FROM chartering_estimate_tc_master
+    WHERE CONTRACT_TYPE IS NULL
+      AND TC_IN_RECAP_JSON IS NOT NULL
+      AND TRIM(TC_IN_RECAP_JSON) NOT IN ('', 'null', '{}', '[]')
+  `);
+  for (const row of jsonCandidates) {
+    if (!jsonRecapHasTcInSignal(row.TC_IN_RECAP_JSON)) continue;
+    await conn.query(
+      `UPDATE chartering_estimate_tc_master
+       SET CONTRACT_TYPE = 'tcinout'
+       WHERE TCOUTID = ? AND CONTRACT_TYPE IS NULL`,
+      [row.TCOUTID],
+    );
+  }
+
+  // Clear tcout only when no period, no nonempty JSON blob, no relational hireage/children.
+  // Nonempty malformed JSON remains NULL (ambiguous quarantine).
   await conn.query(`
     UPDATE chartering_estimate_tc_master m
     SET CONTRACT_TYPE = 'tcout'

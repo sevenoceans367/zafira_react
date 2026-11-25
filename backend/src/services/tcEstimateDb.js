@@ -364,14 +364,33 @@ function bunkerIdentity(row = {}) {
 }
 
 function mapBunkerRow(row) {
+  const qty = row.QTY ?? row.BUNKER_QTY;
+  const price = row.PRICE ?? row.BUNKER_PRICE;
+  const amount = row.AMOUNT ?? row.BUNKER_AMT;
   return {
     bunkerId: row.BUNKERID != null ? String(row.BUNKERID) : '',
-    amount: row.AMOUNT != null ? String(row.AMOUNT) : '',
+    amount: amount != null ? String(amount) : '',
     bunkerDate: formatDateDMY(row.BUNKER_DATE),
-    qty: row.QTY != null ? String(row.QTY) : '',
-    price: row.PRICE != null ? String(row.PRICE) : '',
+    qty: qty != null ? String(qty) : '',
+    price: price != null ? String(price) : '',
     identity: bunkerIdentity(row),
   };
+}
+
+/** Legacy TC In slave3 may use QTY/PRICE/AMOUNT or BUNKER_QTY/BUNKER_PRICE/BUNKER_AMT. */
+async function detectTcInBunkerColumnStyle(connection) {
+  const cacheKey = 'tc_in_slave3_bunker_style';
+  if (optionalSchemaProbeCache.has(cacheKey)) return optionalSchemaProbeCache.get(cacheKey);
+  try {
+    const [cols] = await connection.query('SHOW COLUMNS FROM chartering_tc_estimate_slave3');
+    const names = new Set(cols.map((c) => String(c.Field || '').toUpperCase()));
+    const style = names.has('BUNKER_QTY') ? 'bunker_prefixed' : 'plain';
+    optionalSchemaProbeCache.set(cacheKey, style);
+    return style;
+  } catch {
+    optionalSchemaProbeCache.set(cacheKey, 'plain');
+    return 'plain';
+  }
 }
 
 async function replaceMasterBunkers(connection, tcOutId, deliveryBunkers = [], redeliveryBunkers = []) {
@@ -589,12 +608,34 @@ async function loadCalcExtras(pool, slave1Id) {
       tcInHires = rows;
     }
     if (hasBunkerTable) {
-      const [rows] = await pool.query(
-        `SELECT BUNKERID, AMOUNT, BUNKER_DATE, QTY, PRICE, IDENTIFY
-         FROM chartering_tc_estimate_slave3 WHERE TC_SLAVE1ID = ?`,
-        [slave1Id],
-      );
-      tcInBunkerRows = rows;
+      const bunkerStyle = await detectTcInBunkerColumnStyle(pool);
+      if (bunkerStyle === 'bunker_prefixed') {
+        const [rows] = await pool.query(
+          `SELECT BUNKERID, BUNKER_AMT AS AMOUNT, BUNKER_DATE, BUNKER_QTY AS QTY,
+                  BUNKER_PRICE AS PRICE, IDENTIFY
+           FROM chartering_tc_estimate_slave3 WHERE TC_SLAVE1ID = ?`,
+          [slave1Id],
+        );
+        tcInBunkerRows = rows;
+      } else {
+        try {
+          const [rows] = await pool.query(
+            `SELECT BUNKERID, AMOUNT, BUNKER_DATE, QTY, PRICE, IDENTIFY
+             FROM chartering_tc_estimate_slave3 WHERE TC_SLAVE1ID = ?`,
+            [slave1Id],
+          );
+          tcInBunkerRows = rows;
+        } catch (error) {
+          // Some Legacy DBs omit AMOUNT on slave3 — qty*price still works.
+          if (!isMissingColumnError(error)) throw error;
+          const [rows] = await pool.query(
+            `SELECT BUNKERID, BUNKER_DATE, QTY, PRICE, IDENTIFY
+             FROM chartering_tc_estimate_slave3 WHERE TC_SLAVE1ID = ?`,
+            [slave1Id],
+          );
+          tcInBunkerRows = rows;
+        }
+      }
     }
     if (hasOffHireTable) {
       const [rows] = await pool.query(
@@ -1312,22 +1353,20 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
   }
 
   if (replaceIncome) {
-    const hasAccountTypeCol = await tableExists(connection, 'chartering_tc_estimate_slave2')
-      && await (async () => {
-        try {
-          const [cols] = await connection.query(
-            `SHOW COLUMNS FROM chartering_tc_estimate_slave2 LIKE 'ACCOUNT_TYPE'`,
-          );
-          return cols.length > 0;
-        } catch {
-          return false;
-        }
-      })();
+    let hasAccountTypeCol = false;
+    try {
+      const [cols] = await connection.query(
+        `SHOW COLUMNS FROM chartering_estimate_tc_slave2 LIKE 'ACCOUNT_TYPE'`,
+      );
+      hasAccountTypeCol = cols.length > 0;
+    } catch {
+      hasAccountTypeCol = false;
+    }
     for (const row of body.otherIncome || []) {
       if (!row.amount && !row.description && !row.accountType) continue;
       if (hasAccountTypeCol) {
         await connection.query(
-          `INSERT INTO chartering_tc_estimate_slave2
+          `INSERT INTO chartering_estimate_tc_slave2
            (TC_SLAVE1ID, DESCRIPTION, OTHER_AMT, STATUS, ACCOUNT_TYPE) VALUES (?, ?, ?, 1, ?)`,
           [
             slave1Id,
@@ -1338,7 +1377,7 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
         );
       } else {
         await connection.query(
-          `INSERT INTO chartering_tc_estimate_slave2
+          `INSERT INTO chartering_estimate_tc_slave2
            (TC_SLAVE1ID, DESCRIPTION, OTHER_AMT, STATUS) VALUES (?, ?, ?, 1)`,
           [slave1Id, nullIfEmpty(row.description), nullIfEmpty(row.amount)],
         );
@@ -1525,26 +1564,72 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
     }
 
     if (hasTcInBunkerTable) {
+      const bunkerStyle = await detectTcInBunkerColumnStyle(connection);
+      let tcInBunkerHasAmount = bunkerStyle === 'bunker_prefixed';
+      if (bunkerStyle !== 'bunker_prefixed') {
+        try {
+          const [cols] = await connection.query(
+            `SHOW COLUMNS FROM chartering_tc_estimate_slave3 LIKE 'AMOUNT'`,
+          );
+          tcInBunkerHasAmount = cols.length > 0;
+        } catch {
+          tcInBunkerHasAmount = false;
+        }
+      }
       const tcInBunkers = [
         ...(tcIn.deliveryBunkers || []).map((r) => ({ ...r, identity: 'DEL' })),
         ...(tcIn.redeliveryBunkers || []).map((r) => ({ ...r, identity: 'REDEL' })),
       ];
       for (const row of tcInBunkers) {
         if (!row.bunkerId && !row.qty) continue;
-        await connection.query(
-          `INSERT INTO chartering_tc_estimate_slave3
-           (TC_SLAVE1ID, BUNKERID, AMOUNT, BUNKER_DATE, QTY, PRICE, IDENTIFY)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            slave1Id,
-            nullIfEmpty(row.bunkerId),
-            nullIfEmpty(row.amount || String((Number(row.qty) || 0) * (Number(row.price) || 0))),
-            toDbDate(row.bunkerDate),
-            nullIfEmpty(row.qty),
-            nullIfEmpty(row.price),
-            row.identity,
-          ],
+        const amount = nullIfEmpty(
+          row.amount || String((Number(row.qty) || 0) * (Number(row.price) || 0)),
         );
+        if (bunkerStyle === 'bunker_prefixed') {
+          await connection.query(
+            `INSERT INTO chartering_tc_estimate_slave3
+             (TC_SLAVE1ID, BUNKERID, BUNKER_AMT, BUNKER_DATE, BUNKER_QTY, BUNKER_PRICE, IDENTIFY)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              slave1Id,
+              nullIfEmpty(row.bunkerId),
+              amount,
+              toDbDate(row.bunkerDate),
+              nullIfEmpty(row.qty),
+              nullIfEmpty(row.price),
+              row.identity,
+            ],
+          );
+        } else if (tcInBunkerHasAmount) {
+          await connection.query(
+            `INSERT INTO chartering_tc_estimate_slave3
+             (TC_SLAVE1ID, BUNKERID, AMOUNT, BUNKER_DATE, QTY, PRICE, IDENTIFY)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              slave1Id,
+              nullIfEmpty(row.bunkerId),
+              amount,
+              toDbDate(row.bunkerDate),
+              nullIfEmpty(row.qty),
+              nullIfEmpty(row.price),
+              row.identity,
+            ],
+          );
+        } else {
+          await connection.query(
+            `INSERT INTO chartering_tc_estimate_slave3
+             (TC_SLAVE1ID, BUNKERID, BUNKER_DATE, QTY, PRICE, IDENTIFY)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              slave1Id,
+              nullIfEmpty(row.bunkerId),
+              toDbDate(row.bunkerDate),
+              nullIfEmpty(row.qty),
+              nullIfEmpty(row.price),
+              row.identity,
+            ],
+          );
+        }
       }
     }
 

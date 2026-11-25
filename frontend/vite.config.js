@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function backendProxy() {
   return {
-    target: 'http://localhost:3000',
+    target: process.env.BACKEND_PROXY_TARGET || 'http://localhost:3000',
     changeOrigin: true,
     configure: (proxy) => {
       proxy.on('error', (_err, _req, res) => {

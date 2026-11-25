@@ -37,7 +37,7 @@ function makeFakePool({
           const text = String(sql);
           if (/GET_LOCK/i.test(text)) return [[{ got: state.lockGot }]];
           if (/RELEASE_LOCK/i.test(text)) return [[{ released: state.releaseOk }]];
-          if (/SHOW COLUMNS FROM chartering_tc_estimate_slave2/i.test(text)) {
+          if (/SHOW COLUMNS FROM chartering_estimate_tc_slave2/i.test(text)) {
             return [state.slave2AccountType ? [{ Field: 'ACCOUNT_TYPE' }] : []];
           }
           if (/SHOW COLUMNS/i.test(text)) {

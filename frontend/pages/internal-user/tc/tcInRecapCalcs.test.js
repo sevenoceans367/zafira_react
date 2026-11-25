@@ -214,6 +214,47 @@ describe('legacy snapshot hydration and partial periods', () => {
     assert.equal(calcTcInGrossHireExpense(synced).totalHirePayable, '226000.00');
   });
 
+  it('buildTcInRecapDraft preserves draft-level values for partial period terms {}', () => {
+    const draft = buildTcInRecapDraft({}, {
+      recapVersion: 1,
+      ilohc: '5000',
+      ballastBonus: '1000',
+      deliveryPort: 'Singapore',
+      redeliveryPort: 'Mundra',
+      periods: [{
+        terms: {},
+        hires: HIRE_10x22000,
+        offHires: [],
+      }],
+    });
+    assert.equal(draft.ilohc, '5000');
+    assert.equal(draft.ballastBonus, '1000');
+    assert.equal(draft.deliveryPort, 'Singapore');
+    assert.equal(draft.redeliveryPort, 'Mundra');
+    assert.equal(draft.terms.ilohcUsd, '5000');
+    assert.equal(calcTcInGrossHireExpense(draft).totalHirePayable, '226000.00');
+    assert.equal(calcTcInFinalHireage(draft).finalHireage, '225000.00');
+  });
+
+  it('buildTcInRecapDraft preserves draft-level values for flat empty terms {}', () => {
+    const draft = buildTcInRecapDraft({}, {
+      recapVersion: 1,
+      ilohc: '5000',
+      ballastBonus: '1000',
+      deliveryPort: 'Singapore',
+      redeliveryPort: 'Mundra',
+      terms: {},
+      hires: HIRE_10x22000,
+      offHires: [],
+    });
+    assert.equal(draft.ilohc, '5000');
+    assert.equal(draft.ballastBonus, '1000');
+    assert.equal(draft.deliveryPort, 'Singapore');
+    assert.equal(draft.redeliveryPort, 'Mundra');
+    assert.equal(calcTcInGrossHireExpense(draft).totalHirePayable, '226000.00');
+    assert.equal(calcTcInFinalHireage(draft).finalHireage, '225000.00');
+  });
+
   it('keeps explicit clears empty without resurrecting draft leftovers', () => {
     const synced = syncPeriodOneToLegacy({
       ilohc: '5000',
@@ -237,6 +278,32 @@ describe('legacy snapshot hydration and partial periods', () => {
     assert.equal(synced.deliveryPort, '');
     assert.equal(synced.redeliveryPort, '');
     assert.equal(calcTcInGrossHireExpense(synced).totalHirePayable, '220000.00');
+  });
+
+  it('buildTcInRecapDraft keeps explicit clears empty vs absent draft leftovers', () => {
+    const draft = buildTcInRecapDraft({}, {
+      recapVersion: 1,
+      ilohc: '5000',
+      ballastBonus: '1000',
+      deliveryPort: 'Singapore',
+      redeliveryPort: 'Mundra',
+      periods: [{
+        terms: {
+          ilohcUsd: '',
+          ballastBonus: '',
+          delRangePort: '',
+          reDelRange: '',
+        },
+        hires: HIRE_10x22000,
+        offHires: [],
+      }],
+    });
+    assert.equal(draft.ilohc, '');
+    assert.equal(draft.ballastBonus, '');
+    assert.equal(draft.deliveryPort, '');
+    assert.equal(draft.redeliveryPort, '');
+    assert.equal(calcTcInGrossHireExpense(draft).totalHirePayable, '220000.00');
+    assert.equal(calcTcInFinalHireage(draft).finalHireage, '220000.00');
   });
 
   it('preserves numeric zero ILOHC through normalize and sync', () => {

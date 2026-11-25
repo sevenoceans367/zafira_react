@@ -569,18 +569,21 @@ export function mergeVesselParticulars(saved = {}, detail = {}) {
 /** Build modal draft: prefer saved recap; else prefill from parent TC Out. */
 export function buildTcInRecapDraft(detail = {}, existing = null) {
   if (existing?.recapVersion || existing?.identifiers || existing?.periods) {
-    // Normalize raw saved terms before defaults so blank primaries do not wipe legacy aliases.
+    // Primary period keeps raw terms so syncPeriodOneToLegacy can tell absent vs explicit clear.
+    // Extension periods normalize immediately (sync only reads period 0).
     const periods = existing.periods?.length
-      ? existing.periods.map((p) => ({
+      ? existing.periods.map((p, index) => ({
         ...EMPTY_TC_IN_PERIOD,
         ...p,
-        terms: normalizeTcInTerms(p.terms || existing.terms || {}),
+        terms: index === 0
+          ? (p.terms || existing.terms || {})
+          : normalizeTcInTerms(p.terms || existing.terms || {}),
         hires: (p.hires?.length ? p.hires : [{ ...EMPTY_TC_IN_HIRE }]).map((r) => ({ ...EMPTY_TC_IN_HIRE, ...r })),
         offHires: (p.offHires?.length ? p.offHires : [{ ...EMPTY_TC_IN_OFF }]).map((r) => ({ ...EMPTY_TC_IN_OFF, ...r })),
       }))
       : [{
         ...EMPTY_TC_IN_PERIOD,
-        terms: normalizeTcInTerms(existing.terms || {}),
+        terms: existing.terms || {},
         hires: existing.hires?.length
           ? existing.hires.map((r) => ({ ...EMPTY_TC_IN_HIRE, ...r }))
           : [{ ...EMPTY_TC_IN_HIRE }],

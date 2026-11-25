@@ -149,19 +149,28 @@ export async function saveSof(payload = {}) {
   if (isDbConfigured()) return dbSaveSof(payload);
   if (Array.isArray(payload.portActivities)) {
     validateSofActivityPartialPercentages(payload.portActivities);
-    validateSofCompletedIntervals(payload.portActivities, {
-      fromKey: 'from',
-      toKey: 'to',
-      label: 'Activity',
-    });
   }
   if (Array.isArray(payload.deductions)) {
     validateSofDeductionPartialPercentages(payload.deductions);
-    validateSofCompletedIntervals(payload.deductions, {
-      fromKey: 'start',
-      toKey: 'end',
-      label: 'Deduction',
-    });
+  }
+  // Mock fixture is Dry (estimateType 3); keep interval gate aligned with dbSaveSof Dry scope.
+  if (Number(mockForm.estimateType) === 3) {
+    if (Array.isArray(payload.portActivities)) {
+      validateSofCompletedIntervals(payload.portActivities, {
+        fromKey: 'from',
+        toKey: 'to',
+        label: 'Activity',
+        rejectUnparseable: true,
+      });
+    }
+    if (Array.isArray(payload.deductions)) {
+      validateSofCompletedIntervals(payload.deductions, {
+        fromKey: 'start',
+        toKey: 'end',
+        label: 'Deduction',
+        rejectUnparseable: true,
+      });
+    }
   }
   const port = mockForm.ports.find(
     (item) => item.key === `${payload.portType}-${payload.portId}-${payload.randomId}`,

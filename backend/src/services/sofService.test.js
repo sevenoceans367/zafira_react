@@ -211,6 +211,35 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
     assert.equal(blankFirst[0].activityDateTime, '10-04-2026 08:30');
     assert.equal(blankFirst[1].activityDateTime, '');
   });
+
+  it('does not derive arrival Pilot master from a later departure Pilot timestamp', () => {
+    // Preset/insertion order: blank arrival Pilot, timed departure Pilot.
+    const derived = deriveMasterFieldsFromKeyOperations([
+      { activity: 'Pilot on board', activityDateTime: '' },
+      { activity: 'Pilot on board', activityDateTime: '12-04-2026 19:00' },
+    ], []);
+    assert.equal(derived.pilotOnBoard, null);
+
+    // Timestamp-first reload order must not be used for Dry derivation; if it were,
+    // the timed departure would incorrectly become PBFB_1.
+    const badOrder = deriveMasterFieldsFromKeyOperations([
+      { activity: 'Pilot on board', activityDateTime: '12-04-2026 19:00' },
+      { activity: 'Pilot on board', activityDateTime: '' },
+    ], []);
+    assert.equal(badOrder.pilotOnBoard, '12-04-2026 19:00');
+  });
+
+  it('rejects unparseable completed Dry intervals when rejectUnparseable is set', () => {
+    assert.throws(
+      () => validateSofCompletedIntervals([
+        { from: 'not-a-date', to: 'also-bad' },
+      ], { rejectUnparseable: true }),
+      /valid date\/times/i,
+    );
+    assert.doesNotThrow(() => validateSofCompletedIntervals([
+      { from: 'not-a-date', to: 'also-bad' },
+    ], { rejectUnparseable: false }));
+  });
 });
 
 describe('sofService mock persistence preservation', { skip: isDbConfigured() }, () => {

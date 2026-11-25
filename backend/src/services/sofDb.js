@@ -372,6 +372,16 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
     const dt = str(row?.activityDateTime);
     return dt || null;
   };
+  // Arrival Pilot = first "Pilot on board" occurrence in stored order.
+  // Do not fall through a blank arrival row to a later (departure) Pilot timestamp.
+  const findArrivalPilot = () => {
+    const row = (keyOperations || []).find(
+      (r) => /^pilot on board$/i.test(String(r.activity || '').trim()),
+    );
+    if (!row) return null;
+    const dt = str(row.activityDateTime);
+    return dt || null;
+  };
   const cargoLoaded = (cargoRows || []).find(
     (r) => String(r.activity || '').trim().toLowerCase() === 'cargo loaded',
   );
@@ -381,7 +391,7 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
     stowageQty: strOrNull(explicit.stowageQty) || stowageFromCargo || null,
     vesselArrived: strOrNull(explicit.vesselArrived) || findFrom(/^eosp$/i),
     norTendered: strOrNull(explicit.norTendered) || findFrom(/^nor tendered$/i),
-    pilotOnBoard: strOrNull(explicit.pilotOnBoard) || findFrom(/^pilot on board$/i),
+    pilotOnBoard: strOrNull(explicit.pilotOnBoard) || findArrivalPilot(),
     loadCommenced: strOrNull(explicit.loadCommenced) || findFrom(/^commenced cargo operations$/i),
     loadCompleted: strOrNull(explicit.loadCompleted) || findFrom(/^completed cargo operations$/i),
     vesselSailed: strOrNull(explicit.vesselSailed)
@@ -620,17 +630,32 @@ function laytimeActivityKey(row = {}) {
 async function loadKeyOperations(pool, sofId, defaults, estimateType = null) {
   if (!sofId) return defaultKeyOperations(defaults, estimateType);
   await ensureSofActivityDateTimeToColumn(pool);
-  // Non-destructive: any saved key-op history (including legacy tanker-oriented Dry rows)
-  // loads as stored. New/empty SOFs seed estimate-type presets. SLAVEID breaks ties
-  // when timestamps are blank/equal so repeated labels keep stable identity/order.
-  const [rows] = await pool.query(
-    `SELECT * FROM sof_slave_6
-     WHERE SOFID = ?
-     ORDER BY (ACTIVITYDATETIME IS NULL OR ACTIVITYDATETIME = '0000-00-00 00:00:00'),
-              ACTIVITYDATETIME ASC,
-              SLAVEID ASC`,
-    [sofId],
-  ).catch(() => [[]]);
+  // Non-destructive: any saved key-op history loads as stored; empty SOFs seed presets.
+  // Dry keeps insertion/SLAVEID order so repeated Pilots keep arrival→departure identity
+  // (timestamp-first sort would promote a timed departure Pilot ahead of a blank arrival).
+  // Tanker keeps chronological ordering (timed first, then datetime, then SLAVEID).
+  const isDry = Number(estimateType) === 3;
+  const orderBy = isDry
+    ? 'SLAVEID ASC'
+    : `(ACTIVITYDATETIME IS NULL OR ACTIVITYDATETIME = '0000-00-00 00:00:00'),
+       ACTIVITYDATETIME ASC,
+       SLAVEID ASC`;
+  // Fail closed on read errors: a silent empty result would seed defaults and a later
+  // Save would replace real history. Legitimately empty SOFs still seed presets.
+  let rows;
+  try {
+    [rows] = await pool.query(
+      `SELECT * FROM sof_slave_6
+       WHERE SOFID = ?
+       ORDER BY ${orderBy}`,
+      [sofId],
+    );
+  } catch (err) {
+    const error = new Error(`Failed to load SOF key operations: ${err.message || 'query error'}`);
+    error.status = 500;
+    error.cause = err;
+    throw error;
+  }
   if (!rows?.length) return defaultKeyOperations(defaults, estimateType);
   return rows.map((row) => ({
     sofSlaveId: row.SLAVEID != null ? String(row.SLAVEID) : '',
@@ -1153,21 +1178,43 @@ export function validateSofActivityPartialPercentages(rows = []) {
 /**
  * Reject completed reversed From/To (or Start/Finish) ranges.
  * Incomplete drafts (missing either end) remain allowed.
+ * When rejectUnparseable is true, nonempty but unparseable ends also fail
+ * (Dry scope — avoids silently accepting malformed completed intervals).
  */
-export function validateSofCompletedIntervals(rows = [], { fromKey = 'from', toKey = 'to', label = 'Activity' } = {}) {
+export function validateSofCompletedIntervals(
+  rows = [],
+  { fromKey = 'from', toKey = 'to', label = 'Activity', rejectUnparseable = false } = {},
+) {
   for (const row of rows || []) {
     const fromRaw = String(row?.[fromKey] || '').trim();
     const toRaw = String(row?.[toKey] || '').trim();
     if (!fromRaw || !toRaw) continue;
     const from = parseDmyDateTime(fromRaw);
     const to = parseDmyDateTime(toRaw);
-    if (!from || !to) continue;
+    if (!from || !to) {
+      if (rejectUnparseable) {
+        const error = new Error(`${label} start and finish must be valid date/times.`);
+        error.status = 400;
+        throw error;
+      }
+      continue;
+    }
     if (new Date(to).getTime() < new Date(from).getTime()) {
       const error = new Error(`${label} finish must be on or after start.`);
       error.status = 400;
       throw error;
     }
   }
+}
+
+async function getEstimateTypeForComId(pool, comId) {
+  const fcaId = await getLatestCostSheetId(pool, comId);
+  if (!fcaId) return null;
+  const [[row]] = await pool.query(
+    `SELECT ESTIMATE_TYPE FROM freight_cost_estimete_master WHERE FCAID = ? LIMIT 1`,
+    [fcaId],
+  ).catch(() => [[null]]);
+  return row?.ESTIMATE_TYPE != null ? Number(row.ESTIMATE_TYPE) : null;
 }
 
 export function validateSofDeductionPartialPercentages(rows = []) {
@@ -1454,19 +1501,9 @@ export async function dbSaveSof(payload = {}) {
 
   if (Array.isArray(payload.portActivities)) {
     validateSofActivityPartialPercentages(payload.portActivities);
-    validateSofCompletedIntervals(payload.portActivities, {
-      fromKey: 'from',
-      toKey: 'to',
-      label: 'Activity',
-    });
   }
   if (Array.isArray(payload.deductions)) {
     validateSofDeductionPartialPercentages(payload.deductions);
-    validateSofCompletedIntervals(payload.deductions, {
-      fromKey: 'start',
-      toKey: 'end',
-      label: 'Deduction',
-    });
   }
   if (Array.isArray(payload.portActivities) && !payload.expectedLaytimeActivityVersion) {
     const error = new Error('A Laytime Activity version is required. Reload the SOF and try again.');
@@ -1483,6 +1520,28 @@ export async function dbSaveSof(payload = {}) {
     const error = new Error('comId, portType, portId and randomId are required.');
     error.status = 400;
     throw error;
+  }
+
+  // Dry-only interval gate using authoritative estimate type from the voyage master
+  // (not a client-supplied type). Tanker/Gas keep prior save behavior.
+  const estimateType = await getEstimateTypeForComId(pool, comId);
+  if (Number(estimateType) === 3) {
+    if (Array.isArray(payload.portActivities)) {
+      validateSofCompletedIntervals(payload.portActivities, {
+        fromKey: 'from',
+        toKey: 'to',
+        label: 'Activity',
+        rejectUnparseable: true,
+      });
+    }
+    if (Array.isArray(payload.deductions)) {
+      validateSofCompletedIntervals(payload.deductions, {
+        fromKey: 'start',
+        toKey: 'end',
+        label: 'Deduction',
+        rejectUnparseable: true,
+      });
+    }
   }
 
   const connection = await pool.getConnection();

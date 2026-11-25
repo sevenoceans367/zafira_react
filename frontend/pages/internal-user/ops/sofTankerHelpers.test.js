@@ -2,9 +2,9 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { recomputePortDraft } from './laytimeCalculations.js';
 import {
-  DEFAULT_KEY_OPERATIONS_DRY,
   DEFAULT_SOF_ROW_SIZE,
   applyLtCountToggle,
+  assertValidSofCompletedIntervals,
   buildSofSavePayload,
   coalesceActivityCumulative,
   computeActivityDurationDays,
@@ -21,6 +21,7 @@ import {
   insertDeductionRowAfter,
   isDrySofEstimate,
   isLtCounting,
+  isReversedSofInterval,
   isValidLtPartialPercent,
   paginateRows,
   patchCargoCardField,
@@ -32,24 +33,6 @@ import {
 describe('sofTankerHelpers', () => {
   it('defaults Key Operations page size to 5', () => {
     assert.equal(DEFAULT_SOF_ROW_SIZE, 5);
-  });
-
-  it('exports Dry Key Operations presets in product-locked order with repeated events preserved', () => {
-    assert.equal(DEFAULT_KEY_OPERATIONS_DRY.length, 22);
-    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[0], 'EOSP');
-    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[2], 'Anchored / Commenced Drifting');
-    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[9], 'Commenced draft survey');
-    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[13], 'Commenced draft survey');
-    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[18], 'Pilot on board');
-    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[21], 'FAOP');
-    assert.equal(
-      DEFAULT_KEY_OPERATIONS_DRY.filter((name) => name === 'Pilot on board').length,
-      2,
-    );
-    assert.equal(
-      DEFAULT_KEY_OPERATIONS_DRY.filter((name) => name === 'Commenced draft survey').length,
-      2,
-    );
   });
 
   it('routes Tanker+Dry to the redesigned layout and keeps Gas on legacy', () => {
@@ -65,6 +48,39 @@ describe('sofTankerHelpers', () => {
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', '10-05-2026 10:30'), '2.5');
     assert.equal(computeActivityDurationHours('10-05-2026 12:00', '10-05-2026 10:00'), '');
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', ''), '');
+  });
+
+  it('stores Dry activity hours at 4dp so short intervals survive Days display', () => {
+    assert.equal(
+      computeActivityDurationHours('10-05-2026 08:00', '10-05-2026 08:01', { decimals: 1 }),
+      '0.0',
+    );
+    assert.equal(
+      computeActivityDurationHours('10-05-2026 08:00', '10-05-2026 08:01', { decimals: 4 }),
+      '0.0167',
+    );
+    assert.equal(hoursDurationToDays('0.0167'), '0.0007');
+    assert.equal(
+      displaySofDuration({
+        from: '10-05-2026 08:00', to: '10-05-2026 08:01', duration: '0.0167',
+      }, { isDry: true }),
+      '0.0007',
+    );
+  });
+
+  it('rejects completed reversed Dry intervals while allowing incomplete drafts', () => {
+    assert.equal(isReversedSofInterval('10-05-2026 12:00', '10-05-2026 10:00'), true);
+    assert.equal(isReversedSofInterval('10-05-2026 08:00', '10-05-2026 10:00'), false);
+    assert.equal(isReversedSofInterval('10-05-2026 08:00', ''), false);
+    assert.doesNotThrow(() => assertValidSofCompletedIntervals([
+      { from: '10-05-2026 08:00', to: '' },
+    ]));
+    assert.throws(
+      () => assertValidSofCompletedIntervals([
+        { from: '10-05-2026 12:00', to: '10-05-2026 10:00' },
+      ]),
+      /finish must be on or after start/i,
+    );
   });
 
   it('computes Dry duration in decimal days (hours/24) at 4dp', () => {

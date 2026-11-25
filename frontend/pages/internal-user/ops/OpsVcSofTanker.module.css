@@ -480,6 +480,14 @@
   padding-right: 6px;
 }
 
+/* Dry Duration (Days) needs more width than Tanker Duration (Hrs). */
+.activityDeductionTableDry :is(th, td):nth-child(5) { width: 11.5%; }
+.activityDeductionTableDry :is(th, td):nth-child(6) { width: 37.2%; }
+.activityDeductionTableDry th:nth-child(5) {
+  white-space: normal;
+  line-height: 1.25;
+}
+
 .cfTable th {
   text-align: left;
   font-size: 10.5px;

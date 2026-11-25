@@ -3,32 +3,6 @@ import { recomputePortDraft } from './laytimeCalculations.js';
 export const SOF_ROW_SIZE_OPTIONS = [5, 10, 25];
 export const DEFAULT_SOF_ROW_SIZE = 5;
 
-/** Dry Key Operations presets — mirrors backend DEFAULT_KEY_OPERATIONS_DRY order/labels. */
-export const DEFAULT_KEY_OPERATIONS_DRY = [
-  'EOSP',
-  'Arrived',
-  'Anchored / Commenced Drifting',
-  'NOR tendered',
-  'Anchor aweigh',
-  'Pilot on board',
-  'First line',
-  'All fast',
-  'Gangway ashore',
-  'Commenced draft survey',
-  'Completed draft survey',
-  'Commenced cargo operations',
-  'Completed cargo operations',
-  'Commenced draft survey',
-  'Completed draft survey',
-  'Completed cargo calculation',
-  'Cargo samples taken',
-  'Cargo docs onboard',
-  'Pilot on board',
-  'All clear',
-  'Pilot away',
-  'FAOP',
-];
-
 /** Redesigned OpsVcSofPage layout: Tanker (2) + Dry (3). Gas (1) stays on legacy. */
 export function usesRedesignedSofLayout(estimateType) {
   const type = Number(estimateType);
@@ -290,13 +264,43 @@ export function parseDisplayDateTime(value) {
     : null;
 }
 
-/** Hours between two display datetimes, formatted to 1 decimal matching the SOF mockup. */
-export function computeActivityDurationHours(from, to) {
+/**
+ * Hours between two display datetimes.
+ * Tanker UI/storage uses 1 decimal (mockup). Dry needs finer storage precision so
+ * short intervals still round-trip into Duration (Days) without collapsing to 0.0h.
+ */
+export function computeActivityDurationHours(from, to, { decimals = 1 } = {}) {
   const sd = parseDisplayDateTime(from);
   const fd = parseDisplayDateTime(to);
   if (!sd || !fd) return '';
   const hrs = (fd.getTime() - sd.getTime()) / 3600000;
-  return hrs >= 0 ? hrs.toFixed(1) : '';
+  const places = Number.isInteger(decimals) && decimals >= 0 ? decimals : 1;
+  return hrs >= 0 ? hrs.toFixed(places) : '';
+}
+
+/**
+ * True when both ends of a From/To (or Start/Finish) range are present and reversed.
+ * Incomplete ranges are allowed (draft entry); only completed inverted ranges fail.
+ */
+export function isReversedSofInterval(from, to) {
+  const sd = parseDisplayDateTime(from);
+  const fd = parseDisplayDateTime(to);
+  if (!sd || !fd) return false;
+  return fd.getTime() < sd.getTime();
+}
+
+/** Reject completed reversed Activity/Deduction ranges before Soft save. */
+export function assertValidSofCompletedIntervals(rows = [], { fromKey = 'from', toKey = 'to', label = 'Activity' } = {}) {
+  for (const row of rows || []) {
+    const from = row?.[fromKey];
+    const to = row?.[toKey];
+    if (!String(from || '').trim() || !String(to || '').trim()) continue;
+    if (isReversedSofInterval(from, to)) {
+      const error = new Error(`${label} finish must be on or after start.`);
+      error.status = 400;
+      throw error;
+    }
+  }
 }
 
 /**
@@ -424,17 +428,18 @@ export function displayStoredFileName(stored) {
  * Snapshot a port record into per-tab draft state while preserving all backend collections
  * (entityRows, blRows, portActivities, preArrival, dailyQty, cargoRows, keyOperations, agentRemarks).
  */
-export function draftFromPort(port = {}) {
+export function draftFromPort(port = {}, { isDry = false } = {}) {
   // Duration stays in hours for Laytime sync (recomputePortDraft divider math).
   // Dry UI converts to Days for display via computeActivityDurationDays / hoursDurationToDays.
   // New placeholder rows use emptyPortActivityRow() defaults (C/100).
   // Loaded rows keep stored flags/partial — do not silently rewrite C/0% or neither.
+  const hourDecimals = isDry ? 4 : 1;
   const portActivities = (port.portActivities?.length ? port.portActivities : [emptyPortActivityRow()])
     .map((row) => ({
       activity: row.activity || '',
       from: row.from || '',
       to: row.to || '',
-      duration: row.duration || computeActivityDurationHours(row.from, row.to),
+      duration: row.duration || computeActivityDurationHours(row.from, row.to, { decimals: hourDecimals }),
       layTimeCount: row.layTimeCount === true || Number(row.layTimeCount) === 1,
       portTimeCount: row.portTimeCount === true || Number(row.portTimeCount) === 1,
       ltPartial: row.ltPartial == null ? '' : String(row.ltPartial),
@@ -478,7 +483,7 @@ export function displaySofDuration(row = {}, { fromKey = 'from', toKey = 'to', i
  * Include only collections this layout owns. The API preserves omitted collections,
  * which avoids replacing fields this screen does not display or edit.
  */
-export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
+export function buildSofSavePayload({ comId, activePort, draft, submitId, isDry = false }) {
   const payload = {
     comId,
     portType: activePort.portType,
@@ -497,7 +502,15 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
     if (JSON.stringify(activityRowsForSave(originalActivities).map(normalizeActivityForSave))
       !== JSON.stringify(activityRowsForSave(currentActivities).map(normalizeActivityForSave))) {
       // Persist only meaningful rows; synthetic C/100 placeholders stay out of the payload.
-      payload.portActivities = activityRowsForSave(currentActivities);
+      const activitiesForSave = activityRowsForSave(currentActivities);
+      if (isDry) {
+        assertValidSofCompletedIntervals(activitiesForSave, {
+          fromKey: 'from',
+          toKey: 'to',
+          label: 'Activity',
+        });
+      }
+      payload.portActivities = activitiesForSave;
       if (activePort.laytimeActivityVersion) {
         payload.expectedLaytimeActivityVersion = activePort.laytimeActivityVersion;
       }
@@ -507,6 +520,13 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
     const currentDeductions = draft.deductions || [];
     if (JSON.stringify(deductionRowsForComparison(originalDeductions).map(normalizeDeductionForSave))
       !== JSON.stringify(deductionRowsForComparison(currentDeductions).map(normalizeDeductionForSave))) {
+      if (isDry) {
+        assertValidSofCompletedIntervals(currentDeductions, {
+          fromKey: 'start',
+          toKey: 'end',
+          label: 'Deduction',
+        });
+      }
       payload.deductions = currentDeductions;
       if (activePort.laytimeDeductionVersion) {
         payload.expectedLaytimeDeductionVersion = activePort.laytimeDeductionVersion;

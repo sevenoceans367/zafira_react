@@ -41,6 +41,7 @@ import {
   isBlankKeyOp,
   insertDeductionRowAfter,
   isDrySofEstimate,
+  isReversedSofInterval,
   pageForIndex,
   paginateRows,
   patchCargoCardField,
@@ -176,9 +177,10 @@ export default function OpsVcSofPage() {
     try {
       const data = await fetchSofForm(comId);
       setForm(data);
+      const dryEstimate = isDrySofEstimate(data.estimateType);
       const nextDrafts = {};
       (data.ports || []).forEach((port) => {
-        const portDraft = draftFromPort(port);
+        const portDraft = draftFromPort(port, { isDry: dryEstimate });
         portDraft.portActivities = recomputeSofActivityRows(port, portDraft.portActivities);
         nextDrafts[port.key] = portDraft;
       });
@@ -303,7 +305,10 @@ export default function OpsVcSofPage() {
     const rows = [...(draft?.portActivities || [])];
     let nextRow = { ...rows[index], ...patch };
     if ('from' in patch || 'to' in patch) {
-      nextRow.duration = computeActivityDurationHours(nextRow.from, nextRow.to);
+      // Dry stores hours at 4dp so short intervals survive Days display/round-trip.
+      nextRow.duration = computeActivityDurationHours(nextRow.from, nextRow.to, {
+        decimals: isDrySofEstimate(form?.estimateType) ? 4 : 1,
+      });
     }
     if ('layTimeCount' in patch || 'portTimeCount' in patch) {
       const counts = 'layTimeCount' in patch
@@ -338,7 +343,17 @@ export default function OpsVcSofPage() {
     while (rows.length <= index) rows.push(emptyDeductionRow());
     rows[index] = { ...rows[index], ...patch };
     const recomputed = recomputePortDraft({ ...draft, deductions: rows }, activePort?.rateUnit || 'hours');
-    patchDraft({ deductions: recomputed.deductions });
+    // Dry hides negative durations in the UI; clear invalid completed ranges so they
+    // cannot persist into Laytime via recomputePortDraft's signed hoursBetween.
+    const dry = isDrySofEstimate(form?.estimateType);
+    const deductions = dry
+      ? (recomputed.deductions || []).map((row) => (
+        isReversedSofInterval(row.start, row.end)
+          ? { ...row, duration: '', cumulative: '0.0000' }
+          : row
+      ))
+      : recomputed.deductions;
+    patchDraft({ deductions });
   };
 
   const addDeductionAfter = (index) => {
@@ -401,6 +416,7 @@ export default function OpsVcSofPage() {
         activePort,
         draft,
         submitId,
+        isDry: isDrySofEstimate(form?.estimateType),
       });
       const result = await saveSof(payload, pendingFiles);
 
@@ -761,7 +777,7 @@ export default function OpsVcSofPage() {
                     </div>
 
                     <div className={styles.tableWrap}>
-                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}`}>
+                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}${isDry ? ` ${styles.activityDeductionTableDry}` : ''}`}>
                         <thead>
                           <tr>
                             <th />
@@ -862,7 +878,7 @@ export default function OpsVcSofPage() {
                     </div>
 
                     <div className={styles.tableWrap}>
-                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}`}>
+                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}${isDry ? ` ${styles.activityDeductionTableDry}` : ''}`}>
                         <thead>
                           <tr>
                             <th />

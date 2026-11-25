@@ -3,6 +3,7 @@ import {
   dbGetSofForm,
   dbSaveSof,
   validateSofActivityPartialPercentages,
+  validateSofCompletedIntervals,
   validateSofDeductionPartialPercentages,
 } from './sofDb.js';
 
@@ -148,9 +149,19 @@ export async function saveSof(payload = {}) {
   if (isDbConfigured()) return dbSaveSof(payload);
   if (Array.isArray(payload.portActivities)) {
     validateSofActivityPartialPercentages(payload.portActivities);
+    validateSofCompletedIntervals(payload.portActivities, {
+      fromKey: 'from',
+      toKey: 'to',
+      label: 'Activity',
+    });
   }
   if (Array.isArray(payload.deductions)) {
     validateSofDeductionPartialPercentages(payload.deductions);
+    validateSofCompletedIntervals(payload.deductions, {
+      fromKey: 'start',
+      toKey: 'end',
+      label: 'Deduction',
+    });
   }
   const port = mockForm.ports.find(
     (item) => item.key === `${payload.portType}-${payload.portId}-${payload.randomId}`,

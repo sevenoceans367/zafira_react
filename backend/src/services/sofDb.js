@@ -197,6 +197,12 @@ function isVesselSailedActivity(activity) {
   return /^full away on passage$/i.test(name) || /^faop$/i.test(name);
 }
 
+/**
+ * Identifiers Draft Arr/Dep Fore/Aft.
+ * Freight estimate worksheet (slave1) carries ROB but has no F/A draft columns.
+ * Established SOF F/A storage is sof_slave_7 "Arrival draft" / "Departure draft"
+ * rows (shipFigure=fore, blFigure=aft) — same source Tanker redesigned SOF uses.
+ */
 function draftFiguresFromCargoRows(cargoRows = []) {
   const arrival = (cargoRows || []).find(
     (row) => String(row.activity || '').trim().toLowerCase() === 'arrival draft',
@@ -393,10 +399,16 @@ function applyMasterToKeyOperations(rows, record) {
     'Full away on passage': record?.VS,
     FAOP: record?.VS,
   };
+  // Master PBFB_1 is a single arrival Pilot timestamp. Apply it at most once — to the
+  // first blank "Pilot on board" row. An already-timed earlier Pilot consumes the
+  // fallback so a later blank (departure) Pilot is not fabricated with the same time.
   let pilotApplied = false;
   return rows.map((row) => {
     const activity = str(row.activity);
-    if (row.activityDateTime) return row;
+    if (row.activityDateTime) {
+      if (activity === 'Pilot on board') pilotApplied = true;
+      return row;
+    }
     if (activity === 'Pilot on board') {
       if (pilotApplied || !record?.PBFB_1) return row;
       pilotApplied = true;
@@ -608,15 +620,20 @@ function laytimeActivityKey(row = {}) {
 async function loadKeyOperations(pool, sofId, defaults, estimateType = null) {
   if (!sofId) return defaultKeyOperations(defaults, estimateType);
   await ensureSofActivityDateTimeToColumn(pool);
+  // Non-destructive: any saved key-op history (including legacy tanker-oriented Dry rows)
+  // loads as stored. New/empty SOFs seed estimate-type presets. SLAVEID breaks ties
+  // when timestamps are blank/equal so repeated labels keep stable identity/order.
   const [rows] = await pool.query(
     `SELECT * FROM sof_slave_6
      WHERE SOFID = ?
-     ORDER BY (ACTIVITYDATETIME IS NULL OR ACTIVITYDATETIME = '0000-00-00 00:00:00'), ACTIVITYDATETIME ASC`,
+     ORDER BY (ACTIVITYDATETIME IS NULL OR ACTIVITYDATETIME = '0000-00-00 00:00:00'),
+              ACTIVITYDATETIME ASC,
+              SLAVEID ASC`,
     [sofId],
   ).catch(() => [[]]);
-  // Persisted Dry/Tanker rows win; only seed presets when the SOF has no key-ops yet.
   if (!rows?.length) return defaultKeyOperations(defaults, estimateType);
   return rows.map((row) => ({
+    sofSlaveId: row.SLAVEID != null ? String(row.SLAVEID) : '',
     activity: str(row.ACTIVITY),
     activityDateTime: blankDateTime(row.ACTIVITYDATETIME),
     activityDateTimeTo: blankDateTime(row.ACTIVITYDATETIMETO),
@@ -925,7 +942,7 @@ export async function dbGetSofForm(comId) {
       loadCompleted: str(record?.LC1),
       vesselSailed: str(record?.VS),
       agentRemarks: str(record?.SHIPPER_REMARKS),
-      // Worksheet ROB / draft figures for Identifiers (read-only on redesigned SOF).
+      // Identifiers read-only: ROB from port-leg worksheet; draft F/A from SOF cargo draft rows.
       robVlsfo: str(tab.defaults?.robFoArrival),
       robLsmgo: str(tab.defaults?.robDoArrival),
       draftArrFore: draftFigures.draftArrFore,
@@ -1127,6 +1144,26 @@ export function validateSofActivityPartialPercentages(rows = []) {
     const value = Number(row.ltPartial);
     if (!Number.isInteger(value) || value < 0 || value > 100) {
       const error = new Error('LT (Partial %) must be a whole percentage from 0 to 100.');
+      error.status = 400;
+      throw error;
+    }
+  }
+}
+
+/**
+ * Reject completed reversed From/To (or Start/Finish) ranges.
+ * Incomplete drafts (missing either end) remain allowed.
+ */
+export function validateSofCompletedIntervals(rows = [], { fromKey = 'from', toKey = 'to', label = 'Activity' } = {}) {
+  for (const row of rows || []) {
+    const fromRaw = String(row?.[fromKey] || '').trim();
+    const toRaw = String(row?.[toKey] || '').trim();
+    if (!fromRaw || !toRaw) continue;
+    const from = parseDmyDateTime(fromRaw);
+    const to = parseDmyDateTime(toRaw);
+    if (!from || !to) continue;
+    if (new Date(to).getTime() < new Date(from).getTime()) {
+      const error = new Error(`${label} finish must be on or after start.`);
       error.status = 400;
       throw error;
     }
@@ -1417,9 +1454,19 @@ export async function dbSaveSof(payload = {}) {
 
   if (Array.isArray(payload.portActivities)) {
     validateSofActivityPartialPercentages(payload.portActivities);
+    validateSofCompletedIntervals(payload.portActivities, {
+      fromKey: 'from',
+      toKey: 'to',
+      label: 'Activity',
+    });
   }
   if (Array.isArray(payload.deductions)) {
     validateSofDeductionPartialPercentages(payload.deductions);
+    validateSofCompletedIntervals(payload.deductions, {
+      fromKey: 'start',
+      toKey: 'end',
+      label: 'Deduction',
+    });
   }
   if (Array.isArray(payload.portActivities) && !payload.expectedLaytimeActivityVersion) {
     const error = new Error('A Laytime Activity version is required. Reload the SOF and try again.');

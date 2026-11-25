@@ -11,6 +11,7 @@ import {
   numOrNull,
   resolveSofSavePlan,
   validateSofActivityPartialPercentages,
+  validateSofCompletedIntervals,
 } from './sofDb.js';
 import { __resetSofMockForTests, getSofForm, saveSof } from './sofService.js';
 
@@ -19,6 +20,25 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
     assert.equal(numOrNull('50,000'), 50000);
     assert.equal(numOrNull('1,234.5'), 1234.5);
     assert.equal(numOrNull('1,2'), null);
+  });
+
+  it('rejects completed reversed Activity/Deduction intervals and allows incomplete drafts', () => {
+    assert.doesNotThrow(() => validateSofCompletedIntervals([
+      { from: '10-05-2026 08:00', to: '' },
+      { from: '10-05-2026 08:00', to: '10-05-2026 10:00' },
+    ]));
+    assert.throws(
+      () => validateSofCompletedIntervals([
+        { from: '10-05-2026 12:00', to: '10-05-2026 10:00' },
+      ]),
+      /finish must be on or after start/i,
+    );
+    assert.throws(
+      () => validateSofCompletedIntervals([
+        { start: '10-05-2026 14:00', end: '10-05-2026 12:00' },
+      ], { fromKey: 'start', toKey: 'end', label: 'Deduction' }),
+      /Deduction finish must be on or after start/i,
+    );
   });
 
   it('validates SOF Activity LT partial percentages at the service boundary', () => {
@@ -150,7 +170,7 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
     assert.equal(DEFAULT_KEY_OPERATIONS_DRY.filter((name) => name === 'Pilot on board').length, 2);
   });
 
-  it('derives vessel sailed from FAOP and maps worksheet draft figures from cargo rows', () => {
+  it('derives vessel sailed from FAOP and maps draft F/A figures from SOF cargo draft rows', () => {
     const derived = deriveMasterFieldsFromKeyOperations([
       { activity: 'EOSP', activityDateTime: '10-04-2026 07:30' },
       { activity: 'FAOP', activityDateTime: '12-04-2026 19:00' },
@@ -174,6 +194,22 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
       draftDepFore: '12.0',
       draftDepAft: '12.2',
     });
+  });
+
+  it('applies master Pilot fallback only to the first blank Pilot on board row', () => {
+    const rows = applyMasterToKeyOperations([
+      { activity: 'Pilot on board', activityDateTime: '10-04-2026 09:00', comments: '', tDefault: 1 },
+      { activity: 'Pilot on board', activityDateTime: '', comments: '', tDefault: 1 },
+    ], { PBFB_1: new Date(2026, 3, 10, 8, 30) });
+    assert.equal(rows[0].activityDateTime, '10-04-2026 09:00');
+    assert.equal(rows[1].activityDateTime, '');
+
+    const blankFirst = applyMasterToKeyOperations([
+      { activity: 'Pilot on board', activityDateTime: '', comments: '', tDefault: 1 },
+      { activity: 'Pilot on board', activityDateTime: '', comments: '', tDefault: 1 },
+    ], { PBFB_1: new Date(2026, 3, 10, 8, 30) });
+    assert.equal(blankFirst[0].activityDateTime, '10-04-2026 08:30');
+    assert.equal(blankFirst[1].activityDateTime, '');
   });
 });
 

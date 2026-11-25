@@ -120,7 +120,7 @@ export default function LaytimeTankerLayout({
 
   return (
     <div className={`${styles.ltTankerRoot} ${styles.ltTankerShell}`}>
-      <div className={sofStyles.portTabs} role="group" aria-label="Laytime port calls">
+      <div className={`${sofStyles.portTabs} ${styles.ltPortTabs}`} role="group" aria-label="Laytime port calls">
         {(form.ports || []).map((port) => {
           const isActive = port.key === activeKey;
           // Same SOF Tanker port-tab chrome (navy active fill for both LP/DP; LP/DP only tint the icon).

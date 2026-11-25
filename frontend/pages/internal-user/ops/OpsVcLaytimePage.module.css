@@ -949,6 +949,11 @@
   min-width: 0;
 }
 
+/* Breathing room between LP/DP port pills and the Details card. */
+.ltPortTabs {
+  margin-bottom: 16px;
+}
+
 .ltContent {
   display: flex;
   flex-direction: column;

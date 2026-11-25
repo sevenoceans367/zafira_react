@@ -473,6 +473,12 @@
 .activityDeductionTable :is(th, td):nth-child(4) { width: 17.5%; }
 .activityDeductionTable :is(th, td):nth-child(5) { width: 10.7%; }
 .activityDeductionTable :is(th, td):nth-child(6) { width: 28%; }
+.activityDeductionTable :is(th, td):nth-child(3),
+.activityDeductionTable :is(th, td):nth-child(4),
+.activityDeductionTable :is(th, td):nth-child(5) {
+  padding-left: 5px;
+  padding-right: 5px;
+}
 
 .cfTable th {
   text-align: left;

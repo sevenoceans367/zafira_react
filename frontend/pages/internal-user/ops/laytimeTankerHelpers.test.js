@@ -3,8 +3,10 @@ import { describe, it } from 'node:test';
 import {
   applyLaytimeActivityLtToggle,
   isLaytimeActivityCounting,
+  isTankerNegoUiEnabled,
   resolveLaytimeEstimateType,
   sumNegoAgreedDemm,
+  tankerLoadedQtyPatchOptions,
   usesTankerLaytimeLayout,
 } from './laytimeTankerHelpers.js';
 
@@ -59,5 +61,16 @@ describe('laytimeTankerHelpers nego visual total', () => {
       { agreedDemm: '25,000', status: 'Under Nego' },
       { agreedDemm: '', status: 'On Hold' },
     ]), 63500);
+  });
+
+  it('keeps production nego UI gated off', () => {
+    assert.equal(isTankerNegoUiEnabled(), false);
+  });
+});
+
+describe('laytimeTankerHelpers allowance gate', () => {
+  it('does not refreshAllowed on Tanker QTY edit', () => {
+    assert.equal(tankerLoadedQtyPatchOptions().refreshAllowed, false);
+    assert.equal(tankerLoadedQtyPatchOptions().recompute, true);
   });
 });

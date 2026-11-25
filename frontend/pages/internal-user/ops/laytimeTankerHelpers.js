@@ -93,3 +93,16 @@ export function isLaytimeActivityCounting(row = {}) {
   if (row.sofLoadPortId) return false;
   return true;
 }
+
+/**
+ * Tanker QTY edit patch flags (Legacy Fun158==2).
+ * Recompute financials from existing allowance; do NOT refreshAllowed from qty/rate.
+ */
+export function tankerLoadedQtyPatchOptions() {
+  return { recompute: true, refreshAllowed: false };
+}
+
+/** Nego Dialogues are gated out of production Tanker UI (no editable table). */
+export function isTankerNegoUiEnabled() {
+  return false;
+}

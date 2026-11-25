@@ -17,10 +17,10 @@ import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
 import {
-  emptyNegoRow,
   resolveLaytimeEstimateType,
   usesTankerLaytimeLayout,
 } from './laytimeTankerHelpers.js';
+import { validateTankerLaytimeDraft } from './laytimeTankerValidation.js';
 import pageStyles from './OpsPages.module.css';
 import sofStyles from './OpsVcSofPage.module.css';
 import styles from './OpsVcLaytimePage.module.css';
@@ -486,8 +486,7 @@ export default function OpsVcLaytimePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pendingFilesByKey, setPendingFilesByKey] = useState({});
-  // Nego Dialogues: local React state only — not persisted (owner decision pending).
-  const [negoByKey, setNegoByKey] = useState({});
+  // Nego Dialogues: no production session state — gated panel only (prefer hide over fake persistence).
 
   const rateUnit = form?.rateUnit === 'hours' || form?.rateUnit === 'days'
     ? form.rateUnit
@@ -654,37 +653,49 @@ export default function OpsVcLaytimePage() {
       return;
     }
 
-    const missingMandatory = LAYTIME_MANDATORY_FIELDS.filter(
-      ({ key }) => !String(draft[key] || '').trim(),
-    );
-    if (missingMandatory.length) {
-      await alertThenFocus(alert, {
-        title: 'Alert',
-        message: `Please fill the ${missingMandatory.map(({ label }) => label).join(', ')}.`,
-      }, missingMandatory[0].key);
-      return;
-    }
-
-    if (!draft.detention) {
-      const qty = Number(draft.loadedQty);
-      const rate = Number(draft.loadedRate);
-      const missingQty = !String(draft.loadedQty || '').trim() || !(qty > 0);
-      const missingRate = !String(draft.loadedRate || '').trim() || !(rate > 0);
-      if (missingQty || missingRate) {
+    // Tanker: Legacy getSubmit (selBType==2) skips qty/rate and hidden Dry timing fields.
+    if (isTankerLayout) {
+      const tankerCheck = validateTankerLaytimeDraft(draft, { submitId });
+      if (!tankerCheck.ok) {
         await alertThenFocus(alert, {
           title: 'Alert',
-          message: 'Please Check Load Rate Or Quantity',
-        }, missingQty ? 'loadedQty' : 'loadedRate');
+          message: tankerCheck.message,
+        }, tankerCheck.field);
         return;
       }
-    }
+    } else {
+      const missingMandatory = LAYTIME_MANDATORY_FIELDS.filter(
+        ({ key }) => !String(draft[key] || '').trim(),
+      );
+      if (missingMandatory.length) {
+        await alertThenFocus(alert, {
+          title: 'Alert',
+          message: `Please fill the ${missingMandatory.map(({ label }) => label).join(', ')}.`,
+        }, missingMandatory[0].key);
+        return;
+      }
 
-    if (submitId === 1 && !(draft.approvers || []).length) {
-      await alertThenFocus(alert, {
-        title: 'Alert',
-        message: 'Please assign an approver first.',
-      }, 'approvers');
-      return;
+      if (!draft.detention) {
+        const qty = Number(draft.loadedQty);
+        const rate = Number(draft.loadedRate);
+        const missingQty = !String(draft.loadedQty || '').trim() || !(qty > 0);
+        const missingRate = !String(draft.loadedRate || '').trim() || !(rate > 0);
+        if (missingQty || missingRate) {
+          await alertThenFocus(alert, {
+            title: 'Alert',
+            message: 'Please Check Load Rate Or Quantity',
+          }, missingQty ? 'loadedQty' : 'loadedRate');
+          return;
+        }
+      }
+
+      if (submitId === 1 && !(draft.approvers || []).length) {
+        await alertThenFocus(alert, {
+          title: 'Alert',
+          message: 'Please assign an approver first.',
+        }, 'approvers');
+        return;
+      }
     }
 
     if (submitId > 0) {
@@ -810,15 +821,6 @@ export default function OpsVcLaytimePage() {
     ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.costSheetId)}&page=${encodeURIComponent(page || '1')}`)
     : '';
 
-  const negoRows = negoByKey[activeKey] || [emptyNegoRow()];
-  const setNegoRows = (updater) => {
-    setNegoByKey((current) => {
-      const prev = current[activeKey] || [emptyNegoRow()];
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      return { ...current, [activeKey]: next };
-    });
-  };
-
   return (
     <>
       <VoyageOpsHeading
@@ -884,8 +886,6 @@ export default function OpsVcLaytimePage() {
             removePendingFile={removePendingFile}
             handleSubmit={handleSubmit}
             handleOpen={handleOpen}
-            negoRows={negoRows}
-            setNegoRows={setNegoRows}
           />
         ) : null}
 

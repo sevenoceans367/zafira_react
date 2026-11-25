@@ -1,12 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { AttachmentDropzone, Button } from '@bainbridge/shared-ui';
 import { attachmentUrl } from '@bainbridge/shared-routing';
 import LaytimeTankerSummaryPill from './LaytimeTankerSummaryPill.jsx';
 import LaytimeTankerTables from './LaytimeTankerTables.jsx';
-import {
-  emptyNegoRow,
-  sumNegoAgreedDemm,
-} from './laytimeTankerHelpers.js';
+import { tankerLoadedQtyPatchOptions } from './laytimeTankerHelpers.js';
 import { PortTabLabel } from './portTabLabel.jsx';
 import sofStyles from './OpsVcSofTanker.module.css';
 import styles from './OpsVcLaytimePage.module.css';
@@ -91,12 +88,9 @@ export default function LaytimeTankerLayout({
   removePendingFile,
   handleSubmit,
   handleOpen,
-  negoRows,
-  setNegoRows,
 }) {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const cargoSummary = (form?.cargo || []).join(', ') || '—';
-  const finalDemmVisual = useMemo(() => sumNegoAgreedDemm(negoRows), [negoRows]);
 
   // Owner decision: All Clear / Laytime Ends / DEMM Starts have no laytime_master columns today.
   // Operator / Charterer / Agent shown read-only when API provides them; otherwise em dash.
@@ -106,7 +100,7 @@ export default function LaytimeTankerLayout({
   const agentName = form?.agentName || '';
 
   return (
-    <div className={styles.ltTankerShell}>
+    <div className={`${styles.ltTankerRoot} ${styles.ltTankerShell}`}>
       <div className={sofStyles.portTabs} role="group" aria-label="Laytime port calls">
         {(form.ports || []).map((port) => {
           const isActive = port.key === activeKey;
@@ -163,7 +157,9 @@ export default function LaytimeTankerLayout({
                   value={draft.loadedQty ?? ''}
                   onChange={(e) => patchDraft(
                     { loadedQty: e.target.value },
-                    { recompute: true, refreshAllowed: true },
+                    // Legacy Fun158==2: contractual Laytime Allowed stays editable; do not
+                    // overwrite from qty/rate on every QTY keystroke.
+                    tankerLoadedQtyPatchOptions(),
                   )}
                   disabled={locked}
                   placeholder="0.00"
@@ -330,8 +326,6 @@ export default function LaytimeTankerLayout({
             removeListRow={removeListRow}
             emptyActivityRow={emptyActivityRow}
             emptyDeductionRow={emptyDeductionRow}
-            negoRows={negoRows?.length ? negoRows : [emptyNegoRow()]}
-            setNegoRows={setNegoRows}
           />
 
           {/* REMARKS */}
@@ -369,7 +363,7 @@ export default function LaytimeTankerLayout({
                 <div className={styles.cfSectionTitle}>Documents &amp; Attachments</div>
               </div>
             </div>
-            <div className={styles.ltBody}>
+            <div className={styles.ltBody} data-attachment-dropzone data-laytime-interactive="true">
               <AttachmentDropzone
                 readOnly={locked}
                 files={pendingFiles}
@@ -400,7 +394,7 @@ export default function LaytimeTankerLayout({
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
-                  Unsaved changes — remember to save before navigating away
+                  Use “Submit” once laytime figures for every port call are finalised; “Close Laytime” locks the calculation entirely.
                 </div>
                 <div className={styles.sofFooterActions}>
                   <Button
@@ -452,7 +446,6 @@ export default function LaytimeTankerLayout({
             setApprovers={setApprovers}
             onPatchDraft={patchDraft}
             onSendForApproval={() => handleSubmit(1)}
-            finalDemmVisual={finalDemmVisual}
           />
         </div>
       ) : null}

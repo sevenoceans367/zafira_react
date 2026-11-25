@@ -2,11 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   LAYTIME_TANKER_PAGE_SIZE,
   applyLaytimeActivityLtToggle,
-  emptyNegoRow,
   filterRowsByQuery,
-  formatMoneyDisplay,
   isLaytimeActivityCounting,
-  sumNegoAgreedDemm,
 } from './laytimeTankerHelpers.js';
 import { paginateRows } from './sofTankerHelpers.js';
 import styles from './OpsVcLaytimePage.module.css';
@@ -129,7 +126,8 @@ function usePagedSearch(rows, fields, pageSize = LAYTIME_TANKER_PAGE_SIZE) {
 }
 
 /**
- * Single parent card: green Activities / orange Deductions / blue Nego Dialogues.
+ * Single parent card: green Activities / orange Deductions.
+ * Nego Dialogues are gated (not editable production UI) — owner decision pending.
  * Summary values are driven by ALL draft rows (recomputePortDraft), not the visible page.
  */
 export default function LaytimeTankerTables({
@@ -141,42 +139,15 @@ export default function LaytimeTankerTables({
   removeListRow,
   emptyActivityRow,
   emptyDeductionRow,
-  negoRows,
-  setNegoRows,
 }) {
   const activities = draft?.activities || [];
   const deductions = draft?.deductions || [];
 
   const ACT_FIELDS = useMemo(() => ['activity', 'notes', 'start', 'end'], []);
   const DED_FIELDS = useMemo(() => ['activity', 'notes', 'start', 'end'], []);
-  const NEGO_FIELDS = useMemo(() => ['reason', 'notes', 'entity', 'status', 'agreedDemm'], []);
 
   const actPage = usePagedSearch(activities, ACT_FIELDS);
   const dedPage = usePagedSearch(deductions, DED_FIELDS);
-  const [negoFilter, setNegoFilter] = useState('All');
-  const [negoSearch, setNegoSearch] = useState('');
-  const [negoPageNum, setNegoPageNum] = useState(1);
-
-  const negoIndexed = useMemo(() => {
-    let list = (negoRows || []).map((row, index) => ({ row, index }));
-    if (negoFilter === 'C') list = list.filter(({ row }) => row.entity === 'Charterer');
-    if (negoFilter === 'O') list = list.filter(({ row }) => row.entity === 'Owner');
-    const q = negoSearch.trim().toLowerCase();
-    if (q) {
-      list = list.filter(({ row }) => NEGO_FIELDS.some((f) => String(row?.[f] ?? '').toLowerCase().includes(q)));
-    }
-    return list;
-  }, [negoRows, negoFilter, negoSearch, NEGO_FIELDS]);
-
-  const negoPaged = useMemo(
-    () => paginateRows(negoIndexed, negoPageNum, LAYTIME_TANKER_PAGE_SIZE),
-    [negoIndexed, negoPageNum],
-  );
-
-  useEffect(() => { setNegoPageNum(1); }, [negoFilter, negoSearch, negoRows?.length]);
-  useEffect(() => {
-    if (negoPageNum > negoPaged.totalPages) setNegoPageNum(negoPaged.totalPages);
-  }, [negoPageNum, negoPaged.totalPages]);
 
   const dedTotals = useMemo(() => {
     let dur = 0;
@@ -187,31 +158,6 @@ export default function LaytimeTankerTables({
     });
     return { dur: dur.toFixed(2), net: net.toFixed(2) };
   }, [deductions]);
-
-  const negoTotal = sumNegoAgreedDemm(negoRows);
-
-  const updateNego = (index, patch) => {
-    setNegoRows((rows) => {
-      const next = [...(rows || [])];
-      next[index] = { ...next[index], ...patch };
-      return next;
-    });
-  };
-
-  const insertNego = (index) => {
-    setNegoRows((rows) => {
-      const next = [...(rows || [])];
-      next.splice(index + 1, 0, emptyNegoRow());
-      return next;
-    });
-  };
-
-  const removeNego = (index) => {
-    setNegoRows((rows) => {
-      const next = (rows || []).filter((_, i) => i !== index);
-      return next.length ? next : [emptyNegoRow()];
-    });
-  };
 
   return (
     <div className={styles.cfSection} id="sect-act-ded">
@@ -474,7 +420,7 @@ export default function LaytimeTankerTables({
         </table>
       </div>
 
-      {/* NEGO DIALOGUES — local React state only; not persisted to laytime_slave2 */}
+      {/* NEGO — gated panel (not editable; no fake persistence) */}
       <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadBlue} ${styles.subRibbon}`}>
         <div className={styles.cfSectionTitleWrap}>
           <div className={`${styles.sectionIco} ${styles.sectionIcoBlue}`}>
@@ -488,143 +434,15 @@ export default function LaytimeTankerTables({
             <div className={styles.cfSectionSub}>Demurrage negotiation log between owner &amp; charterer</div>
           </div>
         </div>
-        <SectionHeadRight
-          search={negoSearch}
-          onSearch={setNegoSearch}
-          searchPlaceholder="Search dialogues..."
-          count={negoIndexed.length}
-          page={negoPaged.safePage}
-          totalPages={negoPaged.totalPages}
-          onPrev={() => setNegoPageNum(negoPaged.safePage - 1)}
-          onNext={() => setNegoPageNum(negoPaged.safePage + 1)}
-        />
       </div>
 
-      <p className={styles.negoPersistNote}>
-        Nego Dialogues are session-only — persistence awaits owner decision (not written to laytime_slave2).
-      </p>
-
-      <div className={styles.tableWrap}>
-        <table className={styles.cfTable}>
-          <thead>
-            <tr>
-              <th style={{ width: 36 }}>#</th>
-              <th style={{ minWidth: 110 }}>
-                Entity{' '}
-                <span className={styles.negoEntityFilter}>
-                  {['All', 'C', 'O'].map((ef) => (
-                    <button
-                      key={ef}
-                      type="button"
-                      className={`${styles.negEfBtn} ${negoFilter === ef ? styles.negEfBtnActive : ''}`}
-                      onClick={() => setNegoFilter(ef)}
-                    >
-                      {ef}
-                    </button>
-                  ))}
-                </span>
-              </th>
-              <th style={{ minWidth: 170 }}>Date</th>
-              <th style={{ minWidth: 150 }}>Reason</th>
-              <th style={{ minWidth: 70 }}>Agreed Demm</th>
-              <th style={{ minWidth: 120 }}>Status</th>
-              <th style={{ minWidth: 280 }}>Notes</th>
-              <th style={{ width: 48 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {negoPaged.items.length ? negoPaged.items.map(({ row, index }, displayIdx) => {
-              const statusClass = row.status === 'Completed'
-                ? styles.statusCompleted
-                : row.status === 'Under Nego'
-                  ? styles.statusUnderNego
-                  : styles.statusOnhold;
-              return (
-                <tr key={`nego-${index}`}>
-                  <td>{(negoPaged.safePage - 1) * LAYTIME_TANKER_PAGE_SIZE + displayIdx + 1}.</td>
-                  <td>
-                    <select
-                      className={styles.negoEntitySelect}
-                      value={row.entity || 'Charterer'}
-                      onChange={(e) => updateNego(index, { entity: e.target.value })}
-                      disabled={locked}
-                    >
-                      <option value="Charterer">Charterer</option>
-                      <option value="Owner">Owner</option>
-                    </select>
-                  </td>
-                  <td>
-                    <LtDateField
-                      value={row.date}
-                      onChange={(v) => updateNego(index, { date: v })}
-                      disabled={locked}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className={styles.cfInp}
-                      type="text"
-                      value={row.reason || ''}
-                      onChange={(e) => updateNego(index, { reason: e.target.value })}
-                      disabled={locked}
-                      placeholder="Reason for negotiation"
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className={`${styles.cfInp} ${styles.numSm} ${styles.negoAgreedInp}`}
-                      type="text"
-                      value={row.agreedDemm || ''}
-                      onChange={(e) => updateNego(index, { agreedDemm: e.target.value })}
-                      disabled={locked}
-                      placeholder="USD"
-                    />
-                  </td>
-                  <td>
-                    <select
-                      className={`${styles.negoStatusSelect} ${statusClass}`}
-                      value={row.status || 'On Hold'}
-                      onChange={(e) => updateNego(index, { status: e.target.value })}
-                      disabled={locked}
-                    >
-                      <option value="On Hold">On Hold</option>
-                      <option value="Under Nego">Under Nego</option>
-                      <option value="Completed">Completed</option>
-                    </select>
-                  </td>
-                  <td>
-                    <textarea
-                      className={`${styles.ltNotesSm} ${styles.negoNotesWide}`}
-                      value={row.notes || ''}
-                      onChange={(e) => updateNego(index, { notes: e.target.value })}
-                      disabled={locked}
-                      placeholder="Notes"
-                    />
-                  </td>
-                  <td>
-                    <RowActions
-                      locked={locked}
-                      onInsert={() => insertNego(index)}
-                      onDelete={() => removeNego(index)}
-                    />
-                  </td>
-                </tr>
-              );
-            }) : (
-              <tr className={styles.cfEmptyRow}>
-                <td colSpan={8}>No nego dialogues yet.</td>
-              </tr>
-            )}
-          </tbody>
-          <tfoot>
-            <tr className={styles.totalsRow}>
-              <td colSpan={3} style={{ textAlign: 'right', fontWeight: 800, paddingRight: 16 }}>Total Agreed Demurrage</td>
-              <td />
-              <td><span>{formatMoneyDisplay(negoTotal)}</span></td>
-              <td colSpan={3} />
-            </tr>
-          </tfoot>
-        </table>
+      <div className={styles.negoGatedPanel} role="status" aria-live="polite">
+        <p className={styles.negoGatedTitle}>Owner decision pending</p>
+        <p className={styles.negoGatedBody}>
+          Negotiation dialogues are not available in production Laytime yet.
+          This panel is intentionally disabled — it is not a Final Demurrage ledger
+          and does not persist session totals.
+        </p>
       </div>
     </div>
   );

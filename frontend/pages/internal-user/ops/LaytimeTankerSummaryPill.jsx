@@ -38,14 +38,14 @@ export default function LaytimeTankerSummaryPill({
   setApprovers,
   onPatchDraft,
   onSendForApproval,
-  finalDemmVisual = 0,
 }) {
   const panelRef = useRef(null);
   const fabRef = useRef(null);
   const demmHrs = Number(draft?.timeToDemurrage) || 0;
   const demmUsd = Number(draft?.ttlDemurrage) || 0;
   const hrTag = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAY' : '—';
-  const money = formatMoneyDisplay(finalDemmVisual);
+  // FAB / panel Final Demm = calculated TTL demurrage only — never session nego sum.
+  const money = formatMoneyDisplay(demmUsd);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -63,7 +63,8 @@ export default function LaytimeTankerSummaryPill({
         + `.${styles.cfInp}, .${styles.ltDateField}, .${styles.ltToggle}, .${styles.sqBtn}, .${styles.ltPill}, `
         + `.${styles.negoEntitySelect}, .${styles.negoStatusSelect}, `
         + `.${styles.sectionSearchBox}, .${styles.pgBtn}, .${styles.ltRemarksBox}, `
-        + `.${styles.ltDropzone}, .${styles.ptTab}, .${styles.fabCloseBtn}, `
+        + `.${styles.ptTab}, .${styles.fabCloseBtn}, `
+        + '[data-attachment-dropzone], '
         + 'td, th, [data-laytime-interactive="true"]',
       );
       if (interactive) return;
@@ -106,10 +107,10 @@ export default function LaytimeTankerSummaryPill({
           </div>
           <div className={styles.fabValDivider} />
           <div className={styles.fabValItem}>
-            <span className={`${styles.fabNum} ${finalDemmVisual > 0 ? styles.fabNumWarn : ''}`}>
+            <span className={`${styles.fabNum} ${demmUsd > 0 ? styles.fabNumWarn : ''}`}>
               ${money}
             </span>
-            <span className={styles.fabLbl}>Final&nbsp;Demm</span>
+            <span className={styles.fabLbl}>Calc&nbsp;Demm</span>
           </div>
         </div>
       </button>
@@ -306,7 +307,6 @@ export default function LaytimeTankerSummaryPill({
             </div>
           </div>
 
-          {/* Visual nego total only — NOT wired into ttlDemurrage / financial save fields. */}
           <div className={styles.ltSumFinalRow}>
             <div className={styles.ltSumLabelPanel}>
               <SumIco tone="Navy">
@@ -315,9 +315,9 @@ export default function LaytimeTankerSummaryPill({
                   <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                 </svg>
               </SumIco>
-              Final Demurrage (USD)
+              Calculated Demurrage (USD)
             </div>
-            <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal} ${finalDemmVisual > 0 ? styles.ltSumNegative : ''}`}>
+            <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal} ${demmUsd > 0 ? styles.ltSumNegative : ''}`}>
               {money}
             </div>
           </div>

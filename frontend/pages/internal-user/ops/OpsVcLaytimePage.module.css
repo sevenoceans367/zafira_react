@@ -1102,54 +1102,7 @@
   padding: 0 2px;
 }
 
-.ptTab {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: 1.5px solid #dfe2e7;
-  background: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  color: #5b6472;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.ptTab:hover { background: #f1f2f4; }
-
-.ptTabActiveLp {
-  background: #274670;
-  color: #fff;
-  border-color: #274670;
-}
-
-.ptTabActiveDp {
-  background: #f4652c;
-  color: #fff;
-  border-color: #f4652c;
-}
-
-.ptIco {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  flex: none;
-  background: #f1f2f4;
-}
-
-.ptTabActiveLp .ptIco,
-.ptTabActiveDp .ptIco {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
-}
-
-.ptIco svg { width: 12px; height: 12px; }
+/* Port tabs: reuse OpsVcSofTanker.module.css .portTab / .portTabActive (no local LP/DP fills). */
 
 .ltDetailsGrid {
   display: grid;
@@ -1170,7 +1123,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #8a93a2;
+  color: #5b6472;
   display: block;
   margin-bottom: 6px;
 }
@@ -1272,7 +1225,7 @@
   font-weight: 600;
   color: #1b2430;
   background: #fff;
-  border: 1px solid #dfe2e7;
+  border: 1px solid #b8bfc9;
   border-radius: 7px;
   padding: 7px 9px;
   width: 100%;
@@ -1280,8 +1233,14 @@
   box-sizing: border-box;
 }
 
+.ltTankerRoot .cfInp:focus-visible {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.28);
+  outline: none;
+}
+
 .ltTankerRoot .cfInp::placeholder {
-  color: #8a93a2;
+  color: #5b6472;
   font-style: italic;
 }
 
@@ -1359,14 +1318,14 @@
 .ltToggleLbl {
   font-size: 10px;
   font-weight: 800;
-  color: #8a93a2;
+  color: #5b6472;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   user-select: none;
 }
 
-.ltToggleLblActiveC { color: #3b82f6; }
-.ltToggleLblActiveNc { color: #5b6472; }
+.ltToggleLblActiveC { color: #1d4ed8; }
+.ltToggleLblActiveNc { color: #374151; }
 
 .ltToggle {
   position: relative;
@@ -1426,8 +1385,9 @@
 }
 
 .statusOnhold { background-color: #eef0f3; color: #5b6472; border-color: #dfe2e7; }
-.statusUnderNego { background-color: #fdece4; color: #f4652c; border-color: #fbd9c9; }
-.statusCompleted { background-color: #e8f8ec; color: #0fa836; border-color: #bfe6c6; font-weight: 700; }
+/* Darker same-hue text on tint fills for AA contrast (nego panel gated but styles retained). */
+.statusUnderNego { background-color: #fdece4; color: #b45309; border-color: #fbd9c9; }
+.statusCompleted { background-color: #e8f8ec; color: #0a7a28; border-color: #bfe6c6; font-weight: 700; }
 
 .negoAgreedInp { min-width: 50px; max-width: 80px; }
 .negoNotesWide { min-width: 260px; }
@@ -1559,6 +1519,8 @@
   display: flex;
   align-items: center;
   gap: 11px;
+  max-width: min(560px, calc(100vw - 48px));
+  flex-wrap: wrap;
   background: #274670;
   color: #fff;
   border: none;
@@ -1566,13 +1528,18 @@
   padding: 11px 20px;
   cursor: pointer;
   box-shadow: 0 8px 28px rgba(20, 30, 50, 0.18);
-  transition: all 0.25s;
+  transition: background 0.25s, box-shadow 0.25s;
   font-family: inherit;
 }
 
 .ltSummaryFab:hover {
   background: #16283f;
   box-shadow: 0 12px 36px rgba(20, 30, 50, 0.24);
+}
+
+.ltSummaryFab:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 3px;
 }
 
 .ltSummaryFab svg { width: 18px; height: 18px; }
@@ -1592,7 +1559,7 @@
 
 .fabNum { font-size: 14px; font-weight: 800; }
 .fabNumWarn { color: #fca5a5; }
-.fabLbl { opacity: 0.7; font-size: 11px; }
+.fabLbl { opacity: 0.85; font-size: 11px; color: #e8eef7; }
 .fabValDivider {
   width: 1px;
   height: 22px;
@@ -1678,7 +1645,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #8a93a2;
+  color: #5b6472;
 }
 
 .ltSumIcoBox {
@@ -1747,7 +1714,8 @@
   flex: 1;
 }
 
-.ltSumNegative { color: #e4483b; }
+/* Darker red on gray computed fill for readable demurrage amounts. */
+.ltSumNegative { color: #b42318; }
 
 .ltSumFinalRow {
   background: #e6eaf1;
@@ -1809,7 +1777,22 @@
   .ltDetailCell,
   .ltTimingCell { border-right: none; }
   .sofFooterBar { flex-direction: column; align-items: stretch; }
-  .ltSummaryFabExpanded { width: calc(100vw - 32px); right: 16px; }
+  .sofFooterSpacer { height: 120px; }
+  .ltSummaryFab,
+  .ltSummaryFabExpanded {
+    bottom: 128px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ltSummaryFab,
+  .ltSummaryFabExpanded,
+  .ltToggleTrack { transition: none; }
+  .ltSummaryFabExpanded { animation: none; }
 }
 
 .ltTankerPage {

@@ -104,16 +104,18 @@ export default function LaytimeTankerLayout({
       <div className={sofStyles.portTabs} role="group" aria-label="Laytime port calls">
         {(form.ports || []).map((port) => {
           const isActive = port.key === activeKey;
-          const icoTone = port.portType === 'DP' ? styles.ptIcoDp : styles.ptIcoLp;
+          // Same SOF Tanker port-tab chrome (navy active fill for both LP/DP; LP/DP only tint the icon).
+          const icoTone = port.portType === 'DP' ? sofStyles.ptIcoDp : sofStyles.ptIcoLp;
           return (
             <button
               key={port.key}
               type="button"
-              className={`${styles.ptTab} ${isActive ? (port.portType === 'DP' ? styles.ptTabActiveDp : styles.ptTabActiveLp) : ''}`}
+              className={isActive ? `${sofStyles.portTab} ${sofStyles.portTabActive}` : sofStyles.portTab}
               onClick={() => setActiveKey(port.key)}
               aria-pressed={isActive}
+              data-laytime-interactive="true"
             >
-              <span className={`${styles.ptIco} ${icoTone}`}>
+              <span className={`${sofStyles.ptIco} ${icoTone}`}>
                 <PortTypeIcon portType={port.portType} />
               </span>
               <PortTabLabel label={port.tabLabel} />
@@ -255,16 +257,8 @@ export default function LaytimeTankerLayout({
               </div>
             </div>
 
-            {/* Hidden preserved fields — omitted from Tanker UI but kept in draft/save payload */}
-            <div className={styles.ltHiddenPreserve} aria-hidden="true">
-              <input id="stowageQty" type="text" tabIndex={-1} readOnly value={draft.stowageQty || ''} />
-              <input id="vesselArrived" type="text" tabIndex={-1} readOnly value={draft.vesselArrived || ''} />
-              <input id="vesselSailed" type="text" tabIndex={-1} readOnly value={draft.vesselSailed || ''} />
-              <input id="loadedRate" type="text" tabIndex={-1} readOnly value={draft.loadedRate || ''} />
-              <input id="turnTimeToAdd" type="text" tabIndex={-1} readOnly value={draft.turnTimeToAdd || ''} />
-              <input id="laytimeApplicable" type="text" tabIndex={-1} readOnly value={String(draft.laytimeApplicable ?? '1')} />
-              <input id="pilotOnBoard" type="text" tabIndex={-1} readOnly value={draft.pilotOnBoard || ''} />
-            </div>
+            {/* Dry-only fields (stowageQty / arrived / sailed / loadedRate / turn / applicable / pilot)
+                stay on the draft object for save — no inaccessible hidden DOM. */}
           </div>
 
           {/* LAYTIME OPTIONS */}

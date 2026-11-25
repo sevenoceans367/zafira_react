@@ -63,7 +63,7 @@ export default function LaytimeTankerSummaryPill({
         + `.${styles.cfInp}, .${styles.ltDateField}, .${styles.ltToggle}, .${styles.sqBtn}, .${styles.ltPill}, `
         + `.${styles.negoEntitySelect}, .${styles.negoStatusSelect}, `
         + `.${styles.sectionSearchBox}, .${styles.pgBtn}, .${styles.ltRemarksBox}, `
-        + `.${styles.ptTab}, .${styles.fabCloseBtn}, `
+        + `.${styles.fabCloseBtn}, `
         + '[data-attachment-dropzone], '
         + 'td, th, [data-laytime-interactive="true"]',
       );
@@ -71,8 +71,15 @@ export default function LaytimeTankerSummaryPill({
 
       onClose();
     };
+    const onKey = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
     document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open, onClose]);
 
   if (!open) {
@@ -83,6 +90,8 @@ export default function LaytimeTankerSummaryPill({
         className={styles.ltSummaryFab}
         onClick={onOpen}
         title="Click to expand summary"
+        aria-expanded="false"
+        aria-controls="lt-tanker-summary-panel"
         data-laytime-interactive="true"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -118,7 +127,15 @@ export default function LaytimeTankerSummaryPill({
   }
 
   return (
-    <div ref={panelRef} className={styles.ltSummaryFabExpanded} data-laytime-interactive="true">
+    <div
+      ref={panelRef}
+      id="lt-tanker-summary-panel"
+      className={styles.ltSummaryFabExpanded}
+      role="region"
+      aria-label="Laytime summary"
+      aria-expanded="true"
+      data-laytime-interactive="true"
+    >
       <div className={styles.ltSummaryPanel}>
         <div className={styles.ltSummaryHead}>
           <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}>

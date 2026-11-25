@@ -81,7 +81,7 @@ function RowActions({ locked, onInsert, onDelete }) {
 function LtToggle({ counting, disabled, onToggle }) {
   return (
     <div className={styles.ltToggleWrap}>
-      <span className={`${styles.ltToggleLbl} ${counting ? styles.ltToggleLblActiveC : ''}`}>C</span>
+      <span className={`${styles.ltToggleLbl} ${counting ? styles.ltToggleLblActiveC : ''}`} aria-hidden>C</span>
       <label className={styles.ltToggle}>
         <input
           type="checkbox"
@@ -89,13 +89,14 @@ function LtToggle({ counting, disabled, onToggle }) {
           checked={!counting}
           disabled={disabled}
           onChange={(e) => onToggle(!e.target.checked)}
-          aria-label={counting ? 'Counting (C)' : 'Not counting (NC)'}
+          aria-label="Not counting"
+          aria-checked={!counting}
         />
-        <span className={styles.ltToggleTrack}>
+        <span className={styles.ltToggleTrack} aria-hidden>
           <span className={styles.ltToggleThumb} />
         </span>
       </label>
-      <span className={`${styles.ltToggleLbl} ${!counting ? styles.ltToggleLblActiveNc : ''}`}>NC</span>
+      <span className={`${styles.ltToggleLbl} ${!counting ? styles.ltToggleLblActiveNc : ''}`} aria-hidden>NC</span>
     </div>
   );
 }

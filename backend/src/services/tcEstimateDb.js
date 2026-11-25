@@ -14,12 +14,33 @@ import {
   toDbDate,
   calcTcTotals,
   isTcSentToOps,
+  resolveActiveTcInHireage,
+  computeVoyageExpenseTotal,
+  sumChartererOtherIncome,
+  tcInRecapHasSignal,
+  preferRicherTcInRecap,
 } from './tcEstimateMappers.js';
 import {
   isTcContractTypeSchemaReady,
   probeTcContractTypeColumn,
   requireTcContractTypeSchema,
 } from '../migrations/tcContractTypeMigration.js';
+
+function isOptionalSchemaError(error) {
+  const code = error?.code;
+  if (code === 'ER_NO_SUCH_TABLE' || code === 'ER_BAD_FIELD_ERROR') return true;
+  const msg = String(error?.message || '');
+  return /Unknown (table|column)|doesn't exist/i.test(msg);
+}
+
+async function queryOptional(connection, sql, params = []) {
+  try {
+    return await connection.query(sql, params);
+  } catch (error) {
+    if (isOptionalSchemaError(error)) return null;
+    throw error;
+  }
+}
 
 export { resolveContractTypeForWrite };
 
@@ -1076,22 +1097,18 @@ export async function dbCreateTcEstimate(body = {}, upload = {}) {
   const pool = getPool();
   const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
   const hasAttachments = await ensureTcAttachmentColumns(pool);
-  const hasTcInRecapJson = await ensureTcInRecapJsonColumn(pool);
+  await ensureTcInRecapJsonColumn(pool);
   await requireTcContractTypeSchema(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
+    // Initial CONTRACT_TYPE only — Hire Recap JSON / mode transitions are owned by calculate
+    // so fixture create+calc cannot leave mode committed without financial children.
     payload = {
       ...payload,
       CONTRACT_TYPE: resolveContractTypeForWrite(body),
     };
-    if (hasTcInRecapJson && body.tcInExpenses != null) {
-      payload = {
-        ...payload,
-        TC_IN_RECAP_JSON: serializeTcInRecapJson(body.tcInExpenses),
-      };
-    }
     if (hasAttachments) {
       const attachmentFields = resolveAttachmentFields(body, upload);
       if (attachmentFields) {
@@ -1127,17 +1144,18 @@ export async function dbUpdateTcEstimate(tcOutId, body = {}, upload = {}) {
   const pool = getPool();
   const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
   const hasAttachments = await ensureTcAttachmentColumns(pool);
-  const hasTcInRecapJson = await ensureTcInRecapJsonColumn(pool);
-  await requireTcContractTypeSchema(pool);
+  // CONTRACT_TYPE + TC_IN_RECAP_JSON are intentionally NOT written here.
+  // Fixture save always follows with calculate; mode/JSON/finance/children must
+  // commit in one calculate transaction so a failed calc cannot leave mode flipped.
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     const [existing] = await connection.query(
       hasAttachments
-        ? `SELECT TCOUTID, ATTACHMENT, ATTACHMENT_NAME, CONTRACT_TYPE
+        ? `SELECT TCOUTID, ATTACHMENT, ATTACHMENT_NAME
            FROM chartering_estimate_tc_master
            WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`
-        : `SELECT TCOUTID, CONTRACT_TYPE
+        : `SELECT TCOUTID
            FROM chartering_estimate_tc_master
            WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`,
       [MODULE_ID, COMPANY_ID, tcOutId],
@@ -1147,16 +1165,6 @@ export async function dbUpdateTcEstimate(tcOutId, body = {}, upload = {}) {
       return null;
     }
     let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
-    payload = {
-      ...payload,
-      CONTRACT_TYPE: resolveContractTypeForWrite(body, existing[0].CONTRACT_TYPE),
-    };
-    if (hasTcInRecapJson && body.tcInExpenses != null) {
-      payload = {
-        ...payload,
-        TC_IN_RECAP_JSON: serializeTcInRecapJson(body.tcInExpenses),
-      };
-    }
     if (hasAttachments) {
       const attachmentFields = resolveAttachmentFields(
         {
@@ -1201,13 +1209,14 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
   await connection.query('DELETE FROM chartering_estimate_tc_slave2 WHERE TC_SLAVE1ID = ?', [slave1Id]);
   await connection.query('DELETE FROM chartering_estimate_tc_slave3 WHERE TC_SLAVE1ID = ?', [slave1Id]);
   await connection.query('DELETE FROM chartering_estimate_tc_slave5 WHERE TC_SLAVE1ID = ?', [slave1Id]);
-  await connection.query('DELETE FROM chartering_estimate_tc_slave8 WHERE TC_SLAVE1ID = ?', [slave1Id]).catch(() => {});
-  await connection.query('DELETE FROM chartering_estimate_tc_slave9 WHERE TC_SLAVE1ID = ?', [slave1Id]).catch(() => {});
-  await connection.query('DELETE FROM chartering_estimate_tc_slave10 WHERE TC_SLAVE1ID = ?', [slave1Id]).catch(() => {});
-  await connection.query('DELETE FROM chartering_tc_estimate_slave2 WHERE TC_SLAVE1ID = ?', [slave1Id]).catch(() => {});
-  await connection.query('DELETE FROM chartering_tc_estimate_slave3 WHERE TC_SLAVE1ID = ?', [slave1Id]).catch(() => {});
-  await connection.query('DELETE FROM chartering_tc_estimate_slave4 WHERE TC_SLAVE1ID = ?', [slave1Id]).catch(() => {});
-  await connection.query('DELETE FROM chartering_tc_estimate_slave5 WHERE TC_SLAVE1ID = ?', [slave1Id]).catch(() => {});
+  // Optional schema: missing tables are skipped; real SQL errors propagate for rollback.
+  await queryOptional(connection, 'DELETE FROM chartering_estimate_tc_slave8 WHERE TC_SLAVE1ID = ?', [slave1Id]);
+  await queryOptional(connection, 'DELETE FROM chartering_estimate_tc_slave9 WHERE TC_SLAVE1ID = ?', [slave1Id]);
+  await queryOptional(connection, 'DELETE FROM chartering_estimate_tc_slave10 WHERE TC_SLAVE1ID = ?', [slave1Id]);
+  await queryOptional(connection, 'DELETE FROM chartering_tc_estimate_slave2 WHERE TC_SLAVE1ID = ?', [slave1Id]);
+  await queryOptional(connection, 'DELETE FROM chartering_tc_estimate_slave3 WHERE TC_SLAVE1ID = ?', [slave1Id]);
+  await queryOptional(connection, 'DELETE FROM chartering_tc_estimate_slave4 WHERE TC_SLAVE1ID = ?', [slave1Id]);
+  await queryOptional(connection, 'DELETE FROM chartering_tc_estimate_slave5 WHERE TC_SLAVE1ID = ?', [slave1Id]);
 
   for (const row of body.otherIncome || []) {
     if (!row.amount && !row.description) continue;
@@ -1287,153 +1296,153 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
   }
 
   const hirePeriods = body.hirePeriods || body.calc?.hirePeriods || [];
+  let skipHirePeriods = false;
   for (const row of hirePeriods) {
+    if (skipHirePeriods) break;
     if (!row.delDate && !row.reDelDate && !row.hireRate) continue;
-    try {
-      await connection.query(
-        `INSERT INTO chartering_estimate_tc_slave8
-         (TC_SLAVE1ID, DEL_DATE, RE_DEL_DATE, HIRE_DAYS, HIRE_RATE, HIRE_AMT, RANDOMID)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          slave1Id,
-          toDbDate(row.delDate, true),
-          toDbDate(row.reDelDate, true),
-          nullIfEmpty(row.days),
-          nullIfEmpty(row.hireRate),
-          nullIfEmpty(row.amount),
-          nullIfEmpty(row.randomId) || String(Math.floor(10000 + Math.random() * 90000)),
-        ],
-      );
-    } catch {
-      break;
-    }
+    const inserted = await queryOptional(
+      connection,
+      `INSERT INTO chartering_estimate_tc_slave8
+       (TC_SLAVE1ID, DEL_DATE, RE_DEL_DATE, HIRE_DAYS, HIRE_RATE, HIRE_AMT, RANDOMID)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        slave1Id,
+        toDbDate(row.delDate, true),
+        toDbDate(row.reDelDate, true),
+        nullIfEmpty(row.days),
+        nullIfEmpty(row.hireRate),
+        nullIfEmpty(row.amount),
+        nullIfEmpty(row.randomId) || String(Math.floor(10000 + Math.random() * 90000)),
+      ],
+    );
+    if (inserted == null) skipHirePeriods = true;
   }
 
   const itinerary = body.itinerary || {};
+  let skipItinerary = false;
   for (const [type, key] of [['FROM', 'from'], ['TO', 'to']]) {
+    if (skipItinerary) break;
     const row = itinerary[key] || {};
     if (!row.place && !row.date && !row.notes) continue;
-    try {
-      await connection.query(
-        `INSERT INTO chartering_estimate_tc_slave9
-         (TC_SLAVE1ID, ITINERARYTYPE, ITINERARYFROMTO, ITINERARYDATE, ITINERARYNOTES)
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          slave1Id,
-          type,
-          nullIfEmpty(row.place),
-          toDbDate(row.date),
-          nullIfEmpty(row.notes),
-        ],
-      );
-    } catch {
-      break;
-    }
+    const inserted = await queryOptional(
+      connection,
+      `INSERT INTO chartering_estimate_tc_slave9
+       (TC_SLAVE1ID, ITINERARYTYPE, ITINERARYFROMTO, ITINERARYDATE, ITINERARYNOTES)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        slave1Id,
+        type,
+        nullIfEmpty(row.place),
+        toDbDate(row.date),
+        nullIfEmpty(row.notes),
+      ],
+    );
+    if (inserted == null) skipItinerary = true;
   }
 
+  let skipItineraryExpenses = false;
   for (const row of body.itineraryExpenses || []) {
+    if (skipItineraryExpenses) break;
     if (!row.amount && !row.description && !row.expenseType) continue;
-    try {
-      await connection.query(
-        `INSERT INTO chartering_estimate_tc_slave10
-         (TC_SLAVE1ID, EXPENSETYPE, EXPENSEDESC, EXPENSEAMOUNT, EXPENSENOTES)
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          slave1Id,
-          nullIfEmpty(row.expenseType),
-          nullIfEmpty(row.description),
-          nullIfEmpty(row.amount),
-          nullIfEmpty(row.notes),
-        ],
-      );
-    } catch {
-      break;
-    }
+    const inserted = await queryOptional(
+      connection,
+      `INSERT INTO chartering_estimate_tc_slave10
+       (TC_SLAVE1ID, EXPENSETYPE, EXPENSEDESC, EXPENSEAMOUNT, EXPENSENOTES)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        slave1Id,
+        nullIfEmpty(row.expenseType),
+        nullIfEmpty(row.description),
+        nullIfEmpty(row.amount),
+        nullIfEmpty(row.notes),
+      ],
+    );
+    if (inserted == null) skipItineraryExpenses = true;
   }
 
   const tcIn = body.tcInExpenses || {};
+  let skipTcInHires = false;
   for (const row of tcIn.hires || []) {
+    if (skipTcInHires) break;
     if (!row.deliveryDate && !row.redeliveryDate && !row.dailyHire) continue;
-    try {
-      await connection.query(
-        `INSERT INTO chartering_tc_estimate_slave2
-         (TC_SLAVE1ID, RANDOMID, TC_DELIVERY_DATE, TC_REDELIVERY_DATE, TC_RATE, TD_DAYS,
-          HIERAGE, BALLAST_BONUS, GROSS_HIERAGE, ADD_COMM, ADD_COMM_AMT, ADD_COMM_VENDOR,
-          BROKERAGE_COMM, BROKERAGE_COMM_AMT, BRO_COMM_VENDOR, NET_HIERAGE, CVE_MONTH, CVE_AMOUNT)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          slave1Id,
-          nullIfEmpty(row.randomId) || String(Math.floor(10000 + Math.random() * 90000)),
-          toDbDate(row.deliveryDate, true),
-          toDbDate(row.redeliveryDate, true),
-          nullIfEmpty(row.dailyHire),
-          nullIfEmpty(row.voyageDays),
-          nullIfEmpty(row.hireage),
-          nullIfEmpty(row.ballastBonus),
-          nullIfEmpty(row.grossHireage),
-          nullIfEmpty(row.addCommPct),
-          nullIfEmpty(row.addCommAmt),
-          nullIfEmpty(row.addCommVendor),
-          nullIfEmpty(row.brokerCommPct),
-          nullIfEmpty(row.brokerCommAmt),
-          nullIfEmpty(row.brokerVendor),
-          nullIfEmpty(row.nettHireage),
-          nullIfEmpty(row.cveMonth),
-          nullIfEmpty(row.cveAmt),
-        ],
-      );
-    } catch {
-      break;
-    }
+    const inserted = await queryOptional(
+      connection,
+      `INSERT INTO chartering_tc_estimate_slave2
+       (TC_SLAVE1ID, RANDOMID, TC_DELIVERY_DATE, TC_REDELIVERY_DATE, TC_RATE, TD_DAYS,
+        HIERAGE, BALLAST_BONUS, GROSS_HIERAGE, ADD_COMM, ADD_COMM_AMT, ADD_COMM_VENDOR,
+        BROKERAGE_COMM, BROKERAGE_COMM_AMT, BRO_COMM_VENDOR, NET_HIERAGE, CVE_MONTH, CVE_AMOUNT)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        slave1Id,
+        nullIfEmpty(row.randomId) || String(Math.floor(10000 + Math.random() * 90000)),
+        toDbDate(row.deliveryDate, true),
+        toDbDate(row.redeliveryDate, true),
+        nullIfEmpty(row.dailyHire),
+        nullIfEmpty(row.voyageDays),
+        nullIfEmpty(row.hireage),
+        nullIfEmpty(row.ballastBonus),
+        nullIfEmpty(row.grossHireage),
+        nullIfEmpty(row.addCommPct),
+        nullIfEmpty(row.addCommAmt),
+        nullIfEmpty(row.addCommVendor),
+        nullIfEmpty(row.brokerCommPct),
+        nullIfEmpty(row.brokerCommAmt),
+        nullIfEmpty(row.brokerVendor),
+        nullIfEmpty(row.nettHireage),
+        nullIfEmpty(row.cveMonth),
+        nullIfEmpty(row.cveAmt),
+      ],
+    );
+    if (inserted == null) skipTcInHires = true;
   }
 
   const tcInBunkers = [
     ...(tcIn.deliveryBunkers || []).map((r) => ({ ...r, identity: 'DEL' })),
     ...(tcIn.redeliveryBunkers || []).map((r) => ({ ...r, identity: 'REDEL' })),
   ];
+  let skipTcInBunkers = false;
   for (const row of tcInBunkers) {
+    if (skipTcInBunkers) break;
     if (!row.bunkerId && !row.qty) continue;
-    try {
-      await connection.query(
-        `INSERT INTO chartering_tc_estimate_slave3
-         (TC_SLAVE1ID, BUNKERID, AMOUNT, BUNKER_DATE, QTY, PRICE, IDENTIFY)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          slave1Id,
-          nullIfEmpty(row.bunkerId),
-          nullIfEmpty(row.amount || String((Number(row.qty) || 0) * (Number(row.price) || 0))),
-          toDbDate(row.bunkerDate),
-          nullIfEmpty(row.qty),
-          nullIfEmpty(row.price),
-          row.identity,
-        ],
-      );
-    } catch {
-      break;
-    }
+    const inserted = await queryOptional(
+      connection,
+      `INSERT INTO chartering_tc_estimate_slave3
+       (TC_SLAVE1ID, BUNKERID, AMOUNT, BUNKER_DATE, QTY, PRICE, IDENTIFY)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        slave1Id,
+        nullIfEmpty(row.bunkerId),
+        nullIfEmpty(row.amount || String((Number(row.qty) || 0) * (Number(row.price) || 0))),
+        toDbDate(row.bunkerDate),
+        nullIfEmpty(row.qty),
+        nullIfEmpty(row.price),
+        row.identity,
+      ],
+    );
+    if (inserted == null) skipTcInBunkers = true;
   }
 
+  let skipTcInOffHires = false;
   for (const row of tcIn.offHires || []) {
+    if (skipTcInOffHires) break;
     if (!row.reason && !row.from && !row.to && !row.amount) continue;
-    try {
-      await connection.query(
-        `INSERT INTO chartering_tc_estimate_slave4
-         (TC_SLAVE1ID, OFFHIRE_REASON, OFF_HIRE_FROM, OFF_HIRE_TO, OFF_HIRE_DAYS, OFF_HIRE_RATE, OF_HIRE_AMT, RANDOMID)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          slave1Id,
-          nullIfEmpty(row.reason),
-          toDbDate(row.from, true),
-          toDbDate(row.to, true),
-          nullIfEmpty(row.days),
-          nullIfEmpty(row.hireRate),
-          nullIfEmpty(row.amount),
-          nullIfEmpty(row.randomId) || String(Math.floor(10000 + Math.random() * 90000)),
-        ],
-      );
-    } catch {
-      break;
-    }
+    const inserted = await queryOptional(
+      connection,
+      `INSERT INTO chartering_tc_estimate_slave4
+       (TC_SLAVE1ID, OFFHIRE_REASON, OFF_HIRE_FROM, OFF_HIRE_TO, OFF_HIRE_DAYS, OFF_HIRE_RATE, OF_HIRE_AMT, RANDOMID)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        slave1Id,
+        nullIfEmpty(row.reason),
+        toDbDate(row.from, true),
+        toDbDate(row.to, true),
+        nullIfEmpty(row.days),
+        nullIfEmpty(row.hireRate),
+        nullIfEmpty(row.amount),
+        nullIfEmpty(row.randomId) || String(Math.floor(10000 + Math.random() * 90000)),
+      ],
+    );
+    if (inserted == null) skipTcInOffHires = true;
   }
 }
 
@@ -1488,33 +1497,39 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
     if (!calcInput.offHires?.length && body.offHires?.length) {
       calcInput.offHires = body.offHires;
     }
+    const dormantJson = parseTcInRecapJson(masters[0].TC_IN_RECAP_JSON);
+    // Resolve authoritative TC In payload early (body, or dormant JSON when restoring without payload).
+    const resolvedTcInExpenses = (() => {
+      if (!isTcInOut) return null;
+      if (body.tcInExpenses != null && tcInRecapHasSignal(body.tcInExpenses)) {
+        return preferRicherTcInRecap(body.tcInExpenses, dormantJson) || body.tcInExpenses;
+      }
+      if (body.tcInExpenses != null && dormantJson && tcInRecapHasSignal(dormantJson)) {
+        return preferRicherTcInRecap(dormantJson, body.tcInExpenses) || dormantJson;
+      }
+      if (dormantJson && tcInRecapHasSignal(dormantJson)) return dormantJson;
+      return body.tcInExpenses != null ? body.tcInExpenses : dormantJson;
+    })();
+
     if (Array.isArray(body.otherIncome)) {
-      calcInput.otherIncome = body.otherIncome.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+      // Revenue uses charterer / untagged rows; owner rows go into expenses below.
+      calcInput.otherIncome = sumChartererOtherIncome(body.otherIncome);
     }
 
     // Always recompute active hireage + totalExp server-side (never trust client totals for mode gating).
-    const addToTotal = Array.isArray(body.otherExpenses)
-      ? body.otherExpenses
-        .filter((row) => row.addToTotal === true || row.addToTotal === 1)
-        .reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
-      : 0;
-    const dormantJson = parseTcInRecapJson(masters[0].TC_IN_RECAP_JSON);
-    const resolveActiveHireage = () => {
-      if (!isTcInOut) return 0;
-      const fromBody = Number(body.tcInExpenses?.finalHireage);
-      if (Number.isFinite(fromBody) && fromBody > 0) return fromBody;
-      const fromCalc = Number(calcInput.tcFinalHireage);
-      if (Number.isFinite(fromCalc) && fromCalc > 0) return fromCalc;
-      const fromJson = Number(dormantJson?.finalHireage);
-      if (Number.isFinite(fromJson) && fromJson > 0) return fromJson;
-      const lineSum = (body.tcInExpenses?.hires || dormantJson?.hires || [])
-        .reduce((sum, row) => sum + (Number(row.nettHireage) || Number(row.hireage) || 0), 0);
-      if (lineSum > 0) return lineSum;
-      return Number.isFinite(fromBody) ? fromBody : (Number.isFinite(fromCalc) ? fromCalc : 0);
-    };
-    const activeTcInHireage = resolveActiveHireage();
+    const activeTcInHireage = resolveActiveTcInHireage({
+      isTcInOut,
+      bodyFinalHireage: resolvedTcInExpenses?.finalHireage,
+      calcFinalHireage: calcInput.tcFinalHireage,
+      jsonFinalHireage: dormantJson?.finalHireage,
+      tcInExpenses: resolvedTcInExpenses,
+    });
     calcInput.tcFinalHireage = String(activeTcInHireage);
-    calcInput.totalExp = String(addToTotal + activeTcInHireage);
+    calcInput.totalExp = String(computeVoyageExpenseTotal(
+      body.otherExpenses || [],
+      body.otherIncome || [],
+      activeTcInHireage,
+    ));
 
     const totals = calcTcTotals(calcInput);
     const merged = { ...calcInput, ...totals, totalExp: calcInput.totalExp, tcFinalHireage: calcInput.tcFinalHireage };
@@ -1571,32 +1586,32 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
       TC_PORT_DELIVERY: nullIfEmpty(merged.tcDeliveryPort),
       TC_PORT_REDELIVERY: nullIfEmpty(merged.tcRedeliveryPort),
       TC_CP_NUMBER: nullIfEmpty(merged.tcCpNumber),
-      TC_CP_DATE: toDbDate(merged.tcCpDate || body.tcInExpenses?.cpDate),
+      TC_CP_DATE: toDbDate(merged.tcCpDate || resolvedTcInExpenses?.cpDate),
       BALLAST_BONUS_AMT: nullIfEmpty(merged.ballastBonus),
       NET_HIRE_AMT: nullIfEmpty(merged.nettHireInvoice),
       TC_FINAL_HIERAGE: isTcInOut
-        ? nullIfEmpty(merged.tcFinalHireage || body.tcInExpenses?.finalHireage)
+        ? nullIfEmpty(merged.tcFinalHireage || resolvedTcInExpenses?.finalHireage)
         : '0',
       TC_FINAL_HIERAGE_VENDOR: isTcInOut
-        ? nullIfEmpty(merged.tcFinalVendor || body.tcInExpenses?.finalVendor)
+        ? nullIfEmpty(merged.tcFinalVendor || resolvedTcInExpenses?.finalVendor)
         : null,
       TC_CVE_MONTH_OFFHIRE: isTcInOut
-        ? nullIfEmpty(merged.tcOffHireCveMonth || body.tcInExpenses?.offHireCveMonth)
+        ? nullIfEmpty(merged.tcOffHireCveMonth || resolvedTcInExpenses?.offHireCveMonth)
         : null,
       TC_CVE_AMOUNT_OFFHIRE: isTcInOut
-        ? nullIfEmpty(merged.tcOffHireCveAmt || body.tcInExpenses?.offHireCveAmt)
+        ? nullIfEmpty(merged.tcOffHireCveAmt || resolvedTcInExpenses?.offHireCveAmt)
         : null,
       TC_BUNKERS_ON_OWNER: isTcInOut
-        ? nullIfEmpty(merged.tcBunkerOnOwner || body.tcInExpenses?.bunkerOnOwner)
+        ? nullIfEmpty(merged.tcBunkerOnOwner || resolvedTcInExpenses?.bunkerOnOwner)
         : null,
       TC_OFF_HIRE: isTcInOut
-        ? nullIfEmpty(merged.tcLessOffHire || body.tcInExpenses?.lessOffHire)
+        ? nullIfEmpty(merged.tcLessOffHire || resolvedTcInExpenses?.lessOffHire)
         : null,
       TXT_ILOHC_TC: isTcInOut
-        ? nullIfEmpty(merged.tcIlohc || body.tcInExpenses?.ilohc)
+        ? nullIfEmpty(merged.tcIlohc || resolvedTcInExpenses?.ilohc)
         : null,
       AWRPCOST: isTcInOut
-        ? nullIfEmpty(merged.awrpCost || body.tcInExpenses?.awrpCost)
+        ? nullIfEmpty(merged.awrpCost || resolvedTcInExpenses?.awrpCost)
         : null,
     };
 
@@ -1646,30 +1661,15 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
       }
     }
 
-    // Before deactivating TC In, ensure dormant JSON can restore Hire Recap without the client payload.
-    // Never overwrite a richer stored blob with an emptyTcIn-shaped client payload.
-    const tcInHasSignal = (obj) => {
-      if (!obj || typeof obj !== 'object') return false;
-      if (Number(obj.finalHireage) > 0) return true;
-      if ((obj.hires || []).some((h) => Number(h.hireage) > 0 || Number(h.nettHireage) > 0 || Number(h.dailyHire) > 0)) {
-        return true;
-      }
-      if ([...(obj.deliveryBunkers || []), ...(obj.redeliveryBunkers || [])].some((b) => Number(b.qty) > 0 || Number(b.amount) > 0)) {
-        return true;
-      }
-      return (obj.offHires || []).some((o) => Number(o.amount) > 0 || String(o.from || '').trim() !== '');
-    };
+    // Before deactivating TC In, snapshot the richest recoverable Hire Recap into JSON.
+    // Never overwrite a richer stored blob with an emptyTcIn-shaped / poorer client payload.
     if (!isTcInOut) {
-      const existingJson = parseTcInRecapJson(masters[0].TC_IN_RECAP_JSON);
-      let dormantTcIn = null;
-      if (body.tcInExpenses != null && tcInHasSignal(body.tcInExpenses)) {
-        dormantTcIn = body.tcInExpenses;
-      } else if (existingJson && tcInHasSignal(existingJson)) {
-        dormantTcIn = existingJson;
-      } else if (slave1Id) {
+      const existingJson = dormantJson;
+      let fromRelational = null;
+      if (slave1Id) {
         const extras = await loadCalcExtras(connection, slave1Id);
-        if (extras?.tcInExpenses && tcInHasSignal(extras.tcInExpenses)) {
-          dormantTcIn = {
+        if (extras?.tcInExpenses && tcInRecapHasSignal(extras.tcInExpenses)) {
+          fromRelational = {
             ...extras.tcInExpenses,
             finalHireage: extras.tcInExpenses.finalHireage
               || (priorSlave1?.TC_FINAL_HIERAGE != null ? String(priorSlave1.TC_FINAL_HIERAGE) : ''),
@@ -1685,12 +1685,18 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
           };
         }
       }
-      if (!dormantTcIn && body.tcInExpenses != null) dormantTcIn = body.tcInExpenses;
-      if (!dormantTcIn && existingJson) dormantTcIn = existingJson;
+      let dormantTcIn = preferRicherTcInRecap(
+        preferRicherTcInRecap(body.tcInExpenses, existingJson),
+        fromRelational,
+      );
       if (dormantTcIn != null) {
-        if (!(Number(dormantTcIn.finalHireage) > 0) && priorSlave1?.TC_FINAL_HIERAGE != null
-          && Number(priorSlave1.TC_FINAL_HIERAGE) > 0) {
-          dormantTcIn = { ...dormantTcIn, finalHireage: String(priorSlave1.TC_FINAL_HIERAGE) };
+        const priorHire = priorSlave1?.TC_FINAL_HIERAGE;
+        if (
+          (dormantTcIn.finalHireage == null || dormantTcIn.finalHireage === '')
+          && priorHire != null
+          && String(priorHire).trim() !== ''
+        ) {
+          dormantTcIn = { ...dormantTcIn, finalHireage: String(priorHire) };
         }
         const ok = await persistTcInRecapJson(connection, tcOutId, dormantTcIn);
         if (!ok) throw new Error('Failed to persist dormant TC In Hire Recap JSON before deactivating.');
@@ -1699,8 +1705,9 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
 
     await upsertSlave1(fields);
 
-    // Keep dormant Hire Recap JSON when TC Out; skip active slave2–4 hire inserts.
-    const activeTcInExpenses = isTcInOut ? body.tcInExpenses : null;
+    // Keep dormant Hire Recap JSON when TC Out; on TC In/Out restore children from resolved payload
+    // (body or dormant JSON) so omitted client recap still rebuilds relational hire/bunker/off-hire.
+    const activeTcInExpenses = isTcInOut ? resolvedTcInExpenses : null;
     await replaceCalcChildren(connection, slave1Id, {
       ...body,
       tcInExpenses: activeTcInExpenses,
@@ -1712,8 +1719,9 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
         hirePeriods: body.hirePeriods || merged.hirePeriods,
       },
     });
-    if (isTcInOut && body.tcInExpenses != null) {
-      const ok = await persistTcInRecapJson(connection, tcOutId, body.tcInExpenses);
+    if (isTcInOut && activeTcInExpenses != null) {
+      const toPersist = preferRicherTcInRecap(activeTcInExpenses, dormantJson) || activeTcInExpenses;
+      const ok = await persistTcInRecapJson(connection, tcOutId, toPersist);
       if (!ok) throw new Error('Failed to persist TC In Hire Recap JSON.');
     }
     await connection.commit();

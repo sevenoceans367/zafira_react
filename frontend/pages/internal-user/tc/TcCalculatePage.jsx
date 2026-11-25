@@ -310,28 +310,41 @@ export default function TcCalculatePage({
   }, [tcOutId]);
 
   const incomeTotal = useMemo(
-    () => (form?.otherIncome || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+    () => (form?.otherIncome || []).reduce((sum, row) => {
+      if (String(row.accountType || '').toLowerCase() === 'owner') return sum;
+      return sum + (Number(row.amount) || 0);
+    }, 0),
+    [form?.otherIncome],
+  );
+  const ownerIncomeTotal = useMemo(
+    () => (form?.otherIncome || []).reduce((sum, row) => {
+      if (String(row.accountType || '').toLowerCase() !== 'owner') return sum;
+      return sum + (Number(row.amount) || 0);
+    }, 0),
     [form?.otherIncome],
   );
   const expenseTotal = useMemo(
     () => (form?.otherExpenses || [])
-      .filter((row) => row.addToTotal !== false)
-      .reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
-    [form?.otherExpenses],
+      .filter((row) => row.addToTotal === true)
+      .reduce((sum, row) => sum + (Number(row.amount) || 0), 0) + ownerIncomeTotal,
+    [form?.otherExpenses, ownerIncomeTotal],
   );
   const isTcInOut = form?.contractType === 'tcinout';
   const tcInFinalHireage = useMemo(() => {
     if (!isTcInOut) return 0;
-    if (!form?.tcInExpenses) return Number(form?.calc?.tcFinalHireage) || 0;
+    if (!form?.tcInExpenses) {
+      const saved = Number(form?.calc?.tcFinalHireage);
+      return Number.isFinite(saved) ? saved : 0;
+    }
     const resolved = calcTcInFinalHireage(form.tcInExpenses);
     const live = Number(resolved.finalHireage);
-    if (Number.isFinite(live) && live !== 0) return live;
-    // Prefer live calc; fall back to saved TC_FINAL_HIERAGE when seed is empty (0 is legitimate).
+    // 0 / negative are legitimate live results — only fall back when live is non-finite.
+    if (Number.isFinite(live)) return live;
     const saved = Number(form.calc?.tcFinalHireage);
     return Number.isFinite(saved) ? saved : 0;
   }, [isTcInOut, form?.tcInExpenses, form?.calc?.tcFinalHireage]);
   const totalExpenses = useMemo(() => {
-    // Always otherExpenses + active TC In hireage — never reuse stale TOTAL_EXP_EST that embeds dormant hire.
+    // Always otherExpenses(+owner income) + active TC In hireage — never reuse stale TOTAL_EXP_EST.
     return expenseTotal + tcInFinalHireage;
   }, [expenseTotal, tcInFinalHireage]);
   const itineraryExpenseTotal = useMemo(
@@ -462,6 +475,7 @@ export default function TcCalculatePage({
         await onSave(payload);
       } else {
         await saveTcCalculation(tcOutId, {
+          contractType: payload.contractType,
           calc: payload.calc,
           hirePeriods: payload.hirePeriods,
           otherIncome: payload.otherIncome,

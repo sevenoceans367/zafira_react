@@ -18,11 +18,10 @@ app.use('/attachment', express.static(attachmentDir));
 
 app.use('/api', apiRoutes);
 
-app.listen(PORT, async () => {
-  console.log(`Backend running at http://localhost:${PORT}`);
+async function start() {
   if (isDbConfigured()) {
     console.log(`Database: ${dbConfig.user}@${dbConfig.host}/${dbConfig.database}`);
-    // Versioned schema migration at boot — not on list/read paths.
+    // Complete versioned migration before accepting traffic so writes never race boot.
     try {
       const result = await runTcContractTypeMigration(getPool());
       console.log(`[migration] tc_contract_type: ${result.state}${result.detail ? ` (${result.detail})` : ''}`);
@@ -32,4 +31,13 @@ app.listen(PORT, async () => {
   } else {
     console.log('Database: not configured — using mock data (set backend/.env)');
   }
+
+  app.listen(PORT, () => {
+    console.log(`Backend running at http://localhost:${PORT}`);
+  });
+}
+
+start().catch((error) => {
+  console.error('[boot] failed:', error);
+  process.exit(1);
 });

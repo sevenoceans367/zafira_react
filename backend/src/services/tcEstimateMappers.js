@@ -137,7 +137,8 @@ export function normalizeContractType(value) {
 /**
  * Resolve contract mode for writes.
  * Explicit valid body.contractType wins; invalid explicit → throw status 400;
- * omitted on update → preserve existingMode; create omit → tcout.
+ * omitted / null / '' → preserve existingMode; create omit → tcout.
+ * (Explicit null/empty is treated as omitted — not as "clear mode".)
  */
 export function resolveContractTypeForWrite(body = {}, existingMode = '') {
   const raw = body.contractType;
@@ -153,6 +154,177 @@ export function resolveContractTypeForWrite(body = {}, existingMode = '') {
   const existing = normalizeContractType(existingMode);
   if (existing) return existing;
   return 'tcout';
+}
+
+/** True when a numeric field was explicitly provided (including 0 / negative). */
+export function isExplicitNumber(value) {
+  return value != null && value !== '';
+}
+
+export function toFiniteNumber(value) {
+  if (!isExplicitNumber(value)) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Active TC In hireage for P&L. Dormant (tcout) → 0.
+ * Prefers explicit finite finalHireage (0 and negative included); never falls
+ * back to stale positive amounts when the live value is explicitly 0.
+ * Does not substitute hire-line nett sums for final hireage (bunkers/off-hire/CVE/ILOHC).
+ */
+export function resolveActiveTcInHireage({
+  isTcInOut = false,
+  bodyFinalHireage,
+  calcFinalHireage,
+  jsonFinalHireage,
+  tcInExpenses = null,
+} = {}) {
+  if (!isTcInOut) return 0;
+  for (const candidate of [bodyFinalHireage, calcFinalHireage, jsonFinalHireage]) {
+    const n = toFiniteNumber(candidate);
+    if (n != null) return n;
+  }
+  if (tcInExpenses && typeof tcInExpenses === 'object') {
+    const computed = computeTcInFinalHireage(tcInExpenses);
+    const n = toFiniteNumber(computed.finalHireage);
+    if (n != null) return n;
+  }
+  return 0;
+}
+
+/** Owner otherIncome rows contribute to expenses (Fixture / PHP Add-to-TTL parity). */
+export function sumOwnerOtherIncome(otherIncome = []) {
+  return (otherIncome || []).reduce((sum, row) => {
+    if (String(row?.accountType || '').toLowerCase() !== 'owner') return sum;
+    return sum + (Number(row.amount) || 0);
+  }, 0);
+}
+
+/** Charterer (or untagged legacy) otherIncome → revenue OTHER_INCOME_EST. */
+export function sumChartererOtherIncome(otherIncome = []) {
+  return (otherIncome || []).reduce((sum, row) => {
+    if (String(row?.accountType || '').toLowerCase() === 'owner') return sum;
+    return sum + (Number(row.amount) || 0);
+  }, 0);
+}
+
+/** PHP chkVal == 1 only — strict true/1, not !== false. */
+export function sumAddToTotalExpenses(otherExpenses = []) {
+  return (otherExpenses || []).reduce((sum, row) => {
+    if (row?.addToTotal !== true && row?.addToTotal !== 1) return sum;
+    return sum + (Number(row.amount) || 0);
+  }, 0);
+}
+
+export function computeVoyageExpenseTotal(otherExpenses = [], otherIncome = [], activeHireage = 0) {
+  return sumAddToTotalExpenses(otherExpenses) + sumOwnerOtherIncome(otherIncome) + (Number(activeHireage) || 0);
+}
+
+/**
+ * Persisted Hire Recap signal — ignore empty fixture seeds (deliveryDate-only).
+ * Aligns with frontend hasSavedTcInHires (nonzero amounts / randomId / off-hire from).
+ */
+export function tcInRecapHasSignal(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  const fh = toFiniteNumber(obj.finalHireage);
+  if (fh != null && fh !== 0) return true;
+  const hireHits = (obj.hires || []).some((row) => (
+    (row.hireage != null && String(row.hireage).trim() !== '' && Number(row.hireage) !== 0)
+    || (row.nettHireage != null && String(row.nettHireage).trim() !== '' && Number(row.nettHireage) !== 0)
+    || (row.grossHireage != null && String(row.grossHireage).trim() !== '' && Number(row.grossHireage) !== 0)
+    || (row.randomId != null && String(row.randomId).trim() !== '')
+  ));
+  if (hireHits) return true;
+  const bunkerHits = [...(obj.deliveryBunkers || []), ...(obj.redeliveryBunkers || [])]
+    .some((row) => (row.qty != null && String(row.qty).trim() !== '')
+      || (row.amount != null && String(row.amount).trim() !== '' && Number(row.amount) !== 0));
+  if (bunkerHits) return true;
+  return (obj.offHires || []).some((row) => (
+    (row.amount != null && String(row.amount).trim() !== '' && Number(row.amount) !== 0)
+    || (row.from != null && String(row.from).trim() !== '')
+  ));
+}
+
+/** Rough richness score so poorer empty shells cannot overwrite recoverable snapshots. */
+export function tcInRecapRichness(obj) {
+  if (!obj || typeof obj !== 'object') return 0;
+  let score = 0;
+  if (obj.recapVersion) score += 5;
+  const fh = toFiniteNumber(obj.finalHireage);
+  if (fh != null && fh !== 0) score += 50 + Math.min(Math.abs(fh), 1e7) / 1e7;
+  score += (obj.hires || []).length * 8;
+  for (const h of obj.hires || []) {
+    if (toFiniteNumber(h.hireage) != null || toFiniteNumber(h.nettHireage) != null) score += 4;
+    if (h.randomId) score += 2;
+    if (String(h.deliveryDate || '').trim()) score += 1;
+  }
+  score += (obj.deliveryBunkers || []).length * 2;
+  score += (obj.redeliveryBunkers || []).length * 2;
+  score += (obj.offHires || []).length * 3;
+  for (const key of ['cpDate', 'contractRef', 'deliveryPort', 'redeliveryPort', 'finalVendor', 'ilohc', 'awrpCost']) {
+    if (String(obj[key] || '').trim()) score += 1;
+  }
+  return score;
+}
+
+/** Prefer the richer recoverable Hire Recap payload. */
+export function preferRicherTcInRecap(a, b) {
+  const aOk = tcInRecapHasSignal(a);
+  const bOk = tcInRecapHasSignal(b);
+  if (aOk && !bOk) return a;
+  if (bOk && !aOk) return b;
+  if (!aOk && !bOk) return null;
+  return tcInRecapRichness(a) >= tcInRecapRichness(b) ? a : b;
+}
+
+/**
+ * Server-side Final TC In Hireage (mirrors frontend calcTcInFinalHireage).
+ * Used when restoring / recomputing without trusting a stale scalar alone.
+ */
+export function computeTcInFinalHireage(tcIn = {}) {
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const hires = tcIn.hires || [];
+  const delTotal = (tcIn.deliveryBunkers || []).reduce((s, r) => s + num(r.qty) * num(r.price), 0);
+  const reDelTotal = (tcIn.redeliveryBunkers || []).reduce((s, r) => s + num(r.qty) * num(r.price), 0);
+  let offHireDays = 0;
+  let offHireAmt = 0;
+  let ownerBunker = num(tcIn.bunkerOnOwner);
+  for (const row of tcIn.offHires || []) {
+    let days = num(row.days);
+    if (hasDateValue(row.from) && hasDateValue(row.to)) {
+      days = daysBetween(row.to, row.from);
+    }
+    const amount = days * num(row.hireRate);
+    if (hasDateValue(row.from)) offHireDays += days;
+    offHireAmt += amount;
+    if (!tcIn.bunkerOnOwner && Array.isArray(row.bunkers)) {
+      for (const bunker of row.bunkers) {
+        if (bunker.onOwner || bunker.calc) {
+          ownerBunker += (num(bunker.qty) * num(bunker.price)) || num(bunker.amount);
+        }
+      }
+    }
+  }
+  const offHireCveMonth = num(tcIn.offHireCveMonth);
+  const offHireCveAmt = ((offHireCveMonth * 12) / 365) * offHireDays;
+  const lessOffHire = offHireAmt + offHireCveAmt + ownerBunker;
+  const nettPlusCve = hires.reduce((s, r) => s + num(r.nettHireage) + num(r.cveAmt), 0);
+  const finalHireage = nettPlusCve
+    + num(tcIn.awrpCost)
+    + delTotal
+    - reDelTotal
+    - lessOffHire
+    + num(tcIn.ilohc);
+  return {
+    finalHireage: finalHireage.toFixed(2),
+    lessOffHire: lessOffHire.toFixed(2),
+    offHireCveAmt: offHireCveAmt.toFixed(2),
+    bunkerOnOwner: ownerBunker ? ownerBunker.toFixed(2) : (tcIn.bunkerOnOwner || ''),
+  };
 }
 
 /** Label for the grey contract-type chip (matches Recap Identifiers dropdown). */

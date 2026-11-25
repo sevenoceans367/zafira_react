@@ -1284,6 +1284,7 @@ export default function TcFixtureFormPage({
   const [vpData, setVpData] = useState(null);
   const [vpLoading, setVpLoading] = useState(false);
   const [vpError, setVpError] = useState('');
+  const periodLookupSeqRef = useRef(0);
   const [periodMeta, setPeriodMeta] = useState(() => (
     periodNoParam ? { contractNo: periodNoParam } : null
   ));
@@ -2341,21 +2342,27 @@ export default function TcFixtureFormPage({
 
   const handlePeriodChange = async (periodId) => {
     if (readOnly) return;
+    const normalizedPeriodId = periodId && String(periodId) !== '0' ? String(periodId) : '';
+    const requestSeq = ++periodLookupSeqRef.current;
     setForm((prev) => ({
       ...prev,
-      periodId,
-      contractType: periodId ? 'tcinout' : prev.contractType,
+      periodId: normalizedPeriodId,
+      contractType: normalizedPeriodId ? 'tcinout' : prev.contractType,
     }));
-    if (!periodId || hasSavedTcInHires(form.tcInExpenses)) return;
+    if (!normalizedPeriodId || hasSavedTcInHires(form.tcInExpenses)) return;
     try {
-      const periodTcIn = await fetchPeriodTcInDetails(periodId);
+      const periodTcIn = await fetchPeriodTcInDetails(normalizedPeriodId);
+      if (requestSeq !== periodLookupSeqRef.current) return; // stale response
       if (periodTcIn) {
-        setForm((prev) => ({
-          ...prev,
-          periodId,
-          contractType: 'tcinout',
-          tcInExpenses: applyPeriodTcIn(prev.tcInExpenses, periodTcIn),
-        }));
+        setForm((prev) => {
+          if (String(prev.periodId || '') !== normalizedPeriodId) return prev;
+          return {
+            ...prev,
+            periodId: normalizedPeriodId,
+            contractType: 'tcinout',
+            tcInExpenses: applyPeriodTcIn(prev.tcInExpenses, periodTcIn),
+          };
+        });
       }
     } catch {
       // Ignore period TC In seed failures.

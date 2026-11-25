@@ -3,12 +3,19 @@ import assert from 'node:assert/strict';
 import {
   calcTcTotals,
   computeTcListStats,
+  computeTcInFinalHireage,
+  computeVoyageExpenseTotal,
   dailyGrossHire,
   mapTcDetail,
   mapTcListRow,
   normalizeContractType,
+  preferRicherTcInRecap,
+  resolveActiveTcInHireage,
   resolveContractTypeForWrite,
+  sumChartererOtherIncome,
+  sumOwnerOtherIncome,
   tcContractTypeLabel,
+  tcInRecapHasSignal,
 } from './tcEstimateMappers.js';
 
 describe('tcEstimateMappers', () => {
@@ -356,10 +363,77 @@ describe('tcEstimateMappers', () => {
 
   it('resolveContractTypeForWrite preserves omit and rejects invalid', () => {
     assert.equal(resolveContractTypeForWrite({}, 'tcinout'), 'tcinout');
+    assert.equal(resolveContractTypeForWrite({ contractType: null }, 'tcinout'), 'tcinout');
+    assert.equal(resolveContractTypeForWrite({ contractType: '' }, 'tcout'), 'tcout');
     assert.equal(resolveContractTypeForWrite({ periodId: '9' }), 'tcout');
     assert.throws(
       () => resolveContractTypeForWrite({ contractType: 'bogus' }),
       (err) => err.status === 400,
     );
+  });
+
+  it('keeps explicit zero/negative active hireage and zeros under tcout', () => {
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      bodyFinalHireage: 0,
+      calcFinalHireage: 999,
+      jsonFinalHireage: 888,
+    }), 0);
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      bodyFinalHireage: -100,
+      calcFinalHireage: 999,
+    }), -100);
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: false,
+      bodyFinalHireage: 5000,
+    }), 0);
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      tcInExpenses: {
+        hires: [{ nettHireage: '1000', cveAmt: '0' }],
+        deliveryBunkers: [],
+        redeliveryBunkers: [],
+        offHires: [],
+        awrpCost: 0,
+        ilohc: 0,
+      },
+    }), 1000);
+  });
+
+  it('adds owner otherIncome into voyage expenses and charterer into income', () => {
+    const income = [
+      { accountType: 'Owner', amount: '100' },
+      { accountType: 'Charterer', amount: '250' },
+      { amount: '50' },
+    ];
+    assert.equal(sumOwnerOtherIncome(income), 100);
+    assert.equal(sumChartererOtherIncome(income), 300);
+    assert.equal(computeVoyageExpenseTotal(
+      [{ addToTotal: true, amount: '40' }, { addToTotal: false, amount: '999' }],
+      income,
+      10,
+    ), 150);
+  });
+
+  it('prefers richer Hire Recap snapshots and ignores empty seeds', () => {
+    assert.equal(tcInRecapHasSignal({ hires: [{ deliveryDate: '01-01-2026', dailyHire: '10000' }] }), false);
+    assert.equal(tcInRecapHasSignal({ hires: [{ nettHireage: '100', randomId: '1' }] }), true);
+    const rich = { finalHireage: '5000', hires: [{ nettHireage: '5000', randomId: 'a' }], recapVersion: 1 };
+    const poor = { hires: [{ deliveryDate: '01-01-2026', dailyHire: '1' }] };
+    assert.deepEqual(preferRicherTcInRecap(poor, rich), rich);
+    assert.equal(preferRicherTcInRecap(poor, null), null);
+  });
+
+  it('computes final TC In hireage from recap components', () => {
+    const result = computeTcInFinalHireage({
+      hires: [{ nettHireage: '10000', cveAmt: '100' }],
+      deliveryBunkers: [{ qty: '10', price: '100' }],
+      redeliveryBunkers: [{ qty: '5', price: '100' }],
+      offHires: [],
+      awrpCost: '0',
+      ilohc: '50',
+    });
+    assert.equal(result.finalHireage, '10650.00');
   });
 });

@@ -767,10 +767,12 @@ export async function dbGetLaytimeForm(comId) {
   }
 
   const [[compare]] = await pool.query(
-    `SELECT c.COMID, c.MESSAGE, c.FCAID, m.VESSEL_IMO_ID, vim.VESSEL_NAME
+    `SELECT c.COMID, c.MESSAGE, c.FCAID, c.OPERATOR, m.VESSEL_IMO_ID, vim.VESSEL_NAME,
+            op.CONTACT_PERSON AS OPERATOR_NAME
      FROM freight_cost_estimate_compare c
      LEFT JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
+     LEFT JOIN login op ON op.LOGINID = c.OPERATOR
      WHERE c.COMID = ? AND c.MODULEID = ?
      LIMIT 1`,
     [comId, MODULE_ID],
@@ -785,7 +787,7 @@ export async function dbGetLaytimeForm(comId) {
   const fcaId = await resolveLaytimeFcaId(pool, comId) || compare.FCAID;
   const [[master]] = await pool.query(
     `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO,
-            FIXTURETYPEID, SEL_BUSI_TYPE
+            FIXTURETYPEID, SEL_BUSI_TYPE, LUMP_VENDOR, FGFF_VENDORID, QTY_TYPE_RADIO
      FROM freight_cost_estimete_master
      WHERE FCAID = ?
      LIMIT 1`,
@@ -879,6 +881,22 @@ export async function dbGetLaytimeForm(comId) {
   // Same Fun158 contract as sofDb. Unknown estimateType fails closed (null)
   // — do not guess days vs hours for ambiguous records.
   const rateUnit = laytimeRateUnitFromEstimateType(vesselParticulars?.estimateType);
+  const estimateType = vesselParticulars?.estimateType ?? null;
+
+  // Read-only Operator / Charterer for Tanker Details — existing columns only (no schema invent).
+  const operatorName = String(compare?.OPERATOR_NAME || '').trim();
+  let charterer = '';
+  const qtyRadio = Number(master?.QTY_TYPE_RADIO);
+  const chartererCode = qtyRadio === 1
+    ? (master?.LUMP_VENDOR || master?.FGFF_VENDORID)
+    : null;
+  if (chartererCode) {
+    const [[vendor]] = await pool.query(
+      `SELECT NAME FROM vendor_master WHERE CODE = ? LIMIT 1`,
+      [chartererCode],
+    ).catch(() => [[null]]);
+    charterer = String(vendor?.NAME || '').trim();
+  }
 
   return {
     comId: String(comId),
@@ -887,11 +905,15 @@ export async function dbGetLaytimeForm(comId) {
     voyageNo,
     vesselName,
     fixtureTypeId: fixtureTypeRaw ? String(fixtureTypeRaw) : '',
+    // Top-level estimate type for Tanker layout gate (also on vesselParticulars).
+    estimateType,
     cpDate,
     message: compare.MESSAGE || '',
     cargo,
     currency: 'USD',
     vesselParticulars,
+    operatorName,
+    charterer,
     rateUnit,
     // Fun158 estimate type is the unit basis; historical day-mode tanker writes
     // are not auto-converted (no blanket ×24). Unknown type → rateUnit null.

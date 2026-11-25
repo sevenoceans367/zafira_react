@@ -11,10 +11,16 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchLaytimeForm, openLaytime, saveLaytime } from '../../../services/opsVc.js';
 import OpsVcLaytimeHeaderActions from './OpsVcLaytimeHeaderActions.jsx';
+import LaytimeTankerLayout from './LaytimeTankerLayout.jsx';
 import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
+import {
+  emptyNegoRow,
+  resolveLaytimeEstimateType,
+  usesTankerLaytimeLayout,
+} from './laytimeTankerHelpers.js';
 import pageStyles from './OpsPages.module.css';
 import sofStyles from './OpsVcSofPage.module.css';
 import styles from './OpsVcLaytimePage.module.css';
@@ -261,7 +267,7 @@ function approverLabel(options, id) {
   return match?.name ?? match?.label ?? String(id);
 }
 
-function ApproverTagField({ options, value, onChange, disabled }) {
+function ApproverTagField({ options, value, onChange, disabled, orangeChips = false }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
@@ -310,7 +316,7 @@ function ApproverTagField({ options, value, onChange, disabled }) {
     <div className={styles.tagField} ref={rootRef} data-field="approvers">
       <div className={styles.tagBox} onClick={() => rootRef.current?.querySelector('input')?.focus()}>
         {selected.map((id) => (
-          <span key={id} className={styles.tagChip}>
+          <span key={id} className={`${styles.tagChip} ${orangeChips ? styles.tagChipOrange : ''}`.trim()}>
             <span>{approverLabel(options, id)}</span>
             {!disabled ? (
               <button
@@ -480,6 +486,8 @@ export default function OpsVcLaytimePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pendingFilesByKey, setPendingFilesByKey] = useState({});
+  // Nego Dialogues: local React state only — not persisted (owner decision pending).
+  const [negoByKey, setNegoByKey] = useState({});
 
   const rateUnit = form?.rateUnit === 'hours' || form?.rateUnit === 'days'
     ? form.rateUnit
@@ -487,6 +495,9 @@ export default function OpsVcLaytimePage() {
   const unitLabel = rateUnit === 'hours' ? 'Hrs' : rateUnit === 'days' ? 'Days' : '—';
   const currency = form?.currency || 'USD';
   const unitUnknown = Boolean(form) && rateUnit == null;
+  // Gate on estimate type 2 only — never infer Tanker from hours rateUnit (Gas also uses hours).
+  const estimateType = resolveLaytimeEstimateType(form);
+  const isTankerLayout = usesTankerLaytimeLayout(estimateType);
 
   const backHref = useMemo(() => {
     const path = BACK_PATHS[Number(page)] || BACK_PATHS[1];
@@ -573,6 +584,16 @@ export default function OpsVcLaytimePage() {
 
   const addListRow = (field, factory) => {
     patchDraft({ [field]: [...(draft[field] || []), factory()] });
+  };
+
+  const insertListRow = (field, index, factory) => {
+    const rows = [...(draft[field] || [])];
+    const created = typeof factory === 'function' ? factory() : factory;
+    rows.splice(index + 1, 0, created);
+    patchDraft(
+      { [field]: rows },
+      { recompute: field === 'activities' || field === 'deductions' },
+    );
   };
 
   const removeListRow = async (field, index, factory, keepMinOne = true) => {
@@ -789,6 +810,15 @@ export default function OpsVcLaytimePage() {
     ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.costSheetId)}&page=${encodeURIComponent(page || '1')}`)
     : '';
 
+  const negoRows = negoByKey[activeKey] || [emptyNegoRow()];
+  const setNegoRows = (updater) => {
+    setNegoByKey((current) => {
+      const prev = current[activeKey] || [emptyNegoRow()];
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      return { ...current, [activeKey]: next };
+    });
+  };
+
   return (
     <>
       <VoyageOpsHeading
@@ -808,7 +838,7 @@ export default function OpsVcLaytimePage() {
         disabled={loading || saving}
       />
 
-      <div className={`zafira-page ${pageStyles.page} ${styles.page}`}>
+      <div className={`zafira-page ${pageStyles.page} ${styles.page} ${isTankerLayout ? styles.ltTankerPage : ''}`.trim()}>
         {(loading || saving) ? (
           <LoadingOverlay active label={saving ? 'Saving Laytime…' : 'Loading Laytime…'} />
         ) : null}
@@ -828,7 +858,38 @@ export default function OpsVcLaytimePage() {
           </div>
         ) : null}
 
-        {form?.ports?.length ? (
+        {form?.ports?.length && isTankerLayout ? (
+          <LaytimeTankerLayout
+            form={form}
+            activeKey={activeKey}
+            setActiveKey={setActiveKey}
+            activePort={activePort}
+            draft={draft}
+            locked={locked}
+            saving={saving}
+            unitUnknown={unitUnknown}
+            unitShort={unitShort}
+            pendingFiles={pendingFiles}
+            approverOptions={approverOptions}
+            LtDateField={LtDateField}
+            ApproverTagField={ApproverTagField}
+            patchDraft={patchDraft}
+            updateListRow={updateListRow}
+            insertListRow={insertListRow}
+            removeListRow={removeListRow}
+            emptyActivityRow={emptyActivityRow}
+            emptyDeductionRow={emptyDeductionRow}
+            setApprovers={setApprovers}
+            addPendingFiles={addPendingFiles}
+            removePendingFile={removePendingFile}
+            handleSubmit={handleSubmit}
+            handleOpen={handleOpen}
+            negoRows={negoRows}
+            setNegoRows={setNegoRows}
+          />
+        ) : null}
+
+        {form?.ports?.length && !isTankerLayout ? (
           <>
             <div className={sofStyles.portTabs}>
               {form.ports.map((port) => (

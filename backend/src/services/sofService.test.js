@@ -3,9 +3,16 @@ import assert from 'node:assert/strict';
 import { isDbConfigured } from '../config.js';
 import {
   DEFAULT_KEY_OPERATIONS,
+  DEFAULT_KEY_OPERATIONS_DRY,
+  applyMasterToKeyOperations,
+  deriveMasterFieldsFromKeyOperations,
+  draftFiguresFromCargoRows,
+  keyOperationPresetsForEstimateType,
   numOrNull,
   resolveSofSavePlan,
+  isStrictSofDisplayDateTime,
   validateSofActivityPartialPercentages,
+  validateSofCompletedIntervals,
 } from './sofDb.js';
 import { __resetSofMockForTests, getSofForm, saveSof } from './sofService.js';
 
@@ -14,6 +21,25 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
     assert.equal(numOrNull('50,000'), 50000);
     assert.equal(numOrNull('1,234.5'), 1234.5);
     assert.equal(numOrNull('1,2'), null);
+  });
+
+  it('rejects completed reversed Activity/Deduction intervals and allows incomplete drafts', () => {
+    assert.doesNotThrow(() => validateSofCompletedIntervals([
+      { from: '10-05-2026 08:00', to: '' },
+      { from: '10-05-2026 08:00', to: '10-05-2026 10:00' },
+    ]));
+    assert.throws(
+      () => validateSofCompletedIntervals([
+        { from: '10-05-2026 12:00', to: '10-05-2026 10:00' },
+      ]),
+      /finish must be on or after start/i,
+    );
+    assert.throws(
+      () => validateSofCompletedIntervals([
+        { start: '10-05-2026 14:00', end: '10-05-2026 12:00' },
+      ], { fromKey: 'start', toKey: 'end', label: 'Deduction' }),
+      /Deduction finish must be on or after start/i,
+    );
   });
 
   it('validates SOF Activity LT partial percentages at the service boundary', () => {
@@ -133,6 +159,109 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
         `Expected DEFAULT_KEY_OPERATIONS to include "${required}"`,
       );
     }
+  });
+
+  it('seeds Dry Key Operations presets for estimateType 3 and keeps Tanker presets otherwise', () => {
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY.length, 22);
+    assert.deepEqual(keyOperationPresetsForEstimateType(3), DEFAULT_KEY_OPERATIONS_DRY);
+    assert.deepEqual(keyOperationPresetsForEstimateType(2), DEFAULT_KEY_OPERATIONS);
+    assert.deepEqual(keyOperationPresetsForEstimateType(1), DEFAULT_KEY_OPERATIONS);
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[21], 'FAOP');
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY.filter((name) => name === 'Commenced draft survey').length, 2);
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY.filter((name) => name === 'Pilot on board').length, 2);
+  });
+
+  it('derives vessel sailed from FAOP and maps draft F/A figures from SOF cargo draft rows', () => {
+    const derived = deriveMasterFieldsFromKeyOperations([
+      { activity: 'EOSP', activityDateTime: '10-04-2026 07:30' },
+      { activity: 'FAOP', activityDateTime: '12-04-2026 19:00' },
+    ], []);
+    assert.equal(derived.vesselArrived, '10-04-2026 07:30');
+    assert.equal(derived.vesselSailed, '12-04-2026 19:00');
+
+    // Master VS is typically a DB Date/ISO value; blankDateTime normalizes to dd-mm-yyyy.
+    const seeded = applyMasterToKeyOperations(
+      [{ activity: 'FAOP', activityDateTime: '', comments: '', tDefault: 1 }],
+      { VS: new Date(2026, 3, 12, 19, 0) },
+    );
+    assert.equal(seeded[0].activityDateTime, '12-04-2026 19:00');
+
+    assert.deepEqual(draftFiguresFromCargoRows([
+      { activity: 'Arrival draft', shipFigure: '10.5', blFigure: '10.8' },
+      { activity: 'Departure draft', shipFigure: '12.0', blFigure: '12.2' },
+    ]), {
+      draftArrFore: '10.5',
+      draftArrAft: '10.8',
+      draftDepFore: '12.0',
+      draftDepAft: '12.2',
+    });
+  });
+
+  it('applies master Pilot fallback only to the first blank Pilot on board row', () => {
+    const rows = applyMasterToKeyOperations([
+      { activity: 'Pilot on board', activityDateTime: '10-04-2026 09:00', comments: '', tDefault: 1 },
+      { activity: 'Pilot on board', activityDateTime: '', comments: '', tDefault: 1 },
+    ], { PBFB_1: new Date(2026, 3, 10, 8, 30) });
+    assert.equal(rows[0].activityDateTime, '10-04-2026 09:00');
+    assert.equal(rows[1].activityDateTime, '');
+
+    const blankFirst = applyMasterToKeyOperations([
+      { activity: 'Pilot on board', activityDateTime: '', comments: '', tDefault: 1 },
+      { activity: 'Pilot on board', activityDateTime: '', comments: '', tDefault: 1 },
+    ], { PBFB_1: new Date(2026, 3, 10, 8, 30) });
+    assert.equal(blankFirst[0].activityDateTime, '10-04-2026 08:30');
+    assert.equal(blankFirst[1].activityDateTime, '');
+  });
+
+  it('does not derive arrival Pilot master from a later departure Pilot timestamp', () => {
+    // Preset/insertion order: blank arrival Pilot, timed departure Pilot.
+    const derived = deriveMasterFieldsFromKeyOperations([
+      { activity: 'Pilot on board', activityDateTime: '' },
+      { activity: 'Pilot on board', activityDateTime: '12-04-2026 19:00' },
+    ], []);
+    assert.equal(derived.pilotOnBoard, null);
+
+    // Timestamp-first reload order must not be used for Dry derivation; if it were,
+    // the timed departure would incorrectly become PBFB_1.
+    const badOrder = deriveMasterFieldsFromKeyOperations([
+      { activity: 'Pilot on board', activityDateTime: '12-04-2026 19:00' },
+      { activity: 'Pilot on board', activityDateTime: '' },
+    ], []);
+    assert.equal(badOrder.pilotOnBoard, '12-04-2026 19:00');
+  });
+
+  it('rejects unparseable and malformed completed Dry intervals when rejectUnparseable is set', () => {
+    assert.equal(isStrictSofDisplayDateTime('10-04-2026 08:00'), true);
+    assert.equal(isStrictSofDisplayDateTime('10-13-2026 08:00'), false);
+    assert.equal(isStrictSofDisplayDateTime('31-02-2026 09:00'), false);
+    assert.equal(isStrictSofDisplayDateTime('10-04-2026 25:00'), false);
+    assert.equal(isStrictSofDisplayDateTime('10-04-2026 08:00 junk'), false);
+    assert.equal(isStrictSofDisplayDateTime('not-a-date'), false);
+
+    assert.throws(
+      () => validateSofCompletedIntervals([
+        { from: 'not-a-date', to: 'also-bad' },
+      ], { rejectUnparseable: true }),
+      /valid date\/times/i,
+    );
+    assert.throws(
+      () => validateSofCompletedIntervals([
+        { from: '10-13-2026 08:00', to: '11-13-2026 09:00' },
+      ], { rejectUnparseable: true }),
+      /valid date\/times/i,
+    );
+    assert.throws(
+      () => validateSofCompletedIntervals([
+        { from: '10-04-2026 08:00 junk', to: '10-04-2026 09:00' },
+      ], { rejectUnparseable: true }),
+      /valid date\/times/i,
+    );
+    assert.doesNotThrow(() => validateSofCompletedIntervals([
+      { from: '10-04-2026 08:00', to: '10-04-2026 09:00' },
+    ], { rejectUnparseable: true }));
+    assert.doesNotThrow(() => validateSofCompletedIntervals([
+      { from: 'not-a-date', to: 'also-bad' },
+    ], { rejectUnparseable: false }));
   });
 });
 

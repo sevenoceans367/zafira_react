@@ -3,6 +3,29 @@ import { recomputePortDraft } from './laytimeCalculations.js';
 export const SOF_ROW_SIZE_OPTIONS = [5, 10, 25];
 export const DEFAULT_SOF_ROW_SIZE = 5;
 
+/** Redesigned OpsVcSofPage layout: Tanker (2) + Dry (3). Gas (1) stays on legacy. */
+export function usesRedesignedSofLayout(estimateType) {
+  const type = Number(estimateType);
+  return type === 2 || type === 3;
+}
+
+export function isDrySofEstimate(estimateType) {
+  return Number(estimateType) === 3;
+}
+
+/** Read-only Identifiers display; blank worksheet values render as an em dash. */
+export function displaySofReadonlyValue(value) {
+  const raw = String(value ?? '').trim();
+  return raw || '—';
+}
+
+export function displaySofDraftPair(fore, aft) {
+  const f = String(fore ?? '').trim();
+  const a = String(aft ?? '').trim();
+  if (!f && !a) return '—';
+  return `${f || '—'} / ${a || '—'}`;
+}
+
 /** Preserve intentional blank cumulative; only default when the value is missing. */
 export function coalesceActivityCumulative(computed) {
   if (computed === '') return '';
@@ -241,13 +264,66 @@ export function parseDisplayDateTime(value) {
     : null;
 }
 
-/** Hours between two display datetimes, formatted to 1 decimal matching the SOF mockup. */
-export function computeActivityDurationHours(from, to) {
+/**
+ * Hours between two display datetimes.
+ * Tanker UI/storage uses 1 decimal (mockup). Dry needs finer storage precision so
+ * short intervals still round-trip into Duration (Days) without collapsing to 0.0h.
+ */
+export function computeActivityDurationHours(from, to, { decimals = 1 } = {}) {
   const sd = parseDisplayDateTime(from);
   const fd = parseDisplayDateTime(to);
   if (!sd || !fd) return '';
   const hrs = (fd.getTime() - sd.getTime()) / 3600000;
-  return hrs >= 0 ? hrs.toFixed(1) : '';
+  const places = Number.isInteger(decimals) && decimals >= 0 ? decimals : 1;
+  return hrs >= 0 ? hrs.toFixed(places) : '';
+}
+
+/**
+ * True when both ends of a From/To (or Start/Finish) range are present and reversed.
+ * Incomplete ranges are allowed (draft entry); only completed inverted ranges fail.
+ */
+export function isReversedSofInterval(from, to) {
+  const sd = parseDisplayDateTime(from);
+  const fd = parseDisplayDateTime(to);
+  if (!sd || !fd) return false;
+  return fd.getTime() < sd.getTime();
+}
+
+/** Reject completed reversed Activity/Deduction ranges before Soft save. */
+export function assertValidSofCompletedIntervals(rows = [], { fromKey = 'from', toKey = 'to', label = 'Activity' } = {}) {
+  for (const row of rows || []) {
+    const from = row?.[fromKey];
+    const to = row?.[toKey];
+    if (!String(from || '').trim() || !String(to || '').trim()) continue;
+    if (isReversedSofInterval(from, to)) {
+      const error = new Error(`${label} finish must be on or after start.`);
+      error.status = 400;
+      throw error;
+    }
+  }
+}
+
+/**
+ * Decimal-day duration for Dry SOF Activity/Deductions (hours/24).
+ * Uses 4dp to match Dry laytime day semantics / deduction totals.
+ * Stored duration remains hours for Laytime sync; this is the Days display/update value.
+ */
+export function computeActivityDurationDays(from, to) {
+  const sd = parseDisplayDateTime(from);
+  const fd = parseDisplayDateTime(to);
+  if (!sd || !fd) return '';
+  const hrs = (fd.getTime() - sd.getTime()) / 3600000;
+  if (hrs < 0) return '';
+  return (hrs / 24).toFixed(4);
+}
+
+/** Convert a stored hour duration string to Days (4dp) for Dry display/totals. */
+export function hoursDurationToDays(durationHours) {
+  const raw = String(durationHours ?? '').trim();
+  if (!raw || raw === '—') return '';
+  const hrs = Number(raw);
+  if (!Number.isFinite(hrs) || hrs < 0) return '';
+  return (hrs / 24).toFixed(4);
 }
 
 function isCargoLoadedRow(row) {
@@ -352,15 +428,18 @@ export function displayStoredFileName(stored) {
  * Snapshot a port record into per-tab draft state while preserving all backend collections
  * (entityRows, blRows, portActivities, preArrival, dailyQty, cargoRows, keyOperations, agentRemarks).
  */
-export function draftFromPort(port = {}) {
+export function draftFromPort(port = {}, { isDry = false } = {}) {
+  // Duration stays in hours for Laytime sync (recomputePortDraft divider math).
+  // Dry UI converts to Days for display via computeActivityDurationDays / hoursDurationToDays.
   // New placeholder rows use emptyPortActivityRow() defaults (C/100).
   // Loaded rows keep stored flags/partial — do not silently rewrite C/0% or neither.
+  const hourDecimals = isDry ? 4 : 1;
   const portActivities = (port.portActivities?.length ? port.portActivities : [emptyPortActivityRow()])
     .map((row) => ({
       activity: row.activity || '',
       from: row.from || '',
       to: row.to || '',
-      duration: row.duration || computeActivityDurationHours(row.from, row.to),
+      duration: row.duration || computeActivityDurationHours(row.from, row.to, { decimals: hourDecimals }),
       layTimeCount: row.layTimeCount === true || Number(row.layTimeCount) === 1,
       portTimeCount: row.portTimeCount === true || Number(row.portTimeCount) === 1,
       ltPartial: row.ltPartial == null ? '' : String(row.ltPartial),
@@ -385,10 +464,26 @@ export function draftFromPort(port = {}) {
 }
 
 /**
+ * Visible Activity/Deduction duration for the redesigned SOF.
+ * Dry shows decimal Days; Tanker keeps Hours. Storage remains hours either way.
+ */
+export function displaySofDuration(row = {}, { fromKey = 'from', toKey = 'to', isDry = false } = {}) {
+  const from = row[fromKey];
+  const to = row[toKey];
+  if (!String(from || '').trim() || !String(to || '').trim()) return '—';
+  if (isDry) {
+    const days = computeActivityDurationDays(from, to)
+      || hoursDurationToDays(row.duration);
+    return days || '—';
+  }
+  return row.duration || computeActivityDurationHours(from, to) || '—';
+}
+
+/**
  * Include only collections this layout owns. The API preserves omitted collections,
  * which avoids replacing fields this screen does not display or edit.
  */
-export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
+export function buildSofSavePayload({ comId, activePort, draft, submitId, isDry = false }) {
   const payload = {
     comId,
     portType: activePort.portType,
@@ -407,7 +502,15 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
     if (JSON.stringify(activityRowsForSave(originalActivities).map(normalizeActivityForSave))
       !== JSON.stringify(activityRowsForSave(currentActivities).map(normalizeActivityForSave))) {
       // Persist only meaningful rows; synthetic C/100 placeholders stay out of the payload.
-      payload.portActivities = activityRowsForSave(currentActivities);
+      const activitiesForSave = activityRowsForSave(currentActivities);
+      if (isDry) {
+        assertValidSofCompletedIntervals(activitiesForSave, {
+          fromKey: 'from',
+          toKey: 'to',
+          label: 'Activity',
+        });
+      }
+      payload.portActivities = activitiesForSave;
       if (activePort.laytimeActivityVersion) {
         payload.expectedLaytimeActivityVersion = activePort.laytimeActivityVersion;
       }
@@ -417,6 +520,13 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId }) {
     const currentDeductions = draft.deductions || [];
     if (JSON.stringify(deductionRowsForComparison(originalDeductions).map(normalizeDeductionForSave))
       !== JSON.stringify(deductionRowsForComparison(currentDeductions).map(normalizeDeductionForSave))) {
+      if (isDry) {
+        assertValidSofCompletedIntervals(currentDeductions, {
+          fromKey: 'start',
+          toKey: 'end',
+          label: 'Deduction',
+        });
+      }
       payload.deductions = currentDeductions;
       if (activePort.laytimeDeductionVersion) {
         payload.expectedLaytimeDeductionVersion = activePort.laytimeDeductionVersion;

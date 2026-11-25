@@ -60,6 +60,36 @@ export const DEFAULT_KEY_OPERATIONS = [
   'Full away on passage',
 ];
 
+/** Dry (estimateType===3) Key Operations presets — order and labels are product-locked. */
+export const DEFAULT_KEY_OPERATIONS_DRY = [
+  'EOSP',
+  'Arrived',
+  'Anchored / Commenced Drifting',
+  'NOR tendered',
+  'Anchor aweigh',
+  'Pilot on board',
+  'First line',
+  'All fast',
+  'Gangway ashore',
+  'Commenced draft survey',
+  'Completed draft survey',
+  'Commenced cargo operations',
+  'Completed cargo operations',
+  'Commenced draft survey',
+  'Completed draft survey',
+  'Completed cargo calculation',
+  'Cargo samples taken',
+  'Cargo docs onboard',
+  'Pilot on board',
+  'All clear',
+  'Pilot away',
+  'FAOP',
+];
+
+export function keyOperationPresetsForEstimateType(estimateType) {
+  return Number(estimateType) === 3 ? DEFAULT_KEY_OPERATIONS_DRY : DEFAULT_KEY_OPERATIONS;
+}
+
 export const DEFAULT_CARGO_ROWS = [
   'Cargo Loaded',
   'Bunkers taken',
@@ -157,7 +187,35 @@ function isRemarksCargoActivity(activity) {
 }
 
 function isRobActivity(activity) {
-  return activity === 'EOSP' || activity === 'Full away on passage';
+  return activity === 'EOSP'
+    || activity === 'Full away on passage'
+    || activity === 'FAOP';
+}
+
+function isVesselSailedActivity(activity) {
+  const name = String(activity || '').trim();
+  return /^full away on passage$/i.test(name) || /^faop$/i.test(name);
+}
+
+/**
+ * Identifiers Draft Arr/Dep Fore/Aft.
+ * Freight estimate worksheet (slave1) carries ROB but has no F/A draft columns.
+ * Established SOF F/A storage is sof_slave_7 "Arrival draft" / "Departure draft"
+ * rows (shipFigure=fore, blFigure=aft) — same source Tanker redesigned SOF uses.
+ */
+function draftFiguresFromCargoRows(cargoRows = []) {
+  const arrival = (cargoRows || []).find(
+    (row) => String(row.activity || '').trim().toLowerCase() === 'arrival draft',
+  );
+  const departure = (cargoRows || []).find(
+    (row) => String(row.activity || '').trim().toLowerCase() === 'departure draft',
+  );
+  return {
+    draftArrFore: str(arrival?.shipFigure),
+    draftArrAft: str(arrival?.blFigure),
+    draftDepFore: str(departure?.shipFigure),
+    draftDepAft: str(departure?.blFigure),
+  };
 }
 
 async function getPortName(pool, portId) {
@@ -314,6 +372,16 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
     const dt = str(row?.activityDateTime);
     return dt || null;
   };
+  // Arrival Pilot = first "Pilot on board" occurrence in stored order.
+  // Do not fall through a blank arrival row to a later (departure) Pilot timestamp.
+  const findArrivalPilot = () => {
+    const row = (keyOperations || []).find(
+      (r) => /^pilot on board$/i.test(String(r.activity || '').trim()),
+    );
+    if (!row) return null;
+    const dt = str(row.activityDateTime);
+    return dt || null;
+  };
   const cargoLoaded = (cargoRows || []).find(
     (r) => String(r.activity || '').trim().toLowerCase() === 'cargo loaded',
   );
@@ -323,10 +391,12 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
     stowageQty: strOrNull(explicit.stowageQty) || stowageFromCargo || null,
     vesselArrived: strOrNull(explicit.vesselArrived) || findFrom(/^eosp$/i),
     norTendered: strOrNull(explicit.norTendered) || findFrom(/^nor tendered$/i),
-    pilotOnBoard: strOrNull(explicit.pilotOnBoard) || findFrom(/^pilot on board$/i),
+    pilotOnBoard: strOrNull(explicit.pilotOnBoard) || findArrivalPilot(),
     loadCommenced: strOrNull(explicit.loadCommenced) || findFrom(/^commenced cargo operations$/i),
     loadCompleted: strOrNull(explicit.loadCompleted) || findFrom(/^completed cargo operations$/i),
-    vesselSailed: strOrNull(explicit.vesselSailed) || findFrom(/^full away on passage$/i),
+    vesselSailed: strOrNull(explicit.vesselSailed)
+      || findFrom(/^full away on passage$/i)
+      || findFrom(/^faop$/i),
   };
 }
 
@@ -337,11 +407,18 @@ function applyMasterToKeyOperations(rows, record) {
     'Commenced cargo operations': record?.LC,
     'Completed cargo operations': record?.LC1,
     'Full away on passage': record?.VS,
+    FAOP: record?.VS,
   };
+  // Master PBFB_1 is a single arrival Pilot timestamp. Apply it at most once — to the
+  // first blank "Pilot on board" row. An already-timed earlier Pilot consumes the
+  // fallback so a later blank (departure) Pilot is not fabricated with the same time.
   let pilotApplied = false;
   return rows.map((row) => {
     const activity = str(row.activity);
-    if (row.activityDateTime) return row;
+    if (row.activityDateTime) {
+      if (activity === 'Pilot on board') pilotApplied = true;
+      return row;
+    }
     if (activity === 'Pilot on board') {
       if (pilotApplied || !record?.PBFB_1) return row;
       pilotApplied = true;
@@ -359,8 +436,9 @@ function applyMasterToKeyOperations(rows, record) {
   });
 }
 
-function defaultKeyOperations(defaults = {}) {
-  return DEFAULT_KEY_OPERATIONS.map((activity) => {
+function defaultKeyOperations(defaults = {}, estimateType = null) {
+  const presets = keyOperationPresetsForEstimateType(estimateType);
+  return presets.map((activity) => {
     const row = {
       activity,
       activityDateTime: '',
@@ -375,7 +453,7 @@ function defaultKeyOperations(defaults = {}) {
       row.robIfo = defaults.robFoArrival || '';
       row.robMdo = defaults.robDoArrival || '';
     }
-    if (activity === 'Full away on passage') {
+    if (isVesselSailedActivity(activity)) {
       row.activityDateTime = defaults.portDeparture || '';
       row.robIfo = defaults.robFoDeparture || '';
       row.robMdo = defaults.robDoDeparture || '';
@@ -549,17 +627,38 @@ function laytimeActivityKey(row = {}) {
   return JSON.stringify([activity, start, end]);
 }
 
-async function loadKeyOperations(pool, sofId, defaults) {
-  if (!sofId) return defaultKeyOperations(defaults);
+async function loadKeyOperations(pool, sofId, defaults, estimateType = null) {
+  if (!sofId) return defaultKeyOperations(defaults, estimateType);
   await ensureSofActivityDateTimeToColumn(pool);
-  const [rows] = await pool.query(
-    `SELECT * FROM sof_slave_6
-     WHERE SOFID = ?
-     ORDER BY (ACTIVITYDATETIME IS NULL OR ACTIVITYDATETIME = '0000-00-00 00:00:00'), ACTIVITYDATETIME ASC`,
-    [sofId],
-  ).catch(() => [[]]);
-  if (!rows?.length) return defaultKeyOperations(defaults);
+  // Non-destructive: any saved key-op history loads as stored; empty SOFs seed presets.
+  // Dry keeps insertion/SLAVEID order so repeated Pilots keep arrival→departure identity
+  // (timestamp-first sort would promote a timed departure Pilot ahead of a blank arrival).
+  // Tanker keeps chronological ordering (timed first, then datetime, then SLAVEID).
+  const isDry = Number(estimateType) === 3;
+  const orderBy = isDry
+    ? 'SLAVEID ASC'
+    : `(ACTIVITYDATETIME IS NULL OR ACTIVITYDATETIME = '0000-00-00 00:00:00'),
+       ACTIVITYDATETIME ASC,
+       SLAVEID ASC`;
+  // Fail closed on read errors: a silent empty result would seed defaults and a later
+  // Save would replace real history. Legitimately empty SOFs still seed presets.
+  let rows;
+  try {
+    [rows] = await pool.query(
+      `SELECT * FROM sof_slave_6
+       WHERE SOFID = ?
+       ORDER BY ${orderBy}`,
+      [sofId],
+    );
+  } catch (err) {
+    const error = new Error(`Failed to load SOF key operations: ${err.message || 'query error'}`);
+    error.status = 500;
+    error.cause = err;
+    throw error;
+  }
+  if (!rows?.length) return defaultKeyOperations(defaults, estimateType);
   return rows.map((row) => ({
+    sofSlaveId: row.SLAVEID != null ? String(row.SLAVEID) : '',
     activity: str(row.ACTIVITY),
     activityDateTime: blankDateTime(row.ACTIVITYDATETIME),
     activityDateTimeTo: blankDateTime(row.ACTIVITYDATETIMETO),
@@ -826,9 +925,12 @@ export async function dbGetSofForm(comId) {
     const sofId = record?.SOFID || null;
     const submitId = record?.SUBMITID != null ? Number(record.SUBMITID) : 0;
     const locked = submitId === 2 && String(record?.LOGIN || '') === 'INTERNAL_USER';
-    let keyOperations = await loadKeyOperations(pool, sofId, tab.defaults);
+    let keyOperations = await loadKeyOperations(
+      pool, sofId, tab.defaults, vesselParticulars.estimateType,
+    );
     keyOperations = applyMasterToKeyOperations(keyOperations, record);
     const cargoRows = await loadCargoRows(pool, sofId);
+    const draftFigures = draftFiguresFromCargoRows(cargoRows);
     const entityRows = await loadEntityRows(pool, sofId);
     const blRows = await loadBlRows(pool, sofId);
     const laytime = await loadLaytimeData(
@@ -865,6 +967,13 @@ export async function dbGetSofForm(comId) {
       loadCompleted: str(record?.LC1),
       vesselSailed: str(record?.VS),
       agentRemarks: str(record?.SHIPPER_REMARKS),
+      // Identifiers read-only: ROB from port-leg worksheet; draft F/A from SOF cargo draft rows.
+      robVlsfo: str(tab.defaults?.robFoArrival),
+      robLsmgo: str(tab.defaults?.robDoArrival),
+      draftArrFore: draftFigures.draftArrFore,
+      draftArrAft: draftFigures.draftArrAft,
+      draftDepFore: draftFigures.draftDepFore,
+      draftDepAft: draftFigures.draftDepAft,
       entityRows,
       blRows,
       portActivities,
@@ -1064,6 +1173,109 @@ export function validateSofActivityPartialPercentages(rows = []) {
       throw error;
     }
   }
+}
+
+/**
+ * Strict dd-mm-yyyy[ hh:mm] check for Dry completed-interval validation.
+ * Does not change shared parseDmyDateTime (used widely for permissive persistence).
+ */
+export function isStrictSofDisplayDateTime(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if (!match) return false;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const hour = match[4] != null ? Number(match[4]) : 0;
+  const minute = match[5] != null ? Number(match[5]) : 0;
+  if (month < 1 || month > 12 || hour > 23 || minute > 59 || day < 1) return false;
+  const dt = new Date(year, month - 1, day, hour, minute);
+  return !Number.isNaN(dt.getTime())
+    && dt.getFullYear() === year
+    && dt.getMonth() === month - 1
+    && dt.getDate() === day
+    && dt.getHours() === hour
+    && dt.getMinutes() === minute;
+}
+
+/**
+ * Reject completed reversed From/To (or Start/Finish) ranges.
+ * Incomplete drafts (missing either end) remain allowed.
+ * When rejectUnparseable is true (Dry), both ends must pass isStrictSofDisplayDateTime
+ * so invalid calendar/time components and trailing junk cannot bypass the gate.
+ */
+export function validateSofCompletedIntervals(
+  rows = [],
+  { fromKey = 'from', toKey = 'to', label = 'Activity', rejectUnparseable = false } = {},
+) {
+  for (const row of rows || []) {
+    const fromRaw = String(row?.[fromKey] || '').trim();
+    const toRaw = String(row?.[toKey] || '').trim();
+    if (!fromRaw || !toRaw) continue;
+
+    if (rejectUnparseable) {
+      if (!isStrictSofDisplayDateTime(fromRaw) || !isStrictSofDisplayDateTime(toRaw)) {
+        const error = new Error(`${label} start and finish must be valid date/times.`);
+        error.status = 400;
+        throw error;
+      }
+    }
+
+    const from = parseDmyDateTime(fromRaw);
+    const to = parseDmyDateTime(toRaw);
+    if (!from || !to) {
+      if (rejectUnparseable) {
+        const error = new Error(`${label} start and finish must be valid date/times.`);
+        error.status = 400;
+        throw error;
+      }
+      continue;
+    }
+    const fromMs = new Date(from).getTime();
+    const toMs = new Date(to).getTime();
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
+      if (rejectUnparseable) {
+        const error = new Error(`${label} start and finish must be valid date/times.`);
+        error.status = 400;
+        throw error;
+      }
+      continue;
+    }
+    if (toMs < fromMs) {
+      const error = new Error(`${label} finish must be on or after start.`);
+      error.status = 400;
+      throw error;
+    }
+  }
+}
+
+/**
+ * Same FCA resolution as dbGetSofForm: latest cost sheet, else compare.FCAID.
+ * Fail closed — callers that need Dry gating must not assume non-Dry on lookup failure.
+ */
+async function getEstimateTypeForComId(pool, comId) {
+  const [[compare]] = await pool.query(
+    `SELECT FCAID FROM freight_cost_estimate_compare
+     WHERE COMID = ? AND MODULEID = ?
+     LIMIT 1`,
+    [comId, MODULE_ID],
+  );
+  const fcaId = await getLatestCostSheetId(pool, comId) || compare?.FCAID;
+  if (!fcaId) {
+    const error = new Error('Unable to resolve voyage estimate type for SOF save.');
+    error.status = 500;
+    throw error;
+  }
+  const [[row]] = await pool.query(
+    `SELECT ESTIMATE_TYPE FROM freight_cost_estimete_master WHERE FCAID = ? LIMIT 1`,
+    [fcaId],
+  );
+  if (row?.ESTIMATE_TYPE == null) {
+    const error = new Error('Unable to resolve voyage estimate type for SOF save.');
+    error.status = 500;
+    throw error;
+  }
+  return Number(row.ESTIMATE_TYPE);
 }
 
 export function validateSofDeductionPartialPercentages(rows = []) {
@@ -1371,6 +1583,32 @@ export async function dbSaveSof(payload = {}) {
     throw error;
   }
 
+  // Dry-only interval gate. Resolve type only when activity/deduction collections are
+  // submitted; lookup failure fails closed (does not silently skip as non-Dry).
+  const needsDryIntervalGate = Array.isArray(payload.portActivities)
+    || Array.isArray(payload.deductions);
+  if (needsDryIntervalGate) {
+    const estimateType = await getEstimateTypeForComId(pool, comId);
+    if (Number(estimateType) === 3) {
+      if (Array.isArray(payload.portActivities)) {
+        validateSofCompletedIntervals(payload.portActivities, {
+          fromKey: 'from',
+          toKey: 'to',
+          label: 'Activity',
+          rejectUnparseable: true,
+        });
+      }
+      if (Array.isArray(payload.deductions)) {
+        validateSofCompletedIntervals(payload.deductions, {
+          fromKey: 'start',
+          toKey: 'end',
+          label: 'Deduction',
+          rejectUnparseable: true,
+        });
+      }
+    }
+  }
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -1582,4 +1820,12 @@ export async function dbSaveSof(payload = {}) {
   }
 }
 
-export { isRobActivity, isRemarksCargoActivity };
+export {
+  isRobActivity,
+  isRemarksCargoActivity,
+  isVesselSailedActivity,
+  applyMasterToKeyOperations,
+  deriveMasterFieldsFromKeyOperations,
+  draftFiguresFromCargoRows,
+  defaultKeyOperations,
+};

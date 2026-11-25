@@ -4,21 +4,30 @@ import { recomputePortDraft } from './laytimeCalculations.js';
 import {
   DEFAULT_SOF_ROW_SIZE,
   applyLtCountToggle,
+  assertValidSofCompletedIntervals,
   buildSofSavePayload,
   coalesceActivityCumulative,
+  computeActivityDurationDays,
   computeActivityDurationHours,
   displayActivityCumulative,
+  displaySofDuration,
+  displaySofDraftPair,
+  displaySofReadonlyValue,
   draftFromPort,
   emptyDeductionRow,
   emptyPortActivityRow,
   getCargoCardValues,
+  hoursDurationToDays,
   insertDeductionRowAfter,
+  isDrySofEstimate,
   isLtCounting,
+  isReversedSofInterval,
   isValidLtPartialPercent,
   paginateRows,
   patchCargoCardField,
   recomputeSofActivityRows,
   removeDeductionRowAt,
+  usesRedesignedSofLayout,
 } from './sofTankerHelpers.js';
 
 describe('sofTankerHelpers', () => {
@@ -26,10 +35,69 @@ describe('sofTankerHelpers', () => {
     assert.equal(DEFAULT_SOF_ROW_SIZE, 5);
   });
 
+  it('routes Tanker+Dry to the redesigned layout and keeps Gas on legacy', () => {
+    assert.equal(usesRedesignedSofLayout(2), true);
+    assert.equal(usesRedesignedSofLayout(3), true);
+    assert.equal(usesRedesignedSofLayout(1), false);
+    assert.equal(usesRedesignedSofLayout(null), false);
+    assert.equal(isDrySofEstimate(3), true);
+    assert.equal(isDrySofEstimate(2), false);
+  });
+
   it('computes valid activity duration and leaves reversed or incomplete ranges blank', () => {
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', '10-05-2026 10:30'), '2.5');
     assert.equal(computeActivityDurationHours('10-05-2026 12:00', '10-05-2026 10:00'), '');
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', ''), '');
+  });
+
+  it('stores Dry activity hours at 4dp so short intervals survive Days display', () => {
+    assert.equal(
+      computeActivityDurationHours('10-05-2026 08:00', '10-05-2026 08:01', { decimals: 1 }),
+      '0.0',
+    );
+    assert.equal(
+      computeActivityDurationHours('10-05-2026 08:00', '10-05-2026 08:01', { decimals: 4 }),
+      '0.0167',
+    );
+    assert.equal(hoursDurationToDays('0.0167'), '0.0007');
+    assert.equal(
+      displaySofDuration({
+        from: '10-05-2026 08:00', to: '10-05-2026 08:01', duration: '0.0167',
+      }, { isDry: true }),
+      '0.0007',
+    );
+  });
+
+  it('rejects completed reversed Dry intervals while allowing incomplete drafts', () => {
+    assert.equal(isReversedSofInterval('10-05-2026 12:00', '10-05-2026 10:00'), true);
+    assert.equal(isReversedSofInterval('10-05-2026 08:00', '10-05-2026 10:00'), false);
+    assert.equal(isReversedSofInterval('10-05-2026 08:00', ''), false);
+    assert.doesNotThrow(() => assertValidSofCompletedIntervals([
+      { from: '10-05-2026 08:00', to: '' },
+    ]));
+    assert.throws(
+      () => assertValidSofCompletedIntervals([
+        { from: '10-05-2026 12:00', to: '10-05-2026 10:00' },
+      ]),
+      /finish must be on or after start/i,
+    );
+  });
+
+  it('computes Dry duration in decimal days (hours/24) at 4dp', () => {
+    assert.equal(computeActivityDurationDays('10-05-2026 08:00', '10-05-2026 20:00'), '0.5000');
+    assert.equal(computeActivityDurationDays('10-05-2026 08:00', '11-05-2026 08:00'), '1.0000');
+    assert.equal(computeActivityDurationDays('10-05-2026 12:00', '10-05-2026 10:00'), '');
+    assert.equal(hoursDurationToDays('12'), '0.5000');
+    assert.equal(hoursDurationToDays('24.0'), '1.0000');
+    assert.equal(displaySofDuration({
+      from: '10-05-2026 08:00', to: '10-05-2026 20:00', duration: '12',
+    }, { isDry: true }), '0.5000');
+    assert.equal(displaySofDuration({
+      from: '10-05-2026 08:00', to: '10-05-2026 20:00', duration: '12',
+    }, { isDry: false }), '12');
+    assert.equal(displaySofReadonlyValue(''), '—');
+    assert.equal(displaySofDraftPair('10.5', ''), '10.5 / —');
+    assert.equal(displaySofDraftPair('', ''), '—');
   });
 
   it('accepts only whole LT partial percentages from 0 to 100', () => {

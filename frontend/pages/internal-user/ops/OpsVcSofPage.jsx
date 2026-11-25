@@ -26,20 +26,28 @@ import {
   SOF_ROW_SIZE_OPTIONS,
   applyLtCountToggle,
   buildSofSavePayload,
+  computeActivityDurationDays,
   computeActivityDurationHours,
+  displaySofDraftPair,
+  displaySofDuration,
+  displaySofReadonlyValue,
   displayStoredFileName,
   draftFromPort,
   emptyKeyOp,
   emptyDeductionRow,
   emptyPortActivityRow,
   getCargoCardValues,
+  hoursDurationToDays,
   isBlankKeyOp,
   insertDeductionRowAfter,
+  isDrySofEstimate,
+  isReversedSofInterval,
   pageForIndex,
   paginateRows,
   patchCargoCardField,
   recomputeSofActivityRows,
   removeDeductionRowAt,
+  usesRedesignedSofLayout,
 } from './sofTankerHelpers.js';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcSofTanker.module.css';
@@ -55,7 +63,6 @@ const FLASH = {
   1: { type: 'error', text: 'Sorry! this SOF already exists for this port.' },
 };
 
-const RO_AUTO_FETCH_TITLE = 'Auto-fetch source not yet wired to SOF persistence.';
 const DEDUCTIONS_LOCKED_TITLE = 'This Laytime record is closed. Reopen it in Laytime to edit deductions.';
 
 function SearchIcon() {
@@ -131,9 +138,10 @@ function SofDateField({
 }
 
 /**
- * Statement of Facts (Internal Ops VC — Tanker layout).
- * Single-column flow: Identifiers → Key Operations → Activity (From/To) + Deductions
- * → Cargo → Remarks → Documents & Attachments, with sticky Save/Submit footer.
+ * Statement of Facts (Internal Ops VC — Tanker + Dry redesigned layout).
+ * Gas stays on OpsVcSofLegacyPage. Single-column flow: Identifiers → Key Operations
+ * → Activity (From/To) + Deductions → Cargo → Remarks → Documents & Attachments.
+ * Dry hides LT columns (Linear override) and shows Duration (Days).
  */
 export default function OpsVcSofPage() {
   const confirm = useConfirm();
@@ -169,9 +177,10 @@ export default function OpsVcSofPage() {
     try {
       const data = await fetchSofForm(comId);
       setForm(data);
+      const dryEstimate = isDrySofEstimate(data.estimateType);
       const nextDrafts = {};
       (data.ports || []).forEach((port) => {
-        const portDraft = draftFromPort(port);
+        const portDraft = draftFromPort(port, { isDry: dryEstimate });
         portDraft.portActivities = recomputeSofActivityRows(port, portDraft.portActivities);
         nextDrafts[port.key] = portDraft;
       });
@@ -296,7 +305,10 @@ export default function OpsVcSofPage() {
     const rows = [...(draft?.portActivities || [])];
     let nextRow = { ...rows[index], ...patch };
     if ('from' in patch || 'to' in patch) {
-      nextRow.duration = computeActivityDurationHours(nextRow.from, nextRow.to);
+      // Dry stores hours at 4dp so short intervals survive Days display/round-trip.
+      nextRow.duration = computeActivityDurationHours(nextRow.from, nextRow.to, {
+        decimals: isDrySofEstimate(form?.estimateType) ? 4 : 1,
+      });
     }
     if ('layTimeCount' in patch || 'portTimeCount' in patch) {
       const counts = 'layTimeCount' in patch
@@ -331,7 +343,17 @@ export default function OpsVcSofPage() {
     while (rows.length <= index) rows.push(emptyDeductionRow());
     rows[index] = { ...rows[index], ...patch };
     const recomputed = recomputePortDraft({ ...draft, deductions: rows }, activePort?.rateUnit || 'hours');
-    patchDraft({ deductions: recomputed.deductions });
+    // Dry hides negative durations in the UI; clear invalid completed ranges so they
+    // cannot persist into Laytime via recomputePortDraft's signed hoursBetween.
+    const dry = isDrySofEstimate(form?.estimateType);
+    const deductions = dry
+      ? (recomputed.deductions || []).map((row) => (
+        isReversedSofInterval(row.start, row.end)
+          ? { ...row, duration: '', cumulative: '0.0000' }
+          : row
+      ))
+      : recomputed.deductions;
+    patchDraft({ deductions });
   };
 
   const addDeductionAfter = (index) => {
@@ -394,6 +416,7 @@ export default function OpsVcSofPage() {
         activePort,
         draft,
         submitId,
+        isDry: isDrySofEstimate(form?.estimateType),
       });
       const result = await saveSof(payload, pendingFiles);
 
@@ -423,12 +446,12 @@ export default function OpsVcSofPage() {
     }
   };
 
-  // The redesigned layout is for tanker SOFs only. Keep the established editor
-  // for Dry/Gas records, reusing the form data already fetched above.
-  if (!loading && form && Number(form.estimateType) !== 2) {
+  // Redesigned layout: Tanker (2) + Dry (3). Gas (and unknown) keep the legacy editor.
+  if (!loading && form && !usesRedesignedSofLayout(form.estimateType)) {
     return <OpsVcSofLegacyPage initialForm={form} />;
   }
 
+  const isDry = isDrySofEstimate(form?.estimateType);
   const cargoSummary = (form?.cargo || []).join(', ') || '—';
   const worksheetHref = comId && form?.costSheetId
     ? appPath(`/internal-user/vc/ops/cost-sheet?comid=${encodeURIComponent(comId)}&cost_sheet_id=${encodeURIComponent(form.costSheetId)}&page=${encodeURIComponent(page || '1')}`)
@@ -436,10 +459,20 @@ export default function OpsVcSofPage() {
   const portActivities = draft?.portActivities?.length ? draft.portActivities : [emptyPortActivityRow()];
   const deductionRows = draft?.deductions?.length ? draft.deductions : [emptyDeductionRow()];
   const completedDeductions = deductionRows.filter((row) => row.start && row.end);
-  const totalDeductionDuration = completedDeductions.reduce((sum, row) => sum + (Number(row.duration) || 0), 0);
+  const totalDeductionDuration = completedDeductions.reduce((sum, row) => {
+    if (isDry) {
+      const days = Number(
+        computeActivityDurationDays(row.start, row.end) || hoursDurationToDays(row.duration) || 0,
+      );
+      return sum + (Number.isFinite(days) ? days : 0);
+    }
+    return sum + (Number(row.duration) || 0);
+  }, 0);
   const deductionsDisabled = locked || Boolean(activePort?.laytimeLocked);
   const deductionsDisabledTitle = activePort?.laytimeLocked ? DEDUCTIONS_LOCKED_TITLE : undefined;
   const activityDisabled = deductionsDisabled;
+  const durationUnitLabel = isDry ? 'Days' : 'Hrs';
+  const terminalLabel = isDry ? 'Terminal' : 'Berth';
 
   return (
     <>
@@ -534,7 +567,7 @@ export default function OpsVcSofPage() {
                         <span className={styles.pcVal}>{cargoSummary}</span>
                       </div>
                       <div className={styles.pcCell}>
-                        <span className={styles.pcLabel}>Berth</span>
+                        <span className={styles.pcLabel}>{terminalLabel}</span>
                         <input
                           type="text"
                           className={styles.pcBerthInput}
@@ -542,7 +575,7 @@ export default function OpsVcSofPage() {
                           onChange={(e) => patchDraft({ terminal: e.target.value })}
                           disabled={locked}
                           placeholder="e.g. Jetty"
-                          aria-label="Berth"
+                          aria-label={terminalLabel}
                         />
                       </div>
                     </div>
@@ -550,19 +583,27 @@ export default function OpsVcSofPage() {
                     <div className={styles.idSubGrid}>
                       <div className={styles.idSubCell}>
                         <span className={styles.idSubLabel}>ROB VLSFO</span>
-                        <span className={`${styles.roBox} ${styles.roBoxMuted}`} title={RO_AUTO_FETCH_TITLE}>—</span>
+                        <span className={styles.roBox}>
+                          {displaySofReadonlyValue(activePort.robVlsfo)}
+                        </span>
                       </div>
                       <div className={styles.idSubCell}>
                         <span className={styles.idSubLabel}>ROB LSMGO</span>
-                        <span className={`${styles.roBox} ${styles.roBoxMuted}`} title={RO_AUTO_FETCH_TITLE}>—</span>
+                        <span className={styles.roBox}>
+                          {displaySofReadonlyValue(activePort.robLsmgo)}
+                        </span>
                       </div>
                       <div className={styles.idSubCell}>
                         <span className={styles.idSubLabel}>Draft Arr. (Fore / Aft)</span>
-                        <span className={`${styles.roBox} ${styles.roBoxMuted}`} title={RO_AUTO_FETCH_TITLE}>—</span>
+                        <span className={styles.roBox}>
+                          {displaySofDraftPair(activePort.draftArrFore, activePort.draftArrAft)}
+                        </span>
                       </div>
                       <div className={styles.idSubCell}>
                         <span className={styles.idSubLabel}>Draft Dep. (Fore / Aft)</span>
-                        <span className={`${styles.roBox} ${styles.roBoxMuted}`} title={RO_AUTO_FETCH_TITLE}>—</span>
+                        <span className={styles.roBox}>
+                          {displaySofDraftPair(activePort.draftDepFore, activePort.draftDepAft)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -640,7 +681,7 @@ export default function OpsVcSofPage() {
                         <thead>
                           <tr>
                             <th style={{ width: 34 }} />
-                            <th>Key Operation</th>
+                            <th>{isDry ? 'Operation' : 'Key Operation'}</th>
                             <th>Date / Time</th>
                             <th>Notes</th>
                           </tr>
@@ -736,14 +777,14 @@ export default function OpsVcSofPage() {
                     </div>
 
                     <div className={styles.tableWrap}>
-                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}`}>
+                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}${isDry ? ` ${styles.activityDeductionTableDry}` : ''}`}>
                         <thead>
                           <tr>
                             <th />
                             <th>Activity in Port</th>
                             <th>Date / Time – Start</th>
                             <th>Date / Time – Finish</th>
-                            <th>Duration (Hrs)</th>
+                            <th>{`Duration (${durationUnitLabel})`}</th>
                             <th>Notes</th>
                           </tr>
                         </thead>
@@ -799,10 +840,10 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm}`}
-                                  value={row.duration || '—'}
+                                  value={displaySofDuration(row, { isDry })}
                                   placeholder="Auto"
                                   readOnly
-                                  aria-label={`Activity duration hours, row ${index + 1}`}
+                                  aria-label={`Activity duration ${durationUnitLabel.toLowerCase()}, row ${index + 1}`}
                                 />
                               </td>
                               <td>
@@ -837,14 +878,14 @@ export default function OpsVcSofPage() {
                     </div>
 
                     <div className={styles.tableWrap}>
-                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}`}>
+                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}${isDry ? ` ${styles.activityDeductionTableDry}` : ''}`}>
                         <thead>
                           <tr>
                             <th />
                             <th>Activity in Port</th>
                             <th>Date / Time – Start</th>
                             <th>Date / Time – Finish</th>
-                            <th>Duration (Hrs)</th>
+                            <th>{`Duration (${durationUnitLabel})`}</th>
                             <th>Notes</th>
                           </tr>
                         </thead>
@@ -903,12 +944,12 @@ export default function OpsVcSofPage() {
                                 <input
                                   type="text"
                                   className={`${styles.cfInp} ${styles.numSm}`}
-                                  value={row.start && row.end ? row.duration || '0.0' : '—'}
+                                  value={displaySofDuration(row, { fromKey: 'start', toKey: 'end', isDry })}
                                   placeholder="Auto"
                                   readOnly
                                   disabled={deductionsDisabled}
                                   title={deductionsDisabledTitle}
-                                  aria-label={`Deduction duration hours, row ${index + 1}`}
+                                  aria-label={`Deduction duration ${durationUnitLabel.toLowerCase()}, row ${index + 1}`}
                                 />
                               </td>
                               <td>

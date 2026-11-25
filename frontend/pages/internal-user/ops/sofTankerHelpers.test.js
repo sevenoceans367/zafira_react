@@ -2,23 +2,31 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { recomputePortDraft } from './laytimeCalculations.js';
 import {
+  DEFAULT_KEY_OPERATIONS_DRY,
   DEFAULT_SOF_ROW_SIZE,
   applyLtCountToggle,
   buildSofSavePayload,
   coalesceActivityCumulative,
+  computeActivityDurationDays,
   computeActivityDurationHours,
   displayActivityCumulative,
+  displaySofDuration,
+  displaySofDraftPair,
+  displaySofReadonlyValue,
   draftFromPort,
   emptyDeductionRow,
   emptyPortActivityRow,
   getCargoCardValues,
+  hoursDurationToDays,
   insertDeductionRowAfter,
+  isDrySofEstimate,
   isLtCounting,
   isValidLtPartialPercent,
   paginateRows,
   patchCargoCardField,
   recomputeSofActivityRows,
   removeDeductionRowAt,
+  usesRedesignedSofLayout,
 } from './sofTankerHelpers.js';
 
 describe('sofTankerHelpers', () => {
@@ -26,10 +34,54 @@ describe('sofTankerHelpers', () => {
     assert.equal(DEFAULT_SOF_ROW_SIZE, 5);
   });
 
+  it('exports Dry Key Operations presets in product-locked order with repeated events preserved', () => {
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY.length, 22);
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[0], 'EOSP');
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[2], 'Anchored / Commenced Drifting');
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[9], 'Commenced draft survey');
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[13], 'Commenced draft survey');
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[18], 'Pilot on board');
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[21], 'FAOP');
+    assert.equal(
+      DEFAULT_KEY_OPERATIONS_DRY.filter((name) => name === 'Pilot on board').length,
+      2,
+    );
+    assert.equal(
+      DEFAULT_KEY_OPERATIONS_DRY.filter((name) => name === 'Commenced draft survey').length,
+      2,
+    );
+  });
+
+  it('routes Tanker+Dry to the redesigned layout and keeps Gas on legacy', () => {
+    assert.equal(usesRedesignedSofLayout(2), true);
+    assert.equal(usesRedesignedSofLayout(3), true);
+    assert.equal(usesRedesignedSofLayout(1), false);
+    assert.equal(usesRedesignedSofLayout(null), false);
+    assert.equal(isDrySofEstimate(3), true);
+    assert.equal(isDrySofEstimate(2), false);
+  });
+
   it('computes valid activity duration and leaves reversed or incomplete ranges blank', () => {
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', '10-05-2026 10:30'), '2.5');
     assert.equal(computeActivityDurationHours('10-05-2026 12:00', '10-05-2026 10:00'), '');
     assert.equal(computeActivityDurationHours('10-05-2026 08:00', ''), '');
+  });
+
+  it('computes Dry duration in decimal days (hours/24) at 4dp', () => {
+    assert.equal(computeActivityDurationDays('10-05-2026 08:00', '10-05-2026 20:00'), '0.5000');
+    assert.equal(computeActivityDurationDays('10-05-2026 08:00', '11-05-2026 08:00'), '1.0000');
+    assert.equal(computeActivityDurationDays('10-05-2026 12:00', '10-05-2026 10:00'), '');
+    assert.equal(hoursDurationToDays('12'), '0.5000');
+    assert.equal(hoursDurationToDays('24.0'), '1.0000');
+    assert.equal(displaySofDuration({
+      from: '10-05-2026 08:00', to: '10-05-2026 20:00', duration: '12',
+    }, { isDry: true }), '0.5000');
+    assert.equal(displaySofDuration({
+      from: '10-05-2026 08:00', to: '10-05-2026 20:00', duration: '12',
+    }, { isDry: false }), '12');
+    assert.equal(displaySofReadonlyValue(''), '—');
+    assert.equal(displaySofDraftPair('10.5', ''), '10.5 / —');
+    assert.equal(displaySofDraftPair('', ''), '—');
   });
 
   it('accepts only whole LT partial percentages from 0 to 100', () => {

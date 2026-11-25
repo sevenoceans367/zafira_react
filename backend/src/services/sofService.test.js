@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import { isDbConfigured } from '../config.js';
 import {
   DEFAULT_KEY_OPERATIONS,
+  DEFAULT_KEY_OPERATIONS_DRY,
+  applyMasterToKeyOperations,
+  deriveMasterFieldsFromKeyOperations,
+  draftFiguresFromCargoRows,
+  keyOperationPresetsForEstimateType,
   numOrNull,
   resolveSofSavePlan,
   validateSofActivityPartialPercentages,
@@ -133,6 +138,42 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
         `Expected DEFAULT_KEY_OPERATIONS to include "${required}"`,
       );
     }
+  });
+
+  it('seeds Dry Key Operations presets for estimateType 3 and keeps Tanker presets otherwise', () => {
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY.length, 22);
+    assert.deepEqual(keyOperationPresetsForEstimateType(3), DEFAULT_KEY_OPERATIONS_DRY);
+    assert.deepEqual(keyOperationPresetsForEstimateType(2), DEFAULT_KEY_OPERATIONS);
+    assert.deepEqual(keyOperationPresetsForEstimateType(1), DEFAULT_KEY_OPERATIONS);
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY[21], 'FAOP');
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY.filter((name) => name === 'Commenced draft survey').length, 2);
+    assert.equal(DEFAULT_KEY_OPERATIONS_DRY.filter((name) => name === 'Pilot on board').length, 2);
+  });
+
+  it('derives vessel sailed from FAOP and maps worksheet draft figures from cargo rows', () => {
+    const derived = deriveMasterFieldsFromKeyOperations([
+      { activity: 'EOSP', activityDateTime: '10-04-2026 07:30' },
+      { activity: 'FAOP', activityDateTime: '12-04-2026 19:00' },
+    ], []);
+    assert.equal(derived.vesselArrived, '10-04-2026 07:30');
+    assert.equal(derived.vesselSailed, '12-04-2026 19:00');
+
+    // Master VS is typically a DB Date/ISO value; blankDateTime normalizes to dd-mm-yyyy.
+    const seeded = applyMasterToKeyOperations(
+      [{ activity: 'FAOP', activityDateTime: '', comments: '', tDefault: 1 }],
+      { VS: new Date(2026, 3, 12, 19, 0) },
+    );
+    assert.equal(seeded[0].activityDateTime, '12-04-2026 19:00');
+
+    assert.deepEqual(draftFiguresFromCargoRows([
+      { activity: 'Arrival draft', shipFigure: '10.5', blFigure: '10.8' },
+      { activity: 'Departure draft', shipFigure: '12.0', blFigure: '12.2' },
+    ]), {
+      draftArrFore: '10.5',
+      draftArrAft: '10.8',
+      draftDepFore: '12.0',
+      draftDepAft: '12.2',
+    });
   });
 });
 

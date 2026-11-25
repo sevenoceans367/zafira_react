@@ -60,6 +60,36 @@ export const DEFAULT_KEY_OPERATIONS = [
   'Full away on passage',
 ];
 
+/** Dry (estimateType===3) Key Operations presets — order and labels are product-locked. */
+export const DEFAULT_KEY_OPERATIONS_DRY = [
+  'EOSP',
+  'Arrived',
+  'Anchored / Commenced Drifting',
+  'NOR tendered',
+  'Anchor aweigh',
+  'Pilot on board',
+  'First line',
+  'All fast',
+  'Gangway ashore',
+  'Commenced draft survey',
+  'Completed draft survey',
+  'Commenced cargo operations',
+  'Completed cargo operations',
+  'Commenced draft survey',
+  'Completed draft survey',
+  'Completed cargo calculation',
+  'Cargo samples taken',
+  'Cargo docs onboard',
+  'Pilot on board',
+  'All clear',
+  'Pilot away',
+  'FAOP',
+];
+
+export function keyOperationPresetsForEstimateType(estimateType) {
+  return Number(estimateType) === 3 ? DEFAULT_KEY_OPERATIONS_DRY : DEFAULT_KEY_OPERATIONS;
+}
+
 export const DEFAULT_CARGO_ROWS = [
   'Cargo Loaded',
   'Bunkers taken',
@@ -157,7 +187,29 @@ function isRemarksCargoActivity(activity) {
 }
 
 function isRobActivity(activity) {
-  return activity === 'EOSP' || activity === 'Full away on passage';
+  return activity === 'EOSP'
+    || activity === 'Full away on passage'
+    || activity === 'FAOP';
+}
+
+function isVesselSailedActivity(activity) {
+  const name = String(activity || '').trim();
+  return /^full away on passage$/i.test(name) || /^faop$/i.test(name);
+}
+
+function draftFiguresFromCargoRows(cargoRows = []) {
+  const arrival = (cargoRows || []).find(
+    (row) => String(row.activity || '').trim().toLowerCase() === 'arrival draft',
+  );
+  const departure = (cargoRows || []).find(
+    (row) => String(row.activity || '').trim().toLowerCase() === 'departure draft',
+  );
+  return {
+    draftArrFore: str(arrival?.shipFigure),
+    draftArrAft: str(arrival?.blFigure),
+    draftDepFore: str(departure?.shipFigure),
+    draftDepAft: str(departure?.blFigure),
+  };
 }
 
 async function getPortName(pool, portId) {
@@ -326,7 +378,9 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
     pilotOnBoard: strOrNull(explicit.pilotOnBoard) || findFrom(/^pilot on board$/i),
     loadCommenced: strOrNull(explicit.loadCommenced) || findFrom(/^commenced cargo operations$/i),
     loadCompleted: strOrNull(explicit.loadCompleted) || findFrom(/^completed cargo operations$/i),
-    vesselSailed: strOrNull(explicit.vesselSailed) || findFrom(/^full away on passage$/i),
+    vesselSailed: strOrNull(explicit.vesselSailed)
+      || findFrom(/^full away on passage$/i)
+      || findFrom(/^faop$/i),
   };
 }
 
@@ -337,6 +391,7 @@ function applyMasterToKeyOperations(rows, record) {
     'Commenced cargo operations': record?.LC,
     'Completed cargo operations': record?.LC1,
     'Full away on passage': record?.VS,
+    FAOP: record?.VS,
   };
   let pilotApplied = false;
   return rows.map((row) => {
@@ -359,8 +414,9 @@ function applyMasterToKeyOperations(rows, record) {
   });
 }
 
-function defaultKeyOperations(defaults = {}) {
-  return DEFAULT_KEY_OPERATIONS.map((activity) => {
+function defaultKeyOperations(defaults = {}, estimateType = null) {
+  const presets = keyOperationPresetsForEstimateType(estimateType);
+  return presets.map((activity) => {
     const row = {
       activity,
       activityDateTime: '',
@@ -375,7 +431,7 @@ function defaultKeyOperations(defaults = {}) {
       row.robIfo = defaults.robFoArrival || '';
       row.robMdo = defaults.robDoArrival || '';
     }
-    if (activity === 'Full away on passage') {
+    if (isVesselSailedActivity(activity)) {
       row.activityDateTime = defaults.portDeparture || '';
       row.robIfo = defaults.robFoDeparture || '';
       row.robMdo = defaults.robDoDeparture || '';
@@ -549,8 +605,8 @@ function laytimeActivityKey(row = {}) {
   return JSON.stringify([activity, start, end]);
 }
 
-async function loadKeyOperations(pool, sofId, defaults) {
-  if (!sofId) return defaultKeyOperations(defaults);
+async function loadKeyOperations(pool, sofId, defaults, estimateType = null) {
+  if (!sofId) return defaultKeyOperations(defaults, estimateType);
   await ensureSofActivityDateTimeToColumn(pool);
   const [rows] = await pool.query(
     `SELECT * FROM sof_slave_6
@@ -558,7 +614,8 @@ async function loadKeyOperations(pool, sofId, defaults) {
      ORDER BY (ACTIVITYDATETIME IS NULL OR ACTIVITYDATETIME = '0000-00-00 00:00:00'), ACTIVITYDATETIME ASC`,
     [sofId],
   ).catch(() => [[]]);
-  if (!rows?.length) return defaultKeyOperations(defaults);
+  // Persisted Dry/Tanker rows win; only seed presets when the SOF has no key-ops yet.
+  if (!rows?.length) return defaultKeyOperations(defaults, estimateType);
   return rows.map((row) => ({
     activity: str(row.ACTIVITY),
     activityDateTime: blankDateTime(row.ACTIVITYDATETIME),
@@ -826,9 +883,12 @@ export async function dbGetSofForm(comId) {
     const sofId = record?.SOFID || null;
     const submitId = record?.SUBMITID != null ? Number(record.SUBMITID) : 0;
     const locked = submitId === 2 && String(record?.LOGIN || '') === 'INTERNAL_USER';
-    let keyOperations = await loadKeyOperations(pool, sofId, tab.defaults);
+    let keyOperations = await loadKeyOperations(
+      pool, sofId, tab.defaults, vesselParticulars.estimateType,
+    );
     keyOperations = applyMasterToKeyOperations(keyOperations, record);
     const cargoRows = await loadCargoRows(pool, sofId);
+    const draftFigures = draftFiguresFromCargoRows(cargoRows);
     const entityRows = await loadEntityRows(pool, sofId);
     const blRows = await loadBlRows(pool, sofId);
     const laytime = await loadLaytimeData(
@@ -865,6 +925,13 @@ export async function dbGetSofForm(comId) {
       loadCompleted: str(record?.LC1),
       vesselSailed: str(record?.VS),
       agentRemarks: str(record?.SHIPPER_REMARKS),
+      // Worksheet ROB / draft figures for Identifiers (read-only on redesigned SOF).
+      robVlsfo: str(tab.defaults?.robFoArrival),
+      robLsmgo: str(tab.defaults?.robDoArrival),
+      draftArrFore: draftFigures.draftArrFore,
+      draftArrAft: draftFigures.draftArrAft,
+      draftDepFore: draftFigures.draftDepFore,
+      draftDepAft: draftFigures.draftDepAft,
       entityRows,
       blRows,
       portActivities,
@@ -1582,4 +1649,12 @@ export async function dbSaveSof(payload = {}) {
   }
 }
 
-export { isRobActivity, isRemarksCargoActivity };
+export {
+  isRobActivity,
+  isRemarksCargoActivity,
+  isVesselSailedActivity,
+  applyMasterToKeyOperations,
+  deriveMasterFieldsFromKeyOperations,
+  draftFiguresFromCargoRows,
+  defaultKeyOperations,
+};

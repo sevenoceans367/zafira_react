@@ -3,6 +3,55 @@ import { recomputePortDraft } from './laytimeCalculations.js';
 export const SOF_ROW_SIZE_OPTIONS = [5, 10, 25];
 export const DEFAULT_SOF_ROW_SIZE = 5;
 
+/** Dry Key Operations presets — mirrors backend DEFAULT_KEY_OPERATIONS_DRY order/labels. */
+export const DEFAULT_KEY_OPERATIONS_DRY = [
+  'EOSP',
+  'Arrived',
+  'Anchored / Commenced Drifting',
+  'NOR tendered',
+  'Anchor aweigh',
+  'Pilot on board',
+  'First line',
+  'All fast',
+  'Gangway ashore',
+  'Commenced draft survey',
+  'Completed draft survey',
+  'Commenced cargo operations',
+  'Completed cargo operations',
+  'Commenced draft survey',
+  'Completed draft survey',
+  'Completed cargo calculation',
+  'Cargo samples taken',
+  'Cargo docs onboard',
+  'Pilot on board',
+  'All clear',
+  'Pilot away',
+  'FAOP',
+];
+
+/** Redesigned OpsVcSofPage layout: Tanker (2) + Dry (3). Gas (1) stays on legacy. */
+export function usesRedesignedSofLayout(estimateType) {
+  const type = Number(estimateType);
+  return type === 2 || type === 3;
+}
+
+export function isDrySofEstimate(estimateType) {
+  return Number(estimateType) === 3;
+}
+
+/** Read-only Identifiers display; blank worksheet values render as an em dash. */
+export function displaySofReadonlyValue(value) {
+  const raw = String(value ?? '').trim();
+  return raw || '—';
+}
+
+export function displaySofDraftPair(fore, aft) {
+  const f = String(fore ?? '').trim();
+  const a = String(aft ?? '').trim();
+  if (!f && !a) return '—';
+  return `${f || '—'} / ${a || '—'}`;
+}
+
 /** Preserve intentional blank cumulative; only default when the value is missing. */
 export function coalesceActivityCumulative(computed) {
   if (computed === '') return '';
@@ -250,6 +299,29 @@ export function computeActivityDurationHours(from, to) {
   return hrs >= 0 ? hrs.toFixed(1) : '';
 }
 
+/**
+ * Decimal-day duration for Dry SOF Activity/Deductions (hours/24).
+ * Uses 4dp to match Dry laytime day semantics / deduction totals.
+ * Stored duration remains hours for Laytime sync; this is the Days display/update value.
+ */
+export function computeActivityDurationDays(from, to) {
+  const sd = parseDisplayDateTime(from);
+  const fd = parseDisplayDateTime(to);
+  if (!sd || !fd) return '';
+  const hrs = (fd.getTime() - sd.getTime()) / 3600000;
+  if (hrs < 0) return '';
+  return (hrs / 24).toFixed(4);
+}
+
+/** Convert a stored hour duration string to Days (4dp) for Dry display/totals. */
+export function hoursDurationToDays(durationHours) {
+  const raw = String(durationHours ?? '').trim();
+  if (!raw || raw === '—') return '';
+  const hrs = Number(raw);
+  if (!Number.isFinite(hrs) || hrs < 0) return '';
+  return (hrs / 24).toFixed(4);
+}
+
 function isCargoLoadedRow(row) {
   const name = String(row?.activity || '').trim().toLowerCase();
   return name === 'cargo loaded' || name === 'cargo discharged';
@@ -353,6 +425,8 @@ export function displayStoredFileName(stored) {
  * (entityRows, blRows, portActivities, preArrival, dailyQty, cargoRows, keyOperations, agentRemarks).
  */
 export function draftFromPort(port = {}) {
+  // Duration stays in hours for Laytime sync (recomputePortDraft divider math).
+  // Dry UI converts to Days for display via computeActivityDurationDays / hoursDurationToDays.
   // New placeholder rows use emptyPortActivityRow() defaults (C/100).
   // Loaded rows keep stored flags/partial — do not silently rewrite C/0% or neither.
   const portActivities = (port.portActivities?.length ? port.portActivities : [emptyPortActivityRow()])
@@ -382,6 +456,22 @@ export function draftFromPort(port = {}) {
     dailyQty: (port.dailyQty || []).map((row) => ({ ...row })),
     keepFiles: [...(port.uploads || [])],
   };
+}
+
+/**
+ * Visible Activity/Deduction duration for the redesigned SOF.
+ * Dry shows decimal Days; Tanker keeps Hours. Storage remains hours either way.
+ */
+export function displaySofDuration(row = {}, { fromKey = 'from', toKey = 'to', isDry = false } = {}) {
+  const from = row[fromKey];
+  const to = row[toKey];
+  if (!String(from || '').trim() || !String(to || '').trim()) return '—';
+  if (isDry) {
+    const days = computeActivityDurationDays(from, to)
+      || hoursDurationToDays(row.duration);
+    return days || '—';
+  }
+  return row.duration || computeActivityDurationHours(from, to) || '—';
 }
 
 /**

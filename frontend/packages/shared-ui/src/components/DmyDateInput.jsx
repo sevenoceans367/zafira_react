@@ -3,107 +3,32 @@ import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
 import formStyles from './FormControls/FormControls.module.css';
 import styles from './DmyDateInput.module.css';
+import {
+  applyCommittedValue,
+  formatDmy,
+  formatDmyTime,
+  formatHeading,
+  parseFlexibleDate,
+  resolveTimePickerClose,
+  resolveTypedCommit,
+  sanitizeValue,
+  toDateOnly,
+} from './dmyDateInputHelpers.js';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-/** Treat legacy PHP / epoch placeholders as empty. */
-function sanitizeValue(value) {
-  const raw = String(value ?? '').trim();
-  if (!raw) return '';
-  if (/^0?1[-/]0?1[-/]1970\b/.test(raw)) return '';
-  if (/^1970[-/]0?1[-/]0?1\b/.test(raw)) return '';
-  return raw;
-}
-
-/**
- * Parse common pasted/typed date strings into a Date.
- * Supports: dd-mm-yyyy, dd/mm/yyyy, yyyy-mm-dd, with optional HH:MM / HH:MM:SS.
- */
-function parseFlexibleDate(datestr, strict24Hour = false) {
-  const raw = sanitizeValue(datestr);
-  if (!raw) return null;
-
-  const timePart = String.raw`(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?`;
-  const endOfInput = strict24Hour ? '$' : '';
-
-  let match = raw.match(new RegExp(
-    String.raw`^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})${timePart}${endOfInput}`,
-  ));
-  if (match) {
-    const [, d, mo, y, h = '0', mi = '0', sec = '0'] = match;
-    if (strict24Hour && match[4] !== undefined
-      && (Number(h) > 23 || Number(mi) > 59 || Number(sec) > 59)) return null;
-    const year = Number(y);
-    if (year < 1971) return null;
-    const dt = new Date(year, Number(mo) - 1, Number(d), Number(h), Number(mi));
-    return Number.isNaN(dt.getTime()) ? null : dt;
-  }
-
-  match = raw.match(new RegExp(
-    String.raw`^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})${timePart}${endOfInput}`,
-  ));
-  if (match) {
-    const [, y, mo, d, h = '0', mi = '0', sec = '0'] = match;
-    if (strict24Hour && match[4] !== undefined
-      && (Number(h) > 23 || Number(mi) > 59 || Number(sec) > 59)) return null;
-    const year = Number(y);
-    if (year < 1971) return null;
-    const dt = new Date(year, Number(mo) - 1, Number(d), Number(h), Number(mi));
-    return Number.isNaN(dt.getTime()) ? null : dt;
-  }
-
-  return null;
-}
-
-function formatHeading(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
-}
-
-function formatDmy(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-  if (date.getFullYear() < 1971) return '';
-  const dd = String(date.getDate()).padStart(2, '0');
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const yyyy = date.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
-}
-
-function formatDmyTime(date) {
-  const base = formatDmy(date);
-  if (!base) return '';
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mi = String(date.getMinutes()).padStart(2, '0');
-  return `${base} ${hh}:${mi}`;
-}
-
-function toDateOnly(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function applyCommittedValue(fp, raw, strict24Hour = false) {
-  if (!fp) return;
-  const next = sanitizeValue(raw);
-  try {
-    if (!next) {
-      fp.clear(false);
-      if (fp.input) fp.input.value = '';
-      return;
-    }
-    const parsed = parseFlexibleDate(next, strict24Hour);
-    if (parsed) {
-      const dateOnly = toDateOnly(parsed);
-      fp.setDate(dateOnly, false);
-    }
-    if (fp.input) fp.input.value = next;
-  } catch {
-    if (fp.input) fp.input.value = next;
-  }
-}
+export {
+  applyCommittedValue,
+  formatDmy,
+  formatDmyTime,
+  parseFlexibleDate,
+  resolveTimePickerClose,
+  resolveTypedCommit,
+  sanitizeValue,
+} from './dmyDateInputHelpers.js';
 
 /**
  * Date input with calendar popup — legacy dryout format dd-mm-yyyy
@@ -244,21 +169,26 @@ const DmyDateInput = ({
     };
 
     const commitRawInput = (fp, raw) => {
-      const cleaned = sanitizeValue(raw);
-      if (!cleaned) {
-        if (!allowClearRef.current && valueRef.current) {
-          applyCommittedValue(fp, valueRef.current, strict24Hour);
-          return true;
-        }
+      const decision = resolveTypedCommit(raw, {
+        committed: valueRef.current,
+        enableTime,
+        allowClear: allowClearRef.current,
+        strict24Hour,
+      });
+
+      if (decision.kind === 'restore') {
+        applyCommittedValue(fp, decision.value, strict24Hour);
+        return true;
+      }
+      if (decision.kind === 'clear') {
         clearInput(fp);
         return true;
       }
 
-      const parsed = parseFlexibleDate(cleaned, strict24Hour);
-      if (!parsed) return false;
-
-      if (!enableTime) {
-        parsed.setHours(0, 0, 0, 0);
+      const parsed = parseFlexibleDate(decision.value, strict24Hour);
+      if (!parsed) {
+        applyCommittedValue(fp, valueRef.current, strict24Hour);
+        return true;
       }
       commitDate(fp, parsed);
       return true;
@@ -810,9 +740,8 @@ const DmyDateInput = ({
       // Clicking a calendar day blurs the input first — never commit/restore while open.
       if (fp.isOpen) return;
       const raw = fp.input?.value ?? '';
-      if (!commitRawInput(fp, raw)) {
-        applyCommittedValue(fp, valueRef.current, strict24Hour);
-      }
+      // Flatpickr may rewrite the input to date-only; resolveTypedCommit restores HH:mm from valueRef.
+      commitRawInput(fp, raw);
     };
 
     const handleKeyDown = (event) => {
@@ -821,10 +750,9 @@ const DmyDateInput = ({
       if (!fp || disabled) return;
       event.preventDefault();
       const raw = fp.input?.value ?? '';
-      if (commitRawInput(fp, raw)) {
-        fp.close();
-        fp.input?.blur();
-      }
+      commitRawInput(fp, raw);
+      fp.close();
+      fp.input?.blur();
     };
 
     inputEl.addEventListener('paste', handlePaste);
@@ -950,7 +878,8 @@ const DmyDateInput = ({
           setStep(fp, 'date');
           pendingDateRef.current = null;
           // Keep last fully committed value (minute/Real-time/typed). Do not save hour-only drafts.
-          applyCommittedValue(fp, valueRef.current, strict24Hour);
+          const closeDecision = resolveTimePickerClose(valueRef.current);
+          applyCommittedValue(fp, closeDecision.value, strict24Hour);
           return;
         }
 

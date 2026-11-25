@@ -125,14 +125,6 @@ export function resolveTypedCommit(raw, {
 }
 
 /**
- * enableTime picker close: discard pending hour/minute drafts.
- * Never promote drafts into the committed value or onChange payload.
- */
-export function resolveTimePickerClose(committed) {
-  return { kind: 'restore', value: sanitizeValue(committed) };
-}
-
-/**
  * Sync Flatpickr selection + input from a committed string.
  * Calendar stays date-only; input keeps the full committed text (incl. HH:mm).
  */

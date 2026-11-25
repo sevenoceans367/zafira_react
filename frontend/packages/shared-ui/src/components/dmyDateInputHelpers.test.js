@@ -5,7 +5,6 @@ import {
   formatDmy,
   formatDmyTime,
   parseFlexibleDate,
-  resolveTimePickerClose,
   resolveTypedCommit,
   sanitizeValue,
 } from './dmyDateInputHelpers.js';
@@ -117,13 +116,6 @@ describe('resolveTypedCommit enableTime blur', () => {
       resolveTypedCommit('', { committed: '15-03-2026 14:30', enableTime: true, allowClear: false }),
       { kind: 'restore', value: '15-03-2026 14:30' },
     );
-  });
-});
-
-describe('resolveTimePickerClose', () => {
-  it('restores committed value and never returns commit (hour drafts discarded)', () => {
-    const result = resolveTimePickerClose('15-03-2026 09:15');
-    assert.deepEqual(result, { kind: 'restore', value: '15-03-2026 09:15' });
   });
 });
 

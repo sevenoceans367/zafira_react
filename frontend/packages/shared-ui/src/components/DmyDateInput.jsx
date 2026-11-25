@@ -5,30 +5,16 @@ import formStyles from './FormControls/FormControls.module.css';
 import styles from './DmyDateInput.module.css';
 import {
   applyCommittedValue,
-  formatDmy,
-  formatDmyTime,
   formatHeading,
   parseFlexibleDate,
-  resolveTimePickerClose,
-  resolveTypedCommit,
-  sanitizeValue,
   toDateOnly,
 } from './dmyDateInputHelpers.js';
+import { createDmyController } from './dmyDateInputController.js';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
-
-export {
-  applyCommittedValue,
-  formatDmy,
-  formatDmyTime,
-  parseFlexibleDate,
-  resolveTimePickerClose,
-  resolveTypedCommit,
-  sanitizeValue,
-} from './dmyDateInputHelpers.js';
 
 /**
  * Date input with calendar popup — legacy dryout format dd-mm-yyyy
@@ -60,13 +46,11 @@ const DmyDateInput = ({
 }) => {
   const inputRef = useRef(null);
   const fpRef = useRef(null);
+  const ctrlRef = useRef(null);
   const onChangeRef = useRef(onChange);
-  const valueRef = useRef(sanitizeValue(value));
   const allowClearRef = useRef(allowClear);
   const stepRef = useRef('date');
   const pendingHourRef = useRef(0);
-  const pendingDateRef = useRef(null);
-  const appliedViaFooterRef = useRef(false);
   onChangeRef.current = onChange;
   allowClearRef.current = allowClear;
 
@@ -93,7 +77,21 @@ const DmyDateInput = ({
       cal.classList.toggle(styles.stepMinute, step === 'minute');
     };
 
-    let suppressChange = false;
+    const syncApplyEnabled = (fp) => {
+      const applyBtn = fp.calendarContainer?.querySelector(`.${styles.confirmApply}`);
+      if (!applyBtn) return;
+      applyBtn.disabled = !ctrl.pendingDate;
+    };
+
+    const ctrl = createDmyController({
+      enableTime,
+      strict24Hour,
+      initialValue: ctrlRef.current ? ctrlRef.current.value : value,
+      getAllowClear: () => allowClearRef.current,
+      emit: (next) => onChangeRef.current?.(next),
+      syncApply: syncApplyEnabled,
+    });
+    ctrlRef.current = ctrl;
 
     const syncHourHighlight = (fp) => {
       const grid = fp.calendarContainer?.querySelector(`.${styles.hourGrid}`);
@@ -108,7 +106,7 @@ const DmyDateInput = ({
     const syncMinuteHighlight = (fp) => {
       const grid = fp.calendarContainer?.querySelector(`.${styles.minuteGrid}`);
       if (!grid) return;
-      const committed = parseFlexibleDate(valueRef.current, strict24Hour);
+      const committed = parseFlexibleDate(ctrl.value, strict24Hour);
       const minute = committed?.getMinutes?.() ?? -1;
       grid.querySelectorAll(`.${styles.minuteBtn}`).forEach((btn) => {
         const m = Number(btn.dataset.minute);
@@ -119,7 +117,7 @@ const DmyDateInput = ({
     const syncTimeHeading = (fp) => {
       const el = fp.calendarContainer?.querySelector(`.${styles.timeHeading}`);
       if (!el) return;
-      const date = pendingDateRef.current || fp.selectedDates[0];
+      const date = ctrl.pendingDate || fp.selectedDates[0];
       el.textContent = formatHeading(date) || 'Select date';
     };
 
@@ -129,69 +127,6 @@ const DmyDateInput = ({
         const minute = Number(btn.dataset.minute);
         btn.textContent = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
       });
-    };
-
-    const syncApplyEnabled = (fp) => {
-      const applyBtn = fp.calendarContainer?.querySelector(`.${styles.confirmApply}`);
-      if (!applyBtn) return;
-      applyBtn.disabled = !pendingDateRef.current;
-    };
-
-    const restoreInputDisplay = (fp) => {
-      if (fp.input) fp.input.value = valueRef.current || '';
-    };
-
-    const commitDate = (fp, date) => {
-      const str = enableTime ? formatDmyTime(date) : formatDmy(date);
-      if (!str) return;
-      suppressChange = true;
-      const dateOnly = toDateOnly(date);
-      fp.setDate(dateOnly, false);
-      suppressChange = false;
-      if (fp.input) fp.input.value = str;
-      valueRef.current = str;
-      onChangeRef.current?.(str);
-    };
-
-    const clearInput = (fp) => {
-      if (!allowClearRef.current && valueRef.current) {
-        applyCommittedValue(fp, valueRef.current, strict24Hour);
-        return;
-      }
-      suppressChange = true;
-      fp.clear(false);
-      suppressChange = false;
-      if (fp.input) fp.input.value = '';
-      valueRef.current = '';
-      pendingDateRef.current = null;
-      onChangeRef.current?.('');
-      syncApplyEnabled(fp);
-    };
-
-    const commitRawInput = (fp, raw) => {
-      const decision = resolveTypedCommit(raw, {
-        committed: valueRef.current,
-        enableTime,
-        allowClear: allowClearRef.current,
-        strict24Hour,
-      });
-
-      if (decision.kind === 'restore') {
-        applyCommittedValue(fp, decision.value, strict24Hour);
-        return true;
-      }
-      if (decision.kind === 'clear') {
-        clearInput(fp);
-        return true;
-      }
-
-      const parsed = parseFlexibleDate(decision.value, strict24Hour);
-      if (!parsed) {
-        applyCommittedValue(fp, valueRef.current, strict24Hour);
-        return true;
-      }
-      commitDate(fp, parsed);
-      return true;
     };
 
     const ensureConfirmFooter = (fp) => {
@@ -215,12 +150,7 @@ const DmyDateInput = ({
         const now = toDateOnly(new Date());
         // Jump month view (mockup) and select today so Apply can commit.
         fp.jumpToDate(now, false);
-        pendingDateRef.current = now;
-        suppressChange = true;
-        fp.setDate(now, false);
-        suppressChange = false;
-        restoreInputDisplay(fp);
-        syncApplyEnabled(fp);
+        ctrl.selectPending(fp, now);
         syncMonthSelectLabel(fp);
       });
 
@@ -238,7 +168,7 @@ const DmyDateInput = ({
       cancelBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        appliedViaFooterRef.current = false;
+        ctrl.cancel();
         fp.close();
       });
 
@@ -254,10 +184,7 @@ const DmyDateInput = ({
       applyBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!pendingDateRef.current) return;
-        appliedViaFooterRef.current = true;
-        commitDate(fp, pendingDateRef.current);
-        fp.close();
+        if (ctrl.applyPending(fp)) fp.close();
       });
 
       actions.append(cancelBtn, applyBtn);
@@ -673,16 +600,15 @@ const DmyDateInput = ({
         btn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const base = pendingDateRef.current
-            ? new Date(pendingDateRef.current)
+          const base = ctrl.pendingDate
+            ? new Date(ctrl.pendingDate)
             : (fp.selectedDates[0] ? new Date(fp.selectedDates[0]) : new Date());
           if (base.getFullYear() < 1971) {
             const now = new Date();
             base.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
           }
           base.setHours(pendingHourRef.current, minute, 0, 0);
-          commitDate(fp, base);
-          pendingDateRef.current = null;
+          ctrl.commitPicked(fp, base);
           fp.close();
         });
         minuteGrid.appendChild(btn);
@@ -704,8 +630,7 @@ const DmyDateInput = ({
         e.stopPropagation();
         const now = new Date();
         now.setSeconds(0, 0);
-        commitDate(fp, now);
-        pendingDateRef.current = null;
+        ctrl.commitPicked(fp, now);
         fp.close();
       });
 
@@ -719,29 +644,18 @@ const DmyDateInput = ({
     const handlePaste = (event) => {
       const fp = fpRef.current;
       if (!fp || disabled) return;
-      const text = event.clipboardData?.getData('text') ?? '';
       event.preventDefault();
-      commitRawInput(fp, text);
-      fp.close();
+      ctrl.paste(fp, event.clipboardData?.getData('text') ?? '');
     };
 
     const handleInput = () => {
       const fp = fpRef.current;
-      if (!fp || disabled || fp.isOpen) return;
-      const raw = fp.input?.value ?? '';
-      if (!sanitizeValue(raw)) {
-        clearInput(fp);
-      }
+      if (fp && !disabled) ctrl.input(fp);
     };
 
     const handleBlur = () => {
       const fp = fpRef.current;
-      if (!fp || disabled) return;
-      // Clicking a calendar day blurs the input first — never commit/restore while open.
-      if (fp.isOpen) return;
-      const raw = fp.input?.value ?? '';
-      // Flatpickr may rewrite the input to date-only; resolveTypedCommit restores HH:mm from valueRef.
-      commitRawInput(fp, raw);
+      if (fp && !disabled) ctrl.blur(fp);
     };
 
     const handleKeyDown = (event) => {
@@ -749,10 +663,7 @@ const DmyDateInput = ({
       const fp = fpRef.current;
       if (!fp || disabled) return;
       event.preventDefault();
-      const raw = fp.input?.value ?? '';
-      commitRawInput(fp, raw);
-      fp.close();
-      fp.input?.blur();
+      ctrl.enter(fp);
     };
 
     inputEl.addEventListener('paste', handlePaste);
@@ -785,23 +696,11 @@ const DmyDateInput = ({
         ensureConfirmFooter(fp);
       },
       onOpen: (_dates, _str, fp) => {
-        appliedViaFooterRef.current = false;
         ensureMonthSelect(fp);
         ensureYearSelect(fp);
         closeMonthSelectMenu(fp);
         closeYearSelectMenu(fp);
-        const committed = parseFlexibleDate(valueRef.current, strict24Hour);
-        const committedDate = committed ? toDateOnly(committed) : null;
-        pendingDateRef.current = committedDate;
-        suppressChange = true;
-        if (committedDate) {
-          fp.setDate(committedDate, false);
-          fp.jumpToDate(committedDate, false);
-        } else {
-          fp.clear(false);
-        }
-        suppressChange = false;
-        restoreInputDisplay(fp);
+        const committed = ctrl.open(fp);
         syncMonthSelectLabel(fp);
         syncYearSelectLabel(fp);
 
@@ -816,7 +715,6 @@ const DmyDateInput = ({
         }
 
         ensureConfirmFooter(fp);
-        syncApplyEnabled(fp);
       },
       onMonthChange: (_dates, _str, fp) => {
         syncMonthSelectLabel(fp);
@@ -830,75 +728,23 @@ const DmyDateInput = ({
         closeYearSelectMenu(fp);
       },
       onChange: (selectedDates, _dateStr, fp) => {
-        if (suppressChange) return;
-        // Flatpickr blur may call setDate(true) while closed; never start the
-        // hour/minute wizard from that path — only restore the timed display.
-        if (enableTime && !fp.isOpen) {
-          restoreInputDisplay(fp);
-          return;
-        }
-        if (!selectedDates?.length) {
-          if (!enableTime) {
-            pendingDateRef.current = null;
-            restoreInputDisplay(fp);
-            syncApplyEnabled(fp);
-          }
-          return;
-        }
-
-        const dateOnly = toDateOnly(selectedDates[0]);
-        pendingDateRef.current = dateOnly;
-
-        if (!enableTime) {
-          // Select only — commit on Apply (keep input on last committed value).
-          restoreInputDisplay(fp);
-          syncApplyEnabled(fp);
-          return;
-        }
-
         // Date → hour step (picker stays open via closeOnSelect: false)
-        if (stepRef.current !== 'date') return;
-        const committed = parseFlexibleDate(valueRef.current, strict24Hour);
-        pendingHourRef.current = committed?.getHours?.() ?? 0;
-        suppressChange = true;
-        fp.setDate(dateOnly, false);
-        suppressChange = false;
+        const next = ctrl.onFlatpickrChange(fp, selectedDates, stepRef.current);
+        if (!next) return;
+        pendingHourRef.current = next.hour;
         syncTimeHeading(fp);
         syncHourHighlight(fp);
         setStep(fp, 'hour');
       },
-      // Flatpickr dateFormat is date-only; blur/updateValue would strip HH:mm.
-      // Re-apply the committed timed string whenever Flatpickr rewrites the input.
-      onValueUpdate: (_dates, _str, fp) => {
-        if (enableTime) restoreInputDisplay(fp);
-      },
+      onValueUpdate: (_dates, _str, fp) => ctrl.onValueUpdate(fp),
       onClose: (_dates, _str, fp) => {
         closeMonthSelectMenu(fp);
-        if (enableTime) {
-          setStep(fp, 'date');
-          pendingDateRef.current = null;
-          // Keep last fully committed value (minute/Real-time/typed). Do not save hour-only drafts.
-          const closeDecision = resolveTimePickerClose(valueRef.current);
-          applyCommittedValue(fp, closeDecision.value, strict24Hour);
-          return;
-        }
-
-        if (appliedViaFooterRef.current) {
-          appliedViaFooterRef.current = false;
-          pendingDateRef.current = parseFlexibleDate(valueRef.current, strict24Hour)
-            ? toDateOnly(parseFlexibleDate(valueRef.current, strict24Hour))
-            : null;
-          return;
-        }
-
-        // Cancel / click-outside: discard pending selection.
-        pendingDateRef.current = null;
-        applyCommittedValue(fp, valueRef.current, strict24Hour);
-        syncApplyEnabled(fp);
+        if (enableTime) setStep(fp, 'date');
+        ctrl.onClose(fp);
       },
     });
 
-    applyCommittedValue(fpRef.current, valueRef.current, strict24Hour);
+    applyCommittedValue(fpRef.current, ctrl.value, strict24Hour);
 
     return () => {
       inputEl.removeEventListener('paste', handlePaste);
@@ -913,8 +759,7 @@ const DmyDateInput = ({
   useEffect(() => {
     const fp = fpRef.current;
     if (!fp) return;
-    valueRef.current = sanitizeValue(value);
-    applyCommittedValue(fp, valueRef.current, strict24Hour);
+    ctrlRef.current.setValue(fp, value);
   }, [value, strict24Hour]);
 
   useEffect(() => {

@@ -1176,10 +1176,33 @@ export function validateSofActivityPartialPercentages(rows = []) {
 }
 
 /**
+ * Strict dd-mm-yyyy[ hh:mm] check for Dry completed-interval validation.
+ * Does not change shared parseDmyDateTime (used widely for permissive persistence).
+ */
+export function isStrictSofDisplayDateTime(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if (!match) return false;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const hour = match[4] != null ? Number(match[4]) : 0;
+  const minute = match[5] != null ? Number(match[5]) : 0;
+  if (month < 1 || month > 12 || hour > 23 || minute > 59 || day < 1) return false;
+  const dt = new Date(year, month - 1, day, hour, minute);
+  return !Number.isNaN(dt.getTime())
+    && dt.getFullYear() === year
+    && dt.getMonth() === month - 1
+    && dt.getDate() === day
+    && dt.getHours() === hour
+    && dt.getMinutes() === minute;
+}
+
+/**
  * Reject completed reversed From/To (or Start/Finish) ranges.
  * Incomplete drafts (missing either end) remain allowed.
- * When rejectUnparseable is true, nonempty but unparseable ends also fail
- * (Dry scope — avoids silently accepting malformed completed intervals).
+ * When rejectUnparseable is true (Dry), both ends must pass isStrictSofDisplayDateTime
+ * so invalid calendar/time components and trailing junk cannot bypass the gate.
  */
 export function validateSofCompletedIntervals(
   rows = [],
@@ -1189,6 +1212,15 @@ export function validateSofCompletedIntervals(
     const fromRaw = String(row?.[fromKey] || '').trim();
     const toRaw = String(row?.[toKey] || '').trim();
     if (!fromRaw || !toRaw) continue;
+
+    if (rejectUnparseable) {
+      if (!isStrictSofDisplayDateTime(fromRaw) || !isStrictSofDisplayDateTime(toRaw)) {
+        const error = new Error(`${label} start and finish must be valid date/times.`);
+        error.status = 400;
+        throw error;
+      }
+    }
+
     const from = parseDmyDateTime(fromRaw);
     const to = parseDmyDateTime(toRaw);
     if (!from || !to) {
@@ -1199,7 +1231,17 @@ export function validateSofCompletedIntervals(
       }
       continue;
     }
-    if (new Date(to).getTime() < new Date(from).getTime()) {
+    const fromMs = new Date(from).getTime();
+    const toMs = new Date(to).getTime();
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
+      if (rejectUnparseable) {
+        const error = new Error(`${label} start and finish must be valid date/times.`);
+        error.status = 400;
+        throw error;
+      }
+      continue;
+    }
+    if (toMs < fromMs) {
       const error = new Error(`${label} finish must be on or after start.`);
       error.status = 400;
       throw error;
@@ -1207,14 +1249,33 @@ export function validateSofCompletedIntervals(
   }
 }
 
+/**
+ * Same FCA resolution as dbGetSofForm: latest cost sheet, else compare.FCAID.
+ * Fail closed — callers that need Dry gating must not assume non-Dry on lookup failure.
+ */
 async function getEstimateTypeForComId(pool, comId) {
-  const fcaId = await getLatestCostSheetId(pool, comId);
-  if (!fcaId) return null;
+  const [[compare]] = await pool.query(
+    `SELECT FCAID FROM freight_cost_estimate_compare
+     WHERE COMID = ? AND MODULEID = ?
+     LIMIT 1`,
+    [comId, MODULE_ID],
+  );
+  const fcaId = await getLatestCostSheetId(pool, comId) || compare?.FCAID;
+  if (!fcaId) {
+    const error = new Error('Unable to resolve voyage estimate type for SOF save.');
+    error.status = 500;
+    throw error;
+  }
   const [[row]] = await pool.query(
     `SELECT ESTIMATE_TYPE FROM freight_cost_estimete_master WHERE FCAID = ? LIMIT 1`,
     [fcaId],
-  ).catch(() => [[null]]);
-  return row?.ESTIMATE_TYPE != null ? Number(row.ESTIMATE_TYPE) : null;
+  );
+  if (row?.ESTIMATE_TYPE == null) {
+    const error = new Error('Unable to resolve voyage estimate type for SOF save.');
+    error.status = 500;
+    throw error;
+  }
+  return Number(row.ESTIMATE_TYPE);
 }
 
 export function validateSofDeductionPartialPercentages(rows = []) {
@@ -1522,25 +1583,29 @@ export async function dbSaveSof(payload = {}) {
     throw error;
   }
 
-  // Dry-only interval gate using authoritative estimate type from the voyage master
-  // (not a client-supplied type). Tanker/Gas keep prior save behavior.
-  const estimateType = await getEstimateTypeForComId(pool, comId);
-  if (Number(estimateType) === 3) {
-    if (Array.isArray(payload.portActivities)) {
-      validateSofCompletedIntervals(payload.portActivities, {
-        fromKey: 'from',
-        toKey: 'to',
-        label: 'Activity',
-        rejectUnparseable: true,
-      });
-    }
-    if (Array.isArray(payload.deductions)) {
-      validateSofCompletedIntervals(payload.deductions, {
-        fromKey: 'start',
-        toKey: 'end',
-        label: 'Deduction',
-        rejectUnparseable: true,
-      });
+  // Dry-only interval gate. Resolve type only when activity/deduction collections are
+  // submitted; lookup failure fails closed (does not silently skip as non-Dry).
+  const needsDryIntervalGate = Array.isArray(payload.portActivities)
+    || Array.isArray(payload.deductions);
+  if (needsDryIntervalGate) {
+    const estimateType = await getEstimateTypeForComId(pool, comId);
+    if (Number(estimateType) === 3) {
+      if (Array.isArray(payload.portActivities)) {
+        validateSofCompletedIntervals(payload.portActivities, {
+          fromKey: 'from',
+          toKey: 'to',
+          label: 'Activity',
+          rejectUnparseable: true,
+        });
+      }
+      if (Array.isArray(payload.deductions)) {
+        validateSofCompletedIntervals(payload.deductions, {
+          fromKey: 'start',
+          toKey: 'end',
+          label: 'Deduction',
+          rejectUnparseable: true,
+        });
+      }
     }
   }
 

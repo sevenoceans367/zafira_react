@@ -10,6 +10,7 @@ import {
   keyOperationPresetsForEstimateType,
   numOrNull,
   resolveSofSavePlan,
+  isStrictSofDisplayDateTime,
   validateSofActivityPartialPercentages,
   validateSofCompletedIntervals,
 } from './sofDb.js';
@@ -229,13 +230,35 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
     assert.equal(badOrder.pilotOnBoard, '12-04-2026 19:00');
   });
 
-  it('rejects unparseable completed Dry intervals when rejectUnparseable is set', () => {
+  it('rejects unparseable and malformed completed Dry intervals when rejectUnparseable is set', () => {
+    assert.equal(isStrictSofDisplayDateTime('10-04-2026 08:00'), true);
+    assert.equal(isStrictSofDisplayDateTime('10-13-2026 08:00'), false);
+    assert.equal(isStrictSofDisplayDateTime('31-02-2026 09:00'), false);
+    assert.equal(isStrictSofDisplayDateTime('10-04-2026 25:00'), false);
+    assert.equal(isStrictSofDisplayDateTime('10-04-2026 08:00 junk'), false);
+    assert.equal(isStrictSofDisplayDateTime('not-a-date'), false);
+
     assert.throws(
       () => validateSofCompletedIntervals([
         { from: 'not-a-date', to: 'also-bad' },
       ], { rejectUnparseable: true }),
       /valid date\/times/i,
     );
+    assert.throws(
+      () => validateSofCompletedIntervals([
+        { from: '10-13-2026 08:00', to: '11-13-2026 09:00' },
+      ], { rejectUnparseable: true }),
+      /valid date\/times/i,
+    );
+    assert.throws(
+      () => validateSofCompletedIntervals([
+        { from: '10-04-2026 08:00 junk', to: '10-04-2026 09:00' },
+      ], { rejectUnparseable: true }),
+      /valid date\/times/i,
+    );
+    assert.doesNotThrow(() => validateSofCompletedIntervals([
+      { from: '10-04-2026 08:00', to: '10-04-2026 09:00' },
+    ], { rejectUnparseable: true }));
     assert.doesNotThrow(() => validateSofCompletedIntervals([
       { from: 'not-a-date', to: 'also-bad' },
     ], { rejectUnparseable: false }));

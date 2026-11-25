@@ -252,6 +252,8 @@ async function loadPortTabs(pool, fcaId, comId = null) {
         portId: str(leg.FROM_PORT),
         randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
         portName: fromName,
+        // Nominated agent vendor (Legacy nominate_agent.php PORT_COSTLP_VENDOR).
+        agentVendorCode: str(leg.PORT_COSTLP_VENDOR),
         defaults: {
           loadedQty: leg.LOAD_PORT_QTY != null && leg.LOAD_PORT_QTY !== ''
             ? String(leg.LOAD_PORT_QTY)
@@ -267,6 +269,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
         portId: str(leg.TO_PORT),
         randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
         portName: toName,
+        agentVendorCode: str(leg.PORT_COSTDP_VENDOR),
         defaults: {
           loadedQty: leg.DISC_PORT_QTY != null && leg.DISC_PORT_QTY !== ''
             ? String(leg.DISC_PORT_QTY)
@@ -499,6 +502,7 @@ async function loadActivities(pool, laytimeId, sofId) {
   ).catch(() => [[]]);
 
   if (!sofRows?.length) return [emptyActivity()];
+  // Preserve SOF identity via real SLAVEID so draft load does not treat ranges as manual C.
   return sofRows.map((row) => ({
     activity: str(row.ACTIVITY),
     start: blankDateTime(row.ACTIVITYDATETIME),
@@ -508,6 +512,7 @@ async function loadActivities(pool, laytimeId, sofId) {
     ltNoCounts: false,
     ltPartial: '',
     cumulative: '',
+    sofLoadPortId: row.SLAVEID != null ? String(row.SLAVEID) : 'sof',
     notes: '',
   }));
 }
@@ -976,6 +981,8 @@ export async function dbGetLaytimeForm(comId) {
     const deductions = await loadDeductions(pool, laytimeId);
     const entityRows = await loadEntityRows(pool, laytimeId, sofId);
     const operation = tab.portType === 'LP' ? 'Loading' : 'Discharging';
+    // Port-level nominated agent (vendor_master via PORT_COSTLP/DP_VENDOR) — not LOGIN='AGENT'.
+    const agentName = await vendorNameByCode(pool, tab.agentVendorCode);
 
     ports.push({
       key: `${tab.portType}-${tab.portId}-${tab.randomId}`,
@@ -990,6 +997,7 @@ export async function dbGetLaytimeForm(comId) {
       submitId,
       locked,
       canEdit: !locked,
+      agentName,
       ...fields,
       activities,
       deductions,

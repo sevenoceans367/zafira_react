@@ -113,6 +113,57 @@ export function normalizeActivityLtPartials(rows = []) {
   return (rows || []).map((row) => ensureCountingLtPartial(row));
 }
 
+/** Named laytime_slave2 / SOF point-event fields shown on Tanker Details. */
+export const TANKER_ENTITY_FIELDS = {
+  allClear: {
+    canonical: 'All Clear',
+    aliases: ['all clear', 'allclear'],
+  },
+  laytimeEnds: {
+    canonical: 'Laytime Ends',
+    aliases: ['laytime ends', 'laytime end'],
+  },
+  demmStarts: {
+    canonical: 'DEMM Starts',
+    aliases: ['demm starts', 'dem starts', 'demurrage starts'],
+  },
+};
+
+function entityAliasSet(fieldKey) {
+  const field = TANKER_ENTITY_FIELDS[fieldKey];
+  if (!field) return new Set();
+  return new Set([field.canonical, ...field.aliases].map((n) => String(n).trim().toLowerCase()));
+}
+
+/** Read a named entity/SOF point value (case-insensitive alias match). */
+export function getTankerEntityValue(entityRows, fieldKey) {
+  const aliases = entityAliasSet(fieldKey);
+  if (!aliases.size) return '';
+  const match = (entityRows || []).find((row) => (
+    aliases.has(String(row?.name || '').trim().toLowerCase())
+  ));
+  return match ? String(match.value ?? '') : '';
+}
+
+/**
+ * Upsert one named entity row. Preserves unrelated rows.
+ * Keeps an empty named row so a cleared saved value does not fall back to SOF.
+ */
+export function setTankerEntityValue(entityRows, fieldKey, value) {
+  const field = TANKER_ENTITY_FIELDS[fieldKey];
+  if (!field) return Array.isArray(entityRows) ? [...entityRows] : [];
+  const aliases = entityAliasSet(fieldKey);
+  const nextValue = String(value ?? '');
+  const rows = Array.isArray(entityRows) ? [...entityRows] : [];
+  const index = rows.findIndex((row) => aliases.has(String(row?.name || '').trim().toLowerCase()));
+  if (index >= 0) {
+    rows[index] = { ...rows[index], name: field.canonical, value: nextValue };
+    return rows;
+  }
+  rows.push({ name: field.canonical, value: nextValue });
+  return rows;
+}
+
 /**
  * Tanker QTY edit patch flags (Legacy Fun158==2).
  * Recompute financials from existing allowance; do NOT refreshAllowed from qty/rate.

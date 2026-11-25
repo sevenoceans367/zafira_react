@@ -1110,21 +1110,18 @@
 
 /* Port tabs: reuse OpsVcSofTanker.module.css .portTab / .portTabActive (no local LP/DP fills). */
 
-/* Prefer 3-up row; wrap cleanly on narrower content (HTML mockup parity). */
+/* HTML mockup: 3×2 Details, 4×2 Timing; wrap only at breakpoints. */
 .ltDetailsGrid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
 }
 
 .ltDetailCell {
-  flex: 1 1 220px;
-  min-width: min(100%, 200px);
-  max-width: 100%;
-  box-sizing: border-box;
   padding: 14px 20px;
   border-bottom: 1px solid #eceef2;
   border-right: 1px solid #eceef2;
+  min-width: 0;
 }
 
 .ltDetailCell:nth-child(3n) { border-right: none; }
@@ -1146,19 +1143,16 @@
 }
 
 .ltTimingGrid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
 }
 
 .ltTimingCell {
-  flex: 1 1 180px;
-  min-width: min(100%, 160px);
-  max-width: 100%;
-  box-sizing: border-box;
   padding: 14px 20px;
   border-bottom: 1px solid #eceef2;
   border-right: 1px solid #eceef2;
+  min-width: 0;
 }
 
 .ltTimingCell:nth-child(4n) { border-right: none; }
@@ -1273,15 +1267,16 @@
   font-weight: 700;
 }
 
-/* Negative cumulative must win over .cfInp:disabled gray (HTML .cum-negative). */
+/* Negative cumulative: keep red semantic hue with stronger contrast on #f1f2f4. */
 .cumNegative,
 .ltTankerRoot .cumRo.cumNegative,
 .ltTankerRoot .cfInp.cumNegative,
 .ltTankerRoot .cfInp.cumNegative:disabled,
 .ltTankerRoot .cfInp.cumNegative:read-only {
-  color: #e4483b;
-  -webkit-text-fill-color: #e4483b;
+  color: #b42318;
+  -webkit-text-fill-color: #b42318;
   opacity: 1;
+  font-weight: 800;
 }
 
 .ltTankerRoot .ltNotesSm {
@@ -1716,15 +1711,20 @@
 }
 
 .ltSumGrid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 16px 24px;
 }
 
-.ltSumGrid > * {
-  flex: 1 1 calc(50% - 12px);
-  min-width: min(100%, 160px);
-  box-sizing: border-box;
+/* Panel-scoped: collapse to 1 col when the summary card itself is narrow. */
+@container lt-summary (max-width: 360px) {
+  .ltSumGrid { grid-template-columns: 1fr; }
+}
+
+.ltSummaryFabExpanded,
+.ltSummaryPanel {
+  container-type: inline-size;
+  container-name: lt-summary;
 }
 
 .ltSumItemPanel { display: flex; flex-direction: column; gap: 5px; }
@@ -1854,21 +1854,19 @@
 }
 
 @media (max-width: 1150px) {
-  .ltDetailCell { flex-basis: calc(50% - 1px); }
+  .ltDetailsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ltDetailCell:nth-child(3n) { border-right: 1px solid #eceef2; }
   .ltDetailCell:nth-child(2n) { border-right: none; }
-  .ltTimingCell { flex-basis: calc(50% - 1px); }
+  .ltTimingGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ltTimingCell:nth-child(4n) { border-right: 1px solid #eceef2; }
   .ltTimingCell:nth-child(2n) { border-right: none; }
-  .ltSumGrid > * { flex-basis: 100%; min-width: 100%; }
 }
 
 @media (max-width: 700px) {
+  .ltDetailsGrid,
+  .ltTimingGrid { grid-template-columns: minmax(0, 1fr); }
   .ltDetailCell,
-  .ltTimingCell {
-    flex-basis: 100%;
-    border-right: none;
-  }
+  .ltTimingCell { border-right: none; }
   .ltTankerRoot .sofFooterBar,
   .sofFooterBar { flex-direction: column; align-items: stretch; }
   .ltSummaryFloat {

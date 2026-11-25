@@ -3,10 +3,12 @@ import { describe, it } from 'node:test';
 import {
   applyLaytimeActivityLtToggle,
   ensureCountingLtPartial,
+  getTankerEntityValue,
   isLaytimeActivityCounting,
   isTankerNegoUiEnabled,
   normalizeActivityLtPartials,
   resolveLaytimeEstimateType,
+  setTankerEntityValue,
   sumNegoAgreedDemm,
   tankerLoadedQtyPatchOptions,
   usesTankerLaytimeLayout,
@@ -59,6 +61,7 @@ describe('laytimeTankerHelpers activity LT flags', () => {
     assert.equal(ensureCountingLtPartial({ ltCounts: true, ltPartial: '' }).ltPartial, '100');
     assert.equal(ensureCountingLtPartial({ ltCounts: true, ltPartial: '50' }).ltPartial, '50');
     assert.equal(ensureCountingLtPartial({ ltNoCounts: true, ltPartial: '' }).ltPartial, '');
+    assert.equal(ensureCountingLtPartial({ sofLoadPortId: '9', ltCounts: false, ltPartial: '' }).ltPartial, '');
     const rows = normalizeActivityLtPartials([
       { ltCounts: true, ltPartial: '100' },
       { ltCounts: true, ltPartial: '' },
@@ -67,6 +70,32 @@ describe('laytimeTankerHelpers activity LT flags', () => {
     assert.equal(rows[0].ltPartial, '100');
     assert.equal(rows[1].ltPartial, '100');
     assert.equal(rows[2].ltPartial, '0');
+  });
+});
+
+describe('laytimeTankerHelpers entity field mapping', () => {
+  it('reads All clear alias and upserts without dropping unrelated rows', () => {
+    const rows = [
+      { name: 'Surveyor', value: 'SGS' },
+      { name: 'All clear', value: '01-09-2026 10:00' },
+    ];
+    assert.equal(getTankerEntityValue(rows, 'allClear'), '01-09-2026 10:00');
+    const next = setTankerEntityValue(rows, 'laytimeEnds', '05-09-2026 12:00');
+    assert.equal(next.length, 3);
+    assert.equal(getTankerEntityValue(next, 'laytimeEnds'), '05-09-2026 12:00');
+    assert.equal(getTankerEntityValue(next, 'allClear'), '01-09-2026 10:00');
+    assert.equal(next.find((r) => r.name === 'Surveyor').value, 'SGS');
+  });
+
+  it('keeps empty named row so cleared values do not disappear', () => {
+    const cleared = setTankerEntityValue(
+      [{ name: 'All Clear', value: '01-09-2026 10:00' }],
+      'allClear',
+      '',
+    );
+    assert.equal(cleared.length, 1);
+    assert.equal(cleared[0].name, 'All Clear');
+    assert.equal(cleared[0].value, '');
   });
 });
 

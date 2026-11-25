@@ -22,4 +22,8 @@ No `laytime_slave2` / master persistence for negotiation rows. Production Tanker
 
 ## All Clear / Laytime Ends / DEMM Starts / Agent
 
-No dedicated `laytime_master` columns today — Tanker Details show em dash until owner maps sources.
+These are **not** blocked on new `laytime_master` columns / migrations.
+
+- **Agent (read-only):** port nominated vendor via `freight_cost_estimete_slave1.PORT_COSTLP_VENDOR` / `PORT_COSTDP_VENDOR` → `vendor_master.NAME` (same source as Legacy `nominate_agent.php`). Exposed as `port.agentName`.
+- **All Clear / Laytime Ends / DEMM Starts:** editable through existing `laytime_slave2` ENTITY_NAME/ENTITY_VALUE rows (and SOF point-event fallback in `sof_slave_6` when no saved laytime entities). Cleared values keep a named empty row so SOF does not silently resurrect them.
+- Do **not** infer Laytime Ends from cargo completion or DEMM Starts from allowance without a separate approved formula decision.

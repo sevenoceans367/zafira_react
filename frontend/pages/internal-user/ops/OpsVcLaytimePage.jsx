@@ -461,12 +461,24 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = fal
       .map((row) => {
         const hasCountFlag = Boolean(row.ltCounts) || Boolean(row.ltNoCounts);
         const isSofSynced = Boolean(row.sofLoadPortId);
+        // SOF-synced without C/NC flags: unset (non-counting, blank partial).
+        // Manual rows without flags: counting default.
         const ltCounts = hasCountFlag || isSofSynced ? Boolean(row.ltCounts) : true;
         const ltNoCounts = Boolean(row.ltNoCounts);
-        const counting = ltCounts || (!ltNoCounts && !isSofSynced);
-        const rawPartial = row.ltPartial != null && String(row.ltPartial).trim() !== ''
-          ? String(row.ltPartial)
-          : '';
+        const storedPartial = row.ltPartial;
+        const blankPartial = storedPartial == null || String(storedPartial).trim() === '';
+        let ltPartial;
+        if (tanker) {
+          // Tanker-only: explicit C + blank → 100. SOF-unset / NC stay blank.
+          ltPartial = !blankPartial
+            ? String(storedPartial)
+            : (ltCounts && !ltNoCounts ? '100' : '');
+        } else {
+          // Dry/Gas: only fill when nullish — preserve explicit blank string (calc as 0).
+          ltPartial = storedPartial != null
+            ? String(storedPartial)
+            : ((hasCountFlag && !row.ltCounts) || isSofSynced ? '' : '100');
+        }
         return {
           activity: row.activity || '',
           start: row.start || '',
@@ -474,8 +486,7 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = fal
           duration: row.duration || '',
           ltCounts,
           ltNoCounts,
-          // C + blank → 100 (HTML mockup). NC / SOF-unset blank stays blank until user sets C.
-          ltPartial: rawPartial || (counting ? '100' : ''),
+          ltPartial,
           cumulative: row.cumulative ?? '',
           sofLoadPortId: row.sofLoadPortId || '',
           notes: row.notes || '',
@@ -638,16 +649,23 @@ export default function OpsVcLaytimePage() {
   const addListRow = (field, factory) => {
     const created = typeof factory === 'function' ? factory() : factory;
     let rows = [...(draft[field] || []), created];
-    // Keep existing C rows at 100% when inserting blanks (do not clear prior partials).
-    if (field === 'activities') rows = normalizeActivityLtPartials(rows);
-    patchDraft({ [field]: rows }, { recompute: field === 'activities' || field === 'deductions' });
+    // Tanker-only: fill blank C partials on the new set; Dry/Gas untouched.
+    if (isTankerLayout && field === 'activities') {
+      rows = normalizeActivityLtPartials(rows);
+    }
+    patchDraft(
+      { [field]: rows },
+      { recompute: field === 'activities' || field === 'deductions' },
+    );
   };
 
   const insertListRow = (field, index, factory) => {
     let rows = [...(draft[field] || [])];
     const created = typeof factory === 'function' ? factory() : factory;
     rows.splice(index + 1, 0, created);
-    if (field === 'activities') rows = normalizeActivityLtPartials(rows);
+    if (isTankerLayout && field === 'activities') {
+      rows = normalizeActivityLtPartials(rows);
+    }
     patchDraft(
       { [field]: rows },
       { recompute: field === 'activities' || field === 'deductions' },

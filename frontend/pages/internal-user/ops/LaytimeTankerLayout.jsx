@@ -3,7 +3,11 @@ import { AttachmentDropzone, Button } from '@bainbridge/shared-ui';
 import { attachmentUrl } from '@bainbridge/shared-routing';
 import LaytimeTankerSummaryPill from './LaytimeTankerSummaryPill.jsx';
 import LaytimeTankerTables from './LaytimeTankerTables.jsx';
-import { tankerLoadedQtyPatchOptions } from './laytimeTankerHelpers.js';
+import {
+  getTankerEntityValue,
+  setTankerEntityValue,
+  tankerLoadedQtyPatchOptions,
+} from './laytimeTankerHelpers.js';
 import { parseStrictDisplayDateTime } from './laytimeTankerValidation.js';
 import { PortTabLabel } from './portTabLabel.jsx';
 import sofStyles from './OpsVcSofTanker.module.css';
@@ -100,11 +104,19 @@ export default function LaytimeTankerLayout({
   const [summaryOpen, setSummaryOpen] = useState(false);
   const cargoSummary = (form?.cargo || []).join(', ') || '—';
 
-  // Owner decision (docs/OWNER_DECISIONS.md): All Clear / Laytime Ends / DEMM Starts / Agent
-  // have no laytime_master columns and no save payload — keep read-only em dash (not fake pickers).
+  // Operator/Charterer: voyage metadata. Agent: port nominated vendor (read-only).
+  // All Clear / Laytime Ends / DEMM Starts: laytime_slave2 / SOF point entityRows (not master columns).
   const operatorName = form?.operatorName || '';
   const chartererName = form?.charterer || form?.chartererName || '';
-  const agentName = form?.agentName || '';
+  const agentName = activePort?.agentName || '';
+  const allClear = getTankerEntityValue(draft?.entityRows, 'allClear');
+  const laytimeEnds = getTankerEntityValue(draft?.entityRows, 'laytimeEnds');
+  const demmStarts = getTankerEntityValue(draft?.entityRows, 'demmStarts');
+  const patchEntityField = (fieldKey, value) => {
+    patchDraft({
+      entityRows: setTankerEntityValue(draft?.entityRows, fieldKey, value),
+    });
+  };
 
   return (
     <div className={`${styles.ltTankerRoot} ${styles.ltTankerShell}`}>
@@ -196,7 +208,6 @@ export default function LaytimeTankerLayout({
               </div>
               <div className={styles.ltDetailCell}>
                 <label className={styles.ltDetailLabel}>Agent</label>
-                {/* Owner decision: no Agent field on laytime form payload — show em dash. */}
                 <ReadonlyDash value={agentName} />
               </div>
             </div>
@@ -224,10 +235,16 @@ export default function LaytimeTankerLayout({
                   invalid={dateFieldInvalid(draft.norAccepted)}
                 />
               </div>
-              <div className={styles.ltTimingCell}>
-                {/* Owner decision: All Clear has no laytime_master column — em dash. */}
-                <label className={styles.ltDetailLabel}>All Clear</label>
-                <ReadonlyDash value="" />
+              <div className={styles.ltTimingCell} data-field="allClear">
+                <label className={styles.ltDetailLabel} htmlFor="allClear">All Clear</label>
+                <LtDateField
+                  id="allClear"
+                  value={allClear}
+                  onChange={(v) => patchEntityField('allClear', v)}
+                  disabled={locked}
+                  ariaLabel="All Clear"
+                  invalid={dateFieldInvalid(allClear)}
+                />
               </div>
               <div className={styles.ltTimingCell} data-field="loadCommenced">
                 <label className={styles.ltDetailLabel} htmlFor="loadCommenced">Cargo Commenced</label>
@@ -262,15 +279,27 @@ export default function LaytimeTankerLayout({
                   invalid={dateFieldInvalid(draft.startCounting)}
                 />
               </div>
-              <div className={styles.ltTimingCell}>
-                {/* Owner decision: Laytime Ends has no dedicated column — em dash. */}
-                <label className={styles.ltDetailLabel}>Laytime Ends</label>
-                <ReadonlyDash value="" />
+              <div className={styles.ltTimingCell} data-field="laytimeEnds">
+                <label className={styles.ltDetailLabel} htmlFor="laytimeEnds">Laytime Ends</label>
+                <LtDateField
+                  id="laytimeEnds"
+                  value={laytimeEnds}
+                  onChange={(v) => patchEntityField('laytimeEnds', v)}
+                  disabled={locked}
+                  ariaLabel="Laytime Ends"
+                  invalid={dateFieldInvalid(laytimeEnds)}
+                />
               </div>
-              <div className={`${styles.ltTimingCell} ${styles.demmCell}`}>
-                {/* Owner decision: DEMM Starts has no dedicated column — em dash. */}
-                <label className={styles.ltDetailLabel}>DEMM Starts</label>
-                <ReadonlyDash value="" />
+              <div className={`${styles.ltTimingCell} ${styles.demmCell}`} data-field="demmStarts">
+                <label className={styles.ltDetailLabel} htmlFor="demmStarts">DEMM Starts</label>
+                <LtDateField
+                  id="demmStarts"
+                  value={demmStarts}
+                  onChange={(v) => patchEntityField('demmStarts', v)}
+                  disabled={locked}
+                  ariaLabel="DEMM Starts"
+                  invalid={dateFieldInvalid(demmStarts)}
+                />
               </div>
             </div>
 

@@ -1,10 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Button } from '@bainbridge/shared-ui';
 import { formatMoneyDisplay } from './laytimeTankerHelpers.js';
-import {
-  isBlankOrFiniteNumber,
-  mayRecomputeTankerField,
-} from './laytimeTankerValidation.js';
+import { isBlankOrFiniteNumber } from './laytimeTankerValidation.js';
 import styles from './OpsVcLaytimePage.module.css';
 
 function SumIco({ tone, children }) {
@@ -50,6 +47,12 @@ export default function LaytimeTankerSummaryPill({
   const hrTag = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAY' : '—';
   // FAB / panel Final Demm = calculated TTL demurrage only — never session nego sum.
   const money = formatMoneyDisplay(demmUsd);
+
+  useEffect(() => {
+    const onOpenRequest = () => { if (!open) onOpen(); };
+    window.addEventListener('lt-tanker-open-summary', onOpenRequest);
+    return () => window.removeEventListener('lt-tanker-open-summary', onOpenRequest);
+  }, [open, onOpen]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -185,13 +188,7 @@ export default function LaytimeTankerSummaryPill({
                     type="text"
                     inputMode="decimal"
                     value={draft?.laytimeAllowed ?? ''}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      onPatchDraft(
-                        { laytimeAllowed: next },
-                        { recompute: mayRecomputeTankerField('number', next) },
-                      );
-                    }}
+                    onChange={(e) => onPatchDraft({ laytimeAllowed: e.target.value }, { recompute: true })}
                     disabled={locked}
                     aria-label="Laytime Allowed"
                     aria-invalid={!isBlankOrFiniteNumber(draft?.laytimeAllowed)}
@@ -236,13 +233,7 @@ export default function LaytimeTankerSummaryPill({
                   type="text"
                   inputMode="decimal"
                   value={draft?.demurrageRate ?? ''}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    onPatchDraft(
-                      { demurrageRate: next },
-                      { recompute: mayRecomputeTankerField('number', next) },
-                    );
-                  }}
+                  onChange={(e) => onPatchDraft({ demurrageRate: e.target.value }, { recompute: true })}
                   disabled={locked}
                   placeholder="USD/day"
                   aria-label="Demurrage Rate"
@@ -267,13 +258,7 @@ export default function LaytimeTankerSummaryPill({
                   type="text"
                   inputMode="decimal"
                   value={draft?.despatchRate ?? ''}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    onPatchDraft(
-                      { despatchRate: next },
-                      { recompute: mayRecomputeTankerField('number', next) },
-                    );
-                  }}
+                  onChange={(e) => onPatchDraft({ despatchRate: e.target.value }, { recompute: true })}
                   aria-invalid={!isBlankOrFiniteNumber(draft?.despatchRate)}
                   disabled={locked}
                   placeholder="USD/day"

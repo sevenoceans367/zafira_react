@@ -49,10 +49,14 @@ export function sumNegoAgreedDemm(rows = []) {
   return (rows || []).reduce((sum, row) => sum + parseMoneyInput(row.agreedDemm), 0);
 }
 
+/** Always show two decimal places for calculated demurrage USD (pill + expanded). */
 export function formatMoneyDisplay(n) {
-  const num = Number(n) || 0;
-  if (Math.abs(num) < 1) return '0';
-  return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const num = Number(n);
+  const safe = Number.isFinite(num) ? num : 0;
+  return safe.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export function filterRowsByQuery(rows, query, fields) {

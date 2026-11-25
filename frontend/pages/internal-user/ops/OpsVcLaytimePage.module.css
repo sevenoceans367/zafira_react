@@ -1489,6 +1489,18 @@
   z-index: 40;
 }
 
+/* Tanker: SOF sticky footer (content-scoped — avoids left-nav clipping). */
+.ltTankerRoot .sofFooterSpacer { display: none; }
+.ltTankerRoot .sofFooterBar {
+  position: sticky;
+  bottom: 0;
+  left: auto;
+  right: auto;
+  margin: 12px 0 0;
+  z-index: 30;
+  padding: 14px 20px;
+}
+
 /* Match shipped SOF Tanker footer chrome (gray, not yellow HTML mockup). */
 .sofFooterNote {
   display: inline-flex;
@@ -1501,6 +1513,7 @@
   border-radius: 9px;
   padding: 9px 13px;
   line-height: 1.4;
+  max-width: min(100%, 42rem);
 }
 
 .sofFooterNote svg { width: 14px; height: 14px; flex: none; }
@@ -1519,13 +1532,13 @@
 /* Floating summary FAB */
 .ltSummaryFab {
   position: fixed;
-  bottom: 88px;
+  bottom: 28px;
   right: 28px;
   z-index: 35;
   display: flex;
   align-items: center;
   gap: 11px;
-  max-width: min(560px, calc(100vw - 48px));
+  max-width: min(560px, calc(100vw - 100px));
   flex-wrap: wrap;
   background: #274670;
   color: #fff;
@@ -1576,15 +1589,16 @@
 
 .ltSummaryFabExpanded {
   position: fixed;
-  bottom: 88px;
+  bottom: 28px;
   right: 28px;
-  width: 420px;
+  width: min(420px, calc(100vw - 100px));
+  max-height: min(70vh, 640px);
   z-index: 36;
   box-shadow: 0 16px 48px rgba(20, 30, 50, 0.22);
   border-radius: 14px;
   transform-origin: bottom right;
   animation: fabExpand 0.2s ease-out;
-  overflow: hidden;
+  overflow: auto;
   border: 1px solid #eceef2;
   background: #fff;
 }
@@ -1782,11 +1796,11 @@
   .ltTimingGrid { grid-template-columns: 1fr; }
   .ltDetailCell,
   .ltTimingCell { border-right: none; }
+  .ltTankerRoot .sofFooterBar,
   .sofFooterBar { flex-direction: column; align-items: stretch; }
-  .sofFooterSpacer { height: 120px; }
   .ltSummaryFab,
   .ltSummaryFabExpanded {
-    bottom: 128px;
+    bottom: 12px;
     right: 12px;
     left: 12px;
     width: auto;

@@ -3,11 +3,15 @@ import { describe, it } from 'node:test';
 import {
   isBlankOrFiniteNumber,
   isValidLtPartialPercent,
-  mayRecomputeTankerField,
+  parseStrictDecimal,
+  parseStrictDisplayDateTime,
+  recomputeTankerPortDraft,
+  sanitizeTankerDraftForRecompute,
   validateDateRangeOrder,
   validateTankerLaytimeDraft,
 } from './laytimeTankerValidation.js';
 import {
+  formatMoneyDisplay,
   isTankerNegoUiEnabled,
   tankerLoadedQtyPatchOptions,
 } from './laytimeTankerHelpers.js';
@@ -22,9 +26,9 @@ function baseDraft(overrides = {}) {
     vesselSailed: '',
     loadedRate: '',
     loadedQty: '1000',
-    laytimeAllowed: '10',
-    demurrageRate: '25000',
-    despatchRate: '',
+    laytimeAllowed: '72',
+    demurrageRate: '24000',
+    despatchRate: '12000',
     activities: [],
     deductions: [],
     approvers: ['1'],
@@ -58,22 +62,83 @@ describe('tanker mandatory gate', () => {
   });
 });
 
-describe('lt partial % and rates', () => {
-  it('bounds partial 0–100', () => {
-    assert.equal(isValidLtPartialPercent(''), true);
-    assert.equal(isValidLtPartialPercent('50'), true);
-    assert.equal(isValidLtPartialPercent('100'), true);
-    assert.equal(isValidLtPartialPercent('101'), false);
-    assert.equal(isValidLtPartialPercent('-1'), false);
-    assert.equal(isValidLtPartialPercent('abc'), false);
-  });
-
-  it('rejects junk rates but allows blank', () => {
+describe('strict decimal parsing', () => {
+  it('rejects commas, hex, trailing junk, negatives for rates', () => {
+    assert.equal(parseStrictDecimal('1,000').ok, false);
+    assert.equal(parseStrictDecimal('0x10').ok, false);
+    assert.equal(parseStrictDecimal('10abc').ok, false);
+    assert.equal(parseStrictDecimal('12.5').ok, true);
+    assert.equal(parseStrictDecimal('12.5').value, 12.5);
+    assert.equal(isBlankOrFiniteNumber('-5'), false);
+    assert.equal(isBlankOrFiniteNumber('0'), true);
     assert.equal(isBlankOrFiniteNumber(''), true);
-    assert.equal(isBlankOrFiniteNumber('12.5'), true);
-    assert.equal(isBlankOrFiniteNumber('nope'), false);
+    assert.equal(isValidLtPartialPercent('150'), false);
+    assert.equal(isValidLtPartialPercent('1,0'), false);
+    assert.equal(isValidLtPartialPercent('50'), true);
+  });
+});
+
+describe('strict date parsing', () => {
+  it('rejects calendar rollover, hour 25, trailing junk, incomplete ranges', () => {
+    assert.equal(parseStrictDisplayDateTime('31-02-2026'), null);
+    assert.equal(parseStrictDisplayDateTime('01-11-2026 25:00'), null);
+    assert.equal(parseStrictDisplayDateTime('01-11-2026 10:00junk'), null);
+    assert.equal(parseStrictDisplayDateTime('01-11-2026 10:00')?.getHours(), 10);
+    assert.equal(validateDateRangeOrder('01-11-2026 00:00', '').ok, false);
+    assert.equal(validateDateRangeOrder('', '01-11-2026 00:00').ok, false);
+    assert.equal(validateDateRangeOrder('02-11-2026 00:00', '01-11-2026 00:00').ok, false);
+    assert.equal(validateDateRangeOrder('01-11-2026 00:00', '01-11-2026 10:00').ok, true);
+  });
+});
+
+describe('centralized tanker recompute sanitize', () => {
+  it('does not let stored invalid LT % inflate totals when another field changes', () => {
+    const draft = baseDraft({
+      activities: [{
+        activity: 'A',
+        start: '01-11-2026 00:00',
+        end: '01-11-2026 10:00',
+        duration: '10.0000',
+        ltCounts: true,
+        ltNoCounts: false,
+        ltPartial: '150',
+        notes: '',
+      }],
+    });
+    const safe = sanitizeTankerDraftForRecompute(draft);
+    assert.equal(safe.activities[0].ltPartial, '0');
+    assert.equal(draft.activities[0].ltPartial, '150');
+
+    const next = recomputeTankerPortDraft(draft, 'hours');
+    // Raw invalid value preserved for Save rejection
+    assert.equal(next.activities[0].ltPartial, '150');
+    // Weighted actual must not use 150% (10h * 1.5 = 15)
+    assert.ok(Number(next.actualLaytime) < 10.1);
   });
 
+  it('ignores invalid rates for money while restoring raw rate text', () => {
+    const draft = baseDraft({
+      demurrageRate: 'nope',
+      activities: [{
+        activity: 'A',
+        start: '01-11-2026 00:00',
+        end: '01-11-2026 100:00'.replace('100', '10'),
+        duration: '10.0000',
+        ltCounts: true,
+        ltNoCounts: false,
+        ltPartial: '100',
+        notes: '',
+      }],
+    });
+    // Fix end time properly
+    draft.activities[0].end = '01-11-2026 10:00';
+    const next = recomputeTankerPortDraft(draft, 'hours');
+    assert.equal(next.demurrageRate, 'nope');
+    assert.equal(Number(next.ttlDemurrage), 0);
+  });
+});
+
+describe('lt partial % and rates', () => {
   it('flags bad activity partial on draft validate', () => {
     const result = validateTankerLaytimeDraft(baseDraft({
       activities: [{ activity: 'A', start: '', end: '', notes: '', ltPartial: '120' }],
@@ -88,36 +153,15 @@ describe('lt partial % and rates', () => {
     }));
     assert.equal(result.ok, true);
   });
-
-  it('blocks recompute for invalid LT % / junk rates / reversed dates', () => {
-    assert.equal(mayRecomputeTankerField('ltPartial', '100'), true);
-    assert.equal(mayRecomputeTankerField('ltPartial', '150'), false);
-    assert.equal(mayRecomputeTankerField('ltPartial', '-5'), false);
-    assert.equal(mayRecomputeTankerField('ltPartial', '10abc'), false);
-    assert.equal(mayRecomputeTankerField('number', '24000'), true);
-    assert.equal(mayRecomputeTankerField('number', 'nope'), false);
-    assert.equal(mayRecomputeTankerField('dateRange', '01-11-2026 00:00', '01-11-2026 10:00'), true);
-    assert.equal(mayRecomputeTankerField('dateRange', '02-11-2026 00:00', '01-11-2026 00:00'), false);
-  });
 });
 
-describe('date order', () => {
-  it('accepts complete DMY ranges and rejects end before start', () => {
-    assert.equal(validateDateRangeOrder('01-01-2026 08:00', '01-01-2026 10:00').ok, true);
-    const bad = validateDateRangeOrder('02-01-2026 10:00', '01-01-2026 08:00');
-    assert.equal(bad.ok, false);
-    assert.match(bad.message, /on or after/i);
+describe('money display + nego gate', () => {
+  it('formats calculated demurrage to two decimals', () => {
+    assert.equal(formatMoneyDisplay(2666.7), '2,666.70');
+    assert.equal(formatMoneyDisplay(0.75), '0.75');
+    assert.equal(formatMoneyDisplay(0), '0.00');
   });
 
-  it('rejects incomplete / unparseable dates when provided', () => {
-    const bad = validateDateRangeOrder('not-a-date', '');
-    assert.equal(bad.ok, false);
-    const slash = validateDateRangeOrder('01/01/2026', '');
-    assert.equal(slash.ok, false);
-  });
-});
-
-describe('nego gated + allowance not overwritten by qty', () => {
   it('keeps nego UI disabled in production Tanker', () => {
     assert.equal(isTankerNegoUiEnabled(), false);
   });

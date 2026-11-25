@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  isBlankOrFiniteNumber,
   isValidLtPartialPercent,
+  parseDmyDateTimeMs,
+  parseStrictDecimal,
   tankerLtInsertFailClosed,
+  validateDateRangeOrder,
   validateTankerLaytimePayload,
   verifyRowDurations,
 } from './laytimeTankerValidation.js';
@@ -65,6 +69,20 @@ describe('backend tanker validation', () => {
     const result = validateTankerLaytimePayload(basePayload({ submitId: 1, approvers: [] }));
     assert.equal(result.ok, false);
     assert.equal(result.field, 'approvers');
+  });
+
+  it('rejects commas, hex, negatives, bad calendars and hour 25', () => {
+    assert.equal(parseStrictDecimal('1,000').ok, false);
+    assert.equal(parseStrictDecimal('0x10').ok, false);
+    assert.equal(isBlankOrFiniteNumber('-1'), false);
+    assert.equal(parseDmyDateTimeMs('31-02-2026'), null);
+    assert.equal(parseDmyDateTimeMs('01-11-2026 25:00'), null);
+    assert.equal(parseDmyDateTimeMs('01-11-2026 10:00x'), null);
+    assert.equal(validateDateRangeOrder('01-11-2026 00:00', '').ok, false);
+    const junkRate = validateTankerLaytimePayload(basePayload({ demurrageRate: '1,000' }));
+    assert.equal(junkRate.ok, false);
+    const badCal = validateTankerLaytimePayload(basePayload({ norTendered: '31-02-2026 08:00' }));
+    assert.equal(badCal.ok, false);
   });
 });
 

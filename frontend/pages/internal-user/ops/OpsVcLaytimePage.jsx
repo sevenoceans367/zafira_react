@@ -20,7 +20,7 @@ import {
   resolveLaytimeEstimateType,
   usesTankerLaytimeLayout,
 } from './laytimeTankerHelpers.js';
-import { validateTankerLaytimeDraft } from './laytimeTankerValidation.js';
+import { recomputeTankerPortDraft, validateTankerLaytimeDraft } from './laytimeTankerValidation.js';
 import pageStyles from './OpsPages.module.css';
 import sofStyles from './OpsVcSofPage.module.css';
 import styles from './OpsVcLaytimePage.module.css';
@@ -157,11 +157,42 @@ const LAYTIME_MANDATORY_FIELDS = [
   { key: 'vesselSailed', label: 'VESSEL SAILED' },
 ];
 
-function focusMandatoryField(fieldId) {
+function focusMandatoryField(fieldId, { index, focus } = {}) {
   if (!fieldId || typeof document === 'undefined') return false;
+
+  // Tanker activity/deduction rows: data-lt-row="activities-0" + data-lt-focus="ltPartial|start|end"
+  if (fieldId === 'activities' || fieldId === 'deductions') {
+    const rowKey = `${fieldId}-${Number(index) || 0}`;
+    const row = document.querySelector(`[data-lt-row="${CSS.escape(rowKey)}"]`);
+    const focusKey = focus || 'ltPartial';
+    const marked = row?.querySelector(`[data-lt-focus="${CSS.escape(focusKey)}"]`);
+    const focusable = (marked && typeof marked.focus === 'function' && marked.matches?.('input, textarea, select, button'))
+      ? marked
+      : (marked?.querySelector?.('input:not([disabled]), textarea:not([disabled]), button:not([disabled])')
+        || row?.querySelector('input:not([disabled]), textarea:not([disabled])'));
+    if (focusable) {
+      focusable.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      try { focusable.focus({ preventScroll: true }); } catch { focusable.focus(); }
+      if (typeof focusable.select === 'function' && focusable.tagName === 'INPUT') {
+        try { focusable.select(); } catch { /* ignore */ }
+      }
+      return true;
+    }
+  }
+
+  // Summary financial fields may live in the floating panel — open via custom event if collapsed.
+  if (fieldId === 'laytimeAllowed' || fieldId === 'demurrageRate' || fieldId === 'despatchRate') {
+    window.dispatchEvent(new CustomEvent('lt-tanker-open-summary'));
+  }
 
   const byId = document.getElementById(fieldId);
   const byData = document.querySelector(`[data-field="${CSS.escape(fieldId)}"]`);
+  const byAria = document.querySelector(`[aria-label="${CSS.escape({
+    laytimeAllowed: 'Laytime Allowed',
+    demurrageRate: 'Demurrage Rate',
+    despatchRate: 'Dispatch Rate',
+    loadedQty: 'QTY (MT)',
+  }[fieldId] || fieldId)}"]`);
   const byLabel = document.querySelector(`label[for="${CSS.escape(fieldId)}"]`);
   const container = byData
     || byId?.closest('[class*="field"]')
@@ -171,6 +202,8 @@ function focusMandatoryField(fieldId) {
   let focusable = null;
   if (byId && typeof byId.focus === 'function' && !byId.disabled) {
     focusable = byId;
+  } else if (byAria && typeof byAria.focus === 'function' && !byAria.disabled) {
+    focusable = byAria;
   } else if (byData) {
     focusable = byData.querySelector(
       'button:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
@@ -193,7 +226,7 @@ function focusMandatoryField(fieldId) {
   }
 
   const applyFocus = () => {
-    const el = focusable || document.getElementById(fieldId);
+    const el = focusable || document.getElementById(fieldId) || byAria;
     if (!el || typeof el.focus !== 'function') return;
     try {
       el.focus({ preventScroll: true });
@@ -215,13 +248,13 @@ function focusMandatoryField(fieldId) {
   return true;
 }
 
-async function alertThenFocus(alertFn, alertOpts, fieldId) {
-  focusMandatoryField(fieldId);
+async function alertThenFocus(alertFn, alertOpts, fieldId, focusMeta = {}) {
+  focusMandatoryField(fieldId, focusMeta);
   await alertFn(alertOpts);
   await new Promise((resolve) => {
     window.requestAnimationFrame(() => {
       window.setTimeout(() => {
-        focusMandatoryField(fieldId);
+        focusMandatoryField(fieldId, focusMeta);
         resolve();
       }, 80);
     });
@@ -568,10 +601,15 @@ export default function OpsVcLaytimePage() {
         );
         if (allowed !== '') base = { ...base, laytimeAllowed: allowed };
       }
-      return {
-        ...current,
-        [activeKey]: recompute || refreshAllowed ? recomputePortDraft(base, rateUnit) : base,
-      };
+      if (!(recompute || refreshAllowed)) {
+        return { ...current, [activeKey]: base };
+      }
+      // Tanker: always sanitize full draft at the recompute boundary so stored
+      // invalid %/dates/rates cannot inflate totals when another field changes.
+      const next = isTankerLayout
+        ? recomputeTankerPortDraft(base, rateUnit)
+        : recomputePortDraft(base, rateUnit);
+      return { ...current, [activeKey]: next };
     });
   };
 
@@ -660,7 +698,7 @@ export default function OpsVcLaytimePage() {
         await alertThenFocus(alert, {
           title: 'Alert',
           message: tankerCheck.message,
-        }, tankerCheck.field);
+        }, tankerCheck.field, { index: tankerCheck.index, focus: tankerCheck.focus });
         return;
       }
     } else {

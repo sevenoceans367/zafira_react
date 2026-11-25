@@ -1,18 +1,7 @@
 /**
  * Tanker-only (estimateType === 2) save-path validation.
- * Mirrors frontend laytimeTankerValidation — do not require hidden Dry fields
- * or Legacy-skipped qty/rate for Tanker.
+ * Mirrors frontend laytimeTankerValidation — strict decimal/date parsing.
  */
-
-function parseDmyDateTimeMs(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return null;
-  const match = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/);
-  if (!match) return null;
-  const [, dd, mm, yyyy, hh = '0', min = '0'] = match;
-  const date = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min));
-  return Number.isNaN(date.getTime()) ? null : date.getTime();
-}
 
 export const TANKER_MANDATORY_OPERATIONAL_FIELDS = [
   { key: 'norTendered', label: 'NOR TENDERED' },
@@ -20,22 +9,63 @@ export const TANKER_MANDATORY_OPERATIONAL_FIELDS = [
   { key: 'loadCompleted', label: 'CARGO COMPLETED' },
 ];
 
+export function parseStrictDecimal(value) {
+  const raw = String(value ?? '').trim();
+  if (raw === '') return { ok: true, blank: true, value: null };
+  if (!/^-?\d+(\.\d+)?$/.test(raw)) return { ok: false, blank: false, value: null };
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return { ok: false, blank: false, value: null };
+  return { ok: true, blank: false, value: n };
+}
+
 export function isBlankOrFiniteNumber(value) {
-  const raw = String(value ?? '').trim().replace(/,/g, '');
-  if (raw === '') return true;
-  return Number.isFinite(Number(raw));
+  const parsed = parseStrictDecimal(value);
+  if (!parsed.ok) return false;
+  if (parsed.blank) return true;
+  return parsed.value >= 0;
 }
 
 export function isValidLtPartialPercent(value) {
-  const raw = String(value ?? '').trim().replace(/,/g, '');
-  if (raw === '') return true;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 100;
+  const parsed = parseStrictDecimal(value);
+  if (!parsed.ok) return false;
+  if (parsed.blank) return true;
+  return parsed.value >= 0 && parsed.value <= 100;
+}
+
+/** Strict DMY; reject rollover / hour 25 / trailing junk. */
+export function parseDmyDateTimeMs(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const match = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?$/);
+  if (!match) return null;
+  const dd = Number(match[1]);
+  const mm = Number(match[2]);
+  const yyyy = Number(match[3]);
+  const hh = match[4] != null ? Number(match[4]) : 0;
+  const min = match[5] != null ? Number(match[5]) : 0;
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || hh > 23 || min > 59) return null;
+  const date = new Date(yyyy, mm - 1, dd, hh, min, 0, 0);
+  if (
+    date.getFullYear() !== yyyy
+    || date.getMonth() !== mm - 1
+    || date.getDate() !== dd
+    || date.getHours() !== hh
+    || date.getMinutes() !== min
+  ) {
+    return null;
+  }
+  return date.getTime();
 }
 
 export function validateDateRangeOrder(start, end, { startLabel = 'Start', endLabel = 'Finish' } = {}) {
   const startRaw = String(start ?? '').trim();
   const endRaw = String(end ?? '').trim();
+  if (startRaw && !endRaw) {
+    return { ok: false, field: 'end', message: `${endLabel} is required when ${startLabel} is set.` };
+  }
+  if (endRaw && !startRaw) {
+    return { ok: false, field: 'start', message: `${startLabel} is required when ${endLabel} is set.` };
+  }
   if (startRaw && parseDmyDateTimeMs(startRaw) == null) {
     return { ok: false, field: 'start', message: `${startLabel} must be a complete date (DD-MM-YYYY).` };
   }
@@ -89,10 +119,6 @@ function firstInvalidPartial(rows, kindLabel) {
   return { ok: true };
 }
 
-/**
- * Hours between two DMY display strings (4dp), or null if either missing/invalid.
- * Used to verify client-supplied duration rather than inventing demurrage formulas.
- */
 export function hoursBetweenDmy(start, end) {
   const from = parseDmyDateTimeMs(start);
   const to = parseDmyDateTimeMs(end);
@@ -100,10 +126,6 @@ export function hoursBetweenDmy(start, end) {
   return Number(((to - from) / (1000 * 60 * 60)).toFixed(4));
 }
 
-/**
- * Verify activity/deduction duration matches dates when both ends are set.
- * Tolerates tiny float drift; rejects junk duration text when dates exist.
- */
 export function verifyRowDurations(rows, kindLabel) {
   for (let i = 0; i < (rows || []).length; i += 1) {
     const row = rows[i] || {};
@@ -113,17 +135,17 @@ export function verifyRowDurations(rows, kindLabel) {
     if (!start || !end) continue;
     const expected = hoursBetweenDmy(start, end);
     if (expected == null) continue;
-    const rawDur = String(row.duration ?? '').trim().replace(/,/g, '');
+    const rawDur = String(row.duration ?? '').trim();
     if (rawDur === '') continue;
-    const reported = Number(rawDur);
-    if (!Number.isFinite(reported)) {
+    const parsed = parseStrictDecimal(rawDur);
+    if (!parsed.ok || parsed.blank) {
       return {
         ok: false,
         field: kindLabel === 'Activity' ? 'activities' : 'deductions',
         message: `${kindLabel} #${i + 1} duration must be a valid number.`,
       };
     }
-    if (Math.abs(reported - expected) > 0.0002) {
+    if (Math.abs(parsed.value - expected) > 0.0002) {
       return {
         ok: false,
         field: kindLabel === 'Activity' ? 'activities' : 'deductions',
@@ -134,7 +156,6 @@ export function verifyRowDurations(rows, kindLabel) {
   return { ok: true };
 }
 
-/** Tanker saves must fail closed on full LT INSERT (no truncated fallback). */
 export function tankerLtInsertFailClosed(estimateType) {
   return Number(estimateType) === 2;
 }
@@ -144,12 +165,15 @@ export function tankerLtInsertFailClosed(estimateType) {
  */
 export function validateTankerLaytimePayload(payload = {}) {
   for (const { key, label } of TANKER_MANDATORY_OPERATIONAL_FIELDS) {
-    if (!String(payload[key] ?? '').trim()) {
+    const raw = String(payload[key] ?? '').trim();
+    if (!raw) {
       return { ok: false, field: key, message: `Please fill the ${label}.` };
+    }
+    if (parseDmyDateTimeMs(raw) == null) {
+      return { ok: false, field: key, message: `${label} must be a complete date (DD-MM-YYYY).` };
     }
   }
 
-  // Legacy Tanker getSubmit does not gate on loadedRate / stowage / arrive / sail.
   const actPartial = firstInvalidPartial(payload.activities, 'Activity');
   if (!actPartial.ok) return actPartial;
   const dedPartial = firstInvalidPartial(payload.deductions, 'Deduction');

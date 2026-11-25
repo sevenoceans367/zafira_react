@@ -161,27 +161,35 @@ export function emptyTcInPeriodExtension() {
   };
 }
 
+/** Prefer the first defined value (including empty string) so clears are not restored from aliases. */
+function pickDefined(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null) return value;
+  }
+  return '';
+}
+
 /** Normalize period terms so TcPeriodBlock + calcs share one shape. */
 export function normalizeTcInTerms(terms = {}) {
-  const exchangeCurrency = terms.exchangeCurrency || terms.hireCurrency || 'USD';
+  const exchangeCurrency = pickDefined(terms.exchangeCurrency, terms.hireCurrency) || 'USD';
   const exchangeRate = terms.exchangeRate ?? terms.xrate ?? '1';
-  const delRangePort = terms.delRangePort || terms.delPort || '';
-  const reDelRange = terms.reDelRange || terms.reDelPort || '';
-  const ilohcUsd = terms.ilohcUsd || terms.ilohc || '';
-  const addComm = terms.addComm || terms.adComm || '';
-  const brokerComm = terms.brokerComm || terms.brokerage || '';
-  const broCommPayable = terms.broCommPayable || terms.brokeragePaidBy || '';
+  const delRangePort = pickDefined(terms.delRangePort, terms.delPort);
+  const reDelRange = pickDefined(terms.reDelRange, terms.reDelPort);
+  const ilohcUsd = pickDefined(terms.ilohcUsd, terms.ilohc);
+  const addComm = pickDefined(terms.addComm, terms.adComm);
+  const brokerComm = pickDefined(terms.brokerComm, terms.brokerage);
+  const broCommPayable = pickDefined(terms.broCommPayable, terms.brokeragePaidBy);
   return {
     ...EMPTY_TC_IN_PERIOD.terms,
     ...terms,
-    laycanFrom: terms.laycanFrom || '',
-    laycanTo: terms.laycanTo || '',
+    laycanFrom: pickDefined(terms.laycanFrom),
+    laycanTo: pickDefined(terms.laycanTo),
     exchangeCurrency,
     exchangeRate,
     delRangePort,
     reDelRange,
-    ballastBonus: terms.ballastBonus || '',
-    cveMonth: terms.cveMonth || '',
+    ballastBonus: pickDefined(terms.ballastBonus),
+    cveMonth: pickDefined(terms.cveMonth),
     ilohcUsd,
     addComm,
     brokerComm,
@@ -390,10 +398,10 @@ export function syncPeriodOneToLegacy(tcIn = {}) {
     offHires: period0.offHires?.length ? period0.offHires : [{ ...EMPTY_TC_IN_OFF }],
     cpDate: tcIn.identifiers?.cpDate || tcIn.cpDate || '',
     contractRef: tcIn.contractRef || '',
-    deliveryPort: terms.delRangePort || terms.delPort || tcIn.deliveryPort || '',
-    redeliveryPort: terms.reDelRange || terms.reDelPort || tcIn.redeliveryPort || '',
-    ilohc: terms.ilohcUsd || terms.ilohc || tcIn.ilohc || '',
-    ballastBonus: terms.ballastBonus || tcIn.ballastBonus || '',
+    deliveryPort: pickDefined(terms.delRangePort, terms.delPort, tcIn.deliveryPort),
+    redeliveryPort: pickDefined(terms.reDelRange, terms.reDelPort, tcIn.redeliveryPort),
+    ilohc: pickDefined(terms.ilohcUsd, terms.ilohc, tcIn.ilohc),
+    ballastBonus: pickDefined(terms.ballastBonus, tcIn.ballastBonus),
   };
 }
 

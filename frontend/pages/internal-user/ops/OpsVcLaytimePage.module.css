@@ -1001,7 +1001,7 @@
 
 .cfSectionSub {
   font-size: 11px;
-  color: #8a93a2;
+  color: #5b6472;
   font-weight: 600;
   margin-top: 1px;
 }
@@ -1103,7 +1103,7 @@
 .pgLabel {
   font-size: 10.5px;
   font-weight: 700;
-  color: #8a93a2;
+  color: #5b6472;
   white-space: nowrap;
   padding: 0 2px;
 }
@@ -1207,7 +1207,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #8a93a2;
+  color: #5b6472;
   background: #fafbfc;
   padding: 11px 12px;
   border-bottom: 1px solid #dfe2e7;
@@ -1465,7 +1465,7 @@
   font-size: 12px;
   font-weight: 600;
   line-height: 1.45;
-  color: #8a93a2;
+  color: #5b6472;
   max-width: 52rem;
 }
 
@@ -1495,39 +1495,40 @@
   z-index: 40;
 }
 
-/* Tanker: summary + footer as one sticky content-width stack (not viewport-fixed). */
+/* Tanker: sticky footer only — summary floats independently above it. */
 .ltTankerRoot .sofFooterSpacer { display: none; }
 
-.ltTankerBottomChrome {
+.ltTankerRoot .sofFooterBar {
   position: sticky;
   bottom: 0;
   z-index: 45;
   margin-top: 12px;
-  background: #fff;
+  padding: 12px 16px 14px;
   border-top: 1px solid #dfe2e7;
   box-shadow: 0 -6px 18px rgba(20, 30, 50, 0.08);
+  background: #fff;
 }
 
-.ltSummaryDock {
+/* Zero-height host: expand grows visually upward without moving the footer. */
+.ltSummaryFloat {
+  position: sticky;
+  bottom: 96px; /* sticky footer (~77px) + clear gap */
+  z-index: 50;
+  height: 0;
+  overflow: visible;
   display: flex;
   justify-content: flex-end;
   align-items: flex-end;
-  gap: 8px;
-  padding: 10px 16px 8px;
-  max-width: 100%;
+  padding: 0 16px;
+  margin: 0;
+  pointer-events: none;
 }
 
-.ltTankerRoot .sofFooterBar {
-  position: relative;
-  bottom: auto;
-  left: auto;
-  right: auto;
-  margin: 0;
-  z-index: auto;
-  padding: 12px 16px 14px;
-  border-top: 1px solid #eceef2;
-  box-shadow: none;
-  background: #fff;
+.ltSummaryFloat > * {
+  pointer-events: auto;
+  /* Sit just above the sticky line (footer clears below). Expand grows upward. */
+  margin-bottom: 16px;
+  max-width: min(100%, 560px);
 }
 
 /* Match shipped SOF Tanker footer chrome (gray, not yellow HTML mockup). */
@@ -1558,16 +1559,18 @@
   min-width: 100px;
 }
 
-/* Floating summary FAB — Tanker sits above sticky footer, never over Save/Close. */
+/* Floating summary FAB — lives in ltSummaryFloat; not part of footer flow. */
 .ltSummaryFab {
-  position: fixed;
-  bottom: 28px;
-  right: 28px;
-  z-index: 35;
+  position: relative;
+  bottom: auto;
+  right: auto;
+  left: auto;
+  z-index: auto;
   display: flex;
   align-items: center;
   gap: 11px;
-  max-width: min(560px, calc(100vw - 100px));
+  max-width: min(560px, 100%);
+  width: auto;
   flex-wrap: wrap;
   background: #274670;
   color: #fff;
@@ -1580,22 +1583,14 @@
   font-family: inherit;
 }
 
-/* In-dock: content-scoped, never fixed over sidebar / Save / Close. */
-.ltTankerRoot .ltSummaryFab,
 .ltTankerRoot .ltSummaryFabExpanded {
   position: relative;
   bottom: auto;
   right: auto;
   left: auto;
-  z-index: auto;
-  max-width: min(100%, 560px);
-  width: auto;
-  box-shadow: 0 4px 16px rgba(20, 30, 50, 0.14);
-}
-
-.ltTankerRoot .ltSummaryFabExpanded {
   width: min(100%, 420px);
-  max-height: min(50vh, 480px);
+  max-height: min(60vh, 560px);
+  z-index: auto;
 }
 
 .ltSummaryFabUnavailable {
@@ -1640,12 +1635,12 @@
 }
 
 .ltSummaryFabExpanded {
-  position: fixed;
-  bottom: 28px;
-  right: 28px;
-  width: min(420px, calc(100vw - 100px));
-  max-height: min(70vh, 640px);
-  z-index: 36;
+  position: relative;
+  bottom: auto;
+  right: auto;
+  width: min(420px, 100%);
+  max-height: min(60vh, 560px);
+  z-index: auto;
   box-shadow: 0 16px 48px rgba(20, 30, 50, 0.22);
   border-radius: 14px;
   transform-origin: bottom right;
@@ -1672,7 +1667,7 @@
 }
 
 .ltSummaryHeadTitle { font-size: 14px; font-weight: 800; color: #1b2430; }
-.ltSummaryHeadSub { font-size: 11px; color: #8a93a2; font-weight: 600; }
+.ltSummaryHeadSub { font-size: 11px; color: #5b6472; font-weight: 600; }
 
 .fabCloseBtn {
   display: inline-flex;
@@ -1751,7 +1746,7 @@
   transform: translateY(-50%);
   font-size: 9.5px;
   font-weight: 800;
-  color: #8a93a2;
+  color: #5b6472;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   pointer-events: none;
@@ -1850,9 +1845,14 @@
   .ltTimingCell { border-right: none; }
   .ltTankerRoot .sofFooterBar,
   .sofFooterBar { flex-direction: column; align-items: stretch; }
-  .ltSummaryDock {
+  .ltSummaryFloat {
+    bottom: 148px; /* stacked Save/Close footer needs more clearance */
+    padding: 0 12px;
     justify-content: stretch;
-    padding: 8px 12px 6px;
+  }
+  .ltSummaryFloat > * {
+    max-width: 100%;
+    width: 100%;
   }
   .ltTankerRoot .ltSummaryFab,
   .ltTankerRoot .ltSummaryFabExpanded {

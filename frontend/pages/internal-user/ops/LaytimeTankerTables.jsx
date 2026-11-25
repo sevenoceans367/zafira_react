@@ -213,7 +213,9 @@ export default function LaytimeTankerTables({
               <th style={{ width: 80 }}>LT Partial %</th>
               <th style={{ width: 100 }}>Cumulative</th>
               <th style={{ minWidth: 140 }}>Notes</th>
-              <th style={{ width: 48 }} />
+              <th style={{ width: 48 }} scope="col">
+                <span className={styles.ltHiddenPreserve}>Row actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -255,7 +257,15 @@ export default function LaytimeTankerTables({
                     />
                   </td>
                   <td>
-                    <input className={`${styles.cfInp} ${styles.durAuto}`} type="text" value={row.duration} readOnly disabled placeholder="Auto" />
+                    <input
+                      className={`${styles.cfInp} ${styles.durAuto}`}
+                      type="text"
+                      value={row.duration}
+                      readOnly
+                      disabled
+                      placeholder="Auto"
+                      aria-label={`Activity ${index + 1} duration`}
+                    />
                   </td>
                   <td>
                     <LtToggle
@@ -292,6 +302,7 @@ export default function LaytimeTankerTables({
                       value={row.cumulative ?? ''}
                       readOnly
                       disabled
+                      aria-label={`Activity ${index + 1} cumulative`}
                     />
                   </td>
                   <td>
@@ -301,6 +312,7 @@ export default function LaytimeTankerTables({
                       onChange={(e) => updateListRow('activities', index, { notes: e.target.value })}
                       disabled={locked}
                       placeholder="Notes"
+                      aria-label={`Activity ${index + 1} notes`}
                     />
                   </td>
                   <td>
@@ -359,7 +371,9 @@ export default function LaytimeTankerTables({
               <th style={{ width: 80 }}>LT Partial %</th>
               <th style={{ width: 100 }}>Net Duration</th>
               <th style={{ minWidth: 140 }}>Notes</th>
-              <th style={{ width: 48 }} />
+              <th style={{ width: 48 }} scope="col">
+                <span className={styles.ltHiddenPreserve}>Row actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -396,7 +410,15 @@ export default function LaytimeTankerTables({
                   />
                 </td>
                 <td>
-                  <input className={`${styles.cfInp} ${styles.durAuto}`} type="text" value={row.duration} readOnly disabled placeholder="Auto" />
+                  <input
+                    className={`${styles.cfInp} ${styles.durAuto}`}
+                    type="text"
+                    value={row.duration}
+                    readOnly
+                    disabled
+                    placeholder="Auto"
+                    aria-label={`Deduction ${index + 1} duration`}
+                  />
                 </td>
                 <td>
                   <input
@@ -412,7 +434,14 @@ export default function LaytimeTankerTables({
                   />
                 </td>
                 <td>
-                  <input className={`${styles.cfInp} ${styles.cumRo}`} type="text" value={row.cumulative ?? ''} readOnly disabled />
+                  <input
+                    className={`${styles.cfInp} ${styles.cumRo}`}
+                    type="text"
+                    value={row.cumulative ?? ''}
+                    readOnly
+                    disabled
+                    aria-label={`Deduction ${index + 1} net duration`}
+                  />
                 </td>
                 <td>
                   <textarea
@@ -421,6 +450,7 @@ export default function LaytimeTankerTables({
                     onChange={(e) => updateListRow('deductions', index, { notes: e.target.value })}
                     disabled={locked}
                     placeholder="Notes"
+                    aria-label={`Deduction ${index + 1} notes`}
                   />
                 </td>
                 <td>

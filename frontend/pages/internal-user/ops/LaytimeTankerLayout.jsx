@@ -395,72 +395,70 @@ export default function LaytimeTankerLayout({
             </div>
           </div>
 
-          {/* Sticky bottom chrome: summary + footer share content width (not viewport-fixed). */}
-          <div className={styles.ltTankerBottomChrome}>
-            <div className={styles.ltSummaryDock}>
-              <LaytimeTankerSummaryPill
-                open={summaryOpen}
-                onOpen={() => setSummaryOpen(true)}
-                onClose={() => setSummaryOpen(false)}
-                draft={draft}
-                unitShort={unitShort}
-                locked={locked}
-                unitUnknown={unitUnknown}
-                saving={saving}
-                approverOptions={approverOptions}
-                ApproverTagField={ApproverTagField}
-                setApprovers={setApprovers}
-                onPatchDraft={patchDraft}
-                onSendForApproval={() => handleSubmit(1)}
-              />
-            </div>
+          {/* Floating summary — independent of footer so expand overlays content, never grows chrome. */}
+          <div className={styles.ltSummaryFloat} data-lt-summary-float>
+            <LaytimeTankerSummaryPill
+              open={summaryOpen}
+              onOpen={() => setSummaryOpen(true)}
+              onClose={() => setSummaryOpen(false)}
+              draft={draft}
+              unitShort={unitShort}
+              locked={locked}
+              unitUnknown={unitUnknown}
+              saving={saving}
+              approverOptions={approverOptions}
+              ApproverTagField={ApproverTagField}
+              setApprovers={setApprovers}
+              onPatchDraft={patchDraft}
+              onSendForApproval={() => handleSubmit(1)}
+            />
+          </div>
 
-            <div className={styles.sofFooterBar}>
-              {!locked ? (
-                <>
-                  <div className={styles.sofFooterNote}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="12" />
-                      <line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
-                    Use “Submit” once laytime figures for every port call are finalised; “Close Laytime” locks the calculation entirely.
-                  </div>
-                  <div className={styles.sofFooterActions}>
-                    <Button
-                      type="button"
-                      variant="saveOutline"
-                      label="Save"
-                      onClick={() => handleSubmit(0)}
-                      disabled={saving || unitUnknown}
-                      title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
-                    />
-                    <Button
-                      type="button"
-                      variant="saveOutline"
-                      label="Close Laytime"
-                      onClick={() => handleSubmit(5)}
-                      disabled={saving || unitUnknown}
-                      title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className={styles.lockedNote}>This Laytime is locked / closed.</p>
-                  {form?.canOpen ? (
-                    <Button
-                      type="button"
-                      variant="submit"
-                      label="Open"
-                      onClick={handleOpen}
-                      disabled={saving || unitUnknown}
-                      title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
-                    />
-                  ) : null}
-                </>
-              )}
-            </div>
+          <div className={styles.sofFooterBar}>
+            {!locked ? (
+              <>
+                <div className={styles.sofFooterNote}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  Use “Submit” once laytime figures for every port call are finalised; “Close Laytime” locks the calculation entirely.
+                </div>
+                <div className={styles.sofFooterActions}>
+                  <Button
+                    type="button"
+                    variant="saveOutline"
+                    label="Save"
+                    onClick={() => handleSubmit(0)}
+                    disabled={saving || unitUnknown}
+                    title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
+                  />
+                  <Button
+                    type="button"
+                    variant="saveOutline"
+                    label="Close Laytime"
+                    onClick={() => handleSubmit(5)}
+                    disabled={saving || unitUnknown}
+                    title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <p className={styles.lockedNote}>This Laytime is locked / closed.</p>
+                {form?.canOpen ? (
+                  <Button
+                    type="button"
+                    variant="submit"
+                    label="Open"
+                    onClick={handleOpen}
+                    disabled={saving || unitUnknown}
+                    title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
+                  />
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       ) : null}

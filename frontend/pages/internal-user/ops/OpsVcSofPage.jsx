@@ -10,7 +10,6 @@ import {
   RowActions,
   RowAddButton,
   RowDelButton,
-  Toggle,
   useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
@@ -28,7 +27,6 @@ import {
   applyLtCountToggle,
   buildSofSavePayload,
   computeActivityDurationHours,
-  displayActivityCumulative,
   displayStoredFileName,
   draftFromPort,
   emptyKeyOp,
@@ -37,8 +35,6 @@ import {
   getCargoCardValues,
   isBlankKeyOp,
   insertDeductionRowAfter,
-  isLtCounting,
-  isValidLtPartialPercent,
   pageForIndex,
   paginateRows,
   patchCargoCardField,
@@ -312,12 +308,6 @@ export default function OpsVcSofPage() {
     patchDraft({ portActivities: recomputeSofActivityRows(activePort, rows) });
   };
 
-  const setPortActivityLtCounting = (index, counts) => {
-    const rows = [...(draft?.portActivities || [])];
-    rows[index] = applyLtCountToggle(rows[index], counts);
-    patchDraft({ portActivities: recomputeSofActivityRows(activePort, rows) });
-  };
-
   const insertPortActivityAfter = (index) => {
     const rows = [...(draft?.portActivities || [])];
     rows.splice(index + 1, 0, emptyPortActivityRow());
@@ -387,17 +377,6 @@ export default function OpsVcSofPage() {
   const handleSubmit = async (submitId) => {
     if (!activePort || !draft) return;
 
-    const invalidDeduction = (draft.deductions || []).find(
-      (row) => !isValidLtPartialPercent(row.ltPartial),
-    );
-    if (invalidDeduction) {
-      await alert({
-        title: 'Invalid percentage',
-        message: 'Deduction LT (Partial %) must be a whole percentage from 0 to 100.',
-      });
-      return;
-    }
-
     const ok = await confirm({
       title: 'Confirmation',
       message: submitId === 2
@@ -458,7 +437,6 @@ export default function OpsVcSofPage() {
   const deductionRows = draft?.deductions?.length ? draft.deductions : [emptyDeductionRow()];
   const completedDeductions = deductionRows.filter((row) => row.start && row.end);
   const totalDeductionDuration = completedDeductions.reduce((sum, row) => sum + (Number(row.duration) || 0), 0);
-  const totalNetDeductionDuration = completedDeductions.reduce((sum, row) => sum + (Number(row.cumulative) || 0), 0);
   const deductionsDisabled = locked || Boolean(activePort?.laytimeLocked);
   const deductionsDisabledTitle = activePort?.laytimeLocked ? DEDUCTIONS_LOCKED_TITLE : undefined;
   const activityDisabled = deductionsDisabled;
@@ -752,23 +730,20 @@ export default function OpsVcSofPage() {
                         </div>
                         <div>
                           <div className={styles.cfSectionTitle}>Activity (From/To)</div>
-                          <div className={styles.cfSectionSub}>Laytime-counting activity for this port call</div>
+                          <div className={styles.cfSectionSub}>Activities and timing recorded for this port call</div>
                         </div>
                       </div>
                     </div>
 
                     <div className={styles.tableWrap}>
-                      <table className={styles.cfTable}>
+                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}`}>
                         <thead>
                           <tr>
-                            <th style={{ width: 62 }} />
+                            <th />
                             <th>Activity in Port</th>
                             <th>Date / Time – Start</th>
                             <th>Date / Time – Finish</th>
                             <th>Duration (Hrs)</th>
-                            <th>LT (C / NC)</th>
-                            <th>LT (Partial %)</th>
-                            <th>Cumulative Duration (Hrs)</th>
                             <th>Notes</th>
                           </tr>
                         </thead>
@@ -830,46 +805,6 @@ export default function OpsVcSofPage() {
                                   aria-label={`Activity duration hours, row ${index + 1}`}
                                 />
                               </td>
-                              <td className={styles.ltToggleCell}>
-                                <span className={styles.ltToggleLabel} aria-hidden="true">NC</span>
-                                <Toggle
-                                  checked={isLtCounting(row)}
-                                  disabled={activityDisabled}
-                                  aria-label={`Laytime counting, row ${index + 1}. On is LT (C), off is LT (NC)`}
-                                  title={isLtCounting(row) ? 'LT (C) — counts' : 'LT (NC) — does not count'}
-                                  onChange={(e) => setPortActivityLtCounting(index, e.target.checked)}
-                                />
-                                <span className={styles.ltToggleLabel} aria-hidden="true">C</span>
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="1"
-                                  className={`${styles.cfInp} ${styles.numSm}`}
-                                  value={row.ltPartial ?? ''}
-                                  placeholder="0"
-                                  onChange={(e) => {
-                                    if (isValidLtPartialPercent(e.target.value)) {
-                                      updatePortActivityRow(index, { ltPartial: e.target.value });
-                                    }
-                                  }}
-                                  disabled={activityDisabled || !isLtCounting(row)}
-                                  readOnly={!isLtCounting(row)}
-                                  title={isLtCounting(row) ? deductionsDisabledTitle : 'LT (NC) forces Partial % to 0'}
-                                  aria-label={`LT (Partial %), row ${index + 1}`}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="text"
-                                  className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                  value={displayActivityCumulative(row)}
-                                  readOnly
-                                  aria-label={`Cumulative duration hours, row ${index + 1}`}
-                                />
-                              </td>
                               <td>
                                 <textarea
                                   className={styles.ltNotesSm}
@@ -902,16 +837,14 @@ export default function OpsVcSofPage() {
                     </div>
 
                     <div className={styles.tableWrap}>
-                      <table className={styles.cfTable}>
+                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}`}>
                         <thead>
                           <tr>
-                            <th style={{ width: 62 }} />
+                            <th />
                             <th>Activity in Port</th>
                             <th>Date / Time – Start</th>
                             <th>Date / Time – Finish</th>
                             <th>Duration (Hrs)</th>
-                            <th>LT (Partial %)</th>
-                            <th>Net Duration (Hrs)</th>
                             <th>Notes</th>
                           </tr>
                         </thead>
@@ -979,36 +912,6 @@ export default function OpsVcSofPage() {
                                 />
                               </td>
                               <td>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="1"
-                                  className={`${styles.cfInp} ${styles.numSm}`}
-                                  value={row.ltPartial ?? ''}
-                                  onChange={(e) => {
-                                    if (isValidLtPartialPercent(e.target.value)) {
-                                      updateDeductionRow(index, { ltPartial: e.target.value });
-                                    }
-                                  }}
-                                  placeholder="100"
-                                  disabled={deductionsDisabled}
-                                  title={deductionsDisabledTitle}
-                                  aria-label={`Deduction partial percent, row ${index + 1}`}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="text"
-                                  className={`${styles.cfInp} ${styles.numSm} ${styles.cumRo}`}
-                                  value={row.start && row.end ? displayActivityCumulative(row.cumulative) : '—'}
-                                  readOnly
-                                  disabled={deductionsDisabled}
-                                  title={deductionsDisabledTitle}
-                                  aria-label={`Deduction net duration hours, row ${index + 1}`}
-                                />
-                              </td>
-                              <td>
                                 <textarea
                                   className={styles.ltNotesSm}
                                   value={row.notes || ''}
@@ -1032,16 +935,6 @@ export default function OpsVcSofPage() {
                                 value={completedDeductions.length ? totalDeductionDuration.toFixed(4) : '—'}
                                 readOnly
                                 aria-label="Total deduction duration"
-                              />
-                            </td>
-                            <td />
-                            <td>
-                              <input
-                                type="text"
-                                className={styles.totalsRowInput}
-                                value={completedDeductions.length ? totalNetDeductionDuration.toFixed(4) : '—'}
-                                readOnly
-                                aria-label="Total net deduction duration"
                               />
                             </td>
                             <td />

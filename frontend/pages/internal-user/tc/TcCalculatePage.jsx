@@ -52,12 +52,24 @@ function emptyTcIn(detail = {}, calc = {}) {
   };
 }
 
+/** Persisted Hire Recap only — ignore fixture-seeded deliveryDate/dailyHire defaults. */
 function hasSavedTcInHires(tcIn) {
-  return Boolean(tcIn?.hires?.some((row) => (
-    (row.dailyHire != null && String(row.dailyHire).trim() !== '')
-    || (row.deliveryDate != null && String(row.deliveryDate).trim() !== '')
-    || (row.hireage != null && String(row.hireage).trim() !== '' && Number(row.hireage) !== 0)
-  )));
+  if (!tcIn || typeof tcIn !== 'object') return false;
+  const hireHits = (tcIn.hires || []).some((row) => (
+    (row.hireage != null && String(row.hireage).trim() !== '' && Number(row.hireage) !== 0)
+    || (row.nettHireage != null && String(row.nettHireage).trim() !== '' && Number(row.nettHireage) !== 0)
+    || (row.grossHireage != null && String(row.grossHireage).trim() !== '' && Number(row.grossHireage) !== 0)
+    || (row.randomId != null && String(row.randomId).trim() !== '')
+  ));
+  if (hireHits) return true;
+  const bunkerHits = [...(tcIn.deliveryBunkers || []), ...(tcIn.redeliveryBunkers || [])]
+    .some((row) => (row.qty != null && String(row.qty).trim() !== '')
+      || (row.amount != null && String(row.amount).trim() !== '' && Number(row.amount) !== 0));
+  if (bunkerHits) return true;
+  return (tcIn.offHires || []).some((row) => (
+    (row.amount != null && String(row.amount).trim() !== '' && Number(row.amount) !== 0)
+    || (row.from != null && String(row.from).trim() !== '')
+  ));
 }
 
 function applyPeriodTcIn(baseTcIn, periodData) {
@@ -184,6 +196,10 @@ function initFromDetail(detail) {
     itineraryExpenses: detail?.itineraryExpenses?.length
       ? detail.itineraryExpenses.map((row) => ({ ...EMPTY_ITIN_EXP, ...row }))
       : [{ ...EMPTY_ITIN_EXP }],
+    contractType: detail?.contractType
+      || ((detail?.periodId && String(detail.periodId) !== '0') || hasSavedTcInHires(detail?.tcInExpenses)
+        ? 'tcinout'
+        : 'tcout'),
     tcInExpenses: detail?.tcInExpenses
       ? {
           ...emptyTcIn(detail, base),
@@ -262,8 +278,13 @@ export default function TcCalculatePage({
         if (cancelled) return;
         setDetail(estimate);
         let nextForm = initFromDetail(estimate);
-        // PHP loadPeriodDetails(): when PERIODID set and no saved TC In rows, seed from period contract.
-        if (estimate?.periodId && !hasSavedTcInHires(estimate.tcInExpenses)) {
+        // Seed from period only when mode is/will be TC In/TC Out and no persisted Hire Recap.
+        if (
+          nextForm.contractType === 'tcinout'
+          && estimate?.periodId
+          && String(estimate.periodId) !== '0'
+          && !hasSavedTcInHires(estimate.tcInExpenses)
+        ) {
           try {
             const periodTcIn = await fetchPeriodTcInDetails(estimate.periodId);
             if (!cancelled && periodTcIn) {
@@ -288,28 +309,35 @@ export default function TcCalculatePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid reloading on new object identity
   }, [tcOutId]);
 
+  // Legacy: all otherIncome is revenue; never route Owner-labelled rows into expenses.
   const incomeTotal = useMemo(
     () => (form?.otherIncome || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
     [form?.otherIncome],
   );
   const expenseTotal = useMemo(
     () => (form?.otherExpenses || [])
-      .filter((row) => row.addToTotal !== false)
+      .filter((row) => row.addToTotal === true)
       .reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
     [form?.otherExpenses],
   );
+  const isTcInOut = form?.contractType === 'tcinout';
   const tcInFinalHireage = useMemo(() => {
-    if (!form?.tcInExpenses) return Number(form?.calc?.tcFinalHireage) || 0;
+    if (!isTcInOut) return 0;
+    if (!form?.tcInExpenses) {
+      const saved = Number(form?.calc?.tcFinalHireage);
+      return Number.isFinite(saved) ? saved : 0;
+    }
     const resolved = calcTcInFinalHireage(form.tcInExpenses);
-    const live = Number(resolved.finalHireage) || 0;
-    // Prefer live calc; fall back to saved TC_FINAL_HIERAGE when seed is empty.
-    return live || Number(form.calc?.tcFinalHireage) || 0;
-  }, [form?.tcInExpenses, form?.calc?.tcFinalHireage]);
+    const live = Number(resolved.finalHireage);
+    // 0 / negative are legitimate live results — only fall back when live is non-finite.
+    if (Number.isFinite(live)) return live;
+    const saved = Number(form.calc?.tcFinalHireage);
+    return Number.isFinite(saved) ? saved : 0;
+  }, [isTcInOut, form?.tcInExpenses, form?.calc?.tcFinalHireage]);
   const totalExpenses = useMemo(() => {
-    const live = expenseTotal + tcInFinalHireage;
-    // Fall back to saved TOTAL_EXP_EST when live components are still empty (matches PHP DB value).
-    return live || Number(form?.calc?.totalExp) || 0;
-  }, [expenseTotal, tcInFinalHireage, form?.calc?.totalExp]);
+    // Always otherExpenses(+owner income) + active TC In hireage — never reuse stale TOTAL_EXP_EST.
+    return expenseTotal + tcInFinalHireage;
+  }, [expenseTotal, tcInFinalHireage]);
   const itineraryExpenseTotal = useMemo(
     () => (form?.itineraryExpenses || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
     [form?.itineraryExpenses],
@@ -381,7 +409,8 @@ export default function TcCalculatePage({
 
   const buildSavePayload = () => {
     const first = form.hirePeriods[0] || {};
-    return {
+    const payload = {
+      contractType: form.contractType || 'tcout',
       calc: {
         ...form.calc,
         ...totals,
@@ -396,14 +425,14 @@ export default function TcCalculatePage({
         tcCpNumber: form.tcInExpenses?.contractRef || form.calc.tcCpNumber || '',
         tcDeliveryPort: form.tcInExpenses?.deliveryPort || form.calc.tcDeliveryPort || '',
         tcRedeliveryPort: form.tcInExpenses?.redeliveryPort || form.calc.tcRedeliveryPort || '',
-        tcFinalHireage: String(tcInFinalHireage.toFixed(2)),
-        tcFinalVendor: form.tcInExpenses?.finalVendor || '',
-        tcOffHireCveMonth: form.tcInExpenses?.offHireCveMonth || '',
-        tcOffHireCveAmt: form.tcInExpenses?.offHireCveAmt || '',
-        tcBunkerOnOwner: form.tcInExpenses?.bunkerOnOwner || '',
-        tcLessOffHire: form.tcInExpenses?.lessOffHire || '',
-        tcIlohc: form.tcInExpenses?.ilohc || '',
-        awrpCost: form.tcInExpenses?.awrpCost || '',
+        tcFinalHireage: String(Number(tcInFinalHireage || 0).toFixed(2)),
+        tcFinalVendor: isTcInOut ? (form.tcInExpenses?.finalVendor || '') : '',
+        tcOffHireCveMonth: isTcInOut ? (form.tcInExpenses?.offHireCveMonth || '') : '',
+        tcOffHireCveAmt: isTcInOut ? (form.tcInExpenses?.offHireCveAmt || '') : '',
+        tcBunkerOnOwner: isTcInOut ? (form.tcInExpenses?.bunkerOnOwner || '') : '',
+        tcLessOffHire: isTcInOut ? (form.tcInExpenses?.lessOffHire || '') : '',
+        tcIlohc: isTcInOut ? (form.tcInExpenses?.ilohc || '') : '',
+        awrpCost: isTcInOut ? (form.tcInExpenses?.awrpCost || '') : '',
       },
       hirePeriods: totals.hirePeriods || form.hirePeriods,
       otherIncome: form.otherIncome,
@@ -411,7 +440,6 @@ export default function TcCalculatePage({
       offHires: form.offHires,
       itinerary: form.itinerary,
       itineraryExpenses: form.itineraryExpenses,
-      tcInExpenses: form.tcInExpenses,
       deliveryBunkers: form.deliveryBunkers,
       redeliveryBunkers: form.redeliveryBunkers,
       totals,
@@ -421,6 +449,13 @@ export default function TcCalculatePage({
       form,
       detail,
     };
+    if (isTcInOut || hasSavedTcInHires(form.tcInExpenses)) {
+      payload.tcInExpenses = {
+        ...form.tcInExpenses,
+        recapProvenance: 'edited',
+      };
+    }
+    return payload;
   };
 
   const handleSave = async (event) => {
@@ -434,6 +469,8 @@ export default function TcCalculatePage({
         await onSave(payload);
       } else {
         await saveTcCalculation(tcOutId, {
+          contractType: payload.contractType,
+          baseContractType: detail?.contractType || form.contractType || '',
           calc: payload.calc,
           hirePeriods: payload.hirePeriods,
           otherIncome: payload.otherIncome,
@@ -1052,17 +1089,22 @@ export default function TcCalculatePage({
               }))}
             />
 
-            <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
-              <strong>TC In Expenses</strong>
-              <Button
-                variant="outline"
-                label={readOnly ? 'View TC In Hire Recap' : 'Add TC In Hire Recap'}
-                onClick={() => setTcInOpen(true)}
-              />
-              {tcInFinalHireage ? (
-                <span className={styles.muted}>Final Hire-age: {tcInFinalHireage.toFixed(2)}</span>
-              ) : null}
-            </div>
+            {isTcInOut ? (
+              <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
+                <strong>TC In Expenses</strong>
+                <Button
+                  variant="outline"
+                  label={readOnly ? 'View TC In Hire Recap' : 'Add TC In Hire Recap'}
+                  onClick={() => setTcInOpen(true)}
+                />
+                <span className={styles.muted}>Final Hire-age: {Number(tcInFinalHireage || 0).toFixed(2)}</span>
+              </div>
+            ) : (
+              <div className={`${styles.tcInButtonRow} ${styles.viewModeAllow}`}>
+                <strong>TC In Expenses</strong>
+                <span className={styles.muted}>Inactive (Contract Type: TC Out) — Hire Recap retained dormant</span>
+              </div>
+            )}
 
             <div className={styles.formGrid} style={{ marginTop: 16 }}>
               <div className={styles.field}>

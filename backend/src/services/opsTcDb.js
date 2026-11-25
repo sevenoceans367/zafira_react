@@ -1,7 +1,8 @@
 import { appContext, compareSheetsEnabled, isMgmtUser } from '../config.js';
 import { getPool } from '../db.js';
 import { formatDateDMY } from './estimateListMappers.js';
-import { tcContractTypeLabel } from './tcEstimateMappers.js';
+import { normalizeContractType, tcContractTypeLabel } from './tcEstimateMappers.js';
+import { ensureTcContractTypeColumn } from './tcEstimateDb.js'; // probe only — no DDL on list
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -299,6 +300,7 @@ export async function dbListOpsTcGlance({
   canEditOperator: canEditOperatorOverride,
 } = {}) {
   const pool = getPool();
+  const hasContractType = await ensureTcContractTypeColumn(pool);
   const businessType = String(selBType || '2');
   const year = String(selYear || new Date().getFullYear());
   const statusList = Array.isArray(status)
@@ -352,6 +354,10 @@ export async function dbListOpsTcGlance({
     params,
   );
 
+  const contractTypeSelect = hasContractType
+    ? 'm.CONTRACT_TYPE,'
+    : 'NULL AS CONTRACT_TYPE,';
+
   const [rows] = await pool.query(
     `SELECT
         c.COMID,
@@ -362,6 +368,7 @@ export async function dbListOpsTcGlance({
         op.CONTACT_PERSON AS OPERATOR_NAME,
         m.VESSEL_IMO_ID,
         m.PERIODID,
+        ${contractTypeSelect}
         CASE
           WHEN m.TC_IN_RECAP_JSON IS NOT NULL
             AND TRIM(m.TC_IN_RECAP_JSON) <> ''
@@ -450,6 +457,7 @@ export async function dbListOpsTcGlance({
       contractType: tcContractTypeLabel({
         periodId: row.PERIODID,
         hasTcInRecap: Number(row.HAS_TC_IN) === 1,
+        contractType: normalizeContractType(row.CONTRACT_TYPE),
       }),
       charterer: row.CHARTERER_NAME ?? '',
       cpDate: formatCpDate(row.CP_DATE1),

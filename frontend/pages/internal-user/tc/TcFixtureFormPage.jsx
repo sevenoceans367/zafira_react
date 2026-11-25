@@ -71,7 +71,6 @@ const EMPTY_EXPENSE = {
   vendorId: '',
 };
 const EMPTY_INCOME = {
-  accountType: 'Owner',
   description: '',
   amount: '',
 };
@@ -782,12 +781,24 @@ function emptyTcIn(detail = {}, calc = {}) {
   };
 }
 
+/** True only for persisted/user Hire Recap — not fixture-seeded emptyTcIn defaults. */
 function hasSavedTcInHires(tcIn) {
-  return Boolean(tcIn?.hires?.some((row) => (
-    (row.dailyHire != null && String(row.dailyHire).trim() !== '')
-    || (row.deliveryDate != null && String(row.deliveryDate).trim() !== '')
-    || (row.hireage != null && String(row.hireage).trim() !== '' && Number(row.hireage) !== 0)
-  )));
+  if (!tcIn || typeof tcIn !== 'object') return false;
+  const hireHits = (tcIn.hires || []).some((row) => (
+    (row.hireage != null && String(row.hireage).trim() !== '' && Number(row.hireage) !== 0)
+    || (row.nettHireage != null && String(row.nettHireage).trim() !== '' && Number(row.nettHireage) !== 0)
+    || (row.grossHireage != null && String(row.grossHireage).trim() !== '' && Number(row.grossHireage) !== 0)
+    || (row.randomId != null && String(row.randomId).trim() !== '')
+  ));
+  if (hireHits) return true;
+  const bunkerHits = [...(tcIn.deliveryBunkers || []), ...(tcIn.redeliveryBunkers || [])]
+    .some((row) => (row.qty != null && String(row.qty).trim() !== '')
+      || (row.amount != null && String(row.amount).trim() !== '' && Number(row.amount) !== 0));
+  if (bunkerHits) return true;
+  return (tcIn.offHires || []).some((row) => (
+    (row.amount != null && String(row.amount).trim() !== '' && Number(row.amount) !== 0)
+    || (row.from != null && String(row.from).trim() !== '')
+  ));
 }
 
 function applyPeriodTcIn(baseTcIn, periodData) {
@@ -835,8 +846,13 @@ function normalizeCapexFields(detail = {}) {
     };
   }
   const defaultOffHireRate = detail.hireFixPer || calc.dailyGrossHire || '';
+  const periodIdNorm = detail.periodId != null
+    && String(detail.periodId).trim() !== ''
+    && String(detail.periodId).trim() !== '0'
+    ? String(detail.periodId).trim()
+    : '';
   const contractType = detail.contractType
-    || (detail.periodId ? 'tcinout' : 'tcout');
+    || ((periodIdNorm || hasSavedTcInHires(detail.tcInExpenses)) ? 'tcinout' : 'tcout');
   return {
     contractType,
     itinerary: {
@@ -1127,12 +1143,6 @@ function copyDeliveryBunkersToRedelivery(deliveryRows = [], reDelDate = '') {
   }));
 }
 
-function isSubCharterBusinessType(businessTypes, businessTypeId) {
-  const match = (businessTypes || []).find((opt) => String(opt.id) === String(businessTypeId));
-  const label = String(match?.name || match?.label || '').toLowerCase();
-  return /in\s*\/?\s*out|sub[\s-]?charter/.test(label);
-}
-
 function formatResult(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return '0.00';
@@ -1273,6 +1283,9 @@ export default function TcFixtureFormPage({
   const [vpData, setVpData] = useState(null);
   const [vpLoading, setVpLoading] = useState(false);
   const [vpError, setVpError] = useState('');
+  const periodLookupSeqRef = useRef(0);
+  /** Mode at last successful load — used for stale-mode 409, not post-update refetch. */
+  const loadedContractTypeRef = useRef('tcout');
   const [periodMeta, setPeriodMeta] = useState(() => (
     periodNoParam ? { contractNo: periodNoParam } : null
   ));
@@ -1292,9 +1305,8 @@ export default function TcFixtureFormPage({
   const readOnly = mode === 'view';
   const listHref = backHref || returnTo || tcPath();
   const isDry = String(form.businessTypeId) === '3';
-  const showSubCharter = form.contractType === 'tcinout'
-    || isSubCharterBusinessType(businessTypes, form.businessTypeId)
-    || Boolean(form.periodId);
+  // CONTRACT_TYPE is authoritative; ESTIMATE_TYPE / business type must not override explicit TC Out.
+  const showSubCharter = form.contractType === 'tcinout';
 
   useEffect(() => {
     if (!vpModalOpen) return undefined;
@@ -1329,19 +1341,9 @@ export default function TcFixtureFormPage({
     [form.itineraryExpenses],
   );
 
+  // Legacy: all otherIncome is STATUS=1 revenue — no Owner/Charterer income split.
   const otherIncomeChartererTotal = useMemo(
-    () => (form.otherIncome || []).reduce((sum, row) => {
-      if (String(row.accountType || 'Owner').toLowerCase() !== 'charterer') return sum;
-      return sum + (Number(row.amount) || 0);
-    }, 0),
-    [form.otherIncome],
-  );
-
-  const otherIncomeOwnerTotal = useMemo(
-    () => (form.otherIncome || []).reduce((sum, row) => {
-      if (String(row.accountType || 'Owner').toLowerCase() !== 'owner') return sum;
-      return sum + (Number(row.amount) || 0);
-    }, 0),
+    () => (form.otherIncome || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
     [form.otherIncome],
   );
 
@@ -1352,16 +1354,16 @@ export default function TcFixtureFormPage({
       return sum + (Number(row.amount) || 0);
     }, 0);
 
-    // Pre-TC uses expenseType; TC Expenses uses notes for Owner/Charterer
+    // Pre-TC uses expenseType; TC Expenses uses notes for Owner/Charterer (expense party only).
     const itineraryOwners = sumParty(form.itineraryExpenses, 'expenseType', 'owner');
     const itineraryCharterers = sumParty(form.itineraryExpenses, 'expenseType', 'charterer');
-    const tcOwners = sumParty(form.otherExpenses, 'notes', 'owner') + otherIncomeOwnerTotal;
+    const tcOwners = sumParty(form.otherExpenses, 'notes', 'owner');
     const tcCharterers = sumParty(form.otherExpenses, 'notes', 'charterer');
     const tcAddToTotal = (form.otherExpenses || []).reduce((sum, row) => {
       // PHP only includes rows where chkVal == 1 (Add to TTL).
       if (row.addToTotal !== true) return sum;
       return sum + (Number(row.amount) || 0);
-    }, 0) + otherIncomeOwnerTotal;
+    }, 0);
 
     return {
       refOwners: itineraryOwners + tcOwners,
@@ -1369,7 +1371,7 @@ export default function TcFixtureFormPage({
       tcAddToTotal,
       preTcTotal: itineraryOwners + itineraryCharterers,
     };
-  }, [form.itineraryExpenses, form.otherExpenses, otherIncomeOwnerTotal]);
+  }, [form.itineraryExpenses, form.otherExpenses]);
 
   const hirePeriodTotals = useMemo(() => {
     const rows = (form.hirePeriods || []).map(resolveHirePeriod);
@@ -1615,7 +1617,8 @@ export default function TcFixtureFormPage({
 
   const applyTcDetailToForm = (detail, { asReplicate = false } = {}) => {
     const queryPeriodId = searchParams.get('periodId') || searchParams.get('periodid') || '';
-    const periodId = queryPeriodId || detail.periodId || '';
+    const periodIdRaw = queryPeriodId || detail.periodId || '';
+    const periodId = periodIdRaw && String(periodIdRaw).trim() !== '0' ? String(periodIdRaw).trim() : '';
     const next = {
       ...emptyForm(detail.businessTypeId || searchParams.get('selBType') || '2'),
       ...detail,
@@ -1630,8 +1633,12 @@ export default function TcFixtureFormPage({
       doConsumptions: detail.doConsumptions || [],
       calc: detail.calc || null,
       periodId,
-      contractType: periodId ? 'tcinout' : (detail.contractType || 'tcout'),
-      ...normalizeCapexFields(detail),
+      // normalizeCapexFields prefers detail.contractType; query period still implies tcinout when present
+      ...normalizeCapexFields({
+        ...detail,
+        periodId,
+        contractType: detail.contractType || (queryPeriodId ? 'tcinout' : detail.contractType),
+      }),
     };
     if (asReplicate) {
       // New estimate: keep tcNo so next EstN is fetched; drop identity + attachments
@@ -1659,6 +1666,7 @@ export default function TcFixtureFormPage({
       try {
         const detail = await fetchTcEstimate(tcOutId);
         if (cancelled) return;
+        loadedContractTypeRef.current = detail.contractType || 'tcout';
         setForm(applyTcDetailToForm(detail));
         if (detail?.periodId && !hasSavedTcInHires(detail.tcInExpenses)) {
           try {
@@ -1883,6 +1891,7 @@ export default function TcFixtureFormPage({
       const attachmentFiles = form.attachmentFiles || [];
       const payload = {
         ...form,
+        contractType: form.contractType || 'tcout',
         fixtureType: form.fixtureType || '1',
         delDate: firstHire.delDate || form.delDate,
         reDelDate: firstHire.reDelDate || form.reDelDate,
@@ -1894,15 +1903,29 @@ export default function TcFixtureFormPage({
         keepAttachment: attachments.map((item) => item.file).filter(Boolean).join(','),
         keepAttachmentName: attachments.map((item) => item.name || item.file).filter(Boolean).join(','),
       };
+      // Keep dormant Hire Recap JSON when TC Out — never send null to clear the column.
+      if (showSubCharter || hasSavedTcInHires(form.tcInExpenses)) {
+        payload.tcInExpenses = {
+          ...form.tcInExpenses,
+          recapProvenance: 'edited',
+        };
+      } else {
+        delete payload.tcInExpenses;
+      }
       delete payload.attachmentFiles;
       delete payload.attachments;
       delete payload.tcPeriodExtensions;
+      // Stale-mode baseline from original load (or draft tcout on create) — never from post-update refetch.
+      const baseContractType = mode === 'add'
+        ? 'tcout'
+        : (loadedContractTypeRef.current || 'tcout');
       let savedId = tcOutId;
       if (mode === 'add') {
         const created = await createTcEstimate(payload, attachmentFiles);
         savedId = created.tcOutId;
       } else {
-        await updateTcEstimate(tcOutId, payload, attachmentFiles);
+        // Reject stale mode under master lock before fixture master/bunker writes.
+        await updateTcEstimate(tcOutId, { ...payload, baseContractType }, attachmentFiles);
       }
 
       // Capex/itinerary/tcIn persist only via calculate endpoint — merge existing calc children.
@@ -1912,7 +1935,10 @@ export default function TcFixtureFormPage({
       } catch {
         existing = null;
       }
-      await saveTcCalculation(savedId, {
+      const calcTcInHireage = showSubCharter ? Number(tcInFinalHireage) || 0 : 0;
+      const calcPayload = {
+        contractType: form.contractType || 'tcout',
+        baseContractType,
         calc: {
           ...(existing?.calc || form.calc || {}),
           ballastBonus: form.ballastBonus ?? '',
@@ -1920,19 +1946,19 @@ export default function TcFixtureFormPage({
           ilohcAmt: form.ilohcUsd ?? '',
           addCommPct: form.addComm ?? '',
           brokerCommPct: form.brokerComm ?? '',
-          totalExp: String(expensePartyTotals.tcAddToTotal + tcInFinalHireage),
+          totalExp: String(expensePartyTotals.tcAddToTotal + calcTcInHireage),
           deliveryBunkers: form.deliveryBunkers,
           redeliveryBunkers: form.redeliveryBunkers,
           tcCpDate: form.tcInExpenses?.cpDate || '',
           tcCpNumber: form.tcInExpenses?.contractRef || form.tcNo || '',
           tcDeliveryPort: form.tcInExpenses?.deliveryPort || form.delRangePort || '',
           tcRedeliveryPort: form.tcInExpenses?.redeliveryPort || form.reDelRange || '',
-          tcFinalVendor: form.tcInExpenses?.finalVendor || '',
+          tcFinalVendor: showSubCharter ? (form.tcInExpenses?.finalVendor || '') : '',
           tcFinalHireage: showSubCharter ? String(tcInFinalHireage) : '0',
-          tcOffHireCveMonth: form.tcInExpenses?.offHireCveMonth || '',
-          tcBunkerOnOwner: form.tcInExpenses?.bunkerOnOwner || '',
-          tcIlohc: form.tcInExpenses?.ilohc || '',
-          awrpCost: form.tcInExpenses?.awrpCost || '',
+          tcOffHireCveMonth: showSubCharter ? (form.tcInExpenses?.offHireCveMonth || '') : '',
+          tcBunkerOnOwner: showSubCharter ? (form.tcInExpenses?.bunkerOnOwner || '') : '',
+          tcIlohc: showSubCharter ? (form.tcInExpenses?.ilohc || '') : '',
+          awrpCost: showSubCharter ? (form.tcInExpenses?.awrpCost || '') : '',
         },
         hirePeriods,
         deliveryBunkers: form.deliveryBunkers,
@@ -1942,8 +1968,15 @@ export default function TcFixtureFormPage({
         offHires,
         itinerary: form.itinerary,
         itineraryExpenses: form.itineraryExpenses,
-        tcInExpenses: form.tcInExpenses,
-      });
+      };
+      if (showSubCharter || hasSavedTcInHires(form.tcInExpenses)) {
+        calcPayload.tcInExpenses = {
+          ...form.tcInExpenses,
+          recapProvenance: 'edited',
+        };
+      }
+      await saveTcCalculation(savedId, calcPayload);
+      loadedContractTypeRef.current = form.contractType || 'tcout';
 
       if (mode === 'add') {
         if (returnTo) {
@@ -2314,21 +2347,29 @@ export default function TcFixtureFormPage({
 
   const handlePeriodChange = async (periodId) => {
     if (readOnly) return;
+    const normalizedPeriodId = periodId && String(periodId) !== '0' ? String(periodId) : '';
+    const requestSeq = ++periodLookupSeqRef.current;
     setForm((prev) => ({
       ...prev,
-      periodId,
-      contractType: periodId ? 'tcinout' : prev.contractType,
+      periodId: normalizedPeriodId,
+      contractType: normalizedPeriodId ? 'tcinout' : prev.contractType,
     }));
-    if (!periodId || hasSavedTcInHires(form.tcInExpenses)) return;
+    if (!normalizedPeriodId || hasSavedTcInHires(form.tcInExpenses)) return;
     try {
-      const periodTcIn = await fetchPeriodTcInDetails(periodId);
+      const periodTcIn = await fetchPeriodTcInDetails(normalizedPeriodId);
+      if (requestSeq !== periodLookupSeqRef.current) return; // stale response
       if (periodTcIn) {
-        setForm((prev) => ({
-          ...prev,
-          periodId,
-          contractType: 'tcinout',
-          tcInExpenses: applyPeriodTcIn(prev.tcInExpenses, periodTcIn),
-        }));
+        setForm((prev) => {
+          if (String(prev.periodId || '') !== normalizedPeriodId) return prev;
+          // Do not override a user mode flip to TC Out while this lookup was in flight.
+          if (prev.contractType === 'tcout') return prev;
+          return {
+            ...prev,
+            periodId: normalizedPeriodId,
+            contractType: 'tcinout',
+            tcInExpenses: applyPeriodTcIn(prev.tcInExpenses, periodTcIn),
+          };
+        });
       }
     } catch {
       // Ignore period TC In seed failures.
@@ -2898,25 +2939,13 @@ export default function TcFixtureFormPage({
                   <div className={styles.oiOutline}>
                     <div
                       className={styles.fieldGrid}
-                      style={{ '--cols': '1fr 1.6fr 1fr 64px' }}
+                      style={{ '--cols': '1.6fr 1fr 64px' }}
                     >
-                      <div className={styles.fgHead}>Account</div>
                       <div className={styles.fgHead}>Description</div>
                       <div className={styles.fgHead}>Amount</div>
                       <div className={styles.fgHead} />
                       {(form.otherIncome?.length ? form.otherIncome : [{ ...EMPTY_INCOME }]).map((row, index) => (
                         <React.Fragment key={`oi-${index}`}>
-                          <div className={styles.fgCell}>
-                            <TableCardSelect
-                              options={OWNER_CHARTERER_OPTIONS}
-                              value={row.accountType || 'Owner'}
-                              onChange={(v) => patchOtherIncome(index, { accountType: v || 'Owner' })}
-                              disabled={readOnly}
-                              className={ownerChipClass(row.accountType || 'Owner')}
-                              placeholder="Select"
-                              ariaLabel="Other income account"
-                            />
-                          </div>
                           <div className={styles.fgCell}>
                             <input
                               value={row.description || ''}

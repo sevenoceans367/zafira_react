@@ -21,8 +21,8 @@ function firstHirePeriod(form = {}) {
 }
 
 function isSubCharterForm(form = {}) {
-  return String(form.contractType || '').toLowerCase() === 'tcinout'
-    || filled(form.periodId);
+  // Mode column / dropdown is authoritative — dormant PERIODID under TC Out must not force TC In validation.
+  return String(form.contractType || '').toLowerCase() === 'tcinout';
 }
 
 /**

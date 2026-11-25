@@ -124,18 +124,287 @@ export function computeTcListStats(rows = []) {
   };
 }
 
+/** Normalize form/API/DB contract mode to 'tcout' | 'tcinout' | ''. */
+export function normalizeContractType(value) {
+  const code = String(value || '').trim().toLowerCase();
+  if (code === 'tcinout' || code === 'tc in/tc out' || code === 'tc in - tc out') {
+    return 'tcinout';
+  }
+  if (code === 'tcout' || code === 'tc out') return 'tcout';
+  return '';
+}
+
+/**
+ * Resolve contract mode for writes.
+ * Explicit valid body.contractType wins; invalid explicit → throw status 400;
+ * omitted / null / '' → preserve existingMode; create omit → tcout.
+ * (Explicit null/empty is treated as omitted — not as "clear mode".)
+ */
+export function resolveContractTypeForWrite(body = {}, existingMode = '') {
+  const raw = body.contractType;
+  if (raw != null && String(raw).trim() !== '') {
+    const normalized = normalizeContractType(raw);
+    if (!normalized) {
+      const err = new Error(`Invalid contractType: ${String(raw)}`);
+      err.status = 400;
+      throw err;
+    }
+    return normalized;
+  }
+  const existing = normalizeContractType(existingMode);
+  if (existing) return existing;
+  return 'tcout';
+}
+
+/** True when a numeric field was explicitly provided (including 0 / negative). */
+export function isExplicitNumber(value) {
+  return value != null && value !== '';
+}
+
+export function toFiniteNumber(value) {
+  if (!isExplicitNumber(value)) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** True when Hire Recap has component rows that must drive server hireage (not a bare scalar). */
+export function tcInHasHireageComponents(tcIn) {
+  if (!tcIn || typeof tcIn !== 'object') return false;
+  if ((tcIn.hires || []).length > 0) return true;
+  if ((tcIn.deliveryBunkers || []).length > 0) return true;
+  if ((tcIn.redeliveryBunkers || []).length > 0) return true;
+  if ((tcIn.offHires || []).length > 0) return true;
+  const ilohc = toFiniteNumber(tcIn.ilohc);
+  if (ilohc != null && ilohc !== 0) return true;
+  const awrp = toFiniteNumber(tcIn.awrpCost);
+  if (awrp != null && awrp !== 0) return true;
+  return false;
+}
+
+/**
+ * Stamp finalHireage with the server-calculated amount before persisting Hire Recap JSON.
+ * Prevents restoration from resurrecting a mismatched client scalar.
+ * Scalar-only snapshots keep the provided canonical hireage (or existing scalar).
+ */
+export function withCanonicalTcInFinalHireage(tcIn, canonicalHireage = null) {
+  if (!tcIn || typeof tcIn !== 'object') return tcIn;
+  if (tcInHasHireageComponents(tcIn)) {
+    return {
+      ...tcIn,
+      finalHireage: computeTcInFinalHireage(tcIn).finalHireage,
+    };
+  }
+  const fromArg = toFiniteNumber(canonicalHireage);
+  if (fromArg != null) {
+    return { ...tcIn, finalHireage: fromArg.toFixed(2) };
+  }
+  const fromExisting = toFiniteNumber(tcIn.finalHireage);
+  if (fromExisting != null) {
+    return { ...tcIn, finalHireage: fromExisting.toFixed(2) };
+  }
+  return tcIn;
+}
+
+/**
+ * Active TC In hireage for P&L. Dormant (tcout) → 0.
+ * Authoritative edits: compute from components when present (server protection);
+ * otherwise explicit body scalar (incl. 0 / negative empty edits).
+ * Restoration: dormant JSON / snapshot components before stale calc scalars.
+ */
+export function resolveActiveTcInHireage({
+  isTcInOut = false,
+  bodyFinalHireage,
+  calcFinalHireage,
+  jsonFinalHireage,
+  tcInExpenses = null,
+  authoritativeEdit = false,
+} = {}) {
+  if (!isTcInOut) return 0;
+  if (authoritativeEdit) {
+    if (tcInHasHireageComponents(tcInExpenses)) {
+      const computed = computeTcInFinalHireage(tcInExpenses);
+      const fromComponents = toFiniteNumber(computed.finalHireage);
+      if (fromComponents != null) return fromComponents;
+    }
+    const fromBody = toFiniteNumber(bodyFinalHireage);
+    if (fromBody != null) return fromBody;
+    return 0;
+  }
+  // Restoration path: prefer retained JSON / snapshot components over stale calc '0'.
+  const fromJson = toFiniteNumber(jsonFinalHireage);
+  if (fromJson != null) return fromJson;
+  if (tcInExpenses && typeof tcInExpenses === 'object') {
+    const computed = computeTcInFinalHireage(tcInExpenses);
+    const n = toFiniteNumber(computed.finalHireage);
+    if (n != null) return n;
+  }
+  const fromBody = toFiniteNumber(bodyFinalHireage);
+  if (fromBody != null) return fromBody;
+  const fromCalc = toFiniteNumber(calcFinalHireage);
+  if (fromCalc != null) return fromCalc;
+  return 0;
+}
+
+/**
+ * Legacy SOPF/Dry Out: all STATUS=1 otherIncome is revenue.
+ * Owner/Charterer discriminators are not part of Contract Type persistence.
+ */
+export function sumOwnerOtherIncome(_otherIncome = []) {
+  return 0;
+}
+
+/** All STATUS=1 otherIncome → revenue OTHER_INCOME_EST (Legacy parity). */
+export function sumChartererOtherIncome(otherIncome = []) {
+  return (otherIncome || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+}
+
+/** PHP chkVal == 1 only — strict true/1, not !== false. */
+export function sumAddToTotalExpenses(otherExpenses = []) {
+  return (otherExpenses || []).reduce((sum, row) => {
+    if (row?.addToTotal !== true && row?.addToTotal !== 1) return sum;
+    return sum + (Number(row.amount) || 0);
+  }, 0);
+}
+
+export function computeVoyageExpenseTotal(otherExpenses = [], _otherIncome = [], activeHireage = 0) {
+  return sumAddToTotalExpenses(otherExpenses) + (Number(activeHireage) || 0);
+}
+
+/**
+ * Persisted Hire Recap signal — ignore empty fixture seeds (deliveryDate-only).
+ * Aligns with frontend hasSavedTcInHires (nonzero amounts / randomId / off-hire from).
+ */
+export function tcInRecapHasSignal(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  const fh = toFiniteNumber(obj.finalHireage);
+  if (fh != null && fh !== 0) return true;
+  const hireHits = (obj.hires || []).some((row) => (
+    (row.hireage != null && String(row.hireage).trim() !== '' && Number(row.hireage) !== 0)
+    || (row.nettHireage != null && String(row.nettHireage).trim() !== '' && Number(row.nettHireage) !== 0)
+    || (row.grossHireage != null && String(row.grossHireage).trim() !== '' && Number(row.grossHireage) !== 0)
+    || (row.randomId != null && String(row.randomId).trim() !== '')
+  ));
+  if (hireHits) return true;
+  const bunkerHits = [...(obj.deliveryBunkers || []), ...(obj.redeliveryBunkers || [])]
+    .some((row) => (row.qty != null && String(row.qty).trim() !== '')
+      || (row.amount != null && String(row.amount).trim() !== '' && Number(row.amount) !== 0));
+  if (bunkerHits) return true;
+  return (obj.offHires || []).some((row) => (
+    (row.amount != null && String(row.amount).trim() !== '' && Number(row.amount) !== 0)
+    || (row.from != null && String(row.from).trim() !== '')
+  ));
+}
+
+/**
+ * Authoritative Hire Recap edit — NOT merely "has hires array" (emptyTcIn seeds that).
+ * True when client marks provenance, sends explicit finalHireage (incl. 0), or has saved signal.
+ */
+export function isAuthoritativeTcInEdit(obj) {
+  if (!obj || typeof obj !== 'object' || !Array.isArray(obj.hires)) return false;
+  if (obj.recapProvenance === 'edited' || obj.recapVersion) return true;
+  if (isExplicitNumber(obj.finalHireage)) return true;
+  return tcInRecapHasSignal(obj);
+}
+
+/**
+ * Resolve which Hire Recap object to persist/activate.
+ * - Authoritative body edit wins outright (including zero/reduced hireage).
+ * - Omitted body → dormant JSON (restore).
+ * - Seeded/partial body without signal → fill from dormant (do not wipe).
+ */
+export function resolveTcInExpensesForWrite({ bodyTcIn, dormantJson } = {}) {
+  if (bodyTcIn === undefined) return dormantJson || null;
+  if (bodyTcIn === null) return dormantJson || null;
+  if (isAuthoritativeTcInEdit(bodyTcIn)) return bodyTcIn;
+  if (dormantJson && typeof dormantJson === 'object') {
+    return { ...dormantJson, ...bodyTcIn };
+  }
+  return bodyTcIn;
+}
+
+/**
+ * Repeated TC Out saves must keep stored dormant JSON verbatim when the client
+ * omits tcInExpenses (inactive slave1 hireage is '0' and must not rebuild an empty shell).
+ */
+export function shouldPreserveStoredDormantJson({
+  priorMode = '',
+  bodyHasTcInKey = false,
+  dormantJson = null,
+} = {}) {
+  return normalizeContractType(priorMode) === 'tcout'
+    && !bodyHasTcInKey
+    && dormantJson != null;
+}
+
+export function mapOtherIncomeRow(row = {}) {
+  return {
+    description: row.DESCRIPTION ?? row.description ?? '',
+    amount: row.OTHER_AMT != null
+      ? String(row.OTHER_AMT)
+      : (row.amount != null ? String(row.amount) : ''),
+  };
+}
+
+/**
+ * Server-side Final TC In Hireage (mirrors frontend calcTcInFinalHireage).
+ * Used when restoring / recomputing without trusting a stale scalar alone.
+ */
+export function computeTcInFinalHireage(tcIn = {}) {
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const hires = tcIn.hires || [];
+  const delTotal = (tcIn.deliveryBunkers || []).reduce((s, r) => s + num(r.qty) * num(r.price), 0);
+  const reDelTotal = (tcIn.redeliveryBunkers || []).reduce((s, r) => s + num(r.qty) * num(r.price), 0);
+  let offHireDays = 0;
+  let offHireAmt = 0;
+  let ownerBunker = num(tcIn.bunkerOnOwner);
+  for (const row of tcIn.offHires || []) {
+    let days = num(row.days);
+    if (hasDateValue(row.from) && hasDateValue(row.to)) {
+      days = daysBetween(row.to, row.from);
+    }
+    const amount = days * num(row.hireRate);
+    if (hasDateValue(row.from)) offHireDays += days;
+    offHireAmt += amount;
+    if (!tcIn.bunkerOnOwner && Array.isArray(row.bunkers)) {
+      for (const bunker of row.bunkers) {
+        if (bunker.onOwner || bunker.calc) {
+          ownerBunker += (num(bunker.qty) * num(bunker.price)) || num(bunker.amount);
+        }
+      }
+    }
+  }
+  const offHireCveMonth = num(tcIn.offHireCveMonth);
+  const offHireCveAmt = ((offHireCveMonth * 12) / 365) * offHireDays;
+  const lessOffHire = offHireAmt + offHireCveAmt + ownerBunker;
+  const nettPlusCve = hires.reduce((s, r) => s + num(r.nettHireage) + num(r.cveAmt), 0);
+  const finalHireage = nettPlusCve
+    + num(tcIn.awrpCost)
+    + delTotal
+    - reDelTotal
+    - lessOffHire
+    + num(tcIn.ilohc);
+  return {
+    finalHireage: finalHireage.toFixed(2),
+    lessOffHire: lessOffHire.toFixed(2),
+    offHireCveAmt: offHireCveAmt.toFixed(2),
+    bunkerOnOwner: ownerBunker ? ownerBunker.toFixed(2) : (tcIn.bunkerOnOwner || ''),
+  };
+}
+
 /** Label for the grey contract-type chip (matches Recap Identifiers dropdown). */
 export function tcContractTypeLabel({
   periodId = '',
   hasTcInRecap = false,
   contractType = '',
 } = {}) {
-  const code = String(contractType || '').trim().toLowerCase();
-  if (code === 'tcinout' || code === 'tc in/tc out' || code === 'tc in - tc out') {
-    return 'TC In/TC Out';
-  }
-  if (code === 'tcout' || code === 'tc out') return 'TC Out';
-  const hasPeriod = Number(periodId) > 0 || String(periodId || '').trim() !== '';
+  const code = normalizeContractType(contractType);
+  if (code === 'tcinout') return 'TC In/TC Out';
+  if (code === 'tcout') return 'TC Out';
+  const hasPeriod = Number(periodId) > 0
+    || (String(periodId || '').trim() !== '' && String(periodId).trim() !== '0');
   if (hasPeriod || hasTcInRecap) return 'TC In/TC Out';
   return 'TC Out';
 }
@@ -152,13 +421,18 @@ export function mapTcListRow(row, index = 0) {
     : '';
   const hasTcInRecap = Number(row.HAS_TC_IN) === 1
     || (row.TC_IN_RECAP_JSON != null && String(row.TC_IN_RECAP_JSON).trim() !== '');
+  const contractTypeCode = normalizeContractType(row.CONTRACT_TYPE);
   return {
     index: index + 1,
     tcOutId: row.TCOUTID,
     vesselName: row.VESSEL_NAME ?? '',
     vesselType: row.VESSEL_TYPE ?? '',
     tcNo: row.TC_NO ?? '',
-    contractType: tcContractTypeLabel({ periodId, hasTcInRecap }),
+    contractType: tcContractTypeLabel({
+      periodId,
+      hasTcInRecap,
+      contractType: contractTypeCode,
+    }),
     cpDate: formatDateDMY(row.CP_DATE1),
     dwt: row.DWT_SUMMER_CP ?? '',
     delPort,
@@ -315,7 +589,10 @@ export function mapTcDetail(row, extras = {}) {
     balticRoute: row.BALTIC_ROUTE != null ? String(row.BALTIC_ROUTE) : '',
     balticDate: formatDateDMY(row.BALTIC_DATE),
     balticRate: row.BALTIC_RATE != null ? String(row.BALTIC_RATE) : '',
-    periodId: row.PERIODID != null ? String(row.PERIODID) : '',
+    periodId: row.PERIODID != null && String(row.PERIODID).trim() !== '' && String(row.PERIODID) !== '0'
+      ? String(row.PERIODID)
+      : '',
+    contractType: normalizeContractType(row.CONTRACT_TYPE),
     comId: row.COMID != null ? String(row.COMID) : '',
     vesselName: extras.vesselName || row.VESSEL_NAME || '',
     deliveryBunkers: extras.deliveryBunkers || [],

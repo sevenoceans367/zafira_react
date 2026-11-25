@@ -3,8 +3,23 @@ import assert from 'node:assert/strict';
 import {
   calcTcTotals,
   computeTcListStats,
+  computeTcInFinalHireage,
+  computeVoyageExpenseTotal,
   dailyGrossHire,
+  mapTcDetail,
   mapTcListRow,
+  normalizeContractType,
+  isAuthoritativeTcInEdit,
+  mapOtherIncomeRow,
+  resolveActiveTcInHireage,
+  resolveContractTypeForWrite,
+  resolveTcInExpensesForWrite,
+  shouldPreserveStoredDormantJson,
+  sumChartererOtherIncome,
+  sumOwnerOtherIncome,
+  tcContractTypeLabel,
+  tcInRecapHasSignal,
+  withCanonicalTcInFinalHireage,
 } from './tcEstimateMappers.js';
 
 describe('tcEstimateMappers', () => {
@@ -309,5 +324,221 @@ describe('tcEstimateMappers', () => {
       offHires: [],
     });
     assert.equal(totals.bunkerDiffAmt, '500.00');
+  });
+
+  it('normalizes contract type codes', () => {
+    assert.equal(normalizeContractType('tcout'), 'tcout');
+    assert.equal(normalizeContractType('TC In/TC Out'), 'tcinout');
+    assert.equal(normalizeContractType(''), '');
+  });
+
+  it('prefers CONTRACT_TYPE column over dormant JSON for list badge', () => {
+    assert.equal(
+      tcContractTypeLabel({ contractType: 'tcout', hasTcInRecap: true, periodId: '55' }),
+      'TC Out',
+    );
+    assert.equal(
+      tcContractTypeLabel({ contractType: '', hasTcInRecap: true }),
+      'TC In/TC Out',
+    );
+    const row = mapTcListRow({
+      TCOUTID: 9,
+      CONTRACT_TYPE: 'tcout',
+      HAS_TC_IN: 1,
+      PERIODID: 55,
+      HIRE_FIX_PER: 1000,
+      EXCHANGE_RATE: 1,
+      TOTAL_REV_EST: 0,
+      COMID: null,
+    });
+    assert.equal(row.contractType, 'TC Out');
+  });
+
+  it('maps detail contractType and treats periodId 0 as empty', () => {
+    const detail = mapTcDetail({
+      TCOUTID: 1,
+      CONTRACT_TYPE: 'tcout',
+      PERIODID: 0,
+      ESTIMATE_TYPE: 2,
+    });
+    assert.equal(detail.contractType, 'tcout');
+    assert.equal(detail.periodId, '');
+  });
+
+  it('resolveContractTypeForWrite preserves omit and rejects invalid', () => {
+    assert.equal(resolveContractTypeForWrite({}, 'tcinout'), 'tcinout');
+    assert.equal(resolveContractTypeForWrite({ contractType: null }, 'tcinout'), 'tcinout');
+    assert.equal(resolveContractTypeForWrite({ contractType: '' }, 'tcout'), 'tcout');
+    assert.equal(resolveContractTypeForWrite({ periodId: '9' }), 'tcout');
+    assert.throws(
+      () => resolveContractTypeForWrite({ contractType: 'bogus' }),
+      (err) => err.status === 400,
+    );
+  });
+
+  it('keeps explicit zero/negative active hireage and zeros under tcout', () => {
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      authoritativeEdit: true,
+      bodyFinalHireage: 0,
+      calcFinalHireage: 999,
+      jsonFinalHireage: 888,
+      tcInExpenses: { hires: [], finalHireage: '0' },
+    }), 0);
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      authoritativeEdit: true,
+      bodyFinalHireage: -100,
+      calcFinalHireage: 999,
+      tcInExpenses: { hires: [], finalHireage: '-100' },
+    }), -100);
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: false,
+      bodyFinalHireage: 5000,
+    }), 0);
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      authoritativeEdit: true,
+      jsonFinalHireage: 8888,
+      tcInExpenses: {
+        hires: [{ nettHireage: '0', cveAmt: '0' }],
+        deliveryBunkers: [],
+        redeliveryBunkers: [],
+        offHires: [],
+        awrpCost: 0,
+        ilohc: 0,
+      },
+    }), 0);
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      tcInExpenses: {
+        hires: [{ nettHireage: '1000', cveAmt: '0' }],
+        deliveryBunkers: [],
+        redeliveryBunkers: [],
+        offHires: [],
+        awrpCost: 0,
+        ilohc: 0,
+      },
+    }), 1000);
+  });
+
+  it('authoritative hireage prefers components over a mismatched body scalar', () => {
+    const tcInExpenses = {
+      finalHireage: '3568500',
+      hires: [{ nettHireage: '290000', cveAmt: '0' }],
+      deliveryBunkers: [{ qty: '10', price: '100' }],
+      redeliveryBunkers: [],
+      offHires: [],
+      awrpCost: '0',
+      ilohc: '50',
+    };
+    assert.equal(computeTcInFinalHireage(tcInExpenses).finalHireage, '291050.00');
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      authoritativeEdit: true,
+      bodyFinalHireage: 3568500,
+      tcInExpenses,
+    }), 291050);
+  });
+
+  it('treats all otherIncome as Legacy revenue (no Owner expense split)', () => {
+    const income = [
+      { accountType: 'Owner', amount: '100' },
+      { accountType: 'Charterer', amount: '250' },
+      { amount: '50' },
+    ];
+    assert.equal(sumOwnerOtherIncome(income), 0);
+    assert.equal(sumChartererOtherIncome(income), 400);
+    assert.equal(computeVoyageExpenseTotal(
+      [{ addToTotal: true, amount: '40' }, { addToTotal: false, amount: '999' }],
+      income,
+      10,
+    ), 50);
+  });
+
+  it('authoritative edits win over dormant JSON including zero hireage', () => {
+    assert.equal(tcInRecapHasSignal({ hires: [{ deliveryDate: '01-01-2026', dailyHire: '10000' }] }), false);
+    assert.equal(tcInRecapHasSignal({ hires: [{ nettHireage: '100', randomId: '1' }] }), true);
+    assert.equal(isAuthoritativeTcInEdit({ hires: [] }), false);
+    assert.equal(isAuthoritativeTcInEdit({ hires: [], finalHireage: '0' }), true);
+    const editedZero = { finalHireage: '0', hires: [] };
+    const dormant = { finalHireage: '5000', hires: [{ nettHireage: '5000', randomId: 'a' }] };
+    assert.deepEqual(resolveTcInExpensesForWrite({ bodyTcIn: editedZero, dormantJson: dormant }), editedZero);
+    assert.deepEqual(resolveTcInExpensesForWrite({ bodyTcIn: undefined, dormantJson: dormant }), dormant);
+  });
+
+  it('canonicalizes mismatched finalHireage before JSON persist', () => {
+    const mismatched = {
+      finalHireage: '3568500',
+      hires: [{ nettHireage: '290000', cveAmt: '0' }],
+      deliveryBunkers: [{ qty: '10', price: '100' }],
+      redeliveryBunkers: [],
+      offHires: [],
+      awrpCost: '0',
+      ilohc: '50',
+    };
+    const canonical = withCanonicalTcInFinalHireage(mismatched, 3568500);
+    assert.equal(canonical.finalHireage, '291050.00');
+    assert.equal(
+      resolveActiveTcInHireage({
+        isTcInOut: true,
+        authoritativeEdit: false,
+        jsonFinalHireage: canonical.finalHireage,
+        tcInExpenses: null,
+      }),
+      291050,
+    );
+  });
+
+  it('preserves stored dormant JSON on repeated TC Out without recap payload', () => {
+    const dormant = { finalHireage: '5000', hires: [{ nettHireage: '5000', randomId: 'a' }] };
+    assert.equal(shouldPreserveStoredDormantJson({
+      priorMode: 'tcout',
+      bodyHasTcInKey: false,
+      dormantJson: dormant,
+    }), true);
+    assert.equal(shouldPreserveStoredDormantJson({
+      priorMode: 'tcinout',
+      bodyHasTcInKey: false,
+      dormantJson: dormant,
+    }), false);
+    assert.equal(shouldPreserveStoredDormantJson({
+      priorMode: 'tcout',
+      bodyHasTcInKey: true,
+      dormantJson: dormant,
+    }), false);
+  });
+
+  it('maps otherIncome rows without ACCOUNT_TYPE discriminator', () => {
+    assert.deepEqual(mapOtherIncomeRow({ ACCOUNT_TYPE: 'Owner', DESCRIPTION: 'Fee', OTHER_AMT: '10' }), {
+      description: 'Fee',
+      amount: '10',
+    });
+    assert.deepEqual(mapOtherIncomeRow({ DESCRIPTION: 'Legacy', OTHER_AMT: '5' }), {
+      description: 'Legacy',
+      amount: '5',
+    });
+  });
+
+  it('restoration prefers retained JSON hireage over stale calc zero', () => {
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      authoritativeEdit: false,
+      calcFinalHireage: 0,
+      jsonFinalHireage: 3568500,
+      tcInExpenses: null,
+    }), 3568500);
+  });
+
+  it('computes final TC In hireage from recap components', () => {
+    const result = computeTcInFinalHireage({
+      hires: [{ nettHireage: '10000', cveAmt: '100' }],
+      deliveryBunkers: [{ qty: '10', price: '100' }],
+      redeliveryBunkers: [{ qty: '5', price: '100' }],
+      offHires: [],
+      awrpCost: '0',
+      ilohc: '50',
+    });
+    assert.equal(result.finalHireage, '10650.00');
   });
 });

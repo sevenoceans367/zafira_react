@@ -63,9 +63,20 @@ assert.deepEqual(
   }),
   { message: 'Please fill TC In Date of Delivery', fieldId: 'tcInDeliveryDate_0' },
 );
+// Dormant period under TC Out must not force Hire Recap validation
+assert.equal(
+  validateTcRecapForm({
+    ...base,
+    contractType: 'tcout',
+    periodId: '44',
+    tcInExpenses: { hires: [{ deliveryDate: '', redeliveryDate: '', cveMonth: '' }] },
+  }),
+  null,
+);
 assert.deepEqual(
   validateTcRecapForm({
     ...base,
+    contractType: 'tcinout',
     periodId: '44',
     tcInExpenses: {
       hires: [{

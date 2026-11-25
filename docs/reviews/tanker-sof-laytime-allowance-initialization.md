@@ -1,8 +1,9 @@
 # Tanker SOF / Laytime allowance initialization — investigation + fix
 
-Status: implementation in progress on `fix/tanker-sof-laytime-allowance-initialization`.
+Status: ready for independent senior review on PR #10.
+Head: `d3175f6` (+ follow-up validation commits as pushed).
 Base: `be328d07ae157717ac9a02af3bd224db2480e369` (merged #5/#8).
-Legacy pin verified: `sevenoceans367/Zafira` @ `93c44b4b97c5d358be496018d90155f1d0525674` (local clone `C:\Users\Lenovo\Desktop\Work\Zafira_legacy_pin`).
+Legacy pin verified: `sevenoceans367/Zafira` @ `93c44b4b97c5d358be496018d90155f1d0525674`.
 
 ## Root cause
 
@@ -69,13 +70,27 @@ Preserved: hourly Tanker math, Dry days, LT(C)/LT(NC), partials, deductions, unk
 
 Tests registered in `backend/package.json`: `laytimeAllowance.test.js`, `laytimeRateUnit.test.js`.
 
-## Remaining risks / not yet claimed
+## Runtime validation (local `zafira` fixture)
 
-- Full browser scenarios A–F on isolated clone (pending runtime validation).
-- Production COMIDs 18/20 not present in local DB; need read-only prod SELECT when authorized.
-- Modern estimate detail still **reads** `TIMEALLOWED ?? WORKING_DAYS` and **writes** `timeAllowed` → `WORKING_DAYS` — separate persistence discrepancy vs Legacy `TIMEALLOWED`; not changed in this fix.
+See [artifacts/tanker-sof-laytime-allowance-validation-report.md](artifacts/tanker-sof-laytime-allowance-validation-report.md).
+
+| Scenario | Result |
+|---|---|
+| A matrix (browser + API) | PASS |
+| B multi-row toggle/delete | PASS (automated helper; registered test) |
+| C saved override | PASS |
+| D skeleton master | PASS |
+| E blank TIMEALLOWED | PASS |
+| F WORKING_DAYS not seeded | PASS |
+
+## Remaining risks / not claimed as full parity
+
+- Production COMIDs 18/20 not in local DB; need authorized read-only prod SELECT.
+- Modern estimate detail still **reads** `TIMEALLOWED ?? WORKING_DAYS` and **writes** `timeAllowed` → `WORKING_DAYS` — separate defect; not changed here.
 - VC-In voyages: Legacy Fun285 unset → seed stays blank unless saved master exists.
 - Reversible previous-port copy UX not reworked here.
+- Dry-cargo / unknown-unit write / PDF: not re-proven in this validation pass (unchanged code paths).
+- Scenario B browser UI pass not run (helper/regression test covers the arithmetic).
 
 ## Manual QA checklist (owner)
 

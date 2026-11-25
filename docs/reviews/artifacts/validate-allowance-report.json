@@ -1,0 +1,256 @@
+{
+  "login_admin": {
+    "status": 401,
+    "data": {
+      "error": "Invalid username or password."
+    }
+  },
+  "login_support": {
+    "status": 401,
+    "data": {
+      "error": "Invalid username or password."
+    }
+  },
+  "sof_4": {
+    "status": 200,
+    "comId": "4",
+    "vesselName": "POLYAIGOS",
+    "fcaId": "36",
+    "estimateType": 2,
+    "ports": [
+      {
+        "portType": "LP",
+        "portName": "Balongan / Indramayu-Balongan (IDN)",
+        "portId": "7824",
+        "randomId": "84814",
+        "laytimeAllowed": "108",
+        "rateUnit": "hours",
+        "laytimeId": "3",
+        "sofId": "6",
+        "activities": 1
+      },
+      {
+        "portType": "DP",
+        "portName": "Tanjung Pelepas / Pelepas / Offshore Malaysia / Malaysia Offshore / Off Malaysia (MYS)",
+        "portId": "7798",
+        "randomId": "84814",
+        "laytimeAllowed": "108.00",
+        "rateUnit": "hours",
+        "laytimeId": "",
+        "sofId": "",
+        "activities": 1
+      },
+      {
+        "portType": "DP",
+        "portName": "Advario Terminal (Singapore) (SGP)",
+        "portId": "10496",
+        "randomId": "93373",
+        "laytimeAllowed": "108.00",
+        "rateUnit": "hours",
+        "laytimeId": "",
+        "sofId": "",
+        "activities": 1
+      }
+    ]
+  },
+  "sof_2": {
+    "status": 200,
+    "comId": "2",
+    "vesselName": "POLYAIGOS",
+    "fcaId": "18",
+    "estimateType": 2,
+    "ports": [
+      {
+        "portType": "TP",
+        "portName": "Singapore / SPORE / Brani-Singapore / Jurong-Singapore / Vopak-Singapore (SGP)",
+        "portId": "10494",
+        "randomId": "98968",
+        "laytimeAllowed": "",
+        "rateUnit": "hours",
+        "laytimeId": "",
+        "sofId": "",
+        "activities": 1
+      },
+      {
+        "portType": "LP",
+        "portName": "Tanjung Kling / Tanjong Kling / Tanjung Bruas (MYS)",
+        "portId": "8177",
+        "randomId": "73058",
+        "laytimeAllowed": "0.00",
+        "rateUnit": "hours",
+        "laytimeId": "",
+        "sofId": "4",
+        "activities": 1
+      },
+      {
+        "portType": "DP",
+        "portName": "Sri Racha / Sriracha / Si Racha / Siam Port (THA)",
+        "portId": "10600",
+        "randomId": "73058",
+        "laytimeAllowed": "0.00",
+        "rateUnit": "hours",
+        "laytimeId": "",
+        "sofId": "5",
+        "activities": 1
+      }
+    ]
+  },
+  "sof_3": {
+    "status": 200,
+    "comId": "3",
+    "vesselName": "POLYAIGOS",
+    "fcaId": "21",
+    "estimateType": 2,
+    "ports": [
+      {
+        "portType": "LP",
+        "portName": "Port Qasim / Qasim / Muhammad Bin Qasim / Bin Qasim / Exquisite FPSO (PAK)",
+        "portId": "10521",
+        "randomId": "34419",
+        "laytimeAllowed": "96",
+        "rateUnit": "hours",
+        "laytimeId": "1",
+        "sofId": "1",
+        "activities": 1
+      },
+      {
+        "portType": "TP",
+        "portName": "Singapore / SPORE / Brani-Singapore / Jurong-Singapore / Vopak-Singapore (SGP)",
+        "portId": "10494",
+        "randomId": "34419",
+        "laytimeAllowed": "",
+        "rateUnit": "hours",
+        "laytimeId": "",
+        "sofId": "",
+        "activities": 1
+      },
+      {
+        "portType": "DP",
+        "portName": "Advario Terminal (Singapore) (SGP)",
+        "portId": "10496",
+        "randomId": "84412",
+        "laytimeAllowed": "171.18",
+        "rateUnit": "hours",
+        "laytimeId": "2",
+        "sofId": "3",
+        "activities": 1
+      }
+    ]
+  },
+  "sof_7": {
+    "status": 200,
+    "comId": "7",
+    "vesselName": "POLYAIGOS",
+    "fcaId": "37",
+    "estimateType": 2,
+    "ports": [
+      {
+        "portType": "LP",
+        "portName": "Lalang Terminal / Kurau-Lalang / Tanjung Button (IDN)",
+        "portId": "8035",
+        "randomId": "2147483647",
+        "laytimeAllowed": "",
+        "rateUnit": "hours",
+        "laytimeId": "",
+        "sofId": "",
+        "activities": 1
+      },
+      {
+        "portType": "DP",
+        "portName": "Ptsc Bien Dong 1 (Offshore Terminal) (VNM)",
+        "portId": "10628",
+        "randomId": "2147483647",
+        "laytimeAllowed": "",
+        "rateUnit": "hours",
+        "laytimeId": "",
+        "sofId": "",
+        "activities": 1
+      },
+      {
+        "portType": "LP",
+        "portName": "Ptsc Bien Dong 1 (Offshore Terminal) (VNM)",
+        "portId": "10628",
+        "randomId": "2147483647",
+        "laytimeAllowed": "",
+        "rateUnit": "hours",
+        "laytimeId": "",
+        "sofId": "",
+        "activities": 1
+      },
+      {
+        "portType": "DP",
+        "portName": "Map Ta Phut / Maptaphut (THA)",
+        "portId": "9369",
+        "randomId": "2147483647",
+        "laytimeAllowed": "",
+        "rateUnit": "hours",
+        "laytimeId": "",
+        "sofId": "",
+        "activities": 1
+      }
+    ]
+  },
+  "laytime_4": {
+    "status": 200,
+    "keys": [
+      "comId",
+      "fcaId",
+      "costSheetId",
+      "voyageNo",
+      "vesselName",
+      "fixtureTypeId",
+      "cpDate",
+      "message",
+      "cargo",
+      "currency",
+      "vesselParticulars",
+      "rateUnit",
+      "allowanceUnitBasis",
+      "canOpen",
+      "approverOptions",
+      "ports"
+    ],
+    "ports": [
+      {
+        "portType": "LP",
+        "portName": "Singapore / SPORE / Brani-Singapore / Jurong-Singapore / Vopak-Singapore (SGP)",
+        "portId": "10494",
+        "randomId": "76874",
+        "laytimeAllowed": "63.0941",
+        "laytimeId": "4"
+      },
+      {
+        "portType": "DP",
+        "portName": "Balongan / Indramayu-Balongan (IDN)",
+        "portId": "7824",
+        "randomId": "76874",
+        "laytimeAllowed": "108.00",
+        "laytimeId": ""
+      },
+      {
+        "portType": "LP",
+        "portName": "Balongan / Indramayu-Balongan (IDN)",
+        "portId": "7824",
+        "randomId": "84814",
+        "laytimeAllowed": "108",
+        "laytimeId": "3"
+      },
+      {
+        "portType": "DP",
+        "portName": "Tanjung Pelepas / Pelepas / Offshore Malaysia / Malaysia Offshore / Off Malaysia (MYS)",
+        "portId": "7798",
+        "randomId": "84814",
+        "laytimeAllowed": "108.00",
+        "laytimeId": ""
+      },
+      {
+        "portType": "DP",
+        "portName": "Advario Terminal (Singapore) (SGP)",
+        "portId": "10496",
+        "randomId": "93373",
+        "laytimeAllowed": "108.00",
+        "laytimeId": ""
+      }
+    ]
+  }
+}

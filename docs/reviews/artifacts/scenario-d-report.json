@@ -1,0 +1,63 @@
+{
+  "steps": [
+    {
+      "step": "before",
+      "sofId": "",
+      "laytimeId": "",
+      "laytimeAllowed": "108.00",
+      "version": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "step": "save",
+      "status": 200,
+      "ok": true,
+      "bodyKeys": [
+        "msg",
+        "sofId",
+        "submitId",
+        "closed"
+      ]
+    },
+    {
+      "step": "after_reload",
+      "sofId": "7",
+      "laytimeId": "5",
+      "laytimeAllowed": "108.00",
+      "rateUnit": "hours",
+      "activities": [
+        {
+          "activity": "QA Allowance Seed",
+          "duration": "24",
+          "cumulative": "",
+          "ltPartial": "100"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "step": "masters",
+      "rows": [
+        {
+          "LAYTIME_ID": 5,
+          "COMID": 4,
+          "PORT": "DP",
+          "PORTID": 7798,
+          "RANDOMID": 84814,
+          "LAYTIME_ALLOWED": null,
+          "ACTUAL_LAYTIME": null
+        }
+      ],
+      "blankAllowed": true
+    },
+    {
+      "0": {
+        "SOFID": 7,
+        "PORT": "DP",
+        "PORTID": 7798,
+        "RANDOMID": 84814,
+        "TERMINAL": "QA skeleton DP"
+      },
+      "step": "sof_master"
+    }
+  ]
+}

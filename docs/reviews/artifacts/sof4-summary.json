@@ -1,0 +1,42 @@
+{
+  "status": 200,
+  "comId": "4",
+  "vesselName": "POLYAIGOS",
+  "fcaId": "36",
+  "estimateType": 2,
+  "ports": [
+    {
+      "portType": "LP",
+      "portName": "Balongan / Indramayu-Balongan (IDN)",
+      "portId": "7824",
+      "randomId": "84814",
+      "laytimeAllowed": "108",
+      "rateUnit": "hours",
+      "laytimeId": "3",
+      "sofId": "6",
+      "activities": 1
+    },
+    {
+      "portType": "DP",
+      "portName": "Tanjung Pelepas / Pelepas / Offshore Malaysia / Malaysia Offshore / Off Malaysia (MYS)",
+      "portId": "7798",
+      "randomId": "84814",
+      "laytimeAllowed": "108.00",
+      "rateUnit": "hours",
+      "laytimeId": "",
+      "sofId": "",
+      "activities": 1
+    },
+    {
+      "portType": "DP",
+      "portName": "Advario Terminal (Singapore) (SGP)",
+      "portId": "10496",
+      "randomId": "93373",
+      "laytimeAllowed": "108.00",
+      "rateUnit": "hours",
+      "laytimeId": "",
+      "sofId": "",
+      "activities": 1
+    }
+  ]
+}

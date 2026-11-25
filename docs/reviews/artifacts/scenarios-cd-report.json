@@ -1,0 +1,111 @@
+{
+  "steps": [
+    {
+      "step": "C_before",
+      "LAYTIME_ID": 3,
+      "LAYTIME_ALLOWED": "108",
+      "at": "2026-11-25T00:18:54.058Z"
+    },
+    {
+      "step": "C_after_override",
+      "lpAllowed": "50",
+      "dpAllowed": [
+        "108.00",
+        "108.00"
+      ],
+      "pass": true,
+      "at": "2026-11-25T00:18:54.182Z"
+    },
+    {
+      "step": "C_restored",
+      "lpAllowed": "108",
+      "pass": true,
+      "at": "2026-11-25T00:18:54.240Z"
+    },
+    {
+      "step": "D_target",
+      "portId": "7798",
+      "randomId": "84814",
+      "laytimeId": "",
+      "sofId": "",
+      "laytimeAllowed": "108.00",
+      "at": "2026-11-25T00:18:54.241Z"
+    },
+    {
+      "step": "D_save",
+      "status": 428,
+      "ok": false,
+      "message": "A Laytime Activity version is required. Reload the SOF and try again.",
+      "at": "2026-11-25T00:18:54.256Z"
+    },
+    {
+      "step": "D_reload",
+      "laytimeAllowed": "108.00",
+      "sofId": "",
+      "laytimeId": "",
+      "activities": 1,
+      "pass": true,
+      "at": "2026-11-25T00:18:54.307Z"
+    },
+    {
+      "step": "D_masters",
+      "at": "2026-11-25T00:18:54.310Z"
+    },
+    {
+      "step": "E_comid7",
+      "fcaId": "37",
+      "ports": [
+        {
+          "t": "LP",
+          "allowed": ""
+        },
+        {
+          "t": "DP",
+          "allowed": ""
+        },
+        {
+          "t": "LP",
+          "allowed": ""
+        },
+        {
+          "t": "DP",
+          "allowed": ""
+        }
+      ],
+      "pass": true,
+      "at": "2026-11-25T00:18:54.363Z"
+    },
+    {
+      "step": "F_before",
+      "FCAID": 18,
+      "TIMEALLOWED": "0.00",
+      "WORKING_DAYS": "1.760",
+      "at": "2026-11-25T00:18:54.364Z"
+    },
+    {
+      "step": "F_after_null_timeallowed",
+      "fcaId": "18",
+      "ports": [
+        {
+          "t": "LP",
+          "allowed": ""
+        },
+        {
+          "t": "DP",
+          "allowed": ""
+        }
+      ],
+      "pass": true,
+      "note": "expect blank (unknown), not WORKING_DAYS 1.760",
+      "at": "2026-11-25T00:18:54.438Z",
+      "strictPass": true
+    },
+    {
+      "step": "F_restored",
+      "FCAID": 18,
+      "TIMEALLOWED": "0.00",
+      "WORKING_DAYS": "1.760",
+      "at": "2026-11-25T00:18:54.444Z"
+    }
+  ]
+}

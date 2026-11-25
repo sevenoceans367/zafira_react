@@ -123,6 +123,41 @@ describe('sofTankerHelpers', () => {
     assert.equal(Object.hasOwn(payload, 'dailyQty'), false);
   });
 
+  it('omits unchanged hidden Laytime values from SOF-only saves without rewriting them', () => {
+    const port = {
+      key: 'LP-10-101',
+      portType: 'LP',
+      portId: '10',
+      randomId: '101',
+      terminal: 'Jetty A',
+      portActivities: [{
+        activity: 'Loading', from: '01-05-2026 08:00', to: '01-05-2026 12:00',
+        duration: '4.0', layTimeCount: false, portTimeCount: true,
+        ltPartial: '35', cumulative: '0.00', notes: 'Non-counting event',
+      }],
+      deductions: [{
+        activity: 'Weather delay', start: '01-05-2026 12:00', end: '01-05-2026 14:00',
+        duration: '2.0', ltPartial: '20.5', cumulative: '0.41', notes: 'Legacy value',
+      }],
+    };
+    const originalActivities = structuredClone(port.portActivities);
+    const originalDeductions = structuredClone(port.deductions);
+    const draft = draftFromPort(port);
+    draft.terminal = 'Jetty B';
+
+    const payload = buildSofSavePayload({ comId: '42', activePort: port, draft, submitId: 1 });
+
+    assert.equal(payload.terminal, 'Jetty B');
+    assert.equal(Object.hasOwn(payload, 'portActivities'), false);
+    assert.equal(Object.hasOwn(payload, 'deductions'), false);
+    assert.equal(draft.portActivities[0].layTimeCount, false);
+    assert.equal(draft.portActivities[0].portTimeCount, true);
+    assert.equal(draft.portActivities[0].ltPartial, '35');
+    assert.equal(draft.deductions[0].ltPartial, '20.5');
+    assert.deepEqual(port.portActivities, originalActivities);
+    assert.deepEqual(port.deductions, originalDeductions);
+  });
+
   it('clamps pagination safely when rows shrink', () => {
     const page = paginateRows([1, 2, 3], 4, 5);
     assert.equal(page.safePage, 1);

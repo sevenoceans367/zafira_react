@@ -35,7 +35,6 @@ import {
   getCargoCardValues,
   isBlankKeyOp,
   insertDeductionRowAfter,
-  isValidLtPartialPercent,
   pageForIndex,
   paginateRows,
   patchCargoCardField,
@@ -309,12 +308,6 @@ export default function OpsVcSofPage() {
     patchDraft({ portActivities: recomputeSofActivityRows(activePort, rows) });
   };
 
-  const setPortActivityLtCounting = (index, counts) => {
-    const rows = [...(draft?.portActivities || [])];
-    rows[index] = applyLtCountToggle(rows[index], counts);
-    patchDraft({ portActivities: recomputeSofActivityRows(activePort, rows) });
-  };
-
   const insertPortActivityAfter = (index) => {
     const rows = [...(draft?.portActivities || [])];
     rows.splice(index + 1, 0, emptyPortActivityRow());
@@ -383,17 +376,6 @@ export default function OpsVcSofPage() {
 
   const handleSubmit = async (submitId) => {
     if (!activePort || !draft) return;
-
-    const invalidDeduction = (draft.deductions || []).find(
-      (row) => !isValidLtPartialPercent(row.ltPartial),
-    );
-    if (invalidDeduction) {
-      await alert({
-        title: 'Invalid percentage',
-        message: 'Deduction LT (Partial %) must be a whole percentage from 0 to 100.',
-      });
-      return;
-    }
 
     const ok = await confirm({
       title: 'Confirmation',
@@ -754,10 +736,10 @@ export default function OpsVcSofPage() {
                     </div>
 
                     <div className={styles.tableWrap}>
-                      <table className={styles.cfTable}>
+                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}`}>
                         <thead>
                           <tr>
-                            <th style={{ width: 62 }} />
+                            <th />
                             <th>Activity in Port</th>
                             <th>Date / Time – Start</th>
                             <th>Date / Time – Finish</th>
@@ -855,10 +837,10 @@ export default function OpsVcSofPage() {
                     </div>
 
                     <div className={styles.tableWrap}>
-                      <table className={styles.cfTable}>
+                      <table className={`${styles.cfTable} ${styles.activityDeductionTable}`}>
                         <thead>
                           <tr>
-                            <th style={{ width: 62 }} />
+                            <th />
                             <th>Activity in Port</th>
                             <th>Date / Time – Start</th>
                             <th>Date / Time – Finish</th>

@@ -463,6 +463,17 @@
   border-collapse: collapse;
 }
 
+.activityDeductionTable {
+  table-layout: fixed;
+}
+
+.activityDeductionTable :is(th, td):nth-child(1) { width: 6.2%; }
+.activityDeductionTable :is(th, td):nth-child(2) { width: 20.1%; }
+.activityDeductionTable :is(th, td):nth-child(3),
+.activityDeductionTable :is(th, td):nth-child(4) { width: 20%; }
+.activityDeductionTable :is(th, td):nth-child(5) { width: 11.2%; }
+.activityDeductionTable :is(th, td):nth-child(6) { width: 22.5%; }
+
 .cfTable th {
   text-align: left;
   font-size: 10.5px;

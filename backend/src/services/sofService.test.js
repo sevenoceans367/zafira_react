@@ -152,7 +152,14 @@ describe('sofService mock persistence preservation', { skip: isDbConfigured() },
       agentRemarks: 'Keep these remarks',
       entityRows: [{ name: 'Surveyor', value: 'SGS' }],
       blRows: [{ blDate: '02-01-2026', cargo: 'WHEAT', blQty: '12000' }],
-      portActivities: [{ activity: 'Loading', from: '01-01-2026 10:00', to: '01-01-2026 12:00', duration: '2.0', notes: 'Clean' }],
+      portActivities: [{
+        activity: 'Loading', from: '01-01-2026 10:00', to: '01-01-2026 12:00', duration: '2.0',
+        layTimeCount: false, portTimeCount: true, ltPartial: '35', notes: 'Clean',
+      }],
+      deductions: [{
+        activity: 'Weather delay', start: '01-01-2026 12:00', end: '01-01-2026 14:00',
+        duration: '2.0', ltPartial: '45', cumulative: '0.9', notes: 'Rain',
+      }],
     });
 
     await saveSof({
@@ -172,6 +179,11 @@ describe('sofService mock persistence preservation', { skip: isDbConfigured() },
     assert.deepEqual(port.blRows, [{ blDate: '02-01-2026', cargo: 'WHEAT', blQty: '12000' }]);
     assert.equal(port.portActivities.length, 1);
     assert.equal(port.portActivities[0].activity, 'Loading');
+    assert.equal(port.portActivities[0].layTimeCount, false);
+    assert.equal(port.portActivities[0].portTimeCount, true);
+    assert.equal(port.portActivities[0].ltPartial, '35');
+    assert.equal(port.deductions[0].ltPartial, '45');
+    assert.equal(port.deductions[0].cumulative, '0.9');
   });
 
   it('rejects invalid LT partial percentages before mock persistence', async () => {
@@ -181,6 +193,16 @@ describe('sofService mock persistence preservation', { skip: isDbConfigured() },
         portActivities: [{ activity: 'Loading', ltPartial: '101' }],
       }),
       { status: 400, message: 'LT (Partial %) must be a whole percentage from 0 to 100.' },
+    );
+  });
+
+  it('keeps backend deduction percentage validation when a deduction collection is submitted', async () => {
+    await assert.rejects(
+      saveSof({
+        comId: '8', portType: 'LP', portId: '10', randomId: '101',
+        deductions: [{ activity: 'Weather delay', ltPartial: '101' }],
+      }),
+      { status: 400, message: 'Deduction LT (Partial %) must be a whole percentage from 0 to 100.' },
     );
   });
 });

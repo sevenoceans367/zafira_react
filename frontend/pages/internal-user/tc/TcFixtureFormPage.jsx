@@ -782,12 +782,24 @@ function emptyTcIn(detail = {}, calc = {}) {
   };
 }
 
+/** True only for persisted/user Hire Recap — not fixture-seeded emptyTcIn defaults. */
 function hasSavedTcInHires(tcIn) {
-  return Boolean(tcIn?.hires?.some((row) => (
-    (row.dailyHire != null && String(row.dailyHire).trim() !== '')
-    || (row.deliveryDate != null && String(row.deliveryDate).trim() !== '')
-    || (row.hireage != null && String(row.hireage).trim() !== '' && Number(row.hireage) !== 0)
-  )));
+  if (!tcIn || typeof tcIn !== 'object') return false;
+  const hireHits = (tcIn.hires || []).some((row) => (
+    (row.hireage != null && String(row.hireage).trim() !== '' && Number(row.hireage) !== 0)
+    || (row.nettHireage != null && String(row.nettHireage).trim() !== '' && Number(row.nettHireage) !== 0)
+    || (row.grossHireage != null && String(row.grossHireage).trim() !== '' && Number(row.grossHireage) !== 0)
+    || (row.randomId != null && String(row.randomId).trim() !== '')
+  ));
+  if (hireHits) return true;
+  const bunkerHits = [...(tcIn.deliveryBunkers || []), ...(tcIn.redeliveryBunkers || [])]
+    .some((row) => (row.qty != null && String(row.qty).trim() !== '')
+      || (row.amount != null && String(row.amount).trim() !== '' && Number(row.amount) !== 0));
+  if (bunkerHits) return true;
+  return (tcIn.offHires || []).some((row) => (
+    (row.amount != null && String(row.amount).trim() !== '' && Number(row.amount) !== 0)
+    || (row.from != null && String(row.from).trim() !== '')
+  ));
 }
 
 function applyPeriodTcIn(baseTcIn, periodData) {
@@ -1132,12 +1144,6 @@ function copyDeliveryBunkersToRedelivery(deliveryRows = [], reDelDate = '') {
   }));
 }
 
-function isSubCharterBusinessType(businessTypes, businessTypeId) {
-  const match = (businessTypes || []).find((opt) => String(opt.id) === String(businessTypeId));
-  const label = String(match?.name || match?.label || '').toLowerCase();
-  return /in\s*\/?\s*out|sub[\s-]?charter/.test(label);
-}
-
 function formatResult(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return '0.00';
@@ -1297,8 +1303,8 @@ export default function TcFixtureFormPage({
   const readOnly = mode === 'view';
   const listHref = backHref || returnTo || tcPath();
   const isDry = String(form.businessTypeId) === '3';
-  const showSubCharter = form.contractType === 'tcinout'
-    || isSubCharterBusinessType(businessTypes, form.businessTypeId);
+  // CONTRACT_TYPE is authoritative; ESTIMATE_TYPE / business type must not override explicit TC Out.
+  const showSubCharter = form.contractType === 'tcinout';
 
   useEffect(() => {
     if (!vpModalOpen) return undefined;

@@ -9,11 +9,19 @@ import {
   computeTcListStats,
   nullIfEmpty,
   normalizeContractType,
+  resolveContractTypeForWrite,
   parsePeriodDate,
   toDbDate,
   calcTcTotals,
   isTcSentToOps,
 } from './tcEstimateMappers.js';
+import {
+  isTcContractTypeSchemaReady,
+  probeTcContractTypeColumn,
+  requireTcContractTypeSchema,
+} from '../migrations/tcContractTypeMigration.js';
+
+export { resolveContractTypeForWrite };
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -22,8 +30,6 @@ const USER_ID = process.env.USER_ID || appContext.userId;
 let tcEstimateNoColumnReady = false;
 let tcAttachmentColumnsReady = false;
 let tcInRecapJsonColumnReady = false;
-let tcContractTypeColumnReady = false;
-let tcContractTypeBackfillDone = false;
 
 async function ensureTcEstimateNoColumn(pool) {
   if (tcEstimateNoColumnReady) return true;
@@ -86,56 +92,10 @@ async function ensureTcInRecapJsonColumn(pool) {
   }
 }
 
-/** Ensure CONTRACT_TYPE exists; idempotent NULL backfill from PERIODID / JSON. */
+/** Read-only: true if CONTRACT_TYPE is available (no DDL). */
 export async function ensureTcContractTypeColumn(pool) {
-  if (tcContractTypeColumnReady) {
-    if (!tcContractTypeBackfillDone) await backfillTcContractType(pool);
-    return true;
-  }
-  try {
-    const [cols] = await pool.query(
-      `SHOW COLUMNS FROM chartering_estimate_tc_master LIKE 'CONTRACT_TYPE'`,
-    );
-    if (!cols.length) {
-      await pool.query(
-        `ALTER TABLE chartering_estimate_tc_master
-         ADD COLUMN CONTRACT_TYPE VARCHAR(16) NULL`,
-      );
-    }
-    tcContractTypeColumnReady = true;
-    await backfillTcContractType(pool);
-    return true;
-  } catch (error) {
-    console.warn('[tcEstimateDb] Could not ensure CONTRACT_TYPE column:', error.message);
-    return false;
-  }
-}
-
-async function backfillTcContractType(pool) {
-  if (tcContractTypeBackfillDone) return;
-  try {
-    await pool.query(
-      `UPDATE chartering_estimate_tc_master
-       SET CONTRACT_TYPE = CASE
-         WHEN (PERIODID IS NOT NULL AND TRIM(CAST(PERIODID AS CHAR)) NOT IN ('', '0'))
-           OR (TC_IN_RECAP_JSON IS NOT NULL AND TRIM(TC_IN_RECAP_JSON) NOT IN ('', 'null', '{}'))
-         THEN 'tcinout'
-         ELSE 'tcout'
-       END
-       WHERE CONTRACT_TYPE IS NULL`,
-    );
-    tcContractTypeBackfillDone = true;
-  } catch (error) {
-    console.warn('[tcEstimateDb] Could not backfill CONTRACT_TYPE:', error.message);
-  }
-}
-
-function resolveContractTypeForWrite(body = {}) {
-  const fromBody = normalizeContractType(body.contractType);
-  if (fromBody) return fromBody;
-  const periodId = body.periodId != null ? String(body.periodId).trim() : '';
-  if (periodId && periodId !== '0') return 'tcinout';
-  return 'tcout';
+  if (isTcContractTypeSchemaReady()) return true;
+  return probeTcContractTypeColumn(pool);
 }
 
 function serializeTcInRecapJson(tcInExpenses) {
@@ -1030,7 +990,7 @@ export async function dbGetPeriodTcInDetails(periodId) {
 export async function dbGetTcEstimate(tcOutId) {
   const pool = getPool();
   await ensureTcInRecapJsonColumn(pool);
-  await ensureTcContractTypeColumn(pool);
+  await ensureTcContractTypeColumn(pool); // probe only — no DDL on read
   const [rows] = await pool.query(
     `SELECT * FROM chartering_estimate_tc_master
      WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`,
@@ -1117,17 +1077,15 @@ export async function dbCreateTcEstimate(body = {}, upload = {}) {
   const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
   const hasAttachments = await ensureTcAttachmentColumns(pool);
   const hasTcInRecapJson = await ensureTcInRecapJsonColumn(pool);
-  const hasContractType = await ensureTcContractTypeColumn(pool);
+  await requireTcContractTypeSchema(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
-    if (hasContractType) {
-      payload = {
-        ...payload,
-        CONTRACT_TYPE: resolveContractTypeForWrite(body),
-      };
-    }
+    payload = {
+      ...payload,
+      CONTRACT_TYPE: resolveContractTypeForWrite(body),
+    };
     if (hasTcInRecapJson && body.tcInExpenses != null) {
       payload = {
         ...payload,
@@ -1170,16 +1128,16 @@ export async function dbUpdateTcEstimate(tcOutId, body = {}, upload = {}) {
   const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
   const hasAttachments = await ensureTcAttachmentColumns(pool);
   const hasTcInRecapJson = await ensureTcInRecapJsonColumn(pool);
-  const hasContractType = await ensureTcContractTypeColumn(pool);
+  await requireTcContractTypeSchema(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     const [existing] = await connection.query(
       hasAttachments
-        ? `SELECT TCOUTID, ATTACHMENT, ATTACHMENT_NAME
+        ? `SELECT TCOUTID, ATTACHMENT, ATTACHMENT_NAME, CONTRACT_TYPE
            FROM chartering_estimate_tc_master
            WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`
-        : `SELECT TCOUTID
+        : `SELECT TCOUTID, CONTRACT_TYPE
            FROM chartering_estimate_tc_master
            WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`,
       [MODULE_ID, COMPANY_ID, tcOutId],
@@ -1189,12 +1147,10 @@ export async function dbUpdateTcEstimate(tcOutId, body = {}, upload = {}) {
       return null;
     }
     let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
-    if (hasContractType) {
-      payload = {
-        ...payload,
-        CONTRACT_TYPE: resolveContractTypeForWrite(body),
-      };
-    }
+    payload = {
+      ...payload,
+      CONTRACT_TYPE: resolveContractTypeForWrite(body, existing[0].CONTRACT_TYPE),
+    };
     if (hasTcInRecapJson && body.tcInExpenses != null) {
       payload = {
         ...payload,
@@ -1483,18 +1439,18 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
 
 export async function dbSaveTcCalculation(tcOutId, body = {}) {
   const pool = getPool();
-  const hasContractType = await ensureTcContractTypeColumn(pool);
+  await requireTcContractTypeSchema(pool);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    // Lock master row for atomic mode + financial transition.
     const [masters] = await connection.query(
-      hasContractType
-        ? `SELECT TCOUTID, HIRE_FIX_PER, EXCHANGE_RATE, ADD_COMM, BROKER_COMM, CONTRACT_TYPE, PERIODID
-           FROM chartering_estimate_tc_master
-           WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`
-        : `SELECT TCOUTID, HIRE_FIX_PER, EXCHANGE_RATE, ADD_COMM, BROKER_COMM, PERIODID
-           FROM chartering_estimate_tc_master
-           WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`,
+      `SELECT TCOUTID, HIRE_FIX_PER, EXCHANGE_RATE, ADD_COMM, BROKER_COMM, CONTRACT_TYPE, PERIODID,
+              TC_IN_RECAP_JSON
+       FROM chartering_estimate_tc_master
+       WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ?
+       LIMIT 1
+       FOR UPDATE`,
       [MODULE_ID, COMPANY_ID, tcOutId],
     );
     if (!masters[0]) {
@@ -1502,19 +1458,17 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
       return null;
     }
 
-    const contractType = resolveContractTypeForWrite({
-      contractType: body.contractType ?? masters[0].CONTRACT_TYPE,
-      periodId: body.periodId ?? masters[0].PERIODID,
-    });
+    const contractType = resolveContractTypeForWrite(
+      { contractType: body.contractType },
+      masters[0].CONTRACT_TYPE,
+    );
     const isTcInOut = contractType === 'tcinout';
-    if (hasContractType) {
-      await connection.query(
-        `UPDATE chartering_estimate_tc_master
-         SET CONTRACT_TYPE = ?
-         WHERE TCOUTID = ? AND MODULEID = ? AND MCOMPANYID = ?`,
-        [contractType, tcOutId, MODULE_ID, COMPANY_ID],
-      );
-    }
+    await connection.query(
+      `UPDATE chartering_estimate_tc_master
+       SET CONTRACT_TYPE = ?
+       WHERE TCOUTID = ? AND MODULEID = ? AND MCOMPANYID = ?`,
+      [contractType, tcOutId, MODULE_ID, COMPANY_ID],
+    );
 
     const calcInput = { ...(body.calc || body) };
     if (!calcInput.dailyGrossHire) {
@@ -1537,37 +1491,30 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
     if (Array.isArray(body.otherIncome)) {
       calcInput.otherIncome = body.otherIncome.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
     }
-    if (!isTcInOut) {
-      calcInput.tcFinalHireage = '0';
-    }
-    if (calcInput.totalExp == null || calcInput.totalExp === '') {
-      const addToTotal = Array.isArray(body.otherExpenses)
-        ? body.otherExpenses
-          .filter((row) => row.addToTotal === true)
-          .reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
-        : 0;
-      const tcInHireage = isTcInOut
-        ? (Number(
-          body.tcInExpenses?.finalHireage
-          ?? calcInput.tcFinalHireage
-          ?? 0,
-        ) || 0)
-        : 0;
-      calcInput.totalExp = addToTotal + tcInHireage;
-    }
+
+    // Always recompute active hireage + totalExp server-side (never trust client totals for mode gating).
+    const addToTotal = Array.isArray(body.otherExpenses)
+      ? body.otherExpenses
+        .filter((row) => row.addToTotal === true || row.addToTotal === 1)
+        .reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+      : 0;
+    const activeTcInHireage = isTcInOut
+      ? (Number(body.tcInExpenses?.finalHireage ?? calcInput.tcFinalHireage ?? 0) || 0)
+      : 0;
+    calcInput.tcFinalHireage = String(activeTcInHireage);
+    calcInput.totalExp = String(addToTotal + activeTcInHireage);
+
     const totals = calcTcTotals(calcInput);
-    const merged = { ...calcInput, ...totals };
-    if (!isTcInOut) {
-      merged.tcFinalHireage = '0';
-    }
+    const merged = { ...calcInput, ...totals, totalExp: calcInput.totalExp, tcFinalHireage: calcInput.tcFinalHireage };
     const firstPeriod = (merged.hirePeriods || [])[0] || {};
 
     const [existing] = await connection.query(
-      `SELECT TC_SLAVE1ID FROM chartering_tc_estimate_slave1 WHERE TCOUTID = ? LIMIT 1`,
+      `SELECT * FROM chartering_tc_estimate_slave1 WHERE TCOUTID = ? LIMIT 1`,
       [tcOutId],
     );
 
     let slave1Id = existing[0]?.TC_SLAVE1ID;
+    const priorSlave1 = existing[0] || null;
     const fields = {
       TRIP_TC_EST: nullIfEmpty(merged.tripTc),
       PERIOD_TC_EST: nullIfEmpty(merged.period),
@@ -1687,6 +1634,42 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
       }
     }
 
+    // Before deactivating TC In, ensure dormant JSON can restore Hire Recap without the client payload.
+    let dormantTcIn = body.tcInExpenses != null ? body.tcInExpenses : null;
+    if (!isTcInOut) {
+      const existingJson = parseTcInRecapJson(masters[0].TC_IN_RECAP_JSON);
+      if (!dormantTcIn && existingJson) dormantTcIn = existingJson;
+      if (!dormantTcIn && slave1Id) {
+        const extras = await loadCalcExtras(connection, slave1Id);
+        if (extras?.tcInExpenses) {
+          dormantTcIn = {
+            ...extras.tcInExpenses,
+            finalHireage: extras.tcInExpenses.finalHireage
+              ?? (priorSlave1?.TC_FINAL_HIERAGE != null ? String(priorSlave1.TC_FINAL_HIERAGE) : ''),
+            finalVendor: extras.tcInExpenses.finalVendor
+              ?? priorSlave1?.TC_FINAL_HIERAGE_VENDOR
+              ?? '',
+            offHireCveMonth: priorSlave1?.TC_CVE_MONTH_OFFHIRE != null
+              ? String(priorSlave1.TC_CVE_MONTH_OFFHIRE)
+              : '',
+            bunkerOnOwner: priorSlave1?.TC_BUNKERS_ON_OWNER != null
+              ? String(priorSlave1.TC_BUNKERS_ON_OWNER)
+              : '',
+            ilohc: priorSlave1?.TXT_ILOHC_TC != null ? String(priorSlave1.TXT_ILOHC_TC) : '',
+            awrpCost: priorSlave1?.AWRPCOST != null ? String(priorSlave1.AWRPCOST) : '',
+            cpDate: merged.tcCpDate || '',
+            contractRef: merged.tcCpNumber || '',
+            deliveryPort: merged.tcDeliveryPort || '',
+            redeliveryPort: merged.tcRedeliveryPort || '',
+          };
+        }
+      }
+      if (dormantTcIn != null) {
+        const ok = await persistTcInRecapJson(connection, tcOutId, dormantTcIn);
+        if (!ok) throw new Error('Failed to persist dormant TC In Hire Recap JSON before deactivating.');
+      }
+    }
+
     await upsertSlave1(fields);
 
     // Keep dormant Hire Recap JSON when TC Out; skip active slave2–4 hire inserts.
@@ -1702,11 +1685,12 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
         hirePeriods: body.hirePeriods || merged.hirePeriods,
       },
     });
-    if (body.tcInExpenses != null) {
-      await persistTcInRecapJson(connection, tcOutId, body.tcInExpenses);
+    if (isTcInOut && body.tcInExpenses != null) {
+      const ok = await persistTcInRecapJson(connection, tcOutId, body.tcInExpenses);
+      if (!ok) throw new Error('Failed to persist TC In Hire Recap JSON.');
     }
     await connection.commit();
-    return { msg: 0, tcOutId, slave1Id, calc: merged };
+    return { msg: 0, tcOutId, slave1Id, calc: merged, contractType };
   } catch (error) {
     await connection.rollback();
     throw error;

@@ -2,7 +2,7 @@ import { appContext, compareSheetsEnabled, isMgmtUser } from '../config.js';
 import { getPool } from '../db.js';
 import { formatDateDMY } from './estimateListMappers.js';
 import { normalizeContractType, tcContractTypeLabel } from './tcEstimateMappers.js';
-import { ensureTcContractTypeColumn } from './tcEstimateDb.js';
+import { ensureTcContractTypeColumn } from './tcEstimateDb.js'; // probe only — no DDL on list
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;

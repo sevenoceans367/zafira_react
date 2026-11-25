@@ -7,6 +7,7 @@ import {
   mapTcDetail,
   mapTcListRow,
   normalizeContractType,
+  resolveContractTypeForWrite,
   tcContractTypeLabel,
 } from './tcEstimateMappers.js';
 
@@ -351,5 +352,14 @@ describe('tcEstimateMappers', () => {
     });
     assert.equal(detail.contractType, 'tcout');
     assert.equal(detail.periodId, '');
+  });
+
+  it('resolveContractTypeForWrite preserves omit and rejects invalid', () => {
+    assert.equal(resolveContractTypeForWrite({}, 'tcinout'), 'tcinout');
+    assert.equal(resolveContractTypeForWrite({ periodId: '9' }), 'tcout');
+    assert.throws(
+      () => resolveContractTypeForWrite({ contractType: 'bogus' }),
+      (err) => err.status === 400,
+    );
   });
 });

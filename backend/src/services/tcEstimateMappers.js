@@ -134,6 +134,27 @@ export function normalizeContractType(value) {
   return '';
 }
 
+/**
+ * Resolve contract mode for writes.
+ * Explicit valid body.contractType wins; invalid explicit → throw status 400;
+ * omitted on update → preserve existingMode; create omit → tcout.
+ */
+export function resolveContractTypeForWrite(body = {}, existingMode = '') {
+  const raw = body.contractType;
+  if (raw != null && String(raw).trim() !== '') {
+    const normalized = normalizeContractType(raw);
+    if (!normalized) {
+      const err = new Error(`Invalid contractType: ${String(raw)}`);
+      err.status = 400;
+      throw err;
+    }
+    return normalized;
+  }
+  const existing = normalizeContractType(existingMode);
+  if (existing) return existing;
+  return 'tcout';
+}
+
 /** Label for the grey contract-type chip (matches Recap Identifiers dropdown). */
 export function tcContractTypeLabel({
   periodId = '',

@@ -11,7 +11,6 @@ import {
   normalizeContractType,
   isAuthoritativeTcInEdit,
   mapOtherIncomeRow,
-  preferRicherTcInRecap,
   resolveActiveTcInHireage,
   resolveContractTypeForWrite,
   resolveTcInExpensesForWrite,
@@ -20,6 +19,7 @@ import {
   sumOwnerOtherIncome,
   tcContractTypeLabel,
   tcInRecapHasSignal,
+  withCanonicalTcInFinalHireage,
 } from './tcEstimateMappers.js';
 
 describe('tcEstimateMappers', () => {
@@ -441,19 +441,19 @@ describe('tcEstimateMappers', () => {
     }), 291050);
   });
 
-  it('adds owner otherIncome into voyage expenses and charterer into income', () => {
+  it('treats all otherIncome as Legacy revenue (no Owner expense split)', () => {
     const income = [
       { accountType: 'Owner', amount: '100' },
       { accountType: 'Charterer', amount: '250' },
       { amount: '50' },
     ];
-    assert.equal(sumOwnerOtherIncome(income), 100);
-    assert.equal(sumChartererOtherIncome(income), 300);
+    assert.equal(sumOwnerOtherIncome(income), 0);
+    assert.equal(sumChartererOtherIncome(income), 400);
     assert.equal(computeVoyageExpenseTotal(
       [{ addToTotal: true, amount: '40' }, { addToTotal: false, amount: '999' }],
       income,
       10,
-    ), 150);
+    ), 50);
   });
 
   it('authoritative edits win over dormant JSON including zero hireage', () => {
@@ -465,7 +465,29 @@ describe('tcEstimateMappers', () => {
     const dormant = { finalHireage: '5000', hires: [{ nettHireage: '5000', randomId: 'a' }] };
     assert.deepEqual(resolveTcInExpensesForWrite({ bodyTcIn: editedZero, dormantJson: dormant }), editedZero);
     assert.deepEqual(resolveTcInExpensesForWrite({ bodyTcIn: undefined, dormantJson: dormant }), dormant);
-    assert.deepEqual(preferRicherTcInRecap(editedZero, dormant), editedZero);
+  });
+
+  it('canonicalizes mismatched finalHireage before JSON persist', () => {
+    const mismatched = {
+      finalHireage: '3568500',
+      hires: [{ nettHireage: '290000', cveAmt: '0' }],
+      deliveryBunkers: [{ qty: '10', price: '100' }],
+      redeliveryBunkers: [],
+      offHires: [],
+      awrpCost: '0',
+      ilohc: '50',
+    };
+    const canonical = withCanonicalTcInFinalHireage(mismatched, 3568500);
+    assert.equal(canonical.finalHireage, '291050.00');
+    assert.equal(
+      resolveActiveTcInHireage({
+        isTcInOut: true,
+        authoritativeEdit: false,
+        jsonFinalHireage: canonical.finalHireage,
+        tcInExpenses: null,
+      }),
+      291050,
+    );
   });
 
   it('preserves stored dormant JSON on repeated TC Out without recap payload', () => {
@@ -487,13 +509,15 @@ describe('tcEstimateMappers', () => {
     }), false);
   });
 
-  it('maps Owner/Charterer from ACCOUNT_TYPE with legacy null as Charterer', () => {
+  it('maps otherIncome rows without ACCOUNT_TYPE discriminator', () => {
     assert.deepEqual(mapOtherIncomeRow({ ACCOUNT_TYPE: 'Owner', DESCRIPTION: 'Fee', OTHER_AMT: '10' }), {
-      accountType: 'Owner',
       description: 'Fee',
       amount: '10',
     });
-    assert.equal(mapOtherIncomeRow({ DESCRIPTION: 'Legacy', OTHER_AMT: '5' }).accountType, 'Charterer');
+    assert.deepEqual(mapOtherIncomeRow({ DESCRIPTION: 'Legacy', OTHER_AMT: '5' }), {
+      description: 'Legacy',
+      amount: '5',
+    });
   });
 
   it('restoration prefers retained JSON hireage over stale calc zero', () => {

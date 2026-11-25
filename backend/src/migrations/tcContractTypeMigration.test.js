@@ -12,7 +12,6 @@ import {
 function makeFakePool({
   contractType = false,
   tcInRecapJson = false,
-  slave2AccountType = false,
   ledgerVersion = 0,
   lockGot = 1,
   releaseOk = 1,
@@ -20,7 +19,6 @@ function makeFakePool({
   const state = {
     contractType,
     tcInRecapJson,
-    slave2AccountType,
     ledgerVersion,
     lockGot,
     releaseOk,
@@ -37,14 +35,10 @@ function makeFakePool({
           const text = String(sql);
           if (/GET_LOCK/i.test(text)) return [[{ got: state.lockGot }]];
           if (/RELEASE_LOCK/i.test(text)) return [[{ released: state.releaseOk }]];
-          if (/SHOW COLUMNS FROM chartering_estimate_tc_slave2/i.test(text)) {
-            return [state.slave2AccountType ? [{ Field: 'ACCOUNT_TYPE' }] : []];
-          }
           if (/SHOW COLUMNS/i.test(text)) {
             const col = String(params[0] || '');
             if (col === 'CONTRACT_TYPE') return [state.contractType ? [{ Field: 'CONTRACT_TYPE' }] : []];
             if (col === 'TC_IN_RECAP_JSON') return [state.tcInRecapJson ? [{ Field: 'TC_IN_RECAP_JSON' }] : []];
-            if (col === 'ACCOUNT_TYPE') return [state.slave2AccountType ? [{ Field: 'ACCOUNT_TYPE' }] : []];
             return [[]];
           }
           if (/CREATE TABLE IF NOT EXISTS zafira_schema_migrations/i.test(text)) return [{ affectedRows: 0 }];
@@ -54,7 +48,6 @@ function makeFakePool({
           if (/ALTER TABLE/i.test(text)) {
             if (/TC_IN_RECAP_JSON/i.test(text)) state.tcInRecapJson = true;
             if (/CONTRACT_TYPE/i.test(text)) state.contractType = true;
-            if (/ACCOUNT_TYPE/i.test(text)) state.slave2AccountType = true;
             return [{ affectedRows: 0 }];
           }
           if (/UPDATE chartering_estimate_tc_master/i.test(text)) return [{ affectedRows: 0 }];
@@ -115,7 +108,6 @@ describe('tcContractTypeMigration', () => {
     const pool = makeFakePool({
       contractType: true,
       tcInRecapJson: true,
-      slave2AccountType: true,
       ledgerVersion: 2,
       releaseOk: 0,
     });
@@ -141,7 +133,6 @@ describe('tcContractTypeMigration', () => {
     const pool = makeFakePool({
       contractType: true,
       tcInRecapJson: true,
-      slave2AccountType: true,
       ledgerVersion: 2,
     });
     assert.equal(await requireTcContractTypeSchema(pool), true);

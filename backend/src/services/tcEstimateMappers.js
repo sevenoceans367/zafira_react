@@ -168,7 +168,7 @@ export function toFiniteNumber(value) {
 }
 
 /** True when Hire Recap has component rows that must drive server hireage (not a bare scalar). */
-function tcInHasHireageComponents(tcIn) {
+export function tcInHasHireageComponents(tcIn) {
   if (!tcIn || typeof tcIn !== 'object') return false;
   if ((tcIn.hires || []).length > 0) return true;
   if ((tcIn.deliveryBunkers || []).length > 0) return true;
@@ -179,6 +179,30 @@ function tcInHasHireageComponents(tcIn) {
   const awrp = toFiniteNumber(tcIn.awrpCost);
   if (awrp != null && awrp !== 0) return true;
   return false;
+}
+
+/**
+ * Stamp finalHireage with the server-calculated amount before persisting Hire Recap JSON.
+ * Prevents restoration from resurrecting a mismatched client scalar.
+ * Scalar-only snapshots keep the provided canonical hireage (or existing scalar).
+ */
+export function withCanonicalTcInFinalHireage(tcIn, canonicalHireage = null) {
+  if (!tcIn || typeof tcIn !== 'object') return tcIn;
+  if (tcInHasHireageComponents(tcIn)) {
+    return {
+      ...tcIn,
+      finalHireage: computeTcInFinalHireage(tcIn).finalHireage,
+    };
+  }
+  const fromArg = toFiniteNumber(canonicalHireage);
+  if (fromArg != null) {
+    return { ...tcIn, finalHireage: fromArg.toFixed(2) };
+  }
+  const fromExisting = toFiniteNumber(tcIn.finalHireage);
+  if (fromExisting != null) {
+    return { ...tcIn, finalHireage: fromExisting.toFixed(2) };
+  }
+  return tcIn;
 }
 
 /**
@@ -221,20 +245,17 @@ export function resolveActiveTcInHireage({
   return 0;
 }
 
-/** Owner otherIncome rows contribute to expenses (Fixture / PHP Add-to-TTL parity). */
-export function sumOwnerOtherIncome(otherIncome = []) {
-  return (otherIncome || []).reduce((sum, row) => {
-    if (String(row?.accountType || '').toLowerCase() !== 'owner') return sum;
-    return sum + (Number(row.amount) || 0);
-  }, 0);
+/**
+ * Legacy SOPF/Dry Out: all STATUS=1 otherIncome is revenue.
+ * Owner/Charterer discriminators are not part of Contract Type persistence.
+ */
+export function sumOwnerOtherIncome(_otherIncome = []) {
+  return 0;
 }
 
-/** Charterer (or untagged legacy) otherIncome → revenue OTHER_INCOME_EST. */
+/** All STATUS=1 otherIncome → revenue OTHER_INCOME_EST (Legacy parity). */
 export function sumChartererOtherIncome(otherIncome = []) {
-  return (otherIncome || []).reduce((sum, row) => {
-    if (String(row?.accountType || '').toLowerCase() === 'owner') return sum;
-    return sum + (Number(row.amount) || 0);
-  }, 0);
+  return (otherIncome || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
 }
 
 /** PHP chkVal == 1 only — strict true/1, not !== false. */
@@ -245,8 +266,8 @@ export function sumAddToTotalExpenses(otherExpenses = []) {
   }, 0);
 }
 
-export function computeVoyageExpenseTotal(otherExpenses = [], otherIncome = [], activeHireage = 0) {
-  return sumAddToTotalExpenses(otherExpenses) + sumOwnerOtherIncome(otherIncome) + (Number(activeHireage) || 0);
+export function computeVoyageExpenseTotal(otherExpenses = [], _otherIncome = [], activeHireage = 0) {
+  return sumAddToTotalExpenses(otherExpenses) + (Number(activeHireage) || 0);
 }
 
 /**
@@ -315,26 +336,8 @@ export function shouldPreserveStoredDormantJson({
     && dormantJson != null;
 }
 
-/** @deprecated Prefer resolveTcInExpensesForWrite — kept for tests/compat. */
-export function preferRicherTcInRecap(a, b) {
-  if (isAuthoritativeTcInEdit(a)) return a;
-  if (isAuthoritativeTcInEdit(b) && !isAuthoritativeTcInEdit(a)) return b;
-  const aOk = tcInRecapHasSignal(a);
-  const bOk = tcInRecapHasSignal(b);
-  if (aOk && !bOk) return a;
-  if (bOk && !aOk) return b;
-  if (!aOk && !bOk) return null;
-  return a || b;
-}
-
-/** Map ACCOUNT_TYPE column (or legacy null) → Owner/Charterer. NULL legacy = Charterer revenue. */
-export function normalizeOtherIncomeAccountType(value) {
-  return String(value || '').toLowerCase() === 'owner' ? 'Owner' : 'Charterer';
-}
-
 export function mapOtherIncomeRow(row = {}) {
   return {
-    accountType: normalizeOtherIncomeAccountType(row.ACCOUNT_TYPE ?? row.accountType),
     description: row.DESCRIPTION ?? row.description ?? '',
     amount: row.OTHER_AMT != null
       ? String(row.OTHER_AMT)

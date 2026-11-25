@@ -21,6 +21,7 @@ import {
   resolveTcInExpensesForWrite,
   shouldPreserveStoredDormantJson,
   mapOtherIncomeRow,
+  withCanonicalTcInFinalHireage,
 } from './tcEstimateMappers.js';
 import {
   isTcContractTypeSchemaReady,
@@ -498,23 +499,11 @@ async function loadCalcExtras(pool, slave1Id) {
       tcInExpenses: null,
     };
   }
-  let incomeRows = [];
-  try {
-    const [rows] = await pool.query(
-      `SELECT DESCRIPTION, OTHER_AMT, ACCOUNT_TYPE FROM chartering_estimate_tc_slave2
-       WHERE TC_SLAVE1ID = ? AND STATUS = 1`,
-      [slave1Id],
-    );
-    incomeRows = rows;
-  } catch (error) {
-    if (!isMissingColumnError(error)) throw error;
-    const [rows] = await pool.query(
-      `SELECT DESCRIPTION, OTHER_AMT FROM chartering_estimate_tc_slave2
-       WHERE TC_SLAVE1ID = ? AND STATUS = 1`,
-      [slave1Id],
-    );
-    incomeRows = rows;
-  }
+  const [incomeRows] = await pool.query(
+    `SELECT DESCRIPTION, OTHER_AMT FROM chartering_estimate_tc_slave2
+     WHERE TC_SLAVE1ID = ? AND STATUS = 1`,
+    [slave1Id],
+  );
   const [expenseRows] = await pool.query(
     `SELECT EXPENSETYPEID, DESCRIPTION, CHK_ADDTTL, OTHER_AMT FROM chartering_estimate_tc_slave2
      WHERE TC_SLAVE1ID = ? AND STATUS = 2`,
@@ -1374,7 +1363,7 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
   if (replaceIncome) {
     // Legacy parity: STATUS=1 rows are undifferentiated revenue (no ACCOUNT_TYPE discriminator).
     for (const row of body.otherIncome || []) {
-      if (!row.amount && !row.description && !row.accountType) continue;
+      if (!row.amount && !row.description) continue;
       await connection.query(
         `INSERT INTO chartering_estimate_tc_slave2
          (TC_SLAVE1ID, DESCRIPTION, OTHER_AMT, STATUS) VALUES (?, ?, ?, 1)`,
@@ -1930,7 +1919,8 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
         }) || snapshotSource;
       }
       if (dormantTcIn != null) {
-        const ok = await persistTcInRecapJson(connection, tcOutId, dormantTcIn);
+        const dormantCanonical = withCanonicalTcInFinalHireage(dormantTcIn);
+        const ok = await persistTcInRecapJson(connection, tcOutId, dormantCanonical);
         if (!ok) throw new Error('Failed to persist dormant TC In Hire Recap JSON before deactivating.');
       }
     }
@@ -1938,7 +1928,9 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
     await upsertSlave1(fields);
 
     // Keep dormant Hire Recap JSON when TC Out; on TC In/Out restore children from resolved payload.
-    const activeTcInExpenses = isTcInOut ? resolvedTcInExpenses : null;
+    const activeTcInExpenses = isTcInOut
+      ? withCanonicalTcInFinalHireage(resolvedTcInExpenses, activeTcInHireage)
+      : null;
     const childBody = {
       ...body,
       hirePeriods: body.hirePeriods || merged.hirePeriods,

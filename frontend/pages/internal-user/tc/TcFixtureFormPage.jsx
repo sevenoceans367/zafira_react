@@ -71,7 +71,6 @@ const EMPTY_EXPENSE = {
   vendorId: '',
 };
 const EMPTY_INCOME = {
-  accountType: 'Owner',
   description: '',
   amount: '',
 };
@@ -1342,20 +1341,9 @@ export default function TcFixtureFormPage({
     [form.itineraryExpenses],
   );
 
+  // Legacy: all otherIncome is STATUS=1 revenue — no Owner/Charterer income split.
   const otherIncomeChartererTotal = useMemo(
-    () => (form.otherIncome || []).reduce((sum, row) => {
-      if (String(row.accountType || 'Owner').toLowerCase() !== 'charterer') return sum;
-      return sum + (Number(row.amount) || 0);
-    }, 0),
-    [form.otherIncome],
-  );
-
-  const otherIncomeOwnerTotal = useMemo(
-    () => (form.otherIncome || []).reduce((sum, row) => {
-      // Explicit Owner only — matches backend decode (untagged legacy = Charterer).
-      if (String(row.accountType || '').toLowerCase() !== 'owner') return sum;
-      return sum + (Number(row.amount) || 0);
-    }, 0),
+    () => (form.otherIncome || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
     [form.otherIncome],
   );
 
@@ -1366,16 +1354,16 @@ export default function TcFixtureFormPage({
       return sum + (Number(row.amount) || 0);
     }, 0);
 
-    // Pre-TC uses expenseType; TC Expenses uses notes for Owner/Charterer
+    // Pre-TC uses expenseType; TC Expenses uses notes for Owner/Charterer (expense party only).
     const itineraryOwners = sumParty(form.itineraryExpenses, 'expenseType', 'owner');
     const itineraryCharterers = sumParty(form.itineraryExpenses, 'expenseType', 'charterer');
-    const tcOwners = sumParty(form.otherExpenses, 'notes', 'owner') + otherIncomeOwnerTotal;
+    const tcOwners = sumParty(form.otherExpenses, 'notes', 'owner');
     const tcCharterers = sumParty(form.otherExpenses, 'notes', 'charterer');
     const tcAddToTotal = (form.otherExpenses || []).reduce((sum, row) => {
       // PHP only includes rows where chkVal == 1 (Add to TTL).
       if (row.addToTotal !== true) return sum;
       return sum + (Number(row.amount) || 0);
-    }, 0) + otherIncomeOwnerTotal;
+    }, 0);
 
     return {
       refOwners: itineraryOwners + tcOwners,
@@ -1383,7 +1371,7 @@ export default function TcFixtureFormPage({
       tcAddToTotal,
       preTcTotal: itineraryOwners + itineraryCharterers,
     };
-  }, [form.itineraryExpenses, form.otherExpenses, otherIncomeOwnerTotal]);
+  }, [form.itineraryExpenses, form.otherExpenses]);
 
   const hirePeriodTotals = useMemo(() => {
     const rows = (form.hirePeriods || []).map(resolveHirePeriod);
@@ -2951,25 +2939,13 @@ export default function TcFixtureFormPage({
                   <div className={styles.oiOutline}>
                     <div
                       className={styles.fieldGrid}
-                      style={{ '--cols': '1fr 1.6fr 1fr 64px' }}
+                      style={{ '--cols': '1.6fr 1fr 64px' }}
                     >
-                      <div className={styles.fgHead}>Account</div>
                       <div className={styles.fgHead}>Description</div>
                       <div className={styles.fgHead}>Amount</div>
                       <div className={styles.fgHead} />
                       {(form.otherIncome?.length ? form.otherIncome : [{ ...EMPTY_INCOME }]).map((row, index) => (
                         <React.Fragment key={`oi-${index}`}>
-                          <div className={styles.fgCell}>
-                            <TableCardSelect
-                              options={OWNER_CHARTERER_OPTIONS}
-                              value={row.accountType || 'Owner'}
-                              onChange={(v) => patchOtherIncome(index, { accountType: v || 'Owner' })}
-                              disabled={readOnly}
-                              className={ownerChipClass(row.accountType || 'Owner')}
-                              placeholder="Select"
-                              ariaLabel="Other income account"
-                            />
-                          </div>
                           <div className={styles.fgCell}>
                             <input
                               value={row.description || ''}

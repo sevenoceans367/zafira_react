@@ -309,25 +309,16 @@ export default function TcCalculatePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid reloading on new object identity
   }, [tcOutId]);
 
+  // Legacy: all otherIncome is revenue; never route Owner-labelled rows into expenses.
   const incomeTotal = useMemo(
-    () => (form?.otherIncome || []).reduce((sum, row) => {
-      if (String(row.accountType || '').toLowerCase() === 'owner') return sum;
-      return sum + (Number(row.amount) || 0);
-    }, 0),
-    [form?.otherIncome],
-  );
-  const ownerIncomeTotal = useMemo(
-    () => (form?.otherIncome || []).reduce((sum, row) => {
-      if (String(row.accountType || '').toLowerCase() !== 'owner') return sum;
-      return sum + (Number(row.amount) || 0);
-    }, 0),
+    () => (form?.otherIncome || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
     [form?.otherIncome],
   );
   const expenseTotal = useMemo(
     () => (form?.otherExpenses || [])
       .filter((row) => row.addToTotal === true)
-      .reduce((sum, row) => sum + (Number(row.amount) || 0), 0) + ownerIncomeTotal,
-    [form?.otherExpenses, ownerIncomeTotal],
+      .reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+    [form?.otherExpenses],
   );
   const isTcInOut = form?.contractType === 'tcinout';
   const tcInFinalHireage = useMemo(() => {

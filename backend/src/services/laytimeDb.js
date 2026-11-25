@@ -2,6 +2,10 @@ import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 import { ensureSofActivityDateTimeToColumn } from './sofDb.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
+import {
+  normalizeEstimateTimeAllowed,
+  resolveContractualLaytimeAllowance,
+} from './laytimeAllowance.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -488,8 +492,13 @@ async function loadEntityRows(pool, laytimeId, sofId) {
   }));
 }
 
-function mapMasterFields(record, sof, defaults = {}) {
+function mapMasterFields(record, sof, defaults = {}, estimateTimeAllowed = '', portType = '') {
   const hasLaytime = Boolean(record);
+  const resolvedAllowance = resolveContractualLaytimeAllowance({
+    portType: portType || defaults.portType || '',
+    savedLaytimeAllowed: record?.LAYTIME_ALLOWED,
+    estimateTimeAllowed,
+  });
   return {
     terminal: hasLaytime ? str(record.TERMINAL) : str(sof?.TERMINAL),
     stowageQty: hasLaytime ? str(record.STOWAGE_QTY) : str(sof?.VA_1),
@@ -517,7 +526,8 @@ function mapMasterFields(record, sof, defaults = {}) {
       ? str(record.LOADED_QTY)
       : str(defaults.loadedQty || ''),
     loadedRate: hasLaytime ? str(record.LOADED_RATE) : '',
-    laytimeAllowed: str(record?.LAYTIME_ALLOWED),
+    laytimeAllowed: resolvedAllowance.value,
+    allowanceSource: resolvedAllowance.source,
     actualLaytime: str(record?.ACTUAL_LAYTIME),
     turnTime: str(record?.TURN_TIME),
     turnTimeToAdd: str(record?.TURN_TIME_TO_ADD),
@@ -666,12 +676,13 @@ export async function dbGetLaytimeForm(comId) {
   const fcaId = await resolveLaytimeFcaId(pool, comId) || compare.FCAID;
   const [[master]] = await pool.query(
     `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO,
-            FIXTURETYPEID, SEL_BUSI_TYPE
+            FIXTURETYPEID, SEL_BUSI_TYPE, TIMEALLOWED
      FROM freight_cost_estimete_master
      WHERE FCAID = ?
      LIMIT 1`,
     [fcaId],
   );
+  const estimateTimeAllowed = normalizeEstimateTimeAllowed(master);
 
   let cargo = [];
   if (master?.CARGO_ID) {
@@ -729,7 +740,7 @@ export async function dbGetLaytimeForm(comId) {
     const sofId = record?.SOF_LOADPORTID || sof?.SOFID || null;
     const submitId = record?.SUBMITID != null ? Number(record.SUBMITID) : 0;
     const locked = submitId === 5;
-    const fields = mapMasterFields(record, sof, tab.defaults);
+    const fields = mapMasterFields(record, sof, tab.defaults, estimateTimeAllowed, tab.portType);
     const activities = await loadActivities(pool, laytimeId, sofId);
     const deductions = await loadDeductions(pool, laytimeId);
     const entityRows = await loadEntityRows(pool, laytimeId, sofId);
@@ -759,6 +770,12 @@ export async function dbGetLaytimeForm(comId) {
   // Same Fun158 contract as sofDb. Unknown estimateType fails closed (null)
   // — do not guess days vs hours for ambiguous records.
   const rateUnit = laytimeRateUnitFromEstimateType(vesselParticulars?.estimateType);
+  if (!rateUnit) {
+    for (const port of ports) {
+      port.laytimeAllowed = '';
+      port.allowanceSource = 'unknown';
+    }
+  }
 
   return {
     comId: String(comId),

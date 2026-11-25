@@ -476,8 +476,8 @@
 .activityDeductionTable :is(th, td):nth-child(3),
 .activityDeductionTable :is(th, td):nth-child(4),
 .activityDeductionTable :is(th, td):nth-child(5) {
-  padding-left: 3px;
-  padding-right: 3px;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 .cfTable th {

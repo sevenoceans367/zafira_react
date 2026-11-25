@@ -84,6 +84,27 @@ describe('backend tanker validation', () => {
     const badCal = validateTankerLaytimePayload(basePayload({ norTendered: '31-02-2026 08:00' }));
     assert.equal(badCal.ok, false);
   });
+
+  it('allows blank optional NOR Accepted / Laytime Starts; rejects malformed when supplied', () => {
+    assert.equal(validateTankerLaytimePayload(basePayload({ norAccepted: '', startCounting: '' })).ok, true);
+    const badNor = validateTankerLaytimePayload(basePayload({ norAccepted: '31-02-2026 08:00' }));
+    assert.equal(badNor.ok, false);
+    assert.equal(badNor.field, 'norAccepted');
+    const badStart = validateTankerLaytimePayload(basePayload({ startCounting: '01-11-2026 25:00' }));
+    assert.equal(badStart.ok, false);
+    assert.equal(badStart.field, 'startCounting');
+  });
+
+  it('skips blank duration when dates are present; rejects mismatched supplied duration', () => {
+    const blankDur = verifyRowDurations([
+      { activity: 'A', start: '01-11-2026 00:00', end: '01-11-2026 12:00', duration: '', notes: '' },
+    ], 'Activity');
+    assert.equal(blankDur.ok, true);
+    const mismatch = verifyRowDurations([
+      { activity: 'A', start: '01-11-2026 00:00', end: '01-11-2026 12:00', duration: '10.0000', notes: '' },
+    ], 'Activity');
+    assert.equal(mismatch.ok, false);
+  });
 });
 
 describe('LT insert fail-closed contract', () => {

@@ -9,6 +9,12 @@ export const TANKER_MANDATORY_OPERATIONAL_FIELDS = [
   { key: 'loadCompleted', label: 'CARGO COMPLETED' },
 ];
 
+/** Optional timing — blank OK; non-blank must parse strictly. */
+export const TANKER_OPTIONAL_STRICT_DATE_FIELDS = [
+  { key: 'norAccepted', label: 'NOR ACCEPTED' },
+  { key: 'startCounting', label: 'LAYTIME STARTS' },
+];
+
 export function parseStrictDecimal(value) {
   const raw = String(value ?? '').trim();
   if (raw === '') return { ok: true, blank: true, value: null };
@@ -169,6 +175,14 @@ export function validateTankerLaytimePayload(payload = {}) {
     if (!raw) {
       return { ok: false, field: key, message: `Please fill the ${label}.` };
     }
+    if (parseDmyDateTimeMs(raw) == null) {
+      return { ok: false, field: key, message: `${label} must be a complete date (DD-MM-YYYY).` };
+    }
+  }
+
+  for (const { key, label } of TANKER_OPTIONAL_STRICT_DATE_FIELDS) {
+    const raw = String(payload[key] ?? '').trim();
+    if (!raw) continue;
     if (parseDmyDateTimeMs(raw) == null) {
       return { ok: false, field: key, message: `${label} must be a complete date (DD-MM-YYYY).` };
     }

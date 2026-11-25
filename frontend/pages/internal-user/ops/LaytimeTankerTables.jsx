@@ -5,9 +5,16 @@ import {
   filterRowsByQuery,
   isLaytimeActivityCounting,
 } from './laytimeTankerHelpers.js';
-import { isValidLtPartialPercent } from './laytimeTankerValidation.js';
+import { isValidLtPartialPercent, validateDateRangeOrder } from './laytimeTankerValidation.js';
 import { paginateRows } from './sofTankerHelpers.js';
 import styles from './OpsVcLaytimePage.module.css';
+
+function rowDateInvalid(row) {
+  const start = String(row?.start ?? '').trim();
+  const end = String(row?.end ?? '').trim();
+  if (!start && !end) return false;
+  return !validateDateRangeOrder(row?.start, row?.end).ok;
+}
 
 function SearchIcon() {
   return (
@@ -230,6 +237,8 @@ export default function LaytimeTankerTables({
                       value={row.start}
                       onChange={(v) => updateListRow('activities', index, { start: v }, true)}
                       disabled={locked}
+                      ariaLabel={`Activity ${index + 1} start`}
+                      invalid={rowDateInvalid(row)}
                     />
                   </td>
                   <td data-lt-focus="end">
@@ -237,6 +246,8 @@ export default function LaytimeTankerTables({
                       value={row.end}
                       onChange={(v) => updateListRow('activities', index, { end: v }, true)}
                       disabled={locked}
+                      ariaLabel={`Activity ${index + 1} finish`}
+                      invalid={rowDateInvalid(row)}
                     />
                   </td>
                   <td>
@@ -367,6 +378,8 @@ export default function LaytimeTankerTables({
                     value={row.start}
                     onChange={(v) => updateListRow('deductions', index, { start: v }, true)}
                     disabled={locked}
+                    ariaLabel={`Deduction ${index + 1} start`}
+                    invalid={rowDateInvalid(row)}
                   />
                 </td>
                 <td data-lt-focus="end">
@@ -374,6 +387,8 @@ export default function LaytimeTankerTables({
                     value={row.end}
                     onChange={(v) => updateListRow('deductions', index, { end: v }, true)}
                     disabled={locked}
+                    ariaLabel={`Deduction ${index + 1} finish`}
+                    invalid={rowDateInvalid(row)}
                   />
                 </td>
                 <td>

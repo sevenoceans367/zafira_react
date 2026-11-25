@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  hoursBetweenStrict,
   isBlankOrFiniteNumber,
   isValidLtPartialPercent,
   parseStrictDecimal,
   parseStrictDisplayDateTime,
   recomputeTankerPortDraft,
   sanitizeTankerDraftForRecompute,
+  tankerCalcInputsValid,
   validateDateRangeOrder,
   validateTankerLaytimeDraft,
 } from './laytimeTankerValidation.js';
@@ -91,8 +93,8 @@ describe('strict date parsing', () => {
   });
 });
 
-describe('centralized tanker recompute sanitize', () => {
-  it('does not let stored invalid LT % inflate totals when another field changes', () => {
+describe('centralized tanker recompute — unavailable when invalid', () => {
+  it('marks calculations unavailable for invalid LT % (no fake $0 financials)', () => {
     const draft = baseDraft({
       activities: [{
         activity: 'A',
@@ -104,25 +106,67 @@ describe('centralized tanker recompute sanitize', () => {
         ltPartial: '150',
         notes: '',
       }],
+      deductions: [{
+        activity: 'D',
+        start: '01-11-2026 00:00',
+        end: '01-11-2026 01:00',
+        duration: '1.0000',
+        ltPartial: '100',
+        notes: '',
+      }],
     });
-    const safe = sanitizeTankerDraftForRecompute(draft);
-    assert.equal(safe.activities[0].ltPartial, '0');
-    assert.equal(draft.activities[0].ltPartial, '150');
-
+    assert.equal(tankerCalcInputsValid(draft).ok, false);
     const next = recomputeTankerPortDraft(draft, 'hours');
-    // Raw invalid value preserved for Save rejection
+    assert.equal(next.calcUnavailable, true);
     assert.equal(next.activities[0].ltPartial, '150');
-    // Weighted actual must not use 150% (10h * 1.5 = 15)
-    assert.ok(Number(next.actualLaytime) < 10.1);
+    assert.equal(next.actualLaytime, '');
+    assert.equal(next.ttlDemurrage, '');
+    assert.equal(next.timeToDemurrage, '');
+    // Duration still refreshes from strict dates
+    assert.equal(next.activities[0].duration, '10.0000');
+    assert.equal(next.activities[0].cumulative, '');
   });
 
-  it('ignores invalid rates for money while restoring raw rate text', () => {
+  it('restores authoritative totals after correcting invalid A then editing valid B', () => {
+    const invalid = baseDraft({
+      activities: [{
+        activity: 'A',
+        start: '01-11-2026 00:00',
+        end: '01-11-2026 12:00',
+        duration: '12.0000',
+        ltCounts: true,
+        ltNoCounts: false,
+        ltPartial: '150',
+        notes: '',
+      }],
+    });
+    const blocked = recomputeTankerPortDraft(invalid, 'hours');
+    assert.equal(blocked.calcUnavailable, true);
+    assert.equal(blocked.actualLaytime, '');
+
+    const fixed = recomputeTankerPortDraft({
+      ...invalid,
+      activities: [{ ...invalid.activities[0], ltPartial: '100' }],
+    }, 'hours');
+    assert.equal(fixed.calcUnavailable, false);
+    assert.equal(fixed.activities[0].duration, '12.0000');
+    assert.equal(Number(fixed.actualLaytime), 12);
+
+    const afterOtherEdit = recomputeTankerPortDraft({
+      ...fixed,
+      demurrageRate: '24000',
+    }, 'hours');
+    assert.equal(afterOtherEdit.calcUnavailable, false);
+    assert.equal(Number(afterOtherEdit.actualLaytime), 12);
+  });
+
+  it('marks unavailable for invalid rates (no silent zero money)', () => {
     const draft = baseDraft({
       demurrageRate: 'nope',
       activities: [{
         activity: 'A',
         start: '01-11-2026 00:00',
-        end: '01-11-2026 100:00'.replace('100', '10'),
+        end: '01-11-2026 10:00',
         duration: '10.0000',
         ltCounts: true,
         ltNoCounts: false,
@@ -130,11 +174,31 @@ describe('centralized tanker recompute sanitize', () => {
         notes: '',
       }],
     });
-    // Fix end time properly
-    draft.activities[0].end = '01-11-2026 10:00';
     const next = recomputeTankerPortDraft(draft, 'hours');
     assert.equal(next.demurrageRate, 'nope');
-    assert.equal(Number(next.ttlDemurrage), 0);
+    assert.equal(next.calcUnavailable, true);
+    assert.equal(next.ttlDemurrage, '');
+  });
+
+  it('sanitize helper still zeros invalid % for callers that need a calc clone', () => {
+    const draft = baseDraft({
+      activities: [{
+        activity: 'A',
+        start: '01-11-2026 00:00',
+        end: '01-11-2026 10:00',
+        duration: '10.0000',
+        ltCounts: true,
+        ltPartial: '150',
+        notes: '',
+      }],
+    });
+    const safe = sanitizeTankerDraftForRecompute(draft);
+    assert.equal(safe.activities[0].ltPartial, '0');
+    assert.equal(draft.activities[0].ltPartial, '150');
+  });
+
+  it('hoursBetweenStrict matches 00:00–12:00 → 12h', () => {
+    assert.equal(hoursBetweenStrict('01-11-2026 00:00', '01-11-2026 12:00'), 12);
   });
 });
 

@@ -4,9 +4,22 @@ import { attachmentUrl } from '@bainbridge/shared-routing';
 import LaytimeTankerSummaryPill from './LaytimeTankerSummaryPill.jsx';
 import LaytimeTankerTables from './LaytimeTankerTables.jsx';
 import { tankerLoadedQtyPatchOptions } from './laytimeTankerHelpers.js';
+import { parseStrictDisplayDateTime } from './laytimeTankerValidation.js';
 import { PortTabLabel } from './portTabLabel.jsx';
 import sofStyles from './OpsVcSofTanker.module.css';
 import styles from './OpsVcLaytimePage.module.css';
+
+function optionalDateInvalid(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return false;
+  return !parseStrictDisplayDateTime(raw);
+}
+
+function requiredDateInvalid(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return false;
+  return !parseStrictDisplayDateTime(raw);
+}
 
 function PortTypeIcon({ portType }) {
   if (portType === 'DP') {
@@ -202,6 +215,8 @@ export default function LaytimeTankerLayout({
                   value={draft.norTendered}
                   onChange={(v) => patchDraft({ norTendered: v })}
                   disabled={locked}
+                  ariaLabel="NOR Tendered"
+                  invalid={requiredDateInvalid(draft.norTendered)}
                 />
               </div>
               <div className={styles.ltTimingCell} data-field="norAccepted">
@@ -211,6 +226,8 @@ export default function LaytimeTankerLayout({
                   value={draft.norAccepted}
                   onChange={(v) => patchDraft({ norAccepted: v })}
                   disabled={locked}
+                  ariaLabel="NOR Accepted"
+                  invalid={optionalDateInvalid(draft.norAccepted)}
                 />
               </div>
               <div className={styles.ltTimingCell}>
@@ -225,6 +242,8 @@ export default function LaytimeTankerLayout({
                   value={draft.loadCommenced}
                   onChange={(v) => patchDraft({ loadCommenced: v })}
                   disabled={locked}
+                  ariaLabel="Cargo Commenced"
+                  invalid={requiredDateInvalid(draft.loadCommenced)}
                 />
               </div>
               <div className={styles.ltTimingCell} data-field="loadCompleted">
@@ -234,6 +253,8 @@ export default function LaytimeTankerLayout({
                   value={draft.loadCompleted}
                   onChange={(v) => patchDraft({ loadCompleted: v })}
                   disabled={locked}
+                  ariaLabel="Cargo Completed"
+                  invalid={requiredDateInvalid(draft.loadCompleted)}
                 />
               </div>
               <div className={styles.ltTimingCell} data-field="startCounting">
@@ -243,6 +264,8 @@ export default function LaytimeTankerLayout({
                   value={draft.startCounting}
                   onChange={(v) => patchDraft({ startCounting: v })}
                   disabled={locked}
+                  ariaLabel="Laytime Starts"
+                  invalid={optionalDateInvalid(draft.startCounting)}
                 />
               </div>
               <div className={styles.ltTimingCell}>

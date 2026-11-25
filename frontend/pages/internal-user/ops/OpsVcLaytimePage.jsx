@@ -127,11 +127,13 @@ function LtDateField({
   disabled,
   enableTime = true,
   className = '',
+  ariaLabel,
+  invalid = false,
 }) {
   const hasValue = Boolean(String(value || '').trim());
   return (
     <div
-      className={`${styles.ltDateField} ${hasValue ? styles.ltDateFieldHasValue : ''} ${className}`.trim()}
+      className={`${styles.ltDateField} ${hasValue ? styles.ltDateFieldHasValue : ''} ${invalid ? styles.ltDateFieldInvalid : ''} ${className}`.trim()}
     >
       <span className={styles.ltDateFieldIco}>
         <CalendarIco />
@@ -143,6 +145,8 @@ function LtDateField({
         onChange={onChange}
         disabled={disabled}
         className={styles.ltDateFieldInput}
+        ariaLabel={ariaLabel}
+        ariaInvalid={invalid || undefined}
       />
     </div>
   );
@@ -417,7 +421,7 @@ function truthyFlag(value) {
   return value === true || value === 1 || value === '1';
 }
 
-function draftFromPort(port, rateUnit = 'days', { recompute = true } = {}) {
+function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = false } = {}) {
   const draft = {
     terminal: port.terminal || '',
     stowageQty: port.stowageQty || '',
@@ -495,7 +499,10 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true } = {}) {
     );
     if (allowed !== '') draft.laytimeAllowed = allowed;
   }
-  return recomputePortDraft(draft, rateUnit);
+  // Tanker load path must use the same calc gate as live edits (no ungated recomputePortDraft).
+  return tanker
+    ? recomputeTankerPortDraft(draft, rateUnit)
+    : recomputePortDraft(draft, rateUnit);
 }
 
 /**
@@ -543,11 +550,12 @@ export default function OpsVcLaytimePage() {
       const data = await fetchLaytimeForm(comId);
       setForm(data);
       const unit = data.rateUnit === 'hours' || data.rateUnit === 'days' ? data.rateUnit : null;
+      const tanker = usesTankerLaytimeLayout(resolveLaytimeEstimateType(data));
       const nextDrafts = {};
       (data.ports || []).forEach((port) => {
         // Unknown unit: snapshot stored values only (no blanking, no recompute).
         nextDrafts[port.key] = unit
-          ? draftFromPort(port, unit)
+          ? draftFromPort(port, unit, { tanker })
           : draftFromPort(port, null, { recompute: false });
       });
       setDrafts(nextDrafts);

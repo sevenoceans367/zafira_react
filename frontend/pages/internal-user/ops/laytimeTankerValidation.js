@@ -1,7 +1,7 @@
 /**
  * Tanker-only (estimateType === 2) client validation + safe recompute.
  * Hidden Dry/Gas fields are not required — Legacy getSubmit skips qty/rate when selBType==2.
- * Does not change recomputePortDraft formulas; only gates which draft values feed them.
+ * Does not change recomputePortDraft formulas; only gates when they may run.
  */
 
 import { recomputePortDraft } from './laytimeCalculations.js';
@@ -10,6 +10,12 @@ export const TANKER_MANDATORY_OPERATIONAL_FIELDS = [
   { key: 'norTendered', label: 'NOR TENDERED' },
   { key: 'loadCommenced', label: 'CARGO COMMENCED' },
   { key: 'loadCompleted', label: 'CARGO COMPLETED' },
+];
+
+/** Optional timing fields — blank OK; non-blank must parse strictly. */
+export const TANKER_OPTIONAL_STRICT_DATE_FIELDS = [
+  { key: 'norAccepted', label: 'NOR ACCEPTED' },
+  { key: 'startCounting', label: 'LAYTIME STARTS' },
 ];
 
 /**
@@ -149,19 +155,93 @@ function firstInvalidPartial(rows, kindLabel) {
   return { ok: true };
 }
 
-function sanitizeRowForRecompute(row) {
-  const datesOk = validateDateRangeOrder(row.start, row.end).ok;
-  const partialOk = isValidLtPartialPercent(row.ltPartial);
-  return {
-    ...row,
-    ltPartial: partialOk ? row.ltPartial : '0',
-    ...(datesOk ? {} : { start: '', end: '', duration: '0.0' }),
-  };
+/** Hours between strict DMY datetimes, or null if either end is missing/invalid. */
+export function hoursBetweenStrict(start, end) {
+  const from = parseStrictDisplayDateTime(start);
+  const to = parseStrictDisplayDateTime(end);
+  if (!from || !to) return null;
+  return Number(((to.getTime() - from.getTime()) / (1000 * 60 * 60)).toFixed(4));
+}
+
+function durationFromStrictDates(row) {
+  const start = String(row?.start || '').trim();
+  const end = String(row?.end || '').trim();
+  if (!start || !end) return row?.duration ?? '';
+  const hours = hoursBetweenStrict(start, end);
+  if (hours == null) return row?.duration ?? '';
+  return hours.toFixed(4);
+}
+
+/** Blank duration OK (auto); supplied duration must match strict start/finish. */
+export function verifyRowDurations(rows, kindLabel) {
+  for (let i = 0; i < (rows || []).length; i += 1) {
+    const row = rows[i] || {};
+    if (rowIsEmpty(row)) continue;
+    const start = String(row.start || '').trim();
+    const end = String(row.end || '').trim();
+    if (!start || !end) continue;
+    const expected = hoursBetweenStrict(start, end);
+    if (expected == null) continue;
+    const rawDur = String(row.duration ?? '').trim();
+    if (rawDur === '') continue;
+    const parsed = parseStrictDecimal(rawDur);
+    if (!parsed.ok || parsed.blank) {
+      return {
+        ok: false,
+        field: kindLabel === 'Activity' ? 'activities' : 'deductions',
+        message: `${kindLabel} #${i + 1} duration must be a valid number.`,
+        index: i,
+        focus: 'start',
+      };
+    }
+    if (Math.abs(parsed.value - expected) > 0.0002) {
+      return {
+        ok: false,
+        field: kindLabel === 'Activity' ? 'activities' : 'deductions',
+        message: `${kindLabel} #${i + 1} duration does not match start/finish.`,
+        index: i,
+        focus: 'start',
+      };
+    }
+  }
+  return { ok: true };
 }
 
 /**
- * Calc-only draft: invalid % / dates / rates never feed recomputePortDraft.
- * Raw user values are restored after compute so Save can still reject them.
+ * Calc-input gate (not save-mandatory NOR/cargo). Invalid → calculations unavailable.
+ */
+export function tankerCalcInputsValid(draft) {
+  if (!draft) return { ok: false, message: 'Laytime draft is missing.' };
+
+  const actPartial = firstInvalidPartial(draft.activities, 'Activity');
+  if (!actPartial.ok) return actPartial;
+  const dedPartial = firstInvalidPartial(draft.deductions, 'Deduction');
+  if (!dedPartial.ok) return dedPartial;
+
+  const actDates = firstInvalidRowDate(draft.activities, 'Activity');
+  if (!actDates.ok) return actDates;
+  const dedDates = firstInvalidRowDate(draft.deductions, 'Deduction');
+  if (!dedDates.ok) return dedDates;
+
+  if (!isBlankOrFiniteNumber(draft.laytimeAllowed)) {
+    return { ok: false, field: 'laytimeAllowed', message: 'Laytime Allowed must be blank or a valid number.' };
+  }
+  if (!isBlankOrFiniteNumber(draft.demurrageRate)) {
+    return { ok: false, field: 'demurrageRate', message: 'Demurrage Rate must be blank or a valid number.' };
+  }
+  if (!isBlankOrFiniteNumber(draft.despatchRate)) {
+    return { ok: false, field: 'despatchRate', message: 'Dispatch Rate must be blank or a valid number.' };
+  }
+  if (!isBlankOrFiniteNumber(draft.loadedQty)) {
+    return { ok: false, field: 'loadedQty', message: 'QTY (MT) must be blank or a valid number.' };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Kept for tests / callers that need a calc-only clone.
+ * Prefer recomputeTankerPortDraft which marks results unavailable when invalid.
  */
 export function sanitizeTankerDraftForRecompute(draft) {
   if (!draft) return draft;
@@ -171,38 +251,61 @@ export function sanitizeTankerDraftForRecompute(draft) {
     demurrageRate: isBlankOrFiniteNumber(draft.demurrageRate) ? draft.demurrageRate : '',
     despatchRate: isBlankOrFiniteNumber(draft.despatchRate) ? draft.despatchRate : '',
     loadedQty: isBlankOrFiniteNumber(draft.loadedQty) ? draft.loadedQty : '',
-    activities: (draft.activities || []).map(sanitizeRowForRecompute),
-    deductions: (draft.deductions || []).map(sanitizeRowForRecompute),
+    activities: (draft.activities || []).map((row) => {
+      const datesOk = validateDateRangeOrder(row.start, row.end).ok;
+      const partialOk = isValidLtPartialPercent(row.ltPartial);
+      return {
+        ...row,
+        ltPartial: partialOk ? row.ltPartial : '0',
+        ...(datesOk ? {} : { start: '', end: '', duration: '0.0' }),
+      };
+    }),
+    deductions: (draft.deductions || []).map((row) => {
+      const datesOk = validateDateRangeOrder(row.start, row.end).ok;
+      const partialOk = isValidLtPartialPercent(row.ltPartial);
+      return {
+        ...row,
+        ltPartial: partialOk ? row.ltPartial : '0',
+        ...(datesOk ? {} : { start: '', end: '', duration: '0.0' }),
+      };
+    }),
   };
 }
 
-function restoreRawRowInputs(rawRow, computedRow) {
-  if (!rawRow) return computedRow;
-  return {
-    ...computedRow,
-    start: rawRow.start,
-    end: rawRow.end,
-    ltPartial: rawRow.ltPartial,
-    activity: rawRow.activity,
-    notes: rawRow.notes,
-    ltCounts: rawRow.ltCounts,
-    ltNoCounts: rawRow.ltNoCounts,
-    sofLoadPortId: rawRow.sofLoadPortId,
-  };
+function markRowsDurationOnly(rows) {
+  return (rows || []).map((row) => ({
+    ...row,
+    duration: durationFromStrictDates(row),
+    cumulative: '',
+  }));
 }
 
-/** Tanker recompute entry: sanitize → recomputePortDraft → restore raw invalid inputs. */
+/**
+ * Tanker recompute entry.
+ * Valid calc inputs → recomputePortDraft.
+ * Invalid stored values → do not invent zero/fake financials; mark unavailable.
+ * Durations still refresh from strict dates so the Duration column stays truthful.
+ */
 export function recomputeTankerPortDraft(draft, rateUnit = 'hours') {
-  const safe = sanitizeTankerDraftForRecompute(draft);
-  const next = recomputePortDraft(safe, rateUnit);
+  if (!draft) return draft;
+  const check = tankerCalcInputsValid(draft);
+  if (!check.ok) {
+    return {
+      ...draft,
+      calcUnavailable: true,
+      activities: markRowsDurationOnly(draft.activities),
+      deductions: markRowsDurationOnly(draft.deductions),
+      actualLaytime: '',
+      timeToDemurrage: '',
+      timeToDespatch: '',
+      ttlDemurrage: '',
+      ttlDespatch: '',
+    };
+  }
+  const next = recomputePortDraft(draft, rateUnit);
   return {
     ...next,
-    laytimeAllowed: draft.laytimeAllowed,
-    demurrageRate: draft.demurrageRate,
-    despatchRate: draft.despatchRate,
-    loadedQty: draft.loadedQty,
-    activities: (next.activities || []).map((row, i) => restoreRawRowInputs(draft.activities?.[i], row)),
-    deductions: (next.deductions || []).map((row, i) => restoreRawRowInputs(draft.deductions?.[i], row)),
+    calcUnavailable: false,
   };
 }
 
@@ -229,6 +332,18 @@ export function validateTankerLaytimeDraft(draft, { submitId = 0 } = {}) {
     }
   }
 
+  for (const { key, label } of TANKER_OPTIONAL_STRICT_DATE_FIELDS) {
+    const raw = String(draft[key] || '').trim();
+    if (!raw) continue;
+    if (!parseStrictDisplayDateTime(raw)) {
+      return {
+        ok: false,
+        field: key,
+        message: `${label} must be a complete date (DD-MM-YYYY).`,
+      };
+    }
+  }
+
   const actPartial = firstInvalidPartial(draft.activities, 'Activity');
   if (!actPartial.ok) return actPartial;
   const dedPartial = firstInvalidPartial(draft.deductions, 'Deduction');
@@ -238,6 +353,11 @@ export function validateTankerLaytimeDraft(draft, { submitId = 0 } = {}) {
   if (!actDates.ok) return actDates;
   const dedDates = firstInvalidRowDate(draft.deductions, 'Deduction');
   if (!dedDates.ok) return dedDates;
+
+  const actDur = verifyRowDurations(draft.activities, 'Activity');
+  if (!actDur.ok) return actDur;
+  const dedDur = verifyRowDurations(draft.deductions, 'Deduction');
+  if (!dedDur.ok) return dedDur;
 
   if (!isBlankOrFiniteNumber(draft.laytimeAllowed)) {
     return { ok: false, field: 'laytimeAllowed', message: 'Laytime Allowed must be blank or a valid number.' };

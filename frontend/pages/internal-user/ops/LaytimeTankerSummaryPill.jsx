@@ -42,17 +42,37 @@ export default function LaytimeTankerSummaryPill({
 }) {
   const panelRef = useRef(null);
   const fabRef = useRef(null);
-  const demmHrs = Number(draft?.timeToDemurrage) || 0;
-  const demmUsd = Number(draft?.ttlDemurrage) || 0;
+  const wasOpenRef = useRef(open);
+  const calcUnavailable = Boolean(draft?.calcUnavailable);
+  const demmHrs = calcUnavailable ? 0 : (Number(draft?.timeToDemurrage) || 0);
+  const demmUsd = calcUnavailable ? 0 : (Number(draft?.ttlDemurrage) || 0);
   const hrTag = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAY' : '—';
   // FAB / panel Final Demm = calculated TTL demurrage only — never session nego sum.
-  const money = formatMoneyDisplay(demmUsd);
+  const money = calcUnavailable ? '—' : formatMoneyDisplay(demmUsd);
+  const actualDisplay = calcUnavailable ? '—' : (draft?.actualLaytime || '—');
+  const demmHrsDisplay = calcUnavailable ? '—' : (draft?.timeToDemurrage || '0');
+  const demmUsdDisplay = calcUnavailable ? '—' : (draft?.ttlDemurrage || '0');
+  const despatchDisplay = calcUnavailable ? '—' : (draft?.timeToDespatch || '0');
+  const despatchUsdDisplay = calcUnavailable ? '—' : (draft?.ttlDespatch || '0');
 
   useEffect(() => {
     const onOpenRequest = () => { if (!open) onOpen(); };
     window.addEventListener('lt-tanker-open-summary', onOpenRequest);
     return () => window.removeEventListener('lt-tanker-open-summary', onOpenRequest);
   }, [open, onOpen]);
+
+  // Restore focus to the collapsed FAB after summary close.
+  useEffect(() => {
+    if (wasOpenRef.current && !open) {
+      const id = window.requestAnimationFrame(() => {
+        try { fabRef.current?.focus({ preventScroll: true }); } catch { fabRef.current?.focus(); }
+      });
+      wasOpenRef.current = open;
+      return () => window.cancelAnimationFrame(id);
+    }
+    wasOpenRef.current = open;
+    return undefined;
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -94,9 +114,9 @@ export default function LaytimeTankerSummaryPill({
       <button
         ref={fabRef}
         type="button"
-        className={styles.ltSummaryFab}
+        className={`${styles.ltSummaryFab} ${calcUnavailable ? styles.ltSummaryFabUnavailable : ''}`}
         onClick={onOpen}
-        title="Click to expand summary"
+        title={calcUnavailable ? 'Calculations unavailable — fix invalid fields' : 'Click to expand summary'}
         aria-expanded="false"
         aria-controls="lt-tanker-summary-panel"
         data-laytime-interactive="true"
@@ -112,21 +132,21 @@ export default function LaytimeTankerSummaryPill({
             <span className={styles.fabLbl}>Allowed</span>
           </div>
           <div className={styles.fabValItem}>
-            <span className={styles.fabNum}>{draft?.actualLaytime || '—'}</span>
+            <span className={styles.fabNum}>{actualDisplay}</span>
             <span className={styles.fabLbl}>Actual</span>
           </div>
           <div className={styles.fabValItem}>
             <span className={`${styles.fabNum} ${demmHrs > 0 ? styles.fabNumWarn : ''}`}>
-              {draft?.timeToDemurrage || '0'}
+              {demmHrsDisplay}
             </span>
             <span className={styles.fabLbl}>Demm&nbsp;Hrs</span>
           </div>
           <div className={styles.fabValDivider} />
           <div className={styles.fabValItem}>
             <span className={`${styles.fabNum} ${demmUsd > 0 ? styles.fabNumWarn : ''}`}>
-              ${money}
+              {calcUnavailable ? '—' : `$${money}`}
             </span>
-            <span className={styles.fabLbl}>Calc&nbsp;Demm</span>
+            <span className={styles.fabLbl}>{calcUnavailable ? 'Unavailable' : 'Calc\u00a0Demm'}</span>
           </div>
         </div>
       </button>
@@ -154,7 +174,9 @@ export default function LaytimeTankerSummaryPill({
           </div>
           <div>
             <div className={styles.ltSummaryHeadTitle}>Summary</div>
-            <div className={styles.ltSummaryHeadSub}>Laytime calculation results</div>
+            <div className={styles.ltSummaryHeadSub}>
+              {calcUnavailable ? 'Calculations unavailable — fix invalid fields' : 'Laytime calculation results'}
+            </div>
           </div>
           <button
             type="button"
@@ -211,7 +233,7 @@ export default function LaytimeTankerSummaryPill({
               </div>
               <div className={styles.ltSumFieldWrap}>
                 <FieldBox unit={hrTag}>
-                  <div className={styles.ltSumComputed}>{draft?.actualLaytime || '—'}</div>
+                  <div className={styles.ltSumComputed}>{actualDisplay}</div>
                 </FieldBox>
               </div>
             </div>
@@ -281,7 +303,7 @@ export default function LaytimeTankerSummaryPill({
               <div className={styles.ltSumFieldWrap}>
                 <FieldBox unit={hrTag}>
                   <div className={`${styles.ltSumComputed} ${demmHrs > 0 ? styles.ltSumNegative : ''}`}>
-                    {draft?.timeToDemurrage || '0'}
+                    {demmHrsDisplay}
                   </div>
                 </FieldBox>
               </div>
@@ -299,7 +321,7 @@ export default function LaytimeTankerSummaryPill({
               </div>
               <div className={styles.ltSumFieldWrap}>
                 <FieldBox unit={hrTag}>
-                  <div className={styles.ltSumComputed}>{draft?.timeToDespatch || '0'}</div>
+                  <div className={styles.ltSumComputed}>{despatchDisplay}</div>
                 </FieldBox>
               </div>
             </div>
@@ -316,7 +338,7 @@ export default function LaytimeTankerSummaryPill({
               </div>
               <div className={styles.ltSumFieldWrap}>
                 <div className={`${styles.ltSumComputed} ${demmUsd > 0 ? styles.ltSumNegative : ''}`}>
-                  {draft?.ttlDemurrage || '0'}
+                  {demmUsdDisplay}
                 </div>
               </div>
             </div>
@@ -332,7 +354,7 @@ export default function LaytimeTankerSummaryPill({
                 Disp (USD)
               </div>
               <div className={styles.ltSumFieldWrap}>
-                <div className={styles.ltSumComputed}>{draft?.ttlDespatch || '0'}</div>
+                <div className={styles.ltSumComputed}>{despatchUsdDisplay}</div>
               </div>
             </div>
           </div>

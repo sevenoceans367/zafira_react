@@ -22,6 +22,7 @@ import {
   mapTcDetail,
   mapTcListRow,
   computeTcListStats,
+  normalizeContractType,
 } from './tcEstimateMappers.js';
 
 const MOCK_LOOKUPS = {
@@ -494,6 +495,7 @@ export async function createTcEstimate(body = {}, upload = {}) {
     BALTIC_DATE: parseDmy(body.balticDate) || '1970-01-01',
     BALTIC_RATE: body.balticRate || '',
     PERIODID: body.periodId || '',
+    CONTRACT_TYPE: 'tcout',
     COMID: '',
     SHEET_NO: null,
     FIXED: null,
@@ -513,6 +515,20 @@ export async function updateTcEstimate(tcOutId, body = {}, upload = {}) {
   const index = mockStore.findIndex((row) => String(row.TCOUTID) === String(tcOutId));
   if (index < 0) return null;
   const current = mockStore[index];
+  if (
+    body.baseContractType != null
+    && String(body.baseContractType).trim() !== ''
+  ) {
+    const base = normalizeContractType(body.baseContractType);
+    const currentMode = normalizeContractType(current.CONTRACT_TYPE);
+    if (base && currentMode && base !== currentMode) {
+      const err = new Error(
+        `Contract type changed since load (was ${base}, now ${currentMode}). Reload and retry.`,
+      );
+      err.status = 409;
+      throw err;
+    }
+  }
   const vessel = MOCK_LOOKUPS.vessels.find((v) => String(v.id) === String(body.vesselImoId || current.VESSEL_IMO_ID));
   mockStore[index] = {
     ...current,
@@ -642,6 +658,20 @@ export async function saveTcCalculation(tcOutId, body = {}) {
   if (!calcInput.offHires?.length && body.offHires?.length) {
     calcInput.offHires = body.offHires;
   }
+  if (
+    body.baseContractType != null
+    && String(body.baseContractType).trim() !== ''
+  ) {
+    const base = normalizeContractType(body.baseContractType);
+    const currentMode = normalizeContractType(item.CONTRACT_TYPE);
+    if (base && currentMode && base !== currentMode) {
+      const err = new Error(
+        `Contract type changed since load (was ${base}, now ${currentMode}). Reload and retry.`,
+      );
+      err.status = 409;
+      throw err;
+    }
+  }
   const totals = calcTcTotals(calcInput);
   item.calc = { ...calcInput, ...totals };
   item.otherIncome = body.otherIncome || [];
@@ -651,7 +681,15 @@ export async function saveTcCalculation(tcOutId, body = {}) {
   item.itinerary = body.itinerary || { from: {}, to: {} };
   item.itineraryExpenses = body.itineraryExpenses || [];
   item.tcInExpenses = body.tcInExpenses || null;
-  return { msg: 0, tcOutId: Number(tcOutId), calc: item.calc };
+  if (body.contractType != null && String(body.contractType).trim() !== '') {
+    item.CONTRACT_TYPE = normalizeContractType(body.contractType) || item.CONTRACT_TYPE || 'tcout';
+  }
+  return {
+    msg: 0,
+    tcOutId: Number(tcOutId),
+    calc: item.calc,
+    contractType: normalizeContractType(item.CONTRACT_TYPE) || 'tcout',
+  };
 }
 
 export async function deleteTcEstimate(tcOutId) {

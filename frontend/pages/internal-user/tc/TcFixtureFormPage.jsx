@@ -1936,7 +1936,8 @@ export default function TcFixtureFormPage({
         const created = await createTcEstimate(payload, attachmentFiles);
         savedId = created.tcOutId;
       } else {
-        await updateTcEstimate(tcOutId, payload, attachmentFiles);
+        // Reject stale mode under master lock before fixture master/bunker writes.
+        await updateTcEstimate(tcOutId, { ...payload, baseContractType }, attachmentFiles);
       }
 
       // Capex/itinerary/tcIn persist only via calculate endpoint — merge existing calc children.

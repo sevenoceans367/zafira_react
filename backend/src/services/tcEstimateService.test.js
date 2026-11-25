@@ -155,6 +155,44 @@ describe('tcEstimateService mock lifecycle', () => {
     );
   });
 
+  it('rejects stale fixture update before mutating master fields', async () => {
+    const created = await createTcEstimate({
+      businessTypeId: '3',
+      vesselImoId: '100',
+      tcNo: 'TC-STALE-1',
+      hireFixPer: '10000',
+    });
+    await saveTcCalculation(created.tcOutId, {
+      contractType: 'tcinout',
+      baseContractType: 'tcout',
+      calc: { tcDays: '10', dailyGrossHire: '10000', totalExp: '0' },
+      tcInExpenses: {
+        recapProvenance: 'edited',
+        finalHireage: '1000.00',
+        hires: [{ randomId: 'x', nettHireage: '1000', cveAmt: '0' }],
+        deliveryBunkers: [],
+        redeliveryBunkers: [],
+        offHires: [],
+        ilohc: '0',
+        awrpCost: '0',
+      },
+    });
+    const before = await getTcEstimate(created.tcOutId);
+    assert.equal(before.contractType, 'tcinout');
+    await assert.rejects(
+      () => updateTcEstimate(created.tcOutId, {
+        baseContractType: 'tcout',
+        tcNo: 'TC-STALE-MUTATED',
+      }),
+      (err) => err.status === 409,
+    );
+    const after = await getTcEstimate(created.tcOutId);
+    assert.equal(after.tcNo, before.tcNo);
+    assert.notEqual(after.tcNo, 'TC-STALE-MUTATED');
+    assert.equal(after.contractType, 'tcinout');
+    await deleteTcEstimate(created.tcOutId);
+  });
+
   it('sends a TC estimate straight to Ops with FIXED set', async () => {
     const created = await createTcEstimate({
       businessTypeId: '3',

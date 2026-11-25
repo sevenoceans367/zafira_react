@@ -21,7 +21,6 @@ import {
   resolveTcInExpensesForWrite,
   shouldPreserveStoredDormantJson,
   mapOtherIncomeRow,
-  normalizeOtherIncomeAccountType,
 } from './tcEstimateMappers.js';
 import {
   isTcContractTypeSchemaReady,
@@ -1226,27 +1225,47 @@ export async function dbCreateTcEstimate(body = {}, upload = {}) {
 
 export async function dbUpdateTcEstimate(tcOutId, body = {}, upload = {}) {
   const pool = getPool();
+  await requireTcContractTypeSchema(pool);
   const hasEstimateNo = await ensureTcEstimateNoColumn(pool);
   const hasAttachments = await ensureTcAttachmentColumns(pool);
   // CONTRACT_TYPE + TC_IN_RECAP_JSON are intentionally NOT written here.
   // Fixture save always follows with calculate; mode/JSON/finance/children must
   // commit in one calculate transaction so a failed calc cannot leave mode flipped.
+  // Stale baseContractType is checked under the master-row lock before any mutation.
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     const [existing] = await connection.query(
       hasAttachments
-        ? `SELECT TCOUTID, ATTACHMENT, ATTACHMENT_NAME
+        ? `SELECT TCOUTID, ATTACHMENT, ATTACHMENT_NAME, CONTRACT_TYPE
            FROM chartering_estimate_tc_master
-           WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`
-        : `SELECT TCOUTID
+           WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ?
+           LIMIT 1
+           FOR UPDATE`
+        : `SELECT TCOUTID, CONTRACT_TYPE
            FROM chartering_estimate_tc_master
-           WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ? LIMIT 1`,
+           WHERE MODULEID = ? AND MCOMPANYID = ? AND TCOUTID = ?
+           LIMIT 1
+           FOR UPDATE`,
       [MODULE_ID, COMPANY_ID, tcOutId],
     );
     if (!existing[0]) {
       await connection.rollback();
       return null;
+    }
+    if (
+      body.baseContractType != null
+      && String(body.baseContractType).trim() !== ''
+    ) {
+      const base = normalizeContractType(body.baseContractType);
+      const current = normalizeContractType(existing[0].CONTRACT_TYPE);
+      if (base && current && base !== current) {
+        const err = new Error(
+          `Contract type changed since load (was ${base}, now ${current}). Reload and retry.`,
+        );
+        err.status = 409;
+        throw err;
+      }
     }
     let payload = withEstimateNo(masterPayload(body), body, hasEstimateNo);
     if (hasAttachments) {
@@ -1353,35 +1372,14 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
   }
 
   if (replaceIncome) {
-    let hasAccountTypeCol = false;
-    try {
-      const [cols] = await connection.query(
-        `SHOW COLUMNS FROM chartering_estimate_tc_slave2 LIKE 'ACCOUNT_TYPE'`,
-      );
-      hasAccountTypeCol = cols.length > 0;
-    } catch {
-      hasAccountTypeCol = false;
-    }
+    // Legacy parity: STATUS=1 rows are undifferentiated revenue (no ACCOUNT_TYPE discriminator).
     for (const row of body.otherIncome || []) {
       if (!row.amount && !row.description && !row.accountType) continue;
-      if (hasAccountTypeCol) {
-        await connection.query(
-          `INSERT INTO chartering_estimate_tc_slave2
-           (TC_SLAVE1ID, DESCRIPTION, OTHER_AMT, STATUS, ACCOUNT_TYPE) VALUES (?, ?, ?, 1, ?)`,
-          [
-            slave1Id,
-            nullIfEmpty(row.description),
-            nullIfEmpty(row.amount),
-            normalizeOtherIncomeAccountType(row.accountType),
-          ],
-        );
-      } else {
-        await connection.query(
-          `INSERT INTO chartering_estimate_tc_slave2
-           (TC_SLAVE1ID, DESCRIPTION, OTHER_AMT, STATUS) VALUES (?, ?, ?, 1)`,
-          [slave1Id, nullIfEmpty(row.description), nullIfEmpty(row.amount)],
-        );
-      }
+      await connection.query(
+        `INSERT INTO chartering_estimate_tc_slave2
+         (TC_SLAVE1ID, DESCRIPTION, OTHER_AMT, STATUS) VALUES (?, ?, ?, 1)`,
+        [slave1Id, nullIfEmpty(row.description), nullIfEmpty(row.amount)],
+      );
     }
   }
   if (replaceExpenses) {

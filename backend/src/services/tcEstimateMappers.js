@@ -167,11 +167,25 @@ export function toFiniteNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** True when Hire Recap has component rows that must drive server hireage (not a bare scalar). */
+function tcInHasHireageComponents(tcIn) {
+  if (!tcIn || typeof tcIn !== 'object') return false;
+  if ((tcIn.hires || []).length > 0) return true;
+  if ((tcIn.deliveryBunkers || []).length > 0) return true;
+  if ((tcIn.redeliveryBunkers || []).length > 0) return true;
+  if ((tcIn.offHires || []).length > 0) return true;
+  const ilohc = toFiniteNumber(tcIn.ilohc);
+  if (ilohc != null && ilohc !== 0) return true;
+  const awrp = toFiniteNumber(tcIn.awrpCost);
+  if (awrp != null && awrp !== 0) return true;
+  return false;
+}
+
 /**
  * Active TC In hireage for P&L. Dormant (tcout) → 0.
- * Order: authoritative body components → explicit body scalar → calc scalar →
- * dormant JSON scalar → compute from dormant object. Never prefers an old
- * positive JSON amount over an explicit live 0 / negative edit.
+ * Authoritative edits: compute from components when present (server protection);
+ * otherwise explicit body scalar (incl. 0 / negative empty edits).
+ * Restoration: dormant JSON / snapshot components before stale calc scalars.
  */
 export function resolveActiveTcInHireage({
   isTcInOut = false,
@@ -183,13 +197,13 @@ export function resolveActiveTcInHireage({
 } = {}) {
   if (!isTcInOut) return 0;
   if (authoritativeEdit) {
-    const fromBody = toFiniteNumber(bodyFinalHireage);
-    if (fromBody != null) return fromBody;
-    if (tcInExpenses && typeof tcInExpenses === 'object') {
+    if (tcInHasHireageComponents(tcInExpenses)) {
       const computed = computeTcInFinalHireage(tcInExpenses);
       const fromComponents = toFiniteNumber(computed.finalHireage);
       if (fromComponents != null) return fromComponents;
     }
+    const fromBody = toFiniteNumber(bodyFinalHireage);
+    if (fromBody != null) return fromBody;
     return 0;
   }
   // Restoration path: prefer retained JSON / snapshot components over stale calc '0'.

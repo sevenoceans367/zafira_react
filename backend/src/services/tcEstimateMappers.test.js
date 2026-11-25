@@ -422,6 +422,25 @@ describe('tcEstimateMappers', () => {
     }), 1000);
   });
 
+  it('authoritative hireage prefers components over a mismatched body scalar', () => {
+    const tcInExpenses = {
+      finalHireage: '3568500',
+      hires: [{ nettHireage: '290000', cveAmt: '0' }],
+      deliveryBunkers: [{ qty: '10', price: '100' }],
+      redeliveryBunkers: [],
+      offHires: [],
+      awrpCost: '0',
+      ilohc: '50',
+    };
+    assert.equal(computeTcInFinalHireage(tcInExpenses).finalHireage, '291050.00');
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      authoritativeEdit: true,
+      bodyFinalHireage: 3568500,
+      tcInExpenses,
+    }), 291050);
+  });
+
   it('adds owner otherIncome into voyage expenses and charterer into income', () => {
     const income = [
       { accountType: 'Owner', amount: '100' },

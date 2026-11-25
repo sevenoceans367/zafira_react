@@ -65,32 +65,6 @@ async function ensureLongtextColumn(conn, column) {
   );
 }
 
-async function slave2AccountTypeExists(conn) {
-  try {
-    // otherIncome/expense table (STATUS=1/2) — not TC In hire rows (chartering_tc_estimate_slave2).
-    const [cols] = await conn.query(
-      `SHOW COLUMNS FROM chartering_estimate_tc_slave2 LIKE 'ACCOUNT_TYPE'`,
-    );
-    return cols.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-/** Nullable discriminator for Owner vs Charterer otherIncome (STATUS=1). NULL = legacy Charterer. */
-async function ensureSlave2AccountTypeColumn(conn) {
-  if (await slave2AccountTypeExists(conn)) return;
-  try {
-    await conn.query(
-      `ALTER TABLE chartering_estimate_tc_slave2
-       ADD COLUMN ACCOUNT_TYPE VARCHAR(16) NULL`,
-    );
-  } catch (error) {
-    // Table may be absent on minimal fixtures — soft skip; writes probe later.
-    if (!/doesn't exist|Unknown table/i.test(String(error.message || ''))) throw error;
-  }
-}
-
 /** True when parsed Hire Recap JSON has a recoverable TC In signal (Node-side; no JSON_VALID). */
 function jsonRecapHasTcInSignal(raw) {
   if (raw == null) return false;
@@ -220,9 +194,9 @@ export async function runTcContractTypeMigration(pool = getPool()) {
 
     await ensureMetaTable(connection);
 
-    // Dependencies first: JSON + income ACCOUNT_TYPE before backfill / writes.
+    // JSON dependency before backfill / writes. No unrelated income schema here —
+    // Legacy STATUS=1 otherIncome remains undifferentiated revenue.
     await ensureLongtextColumn(connection, 'TC_IN_RECAP_JSON');
-    await ensureSlave2AccountTypeColumn(connection);
 
     if (await schemaPostconditionsMet(connection)
       && (await alreadyApplied(connection))) {
@@ -245,7 +219,7 @@ export async function runTcContractTypeMigration(pool = getPool()) {
        ON DUPLICATE KEY UPDATE version = VALUES(version), applied_at = CURRENT_TIMESTAMP, notes = VALUES(notes)`,
       [
         TC_CONTRACT_TYPE_MIGRATION_VERSION,
-        'CONTRACT_TYPE + TC_IN_RECAP_JSON + slave2.ACCOUNT_TYPE + conservative backfill',
+        'CONTRACT_TYPE + TC_IN_RECAP_JSON + conservative backfill',
       ],
     );
 

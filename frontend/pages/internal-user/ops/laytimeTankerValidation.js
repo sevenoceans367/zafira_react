@@ -28,6 +28,18 @@ export function isValidLtPartialPercent(value) {
 }
 
 /**
+ * Whether a Tanker field edit may safely trigger recomputePortDraft.
+ * Invalid % / rates / date ranges stay in the draft for Save to reject —
+ * they must not silently inflate demurrage while typing.
+ */
+export function mayRecomputeTankerField(kind, value, peerValue) {
+  if (kind === 'ltPartial') return isValidLtPartialPercent(value);
+  if (kind === 'number') return isBlankOrFiniteNumber(value);
+  if (kind === 'dateRange') return validateDateRangeOrder(value, peerValue).ok;
+  return true;
+}
+
+/**
  * Incomplete blank dates are OK. Non-blank must parse as full DMY (optional time).
  * When both start and end are set, end must be >= start.
  */

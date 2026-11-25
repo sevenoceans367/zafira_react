@@ -1,6 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { Button } from '@bainbridge/shared-ui';
 import { formatMoneyDisplay } from './laytimeTankerHelpers.js';
+import {
+  isBlankOrFiniteNumber,
+  mayRecomputeTankerField,
+} from './laytimeTankerValidation.js';
 import styles from './OpsVcLaytimePage.module.css';
 
 function SumIco({ tone, children }) {
@@ -177,12 +181,20 @@ export default function LaytimeTankerSummaryPill({
               <div className={styles.ltSumFieldWrap}>
                 <FieldBox unit={hrTag}>
                   <input
-                    className={styles.ltSumInp}
+                    className={`${styles.ltSumInp} ${!isBlankOrFiniteNumber(draft?.laytimeAllowed) ? styles.cfInpInvalid : ''}`}
                     type="text"
+                    inputMode="decimal"
                     value={draft?.laytimeAllowed ?? ''}
-                    onChange={(e) => onPatchDraft({ laytimeAllowed: e.target.value }, { recompute: true })}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      onPatchDraft(
+                        { laytimeAllowed: next },
+                        { recompute: mayRecomputeTankerField('number', next) },
+                      );
+                    }}
                     disabled={locked}
                     aria-label="Laytime Allowed"
+                    aria-invalid={!isBlankOrFiniteNumber(draft?.laytimeAllowed)}
                   />
                 </FieldBox>
               </div>
@@ -220,13 +232,21 @@ export default function LaytimeTankerSummaryPill({
               </div>
               <div className={styles.ltSumFieldWrap}>
                 <input
-                  className={styles.ltSumInp}
+                  className={`${styles.ltSumInp} ${!isBlankOrFiniteNumber(draft?.demurrageRate) ? styles.cfInpInvalid : ''}`}
                   type="text"
+                  inputMode="decimal"
                   value={draft?.demurrageRate ?? ''}
-                  onChange={(e) => onPatchDraft({ demurrageRate: e.target.value }, { recompute: true })}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    onPatchDraft(
+                      { demurrageRate: next },
+                      { recompute: mayRecomputeTankerField('number', next) },
+                    );
+                  }}
                   disabled={locked}
                   placeholder="USD/day"
                   aria-label="Demurrage Rate"
+                  aria-invalid={!isBlankOrFiniteNumber(draft?.demurrageRate)}
                 />
               </div>
             </div>
@@ -243,10 +263,18 @@ export default function LaytimeTankerSummaryPill({
               </div>
               <div className={styles.ltSumFieldWrap}>
                 <input
-                  className={styles.ltSumInp}
+                  className={`${styles.ltSumInp} ${!isBlankOrFiniteNumber(draft?.despatchRate) ? styles.cfInpInvalid : ''}`}
                   type="text"
+                  inputMode="decimal"
                   value={draft?.despatchRate ?? ''}
-                  onChange={(e) => onPatchDraft({ despatchRate: e.target.value }, { recompute: true })}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    onPatchDraft(
+                      { despatchRate: next },
+                      { recompute: mayRecomputeTankerField('number', next) },
+                    );
+                  }}
+                  aria-invalid={!isBlankOrFiniteNumber(draft?.despatchRate)}
                   disabled={locked}
                   placeholder="USD/day"
                   aria-label="Dispatch Rate"

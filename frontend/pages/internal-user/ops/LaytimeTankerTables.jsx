@@ -5,6 +5,10 @@ import {
   filterRowsByQuery,
   isLaytimeActivityCounting,
 } from './laytimeTankerHelpers.js';
+import {
+  isValidLtPartialPercent,
+  mayRecomputeTankerField,
+} from './laytimeTankerValidation.js';
 import { paginateRows } from './sofTankerHelpers.js';
 import styles from './OpsVcLaytimePage.module.css';
 
@@ -226,14 +230,24 @@ export default function LaytimeTankerTables({
                   <td>
                     <LtDateField
                       value={row.start}
-                      onChange={(v) => updateListRow('activities', index, { start: v }, true)}
+                      onChange={(v) => updateListRow(
+                        'activities',
+                        index,
+                        { start: v },
+                        mayRecomputeTankerField('dateRange', v, row.end),
+                      )}
                       disabled={locked}
                     />
                   </td>
                   <td>
                     <LtDateField
                       value={row.end}
-                      onChange={(v) => updateListRow('activities', index, { end: v }, true)}
+                      onChange={(v) => updateListRow(
+                        'activities',
+                        index,
+                        { end: v },
+                        mayRecomputeTankerField('dateRange', row.start, v),
+                      )}
                       disabled={locked}
                     />
                   </td>
@@ -256,13 +270,23 @@ export default function LaytimeTankerTables({
                   </td>
                   <td>
                     <input
-                      className={`${styles.cfInp} ${styles.numSm}`}
+                      className={`${styles.cfInp} ${styles.numSm} ${!isValidLtPartialPercent(row.ltPartial) ? styles.cfInpInvalid : ''}`}
                       type="text"
+                      inputMode="decimal"
                       value={row.ltPartial ?? ''}
-                      onChange={(e) => updateListRow('activities', index, { ltPartial: e.target.value }, true)}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        updateListRow(
+                          'activities',
+                          index,
+                          { ltPartial: next },
+                          mayRecomputeTankerField('ltPartial', next),
+                        );
+                      }}
                       disabled={partialDisabled}
                       style={partialDisabled ? { opacity: 0.45 } : undefined}
                       aria-label="LT Partial %"
+                      aria-invalid={!isValidLtPartialPercent(row.ltPartial)}
                     />
                   </td>
                   <td>
@@ -359,14 +383,24 @@ export default function LaytimeTankerTables({
                 <td>
                   <LtDateField
                     value={row.start}
-                    onChange={(v) => updateListRow('deductions', index, { start: v }, true)}
+                    onChange={(v) => updateListRow(
+                      'deductions',
+                      index,
+                      { start: v },
+                      mayRecomputeTankerField('dateRange', v, row.end),
+                    )}
                     disabled={locked}
                   />
                 </td>
                 <td>
                   <LtDateField
                     value={row.end}
-                    onChange={(v) => updateListRow('deductions', index, { end: v }, true)}
+                    onChange={(v) => updateListRow(
+                      'deductions',
+                      index,
+                      { end: v },
+                      mayRecomputeTankerField('dateRange', row.start, v),
+                    )}
                     disabled={locked}
                   />
                 </td>
@@ -375,12 +409,22 @@ export default function LaytimeTankerTables({
                 </td>
                 <td>
                   <input
-                    className={`${styles.cfInp} ${styles.numSm}`}
+                    className={`${styles.cfInp} ${styles.numSm} ${!isValidLtPartialPercent(row.ltPartial) ? styles.cfInpInvalid : ''}`}
                     type="text"
+                    inputMode="decimal"
                     value={row.ltPartial ?? ''}
-                    onChange={(e) => updateListRow('deductions', index, { ltPartial: e.target.value }, true)}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      updateListRow(
+                        'deductions',
+                        index,
+                        { ltPartial: next },
+                        mayRecomputeTankerField('ltPartial', next),
+                      );
+                    }}
                     disabled={locked}
                     aria-label="LT Partial %"
+                    aria-invalid={!isValidLtPartialPercent(row.ltPartial)}
                   />
                 </td>
                 <td>

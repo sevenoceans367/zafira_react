@@ -1239,6 +1239,12 @@
   outline: none;
 }
 
+.ltTankerRoot .cfInpInvalid,
+.ltSumInp.cfInpInvalid {
+  border-color: #b42318;
+  background: #fdecea;
+}
+
 .ltTankerRoot .cfInp::placeholder {
   color: #5b6472;
   font-style: italic;

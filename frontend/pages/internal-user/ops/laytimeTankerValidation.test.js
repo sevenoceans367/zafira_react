@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   isBlankOrFiniteNumber,
   isValidLtPartialPercent,
+  mayRecomputeTankerField,
   validateDateRangeOrder,
   validateTankerLaytimeDraft,
 } from './laytimeTankerValidation.js';
@@ -86,6 +87,17 @@ describe('lt partial % and rates', () => {
       activities: [{ activity: '', start: '', end: '', notes: '', ltPartial: '999' }],
     }));
     assert.equal(result.ok, true);
+  });
+
+  it('blocks recompute for invalid LT % / junk rates / reversed dates', () => {
+    assert.equal(mayRecomputeTankerField('ltPartial', '100'), true);
+    assert.equal(mayRecomputeTankerField('ltPartial', '150'), false);
+    assert.equal(mayRecomputeTankerField('ltPartial', '-5'), false);
+    assert.equal(mayRecomputeTankerField('ltPartial', '10abc'), false);
+    assert.equal(mayRecomputeTankerField('number', '24000'), true);
+    assert.equal(mayRecomputeTankerField('number', 'nope'), false);
+    assert.equal(mayRecomputeTankerField('dateRange', '01-11-2026 00:00', '01-11-2026 10:00'), true);
+    assert.equal(mayRecomputeTankerField('dateRange', '02-11-2026 00:00', '01-11-2026 00:00'), false);
   });
 });
 

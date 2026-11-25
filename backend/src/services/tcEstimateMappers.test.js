@@ -9,13 +9,13 @@ import {
   mapTcDetail,
   mapTcListRow,
   normalizeContractType,
-  decodeOtherIncomeRow,
-  encodeOtherIncomeDescription,
   isAuthoritativeTcInEdit,
+  mapOtherIncomeRow,
   preferRicherTcInRecap,
   resolveActiveTcInHireage,
   resolveContractTypeForWrite,
   resolveTcInExpensesForWrite,
+  shouldPreserveStoredDormantJson,
   sumChartererOtherIncome,
   sumOwnerOtherIncome,
   tcContractTypeLabel,
@@ -379,14 +379,18 @@ describe('tcEstimateMappers', () => {
   it('keeps explicit zero/negative active hireage and zeros under tcout', () => {
     assert.equal(resolveActiveTcInHireage({
       isTcInOut: true,
+      authoritativeEdit: true,
       bodyFinalHireage: 0,
       calcFinalHireage: 999,
       jsonFinalHireage: 888,
+      tcInExpenses: { hires: [], finalHireage: '0' },
     }), 0);
     assert.equal(resolveActiveTcInHireage({
       isTcInOut: true,
+      authoritativeEdit: true,
       bodyFinalHireage: -100,
       calcFinalHireage: 999,
+      tcInExpenses: { hires: [], finalHireage: '-100' },
     }), -100);
     assert.equal(resolveActiveTcInHireage({
       isTcInOut: false,
@@ -436,7 +440,8 @@ describe('tcEstimateMappers', () => {
   it('authoritative edits win over dormant JSON including zero hireage', () => {
     assert.equal(tcInRecapHasSignal({ hires: [{ deliveryDate: '01-01-2026', dailyHire: '10000' }] }), false);
     assert.equal(tcInRecapHasSignal({ hires: [{ nettHireage: '100', randomId: '1' }] }), true);
-    assert.equal(isAuthoritativeTcInEdit({ hires: [] }), true);
+    assert.equal(isAuthoritativeTcInEdit({ hires: [] }), false);
+    assert.equal(isAuthoritativeTcInEdit({ hires: [], finalHireage: '0' }), true);
     const editedZero = { finalHireage: '0', hires: [] };
     const dormant = { finalHireage: '5000', hires: [{ nettHireage: '5000', randomId: 'a' }] };
     assert.deepEqual(resolveTcInExpensesForWrite({ bodyTcIn: editedZero, dormantJson: dormant }), editedZero);
@@ -444,14 +449,42 @@ describe('tcEstimateMappers', () => {
     assert.deepEqual(preferRicherTcInRecap(editedZero, dormant), editedZero);
   });
 
-  it('round-trips Owner/Charterer otherIncome via description encoding', () => {
-    assert.equal(encodeOtherIncomeDescription({ accountType: 'Owner', description: 'Fee' }), '[Owner] Fee');
-    assert.deepEqual(decodeOtherIncomeRow('[Charterer] Rebate', '25'), {
-      accountType: 'Charterer',
-      description: 'Rebate',
-      amount: '25',
+  it('preserves stored dormant JSON on repeated TC Out without recap payload', () => {
+    const dormant = { finalHireage: '5000', hires: [{ nettHireage: '5000', randomId: 'a' }] };
+    assert.equal(shouldPreserveStoredDormantJson({
+      priorMode: 'tcout',
+      bodyHasTcInKey: false,
+      dormantJson: dormant,
+    }), true);
+    assert.equal(shouldPreserveStoredDormantJson({
+      priorMode: 'tcinout',
+      bodyHasTcInKey: false,
+      dormantJson: dormant,
+    }), false);
+    assert.equal(shouldPreserveStoredDormantJson({
+      priorMode: 'tcout',
+      bodyHasTcInKey: true,
+      dormantJson: dormant,
+    }), false);
+  });
+
+  it('maps Owner/Charterer from ACCOUNT_TYPE with legacy null as Charterer', () => {
+    assert.deepEqual(mapOtherIncomeRow({ ACCOUNT_TYPE: 'Owner', DESCRIPTION: 'Fee', OTHER_AMT: '10' }), {
+      accountType: 'Owner',
+      description: 'Fee',
+      amount: '10',
     });
-    assert.equal(decodeOtherIncomeRow('Legacy income', '10').accountType, 'Charterer');
+    assert.equal(mapOtherIncomeRow({ DESCRIPTION: 'Legacy', OTHER_AMT: '5' }).accountType, 'Charterer');
+  });
+
+  it('restoration prefers retained JSON hireage over stale calc zero', () => {
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
+      authoritativeEdit: false,
+      calcFinalHireage: 0,
+      jsonFinalHireage: 3568500,
+      tcInExpenses: null,
+    }), 3568500);
   });
 
   it('computes final TC In hireage from recap components', () => {

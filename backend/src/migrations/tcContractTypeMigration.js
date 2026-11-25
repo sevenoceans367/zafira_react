@@ -8,7 +8,7 @@
  */
 import { getPool } from '../db.js';
 
-export const TC_CONTRACT_TYPE_MIGRATION_VERSION = 1;
+export const TC_CONTRACT_TYPE_MIGRATION_VERSION = 2;
 const LOCK_NAME = 'zafira_tc_contract_type_mig_v1';
 const LOCK_TIMEOUT_SEC = 30;
 
@@ -63,6 +63,31 @@ async function ensureLongtextColumn(conn, column) {
     `ALTER TABLE chartering_estimate_tc_master
      ADD COLUMN \`${column}\` LONGTEXT NULL`,
   );
+}
+
+async function slave2AccountTypeExists(conn) {
+  try {
+    const [cols] = await conn.query(
+      `SHOW COLUMNS FROM chartering_tc_estimate_slave2 LIKE 'ACCOUNT_TYPE'`,
+    );
+    return cols.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Nullable discriminator for Owner vs Charterer otherIncome (STATUS=1). NULL = legacy Charterer. */
+async function ensureSlave2AccountTypeColumn(conn) {
+  if (await slave2AccountTypeExists(conn)) return;
+  try {
+    await conn.query(
+      `ALTER TABLE chartering_tc_estimate_slave2
+       ADD COLUMN ACCOUNT_TYPE VARCHAR(16) NULL`,
+    );
+  } catch (error) {
+    // Table may be absent on minimal fixtures — soft skip; writes probe later.
+    if (!/doesn't exist|Unknown table/i.test(String(error.message || ''))) throw error;
+  }
 }
 
 /**
@@ -166,10 +191,12 @@ export async function runTcContractTypeMigration(pool = getPool()) {
 
     await ensureMetaTable(connection);
 
-    // Dependency first: TC_IN_RECAP_JSON must exist before backfill references it.
+    // Dependencies first: JSON + income ACCOUNT_TYPE before backfill / writes.
     await ensureLongtextColumn(connection, 'TC_IN_RECAP_JSON');
+    await ensureSlave2AccountTypeColumn(connection);
 
-    if (await schemaPostconditionsMet(connection)) {
+    if (await schemaPostconditionsMet(connection)
+      && (await alreadyApplied(connection))) {
       migrationState = 'ready';
       return { ok: true, state: migrationState, detail: 'already applied' };
     }
@@ -189,7 +216,7 @@ export async function runTcContractTypeMigration(pool = getPool()) {
        ON DUPLICATE KEY UPDATE version = VALUES(version), applied_at = CURRENT_TIMESTAMP, notes = VALUES(notes)`,
       [
         TC_CONTRACT_TYPE_MIGRATION_VERSION,
-        'CONTRACT_TYPE + TC_IN_RECAP_JSON + conservative backfill',
+        'CONTRACT_TYPE + TC_IN_RECAP_JSON + slave2.ACCOUNT_TYPE + conservative backfill',
       ],
     );
 

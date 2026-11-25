@@ -182,24 +182,28 @@ export function resolveActiveTcInHireage({
   authoritativeEdit = false,
 } = {}) {
   if (!isTcInOut) return 0;
-  if (authoritativeEdit && tcInExpenses && typeof tcInExpenses === 'object') {
-    const computed = computeTcInFinalHireage(tcInExpenses);
-    const fromComponents = toFiniteNumber(computed.finalHireage);
-    if (fromComponents != null) return fromComponents;
-  }
-  for (const candidate of [bodyFinalHireage, calcFinalHireage]) {
-    const n = toFiniteNumber(candidate);
-    if (n != null) return n;
-  }
-  if (!authoritativeEdit) {
-    const fromJson = toFiniteNumber(jsonFinalHireage);
-    if (fromJson != null) return fromJson;
+  if (authoritativeEdit) {
+    const fromBody = toFiniteNumber(bodyFinalHireage);
+    if (fromBody != null) return fromBody;
     if (tcInExpenses && typeof tcInExpenses === 'object') {
       const computed = computeTcInFinalHireage(tcInExpenses);
-      const n = toFiniteNumber(computed.finalHireage);
-      if (n != null) return n;
+      const fromComponents = toFiniteNumber(computed.finalHireage);
+      if (fromComponents != null) return fromComponents;
     }
+    return 0;
   }
+  // Restoration path: prefer retained JSON / snapshot components over stale calc '0'.
+  const fromJson = toFiniteNumber(jsonFinalHireage);
+  if (fromJson != null) return fromJson;
+  if (tcInExpenses && typeof tcInExpenses === 'object') {
+    const computed = computeTcInFinalHireage(tcInExpenses);
+    const n = toFiniteNumber(computed.finalHireage);
+    if (n != null) return n;
+  }
+  const fromBody = toFiniteNumber(bodyFinalHireage);
+  if (fromBody != null) return fromBody;
+  const fromCalc = toFiniteNumber(calcFinalHireage);
+  if (fromCalc != null) return fromCalc;
   return 0;
 }
 
@@ -257,18 +261,21 @@ export function tcInRecapHasSignal(obj) {
 }
 
 /**
- * Authoritative full edit: client sent a structured Hire Recap (hires array present).
- * Empty hires / explicit finalHireage 0 are valid edits and must not lose to old JSON.
+ * Authoritative Hire Recap edit — NOT merely "has hires array" (emptyTcIn seeds that).
+ * True when client marks provenance, sends explicit finalHireage (incl. 0), or has saved signal.
  */
 export function isAuthoritativeTcInEdit(obj) {
-  return Boolean(obj && typeof obj === 'object' && Array.isArray(obj.hires));
+  if (!obj || typeof obj !== 'object' || !Array.isArray(obj.hires)) return false;
+  if (obj.recapProvenance === 'edited' || obj.recapVersion) return true;
+  if (isExplicitNumber(obj.finalHireage)) return true;
+  return tcInRecapHasSignal(obj);
 }
 
 /**
  * Resolve which Hire Recap object to persist/activate.
  * - Authoritative body edit wins outright (including zero/reduced hireage).
  * - Omitted body → dormant JSON (restore).
- * - Partial body without hires array → fill gaps from dormant, body fields win.
+ * - Seeded/partial body without signal → fill from dormant (do not wipe).
  */
 export function resolveTcInExpensesForWrite({ bodyTcIn, dormantJson } = {}) {
   if (bodyTcIn === undefined) return dormantJson || null;
@@ -278,6 +285,20 @@ export function resolveTcInExpensesForWrite({ bodyTcIn, dormantJson } = {}) {
     return { ...dormantJson, ...bodyTcIn };
   }
   return bodyTcIn;
+}
+
+/**
+ * Repeated TC Out saves must keep stored dormant JSON verbatim when the client
+ * omits tcInExpenses (inactive slave1 hireage is '0' and must not rebuild an empty shell).
+ */
+export function shouldPreserveStoredDormantJson({
+  priorMode = '',
+  bodyHasTcInKey = false,
+  dormantJson = null,
+} = {}) {
+  return normalizeContractType(priorMode) === 'tcout'
+    && !bodyHasTcInKey
+    && dormantJson != null;
 }
 
 /** @deprecated Prefer resolveTcInExpensesForWrite — kept for tests/compat. */
@@ -292,28 +313,18 @@ export function preferRicherTcInRecap(a, b) {
   return a || b;
 }
 
-/** Encode Owner/Charterer into DESCRIPTION so accountType survives slave2 round-trip. */
-export function encodeOtherIncomeDescription(row = {}) {
-  const raw = String(row.description || '').replace(/^\[(Owner|Charterer)\]\s*/i, '');
-  const type = String(row.accountType || '').toLowerCase() === 'owner' ? 'Owner' : 'Charterer';
-  return `[${type}] ${raw}`.trim();
+/** Map ACCOUNT_TYPE column (or legacy null) → Owner/Charterer. NULL legacy = Charterer revenue. */
+export function normalizeOtherIncomeAccountType(value) {
+  return String(value || '').toLowerCase() === 'owner' ? 'Owner' : 'Charterer';
 }
 
-export function decodeOtherIncomeRow(description = '', amount = '') {
-  const raw = String(description || '');
-  const match = raw.match(/^\[(Owner|Charterer)\]\s*(.*)$/i);
-  if (match) {
-    return {
-      accountType: /^owner$/i.test(match[1]) ? 'Owner' : 'Charterer',
-      description: match[2] || '',
-      amount: amount != null ? String(amount) : '',
-    };
-  }
-  // Legacy untagged STATUS=1 rows are revenue (charterer), not owner expenses.
+export function mapOtherIncomeRow(row = {}) {
   return {
-    accountType: 'Charterer',
-    description: raw,
-    amount: amount != null ? String(amount) : '',
+    accountType: normalizeOtherIncomeAccountType(row.ACCOUNT_TYPE ?? row.accountType),
+    description: row.DESCRIPTION ?? row.description ?? '',
+    amount: row.OTHER_AMT != null
+      ? String(row.OTHER_AMT)
+      : (row.amount != null ? String(row.amount) : ''),
   };
 }
 

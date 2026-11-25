@@ -19,8 +19,9 @@ import {
   sumChartererOtherIncome,
   isAuthoritativeTcInEdit,
   resolveTcInExpensesForWrite,
-  encodeOtherIncomeDescription,
-  decodeOtherIncomeRow,
+  shouldPreserveStoredDormantJson,
+  mapOtherIncomeRow,
+  normalizeOtherIncomeAccountType,
 } from './tcEstimateMappers.js';
 import {
   isTcContractTypeSchemaReady,
@@ -479,11 +480,23 @@ async function loadCalcExtras(pool, slave1Id) {
       tcInExpenses: null,
     };
   }
-  const [incomeRows] = await pool.query(
-    `SELECT DESCRIPTION, OTHER_AMT FROM chartering_estimate_tc_slave2
-     WHERE TC_SLAVE1ID = ? AND STATUS = 1`,
-    [slave1Id],
-  );
+  let incomeRows = [];
+  try {
+    const [rows] = await pool.query(
+      `SELECT DESCRIPTION, OTHER_AMT, ACCOUNT_TYPE FROM chartering_estimate_tc_slave2
+       WHERE TC_SLAVE1ID = ? AND STATUS = 1`,
+      [slave1Id],
+    );
+    incomeRows = rows;
+  } catch (error) {
+    if (!isMissingColumnError(error)) throw error;
+    const [rows] = await pool.query(
+      `SELECT DESCRIPTION, OTHER_AMT FROM chartering_estimate_tc_slave2
+       WHERE TC_SLAVE1ID = ? AND STATUS = 1`,
+      [slave1Id],
+    );
+    incomeRows = rows;
+  }
   const [expenseRows] = await pool.query(
     `SELECT EXPENSETYPEID, DESCRIPTION, CHK_ADDTTL, OTHER_AMT FROM chartering_estimate_tc_slave2
      WHERE TC_SLAVE1ID = ? AND STATUS = 2`,
@@ -646,10 +659,7 @@ async function loadCalcExtras(pool, slave1Id) {
   }
 
   return {
-    otherIncome: incomeRows.map((r) => decodeOtherIncomeRow(
-      r.DESCRIPTION ?? '',
-      r.OTHER_AMT != null ? String(r.OTHER_AMT) : '',
-    )),
+    otherIncome: incomeRows.map((r) => mapOtherIncomeRow(r)),
     otherExpenses: expenseRows.map((r) => ({
       expenseTypeId: r.EXPENSETYPEID != null ? String(r.EXPENSETYPEID) : '',
       description: r.DESCRIPTION ?? '',
@@ -1248,14 +1258,29 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
   const hasItinerary = Object.prototype.hasOwnProperty.call(body, 'itinerary')
     || Object.prototype.hasOwnProperty.call(body, 'itineraryExpenses');
 
-  if (replaceIncome || replaceExpenses) {
-    await connection.query('DELETE FROM chartering_estimate_tc_slave2 WHERE TC_SLAVE1ID = ?', [slave1Id]);
+  // STATUS-scoped deletes so income-only / expense-only payloads cannot wipe the other.
+  if (replaceIncome) {
+    await connection.query(
+      'DELETE FROM chartering_estimate_tc_slave2 WHERE TC_SLAVE1ID = ? AND STATUS = 1',
+      [slave1Id],
+    );
+  }
+  if (replaceExpenses) {
+    await connection.query(
+      'DELETE FROM chartering_estimate_tc_slave2 WHERE TC_SLAVE1ID = ? AND STATUS = 2',
+      [slave1Id],
+    );
   }
   if (replaceOffHires) {
     await connection.query('DELETE FROM chartering_estimate_tc_slave3 WHERE TC_SLAVE1ID = ?', [slave1Id]);
   }
-  // Calc bunkers always rebuilt with off-hire bunker identities when offHires/calc bunkers present.
-  if (replaceOffHires || body.calc?.deliveryBunkers || body.deliveryBunkers) {
+  // Rebuild calc bunkers only when calc bunker grids or off-hire bunkers are in the payload.
+  const replaceCalcBunkers = replaceOffHires
+    || Object.prototype.hasOwnProperty.call(body, 'deliveryBunkers')
+    || Object.prototype.hasOwnProperty.call(body.calc || {}, 'deliveryBunkers')
+    || Object.prototype.hasOwnProperty.call(body, 'redeliveryBunkers')
+    || Object.prototype.hasOwnProperty.call(body.calc || {}, 'redeliveryBunkers');
+  if (replaceCalcBunkers) {
     await connection.query('DELETE FROM chartering_estimate_tc_slave5 WHERE TC_SLAVE1ID = ?', [slave1Id]);
   }
   // Optional itinerary/period tables — soft-skip only when table/column missing.
@@ -1287,13 +1312,37 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
   }
 
   if (replaceIncome) {
+    const hasAccountTypeCol = await tableExists(connection, 'chartering_tc_estimate_slave2')
+      && await (async () => {
+        try {
+          const [cols] = await connection.query(
+            `SHOW COLUMNS FROM chartering_tc_estimate_slave2 LIKE 'ACCOUNT_TYPE'`,
+          );
+          return cols.length > 0;
+        } catch {
+          return false;
+        }
+      })();
     for (const row of body.otherIncome || []) {
       if (!row.amount && !row.description && !row.accountType) continue;
-      await connection.query(
-        `INSERT INTO chartering_estimate_tc_slave2
-         (TC_SLAVE1ID, DESCRIPTION, OTHER_AMT, STATUS) VALUES (?, ?, ?, 1)`,
-        [slave1Id, nullIfEmpty(encodeOtherIncomeDescription(row)), nullIfEmpty(row.amount)],
-      );
+      if (hasAccountTypeCol) {
+        await connection.query(
+          `INSERT INTO chartering_tc_estimate_slave2
+           (TC_SLAVE1ID, DESCRIPTION, OTHER_AMT, STATUS, ACCOUNT_TYPE) VALUES (?, ?, ?, 1, ?)`,
+          [
+            slave1Id,
+            nullIfEmpty(row.description),
+            nullIfEmpty(row.amount),
+            normalizeOtherIncomeAccountType(row.accountType),
+          ],
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO chartering_tc_estimate_slave2
+           (TC_SLAVE1ID, DESCRIPTION, OTHER_AMT, STATUS) VALUES (?, ?, ?, 1)`,
+          [slave1Id, nullIfEmpty(row.description), nullIfEmpty(row.amount)],
+        );
+      }
     }
   }
   if (replaceExpenses) {
@@ -1333,7 +1382,7 @@ async function replaceCalcChildren(connection, slave1Id, body = {}) {
     }
   }
 
-  if (replaceOffHires || body.calc?.deliveryBunkers || body.deliveryBunkers) {
+  if (replaceCalcBunkers) {
     const offHireBunkerRows = [];
     (body.offHires || []).forEach((offRow, offIndex) => {
       for (const bunker of offRow.bunkers || []) {
@@ -1589,49 +1638,84 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
       }
     }
 
+    const priorMode = normalizeContractType(masters[0].CONTRACT_TYPE);
     const dormantJson = parseTcInRecapJson(masters[0].TC_IN_RECAP_JSON);
     const bodyHasTcInKey = Object.prototype.hasOwnProperty.call(body, 'tcInExpenses');
-    const authoritativeEdit = isTcInOut && bodyHasTcInKey && isAuthoritativeTcInEdit(body.tcInExpenses);
-    // Authoritative full edits win (incl. zero hireage). Omitted body restores dormant JSON.
-    const resolvedTcInExpenses = isTcInOut
-      ? resolveTcInExpensesForWrite({
-        bodyTcIn: bodyHasTcInKey ? body.tcInExpenses : undefined,
-        dormantJson,
-      })
-      : null;
+    const preserveDormant = shouldPreserveStoredDormantJson({
+      priorMode,
+      bodyHasTcInKey,
+      dormantJson,
+    });
 
-    if (Array.isArray(body.otherIncome)) {
-      // Revenue uses charterer / untagged rows; owner rows go into expenses below.
-      calcInput.otherIncome = sumChartererOtherIncome(body.otherIncome);
+    const [existing] = await connection.query(
+      `SELECT * FROM chartering_tc_estimate_slave1 WHERE TCOUTID = ? LIMIT 1`,
+      [tcOutId],
+    );
+    let slave1Id = existing[0]?.TC_SLAVE1ID;
+    const priorSlave1 = existing[0] || null;
+
+    // Hydrate relational-only recap before any child replacement (active or deactivate).
+    let relationalTcIn = null;
+    if (slave1Id) {
+      const extras = await loadCalcExtras(connection, slave1Id);
+      if (extras?.tcInExpenses) {
+        relationalTcIn = {
+          ...extras.tcInExpenses,
+          finalHireage: extras.tcInExpenses.finalHireage
+            || (priorSlave1?.TC_FINAL_HIERAGE != null ? String(priorSlave1.TC_FINAL_HIERAGE) : ''),
+          finalVendor: extras.tcInExpenses.finalVendor
+            || (priorSlave1?.TC_FINAL_HIERAGE_VENDOR != null ? String(priorSlave1.TC_FINAL_HIERAGE_VENDOR) : ''),
+          offHireCveMonth: priorSlave1?.TC_CVE_MONTH_OFFHIRE != null ? String(priorSlave1.TC_CVE_MONTH_OFFHIRE) : '',
+          offHireCveAmt: priorSlave1?.TC_CVE_AMOUNT_OFFHIRE != null ? String(priorSlave1.TC_CVE_AMOUNT_OFFHIRE) : '',
+          bunkerOnOwner: priorSlave1?.TC_BUNKERS_ON_OWNER != null ? String(priorSlave1.TC_BUNKERS_ON_OWNER) : '',
+          lessOffHire: priorSlave1?.TC_OFF_HIRE != null ? String(priorSlave1.TC_OFF_HIRE) : '',
+          ilohc: priorSlave1?.TXT_ILOHC_TC != null ? String(priorSlave1.TXT_ILOHC_TC) : '',
+          awrpCost: priorSlave1?.AWRPCOST != null ? String(priorSlave1.AWRPCOST) : '',
+        };
+      }
+    }
+    const snapshotSource = dormantJson || relationalTcIn;
+
+    const authoritativeEdit = isTcInOut && bodyHasTcInKey && isAuthoritativeTcInEdit(body.tcInExpenses);
+    let resolvedTcInExpenses = null;
+    if (isTcInOut) {
+      resolvedTcInExpenses = resolveTcInExpensesForWrite({
+        bodyTcIn: bodyHasTcInKey ? body.tcInExpenses : undefined,
+        dormantJson: snapshotSource,
+      });
     }
 
-    // Always recompute active hireage + totalExp server-side (never trust client totals for mode gating).
+    // Effective expense/income arrays: omitted keys keep stored rows for totals.
+    let effectiveOtherIncome = Array.isArray(body.otherIncome) ? body.otherIncome : null;
+    let effectiveOtherExpenses = Array.isArray(body.otherExpenses) ? body.otherExpenses : null;
+    if ((effectiveOtherIncome == null || effectiveOtherExpenses == null) && slave1Id) {
+      const extrasForTotals = await loadCalcExtras(connection, slave1Id);
+      if (effectiveOtherIncome == null) effectiveOtherIncome = extrasForTotals.otherIncome || [];
+      if (effectiveOtherExpenses == null) effectiveOtherExpenses = extrasForTotals.otherExpenses || [];
+    }
+    effectiveOtherIncome = effectiveOtherIncome || [];
+    effectiveOtherExpenses = effectiveOtherExpenses || [];
+
+    calcInput.otherIncome = sumChartererOtherIncome(effectiveOtherIncome);
+
     const activeTcInHireage = resolveActiveTcInHireage({
       isTcInOut,
       bodyFinalHireage: body.tcInExpenses?.finalHireage,
       calcFinalHireage: calcInput.tcFinalHireage,
-      jsonFinalHireage: dormantJson?.finalHireage,
-      tcInExpenses: resolvedTcInExpenses,
+      jsonFinalHireage: snapshotSource?.finalHireage,
+      tcInExpenses: resolvedTcInExpenses || snapshotSource,
       authoritativeEdit,
     });
     calcInput.tcFinalHireage = String(activeTcInHireage);
     calcInput.totalExp = String(computeVoyageExpenseTotal(
-      Array.isArray(body.otherExpenses) ? body.otherExpenses : [],
-      Array.isArray(body.otherIncome) ? body.otherIncome : [],
+      effectiveOtherExpenses,
+      effectiveOtherIncome,
       activeTcInHireage,
     ));
 
     const totals = calcTcTotals(calcInput);
     const merged = { ...calcInput, ...totals, totalExp: calcInput.totalExp, tcFinalHireage: calcInput.tcFinalHireage };
     const firstPeriod = (merged.hirePeriods || [])[0] || {};
-
-    const [existing] = await connection.query(
-      `SELECT * FROM chartering_tc_estimate_slave1 WHERE TCOUTID = ? LIMIT 1`,
-      [tcOutId],
-    );
-
-    let slave1Id = existing[0]?.TC_SLAVE1ID;
-    const priorSlave1 = existing[0] || null;
     const fields = {
       TRIP_TC_EST: nullIfEmpty(merged.tripTc),
       PERIOD_TC_EST: nullIfEmpty(merged.period),
@@ -1751,51 +1835,16 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
       }
     }
 
-    // Before deactivating TC In, snapshot recoverable Hire Recap into JSON (fail-closed reads).
-    // Authoritative client edits win even when hireage is reduced to zero.
-    if (!isTcInOut) {
-      let fromRelational = null;
-      if (slave1Id) {
-        const extras = await loadCalcExtras(connection, slave1Id);
-        const scalarOnly = {
-          finalHireage: priorSlave1?.TC_FINAL_HIERAGE != null ? String(priorSlave1.TC_FINAL_HIERAGE) : '',
-          finalVendor: priorSlave1?.TC_FINAL_HIERAGE_VENDOR != null ? String(priorSlave1.TC_FINAL_HIERAGE_VENDOR) : '',
-          offHireCveMonth: priorSlave1?.TC_CVE_MONTH_OFFHIRE != null ? String(priorSlave1.TC_CVE_MONTH_OFFHIRE) : '',
-          offHireCveAmt: priorSlave1?.TC_CVE_AMOUNT_OFFHIRE != null ? String(priorSlave1.TC_CVE_AMOUNT_OFFHIRE) : '',
-          bunkerOnOwner: priorSlave1?.TC_BUNKERS_ON_OWNER != null ? String(priorSlave1.TC_BUNKERS_ON_OWNER) : '',
-          lessOffHire: priorSlave1?.TC_OFF_HIRE != null ? String(priorSlave1.TC_OFF_HIRE) : '',
-          ilohc: priorSlave1?.TXT_ILOHC_TC != null ? String(priorSlave1.TXT_ILOHC_TC) : '',
-          awrpCost: priorSlave1?.AWRPCOST != null ? String(priorSlave1.AWRPCOST) : '',
-          cpDate: merged.tcCpDate || '',
-          contractRef: merged.tcCpNumber || '',
-          deliveryPort: merged.tcDeliveryPort || '',
-          redeliveryPort: merged.tcRedeliveryPort || '',
-          hires: [],
-        };
-        if (extras?.tcInExpenses) {
-          fromRelational = {
-            ...scalarOnly,
-            ...extras.tcInExpenses,
-            finalHireage: extras.tcInExpenses.finalHireage || scalarOnly.finalHireage,
-            finalVendor: extras.tcInExpenses.finalVendor || scalarOnly.finalVendor,
-          };
-        } else if (
-          scalarOnly.finalHireage
-          || scalarOnly.finalVendor
-          || scalarOnly.ilohc
-          || scalarOnly.awrpCost
-        ) {
-          fromRelational = scalarOnly;
-        }
-      }
-      let dormantTcIn;
+    // Deactivate → dormant JSON. Repeated TC Out with omitted recap keeps stored JSON verbatim.
+    if (!isTcInOut && !preserveDormant) {
+      let dormantTcIn = null;
       if (bodyHasTcInKey && isAuthoritativeTcInEdit(body.tcInExpenses)) {
         dormantTcIn = body.tcInExpenses;
       } else {
         dormantTcIn = resolveTcInExpensesForWrite({
           bodyTcIn: bodyHasTcInKey ? body.tcInExpenses : undefined,
-          dormantJson: fromRelational || dormantJson,
-        }) || fromRelational || dormantJson;
+          dormantJson: snapshotSource,
+        }) || snapshotSource;
       }
       if (dormantTcIn != null) {
         const ok = await persistTcInRecapJson(connection, tcOutId, dormantTcIn);
@@ -1817,6 +1866,10 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
         hirePeriods: body.hirePeriods || merged.hirePeriods,
       },
     };
+    if (Array.isArray(body.otherIncome)) childBody.otherIncome = body.otherIncome;
+    else delete childBody.otherIncome;
+    if (Array.isArray(body.otherExpenses)) childBody.otherExpenses = body.otherExpenses;
+    else delete childBody.otherExpenses;
     // Always pass tcInExpenses key so replace knows to clear/rebuild (or clear under tcout).
     childBody.tcInExpenses = activeTcInExpenses;
     await replaceCalcChildren(connection, slave1Id, childBody);

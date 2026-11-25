@@ -1285,6 +1285,8 @@ export default function TcFixtureFormPage({
   const [vpLoading, setVpLoading] = useState(false);
   const [vpError, setVpError] = useState('');
   const periodLookupSeqRef = useRef(0);
+  /** Mode at last successful load — used for stale-mode 409, not post-update refetch. */
+  const loadedContractTypeRef = useRef('tcout');
   const [periodMeta, setPeriodMeta] = useState(() => (
     periodNoParam ? { contractNo: periodNoParam } : null
   ));
@@ -1676,6 +1678,7 @@ export default function TcFixtureFormPage({
       try {
         const detail = await fetchTcEstimate(tcOutId);
         if (cancelled) return;
+        loadedContractTypeRef.current = detail.contractType || 'tcout';
         setForm(applyTcDetailToForm(detail));
         if (detail?.periodId && !hasSavedTcInHires(detail.tcInExpenses)) {
           try {
@@ -1914,13 +1917,20 @@ export default function TcFixtureFormPage({
       };
       // Keep dormant Hire Recap JSON when TC Out — never send null to clear the column.
       if (showSubCharter || hasSavedTcInHires(form.tcInExpenses)) {
-        payload.tcInExpenses = form.tcInExpenses;
+        payload.tcInExpenses = {
+          ...form.tcInExpenses,
+          recapProvenance: 'edited',
+        };
       } else {
         delete payload.tcInExpenses;
       }
       delete payload.attachmentFiles;
       delete payload.attachments;
       delete payload.tcPeriodExtensions;
+      // Stale-mode baseline from original load (or draft tcout on create) — never from post-update refetch.
+      const baseContractType = mode === 'add'
+        ? 'tcout'
+        : (loadedContractTypeRef.current || 'tcout');
       let savedId = tcOutId;
       if (mode === 'add') {
         const created = await createTcEstimate(payload, attachmentFiles);
@@ -1939,7 +1949,7 @@ export default function TcFixtureFormPage({
       const calcTcInHireage = showSubCharter ? Number(tcInFinalHireage) || 0 : 0;
       const calcPayload = {
         contractType: form.contractType || 'tcout',
-        baseContractType: existing?.contractType || form.contractType || 'tcout',
+        baseContractType,
         calc: {
           ...(existing?.calc || form.calc || {}),
           ballastBonus: form.ballastBonus ?? '',
@@ -1971,9 +1981,13 @@ export default function TcFixtureFormPage({
         itineraryExpenses: form.itineraryExpenses,
       };
       if (showSubCharter || hasSavedTcInHires(form.tcInExpenses)) {
-        calcPayload.tcInExpenses = form.tcInExpenses;
+        calcPayload.tcInExpenses = {
+          ...form.tcInExpenses,
+          recapProvenance: 'edited',
+        };
       }
       await saveTcCalculation(savedId, calcPayload);
+      loadedContractTypeRef.current = form.contractType || 'tcout';
 
       if (mode === 'add') {
         if (returnTo) {

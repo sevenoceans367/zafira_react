@@ -459,7 +459,10 @@ export default function TcCalculatePage({
       detail,
     };
     if (isTcInOut || hasSavedTcInHires(form.tcInExpenses)) {
-      payload.tcInExpenses = form.tcInExpenses;
+      payload.tcInExpenses = {
+        ...form.tcInExpenses,
+        recapProvenance: 'edited',
+      };
     }
     return payload;
   };

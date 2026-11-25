@@ -1,13 +1,10 @@
 /**
- * Versioned CONTRACT_TYPE migration for chartering_estimate_tc_master.
+ * Versioned CONTRACT_TYPE (+ TC_IN_RECAP_JSON dependency) migration.
  *
- * - Not invoked from ordinary list/read paths.
- * - Idempotent; uses GET_LOCK on a dedicated pool connection (lock is session-scoped).
- * - Ready only when the ledger row is present AND the column exists — never from
- *   column-exists alone (partial deploys must not mark ready).
- * - Backfill is conservative: relational TC In children and nonzero hireage
- *   count as tcinout even without PERIODID/JSON; ambiguous rows stay NULL
- *   for explicit review (legacy inference still applies on read).
+ * - Boot-only (not from ordinary write/request paths).
+ * - Idempotent; GET_LOCK on one dedicated connection (session-scoped).
+ * - Ready only when ledger + CONTRACT_TYPE + TC_IN_RECAP_JSON are verified.
+ * - Backfill is conservative: malformed/placeholder JSON stays NULL (ambiguous).
  */
 import { getPool } from '../db.js';
 
@@ -60,18 +57,38 @@ async function alreadyApplied(conn) {
   }
 }
 
+async function ensureLongtextColumn(conn, column) {
+  if (await columnExists(conn, column)) return;
+  await conn.query(
+    `ALTER TABLE chartering_estimate_tc_master
+     ADD COLUMN \`${column}\` LONGTEXT NULL`,
+  );
+}
+
 /**
- * Conservative backfill: only classify clear cases; leave NULL when ambiguous.
- * Read path falls back to PERIODID/JSON inference for NULL.
+ * Conservative backfill: clear tcinout / tcout only; leave NULL when ambiguous.
+ * Malformed or placeholder-only JSON does NOT count as TC In.
  */
 async function backfillContractType(conn) {
+  // Clear tcinout signals only.
   await conn.query(`
     UPDATE chartering_estimate_tc_master m
     SET CONTRACT_TYPE = 'tcinout'
     WHERE m.CONTRACT_TYPE IS NULL
       AND (
         (m.PERIODID IS NOT NULL AND TRIM(CAST(m.PERIODID AS CHAR)) NOT IN ('', '0'))
-        OR (m.TC_IN_RECAP_JSON IS NOT NULL AND TRIM(m.TC_IN_RECAP_JSON) NOT IN ('', 'null', '{}'))
+        OR (
+          m.TC_IN_RECAP_JSON IS NOT NULL
+          AND TRIM(m.TC_IN_RECAP_JSON) NOT IN ('', 'null', '{}', '[]')
+          AND JSON_VALID(m.TC_IN_RECAP_JSON)
+          AND (
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(m.TC_IN_RECAP_JSON, '$.finalHireage')), 'null') IS NOT NULL
+            OR IFNULL(JSON_LENGTH(JSON_EXTRACT(m.TC_IN_RECAP_JSON, '$.hires')), 0) > 0
+            OR IFNULL(JSON_LENGTH(JSON_EXTRACT(m.TC_IN_RECAP_JSON, '$.offHires')), 0) > 0
+            OR IFNULL(JSON_LENGTH(JSON_EXTRACT(m.TC_IN_RECAP_JSON, '$.deliveryBunkers')), 0) > 0
+            OR IFNULL(JSON_LENGTH(JSON_EXTRACT(m.TC_IN_RECAP_JSON, '$.redeliveryBunkers')), 0) > 0
+          )
+        )
         OR EXISTS (
           SELECT 1 FROM chartering_tc_estimate_slave1 s1
           WHERE s1.TCOUTID = m.TCOUTID
@@ -86,12 +103,17 @@ async function backfillContractType(conn) {
       )
   `);
 
+  // Clear tcout only when no period, no valid signal JSON, no relational hireage/children.
+  // Rows with malformed nonempty JSON remain NULL (ambiguous quarantine).
   await conn.query(`
     UPDATE chartering_estimate_tc_master m
     SET CONTRACT_TYPE = 'tcout'
     WHERE m.CONTRACT_TYPE IS NULL
       AND (m.PERIODID IS NULL OR TRIM(CAST(m.PERIODID AS CHAR)) IN ('', '0'))
-      AND (m.TC_IN_RECAP_JSON IS NULL OR TRIM(m.TC_IN_RECAP_JSON) IN ('', 'null', '{}'))
+      AND (
+        m.TC_IN_RECAP_JSON IS NULL
+        OR TRIM(m.TC_IN_RECAP_JSON) IN ('', 'null', '{}', '[]')
+      )
       AND NOT EXISTS (
         SELECT 1 FROM chartering_tc_estimate_slave1 s1
         WHERE s1.TCOUTID = m.TCOUTID
@@ -111,9 +133,16 @@ async function releaseLock(conn) {
   return Number(row?.released) === 1;
 }
 
+async function schemaPostconditionsMet(conn) {
+  return (await alreadyApplied(conn))
+    && (await columnExists(conn, 'CONTRACT_TYPE'))
+    && (await columnExists(conn, 'TC_IN_RECAP_JSON'));
+}
+
 /**
- * Run once at process boot (or explicit CLI). Safe to call repeatedly.
+ * Run once at process boot. Safe to call repeatedly.
  * Holds GET_LOCK / DDL / backfill / RELEASE_LOCK on one dedicated connection.
+ * On unlock failure, destroys the connection instead of returning it to the pool.
  * @returns {{ ok: boolean, state: string, detail?: string }}
  */
 export async function runTcContractTypeMigration(pool = getPool()) {
@@ -123,6 +152,7 @@ export async function runTcContractTypeMigration(pool = getPool()) {
 
   const connection = await pool.getConnection();
   let lockAcquired = false;
+  let unlockOk = true;
   try {
     const [[lockRow]] = await connection.query(
       `SELECT GET_LOCK(?, ?) AS got`,
@@ -136,7 +166,10 @@ export async function runTcContractTypeMigration(pool = getPool()) {
 
     await ensureMetaTable(connection);
 
-    if (await alreadyApplied(connection) && await columnExists(connection, 'CONTRACT_TYPE')) {
+    // Dependency first: TC_IN_RECAP_JSON must exist before backfill references it.
+    await ensureLongtextColumn(connection, 'TC_IN_RECAP_JSON');
+
+    if (await schemaPostconditionsMet(connection)) {
       migrationState = 'ready';
       return { ok: true, state: migrationState, detail: 'already applied' };
     }
@@ -154,15 +187,18 @@ export async function runTcContractTypeMigration(pool = getPool()) {
       `INSERT INTO zafira_schema_migrations (id, version, notes)
        VALUES ('tc_contract_type', ?, ?)
        ON DUPLICATE KEY UPDATE version = VALUES(version), applied_at = CURRENT_TIMESTAMP, notes = VALUES(notes)`,
-      [TC_CONTRACT_TYPE_MIGRATION_VERSION, 'CONTRACT_TYPE column + conservative backfill'],
+      [
+        TC_CONTRACT_TYPE_MIGRATION_VERSION,
+        'CONTRACT_TYPE + TC_IN_RECAP_JSON + conservative backfill',
+      ],
     );
 
-    if (!(await alreadyApplied(connection)) || !(await columnExists(connection, 'CONTRACT_TYPE'))) {
+    if (!(await schemaPostconditionsMet(connection))) {
       migrationState = 'failed';
       return {
         ok: false,
         state: migrationState,
-        detail: 'Migration postconditions failed (ledger or column missing)',
+        detail: 'Migration postconditions failed (ledger or required columns missing)',
       };
     }
 
@@ -175,18 +211,25 @@ export async function runTcContractTypeMigration(pool = getPool()) {
   } finally {
     if (lockAcquired) {
       try {
-        await releaseLock(connection);
+        unlockOk = await releaseLock(connection);
       } catch {
-        /* ignore unlock errors; connection release still required */
+        unlockOk = false;
       }
     }
-    connection.release();
+    if (!unlockOk) {
+      try {
+        connection.destroy();
+      } catch {
+        /* ignore */
+      }
+    } else {
+      connection.release();
+    }
   }
 }
 
 /**
  * Read-only probe — never runs DDL and never marks migration ready.
- * Column presence alone is not a readiness signal.
  */
 export async function probeTcContractTypeColumn(pool = getPool()) {
   try {
@@ -196,37 +239,36 @@ export async function probeTcContractTypeColumn(pool = getPool()) {
   }
 }
 
-/**
- * True only when ledger + column are both verified on a live connection.
- * Does not mutate migrationState when false.
- */
 export async function verifyTcContractTypeMigrationApplied(pool = getPool()) {
   try {
-    return (await alreadyApplied(pool)) && (await columnExists(pool, 'CONTRACT_TYPE'));
+    return await schemaPostconditionsMet(pool);
   } catch {
     return false;
   }
 }
 
 /**
- * Require schema for writes. Never treat column-exists as ready.
- * Attempts the versioned migration once if not yet verified.
+ * Require schema for writes. Never runs DDL from request paths.
+ * Boot must have completed the versioned migration.
  */
 export async function requireTcContractTypeSchema(pool = getPool()) {
   if (migrationState === 'ready') return true;
+  if (migrationState === 'failed') {
+    const err = new Error(
+      'CONTRACT_TYPE schema unavailable: migration failed at boot. Refusing contract-mode write.',
+    );
+    err.status = 503;
+    throw err;
+  }
 
   if (await verifyTcContractTypeMigrationApplied(pool)) {
     migrationState = 'ready';
     return true;
   }
 
-  const result = await runTcContractTypeMigration(pool);
-  if (!result.ok || migrationState !== 'ready') {
-    const err = new Error(
-      `CONTRACT_TYPE schema unavailable: ${result.detail || 'migration failed'}. Refusing contract-mode write.`,
-    );
-    err.status = 503;
-    throw err;
-  }
-  return true;
+  const err = new Error(
+    'CONTRACT_TYPE schema unavailable: boot migration not applied. Refusing contract-mode write.',
+  );
+  err.status = 503;
+  throw err;
 }

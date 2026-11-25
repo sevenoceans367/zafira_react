@@ -476,6 +476,7 @@ export default function TcCalculatePage({
       } else {
         await saveTcCalculation(tcOutId, {
           contractType: payload.contractType,
+          baseContractType: detail?.contractType || form.contractType || '',
           calc: payload.calc,
           hirePeriods: payload.hirePeriods,
           otherIncome: payload.otherIncome,

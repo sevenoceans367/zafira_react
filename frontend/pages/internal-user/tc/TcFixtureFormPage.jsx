@@ -1350,7 +1350,8 @@ export default function TcFixtureFormPage({
 
   const otherIncomeOwnerTotal = useMemo(
     () => (form.otherIncome || []).reduce((sum, row) => {
-      if (String(row.accountType || 'Owner').toLowerCase() !== 'owner') return sum;
+      // Explicit Owner only — matches backend decode (untagged legacy = Charterer).
+      if (String(row.accountType || '').toLowerCase() !== 'owner') return sum;
       return sum + (Number(row.amount) || 0);
     }, 0),
     [form.otherIncome],
@@ -1938,6 +1939,7 @@ export default function TcFixtureFormPage({
       const calcTcInHireage = showSubCharter ? Number(tcInFinalHireage) || 0 : 0;
       const calcPayload = {
         contractType: form.contractType || 'tcout',
+        baseContractType: existing?.contractType || form.contractType || 'tcout',
         calc: {
           ...(existing?.calc || form.calc || {}),
           ballastBonus: form.ballastBonus ?? '',
@@ -2356,6 +2358,8 @@ export default function TcFixtureFormPage({
       if (periodTcIn) {
         setForm((prev) => {
           if (String(prev.periodId || '') !== normalizedPeriodId) return prev;
+          // Do not override a user mode flip to TC Out while this lookup was in flight.
+          if (prev.contractType === 'tcout') return prev;
           return {
             ...prev,
             periodId: normalizedPeriodId,

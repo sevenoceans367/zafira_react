@@ -169,9 +169,9 @@ export function toFiniteNumber(value) {
 
 /**
  * Active TC In hireage for P&L. Dormant (tcout) → 0.
- * Prefers explicit finite finalHireage (0 and negative included); never falls
- * back to stale positive amounts when the live value is explicitly 0.
- * Does not substitute hire-line nett sums for final hireage (bunkers/off-hire/CVE/ILOHC).
+ * Order: authoritative body components → explicit body scalar → calc scalar →
+ * dormant JSON scalar → compute from dormant object. Never prefers an old
+ * positive JSON amount over an explicit live 0 / negative edit.
  */
 export function resolveActiveTcInHireage({
   isTcInOut = false,
@@ -179,16 +179,26 @@ export function resolveActiveTcInHireage({
   calcFinalHireage,
   jsonFinalHireage,
   tcInExpenses = null,
+  authoritativeEdit = false,
 } = {}) {
   if (!isTcInOut) return 0;
-  for (const candidate of [bodyFinalHireage, calcFinalHireage, jsonFinalHireage]) {
+  if (authoritativeEdit && tcInExpenses && typeof tcInExpenses === 'object') {
+    const computed = computeTcInFinalHireage(tcInExpenses);
+    const fromComponents = toFiniteNumber(computed.finalHireage);
+    if (fromComponents != null) return fromComponents;
+  }
+  for (const candidate of [bodyFinalHireage, calcFinalHireage]) {
     const n = toFiniteNumber(candidate);
     if (n != null) return n;
   }
-  if (tcInExpenses && typeof tcInExpenses === 'object') {
-    const computed = computeTcInFinalHireage(tcInExpenses);
-    const n = toFiniteNumber(computed.finalHireage);
-    if (n != null) return n;
+  if (!authoritativeEdit) {
+    const fromJson = toFiniteNumber(jsonFinalHireage);
+    if (fromJson != null) return fromJson;
+    if (tcInExpenses && typeof tcInExpenses === 'object') {
+      const computed = computeTcInFinalHireage(tcInExpenses);
+      const n = toFiniteNumber(computed.finalHireage);
+      if (n != null) return n;
+    }
   }
   return 0;
 }
@@ -246,36 +256,65 @@ export function tcInRecapHasSignal(obj) {
   ));
 }
 
-/** Rough richness score so poorer empty shells cannot overwrite recoverable snapshots. */
-export function tcInRecapRichness(obj) {
-  if (!obj || typeof obj !== 'object') return 0;
-  let score = 0;
-  if (obj.recapVersion) score += 5;
-  const fh = toFiniteNumber(obj.finalHireage);
-  if (fh != null && fh !== 0) score += 50 + Math.min(Math.abs(fh), 1e7) / 1e7;
-  score += (obj.hires || []).length * 8;
-  for (const h of obj.hires || []) {
-    if (toFiniteNumber(h.hireage) != null || toFiniteNumber(h.nettHireage) != null) score += 4;
-    if (h.randomId) score += 2;
-    if (String(h.deliveryDate || '').trim()) score += 1;
-  }
-  score += (obj.deliveryBunkers || []).length * 2;
-  score += (obj.redeliveryBunkers || []).length * 2;
-  score += (obj.offHires || []).length * 3;
-  for (const key of ['cpDate', 'contractRef', 'deliveryPort', 'redeliveryPort', 'finalVendor', 'ilohc', 'awrpCost']) {
-    if (String(obj[key] || '').trim()) score += 1;
-  }
-  return score;
+/**
+ * Authoritative full edit: client sent a structured Hire Recap (hires array present).
+ * Empty hires / explicit finalHireage 0 are valid edits and must not lose to old JSON.
+ */
+export function isAuthoritativeTcInEdit(obj) {
+  return Boolean(obj && typeof obj === 'object' && Array.isArray(obj.hires));
 }
 
-/** Prefer the richer recoverable Hire Recap payload. */
+/**
+ * Resolve which Hire Recap object to persist/activate.
+ * - Authoritative body edit wins outright (including zero/reduced hireage).
+ * - Omitted body → dormant JSON (restore).
+ * - Partial body without hires array → fill gaps from dormant, body fields win.
+ */
+export function resolveTcInExpensesForWrite({ bodyTcIn, dormantJson } = {}) {
+  if (bodyTcIn === undefined) return dormantJson || null;
+  if (bodyTcIn === null) return dormantJson || null;
+  if (isAuthoritativeTcInEdit(bodyTcIn)) return bodyTcIn;
+  if (dormantJson && typeof dormantJson === 'object') {
+    return { ...dormantJson, ...bodyTcIn };
+  }
+  return bodyTcIn;
+}
+
+/** @deprecated Prefer resolveTcInExpensesForWrite — kept for tests/compat. */
 export function preferRicherTcInRecap(a, b) {
+  if (isAuthoritativeTcInEdit(a)) return a;
+  if (isAuthoritativeTcInEdit(b) && !isAuthoritativeTcInEdit(a)) return b;
   const aOk = tcInRecapHasSignal(a);
   const bOk = tcInRecapHasSignal(b);
   if (aOk && !bOk) return a;
   if (bOk && !aOk) return b;
   if (!aOk && !bOk) return null;
-  return tcInRecapRichness(a) >= tcInRecapRichness(b) ? a : b;
+  return a || b;
+}
+
+/** Encode Owner/Charterer into DESCRIPTION so accountType survives slave2 round-trip. */
+export function encodeOtherIncomeDescription(row = {}) {
+  const raw = String(row.description || '').replace(/^\[(Owner|Charterer)\]\s*/i, '');
+  const type = String(row.accountType || '').toLowerCase() === 'owner' ? 'Owner' : 'Charterer';
+  return `[${type}] ${raw}`.trim();
+}
+
+export function decodeOtherIncomeRow(description = '', amount = '') {
+  const raw = String(description || '');
+  const match = raw.match(/^\[(Owner|Charterer)\]\s*(.*)$/i);
+  if (match) {
+    return {
+      accountType: /^owner$/i.test(match[1]) ? 'Owner' : 'Charterer',
+      description: match[2] || '',
+      amount: amount != null ? String(amount) : '',
+    };
+  }
+  // Legacy untagged STATUS=1 rows are revenue (charterer), not owner expenses.
+  return {
+    accountType: 'Charterer',
+    description: raw,
+    amount: amount != null ? String(amount) : '',
+  };
 }
 
 /**

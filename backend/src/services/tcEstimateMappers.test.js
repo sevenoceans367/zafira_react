@@ -9,9 +9,13 @@ import {
   mapTcDetail,
   mapTcListRow,
   normalizeContractType,
+  decodeOtherIncomeRow,
+  encodeOtherIncomeDescription,
+  isAuthoritativeTcInEdit,
   preferRicherTcInRecap,
   resolveActiveTcInHireage,
   resolveContractTypeForWrite,
+  resolveTcInExpensesForWrite,
   sumChartererOtherIncome,
   sumOwnerOtherIncome,
   tcContractTypeLabel,
@@ -390,6 +394,19 @@ describe('tcEstimateMappers', () => {
     }), 0);
     assert.equal(resolveActiveTcInHireage({
       isTcInOut: true,
+      authoritativeEdit: true,
+      jsonFinalHireage: 8888,
+      tcInExpenses: {
+        hires: [{ nettHireage: '0', cveAmt: '0' }],
+        deliveryBunkers: [],
+        redeliveryBunkers: [],
+        offHires: [],
+        awrpCost: 0,
+        ilohc: 0,
+      },
+    }), 0);
+    assert.equal(resolveActiveTcInHireage({
+      isTcInOut: true,
       tcInExpenses: {
         hires: [{ nettHireage: '1000', cveAmt: '0' }],
         deliveryBunkers: [],
@@ -416,13 +433,25 @@ describe('tcEstimateMappers', () => {
     ), 150);
   });
 
-  it('prefers richer Hire Recap snapshots and ignores empty seeds', () => {
+  it('authoritative edits win over dormant JSON including zero hireage', () => {
     assert.equal(tcInRecapHasSignal({ hires: [{ deliveryDate: '01-01-2026', dailyHire: '10000' }] }), false);
     assert.equal(tcInRecapHasSignal({ hires: [{ nettHireage: '100', randomId: '1' }] }), true);
-    const rich = { finalHireage: '5000', hires: [{ nettHireage: '5000', randomId: 'a' }], recapVersion: 1 };
-    const poor = { hires: [{ deliveryDate: '01-01-2026', dailyHire: '1' }] };
-    assert.deepEqual(preferRicherTcInRecap(poor, rich), rich);
-    assert.equal(preferRicherTcInRecap(poor, null), null);
+    assert.equal(isAuthoritativeTcInEdit({ hires: [] }), true);
+    const editedZero = { finalHireage: '0', hires: [] };
+    const dormant = { finalHireage: '5000', hires: [{ nettHireage: '5000', randomId: 'a' }] };
+    assert.deepEqual(resolveTcInExpensesForWrite({ bodyTcIn: editedZero, dormantJson: dormant }), editedZero);
+    assert.deepEqual(resolveTcInExpensesForWrite({ bodyTcIn: undefined, dormantJson: dormant }), dormant);
+    assert.deepEqual(preferRicherTcInRecap(editedZero, dormant), editedZero);
+  });
+
+  it('round-trips Owner/Charterer otherIncome via description encoding', () => {
+    assert.equal(encodeOtherIncomeDescription({ accountType: 'Owner', description: 'Fee' }), '[Owner] Fee');
+    assert.deepEqual(decodeOtherIncomeRow('[Charterer] Rebate', '25'), {
+      accountType: 'Charterer',
+      description: 'Rebate',
+      amount: '25',
+    });
+    assert.equal(decodeOtherIncomeRow('Legacy income', '10').accountType, 'Charterer');
   });
 
   it('computes final TC In hireage from recap components', () => {

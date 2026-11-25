@@ -161,7 +161,7 @@ export function emptyTcInPeriodExtension() {
   };
 }
 
-/** Prefer the first defined value (including empty string) so clears are not restored from aliases. */
+/** Prefer the first defined value (including empty string / 0) so clears are not restored from aliases. */
 function pickDefined(...values) {
   for (const value of values) {
     if (value !== undefined && value !== null) return value;
@@ -169,9 +169,23 @@ function pickDefined(...values) {
   return '';
 }
 
+function hasOwnKeys(obj, keys) {
+  return keys.some((key) => Object.prototype.hasOwnProperty.call(obj, key));
+}
+
+/**
+ * Period fields that were supplied (including '') win; only fall back to draft-level
+ * when the period omitted the field entirely.
+ */
+function syncFieldFromPeriodOrDraft(rawTerms, keys, normalizedValue, draftFallback) {
+  if (hasOwnKeys(rawTerms, keys)) return normalizedValue;
+  return pickDefined(draftFallback, normalizedValue);
+}
+
 /** Normalize period terms so TcPeriodBlock + calcs share one shape. */
 export function normalizeTcInTerms(terms = {}) {
-  const exchangeCurrency = pickDefined(terms.exchangeCurrency, terms.hireCurrency) || 'USD';
+  // Currency keeps prior truthy fallback (empty primary still yields hireCurrency / USD).
+  const exchangeCurrency = terms.exchangeCurrency || terms.hireCurrency || 'USD';
   const exchangeRate = terms.exchangeRate ?? terms.xrate ?? '1';
   const delRangePort = pickDefined(terms.delRangePort, terms.delPort);
   const reDelRange = pickDefined(terms.reDelRange, terms.reDelPort);
@@ -387,7 +401,45 @@ export function syncPeriodOneToLegacy(tcIn = {}) {
       offHires: tcIn.offHires || [{ ...EMPTY_TC_IN_OFF }],
     };
   }
-  const terms = normalizeTcInTerms(period0.terms || {});
+  const rawTerms = period0.terms || {};
+  let terms = normalizeTcInTerms(rawTerms);
+  const deliveryPort = syncFieldFromPeriodOrDraft(
+    rawTerms,
+    ['delRangePort', 'delPort'],
+    pickDefined(terms.delRangePort, terms.delPort),
+    tcIn.deliveryPort,
+  );
+  const redeliveryPort = syncFieldFromPeriodOrDraft(
+    rawTerms,
+    ['reDelRange', 'reDelPort'],
+    pickDefined(terms.reDelRange, terms.reDelPort),
+    tcIn.redeliveryPort,
+  );
+  const ilohc = syncFieldFromPeriodOrDraft(
+    rawTerms,
+    ['ilohcUsd', 'ilohc'],
+    pickDefined(terms.ilohcUsd, terms.ilohc),
+    tcIn.ilohc,
+  );
+  const ballastBonus = syncFieldFromPeriodOrDraft(
+    rawTerms,
+    ['ballastBonus'],
+    pickDefined(terms.ballastBonus),
+    tcIn.ballastBonus,
+  );
+  // Keep terms aligned with draft fallbacks when the period omitted those fields.
+  if (!hasOwnKeys(rawTerms, ['ilohcUsd', 'ilohc'])) {
+    terms = { ...terms, ilohcUsd: ilohc, ilohc };
+  }
+  if (!hasOwnKeys(rawTerms, ['ballastBonus'])) {
+    terms = { ...terms, ballastBonus };
+  }
+  if (!hasOwnKeys(rawTerms, ['delRangePort', 'delPort'])) {
+    terms = { ...terms, delRangePort: deliveryPort, delPort: deliveryPort };
+  }
+  if (!hasOwnKeys(rawTerms, ['reDelRange', 'reDelPort'])) {
+    terms = { ...terms, reDelRange: redeliveryPort, reDelPort: redeliveryPort };
+  }
   const periods = [...(tcIn.periods || [])];
   periods[0] = { ...period0, terms };
   return {
@@ -398,10 +450,10 @@ export function syncPeriodOneToLegacy(tcIn = {}) {
     offHires: period0.offHires?.length ? period0.offHires : [{ ...EMPTY_TC_IN_OFF }],
     cpDate: tcIn.identifiers?.cpDate || tcIn.cpDate || '',
     contractRef: tcIn.contractRef || '',
-    deliveryPort: pickDefined(terms.delRangePort, terms.delPort, tcIn.deliveryPort),
-    redeliveryPort: pickDefined(terms.reDelRange, terms.reDelPort, tcIn.redeliveryPort),
-    ilohc: pickDefined(terms.ilohcUsd, terms.ilohc, tcIn.ilohc),
-    ballastBonus: pickDefined(terms.ballastBonus, tcIn.ballastBonus),
+    deliveryPort,
+    redeliveryPort,
+    ilohc,
+    ballastBonus,
   };
 }
 
@@ -517,17 +569,18 @@ export function mergeVesselParticulars(saved = {}, detail = {}) {
 /** Build modal draft: prefer saved recap; else prefill from parent TC Out. */
 export function buildTcInRecapDraft(detail = {}, existing = null) {
   if (existing?.recapVersion || existing?.identifiers || existing?.periods) {
+    // Normalize raw saved terms before defaults so blank primaries do not wipe legacy aliases.
     const periods = existing.periods?.length
       ? existing.periods.map((p) => ({
         ...EMPTY_TC_IN_PERIOD,
         ...p,
-        terms: normalizeTcInTerms({ ...EMPTY_TC_IN_PERIOD.terms, ...(p.terms || existing.terms || {}) }),
+        terms: normalizeTcInTerms(p.terms || existing.terms || {}),
         hires: (p.hires?.length ? p.hires : [{ ...EMPTY_TC_IN_HIRE }]).map((r) => ({ ...EMPTY_TC_IN_HIRE, ...r })),
         offHires: (p.offHires?.length ? p.offHires : [{ ...EMPTY_TC_IN_OFF }]).map((r) => ({ ...EMPTY_TC_IN_OFF, ...r })),
       }))
       : [{
         ...EMPTY_TC_IN_PERIOD,
-        terms: normalizeTcInTerms({ ...EMPTY_TC_IN_PERIOD.terms, ...(existing.terms || {}) }),
+        terms: normalizeTcInTerms(existing.terms || {}),
         hires: existing.hires?.length
           ? existing.hires.map((r) => ({ ...EMPTY_TC_IN_HIRE, ...r }))
           : [{ ...EMPTY_TC_IN_HIRE }],

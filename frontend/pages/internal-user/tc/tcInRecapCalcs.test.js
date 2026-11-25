@@ -5,12 +5,25 @@ import {
   normalizeTcInTerms,
   syncPeriodOneToLegacy,
   calcTcInGrossHireExpense,
+  calcTcInFinalHireage,
+  buildTcInRecapDraft,
 } from './tcInRecapCalcs.js';
 
 /** Mimic patchTerms: prior normalized terms + explicit primary clear. */
 function clearPrimary(priorTerms, key, empty = '') {
   return normalizeTcInTerms({ ...priorTerms, [key]: empty });
 }
+
+const LEGACY_ONLY_TERMS = {
+  ilohc: '5000',
+  adComm: '2.5',
+  brokerage: '1.25',
+  delPort: 'Singapore',
+  reDelPort: 'Mundra',
+  brokeragePaidBy: 'Owner',
+};
+
+const HIRE_10x22000 = [{ voyageDays: '10', dailyHire: '22000', hireage: '220000' }];
 
 describe('normalizeTcInTerms clear aliases', () => {
   it('keeps ILOHC empty when clearing primary while alias still has a value', () => {
@@ -74,6 +87,11 @@ describe('normalizeTcInTerms clear aliases', () => {
     assert.equal(blank.hireCurrency, 'USD');
     assert.equal(blank.exchangeRate, '1');
     assert.equal(blank.xrate, '1');
+
+    // Prior truthy currency fallback: empty primary still yields hireCurrency.
+    const eur = normalizeTcInTerms({ exchangeCurrency: '', hireCurrency: 'EUR' });
+    assert.equal(eur.exchangeCurrency, 'EUR');
+    assert.equal(eur.hireCurrency, 'EUR');
   });
 });
 
@@ -134,5 +152,135 @@ describe('syncPeriodOneToLegacy clear aliases', () => {
     });
     assert.equal(cleared.ilohc, '');
     assert.equal(calcTcInGrossHireExpense(cleared).totalHirePayable, '220000.00');
+  });
+});
+
+describe('legacy snapshot hydration and partial periods', () => {
+  it('preserves alias-only saved period terms on buildTcInRecapDraft reopen', () => {
+    const draft = buildTcInRecapDraft({}, {
+      recapVersion: 1,
+      periods: [{
+        terms: { ...LEGACY_ONLY_TERMS },
+        hires: HIRE_10x22000,
+        offHires: [],
+      }],
+    });
+    assert.equal(draft.terms.ilohcUsd, '5000');
+    assert.equal(draft.terms.ilohc, '5000');
+    assert.equal(draft.terms.addComm, '2.5');
+    assert.equal(draft.terms.adComm, '2.5');
+    assert.equal(draft.terms.brokerComm, '1.25');
+    assert.equal(draft.terms.delRangePort, 'Singapore');
+    assert.equal(draft.terms.reDelRange, 'Mundra');
+    assert.equal(draft.terms.broCommPayable, 'Owner');
+    assert.equal(draft.ilohc, '5000');
+    assert.equal(calcTcInGrossHireExpense(draft).totalHirePayable, '225000.00');
+    assert.equal(calcTcInFinalHireage(draft).finalHireage, '225000.00');
+  });
+
+  it('preserves alias-only flat saved terms when periods are absent', () => {
+    const draft = buildTcInRecapDraft({}, {
+      recapVersion: 1,
+      terms: { ...LEGACY_ONLY_TERMS },
+      hires: HIRE_10x22000,
+      offHires: [],
+    });
+    assert.equal(draft.terms.ilohcUsd, '5000');
+    assert.equal(draft.ilohc, '5000');
+    assert.equal(draft.terms.addComm, '2.5');
+    assert.equal(draft.deliveryPort, 'Singapore');
+    assert.equal(draft.redeliveryPort, 'Mundra');
+    assert.equal(calcTcInGrossHireExpense(draft).totalHirePayable, '225000.00');
+    assert.equal(calcTcInFinalHireage(draft).finalHireage, '225000.00');
+  });
+
+  it('falls back to draft-level values when period omits ILOHC/ports/ballast', () => {
+    const synced = syncPeriodOneToLegacy({
+      ilohc: '5000',
+      ballastBonus: '1000',
+      deliveryPort: 'Singapore',
+      redeliveryPort: 'Mundra',
+      periods: [{
+        ...EMPTY_TC_IN_PERIOD,
+        terms: {},
+        hires: HIRE_10x22000,
+        offHires: [],
+      }],
+    });
+    assert.equal(synced.ilohc, '5000');
+    assert.equal(synced.ballastBonus, '1000');
+    assert.equal(synced.deliveryPort, 'Singapore');
+    assert.equal(synced.redeliveryPort, 'Mundra');
+    assert.equal(calcTcInGrossHireExpense(synced).totalHirePayable, '226000.00');
+  });
+
+  it('keeps explicit clears empty without resurrecting draft leftovers', () => {
+    const synced = syncPeriodOneToLegacy({
+      ilohc: '5000',
+      ballastBonus: '1000',
+      deliveryPort: 'Singapore',
+      redeliveryPort: 'Mundra',
+      periods: [{
+        ...EMPTY_TC_IN_PERIOD,
+        terms: {
+          ilohcUsd: '',
+          ballastBonus: '',
+          delRangePort: '',
+          reDelRange: '',
+        },
+        hires: HIRE_10x22000,
+        offHires: [],
+      }],
+    });
+    assert.equal(synced.ilohc, '');
+    assert.equal(synced.ballastBonus, '');
+    assert.equal(synced.deliveryPort, '');
+    assert.equal(synced.redeliveryPort, '');
+    assert.equal(calcTcInGrossHireExpense(synced).totalHirePayable, '220000.00');
+  });
+
+  it('preserves numeric zero ILOHC through normalize and sync', () => {
+    const asNumber = normalizeTcInTerms({ ilohcUsd: 0 });
+    assert.equal(asNumber.ilohcUsd, 0);
+    assert.equal(asNumber.ilohc, 0);
+
+    const asString = normalizeTcInTerms({ ilohcUsd: '0' });
+    assert.equal(asString.ilohcUsd, '0');
+    assert.equal(asString.ilohc, '0');
+
+    const synced = syncPeriodOneToLegacy({
+      ilohc: '5000',
+      periods: [{
+        ...EMPTY_TC_IN_PERIOD,
+        terms: { ilohcUsd: 0 },
+        hires: HIRE_10x22000,
+        offHires: [],
+      }],
+    });
+    assert.equal(synced.ilohc, 0);
+    assert.equal(calcTcInGrossHireExpense(synced).totalHirePayable, '220000.00');
+    assert.equal(calcTcInFinalHireage(synced).finalHireage, '220000.00');
+  });
+
+  it('reopening a cleared saved recap keeps ILOHC empty and hireage without ILOHC', () => {
+    const saved = {
+      recapVersion: 1,
+      periods: [{
+        terms: {
+          ilohcUsd: '',
+          ilohc: '',
+          addComm: '',
+          adComm: '',
+        },
+        hires: HIRE_10x22000,
+        offHires: [],
+      }],
+      ilohc: '',
+    };
+    const draft = buildTcInRecapDraft({}, saved);
+    assert.equal(draft.terms.ilohcUsd, '');
+    assert.equal(draft.ilohc, '');
+    assert.equal(calcTcInGrossHireExpense(draft).totalHirePayable, '220000.00');
+    assert.equal(calcTcInFinalHireage(draft).finalHireage, '220000.00');
   });
 });

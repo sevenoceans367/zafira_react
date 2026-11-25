@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   LAYTIME_TANKER_PAGE_SIZE,
   applyLaytimeActivityLtToggle,
   filterRowsByQuery,
+  formatMoneyDisplay,
   isLaytimeActivityCounting,
 } from './laytimeTankerHelpers.js';
 import { isValidLtPartialPercent, validateDateRangeOrder } from './laytimeTankerValidation.js';
@@ -37,7 +38,7 @@ function SectionHeadRight({
 }) {
   return (
     <div className={styles.sectionHeadRight}>
-      <div className={styles.sectionSearchBox}>
+      <div className={styles.sectionSearchBox} data-laytime-interactive>
         <SearchIcon />
         <input
           type="text"
@@ -109,11 +110,12 @@ function LtToggle({ counting, disabled, onToggle }) {
   );
 }
 
-function usePagedSearch(rows, fields, pageSize = LAYTIME_TANKER_PAGE_SIZE) {
+function usePagedSearch(rows, fields, entity = '') {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const filtered = useMemo(() => filterRowsByQuery(rows, search, fields), [rows, search, fields]);
-  const paged = useMemo(() => paginateRows(filtered, page, pageSize), [filtered, page, pageSize]);
+  const matches = filterRowsByQuery(rows, search, fields);
+  const filtered = entity ? matches.filter(({ row }) => row.entity === entity) : matches;
+  const paged = paginateRows(filtered, page, LAYTIME_TANKER_PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
@@ -134,12 +136,206 @@ function usePagedSearch(rows, fields, pageSize = LAYTIME_TANKER_PAGE_SIZE) {
   };
 }
 
-/**
- * Single parent card: green Activities / orange Deductions.
- * Nego Dialogues are gated (not editable production UI) — owner decision pending.
- * Summary values are driven by ALL draft rows (recomputePortDraft), not the visible page.
- */
+const DIALOGUE_FIELDS = ['entity', 'date', 'reason', 'agreedDemm', 'status', 'notes'];
+const ENTITY_FILTERS = [
+  { value: '', label: 'All', title: 'All entities' },
+  { value: 'Charterer', label: 'C', title: 'Charterer only' },
+  { value: 'Owner', label: 'O', title: 'Owner only' },
+];
+const STATUS_STYLES = {
+  'On Hold': styles.statusOnhold,
+  'Under Nego': styles.statusUnderNego,
+  Completed: styles.statusCompleted,
+};
+const INITIAL_DIALOGUES = [emptyDialogue()];
+
+function emptyDialogue(id = 0, entity = 'Charterer') {
+  return { id, entity, date: '', reason: '', agreedDemm: '', status: 'On Hold', notes: '' };
+}
+
+function readMockAmount(value) {
+  const raw = value.trim();
+  if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(raw)) return null;
+  const amount = Number(raw.replaceAll(',', ''));
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function NegoDialogues({ portKey, locked, LtDateField }) {
+  const [rowsByPort, setRowsByPort] = useState({});
+  const [entity, setEntity] = useState('');
+  const nextId = useRef(1);
+  const rows = rowsByPort[portKey] ?? INITIAL_DIALOGUES;
+  const page = usePagedSearch(rows, DIALOGUE_FIELDS, entity);
+  const total = rows.reduce((sum, row) => sum + (readMockAmount(row.agreedDemm) ?? 0), 0);
+
+  const editRows = (edit) => setRowsByPort((current) => ({
+    ...current,
+    [portKey]: edit(current[portKey] ?? INITIAL_DIALOGUES),
+  }));
+
+  const change = (id, field, value) => editRows((current) => current.map((row) => (
+    row.id === id ? { ...row, [field]: value } : row
+  )));
+
+  const insert = (index, rowEntity) => {
+    const row = emptyDialogue(nextId.current++, rowEntity);
+    editRows((current) => [...current.slice(0, index + 1), row, ...current.slice(index + 1)]);
+  };
+
+  const remove = (id) => editRows((current) => (
+    current.length === 1 ? [emptyDialogue(id, current[0].entity)] : current.filter((row) => row.id !== id)
+  ));
+
+  return (
+    <>
+      <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadBlue} ${styles.subRibbon}`}>
+        <div className={styles.cfSectionTitleWrap}>
+          <div className={`${styles.sectionIco} ${styles.sectionIcoBlue}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
+              <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
+              <path d="M5 6h.01M8 6h.01M11 6h.01" />
+            </svg>
+          </div>
+          <div>
+            <div className={styles.cfSectionTitle}>Nego Dialogues</div>
+            <div className={styles.cfSectionSub}>Mock entries for UI testing. Changes reset when you leave the page.</div>
+          </div>
+        </div>
+        <SectionHeadRight
+          search={page.search}
+          onSearch={page.setSearch}
+          searchPlaceholder="Search dialogues..."
+          count={page.filteredCount}
+          page={page.page}
+          totalPages={page.totalPages}
+          onPrev={() => page.setPage(page.page - 1)}
+          onNext={() => page.setPage(page.page + 1)}
+        />
+      </div>
+      <div className={styles.tableWrap}>
+        <table className={`${styles.cfTable} ${styles.negoTable}`}>
+          <thead>
+            <tr>
+              <th style={{ width: 36 }}>#</th>
+              <th style={{ minWidth: 110 }}>
+                Entity
+                <span className={styles.negoEntityFilter} role="group" aria-label="Filter dialogues by entity">
+                  {ENTITY_FILTERS.map(({ value, label, title }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className={`${styles.negEfBtn} ${entity === value ? styles.negEfBtnActive : ''}`}
+                      aria-label={title}
+                      aria-pressed={entity === value}
+                      onClick={() => { setEntity(value); page.setPage(1); }}
+                    >{label}</button>
+                  ))}
+                </span>
+              </th>
+              <th style={{ minWidth: 170 }}>Date</th>
+              <th style={{ minWidth: 150 }}>Reason</th>
+              <th style={{ width: 84 }}>Agreed Demm</th>
+              <th style={{ minWidth: 120 }}>Status</th>
+              <th style={{ minWidth: 280 }}>Notes</th>
+              <th style={{ width: 48 }}><span className={styles.ltHiddenPreserve}>Row actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {page.items.length ? page.items.map(({ row, index }) => {
+              const label = `Dialogue ${index + 1}`;
+              const invalidAmount = Boolean(row.agreedDemm.trim()) && readMockAmount(row.agreedDemm) == null;
+              return (
+                <tr key={row.id}>
+                  <td>{index + 1}.</td>
+                  <td>
+                    <select
+                      className={styles.negoEntitySelect}
+                      value={row.entity}
+                      onChange={(e) => change(row.id, 'entity', e.target.value)}
+                      disabled={locked}
+                      aria-label={`${label} entity`}
+                    >
+                      <option>Charterer</option>
+                      <option>Owner</option>
+                    </select>
+                  </td>
+                  <td>
+                    <LtDateField
+                      value={row.date}
+                      onChange={(value) => change(row.id, 'date', value)}
+                      disabled={locked}
+                      ariaLabel={`${label} date`}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={styles.cfInp}
+                      value={row.reason}
+                      onChange={(e) => change(row.id, 'reason', e.target.value)}
+                      disabled={locked}
+                      aria-label={`${label} reason`}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={`${styles.cfInp} ${styles.numSm} ${styles.negoAgreedInp} ${invalidAmount ? styles.cfInpInvalid : ''}`}
+                      inputMode="decimal"
+                      value={row.agreedDemm}
+                      onChange={(e) => change(row.id, 'agreedDemm', e.target.value)}
+                      disabled={locked}
+                      placeholder="USD"
+                      aria-label={`${label} mock agreed demurrage in USD`}
+                      aria-invalid={invalidAmount}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      className={`${styles.negoStatusSelect} ${STATUS_STYLES[row.status]}`}
+                      value={row.status}
+                      onChange={(e) => change(row.id, 'status', e.target.value)}
+                      disabled={locked}
+                      aria-label={`${label} status`}
+                    >
+                      {Object.keys(STATUS_STYLES).map((status) => <option key={status}>{status}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <textarea
+                      className={styles.ltNotesSm}
+                      value={row.notes}
+                      onChange={(e) => change(row.id, 'notes', e.target.value)}
+                      disabled={locked}
+                      aria-label={`${label} notes`}
+                    />
+                  </td>
+                  <td>
+                    <RowActions
+                      locked={locked}
+                      onInsert={() => insert(index, row.entity)}
+                      onDelete={() => remove(row.id)}
+                    />
+                  </td>
+                </tr>
+              );
+            }) : <tr className={styles.cfEmptyRow}><td colSpan={8}>No dialogues match the filters.</td></tr>}
+          </tbody>
+          <tfoot>
+            <tr className={styles.totalsRow}>
+              <td colSpan={3} className={styles.negoTotalLabel}>Total Agreed Demurrage (mock)</td>
+              <td />
+              <td>{formatMoneyDisplay(total)}</td>
+              <td colSpan={3} />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </>
+  );
+}
+
 export default function LaytimeTankerTables({
+  portKey,
   draft,
   locked,
   LtDateField,
@@ -152,11 +348,9 @@ export default function LaytimeTankerTables({
   const activities = draft?.activities || [];
   const deductions = draft?.deductions || [];
 
-  const ACT_FIELDS = useMemo(() => ['activity', 'notes', 'start', 'end'], []);
-  const DED_FIELDS = useMemo(() => ['activity', 'notes', 'start', 'end'], []);
-
-  const actPage = usePagedSearch(activities, ACT_FIELDS);
-  const dedPage = usePagedSearch(deductions, DED_FIELDS);
+  const fields = ['activity', 'notes', 'start', 'end'];
+  const actPage = usePagedSearch(activities, fields);
+  const dedPage = usePagedSearch(deductions, fields);
 
   const calcUnavailable = Boolean(draft?.calcUnavailable);
   const dedTotals = useMemo(() => {
@@ -205,14 +399,14 @@ export default function LaytimeTankerTables({
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>
-              <th style={{ minWidth: 160 }}>Activity in Port</th>
-              <th style={{ minWidth: 170 }}>Date/Time – Start</th>
-              <th style={{ minWidth: 170 }}>Date/Time – Finish</th>
+              <th style={{ minWidth: 136 }}>Activity in Port</th>
+              <th style={{ minWidth: 158 }}>Date/Time – Start</th>
+              <th style={{ minWidth: 158 }}>Date/Time – Finish</th>
               <th style={{ width: 90 }}>Duration (Hrs)</th>
               <th style={{ width: 72 }}>LT</th>
               <th style={{ width: 80 }}>LT Partial %</th>
               <th style={{ width: 100 }}>Cumulative</th>
-              <th style={{ minWidth: 140 }}>Notes</th>
+              <th style={{ minWidth: 116 }}>Notes</th>
               <th style={{ width: 48 }} scope="col">
                 <span className={styles.ltHiddenPreserve}>Row actions</span>
               </th>
@@ -365,13 +559,13 @@ export default function LaytimeTankerTables({
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>
-              <th style={{ minWidth: 160 }}>Deduction</th>
-              <th style={{ minWidth: 170 }}>Date/Time – Start</th>
-              <th style={{ minWidth: 170 }}>Date/Time – Finish</th>
+              <th style={{ minWidth: 136 }}>Deduction</th>
+              <th style={{ minWidth: 158 }}>Date/Time – Start</th>
+              <th style={{ minWidth: 158 }}>Date/Time – Finish</th>
               <th style={{ width: 90 }}>Duration (Hrs)</th>
               <th style={{ width: 80 }}>LT Partial %</th>
               <th style={{ width: 100 }}>Net Duration</th>
-              <th style={{ minWidth: 140 }}>Notes</th>
+              <th style={{ minWidth: 116 }}>Notes</th>
               <th style={{ width: 48 }} scope="col">
                 <span className={styles.ltHiddenPreserve}>Row actions</span>
               </th>
@@ -480,30 +674,7 @@ export default function LaytimeTankerTables({
         </table>
       </div>
 
-      {/* NEGO — gated panel (not editable; no fake persistence) */}
-      <div className={`${styles.cfSectionHead} ${styles.cfSectionHeadBlue} ${styles.subRibbon}`}>
-        <div className={styles.cfSectionTitleWrap}>
-          <div className={`${styles.sectionIco} ${styles.sectionIcoBlue}`}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
-              <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
-            </svg>
-          </div>
-          <div>
-            <div className={styles.cfSectionTitle}>Nego Dialogues</div>
-            <div className={styles.cfSectionSub}>Demurrage negotiation log between owner &amp; charterer</div>
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.negoGatedPanel} role="status" aria-live="polite">
-        <p className={styles.negoGatedTitle}>Owner decision pending</p>
-        <p className={styles.negoGatedBody}>
-          Negotiation dialogues are not available in production Laytime yet.
-          This panel is intentionally disabled — it is not a Final Demurrage ledger
-          and does not persist session totals.
-        </p>
-      </div>
+      <NegoDialogues portKey={portKey} locked={locked} LtDateField={LtDateField} />
     </div>
   );
 }

@@ -2,15 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   applyLaytimeActivityLtToggle,
-  ensureCountingLtPartial,
   getTankerEntityValue,
   isLaytimeActivityCounting,
-  isTankerNegoUiEnabled,
-  normalizeActivityLtPartials,
   resolveLaytimeEstimateType,
   setTankerEntityValue,
-  sumNegoAgreedDemm,
-  tankerLoadedQtyPatchOptions,
   usesTankerLaytimeLayout,
 } from './laytimeTankerHelpers.js';
 
@@ -57,20 +52,6 @@ describe('laytimeTankerHelpers activity LT flags', () => {
     assert.equal(isLaytimeActivityCounting({ ltNoCounts: true }), false);
   });
 
-  it('fills blank LT Partial to 100 when row is counting (C)', () => {
-    assert.equal(ensureCountingLtPartial({ ltCounts: true, ltPartial: '' }).ltPartial, '100');
-    assert.equal(ensureCountingLtPartial({ ltCounts: true, ltPartial: '50' }).ltPartial, '50');
-    assert.equal(ensureCountingLtPartial({ ltNoCounts: true, ltPartial: '' }).ltPartial, '');
-    assert.equal(ensureCountingLtPartial({ sofLoadPortId: '9', ltCounts: false, ltPartial: '' }).ltPartial, '');
-    const rows = normalizeActivityLtPartials([
-      { ltCounts: true, ltPartial: '100' },
-      { ltCounts: true, ltPartial: '' },
-      { ltNoCounts: true, ltPartial: '0' },
-    ]);
-    assert.equal(rows[0].ltPartial, '100');
-    assert.equal(rows[1].ltPartial, '100');
-    assert.equal(rows[2].ltPartial, '0');
-  });
 });
 
 describe('laytimeTankerHelpers entity field mapping', () => {
@@ -87,35 +68,21 @@ describe('laytimeTankerHelpers entity field mapping', () => {
     assert.equal(next.find((r) => r.name === 'Surveyor').value, 'SGS');
   });
 
-  it('keeps empty named row so cleared values do not disappear', () => {
-    const cleared = setTankerEntityValue(
-      [{ name: 'All Clear', value: '01-09-2026 10:00' }],
-      'allClear',
-      '',
-    );
-    assert.equal(cleared.length, 1);
-    assert.equal(cleared[0].name, 'All Clear');
-    assert.equal(cleared[0].value, '');
-  });
-});
-
-describe('laytimeTankerHelpers nego visual total', () => {
-  it('sums agreed demm across statuses for display only', () => {
-    assert.equal(sumNegoAgreedDemm([
-      { agreedDemm: '38,500', status: 'Completed' },
-      { agreedDemm: '25,000', status: 'Under Nego' },
-      { agreedDemm: '', status: 'On Hold' },
-    ]), 63500);
-  });
-
-  it('keeps production nego UI gated off', () => {
-    assert.equal(isTankerNegoUiEnabled(), false);
-  });
-});
-
-describe('laytimeTankerHelpers allowance gate', () => {
-  it('does not refreshAllowed on Tanker QTY edit', () => {
-    assert.equal(tankerLoadedQtyPatchOptions().refreshAllowed, false);
-    assert.equal(tankerLoadedQtyPatchOptions().recompute, true);
+  it('edits and clears every alias while preserving rows and unrelated values', () => {
+    const rows = [
+      { name: 'All Clear', value: '01-09-2026 10:00' },
+      { name: 'allclear', value: '01-09-2026 11:00' },
+      { name: 'Surveyor', value: 'SGS' },
+    ];
+    for (const value of ['02-09-2026 12:00', '']) {
+      assert.deepEqual(setTankerEntityValue(rows, 'allClear', value), [
+        { name: 'All Clear', value },
+        { name: 'allclear', value },
+        rows[2],
+      ]);
+    }
+    assert.deepEqual(setTankerEntityValue([], 'allClear', ''), [
+      { name: 'All Clear', value: '' },
+    ]);
   });
 });

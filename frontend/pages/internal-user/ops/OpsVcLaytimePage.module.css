@@ -939,15 +939,7 @@
 
 /* ===== NAK-166 Tanker Laytime — scoped under .ltTankerRoot (no Dry/Gas leaks) ===== */
 
-.ltTankerRoot {
-  /* Marker class for tanker-only descendant selectors (.ltTankerRoot .cfInp, etc.). */
-  min-width: 0;
-}
-
-.ltTankerShell {
-  width: 100%;
-  min-width: 0;
-}
+.ltTankerRoot { min-width: 0; }
 
 /* Breathing room between LP/DP port pills and the Details card. */
 .ltPortTabs {
@@ -980,7 +972,6 @@
 
 .ltTankerRoot .cfSectionHeadGreen { background: #e8f8ec; }
 .ltTankerRoot .cfSectionHeadOrange { background: #fdece4; }
-.ltTankerRoot .cfSectionHeadBlue { background: #eaf1fe; }
 .ltTankerRoot .cfSectionHeadGrey { background: #eef0f3; }
 .ltTankerRoot .cfSectionHeadNavy { background: #e6eaf1; }
 
@@ -1038,8 +1029,6 @@
 .sectionIco svg { width: 16px; height: 16px; }
 .sectionIcoGreen { background: #e8f8ec; color: #0fa836; }
 .sectionIcoOrange { background: #fdece4; color: #f4652c; }
-.sectionIcoBlue { background: #eaf1fe; color: #3b82f6; }
-.sectionIcoGrey { background: #eef0f3; color: #5b6472; }
 .sectionIcoNavy { background: #e6eaf1; color: #274670; }
 
 .sectionHeadRight {
@@ -1077,7 +1066,7 @@
 }
 
 .sectionSearchInp::placeholder {
-  color: #8a93a2;
+  color: #5b6472;
   font-style: italic;
 }
 
@@ -1142,10 +1131,17 @@
 }
 
 .ltDetailVal {
+  display: block;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  padding: 7px 9px;
   font-size: 12.5px;
   font-weight: 700;
   color: #1b2430;
+  overflow-wrap: anywhere;
 }
+
+.ltDetailVal[data-empty='true'] { color: #5b6472; }
 
 .ltTimingGrid {
   display: grid;
@@ -1161,6 +1157,18 @@
 }
 
 .ltTimingCell:nth-child(4n) { border-right: none; }
+
+.ltTimingCell .ltDateField,
+.ltTankerRoot .cfTable .ltDateField { width: 100%; }
+
+.ltTimingCell .ltDateFieldInput,
+.ltTankerRoot .cfTable .ltDateFieldInput {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.ltTankerRoot .ltDateFieldInput::placeholder { color: #5b6472; }
 
 .demmCell .ltDetailLabel {
   color: #c53030;
@@ -1217,13 +1225,13 @@
   letter-spacing: 0.04em;
   color: #5b6472;
   background: #fafbfc;
-  padding: 11px 12px;
+  padding: 11px 9px;
   border-bottom: 1px solid #dfe2e7;
   white-space: nowrap;
 }
 
 .cfTable tbody td {
-  padding: 11px 12px;
+  padding: 11px 9px;
   border-bottom: 1px solid #eceef2;
   font-size: 12.5px;
   color: #1b2430;
@@ -1293,12 +1301,15 @@
   border-radius: 7px;
   padding: 7px 9px;
   width: 100%;
-  min-width: 140px;
+  min-width: 112px;
   height: 34px;
   min-height: 34px;
   resize: vertical;
   box-sizing: border-box;
 }
+
+.ltTankerRoot .ltNotesSm::placeholder,
+.ltTankerRoot .cfEmptyRow td { color: #5b6472; }
 
 .rowActionsCell {
   display: flex;
@@ -1416,12 +1427,12 @@
 }
 
 .statusOnhold { background-color: #eef0f3; color: #5b6472; border-color: #dfe2e7; }
-/* Darker same-hue text on tint fills for AA contrast (nego panel gated but styles retained). */
 .statusUnderNego { background-color: #fdece4; color: #b45309; border-color: #fbd9c9; }
 .statusCompleted { background-color: #e8f8ec; color: #0a7a28; border-color: #bfe6c6; font-weight: 700; }
 
-.negoAgreedInp { min-width: 50px; max-width: 80px; }
-.negoNotesWide { min-width: 260px; }
+.ltTankerRoot .negoAgreedInp { min-width: 60px; max-width: 80px; }
+.negoTable { min-width: 1040px; }
+.negoTable .negoTotalLabel { text-align: right; padding-right: 16px; }
 
 .negoEntityFilter {
   display: inline-flex;
@@ -1437,7 +1448,7 @@
   border-radius: 4px;
   border: 1px solid #dfe2e7;
   background: #fff;
-  color: #8a93a2;
+  color: #5b6472;
   cursor: pointer;
   font-family: inherit;
   text-transform: uppercase;
@@ -1455,99 +1466,35 @@
   color: #5b6472;
 }
 
-.negoPersistNote {
-  margin: 0;
-  padding: 8px 20px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #b9760a;
-  background: #fcf1dd;
-  border-bottom: 1px solid #eceef2;
+.ltBottomDock {
+  position: sticky;
+  bottom: 0;
+  z-index: 45;
 }
-
-.negoGatedPanel {
-  margin: 0;
-  padding: 18px 20px 22px;
-  background: #f7f8fa;
-  border-bottom: 1px solid #eceef2;
-}
-
-.negoGatedTitle {
-  margin: 0 0 6px;
-  font-size: 13px;
-  font-weight: 800;
-  color: #5b6472;
-}
-
-.negoGatedBody {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.45;
-  color: #5b6472;
-  max-width: 52rem;
-}
-
-.cfEmptyRow td {
-  text-align: center;
-  color: #8a93a2;
-  font-weight: 600;
-  padding: 18px 12px;
-}
-
-.sofFooterSpacer { height: 76px; }
 
 .sofFooterBar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
   background: #fff;
   border-top: 1px solid #dfe2e7;
   box-shadow: 0 -6px 18px rgba(20, 30, 50, 0.08);
-  padding: 14px 28px;
+  padding: 12px 16px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  z-index: 40;
 }
 
-/* Tanker: sticky footer only — summary floats independently above it. */
-.ltTankerRoot .sofFooterSpacer { display: none; }
-
-.ltTankerRoot .sofFooterBar {
-  position: sticky;
-  bottom: 0;
-  z-index: 45;
-  margin-top: 12px;
-  padding: 12px 16px 14px;
-  border-top: 1px solid #dfe2e7;
-  box-shadow: 0 -6px 18px rgba(20, 30, 50, 0.08);
-  background: #fff;
-}
-
-/* Zero-height host: expand grows visually upward without moving the footer. */
 .ltSummaryFloat {
-  position: sticky;
-  bottom: 96px; /* sticky footer (~77px) + clear gap */
-  z-index: 50;
-  height: 0;
-  overflow: visible;
+  position: absolute;
+  bottom: calc(100% + 16px);
+  inset-inline: 16px;
   display: flex;
   justify-content: flex-end;
-  align-items: flex-end;
-  padding: 0 16px;
-  margin: 0;
   pointer-events: none;
 }
 
 .ltSummaryFloat > * {
   pointer-events: auto;
-  /* Sit just above the sticky line (footer clears below). Expand grows upward. */
-  margin-bottom: 16px;
-  max-width: min(100%, 560px);
 }
 
 /* Match shipped SOF Tanker footer chrome (gray, not yellow HTML mockup). */
@@ -1580,11 +1527,6 @@
 
 /* Floating summary FAB — lives in ltSummaryFloat; not part of footer flow. */
 .ltSummaryFab {
-  position: relative;
-  bottom: auto;
-  right: auto;
-  left: auto;
-  z-index: auto;
   display: flex;
   align-items: center;
   gap: 11px;
@@ -1600,16 +1542,6 @@
   box-shadow: 0 8px 28px rgba(20, 30, 50, 0.18);
   transition: background 0.25s, box-shadow 0.25s;
   font-family: inherit;
-}
-
-.ltTankerRoot .ltSummaryFabExpanded {
-  position: relative;
-  bottom: auto;
-  right: auto;
-  left: auto;
-  width: min(100%, 420px);
-  max-height: min(60vh, 560px);
-  z-index: auto;
 }
 
 .ltSummaryFabUnavailable {
@@ -1654,12 +1586,8 @@
 }
 
 .ltSummaryFabExpanded {
-  position: relative;
-  bottom: auto;
-  right: auto;
   width: min(420px, 100%);
   max-height: min(60vh, 560px);
-  z-index: auto;
   box-shadow: 0 16px 48px rgba(20, 30, 50, 0.22);
   border-radius: 14px;
   transform-origin: bottom right;
@@ -1674,9 +1602,10 @@
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-.ltSummaryPanel { background: #fff; overflow: hidden; }
-
 .ltSummaryHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1711,8 +1640,6 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-height: min(70vh, 640px);
-  overflow-y: auto;
 }
 
 .ltSumGrid {
@@ -1721,13 +1648,7 @@
   gap: 16px 24px;
 }
 
-/* Panel-scoped: collapse to 1 col when the summary card itself is narrow. */
-@container lt-summary (max-width: 360px) {
-  .ltSumGrid { grid-template-columns: 1fr; }
-}
-
-.ltSummaryFabExpanded,
-.ltSummaryPanel {
+.ltSummaryFabExpanded {
   container-type: inline-size;
   container-name: lt-summary;
 }
@@ -1855,7 +1776,15 @@
 
 .tagChipOrange {
   background: #fdece4 !important;
-  color: #f4652c !important;
+  color: #9a3412 !important;
+}
+
+@container lt-summary (max-width: 360px) {
+  .ltSumGrid { grid-template-columns: 1fr; }
+  .ltSumFinalRow { align-items: stretch; flex-direction: column; gap: 6px; }
+  .ltSummaryBody { padding: 12px; }
+  .ltSumComputed { min-width: 0; overflow-wrap: anywhere; }
+  .ltActionBtns :global(button) { min-width: 0; white-space: normal; }
 }
 
 @media (max-width: 1150px) {
@@ -1868,26 +1797,17 @@
 }
 
 @media (max-width: 700px) {
+  .ltTankerPage { padding-inline: 8px; }
   .ltDetailsGrid,
   .ltTimingGrid { grid-template-columns: minmax(0, 1fr); }
   /* Beat 1150px nth-child border rules (higher specificity). */
   .ltDetailsGrid .ltDetailCell:nth-child(n),
   .ltTimingGrid .ltTimingCell:nth-child(n) { border-right: none; }
-  .ltTankerRoot .sofFooterBar,
-  .sofFooterBar { flex-direction: column; align-items: stretch; }
-  .ltSummaryFloat {
-    bottom: 148px; /* stacked Save/Close footer needs more clearance */
-    padding: 0 12px;
-    justify-content: stretch;
-  }
-  .ltSummaryFloat > * {
-    max-width: 100%;
+  .sofFooterBar { flex-direction: column; align-items: stretch; gap: 8px; padding: 8px; }
+  .ltSummaryFloat { inset-inline: 12px; bottom: calc(100% + 10px); }
+  .ltSummaryFloat > * { width: 100%; }
+  .ltSummaryFab {
     width: 100%;
-  }
-  .ltTankerRoot .ltSummaryFab,
-  .ltTankerRoot .ltSummaryFabExpanded {
-    width: 100%;
-    max-width: none;
     padding: 8px 12px;
   }
   .ltTankerRoot .fabVals {
@@ -1895,18 +1815,24 @@
     font-size: 11px;
   }
   .ltTankerRoot .fabNum { font-size: 12.5px; }
+  .ltTankerRoot .ltSummaryHead { padding: 8px; gap: 6px; }
+  .ltTankerRoot .ltSummaryHead .sectionIco { display: none; }
+  .ltTankerRoot .ltSummaryHeadSub { overflow-wrap: anywhere; }
+  .ltTankerRoot .ltSummaryFabExpanded .tagInput { min-width: 0; }
   .ltTankerRoot .sofFooterNote {
     max-width: 100%;
     font-size: 11px;
+    padding: 6px 8px;
   }
   .ltTankerRoot .sofFooterActions {
-    width: 100%;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 116px), 1fr));
+    gap: 6px;
   }
   .ltTankerRoot .sofFooterActions :global(button) {
-    flex: 1 1 calc(50% - 6px);
     min-width: 0;
-    white-space: normal;
+    padding-inline: 8px;
+    font-size: 11px;
   }
 }
 
@@ -1919,5 +1845,6 @@
 
 .ltTankerPage {
   position: relative;
+  overflow-x: clip;
   padding-bottom: 0 !important;
 }

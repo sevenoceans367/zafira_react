@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   durationForPersist,
-  fillMissingNamedEntityDates,
-  getNamedEntityValue,
   isBlankOrFiniteNumber,
   isOpaAgencyLetter,
   isValidLtPartialPercent,
@@ -11,7 +9,6 @@ import {
   parseDmyDateTimeMs,
   parseStrictDecimal,
   pickOrdinaryNominationLetter,
-  tankerLtInsertFailClosed,
   validateDateRangeOrder,
   validateNamedEntityDates,
   validateTankerLaytimePayload,
@@ -126,16 +123,6 @@ describe('backend tanker validation', () => {
   });
 });
 
-describe('LT insert fail-closed contract', () => {
-  it('enables failClosed only for Tanker estimateType 2', () => {
-    assert.equal(tankerLtInsertFailClosed(2), true);
-    assert.equal(tankerLtInsertFailClosed('2'), true);
-    assert.equal(tankerLtInsertFailClosed(1), false);
-    assert.equal(tankerLtInsertFailClosed(3), false);
-    assert.equal(tankerLtInsertFailClosed(null), false);
-  });
-});
-
 describe('named entity dates', () => {
   it('rejects malformed All Clear / Laytime Ends / DEMM Starts on payload', () => {
     assert.equal(validateNamedEntityDates([{ name: 'All Clear', value: '' }]).ok, true);
@@ -165,23 +152,35 @@ describe('named entity dates', () => {
     assert.match(bad.message, /conflicting/i);
   });
 
+  it('compares canonical timestamps and treats a blank alias as a conflict', () => {
+    const aliases = [
+      { name: 'All Clear', value: '01-09-2026 08:00' },
+      { name: 'allclear', value: '1-9-2026 8:0' },
+    ];
+    assert.equal(validateNamedEntityDates(aliases).ok, true);
+    aliases[1].value = '';
+    assert.equal(validateNamedEntityDates(aliases).ok, false);
+  });
+
   it('fills missing named fields from SOF without dropping Surveyor; blank wins', () => {
-    const filled = fillMissingNamedEntityDates(
+    const filled = mergeTankerEntityRows(
       [{ name: 'Surveyor', value: 'SGS' }],
       [
         { name: 'All clear', value: '01-09-2026 10:00' },
         { name: 'Laytime Ends', value: '05-09-2026 12:00' },
       ],
     );
-    assert.equal(filled.find((r) => r.name === 'Surveyor').value, 'SGS');
-    assert.equal(getNamedEntityValue(filled, 'allClear'), '01-09-2026 10:00');
-    assert.equal(getNamedEntityValue(filled, 'laytimeEnds'), '05-09-2026 12:00');
+    assert.deepEqual(filled, [
+      { name: 'Surveyor', value: 'SGS' },
+      { name: 'All Clear', value: '01-09-2026 10:00' },
+      { name: 'Laytime Ends', value: '05-09-2026 12:00' },
+    ]);
 
-    const blankWins = fillMissingNamedEntityDates(
+    const blankWins = mergeTankerEntityRows(
       [{ name: 'All Clear', value: '' }],
       [{ name: 'All Clear', value: '01-09-2026 10:00' }],
     );
-    assert.equal(getNamedEntityValue(blankWins, 'allClear'), '');
+    assert.deepEqual(blankWins, [{ name: 'All Clear', value: '' }]);
   });
 
   it('fresh/empty-saved keeps all SOF points and only adds missing named from slave3', () => {
@@ -196,7 +195,7 @@ describe('named entity dates', () => {
     const fresh = mergeTankerEntityRows(null, points, slave3);
     assert.equal(fresh.some((r) => r.name === 'Pilot on board'), true);
     assert.equal(fresh.some((r) => r.name === 'All fast'), true);
-    assert.equal(getNamedEntityValue(fresh, 'allClear'), '01-09-2026 08:00');
+    assert.equal(fresh.find((r) => r.name === 'All Clear').value, '01-09-2026 08:00');
     assert.equal(fresh.some((r) => r.name === 'Surveyor'), false);
 
     const emptySaved = mergeTankerEntityRows([], points, slave3);
@@ -208,7 +207,7 @@ describe('named entity dates', () => {
       slave3,
     );
     assert.equal(saved.find((r) => r.name === 'Surveyor').value, 'SGS');
-    assert.equal(getNamedEntityValue(saved, 'allClear'), '');
+    assert.equal(saved.find((r) => r.name === 'All Clear').value, '');
   });
 });
 

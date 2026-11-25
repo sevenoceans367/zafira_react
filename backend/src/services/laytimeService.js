@@ -10,9 +10,6 @@ const MOCK_FORM = {
   cargo: ['WHEAT'],
   currency: 'USD',
   rateUnit: 'days',
-  estimateType: 3,
-  operatorName: '',
-  charterer: '',
   canOpen: true,
   approverOptions: [],
   vesselParticulars: {

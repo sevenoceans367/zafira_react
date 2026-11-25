@@ -6,14 +6,22 @@ import LaytimeTankerTables from './LaytimeTankerTables.jsx';
 import {
   getTankerEntityValue,
   setTankerEntityValue,
-  tankerLoadedQtyPatchOptions,
 } from './laytimeTankerHelpers.js';
-import { parseStrictDisplayDateTime } from './laytimeTankerValidation.js';
+import { isBlankOrFiniteNumber, parseStrictDisplayDateTime, validateNamedEntityDates } from './laytimeTankerValidation.js';
 import { PortTabLabel } from './portTabLabel.jsx';
 import sofStyles from './OpsVcSofTanker.module.css';
 import styles from './OpsVcLaytimePage.module.css';
 
-/** Blank OK; non-blank must parse strictly. */
+const TIMING_FIELDS = [
+  ['norTendered', 'NOR Tendered'],
+  ['norAccepted', 'NOR Accepted'],
+  ['allClear', 'All Clear', true],
+  ['loadCommenced', 'Cargo Commenced'],
+  ['loadCompleted', 'Cargo Completed'],
+  ['startCounting', 'Laytime Starts'],
+  ['laytimeEnds', 'Laytime Ends', true],
+  ['demmStarts', 'DEMM Starts', true],
+];
 function dateFieldInvalid(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return false;
@@ -68,7 +76,7 @@ function displayStoredFileName(stored) {
 
 function ReadonlyDash({ value }) {
   const raw = String(value ?? '').trim();
-  return <span className={styles.ltDetailVal}>{raw || '—'}</span>;
+  return <span className={styles.ltDetailVal} data-empty={!raw}>{raw || '—'}</span>;
 }
 
 /**
@@ -109,17 +117,11 @@ export default function LaytimeTankerLayout({
   const operatorName = form?.operatorName || '';
   const chartererName = form?.charterer || form?.chartererName || '';
   const agentName = activePort?.agentName || '';
-  const allClear = getTankerEntityValue(draft?.entityRows, 'allClear');
-  const laytimeEnds = getTankerEntityValue(draft?.entityRows, 'laytimeEnds');
-  const demmStarts = getTankerEntityValue(draft?.entityRows, 'demmStarts');
-  const patchEntityField = (fieldKey, value) => {
-    patchDraft({
-      entityRows: setTankerEntityValue(draft?.entityRows, fieldKey, value),
-    });
-  };
+  const invalidEntity = validateNamedEntityDates(draft?.entityRows).field;
+  const invalidQty = !isBlankOrFiniteNumber(draft?.loadedQty);
 
   return (
-    <div className={`${styles.ltTankerRoot} ${styles.ltTankerShell}`}>
+    <div className={styles.ltTankerRoot}>
       <div className={`${sofStyles.portTabs} ${styles.ltPortTabs}`} role="group" aria-label="Laytime port calls">
         {(form.ports || []).map((port) => {
           const isActive = port.key === activeKey;
@@ -166,21 +168,22 @@ export default function LaytimeTankerLayout({
 
             <div className={styles.ltDetailsGrid}>
               <div className={styles.ltDetailCell}>
-                <label className={styles.ltDetailLabel}>Cargo</label>
+                <span className={styles.ltDetailLabel}>Cargo</span>
                 <ReadonlyDash value={cargoSummary} />
               </div>
               <div className={styles.ltDetailCell} data-field="loadedQty">
                 <label className={styles.ltDetailLabel} htmlFor="loadedQty">QTY (MT)</label>
                 <input
                   id="loadedQty"
-                  className={styles.cfInp}
+                  className={`${styles.cfInp} ${invalidQty ? styles.cfInpInvalid : ''}`}
+                  aria-invalid={invalidQty}
                   type="text"
                   value={draft.loadedQty ?? ''}
                   onChange={(e) => patchDraft(
                     { loadedQty: e.target.value },
                     // Legacy Fun158==2: contractual Laytime Allowed stays editable; do not
                     // overwrite from qty/rate on every QTY keystroke.
-                    tankerLoadedQtyPatchOptions(),
+                    { recompute: true },
                   )}
                   disabled={locked}
                   placeholder="0.00"
@@ -199,112 +202,45 @@ export default function LaytimeTankerLayout({
                 />
               </div>
               <div className={styles.ltDetailCell}>
-                <label className={styles.ltDetailLabel}>Operator</label>
+                <span className={styles.ltDetailLabel}>Operator</span>
                 <ReadonlyDash value={operatorName} />
               </div>
               <div className={styles.ltDetailCell}>
-                <label className={styles.ltDetailLabel}>Charterer</label>
+                <span className={styles.ltDetailLabel}>Charterer</span>
                 <ReadonlyDash value={chartererName} />
               </div>
               <div className={styles.ltDetailCell}>
-                <label className={styles.ltDetailLabel}>Agent</label>
+                <span className={styles.ltDetailLabel}>Agent</span>
                 <ReadonlyDash value={agentName} />
               </div>
             </div>
 
             <div className={styles.ltTimingGrid}>
-              <div className={styles.ltTimingCell} data-field="norTendered">
-                <label className={styles.ltDetailLabel} htmlFor="norTendered">NOR Tendered</label>
-                <LtDateField
-                  id="norTendered"
-                  value={draft.norTendered}
-                  onChange={(v) => patchDraft({ norTendered: v })}
-                  disabled={locked}
-                  ariaLabel="NOR Tendered"
-                  invalid={dateFieldInvalid(draft.norTendered)}
-                />
-              </div>
-              <div className={styles.ltTimingCell} data-field="norAccepted">
-                <label className={styles.ltDetailLabel} htmlFor="norAccepted">NOR Accepted</label>
-                <LtDateField
-                  id="norAccepted"
-                  value={draft.norAccepted}
-                  onChange={(v) => patchDraft({ norAccepted: v })}
-                  disabled={locked}
-                  ariaLabel="NOR Accepted"
-                  invalid={dateFieldInvalid(draft.norAccepted)}
-                />
-              </div>
-              <div className={styles.ltTimingCell} data-field="allClear">
-                <label className={styles.ltDetailLabel} htmlFor="allClear">All Clear</label>
-                <LtDateField
-                  id="allClear"
-                  value={allClear}
-                  onChange={(v) => patchEntityField('allClear', v)}
-                  disabled={locked}
-                  ariaLabel="All Clear"
-                  invalid={dateFieldInvalid(allClear)}
-                />
-              </div>
-              <div className={styles.ltTimingCell} data-field="loadCommenced">
-                <label className={styles.ltDetailLabel} htmlFor="loadCommenced">Cargo Commenced</label>
-                <LtDateField
-                  id="loadCommenced"
-                  value={draft.loadCommenced}
-                  onChange={(v) => patchDraft({ loadCommenced: v })}
-                  disabled={locked}
-                  ariaLabel="Cargo Commenced"
-                  invalid={dateFieldInvalid(draft.loadCommenced)}
-                />
-              </div>
-              <div className={styles.ltTimingCell} data-field="loadCompleted">
-                <label className={styles.ltDetailLabel} htmlFor="loadCompleted">Cargo Completed</label>
-                <LtDateField
-                  id="loadCompleted"
-                  value={draft.loadCompleted}
-                  onChange={(v) => patchDraft({ loadCompleted: v })}
-                  disabled={locked}
-                  ariaLabel="Cargo Completed"
-                  invalid={dateFieldInvalid(draft.loadCompleted)}
-                />
-              </div>
-              <div className={styles.ltTimingCell} data-field="startCounting">
-                <label className={styles.ltDetailLabel} htmlFor="startCounting">Laytime Starts</label>
-                <LtDateField
-                  id="startCounting"
-                  value={draft.startCounting}
-                  onChange={(v) => patchDraft({ startCounting: v })}
-                  disabled={locked}
-                  ariaLabel="Laytime Starts"
-                  invalid={dateFieldInvalid(draft.startCounting)}
-                />
-              </div>
-              <div className={styles.ltTimingCell} data-field="laytimeEnds">
-                <label className={styles.ltDetailLabel} htmlFor="laytimeEnds">Laytime Ends</label>
-                <LtDateField
-                  id="laytimeEnds"
-                  value={laytimeEnds}
-                  onChange={(v) => patchEntityField('laytimeEnds', v)}
-                  disabled={locked}
-                  ariaLabel="Laytime Ends"
-                  invalid={dateFieldInvalid(laytimeEnds)}
-                />
-              </div>
-              <div className={`${styles.ltTimingCell} ${styles.demmCell}`} data-field="demmStarts">
-                <label className={styles.ltDetailLabel} htmlFor="demmStarts">DEMM Starts</label>
-                <LtDateField
-                  id="demmStarts"
-                  value={demmStarts}
-                  onChange={(v) => patchEntityField('demmStarts', v)}
-                  disabled={locked}
-                  ariaLabel="DEMM Starts"
-                  invalid={dateFieldInvalid(demmStarts)}
-                />
-              </div>
+              {TIMING_FIELDS.map(([key, label, entity]) => {
+                const value = entity ? getTankerEntityValue(draft.entityRows, key) : draft[key];
+                const invalid = invalidEntity === key || dateFieldInvalid(value);
+                return (
+                  <div
+                    key={key}
+                    data-field={key}
+                    className={`${styles.ltTimingCell} ${key === 'demmStarts' ? styles.demmCell : ''}`}
+                  >
+                    <label className={styles.ltDetailLabel} htmlFor={key}>{label}</label>
+                    <LtDateField
+                      id={key}
+                      value={value}
+                      onChange={(date) => patchDraft(entity
+                        ? { entityRows: setTankerEntityValue(draft.entityRows, key, date) }
+                        : { [key]: date })}
+                      disabled={locked}
+                      ariaLabel={label}
+                      invalid={invalid}
+                    />
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Dry-only fields (stowageQty / arrived / sailed / loadedRate / turn / applicable / pilot)
-                stay on the draft object for save — no inaccessible hidden DOM. */}
           </div>
 
           {/* LAYTIME OPTIONS */}
@@ -358,6 +294,8 @@ export default function LaytimeTankerLayout({
           </div>
 
           <LaytimeTankerTables
+            key={form.comId}
+            portKey={activeKey}
             draft={draft}
             locked={locked}
             LtDateField={LtDateField}
@@ -423,70 +361,71 @@ export default function LaytimeTankerLayout({
             </div>
           </div>
 
-          {/* Floating summary — independent of footer so expand overlays content, never grows chrome. */}
-          <div className={styles.ltSummaryFloat} data-lt-summary-float>
-            <LaytimeTankerSummaryPill
-              open={summaryOpen}
-              onOpen={() => setSummaryOpen(true)}
-              onClose={() => setSummaryOpen(false)}
-              draft={draft}
-              unitShort={unitShort}
-              locked={locked}
-              unitUnknown={unitUnknown}
-              saving={saving}
-              approverOptions={approverOptions}
-              ApproverTagField={ApproverTagField}
-              setApprovers={setApprovers}
-              onPatchDraft={patchDraft}
-              onSendForApproval={() => handleSubmit(1)}
-            />
-          </div>
+          <div className={styles.ltBottomDock}>
+            <div className={styles.ltSummaryFloat} data-lt-summary-float>
+              <LaytimeTankerSummaryPill
+                open={summaryOpen}
+                onOpen={() => setSummaryOpen(true)}
+                onClose={() => setSummaryOpen(false)}
+                draft={draft}
+                unitShort={unitShort}
+                locked={locked}
+                unitUnknown={unitUnknown}
+                saving={saving}
+                approverOptions={approverOptions}
+                ApproverTagField={ApproverTagField}
+                setApprovers={setApprovers}
+                onPatchDraft={patchDraft}
+                onSendForApproval={() => handleSubmit(1)}
+              />
+            </div>
 
-          <div className={styles.sofFooterBar}>
-            {!locked ? (
-              <>
-                <div className={styles.sofFooterNote}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  Use “Submit” once laytime figures for every port call are finalised; “Close Laytime” locks the calculation entirely.
-                </div>
-                <div className={styles.sofFooterActions}>
-                  <Button
-                    type="button"
-                    variant="saveOutline"
-                    label="Save"
-                    onClick={() => handleSubmit(0)}
-                    disabled={saving || unitUnknown}
-                    title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
-                  />
-                  <Button
-                    type="button"
-                    variant="saveOutline"
-                    label="Close Laytime"
-                    onClick={() => handleSubmit(5)}
-                    disabled={saving || unitUnknown}
-                    title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <p className={styles.lockedNote}>This Laytime is locked / closed.</p>
-                {form?.canOpen ? (
-                  <Button
-                    type="button"
-                    variant="submit"
-                    label="Open"
-                    onClick={handleOpen}
-                    disabled={saving || unitUnknown}
-                    title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
-                  />
-                ) : null}
-              </>
-            )}
+            <div className={styles.sofFooterBar}>
+              {!locked ? (
+                <>
+                  <div className={styles.sofFooterNote}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                  Send for Approval from the summary. Close Laytime locks this port.
+                  </div>
+                  <div className={styles.sofFooterActions}>
+                    <Button
+                      type="button"
+                      variant="saveOutline"
+                      label="Save"
+                      onClick={() => handleSubmit(0)}
+                      disabled={saving || unitUnknown}
+                      title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
+                    />
+                    <Button
+                      type="button"
+                      variant="saveOutline"
+                      label="Close Laytime"
+                      onClick={() => handleSubmit(5)}
+                      disabled={saving || unitUnknown}
+                      title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className={styles.lockedNote}>This Laytime is locked / closed.</p>
+                  {form?.canOpen ? (
+                    <Button
+                      type="button"
+                      variant="submit"
+                      label="Open"
+                      onClick={handleOpen}
+                      disabled={saving || unitUnknown}
+                      title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
+                    />
+                  ) : null}
+                </>
+              )}
+            </div>
           </div>
         </div>
       ) : null}

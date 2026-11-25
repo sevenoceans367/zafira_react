@@ -13,11 +13,7 @@ import {
   validateNamedEntityDates,
   validateTankerLaytimeDraft,
 } from './laytimeTankerValidation.js';
-import {
-  formatMoneyDisplay,
-  isTankerNegoUiEnabled,
-  tankerLoadedQtyPatchOptions,
-} from './laytimeTankerHelpers.js';
+import { formatMoneyDisplay } from './laytimeTankerHelpers.js';
 
 function baseDraft(overrides = {}) {
   return {
@@ -85,8 +81,12 @@ describe('tanker mandatory gate', () => {
     ]).ok, false);
     assert.equal(validateNamedEntityDates([
       { name: 'All Clear', value: '01-11-2026 08:00' },
-      { name: 'allclear', value: '01-11-2026 08:00' },
+      { name: 'allclear', value: '1-11-2026 8:0' },
     ]).ok, true);
+    assert.equal(validateNamedEntityDates([
+      { name: 'All Clear', value: '01-11-2026 08:00' },
+      { name: 'allclear', value: '' },
+    ]).ok, false);
   });
 });
 
@@ -243,21 +243,8 @@ describe('lt partial % and rates', () => {
   });
 });
 
-describe('money display + nego gate', () => {
-  it('formats calculated demurrage to two decimals', () => {
-    assert.equal(formatMoneyDisplay(2666.7), '2,666.70');
-    assert.equal(formatMoneyDisplay(0.75), '0.75');
-    assert.equal(formatMoneyDisplay(0), '0.00');
-  });
-
-  it('keeps nego UI disabled in production Tanker', () => {
-    assert.equal(isTankerNegoUiEnabled(), false);
-  });
-
-  it('Tanker QTY patch does not refreshAllowed from qty/rate', () => {
-    assert.deepEqual(tankerLoadedQtyPatchOptions(), {
-      recompute: true,
-      refreshAllowed: false,
-    });
-  });
+it('formats calculated demurrage to two decimals', () => {
+  assert.equal(formatMoneyDisplay(2666.7), '2,666.70');
+  assert.equal(formatMoneyDisplay(0.75), '0.75');
+  assert.equal(formatMoneyDisplay(0), '0.00');
 });

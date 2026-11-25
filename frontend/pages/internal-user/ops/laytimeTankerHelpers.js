@@ -28,27 +28,6 @@ export function resolveLaytimeEstimateType(form) {
   return null;
 }
 
-export function emptyNegoRow() {
-  return {
-    entity: 'Charterer',
-    date: '',
-    reason: '',
-    agreedDemm: '',
-    status: 'On Hold',
-    notes: '',
-  };
-}
-
-export function parseMoneyInput(value) {
-  const n = parseFloat(String(value ?? '').replace(/,/g, ''));
-  return Number.isFinite(n) ? n : 0;
-}
-
-/** Visual-only nego total (all statuses) — do not wire into financial save fields. */
-export function sumNegoAgreedDemm(rows = []) {
-  return (rows || []).reduce((sum, row) => sum + parseMoneyInput(row.agreedDemm), 0);
-}
-
 /** Always show two decimal places for calculated demurrage USD (pill + expanded). */
 export function formatMoneyDisplay(n) {
   const num = Number(n);
@@ -98,23 +77,7 @@ export function isLaytimeActivityCounting(row = {}) {
   return true;
 }
 
-/**
- * C rows must keep LT Partial % at 100 when blank (HTML mockup + insert defaults).
- * NC rows keep their own 0; does not overwrite an intentional non-blank partial.
- */
-export function ensureCountingLtPartial(row = {}) {
-  if (!isLaytimeActivityCounting(row)) return row;
-  const partial = String(row.ltPartial ?? '').trim();
-  if (partial !== '') return row;
-  return { ...row, ltPartial: '100' };
-}
-
-export function normalizeActivityLtPartials(rows = []) {
-  return (rows || []).map((row) => ensureCountingLtPartial(row));
-}
-
-/** Named laytime_slave2 / SOF point-event fields shown on Tanker Details. */
-export const TANKER_ENTITY_FIELDS = {
+const TANKER_ENTITY_FIELDS = {
   allClear: {
     canonical: 'All Clear',
     aliases: ['all clear', 'allclear'],
@@ -129,50 +92,30 @@ export const TANKER_ENTITY_FIELDS = {
   },
 };
 
-function entityAliasSet(fieldKey) {
-  const field = TANKER_ENTITY_FIELDS[fieldKey];
-  if (!field) return new Set();
-  return new Set([field.canonical, ...field.aliases].map((n) => String(n).trim().toLowerCase()));
+function matchesTankerEntity(row, fieldKey) {
+  return TANKER_ENTITY_FIELDS[fieldKey]?.aliases.includes(String(row?.name ?? '').trim().toLowerCase());
 }
 
-/** Read a named entity/SOF point value (case-insensitive alias match). */
+export function listTankerEntityMatches(entityRows, fieldKey) {
+  return (entityRows || []).filter((row) => matchesTankerEntity(row, fieldKey));
+}
+
 export function getTankerEntityValue(entityRows, fieldKey) {
-  const aliases = entityAliasSet(fieldKey);
-  if (!aliases.size) return '';
-  const match = (entityRows || []).find((row) => (
-    aliases.has(String(row?.name || '').trim().toLowerCase())
-  ));
-  return match ? String(match.value ?? '') : '';
+  const match = (entityRows || []).find((row) => matchesTankerEntity(row, fieldKey));
+  return String(match?.value ?? '');
 }
 
-/**
- * Upsert one named entity row. Preserves unrelated rows.
- * Keeps an empty named row so a cleared saved value does not fall back to SOF.
- */
-export function setTankerEntityValue(entityRows, fieldKey, value) {
+export function setTankerEntityValue(entityRows = [], fieldKey, value) {
   const field = TANKER_ENTITY_FIELDS[fieldKey];
-  if (!field) return Array.isArray(entityRows) ? [...entityRows] : [];
-  const aliases = entityAliasSet(fieldKey);
-  const nextValue = String(value ?? '');
-  const rows = Array.isArray(entityRows) ? [...entityRows] : [];
-  const index = rows.findIndex((row) => aliases.has(String(row?.name || '').trim().toLowerCase()));
-  if (index >= 0) {
-    rows[index] = { ...rows[index], name: field.canonical, value: nextValue };
-    return rows;
-  }
-  rows.push({ name: field.canonical, value: nextValue });
+  if (!field) return entityRows;
+  let found = false;
+  const date = String(value ?? '');
+  const rows = entityRows.map((row) => {
+    if (!matchesTankerEntity(row, fieldKey)) return row;
+    found = true;
+    return { ...row, value: date };
+  });
+  // An explicit blank is stored so SOF does not restore a cleared date.
+  if (!found) rows.push({ name: field.canonical, value: date });
   return rows;
-}
-
-/**
- * Tanker QTY edit patch flags (Legacy Fun158==2).
- * Recompute financials from existing allowance; do NOT refreshAllowed from qty/rate.
- */
-export function tankerLoadedQtyPatchOptions() {
-  return { recompute: true, refreshAllowed: false };
-}
-
-/** Nego Dialogues are gated out of production Tanker UI (no editable table). */
-export function isTankerNegoUiEnabled() {
-  return false;
 }

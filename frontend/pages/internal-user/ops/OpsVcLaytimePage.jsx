@@ -17,7 +17,6 @@ import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
 import {
-  normalizeActivityLtPartials,
   resolveLaytimeEstimateType,
   usesTankerLaytimeLayout,
 } from './laytimeTankerHelpers.js';
@@ -305,7 +304,7 @@ function approverLabel(options, id) {
   return match?.name ?? match?.label ?? String(id);
 }
 
-function ApproverTagField({ options, value, onChange, disabled, orangeChips = false }) {
+function ApproverTagField({ options, value, onChange, disabled, orangeChips = false, restrictToOptions = false }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
@@ -347,7 +346,7 @@ function ApproverTagField({ options, value, onChange, disabled, orangeChips = fa
       const name = String(opt.name ?? opt.label ?? '').toLowerCase();
       return id.toLowerCase() === typed.toLowerCase() || name === typed.toLowerCase();
     });
-    addId(match ? String(match.id ?? match.value ?? '') : typed);
+    if (match || !restrictToOptions) addId(match ? String(match.id ?? match.value ?? '') : typed);
   };
 
   return (
@@ -376,7 +375,8 @@ function ApproverTagField({ options, value, onChange, disabled, orangeChips = fa
           className={styles.tagInput}
           value={query}
           disabled={disabled}
-          placeholder={selected.length ? 'Add another…' : 'Type a name or username, then Enter'}
+          aria-label="Assign an Approver"
+          placeholder={selected.length ? 'Add another…' : restrictToOptions ? 'Search approvers…' : 'Type a name or username, then Enter'}
           onFocus={() => setOpen(true)}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -396,7 +396,11 @@ function ApproverTagField({ options, value, onChange, disabled, orangeChips = fa
         />
       </div>
       {open && !disabled && available.length ? (
-        <div className={styles.tagMenu} role="listbox">
+        <div
+          className={styles.tagMenu}
+          role={restrictToOptions ? 'group' : 'listbox'}
+          aria-label={restrictToOptions ? 'Eligible approvers' : undefined}
+        >
           {available.slice(0, 8).map((opt) => {
             const id = String(opt.id ?? opt.value ?? '');
             const name = opt.name ?? opt.label ?? id;
@@ -545,7 +549,6 @@ export default function OpsVcLaytimePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pendingFilesByKey, setPendingFilesByKey] = useState({});
-  // Nego Dialogues: no production session state — gated panel only (prefer hide over fake persistence).
 
   const rateUnit = form?.rateUnit === 'hours' || form?.rateUnit === 'days'
     ? form.rateUnit
@@ -631,8 +634,6 @@ export default function OpsVcLaytimePage() {
       if (!(recompute || refreshAllowed)) {
         return { ...current, [activeKey]: base };
       }
-      // Tanker: always sanitize full draft at the recompute boundary so stored
-      // invalid %/dates/rates cannot inflate totals when another field changes.
       const next = isTankerLayout
         ? recomputeTankerPortDraft(base, rateUnit)
         : recomputePortDraft(base, rateUnit);
@@ -647,30 +648,13 @@ export default function OpsVcLaytimePage() {
   };
 
   const addListRow = (field, factory) => {
-    const created = typeof factory === 'function' ? factory() : factory;
-    let rows = [...(draft[field] || []), created];
-    // Tanker-only: fill blank C partials on the new set; Dry/Gas untouched.
-    if (isTankerLayout && field === 'activities') {
-      rows = normalizeActivityLtPartials(rows);
-    }
-    // Dry/Gas: preserve base addListRow (no recompute). Tanker recomputes totals.
-    patchDraft(
-      { [field]: rows },
-      { recompute: isTankerLayout && (field === 'activities' || field === 'deductions') },
-    );
+    patchDraft({ [field]: [...(draft[field] || []), factory()] });
   };
 
-  const insertListRow = (field, index, factory) => {
-    let rows = [...(draft[field] || [])];
-    const created = typeof factory === 'function' ? factory() : factory;
-    rows.splice(index + 1, 0, created);
-    if (isTankerLayout && field === 'activities') {
-      rows = normalizeActivityLtPartials(rows);
-    }
-    patchDraft(
-      { [field]: rows },
-      { recompute: isTankerLayout && (field === 'activities' || field === 'deductions') },
-    );
+  const insertListRow = (field, index, createRow) => {
+    const rows = [...(draft[field] || [])];
+    rows.splice(index + 1, 0, createRow());
+    patchDraft({ [field]: rows }, { recompute: true });
   };
 
   const removeListRow = async (field, index, factory, keepMinOne = true) => {

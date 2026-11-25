@@ -18,12 +18,12 @@ Example (72h allowed, 108.5h counting, 4h deduction, $20k/day): Legacy dem ≈ 3
 
 ## Nego Dialogues
 
-No `laytime_slave2` / master persistence for negotiation rows. Production Tanker UI shows a disabled gated panel only. FAB “Calc Demm” uses calculated `ttlDemurrage`, never a session nego sum.
+Current Legacy and React schemas have no negotiation dialogue storage. The Tanker table uses labeled mock entries held in memory for UI testing. Its mock total is separate from the calculated demurrage shown in the summary and from the Laytime save payload.
 
 ## All Clear / Laytime Ends / DEMM Starts / Agent
 
 These are **not** blocked on new `laytime_master` columns / migrations.
 
-- **Agent (read-only, Tanker):** ordinary `KIND_ATTN_TO='nomination'` agency letter first (skip OPA via `LP_DP='Yes'` when that column exists; never treat pda/bunker/voyage as nomination), then company-scoped leg `PORT_COSTLP/DP_VENDOR`. Dash is valid when no nomination exists. Dry/Gas keep prior unscoped leg vendor only.
-- **All Clear / Laytime Ends / DEMM Starts:** editable through existing `laytime_slave2` rows. Fresh/empty-saved Tanker keeps **all** `sof_slave_6` point events and adds only missing named fields from `sof_slave_3`. Saved non-empty rows preserved; blanks win. Every alias row validated strictly on Save (including duplicates/conflicts).
+- **Agent (read-only, Tanker):** use the newest ordinary `KIND_ATTN_TO='nomination'` agency letter for the same voyage, company and port call. Exclude OPA via `LP_DP='Yes'` when that column exists. Fall back to the company-scoped leg `PORT_COSTLP/DP_VENDOR`. The field shows a dash when neither source identifies an agent.
+- **All Clear / Laytime Ends / DEMM Starts:** editable through existing `laytime_slave2` rows. Fresh Tanker forms keep all `sof_slave_6` point events and fill missing named fields from `sof_slave_3`. Saved blanks take precedence. Edits and clears update all aliases for the field, and Save validates each alias by timestamp.
 - Do **not** infer Laytime Ends from cargo completion or DEMM Starts from allowance without a separate approved formula decision.

@@ -139,7 +139,7 @@ async function getAgencyLetterColumns(connection) {
   return agencyLetterColumnsPromise;
 }
 
-async function agencyLetterHasColumn(connection, columnName) {
+export async function agencyLetterHasColumn(connection, columnName) {
   const cols = await getAgencyLetterColumns(connection);
   return cols.has(String(columnName || '').toUpperCase());
 }

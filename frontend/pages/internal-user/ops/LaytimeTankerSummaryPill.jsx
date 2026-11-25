@@ -4,37 +4,89 @@ import { formatMoneyDisplay } from './laytimeTankerHelpers.js';
 import { isBlankOrFiniteNumber } from './laytimeTankerValidation.js';
 import styles from './OpsVcLaytimePage.module.css';
 
-function SumIco({ tone, children }) {
+const iconPaths = {
+  summary: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 9v12" /></>,
+  clock: <><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>,
+  hourglass: <path d="M5 4h14M5 20h14M7 4v2c0 2.5 2 4.5 5 6c-3 1.5-5 3.5-5 6v2M17 4v2c0 2.5-2 4.5-5 6c3 1.5 5 3.5 5 6v2" />,
+  warning: <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01" />,
+  check: <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4l-10 10-3-3" />,
+  dollar: <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />,
+  close: <path d="m6 9 6 6 6-6" />,
+  approver: <><circle cx="9" cy="7" r="4" /><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m4-13v6m-3-3h6" /></>,
+};
+
+function Icon({ name }) {
   return (
-    <span className={`${styles.ltSumIcoBox} ${styles[`ltSumIco${tone}`] || ''}`}>
-      {children}
-    </span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {iconPaths[name]}
+    </svg>
   );
 }
 
-function FieldBox({ children, unit }) {
+function MetricLabel({ label, icon, tone = 'Navy' }) {
   return (
-    <div className={styles.ltSumFieldBox}>
-      {children}
-      {unit ? <span className={styles.ltSumHrTag}>{unit}</span> : null}
+    <div className={styles.ltSumLabelPanel}>
+      <span className={`${styles.ltSumIcoBox} ${styles[`ltSumIco${tone}`]}`}>
+        <Icon name={icon} />
+      </span>
+      {label}
     </div>
   );
 }
 
-/**
- * Compact floating summary FAB (mockup Variant C) + expandable panel.
- * Click-outside closes only on empty space — interactive sheet controls are excluded.
- */
+const metrics = [
+  { key: 'laytimeAllowed', label: 'Laytime Allowed', icon: 'clock', hours: true, editable: true },
+  { key: 'actualLaytime', label: 'Actual Laytime', icon: 'hourglass', hours: true },
+  { key: 'demurrageRate', label: 'Demurrage Rate', icon: 'warning', tone: 'Red', editable: true },
+  { key: 'despatchRate', label: 'Dispatch Rate', icon: 'check', tone: 'Green', editable: true },
+  { key: 'timeToDemurrage', label: 'Time to Demm', icon: 'warning', tone: 'Red', hours: true },
+  { key: 'timeToDespatch', label: 'Time to Disp', icon: 'check', tone: 'Green', hours: true },
+  { key: 'ttlDemurrage', label: 'Demm (USD)', icon: 'dollar', tone: 'Red' },
+  { key: 'ttlDespatch', label: 'Disp (USD)', icon: 'dollar', tone: 'Green' },
+];
+
+function SummaryMetric({ metric, value, unit, disabled, onChange }) {
+  const { key, label, icon, tone, hours, editable } = metric;
+  const invalid = editable && !isBlankOrFiniteNumber(value);
+  const warning = tone === 'Red' && Number(value) > 0;
+  const field = editable ? (
+    <input
+      id={key}
+      className={`${styles.ltSumInp} ${invalid ? styles.cfInpInvalid : ''}`}
+      inputMode="decimal"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      disabled={disabled}
+      placeholder={hours ? undefined : 'USD/day'}
+      aria-label={label}
+      aria-invalid={invalid}
+    />
+  ) : <div className={`${styles.ltSumComputed} ${warning ? styles.ltSumNegative : ''}`}>{value}</div>;
+  return (
+    <div className={styles.ltSumItemPanel}>
+      <MetricLabel label={label} icon={icon} tone={tone} />
+      <div className={styles.ltSumFieldWrap}>
+        {hours ? (
+          <div className={styles.ltSumFieldBox}>
+            {field}
+            <span className={styles.ltSumHrTag}>{unit}</span>
+          </div>
+        ) : field}
+      </div>
+    </div>
+  );
+}
+
 export default function LaytimeTankerSummaryPill({
   open,
   onOpen,
   onClose,
   draft,
-  unitShort = 'hrs',
-  locked = false,
-  unitUnknown = false,
-  saving = false,
-  approverOptions = [],
+  unitShort,
+  locked,
+  unitUnknown,
+  saving,
+  approverOptions,
   ApproverTagField,
   setApprovers,
   onPatchDraft,
@@ -42,70 +94,45 @@ export default function LaytimeTankerSummaryPill({
 }) {
   const panelRef = useRef(null);
   const fabRef = useRef(null);
-  const wasOpenRef = useRef(open);
-  const calcUnavailable = Boolean(draft?.calcUnavailable);
-  const demmHrs = calcUnavailable ? 0 : (Number(draft?.timeToDemurrage) || 0);
-  const demmUsd = calcUnavailable ? 0 : (Number(draft?.ttlDemurrage) || 0);
-  const hrTag = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAY' : '—';
-  // FAB / panel Final Demm = calculated TTL demurrage only — never session nego sum.
-  const money = calcUnavailable ? '—' : formatMoneyDisplay(demmUsd);
-  const actualDisplay = calcUnavailable ? '—' : (draft?.actualLaytime || '—');
-  const demmHrsDisplay = calcUnavailable ? '—' : (draft?.timeToDemurrage || '0');
-  const demmUsdDisplay = calcUnavailable ? '—' : (draft?.ttlDemurrage || '0');
-  const despatchDisplay = calcUnavailable ? '—' : (draft?.timeToDespatch || '0');
-  const despatchUsdDisplay = calcUnavailable ? '—' : (draft?.ttlDespatch || '0');
+  const wasOpenRef = useRef(false);
+  const unavailable = draft.calcUnavailable;
+  const unit = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAY' : '—';
+  const computed = (key) => unavailable ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
+  const money = unavailable ? '—' : formatMoneyDisplay(draft.ttlDemurrage);
+  const summaryValues = [
+    ['Allowed', draft.laytimeAllowed || '—'],
+    ['Actual', computed('actualLaytime')],
+    ['Demm Hrs', computed('timeToDemurrage'), !unavailable && Number(draft.timeToDemurrage) > 0],
+    [unavailable ? 'Unavailable' : 'Calc Demm', unavailable ? money : `$${money}`, !unavailable && Number(draft.ttlDemurrage) > 0],
+  ];
 
   useEffect(() => {
-    const onOpenRequest = () => { if (!open) onOpen(); };
-    window.addEventListener('lt-tanker-open-summary', onOpenRequest);
-    return () => window.removeEventListener('lt-tanker-open-summary', onOpenRequest);
-  }, [open, onOpen]);
+    window.addEventListener('lt-tanker-open-summary', onOpen);
+    return () => window.removeEventListener('lt-tanker-open-summary', onOpen);
+  }, [onOpen]);
 
-  // Restore focus to the collapsed FAB after summary close.
   useEffect(() => {
-    if (wasOpenRef.current && !open) {
-      const id = window.requestAnimationFrame(() => {
-        try { fabRef.current?.focus({ preventScroll: true }); } catch { fabRef.current?.focus(); }
-      });
-      wasOpenRef.current = open;
-      return () => window.cancelAnimationFrame(id);
-    }
+    if (open) panelRef.current?.querySelector('button')?.focus({ preventScroll: true });
+    else if (wasOpenRef.current) fabRef.current?.focus({ preventScroll: true });
     wasOpenRef.current = open;
-    return undefined;
   }, [open]);
 
   useEffect(() => {
-    if (!open) return undefined;
-    const onDocClick = (event) => {
-      if (panelRef.current?.contains(event.target)) return;
-      if (fabRef.current?.contains(event.target)) return;
-
-      const tag = event.target?.tagName;
-      const interactiveTags = ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'LABEL', 'A', 'OPTION'];
-      if (interactiveTags.includes(tag)) return;
-
-      // Match mockup exclusion list — do not close while editing the sheet.
-      const interactive = event.target?.closest?.(
-        'input, select, textarea, button, label, a, '
-        + `.${styles.cfInp}, .${styles.ltDateField}, .${styles.ltToggle}, .${styles.sqBtn}, .${styles.ltPill}, `
-        + `.${styles.negoEntitySelect}, .${styles.negoStatusSelect}, `
-        + `.${styles.sectionSearchBox}, .${styles.pgBtn}, .${styles.ltRemarksBox}, `
-        + `.${styles.fabCloseBtn}, `
-        + '[data-attachment-dropzone], '
-        + 'td, th, [data-laytime-interactive="true"]',
+    if (!open) return;
+    const closeOnOutside = ({ target }) => {
+      const formControl = target.closest?.(
+        'input, select, textarea, button, label, a, td, th, .flatpickr-calendar, [data-attachment-dropzone], [data-laytime-interactive]',
       );
-      if (interactive) return;
-
-      onClose();
+      if (!panelRef.current?.contains(target) && !formControl) onClose();
     };
-    const onKey = (event) => {
-      if (event.key === 'Escape') onClose();
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) onClose();
     };
-    document.addEventListener('mousedown', onDocClick);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', closeOnOutside);
+    document.addEventListener('keydown', closeOnEscape);
     return () => {
-      document.removeEventListener('mousedown', onDocClick);
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', closeOnOutside);
+      document.removeEventListener('keydown', closeOnEscape);
     };
   }, [open, onClose]);
 
@@ -114,301 +141,84 @@ export default function LaytimeTankerSummaryPill({
       <button
         ref={fabRef}
         type="button"
-        className={`${styles.ltSummaryFab} ${calcUnavailable ? styles.ltSummaryFabUnavailable : ''}`}
+        className={`${styles.ltSummaryFab} ${unavailable ? styles.ltSummaryFabUnavailable : ''}`}
         onClick={onOpen}
-        title={calcUnavailable ? 'Calculations unavailable — fix invalid fields' : 'Click to expand summary'}
+        title={unavailable ? 'Calculations unavailable' : 'Expand laytime summary'}
         aria-expanded="false"
-        aria-controls="lt-tanker-summary-panel"
-        data-laytime-interactive="true"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          <line x1="3" y1="9" x2="21" y2="9" />
-          <line x1="9" y1="21" x2="9" y2="9" />
-        </svg>
+        <Icon name="summary" />
         <div className={styles.fabVals}>
-          <div className={styles.fabValItem}>
-            <span className={styles.fabNum}>{draft?.laytimeAllowed || '—'}</span>
-            <span className={styles.fabLbl}>Allowed</span>
-          </div>
-          <div className={styles.fabValItem}>
-            <span className={styles.fabNum}>{actualDisplay}</span>
-            <span className={styles.fabLbl}>Actual</span>
-          </div>
-          <div className={styles.fabValItem}>
-            <span className={`${styles.fabNum} ${demmHrs > 0 ? styles.fabNumWarn : ''}`}>
-              {demmHrsDisplay}
-            </span>
-            <span className={styles.fabLbl}>Demm&nbsp;Hrs</span>
-          </div>
-          <div className={styles.fabValDivider} />
-          <div className={styles.fabValItem}>
-            <span className={`${styles.fabNum} ${demmUsd > 0 ? styles.fabNumWarn : ''}`}>
-              {calcUnavailable ? '—' : `$${money}`}
-            </span>
-            <span className={styles.fabLbl}>{calcUnavailable ? 'Unavailable' : 'Calc\u00a0Demm'}</span>
-          </div>
+          {summaryValues.map(([label, value, warning], index) => (
+            <React.Fragment key={label}>
+              {index === 3 ? <div className={styles.fabValDivider} /> : null}
+              <div className={styles.fabValItem}>
+                <span className={`${styles.fabNum} ${warning ? styles.fabNumWarn : ''}`}>{value}</span>
+                <span className={styles.fabLbl}>{label}</span>
+              </div>
+            </React.Fragment>
+          ))}
         </div>
       </button>
     );
   }
 
   return (
-    <div
-      ref={panelRef}
-      id="lt-tanker-summary-panel"
-      className={styles.ltSummaryFabExpanded}
-      role="region"
-      aria-label="Laytime summary"
-      aria-expanded="true"
-      data-laytime-interactive="true"
-    >
-      <div className={styles.ltSummaryPanel}>
-        <div className={styles.ltSummaryHead}>
-          <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <line x1="3" y1="9" x2="21" y2="9" />
-              <line x1="9" y1="21" x2="9" y2="9" />
-            </svg>
+    <div ref={panelRef} className={styles.ltSummaryFabExpanded} role="region" aria-label="Laytime summary">
+      <div className={styles.ltSummaryHead}>
+        <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}><Icon name="summary" /></div>
+        <div>
+          <div className={styles.ltSummaryHeadTitle}>Summary</div>
+          <div className={styles.ltSummaryHeadSub}>
+            {unavailable ? 'Calculations unavailable. Correct the highlighted fields.' : 'Laytime calculation results'}
           </div>
-          <div>
-            <div className={styles.ltSummaryHeadTitle}>Summary</div>
-            <div className={styles.ltSummaryHeadSub}>
-              {calcUnavailable ? 'Calculations unavailable — fix invalid fields' : 'Laytime calculation results'}
-            </div>
-          </div>
-          <button
-            type="button"
-            className={styles.fabCloseBtn}
-            onClick={onClose}
-            title="Minimize summary"
-            aria-label="Minimize summary"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
         </div>
-
-        <div className={styles.ltSummaryBody}>
-          <div className={styles.ltSumGrid}>
-            <div className={styles.ltSumItemPanel}>
-              <div className={styles.ltSumLabelPanel}>
-                <SumIco tone="Navy">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                </SumIco>
-                Laytime Allowed
-              </div>
-              <div className={styles.ltSumFieldWrap}>
-                <FieldBox unit={hrTag}>
-                  <input
-                    className={`${styles.ltSumInp} ${!isBlankOrFiniteNumber(draft?.laytimeAllowed) ? styles.cfInpInvalid : ''}`}
-                    type="text"
-                    inputMode="decimal"
-                    value={draft?.laytimeAllowed ?? ''}
-                    onChange={(e) => onPatchDraft({ laytimeAllowed: e.target.value }, { recompute: true })}
-                    disabled={locked}
-                    aria-label="Laytime Allowed"
-                    aria-invalid={!isBlankOrFiniteNumber(draft?.laytimeAllowed)}
-                  />
-                </FieldBox>
-              </div>
-            </div>
-
-            <div className={styles.ltSumItemPanel}>
-              <div className={styles.ltSumLabelPanel}>
-                <SumIco tone="Navy">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M5 4h14" />
-                    <path d="M5 20h14" />
-                    <path d="M7 4v2c0 2.5 2 4.5 5 6c-3 1.5-5 3.5-5 6v2" />
-                    <path d="M17 4v2c0 2.5-2 4.5-5 6c3 1.5 5 3.5 5 6v2" />
-                  </svg>
-                </SumIco>
-                Actual Laytime
-              </div>
-              <div className={styles.ltSumFieldWrap}>
-                <FieldBox unit={hrTag}>
-                  <div className={styles.ltSumComputed}>{actualDisplay}</div>
-                </FieldBox>
-              </div>
-            </div>
-
-            <div className={styles.ltSumItemPanel}>
-              <div className={styles.ltSumLabelPanel}>
-                <SumIco tone="Red">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                  </svg>
-                </SumIco>
-                Demurrage Rate
-              </div>
-              <div className={styles.ltSumFieldWrap}>
-                <input
-                  className={`${styles.ltSumInp} ${!isBlankOrFiniteNumber(draft?.demurrageRate) ? styles.cfInpInvalid : ''}`}
-                  type="text"
-                  inputMode="decimal"
-                  value={draft?.demurrageRate ?? ''}
-                  onChange={(e) => onPatchDraft({ demurrageRate: e.target.value }, { recompute: true })}
-                  disabled={locked}
-                  placeholder="USD/day"
-                  aria-label="Demurrage Rate"
-                  aria-invalid={!isBlankOrFiniteNumber(draft?.demurrageRate)}
-                />
-              </div>
-            </div>
-
-            <div className={styles.ltSumItemPanel}>
-              <div className={styles.ltSumLabelPanel}>
-                <SumIco tone="Green">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                </SumIco>
-                Dispatch Rate
-              </div>
-              <div className={styles.ltSumFieldWrap}>
-                <input
-                  className={`${styles.ltSumInp} ${!isBlankOrFiniteNumber(draft?.despatchRate) ? styles.cfInpInvalid : ''}`}
-                  type="text"
-                  inputMode="decimal"
-                  value={draft?.despatchRate ?? ''}
-                  onChange={(e) => onPatchDraft({ despatchRate: e.target.value }, { recompute: true })}
-                  aria-invalid={!isBlankOrFiniteNumber(draft?.despatchRate)}
-                  disabled={locked}
-                  placeholder="USD/day"
-                  aria-label="Dispatch Rate"
-                />
-              </div>
-            </div>
-
-            <div className={styles.ltSumItemPanel}>
-              <div className={styles.ltSumLabelPanel}>
-                <SumIco tone="Red">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                  </svg>
-                </SumIco>
-                Time to Demm
-              </div>
-              <div className={styles.ltSumFieldWrap}>
-                <FieldBox unit={hrTag}>
-                  <div className={`${styles.ltSumComputed} ${demmHrs > 0 ? styles.ltSumNegative : ''}`}>
-                    {demmHrsDisplay}
-                  </div>
-                </FieldBox>
-              </div>
-            </div>
-
-            <div className={styles.ltSumItemPanel}>
-              <div className={styles.ltSumLabelPanel}>
-                <SumIco tone="Green">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                </SumIco>
-                Time to Disp
-              </div>
-              <div className={styles.ltSumFieldWrap}>
-                <FieldBox unit={hrTag}>
-                  <div className={styles.ltSumComputed}>{despatchDisplay}</div>
-                </FieldBox>
-              </div>
-            </div>
-
-            <div className={styles.ltSumItemPanel}>
-              <div className={styles.ltSumLabelPanel}>
-                <SumIco tone="Red">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <line x1="12" y1="1" x2="12" y2="23" />
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                  </svg>
-                </SumIco>
-                Demm (USD)
-              </div>
-              <div className={styles.ltSumFieldWrap}>
-                <div className={`${styles.ltSumComputed} ${demmUsd > 0 ? styles.ltSumNegative : ''}`}>
-                  {demmUsdDisplay}
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.ltSumItemPanel}>
-              <div className={styles.ltSumLabelPanel}>
-                <SumIco tone="Green">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <line x1="12" y1="1" x2="12" y2="23" />
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                  </svg>
-                </SumIco>
-                Disp (USD)
-              </div>
-              <div className={styles.ltSumFieldWrap}>
-                <div className={styles.ltSumComputed}>{despatchUsdDisplay}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.ltSumFinalRow}>
-            <div className={styles.ltSumLabelPanel}>
-              <SumIco tone="Navy">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <line x1="12" y1="1" x2="12" y2="23" />
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-              </SumIco>
-              Calculated Demurrage (USD)
-            </div>
-            <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal} ${demmUsd > 0 ? styles.ltSumNegative : ''}`}>
-              {money}
-            </div>
-          </div>
-
-          <hr className={styles.ltApprovalDivider} />
-          <div className={styles.ltApprovalHead}>
-            <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="9" cy="7" r="4" />
-                <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
-                <line x1="19" y1="8" x2="19" y2="14" />
-                <line x1="22" y1="11" x2="16" y2="11" />
-              </svg>
-            </div>
-            <span className={styles.ltApprovalTitle}>Assign an Approver</span>
-          </div>
-          {ApproverTagField ? (
-            <ApproverTagField
-              options={approverOptions}
-              value={draft?.approvers || []}
-              onChange={setApprovers}
+        <button type="button" className={styles.fabCloseBtn} onClick={onClose} aria-label="Minimize summary">
+          <Icon name="close" />
+        </button>
+      </div>
+      <div className={styles.ltSummaryBody}>
+        <div className={styles.ltSumGrid}>
+          {metrics.map((metric) => (
+            <SummaryMetric
+              key={metric.key}
+              metric={metric}
+              value={metric.editable ? draft[metric.key] ?? '' : computed(metric.key)}
+              unit={unit}
               disabled={locked}
-              orangeChips
+              onChange={(value) => onPatchDraft({ [metric.key]: value }, { recompute: true })}
             />
-          ) : null}
-
-          {!locked ? (
-            <div className={styles.ltActionBtns}>
-              <Button
-                type="button"
-                variant="submit"
-                label="Send for Approval"
-                onClick={onSendForApproval}
-                disabled={saving || unitUnknown}
-                title={unitUnknown ? 'Blocked: Laytime unit unknown' : undefined}
-              />
-            </div>
-          ) : null}
+          ))}
         </div>
+        <div className={styles.ltSumFinalRow}>
+          <MetricLabel label="Calculated Demurrage (USD)" icon="dollar" />
+          <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal} ${!unavailable && Number(draft.ttlDemurrage) > 0 ? styles.ltSumNegative : ''}`}>
+            {money}
+          </div>
+        </div>
+        <hr className={styles.ltApprovalDivider} />
+        <div className={styles.ltApprovalHead}>
+          <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}><Icon name="approver" /></div>
+          <span className={styles.ltApprovalTitle}>Assign an Approver</span>
+        </div>
+        <ApproverTagField
+          options={approverOptions}
+          value={draft.approvers ?? []}
+          onChange={setApprovers}
+          disabled={locked}
+          orangeChips
+          restrictToOptions
+        />
+        {!locked ? (
+          <div className={styles.ltActionBtns}>
+            <Button
+              type="button"
+              variant="submit"
+              label="Send for Approval"
+              onClick={onSendForApproval}
+              disabled={saving || unitUnknown}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );

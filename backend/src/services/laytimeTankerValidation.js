@@ -40,45 +40,23 @@ export const TANKER_ENTITY_DATE_FIELDS = [
   },
 ];
 
-function entityAliasSet(field) {
-  return new Set(
-    [field.canonical, ...(field.aliases || [])].map((n) => String(n).trim().toLowerCase()),
-  );
+function matchesNamedEntity(name, field) {
+  return field.aliases.includes(String(name ?? '').trim().toLowerCase());
 }
 
-/** Rows matching a named field (case-insensitive aliases), in input order. */
-export function listNamedEntityMatches(entityRows, fieldKey) {
-  const field = TANKER_ENTITY_DATE_FIELDS.find((f) => f.key === fieldKey);
-  if (!field) return [];
-  const aliases = entityAliasSet(field);
-  return (entityRows || []).filter((row) => (
-    aliases.has(String(row?.name || '').trim().toLowerCase())
-  ));
-}
-
-/** First matching named entity value (case-insensitive aliases). */
-export function getNamedEntityValue(entityRows, fieldKey) {
-  const match = listNamedEntityMatches(entityRows, fieldKey)[0];
-  return match ? String(match.value ?? '') : '';
-}
-
-/** True when a named field already exists (including intentional blank). */
-export function hasNamedEntityRow(entityRows, fieldKey) {
-  return listNamedEntityMatches(entityRows, fieldKey).length > 0;
+export function isNamedTankerEntity(name) {
+  return TANKER_ENTITY_DATE_FIELDS.some((field) => matchesNamedEntity(name, field));
 }
 
 /**
  * Tanker-only: fill missing named dates from SOF candidates.
  * Saved blank/present rows win; first alias match wins; unrelated rows kept.
  */
-export function fillMissingNamedEntityDates(savedRows, sofCandidates = []) {
+function fillMissingNamedEntityDates(savedRows, sofCandidates) {
   const result = Array.isArray(savedRows) ? [...savedRows] : [];
   for (const field of TANKER_ENTITY_DATE_FIELDS) {
-    if (hasNamedEntityRow(result, field.key)) continue;
-    const aliases = entityAliasSet(field);
-    const match = (sofCandidates || []).find((row) => (
-      aliases.has(String(row?.name || '').trim().toLowerCase())
-    ));
+    if (result.some((row) => matchesNamedEntity(row.name, field))) continue;
+    const match = sofCandidates.find((row) => matchesNamedEntity(row.name, field));
     if (match) {
       result.push({ name: field.canonical, value: String(match.value ?? '') });
     }
@@ -100,29 +78,29 @@ export function mergeTankerEntityRows(savedRows, pointEvents = [], slave3Rows = 
 
 /**
  * Validate every recognized named-entity alias row (not just the first).
- * Reject malformed values and conflicting non-blank values. Unrelated rows OK.
+ * Compare canonical timestamps, treating a cleared date as a distinct value.
  */
 export function validateNamedEntityDates(entityRows) {
   for (const field of TANKER_ENTITY_DATE_FIELDS) {
-    const matches = listNamedEntityMatches(entityRows, field.key);
-    const nonBlank = [];
-    for (const match of matches) {
+    const values = new Set();
+    for (const match of entityRows || []) {
+      if (!matchesNamedEntity(match?.name, field)) continue;
       const raw = String(match.value ?? '').trim();
-      if (!raw) continue;
-      if (parseDmyDateTimeMs(raw) == null) {
+      const timestamp = parseDmyDateTimeMs(raw);
+      if (raw && timestamp == null) {
         return {
           ok: false,
           field: field.key,
           message: `${field.label} must be a complete date (DD-MM-YYYY).`,
         };
       }
-      nonBlank.push(raw);
+      values.add(timestamp);
     }
-    if (new Set(nonBlank).size > 1) {
+    if (values.size > 1) {
       return {
         ok: false,
         field: field.key,
-        message: `${field.label} has conflicting values.`,
+        message: `${field.label} has conflicting values. Edit or clear the field to use one value.`,
       };
     }
   }
@@ -318,10 +296,6 @@ export function verifyRowDurations(rows, kindLabel) {
     }
   }
   return { ok: true };
-}
-
-export function tankerLtInsertFailClosed(estimateType) {
-  return Number(estimateType) === 2;
 }
 
 /**

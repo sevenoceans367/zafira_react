@@ -54,3 +54,9 @@
 | API valid C100 + NC0 + ded 50% | **200** `laytimeId=4` |
 | SQL readback | `QA C100 LT_C=1 LT_NC=0 LT_PARTIAL=100`; `QA NC 0/1/0`; ded `LT_PARTIAL=50` |
 | Invalid inputs do not recompute demurrage | `mayRecomputeTankerField` gates FE; unit tests 26/26 |
+
+## Head b771048 — centralized sanitize + strict parsing
+- `recomputeTankerPortDraft` sanitizes full draft before `recomputePortDraft`; raw invalid inputs restored for Save reject
+- Strict decimal (no commas/hex/junk/negatives) + strict DMY (no 31-02 / hour 25 / trailing junk); incomplete ranges rejected
+- Sticky SOF footer under `.ltTankerRoot`; money display 2dp; row `data-lt-row` focus
+- Feature branch no longer carries PNG/PR_BODY/VALIDATION copies (orphan only)

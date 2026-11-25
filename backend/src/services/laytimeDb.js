@@ -4,7 +4,8 @@ import { ensureSofActivityDateTimeToColumn } from './sofDb.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
 import {
   durationForPersist,
-  fillMissingNamedEntityDates,
+  mergeTankerEntityRows,
+  pickOrdinaryNominationLetter,
   tankerLtInsertFailClosed,
   validateTankerLaytimePayload,
 } from './laytimeTankerValidation.js';
@@ -229,12 +230,6 @@ async function loadPortTabs(pool, fcaId, comId = null) {
       // Prefer a later nonblank nominated vendor over an earlier blank (do not drop it).
       if (!String(existing.agentVendorCode || '').trim() && String(tab.agentVendorCode || '').trim()) {
         existing.agentVendorCode = tab.agentVendorCode;
-      }
-      if (
-        !String(existing.defaults?.loadedQty || '').trim()
-        && String(tab.defaults?.loadedQty || '').trim()
-      ) {
-        existing.defaults = { ...(existing.defaults || {}), ...(tab.defaults || {}) };
       }
       return;
     }
@@ -556,44 +551,52 @@ async function loadDeductions(pool, laytimeId) {
   }));
 }
 
-/** SOF point events (sof_slave_6) + generic named rows (sof_slave_3). */
-async function loadSofEntityCandidates(pool, sofId) {
+/** sof_slave_6 point events (single shared query/mapping). */
+async function loadSofPointEvents(pool, sofId, { failClosed = false } = {}) {
   if (!sofId) return [];
-  const candidates = [];
-
   await ensureSofActivityDateTimeToColumn(pool);
-  const [sofRows] = await pool.query(
-    `SELECT * FROM sof_slave_6
-     WHERE SOFID = ?
-       AND ACTIVITYDATETIME IS NOT NULL
-       AND CAST(ACTIVITYDATETIME AS CHAR) NOT LIKE '0000-00-00%'
-       AND (ACTIVITYDATETIMETO IS NULL
-            OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
-            OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')
-     ORDER BY ACTIVITYDATETIME ASC`,
-    [sofId],
-  ).catch(() => [[]]);
-
-  for (const row of sofRows || []) {
-    candidates.push({
-      name: str(row.ACTIVITY),
-      value: blankDateTime(row.ACTIVITYDATETIME),
-    });
+  let sofRows;
+  try {
+    [sofRows] = await pool.query(
+      `SELECT ACTIVITY, ACTIVITYDATETIME FROM sof_slave_6
+       WHERE SOFID = ?
+         AND ACTIVITYDATETIME IS NOT NULL
+         AND CAST(ACTIVITYDATETIME AS CHAR) NOT LIKE '0000-00-00%'
+         AND (ACTIVITYDATETIMETO IS NULL
+              OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
+              OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')
+       ORDER BY ACTIVITYDATETIME ASC`,
+      [sofId],
+    );
+  } catch (err) {
+    if (failClosed) throw err;
+    console.warn('[laytime] sof_slave_6 point load failed', err?.message || err);
+    return [];
   }
+  return (sofRows || []).map((row) => ({
+    name: str(row.ACTIVITY),
+    value: blankDateTime(row.ACTIVITYDATETIME),
+  }));
+}
 
-  const [entityRows] = await pool.query(
-    `SELECT ENTITY_NAME, ENTITY_VALUE FROM sof_slave_3 WHERE SOFID = ? ORDER BY SOF_SLAVEID ASC`,
-    [sofId],
-  ).catch(() => [[]]);
-
-  for (const row of entityRows || []) {
-    candidates.push({
-      name: str(row.ENTITY_NAME),
-      value: blankDateTime(row.ENTITY_VALUE) || str(row.ENTITY_VALUE),
-    });
+/** sof_slave_3 generic named rows — Tanker named-field fill only (not bulk-copied). */
+async function loadSofSlave3Rows(pool, sofId, { failClosed = false } = {}) {
+  if (!sofId) return [];
+  let rows;
+  try {
+    [rows] = await pool.query(
+      `SELECT ENTITY_NAME, ENTITY_VALUE FROM sof_slave_3 WHERE SOFID = ? ORDER BY SOF_SLAVEID ASC`,
+      [sofId],
+    );
+  } catch (err) {
+    if (failClosed) throw err;
+    console.warn('[laytime] sof_slave_3 load failed', err?.message || err);
+    return [];
   }
-
-  return candidates;
+  return (rows || []).map((row) => ({
+    name: str(row.ENTITY_NAME),
+    value: blankDateTime(row.ENTITY_VALUE) || str(row.ENTITY_VALUE),
+  }));
 }
 
 async function loadEntityRows(pool, laytimeId, sofId, { tanker = false } = {}) {
@@ -603,7 +606,9 @@ async function loadEntityRows(pool, laytimeId, sofId, { tanker = false } = {}) {
     if (tanker) {
       // Fail closed: never catch-to-empty then overwrite from SOF on next save.
       const [rows] = await pool.query(
-        `SELECT * FROM laytime_slave2 WHERE LAYTIME_ID = ?`,
+        `SELECT ENTITY_NAME, ENTITY_VALUE FROM laytime_slave2
+         WHERE LAYTIME_ID = ?
+         ORDER BY LAYTIME_SLAVEID ASC`,
         [laytimeId],
       );
       savedRows = (rows || []).map((row) => ({
@@ -612,7 +617,9 @@ async function loadEntityRows(pool, laytimeId, sofId, { tanker = false } = {}) {
       }));
     } else {
       const [rows] = await pool.query(
-        `SELECT * FROM laytime_slave2 WHERE LAYTIME_ID = ?`,
+        `SELECT ENTITY_NAME, ENTITY_VALUE FROM laytime_slave2
+         WHERE LAYTIME_ID = ?
+         ORDER BY LAYTIME_SLAVEID ASC`,
         [laytimeId],
       ).catch(() => [[]]);
       if (rows?.length) {
@@ -625,32 +632,13 @@ async function loadEntityRows(pool, laytimeId, sofId, { tanker = false } = {}) {
   }
 
   if (!tanker) {
-    // Dry/Gas prior contract: sof_slave_6 point events only (no sof_slave_3 merge).
-    if (!sofId) return [];
-    await ensureSofActivityDateTimeToColumn(pool);
-    const [sofRows] = await pool.query(
-      `SELECT * FROM sof_slave_6
-       WHERE SOFID = ?
-         AND ACTIVITYDATETIME IS NOT NULL
-         AND CAST(ACTIVITYDATETIME AS CHAR) NOT LIKE '0000-00-00%'
-         AND (ACTIVITYDATETIMETO IS NULL
-              OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
-              OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')
-       ORDER BY ACTIVITYDATETIME ASC`,
-      [sofId],
-    ).catch(() => [[]]);
-    return (sofRows || []).map((row) => ({
-      name: str(row.ACTIVITY),
-      value: blankDateTime(row.ACTIVITYDATETIME),
-    }));
+    return loadSofPointEvents(pool, sofId, { failClosed: false });
   }
 
-  // Tanker: merge — saved blank wins; fill only missing named fields from SOF.
-  const sofCandidates = await loadSofEntityCandidates(pool, sofId);
-  if (savedRows != null) {
-    return fillMissingNamedEntityDates(savedRows, sofCandidates);
-  }
-  return fillMissingNamedEntityDates([], sofCandidates);
+  // Tanker: keep all SOF points when fresh/empty-saved; fill only missing named from slave3.
+  const pointEvents = await loadSofPointEvents(pool, sofId, { failClosed: true });
+  const slave3Rows = await loadSofSlave3Rows(pool, sofId, { failClosed: true });
+  return mergeTankerEntityRows(savedRows, pointEvents, slave3Rows);
 }
 
 export function deriveMilestonesFromSofRows(keyOpRows = [], cargoRows = []) {
@@ -900,20 +888,39 @@ async function vendorNameByCodeScoped(pool, code) {
   }
 }
 
+/** Detect generate_agency_letter.LP_DP without inventing DDL. */
+async function agencyLetterHasLpDpColumn(pool) {
+  try {
+    const [cols] = await pool.query(
+      `SELECT 1 AS ok FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'generate_agency_letter'
+         AND COLUMN_NAME = 'LP_DP'
+       LIMIT 1`,
+    );
+    return Boolean(cols?.length);
+  } catch (err) {
+    console.warn('[laytime] LP_DP column probe failed', err?.message || err);
+    return false;
+  }
+}
+
 /**
- * Port Agent name precedence:
- * 1) Ordinary (non-OPA) agency letter vendor, company-scoped join
+ * Tanker-only Agent name:
+ * 1) Ordinary Agency Nomination letter (not OPA via LP_DP='Yes', not pda/bunker/voyage)
  * 2) Leg nominated PORT_COSTLP/DP_VENDOR, company-scoped
- * No credential reads; no broad port-only / first-vendor fallback.
+ * Dry/Gas keep the prior unscoped leg lookup at the call site.
  */
-async function resolvePortAgentName(pool, {
+async function resolveTankerPortAgentName(pool, {
   comId, portType, portId, randomId, legVendorCode,
 }) {
   const port = String(portType || '');
   const stored = port.slice(0, 2);
   try {
+    const hasLpDp = await agencyLetterHasLpDpColumn(pool);
+    const lpDpSelect = hasLpDp ? ', g.LP_DP' : '';
     const [letters] = await pool.query(
-      `SELECT g.VENDORID, g.KIND_ATTN_TO, g.PORT, vm.NAME AS vendorName
+      `SELECT g.VENDORID, g.KIND_ATTN_TO, g.PORT${lpDpSelect}, vm.NAME AS vendorName
        FROM generate_agency_letter g
        LEFT JOIN vendor_master vm
          ON vm.CODE = g.VENDORID AND vm.MCOMPANYID = g.MCOMPANYID
@@ -923,18 +930,14 @@ async function resolvePortAgentName(pool, {
        ORDER BY g.GEN_AGENCY_ID DESC`,
       [comId, MODULE_ID, COMPANY_ID, port, stored, portId, randomId],
     );
-    for (const row of letters || []) {
-      const kind = String(row.KIND_ATTN_TO || '').trim().toUpperCase();
-      const letterPort = String(row.PORT || '').trim().toUpperCase();
-      if (letterPort.includes('OPA') || kind.includes('OPA')) continue;
-      const name = String(row.vendorName || '').trim();
+    const picked = pickOrdinaryNominationLetter(letters || [], { hasLpDp });
+    if (picked) {
+      const name = String(picked.vendorName || '').trim();
       if (name) return name;
-      if (String(row.VENDORID || '').trim()) {
-        console.warn(
-          '[laytime] agency letter VENDORID present but vendor_master join empty CODE=',
-          String(row.VENDORID).trim(),
-        );
-      }
+      console.warn(
+        '[laytime] nomination letter VENDORID present but vendor_master join empty CODE=',
+        String(picked.VENDORID || '').trim(),
+      );
     }
   } catch (err) {
     console.warn('[laytime] agency letter agent lookup failed', err?.message || err);
@@ -1129,14 +1132,17 @@ export async function dbGetLaytimeForm(comId) {
     const deductions = await loadDeductions(pool, laytimeId);
     const entityRows = await loadEntityRows(pool, laytimeId, sofId, { tanker });
     const operation = tab.portType === 'LP' ? 'Loading' : 'Discharging';
-    // Agency letter (ordinary) then leg nominated vendor — company-scoped; not LOGIN='AGENT'.
-    const agentName = await resolvePortAgentName(pool, {
-      comId,
-      portType: tab.portType,
-      portId: tab.portId,
-      randomId: tab.randomId,
-      legVendorCode: tab.agentVendorCode,
-    });
+    // Tanker: ordinary nomination letter then company-scoped leg vendor.
+    // Dry/Gas: prior unscoped leg vendor only (no new letter lookup).
+    const agentName = tanker
+      ? await resolveTankerPortAgentName(pool, {
+        comId,
+        portType: tab.portType,
+        portId: tab.portId,
+        randomId: tab.randomId,
+        legVendorCode: tab.agentVendorCode,
+      })
+      : await vendorNameByCode(pool, tab.agentVendorCode);
 
     ports.push({
       key: `${tab.portType}-${tab.portId}-${tab.randomId}`,

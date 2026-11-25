@@ -73,6 +73,21 @@ describe('tanker mandatory gate', () => {
     assert.equal(bad.ok, false);
     assert.equal(bad.field, 'laytimeEnds');
   });
+
+  it('rejects duplicate alias junk and conflicting valid values', () => {
+    assert.equal(validateNamedEntityDates([
+      { name: 'All Clear', value: '01-11-2026 08:00' },
+      { name: 'allclear', value: '01-11-2026 08:00 junk' },
+    ]).ok, false);
+    assert.equal(validateNamedEntityDates([
+      { name: 'All Clear', value: '01-11-2026 08:00' },
+      { name: 'allclear', value: '02-11-2026 08:00' },
+    ]).ok, false);
+    assert.equal(validateNamedEntityDates([
+      { name: 'All Clear', value: '01-11-2026 08:00' },
+      { name: 'allclear', value: '01-11-2026 08:00' },
+    ]).ok, true);
+  });
 });
 
 describe('strict decimal parsing', () => {

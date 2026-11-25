@@ -5,9 +5,12 @@ import {
   fillMissingNamedEntityDates,
   getNamedEntityValue,
   isBlankOrFiniteNumber,
+  isOpaAgencyLetter,
   isValidLtPartialPercent,
+  mergeTankerEntityRows,
   parseDmyDateTimeMs,
   parseStrictDecimal,
+  pickOrdinaryNominationLetter,
   tankerLtInsertFailClosed,
   validateDateRangeOrder,
   validateNamedEntityDates,
@@ -144,6 +147,24 @@ describe('named entity dates', () => {
     assert.equal(bad.field, 'demmStarts');
   });
 
+  it('rejects duplicate alias with junk even when first row is valid', () => {
+    const bad = validateNamedEntityDates([
+      { name: 'All Clear', value: '01-11-2026 08:00' },
+      { name: 'allclear', value: '01-11-2026 08:00 junk' },
+    ]);
+    assert.equal(bad.ok, false);
+    assert.equal(bad.field, 'allClear');
+  });
+
+  it('rejects conflicting valid duplicate aliases', () => {
+    const bad = validateNamedEntityDates([
+      { name: 'All Clear', value: '01-11-2026 08:00' },
+      { name: 'allclear', value: '02-11-2026 08:00' },
+    ]);
+    assert.equal(bad.ok, false);
+    assert.match(bad.message, /conflicting/i);
+  });
+
   it('fills missing named fields from SOF without dropping Surveyor; blank wins', () => {
     const filled = fillMissingNamedEntityDates(
       [{ name: 'Surveyor', value: 'SGS' }],
@@ -161,5 +182,51 @@ describe('named entity dates', () => {
       [{ name: 'All Clear', value: '01-09-2026 10:00' }],
     );
     assert.equal(getNamedEntityValue(blankWins, 'allClear'), '');
+  });
+
+  it('fresh/empty-saved keeps all SOF points and only adds missing named from slave3', () => {
+    const points = [
+      { name: 'Pilot on board', value: '01-09-2026 06:00' },
+      { name: 'All fast', value: '01-09-2026 07:00' },
+    ];
+    const slave3 = [
+      { name: 'All Clear', value: '01-09-2026 08:00' },
+      { name: 'Surveyor', value: 'SGS' },
+    ];
+    const fresh = mergeTankerEntityRows(null, points, slave3);
+    assert.equal(fresh.some((r) => r.name === 'Pilot on board'), true);
+    assert.equal(fresh.some((r) => r.name === 'All fast'), true);
+    assert.equal(getNamedEntityValue(fresh, 'allClear'), '01-09-2026 08:00');
+    assert.equal(fresh.some((r) => r.name === 'Surveyor'), false);
+
+    const emptySaved = mergeTankerEntityRows([], points, slave3);
+    assert.equal(emptySaved.some((r) => r.name === 'Pilot on board'), true);
+
+    const saved = mergeTankerEntityRows(
+      [{ name: 'Surveyor', value: 'SGS' }, { name: 'All Clear', value: '' }],
+      points,
+      slave3,
+    );
+    assert.equal(saved.find((r) => r.name === 'Surveyor').value, 'SGS');
+    assert.equal(getNamedEntityValue(saved, 'allClear'), '');
+  });
+});
+
+describe('ordinary nomination letter pick', () => {
+  it('skips OPA via LP_DP and non-nomination kinds; picks nomination', () => {
+    assert.equal(isOpaAgencyLetter({ PORT: 'LP', LP_DP: 'Yes' }, { hasLpDp: true }), true);
+    assert.equal(isOpaAgencyLetter({ PORT: 'LP', LP_DP: 'No', KIND_ATTN_TO: 'nomination' }, { hasLpDp: true }), false);
+
+    const picked = pickOrdinaryNominationLetter([
+      { KIND_ATTN_TO: 'pda', PORT: 'LP', LP_DP: 'No', VENDORID: 'V1', vendorName: 'PDA Co' },
+      { KIND_ATTN_TO: 'nomination', PORT: 'LP', LP_DP: 'Yes', VENDORID: 'V2', vendorName: 'OPA Co' },
+      { KIND_ATTN_TO: 'nomination', PORT: 'LP', LP_DP: 'No', VENDORID: 'V3', vendorName: 'Nom Co' },
+      { KIND_ATTN_TO: 'voyage', PORT: 'LP', LP_DP: 'No', VENDORID: 'V4', vendorName: 'Voy Co' },
+    ], { hasLpDp: true });
+    assert.equal(picked?.vendorName, 'Nom Co');
+
+    assert.equal(pickOrdinaryNominationLetter([
+      { KIND_ATTN_TO: 'pda', PORT: 'LP', vendorName: 'PDA' },
+    ], { hasLpDp: false }), null);
   });
 });

@@ -5,7 +5,7 @@
  */
 
 import { recomputePortDraft } from './laytimeCalculations.js';
-import { getTankerEntityValue, TANKER_ENTITY_FIELDS } from './laytimeTankerHelpers.js';
+import { TANKER_ENTITY_FIELDS } from './laytimeTankerHelpers.js';
 
 export const TANKER_MANDATORY_OPERATIONAL_FIELDS = [
   { key: 'norTendered', label: 'NOR TENDERED' },
@@ -28,14 +28,32 @@ export const TANKER_ENTITY_DATE_FIELDS = [
 
 export function validateNamedEntityDates(entityRows) {
   for (const { key, label } of TANKER_ENTITY_DATE_FIELDS) {
-    if (!TANKER_ENTITY_FIELDS[key]) continue;
-    const raw = String(getTankerEntityValue(entityRows, key) || '').trim();
-    if (!raw) continue;
-    if (!parseStrictDisplayDateTime(raw)) {
+    const field = TANKER_ENTITY_FIELDS[key];
+    if (!field) continue;
+    const aliases = new Set(
+      [field.canonical, ...(field.aliases || [])].map((n) => String(n).trim().toLowerCase()),
+    );
+    const matches = (entityRows || []).filter((row) => (
+      aliases.has(String(row?.name || '').trim().toLowerCase())
+    ));
+    const nonBlank = [];
+    for (const match of matches) {
+      const raw = String(match.value ?? '').trim();
+      if (!raw) continue;
+      if (!parseStrictDisplayDateTime(raw)) {
+        return {
+          ok: false,
+          field: key,
+          message: `${label} must be a complete date (DD-MM-YYYY).`,
+        };
+      }
+      nonBlank.push(raw);
+    }
+    if (new Set(nonBlank).size > 1) {
       return {
         ok: false,
         field: key,
-        message: `${label} must be a complete date (DD-MM-YYYY).`,
+        message: `${label} has conflicting values.`,
       };
     }
   }

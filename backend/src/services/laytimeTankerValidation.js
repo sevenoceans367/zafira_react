@@ -46,25 +46,25 @@ function entityAliasSet(field) {
   );
 }
 
-/** First matching named entity value (case-insensitive aliases). */
-export function getNamedEntityValue(entityRows, fieldKey) {
+/** Rows matching a named field (case-insensitive aliases), in input order. */
+export function listNamedEntityMatches(entityRows, fieldKey) {
   const field = TANKER_ENTITY_DATE_FIELDS.find((f) => f.key === fieldKey);
-  if (!field) return '';
+  if (!field) return [];
   const aliases = entityAliasSet(field);
-  const match = (entityRows || []).find((row) => (
+  return (entityRows || []).filter((row) => (
     aliases.has(String(row?.name || '').trim().toLowerCase())
   ));
+}
+
+/** First matching named entity value (case-insensitive aliases). */
+export function getNamedEntityValue(entityRows, fieldKey) {
+  const match = listNamedEntityMatches(entityRows, fieldKey)[0];
   return match ? String(match.value ?? '') : '';
 }
 
 /** True when a named field already exists (including intentional blank). */
 export function hasNamedEntityRow(entityRows, fieldKey) {
-  const field = TANKER_ENTITY_DATE_FIELDS.find((f) => f.key === fieldKey);
-  if (!field) return false;
-  const aliases = entityAliasSet(field);
-  return (entityRows || []).some((row) => (
-    aliases.has(String(row?.name || '').trim().toLowerCase())
-  ));
+  return listNamedEntityMatches(entityRows, fieldKey).length > 0;
 }
 
 /**
@@ -86,19 +86,69 @@ export function fillMissingNamedEntityDates(savedRows, sofCandidates = []) {
   return result;
 }
 
+/**
+ * Fresh / empty-saved: keep ALL sof_slave_6 point events, then add only the
+ * three named fields from sof_slave_3 when missing. Saved non-empty: preserve
+ * all saved rows and fill only missing named fields (points + slave3).
+ */
+export function mergeTankerEntityRows(savedRows, pointEvents = [], slave3Rows = []) {
+  if (Array.isArray(savedRows) && savedRows.length > 0) {
+    return fillMissingNamedEntityDates(savedRows, [...pointEvents, ...slave3Rows]);
+  }
+  return fillMissingNamedEntityDates(pointEvents || [], slave3Rows || []);
+}
+
+/**
+ * Validate every recognized named-entity alias row (not just the first).
+ * Reject malformed values and conflicting non-blank values. Unrelated rows OK.
+ */
 export function validateNamedEntityDates(entityRows) {
   for (const field of TANKER_ENTITY_DATE_FIELDS) {
-    const raw = getNamedEntityValue(entityRows, field.key).trim();
-    if (!raw) continue;
-    if (parseDmyDateTimeMs(raw) == null) {
+    const matches = listNamedEntityMatches(entityRows, field.key);
+    const nonBlank = [];
+    for (const match of matches) {
+      const raw = String(match.value ?? '').trim();
+      if (!raw) continue;
+      if (parseDmyDateTimeMs(raw) == null) {
+        return {
+          ok: false,
+          field: field.key,
+          message: `${field.label} must be a complete date (DD-MM-YYYY).`,
+        };
+      }
+      nonBlank.push(raw);
+    }
+    if (new Set(nonBlank).size > 1) {
       return {
         ok: false,
         field: field.key,
-        message: `${field.label} must be a complete date (DD-MM-YYYY).`,
+        message: `${field.label} has conflicting values.`,
       };
     }
   }
   return { ok: true };
+}
+
+/** True when letter is an OPA / protective-agent letter (LP_DP='Yes' when column exists). */
+export function isOpaAgencyLetter(row = {}, { hasLpDp = false } = {}) {
+  if (hasLpDp && String(row.LP_DP || '').trim().toUpperCase() === 'YES') return true;
+  const port = String(row.PORT || '').trim().toUpperCase();
+  // Only when PORT still encodes OPA (LPOPA/DPOPA) — stored LP/DP alone is not enough.
+  return port.includes('OPA');
+}
+
+/**
+ * Prefer genuine ordinary Agency Nomination over OPA / pda / bunker / voyage letters.
+ * `letters` must be newest-first (GEN_AGENCY_ID DESC).
+ */
+export function pickOrdinaryNominationLetter(letters = [], { hasLpDp = false } = {}) {
+  for (const row of letters || []) {
+    if (isOpaAgencyLetter(row, { hasLpDp })) continue;
+    const kind = String(row.KIND_ATTN_TO || '').trim().toLowerCase();
+    if (kind !== 'nomination') continue;
+    return row;
+  }
+  return null;
 }
 
 export function parseStrictDecimal(value) {

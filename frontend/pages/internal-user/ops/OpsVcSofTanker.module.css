@@ -470,14 +470,14 @@
 .activityDeductionTable :is(th, td):nth-child(1) { width: 6.2%; }
 .activityDeductionTable :is(th, td):nth-child(2) { width: 20.1%; }
 .activityDeductionTable :is(th, td):nth-child(3),
-.activityDeductionTable :is(th, td):nth-child(4) { width: 17.5%; }
-.activityDeductionTable :is(th, td):nth-child(5) { width: 10.7%; }
-.activityDeductionTable :is(th, td):nth-child(6) { width: 28%; }
+.activityDeductionTable :is(th, td):nth-child(4) { width: 15.5%; }
+.activityDeductionTable :is(th, td):nth-child(5) { width: 9%; }
+.activityDeductionTable :is(th, td):nth-child(6) { width: 33.7%; }
 .activityDeductionTable :is(th, td):nth-child(3),
 .activityDeductionTable :is(th, td):nth-child(4),
 .activityDeductionTable :is(th, td):nth-child(5) {
-  padding-left: 5px;
-  padding-right: 5px;
+  padding-left: 3px;
+  padding-right: 3px;
 }
 
 .cfTable th {

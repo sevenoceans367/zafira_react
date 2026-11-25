@@ -17,6 +17,7 @@ import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
 import {
+  normalizeActivityLtPartials,
   resolveLaytimeEstimateType,
   usesTankerLaytimeLayout,
 } from './laytimeTankerHelpers.js';
@@ -460,14 +461,21 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = fal
       .map((row) => {
         const hasCountFlag = Boolean(row.ltCounts) || Boolean(row.ltNoCounts);
         const isSofSynced = Boolean(row.sofLoadPortId);
+        const ltCounts = hasCountFlag || isSofSynced ? Boolean(row.ltCounts) : true;
+        const ltNoCounts = Boolean(row.ltNoCounts);
+        const counting = ltCounts || (!ltNoCounts && !isSofSynced);
+        const rawPartial = row.ltPartial != null && String(row.ltPartial).trim() !== ''
+          ? String(row.ltPartial)
+          : '';
         return {
           activity: row.activity || '',
           start: row.start || '',
           end: row.end || '',
           duration: row.duration || '',
-          ltCounts: hasCountFlag || isSofSynced ? Boolean(row.ltCounts) : true,
-          ltNoCounts: Boolean(row.ltNoCounts),
-          ltPartial: row.ltPartial ?? ((hasCountFlag && !row.ltCounts) || isSofSynced ? '' : '100'),
+          ltCounts,
+          ltNoCounts,
+          // C + blank → 100 (HTML mockup). NC / SOF-unset blank stays blank until user sets C.
+          ltPartial: rawPartial || (counting ? '100' : ''),
           cumulative: row.cumulative ?? '',
           sofLoadPortId: row.sofLoadPortId || '',
           notes: row.notes || '',
@@ -628,13 +636,18 @@ export default function OpsVcLaytimePage() {
   };
 
   const addListRow = (field, factory) => {
-    patchDraft({ [field]: [...(draft[field] || []), factory()] });
+    const created = typeof factory === 'function' ? factory() : factory;
+    let rows = [...(draft[field] || []), created];
+    // Keep existing C rows at 100% when inserting blanks (do not clear prior partials).
+    if (field === 'activities') rows = normalizeActivityLtPartials(rows);
+    patchDraft({ [field]: rows }, { recompute: field === 'activities' || field === 'deductions' });
   };
 
   const insertListRow = (field, index, factory) => {
-    const rows = [...(draft[field] || [])];
+    let rows = [...(draft[field] || [])];
     const created = typeof factory === 'function' ? factory() : factory;
     rows.splice(index + 1, 0, created);
+    if (field === 'activities') rows = normalizeActivityLtPartials(rows);
     patchDraft(
       { [field]: rows },
       { recompute: field === 'activities' || field === 'deductions' },

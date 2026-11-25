@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   applyLaytimeActivityLtToggle,
+  ensureCountingLtPartial,
   isLaytimeActivityCounting,
   isTankerNegoUiEnabled,
+  normalizeActivityLtPartials,
   resolveLaytimeEstimateType,
   sumNegoAgreedDemm,
   tankerLoadedQtyPatchOptions,
@@ -51,6 +53,20 @@ describe('laytimeTankerHelpers activity LT flags', () => {
     assert.equal(isLaytimeActivityCounting({ sofLoadPortId: '99', ltCounts: false, ltNoCounts: false }), false);
     assert.equal(isLaytimeActivityCounting({ ltCounts: true }), true);
     assert.equal(isLaytimeActivityCounting({ ltNoCounts: true }), false);
+  });
+
+  it('fills blank LT Partial to 100 when row is counting (C)', () => {
+    assert.equal(ensureCountingLtPartial({ ltCounts: true, ltPartial: '' }).ltPartial, '100');
+    assert.equal(ensureCountingLtPartial({ ltCounts: true, ltPartial: '50' }).ltPartial, '50');
+    assert.equal(ensureCountingLtPartial({ ltNoCounts: true, ltPartial: '' }).ltPartial, '');
+    const rows = normalizeActivityLtPartials([
+      { ltCounts: true, ltPartial: '100' },
+      { ltCounts: true, ltPartial: '' },
+      { ltNoCounts: true, ltPartial: '0' },
+    ]);
+    assert.equal(rows[0].ltPartial, '100');
+    assert.equal(rows[1].ltPartial, '100');
+    assert.equal(rows[2].ltPartial, '0');
   });
 });
 

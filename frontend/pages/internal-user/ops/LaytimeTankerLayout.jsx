@@ -100,11 +100,10 @@ export default function LaytimeTankerLayout({
   const [summaryOpen, setSummaryOpen] = useState(false);
   const cargoSummary = (form?.cargo || []).join(', ') || '—';
 
-  // Owner decision: All Clear / Laytime Ends / DEMM Starts have no laytime_master columns today.
-  // Operator / Charterer / Agent shown read-only when API provides them; otherwise em dash.
+  // Owner decision (docs/OWNER_DECISIONS.md): All Clear / Laytime Ends / DEMM Starts / Agent
+  // have no laytime_master columns and no save payload — keep read-only em dash (not fake pickers).
   const operatorName = form?.operatorName || '';
   const chartererName = form?.charterer || form?.chartererName || '';
-  // Agent: no laytime/estimate payload field — always em dash until owner maps a source.
   const agentName = form?.agentName || '';
 
   return (

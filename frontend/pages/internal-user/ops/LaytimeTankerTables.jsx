@@ -301,7 +301,8 @@ export default function LaytimeTankerTables({
                       type="text"
                       value={row.cumulative ?? ''}
                       readOnly
-                      disabled
+                      tabIndex={-1}
+                      aria-readonly="true"
                       aria-label={`Activity ${index + 1} cumulative`}
                     />
                   </td>

@@ -99,6 +99,21 @@ export function isLaytimeActivityCounting(row = {}) {
 }
 
 /**
+ * C rows must keep LT Partial % at 100 when blank (HTML mockup + insert defaults).
+ * NC rows keep their own 0; does not overwrite an intentional non-blank partial.
+ */
+export function ensureCountingLtPartial(row = {}) {
+  if (!isLaytimeActivityCounting(row)) return row;
+  const partial = String(row.ltPartial ?? '').trim();
+  if (partial !== '') return row;
+  return { ...row, ltPartial: '100' };
+}
+
+export function normalizeActivityLtPartials(rows = []) {
+  return (rows || []).map((row) => ensureCountingLtPartial(row));
+}
+
+/**
  * Tanker QTY edit patch flags (Legacy Fun158==2).
  * Recompute financials from existing allowance; do NOT refreshAllowed from qty/rate.
  */

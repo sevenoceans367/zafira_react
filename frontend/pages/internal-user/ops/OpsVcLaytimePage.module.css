@@ -1110,13 +1110,18 @@
 
 /* Port tabs: reuse OpsVcSofTanker.module.css .portTab / .portTabActive (no local LP/DP fills). */
 
+/* Prefer 3-up row; wrap cleanly on narrower content (HTML mockup parity). */
 .ltDetailsGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 0;
 }
 
 .ltDetailCell {
+  flex: 1 1 220px;
+  min-width: min(100%, 200px);
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 14px 20px;
   border-bottom: 1px solid #eceef2;
   border-right: 1px solid #eceef2;
@@ -1141,12 +1146,16 @@
 }
 
 .ltTimingGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 0;
 }
 
 .ltTimingCell {
+  flex: 1 1 180px;
+  min-width: min(100%, 160px);
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 14px 20px;
   border-bottom: 1px solid #eceef2;
   border-right: 1px solid #eceef2;
@@ -1263,7 +1272,17 @@
   color: #5b6472;
   font-weight: 700;
 }
-.cumNegative { color: #e4483b; }
+
+/* Negative cumulative must win over .cfInp:disabled gray (HTML .cum-negative). */
+.cumNegative,
+.ltTankerRoot .cumRo.cumNegative,
+.ltTankerRoot .cfInp.cumNegative,
+.ltTankerRoot .cfInp.cumNegative:disabled,
+.ltTankerRoot .cfInp.cumNegative:read-only {
+  color: #e4483b;
+  -webkit-text-fill-color: #e4483b;
+  opacity: 1;
+}
 
 .ltTankerRoot .ltNotesSm {
   font-family: inherit;
@@ -1697,9 +1716,15 @@
 }
 
 .ltSumGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 16px 24px;
+}
+
+.ltSumGrid > * {
+  flex: 1 1 calc(50% - 12px);
+  min-width: min(100%, 160px);
+  box-sizing: border-box;
 }
 
 .ltSumItemPanel { display: flex; flex-direction: column; gap: 5px; }
@@ -1829,20 +1854,21 @@
 }
 
 @media (max-width: 1150px) {
-  .ltDetailsGrid { grid-template-columns: repeat(2, 1fr); }
+  .ltDetailCell { flex-basis: calc(50% - 1px); }
   .ltDetailCell:nth-child(3n) { border-right: 1px solid #eceef2; }
   .ltDetailCell:nth-child(2n) { border-right: none; }
-  .ltTimingGrid { grid-template-columns: repeat(2, 1fr); }
+  .ltTimingCell { flex-basis: calc(50% - 1px); }
   .ltTimingCell:nth-child(4n) { border-right: 1px solid #eceef2; }
   .ltTimingCell:nth-child(2n) { border-right: none; }
-  .ltSumGrid { grid-template-columns: 1fr; }
+  .ltSumGrid > * { flex-basis: 100%; min-width: 100%; }
 }
 
 @media (max-width: 700px) {
-  .ltDetailsGrid,
-  .ltTimingGrid { grid-template-columns: 1fr; }
   .ltDetailCell,
-  .ltTimingCell { border-right: none; }
+  .ltTimingCell {
+    flex-basis: 100%;
+    border-right: none;
+  }
   .ltTankerRoot .sofFooterBar,
   .sofFooterBar { flex-direction: column; align-items: stretch; }
   .ltSummaryFloat {

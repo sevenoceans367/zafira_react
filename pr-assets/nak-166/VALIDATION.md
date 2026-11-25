@@ -43,3 +43,14 @@
 - Tanker styles scoped under `.ltTankerRoot` (no Dry `.cfInp` / `.ltNotesSm` leak)
 - Footer note matches SOF Tanker gray `#f1f3f5` / `#5b6472`; instructional Submit/Close copy (not permanent Unsaved)
 - Final demurrage label navy; `focus-visible` on sqBtn / search / C-NC toggle; dropzone click-outside uses `[data-attachment-dropzone]`
+
+## Manual input QA (head 11167e4)
+| Case | Result |
+|---|---|
+| Browser: type LT Partial `150` + Save | Alert: Activity #1 LT Partial % must be a number from 0 to 100. Field `aria-invalid` |
+| API POST LT Partial `150` | **400** same message |
+| API reverse activity dates | **400** finish must be on or after start |
+| API demurrageRate `nope` | **400** Demurrage Rate must be blank or a valid number |
+| API valid C100 + NC0 + ded 50% | **200** `laytimeId=4` |
+| SQL readback | `QA C100 LT_C=1 LT_NC=0 LT_PARTIAL=100`; `QA NC 0/1/0`; ded `LT_PARTIAL=50` |
+| Invalid inputs do not recompute demurrage | `mayRecomputeTankerField` gates FE; unit tests 26/26 |

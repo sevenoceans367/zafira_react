@@ -10,6 +10,7 @@ import {
   recomputeTankerPortDraft,
   tankerCalcInputsValid,
   validateDateRangeOrder,
+  validateNamedEntityDates,
   validateTankerLaytimeDraft,
 } from './laytimeTankerValidation.js';
 import {
@@ -61,6 +62,16 @@ describe('tanker mandatory gate', () => {
     const submitBad = validateTankerLaytimeDraft(baseDraft({ approvers: [] }), { submitId: 1 });
     assert.equal(submitBad.ok, false);
     assert.equal(submitBad.field, 'approvers');
+  });
+
+  it('allows blank named entity dates; rejects malformed on save', () => {
+    assert.equal(validateNamedEntityDates([{ name: 'All Clear', value: '' }]).ok, true);
+    assert.equal(validateNamedEntityDates([{ name: 'All Clear', value: '31-02-2026 08:00' }]).ok, false);
+    const bad = validateTankerLaytimeDraft(baseDraft({
+      entityRows: [{ name: 'Laytime Ends', value: '01-11-2026 25:00' }],
+    }));
+    assert.equal(bad.ok, false);
+    assert.equal(bad.field, 'laytimeEnds');
   });
 });
 

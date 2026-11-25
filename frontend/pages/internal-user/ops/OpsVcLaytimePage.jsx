@@ -653,9 +653,10 @@ export default function OpsVcLaytimePage() {
     if (isTankerLayout && field === 'activities') {
       rows = normalizeActivityLtPartials(rows);
     }
+    // Dry/Gas: preserve base addListRow (no recompute). Tanker recomputes totals.
     patchDraft(
       { [field]: rows },
-      { recompute: field === 'activities' || field === 'deductions' },
+      { recompute: isTankerLayout && (field === 'activities' || field === 'deductions') },
     );
   };
 
@@ -668,7 +669,7 @@ export default function OpsVcLaytimePage() {
     }
     patchDraft(
       { [field]: rows },
-      { recompute: field === 'activities' || field === 'deductions' },
+      { recompute: isTankerLayout && (field === 'activities' || field === 'deductions') },
     );
   };
 

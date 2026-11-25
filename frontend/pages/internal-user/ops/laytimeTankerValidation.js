@@ -5,6 +5,7 @@
  */
 
 import { recomputePortDraft } from './laytimeCalculations.js';
+import { getTankerEntityValue, TANKER_ENTITY_FIELDS } from './laytimeTankerHelpers.js';
 
 export const TANKER_MANDATORY_OPERATIONAL_FIELDS = [
   { key: 'norTendered', label: 'NOR TENDERED' },
@@ -17,6 +18,29 @@ export const TANKER_OPTIONAL_STRICT_DATE_FIELDS = [
   { key: 'norAccepted', label: 'NOR ACCEPTED' },
   { key: 'startCounting', label: 'LAYTIME STARTS' },
 ];
+
+/** Named entity dates (All Clear / Laytime Ends / DEMM Starts) — blank OK. */
+export const TANKER_ENTITY_DATE_FIELDS = [
+  { key: 'allClear', label: 'ALL CLEAR' },
+  { key: 'laytimeEnds', label: 'LAYTIME ENDS' },
+  { key: 'demmStarts', label: 'DEMM STARTS' },
+];
+
+export function validateNamedEntityDates(entityRows) {
+  for (const { key, label } of TANKER_ENTITY_DATE_FIELDS) {
+    if (!TANKER_ENTITY_FIELDS[key]) continue;
+    const raw = String(getTankerEntityValue(entityRows, key) || '').trim();
+    if (!raw) continue;
+    if (!parseStrictDisplayDateTime(raw)) {
+      return {
+        ok: false,
+        field: key,
+        message: `${label} must be a complete date (DD-MM-YYYY).`,
+      };
+    }
+  }
+  return { ok: true };
+}
 
 /**
  * Strict decimal: blank, or optional leading `-` + digits with optional `.` fraction.
@@ -314,6 +338,9 @@ export function validateTankerLaytimeDraft(draft, { submitId = 0 } = {}) {
       };
     }
   }
+
+  const entityDates = validateNamedEntityDates(draft.entityRows);
+  if (!entityDates.ok) return entityDates;
 
   const actPartial = firstInvalidPartial(draft.activities, 'Activity');
   if (!actPartial.ok) return actPartial;

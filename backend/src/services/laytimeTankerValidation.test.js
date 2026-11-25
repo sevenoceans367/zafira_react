@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   durationForPersist,
+  fillMissingNamedEntityDates,
+  getNamedEntityValue,
   isBlankOrFiniteNumber,
   isValidLtPartialPercent,
   parseDmyDateTimeMs,
   parseStrictDecimal,
   tankerLtInsertFailClosed,
   validateDateRangeOrder,
+  validateNamedEntityDates,
   validateTankerLaytimePayload,
   verifyRowDurations,
 } from './laytimeTankerValidation.js';
@@ -127,5 +130,36 @@ describe('LT insert fail-closed contract', () => {
     assert.equal(tankerLtInsertFailClosed(1), false);
     assert.equal(tankerLtInsertFailClosed(3), false);
     assert.equal(tankerLtInsertFailClosed(null), false);
+  });
+});
+
+describe('named entity dates', () => {
+  it('rejects malformed All Clear / Laytime Ends / DEMM Starts on payload', () => {
+    assert.equal(validateNamedEntityDates([{ name: 'All Clear', value: '' }]).ok, true);
+    assert.equal(validateNamedEntityDates([{ name: 'All Clear', value: '31-02-2026 08:00' }]).ok, false);
+    const bad = validateTankerLaytimePayload(basePayload({
+      entityRows: [{ name: 'DEMM Starts', value: '01-11-2026 25:00' }],
+    }));
+    assert.equal(bad.ok, false);
+    assert.equal(bad.field, 'demmStarts');
+  });
+
+  it('fills missing named fields from SOF without dropping Surveyor; blank wins', () => {
+    const filled = fillMissingNamedEntityDates(
+      [{ name: 'Surveyor', value: 'SGS' }],
+      [
+        { name: 'All clear', value: '01-09-2026 10:00' },
+        { name: 'Laytime Ends', value: '05-09-2026 12:00' },
+      ],
+    );
+    assert.equal(filled.find((r) => r.name === 'Surveyor').value, 'SGS');
+    assert.equal(getNamedEntityValue(filled, 'allClear'), '01-09-2026 10:00');
+    assert.equal(getNamedEntityValue(filled, 'laytimeEnds'), '05-09-2026 12:00');
+
+    const blankWins = fillMissingNamedEntityDates(
+      [{ name: 'All Clear', value: '' }],
+      [{ name: 'All Clear', value: '01-09-2026 10:00' }],
+    );
+    assert.equal(getNamedEntityValue(blankWins, 'allClear'), '');
   });
 });

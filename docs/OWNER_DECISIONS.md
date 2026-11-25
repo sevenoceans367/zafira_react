@@ -24,6 +24,6 @@ No `laytime_slave2` / master persistence for negotiation rows. Production Tanker
 
 These are **not** blocked on new `laytime_master` columns / migrations.
 
-- **Agent (read-only):** port nominated vendor via `freight_cost_estimete_slave1.PORT_COSTLP_VENDOR` / `PORT_COSTDP_VENDOR` → `vendor_master.NAME` (same source as Legacy `nominate_agent.php`). Exposed as `port.agentName`.
-- **All Clear / Laytime Ends / DEMM Starts:** editable through existing `laytime_slave2` ENTITY_NAME/ENTITY_VALUE rows (and SOF point-event fallback in `sof_slave_6` when no saved laytime entities). Cleared values keep a named empty row so SOF does not silently resurrect them.
+- **Agent (read-only):** ordinary agency letter vendor (`generate_agency_letter` + company-scoped `vendor_master`) first, then leg nominated `PORT_COSTLP_VENDOR` / `PORT_COSTDP_VENDOR` with company scope. OPA letters skipped. Dash is valid when no nomination exists. Exposed as `port.agentName`.
+- **All Clear / Laytime Ends / DEMM Starts:** editable through existing `laytime_slave2` ENTITY_NAME/ENTITY_VALUE rows. Tanker fills missing named fields from SOF point events (`sof_slave_6`) and `sof_slave_3` when saved rows omit them; cleared saved blanks win over SOF. Strict date validation on Save (blank OK).
 - Do **not** infer Laytime Ends from cargo completion or DEMM Starts from allowance without a separate approved formula decision.

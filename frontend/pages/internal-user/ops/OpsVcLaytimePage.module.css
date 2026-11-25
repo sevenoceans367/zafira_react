@@ -1870,8 +1870,9 @@
 @media (max-width: 700px) {
   .ltDetailsGrid,
   .ltTimingGrid { grid-template-columns: minmax(0, 1fr); }
-  .ltDetailCell,
-  .ltTimingCell { border-right: none; }
+  /* Beat 1150px nth-child border rules (higher specificity). */
+  .ltDetailsGrid .ltDetailCell:nth-child(n),
+  .ltTimingGrid .ltTimingCell:nth-child(n) { border-right: none; }
   .ltTankerRoot .sofFooterBar,
   .sofFooterBar { flex-direction: column; align-items: stretch; }
   .ltSummaryFloat {

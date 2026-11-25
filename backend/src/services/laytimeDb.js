@@ -4,6 +4,7 @@ import { ensureSofActivityDateTimeToColumn } from './sofDb.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
 import {
   durationForPersist,
+  fillMissingNamedEntityDates,
   tankerLtInsertFailClosed,
   validateTankerLaytimePayload,
 } from './laytimeTankerValidation.js';
@@ -217,13 +218,27 @@ async function loadPortTabs(pool, fcaId, comId = null) {
   }
 
   const tabs = [];
-  const seen = new Set();
+  const tabIndexByKey = new Map();
 
   const pushTab = (tab) => {
     if (!tab?.portId) return;
     const key = `${tab.portType}-${tab.portId}-${tab.randomId}`;
-    if (seen.has(key)) return;
-    seen.add(key);
+    const existingIdx = tabIndexByKey.get(key);
+    if (existingIdx != null) {
+      const existing = tabs[existingIdx];
+      // Prefer a later nonblank nominated vendor over an earlier blank (do not drop it).
+      if (!String(existing.agentVendorCode || '').trim() && String(tab.agentVendorCode || '').trim()) {
+        existing.agentVendorCode = tab.agentVendorCode;
+      }
+      if (
+        !String(existing.defaults?.loadedQty || '').trim()
+        && String(tab.defaults?.loadedQty || '').trim()
+      ) {
+        existing.defaults = { ...(existing.defaults || {}), ...(tab.defaults || {}) };
+      }
+      return;
+    }
+    tabIndexByKey.set(key, tabs.length);
     tabs.push(tab);
   };
 
@@ -453,7 +468,7 @@ function emptyDeduction() {
   };
 }
 
-async function loadActivities(pool, laytimeId, sofId) {
+async function loadActivities(pool, laytimeId, sofId, { tanker = false } = {}) {
   if (laytimeId) {
     const [rows] = await pool.query(
       `SELECT * FROM laytime_slave WHERE LAYTIME_ID = ?`,
@@ -502,19 +517,25 @@ async function loadActivities(pool, laytimeId, sofId) {
   ).catch(() => [[]]);
 
   if (!sofRows?.length) return [emptyActivity()];
-  // Preserve SOF identity via real SLAVEID so draft load does not treat ranges as manual C.
-  return sofRows.map((row) => ({
-    activity: str(row.ACTIVITY),
-    start: blankDateTime(row.ACTIVITYDATETIME),
-    end: blankDateTime(row.ACTIVITYDATETIMETO),
-    duration: '',
-    ltCounts: false,
-    ltNoCounts: false,
-    ltPartial: '',
-    cumulative: '',
-    sofLoadPortId: row.SLAVEID != null ? String(row.SLAVEID) : 'sof',
-    notes: '',
-  }));
+  return sofRows.map((row) => {
+    const mapped = {
+      activity: str(row.ACTIVITY),
+      start: blankDateTime(row.ACTIVITYDATETIME),
+      end: blankDateTime(row.ACTIVITYDATETIMETO),
+      duration: '',
+      ltCounts: false,
+      ltNoCounts: false,
+      ltPartial: '',
+      cumulative: '',
+      notes: '',
+    };
+    // Tanker-only: stamp parent SOFID so SOF sync can match (never SLAVEID / 'sof' sentinel).
+    // Dry/Gas keep prior shape (no sofLoadPortId on range fallback).
+    if (tanker && sofId != null && String(sofId).trim() !== '') {
+      mapped.sofLoadPortId = String(sofId);
+    }
+    return mapped;
+  });
 }
 
 async function loadDeductions(pool, laytimeId) {
@@ -535,21 +556,10 @@ async function loadDeductions(pool, laytimeId) {
   }));
 }
 
-async function loadEntityRows(pool, laytimeId, sofId) {
-  if (laytimeId) {
-    const [rows] = await pool.query(
-      `SELECT * FROM laytime_slave2 WHERE LAYTIME_ID = ?`,
-      [laytimeId],
-    ).catch(() => [[]]);
-    if (rows?.length) {
-      return rows.map((row) => ({
-        name: str(row.ENTITY_NAME),
-        value: blankDateTime(row.ENTITY_VALUE) || str(row.ENTITY_VALUE),
-      }));
-    }
-  }
-
+/** SOF point events (sof_slave_6) + generic named rows (sof_slave_3). */
+async function loadSofEntityCandidates(pool, sofId) {
   if (!sofId) return [];
+  const candidates = [];
 
   await ensureSofActivityDateTimeToColumn(pool);
   const [sofRows] = await pool.query(
@@ -564,10 +574,83 @@ async function loadEntityRows(pool, laytimeId, sofId) {
     [sofId],
   ).catch(() => [[]]);
 
-  return (sofRows || []).map((row) => ({
-    name: str(row.ACTIVITY),
-    value: blankDateTime(row.ACTIVITYDATETIME),
-  }));
+  for (const row of sofRows || []) {
+    candidates.push({
+      name: str(row.ACTIVITY),
+      value: blankDateTime(row.ACTIVITYDATETIME),
+    });
+  }
+
+  const [entityRows] = await pool.query(
+    `SELECT ENTITY_NAME, ENTITY_VALUE FROM sof_slave_3 WHERE SOFID = ? ORDER BY SOF_SLAVEID ASC`,
+    [sofId],
+  ).catch(() => [[]]);
+
+  for (const row of entityRows || []) {
+    candidates.push({
+      name: str(row.ENTITY_NAME),
+      value: blankDateTime(row.ENTITY_VALUE) || str(row.ENTITY_VALUE),
+    });
+  }
+
+  return candidates;
+}
+
+async function loadEntityRows(pool, laytimeId, sofId, { tanker = false } = {}) {
+  let savedRows = null;
+
+  if (laytimeId) {
+    if (tanker) {
+      // Fail closed: never catch-to-empty then overwrite from SOF on next save.
+      const [rows] = await pool.query(
+        `SELECT * FROM laytime_slave2 WHERE LAYTIME_ID = ?`,
+        [laytimeId],
+      );
+      savedRows = (rows || []).map((row) => ({
+        name: str(row.ENTITY_NAME),
+        value: blankDateTime(row.ENTITY_VALUE) || str(row.ENTITY_VALUE),
+      }));
+    } else {
+      const [rows] = await pool.query(
+        `SELECT * FROM laytime_slave2 WHERE LAYTIME_ID = ?`,
+        [laytimeId],
+      ).catch(() => [[]]);
+      if (rows?.length) {
+        return rows.map((row) => ({
+          name: str(row.ENTITY_NAME),
+          value: blankDateTime(row.ENTITY_VALUE) || str(row.ENTITY_VALUE),
+        }));
+      }
+    }
+  }
+
+  if (!tanker) {
+    // Dry/Gas prior contract: sof_slave_6 point events only (no sof_slave_3 merge).
+    if (!sofId) return [];
+    await ensureSofActivityDateTimeToColumn(pool);
+    const [sofRows] = await pool.query(
+      `SELECT * FROM sof_slave_6
+       WHERE SOFID = ?
+         AND ACTIVITYDATETIME IS NOT NULL
+         AND CAST(ACTIVITYDATETIME AS CHAR) NOT LIKE '0000-00-00%'
+         AND (ACTIVITYDATETIMETO IS NULL
+              OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
+              OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')
+       ORDER BY ACTIVITYDATETIME ASC`,
+      [sofId],
+    ).catch(() => [[]]);
+    return (sofRows || []).map((row) => ({
+      name: str(row.ACTIVITY),
+      value: blankDateTime(row.ACTIVITYDATETIME),
+    }));
+  }
+
+  // Tanker: merge — saved blank wins; fill only missing named fields from SOF.
+  const sofCandidates = await loadSofEntityCandidates(pool, sofId);
+  if (savedRows != null) {
+    return fillMissingNamedEntityDates(savedRows, sofCandidates);
+  }
+  return fillMissingNamedEntityDates([], sofCandidates);
 }
 
 export function deriveMilestonesFromSofRows(keyOpRows = [], cargoRows = []) {
@@ -780,6 +863,7 @@ async function replaceEntityRows(connection, laytimeId, entityRows) {
 /**
  * Vendor NAME by CODE (Legacy getVendorListNewBasedOnID / getVendorListNewData).
  * Logs lookup failures instead of swallowing silently; returns '' so UI shows em dash.
+ * Charterer path keeps unscoped lookup (historical multi-company codes).
  */
 async function vendorNameByCode(pool, code) {
   const raw = String(code ?? '').trim();
@@ -794,6 +878,69 @@ async function vendorNameByCode(pool, code) {
     console.warn('[laytime] vendor_master lookup failed for CODE=', raw, err?.message || err);
     return '';
   }
+}
+
+/** Company-scoped vendor NAME — Agent path only (agency letter / nominated port vendor). */
+async function vendorNameByCodeScoped(pool, code) {
+  const raw = String(code ?? '').trim();
+  if (!raw) return '';
+  try {
+    const [[vendor]] = await pool.query(
+      `SELECT NAME FROM vendor_master WHERE CODE = ? AND MCOMPANYID = ? LIMIT 1`,
+      [raw, COMPANY_ID],
+    );
+    return String(vendor?.NAME || '').trim();
+  } catch (err) {
+    console.warn(
+      '[laytime] company-scoped vendor_master lookup failed for CODE=',
+      raw,
+      err?.message || err,
+    );
+    return '';
+  }
+}
+
+/**
+ * Port Agent name precedence:
+ * 1) Ordinary (non-OPA) agency letter vendor, company-scoped join
+ * 2) Leg nominated PORT_COSTLP/DP_VENDOR, company-scoped
+ * No credential reads; no broad port-only / first-vendor fallback.
+ */
+async function resolvePortAgentName(pool, {
+  comId, portType, portId, randomId, legVendorCode,
+}) {
+  const port = String(portType || '');
+  const stored = port.slice(0, 2);
+  try {
+    const [letters] = await pool.query(
+      `SELECT g.VENDORID, g.KIND_ATTN_TO, g.PORT, vm.NAME AS vendorName
+       FROM generate_agency_letter g
+       LEFT JOIN vendor_master vm
+         ON vm.CODE = g.VENDORID AND vm.MCOMPANYID = g.MCOMPANYID
+       WHERE g.COMID = ? AND g.MODULEID = ? AND g.MCOMPANYID = ?
+         AND g.PORT IN (?, ?) AND g.PORTID = ? AND g.RANDOMID = ?
+         AND NULLIF(TRIM(g.VENDORID), '') IS NOT NULL
+       ORDER BY g.GEN_AGENCY_ID DESC`,
+      [comId, MODULE_ID, COMPANY_ID, port, stored, portId, randomId],
+    );
+    for (const row of letters || []) {
+      const kind = String(row.KIND_ATTN_TO || '').trim().toUpperCase();
+      const letterPort = String(row.PORT || '').trim().toUpperCase();
+      if (letterPort.includes('OPA') || kind.includes('OPA')) continue;
+      const name = String(row.vendorName || '').trim();
+      if (name) return name;
+      if (String(row.VENDORID || '').trim()) {
+        console.warn(
+          '[laytime] agency letter VENDORID present but vendor_master join empty CODE=',
+          String(row.VENDORID).trim(),
+        );
+      }
+    }
+  } catch (err) {
+    console.warn('[laytime] agency letter agent lookup failed', err?.message || err);
+  }
+
+  return vendorNameByCodeScoped(pool, legVendorCode);
 }
 
 /**
@@ -967,6 +1114,7 @@ export async function dbGetLaytimeForm(comId) {
     portTabs = await loadPortTabs(pool, compare.FCAID, comId);
   }
 
+  const tanker = Number(vesselParticulars?.estimateType) === 2;
   const ports = [];
   for (const tab of portTabs) {
     const record = await loadLaytimeRecord(pool, comId, tab.portType, tab.portId, tab.randomId);
@@ -977,12 +1125,18 @@ export async function dbGetLaytimeForm(comId) {
     const locked = submitId === 5;
     const sofDerived = await loadSofDerivedMilestones(pool, sofId);
     const fields = mapMasterFields(record, sof, tab.defaults, sofDerived);
-    const activities = await loadActivities(pool, laytimeId, sofId);
+    const activities = await loadActivities(pool, laytimeId, sofId, { tanker });
     const deductions = await loadDeductions(pool, laytimeId);
-    const entityRows = await loadEntityRows(pool, laytimeId, sofId);
+    const entityRows = await loadEntityRows(pool, laytimeId, sofId, { tanker });
     const operation = tab.portType === 'LP' ? 'Loading' : 'Discharging';
-    // Port-level nominated agent (vendor_master via PORT_COSTLP/DP_VENDOR) — not LOGIN='AGENT'.
-    const agentName = await vendorNameByCode(pool, tab.agentVendorCode);
+    // Agency letter (ordinary) then leg nominated vendor — company-scoped; not LOGIN='AGENT'.
+    const agentName = await resolvePortAgentName(pool, {
+      comId,
+      portType: tab.portType,
+      portId: tab.portId,
+      randomId: tab.randomId,
+      legVendorCode: tab.agentVendorCode,
+    });
 
     ports.push({
       key: `${tab.portType}-${tab.portId}-${tab.randomId}`,

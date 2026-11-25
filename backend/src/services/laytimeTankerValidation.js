@@ -15,6 +15,92 @@ export const TANKER_OPTIONAL_STRICT_DATE_FIELDS = [
   { key: 'startCounting', label: 'LAYTIME STARTS' },
 ];
 
+/**
+ * Named laytime_slave2 / SOF point dates shown on Tanker Details.
+ * Blank OK; non-blank must parse strictly. Unrelated entity rows are untouched.
+ */
+export const TANKER_ENTITY_DATE_FIELDS = [
+  {
+    key: 'allClear',
+    label: 'ALL CLEAR',
+    canonical: 'All Clear',
+    aliases: ['all clear', 'allclear'],
+  },
+  {
+    key: 'laytimeEnds',
+    label: 'LAYTIME ENDS',
+    canonical: 'Laytime Ends',
+    aliases: ['laytime ends', 'laytime end'],
+  },
+  {
+    key: 'demmStarts',
+    label: 'DEMM STARTS',
+    canonical: 'DEMM Starts',
+    aliases: ['demm starts', 'dem starts', 'demurrage starts'],
+  },
+];
+
+function entityAliasSet(field) {
+  return new Set(
+    [field.canonical, ...(field.aliases || [])].map((n) => String(n).trim().toLowerCase()),
+  );
+}
+
+/** First matching named entity value (case-insensitive aliases). */
+export function getNamedEntityValue(entityRows, fieldKey) {
+  const field = TANKER_ENTITY_DATE_FIELDS.find((f) => f.key === fieldKey);
+  if (!field) return '';
+  const aliases = entityAliasSet(field);
+  const match = (entityRows || []).find((row) => (
+    aliases.has(String(row?.name || '').trim().toLowerCase())
+  ));
+  return match ? String(match.value ?? '') : '';
+}
+
+/** True when a named field already exists (including intentional blank). */
+export function hasNamedEntityRow(entityRows, fieldKey) {
+  const field = TANKER_ENTITY_DATE_FIELDS.find((f) => f.key === fieldKey);
+  if (!field) return false;
+  const aliases = entityAliasSet(field);
+  return (entityRows || []).some((row) => (
+    aliases.has(String(row?.name || '').trim().toLowerCase())
+  ));
+}
+
+/**
+ * Tanker-only: fill missing named dates from SOF candidates.
+ * Saved blank/present rows win; first alias match wins; unrelated rows kept.
+ */
+export function fillMissingNamedEntityDates(savedRows, sofCandidates = []) {
+  const result = Array.isArray(savedRows) ? [...savedRows] : [];
+  for (const field of TANKER_ENTITY_DATE_FIELDS) {
+    if (hasNamedEntityRow(result, field.key)) continue;
+    const aliases = entityAliasSet(field);
+    const match = (sofCandidates || []).find((row) => (
+      aliases.has(String(row?.name || '').trim().toLowerCase())
+    ));
+    if (match) {
+      result.push({ name: field.canonical, value: String(match.value ?? '') });
+    }
+  }
+  return result;
+}
+
+export function validateNamedEntityDates(entityRows) {
+  for (const field of TANKER_ENTITY_DATE_FIELDS) {
+    const raw = getNamedEntityValue(entityRows, field.key).trim();
+    if (!raw) continue;
+    if (parseDmyDateTimeMs(raw) == null) {
+      return {
+        ok: false,
+        field: field.key,
+        message: `${field.label} must be a complete date (DD-MM-YYYY).`,
+      };
+    }
+  }
+  return { ok: true };
+}
+
 export function parseStrictDecimal(value) {
   const raw = String(value ?? '').trim();
   if (raw === '') return { ok: true, blank: true, value: null };
@@ -209,6 +295,9 @@ export function validateTankerLaytimePayload(payload = {}) {
       return { ok: false, field: key, message: `${label} must be a complete date (DD-MM-YYYY).` };
     }
   }
+
+  const entityDates = validateNamedEntityDates(payload.entityRows);
+  if (!entityDates.ok) return entityDates;
 
   const actPartial = firstInvalidPartial(payload.activities, 'Activity');
   if (!actPartial.ok) return actPartial;

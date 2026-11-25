@@ -1498,9 +1498,21 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
         .filter((row) => row.addToTotal === true || row.addToTotal === 1)
         .reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
       : 0;
-    const activeTcInHireage = isTcInOut
-      ? (Number(body.tcInExpenses?.finalHireage ?? calcInput.tcFinalHireage ?? 0) || 0)
-      : 0;
+    const dormantJson = parseTcInRecapJson(masters[0].TC_IN_RECAP_JSON);
+    const resolveActiveHireage = () => {
+      if (!isTcInOut) return 0;
+      const fromBody = Number(body.tcInExpenses?.finalHireage);
+      if (Number.isFinite(fromBody) && fromBody > 0) return fromBody;
+      const fromCalc = Number(calcInput.tcFinalHireage);
+      if (Number.isFinite(fromCalc) && fromCalc > 0) return fromCalc;
+      const fromJson = Number(dormantJson?.finalHireage);
+      if (Number.isFinite(fromJson) && fromJson > 0) return fromJson;
+      const lineSum = (body.tcInExpenses?.hires || dormantJson?.hires || [])
+        .reduce((sum, row) => sum + (Number(row.nettHireage) || Number(row.hireage) || 0), 0);
+      if (lineSum > 0) return lineSum;
+      return Number.isFinite(fromBody) ? fromBody : (Number.isFinite(fromCalc) ? fromCalc : 0);
+    };
+    const activeTcInHireage = resolveActiveHireage();
     calcInput.tcFinalHireage = String(activeTcInHireage);
     calcInput.totalExp = String(addToTotal + activeTcInHireage);
 
@@ -1635,26 +1647,35 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
     }
 
     // Before deactivating TC In, ensure dormant JSON can restore Hire Recap without the client payload.
-    let dormantTcIn = body.tcInExpenses != null ? body.tcInExpenses : null;
+    // Never overwrite a richer stored blob with an emptyTcIn-shaped client payload.
+    const tcInHasSignal = (obj) => {
+      if (!obj || typeof obj !== 'object') return false;
+      if (Number(obj.finalHireage) > 0) return true;
+      if ((obj.hires || []).some((h) => Number(h.hireage) > 0 || Number(h.nettHireage) > 0 || Number(h.dailyHire) > 0)) {
+        return true;
+      }
+      if ([...(obj.deliveryBunkers || []), ...(obj.redeliveryBunkers || [])].some((b) => Number(b.qty) > 0 || Number(b.amount) > 0)) {
+        return true;
+      }
+      return (obj.offHires || []).some((o) => Number(o.amount) > 0 || String(o.from || '').trim() !== '');
+    };
     if (!isTcInOut) {
       const existingJson = parseTcInRecapJson(masters[0].TC_IN_RECAP_JSON);
-      if (!dormantTcIn && existingJson) dormantTcIn = existingJson;
-      if (!dormantTcIn && slave1Id) {
+      let dormantTcIn = null;
+      if (body.tcInExpenses != null && tcInHasSignal(body.tcInExpenses)) {
+        dormantTcIn = body.tcInExpenses;
+      } else if (existingJson && tcInHasSignal(existingJson)) {
+        dormantTcIn = existingJson;
+      } else if (slave1Id) {
         const extras = await loadCalcExtras(connection, slave1Id);
-        if (extras?.tcInExpenses) {
+        if (extras?.tcInExpenses && tcInHasSignal(extras.tcInExpenses)) {
           dormantTcIn = {
             ...extras.tcInExpenses,
             finalHireage: extras.tcInExpenses.finalHireage
-              ?? (priorSlave1?.TC_FINAL_HIERAGE != null ? String(priorSlave1.TC_FINAL_HIERAGE) : ''),
-            finalVendor: extras.tcInExpenses.finalVendor
-              ?? priorSlave1?.TC_FINAL_HIERAGE_VENDOR
-              ?? '',
-            offHireCveMonth: priorSlave1?.TC_CVE_MONTH_OFFHIRE != null
-              ? String(priorSlave1.TC_CVE_MONTH_OFFHIRE)
-              : '',
-            bunkerOnOwner: priorSlave1?.TC_BUNKERS_ON_OWNER != null
-              ? String(priorSlave1.TC_BUNKERS_ON_OWNER)
-              : '',
+              || (priorSlave1?.TC_FINAL_HIERAGE != null ? String(priorSlave1.TC_FINAL_HIERAGE) : ''),
+            finalVendor: extras.tcInExpenses.finalVendor || priorSlave1?.TC_FINAL_HIERAGE_VENDOR || '',
+            offHireCveMonth: priorSlave1?.TC_CVE_MONTH_OFFHIRE != null ? String(priorSlave1.TC_CVE_MONTH_OFFHIRE) : '',
+            bunkerOnOwner: priorSlave1?.TC_BUNKERS_ON_OWNER != null ? String(priorSlave1.TC_BUNKERS_ON_OWNER) : '',
             ilohc: priorSlave1?.TXT_ILOHC_TC != null ? String(priorSlave1.TXT_ILOHC_TC) : '',
             awrpCost: priorSlave1?.AWRPCOST != null ? String(priorSlave1.AWRPCOST) : '',
             cpDate: merged.tcCpDate || '',
@@ -1664,7 +1685,13 @@ export async function dbSaveTcCalculation(tcOutId, body = {}) {
           };
         }
       }
+      if (!dormantTcIn && body.tcInExpenses != null) dormantTcIn = body.tcInExpenses;
+      if (!dormantTcIn && existingJson) dormantTcIn = existingJson;
       if (dormantTcIn != null) {
+        if (!(Number(dormantTcIn.finalHireage) > 0) && priorSlave1?.TC_FINAL_HIERAGE != null
+          && Number(priorSlave1.TC_FINAL_HIERAGE) > 0) {
+          dormantTcIn = { ...dormantTcIn, finalHireage: String(priorSlave1.TC_FINAL_HIERAGE) };
+        }
         const ok = await persistTcInRecapJson(connection, tcOutId, dormantTcIn);
         if (!ok) throw new Error('Failed to persist dormant TC In Hire Recap JSON before deactivating.');
       }

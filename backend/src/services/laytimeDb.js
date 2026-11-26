@@ -884,7 +884,8 @@ async function upsertLaytimeMaster(connection, {
          APPROVERS = ?, ATTACHMENTS = ?, ATTACHMENTS_NAME = ?, SOF_LOADPORTID = ?, SUBMITID = ?
        WHERE LAYTIME_ID = ?`,
       [...paramsCore, laytimeId],
-    ).catch(async () => {
+    ).catch(async (err) => {
+      if (err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
       await connection.query(
         `UPDATE laytime_master SET
            TERMINAL = ?, STOWAGE_QTY = ?, VESSEL_ARRIVED = ?, NOR_TENDERED = ?,
@@ -940,7 +941,9 @@ async function upsertLaytimeMaster(connection, {
       comId, appContext.userId || 0, MODULE_ID, COMPANY_ID, portType, portId, randomId,
       ...paramsCore,
     ],
-  ).catch(async () => connection.query(
+  ).catch(async (err) => {
+    if (err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
+    return connection.query(
     `INSERT INTO laytime_master (
        COMID, LOGIN, LOGINID, MODULEID, MCOMPANYID, PORT, PORTID, RANDOMID,
        TERMINAL, STOWAGE_QTY, VESSEL_ARRIVED, NOR_TENDERED, NOR_ACCEPTED, START_COUNTING,
@@ -972,7 +975,8 @@ async function upsertLaytimeMaster(connection, {
       fields.totalDaysAtPort, fields.loadedTerms, fields.remarks,
       fields.reversible, fields.detention, fields.approvers, attachments, submitId,
     ],
-  ));
+    );
+  });
 
   let laytimeId = result?.insertId;
   if (!laytimeId) {
@@ -1180,4 +1184,4 @@ export function resolvePortRandomId(randomId, fallbackPortId) {
   return randomId != null && String(randomId).trim() !== '' ? String(randomId).trim() : str(fallbackPortId);
 }
 
-export { isEmptyDateTime, blankDateTime, parseDmyDateTime, loadActivities, loadEntityRows, loadPortTabs };
+export { isEmptyDateTime, blankDateTime, parseDmyDateTime, loadActivities, loadEntityRows, loadPortTabs, upsertLaytimeMaster };

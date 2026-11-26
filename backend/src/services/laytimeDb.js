@@ -432,14 +432,26 @@ async function loadActivities(pool, laytimeId, sofId) {
 
   if (!sofId) return [emptyActivity()];
 
+  const [legacyRows] = await pool.query(
+    `SELECT ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION,
+            LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES
+     FROM sof_slave WHERE SOFID = ? AND GROUP_NAME = '1' ORDER BY SOF_SLAVEID ASC`,
+    [sofId],
+  );
+  if (legacyRows?.length) return legacyRows.map((row) => ({
+    activity: str(row.ACTIVITYID), start: blankDateTime(row.START_DATETIME), end: blankDateTime(row.FINISH_DATETIME),
+    duration: str(row.DURATION), ltCounts: Number(row.LAY_TIME_COUNT) === 1, ltNoCounts: Number(row.PORT_TIME_COUNT) === 1,
+    ltPartial: '', cumulative: '', sofLoadPortId: String(sofId), notes: str(row.NOTES),
+  }));
+
   await ensureSofActivityDateTimeToColumn(pool);
   const [sofRows] = await pool.query(
     `SELECT * FROM sof_slave_6
      WHERE SOFID = ?
        AND ACTIVITYDATETIME IS NOT NULL
-       AND ACTIVITYDATETIME != '0000-00-00 00:00:00'
+       AND CAST(ACTIVITYDATETIME AS CHAR) NOT LIKE '0000-00-00%'
        AND ACTIVITYDATETIMETO IS NOT NULL
-       AND ACTIVITYDATETIMETO != '0000-00-00 00:00:00'
+       AND CAST(ACTIVITYDATETIMETO AS CHAR) NOT LIKE '0000-00-00%'
      ORDER BY ACTIVITYDATETIME ASC`,
     [sofId],
   ).catch(() => [[]]);
@@ -497,10 +509,10 @@ async function loadEntityRows(pool, laytimeId, sofId) {
     `SELECT * FROM sof_slave_6
      WHERE SOFID = ?
        AND ACTIVITYDATETIME IS NOT NULL
-       AND ACTIVITYDATETIME != '0000-00-00 00:00:00'
+       AND CAST(ACTIVITYDATETIME AS CHAR) NOT LIKE '0000-00-00%'
        AND (ACTIVITYDATETIMETO IS NULL
-            OR ACTIVITYDATETIMETO = ''
-            OR ACTIVITYDATETIMETO = '0000-00-00 00:00:00')
+            OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
+            OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')
      ORDER BY ACTIVITYDATETIME ASC`,
     [sofId],
   ).catch(() => [[]]);
@@ -749,7 +761,7 @@ export async function dbGetLaytimeForm(comId) {
     const record = await loadLaytimeRecord(pool, comId, tab.portType, tab.portId, tab.randomId);
     const sof = await loadSofRecord(pool, comId, tab.portType, tab.portId, tab.randomId);
     const laytimeId = record?.LAYTIME_ID || null;
-    const sofId = record?.SOF_LOADPORTID || sof?.SOFID || null;
+    const sofId = resolvePortSofId(record, sof);
     const submitId = record?.SUBMITID != null ? Number(record.SUBMITID) : 0;
     const locked = submitId === 5;
     const fields = mapMasterFields(record, sof, tab.defaults);
@@ -1158,4 +1170,10 @@ export async function dbSaveLaytime(payload = {}) {
   }
 }
 
-export { isEmptyDateTime, blankDateTime, parseDmyDateTime };
+export function resolvePortSofId(record, sof) {
+  if (sof?.SOFID != null && Number(sof.SOFID) > 0) return sof.SOFID;
+  if (record?.SOF_LOADPORTID != null && Number(record.SOF_LOADPORTID) > 0) return record.SOF_LOADPORTID;
+  return null;
+}
+
+export { isEmptyDateTime, blankDateTime, parseDmyDateTime, loadActivities, loadEntityRows };

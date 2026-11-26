@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { blankDateTime, normalizeKeepAttachments } from './laytimeDb.js';
+import { blankDateTime, normalizeKeepAttachments, resolvePortSofId, loadActivities, loadEntityRows } from './laytimeDb.js';
 
 describe('laytimeDb blankDateTime', () => {
   it('preserves DMY date and time strings before native date parsing', () => {
@@ -15,5 +15,30 @@ describe('laytimeDb normalizeKeepAttachments', () => {
     assert.deepEqual(normalizeKeepAttachments([{ file: '101_a.pdf', name: 'A.pdf' }, '102_b.pdf']), {
       files: ['101_a.pdf', '102_b.pdf'], names: ['A.pdf', '102_b.pdf'],
     });
+  });
+});
+
+describe('laytimeDb SOF links and strict-mode SQL', () => {
+  it('prefers the port-matched SOF and rejects zero as a link', () => {
+    assert.equal(resolvePortSofId({ SOF_LOADPORTID: 11 }, { SOFID: 22 }), 22);
+    assert.equal(resolvePortSofId({ SOF_LOADPORTID: 11 }, null), 11);
+    assert.equal(resolvePortSofId({ SOF_LOADPORTID: '0' }, null), null);
+  });
+  it('uses sof_slave rows when no Laytime master exists', async () => {
+    const pool = { async query(sql) {
+      if (sql.includes('FROM sof_slave ')) return [[{ ACTIVITYID: 'Loading cargo', START_DATETIME: new Date(2026, 3, 10, 8), FINISH_DATETIME: new Date(2026, 3, 10, 14), DURATION: '6', LAY_TIME_COUNT: 1, PORT_TIME_COUNT: 0 }]];
+      return [[]];
+    } };
+    const rows = await loadActivities(pool, null, 55);
+    assert.equal(rows[0].activity, 'Loading cargo');
+    assert.equal(rows[0].sofLoadPortId, '55');
+  });
+  it('does not compare DATETIME columns directly to strings', async () => {
+    const queries = [];
+    await loadEntityRows({ async query(sql) { queries.push(sql); return [[]]; } }, null, 55);
+    const q = queries.find((sql) => sql.includes('sof_slave_6'));
+    assert.ok(q);
+    assert.doesNotMatch(q, /ACTIVITYDATETIMETO\s*=\s*''/i);
+    assert.doesNotMatch(q, /ACTIVITYDATETIME\s*!=\s*'0000-00-00/i);
   });
 });

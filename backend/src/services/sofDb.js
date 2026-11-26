@@ -653,7 +653,7 @@ async function loadKeyOperations(pool, sofId, defaults, estimateType = null) {
   const isDry = Number(estimateType) === 3;
   const orderBy = isDry
     ? 'SLAVEID ASC'
-    : `(ACTIVITYDATETIME IS NULL OR ACTIVITYDATETIME = '0000-00-00 00:00:00'),
+    : `(ACTIVITYDATETIME IS NULL OR CAST(ACTIVITYDATETIME AS CHAR) LIKE '0000-00-00%'),
        ACTIVITYDATETIME ASC,
        SLAVEID ASC`;
   // Fail closed on read errors: a silent empty result would seed defaults and a later

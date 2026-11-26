@@ -63,6 +63,29 @@ test('Dry despatch uses days and ignores deductions', () => {
   assert.equal(result.timeToDemurrage, '00.00');
 });
 
+test('Dry distinguishes unresolved zero-time claims, an empty worksheet, and unknown allowance', () => {
+  const calculate = (laytimeAllowed, activities) => recomputeTankerPortDraft({
+    laytimeAllowed, activities, demurrageRate: '10000', despatchRate: '5000',
+  }, 'days', { dryLaytime: true });
+  const zeroAllowed = calculate('0', [activity]);
+  const zeroCounted = calculate('1', [{ ...activity, ltPartial: '0' }]);
+  for (const draft of [zeroAllowed, zeroCounted]) {
+    assert.equal(draft.calcUnavailable, true);
+    assert.match(draft.calcError, /contractual treatment/);
+    assert.equal(draft.ttlDemurrage, '');
+    assert.equal(draft.ttlDespatch, '');
+  }
+  for (const rows of [[], [{ ltCounts: true, ltPartial: '100' }]]) {
+    const empty = calculate('1', rows);
+    assert.equal(Number(empty.timeToDespatch), 1);
+    assert.equal(empty.ttlDespatch, '5000.00');
+  }
+  const unknown = calculate('', [activity]);
+  assert.equal(unknown.financialUnknown, true);
+  assert.equal(unknown.actualLaytime, '1.5000');
+  assert.equal(unknown.ttlDemurrage, null);
+});
+
 test('Dry keeps historical duration-only activity and deduction rows in hours', () => {
   const result = recomputeTankerPortDraft({
     laytimeAllowed: '0.5',

@@ -113,6 +113,18 @@ export function mergeLaytimeAttachments(keepFiles, keepFileNames, uploads = []) 
   };
 }
 
+export function resolveLaytimeAttachments(existing, { keepFiles, keepFileNames, attachmentUploads } = {}) {
+  if (!Array.isArray(keepFiles) && attachmentUploads?.length) {
+    keepFiles = str(existing?.ATTACHMENTS || '').split(',');
+    keepFileNames = str(existing?.ATTACHMENTS_NAME || '').split(',');
+  }
+  const { files, names } = mergeLaytimeAttachments(keepFiles, keepFileNames, attachmentUploads);
+  return {
+    attachments: files?.join(',') ?? str(existing?.ATTACHMENTS || ''),
+    attachmentNames: names?.join(',') ?? str(existing?.ATTACHMENTS_NAME || ''),
+  };
+}
+
 function isEmptyDateTime(value) {
   if (value == null) return true;
   const raw = String(value).trim();
@@ -389,7 +401,7 @@ async function loadPortTabs(pool, fcaId, comId = null, isDry = false) {
          AND PORT IN ('LP', 'DP', 'TP')
        ORDER BY LAYTIME_ID ASC`,
       [comId, MODULE_ID, COMPANY_ID],
-    ).catch(() => [[]]);
+    );
 
     for (const row of laytimeRows || []) {
       const portName = await getPortName(pool, row.PORTID);
@@ -409,7 +421,7 @@ async function loadPortTabs(pool, fcaId, comId = null, isDry = false) {
          AND PORT IN ('LP', 'DP', 'TP')
        ORDER BY SOFID ASC`,
       [comId, MODULE_ID, COMPANY_ID],
-    ).catch(() => [[]]);
+    );
 
     for (const row of sofRows || []) {
       const portName = await getPortName(pool, row.PORTID);
@@ -482,11 +494,6 @@ function emptyDeduction() {
   };
 }
 
-function loadRows(pool, sql, params, usesEditor) {
-  const query = pool.query(sql, params);
-  return usesEditor ? query : query.catch(() => [[]]);
-}
-
 async function loadActivities(pool, laytimeId, sofId, { usesEditor = false, tanker = false, isDry = false, hasSofRange = true } = {}) {
   const editor = Boolean(usesEditor || tanker || isDry);
   if (laytimeId) {
@@ -549,12 +556,11 @@ async function loadActivities(pool, laytimeId, sofId, { usesEditor = false, tank
   }));
 }
 
-async function loadDeductions(pool, laytimeId, usesEditor) {
+async function loadDeductions(pool, laytimeId) {
   if (!laytimeId) return [emptyDeduction()];
-  const [rows] = await loadRows(pool,
+  const [rows] = await pool.query(
     `SELECT * FROM laytime_slave1 WHERE LAYTIME_ID = ?`,
     [laytimeId],
-    usesEditor,
   );
   if (!rows?.length) return [emptyDeduction()];
   return rows.map((row) => ({
@@ -581,10 +587,10 @@ async function loadEntityRows(pool, laytimeId, sofId, { usesEditor = false, tank
   const editor = Boolean(usesEditor || tanker);
   let savedRows = [];
   if (laytimeId) {
-    const [rows] = await loadRows(pool, editor
+    const [rows] = await pool.query(editor
       ? 'SELECT ENTITY_NAME, ENTITY_VALUE FROM laytime_slave2 WHERE LAYTIME_ID = ? ORDER BY LAYTIME_SLAVEID ASC'
       : 'SELECT * FROM laytime_slave2 WHERE LAYTIME_ID = ?',
-    [laytimeId], editor);
+    [laytimeId]);
     savedRows = rows.map(({ ENTITY_NAME: name, ENTITY_VALUE: value }) => ({
       name: str(name),
       value: editor
@@ -603,7 +609,7 @@ async function loadEntityRows(pool, laytimeId, sofId, { usesEditor = false, tank
                            OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
                            OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')` : ''}
      ORDER BY ACTIVITYDATETIME ASC`,
-    [sofId], editor,
+    [sofId],
   );
   const pointEvents = sofRows.map(({ ACTIVITY, ACTIVITYDATETIME }) => {
     const name = str(ACTIVITY);
@@ -650,11 +656,11 @@ export async function loadSofDerivedMilestones(pool, sofId) {
     pool.query(
       `SELECT ACTIVITY, ACTIVITYDATETIME FROM sof_slave_6 WHERE SOFID = ? ORDER BY SLAVEID ASC`,
       [sofId],
-    ).catch(() => [[]]),
+    ),
     pool.query(
       `SELECT ACTIVITY, SHIPFIGURE, BLFIGURE FROM sof_slave_7 WHERE SOFID = ? ORDER BY SLAVEID ASC`,
       [sofId],
-    ).catch(() => [[]]),
+    ),
   ]);
   return deriveMilestonesFromSofRows(keyOpRows || [], cargoRows || []);
 }
@@ -1044,7 +1050,7 @@ async function readLaytimeForm(pool, comId, authorizedEditor) {
   }
 
   const [rangeColumns] = portTabs.length
-    ? await loadRows(pool, "SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'", [], editor)
+    ? await pool.query("SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'")
     : [[]];
   const sources = { usesEditor: editor, tanker, isDry, hasSofRange: rangeColumns.length > 0 };
   const hasLpDp = editor && portTabs.length > 0 && await agencyLetterHasColumn(pool, 'LP_DP');
@@ -1061,7 +1067,7 @@ async function readLaytimeForm(pool, comId, authorizedEditor) {
     const sofDerived = await loadSofDerivedMilestones(pool, sofId);
     const fields = mapMasterFields(record, sof, tab.defaults, sofDerived);
     const activities = await loadActivities(pool, laytimeId, sofId, sources);
-    const deductions = await loadDeductions(pool, laytimeId, editor);
+    const deductions = await loadDeductions(pool, laytimeId);
     const entityRows = await loadEntityRows(pool, laytimeId, sofId, sources);
     const operation = tab.portType === 'LP' ? 'Loading' : tab.portType === 'DP' ? 'Discharging' : 'Transit';
     const agent = editor
@@ -1321,7 +1327,7 @@ export async function dbSaveLaytime(payload = {}, user) {
   const comId = payload.comId || payload.comid;
   const portType = str(payload.portType || payload.port);
   const portId = str(payload.portId || payload.portid);
-  const randomId = str(payload.randomId || payload.randomid);
+  const randomId = str(payload.randomId ?? payload.randomid);
   const action = String(payload.action || 'save').toLowerCase();
   let submitId = Number(payload.submitId ?? payload.submitid ?? 0);
   if (action === 'open') submitId = 0;
@@ -1404,8 +1410,6 @@ export async function dbSaveLaytime(payload = {}, user) {
   const approvers = Array.isArray(payload.approvers)
     ? payload.approvers.map(str).filter(Boolean).join(',')
     : str(payload.approvers);
-
-  const { files: keepFiles, names: keepFileNames } = normalizeKeepAttachments(payload.keepFiles, payload.keepFileNames);
 
   const fields = {
     terminal: str(payload.terminal),
@@ -1516,12 +1520,7 @@ export async function dbSaveLaytime(payload = {}, user) {
       }
     }
 
-    const attachments = keepFiles != null
-      ? keepFiles.join(',')
-      : str(existing?.ATTACHMENTS || '');
-    const attachmentNames = keepFiles != null
-      ? (keepFileNames || keepFiles).join(',')
-      : str(existing?.ATTACHMENTS_NAME || '');
+    const { attachments, attachmentNames } = resolveLaytimeAttachments(existing, payload);
 
     const laytimeId = await upsertLaytimeMaster(connection, {
       existing,

@@ -104,7 +104,8 @@ export default function LaytimeSummaryPill({
   ];
   const unavailable = draft.calcUnavailable;
   const unit = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAYS' : '—';
-  const computed = (key) => unavailable ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
+  const computed = (key) => unavailable || (draft.financialUnknown && key !== 'actualLaytime')
+    ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
   const dialogueTotal = draft.negotiations
     ? formatNegotiationTotal(draft.negotiations.rows).replace(/\.00$/, '')
     : '—';
@@ -179,7 +180,7 @@ export default function LaytimeSummaryPill({
         <div>
           <div className={styles.ltSummaryHeadTitle}>Summary</div>
           <div className={styles.ltSummaryHeadSub}>
-            {unavailable ? 'Calculations unavailable. Correct the highlighted fields.' : 'Laytime calculation results'}
+            {draft.calcError || (unavailable ? 'Calculations unavailable. Correct the highlighted fields.' : 'Laytime calculation results')}
           </div>
         </div>
         <Button className={styles.fabCloseBtn} icon="chevron-down" iconOnly onClick={onClose} ariaLabel="Minimize summary" />

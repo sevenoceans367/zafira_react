@@ -419,7 +419,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
     const [saved] = await pool.query(
       `SELECT PORT, PORTID, RANDOMID FROM sof_master WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ? AND PORT IN ('LP', 'DP', 'TP') ORDER BY SOFID ASC`,
       [comId, MODULE_ID, COMPANY_ID],
-    ).catch(() => [[]]);
+    );
     for (const row of saved || []) {
       const key = `${row.PORT}-${row.PORTID}-${resolvePortRandomId(row.RANDOMID, row.PORTID)}`;
       if (seen.has(key)) continue;
@@ -465,9 +465,10 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
   };
 }
 
-function isSameOrUnlinkedSofId(rowSofId, currentSofId) {
+function isSameOrUnlinkedSofId(rowSofId, currentSofId, previousSofId = null) {
   return rowSofId == null || String(rowSofId).trim() === '' || Number(rowSofId) === 0
-    || String(rowSofId) === String(currentSofId);
+    || String(rowSofId) === String(currentSofId)
+    || (previousSofId != null && String(rowSofId) === String(previousSofId));
 }
 
 async function copyAgentSofChildrenIfOmitted(connection, { agentSofId, internalSofId, plan }) {
@@ -1350,7 +1351,7 @@ export function validateSofDeductionPartialPercentages(rows = []) {
   }
 }
 
-async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows }) {
+async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, previousSofId, rows }) {
   const [existingRows] = await connection.query(
     `SELECT LAYTIME_LP_SLAVEID, SOFLOADPORTID, ACTIVITYID, START_DATETIME, FINISH_DATETIME
      FROM laytime_slave WHERE LAYTIME_ID = ?
@@ -1361,7 +1362,7 @@ async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows }
   const usedIds = new Set();
   const byActivity = new Map();
   for (const existing of existingRows || []) {
-    if (!isSameOrUnlinkedSofId(existing.SOFLOADPORTID, sofId)) continue;
+    if (!isSameOrUnlinkedSofId(existing.SOFLOADPORTID, sofId, previousSofId)) continue;
     const key = laytimeActivityKey({
       activity: existing.ACTIVITYID,
       start: existing.START_DATETIME,
@@ -1381,7 +1382,7 @@ async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows }
     const requested = row.laytimeActivityId ? byId.get(String(row.laytimeActivityId)) : null;
     const requestedIsAvailable = requested
       && !usedIds.has(String(requested.LAYTIME_LP_SLAVEID))
-      && isSameOrUnlinkedSofId(requested.SOFLOADPORTID, sofId);
+      && isSameOrUnlinkedSofId(requested.SOFLOADPORTID, sofId, previousSofId);
     const candidates = byActivity.get(key) || [];
     const matching = requestedIsAvailable
       ? requested
@@ -1617,7 +1618,7 @@ export async function dbSaveSof(payload = {}) {
   const comId = payload.comId || payload.comid;
   const portType = str(payload.portType || payload.port);
   const portId = str(payload.portId || payload.portid);
-  const randomId = str(payload.randomId || payload.randomid);
+  const randomId = str(payload.randomId ?? payload.randomid);
   const submitId = Number(payload.submitId || payload.submitid || 1);
 
   if (Array.isArray(payload.portActivities)) {
@@ -1691,7 +1692,14 @@ export async function dbSaveSof(payload = {}) {
       throw error;
     }
 
-    const plan = resolveSofSavePlan(payload, existing || null);
+    const [[agent]] = !existing || Array.isArray(payload.portActivities) ? await connection.query(
+      `SELECT * FROM sof_master
+       WHERE COMID = ? AND LOGIN = 'AGENT' AND MODULEID = ? AND MCOMPANYID = ?
+         AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+         AND SUBMITID = '2' ORDER BY RANDOMID IS NULL, SOFID DESC LIMIT 1 FOR UPDATE`,
+      [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
+    ) : [[null]];
+    const plan = resolveSofSavePlan(payload, existing || agent);
     const {
       terminal,
       stowageQty,
@@ -1706,7 +1714,6 @@ export async function dbSaveSof(payload = {}) {
     } = plan.master;
 
     let sofId = existing?.SOFID;
-    let createdInternalSof = false;
     if (!sofId) {
       const [result] = await connection.query(
         `INSERT INTO sof_master (
@@ -1737,16 +1744,8 @@ export async function dbSaveSof(payload = {}) {
         ],
       );
       sofId = result.insertId;
-      if (!sofId) {
-        const [[maxRow]] = await connection.query(
-          `SELECT MAX(SOFID) AS maxId FROM sof_master
-           WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-             AND PORT = ? AND PORTID = ? AND RANDOMID = ?`,
-          [comId, portType, portId, randomId],
-        );
-        sofId = maxRow?.maxId;
-      }
-      createdInternalSof = Boolean(sofId);
+      if (!sofId) throw new Error('The new internal SOF did not return an ID.');
+      if (agent) await copyAgentSofChildrenIfOmitted(connection, { agentSofId: agent.SOFID, internalSofId: sofId, plan });
     } else {
       await connection.query(
         `UPDATE sof_master
@@ -1758,16 +1757,6 @@ export async function dbSaveSof(payload = {}) {
           loadCommenced, loadCompleted, vesselSailed, agentRemarks, submitId, upload, sofId,
         ],
       );
-    }
-
-    if (createdInternalSof) {
-      const [[agent]] = await connection.query(
-        `SELECT SOFID FROM sof_master WHERE COMID = ? AND LOGIN = 'AGENT' AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
-         AND SUBMITID = '2' ORDER BY RANDOMID IS NULL, SOFID DESC LIMIT 1`,
-        [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-      );
-      if (agent?.SOFID) await copyAgentSofChildrenIfOmitted(connection, { agentSofId: agent.SOFID, internalSofId: sofId, plan });
     }
 
     if (plan.replaceEntityRows) {
@@ -1873,7 +1862,7 @@ export async function dbSaveSof(payload = {}) {
 
       if (laytimeId) {
         if (Array.isArray(payload.portActivities)) {
-          await syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows: activityRows });
+          await syncSofActivitiesToLaytime(connection, { laytimeId, sofId, previousSofId: agent?.SOFID, rows: activityRows });
         }
         if (Array.isArray(payload.deductions)) {
           await replaceLaytimeDeductions(connection, laytimeId, deductionRows);

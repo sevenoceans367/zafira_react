@@ -24,8 +24,12 @@ it('derives stored financials and cumulatives from weighted rows, ignoring submi
   assert.equal(result.actualLaytime, '100.0000');
   assert.equal(result.ttlDemurrage, '20000.00');
   assert.equal(result.activities[0].cumulative, '-28.0000');
+  const defaulted = calculateLaytimeForSave(fields, [{ ...activities[0], ltPartial: '' }], deductions, 'hours');
+  assert.equal(defaulted.actualLaytime, result.actualLaytime);
+  assert.equal(defaulted.activities[0].ltPartial, '100');
   const zero = calculateLaytimeForSave(fields, [{ ...activities[0], ltPartial: '0' }], [], 'hours');
   assert.equal(zero.actualLaytime, '0.0000');
+  assert.equal(zero.activities[0].ltPartial, '0');
   assert.throws(() => calculateLaytimeForSave(fields, [{ ...activities[0], duration: '74' }], deductions, 'hours'),
     { status: 422 });
   assert.equal(verifyRowDurations([{ activity: 'Bad duration', duration: '-1' }], 'Activity').ok, false);

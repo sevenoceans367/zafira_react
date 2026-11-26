@@ -325,6 +325,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
     const fromIsTbn = fromName === 'TBN' || String(fromName).startsWith('TBN ');
     if (
       !fromIsTbn
+      && Number(leg.PASSAGE_TYPE) === 2
       && (hasValue(leg.PORT_COSTLP_VENDOR) || Number(leg.LOAD_PORT_COST) > 0 || Number(leg.LOAD_PORT_QTY) > 0)
     ) {
       tabs.push({
@@ -347,6 +348,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
     const toIsTbn = toName === 'TBN' || String(toName).startsWith('TBN ');
     if (
       !toIsTbn
+      && Number(leg.PASSAGE_TYPE) === 2
       && (hasValue(leg.PORT_COSTDP_VENDOR) || Number(leg.DISC_PORT_COST) > 0 || Number(leg.DISC_PORT_QTY) > 0)
     ) {
       tabs.push({
@@ -366,11 +368,13 @@ async function loadPortTabs(pool, fcaId, comId = null) {
     }
 
     if (hasValue(leg.PORT_COSTTP_VENDOR) || Number(leg.TRANSIT_PORT_COST) > 0) {
+      const transitPort = hasValue(leg.FROM_PORT) ? leg.FROM_PORT : leg.TO_PORT;
+      const transitName = hasValue(leg.FROM_PORT) ? fromName : toName;
       tabs.push({
         portType: 'TP',
-        portId: str(leg.FROM_PORT),
-        randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
-        portName: fromName || toName,
+        portId: str(transitPort),
+        randomId: resolvePortRandomId(leg.RANDOMID, transitPort),
+        portName: transitName,
         defaults: {
           portArrival: blankDateTime(leg.TOARRIVAL),
           portDeparture: blankDateTime(leg.TODEPARTURE),
@@ -382,17 +386,25 @@ async function loadPortTabs(pool, fcaId, comId = null) {
       });
     }
 
-    const hasLp = hasValue(leg.PORT_COSTLP_VENDOR) || Number(leg.LOAD_PORT_COST) > 0 || Number(leg.LOAD_PORT_QTY) > 0;
-    const hasDp = hasValue(leg.PORT_COSTDP_VENDOR) || Number(leg.DISC_PORT_COST) > 0 || Number(leg.DISC_PORT_QTY) > 0;
-    if (!hasLp && !hasDp) {
-      if (!fromIsTbn && hasValue(leg.FROM_PORT)) tabs.push({
-        portType: 'LP', portId: str(leg.FROM_PORT), randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
-        portName: fromName || str(leg.FROM_PORT), defaults: {},
-      });
-      if (!toIsTbn && hasValue(leg.TO_PORT) && String(leg.TO_PORT) !== String(leg.FROM_PORT)) tabs.push({
-        portType: 'DP', portId: str(leg.TO_PORT), randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
-        portName: toName || str(leg.TO_PORT), defaults: {},
-      });
+  }
+  if (tabs.length === 0) {
+    for (const leg of legs || []) {
+      const fromName = await getPortName(pool, leg.FROM_PORT);
+      const toName = await getPortName(pool, leg.TO_PORT);
+      const fromIsTbn = fromName === 'TBN' || String(fromName).startsWith('TBN ');
+      const toIsTbn = toName === 'TBN' || String(toName).startsWith('TBN ');
+      const hasLp = hasValue(leg.PORT_COSTLP_VENDOR) || Number(leg.LOAD_PORT_COST) > 0 || Number(leg.LOAD_PORT_QTY) > 0;
+      const hasDp = hasValue(leg.PORT_COSTDP_VENDOR) || Number(leg.DISC_PORT_COST) > 0 || Number(leg.DISC_PORT_QTY) > 0;
+      if (!hasLp && !hasDp) {
+        if (!fromIsTbn && hasValue(leg.FROM_PORT)) tabs.push({
+          portType: 'LP', portId: str(leg.FROM_PORT), randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
+          portName: fromName || str(leg.FROM_PORT), defaults: {},
+        });
+        if (!toIsTbn && hasValue(leg.TO_PORT) && String(leg.TO_PORT) !== String(leg.FROM_PORT)) tabs.push({
+          portType: 'DP', portId: str(leg.TO_PORT), randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
+          portName: toName || str(leg.TO_PORT), defaults: {},
+        });
+      }
     }
   }
   const seen = new Set();
@@ -428,7 +440,7 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
   // Do not fall through a blank arrival row to a later (departure) Pilot timestamp.
   const findArrivalPilot = () => {
     const row = (keyOperations || []).find(
-      (r) => /^pilot on board$/i.test(String(r.activity || '').trim()),
+      (r) => /^pilot\s+on\s*board$/i.test(String(r.activity || '').trim()),
     );
     if (!row) return null;
     const dt = str(row.activityDateTime);
@@ -459,6 +471,7 @@ function isSameOrUnlinkedSofId(rowSofId, currentSofId) {
 
 async function copyAgentSofChildrenIfOmitted(connection, { agentSofId, internalSofId, plan }) {
   if (!agentSofId || !internalSofId) return;
+  await ensureSofActivityDateTimeToColumn(connection);
   const copies = [
     ['replaceEntityRows', 'sof_slave_3', 'ENTITY_NAME, ENTITY_VALUE'],
     ['replaceBlRows', 'sof_slave_1', 'BL_DATE, BL_QTY, CARGO'],
@@ -491,10 +504,10 @@ function applyMasterToKeyOperations(rows, record) {
   return rows.map((row) => {
     const activity = str(row.activity);
     if (row.activityDateTime) {
-      if (activity === 'Pilot on board') pilotApplied = true;
+      if (/^pilot\s+on\s*board$/i.test(activity)) pilotApplied = true;
       return row;
     }
-    if (activity === 'Pilot on board') {
+    if (/^pilot\s+on\s*board$/i.test(activity)) {
       if (pilotApplied || !record?.PBFB_1) return row;
       pilotApplied = true;
       return {
@@ -1753,7 +1766,6 @@ export async function dbSaveSof(payload = {}) {
         ],
       );
       sofId = result.insertId;
-      createdInternalSof = Boolean(sofId);
       if (!sofId) {
         const [[maxRow]] = await connection.query(
           `SELECT MAX(SOFID) AS maxId FROM sof_master
@@ -1763,6 +1775,7 @@ export async function dbSaveSof(payload = {}) {
         );
         sofId = maxRow?.maxId;
       }
+      createdInternalSof = Boolean(sofId);
     } else {
       await connection.query(
         `UPDATE sof_master

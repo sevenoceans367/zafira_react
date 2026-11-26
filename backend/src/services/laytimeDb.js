@@ -194,15 +194,22 @@ async function loadVesselParticulars(pool, fcaId) {
 
 /** LP/DP ports from cost-sheet legs — aligned with agency-letter fallbacks (no PASSAGE_TYPE gate). */
 async function loadPortTabs(pool, fcaId, comId = null) {
-  const [legs] = await pool.query(
-    `SELECT FROM_PORT, TO_PORT, RANDOMID, LOAD_PORT_QTY, DISC_PORT_QTY,
+  const legSql = (withDemurrageRates) => `SELECT FROM_PORT, TO_PORT, RANDOMID, LOAD_PORT_QTY, DISC_PORT_QTY,
             PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR,
-            LOAD_PORT_COST, DISC_PORT_COST, PASSAGE_TYPE
+            LOAD_PORT_COST, DISC_PORT_COST, PASSAGE_TYPE${withDemurrageRates ? ', DEMMRATELP, DEMMRATEDP' : ''}
      FROM freight_cost_estimete_slave1
      WHERE FCAID = ?
-     ORDER BY FCA_SLAVEID ASC`,
-    [fcaId],
-  ).catch(() => [[]]);
+     ORDER BY FCA_SLAVEID ASC`;
+  let legs;
+  try {
+    [legs] = await pool.query(legSql(true), [fcaId]);
+  } catch (err) {
+    if (err?.code === 'ER_BAD_FIELD_ERROR') {
+      [legs] = await pool.query(legSql(false), [fcaId]).catch(() => [[]]);
+    } else {
+      [legs] = [[]];
+    }
+  }
 
   const tabs = [];
   const seen = new Set();
@@ -226,12 +233,13 @@ async function loadPortTabs(pool, fcaId, comId = null) {
     const fromIsTbn = isTbnName(fromName);
     const toIsTbn = isTbnName(toName);
 
-    const hasLp = hasValue(leg.PORT_COSTLP_VENDOR)
+    const laden = Number(leg.PASSAGE_TYPE) === 2;
+    const hasLp = laden && (hasValue(leg.PORT_COSTLP_VENDOR)
       || Number(leg.LOAD_PORT_COST) > 0
-      || Number(leg.LOAD_PORT_QTY) > 0;
-    const hasDp = hasValue(leg.PORT_COSTDP_VENDOR)
+      || Number(leg.LOAD_PORT_QTY) > 0);
+    const hasDp = laden && (hasValue(leg.PORT_COSTDP_VENDOR)
       || Number(leg.DISC_PORT_COST) > 0
-      || Number(leg.DISC_PORT_QTY) > 0;
+      || Number(leg.DISC_PORT_QTY) > 0);
 
     if (!fromIsTbn && hasLp) {
       pushTab({
@@ -243,6 +251,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
           loadedQty: leg.LOAD_PORT_QTY != null && leg.LOAD_PORT_QTY !== ''
             ? String(leg.LOAD_PORT_QTY)
             : '',
+          demurrageRate: Number(leg.DEMMRATELP) > 0 ? String(leg.DEMMRATELP) : '',
         },
       });
     }
@@ -257,41 +266,67 @@ async function loadPortTabs(pool, fcaId, comId = null) {
           loadedQty: leg.DISC_PORT_QTY != null && leg.DISC_PORT_QTY !== ''
             ? String(leg.DISC_PORT_QTY)
             : '',
+          demurrageRate: Number(leg.DEMMRATEDP) > 0 ? String(leg.DEMMRATEDP) : '',
         },
       });
     }
 
-    // Last resort: any non-TBN from/to on the leg (agency-letter style).
-    if (!hasLp && !hasDp) {
-      if (!fromIsTbn && hasValue(leg.FROM_PORT)) {
-        pushTab({
-          portType: 'LP',
-          portId: str(leg.FROM_PORT),
-          randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
-          portName: fromName || str(leg.FROM_PORT),
-          defaults: {
-            loadedQty: leg.LOAD_PORT_QTY != null && leg.LOAD_PORT_QTY !== ''
-              ? String(leg.LOAD_PORT_QTY)
-              : '',
-          },
-        });
-      }
-      if (
-        !toIsTbn
-        && hasValue(leg.TO_PORT)
-        && String(leg.TO_PORT) !== String(leg.FROM_PORT)
-      ) {
-        pushTab({
-          portType: 'DP',
-          portId: str(leg.TO_PORT),
-          randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
-          portName: toName || str(leg.TO_PORT),
-          defaults: {
-            loadedQty: leg.DISC_PORT_QTY != null && leg.DISC_PORT_QTY !== ''
-              ? String(leg.DISC_PORT_QTY)
-              : '',
-          },
-        });
+    if (hasValue(leg.PORT_COSTTP_VENDOR) || Number(leg.TRANSIT_PORT_COST) > 0) {
+      const transitPort = hasValue(leg.FROM_PORT) ? leg.FROM_PORT : leg.TO_PORT;
+      const transitName = hasValue(leg.FROM_PORT) ? fromName : toName;
+      pushTab({
+        portType: 'TP', portId: str(transitPort),
+        randomId: resolvePortRandomId(leg.RANDOMID, transitPort),
+        portName: transitName, defaults: {},
+      });
+    }
+  }
+
+  // Last resort: any non-TBN from/to on a leg (agency-letter style), only if
+  // the laden pass found no tabs at all.
+  if (tabs.length === 0) {
+    for (const leg of legs || []) {
+      const fromName = await getPortName(pool, leg.FROM_PORT);
+      const toName = await getPortName(pool, leg.TO_PORT);
+      const fromIsTbn = isTbnName(fromName);
+      const toIsTbn = isTbnName(toName);
+      const hasLp = hasValue(leg.PORT_COSTLP_VENDOR)
+        || Number(leg.LOAD_PORT_COST) > 0
+        || Number(leg.LOAD_PORT_QTY) > 0;
+      const hasDp = hasValue(leg.PORT_COSTDP_VENDOR)
+        || Number(leg.DISC_PORT_COST) > 0
+        || Number(leg.DISC_PORT_QTY) > 0;
+      if (!hasLp && !hasDp) {
+        if (!fromIsTbn && hasValue(leg.FROM_PORT)) {
+          pushTab({
+            portType: 'LP',
+            portId: str(leg.FROM_PORT),
+            randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
+            portName: fromName || str(leg.FROM_PORT),
+            defaults: {
+              loadedQty: leg.LOAD_PORT_QTY != null && leg.LOAD_PORT_QTY !== ''
+                ? String(leg.LOAD_PORT_QTY)
+                : '',
+            },
+          });
+        }
+        if (
+          !toIsTbn
+          && hasValue(leg.TO_PORT)
+          && String(leg.TO_PORT) !== String(leg.FROM_PORT)
+        ) {
+          pushTab({
+            portType: 'DP',
+            portId: str(leg.TO_PORT),
+            randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
+            portName: toName || str(leg.TO_PORT),
+            defaults: {
+              loadedQty: leg.DISC_PORT_QTY != null && leg.DISC_PORT_QTY !== ''
+                ? String(leg.DISC_PORT_QTY)
+                : '',
+            },
+          });
+        }
       }
     }
   }
@@ -437,7 +472,7 @@ async function loadActivities(pool, laytimeId, sofId) {
             LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES
      FROM sof_slave WHERE SOFID = ? AND GROUP_NAME = '1' ORDER BY SOF_SLAVEID ASC`,
     [sofId],
-  );
+  ).catch(() => [[]]);
   if (legacyRows?.length) return legacyRows.map((row) => ({
     activity: str(row.ACTIVITYID), start: blankDateTime(row.START_DATETIME), end: blankDateTime(row.FINISH_DATETIME),
     duration: str(row.DURATION), ltCounts: Number(row.LAY_TIME_COUNT) === 1, ltNoCounts: Number(row.PORT_TIME_COUNT) === 1,
@@ -523,31 +558,73 @@ async function loadEntityRows(pool, laytimeId, sofId) {
   }));
 }
 
-function mapMasterFields(record, sof, defaults = {}) {
+export function deriveMilestonesFromSofRows(keyOpRows = [], cargoRows = []) {
+  const findDate = (pattern) => {
+    const row = keyOpRows.find(({ ACTIVITY = '' }) => pattern.test(String(ACTIVITY).trim()));
+    return blankDateTime(row?.ACTIVITYDATETIME);
+  };
+  const firstPilot = keyOpRows.find(({ ACTIVITY = '' }) => /^pilot\s+on\s*board$/i.test(String(ACTIVITY).trim()));
+  const cargo = cargoRows.find(({ ACTIVITY = '' }) => /^(cargo loaded|cargo discharged)$/i.test(String(ACTIVITY).trim()));
+  const shipFigure = Number(cargo?.SHIPFIGURE) > 0 ? str(cargo.SHIPFIGURE) : '';
+  const blFigure = Number(cargo?.BLFIGURE) > 0 ? str(cargo.BLFIGURE) : '';
+  return {
+    vesselArrived: findDate(/^eosp$/i),
+    norTendered: findDate(/^nor\s+tendered$/i),
+    pilotOnBoard: blankDateTime(firstPilot?.ACTIVITYDATETIME),
+    loadCommenced: findDate(/^commenced\s+cargo\s+operations$/i),
+    loadCompleted: findDate(/^completed\s+cargo\s+operations$/i),
+    vesselSailed: findDate(/^(full\s+away\s+on\s+passage|faop)$/i),
+    stowageQty: shipFigure || blFigure,
+  };
+}
+
+export async function loadSofDerivedMilestones(pool, sofId) {
+  if (!sofId) return deriveMilestonesFromSofRows();
+  const [[keyOpRows], [cargoRows]] = await Promise.all([
+    pool.query(
+      `SELECT ACTIVITY, ACTIVITYDATETIME FROM sof_slave_6 WHERE SOFID = ? ORDER BY SLAVEID ASC`,
+      [sofId],
+    ).catch(() => [[]]),
+    pool.query(
+      `SELECT ACTIVITY, SHIPFIGURE, BLFIGURE FROM sof_slave_7 WHERE SOFID = ? ORDER BY SLAVEID ASC`,
+      [sofId],
+    ).catch(() => [[]]),
+  ]);
+  return deriveMilestonesFromSofRows(keyOpRows || [], cargoRows || []);
+}
+
+function pickNonBlank(...values) {
+  for (const value of values) {
+    const text = String(value ?? '').trim();
+    if (text && text.toLowerCase() !== 'null') return text;
+  }
+  return '';
+}
+
+function pickDate(recordValue, sofValue, derivedValue) {
+  const rawRecord = String(recordValue ?? '').trim();
+  const recordDate = blankDateTime(recordValue);
+  const recordFallback = rawRecord && rawRecord !== '0' && rawRecord.toLowerCase() !== 'null'
+    && !rawRecord.startsWith('0000-00-00')
+    && !rawRecord.includes('1970-01-01')
+    ? rawRecord
+    : '';
+  return recordDate || recordFallback || blankDateTime(sofValue) || blankDateTime(derivedValue);
+}
+
+export function mapMasterFields(record, sof, defaults = {}, sofDerived = {}) {
   const hasLaytime = Boolean(record);
   return {
-    terminal: hasLaytime ? str(record.TERMINAL) : str(sof?.TERMINAL),
-    stowageQty: hasLaytime ? str(record.STOWAGE_QTY) : str(sof?.VA_1),
-    vesselArrived: hasLaytime
-      ? (blankDateTime(record.VESSEL_ARRIVED) || str(record.VESSEL_ARRIVED))
-      : (blankDateTime(sof?.VAPS_1) || str(sof?.VAPS_1)),
-    norTendered: hasLaytime
-      ? (blankDateTime(record.NOR_TENDERED) || str(record.NOR_TENDERED))
-      : (blankDateTime(sof?.NT_1) || str(sof?.NT_1)),
+    terminal: pickNonBlank(record?.TERMINAL, sof?.TERMINAL),
+    stowageQty: pickNonBlank(record?.STOWAGE_QTY, sof?.VA_1, sofDerived.stowageQty),
+    vesselArrived: pickDate(record?.VESSEL_ARRIVED, sof?.VAPS_1 === '0' ? '' : sof?.VAPS_1, sofDerived.vesselArrived),
+    norTendered: pickDate(record?.NOR_TENDERED, sof?.NT_1, sofDerived.norTendered),
     norAccepted: blankDateTime(record?.NOR_ACCEPTED) || str(record?.NOR_ACCEPTED),
     startCounting: blankDateTime(record?.START_COUNTING) || str(record?.START_COUNTING),
-    pilotOnBoard: hasLaytime
-      ? (blankDateTime(record.PILOT_ON_BOARD) || str(record.PILOT_ON_BOARD))
-      : (blankDateTime(sof?.PBFB_1) || str(sof?.PBFB_1)),
-    loadCommenced: hasLaytime
-      ? (blankDateTime(record.LOAD_DIS_COMMENCED) || str(record.LOAD_DIS_COMMENCED))
-      : (blankDateTime(sof?.LC) || str(sof?.LC)),
-    loadCompleted: hasLaytime
-      ? (blankDateTime(record.LOAD_DIS_COMPLETED) || str(record.LOAD_DIS_COMPLETED))
-      : (blankDateTime(sof?.LC1) || str(sof?.LC1)),
-    vesselSailed: hasLaytime
-      ? (blankDateTime(record.VESSEL_SAILED) || str(record.VESSEL_SAILED))
-      : (blankDateTime(sof?.VS) || str(sof?.VS)),
+    pilotOnBoard: pickDate(record?.PILOT_ON_BOARD, sof?.PBFB_1, sofDerived.pilotOnBoard),
+    loadCommenced: pickDate(record?.LOAD_DIS_COMMENCED, sof?.LC, sofDerived.loadCommenced),
+    loadCompleted: pickDate(record?.LOAD_DIS_COMPLETED, sof?.LC1, sofDerived.loadCompleted),
+    vesselSailed: pickDate(record?.VESSEL_SAILED, sof?.VS, sofDerived.vesselSailed),
     loadedQty: hasLaytime && record.LOADED_QTY != null && record.LOADED_QTY !== ''
       ? str(record.LOADED_QTY)
       : str(defaults.loadedQty || ''),
@@ -557,7 +634,7 @@ function mapMasterFields(record, sof, defaults = {}) {
     turnTime: str(record?.TURN_TIME),
     turnTimeToAdd: str(record?.TURN_TIME_TO_ADD),
     timeToDemurrage: str(record?.TIME_TO_DEMURRAGE),
-    demurrageRate: hasLaytime ? str(record.DEMURRAGE_RATE) : '',
+    demurrageRate: hasLaytime ? str(record.DEMURRAGE_RATE) : str(defaults.demurrageRate || ''),
     ttlDemurrage: str(record?.TTL_DEMURRAGE),
     ttlDemurrageManual: str(record?.TTL_DEMURRAGE_MANUAL),
     timeToDespatch: str(record?.TIME_TO_DESPATCH),
@@ -764,7 +841,8 @@ export async function dbGetLaytimeForm(comId) {
     const sofId = resolvePortSofId(record, sof);
     const submitId = record?.SUBMITID != null ? Number(record.SUBMITID) : 0;
     const locked = submitId === 5;
-    const fields = mapMasterFields(record, sof, tab.defaults);
+    const sofDerived = await loadSofDerivedMilestones(pool, sofId);
+    const fields = mapMasterFields(record, sof, tab.defaults, sofDerived);
     const activities = await loadActivities(pool, laytimeId, sofId);
     const deductions = await loadDeductions(pool, laytimeId);
     const entityRows = await loadEntityRows(pool, laytimeId, sofId);

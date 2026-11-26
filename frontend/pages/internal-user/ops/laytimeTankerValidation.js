@@ -1,7 +1,5 @@
 /**
- * Tanker-only (estimateType === 2) client validation + safe recompute.
- * Hidden Dry/Gas fields are not required — Legacy getSubmit skips qty/rate when selBType==2.
- * Applies the Tanker calculation after validating its inputs.
+ * Laytime editor validation and safe recompute for Tanker and Dry.
  */
 
 import { recomputePortDraft } from './laytimeCalculations.js';
@@ -248,7 +246,7 @@ export function verifyRowDurations(rows, kindLabel) {
 /**
  * Calc-input gate (not save-mandatory NOR/cargo). Invalid → calculations unavailable.
  */
-export function tankerCalcInputsValid(draft) {
+export function tankerCalcInputsValid(draft, { dryLaytime = false } = {}) {
   if (!draft) return { ok: false, message: 'Laytime draft is missing.' };
 
   const actPartial = firstInvalidPartial(draft.activities, 'Activity');
@@ -274,6 +272,14 @@ export function tankerCalcInputsValid(draft) {
     return { ok: false, field: 'loadedQty', message: 'QTY (MT) must be blank or a valid number.' };
   }
 
+  if (dryLaytime) {
+    for (const [key, label] of [['loadedRate', 'Cargo Rate'], ['turnTimeToAdd', 'Turn Time to Add']]) {
+      if (!isBlankOrFiniteNumber(draft[key])) {
+        return { ok: false, field: key, message: `${label} must be blank or a valid number.` };
+      }
+    }
+  }
+
   return { ok: true };
 }
 
@@ -291,9 +297,9 @@ function markRowsDurationOnly(rows) {
  * Invalid stored values → do not invent zero/fake financials; mark unavailable.
  * Durations still refresh from strict dates so the Duration column stays truthful.
  */
-export function recomputeTankerPortDraft(draft, rateUnit = 'hours') {
+export function recomputeTankerPortDraft(draft, rateUnit = 'hours', { dryLaytime = false } = {}) {
   if (!draft) return draft;
-  const check = tankerCalcInputsValid(draft);
+  const check = tankerCalcInputsValid(draft, { dryLaytime });
   if (!check.ok) {
     return {
       ...draft,
@@ -307,7 +313,14 @@ export function recomputeTankerPortDraft(draft, rateUnit = 'hours') {
       ttlDespatch: '',
     };
   }
-  const next = recomputePortDraft(draft, rateUnit, { deductFromActual: false });
+  const next = recomputePortDraft(draft, rateUnit, { dryLaytime, deductFromActual: false });
+  if (dryLaytime) {
+    const from = parseStrictDisplayDateTime(draft.vesselArrived);
+    const to = parseStrictDisplayDateTime(draft.vesselSailed);
+    next.totalDaysAtPort = from && to && to >= from
+      ? ((to - from) / 86400000).toFixed(4)
+      : '0.00';
+  }
   return {
     ...next,
     calcUnavailable: false,
@@ -318,7 +331,7 @@ export function recomputeTankerPortDraft(draft, rateUnit = 'hours') {
  * Validate Tanker draft before save/submit.
  * @returns {{ ok: true } | { ok: false, field: string, message: string, index?: number, focus?: string }}
  */
-export function validateTankerLaytimeDraft(draft, { submitId = 0 } = {}) {
+export function validateTankerLaytimeDraft(draft, { submitId = 0, dryLaytime = false } = {}) {
   if (!draft) {
     return { ok: false, field: '', message: 'Laytime draft is missing.' };
   }
@@ -346,6 +359,29 @@ export function validateTankerLaytimeDraft(draft, { submitId = 0 } = {}) {
         field: key,
         message: `${label} must be a complete date (DD-MM-YYYY).`,
       };
+    }
+  }
+
+  if (dryLaytime) {
+    if (!String(draft.stowageQty ?? '').trim()) {
+      return { ok: false, field: 'stowageQty', message: 'Please fill the STOWAGE PLAN QUANTITY.' };
+    }
+    const arrived = parseStrictDisplayDateTime(draft.vesselArrived);
+    const sailed = parseStrictDisplayDateTime(draft.vesselSailed);
+    if (arrived == null) {
+      return { ok: false, field: 'vesselArrived', message: 'Please enter a valid VESSEL ARRIVED date.' };
+    }
+    if (sailed == null || sailed < arrived) {
+      return { ok: false, field: 'vesselSailed', message: 'Please enter a valid VESSEL SAILED date on or after vessel arrival.' };
+    }
+    for (const [key, label] of [['loadedRate', 'Cargo Rate'], ['turnTimeToAdd', 'Turn Time to Add']]) {
+      if (!isBlankOrFiniteNumber(draft[key])) {
+        return { ok: false, field: key, message: `${label} must be blank or a valid number.` };
+      }
+    }
+    if (!(draft.detention) && !(Number(draft.loadedQty) > 0 && Number(draft.loadedRate) > 0)) {
+      const field = Number(draft.loadedQty) > 0 ? 'loadedRate' : 'loadedQty';
+      return { ok: false, field, message: 'Please Check Load Rate Or Quantity' };
     }
   }
 

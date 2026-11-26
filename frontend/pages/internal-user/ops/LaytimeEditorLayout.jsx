@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { AttachmentDropzone, Button, Textarea, TextInput, Toggle } from '@bainbridge/shared-ui';
+import { AttachmentDropzone, Button, Select, TextInput } from '@bainbridge/shared-ui';
 import { attachmentUrl } from '@bainbridge/shared-routing';
-import LaytimeTankerSummaryPill from './LaytimeTankerSummaryPill.jsx';
-import LaytimeTankerTables from './LaytimeTankerTables.jsx';
 import { buildExistingDropzoneItems } from './laytimeAttachmentHelpers.js';
+import LaytimeSummaryPill from './LaytimeSummaryPill.jsx';
+import LaytimeEditorTables from './LaytimeEditorTables.jsx';
 import {
   getTankerEntityValue,
   setTankerEntityValue,
@@ -23,6 +23,12 @@ const TIMING_FIELDS = [
   ['laytimeEnds', 'Laytime Ends', true],
   ['demmStarts', 'DEMM Starts', true],
 ];
+const DRY_TIMING_FIELDS = [
+  ...TIMING_FIELDS,
+  ['vesselArrived', 'Vessel Arrived'],
+  ['vesselSailed', 'Vessel Sailed'],
+];
+
 function dateFieldInvalid(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return false;
@@ -48,13 +54,31 @@ function PortTypeIcon({ portType }) {
   );
 }
 
-function LaytimeOption({ id, label, checked, disabled, onChange }) {
+function PillOption({ active, disabled, onClick, children }) {
   return (
-    <div className={styles.ltOption}>
-      <Toggle id={id} checked={checked} onChange={onChange} disabled={disabled} />
-      <label htmlFor={id}>{label}</label>
-    </div>
+    <button
+      type="button"
+      className={`${styles.ltPill} ${active ? styles.ltPillActive : ''}`}
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+    >
+      <span className={styles.ltPillCheck} aria-hidden>
+        {active ? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        ) : null}
+      </span>
+      {children}
+    </button>
   );
+}
+
+function displayStoredFileName(stored) {
+  const raw = String(stored || '').trim();
+  const match = raw.match(/^\d+_(.+)$/);
+  return match ? match[1] : raw;
 }
 
 function ReadonlyDash({ value }) {
@@ -62,11 +86,8 @@ function ReadonlyDash({ value }) {
   return <span className={styles.ltDetailVal} data-empty={!raw}>{raw || '—'}</span>;
 }
 
-/**
- * Tanker-only Laytime shell (NAK-166 compact pill variant).
- * Dry / Gas / unknown continue on the existing OpsVcLaytimePage layout.
- */
-export default function LaytimeTankerLayout({
+export default function LaytimeEditorLayout({
+  isDry,
   form,
   activeKey,
   setActiveKey,
@@ -79,6 +100,7 @@ export default function LaytimeTankerLayout({
   pendingFiles,
   approverOptions,
   LtDateField,
+  ApproverTagField,
   patchDraft,
   updateListRow,
   insertListRow,
@@ -155,17 +177,15 @@ export default function LaytimeTankerLayout({
               </div>
               <div className={styles.ltDetailCell} data-field="loadedQty">
                 <label className={styles.ltDetailLabel} htmlFor="loadedQty">QTY (MT)</label>
-                <TextInput
+                <input
                   id="loadedQty"
-                  className={invalidQty ? styles.cfInpInvalid : undefined}
+                  className={`${styles.cfInp} ${invalidQty ? styles.cfInpInvalid : ''}`}
                   aria-invalid={invalidQty}
                   type="text"
                   value={draft.loadedQty ?? ''}
                   onChange={(e) => patchDraft(
                     { loadedQty: e.target.value },
-                    // Legacy Fun158==2: contractual Laytime Allowed stays editable; do not
-                    // overwrite from qty/rate on every QTY keystroke.
-                    { recompute: true },
+                    { recompute: true, refreshAllowed: isDry },
                   )}
                   disabled={locked}
                   placeholder="0.00"
@@ -173,8 +193,9 @@ export default function LaytimeTankerLayout({
               </div>
               <div className={styles.ltDetailCell} data-field="terminal">
                 <label className={styles.ltDetailLabel} htmlFor="terminal">Terminal / Berth</label>
-                <TextInput
+                <input
                   id="terminal"
+                  className={styles.cfInp}
                   type="text"
                   value={draft.terminal}
                   onChange={(e) => patchDraft({ terminal: e.target.value })}
@@ -196,8 +217,34 @@ export default function LaytimeTankerLayout({
               </div>
             </div>
 
+            {isDry ? (
+              <div className={styles.ltDetailsGrid}>
+                {[
+                  ['stowageQty', 'Stowage Plan Qty (MT)'],
+                  ['loadedRate', `${activePort.portType === 'DP' ? 'Discharge' : 'Load'} Rate (MT/Day)`],
+                  ['turnTimeToAdd', 'Turn Time to Add (Hrs)'],
+                ].map(([key, label]) => {
+                  const refreshAllowed = key !== 'stowageQty';
+                  const invalid = refreshAllowed && !isBlankOrFiniteNumber(draft[key]);
+                  return (
+                    <div className={styles.ltDetailCell} key={key} data-field={key}>
+                      <label className={styles.ltDetailLabel} htmlFor={key}>{label}</label>
+                      <TextInput
+                        id={key}
+                        inputMode="decimal"
+                        aria-invalid={invalid}
+                        value={draft[key]}
+                        onChange={(event) => patchDraft({ [key]: event.target.value }, { refreshAllowed })}
+                        disabled={locked}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
             <div className={styles.ltTimingGrid}>
-              {TIMING_FIELDS.map(([key, label, entity]) => {
+              {(isDry ? DRY_TIMING_FIELDS : TIMING_FIELDS).map(([key, label, entity]) => {
                 const value = entity ? getTankerEntityValue(draft.entityRows, key) : draft[key];
                 const invalid = invalidEntity === key || dateFieldInvalid(value);
                 return (
@@ -212,7 +259,7 @@ export default function LaytimeTankerLayout({
                       value={value}
                       onChange={(date) => patchDraft(entity
                         ? { entityRows: setTankerEntityValue(draft.entityRows, key, date) }
-                        : { [key]: date })}
+                        : { [key]: date }, { recompute: isDry && (key === 'vesselArrived' || key === 'vesselSailed') })}
                       disabled={locked}
                       ariaLabel={label}
                       invalid={invalid}
@@ -220,6 +267,12 @@ export default function LaytimeTankerLayout({
                   </div>
                 );
               })}
+              {isDry ? (
+                <div className={styles.ltTimingCell}>
+                  <span className={styles.ltDetailLabel}>Total Days at Port</span>
+                  <ReadonlyDash value={draft.totalDaysAtPort} />
+                </div>
+              ) : null}
             </div>
 
           </div>
@@ -241,9 +294,10 @@ export default function LaytimeTankerLayout({
               <div className={styles.ltOptrow} style={{ marginBottom: 16 }}>
                 <div className={styles.ltPortManual}>
                   <label className={styles.ltOptlabel} htmlFor="portNameManual">Port Name (Manual)</label>
-                  <TextInput
+                  <input
                     id="portNameManual"
-                      type="text"
+                    className={styles.cfInp}
+                    type="text"
                     value={draft.portNameManual}
                     onChange={(e) => patchDraft({ portNameManual: e.target.value })}
                     disabled={locked}
@@ -251,29 +305,45 @@ export default function LaytimeTankerLayout({
                   />
                 </div>
               </div>
+              {isDry ? (
+                <div className={`${styles.ltOptrow} ${styles.ltApplicableRow}`}>
+                  <label className={styles.ltOptlabel} htmlFor="laytimeApplicable">Laytime Applicable</label>
+                  <Select
+                    id="laytimeApplicable"
+                    size="sm"
+                    value={draft.laytimeApplicable}
+                    onChange={(event) => patchDraft({ laytimeApplicable: event.target.value })}
+                    disabled={locked}
+                  >
+                    <option value="1">Yes</option>
+                    <option value="0">No</option>
+                  </Select>
+                </div>
+              ) : null}
               <div className={styles.ltOptrow}>
                 <span className={styles.ltOptlabel}>Options</span>
                 <div className={styles.ltPillgroup}>
-                  <LaytimeOption
-                    id="laytimeDetention"
-                    label="Detention"
-                    checked={Boolean(draft.detention)}
+                  <PillOption
+                    active={Boolean(draft.detention)}
                     disabled={locked}
-                    onChange={(event) => patchDraft({ detention: event.target.checked })}
-                  />
-                  <LaytimeOption
-                    id="laytimeReversible"
-                    label="Reversible"
-                    checked={Boolean(draft.reversible)}
+                    onClick={() => patchDraft({ detention: !draft.detention })}
+                  >
+                    Detention
+                  </PillOption>
+                  <PillOption
+                    active={Boolean(draft.reversible)}
                     disabled={locked}
-                    onChange={(event) => patchDraft({ reversible: event.target.checked })}
-                  />
+                    onClick={() => patchDraft({ reversible: !draft.reversible })}
+                  >
+                    Reversible
+                  </PillOption>
                 </div>
               </div>
             </div>
           </div>
 
-          <LaytimeTankerTables
+          <LaytimeEditorTables
+            isDry={isDry}
             key={form.comId}
             portKey={activeKey}
             draft={draft}
@@ -299,8 +369,8 @@ export default function LaytimeTankerLayout({
               </div>
             </div>
             <div className={styles.ltBody}>
-              <Textarea
-                aria-label="Remarks"
+              <textarea
+                className={styles.ltRemarksBox}
                 value={draft.remarks}
                 onChange={(e) => patchDraft({ remarks: e.target.value })}
                 disabled={locked}
@@ -338,7 +408,8 @@ export default function LaytimeTankerLayout({
 
           <div className={styles.ltBottomDock}>
             <div className={styles.ltSummaryFloat} data-lt-summary-float>
-              <LaytimeTankerSummaryPill
+              <LaytimeSummaryPill
+                isDry={isDry}
                 open={summaryOpen}
                 onOpen={() => setSummaryOpen(true)}
                 onClose={() => setSummaryOpen(false)}
@@ -348,6 +419,7 @@ export default function LaytimeTankerLayout({
                 unitUnknown={unitUnknown}
                 saving={saving}
                 approverOptions={approverOptions}
+                ApproverTagField={ApproverTagField}
                 setApprovers={setApprovers}
                 onPatchDraft={patchDraft}
                 onSendForApproval={() => handleSubmit(1)}

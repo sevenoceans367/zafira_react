@@ -35,18 +35,18 @@ function MetricLabel({ label, icon, tone = 'Navy' }) {
 }
 
 const metrics = [
-  { key: 'laytimeAllowed', label: 'Laytime Allowed', icon: 'clock', hours: true, editable: true },
-  { key: 'actualLaytime', label: 'Actual Laytime', icon: 'hourglass', hours: true },
+  { key: 'laytimeAllowed', label: 'Laytime Allowed', icon: 'clock', time: true, editable: true },
+  { key: 'actualLaytime', label: 'Actual Laytime', icon: 'hourglass', time: true },
   { key: 'demurrageRate', label: 'Demurrage Rate', icon: 'warning', tone: 'Red', editable: true },
   { key: 'despatchRate', label: 'Dispatch Rate', icon: 'check', tone: 'Green', editable: true },
-  { key: 'timeToDemurrage', label: 'Time to Demm', icon: 'warning', tone: 'Red', hours: true },
-  { key: 'timeToDespatch', label: 'Time to Disp', icon: 'check', tone: 'Green', hours: true },
+  { key: 'timeToDemurrage', label: 'Time to Demm', icon: 'warning', tone: 'Red', time: true },
+  { key: 'timeToDespatch', label: 'Time to Disp', icon: 'check', tone: 'Green', time: true },
   { key: 'ttlDemurrage', label: 'Demm (USD)', icon: 'dollar', tone: 'Red' },
   { key: 'ttlDespatch', label: 'Disp (USD)', icon: 'dollar', tone: 'Green' },
 ];
 
 function SummaryMetric({ metric, value, unit, disabled, onChange }) {
-  const { key, label, icon, tone, hours, editable } = metric;
+  const { key, label, icon, tone, time, editable } = metric;
   const invalid = editable && !isBlankOrFiniteNumber(value);
   const warning = tone === 'Red' && Number(value) > 0;
   const field = editable ? (
@@ -57,7 +57,7 @@ function SummaryMetric({ metric, value, unit, disabled, onChange }) {
       value={value}
       onChange={(event) => onChange(event.target.value)}
       disabled={disabled}
-      placeholder={hours ? undefined : 'USD/day'}
+      placeholder={time ? undefined : 'USD/day'}
       aria-label={label}
       aria-invalid={invalid}
     />
@@ -66,7 +66,7 @@ function SummaryMetric({ metric, value, unit, disabled, onChange }) {
     <div className={styles.ltSumItemPanel}>
       <MetricLabel label={label} icon={icon} tone={tone} />
       <div className={styles.ltSumFieldWrap}>
-        {hours ? (
+        {time ? (
           <div className={styles.ltSumFieldBox}>
             {field}
             <span className={styles.ltSumHrTag}>{unit}</span>
@@ -77,7 +77,8 @@ function SummaryMetric({ metric, value, unit, disabled, onChange }) {
   );
 }
 
-export default function LaytimeTankerSummaryPill({
+export default function LaytimeSummaryPill({
+  isDry,
   open,
   onOpen,
   onClose,
@@ -102,13 +103,13 @@ export default function LaytimeTankerSummaryPill({
       .map((id) => ({ id, name: id })),
   ];
   const unavailable = draft.calcUnavailable;
-  const unit = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAY' : '—';
+  const unit = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAYS' : '—';
   const computed = (key) => unavailable ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
   const money = unavailable ? '—' : formatMoneyDisplay(draft.ttlDemurrage);
   const summaryValues = [
-    ['Allowed', draft.laytimeAllowed || '—'],
-    ['Actual', computed('actualLaytime')],
-    ['Demm Hrs', computed('timeToDemurrage'), !unavailable && Number(draft.timeToDemurrage) > 0],
+    [isDry ? 'Allowed Days' : 'Allowed', draft.laytimeAllowed || '—'],
+    [isDry ? 'Actual Days' : 'Actual', computed('actualLaytime')],
+    [isDry ? 'Demm Days' : 'Demm Hrs', computed('timeToDemurrage'), !unavailable && Number(draft.timeToDemurrage) > 0],
     [unavailable ? 'Unavailable' : 'Calc Demm', unavailable ? money : `$${money}`, !unavailable && Number(draft.ttlDemurrage) > 0],
   ];
 
@@ -182,16 +183,22 @@ export default function LaytimeTankerSummaryPill({
       </div>
       <div className={styles.ltSummaryBody}>
         <div className={styles.ltSumGrid}>
-          {metrics.map((metric) => (
-            <SummaryMetric
-              key={metric.key}
-              metric={metric}
-              value={metric.editable ? draft[metric.key] ?? '' : computed(metric.key)}
-              unit={unit}
-              disabled={locked}
-              onChange={(value) => onPatchDraft({ [metric.key]: value }, { recompute: true })}
-            />
-          ))}
+          {metrics.map((metric) => {
+            const { key } = metric;
+            const isDryAllowance = isDry && key === 'laytimeAllowed';
+            const editable = metric.editable && !isDryAllowance;
+            const value = isDryAllowance ? draft.laytimeAllowed || '—' : computed(key);
+            return (
+              <SummaryMetric
+                key={key}
+                metric={{ ...metric, editable }}
+                value={editable ? draft[key] ?? '' : value}
+                unit={unit}
+                disabled={locked}
+                onChange={(value) => onPatchDraft({ [key]: value }, { recompute: true })}
+              />
+            );
+          })}
         </div>
         <div className={styles.ltSumFinalRow}>
           <MetricLabel label="Calculated Demurrage (USD)" icon="dollar" />

@@ -49,6 +49,21 @@ describe('laytimeDb SOF links and strict-mode SQL', () => {
     assert.equal(rows[0].sofLoadPortId, '4');
     assert.ok(queries.some((sql) => sql.includes('FROM sof_slave_6')));
   });
+  it('falls back to SOF activities for a Dry Laytime master with no saved activities', async () => {
+    const queries = [];
+    const pool = { async query(sql) {
+      queries.push(sql);
+      if (sql.includes('FROM sof_slave ')) return [[{
+        ACTIVITYID: 'Loading cargo', START_DATETIME: new Date(2026, 3, 10, 8),
+        FINISH_DATETIME: new Date(2026, 3, 10, 14), DURATION: '6',
+        LAY_TIME_COUNT: 1, PORT_TIME_COUNT: 0,
+      }]];
+      return [[]];
+    } };
+    const rows = await loadActivities(pool, 44, 55, { isDry: true });
+    assert.equal(rows[0].activity, 'Loading cargo');
+    assert.ok(queries.some((sql) => sql.includes('FROM sof_slave ') && sql.includes("GROUP_NAME = '1'")));
+  });
   it('does not compare DATETIME columns directly to strings', async () => {
     const queries = [];
     await loadEntityRows({ async query(sql) { queries.push(sql); return [[]]; } }, null, 55);

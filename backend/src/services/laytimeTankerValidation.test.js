@@ -36,6 +36,20 @@ function basePayload(overrides = {}) {
   };
 }
 
+it('validates Dry required timing, cargo rate, and detention on the save path', () => {
+  const dry = { dryLaytime: true };
+  const payload = basePayload({
+    stowageQty: '5000',
+    vesselArrived: '01-01-2026 06:00',
+    vesselSailed: '03-01-2026 09:00',
+    loadedRate: '5000',
+  });
+  assert.equal(validateTankerLaytimePayload(payload, dry).ok, true);
+  assert.equal(validateTankerLaytimePayload({ ...payload, loadedRate: '0' }, dry).field, 'loadedRate');
+  assert.equal(validateTankerLaytimePayload({ ...payload, loadedRate: '', detention: '1' }, dry).ok, true);
+  assert.equal(validateTankerLaytimePayload({ ...payload, vesselSailed: payload.norTendered, vesselArrived: payload.loadCompleted }, dry).field, 'vesselSailed');
+});
+
 describe('backend tanker validation', () => {
   it('allows Tanker save without loadedRate / hidden Dry fields', () => {
     const result = validateTankerLaytimePayload(basePayload());

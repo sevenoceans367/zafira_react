@@ -27,6 +27,15 @@ export function hoursBetween(start, end) {
   return hours.toFixed(4);
 }
 
+/** Dry Legacy rounds the quantity/rate term before adding turn and reversible time. */
+export function calcDryLaytimeAllowed({ loadedQty, loadedRate, turnTimeToAdd, laytimeAllowedExtra }) {
+  const qty = Number(loadedQty);
+  const rate = Number(loadedRate);
+  if (!Number.isFinite(qty) || !Number.isFinite(rate) || qty <= 0 || rate <= 0) return '';
+  if (!Number.isFinite(Number(turnTimeToAdd ?? ''))) return '';
+  return (round4(qty / rate) + num(turnTimeToAdd) / 24 + num(laytimeAllowedExtra)).toFixed(4);
+}
+
 /**
  * Laytime allowed = qty/rate (+ turn time).
  * days: turnTimeToAdd is hours → add turn/24.
@@ -44,8 +53,7 @@ export function calcLaytimeAllowed(loadedQty, loadedRate, turnTimeToAdd, rateUni
 
 /**
  * Recompute durations, cumulatives, actual/demurrage/despatch fields.
- * Follows PHP laytime_calculation.php getFinalCalculation literally
- * (incl. double-subtract of deductions on demurrage).
+ * The Dry editor follows the pinned getFinalCalculation deduction and rounding rules.
  *
  * Legacy divider (getFun158):
  *   Fun158==1|2 (CBM/Hr, MT/Hr tanker) → divider=1  → Cumulative Time in Hrs
@@ -60,13 +68,13 @@ export function calcLaytimeAllowed(loadedQty, loadedRate, turnTimeToAdd, rateUni
  *
  * Returns a new draft object (immutable).
  */
-export function recomputePortDraft(draft, rateUnit = 'days', { deductFromActual = true } = {}) {
+export function recomputePortDraft(draft, rateUnit = 'days', { dryLaytime = false, deductFromActual = !dryLaytime } = {}) {
   const divider = rateUnit === 'hours' ? 1 : 24;
   const divider1 = rateUnit === 'hours' ? 24 : 1;
 
   const deductions = (draft.deductions || []).map((row) => {
     const hasRange = String(row.start || '').trim() && String(row.end || '').trim();
-    const duration = hasRange ? hoursBetween(row.start, row.end) : (row.duration || '0.0');
+    const duration = hasRange ? hoursBetween(row.start, row.end) : (dryLaytime ? '0.0' : row.duration || '0.0');
     const durationNum = num(duration);
     const partialPct = row.ltPartial === '' || row.ltPartial == null ? 0 : num(row.ltPartial);
     const cumulative = round4((durationNum * partialPct) / 100);
@@ -88,7 +96,7 @@ export function recomputePortDraft(draft, rateUnit = 'days', { deductFromActual 
   let sum = 0;
   const activities = (draft.activities || []).map((row) => {
     const hasRange = String(row.start || '').trim() && String(row.end || '').trim();
-    const duration = hasRange ? hoursBetween(row.start, row.end) : (row.duration || '0.0');
+    const duration = hasRange ? hoursBetween(row.start, row.end) : (dryLaytime ? '0.0' : row.duration || '0.0');
     const durationNum = num(duration);
     const partialPct = row.ltPartial === '' || row.ltPartial == null ? 0 : num(row.ltPartial);
     const weighted = (durationNum * partialPct) / 100;
@@ -110,7 +118,10 @@ export function recomputePortDraft(draft, rateUnit = 'days', { deductFromActual 
   });
 
   const actualExtra = num(draft.actualLaytimeExtra);
-  const actualLaytime = round4((sum / divider) + actualExtra - deductionTime);
+  // Pinned Zafira Legacy, internal-user/sopf/laytime_calculation.php:449–466.
+  // Dry adds carried actual days to the rounded counting days. Deductions enter only demurrage.
+  const counted = dryLaytime ? round4(sum / divider) : sum / divider;
+  const actualLaytime = round4(counted + actualExtra - deductionTime);
 
   let timeToDemurrage = '00.00';
   let timeToDespatch = '00.00';
@@ -124,7 +135,7 @@ export function recomputePortDraft(draft, rateUnit = 'days', { deductFromActual 
       timeToDemurrage = '';
       timeToDespatch = '00.00';
     }
-  } else if (allowanceKnown && !Number.isNaN(actualLaytime) && !Number.isNaN(laytimeAllowed)) {
+  } else if (allowanceKnown && (!dryLaytime || (actualLaytime !== 0 && laytimeAllowed !== 0))) {
     if (actualLaytime > laytimeAllowed) {
       // Apply the weighted deduction at the demurrage step.
       const deductions2 = sumDeductionPartial / divider;

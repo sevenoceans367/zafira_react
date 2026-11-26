@@ -1,5 +1,5 @@
 /**
- * Tanker-only (estimateType === 2) save-path validation.
+ * Laytime editor save-path validation for Tanker and Dry.
  * Mirrors frontend laytimeTankerValidation — strict decimal/date parsing.
  */
 
@@ -301,7 +301,7 @@ export function verifyRowDurations(rows, kindLabel) {
 /**
  * @returns {{ ok: true } | { ok: false, message: string, field?: string }}
  */
-export function validateTankerLaytimePayload(payload = {}) {
+export function validateTankerLaytimePayload(payload = {}, { dryLaytime = false } = {}) {
   for (const { key, label } of TANKER_MANDATORY_OPERATIONAL_FIELDS) {
     const raw = String(payload[key] ?? '').trim();
     if (!raw) {
@@ -317,6 +317,29 @@ export function validateTankerLaytimePayload(payload = {}) {
     if (!raw) continue;
     if (parseDmyDateTimeMs(raw) == null) {
       return { ok: false, field: key, message: `${label} must be a complete date (DD-MM-YYYY).` };
+    }
+  }
+
+  if (dryLaytime) {
+    if (!String(payload.stowageQty ?? '').trim()) {
+      return { ok: false, field: 'stowageQty', message: 'Please fill the STOWAGE PLAN QUANTITY.' };
+    }
+    const arrived = parseDmyDateTimeMs(payload.vesselArrived);
+    const sailed = parseDmyDateTimeMs(payload.vesselSailed);
+    if (arrived == null) {
+      return { ok: false, field: 'vesselArrived', message: 'Please enter a valid VESSEL ARRIVED date.' };
+    }
+    if (sailed == null || sailed < arrived) {
+      return { ok: false, field: 'vesselSailed', message: 'Please enter a valid VESSEL SAILED date on or after vessel arrival.' };
+    }
+    for (const [key, label] of [['loadedRate', 'Cargo Rate'], ['turnTimeToAdd', 'Turn Time to Add']]) {
+      if (!isBlankOrFiniteNumber(payload[key])) {
+        return { ok: false, field: key, message: `${label} must be blank or a valid number.` };
+      }
+    }
+    if (!(Number(payload.detention) === 1) && !(Number(payload.loadedQty) > 0 && Number(payload.loadedRate) > 0)) {
+      const field = Number(payload.loadedQty) > 0 ? 'loadedRate' : 'loadedQty';
+      return { ok: false, field, message: 'Please Check Load Rate Or Quantity' };
     }
   }
 

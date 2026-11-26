@@ -107,8 +107,8 @@ export default function LaytimeSummaryPill({
   const computed = (key) => unavailable ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
   const money = unavailable ? '—' : formatMoneyDisplay(draft.ttlDemurrage);
   const summaryValues = [
-    [isDry ? 'Allowed Days' : 'Allowed', draft.laytimeAllowed || '—'],
-    [isDry ? 'Actual Days' : 'Actual', computed('actualLaytime')],
+    ['Allowed', draft.laytimeAllowed || '—'],
+    ['Actual', computed('actualLaytime')],
     [isDry ? 'Demm Days' : 'Demm Hrs', computed('timeToDemurrage'), !unavailable && Number(draft.timeToDemurrage) > 0],
     [unavailable ? 'Unavailable' : 'Calc Demm', unavailable ? money : `$${money}`, !unavailable && Number(draft.ttlDemurrage) > 0],
   ];

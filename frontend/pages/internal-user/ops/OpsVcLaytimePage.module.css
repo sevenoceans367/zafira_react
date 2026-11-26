@@ -1540,9 +1540,8 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  max-width: min(560px, 100%);
-  width: auto;
-  flex-wrap: wrap;
+  max-width: 100%;
+  width: max-content;
   background: #274670;
   color: #fff;
   border: none;
@@ -1568,19 +1567,23 @@
   outline-offset: 3px;
 }
 
-.ltSummaryFab svg { width: 18px; height: 18px; }
+.ltSummaryFab svg { width: 18px; height: 18px; flex: none; }
 
 .fabVals {
   display: flex;
+  align-items: center;
   gap: 15px;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
   font-size: 12.5px;
   font-weight: 700;
-  flex-wrap: wrap;
 }
 
 .fabValItem {
   display: flex;
   align-items: center;
+  flex: none;
   gap: 5px;
 }
 

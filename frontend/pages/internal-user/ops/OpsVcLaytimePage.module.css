@@ -1587,15 +1587,15 @@
 
 .ltSummaryFabExpanded {
   width: min(420px, 100%);
-  /* Tall enough for metrics + approver on common desktop heights; avoid inner scroll. */
-  max-height: min(78vh, 680px);
   box-shadow: 0 16px 48px rgba(20, 30, 50, 0.22);
   border-radius: 14px;
   transform-origin: bottom right;
   animation: fabExpand 0.2s ease-out;
-  overflow: auto;
+  overflow: visible;
   border: 1px solid #eceef2;
   background: #fff;
+  container-type: inline-size;
+  container-name: lt-summary;
 }
 
 @keyframes fabExpand {
@@ -1604,15 +1604,13 @@
 }
 
 .ltSummaryHead {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
   background: #e6eaf1;
   border-bottom: 1px solid #eceef2;
+  border-radius: 13px 13px 0 0;
 }
 
 .ltSummaryHeadTitle { font-size: 13px; font-weight: 800; color: #1b2430; }
@@ -1649,11 +1647,6 @@
   gap: 8px 12px;
 }
 
-.ltSummaryFabExpanded {
-  container-type: inline-size;
-  container-name: lt-summary;
-}
-
 .ltSummaryFabExpanded .sectionIco {
   width: 24px;
   height: 24px;
@@ -1668,6 +1661,15 @@
 .ltSummaryFabExpanded :global(.tagField),
 .ltSummaryFabExpanded .tagField {
   gap: 4px;
+}
+
+.ltSummaryFabExpanded .tagMenu {
+  top: auto;
+  bottom: calc(100% + 4px);
+  z-index: 30;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 -8px 24px rgba(20, 26, 40, 0.16);
 }
 
 .ltSumItemPanel { display: flex; flex-direction: column; gap: 3px; }

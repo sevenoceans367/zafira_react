@@ -199,11 +199,11 @@ async function loadVesselParticulars(pool, fcaId) {
   };
 }
 
-/** LP/DP ports from cost-sheet legs — aligned with agency-letter fallbacks (no PASSAGE_TYPE gate). */
+/** LP/DP ports from laden cost-sheet legs, with agency-letter fallbacks when no costs exist. */
 async function loadPortTabs(pool, fcaId, comId = null) {
   const legSql = (withDemurrageRates) => `SELECT FROM_PORT, TO_PORT, RANDOMID, LOAD_PORT_QTY, DISC_PORT_QTY,
             PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR,
-            LOAD_PORT_COST, DISC_PORT_COST, PASSAGE_TYPE${withDemurrageRates ? ', DEMMRATELP, DEMMRATEDP' : ''}
+            PORT_COSTTP_VENDOR, LOAD_PORT_COST, DISC_PORT_COST, TRANSIT_PORT_COST, PASSAGE_TYPE${withDemurrageRates ? ', DEMMRATELP, DEMMRATEDP' : ''}
      FROM freight_cost_estimete_slave1
      WHERE FCAID = ?
      ORDER BY FCA_SLAVEID ASC`;
@@ -468,7 +468,7 @@ function loadRows(pool, sql, params, tanker) {
   return tanker ? query : query.catch(() => [[]]);
 }
 
-async function loadActivities(pool, laytimeId, sofId, { tanker, hasSofRange }) {
+async function loadActivities(pool, laytimeId, sofId, { tanker = false, hasSofRange = true } = {}) {
   if (laytimeId) {
     const [rows] = await loadRows(pool,
       `SELECT * FROM laytime_slave WHERE LAYTIME_ID = ?`,
@@ -587,7 +587,7 @@ function displayTankerEntityDate(value) {
   return `${day}-${month}-${year} ${time}`;
 }
 
-async function loadEntityRows(pool, laytimeId, sofId, { tanker, hasSofRange }) {
+async function loadEntityRows(pool, laytimeId, sofId, { tanker = false, hasSofRange = true } = {}) {
   let savedRows = [];
   if (laytimeId) {
     const [rows] = await loadRows(pool, tanker

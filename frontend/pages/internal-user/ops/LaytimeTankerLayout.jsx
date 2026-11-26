@@ -3,6 +3,7 @@ import { AttachmentDropzone, Button, Textarea, TextInput, Toggle } from '@bainbr
 import { attachmentUrl } from '@bainbridge/shared-routing';
 import LaytimeTankerSummaryPill from './LaytimeTankerSummaryPill.jsx';
 import LaytimeTankerTables from './LaytimeTankerTables.jsx';
+import { buildExistingDropzoneItems } from './laytimeAttachmentHelpers.js';
 import {
   getTankerEntityValue,
   setTankerEntityValue,
@@ -54,12 +55,6 @@ function LaytimeOption({ id, label, checked, disabled, onChange }) {
       <label htmlFor={id}>{label}</label>
     </div>
   );
-}
-
-function displayStoredFileName(stored) {
-  const raw = String(stored || '').trim();
-  const match = raw.match(/^\d+_(.+)$/);
-  return match ? match[1] : raw;
 }
 
 function ReadonlyDash({ value }) {
@@ -330,12 +325,7 @@ export default function LaytimeTankerLayout({
               <AttachmentDropzone
                 readOnly={locked}
                 files={pendingFiles}
-                existing={(draft.keepFiles || []).map((file) => ({
-                  key: file,
-                  file,
-                  name: displayStoredFileName(file),
-                  url: attachmentUrl(file),
-                }))}
+                existing={buildExistingDropzoneItems(draft.keepFiles, draft.keepFileNamesByFile, attachmentUrl)}
                 onAddFiles={addPendingFiles}
                 onRemoveFile={removePendingFile}
                 onRemoveExisting={(item) => patchDraft({

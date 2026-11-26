@@ -460,11 +460,6 @@ function emptyDeduction() {
   };
 }
 
-function loadRows(pool, sql, params, tanker) {
-  const query = pool.query(sql, params);
-  return tanker ? query : query.catch(() => [[]]);
-}
-
 async function loadActivities(pool, laytimeId, sofId, { tanker = false, hasSofRange = true } = {}) {
   if (laytimeId) {
     const [rows] = await pool.query(
@@ -526,12 +521,11 @@ async function loadActivities(pool, laytimeId, sofId, { tanker = false, hasSofRa
   }));
 }
 
-async function loadDeductions(pool, laytimeId, tanker) {
+async function loadDeductions(pool, laytimeId) {
   if (!laytimeId) return [emptyDeduction()];
-  const [rows] = await loadRows(pool,
+  const [rows] = await pool.query(
     `SELECT * FROM laytime_slave1 WHERE LAYTIME_ID = ?`,
     [laytimeId],
-    tanker,
   );
   if (!rows?.length) return [emptyDeduction()];
   return rows.map((row) => ({
@@ -557,10 +551,10 @@ function displayTankerEntityDate(value) {
 async function loadEntityRows(pool, laytimeId, sofId, { tanker = false, hasSofRange = true } = {}) {
   let savedRows = [];
   if (laytimeId) {
-    const [rows] = await loadRows(pool, tanker
+    const [rows] = await pool.query(tanker
       ? 'SELECT ENTITY_NAME, ENTITY_VALUE FROM laytime_slave2 WHERE LAYTIME_ID = ? ORDER BY LAYTIME_SLAVEID ASC'
       : 'SELECT * FROM laytime_slave2 WHERE LAYTIME_ID = ?',
-    [laytimeId], tanker);
+    [laytimeId]);
     savedRows = rows.map(({ ENTITY_NAME: name, ENTITY_VALUE: value }) => ({
       name: str(name),
       value: tanker
@@ -570,7 +564,7 @@ async function loadEntityRows(pool, laytimeId, sofId, { tanker = false, hasSofRa
   }
   if (!sofId || (!tanker && savedRows.length)) return savedRows;
 
-  const [sofRows] = await loadRows(pool,
+  const [sofRows] = await pool.query(
     `SELECT ACTIVITY, ACTIVITYDATETIME FROM sof_slave_6
      WHERE SOFID = ?
        AND ACTIVITYDATETIME IS NOT NULL
@@ -579,7 +573,7 @@ async function loadEntityRows(pool, laytimeId, sofId, { tanker = false, hasSofRa
                            OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
                            OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')` : ''}
      ORDER BY ACTIVITYDATETIME ASC`,
-    [sofId], tanker,
+    [sofId],
   );
   const pointEvents = sofRows.map(({ ACTIVITY, ACTIVITYDATETIME }) => {
     const name = str(ACTIVITY);
@@ -996,7 +990,7 @@ export async function dbGetLaytimeForm(comId) {
   }
 
   const [rangeColumns] = portTabs.length
-    ? await loadRows(pool, "SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'", [], tanker)
+    ? await pool.query("SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'")
     : [[]];
   const sources = { tanker, hasSofRange: rangeColumns.length > 0 };
   const hasLpDp = tanker && portTabs.length > 0 && await agencyLetterHasColumn(pool, 'LP_DP');
@@ -1011,7 +1005,7 @@ export async function dbGetLaytimeForm(comId) {
     const sofDerived = await loadSofDerivedMilestones(pool, sofId);
     const fields = mapMasterFields(record, sof, tab.defaults, sofDerived);
     const activities = await loadActivities(pool, laytimeId, sofId, sources);
-    const deductions = await loadDeductions(pool, laytimeId, tanker);
+    const deductions = await loadDeductions(pool, laytimeId);
     const entityRows = await loadEntityRows(pool, laytimeId, sofId, sources);
     const operation = tab.portType === 'LP' ? 'Loading' : 'Discharging';
     const agent = tanker

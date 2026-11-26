@@ -4,7 +4,7 @@
  * Applies the Tanker calculation after validating its inputs.
  */
 
-import { recomputePortDraft } from './laytimeCalculations.js';
+import { DEDUCTION_CROSSOVER_MESSAGE, hoursBetweenDmy, parseDmyDateTimeMs, recomputePortDraft, rowIsEmpty } from './laytimeCalculations.js';
 import { listTankerEntityMatches } from './laytimeTankerHelpers.js';
 
 export const TANKER_MANDATORY_OPERATIONAL_FIELDS = [
@@ -86,27 +86,8 @@ export function isValidLtPartialPercent(value) {
  * Accepts `DD-MM-YYYY` or `DD-MM-YYYY HH:MM` (1–2 digit day/month/hour/minute allowed).
  */
 export function parseStrictDisplayDateTime(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return null;
-  const match = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?$/);
-  if (!match) return null;
-  const dd = Number(match[1]);
-  const mm = Number(match[2]);
-  const yyyy = Number(match[3]);
-  const hh = match[4] != null ? Number(match[4]) : 0;
-  const min = match[5] != null ? Number(match[5]) : 0;
-  if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || hh > 23 || min > 59) return null;
-  const date = new Date(yyyy, mm - 1, dd, hh, min, 0, 0);
-  if (
-    date.getFullYear() !== yyyy
-    || date.getMonth() !== mm - 1
-    || date.getDate() !== dd
-    || date.getHours() !== hh
-    || date.getMinutes() !== min
-  ) {
-    return null;
-  }
-  return date;
+  const timestamp = parseDmyDateTimeMs(value);
+  return timestamp == null ? null : new Date(timestamp);
 }
 
 /**
@@ -142,13 +123,6 @@ export function validateDateRangeOrder(start, end, { startLabel = 'Start', endLa
     }
   }
   return { ok: true };
-}
-
-function rowIsEmpty(row) {
-  return !String(row?.activity || '').trim()
-    && !String(row?.start || '').trim()
-    && !String(row?.end || '').trim()
-    && !String(row?.notes || '').trim();
 }
 
 function firstInvalidRowDate(rows, kindLabel) {
@@ -190,12 +164,7 @@ function firstInvalidPartial(rows, kindLabel) {
 }
 
 /** Hours between strict DMY datetimes, or null if either end is missing/invalid. */
-export function hoursBetweenStrict(start, end) {
-  const from = parseStrictDisplayDateTime(start);
-  const to = parseStrictDisplayDateTime(end);
-  if (!from || !to) return null;
-  return Number(((to.getTime() - from.getTime()) / (1000 * 60 * 60)).toFixed(4));
-}
+export { hoursBetweenDmy as hoursBetweenStrict };
 
 /**
  * Duration from strict dates only. Never keep stale or negative values when
@@ -205,7 +174,7 @@ export function durationFromStrictDates(row) {
   const start = String(row?.start || '').trim();
   const end = String(row?.end || '').trim();
   if (!start || !end) return '';
-  const hours = hoursBetweenStrict(start, end);
+  const hours = hoursBetweenDmy(start, end);
   if (hours == null || hours < 0) return '';
   return hours.toFixed(4);
 }
@@ -294,12 +263,15 @@ function markRowsDurationOnly(rows) {
 export function recomputeTankerPortDraft(draft, rateUnit = 'hours') {
   if (!draft) return draft;
   const check = tankerCalcInputsValid(draft);
-  if (!check.ok) {
+  const next = check.ok ? recomputePortDraft(draft, rateUnit, { editor: true, deductFromActual: false }) : draft;
+  const crossover = check.ok && Number(next.timeToDemurrage) < 0;
+  if (!check.ok || crossover) {
     return {
-      ...draft,
+      ...next,
       calcUnavailable: true,
-      activities: markRowsDurationOnly(draft.activities),
-      deductions: markRowsDurationOnly(draft.deductions),
+      calcError: crossover ? DEDUCTION_CROSSOVER_MESSAGE : '',
+      activities: crossover ? next.activities : markRowsDurationOnly(draft.activities),
+      deductions: crossover ? next.deductions : markRowsDurationOnly(draft.deductions),
       actualLaytime: '',
       timeToDemurrage: '',
       timeToDespatch: '',
@@ -307,10 +279,10 @@ export function recomputeTankerPortDraft(draft, rateUnit = 'hours') {
       ttlDespatch: '',
     };
   }
-  const next = recomputePortDraft(draft, rateUnit, { deductFromActual: false });
   return {
     ...next,
     calcUnavailable: false,
+    calcError: '',
   };
 }
 
@@ -322,6 +294,7 @@ export function validateTankerLaytimeDraft(draft, { submitId = 0 } = {}) {
   if (!draft) {
     return { ok: false, field: '', message: 'Laytime draft is missing.' };
   }
+  if (draft.calcError) return { ok: false, field: '', message: draft.calcError };
 
   for (const { key, label } of TANKER_MANDATORY_OPERATIONAL_FIELDS) {
     const raw = String(draft[key] || '').trim();

@@ -51,6 +51,14 @@ export function calcLaytimeAllowed(loadedQty, loadedRate, turnTimeToAdd, rateUni
   return round4(allowed).toFixed(4);
 }
 
+function rowDurationForCalculation(row, dryLaytime, skipIncompleteRanges) {
+  const hasStart = Boolean(String(row.start || '').trim());
+  const hasEnd = Boolean(String(row.end || '').trim());
+  if (hasStart && hasEnd) return hoursBetween(row.start, row.end);
+  if (skipIncompleteRanges && hasStart !== hasEnd) return '';
+  return dryLaytime ? '0.0' : row.duration || '0.0';
+}
+
 /**
  * Recompute durations, cumulatives, actual/demurrage/despatch fields.
  * The Dry editor follows the pinned getFinalCalculation deduction and rounding rules.
@@ -68,13 +76,13 @@ export function calcLaytimeAllowed(loadedQty, loadedRate, turnTimeToAdd, rateUni
  *
  * Returns a new draft object (immutable).
  */
-export function recomputePortDraft(draft, rateUnit = 'days', { dryLaytime = false, deductFromActual = !dryLaytime } = {}) {
+export function recomputePortDraft(draft, rateUnit = 'days', { dryLaytime = false, skipIncompleteRanges = false, deductFromActual = !dryLaytime } = {}) {
   const divider = rateUnit === 'hours' ? 1 : 24;
   const divider1 = rateUnit === 'hours' ? 24 : 1;
 
   const deductions = (draft.deductions || []).map((row) => {
-    const hasRange = String(row.start || '').trim() && String(row.end || '').trim();
-    const duration = hasRange ? hoursBetween(row.start, row.end) : (dryLaytime ? '0.0' : row.duration || '0.0');
+    const duration = rowDurationForCalculation(row, dryLaytime, skipIncompleteRanges);
+    if (duration === '') return { ...row, duration, cumulative: '' };
     const durationNum = num(duration);
     const partialPct = row.ltPartial === '' || row.ltPartial == null ? 0 : num(row.ltPartial);
     const cumulative = round4((durationNum * partialPct) / 100);
@@ -95,8 +103,8 @@ export function recomputePortDraft(draft, rateUnit = 'days', { dryLaytime = fals
 
   let sum = 0;
   const activities = (draft.activities || []).map((row) => {
-    const hasRange = String(row.start || '').trim() && String(row.end || '').trim();
-    const duration = hasRange ? hoursBetween(row.start, row.end) : (dryLaytime ? '0.0' : row.duration || '0.0');
+    const duration = rowDurationForCalculation(row, dryLaytime, skipIncompleteRanges);
+    if (duration === '') return { ...row, duration, cumulative: '' };
     const durationNum = num(duration);
     const partialPct = row.ltPartial === '' || row.ltPartial == null ? 0 : num(row.ltPartial);
     const weighted = (durationNum * partialPct) / 100;

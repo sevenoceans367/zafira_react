@@ -11,10 +11,7 @@ import { hoursDurationToDays, paginateRows } from './sofTankerHelpers.js';
 import styles from './OpsVcLaytimePage.module.css';
 
 function rowDateInvalid(row) {
-  const start = String(row?.start ?? '').trim();
-  const end = String(row?.end ?? '').trim();
-  if (!start && !end) return false;
-  return !validateDateRangeOrder(row?.start, row?.end).ok;
+  return !validateDateRangeOrder(row.start, row.end, { allowIncomplete: true }).ok;
 }
 
 function SearchIcon() {

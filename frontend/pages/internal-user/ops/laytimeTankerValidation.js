@@ -108,36 +108,29 @@ export function parseStrictDisplayDateTime(value) {
 }
 
 /**
- * Incomplete blank dates OK on empty rows. Non-blank must parse strictly.
- * If either end is set, both must be set. End must be >= start.
+ * Validate any entered date and reject reversed ranges. Save requires both dates when either is set.
  */
-export function validateDateRangeOrder(start, end, { startLabel = 'Start', endLabel = 'Finish' } = {}) {
+export function validateDateRangeOrder(start, end, {
+  startLabel = 'Start', endLabel = 'Finish', allowIncomplete = false,
+} = {}) {
   const startRaw = String(start ?? '').trim();
   const endRaw = String(end ?? '').trim();
-  if (startRaw && !endRaw) {
+  if (!allowIncomplete && startRaw && !endRaw) {
     return { ok: false, field: 'end', message: `${endLabel} is required when ${startLabel} is set.` };
   }
-  if (endRaw && !startRaw) {
+  if (!allowIncomplete && endRaw && !startRaw) {
     return { ok: false, field: 'start', message: `${startLabel} is required when ${endLabel} is set.` };
   }
-  if (startRaw) {
-    const parsed = parseStrictDisplayDateTime(startRaw);
-    if (!parsed) {
-      return { ok: false, field: 'start', message: `${startLabel} must be a complete date (DD-MM-YYYY).` };
-    }
+  const from = startRaw ? parseStrictDisplayDateTime(startRaw) : null;
+  const to = endRaw ? parseStrictDisplayDateTime(endRaw) : null;
+  if (startRaw && !from) {
+    return { ok: false, field: 'start', message: `${startLabel} must be a complete date (DD-MM-YYYY).` };
   }
-  if (endRaw) {
-    const parsed = parseStrictDisplayDateTime(endRaw);
-    if (!parsed) {
-      return { ok: false, field: 'end', message: `${endLabel} must be a complete date (DD-MM-YYYY).` };
-    }
+  if (endRaw && !to) {
+    return { ok: false, field: 'end', message: `${endLabel} must be a complete date (DD-MM-YYYY).` };
   }
-  if (startRaw && endRaw) {
-    const from = parseStrictDisplayDateTime(startRaw);
-    const to = parseStrictDisplayDateTime(endRaw);
-    if (from && to && to.getTime() < from.getTime()) {
-      return { ok: false, field: 'end', message: `${endLabel} must be on or after ${startLabel}.` };
-    }
+  if (from && to && to < from) {
+    return { ok: false, field: 'end', message: `${endLabel} must be on or after ${startLabel}.` };
   }
   return { ok: true };
 }
@@ -149,11 +142,12 @@ function rowIsEmpty(row) {
     && !String(row?.notes || '').trim();
 }
 
-function firstInvalidRowDate(rows, kindLabel) {
+function firstInvalidRowDate(rows, kindLabel, { allowIncomplete = false } = {}) {
   for (let i = 0; i < (rows || []).length; i += 1) {
     const row = rows[i] || {};
     if (rowIsEmpty(row)) continue;
     const check = validateDateRangeOrder(row.start, row.end, {
+      allowIncomplete,
       startLabel: `${kindLabel} #${i + 1} start`,
       endLabel: `${kindLabel} #${i + 1} finish`,
     });
@@ -254,9 +248,9 @@ export function tankerCalcInputsValid(draft, { dryLaytime = false } = {}) {
   const dedPartial = firstInvalidPartial(draft.deductions, 'Deduction');
   if (!dedPartial.ok) return dedPartial;
 
-  const actDates = firstInvalidRowDate(draft.activities, 'Activity');
+  const actDates = firstInvalidRowDate(draft.activities, 'Activity', { allowIncomplete: true });
   if (!actDates.ok) return actDates;
-  const dedDates = firstInvalidRowDate(draft.deductions, 'Deduction');
+  const dedDates = firstInvalidRowDate(draft.deductions, 'Deduction', { allowIncomplete: true });
   if (!dedDates.ok) return dedDates;
 
   if (!isBlankOrFiniteNumber(draft.laytimeAllowed)) {
@@ -313,7 +307,7 @@ export function recomputeTankerPortDraft(draft, rateUnit = 'hours', { dryLaytime
       ttlDespatch: '',
     };
   }
-  const next = recomputePortDraft(draft, rateUnit, { dryLaytime, deductFromActual: false });
+  const next = recomputePortDraft(draft, rateUnit, { dryLaytime, skipIncompleteRanges: true, deductFromActual: false });
   if (dryLaytime) {
     const from = parseStrictDisplayDateTime(draft.vesselArrived);
     const to = parseStrictDisplayDateTime(draft.vesselSailed);

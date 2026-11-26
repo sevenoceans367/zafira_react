@@ -62,3 +62,44 @@ test('Dry despatch uses days and ignores deductions', () => {
   assert.equal(result.ttlDespatch, '5000.00');
   assert.equal(result.timeToDemurrage, '00.00');
 });
+
+test('Dry preserves completed balances while adding the third and later activities', () => {
+  const recalculate = (activities, deductions = []) => recomputeTankerPortDraft({
+    laytimeAllowed: '4.1667',
+    activities,
+    deductions,
+  }, 'days', { dryLaytime: true });
+  const counting = { ltCounts: true, ltPartial: '100' };
+  const rows = [
+    { ...counting, start: '01-11-2026 04:00', end: '02-11-2026 00:00' },
+    { ...counting, start: '02-11-2026 00:00', end: '05-11-2026 01:00' },
+  ];
+  const nextRows = [
+    { start: '05-11-2026 01:00', end: '05-11-2026 04:00', cumulative: '0.1667' },
+    { start: '05-11-2026 04:00', end: '05-11-2026 07:00', cumulative: '0.0417' },
+  ];
+  const balances = ['3.3334', '0.2917'];
+  for (const { start, end, cumulative } of nextRows) {
+    const pending = recalculate(
+      [...rows, { ...counting, start, end: '', duration: '99.0000', cumulative: '99.0000' }],
+      [{ ...deduction, start: '', duration: '99.0000', cumulative: '99.0000' }],
+    );
+    assert.equal(pending.calcUnavailable, false);
+    assert.deepEqual(pending.activities.map((row) => row.cumulative), [...balances, '']);
+    assert.equal(pending.activities.at(-1).duration, '');
+    assert.equal(pending.deductions[0].cumulative, '');
+    assert.equal(pending.actualLaytime, recalculate(rows).actualLaytime);
+
+    rows.push({ ...counting, start, end });
+    balances.push(cumulative);
+    assert.deepEqual(recalculate(rows).activities.map((row) => row.cumulative), balances);
+  }
+});
+
+test('a row with an invalid entered date still makes Dry calculations unavailable', () => {
+  const result = recomputeTankerPortDraft({
+    laytimeAllowed: '4.1667',
+    activities: [activity, { ...activity, start: '31-02-2026 10:00', end: '' }],
+  }, 'days', { dryLaytime: true });
+  assert.equal(result.calcUnavailable, true);
+});

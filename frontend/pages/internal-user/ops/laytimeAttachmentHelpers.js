@@ -26,3 +26,8 @@ export function buildLaytimeAttachmentPayload(keepFiles = [], keepFileNamesByFil
   const files = extractLaytimeKeepFiles(keepFiles).keepFiles;
   return { keepFiles: files, keepFileNames: files.map((file) => keepFileNamesByFile?.[file] || displayStoredFileName(file)) };
 }
+
+export function withClosedMsgParam(backHref, msg = 3) {
+  const base = String(backHref || '');
+  return `${base}${base.includes('?') ? '&' : '?'}msg=${msg}`;
+}

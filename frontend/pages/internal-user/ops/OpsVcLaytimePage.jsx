@@ -18,7 +18,7 @@ import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js
 import pageStyles from './OpsPages.module.css';
 import sofStyles from './OpsVcSofPage.module.css';
 import styles from './OpsVcLaytimePage.module.css';
-import { extractLaytimeKeepFiles, buildLaytimeAttachmentPayload, buildExistingDropzoneItems } from './laytimeAttachmentHelpers.js';
+import { extractLaytimeKeepFiles, buildLaytimeAttachmentPayload, buildExistingDropzoneItems, withClosedMsgParam } from './laytimeAttachmentHelpers.js';
 
 const BACK_PATHS = {
   1: '/internal-user/vc/ops/in-ops-glance',
@@ -696,7 +696,7 @@ export default function OpsVcLaytimePage() {
       }));
 
       if (result.closed) {
-        navigate(`${backHref}?msg=3`);
+        navigate(withClosedMsgParam(backHref, 3));
         return;
       }
 
@@ -725,7 +725,7 @@ export default function OpsVcLaytimePage() {
     }
     const ok = await confirm({
       title: 'Confirmation',
-      message: 'Are you sure you want to open Laytime?. After submit laytime for all below ports will open.',
+      message: 'Are you sure you want to reopen Laytime for this port?',
       confirmLabel: 'Open',
     });
     if (!ok) return;

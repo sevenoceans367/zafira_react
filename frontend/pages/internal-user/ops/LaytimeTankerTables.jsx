@@ -159,13 +159,13 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>
-              <th style={{ width: 48 }}><span className={styles.ltHiddenPreserve}>Row actions</span></th>
               <th style={{ minWidth: 110 }}>Entity</th>
               <th style={{ minWidth: 170 }}>Date</th>
               <th style={{ minWidth: 150 }}>Reason</th>
               <th style={{ width: 84 }}>Agreed Demm</th>
               <th style={{ minWidth: 120 }}>Status</th>
               <th style={{ minWidth: 280 }}>Notes</th>
+              <th style={{ width: 48 }}><span className={styles.ltHiddenPreserve}>Row actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -175,13 +175,6 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
               return (
                 <tr key={row.id}>
                   <td>{index + 1}.</td>
-                  <td>
-                    <TableRowActions
-                      locked={locked}
-                      onInsert={() => insert(index, row.entity)}
-                      onDelete={() => remove(row.id)}
-                    />
-                  </td>
                   <td>
                     <CardSelect
                       options={DIALOGUE_ENTITIES}
@@ -240,16 +233,23 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
                       aria-label={`${label} notes`}
                     />
                   </td>
+                  <td>
+                    <TableRowActions
+                      locked={locked}
+                      onInsert={() => insert(index, row.entity)}
+                      onDelete={() => remove(row.id)}
+                    />
+                  </td>
                 </tr>
               );
             }) : <tr className={styles.cfEmptyRow}><td colSpan={8}>No dialogues match the filters.</td></tr>}
           </tbody>
           <tfoot>
             <tr className={styles.totalsRow}>
-              <td colSpan={4} className={styles.negoTotalLabel}>Total Agreed Demurrage (mock)</td>
+              <td colSpan={3} className={styles.negoTotalLabel}>Total Agreed Demurrage (mock)</td>
               <td />
               <td>{formatMoneyDisplay(total)}</td>
-              <td colSpan={2} />
+              <td colSpan={3} />
             </tr>
           </tfoot>
         </table>
@@ -322,9 +322,6 @@ export default function LaytimeTankerTables({
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>
-              <th style={{ width: 48 }} scope="col">
-                <span className={styles.ltHiddenPreserve}>Row actions</span>
-              </th>
               <th style={{ minWidth: 136 }}>Activity in Port</th>
               <th style={{ minWidth: 158 }}>Date/Time – Start</th>
               <th style={{ minWidth: 158 }}>Date/Time – Finish</th>
@@ -333,6 +330,9 @@ export default function LaytimeTankerTables({
               <th style={{ width: 80 }}>LT Partial %</th>
               <th style={{ width: 100 }}>Cumulative</th>
               <th style={{ minWidth: 116 }}>Notes</th>
+              <th style={{ width: 48 }} scope="col">
+                <span className={styles.ltHiddenPreserve}>Row actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -344,13 +344,6 @@ export default function LaytimeTankerTables({
               return (
                 <tr key={`act-${index}`} data-lt-row={`activities-${index}`}>
                   <td>{index + 1}.</td>
-                  <td>
-                    <TableRowActions
-                      locked={locked}
-                      onInsert={() => insertListRow('activities', index, () => emptyActivityRow(row.end || ''))}
-                      onDelete={() => removeListRow('activities', index, emptyActivityRow)}
-                    />
-                  </td>
                   <td>
                     <TextInput
                       className={styles.tableInput}
@@ -441,6 +434,13 @@ export default function LaytimeTankerTables({
                       aria-label={`Activity ${index + 1} notes`}
                     />
                   </td>
+                  <td>
+                    <TableRowActions
+                      locked={locked}
+                      onInsert={() => insertListRow('activities', index, () => emptyActivityRow(row.end || ''))}
+                      onDelete={() => removeListRow('activities', index, emptyActivityRow)}
+                    />
+                  </td>
                 </tr>
               );
             }) : (
@@ -478,9 +478,6 @@ export default function LaytimeTankerTables({
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>
-              <th style={{ width: 48 }} scope="col">
-                <span className={styles.ltHiddenPreserve}>Row actions</span>
-              </th>
               <th style={{ minWidth: 136 }}>Deduction</th>
               <th style={{ minWidth: 158 }}>Date/Time – Start</th>
               <th style={{ minWidth: 158 }}>Date/Time – Finish</th>
@@ -488,19 +485,15 @@ export default function LaytimeTankerTables({
               <th style={{ width: 80 }}>LT Partial %</th>
               <th style={{ width: 100 }}>Net Duration</th>
               <th style={{ minWidth: 116 }}>Notes</th>
+              <th style={{ width: 48 }} scope="col">
+                <span className={styles.ltHiddenPreserve}>Row actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {dedPage.items.length ? dedPage.items.map(({ row, index }) => (
               <tr key={`ded-${index}`} data-lt-row={`deductions-${index}`}>
                 <td>{index + 1}.</td>
-                <td>
-                  <TableRowActions
-                    locked={locked}
-                    onInsert={() => insertListRow('deductions', index, emptyDeductionRow)}
-                    onDelete={() => removeListRow('deductions', index, emptyDeductionRow)}
-                  />
-                </td>
                 <td>
                   <TextInput
                     className={styles.tableInput}
@@ -574,6 +567,13 @@ export default function LaytimeTankerTables({
                     aria-label={`Deduction ${index + 1} notes`}
                   />
                 </td>
+                <td>
+                  <TableRowActions
+                    locked={locked}
+                    onInsert={() => insertListRow('deductions', index, emptyDeductionRow)}
+                    onDelete={() => removeListRow('deductions', index, emptyDeductionRow)}
+                  />
+                </td>
               </tr>
             )) : (
               <tr className={styles.cfEmptyRow}>
@@ -583,11 +583,11 @@ export default function LaytimeTankerTables({
           </tbody>
           <tfoot>
             <tr className={styles.totalsRow}>
-              <td colSpan={5} style={{ textAlign: 'right', fontWeight: 800, paddingRight: 16 }}>Totals</td>
+              <td colSpan={4} style={{ textAlign: 'right', fontWeight: 800, paddingRight: 16 }}>Totals</td>
               <td><span>{dedTotals.dur}</span></td>
               <td />
               <td><span>{dedTotals.net}</span></td>
-              <td />
+              <td colSpan={2} />
             </tr>
           </tfoot>
         </table>

@@ -103,10 +103,18 @@ export const DEFAULT_CARGO_ROWS = [
   'Lop received (Pls Specify)',
 ];
 
-function blankDateTime(value) {
+export function blankDateTime(value) {
   if (!value) return '';
   const str = String(value);
   if (str.startsWith('0000-00-00') || str.includes('1970-01-01')) return '';
+  if (!(value instanceof Date)) {
+    const dmy = str.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::\d{1,2})?)?$/);
+    if (dmy) {
+      const [, dd, mm, yyyy, hh = '00', min = '00'] = dmy;
+      if (Number(yyyy) <= 1970) return '';
+      return `${dd.padStart(2, '0')}-${mm.padStart(2, '0')}-${yyyy} ${hh.padStart(2, '0')}:${min.padStart(2, '0')}`;
+    }
+  }
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime()) || date.getFullYear() <= 1970) return '';
   const d = String(date.getDate()).padStart(2, '0');
@@ -117,10 +125,18 @@ function blankDateTime(value) {
   return `${d}-${m}-${y} ${hh}:${mm}`;
 }
 
-function blankDate(value) {
+export function blankDate(value) {
   if (!value) return '';
   const str = String(value);
   if (str.startsWith('0000-00-00') || str.includes('1970-01-01')) return '';
+  if (!(value instanceof Date)) {
+    const dmy = str.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (dmy) {
+      const [, dd, mm, yyyy] = dmy;
+      if (Number(yyyy) <= 1970) return '';
+      return `${dd.padStart(2, '0')}-${mm.padStart(2, '0')}-${yyyy}`;
+    }
+  }
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime()) || date.getFullYear() <= 1970) return '';
   const d = String(date.getDate()).padStart(2, '0');

@@ -13,8 +13,17 @@ import {
   isStrictSofDisplayDateTime,
   validateSofActivityPartialPercentages,
   validateSofCompletedIntervals,
+  blankDate,
+  blankDateTime,
 } from './sofDb.js';
 import { __resetSofMockForTests, getSofForm, saveSof } from './sofService.js';
+
+describe('SOF display date formatting', () => {
+  it('preserves DMY date and time strings before native date parsing', () => {
+    assert.equal(blankDateTime('04-06-2026 08:00'), '04-06-2026 08:00');
+    assert.equal(blankDate('04-06-2026'), '04-06-2026');
+  });
+});
 
 describe('sofDb resolveSofSavePlan data-preservation contract', () => {
   it('parses properly grouped cargo figures and rejects malformed comma values', () => {

@@ -10,6 +10,14 @@ function blankDateTime(value) {
   if (!value) return '';
   const raw = String(value);
   if (raw.startsWith('0000-00-00') || raw.includes('1970-01-01')) return '';
+  if (!(value instanceof Date)) {
+    const dmy = raw.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::\d{1,2})?)?$/);
+    if (dmy) {
+      const [, dd, mm, yyyy, hh = '00', min = '00'] = dmy;
+      if (Number(yyyy) <= 1970) return '';
+      return `${dd.padStart(2, '0')}-${mm.padStart(2, '0')}-${yyyy} ${hh.padStart(2, '0')}:${min.padStart(2, '0')}`;
+    }
+  }
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime()) || date.getFullYear() <= 1970) {
     // Already stored as display string (dd-mm-yyyy hh:mm)

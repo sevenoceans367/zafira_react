@@ -15,6 +15,8 @@ import {
   validateSofCompletedIntervals,
   blankDate,
   blankDateTime,
+  isSameOrUnlinkedSofId,
+  copyAgentSofChildrenIfOmitted,
 } from './sofDb.js';
 import { __resetSofMockForTests, getSofForm, saveSof } from './sofService.js';
 
@@ -22,6 +24,26 @@ describe('SOF display date formatting', () => {
   it('preserves DMY date and time strings before native date parsing', () => {
     assert.equal(blankDateTime('04-06-2026 08:00'), '04-06-2026 08:00');
     assert.equal(blankDate('04-06-2026'), '04-06-2026');
+  });
+});
+
+describe('SOF persistence corrections', () => {
+  it('derives stowage from Cargo Discharged', () => {
+    assert.equal(deriveMasterFieldsFromKeyOperations([], [{ activity: 'Cargo Discharged', shipFigure: '28500' }]).stowageQty, '28500');
+  });
+  it('treats zero SOF links as unlinked', () => {
+    for (const value of [null, '', 0, '0', '42']) assert.equal(isSameOrUnlinkedSofId(value, 42), true);
+    assert.equal(isSameOrUnlinkedSofId('99', 42), false);
+  });
+  it('copies omitted Agent children onto the new internal SOF', async () => {
+    const calls = [];
+    await copyAgentSofChildrenIfOmitted({ async query(sql, params) { calls.push({ sql, params }); return [{ affectedRows: 1 }]; } }, {
+      agentSofId: 50, internalSofId: 51,
+      plan: { replaceEntityRows: false, replaceBlRows: false, replacePortActivities: false, replaceKeyOperations: true, replaceCargoRows: true },
+    });
+    assert.ok(calls.some(({ sql, params }) => sql.includes('INSERT INTO sof_slave_3') && params[0] === 51 && params[1] === 50));
+    assert.ok(calls.some(({ sql, params }) => sql.includes('INSERT INTO sof_slave_1') && params[0] === 51 && params[1] === 50));
+    assert.ok(calls.some(({ sql, params }) => sql.includes('INSERT INTO sof_slave ') && params[0] === 51 && params[1] === 50));
   });
 });
 

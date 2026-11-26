@@ -422,7 +422,7 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
     return dt || null;
   };
   const cargoLoaded = (cargoRows || []).find(
-    (r) => String(r.activity || '').trim().toLowerCase() === 'cargo loaded',
+    (r) => ['cargo loaded', 'cargo discharged'].includes(String(r.activity || '').trim().toLowerCase()),
   );
   const stowageFromCargo = str(cargoLoaded?.shipFigure) || str(cargoLoaded?.blFigure) || '';
   return {
@@ -437,6 +437,29 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
       || findFrom(/^full away on passage$/i)
       || findFrom(/^faop$/i),
   };
+}
+
+function isSameOrUnlinkedSofId(rowSofId, currentSofId) {
+  return rowSofId == null || String(rowSofId).trim() === '' || Number(rowSofId) === 0
+    || String(rowSofId) === String(currentSofId);
+}
+
+async function copyAgentSofChildrenIfOmitted(connection, { agentSofId, internalSofId, plan }) {
+  if (!agentSofId || !internalSofId) return;
+  const copies = [
+    ['replaceEntityRows', 'sof_slave_3', 'ENTITY_NAME, ENTITY_VALUE'],
+    ['replaceBlRows', 'sof_slave_1', 'BL_DATE, BL_QTY, CARGO'],
+    ['replacePortActivities', 'sof_slave', 'ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES, GROUP_NAME'],
+    ['replaceKeyOperations', 'sof_slave_6', 'ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO, ROBIFO, ROBMDO, COMMENTS, TDEFAULT'],
+    ['replaceCargoRows', 'sof_slave_7', 'ACTIVITY, SHIPFIGURE, BLFIGURE, WATERDENSITY, REMARKS, TDEFAULT'],
+  ];
+  for (const [planKey, table, columns] of copies) {
+    if (plan?.[planKey]) continue;
+    await connection.query(
+      `INSERT INTO ${table} (SOFID, ${columns}) SELECT ?, ${columns} FROM ${table} WHERE SOFID = ?${table === 'sof_slave' ? " AND GROUP_NAME = '1'" : ''}`,
+      [internalSofId, agentSofId],
+    );
+  }
 }
 
 function applyMasterToKeyOperations(rows, record) {
@@ -1184,7 +1207,8 @@ async function replaceLaytimeDeductions(connection, laytimeId, rows) {
         (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LT_PARTIAL, CUMMULATIVE_TIME, NOTES)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [laytimeId, activity, start, end, str(row.duration), strOrNull(row.ltPartial), str(row.cumulative), notes],
-    ).catch(async () => {
+    ).catch(async (err) => {
+      if (err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
       await connection.query(
         `INSERT INTO laytime_slave1
           (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES)
@@ -1343,7 +1367,7 @@ async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows }
   const usedIds = new Set();
   const byActivity = new Map();
   for (const existing of existingRows || []) {
-    if (existing.SOFLOADPORTID != null && String(existing.SOFLOADPORTID) !== String(sofId)) continue;
+    if (!isSameOrUnlinkedSofId(existing.SOFLOADPORTID, sofId)) continue;
     const key = laytimeActivityKey({
       activity: existing.ACTIVITYID,
       start: existing.START_DATETIME,
@@ -1363,7 +1387,7 @@ async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows }
     const requested = row.laytimeActivityId ? byId.get(String(row.laytimeActivityId)) : null;
     const requestedIsAvailable = requested
       && !usedIds.has(String(requested.LAYTIME_LP_SLAVEID))
-      && (requested.SOFLOADPORTID == null || String(requested.SOFLOADPORTID) === String(sofId));
+      && isSameOrUnlinkedSofId(requested.SOFLOADPORTID, sofId);
     const candidates = byActivity.get(key) || [];
     const matching = requestedIsAvailable
       ? requested
@@ -1685,6 +1709,7 @@ export async function dbSaveSof(payload = {}) {
     } = plan.master;
 
     let sofId = existing?.SOFID;
+    let createdInternalSof = false;
     if (!sofId) {
       const [result] = await connection.query(
         `INSERT INTO sof_master (
@@ -1715,6 +1740,7 @@ export async function dbSaveSof(payload = {}) {
         ],
       );
       sofId = result.insertId;
+      createdInternalSof = Boolean(sofId);
       if (!sofId) {
         const [[maxRow]] = await connection.query(
           `SELECT MAX(SOFID) AS maxId FROM sof_master
@@ -1735,6 +1761,15 @@ export async function dbSaveSof(payload = {}) {
           loadCommenced, loadCompleted, vesselSailed, agentRemarks, submitId, upload, sofId,
         ],
       );
+    }
+
+    if (createdInternalSof) {
+      const [[agent]] = await connection.query(
+        `SELECT SOFID FROM sof_master WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+         AND PORT = ? AND PORTID = ? AND RANDOMID = ? AND SUBMITID = '2' ORDER BY SOFID DESC LIMIT 1`,
+        [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
+      );
+      if (agent?.SOFID) await copyAgentSofChildrenIfOmitted(connection, { agentSofId: agent.SOFID, internalSofId: sofId, plan });
     }
 
     if (plan.replaceEntityRows) {
@@ -1826,8 +1861,9 @@ export async function dbSaveSof(payload = {}) {
           `INSERT INTO laytime_master
             (COMID, LOGIN, LOGINID, MODULEID, MCOMPANYID, PORT, PORTID, RANDOMID,
              TERMINAL, STOWAGE_QTY, VESSEL_ARRIVED, NOR_TENDERED, PILOT_ON_BOARD,
-             LOAD_DIS_COMMENCED, LOAD_DIS_COMPLETED, VESSEL_SAILED, SOF_LOADPORTID, SUBMITID)
-           VALUES (?, 'INTERNAL_USER', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+             LOAD_DIS_COMMENCED, LOAD_DIS_COMPLETED, VESSEL_SAILED, SOF_LOADPORTID, SUBMITID,
+             APPLICABLE_STATUS, REVERSIBLE, DETENTION)
+           VALUES (?, 'INTERNAL_USER', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0, 0)`,
           [
             comId, appContext.userId || 0, MODULE_ID, COMPANY_ID, portType, portId, randomId,
             terminal, stowageQty, vesselArrived, norTendered, pilotOnBoard,
@@ -1868,6 +1904,8 @@ export {
   isVesselSailedActivity,
   applyMasterToKeyOperations,
   deriveMasterFieldsFromKeyOperations,
+  isSameOrUnlinkedSofId,
+  copyAgentSofChildrenIfOmitted,
   draftFiguresFromCargoRows,
   defaultKeyOperations,
   loadPortTabs,

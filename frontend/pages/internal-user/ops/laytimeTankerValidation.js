@@ -1,7 +1,7 @@
 /**
  * Tanker-only (estimateType === 2) client validation + safe recompute.
  * Hidden Dry/Gas fields are not required — Legacy getSubmit skips qty/rate when selBType==2.
- * Does not change recomputePortDraft formulas; only gates when they may run.
+ * Applies the Tanker calculation after validating its inputs.
  */
 
 import { recomputePortDraft } from './laytimeCalculations.js';
@@ -307,7 +307,7 @@ export function recomputeTankerPortDraft(draft, rateUnit = 'hours') {
       ttlDespatch: '',
     };
   }
-  const next = recomputePortDraft(draft, rateUnit);
+  const next = recomputePortDraft(draft, rateUnit, { deductFromActual: false });
   return {
     ...next,
     calcUnavailable: false,

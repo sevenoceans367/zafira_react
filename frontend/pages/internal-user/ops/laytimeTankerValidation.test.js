@@ -35,6 +35,32 @@ function baseDraft(overrides = {}) {
   };
 }
 
+it('applies Tanker deductions once to demurrage and excludes them from despatch', () => {
+  const draft = baseDraft({
+    demurrageRate: '20000', despatchRate: '10000',
+    activities: [{
+      activity: 'Counting', start: '01-06-2026 00:00', end: '05-06-2026 04:00',
+      ltCounts: true, ltPartial: '100',
+    }],
+    deductions: [{
+      activity: 'Deduction', start: '02-06-2026 00:00', end: '02-06-2026 04:00',
+      ltPartial: '100',
+    }],
+  });
+  const demurrage = recomputeTankerPortDraft(draft);
+  assert.equal(demurrage.actualLaytime, '100.0000');
+  assert.equal(demurrage.timeToDemurrage, '24.0000');
+  assert.equal(demurrage.ttlDemurrage, '20000.00');
+
+  const despatch = recomputeTankerPortDraft({
+    ...draft,
+    activities: [{ ...draft.activities[0], end: '03-06-2026 12:00' }],
+  });
+  assert.equal(despatch.actualLaytime, '60.0000');
+  assert.equal(despatch.timeToDespatch, '12.0000');
+  assert.equal(despatch.ttlDespatch, '5000.00');
+});
+
 describe('tanker mandatory gate', () => {
   it('does not require hidden Dry fields or loadedRate', () => {
     const result = validateTankerLaytimeDraft(baseDraft({

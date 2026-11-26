@@ -60,7 +60,7 @@ export function calcLaytimeAllowed(loadedQty, loadedRate, turnTimeToAdd, rateUni
  *
  * Returns a new draft object (immutable).
  */
-export function recomputePortDraft(draft, rateUnit = 'days') {
+export function recomputePortDraft(draft, rateUnit = 'days', { deductFromActual = true } = {}) {
   const divider = rateUnit === 'hours' ? 1 : 24;
   const divider1 = rateUnit === 'hours' ? 24 : 1;
 
@@ -78,7 +78,7 @@ export function recomputePortDraft(draft, rateUnit = 'days') {
   });
 
   const sumDeductionPartial = deductions.reduce((acc, row) => acc + num(row.cumulative), 0);
-  const daysTode = num((sumDeductionPartial / divider).toFixed(2));
+  const deductionTime = deductFromActual ? num((sumDeductionPartial / divider).toFixed(2)) : 0;
 
   // Distinguish unknown (blank/null) from an explicit numeric zero allowance.
   const allowanceRaw = draft.laytimeAllowed;
@@ -110,7 +110,7 @@ export function recomputePortDraft(draft, rateUnit = 'days') {
   });
 
   const actualExtra = num(draft.actualLaytimeExtra);
-  const actualLaytime = round4((sum / divider) + actualExtra - daysTode);
+  const actualLaytime = round4((sum / divider) + actualExtra - deductionTime);
 
   let timeToDemurrage = '00.00';
   let timeToDespatch = '00.00';
@@ -126,7 +126,7 @@ export function recomputePortDraft(draft, rateUnit = 'days') {
     }
   } else if (allowanceKnown && !Number.isNaN(actualLaytime) && !Number.isNaN(laytimeAllowed)) {
     if (actualLaytime > laytimeAllowed) {
-      // PHP: dem = actual - allowed - (deductionPartialSum / divider) — deductions already in actual.
+      // Apply the weighted deduction at the demurrage step.
       const deductions2 = sumDeductionPartial / divider;
       const diff = actualLaytime - laytimeAllowed - Number(deductions2.toFixed(4));
       timeToDemurrage = Number(diff).toFixed(4);

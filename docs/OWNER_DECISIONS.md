@@ -1,20 +1,14 @@
 # Owner decisions — Laytime Tanker (NAK-166)
 
-Unresolved product / formula items that are **not** claimed as parity in runtime code.
+## Deduction application (demurrage)
 
-## Deduction application (demurrage) — unresolved discrepancy
+Tanker Laytime follows Zafira Legacy getFinalCalculation at pin 93c44b4, lines 449 to 470.
+Actual Laytime includes weighted counting time and reversible carry. The weighted
+deduction is applied once when calculating demurrage. Despatch uses the difference
+between allowed and actual time.
 
-Legacy `getFinalCalculation` (pin `93c44b4` ~450–466):
-- `actual` = weighted counting sum + reversible extra (**deductions not removed from actual**)
-- Demurrage path: `dem = actual − allowed − (ΣdedPartial / divider)` (deductions applied **once**, on demurrage only)
-- Despatch path: `allowed − actual` (deductions ignored)
-
-React `recomputePortDraft` currently:
-- Subtracts deductions from `actual`, **and** subtracts them again on the demurrage path
-
-Example (72h allowed, 108.5h counting, 4h deduction, $20k/day): Legacy dem ≈ 32.5h / $27,083; React dem ≈ 28.5h / $23,750.
-
-**Owner decision needed:** match Legacy literally, or adopt a single-subtract rule. Do **not** change `laytimeCalculations.js` until decided. Runtime does **not** claim formula parity.
+With 72 hours allowed, 100 hours counted, a 4-hour weighted deduction, and a
+$20,000/day rate, demurrage is 24 hours or $20,000.
 
 ## Nego Dialogues
 

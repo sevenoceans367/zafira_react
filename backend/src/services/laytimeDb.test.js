@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { blankDateTime, normalizeKeepAttachments, resolvePortSofId, resolvePortRandomId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, mapMasterFields, deriveMilestonesFromSofRows, loadSofDerivedMilestones, upsertLaytimeMaster } from './laytimeDb.js';
+import { blankDateTime, normalizeKeepAttachments, resolvePortSofId, resolvePortRandomId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, mapMasterFields, deriveMilestonesFromSofRows, loadSofDerivedMilestones, upsertLaytimeMaster, replaceActivities, replaceDeductions } from './laytimeDb.js';
 import { loadPortTabs as loadSofPortTabs } from './sofDb.js';
 
 describe('laytimeDb blankDateTime', () => {
@@ -34,6 +34,21 @@ describe('laytimeDb SOF links and strict-mode SQL', () => {
     assert.equal(rows[0].activity, 'Loading cargo');
     assert.equal(rows[0].sofLoadPortId, '55');
   });
+  it('falls through an empty legacy SOF table to tanker range activities', async () => {
+    const queries = [];
+    const pool = { async query(sql) {
+      queries.push(sql);
+      if (sql.includes('FROM sof_slave_6')) return [[{
+        ACTIVITY: 'Loading cargo', ACTIVITYDATETIME: new Date(2026, 3, 10, 8),
+        ACTIVITYDATETIMETO: new Date(2026, 3, 10, 14),
+      }]];
+      return [[]];
+    } };
+    const rows = await loadActivities(pool, null, 4, { tanker: true, hasSofRange: true });
+    assert.equal(rows[0].activity, 'Loading cargo');
+    assert.equal(rows[0].sofLoadPortId, '4');
+    assert.ok(queries.some((sql) => sql.includes('FROM sof_slave_6')));
+  });
   it('does not compare DATETIME columns directly to strings', async () => {
     const queries = [];
     await loadEntityRows({ async query(sql) { queries.push(sql); return [[]]; } }, null, 55);
@@ -42,6 +57,42 @@ describe('laytimeDb SOF links and strict-mode SQL', () => {
     assert.doesNotMatch(q, /ACTIVITYDATETIMETO\s*=\s*''/i);
     assert.doesNotMatch(q, /ACTIVITYDATETIME\s*!=\s*'0000-00-00/i);
   });
+});
+
+describe('Laytime activity and deduction schema fallback', () => {
+  const activity = [{ activity: 'Loading', duration: '2', start: '', end: '', notes: '' }];
+  const deduction = [{ activity: 'Rain', duration: '2', start: '', end: '', notes: '' }];
+
+  for (const [name, replace, rows] of [
+    ['activities', replaceActivities, activity],
+    ['deductions', replaceDeductions, deduction],
+  ]) {
+    it(`rethrows non-schema SQL errors for ${name}`, async () => {
+      const sqlError = Object.assign(new Error('permission denied'), { code: 'ER_ACCESS_DENIED_ERROR' });
+      let inserts = 0;
+      const connection = { async query(sql) {
+        if (/^INSERT/i.test(sql.trim())) {
+          inserts += 1;
+          throw sqlError;
+        }
+        return [[]];
+      } };
+      await assert.rejects(replace(connection, 1, rows), (err) => err === sqlError);
+      assert.equal(inserts, 1);
+    });
+
+    it(`uses reduced columns only for ER_BAD_FIELD_ERROR in ${name}`, async () => {
+      const calls = [];
+      const connection = { async query(sql) {
+        calls.push(sql);
+        if (calls.length === 2) throw Object.assign(new Error('unknown column'), { code: 'ER_BAD_FIELD_ERROR' });
+        return [[]];
+      } };
+      await replace(connection, 1, rows);
+      assert.equal(calls.length, 3);
+      assert.match(calls[2], /ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES/);
+    });
+  }
 });
 
 describe('port RANDOMID normalization', () => {

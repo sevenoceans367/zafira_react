@@ -506,7 +506,6 @@ async function loadActivities(pool, laytimeId, sofId, { tanker = false, hasSofRa
   }));
 
   if (!hasSofRange) return [emptyActivity()];
-  await ensureSofActivityDateTimeToColumn(pool);
   const [sofRows] = await loadRows(pool,
     `SELECT ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO FROM sof_slave_6
      WHERE SOFID = ?
@@ -547,34 +546,6 @@ async function loadDeductions(pool, laytimeId, tanker) {
     ltPartial: str(row.LT_PARTIAL),
     cumulative: str(row.CUMMULATIVE_TIME),
     notes: str(row.NOTES),
-  }));
-}
-
-/** sof_slave_6 point events (single shared query/mapping). */
-async function loadSofPointEvents(pool, sofId, { failClosed = false } = {}) {
-  if (!sofId) return [];
-  await ensureSofActivityDateTimeToColumn(pool);
-  let sofRows;
-  try {
-    [sofRows] = await pool.query(
-      `SELECT ACTIVITY, ACTIVITYDATETIME FROM sof_slave_6
-       WHERE SOFID = ?
-         AND ACTIVITYDATETIME IS NOT NULL
-         AND CAST(ACTIVITYDATETIME AS CHAR) NOT LIKE '0000-00-00%'
-         AND (ACTIVITYDATETIMETO IS NULL
-              OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
-              OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')
-       ORDER BY ACTIVITYDATETIME ASC`,
-      [sofId],
-    );
-  } catch (err) {
-    if (failClosed) throw err;
-    console.warn('[laytime] sof_slave_6 point load failed', err?.message || err);
-    return [];
-  }
-  return (sofRows || []).map((row) => ({
-    name: str(row.ACTIVITY),
-    value: blankDateTime(row.ACTIVITYDATETIME),
   }));
 }
 
@@ -745,7 +716,7 @@ function entityValueForDb(value) {
   return s === '' ? null : s;
 }
 
-async function replaceActivities(connection, laytimeId, activities, { failClosed = false } = {}) {
+export async function replaceActivities(connection, laytimeId, activities, { failClosed = false } = {}) {
   await connection.query(`DELETE FROM laytime_slave WHERE LAYTIME_ID = ?`, [laytimeId]);
   for (const row of activities || []) {
     const activity = String(row.activity || '').trim();
@@ -777,7 +748,7 @@ async function replaceActivities(connection, laytimeId, activities, { failClosed
       );
     } catch (err) {
       // Tanker: fail closed — never drop LT_C/LT_NC/LT_PARTIAL/CUMMULATIVE_TIME/SOFLOADPORTID.
-      if (failClosed) throw err;
+      if (failClosed || err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
       await connection.query(
         `INSERT INTO laytime_slave
           (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES)
@@ -788,7 +759,7 @@ async function replaceActivities(connection, laytimeId, activities, { failClosed
   }
 }
 
-async function replaceDeductions(connection, laytimeId, deductions, { failClosed = false } = {}) {
+export async function replaceDeductions(connection, laytimeId, deductions, { failClosed = false } = {}) {
   await connection.query(`DELETE FROM laytime_slave1 WHERE LAYTIME_ID = ?`, [laytimeId]);
   for (const row of deductions || []) {
     const activity = String(row.activity || '').trim();
@@ -815,7 +786,7 @@ async function replaceDeductions(connection, laytimeId, deductions, { failClosed
       );
     } catch (err) {
       // Tanker: fail closed — never drop LT_PARTIAL/CUMMULATIVE_TIME.
-      if (failClosed) throw err;
+      if (failClosed || err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
       await connection.query(
         `INSERT INTO laytime_slave1
           (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES)

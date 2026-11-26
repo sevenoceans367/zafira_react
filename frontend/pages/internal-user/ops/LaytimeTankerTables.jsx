@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CardSelect, HeaderFilterControls, PageHeaderSearch, RowActions, RowAddButton, RowDelButton,
+  CardSelect, RowActions, RowAddButton, RowDelButton,
   Textarea, TextInput, Toggle,
 } from '@bainbridge/shared-ui';
-import { PAGE_SIZE_OPTIONS, RowsPerPageSelect } from '../sopf/ScrollableTable.jsx';
-import SopfPagination from '../sopf/SopfPagination.jsx';
+import SectionHeadRight from './LaytimeSectionHeadRight.jsx';
 import {
   LAYTIME_TANKER_PAGE_SIZE,
   applyLaytimeActivityLtToggle,
@@ -21,40 +20,6 @@ function rowDateInvalid(row) {
   const end = String(row?.end ?? '').trim();
   if (!start && !end) return false;
   return !validateDateRangeOrder(row?.start, row?.end).ok;
-}
-
-const PAGE_SIZES = [LAYTIME_TANKER_PAGE_SIZE, ...PAGE_SIZE_OPTIONS];
-
-function SectionHeadRight({ pagination, section, searchPlaceholder, entityFilter }) {
-  return (
-    <div className={styles.sectionHeadRight} data-laytime-interactive>
-      <HeaderFilterControls>
-        {entityFilter}
-        <PageHeaderSearch
-          value={pagination.search}
-          onChange={pagination.setSearch}
-          placeholder={searchPlaceholder}
-          aria-label={searchPlaceholder}
-          showShortcut={false}
-        />
-        <RowsPerPageSelect
-          pageSize={pagination.pageSize}
-          onPageSizeChange={pagination.setPageSize}
-          options={PAGE_SIZES}
-          ariaLabel={`${section} rows per page`}
-        />
-        <SopfPagination
-          page={pagination.page}
-          pageSize={pagination.pageSize}
-          total={pagination.filteredCount}
-          onPageChange={pagination.setPage}
-          ariaLabel={section}
-          selectPage
-          className={styles.sectionPagination}
-        />
-      </HeaderFilterControls>
-    </div>
-  );
 }
 
 function TableRowActions({ locked, onInsert, onDelete }) {
@@ -86,7 +51,7 @@ function LtToggle({ counting, disabled, onToggle }) {
 function usePagedSearch(rows, fields, portKey, entity = '') {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(LAYTIME_TANKER_PAGE_SIZE);
+  const pageSize = LAYTIME_TANKER_PAGE_SIZE;
   const matches = filterRowsByQuery(rows, search, fields);
   const filtered = entity ? matches.filter(({ row }) => row.entity === entity) : matches;
   const paged = paginateRows(filtered, page, pageSize);
@@ -105,7 +70,6 @@ function usePagedSearch(rows, fields, portKey, entity = '') {
     page: paged.safePage,
     setPage,
     pageSize,
-    setPageSize: (value) => { setPageSize(value); setPage(1); },
     items: paged.items,
     filteredCount: filtered.length,
   };

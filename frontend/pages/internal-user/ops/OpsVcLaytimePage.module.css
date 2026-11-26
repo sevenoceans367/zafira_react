@@ -1018,14 +1018,79 @@
 .sectionIcoNavy { background: #e6eaf1; color: #274670; }
 
 .sectionHeadRight {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   max-width: 100%;
   margin-inline-start: auto;
 }
 
-.sectionHeadRight .sectionPagination {
-  width: auto;
-  padding: 0;
+.sectionSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: min(190px, 100%);
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid #cfd6de;
+  border-radius: 8px;
+  background: #fff;
+  color: #5b6472;
 }
+
+.sectionSearch:focus-within {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.sectionSearch input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 11.5px;
+  color: #1b2430;
+}
+
+.sectionSearch input::placeholder { font-style: italic; }
+
+.sectionCount {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgb(27 36 48 / 8%);
+  color: #465366;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.sectionPagination {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #5b6472;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sectionPagination button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #cfd6de;
+  border-radius: 6px;
+  background: #fff;
+  color: #465366;
+  cursor: pointer;
+}
+
+.sectionPagination button:hover:not(:disabled) { background: #edf2f7; }
+.sectionPagination button:disabled { opacity: 0.45; cursor: default; }
 
 .ltOption {
   display: inline-flex;
@@ -1193,13 +1258,16 @@
   min-height: 34px;
 }
 
-.totalsRow td {
+.cfTable .totalsRow td {
+  height: 42px;
+  padding-block: 10px;
   background: #f1f2f4;
   font-weight: 800;
   color: #1b2430;
 }
 
 .ltToggleWrap {
+  --lt-cobalt: #3b82f6;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -1209,6 +1277,7 @@
 .ltCountSwitch {
   /* The shared switch moves right when checked; C is on the left. */
   transform: scaleX(-1);
+  --color-primary-hover: var(--lt-cobalt);
 }
 
 .ltToggleLbl,
@@ -1222,8 +1291,10 @@
 }
 
 .ltToggleActiveLabel {
-  color: var(--color-primary-hover, #1b77a6);
+  color: #2563eb;
 }
+
+.ltCountSwitch input:not(:checked) + span { background: #5b6472; }
 
 .ltTankerRoot .negoAgreedInp { min-width: 60px; max-width: 80px; }
 .negoTable { min-width: 1040px; }

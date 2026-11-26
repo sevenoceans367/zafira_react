@@ -105,12 +105,15 @@ export default function LaytimeSummaryPill({
   const unavailable = draft.calcUnavailable;
   const unit = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAYS' : '—';
   const computed = (key) => unavailable ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
-  const dialogueTotal = draft.negotiations ? formatNegotiationTotal(draft.negotiations.rows) : '—';
+  const dialogueTotal = draft.negotiations
+    ? formatNegotiationTotal(draft.negotiations.rows).replace(/\.00$/, '')
+    : '—';
+  const hasDialogueAmount = dialogueTotal !== '—' && dialogueTotal !== '0';
   const summaryValues = [
     ['Allowed', draft.laytimeAllowed || '—'],
     ['Actual', computed('actualLaytime')],
     [isDry ? 'Demm Days' : 'Demm Hrs', computed('timeToDemurrage'), !unavailable && Number(draft.timeToDemurrage) > 0],
-    ['Calc Demm', unavailable ? '—' : `$${computed('ttlDemurrage')}`, !unavailable && Number(draft.ttlDemurrage) > 0],
+    ['Dialogue Total', dialogueTotal === '—' ? dialogueTotal : `$${dialogueTotal}`, hasDialogueAmount],
   ];
 
   useEffect(() => {
@@ -202,8 +205,8 @@ export default function LaytimeSummaryPill({
         </div>
         {draft.negotiations && (
           <div className={styles.ltSumFinalRow}>
-            <MetricLabel label="Dialogue amounts (USD, all statuses)" icon="dollar" />
-            <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal}`}>
+            <MetricLabel label="Dialogue total (USD, all statuses)" icon="dollar" />
+            <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal} ${hasDialogueAmount ? styles.ltSumNegative : ''}`}>
               {dialogueTotal}
             </div>
           </div>

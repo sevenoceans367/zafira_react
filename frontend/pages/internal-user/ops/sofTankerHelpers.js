@@ -433,7 +433,7 @@ export function draftFromPort(port = {}, { isDry = false } = {}) {
   // Dry UI converts to Days for display via computeActivityDurationDays / hoursDurationToDays.
   // New placeholder rows use emptyPortActivityRow() defaults (C/100).
   // Loaded rows keep stored flags/partial — do not silently rewrite C/0% or neither.
-  const hourDecimals = isDry ? 4 : 1;
+  const hourDecimals = 4;
   const portActivities = (port.portActivities?.length ? port.portActivities : [emptyPortActivityRow()])
     .map((row) => ({
       activity: row.activity || '',
@@ -503,7 +503,7 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId, isDry 
       !== JSON.stringify(activityRowsForSave(currentActivities).map(normalizeActivityForSave))) {
       // Persist only meaningful rows; synthetic C/100 placeholders stay out of the payload.
       const activitiesForSave = activityRowsForSave(currentActivities);
-      if (isDry) {
+      {
         assertValidSofCompletedIntervals(activitiesForSave, {
           fromKey: 'from',
           toKey: 'to',
@@ -520,7 +520,7 @@ export function buildSofSavePayload({ comId, activePort, draft, submitId, isDry 
     const currentDeductions = draft.deductions || [];
     if (JSON.stringify(deductionRowsForComparison(originalDeductions).map(normalizeDeductionForSave))
       !== JSON.stringify(deductionRowsForComparison(currentDeductions).map(normalizeDeductionForSave))) {
-      if (isDry) {
+      {
         assertValidSofCompletedIntervals(currentDeductions, {
           fromKey: 'start',
           toKey: 'end',

@@ -1655,7 +1655,7 @@ export async function dbSaveSof(payload = {}) {
     || Array.isArray(payload.deductions);
   if (needsDryIntervalGate) {
     const estimateType = await getEstimateTypeForComId(pool, comId);
-    if (Number(estimateType) === 3) {
+    if (Number(estimateType) === 2 || Number(estimateType) === 3) {
       if (Array.isArray(payload.portActivities)) {
         validateSofCompletedIntervals(payload.portActivities, {
           fromKey: 'from',

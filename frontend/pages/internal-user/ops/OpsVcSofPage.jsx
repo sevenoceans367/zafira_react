@@ -307,7 +307,7 @@ export default function OpsVcSofPage() {
     if ('from' in patch || 'to' in patch) {
       // Dry stores hours at 4dp so short intervals survive Days display/round-trip.
       nextRow.duration = computeActivityDurationHours(nextRow.from, nextRow.to, {
-        decimals: isDrySofEstimate(form?.estimateType) ? 4 : 1,
+        decimals: 4,
       });
     }
     if ('layTimeCount' in patch || 'portTimeCount' in patch) {
@@ -345,14 +345,11 @@ export default function OpsVcSofPage() {
     const recomputed = recomputePortDraft({ ...draft, deductions: rows }, activePort?.rateUnit || 'hours');
     // Dry hides negative durations in the UI; clear invalid completed ranges so they
     // cannot persist into Laytime via recomputePortDraft's signed hoursBetween.
-    const dry = isDrySofEstimate(form?.estimateType);
-    const deductions = dry
-      ? (recomputed.deductions || []).map((row) => (
+    const deductions = (recomputed.deductions || []).map((row) => (
         isReversedSofInterval(row.start, row.end)
           ? { ...row, duration: '', cumulative: '0.0000' }
           : row
-      ))
-      : recomputed.deductions;
+      ));
     patchDraft({ deductions });
   };
 

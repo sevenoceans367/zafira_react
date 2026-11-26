@@ -1,4 +1,6 @@
-import { recomputePortDraft } from '../../../frontend/pages/internal-user/ops/laytimeCalculations.js';
+import { countingActivityPartial, hoursBetweenDmy, parseDmyDateTimeMs, recomputePortDraft, rowIsEmpty } from './laytimeCalculations.js';
+
+export { hoursBetweenDmy, parseDmyDateTimeMs };
 
 /**
  * Laytime editor save-path validation for Tanker and Dry.
@@ -154,31 +156,6 @@ export function isValidLtPartialPercent(value) {
   return parsed.value >= 0 && parsed.value <= 100;
 }
 
-/** Strict DMY; reject rollover / hour 25 / trailing junk. */
-export function parseDmyDateTimeMs(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return null;
-  const match = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?$/);
-  if (!match) return null;
-  const dd = Number(match[1]);
-  const mm = Number(match[2]);
-  const yyyy = Number(match[3]);
-  const hh = match[4] != null ? Number(match[4]) : 0;
-  const min = match[5] != null ? Number(match[5]) : 0;
-  if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || hh > 23 || min > 59) return null;
-  const date = new Date(yyyy, mm - 1, dd, hh, min, 0, 0);
-  if (
-    date.getFullYear() !== yyyy
-    || date.getMonth() !== mm - 1
-    || date.getDate() !== dd
-    || date.getHours() !== hh
-    || date.getMinutes() !== min
-  ) {
-    return null;
-  }
-  return date.getTime();
-}
-
 export function validateDateRangeOrder(start, end, { startLabel = 'Start', endLabel = 'Finish' } = {}) {
   const startRaw = String(start ?? '').trim();
   const endRaw = String(end ?? '').trim();
@@ -202,13 +179,6 @@ export function validateDateRangeOrder(start, end, { startLabel = 'Start', endLa
     }
   }
   return { ok: true };
-}
-
-function rowIsEmpty(row) {
-  return !String(row?.activity || '').trim()
-    && !String(row?.start || '').trim()
-    && !String(row?.end || '').trim()
-    && !String(row?.notes || '').trim();
 }
 
 function firstInvalidRowDate(rows, kindLabel) {
@@ -239,13 +209,6 @@ function firstInvalidPartial(rows, kindLabel) {
     }
   }
   return { ok: true };
-}
-
-export function hoursBetweenDmy(start, end) {
-  const from = parseDmyDateTimeMs(start);
-  const to = parseDmyDateTimeMs(end);
-  if (from == null || to == null) return null;
-  return Number(((to - from) / (1000 * 60 * 60)).toFixed(4));
 }
 
 /**
@@ -312,15 +275,14 @@ export function calculateLaytimeForSave(fields, activities, deductions, rateUnit
     demurrageRate: fields.demurrageRate,
     despatchRate: fields.despatchRate,
     actualLaytimeExtra: options.actualLaytimeExtra,
-    activities: calculateRows(activities).map((row) => ({
-      ...row,
-      ltCounts: Number(row.ltCounts) === 1,
-      ltNoCounts: Number(row.ltNoCounts) === 1,
-    })),
+    activities: calculateRows(activities).map((row) => {
+      const activity = { ...row, ltCounts: Number(row.ltCounts) === 1, ltNoCounts: Number(row.ltNoCounts) === 1 };
+      return options.dryLaytime ? activity : { ...activity, ltPartial: countingActivityPartial(activity) };
+    }),
     deductions: calculateRows(deductions),
-  }, rateUnit, { dryLaytime: options.dryLaytime, deductFromActual: false });
-  if (Number(result.timeToDemurrage) < 0) {
-    throw Object.assign(new Error('Deductions exceed the time on demurrage. Confirm the contractual treatment before saving.'), { status: 422 });
+  }, rateUnit, { editor: true, dryLaytime: options.dryLaytime, deductFromActual: false });
+  if (result.calcError) {
+    throw Object.assign(new Error(result.calcError), { status: 422 });
   }
   return result;
 }

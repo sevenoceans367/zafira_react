@@ -104,13 +104,14 @@ export default function LaytimeSummaryPill({
   ];
   const unavailable = draft.calcUnavailable;
   const unit = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAYS' : '—';
-  const computed = (key) => unavailable ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
-  const money = unavailable ? '—' : formatMoneyDisplay(draft.ttlDemurrage);
+  const computed = (key) => unavailable || (draft.financialUnknown && key !== 'actualLaytime')
+    ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
+  const money = unavailable || draft.financialUnknown ? '—' : formatMoneyDisplay(draft.ttlDemurrage);
   const summaryValues = [
     ['Allowed', draft.laytimeAllowed || '—'],
     ['Actual', computed('actualLaytime')],
     [isDry ? 'Demm Days' : 'Demm Hrs', computed('timeToDemurrage'), !unavailable && Number(draft.timeToDemurrage) > 0],
-    [unavailable ? 'Unavailable' : 'Calc Demm', unavailable ? money : `$${money}`, !unavailable && Number(draft.ttlDemurrage) > 0],
+    [unavailable ? 'Unavailable' : 'Calc Demm', money === '—' ? money : `$${money}`, !unavailable && Number(draft.ttlDemurrage) > 0],
   ];
 
   useEffect(() => {

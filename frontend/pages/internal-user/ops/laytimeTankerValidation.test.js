@@ -137,7 +137,7 @@ describe('strict date parsing', () => {
     assert.equal(parseStrictDisplayDateTime('31-02-2026'), null);
     assert.equal(parseStrictDisplayDateTime('01-11-2026 25:00'), null);
     assert.equal(parseStrictDisplayDateTime('01-11-2026 10:00junk'), null);
-    assert.equal(parseStrictDisplayDateTime('01-11-2026 10:00')?.getHours(), 10);
+    assert.equal(parseStrictDisplayDateTime('01-11-2026 10:00')?.getUTCHours(), 10);
     assert.equal(validateDateRangeOrder('01-11-2026 00:00', '').ok, false);
     assert.equal(validateDateRangeOrder('', '01-11-2026 00:00').ok, false);
     assert.equal(validateDateRangeOrder('02-11-2026 00:00', '01-11-2026 00:00').ok, false);

@@ -1,7 +1,22 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { blankDateTime, normalizeKeepAttachments, mergeLaytimeAttachments, resolvePortRandomId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, mapMasterFields, deriveMilestonesFromSofRows, loadSofDerivedMilestones, upsertLaytimeMaster, replaceActivities, replaceDeductions, previousDryWorksheetCall, dryCarryFromRecord } from './laytimeDb.js';
+import { blankDateTime, normalizeKeepAttachments, mergeLaytimeAttachments, resolveLaytimeAttachments, resolvePortRandomId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, mapMasterFields, deriveMilestonesFromSofRows, loadSofDerivedMilestones, upsertLaytimeMaster, replaceActivities, replaceDeductions, previousDryWorksheetCall, dryCarryFromRecord } from './laytimeDb.js';
 import { loadPortTabs as loadSofPortTabs, loadSofRecord } from './sofDb.js';
+
+it('appends uploads to retained attachments unless the keep list is explicit', () => {
+  const existing = { ATTACHMENTS: 'old.pdf,other.pdf', ATTACHMENTS_NAME: ',Other file.pdf' };
+  const attachmentUploads = [{ filename: 'new.pdf', originalname: 'New file.pdf' }];
+  assert.deepEqual(resolveLaytimeAttachments(existing, { attachmentUploads }), {
+    attachments: 'old.pdf,other.pdf,new.pdf',
+    attachmentNames: 'old.pdf,Other file.pdf,New file.pdf',
+  });
+  assert.deepEqual(resolveLaytimeAttachments(existing, { keepFiles: [], attachmentUploads }), {
+    attachments: 'new.pdf', attachmentNames: 'New file.pdf',
+  });
+  assert.deepEqual(resolveLaytimeAttachments(existing), {
+    attachments: existing.ATTACHMENTS, attachmentNames: existing.ATTACHMENTS_NAME,
+  });
+});
 
 describe('laytimeDb blankDateTime', () => {
   it('preserves DMY date and time strings before native date parsing', () => {

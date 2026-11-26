@@ -945,6 +945,7 @@ export async function dbGetLaytimeForm(comId) {
   const fcaId = await resolveLaytimeFcaId(pool, comId) || compare.FCAID;
   const vesselParticulars = await loadVesselParticulars(pool, fcaId);
   const tanker = Number(vesselParticulars.estimateType) === 2;
+  const isDry = Number(vesselParticulars.estimateType) === 3;
   const [[master]] = await pool.query(
     `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO,
             FIXTURETYPEID, SEL_BUSI_TYPE
@@ -996,16 +997,16 @@ export async function dbGetLaytimeForm(comId) {
       cpDate = `${d}-${m}-${y}`;
     }
   }
-  let portTabs = await loadPortTabs(pool, fcaId, comId);
+  let portTabs = await loadPortTabs(pool, fcaId, comId, isDry);
   // If latest cost sheet has no legs, fall back to the compare FCAID sheet.
   if (!portTabs.length && compare.FCAID && String(compare.FCAID) !== String(fcaId)) {
-    portTabs = await loadPortTabs(pool, compare.FCAID, comId);
+    portTabs = await loadPortTabs(pool, compare.FCAID, comId, isDry);
   }
 
   const [rangeColumns] = portTabs.length
     ? await loadRows(pool, "SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'", [], tanker)
     : [[]];
-  const sources = { tanker, hasSofRange: rangeColumns.length > 0 };
+  const sources = { tanker, isDry, hasSofRange: rangeColumns.length > 0 };
   const hasLpDp = tanker && portTabs.length > 0 && await agencyLetterHasColumn(pool, 'LP_DP');
   const ports = [];
   for (const tab of portTabs) {

@@ -100,7 +100,6 @@ import {
 import { getRequestUser, resolveRequestIsMgmtUser } from '../services/authService.js';
 import { getSofForm, saveSof } from '../services/sofService.js';
 import { getLaytimeForm, saveLaytime, openLaytime } from '../services/laytimeService.js';
-import { mergeLaytimeAttachments } from '../services/laytimeDb.js';
 import { generateLaytimePdf } from '../services/laytimePdfService.js';
 import { getBunkerForm, saveBunker } from '../services/bunkerService.js';
 import { getSoaReport } from '../services/soaReportService.js';
@@ -928,11 +927,9 @@ router.post('/ops/laytime', (req, res, next) => {
   });
 }, asyncHandler(async (req, res) => {
   const body = req.body?.payload ? JSON.parse(req.body.payload) : (req.body || {});
-  const { files, names } = mergeLaytimeAttachments(body.keepFiles, body.keepFileNames, req.files);
   res.json(await saveLaytime({
     ...body,
-    keepFiles: files,
-    keepFileNames: names,
+    attachmentUploads: req.files,
   }));
 }));
 

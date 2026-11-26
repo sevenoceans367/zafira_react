@@ -104,6 +104,18 @@ export function mergeLaytimeAttachments(keepFiles, keepFileNames, uploads = []) 
   };
 }
 
+export function resolveLaytimeAttachments(existing, { keepFiles, keepFileNames, attachmentUploads } = {}) {
+  if (!Array.isArray(keepFiles) && attachmentUploads?.length) {
+    keepFiles = str(existing?.ATTACHMENTS || '').split(',');
+    keepFileNames = str(existing?.ATTACHMENTS_NAME || '').split(',');
+  }
+  const { files, names } = mergeLaytimeAttachments(keepFiles, keepFileNames, attachmentUploads);
+  return {
+    attachments: files?.join(',') ?? str(existing?.ATTACHMENTS || ''),
+    attachmentNames: names?.join(',') ?? str(existing?.ATTACHMENTS_NAME || ''),
+  };
+}
+
 function isEmptyDateTime(value) {
   if (value == null) return true;
   const raw = String(value).trim();
@@ -372,7 +384,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
          AND PORT IN ('LP', 'DP', 'TP')
        ORDER BY LAYTIME_ID ASC`,
       [comId, MODULE_ID, COMPANY_ID],
-    ).catch(() => [[]]);
+    );
 
     for (const row of laytimeRows || []) {
       const portName = await getPortName(pool, row.PORTID);
@@ -392,7 +404,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
          AND PORT IN ('LP', 'DP', 'TP')
        ORDER BY SOFID ASC`,
       [comId, MODULE_ID, COMPANY_ID],
-    ).catch(() => [[]]);
+    );
 
     for (const row of sofRows || []) {
       const portName = await getPortName(pool, row.PORTID);
@@ -614,11 +626,11 @@ export async function loadSofDerivedMilestones(pool, sofId) {
     pool.query(
       `SELECT ACTIVITY, ACTIVITYDATETIME FROM sof_slave_6 WHERE SOFID = ? ORDER BY SLAVEID ASC`,
       [sofId],
-    ).catch(() => [[]]),
+    ),
     pool.query(
       `SELECT ACTIVITY, SHIPFIGURE, BLFIGURE FROM sof_slave_7 WHERE SOFID = ? ORDER BY SLAVEID ASC`,
       [sofId],
-    ).catch(() => [[]]),
+    ),
   ]);
   return deriveMilestonesFromSofRows(keyOpRows || [], cargoRows || []);
 }
@@ -1262,7 +1274,7 @@ export async function dbSaveLaytime(payload = {}) {
   const comId = payload.comId || payload.comid;
   const portType = str(payload.portType || payload.port);
   const portId = str(payload.portId || payload.portid);
-  const randomId = str(payload.randomId || payload.randomid);
+  const randomId = str(payload.randomId ?? payload.randomid);
   const action = String(payload.action || 'save').toLowerCase();
   let submitId = Number(payload.submitId ?? payload.submitid ?? 0);
   if (action === 'open') submitId = 0;
@@ -1320,8 +1332,6 @@ export async function dbSaveLaytime(payload = {}) {
   const approvers = Array.isArray(payload.approvers)
     ? payload.approvers.map(str).filter(Boolean).join(',')
     : str(payload.approvers);
-
-  const { files: keepFiles, names: keepFileNames } = normalizeKeepAttachments(payload.keepFiles, payload.keepFileNames);
 
   const fields = {
     terminal: str(payload.terminal),
@@ -1407,12 +1417,7 @@ export async function dbSaveLaytime(payload = {}) {
     const sof = await loadSofRecord(connection, comId, portType, portId, randomId);
     const sofId = sof?.SOFID ?? null;
 
-    const attachments = keepFiles != null
-      ? keepFiles.join(',')
-      : str(existing?.ATTACHMENTS || '');
-    const attachmentNames = keepFiles != null
-      ? (keepFileNames || keepFiles).join(',')
-      : str(existing?.ATTACHMENTS_NAME || '');
+    const { attachments, attachmentNames } = resolveLaytimeAttachments(existing, payload);
 
     const laytimeId = await upsertLaytimeMaster(connection, {
       existing,

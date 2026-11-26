@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { blankDateTime, normalizeKeepAttachments, resolvePortSofId, resolvePortRandomId, loadActivities, loadEntityRows, upsertLaytimeMaster } from './laytimeDb.js';
+import { blankDateTime, normalizeKeepAttachments, resolvePortSofId, resolvePortRandomId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, upsertLaytimeMaster } from './laytimeDb.js';
+import { loadPortTabs as loadSofPortTabs } from './sofDb.js';
 
 describe('laytimeDb blankDateTime', () => {
   it('preserves DMY date and time strings before native date parsing', () => {
@@ -49,6 +50,28 @@ describe('port RANDOMID normalization', () => {
     assert.equal(resolvePortRandomId('0', 10), '0');
     assert.equal(resolvePortRandomId(null, 10), '10');
     assert.equal(resolvePortRandomId(' ', 10), '10');
+  });
+});
+
+describe('SOF port tab rules', () => {
+  it('includes independent non-TBN ports across passage types and uses FROM_PORT for TP', async () => {
+    const ports = { 1: 'TBN', 10: 'ROTTERDAM', 20: 'SINGAPORE', 30: 'SUEZ' };
+    const legs = [
+      { FROM_PORT: 10, TO_PORT: 20, RANDOMID: 0, PASSAGE_TYPE: 1, LOAD_PORT_QTY: 50000, DISC_PORT_QTY: 50000, LOAD_PORT_COST: 0, DISC_PORT_COST: 0, TRANSIT_PORT_COST: 0 },
+      { FROM_PORT: 1, TO_PORT: 20, RANDOMID: null, PASSAGE_TYPE: 2, LOAD_PORT_QTY: 0, DISC_PORT_QTY: 20000, PORT_COSTDP_VENDOR: 'V1', LOAD_PORT_COST: 0, DISC_PORT_COST: 1000, TRANSIT_PORT_COST: 0 },
+      { FROM_PORT: 30, TO_PORT: 20, RANDOMID: 99, PASSAGE_TYPE: 2, LOAD_PORT_QTY: 0, DISC_PORT_QTY: 0, PORT_COSTTP_VENDOR: 'VTP', LOAD_PORT_COST: 0, DISC_PORT_COST: 0, TRANSIT_PORT_COST: 500 },
+    ];
+    const pool = { async query(sql, params) {
+      if (sql.includes('freight_cost_estimete_slave1')) return [legs];
+      if (sql.includes('FROM port_master')) return [[{ PortName: ports[params[0]], COUNTRY_KEY: '' }]];
+      return [[]];
+    } };
+    const tabs = await loadSofPortTabs(pool, 100);
+    const sofKeys = tabs.filter((tab) => tab.portType !== 'TP').map((tab) => `${tab.portType}-${tab.portId}-${tab.randomId}`);
+    const laytimeTabs = await loadLaytimePortTabs(pool, 100);
+    assert.deepEqual(sofKeys, ['LP-10-0', 'DP-20-0', 'DP-20-20', 'LP-30-99', 'DP-20-99']);
+    assert.deepEqual(laytimeTabs.map((tab) => `${tab.portType}-${tab.portId}-${tab.randomId}`), sofKeys);
+    assert.equal(tabs.find((tab) => tab.portType === 'TP')?.portId, '30');
   });
 });
 

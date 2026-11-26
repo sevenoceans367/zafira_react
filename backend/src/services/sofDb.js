@@ -381,6 +381,19 @@ async function loadPortTabs(pool, fcaId, comId = null) {
         },
       });
     }
+
+    const hasLp = hasValue(leg.PORT_COSTLP_VENDOR) || Number(leg.LOAD_PORT_COST) > 0 || Number(leg.LOAD_PORT_QTY) > 0;
+    const hasDp = hasValue(leg.PORT_COSTDP_VENDOR) || Number(leg.DISC_PORT_COST) > 0 || Number(leg.DISC_PORT_QTY) > 0;
+    if (!hasLp && !hasDp) {
+      if (!fromIsTbn && hasValue(leg.FROM_PORT)) tabs.push({
+        portType: 'LP', portId: str(leg.FROM_PORT), randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
+        portName: fromName || str(leg.FROM_PORT), defaults: {},
+      });
+      if (!toIsTbn && hasValue(leg.TO_PORT) && String(leg.TO_PORT) !== String(leg.FROM_PORT)) tabs.push({
+        portType: 'DP', portId: str(leg.TO_PORT), randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
+        portName: toName || str(leg.TO_PORT), defaults: {},
+      });
+    }
   }
   const seen = new Set();
   const deduped = tabs.filter((tab) => {

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { blankDateTime, normalizeKeepAttachments, resolvePortSofId, loadActivities, loadEntityRows } from './laytimeDb.js';
+import { blankDateTime, normalizeKeepAttachments, resolvePortSofId, resolvePortRandomId, loadActivities, loadEntityRows } from './laytimeDb.js';
 
 describe('laytimeDb blankDateTime', () => {
   it('preserves DMY date and time strings before native date parsing', () => {
@@ -40,5 +40,14 @@ describe('laytimeDb SOF links and strict-mode SQL', () => {
     assert.ok(q);
     assert.doesNotMatch(q, /ACTIVITYDATETIMETO\s*=\s*''/i);
     assert.doesNotMatch(q, /ACTIVITYDATETIME\s*!=\s*'0000-00-00/i);
+  });
+});
+
+describe('port RANDOMID normalization', () => {
+  it('preserves zero and falls back only for null or blank values', () => {
+    assert.equal(resolvePortRandomId(0, 10), '0');
+    assert.equal(resolvePortRandomId('0', 10), '0');
+    assert.equal(resolvePortRandomId(null, 10), '10');
+    assert.equal(resolvePortRandomId(' ', 10), '10');
   });
 });

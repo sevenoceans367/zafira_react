@@ -301,7 +301,11 @@ async function loadVesselParticulars(pool, fcaId) {
   };
 }
 
-async function loadPortTabs(pool, fcaId) {
+function resolvePortRandomId(randomId, fallbackPortId) {
+  return randomId != null && String(randomId).trim() !== '' ? String(randomId).trim() : str(fallbackPortId);
+}
+
+async function loadPortTabs(pool, fcaId, comId = null) {
   const [legs] = await pool.query(
     `SELECT FROM_PORT, TO_PORT, RANDOMID, LOAD_PORT_QTY, DISC_PORT_QTY,
             PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR, PORT_COSTTP_VENDOR,
@@ -318,17 +322,15 @@ async function loadPortTabs(pool, fcaId) {
   const tabs = [];
   for (const leg of legs || []) {
     const fromName = await getPortName(pool, leg.FROM_PORT);
-    if (fromName === 'TBN' || String(fromName).startsWith('TBN ')) continue;
-
-    const passageType = Number(leg.PASSAGE_TYPE);
+    const fromIsTbn = fromName === 'TBN' || String(fromName).startsWith('TBN ');
     if (
-      passageType === 2
+      !fromIsTbn
       && (hasValue(leg.PORT_COSTLP_VENDOR) || Number(leg.LOAD_PORT_COST) > 0 || Number(leg.LOAD_PORT_QTY) > 0)
     ) {
       tabs.push({
         portType: 'LP',
         portId: str(leg.FROM_PORT),
-        randomId: str(leg.RANDOMID),
+        randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
         portName: fromName,
         defaults: {
           portArrival: blankDateTime(leg.FROMARRIVAL),
@@ -342,14 +344,15 @@ async function loadPortTabs(pool, fcaId) {
     }
 
     const toName = await getPortName(pool, leg.TO_PORT);
+    const toIsTbn = toName === 'TBN' || String(toName).startsWith('TBN ');
     if (
-      passageType === 2
+      !toIsTbn
       && (hasValue(leg.PORT_COSTDP_VENDOR) || Number(leg.DISC_PORT_COST) > 0 || Number(leg.DISC_PORT_QTY) > 0)
     ) {
       tabs.push({
         portType: 'DP',
         portId: str(leg.TO_PORT),
-        randomId: str(leg.RANDOMID),
+        randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
         portName: toName,
         defaults: {
           portArrival: blankDateTime(leg.TOARRIVAL),
@@ -365,9 +368,9 @@ async function loadPortTabs(pool, fcaId) {
     if (hasValue(leg.PORT_COSTTP_VENDOR) || Number(leg.TRANSIT_PORT_COST) > 0) {
       tabs.push({
         portType: 'TP',
-        portId: str(leg.TO_PORT),
-        randomId: str(leg.RANDOMID),
-        portName: toName || fromName,
+        portId: str(leg.FROM_PORT),
+        randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
+        portName: fromName || toName,
         defaults: {
           portArrival: blankDateTime(leg.TOARRIVAL),
           portDeparture: blankDateTime(leg.TODEPARTURE),
@@ -379,7 +382,27 @@ async function loadPortTabs(pool, fcaId) {
       });
     }
   }
-  return tabs;
+  const seen = new Set();
+  const deduped = tabs.filter((tab) => {
+    const key = `${tab.portType}-${tab.portId}-${tab.randomId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (comId) {
+    const [saved] = await pool.query(
+      `SELECT PORT, PORTID, RANDOMID FROM sof_master WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ? AND PORT IN ('LP', 'DP') ORDER BY SOFID ASC`,
+      [comId, MODULE_ID, COMPANY_ID],
+    ).catch(() => [[]]);
+    for (const row of saved || []) {
+      const key = `${row.PORT}-${row.PORTID}-${resolvePortRandomId(row.RANDOMID, row.PORTID)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const portName = await getPortName(pool, row.PORTID);
+      deduped.push({ portType: str(row.PORT), portId: str(row.PORTID), randomId: resolvePortRandomId(row.RANDOMID, row.PORTID), portName: portName || str(row.PORTID), defaults: {} });
+    }
+  }
+  return deduped;
 }
 
 function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [], explicit = {}) {
@@ -933,7 +956,10 @@ export async function dbGetSofForm(comId) {
     }
   }
   const vesselParticulars = await loadVesselParticulars(pool, fcaId);
-  const portTabs = await loadPortTabs(pool, fcaId);
+  let portTabs = await loadPortTabs(pool, fcaId, comId);
+  if (!portTabs.length && compare.FCAID && String(compare.FCAID) !== String(fcaId)) {
+    portTabs = await loadPortTabs(pool, compare.FCAID, comId);
+  }
 
   const ports = [];
   for (const tab of portTabs) {
@@ -1844,4 +1870,5 @@ export {
   deriveMasterFieldsFromKeyOperations,
   draftFiguresFromCargoRows,
   defaultKeyOperations,
+  loadPortTabs,
 };

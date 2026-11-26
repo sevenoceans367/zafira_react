@@ -237,7 +237,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
       pushTab({
         portType: 'LP',
         portId: str(leg.FROM_PORT),
-        randomId: str(leg.RANDOMID || leg.FROM_PORT),
+        randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
         portName: fromName,
         defaults: {
           loadedQty: leg.LOAD_PORT_QTY != null && leg.LOAD_PORT_QTY !== ''
@@ -251,7 +251,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
       pushTab({
         portType: 'DP',
         portId: str(leg.TO_PORT),
-        randomId: str(leg.RANDOMID || leg.TO_PORT),
+        randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
         portName: toName,
         defaults: {
           loadedQty: leg.DISC_PORT_QTY != null && leg.DISC_PORT_QTY !== ''
@@ -267,7 +267,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
         pushTab({
           portType: 'LP',
           portId: str(leg.FROM_PORT),
-          randomId: str(leg.RANDOMID || leg.FROM_PORT),
+          randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
           portName: fromName || str(leg.FROM_PORT),
           defaults: {
             loadedQty: leg.LOAD_PORT_QTY != null && leg.LOAD_PORT_QTY !== ''
@@ -284,7 +284,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
         pushTab({
           portType: 'DP',
           portId: str(leg.TO_PORT),
-          randomId: str(leg.RANDOMID || leg.TO_PORT),
+          randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
           portName: toName || str(leg.TO_PORT),
           defaults: {
             loadedQty: leg.DISC_PORT_QTY != null && leg.DISC_PORT_QTY !== ''
@@ -313,7 +313,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
       pushTab({
         portType: str(row.PORT),
         portId: str(row.PORTID),
-        randomId: str(row.RANDOMID || row.PORTID),
+        randomId: resolvePortRandomId(row.RANDOMID, row.PORTID),
         portName: portName || str(row.PORTID),
         defaults: { loadedQty: '' },
       });
@@ -333,7 +333,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
       pushTab({
         portType: str(row.PORT),
         portId: str(row.PORTID),
-        randomId: str(row.RANDOMID || row.PORTID),
+        randomId: resolvePortRandomId(row.RANDOMID, row.PORTID),
         portName: portName || str(row.PORTID),
         defaults: { loadedQty: '' },
       });
@@ -1176,4 +1176,8 @@ export function resolvePortSofId(record, sof) {
   return null;
 }
 
-export { isEmptyDateTime, blankDateTime, parseDmyDateTime, loadActivities, loadEntityRows };
+export function resolvePortRandomId(randomId, fallbackPortId) {
+  return randomId != null && String(randomId).trim() !== '' ? String(randomId).trim() : str(fallbackPortId);
+}
+
+export { isEmptyDateTime, blankDateTime, parseDmyDateTime, loadActivities, loadEntityRows, loadPortTabs };

@@ -328,6 +328,7 @@ async function loadPortTabs(pool, fcaId, comId = null, isDry = false) {
                 ? String(leg.LOAD_PORT_QTY)
                 : '',
               demurrageRate: Number(leg.DEMMRATELP) > 0 ? String(leg.DEMMRATELP) : '',
+              ...(isDry ? { loadedRate: str(leg.LOAD_PORT_RATE) } : {}),
             },
           });
         }
@@ -346,6 +347,7 @@ async function loadPortTabs(pool, fcaId, comId = null, isDry = false) {
                 ? String(leg.DISC_PORT_QTY)
                 : '',
               demurrageRate: Number(leg.DEMMRATEDP) > 0 ? String(leg.DEMMRATEDP) : '',
+              ...(isDry ? { loadedRate: str(leg.DISC_PORT_RATE) } : {}),
             },
           });
         }
@@ -465,17 +467,18 @@ function emptyDeduction() {
   };
 }
 
-function loadRows(pool, sql, params, tanker) {
+function loadRows(pool, sql, params, usesEditor) {
   const query = pool.query(sql, params);
-  return tanker ? query : query.catch(() => [[]]);
+  return usesEditor ? query : query.catch(() => [[]]);
 }
 
-async function loadActivities(pool, laytimeId, sofId, { tanker = false, isDry = false, hasSofRange = true } = {}) {
+async function loadActivities(pool, laytimeId, sofId, { usesEditor = false, tanker = false, isDry = false, hasSofRange = true } = {}) {
+  const editor = Boolean(usesEditor || tanker || isDry);
   if (laytimeId) {
     const [rows] = await loadRows(pool,
       `SELECT * FROM laytime_slave WHERE LAYTIME_ID = ?${isDry ? ' ORDER BY LAYTIME_LP_SLAVEID' : ''}`,
       [laytimeId],
-      tanker,
+      editor,
     );
     if (rows?.length) {
       return rows.map((row) => ({
@@ -517,7 +520,7 @@ async function loadActivities(pool, laytimeId, sofId, { tanker = false, isDry = 
        AND CAST(ACTIVITYDATETIMETO AS CHAR) NOT LIKE '0000-00-00%'
      ORDER BY ACTIVITYDATETIME ASC`,
     [sofId],
-    tanker,
+    editor,
   );
 
   if (!sofRows?.length) return [emptyActivity()];
@@ -528,16 +531,16 @@ async function loadActivities(pool, laytimeId, sofId, { tanker = false, isDry = 
     end: blankDateTime(row.ACTIVITYDATETIMETO),
     ltCounts: false,
     ltPartial: '',
-    ...(tanker ? { sofLoadPortId: String(sofId) } : {}),
+    ...(editor ? { sofLoadPortId: String(sofId) } : {}),
   }));
 }
 
-async function loadDeductions(pool, laytimeId, tanker) {
+async function loadDeductions(pool, laytimeId, usesEditor) {
   if (!laytimeId) return [emptyDeduction()];
   const [rows] = await loadRows(pool,
     `SELECT * FROM laytime_slave1 WHERE LAYTIME_ID = ?`,
     [laytimeId],
-    tanker,
+    usesEditor,
   );
   if (!rows?.length) return [emptyDeduction()];
   return rows.map((row) => ({
@@ -560,21 +563,22 @@ function displayTankerEntityDate(value) {
   return `${day}-${month}-${year} ${time}`;
 }
 
-async function loadEntityRows(pool, laytimeId, sofId, { tanker = false, hasSofRange = true } = {}) {
+async function loadEntityRows(pool, laytimeId, sofId, { usesEditor = false, tanker = false, hasSofRange = true } = {}) {
+  const editor = Boolean(usesEditor || tanker);
   let savedRows = [];
   if (laytimeId) {
-    const [rows] = await loadRows(pool, tanker
+    const [rows] = await loadRows(pool, editor
       ? 'SELECT ENTITY_NAME, ENTITY_VALUE FROM laytime_slave2 WHERE LAYTIME_ID = ? ORDER BY LAYTIME_SLAVEID ASC'
       : 'SELECT * FROM laytime_slave2 WHERE LAYTIME_ID = ?',
-    [laytimeId], tanker);
+    [laytimeId], editor);
     savedRows = rows.map(({ ENTITY_NAME: name, ENTITY_VALUE: value }) => ({
       name: str(name),
-      value: tanker
+      value: editor
         ? (isNamedTankerEntity(name) ? displayTankerEntityDate(value) : value)
         : blankDateTime(value) || str(value),
     }));
   }
-  if (!sofId || (!tanker && savedRows.length)) return savedRows;
+  if (!sofId || (!editor && savedRows.length)) return savedRows;
 
   const [sofRows] = await loadRows(pool,
     `SELECT ACTIVITY, ACTIVITYDATETIME FROM sof_slave_6
@@ -585,14 +589,14 @@ async function loadEntityRows(pool, laytimeId, sofId, { tanker = false, hasSofRa
                            OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
                            OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')` : ''}
      ORDER BY ACTIVITYDATETIME ASC`,
-    [sofId], tanker,
+    [sofId], editor,
   );
   const pointEvents = sofRows.map(({ ACTIVITY, ACTIVITYDATETIME }) => {
     const name = str(ACTIVITY);
     const date = blankDateTime(ACTIVITYDATETIME);
-    return { name, value: tanker && !isNamedTankerEntity(name) ? parseDmyDateTime(date) : date };
+    return { name, value: editor && !isNamedTankerEntity(name) ? parseDmyDateTime(date) : date };
   });
-  if (!tanker) return pointEvents;
+  if (!editor) return pointEvents;
 
   const [rows] = await pool.query(
     `SELECT ENTITY_NAME, ENTITY_VALUE FROM sof_slave_3 WHERE SOFID = ? ORDER BY SOF_SLAVEID ASC`,
@@ -799,11 +803,11 @@ export async function replaceDeductions(connection, laytimeId, deductions, { fai
   }
 }
 
-async function replaceEntityRows(connection, laytimeId, entityRows, tanker) {
+async function replaceEntityRows(connection, laytimeId, entityRows, usesEditor) {
   await connection.query(`DELETE FROM laytime_slave2 WHERE LAYTIME_ID = ?`, [laytimeId]);
   for (const row of entityRows || []) {
-    const name = tanker ? str(row.name) : str(row.name).trim();
-    const value = tanker
+    const name = usesEditor ? str(row.name) : str(row.name).trim();
+    const value = usesEditor
       ? (isNamedTankerEntity(name) ? parseDmyDateTime(row.value) : row.value ?? null)
       : entityValueForDb(row.value);
     if (!name && value == null) continue;
@@ -836,11 +840,11 @@ async function vendorNameByCode(pool, code, companyId) {
 }
 
 /**
- * Tanker-only Agent name:
+ * Port Agent name for Laytime editor:
  * 1) Ordinary Agency Nomination letter (not OPA via LP_DP='Yes', not pda/bunker/voyage)
  * 2) Leg nominated PORT_COSTLP/DP_VENDOR, company-scoped
  */
-async function resolveTankerPortAgentName(pool, hasLpDp, {
+async function resolvePortAgentName(pool, hasLpDp, {
   comId, portType, portId, randomId, legVendorCode,
 }) {
   try {
@@ -876,7 +880,7 @@ async function resolveTankerPortAgentName(pool, hasLpDp, {
  * Legacy laytime_calculation.php ~94–147 charterer enrichment (read-only).
  * Fun175=COAID, Fun158=ESTIMATE_TYPE, Fun228=TANKER_RADIO_SINGLE_DIS.
  */
-async function resolveTankerCharterer(pool, master, fcaId) {
+async function resolveLaytimeCharterer(pool, master, fcaId, isDry) {
   try {
     if (Number(master?.COAID)) {
       const [[coa]] = await pool.query(
@@ -885,6 +889,8 @@ async function resolveTankerCharterer(pool, master, fcaId) {
       );
       return vendorNameByCode(pool, coa?.CHARTERER);
     }
+
+    if (isDry) return vendorNameByCode(pool, master?.FGFF_VENDORID);
 
     const singleDischarge = Number(master?.TANKER_RADIO_SINGLE_DIS) === 1;
     if (singleDischarge && Number(master?.CHK_LUMPSUM) === 1) {
@@ -898,12 +904,12 @@ async function resolveTankerCharterer(pool, master, fcaId) {
     const names = await Promise.all(rows.map(({ code }) => vendorNameByCode(pool, code)));
     return names.filter(Boolean).join(',');
   } catch (err) {
-    console.warn('[laytime] Tanker charterer lookup failed', err?.message || err);
+    console.warn('[laytime] Charterer lookup failed', err?.message || err);
     return '';
   }
 }
 
-async function loadTankerApprovers(pool) {
+async function loadLaytimeApprovers(pool) {
   const [rows] = await pool.query(
     `SELECT DISTINCT l.LOGINID AS id, l.CONTACT_PERSON AS name
      FROM approval_matrix am
@@ -946,10 +952,12 @@ export async function dbGetLaytimeForm(comId) {
   const vesselParticulars = await loadVesselParticulars(pool, fcaId);
   const tanker = Number(vesselParticulars.estimateType) === 2;
   const isDry = Number(vesselParticulars.estimateType) === 3;
+  const editor = tanker || isDry;
   const [[master]] = await pool.query(
     `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO,
             FIXTURETYPEID, SEL_BUSI_TYPE
             ${tanker ? ', LUMP_VENDOR, CHK_LUMPSUM, COAID, TANKER_RADIO_SINGLE_DIS' : ''}
+            ${isDry ? ', COAID, FGFF_VENDORID' : ''}
      FROM freight_cost_estimete_master
      WHERE FCAID = ?
      LIMIT 1`,
@@ -1004,10 +1012,10 @@ export async function dbGetLaytimeForm(comId) {
   }
 
   const [rangeColumns] = portTabs.length
-    ? await loadRows(pool, "SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'", [], tanker)
+    ? await loadRows(pool, "SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'", [], editor)
     : [[]];
-  const sources = { tanker, isDry, hasSofRange: rangeColumns.length > 0 };
-  const hasLpDp = tanker && portTabs.length > 0 && await agencyLetterHasColumn(pool, 'LP_DP');
+  const sources = { usesEditor: editor, tanker, isDry, hasSofRange: rangeColumns.length > 0 };
+  const hasLpDp = editor && portTabs.length > 0 && await agencyLetterHasColumn(pool, 'LP_DP');
   const ports = [];
   for (const tab of portTabs) {
     const record = await loadLaytimeRecord(pool, comId, tab.portType, tab.portId, tab.randomId);
@@ -1019,11 +1027,11 @@ export async function dbGetLaytimeForm(comId) {
     const sofDerived = await loadSofDerivedMilestones(pool, sofId);
     const fields = mapMasterFields(record, sof, tab.defaults, sofDerived);
     const activities = await loadActivities(pool, laytimeId, sofId, sources);
-    const deductions = await loadDeductions(pool, laytimeId, tanker);
+    const deductions = await loadDeductions(pool, laytimeId, editor);
     const entityRows = await loadEntityRows(pool, laytimeId, sofId, sources);
     const operation = tab.portType === 'LP' ? 'Loading' : 'Discharging';
-    const agent = tanker
-      ? { agentName: await resolveTankerPortAgentName(pool, hasLpDp, {
+    const agent = editor
+      ? { agentName: await resolvePortAgentName(pool, hasLpDp, {
         comId,
         portType: tab.portType,
         portId: tab.portId,
@@ -1032,7 +1040,15 @@ export async function dbGetLaytimeForm(comId) {
       }) }
       : {};
 
+    // Dry Legacy carries the previous saved port's allowed and actual days when reversible.
+    const previous = ports.at(-1);
+    const carry = isDry && previous?.reversible === '1' ? {
+      laytimeAllowedExtra: previous.laytimeAllowed,
+      actualLaytimeExtra: previous.actualLaytime,
+    } : {};
+
     ports.push({
+      ...carry,
       key: `${tab.portType}-${tab.portId}-${tab.randomId}`,
       tabLabel: `${tab.portType}-${tab.portName}`,
       portType: tab.portType,
@@ -1059,20 +1075,20 @@ export async function dbGetLaytimeForm(comId) {
   const rateUnit = laytimeRateUnitFromEstimateType(vesselParticulars?.estimateType);
   const estimateType = vesselParticulars?.estimateType ?? null;
 
-  let tankerDetails = {};
+  let editorDetails = {};
   let approverOptions = [];
-  if (tanker) {
+  if (editor) {
     const [[operator]] = await pool.query(
       `SELECT l.CONTACT_PERSON FROM freight_cost_estimate_compare c
        JOIN login l ON l.LOGINID = c.OPERATOR
        WHERE c.COMID = ? AND c.MODULEID = ? LIMIT 1`,
       [comId, MODULE_ID],
     );
-    tankerDetails = {
+    editorDetails = {
       operatorName: str(operator?.CONTACT_PERSON).trim(),
-      charterer: await resolveTankerCharterer(pool, master, fcaId),
+      charterer: await resolveLaytimeCharterer(pool, master, fcaId, isDry),
     };
-    approverOptions = await loadTankerApprovers(pool);
+    approverOptions = await loadLaytimeApprovers(pool);
   }
 
   return {
@@ -1082,14 +1098,14 @@ export async function dbGetLaytimeForm(comId) {
     voyageNo,
     vesselName,
     fixtureTypeId: fixtureTypeRaw ? String(fixtureTypeRaw) : '',
-    // Top-level estimate type for Tanker layout gate (also on vesselParticulars).
+    // Estimate type selects the editor and rate unit.
     estimateType,
     cpDate,
     message: compare.MESSAGE || '',
     cargo,
     currency: 'USD',
     vesselParticulars,
-    ...tankerDetails,
+    ...editorDetails,
     rateUnit,
     // Fun158 estimate type is the unit basis; historical day-mode tanker writes
     // are not auto-converted (no blanket ×24). Unknown type → rateUnit null.
@@ -1305,7 +1321,8 @@ export async function dbSaveLaytime(payload = {}) {
     throw error;
   }
 
-  const isTankerSave = Number(particulars.estimateType) === 2;
+  const dryLaytime = Number(particulars.estimateType) === 3;
+  const usesEditor = Number(particulars.estimateType) === 2 || dryLaytime;
 
   // Open is status-only: clear SUBMITID lock without rewriting fields or children.
   if (action === 'open') {
@@ -1389,23 +1406,22 @@ export async function dbSaveLaytime(payload = {}) {
   const deductions = payload.deductions || [];
   const entityRows = payload.entityRows || [];
 
-  // Tanker-only: mirror client mandatory/financial rules before any write.
-  if (isTankerSave) {
-    const tankerCheck = validateTankerLaytimePayload({
+  if (usesEditor) {
+    const check = validateTankerLaytimePayload({
       ...payload,
       ...fields,
       activities,
       deductions,
       submitId,
       approvers: payload.approvers,
-    });
-    if (!tankerCheck.ok) {
-      const error = new Error(tankerCheck.message || 'Invalid Tanker laytime payload.');
+    }, { dryLaytime });
+    if (!check.ok) {
+      const error = new Error(check.message || 'Invalid Laytime payload.');
       error.status = 400;
       throw error;
     }
     if (submitId === 1) {
-      const eligible = new Set((await loadTankerApprovers(pool)).map(({ id }) => String(id)));
+      const eligible = new Set((await loadLaytimeApprovers(pool)).map(({ id }) => String(id)));
       if (parseApprovers(approvers).some((id) => !eligible.has(id))) {
         const error = new Error('Choose an eligible Laytime approver.');
         error.status = 400;
@@ -1465,9 +1481,9 @@ export async function dbSaveLaytime(payload = {}) {
       throw error;
     }
 
-    await replaceActivities(connection, laytimeId, activities, { failClosed: isTankerSave });
-    await replaceDeductions(connection, laytimeId, deductions, { failClosed: isTankerSave });
-    await replaceEntityRows(connection, laytimeId, entityRows, isTankerSave);
+    await replaceActivities(connection, laytimeId, activities, { failClosed: usesEditor });
+    await replaceDeductions(connection, laytimeId, deductions, { failClosed: usesEditor });
+    await replaceEntityRows(connection, laytimeId, entityRows, usesEditor);
 
     await connection.commit();
     return {

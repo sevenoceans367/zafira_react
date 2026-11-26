@@ -297,3 +297,20 @@ describe('upsertLaytimeMaster schema fallback', () => {
     assert.equal(calls, 1);
   });
 });
+
+describe('Dry Laytime editor entity wiring', () => {
+  it('loads sof_slave_3 named entity dates when usesEditor is enabled for Dry ports', async () => {
+    const pool = {
+      async query(sql) {
+        if (sql.includes('laytime_slave2')) return [[]];
+        if (sql.includes('sof_slave_6')) return [[]];
+        if (sql.includes('sof_slave_3')) {
+          return [[{ ENTITY_NAME: 'All Clear', ENTITY_VALUE: '2026-06-15 14:30:00' }]];
+        }
+        return [[]];
+      },
+    };
+    const rows = await loadEntityRows(pool, 10, 55, { usesEditor: true, hasSofRange: true });
+    assert.deepEqual(rows, [{ name: 'All Clear', value: '15-06-2026 14:30' }]);
+  });
+});

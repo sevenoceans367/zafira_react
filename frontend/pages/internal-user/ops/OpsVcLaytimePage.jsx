@@ -511,7 +511,7 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = fal
     ...extractLaytimeKeepFiles(port.uploads),
   };
   // Unknown unit: keep stored values verbatim — never invent day/hour math or blank for save.
-  if (!recompute || (rateUnit !== 'hours' && rateUnit !== 'days')) {
+  if (!recompute || (tanker && port.locked) || (rateUnit !== 'hours' && rateUnit !== 'days')) {
     return draft;
   }
   if (!String(draft.laytimeAllowed || '').trim()) {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  calculateLaytimeForSave,
   durationForPersist,
   isBlankOrFiniteNumber,
   isOpaAgencyLetter,
@@ -14,6 +15,24 @@ import {
   validateTankerLaytimePayload,
   verifyRowDurations,
 } from './laytimeTankerValidation.js';
+
+it('derives stored financials and cumulatives from weighted rows, ignoring submitted totals', () => {
+  const fields = { laytimeAllowed: '72', demurrageRate: '20000', actualLaytime: '1', ttlDemurrage: '1' };
+  const activities = [{ activity: 'Loading', duration: '100', ltCounts: true, ltPartial: '100', cumulative: '1' }];
+  const deductions = [{ activity: 'Weather', duration: '4', ltPartial: '100' }];
+  const result = calculateLaytimeForSave(fields, activities, deductions, 'hours');
+  assert.equal(result.actualLaytime, '100.0000');
+  assert.equal(result.ttlDemurrage, '20000.00');
+  assert.equal(result.activities[0].cumulative, '-28.0000');
+  const zero = calculateLaytimeForSave(fields, [{ ...activities[0], ltPartial: '0' }], [], 'hours');
+  assert.equal(zero.actualLaytime, '0.0000');
+  assert.throws(() => calculateLaytimeForSave(fields, [{ ...activities[0], duration: '74' }], deductions, 'hours'),
+    { status: 422 });
+  assert.equal(verifyRowDurations([{ activity: 'Bad duration', duration: '-1' }], 'Activity').ok, false);
+  assert.equal(validateTankerLaytimePayload(basePayload({
+    activities: [{ activity: 'Conflicting flags', ltCounts: true, ltNoCounts: true }],
+  })).ok, false);
+});
 
 function basePayload(overrides = {}) {
   return {

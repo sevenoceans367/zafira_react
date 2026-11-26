@@ -45,7 +45,7 @@ describe('SOF persistence corrections', () => {
     assert.ok(calls.some(({ sql, params }) => sql.includes('INSERT INTO sof_slave_3') && params[0] === 51 && params[1] === 50));
     assert.ok(calls.some(({ sql, params }) => sql.includes('INSERT INTO sof_slave_1') && params[0] === 51 && params[1] === 50));
     assert.ok(calls.some(({ sql, params }) => sql.includes('INSERT INTO sof_slave ') && params[0] === 51 && params[1] === 50));
-    assert.match(calls[0].sql, /SHOW COLUMNS FROM sof_slave_6/i);
+    assert.ok(calls.every(({ sql }) => /^INSERT INTO/i.test(sql)));
   });
   it('does not emit ballast LP/DP tabs when a laden passage tab exists', async () => {
     const portNames = { 10: 'ROTTERDAM', 20: 'SINGAPORE' };

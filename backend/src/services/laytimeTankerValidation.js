@@ -1,3 +1,5 @@
+import { recomputePortDraft } from '../../../frontend/pages/internal-user/ops/laytimeCalculations.js';
+
 /**
  * Tanker-only (estimateType === 2) save-path validation.
  * Mirrors frontend laytimeTankerValidation — strict decimal/date parsing.
@@ -266,7 +268,13 @@ export function verifyRowDurations(rows, kindLabel) {
     if (rowIsEmpty(row)) continue;
     const start = String(row.start || '').trim();
     const end = String(row.end || '').trim();
-    if (!start || !end) continue;
+    const rawDur = String(row.duration ?? '').trim();
+    if (!start || !end) {
+      if (rawDur && !isBlankOrFiniteNumber(rawDur)) {
+        return { ok: false, message: `${kindLabel} #${i + 1} duration must be a nonnegative number.` };
+      }
+      continue;
+    }
     const expected = hoursBetweenDmy(start, end);
     if (expected == null) continue;
     if (expected < 0) {
@@ -276,7 +284,6 @@ export function verifyRowDurations(rows, kindLabel) {
         message: `${kindLabel} #${i + 1} finish must be on or after start.`,
       };
     }
-    const rawDur = String(row.duration ?? '').trim();
     // Blank duration with valid dates is OK — persistence derives via durationForPersist.
     if (rawDur === '') continue;
     const parsed = parseStrictDecimal(rawDur);
@@ -298,10 +305,33 @@ export function verifyRowDurations(rows, kindLabel) {
   return { ok: true };
 }
 
+export function calculateLaytimeForSave(fields, activities, deductions, rateUnit, options = {}) {
+  const calculateRows = (rows) => rows.filter((row) => !rowIsEmpty(row));
+  const result = recomputePortDraft({
+    laytimeAllowed: fields.laytimeAllowed,
+    demurrageRate: fields.demurrageRate,
+    despatchRate: fields.despatchRate,
+    actualLaytimeExtra: options.actualLaytimeExtra,
+    activities: calculateRows(activities).map((row) => ({
+      ...row,
+      ltCounts: Number(row.ltCounts) === 1,
+      ltNoCounts: Number(row.ltNoCounts) === 1,
+    })),
+    deductions: calculateRows(deductions),
+  }, rateUnit, { dryLaytime: options.dryLaytime, deductFromActual: false });
+  if (Number(result.timeToDemurrage) < 0) {
+    throw Object.assign(new Error('Deductions exceed the time on demurrage. Confirm the contractual treatment before saving.'), { status: 422 });
+  }
+  return result;
+}
+
 /**
  * @returns {{ ok: true } | { ok: false, message: string, field?: string }}
  */
 export function validateTankerLaytimePayload(payload = {}) {
+  if (['activities', 'deductions', 'entityRows'].some((key) => payload[key] != null && !Array.isArray(payload[key]))) {
+    return { ok: false, message: 'Invalid Laytime rows.' };
+  }
   for (const { key, label } of TANKER_MANDATORY_OPERATIONAL_FIELDS) {
     const raw = String(payload[key] ?? '').trim();
     if (!raw) {
@@ -322,6 +352,12 @@ export function validateTankerLaytimePayload(payload = {}) {
 
   const entityDates = validateNamedEntityDates(payload.entityRows);
   if (!entityDates.ok) return entityDates;
+
+  const contradictory = (payload.activities || []).findIndex((row) => !rowIsEmpty(row)
+    && Number(row.ltCounts) === 1 && Number(row.ltNoCounts) === 1);
+  if (contradictory >= 0) {
+    return { ok: false, field: 'activities', message: `Activity #${contradictory + 1} cannot be both LT(C) and LT(NC).` };
+  }
 
   const actPartial = firstInvalidPartial(payload.activities, 'Activity');
   if (!actPartial.ok) return actPartial;

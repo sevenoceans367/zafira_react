@@ -1206,13 +1206,23 @@
   justify-content: center;
 }
 
-.ltToggleLbl {
+.ltCountSwitch {
+  /* The shared switch moves right when checked; C is on the left. */
+  transform: scaleX(-1);
+}
+
+.ltToggleLbl,
+.ltToggleActiveLabel {
   font-size: 10px;
   font-weight: 800;
   color: #5b6472;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   user-select: none;
+}
+
+.ltToggleActiveLabel {
+  color: var(--color-primary-hover, #1b77a6);
 }
 
 .ltTankerRoot .negoAgreedInp { min-width: 60px; max-width: 80px; }

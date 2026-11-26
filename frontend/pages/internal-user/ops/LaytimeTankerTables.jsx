@@ -70,14 +70,15 @@ function TableRowActions({ locked, onInsert, onDelete }) {
 function LtToggle({ counting, disabled, onToggle }) {
   return (
     <div className={styles.ltToggleWrap}>
-      <span className={styles.ltToggleLbl} aria-hidden>C</span>
+      <span className={counting ? styles.ltToggleActiveLabel : styles.ltToggleLbl} aria-hidden>C</span>
       <Toggle
         checked={counting}
         onChange={(event) => onToggle(event.target.checked)}
         disabled={disabled}
         aria-label="Count toward laytime"
+        className={styles.ltCountSwitch}
       />
-      <span className={styles.ltToggleLbl} aria-hidden>NC</span>
+      <span className={counting ? styles.ltToggleLbl : styles.ltToggleActiveLabel} aria-hidden>NC</span>
     </div>
   );
 }

@@ -564,7 +564,8 @@ export function deriveMilestonesFromSofRows(keyOpRows = [], cargoRows = []) {
     return blankDateTime(row?.ACTIVITYDATETIME);
   };
   const firstPilot = keyOpRows.find(({ ACTIVITY = '' }) => /^pilot\s+on\s*board$/i.test(String(ACTIVITY).trim()));
-  const cargo = cargoRows.find(({ ACTIVITY = '' }) => /^(cargo loaded|cargo discharged)$/i.test(String(ACTIVITY).trim()));
+  const cargo = cargoRows.find((row) => /^(cargo loaded|cargo discharged)$/i.test(String(row?.ACTIVITY || '').trim())
+    && (Number(row?.SHIPFIGURE) > 0 || Number(row?.BLFIGURE) > 0));
   const shipFigure = Number(cargo?.SHIPFIGURE) > 0 ? str(cargo.SHIPFIGURE) : '';
   const blFigure = Number(cargo?.BLFIGURE) > 0 ? str(cargo.BLFIGURE) : '';
   return {

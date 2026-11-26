@@ -145,6 +145,10 @@ describe('SOF derived Laytime master defaults', () => {
     assert.equal(deriveMilestonesFromSofRows([], [
       { ACTIVITY: 'Cargo discharged', SHIPFIGURE: '0', BLFIGURE: '24500' },
     ]).stowageQty, '24500');
+    assert.equal(deriveMilestonesFromSofRows([], [
+      { ACTIVITY: 'Cargo Loaded', SHIPFIGURE: '0', BLFIGURE: '' },
+      { ACTIVITY: 'Cargo Discharged', SHIPFIGURE: '27500', BLFIGURE: '27000' },
+    ]).stowageQty, '27500');
   });
 
   it('fills blank saved Laytime fields from SOF/derived values without changing nonblank values', () => {

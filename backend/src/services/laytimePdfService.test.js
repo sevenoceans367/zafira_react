@@ -8,4 +8,13 @@ describe('PDF activity time used', () => {
     assert.equal(computePdfActivityTimeUsed({ duration: '4', ltCounts: true, ltPartial: '0' }, { isDays: false }), 0);
     assert.equal(computePdfActivityTimeUsed({ duration: '4', ltCounts: true, ltPartial: '50' }, { isDays: false }), 2);
   });
+
+  it('treats a blank partial as zero for a Dry form when the port has no rate unit', () => {
+    const form = { rateUnit: 'days' };
+    const port = {};
+    assert.equal(computePdfActivityTimeUsed(
+      { duration: '24', ltCounts: true, ltPartial: '' },
+      { isDays: (port.rateUnit || form.rateUnit) === 'days' },
+    ), 0);
+  });
 });

@@ -212,7 +212,7 @@ function renderPort(doc, form, port) {
   } else {
     activities.forEach((row, idx) => {
       const partial = Number(row.ltPartial);
-      const timeUsed = computePdfActivityTimeUsed(row, { isDays: port.rateUnit === 'days' });
+      const timeUsed = computePdfActivityTimeUsed(row, { isDays: (port.rateUnit || form.rateUnit) === 'days' });
       usedDays += timeUsed / 24;
       tableRow(doc, activityCols, [
         String(idx + 1),

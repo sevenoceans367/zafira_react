@@ -1303,6 +1303,19 @@
 .ltTankerRoot .negoAgreedInp { min-width: 60px; max-width: 80px; }
 .negoTable { min-width: 1040px; }
 .negoTable .negoTotalLabel { text-align: right; padding-right: 16px; }
+.negoStatus[data-status='ON_HOLD'] button[aria-haspopup='listbox'] {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+.negoStatus[data-status='UNDER_NEGO'] button[aria-haspopup='listbox'] {
+  background-color: #fff4e5;
+  color: #9a480e;
+}
+.negoStatus[data-status='COMPLETED'] button[aria-haspopup='listbox'] {
+  background-color: #e8f5ed;
+  color: #166534;
+  font-weight: 700;
+}
 
 .ltBottomDock {
   position: sticky;

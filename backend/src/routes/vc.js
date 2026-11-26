@@ -895,7 +895,7 @@ router.post('/ops/sof', (req, res, next) => {
 
 router.get('/ops/laytime', asyncHandler(async (req, res) => {
   const comId = req.query.comId || req.query.comid;
-  res.json(await getLaytimeForm(comId));
+  res.json(await getLaytimeForm(comId, getRequestUser(req)));
 }));
 
 router.get('/ops/laytime/pdf', asyncHandler(async (req, res) => {
@@ -938,11 +938,11 @@ router.post('/ops/laytime', (req, res, next) => {
     ...body,
     keepFiles: newFiles.length ? [...keepFiles, ...newFiles] : keepFiles,
     keepFileNames: newFiles.length ? [...keepFileNames, ...newNames] : keepFileNames,
-  }));
+  }, getRequestUser(req)));
 }));
 
 router.post('/ops/laytime/open', asyncHandler(async (req, res) => {
-  res.json(await openLaytime(req.body || {}));
+  res.json(await openLaytime(req.body || {}, getRequestUser(req)));
 }));
 
 router.get('/ops/bunker', asyncHandler(async (req, res) => {

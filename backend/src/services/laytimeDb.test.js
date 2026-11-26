@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { blankDateTime, normalizeKeepAttachments, resolvePortSofId, resolvePortRandomId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, mapMasterFields, deriveMilestonesFromSofRows, loadSofDerivedMilestones, upsertLaytimeMaster, replaceActivities, replaceDeductions } from './laytimeDb.js';
+import { blankDateTime, normalizeKeepAttachments, resolvePortSofId, resolvePortRandomId, resolveSaveSofId, positiveSofId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, mapMasterFields, deriveMilestonesFromSofRows, loadSofDerivedMilestones, upsertLaytimeMaster, replaceActivities, replaceDeductions } from './laytimeDb.js';
 import { loadPortTabs as loadSofPortTabs } from './sofDb.js';
 
 describe('laytimeDb blankDateTime', () => {
@@ -24,6 +24,15 @@ describe('laytimeDb SOF links and strict-mode SQL', () => {
     assert.equal(resolvePortSofId({ SOF_LOADPORTID: 11 }, { SOFID: 22 }), 22);
     assert.equal(resolvePortSofId({ SOF_LOADPORTID: 11 }, null), 11);
     assert.equal(resolvePortSofId({ SOF_LOADPORTID: '0' }, null), null);
+  });
+  it('treats nonpositive negotiation SOF links as unset and falls back to the port SOF', () => {
+    for (const value of [0, '0', null, '']) {
+      assert.equal(positiveSofId(value), null);
+      assert.equal(resolveSaveSofId({ existing: { SOF_LOADPORTID: value }, negotiations: true, sof: { SOFID: 42 } }), '42');
+    }
+    assert.equal(resolveSaveSofId({ existing: { SOF_LOADPORTID: 17 }, negotiations: true, sof: { SOFID: 42 } }), '17');
+    assert.equal(resolveSaveSofId({ existing: { SOF_LOADPORTID: 0 }, negotiations: true, payloadSofId: '0', sof: { SOFID: 42 } }), '42');
+    assert.equal(resolveSaveSofId({ payloadSofId: '0', payloadSofLoadPortId: 23, sof: { SOFID: 42 } }), '23');
   });
   it('uses sof_slave rows when no Laytime master exists', async () => {
     const pool = { async query(sql) {

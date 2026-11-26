@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Button, TextInput } from '@bainbridge/shared-ui';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
 import { formatMoneyDisplay } from './laytimeTankerHelpers.js';
+import { formatNegotiationTotal } from './laytimeNegotiations.js';
 import { isBlankOrFiniteNumber } from './laytimeTankerValidation.js';
 import styles from './OpsVcLaytimePage.module.css';
 
@@ -206,6 +207,14 @@ export default function LaytimeSummaryPill({
             {money}
           </div>
         </div>
+        {draft.negotiations && (
+          <div className={styles.ltSumFinalRow}>
+            <MetricLabel label="Negotiation Total (USD)" icon="dollar" />
+            <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal}`}>
+              {formatNegotiationTotal(draft.negotiations.rows)}
+            </div>
+          </div>
+        )}
         <hr className={styles.ltApprovalDivider} />
         <div className={styles.ltApprovalHead}>
           <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}><Icon name="approver" /></div>

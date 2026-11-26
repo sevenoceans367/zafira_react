@@ -332,6 +332,10 @@ export default function LaytimeEditorLayout({
             removeListRow={removeListRow}
             emptyActivityRow={emptyActivityRow}
             emptyDeductionRow={emptyDeductionRow}
+            saving={saving}
+            onChangeNegotiations={(edit) => patchDraft(({ negotiations }) => ({
+              negotiations: { ...edit(negotiations), dirty: true },
+            }))}
           />
 
           {/* REMARKS */}

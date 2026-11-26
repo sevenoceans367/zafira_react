@@ -2,6 +2,7 @@ import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 import { agencyLetterHasColumn } from './agencyLetterDb.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
+import { loadLaytimeNegotiations, prepareLaytimeNegotiations, saveLaytimeNegotiations } from './laytimeNegotiationDb.js';
 import {
   durationForPersist,
   isNamedTankerEntity,
@@ -12,6 +13,13 @@ import {
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
+
+function negotiationActorId(user) {
+  if (!user || !['internal_user', 'mgmt_user', 'rm_user'].includes(user.userType) || String(user.companyId) !== String(COMPANY_ID)
+    || (user.moduleId != null && String(user.moduleId) !== String(MODULE_ID))) return null;
+  const id = Number(user.id);
+  return Number.isInteger(id) && id > 0 && id <= 2147483647 ? id : null;
+}
 
 function blankDateTime(value) {
   if (!value) return '';
@@ -142,26 +150,26 @@ async function getCountryName(pool, countryId) {
   return row?.COUNTRY_NAME || '';
 }
 
-export async function getLatestCostSheetId(pool, comId) {
+export async function getLatestCostSheetId(pool, comId, companyId = null) {
   const [[row]] = await pool.query(
     `SELECT FCAID FROM freight_cost_estimete_master
-     WHERE COMID = ? AND MODULEID = ?
+     WHERE COMID = ? AND MODULEID = ?${companyId ? ' AND MCOMPANYID = ?' : ''}
      ORDER BY FCAID DESC
      LIMIT 1`,
-    [comId, MODULE_ID],
+    companyId ? [comId, MODULE_ID, companyId] : [comId, MODULE_ID],
   );
   return row?.FCAID || null;
 }
 
 /** Same FCAID resolution as GET laytime form: latest sheet, else compare.FCAID. */
-export async function resolveLaytimeFcaId(pool, comId) {
-  const latest = await getLatestCostSheetId(pool, comId);
+export async function resolveLaytimeFcaId(pool, comId, companyId = null) {
+  const latest = await getLatestCostSheetId(pool, comId, companyId);
   if (latest) return latest;
   const [[compare]] = await pool.query(
     `SELECT FCAID FROM freight_cost_estimate_compare
-     WHERE COMID = ? AND MODULEID = ?
+     WHERE COMID = ? AND MODULEID = ?${companyId ? ' AND MCOMPANYID = ?' : ''}
      LIMIT 1`,
-    [comId, MODULE_ID],
+    companyId ? [comId, MODULE_ID, companyId] : [comId, MODULE_ID],
   ).catch(() => [[null]]);
   return compare?.FCAID || null;
 }
@@ -430,14 +438,24 @@ async function loadSofRecord(pool, comId, portType, portId, randomId) {
 
 async function loadLaytimeRecord(pool, comId, portType, portId, randomId) {
   const [[row]] = await pool.query(
-    `SELECT * FROM laytime_master
+    `SELECT *, CAST(LAYTIME_ID AS CHAR) AS resolvedLaytimeId FROM laytime_master
      WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
        AND MODULEID = ? AND MCOMPANYID = ?
        AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-     LIMIT 1`,
+     ORDER BY LAYTIME_ID LIMIT 1`,
     [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
-  return row || null;
+  );
+  return row ? { ...row, LAYTIME_ID: row.resolvedLaytimeId } : null;
+}
+
+async function lockLaytimeRecord(conn, comId, portType, portId, randomId) {
+  const record = await loadLaytimeRecord(conn, comId, portType, portId, randomId);
+  if (!record) return null;
+  const [[current]] = await conn.query(`SELECT * FROM laytime_master
+    WHERE LAYTIME_ID = CAST(? AS SIGNED) AND COMID = ? AND LOGIN = 'INTERNAL_USER'
+      AND MODULEID = ? AND MCOMPANYID = ? AND PORT = ? AND PORTID = ? AND RANDOMID = ? FOR UPDATE`,
+  [record.LAYTIME_ID, comId, MODULE_ID, COMPANY_ID, portType, portId, randomId]);
+  return current ? { ...current, LAYTIME_ID: record.LAYTIME_ID } : null;
 }
 
 function emptyActivity() {
@@ -924,7 +942,7 @@ async function loadLaytimeApprovers(pool) {
 /**
  * PHP laytime_calculation.php — Ops VC Laytime form.
  */
-export async function dbGetLaytimeForm(comId) {
+export async function dbGetLaytimeForm(comId, user) {
   const pool = getPool();
   if (!comId) {
     const error = new Error('COMID is required.');
@@ -933,7 +951,7 @@ export async function dbGetLaytimeForm(comId) {
   }
 
   const [[compare]] = await pool.query(
-    `SELECT c.COMID, c.MESSAGE, c.FCAID, m.VESSEL_IMO_ID, vim.VESSEL_NAME
+    `SELECT c.COMID, c.MESSAGE, c.FCAID, c.MCOMPANYID, m.VESSEL_IMO_ID, vim.VESSEL_NAME
      FROM freight_cost_estimate_compare c
      LEFT JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
@@ -948,7 +966,8 @@ export async function dbGetLaytimeForm(comId) {
     throw error;
   }
 
-  const fcaId = await resolveLaytimeFcaId(pool, comId) || compare.FCAID;
+  const canReadNegotiations = negotiationActorId(user) && String(compare.MCOMPANYID) === String(COMPANY_ID);
+  const fcaId = await resolveLaytimeFcaId(pool, comId, canReadNegotiations ? COMPANY_ID : null) || compare.FCAID;
   const vesselParticulars = await loadVesselParticulars(pool, fcaId);
   const tanker = Number(vesselParticulars.estimateType) === 2;
   const isDry = Number(vesselParticulars.estimateType) === 3;
@@ -1066,6 +1085,7 @@ export async function dbGetLaytimeForm(comId) {
       activities,
       deductions,
       entityRows,
+      ...(canReadNegotiations ? { negotiations: await loadLaytimeNegotiations(pool, laytimeId) } : {}),
     });
   }
 
@@ -1127,6 +1147,7 @@ async function upsertLaytimeMaster(connection, {
   fields,
   attachments,
   attachmentNames,
+  userId,
 }) {
   const paramsCore = [
     fields.terminal,
@@ -1214,7 +1235,7 @@ async function upsertLaytimeMaster(connection, {
     return laytimeId;
   }
 
-  const [result] = await connection.query(
+  await connection.query(
     `INSERT INTO laytime_master (
        COMID, LOGIN, LOGINID, MODULEID, MCOMPANYID, PORT, PORTID, RANDOMID,
        TERMINAL, STOWAGE_QTY, VESSEL_ARRIVED, NOR_TENDERED, NOR_ACCEPTED, START_COUNTING,
@@ -1237,7 +1258,7 @@ async function upsertLaytimeMaster(connection, {
        ?, ?, ?, ?, ?
      )`,
     [
-      comId, appContext.userId || 0, MODULE_ID, COMPANY_ID, portType, portId, randomId,
+      comId, userId, MODULE_ID, COMPANY_ID, portType, portId, randomId,
       ...paramsCore,
     ],
   ).catch(async (err) => {
@@ -1263,7 +1284,7 @@ async function upsertLaytimeMaster(connection, {
        ?, ?, ?, ?, ?
      )`,
     [
-      comId, appContext.userId || 0, MODULE_ID, COMPANY_ID, portType, portId, randomId,
+      comId, userId, MODULE_ID, COMPANY_ID, portType, portId, randomId,
       fields.terminal, fields.stowageQty, fields.vesselArrived, fields.norTendered,
       fields.norAccepted, fields.startCounting, fields.pilotOnBoard,
       fields.loadCommenced, fields.loadCompleted, fields.vesselSailed,
@@ -1277,23 +1298,14 @@ async function upsertLaytimeMaster(connection, {
     );
   });
 
-  let laytimeId = result?.insertId;
-  if (!laytimeId) {
-    const [[maxRow]] = await connection.query(
-      `SELECT MAX(LAYTIME_ID) AS maxId FROM laytime_master
-       WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-         AND PORT = ? AND PORTID = ? AND RANDOMID = ?`,
-      [comId, portType, portId, randomId],
-    );
-    laytimeId = maxRow?.maxId;
-  }
-  return laytimeId;
+  const [[row]] = await connection.query('SELECT CAST(LAST_INSERT_ID() AS CHAR) AS laytimeId');
+  return row.laytimeId === '0' ? null : row.laytimeId;
 }
 
 /**
  * PHP updationLaytimeRecords / openLaytimeRecords — upsert master + replace slaves.
  */
-export async function dbSaveLaytime(payload = {}) {
+export async function dbSaveLaytime(payload = {}, user) {
   const pool = getPool();
   const comId = payload.comId || payload.comid;
   const portType = str(payload.portType || payload.port);
@@ -1309,9 +1321,17 @@ export async function dbSaveLaytime(payload = {}) {
     throw error;
   }
 
+  let negotiations;
+  const userId = negotiationActorId(user);
+  if (payload.negotiations !== undefined) {
+    if (!userId) throw Object.assign(new Error('An authorized internal user is required to save negotiations.'), { status: user ? 403 : 401 });
+    if (action === 'open') throw Object.assign(new Error('Reopen Laytime before saving negotiations.'), { status: 400 });
+    negotiations = prepareLaytimeNegotiations(payload.negotiations);
+  }
+
   // Fail closed for every write path (including Open): unknown Fun158 estimate type
   // must not persist blanked allowance/financials or wipe child rows.
-  const fcaId = await resolveLaytimeFcaId(pool, comId);
+  const fcaId = await resolveLaytimeFcaId(pool, comId, negotiations ? COMPANY_ID : null);
   const particulars = fcaId ? await loadVesselParticulars(pool, fcaId) : { estimateType: null };
   if (laytimeRateUnitFromEstimateType(particulars.estimateType) == null) {
     const error = new Error(
@@ -1329,18 +1349,16 @@ export async function dbSaveLaytime(payload = {}) {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [[existing]] = await connection.query(
-        `SELECT LAYTIME_ID, SUBMITID FROM laytime_master
-         WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-           AND MODULEID = ? AND MCOMPANYID = ?
-           AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-         LIMIT 1`,
-        [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-      );
+      const existing = await lockLaytimeRecord(connection, comId, portType, portId, randomId);
       if (!existing?.LAYTIME_ID) {
         const error = new Error('Laytime record not found to open.');
         error.status = 404;
         throw error;
+      }
+      if (!userId && Number(existing.SUBMITID) === 5) {
+        const [[row]] = await connection.query('SELECT 1 FROM laytime_negotiation WHERE LAYTIME_ID = CAST(? AS SIGNED) LIMIT 1',
+          [existing.LAYTIME_ID]);
+        if (row) throw Object.assign(new Error('An authorized internal user is required to reopen this Laytime.'), { status: user ? 403 : 401 });
       }
       await connection.query(
         `UPDATE laytime_master SET SUBMITID = 0 WHERE LAYTIME_ID = ?`,
@@ -1434,14 +1452,13 @@ export async function dbSaveLaytime(payload = {}) {
   try {
     await connection.beginTransaction();
 
-    const [[existing]] = await connection.query(
-      `SELECT * FROM laytime_master
-       WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-         AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-       LIMIT 1`,
-      [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-    );
+    // Serialize first saves on the existing nomination row; a new port has no master row to lock yet.
+    const [[nomination]] = await connection.query(`SELECT FCAID, MCOMPANYID FROM freight_cost_estimate_compare
+      WHERE COMID = ? AND MODULEID = ? FOR UPDATE`, [comId, MODULE_ID]);
+    if (negotiations && String(nomination?.MCOMPANYID) !== String(COMPANY_ID)) {
+      throw Object.assign(new Error('Laytime nomination not found.'), { status: 404 });
+    }
+    const existing = await lockLaytimeRecord(connection, comId, portType, portId, randomId);
 
     if (existing && Number(existing.SUBMITID) === 5) {
       const error = new Error('This Laytime is locked (Submit & Close).');
@@ -1449,10 +1466,25 @@ export async function dbSaveLaytime(payload = {}) {
       throw error;
     }
 
-    let sofId = strOrNull(payload.sofId || payload.sof_loadportid);
+    if (negotiations && !existing) {
+      let tabs = await loadPortTabs(connection, fcaId, comId, dryLaytime);
+      if (!tabs.length && nomination.FCAID && String(fcaId) !== String(nomination.FCAID)) {
+        tabs = await loadPortTabs(connection, nomination.FCAID, comId, dryLaytime);
+      }
+      if (!tabs.some((tab) => tab.portType === portType && tab.portId === portId && tab.randomId === randomId)) {
+        throw Object.assign(new Error('Laytime port call not found.'), { status: 404 });
+      }
+    }
+
+    let sofId = resolveSaveSofId({
+      existing,
+      negotiations,
+      payloadSofId: payload.sofId,
+      payloadSofLoadPortId: payload.sof_loadportid,
+    });
     if (!sofId) {
       const sof = await loadSofRecord(connection, comId, portType, portId, randomId);
-      sofId = sof?.SOFID != null ? String(sof.SOFID) : null;
+      sofId = positiveSofId(sof?.SOFID);
     }
 
     const attachments = keepFiles != null
@@ -1473,6 +1505,7 @@ export async function dbSaveLaytime(payload = {}) {
       fields,
       attachments,
       attachmentNames,
+      userId: negotiations ? userId : appContext.userId || 0,
     });
 
     if (!laytimeId) {
@@ -1484,6 +1517,7 @@ export async function dbSaveLaytime(payload = {}) {
     await replaceActivities(connection, laytimeId, activities, { failClosed: usesEditor });
     await replaceDeductions(connection, laytimeId, deductions, { failClosed: usesEditor });
     await replaceEntityRows(connection, laytimeId, entityRows, usesEditor);
+    if (negotiations) await saveLaytimeNegotiations(connection, laytimeId, userId, negotiations);
 
     await connection.commit();
     return {
@@ -1498,6 +1532,27 @@ export async function dbSaveLaytime(payload = {}) {
   } finally {
     connection.release();
   }
+}
+
+export function positiveSofId(value) {
+  const raw = strOrNull(value);
+  if (!raw) return null;
+  const num = Number(raw);
+  return Number.isFinite(num) && num > 0 ? raw : null;
+}
+
+export function resolveSaveSofId({
+  existing = null,
+  negotiations = false,
+  payloadSofId = null,
+  payloadSofLoadPortId = null,
+  sof = null,
+} = {}) {
+  const fromExisting = positiveSofId(existing?.SOF_LOADPORTID);
+  const fromPayload = positiveSofId(payloadSofId) || positiveSofId(payloadSofLoadPortId);
+  const fromSof = positiveSofId(sof?.SOFID);
+  if (negotiations) return fromExisting || fromPayload || fromSof;
+  return fromPayload || fromSof;
 }
 
 export function resolvePortSofId(record, sof) {

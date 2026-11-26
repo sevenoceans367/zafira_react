@@ -1,6 +1,6 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
-import { ensureSofActivityDateTimeToColumn } from './sofDb.js';
+import { loadSofRecord } from './sofDb.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
@@ -81,6 +81,18 @@ export function normalizeKeepAttachments(keepFiles, keepFileNames = null) {
     names.push(explicitName || objectName || file);
   });
   return { files, names };
+}
+
+export function mergeLaytimeAttachments(keepFiles, keepFileNames, uploads = []) {
+  const kept = normalizeKeepAttachments(keepFiles, keepFileNames);
+  const added = normalizeKeepAttachments(uploads.map(({ filename, originalname }) => ({
+    file: filename, name: originalname,
+  })));
+  if (!added.files.length) return kept;
+  return {
+    files: [...(kept.files || []), ...added.files],
+    names: [...(kept.names || []), ...added.names],
+  };
 }
 
 function isEmptyDateTime(value) {
@@ -195,8 +207,8 @@ async function loadVesselParticulars(pool, fcaId) {
 /** LP/DP ports from cost-sheet legs — aligned with agency-letter fallbacks (no PASSAGE_TYPE gate). */
 async function loadPortTabs(pool, fcaId, comId = null) {
   const legSql = (withDemurrageRates) => `SELECT FROM_PORT, TO_PORT, RANDOMID, LOAD_PORT_QTY, DISC_PORT_QTY,
-            PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR,
-            LOAD_PORT_COST, DISC_PORT_COST, PASSAGE_TYPE${withDemurrageRates ? ', DEMMRATELP, DEMMRATEDP' : ''}
+            PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR, PORT_COSTTP_VENDOR,
+            LOAD_PORT_COST, DISC_PORT_COST, TRANSIT_PORT_COST, PASSAGE_TYPE${withDemurrageRates ? ', DEMMRATELP, DEMMRATEDP' : ''}
      FROM freight_cost_estimete_slave1
      WHERE FCAID = ?
      ORDER BY FCA_SLAVEID ASC`;
@@ -204,11 +216,8 @@ async function loadPortTabs(pool, fcaId, comId = null) {
   try {
     [legs] = await pool.query(legSql(true), [fcaId]);
   } catch (err) {
-    if (err?.code === 'ER_BAD_FIELD_ERROR') {
-      [legs] = await pool.query(legSql(false), [fcaId]).catch(() => [[]]);
-    } else {
-      [legs] = [[]];
-    }
+    if (err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
+    [legs] = await pool.query(legSql(false), [fcaId]);
   }
 
   const tabs = [];
@@ -340,7 +349,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
        FROM laytime_master
        WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
          AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT IN ('LP', 'DP')
+         AND PORT IN ('LP', 'DP', 'TP')
        ORDER BY LAYTIME_ID ASC`,
       [comId, MODULE_ID, COMPANY_ID],
     ).catch(() => [[]]);
@@ -360,7 +369,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
       `SELECT PORT, PORTID, RANDOMID
        FROM sof_master
        WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT IN ('LP', 'DP')
+         AND PORT IN ('LP', 'DP', 'TP')
        ORDER BY SOFID ASC`,
       [comId, MODULE_ID, COMPANY_ID],
     ).catch(() => [[]]);
@@ -380,41 +389,15 @@ async function loadPortTabs(pool, fcaId, comId = null) {
   return tabs;
 }
 
-/** Same lookup as sofDb.loadSofRecord — seed source when no laytime row exists. */
-async function loadSofRecord(pool, comId, portType, portId, randomId) {
-  const [[internal]] = await pool.query(
-    `SELECT * FROM sof_master
-     WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-       AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-     LIMIT 1`,
-    [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
-
-  if (internal) return internal;
-
-  const [[agent]] = await pool.query(
-    `SELECT * FROM sof_master
-     WHERE COMID = ? AND LOGIN = 'AGENT'
-       AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-       AND SUBMITID = '2'
-     LIMIT 1`,
-    [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
-
-  return agent || null;
-}
-
-async function loadLaytimeRecord(pool, comId, portType, portId, randomId) {
+async function loadLaytimeRecord(pool, comId, portType, portId, randomId, forUpdate = false) {
   const [[row]] = await pool.query(
     `SELECT * FROM laytime_master
      WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
        AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-     LIMIT 1`,
+       AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+     ORDER BY RANDOMID IS NULL, LAYTIME_ID LIMIT 1${forUpdate ? ' FOR UPDATE' : ''}`,
     [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
+  );
   return row || null;
 }
 
@@ -450,7 +433,7 @@ async function loadActivities(pool, laytimeId, sofId) {
     const [rows] = await pool.query(
       `SELECT * FROM laytime_slave WHERE LAYTIME_ID = ?`,
       [laytimeId],
-    ).catch(() => [[]]);
+    );
     if (rows?.length) {
       return rows.map((row) => ({
         activity: str(row.ACTIVITYID ?? row.ACTIVITY),
@@ -469,19 +452,21 @@ async function loadActivities(pool, laytimeId, sofId) {
 
   if (!sofId) return [emptyActivity()];
 
+  // A saved SOF Activity list takes precedence over Key Operations ranges.
   const [legacyRows] = await pool.query(
     `SELECT ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION,
             LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES
      FROM sof_slave WHERE SOFID = ? AND GROUP_NAME = '1' ORDER BY SOF_SLAVEID ASC`,
     [sofId],
-  ).catch(() => [[]]);
+  );
   if (legacyRows?.length) return legacyRows.map((row) => ({
     activity: str(row.ACTIVITYID), start: blankDateTime(row.START_DATETIME), end: blankDateTime(row.FINISH_DATETIME),
     duration: str(row.DURATION), ltCounts: Number(row.LAY_TIME_COUNT) === 1, ltNoCounts: Number(row.PORT_TIME_COUNT) === 1,
     ltPartial: '', cumulative: '', sofLoadPortId: String(sofId), notes: str(row.NOTES),
   }));
 
-  await ensureSofActivityDateTimeToColumn(pool);
+  const [rangeColumns] = await pool.query("SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'");
+  if (!rangeColumns.length) return [emptyActivity()];
   const [sofRows] = await pool.query(
     `SELECT * FROM sof_slave_6
      WHERE SOFID = ?
@@ -491,7 +476,7 @@ async function loadActivities(pool, laytimeId, sofId) {
        AND CAST(ACTIVITYDATETIMETO AS CHAR) NOT LIKE '0000-00-00%'
      ORDER BY ACTIVITYDATETIME ASC`,
     [sofId],
-  ).catch(() => [[]]);
+  );
 
   if (!sofRows?.length) return [emptyActivity()];
   return sofRows.map((row) => ({
@@ -541,15 +526,15 @@ async function loadEntityRows(pool, laytimeId, sofId) {
 
   if (!sofId) return [];
 
-  await ensureSofActivityDateTimeToColumn(pool);
+  const [rangeColumns] = await pool.query("SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'");
   const [sofRows] = await pool.query(
     `SELECT * FROM sof_slave_6
      WHERE SOFID = ?
        AND ACTIVITYDATETIME IS NOT NULL
        AND CAST(ACTIVITYDATETIME AS CHAR) NOT LIKE '0000-00-00%'
-       AND (ACTIVITYDATETIMETO IS NULL
+       ${rangeColumns.length ? `AND (ACTIVITYDATETIMETO IS NULL
             OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
-            OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')
+            OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')` : ''}
      ORDER BY ACTIVITYDATETIME ASC`,
     [sofId],
   ).catch(() => [[]]);
@@ -845,7 +830,7 @@ export async function dbGetLaytimeForm(comId) {
     const record = await loadLaytimeRecord(pool, comId, tab.portType, tab.portId, tab.randomId);
     const sof = await loadSofRecord(pool, comId, tab.portType, tab.portId, tab.randomId);
     const laytimeId = record?.LAYTIME_ID || null;
-    const sofId = resolvePortSofId(record, sof);
+    const sofId = sof?.SOFID ?? null;
     const submitId = record?.SUBMITID != null ? Number(record.SUBMITID) : 0;
     const locked = submitId === 5;
     const sofDerived = await loadSofDerivedMilestones(pool, sofId);
@@ -1112,14 +1097,7 @@ export async function dbSaveLaytime(payload = {}) {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [[existing]] = await connection.query(
-        `SELECT LAYTIME_ID, SUBMITID FROM laytime_master
-         WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-           AND MODULEID = ? AND MCOMPANYID = ?
-           AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-         LIMIT 1`,
-        [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-      );
+      const existing = await loadLaytimeRecord(connection, comId, portType, portId, randomId, true);
       if (!existing?.LAYTIME_ID) {
         const error = new Error('Laytime record not found to open.');
         error.status = 404;
@@ -1193,14 +1171,7 @@ export async function dbSaveLaytime(payload = {}) {
   try {
     await connection.beginTransaction();
 
-    const [[existing]] = await connection.query(
-      `SELECT * FROM laytime_master
-       WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-         AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-       LIMIT 1`,
-      [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-    );
+    const existing = await loadLaytimeRecord(connection, comId, portType, portId, randomId, true);
 
     if (existing && Number(existing.SUBMITID) === 5) {
       const error = new Error('This Laytime is locked (Submit & Close).');
@@ -1208,11 +1179,8 @@ export async function dbSaveLaytime(payload = {}) {
       throw error;
     }
 
-    let sofId = strOrNull(payload.sofId || payload.sof_loadportid);
-    if (!sofId) {
-      const sof = await loadSofRecord(connection, comId, portType, portId, randomId);
-      sofId = sof?.SOFID != null ? String(sof.SOFID) : null;
-    }
+    const sof = await loadSofRecord(connection, comId, portType, portId, randomId);
+    const sofId = sof?.SOFID ?? null;
 
     const attachments = keepFiles != null
       ? keepFiles.join(',')
@@ -1257,12 +1225,6 @@ export async function dbSaveLaytime(payload = {}) {
   } finally {
     connection.release();
   }
-}
-
-export function resolvePortSofId(record, sof) {
-  if (sof?.SOFID != null && Number(sof.SOFID) > 0) return sof.SOFID;
-  if (record?.SOF_LOADPORTID != null && Number(record.SOF_LOADPORTID) > 0) return record.SOF_LOADPORTID;
-  return null;
 }
 
 export function resolvePortRandomId(randomId, fallbackPortId) {

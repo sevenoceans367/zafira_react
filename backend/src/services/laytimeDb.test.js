@@ -1,13 +1,20 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { blankDateTime, normalizeKeepAttachments, resolvePortSofId, resolvePortRandomId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, mapMasterFields, deriveMilestonesFromSofRows, loadSofDerivedMilestones, upsertLaytimeMaster } from './laytimeDb.js';
-import { loadPortTabs as loadSofPortTabs } from './sofDb.js';
+import { blankDateTime, normalizeKeepAttachments, mergeLaytimeAttachments, resolvePortRandomId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, mapMasterFields, deriveMilestonesFromSofRows, loadSofDerivedMilestones, upsertLaytimeMaster } from './laytimeDb.js';
+import { loadPortTabs as loadSofPortTabs, loadSofRecord } from './sofDb.js';
 
 describe('laytimeDb blankDateTime', () => {
   it('preserves DMY date and time strings before native date parsing', () => {
     assert.equal(blankDateTime('04-06-2026 08:00'), '04-06-2026 08:00');
     assert.equal(blankDateTime('10-04-2026 07:30'), '10-04-2026 07:30');
     assert.equal(blankDateTime('4-6-2026 8:05'), '04-06-2026 08:05');
+  });
+  it('keeps upload names paired and retains omission semantics', () => {
+    assert.deepEqual(mergeLaytimeAttachments(undefined, undefined), { files: null, names: null });
+    assert.deepEqual(mergeLaytimeAttachments([{ file: 'a.pdf', name: 'A.pdf' }, 'b.pdf'], [], [
+      { filename: 'c.pdf', originalname: 'C.pdf' },
+      { filename: 'd.pdf', originalname: 'D.pdf' },
+    ]), { files: ['a.pdf', 'b.pdf', 'c.pdf', 'd.pdf'], names: ['A.pdf', 'b.pdf', 'C.pdf', 'D.pdf'] });
   });
 });
 
@@ -20,10 +27,15 @@ describe('laytimeDb normalizeKeepAttachments', () => {
 });
 
 describe('laytimeDb SOF links and strict-mode SQL', () => {
-  it('prefers the port-matched SOF and rejects zero as a link', () => {
-    assert.equal(resolvePortSofId({ SOF_LOADPORTID: 11 }, { SOFID: 22 }), 22);
-    assert.equal(resolvePortSofId({ SOF_LOADPORTID: 11 }, null), 11);
-    assert.equal(resolvePortSofId({ SOF_LOADPORTID: '0' }, null), null);
+  it('only reads an eligible SOF scoped to the full port identity', async () => {
+    const db = { async query(sql, params) {
+      assert.match(sql, /COMID = \? AND MODULEID = \? AND MCOMPANYID = \?/);
+      assert.match(sql, /PORT = \? AND PORTID = \? AND COALESCE\(RANDOMID, PORTID\) = \?/);
+      assert.match(sql, /LOGIN = 'AGENT' AND SUBMITID = '2'/);
+      assert.deepEqual([params[0], ...params.slice(3)], [12, 'TP', '40', '0']);
+      return [[]];
+    } };
+    assert.equal(await loadSofRecord(db, 12, 'TP', '40', '0'), null);
   });
   it('uses sof_slave rows when no Laytime master exists', async () => {
     const pool = { async query(sql) {
@@ -33,6 +45,10 @@ describe('laytimeDb SOF links and strict-mode SQL', () => {
     const rows = await loadActivities(pool, null, 55);
     assert.equal(rows[0].activity, 'Loading cargo');
     assert.equal(rows[0].sofLoadPortId, '55');
+  });
+  it('propagates an activity read failure instead of falling back to a different source', async () => {
+    const failure = new Error('Activity query failed');
+    await assert.rejects(loadActivities({ async query() { throw failure; } }, null, 55), failure);
   });
   it('does not compare DATETIME columns directly to strings', async () => {
     const queries = [];
@@ -59,10 +75,15 @@ describe('SOF port tab rules', () => {
     const legs = [
       { FROM_PORT: 10, TO_PORT: 20, RANDOMID: 0, PASSAGE_TYPE: 1, LOAD_PORT_QTY: 50000, DISC_PORT_QTY: 50000, LOAD_PORT_COST: 0, DISC_PORT_COST: 0, TRANSIT_PORT_COST: 0 },
       { FROM_PORT: 1, TO_PORT: 20, RANDOMID: null, PASSAGE_TYPE: 2, LOAD_PORT_QTY: 0, DISC_PORT_QTY: 20000, PORT_COSTDP_VENDOR: 'V1', LOAD_PORT_COST: 0, DISC_PORT_COST: 1000, DEMMRATEDP: 35000, TRANSIT_PORT_COST: 0 },
-      { FROM_PORT: 30, TO_PORT: 20, RANDOMID: 99, PASSAGE_TYPE: 2, LOAD_PORT_QTY: 0, DISC_PORT_QTY: 0, PORT_COSTTP_VENDOR: 'VTP', LOAD_PORT_COST: 0, DISC_PORT_COST: 0, TRANSIT_PORT_COST: 500 },
+      { FROM_PORT: 30, TO_PORT: 20, RANDOMID: 99, PASSAGE_TYPE: 2, LOAD_PORT_QTY: 0, DISC_PORT_QTY: 0, PORT_COSTTP_VENDOR: 'VTP', LOAD_PORT_COST: 0, DISC_PORT_COST: 0, TRANSIT_PORT_COST: 500,
+        FROMARRIVAL: '10-04-2026 08:00', TOARRIVAL: '11-04-2026 12:00' },
     ];
     const pool = { async query(sql, params) {
-      if (sql.includes('freight_cost_estimete_slave1')) return [legs];
+      if (sql.includes('freight_cost_estimete_slave1')) {
+        assert.match(sql, /PORT_COSTTP_VENDOR/);
+        assert.match(sql, /TRANSIT_PORT_COST/);
+        return [legs];
+      }
       if (sql.includes('FROM port_master')) return [[{ PortName: ports[params[0]], COUNTRY_KEY: '' }]];
       return [[]];
     } };
@@ -72,6 +93,7 @@ describe('SOF port tab rules', () => {
     assert.deepEqual(sofKeys, ['DP-20-20']);
     assert.deepEqual(laytimeTabs.map((tab) => `${tab.portType}-${tab.portId}-${tab.randomId}`), ['DP-20-20', 'TP-30-99']);
     assert.equal(tabs.find((tab) => tab.portType === 'TP')?.portId, '30');
+    assert.equal(tabs.find((tab) => tab.portType === 'TP')?.defaults.portArrival, '10-04-2026 08:00');
     assert.equal(laytimeTabs.find((tab) => tab.portType === 'DP')?.defaults.demurrageRate, '35000');
   });
 
@@ -81,13 +103,16 @@ describe('SOF port tab rules', () => {
       if (sql.includes('freight_cost_estimete_slave1')) return [[]];
       if (sql.includes('FROM port_master')) return [[{ PortName: ports[params[0]], COUNTRY_KEY: '' }]];
       if (sql.includes('FROM laytime_master')) return [[{ PORT: 'LP', PORTID: 40, RANDOMID: 0 }]];
-      if (sql.includes('FROM sof_master')) return [[{ PORT: 'DP', PORTID: 40, RANDOMID: 0 }]];
+      if (sql.includes('FROM sof_master')) {
+        assert.match(sql, /'TP'/);
+        return [[{ PORT: 'DP', PORTID: 40, RANDOMID: 0 }, { PORT: 'TP', PORTID: 40, RANDOMID: null }]];
+      }
       return [[]];
     } };
     const laytimeTabs = await loadLaytimePortTabs(pool, 100, 12);
-    assert.deepEqual(laytimeTabs.map((tab) => `${tab.portType}-${tab.portId}-${tab.randomId}`), ['LP-40-0', 'DP-40-0']);
+    assert.deepEqual(laytimeTabs.map((tab) => `${tab.portType}-${tab.portId}-${tab.randomId}`), ['LP-40-0', 'DP-40-0', 'TP-40-40']);
     const sofTabs = await loadSofPortTabs(pool, 100, 12);
-    assert.deepEqual(sofTabs.map((tab) => `${tab.portType}-${tab.portId}-${tab.randomId}`), ['DP-40-0']);
+    assert.deepEqual(sofTabs.map((tab) => `${tab.portType}-${tab.portId}-${tab.randomId}`), ['DP-40-0', 'TP-40-40']);
   });
 
   it('does not use ballast legs for uncosted LP/DP fallback when laden legs exist', async () => {

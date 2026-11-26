@@ -368,20 +368,21 @@ async function loadPortTabs(pool, fcaId, comId = null) {
     }
 
     if (hasValue(leg.PORT_COSTTP_VENDOR) || Number(leg.TRANSIT_PORT_COST) > 0) {
-      const transitPort = hasValue(leg.FROM_PORT) ? leg.FROM_PORT : leg.TO_PORT;
-      const transitName = hasValue(leg.FROM_PORT) ? fromName : toName;
+      const from = hasValue(leg.FROM_PORT);
+      const transitPort = from ? leg.FROM_PORT : leg.TO_PORT;
+      const transitName = from ? fromName : toName;
       tabs.push({
         portType: 'TP',
         portId: str(transitPort),
         randomId: resolvePortRandomId(leg.RANDOMID, transitPort),
         portName: transitName,
         defaults: {
-          portArrival: blankDateTime(leg.TOARRIVAL),
-          portDeparture: blankDateTime(leg.TODEPARTURE),
-          robFoArrival: str(leg.TOROBFOARRIVAL),
-          robDoArrival: str(leg.TOROBDOARRIVAL),
-          robFoDeparture: str(leg.TOROBFODEPARTURE),
-          robDoDeparture: str(leg.TOROBDODEPARTURE),
+          portArrival: blankDateTime(from ? leg.FROMARRIVAL : leg.TOARRIVAL),
+          portDeparture: blankDateTime(from ? leg.FROMDEPARTURE : leg.TODEPARTURE),
+          robFoArrival: str(from ? leg.FROMROBFOARRIVAL : leg.TOROBFOARRIVAL),
+          robDoArrival: str(from ? leg.FROMROBDOARRIVAL : leg.TOROBDOARRIVAL),
+          robFoDeparture: str(from ? leg.FROMROBFODEPARTURE : leg.TOROBFODEPARTURE),
+          robDoDeparture: str(from ? leg.FROMROBDODEPARTURE : leg.TOROBDODEPARTURE),
         },
       });
     }
@@ -416,7 +417,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
   });
   if (comId) {
     const [saved] = await pool.query(
-      `SELECT PORT, PORTID, RANDOMID FROM sof_master WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ? AND PORT IN ('LP', 'DP') ORDER BY SOFID ASC`,
+      `SELECT PORT, PORTID, RANDOMID FROM sof_master WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ? AND PORT IN ('LP', 'DP', 'TP') ORDER BY SOFID ASC`,
       [comId, MODULE_ID, COMPANY_ID],
     ).catch(() => [[]]);
     for (const row of saved || []) {
@@ -471,7 +472,6 @@ function isSameOrUnlinkedSofId(rowSofId, currentSofId) {
 
 async function copyAgentSofChildrenIfOmitted(connection, { agentSofId, internalSofId, plan }) {
   if (!agentSofId || !internalSofId) return;
-  await ensureSofActivityDateTimeToColumn(connection);
   const copies = [
     ['replaceEntityRows', 'sof_slave_3', 'ENTITY_NAME, ENTITY_VALUE'],
     ['replaceBlRows', 'sof_slave_1', 'BL_DATE, BL_QTY, CARGO'],
@@ -599,29 +599,16 @@ function emptyPreArrival() {
   };
 }
 
-async function loadSofRecord(pool, comId, portType, portId, randomId) {
-  const [[internal]] = await pool.query(
+export async function loadSofRecord(pool, comId, portType, portId, randomId) {
+  const [[record]] = await pool.query(
     `SELECT * FROM sof_master
-     WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-       AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-     LIMIT 1`,
+     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+       AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+       AND (LOGIN = 'INTERNAL_USER' OR (LOGIN = 'AGENT' AND SUBMITID = '2'))
+     ORDER BY (LOGIN = 'INTERNAL_USER') DESC, RANDOMID IS NULL, SOFID DESC LIMIT 1`,
     [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
-
-  if (internal) return internal;
-
-  const [[agent]] = await pool.query(
-    `SELECT * FROM sof_master
-     WHERE COMID = ? AND LOGIN = 'AGENT'
-       AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-       AND SUBMITID = '2'
-     LIMIT 1`,
-    [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
-
-  return agent || null;
+  );
+  return record || null;
 }
 
 async function loadLaytimeData(pool, comId, portType, portId, randomId, estimateType) {
@@ -635,8 +622,8 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId, estimate
     `SELECT LAYTIME_ID, SUBMITID, LAYTIME_ALLOWED FROM laytime_master
      WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
        AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-     LIMIT 1`,
+       AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+     ORDER BY RANDOMID IS NULL, LAYTIME_ID LIMIT 1`,
     [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
   );
 
@@ -1106,45 +1093,26 @@ export async function dbGetSofForm(comId) {
 async function replaceKeyOperationRows(connection, sofId, keyOperations) {
   await connection.query(`DELETE FROM sof_slave_6 WHERE SOFID = ?`, [sofId]);
 
-  const hasToColumn = await ensureSofActivityDateTimeToColumn(connection);
-
   for (const row of keyOperations || []) {
     const activity = String(row.activity || '').trim();
     if (!activity) continue;
     const activityDateTime = parseDmyDateTime(row.activityDateTime);
     const activityDateTimeTo = parseDmyDateTime(row.activityDateTimeTo);
-    if (hasToColumn) {
-      await connection.query(
-        `INSERT INTO sof_slave_6
-          (SOFID, ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          sofId,
-          activity,
-          activityDateTime,
-          activityDateTimeTo,
-          numOrNull(row.robIfo),
-          numOrNull(row.robMdo),
-          str(row.comments),
-          Number(row.tDefault) === 1 ? 1 : 0,
-        ],
-      );
-    } else {
-      await connection.query(
-        `INSERT INTO sof_slave_6
-          (SOFID, ACTIVITY, ACTIVITYDATETIME, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          sofId,
-          activity,
-          activityDateTime,
-          numOrNull(row.robIfo),
-          numOrNull(row.robMdo),
-          str(row.comments),
-          Number(row.tDefault) === 1 ? 1 : 0,
-        ],
-      );
-    }
+    await connection.query(
+      `INSERT INTO sof_slave_6
+        (SOFID, ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        sofId,
+        activity,
+        activityDateTime,
+        activityDateTimeTo,
+        numOrNull(row.robIfo),
+        numOrNull(row.robMdo),
+        str(row.comments),
+        Number(row.tDefault) === 1 ? 1 : 0,
+      ],
+    );
   }
 }
 
@@ -1701,6 +1669,9 @@ export async function dbSaveSof(payload = {}) {
     }
   }
 
+  if (!await ensureSofActivityDateTimeToColumn(pool)) {
+    throw Object.assign(new Error('SOF end date storage is unavailable.'), { status: 503 });
+  }
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -1709,8 +1680,8 @@ export async function dbSaveSof(payload = {}) {
       `SELECT * FROM sof_master
        WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
          AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-       LIMIT 1`,
+         AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+       ORDER BY RANDOMID IS NULL, SOFID DESC LIMIT 1 FOR UPDATE`,
       [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
     );
 
@@ -1791,8 +1762,9 @@ export async function dbSaveSof(payload = {}) {
 
     if (createdInternalSof) {
       const [[agent]] = await connection.query(
-        `SELECT SOFID FROM sof_master WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT = ? AND PORTID = ? AND RANDOMID = ? AND SUBMITID = '2' ORDER BY SOFID DESC LIMIT 1`,
+        `SELECT SOFID FROM sof_master WHERE COMID = ? AND LOGIN = 'AGENT' AND MODULEID = ? AND MCOMPANYID = ?
+         AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+         AND SUBMITID = '2' ORDER BY RANDOMID IS NULL, SOFID DESC LIMIT 1`,
         [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
       );
       if (agent?.SOFID) await copyAgentSofChildrenIfOmitted(connection, { agentSofId: agent.SOFID, internalSofId: sofId, plan });
@@ -1828,8 +1800,8 @@ export async function dbSaveSof(payload = {}) {
         `SELECT LAYTIME_ID, SUBMITID, LAYTIME_ALLOWED FROM laytime_master
          WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
            AND MODULEID = ? AND MCOMPANYID = ?
-           AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-         LIMIT 1 FOR UPDATE`,
+           AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+         ORDER BY RANDOMID IS NULL, LAYTIME_ID LIMIT 1 FOR UPDATE`,
         [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
       );
 

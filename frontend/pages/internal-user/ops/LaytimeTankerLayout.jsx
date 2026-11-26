@@ -403,6 +403,7 @@ export default function LaytimeTankerLayout({
                     <Button
                       type="button"
                       variant="saveOutline"
+                      icon="lock"
                       label="Close Laytime"
                       onClick={() => handleSubmit(5)}
                       disabled={saving || unitUnknown}

@@ -939,7 +939,10 @@
 
 /* ===== Laytime editor shared by Tanker and Dry ===== */
 
-.ltTankerRoot { min-width: 0; }
+.ltTankerRoot {
+  --lt-cobalt: #3b82f6;
+  min-width: 0;
+}
 
 /* Breathing room between LP/DP port pills and the Details card. */
 .ltPortTabs {
@@ -1271,7 +1274,6 @@
 }
 
 .ltToggleWrap {
-  --lt-cobalt: #3b82f6;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -1281,6 +1283,10 @@
 .ltCountSwitch {
   /* The shared switch moves right when checked; C is on the left. */
   transform: scaleX(-1);
+}
+
+.ltCountSwitch,
+.ltOption {
   --color-primary-hover: var(--lt-cobalt);
 }
 

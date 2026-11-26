@@ -1002,20 +1002,6 @@
   margin-top: 1px;
 }
 
-.cfSectionBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.08);
-  font-size: 10.5px;
-  font-weight: 800;
-  color: #5b6472;
-  padding: 0 6px;
-}
-
 .sectionIco {
   display: inline-flex;
   align-items: center;
@@ -1032,74 +1018,19 @@
 .sectionIcoNavy { background: #e6eaf1; color: #274670; }
 
 .sectionHeadRight {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  max-width: 100%;
+  margin-inline-start: auto;
 }
 
-.sectionSearchBox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #fff;
-  border: 1px solid #dfe2e7;
-  border-radius: 8px;
-  padding: 6px 10px;
-  min-width: 160px;
-}
-
-.sectionSearchBox svg { flex: none; color: #8a93a2; }
-
-.sectionSearchInp {
-  border: none;
-  outline: none;
-  background: transparent;
-  font-family: inherit;
-  font-size: 11.5px;
-  color: #1b2430;
-  width: 100%;
-}
-
-.sectionSearchBox:focus-within {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
-}
-
-.sectionSearchInp::placeholder {
-  color: #5b6472;
-  font-style: italic;
-}
-
-.sectionPagination {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.pgBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid #dfe2e7;
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-  color: #5b6472;
+.sectionHeadRight .sectionPagination {
+  width: auto;
   padding: 0;
 }
 
-.pgBtn:disabled { opacity: 0.35; cursor: default; }
-.pgBtn:hover:not(:disabled) { background: #f1f2f4; }
-.pgBtn svg { width: 12px; height: 12px; }
-
-.pgLabel {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #5b6472;
-  white-space: nowrap;
-  padding: 0 2px;
+.ltOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Port tabs: reuse OpsVcSofTanker.module.css .portTab / .portTabActive (no local LP/DP fills). */
@@ -1240,26 +1171,7 @@
 
 .cfTable tbody tr:hover td { background: #fafbfc; }
 
-/* Tanker input tweaks — must NOT redeclare bare .cfInp / .ltNotesSm (Dry/Gas leak). */
-.ltTankerRoot .cfInp {
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: #1b2430;
-  background: #fff;
-  border: 1px solid #b8bfc9;
-  border-radius: 7px;
-  padding: 7px 9px;
-  width: 100%;
-  min-width: 80px;
-  box-sizing: border-box;
-}
-
-.ltTankerRoot .cfInp:focus-visible {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.28);
-  outline: none;
-}
+.ltTankerRoot .tableInput { min-width: 0; }
 
 .ltTankerRoot .cfInpInvalid,
 .ltSumInp.cfInpInvalid {
@@ -1267,25 +1179,9 @@
   background: #fdecea;
 }
 
-.ltTankerRoot .cfInp::placeholder {
-  color: #5b6472;
-  font-style: italic;
-}
-
 .numSm { min-width: 60px; text-align: right; max-width: 80px; }
-.durAuto,
-.cumRo {
-  background: #f1f2f4;
-  color: #5b6472;
-  font-weight: 700;
-}
-
 /* Negative cumulative: keep red semantic hue with stronger contrast on #f1f2f4. */
-.cumNegative,
-.ltTankerRoot .cumRo.cumNegative,
-.ltTankerRoot .cfInp.cumNegative,
-.ltTankerRoot .cfInp.cumNegative:disabled,
-.ltTankerRoot .cfInp.cumNegative:read-only {
+.ltTankerRoot .tableInput.cumNegative {
   color: #b42318;
   -webkit-text-fill-color: #b42318;
   opacity: 1;
@@ -1293,56 +1189,9 @@
 }
 
 .ltTankerRoot .ltNotesSm {
-  font-family: inherit;
-  font-size: 12px;
-  color: #1b2430;
-  background: #fff;
-  border: 1px solid #dfe2e7;
-  border-radius: 7px;
-  padding: 7px 9px;
-  width: 100%;
   min-width: 112px;
-  height: 34px;
   min-height: 34px;
-  resize: vertical;
-  box-sizing: border-box;
 }
-
-.ltTankerRoot .ltNotesSm::placeholder,
-.ltTankerRoot .cfEmptyRow td { color: #5b6472; }
-
-.rowActionsCell {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sqBtn {
-  flex: none;
-  border: 2px solid transparent;
-  outline: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  background: none;
-  border-radius: 8px;
-  padding: 0;
-  min-width: 24px;
-  min-height: 24px;
-}
-
-.sqBtn:focus-visible {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
-}
-
-.sqAdd { width: 24px; height: 24px; color: #3b82f6; }
-.sqAdd svg { width: 14px; height: 14px; }
-.sqAdd:hover { background: #eaf1fe; }
-.sqDel { width: 24px; height: 24px; color: #e4483b; }
-.sqDel svg { width: 14px; height: 14px; }
-.sqDel:hover { background: #fdecea; }
 
 .totalsRow td {
   background: #f1f2f4;
@@ -1366,105 +1215,9 @@
   user-select: none;
 }
 
-.ltToggleLblActiveC { color: #1d4ed8; }
-.ltToggleLblActiveNc { color: #374151; }
-
-.ltToggle {
-  position: relative;
-  display: inline-flex;
-  cursor: pointer;
-}
-
-.ltToggleInp {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.ltToggleTrack {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-  background: #3b82f6;
-  border-radius: 10px;
-  transition: background 0.2s;
-}
-
-.ltToggleInp:focus-visible + .ltToggleTrack {
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3b82f6;
-}
-
-.ltToggleInp:checked + .ltToggleTrack { background: #5b6472; }
-
-.ltToggleThumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-  transition: left 0.2s;
-}
-
-.ltToggleInp:checked + .ltToggleTrack .ltToggleThumb { left: 18px; }
-
-.negoEntitySelect,
-.negoStatusSelect {
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: #1b2430;
-  background: #fff;
-  border: 1px solid #dfe2e7;
-  border-radius: 7px;
-  padding: 7px 9px;
-  width: 100%;
-  cursor: pointer;
-}
-
-.statusOnhold { background-color: #eef0f3; color: #5b6472; border-color: #dfe2e7; }
-.statusUnderNego { background-color: #fdece4; color: #b45309; border-color: #fbd9c9; }
-.statusCompleted { background-color: #e8f8ec; color: #0a7a28; border-color: #bfe6c6; font-weight: 700; }
-
 .ltTankerRoot .negoAgreedInp { min-width: 60px; max-width: 80px; }
 .negoTable { min-width: 1040px; }
 .negoTable .negoTotalLabel { text-align: right; padding-right: 16px; }
-
-.negoEntityFilter {
-  display: inline-flex;
-  gap: 2px;
-  margin-left: 6px;
-  vertical-align: middle;
-}
-
-.negEfBtn {
-  font-size: 9px;
-  font-weight: 800;
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid #dfe2e7;
-  background: #fff;
-  color: #5b6472;
-  cursor: pointer;
-  font-family: inherit;
-  text-transform: uppercase;
-  line-height: 1.4;
-}
-
-.negEfBtnActive {
-  background: #274670;
-  color: #fff;
-  border-color: #274670;
-}
-
-.negEfBtn:hover:not(.negEfBtnActive) {
-  background: #f1f2f4;
-  color: #5b6472;
-}
 
 .ltBottomDock {
   position: sticky;
@@ -1616,23 +1369,7 @@
 .ltSummaryHeadTitle { font-size: 13px; font-weight: 800; color: #1b2430; }
 .ltSummaryHeadSub { font-size: 10.5px; color: #5b6472; font-weight: 600; }
 
-.fabCloseBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 7px;
-  cursor: pointer;
-  color: #5b6472;
-  margin-left: auto;
-  flex: none;
-}
-
-.fabCloseBtn:hover { background: rgba(0, 0, 0, 0.12); }
-.fabCloseBtn svg { width: 14px; height: 14px; }
+.ltSummaryHead .fabCloseBtn { margin-left: auto; }
 
 .ltSummaryBody {
   padding: 12px 14px 14px;
@@ -1656,20 +1393,6 @@
 .ltSummaryFabExpanded .sectionIco svg {
   width: 13px;
   height: 13px;
-}
-
-.ltSummaryFabExpanded :global(.tagField),
-.ltSummaryFabExpanded .tagField {
-  gap: 4px;
-}
-
-.ltSummaryFabExpanded .tagMenu {
-  top: auto;
-  bottom: calc(100% + 4px);
-  z-index: 30;
-  max-height: 220px;
-  overflow-y: auto;
-  box-shadow: 0 -8px 24px rgba(20, 26, 40, 0.16);
 }
 
 .ltSumItemPanel { display: flex; flex-direction: column; gap: 3px; }
@@ -1722,20 +1445,7 @@
   pointer-events: none;
 }
 
-.ltSumInp {
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 800;
-  color: #2b3444;
-  background: #fff;
-  border: 1px solid #dfe2e7;
-  border-radius: 7px;
-  padding: 4px 8px;
-  width: 100%;
-  min-width: 0;
-  height: 30px;
-  box-sizing: border-box;
-}
+.ltSumInp { min-width: 0; }
 
 .ltSumFieldBox .ltSumInp,
 .ltSumFieldBox .ltSumComputed { padding-right: 32px; flex: 1; }
@@ -1797,11 +1507,6 @@
 
 .ltActionBtns :global(button) { flex: 1; }
 
-.tagChipOrange {
-  background: #fdece4 !important;
-  color: #9a3412 !important;
-}
-
 @container lt-summary (max-width: 360px) {
   .ltSumGrid { grid-template-columns: 1fr; }
   .ltSumFinalRow { align-items: stretch; flex-direction: column; gap: 6px; }
@@ -1841,7 +1546,6 @@
   .ltTankerRoot .ltSummaryHead { padding: 8px; gap: 6px; }
   .ltTankerRoot .ltSummaryHead .sectionIco { display: none; }
   .ltTankerRoot .ltSummaryHeadSub { overflow-wrap: anywhere; }
-  .ltTankerRoot .ltSummaryFabExpanded .tagInput { min-width: 0; }
   .ltTankerRoot .sofFooterNote {
     max-width: 100%;
     font-size: 11px;
@@ -1861,8 +1565,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ltSummaryFab,
-  .ltSummaryFabExpanded,
-  .ltToggleTrack { transition: none; }
+  .ltSummaryFabExpanded { transition: none; }
   .ltSummaryFabExpanded { animation: none; }
 }
 

@@ -14,6 +14,8 @@ export function bunkerGradeChipClass(gradeName) {
 }
 
 export default function CountryMultiSelect({
+  id,
+  ariaLabel,
   options = [],
   value = [],
   onChange,
@@ -121,12 +123,22 @@ export default function CountryMultiSelect({
       style={menuStyle}
       role="listbox"
       aria-multiselectable="true"
+      aria-label={ariaLabel}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+        setQuery('');
+        rootRef.current?.querySelector('button')?.focus();
+      }}
     >
       <input
         className={styles.search}
         type="search"
         value={query}
         placeholder={searchPlaceholder}
+        aria-label={searchPlaceholder}
         autoFocus
         onChange={(event) => setQuery(event.target.value)}
         onClick={(event) => event.stopPropagation()}
@@ -186,6 +198,8 @@ export default function CountryMultiSelect({
       <button
         type="button"
         className={styles.control}
+        id={id}
+        aria-label={ariaLabel}
         disabled={disabled}
         aria-expanded={open}
         aria-haspopup="listbox"

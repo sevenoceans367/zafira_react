@@ -42,6 +42,7 @@ function RowsPerPageSelect({
   pageSize,
   onPageSizeChange,
   options = PAGE_SIZE_OPTIONS,
+  ariaLabel = 'Rows per page',
 }) {
   const selectOptions = useMemo(
     () => options.map((size) => ({ id: String(size), name: `${size} / page` })),
@@ -55,7 +56,7 @@ function RowsPerPageSelect({
       value={String(pageSize)}
       onChange={(next) => onPageSizeChange(Number(next))}
       placeholder="Rows / page"
-      ariaLabel="Rows per page"
+      ariaLabel={ariaLabel}
       align="start"
       tone="muted"
     />

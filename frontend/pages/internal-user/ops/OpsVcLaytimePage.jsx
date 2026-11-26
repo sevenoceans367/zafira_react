@@ -5,6 +5,8 @@ import {
   AttachmentDropzone,
   DmyDateInput,
   LoadingOverlay,
+  CardSelect,
+  TextInput,
   useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
@@ -304,7 +306,7 @@ function approverLabel(options, id) {
   return match?.name ?? match?.label ?? String(id);
 }
 
-function ApproverTagField({ options, value, onChange, disabled, orangeChips = false, restrictToOptions = false }) {
+function ApproverTagField({ options, value, onChange, disabled }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
@@ -346,14 +348,14 @@ function ApproverTagField({ options, value, onChange, disabled, orangeChips = fa
       const name = String(opt.name ?? opt.label ?? '').toLowerCase();
       return id.toLowerCase() === typed.toLowerCase() || name === typed.toLowerCase();
     });
-    if (match || !restrictToOptions) addId(match ? String(match.id ?? match.value ?? '') : typed);
+    addId(match ? String(match.id ?? match.value ?? '') : typed);
   };
 
   return (
     <div className={styles.tagField} ref={rootRef} data-field="approvers">
       <div className={styles.tagBox} onClick={() => rootRef.current?.querySelector('input')?.focus()}>
         {selected.map((id) => (
-          <span key={id} className={`${styles.tagChip} ${orangeChips ? styles.tagChipOrange : ''}`.trim()}>
+          <span key={id} className={styles.tagChip}>
             <span>{approverLabel(options, id)}</span>
             {!disabled ? (
               <button
@@ -370,13 +372,13 @@ function ApproverTagField({ options, value, onChange, disabled, orangeChips = fa
             ) : null}
           </span>
         ))}
-        <input
+        <TextInput
           id="approvers"
           className={styles.tagInput}
           value={query}
           disabled={disabled}
           aria-label="Assign an Approver"
-          placeholder={selected.length ? 'Add another…' : restrictToOptions ? 'Search approvers…' : 'Type a name or username, then Enter'}
+          placeholder={selected.length ? 'Add another…' : 'Type a name or username, then Enter'}
           onFocus={() => setOpen(true)}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -398,8 +400,7 @@ function ApproverTagField({ options, value, onChange, disabled, orangeChips = fa
       {open && !disabled && available.length ? (
         <div
           className={styles.tagMenu}
-          role={restrictToOptions ? 'group' : 'listbox'}
-          aria-label={restrictToOptions ? 'Eligible approvers' : undefined}
+          role="listbox"
         >
           {available.slice(0, 8).map((opt) => {
             const id = String(opt.id ?? opt.value ?? '');
@@ -936,7 +937,6 @@ export default function OpsVcLaytimePage() {
             pendingFiles={pendingFiles}
             approverOptions={approverOptions}
             LtDateField={LtDateField}
-            ApproverTagField={ApproverTagField}
             patchDraft={patchDraft}
             updateListRow={updateListRow}
             insertListRow={insertListRow}
@@ -1168,16 +1168,19 @@ export default function OpsVcLaytimePage() {
                       <div className={styles.ltOptionsRow}>
                         <div className={styles.ltOptItem}>
                           <label htmlFor="laytimeApplicable">Laytime Applicable</label>
-                          <select
+                          <CardSelect
                             id="laytimeApplicable"
+                            ariaLabel="Laytime Applicable"
+                            options={[
+                              { value: '1', label: 'Yes' },
+                              { value: '0', label: 'No' },
+                              { value: '2', label: 'N.A.' },
+                            ]}
                             value={String(draft.laytimeApplicable ?? '1')}
-                            onChange={(e) => patchDraft({ laytimeApplicable: e.target.value })}
+                            onChange={(value) => patchDraft({ laytimeApplicable: value })}
                             disabled={locked}
-                          >
-                            <option value="1">Yes</option>
-                            <option value="0">No</option>
-                            <option value="2">N.A.</option>
-                          </select>
+                            align="start"
+                          />
                         </div>
                         <div className={`${styles.ltOptItem} ${styles.ltOptGrow}`}>
                           <label htmlFor="portNameManual">Port Name (Manual)</label>

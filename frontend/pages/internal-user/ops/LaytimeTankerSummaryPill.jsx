@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Button } from '@bainbridge/shared-ui';
+import { Button, TextInput } from '@bainbridge/shared-ui';
+import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
 import { formatMoneyDisplay } from './laytimeTankerHelpers.js';
 import { isBlankOrFiniteNumber } from './laytimeTankerValidation.js';
 import styles from './OpsVcLaytimePage.module.css';
@@ -11,7 +12,6 @@ const iconPaths = {
   warning: <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01" />,
   check: <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4l-10 10-3-3" />,
   dollar: <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />,
-  close: <path d="m6 9 6 6 6-6" />,
   approver: <><circle cx="9" cy="7" r="4" /><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m4-13v6m-3-3h6" /></>,
 };
 
@@ -50,7 +50,7 @@ function SummaryMetric({ metric, value, unit, disabled, onChange }) {
   const invalid = editable && !isBlankOrFiniteNumber(value);
   const warning = tone === 'Red' && Number(value) > 0;
   const field = editable ? (
-    <input
+    <TextInput
       id={key}
       className={`${styles.ltSumInp} ${invalid ? styles.cfInpInvalid : ''}`}
       inputMode="decimal"
@@ -87,7 +87,6 @@ export default function LaytimeTankerSummaryPill({
   unitUnknown,
   saving,
   approverOptions,
-  ApproverTagField,
   setApprovers,
   onPatchDraft,
   onSendForApproval,
@@ -95,6 +94,13 @@ export default function LaytimeTankerSummaryPill({
   const panelRef = useRef(null);
   const fabRef = useRef(null);
   const wasOpenRef = useRef(false);
+  const selectedApprovers = draft.approvers ?? [];
+  const selectableApprovers = [
+    ...approverOptions,
+    ...selectedApprovers
+      .filter((id) => !approverOptions.some((option) => String(option.id) === id))
+      .map((id) => ({ id, name: id })),
+  ];
   const unavailable = draft.calcUnavailable;
   const unit = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAY' : '—';
   const computed = (key) => unavailable ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
@@ -121,7 +127,7 @@ export default function LaytimeTankerSummaryPill({
     if (!open) return;
     const closeOnOutside = ({ target }) => {
       const formControl = target.closest?.(
-        'input, select, textarea, button, label, a, td, th, .flatpickr-calendar, [data-attachment-dropzone], [data-laytime-interactive]',
+        'input, select, textarea, button, label, a, td, th, [role="listbox"], .flatpickr-calendar, [data-attachment-dropzone], [data-laytime-interactive]',
       );
       if (!panelRef.current?.contains(target) && !formControl) onClose();
     };
@@ -172,9 +178,7 @@ export default function LaytimeTankerSummaryPill({
             {unavailable ? 'Calculations unavailable. Correct the highlighted fields.' : 'Laytime calculation results'}
           </div>
         </div>
-        <button type="button" className={styles.fabCloseBtn} onClick={onClose} aria-label="Minimize summary">
-          <Icon name="close" />
-        </button>
+        <Button className={styles.fabCloseBtn} icon="chevron-down" iconOnly onClick={onClose} ariaLabel="Minimize summary" />
       </div>
       <div className={styles.ltSummaryBody}>
         <div className={styles.ltSumGrid}>
@@ -200,14 +204,20 @@ export default function LaytimeTankerSummaryPill({
           <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}><Icon name="approver" /></div>
           <span className={styles.ltApprovalTitle}>Assign an Approver</span>
         </div>
-        <ApproverTagField
-          options={approverOptions}
-          value={draft.approvers ?? []}
-          onChange={setApprovers}
-          disabled={locked}
-          orangeChips
-          restrictToOptions
-        />
+        <div data-field="approvers">
+          <CountryMultiSelect
+            id="approvers"
+            ariaLabel="Assign an Approver"
+            options={selectableApprovers}
+            value={selectedApprovers}
+            onChange={setApprovers}
+            disabled={locked}
+            placeholder="Choose approvers"
+            searchPlaceholder="Search approvers"
+            variant="card"
+            chipTone="cargo"
+          />
+        </div>
         {!locked ? (
           <div className={styles.ltActionBtns}>
             <Button

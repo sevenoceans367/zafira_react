@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  CardSelect, HeaderFilterControls, PageHeaderSearch, RowActions, RowAddButton, RowDelButton,
+  Textarea, TextInput, Toggle,
+} from '@bainbridge/shared-ui';
+import { PAGE_SIZE_OPTIONS, RowsPerPageSelect } from '../sopf/ScrollableTable.jsx';
+import SopfPagination from '../sopf/SopfPagination.jsx';
+import {
   LAYTIME_TANKER_PAGE_SIZE,
   applyLaytimeActivityLtToggle,
   filterRowsByQuery,
@@ -17,109 +23,76 @@ function rowDateInvalid(row) {
   return !validateDateRangeOrder(row?.start, row?.end).ok;
 }
 
-function SearchIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="11" cy="11" r="8" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  );
-}
+const PAGE_SIZES = [LAYTIME_TANKER_PAGE_SIZE, ...PAGE_SIZE_OPTIONS];
 
-function SectionHeadRight({
-  search,
-  onSearch,
-  searchPlaceholder,
-  count,
-  page,
-  totalPages,
-  onPrev,
-  onNext,
-}) {
+function SectionHeadRight({ pagination, section, searchPlaceholder, entityFilter }) {
   return (
-    <div className={styles.sectionHeadRight}>
-      <div className={styles.sectionSearchBox} data-laytime-interactive>
-        <SearchIcon />
-        <input
-          type="text"
-          className={styles.sectionSearchInp}
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
+    <div className={styles.sectionHeadRight} data-laytime-interactive>
+      <HeaderFilterControls>
+        {entityFilter}
+        <PageHeaderSearch
+          value={pagination.search}
+          onChange={pagination.setSearch}
           placeholder={searchPlaceholder}
           aria-label={searchPlaceholder}
+          showShortcut={false}
         />
-      </div>
-      <span className={styles.cfSectionBadge}>{count}</span>
-      <div className={styles.sectionPagination}>
-        <button type="button" className={styles.pgBtn} disabled={page <= 1} onClick={onPrev} title="Previous page" aria-label="Previous page">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-        <span className={styles.pgLabel}>{page} / {totalPages}</span>
-        <button type="button" className={styles.pgBtn} disabled={page >= totalPages} onClick={onNext} title="Next page" aria-label="Next page">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <polyline points="9 6 15 12 9 18" />
-          </svg>
-        </button>
-      </div>
+        <RowsPerPageSelect
+          pageSize={pagination.pageSize}
+          onPageSizeChange={pagination.setPageSize}
+          options={PAGE_SIZES}
+          ariaLabel={`${section} rows per page`}
+        />
+        <SopfPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={pagination.filteredCount}
+          onPageChange={pagination.setPage}
+          ariaLabel={section}
+          selectPage
+          className={styles.sectionPagination}
+        />
+      </HeaderFilterControls>
     </div>
   );
 }
 
-function RowActions({ locked, onInsert, onDelete }) {
+function TableRowActions({ locked, onInsert, onDelete }) {
   if (locked) return null;
   return (
-    <div className={styles.rowActionsCell}>
-      <button type="button" className={`${styles.sqBtn} ${styles.sqAdd}`} title="Insert row below" onClick={onInsert} aria-label="Insert row below">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
-      <button type="button" className={`${styles.sqBtn} ${styles.sqDel}`} title="Delete row" onClick={onDelete} aria-label="Delete row">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
-    </div>
+    <RowActions>
+      <RowAddButton title="Insert row below" onClick={onInsert} />
+      <RowDelButton onClick={onDelete} />
+    </RowActions>
   );
 }
 
 function LtToggle({ counting, disabled, onToggle }) {
   return (
     <div className={styles.ltToggleWrap}>
-      <span className={`${styles.ltToggleLbl} ${counting ? styles.ltToggleLblActiveC : ''}`} aria-hidden>C</span>
-      <label className={styles.ltToggle}>
-        <input
-          type="checkbox"
-          className={styles.ltToggleInp}
-          checked={!counting}
-          disabled={disabled}
-          onChange={(e) => onToggle(!e.target.checked)}
-          aria-label="Not counting"
-          aria-checked={!counting}
-        />
-        <span className={styles.ltToggleTrack} aria-hidden>
-          <span className={styles.ltToggleThumb} />
-        </span>
-      </label>
-      <span className={`${styles.ltToggleLbl} ${!counting ? styles.ltToggleLblActiveNc : ''}`} aria-hidden>NC</span>
+      <span className={styles.ltToggleLbl} aria-hidden>C</span>
+      <Toggle
+        checked={counting}
+        onChange={(event) => onToggle(event.target.checked)}
+        disabled={disabled}
+        aria-label="Count toward laytime"
+      />
+      <span className={styles.ltToggleLbl} aria-hidden>NC</span>
     </div>
   );
 }
 
-function usePagedSearch(rows, fields, entity = '') {
+function usePagedSearch(rows, fields, portKey, entity = '') {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(LAYTIME_TANKER_PAGE_SIZE);
   const matches = filterRowsByQuery(rows, search, fields);
   const filtered = entity ? matches.filter(({ row }) => row.entity === entity) : matches;
-  const paged = paginateRows(filtered, page, LAYTIME_TANKER_PAGE_SIZE);
+  const paged = paginateRows(filtered, page, pageSize);
 
   useEffect(() => {
     setPage(1);
-  }, [search, rows?.length]);
+  }, [portKey]);
 
   useEffect(() => {
     if (page > paged.totalPages) setPage(paged.totalPages);
@@ -127,26 +100,26 @@ function usePagedSearch(rows, fields, entity = '') {
 
   return {
     search,
-    setSearch,
+    setSearch: (value) => { setSearch(value); setPage(1); },
     page: paged.safePage,
     setPage,
-    totalPages: paged.totalPages,
+    pageSize,
+    setPageSize: (value) => { setPageSize(value); setPage(1); },
     items: paged.items,
     filteredCount: filtered.length,
   };
 }
 
 const DIALOGUE_FIELDS = ['entity', 'date', 'reason', 'agreedDemm', 'status', 'notes'];
-const ENTITY_FILTERS = [
-  { value: '', label: 'All', title: 'All entities' },
-  { value: 'Charterer', label: 'C', title: 'Charterer only' },
-  { value: 'Owner', label: 'O', title: 'Owner only' },
+const DIALOGUE_ENTITIES = [
+  { value: 'Charterer', label: 'Charterer' },
+  { value: 'Owner', label: 'Owner' },
 ];
-const STATUS_STYLES = {
-  'On Hold': styles.statusOnhold,
-  'Under Nego': styles.statusUnderNego,
-  Completed: styles.statusCompleted,
-};
+const ENTITY_FILTERS = [{ value: '', label: 'All entities' }, ...DIALOGUE_ENTITIES];
+const DIALOGUE_STATUSES = ['On Hold', 'Under Nego', 'Completed'].map((status) => ({
+  value: status,
+  label: status,
+}));
 const INITIAL_DIALOGUES = [emptyDialogue()];
 
 function emptyDialogue(id = 0, entity = 'Charterer') {
@@ -165,7 +138,7 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
   const [entity, setEntity] = useState('');
   const nextId = useRef(1);
   const rows = rowsByPort[portKey] ?? INITIAL_DIALOGUES;
-  const page = usePagedSearch(rows, DIALOGUE_FIELDS, entity);
+  const page = usePagedSearch(rows, DIALOGUE_FIELDS, portKey, entity);
   const total = rows.reduce((sum, row) => sum + (readMockAmount(row.agreedDemm) ?? 0), 0);
 
   const editRows = (edit) => setRowsByPort((current) => ({
@@ -203,14 +176,17 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
           </div>
         </div>
         <SectionHeadRight
-          search={page.search}
-          onSearch={page.setSearch}
+          pagination={page}
+          section="Nego dialogues"
           searchPlaceholder="Search dialogues..."
-          count={page.filteredCount}
-          page={page.page}
-          totalPages={page.totalPages}
-          onPrev={() => page.setPage(page.page - 1)}
-          onNext={() => page.setPage(page.page + 1)}
+          entityFilter={(
+            <CardSelect
+              options={ENTITY_FILTERS}
+              value={entity}
+              onChange={(value) => { setEntity(value); page.setPage(1); }}
+              ariaLabel="Filter dialogues by entity"
+            />
+          )}
         />
       </div>
       <div className={styles.tableWrap}>
@@ -218,21 +194,7 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>
-              <th style={{ minWidth: 110 }}>
-                Entity
-                <span className={styles.negoEntityFilter} role="group" aria-label="Filter dialogues by entity">
-                  {ENTITY_FILTERS.map(({ value, label, title }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      className={`${styles.negEfBtn} ${entity === value ? styles.negEfBtnActive : ''}`}
-                      aria-label={title}
-                      aria-pressed={entity === value}
-                      onClick={() => { setEntity(value); page.setPage(1); }}
-                    >{label}</button>
-                  ))}
-                </span>
-              </th>
+              <th style={{ minWidth: 110 }}>Entity</th>
               <th style={{ minWidth: 170 }}>Date</th>
               <th style={{ minWidth: 150 }}>Reason</th>
               <th style={{ width: 84 }}>Agreed Demm</th>
@@ -249,16 +211,14 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
                 <tr key={row.id}>
                   <td>{index + 1}.</td>
                   <td>
-                    <select
-                      className={styles.negoEntitySelect}
+                    <CardSelect
+                      options={DIALOGUE_ENTITIES}
                       value={row.entity}
-                      onChange={(e) => change(row.id, 'entity', e.target.value)}
+                      onChange={(value) => change(row.id, 'entity', value)}
                       disabled={locked}
-                      aria-label={`${label} entity`}
-                    >
-                      <option>Charterer</option>
-                      <option>Owner</option>
-                    </select>
+                      ariaLabel={`${label} entity`}
+                      align="start"
+                    />
                   </td>
                   <td>
                     <LtDateField
@@ -269,8 +229,8 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
                     />
                   </td>
                   <td>
-                    <input
-                      className={styles.cfInp}
+                    <TextInput
+                      className={styles.tableInput}
                       value={row.reason}
                       onChange={(e) => change(row.id, 'reason', e.target.value)}
                       disabled={locked}
@@ -278,8 +238,8 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
                     />
                   </td>
                   <td>
-                    <input
-                      className={`${styles.cfInp} ${styles.numSm} ${styles.negoAgreedInp} ${invalidAmount ? styles.cfInpInvalid : ''}`}
+                    <TextInput
+                      className={`${styles.tableInput} ${styles.numSm} ${styles.negoAgreedInp} ${invalidAmount ? styles.cfInpInvalid : ''}`}
                       inputMode="decimal"
                       value={row.agreedDemm}
                       onChange={(e) => change(row.id, 'agreedDemm', e.target.value)}
@@ -290,18 +250,17 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
                     />
                   </td>
                   <td>
-                    <select
-                      className={`${styles.negoStatusSelect} ${STATUS_STYLES[row.status]}`}
+                    <CardSelect
+                      options={DIALOGUE_STATUSES}
                       value={row.status}
-                      onChange={(e) => change(row.id, 'status', e.target.value)}
+                      onChange={(value) => change(row.id, 'status', value)}
                       disabled={locked}
-                      aria-label={`${label} status`}
-                    >
-                      {Object.keys(STATUS_STYLES).map((status) => <option key={status}>{status}</option>)}
-                    </select>
+                      ariaLabel={`${label} status`}
+                      align="start"
+                    />
                   </td>
                   <td>
-                    <textarea
+                    <Textarea rows={1}
                       className={styles.ltNotesSm}
                       value={row.notes}
                       onChange={(e) => change(row.id, 'notes', e.target.value)}
@@ -310,7 +269,7 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
                     />
                   </td>
                   <td>
-                    <RowActions
+                    <TableRowActions
                       locked={locked}
                       onInsert={() => insert(index, row.entity)}
                       onDelete={() => remove(row.id)}
@@ -349,8 +308,8 @@ export default function LaytimeTankerTables({
   const deductions = draft?.deductions || [];
 
   const fields = ['activity', 'notes', 'start', 'end'];
-  const actPage = usePagedSearch(activities, fields);
-  const dedPage = usePagedSearch(deductions, fields);
+  const actPage = usePagedSearch(activities, fields, portKey);
+  const dedPage = usePagedSearch(deductions, fields, portKey);
 
   const calcUnavailable = Boolean(draft?.calcUnavailable);
   const dedTotals = useMemo(() => {
@@ -383,14 +342,9 @@ export default function LaytimeTankerTables({
           </div>
         </div>
         <SectionHeadRight
-          search={actPage.search}
-          onSearch={actPage.setSearch}
+          pagination={actPage}
+          section="Activities"
           searchPlaceholder="Search activities..."
-          count={actPage.filteredCount}
-          page={actPage.page}
-          totalPages={actPage.totalPages}
-          onPrev={() => actPage.setPage(actPage.page - 1)}
-          onNext={() => actPage.setPage(actPage.page + 1)}
         />
       </div>
 
@@ -413,17 +367,17 @@ export default function LaytimeTankerTables({
             </tr>
           </thead>
           <tbody>
-            {actPage.items.length ? actPage.items.map(({ row, index }, displayIdx) => {
+            {actPage.items.length ? actPage.items.map(({ row, index }) => {
               const counting = isLaytimeActivityCounting(row);
               const cumNum = Number(row.cumulative);
               const cumNeg = Number.isFinite(cumNum) && cumNum < 0;
               const partialDisabled = locked || !counting;
               return (
                 <tr key={`act-${index}`} data-lt-row={`activities-${index}`}>
-                  <td>{(actPage.page - 1) * LAYTIME_TANKER_PAGE_SIZE + displayIdx + 1}.</td>
+                  <td>{index + 1}.</td>
                   <td>
-                    <input
-                      className={styles.cfInp}
+                    <TextInput
+                      className={styles.tableInput}
                       type="text"
                       value={row.activity}
                       onChange={(e) => updateListRow('activities', index, { activity: e.target.value })}
@@ -451,8 +405,8 @@ export default function LaytimeTankerTables({
                     />
                   </td>
                   <td>
-                    <input
-                      className={`${styles.cfInp} ${styles.durAuto}`}
+                    <TextInput
+                      className={styles.tableInput}
                       type="text"
                       value={row.duration}
                       readOnly
@@ -476,8 +430,8 @@ export default function LaytimeTankerTables({
                     />
                   </td>
                   <td>
-                    <input
-                      className={`${styles.cfInp} ${styles.numSm} ${!isValidLtPartialPercent(row.ltPartial) ? styles.cfInpInvalid : ''}`}
+                    <TextInput
+                      className={`${styles.tableInput} ${styles.numSm} ${!isValidLtPartialPercent(row.ltPartial) ? styles.cfInpInvalid : ''}`}
                       type="text"
                       inputMode="decimal"
                       data-lt-focus="ltPartial"
@@ -490,8 +444,8 @@ export default function LaytimeTankerTables({
                     />
                   </td>
                   <td>
-                    <input
-                      className={`${styles.cfInp} ${styles.cumRo} ${cumNeg ? styles.cumNegative : ''}`}
+                    <TextInput
+                      className={`${styles.tableInput} ${cumNeg ? styles.cumNegative : ''}`}
                       type="text"
                       value={row.cumulative ?? ''}
                       readOnly
@@ -501,7 +455,7 @@ export default function LaytimeTankerTables({
                     />
                   </td>
                   <td>
-                    <textarea
+                    <Textarea rows={1}
                       className={styles.ltNotesSm}
                       value={row.notes}
                       onChange={(e) => updateListRow('activities', index, { notes: e.target.value })}
@@ -511,7 +465,7 @@ export default function LaytimeTankerTables({
                     />
                   </td>
                   <td>
-                    <RowActions
+                    <TableRowActions
                       locked={locked}
                       onInsert={() => insertListRow('activities', index, () => emptyActivityRow(row.end || ''))}
                       onDelete={() => removeListRow('activities', index, emptyActivityRow)}
@@ -543,14 +497,9 @@ export default function LaytimeTankerTables({
           </div>
         </div>
         <SectionHeadRight
-          search={dedPage.search}
-          onSearch={dedPage.setSearch}
+          pagination={dedPage}
+          section="Deductions"
           searchPlaceholder="Search deductions..."
-          count={dedPage.filteredCount}
-          page={dedPage.page}
-          totalPages={dedPage.totalPages}
-          onPrev={() => dedPage.setPage(dedPage.page - 1)}
-          onNext={() => dedPage.setPage(dedPage.page + 1)}
         />
       </div>
 
@@ -572,12 +521,12 @@ export default function LaytimeTankerTables({
             </tr>
           </thead>
           <tbody>
-            {dedPage.items.length ? dedPage.items.map(({ row, index }, displayIdx) => (
+            {dedPage.items.length ? dedPage.items.map(({ row, index }) => (
               <tr key={`ded-${index}`} data-lt-row={`deductions-${index}`}>
-                <td>{(dedPage.page - 1) * LAYTIME_TANKER_PAGE_SIZE + displayIdx + 1}.</td>
+                <td>{index + 1}.</td>
                 <td>
-                  <input
-                    className={styles.cfInp}
+                  <TextInput
+                    className={styles.tableInput}
                     type="text"
                     value={row.activity}
                     onChange={(e) => updateListRow('deductions', index, { activity: e.target.value })}
@@ -605,8 +554,8 @@ export default function LaytimeTankerTables({
                   />
                 </td>
                 <td>
-                  <input
-                    className={`${styles.cfInp} ${styles.durAuto}`}
+                  <TextInput
+                    className={styles.tableInput}
                     type="text"
                     value={row.duration}
                     readOnly
@@ -616,8 +565,8 @@ export default function LaytimeTankerTables({
                   />
                 </td>
                 <td>
-                  <input
-                    className={`${styles.cfInp} ${styles.numSm} ${!isValidLtPartialPercent(row.ltPartial) ? styles.cfInpInvalid : ''}`}
+                  <TextInput
+                    className={`${styles.tableInput} ${styles.numSm} ${!isValidLtPartialPercent(row.ltPartial) ? styles.cfInpInvalid : ''}`}
                     type="text"
                     inputMode="decimal"
                     data-lt-focus="ltPartial"
@@ -629,8 +578,8 @@ export default function LaytimeTankerTables({
                   />
                 </td>
                 <td>
-                  <input
-                    className={`${styles.cfInp} ${styles.cumRo}`}
+                  <TextInput
+                    className={styles.tableInput}
                     type="text"
                     value={row.cumulative ?? ''}
                     readOnly
@@ -639,7 +588,7 @@ export default function LaytimeTankerTables({
                   />
                 </td>
                 <td>
-                  <textarea
+                  <Textarea rows={1}
                     className={styles.ltNotesSm}
                     value={row.notes}
                     onChange={(e) => updateListRow('deductions', index, { notes: e.target.value })}
@@ -649,7 +598,7 @@ export default function LaytimeTankerTables({
                   />
                 </td>
                 <td>
-                  <RowActions
+                  <TableRowActions
                     locked={locked}
                     onInsert={() => insertListRow('deductions', index, emptyDeductionRow)}
                     onDelete={() => removeListRow('deductions', index, emptyDeductionRow)}

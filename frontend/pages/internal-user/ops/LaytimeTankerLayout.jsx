@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AttachmentDropzone, Button } from '@bainbridge/shared-ui';
+import { AttachmentDropzone, Button, Textarea, TextInput, Toggle } from '@bainbridge/shared-ui';
 import { attachmentUrl } from '@bainbridge/shared-routing';
 import LaytimeTankerSummaryPill from './LaytimeTankerSummaryPill.jsx';
 import LaytimeTankerTables from './LaytimeTankerTables.jsx';
@@ -47,24 +47,12 @@ function PortTypeIcon({ portType }) {
   );
 }
 
-function PillOption({ active, disabled, onClick, children }) {
+function LaytimeOption({ id, label, checked, disabled, onChange }) {
   return (
-    <button
-      type="button"
-      className={`${styles.ltPill} ${active ? styles.ltPillActive : ''}`}
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={active}
-    >
-      <span className={styles.ltPillCheck} aria-hidden>
-        {active ? (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-        ) : null}
-      </span>
-      {children}
-    </button>
+    <div className={styles.ltOption}>
+      <Toggle id={id} checked={checked} onChange={onChange} disabled={disabled} />
+      <label htmlFor={id}>{label}</label>
+    </div>
   );
 }
 
@@ -96,7 +84,6 @@ export default function LaytimeTankerLayout({
   pendingFiles,
   approverOptions,
   LtDateField,
-  ApproverTagField,
   patchDraft,
   updateListRow,
   insertListRow,
@@ -173,9 +160,9 @@ export default function LaytimeTankerLayout({
               </div>
               <div className={styles.ltDetailCell} data-field="loadedQty">
                 <label className={styles.ltDetailLabel} htmlFor="loadedQty">QTY (MT)</label>
-                <input
+                <TextInput
                   id="loadedQty"
-                  className={`${styles.cfInp} ${invalidQty ? styles.cfInpInvalid : ''}`}
+                  className={invalidQty ? styles.cfInpInvalid : undefined}
                   aria-invalid={invalidQty}
                   type="text"
                   value={draft.loadedQty ?? ''}
@@ -191,9 +178,8 @@ export default function LaytimeTankerLayout({
               </div>
               <div className={styles.ltDetailCell} data-field="terminal">
                 <label className={styles.ltDetailLabel} htmlFor="terminal">Terminal / Berth</label>
-                <input
+                <TextInput
                   id="terminal"
-                  className={styles.cfInp}
                   type="text"
                   value={draft.terminal}
                   onChange={(e) => patchDraft({ terminal: e.target.value })}
@@ -260,10 +246,9 @@ export default function LaytimeTankerLayout({
               <div className={styles.ltOptrow} style={{ marginBottom: 16 }}>
                 <div className={styles.ltPortManual}>
                   <label className={styles.ltOptlabel} htmlFor="portNameManual">Port Name (Manual)</label>
-                  <input
+                  <TextInput
                     id="portNameManual"
-                    className={styles.cfInp}
-                    type="text"
+                      type="text"
                     value={draft.portNameManual}
                     onChange={(e) => patchDraft({ portNameManual: e.target.value })}
                     disabled={locked}
@@ -274,20 +259,20 @@ export default function LaytimeTankerLayout({
               <div className={styles.ltOptrow}>
                 <span className={styles.ltOptlabel}>Options</span>
                 <div className={styles.ltPillgroup}>
-                  <PillOption
-                    active={Boolean(draft.detention)}
+                  <LaytimeOption
+                    id="laytimeDetention"
+                    label="Detention"
+                    checked={Boolean(draft.detention)}
                     disabled={locked}
-                    onClick={() => patchDraft({ detention: !draft.detention })}
-                  >
-                    Detention
-                  </PillOption>
-                  <PillOption
-                    active={Boolean(draft.reversible)}
+                    onChange={(event) => patchDraft({ detention: event.target.checked })}
+                  />
+                  <LaytimeOption
+                    id="laytimeReversible"
+                    label="Reversible"
+                    checked={Boolean(draft.reversible)}
                     disabled={locked}
-                    onClick={() => patchDraft({ reversible: !draft.reversible })}
-                  >
-                    Reversible
-                  </PillOption>
+                    onChange={(event) => patchDraft({ reversible: event.target.checked })}
+                  />
                 </div>
               </div>
             </div>
@@ -319,8 +304,8 @@ export default function LaytimeTankerLayout({
               </div>
             </div>
             <div className={styles.ltBody}>
-              <textarea
-                className={styles.ltRemarksBox}
+              <Textarea
+                aria-label="Remarks"
                 value={draft.remarks}
                 onChange={(e) => patchDraft({ remarks: e.target.value })}
                 disabled={locked}
@@ -373,7 +358,6 @@ export default function LaytimeTankerLayout({
                 unitUnknown={unitUnknown}
                 saving={saving}
                 approverOptions={approverOptions}
-                ApproverTagField={ApproverTagField}
                 setApprovers={setApprovers}
                 onPatchDraft={patchDraft}
                 onSendForApproval={() => handleSubmit(1)}

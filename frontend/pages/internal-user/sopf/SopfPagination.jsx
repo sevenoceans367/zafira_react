@@ -1,4 +1,5 @@
 import React from 'react';
+import { CardSelect } from '@bainbridge/shared-ui';
 import styles from './SopfPagination.module.css';
 
 /**
@@ -11,6 +12,8 @@ export default function SopfPagination({
   total,
   onPageChange,
   className = '',
+  ariaLabel = 'Pagination',
+  selectPage = false,
 }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -21,7 +24,7 @@ export default function SopfPagination({
       <span className={styles.summary}>
         Showing {start} to {end} of {total} entries
       </span>
-      <div className={styles.pager} role="group" aria-label="Pagination">
+      <div className={styles.pager} role="group" aria-label={ariaLabel}>
         <button
           type="button"
           className={styles.pgArrow}
@@ -33,7 +36,18 @@ export default function SopfPagination({
             <path d="M15 6l-6 6 6 6" />
           </svg>
         </button>
-        <span className={styles.pgNum}>{page}</span>
+        {selectPage ? (
+          <CardSelect
+            options={Array.from({ length: totalPages }, (_, index) => ({
+              id: index + 1,
+              name: `${index + 1} / ${totalPages}`,
+            }))}
+            value={page}
+            onChange={(value) => onPageChange(Number(value))}
+            ariaLabel={`${ariaLabel} page`}
+            disabled={totalPages === 1}
+          />
+        ) : <span className={styles.pgNum}>{page}</span>}
         <button
           type="button"
           className={styles.pgArrow}

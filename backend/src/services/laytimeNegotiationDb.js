@@ -25,6 +25,31 @@ function revision(rows) {
   return createHash('sha256').update(JSON.stringify(rows)).digest('hex');
 }
 
+export async function laytimeSaveVersion(db, record, { sofId, carry, forUpdate = false } = {}) {
+  const snapshot = [record, sofId ?? null, carry ?? {}];
+  if (record) {
+    const children = [
+      ['laytime_slave', 'LAYTIME_LP_SLAVEID'],
+      ['laytime_slave1', 'LAYTIME_LP_SLAVEID'],
+      ['laytime_slave2', 'LAYTIME_SLAVEID'],
+    ];
+    for (const [table, id] of children) {
+      const [rows] = await db.query(
+        `SELECT * FROM ${table} WHERE LAYTIME_ID = CAST(? AS SIGNED) ORDER BY ${id}${forUpdate ? ' FOR UPDATE' : ''}`,
+        [record.LAYTIME_ID],
+      );
+      snapshot.push(rows);
+    }
+  }
+  return revision(snapshot);
+}
+
+export async function assertLaytimeSaveVersion(db, expected, record, inputs) {
+  if (expected !== await laytimeSaveVersion(db, record, { ...inputs, forUpdate: true })) {
+    fail('Laytime changed since this port was loaded. Reload before saving.', 409);
+  }
+}
+
 export async function loadLaytimeNegotiations(db, laytimeId) {
   const rows = await loadRows(db, laytimeId);
   return {

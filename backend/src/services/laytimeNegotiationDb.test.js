@@ -1,8 +1,31 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { loadLaytimeNegotiations, prepareLaytimeNegotiations, saveLaytimeNegotiations } from './laytimeNegotiationDb.js';
+import { assertLaytimeSaveVersion, laytimeSaveVersion, loadLaytimeNegotiations, prepareLaytimeNegotiations, saveLaytimeNegotiations } from './laytimeNegotiationDb.js';
 
 const dialogue = { entity: 'OWNER', date: '29-02-2028 13:45', reason: 'Berth wait', agreedDemm: '', status: 'ON_HOLD', notes: '' };
+
+test('rejects stale port saves after master, SOF or child changes', async () => {
+  const record = { LAYTIME_ID: '8', TTL_DEMURRAGE: '10.00' };
+  const rows = new Map([
+    ['laytime_slave', [{ NOTES: 'Original activity' }]],
+    ['laytime_slave1', [{ NOTES: 'Original deduction' }]],
+    ['laytime_slave2', [{ ENTITY_NAME: 'All Clear', ENTITY_VALUE: null }]],
+  ]);
+  const db = { async query(sql, params) {
+    assert.deepEqual(params, ['8']);
+    return [rows.get(sql.split(' ')[3])];
+  } };
+  const inputs = { sofId: 1, carry: {} };
+  const version = await laytimeSaveVersion(db, record, inputs);
+  await assertLaytimeSaveVersion(db, version, record, inputs);
+  await assert.rejects(assertLaytimeSaveVersion(db, version, { ...record, TTL_DEMURRAGE: '20.00' }, inputs), { status: 409 });
+  await assert.rejects(assertLaytimeSaveVersion(db, version, record, { ...inputs, sofId: 2 }), { status: 409 });
+  for (const [table, original] of rows) {
+    rows.set(table, []);
+    await assert.rejects(assertLaytimeSaveVersion(db, version, record, inputs), { status: 409 });
+    rows.set(table, original);
+  }
+});
 const saved = (id, sortOrder = 0) => ({ id, sortOrder, ...dialogue, date: dialogue.date,
   sqlDate: '2028-02-29 13:45:00', agreedDemm: null, currencyCode: 'USD', notes: null });
 

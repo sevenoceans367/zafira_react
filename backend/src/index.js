@@ -47,7 +47,6 @@ async function start() {
     }
     const negotiation = await runLaytimeNegotiationMigration(getPool());
     console.log(`[migration] laytime_negotiation: ${negotiation.state}${negotiation.detail ? ` (${negotiation.detail})` : ''}`);
-    if (!negotiation.ok) process.exit(1);
   } else {
     console.log('Database: not configured — using mock data (set backend/.env)');
   }

@@ -181,7 +181,7 @@ export default function NegoDialogues({ portKey, locked, LtDateField, negotiatio
           </tbody>
           <tfoot>
             <tr className={styles.totalsRow}>
-              <td colSpan={3} className={styles.negoTotalLabel}>Total Agreed Demurrage</td>
+              <td colSpan={3} className={styles.negoTotalLabel}>Total dialogue amounts (USD, all statuses)</td>
               <td />
               <td>{total}</td>
               <td colSpan={3} />

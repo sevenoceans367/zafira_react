@@ -63,6 +63,18 @@ test('Dry despatch uses days and ignores deductions', () => {
   assert.equal(result.timeToDemurrage, '00.00');
 });
 
+test('Dry keeps historical duration-only activity and deduction rows in hours', () => {
+  const result = recomputeTankerPortDraft({
+    laytimeAllowed: '0.5',
+    activities: [{ activity: 'Loading', duration: '24', ltCounts: true, ltPartial: '100' }],
+    deductions: [{ activity: 'Weather', duration: '6', ltPartial: '100' }],
+  }, 'days', { dryLaytime: true });
+  assert.equal(result.activities[0].duration, '24');
+  assert.equal(result.deductions[0].duration, '6');
+  assert.equal(result.actualLaytime, '1.0000');
+  assert.equal(result.timeToDemurrage, '0.2500');
+});
+
 test('Dry preserves completed balances while adding the third and later activities', () => {
   const recalculate = (activities, deductions = []) => recomputeTankerPortDraft({
     laytimeAllowed: '4.1667',

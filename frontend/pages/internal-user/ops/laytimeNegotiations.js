@@ -8,8 +8,15 @@ export function readNegotiationCents(value) {
 }
 
 export function formatNegotiationTotal(rows) {
-  if (rows.some((row) => row.currencyCode != null && row.currencyCode !== 'USD')) return '—';
-  const cents = rows.reduce((total, row) => total + (readNegotiationCents(row.agreedDemm) ?? 0n), 0n);
+  let cents = 0n;
+  for (const row of rows) {
+    if (row.currencyCode != null && row.currencyCode !== 'USD') return '—';
+    const raw = String(row.agreedDemm ?? '').trim();
+    if (!raw) continue;
+    const amount = readNegotiationCents(raw);
+    if (amount == null) return '—';
+    cents += amount;
+  }
   return `${(cents / 100n).toLocaleString('en-US')}.${String(cents % 100n).padStart(2, '0')}`;
 }
 

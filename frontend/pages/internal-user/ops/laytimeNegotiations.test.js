@@ -12,6 +12,7 @@ test('keeps decimal totals exact and declines mixed currencies', () => {
   ];
   assert.equal(formatNegotiationTotal(rows), '10,000,000,000,000,000.01');
   assert.equal(formatNegotiationTotal([...rows, { agreedDemm: '1', currencyCode: 'EUR' }]), '—');
+  assert.equal(formatNegotiationTotal([...rows, { agreedDemm: '10.001' }]), '—');
   assert.equal(readNegotiationCents('10.001'), null);
   assert.equal(readNegotiationCents('10000000000000000'), null);
   assert.equal(readNegotiationCents('0'), 0n);

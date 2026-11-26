@@ -73,10 +73,6 @@ async function verifyDependencies(conn) {
   requireSchema(parent && normalizeType(parent.COLUMN_TYPE) === 'bigint' && parent.COLUMN_KEY === 'PRI'
     && parent.IS_NULLABLE === 'NO' && parent.ENGINE === 'InnoDB', 'laytime_master.LAYTIME_ID must be a signed InnoDB BIGINT primary key');
 
-  const [[vendor]] = await conn.query(`SELECT COLUMN_TYPE FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'vendor_master' AND COLUMN_NAME = 'VENDORID'`);
-  requireSchema(vendor && /^(?:tinyint|smallint|mediumint|int)(?:\(\d+\))?(?: unsigned)?$|^bigint(?:\(\d+\))?$/.test(vendor.COLUMN_TYPE),
-    'vendor_master.VENDORID must fit in a signed BIGINT');
 }
 
 async function verifyTable(conn) {

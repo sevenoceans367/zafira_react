@@ -100,6 +100,7 @@ import {
 import { getRequestUser, resolveRequestIsMgmtUser } from '../services/authService.js';
 import { getSofForm, saveSof } from '../services/sofService.js';
 import { getLaytimeForm, saveLaytime, openLaytime } from '../services/laytimeService.js';
+import { mergeLaytimeAttachments } from '../services/laytimeDb.js';
 import { generateLaytimePdf } from '../services/laytimePdfService.js';
 import { getBunkerForm, saveBunker } from '../services/bunkerService.js';
 import { getSoaReport } from '../services/soaReportService.js';
@@ -927,17 +928,11 @@ router.post('/ops/laytime', (req, res, next) => {
   });
 }, asyncHandler(async (req, res) => {
   const body = req.body?.payload ? JSON.parse(req.body.payload) : (req.body || {});
-  const keepFiles = Array.isArray(body.keepFiles) ? body.keepFiles : [];
-  const keepFileNames = Array.isArray(body.keepFileNames) ? body.keepFileNames : [];
-  const { attachment, attachmentName } = mapUploadedFiles(req.files || []);
-  const newFiles = attachment
-    ? attachment.split(',').map((part) => part.trim()).filter(Boolean)
-    : [];
-  const newNames = attachmentName ? attachmentName.split(',') : [];
+  const { files, names } = mergeLaytimeAttachments(body.keepFiles, body.keepFileNames, req.files);
   res.json(await saveLaytime({
     ...body,
-    keepFiles: newFiles.length ? [...keepFiles, ...newFiles] : keepFiles,
-    keepFileNames: newFiles.length ? [...keepFileNames, ...newNames] : keepFileNames,
+    keepFiles: files,
+    keepFileNames: names,
   }, getRequestUser(req)));
 }));
 

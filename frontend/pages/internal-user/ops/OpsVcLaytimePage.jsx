@@ -514,12 +514,14 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = fal
     ...extractLaytimeKeepFiles(port.uploads),
   };
   // Unknown unit: keep stored values verbatim — never invent day/hour math or blank for save.
-  if (!recompute || (dryLaytime && port.locked) || (rateUnit !== 'hours' && rateUnit !== 'days')) {
+  if (!recompute || ((tanker || dryLaytime) && port.locked) || (rateUnit !== 'hours' && rateUnit !== 'days')) {
     return draft;
   }
   if (dryLaytime) {
-    const allowed = calcDryLaytimeAllowed(draft);
-    if (allowed !== '') draft.laytimeAllowed = allowed;
+    if (!String(draft.laytimeAllowed ?? '').trim()) {
+      const allowed = calcDryLaytimeAllowed(draft);
+      if (allowed !== '') draft.laytimeAllowed = allowed;
+    }
     return recomputeTankerPortDraft(draft, rateUnit, { dryLaytime });
   }
   if (!String(draft.laytimeAllowed || '').trim()) {
@@ -806,6 +808,7 @@ export default function OpsVcLaytimePage() {
         portId: activePort.portId,
         randomId: activePort.randomId,
         sofId: activePort.sofId,
+        expectedLaytimeVersion: activePort.saveVersion,
         submitId,
         ...laytime,
         ...buildLaytimeAttachmentPayload(draft.keepFiles, draft.keepFileNamesByFile),

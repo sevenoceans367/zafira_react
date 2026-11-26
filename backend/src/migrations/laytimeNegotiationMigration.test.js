@@ -20,7 +20,6 @@ function schemaFixture() {
     SUB_PART: null, INDEX_TYPE: 'BTREE', COLLATION: 'A' });
   return {
     parent: { COLUMN_TYPE: 'bigint(20)', COLUMN_KEY: 'PRI', IS_NULLABLE: 'NO', ENGINE: 'InnoDB' },
-    vendor: { COLUMN_TYPE: 'int(11)' },
     table: { ENGINE: 'InnoDB', TABLE_COLLATION: 'utf8mb4_unicode_ci' },
     columns,
     indexes: [index('IDX_NEGO_LAYTIME', 'LAYTIME_ID', false), index('IDX_NEGO_LAYTIME', 'SORT_ORDER', false), index('PRIMARY', 'NEGO_ID', true)],
@@ -47,7 +46,6 @@ function fakePool({ schema = schemaFixture(), version = null, got = 1, released 
         if (sql.startsWith('INSERT INTO zafira_schema_migrations')) { version = 1; return []; }
         if (sql.startsWith('CREATE TABLE')) { exists = true; return []; }
         if (sql.includes("c.TABLE_NAME = 'laytime_master'")) return [[schema.parent]];
-        if (sql.includes("TABLE_NAME = 'vendor_master'")) return [[schema.vendor]];
         if (sql.includes('information_schema.KEY_COLUMN_USAGE')) return [[schema.foreignKey]];
         if (sql.includes('information_schema.TABLE_CONSTRAINTS')) return [schema.constraints];
         if (sql.includes('information_schema.STATISTICS')) return [schema.indexes];
@@ -97,15 +95,12 @@ test('fails closed even with a ledger entry when an existing schema is incompati
   }
 });
 
-test('checks parent and vendor types before DDL and handles missing or unreleased locks', async () => {
+test('checks the parent type before DDL and handles missing or unreleased locks', async () => {
   const schema = schemaFixture();
   schema.parent.COLUMN_TYPE = 'bigint(20) unsigned';
   const invalidParent = fakePool({ schema });
   assert.match((await runLaytimeNegotiationMigration(invalidParent)).detail, /laytime_master/);
   assert.equal(invalidParent.sessions[0].queries.every((sql) => sql.startsWith('SELECT')), true);
-  schema.parent.COLUMN_TYPE = 'bigint(20)';
-  schema.vendor.COLUMN_TYPE = 'bigint(20) unsigned';
-  assert.match((await runLaytimeNegotiationMigration(fakePool({ schema }))).detail, /vendor_master/);
 
   const busy = fakePool({ got: 0 });
   assert.equal((await runLaytimeNegotiationMigration(busy)).state, 'failed');

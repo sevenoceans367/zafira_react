@@ -51,12 +51,12 @@ export function calcLaytimeAllowed(loadedQty, loadedRate, turnTimeToAdd, rateUni
   return round4(allowed).toFixed(4);
 }
 
-function rowDurationForCalculation(row, dryLaytime, skipIncompleteRanges) {
+function rowDurationForCalculation(row, skipIncompleteRanges) {
   const hasStart = Boolean(String(row.start || '').trim());
   const hasEnd = Boolean(String(row.end || '').trim());
   if (hasStart && hasEnd) return hoursBetween(row.start, row.end);
   if (skipIncompleteRanges && hasStart !== hasEnd) return '';
-  return dryLaytime ? '0.0' : row.duration || '0.0';
+  return row.duration || '0.0';
 }
 
 /**
@@ -81,7 +81,7 @@ export function recomputePortDraft(draft, rateUnit = 'days', { dryLaytime = fals
   const divider1 = rateUnit === 'hours' ? 24 : 1;
 
   const deductions = (draft.deductions || []).map((row) => {
-    const duration = rowDurationForCalculation(row, dryLaytime, skipIncompleteRanges);
+    const duration = rowDurationForCalculation(row, skipIncompleteRanges);
     if (duration === '') return { ...row, duration, cumulative: '' };
     const durationNum = num(duration);
     const partialPct = row.ltPartial === '' || row.ltPartial == null ? 0 : num(row.ltPartial);
@@ -103,7 +103,7 @@ export function recomputePortDraft(draft, rateUnit = 'days', { dryLaytime = fals
 
   let sum = 0;
   const activities = (draft.activities || []).map((row) => {
-    const duration = rowDurationForCalculation(row, dryLaytime, skipIncompleteRanges);
+    const duration = rowDurationForCalculation(row, skipIncompleteRanges);
     if (duration === '') return { ...row, duration, cumulative: '' };
     const durationNum = num(duration);
     const partialPct = row.ltPartial === '' || row.ltPartial == null ? 0 : num(row.ltPartial);

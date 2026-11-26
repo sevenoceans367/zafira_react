@@ -209,7 +209,7 @@ export default function LaytimeSummaryPill({
         </div>
         {draft.negotiations && (
           <div className={styles.ltSumFinalRow}>
-            <MetricLabel label="Negotiation Total (USD)" icon="dollar" />
+            <MetricLabel label="Dialogue amounts (USD, all statuses)" icon="dollar" />
             <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal}`}>
               {formatNegotiationTotal(draft.negotiations.rows)}
             </div>

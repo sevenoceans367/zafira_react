@@ -1,8 +1,10 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 import { agencyLetterHasColumn } from './agencyLetterDb.js';
+import { loadSofRecord } from './sofDb.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
 import {
+  calculateLaytimeForSave,
   durationForPersist,
   isNamedTankerEntity,
   mergeTankerEntityRows,
@@ -90,6 +92,18 @@ export function normalizeKeepAttachments(keepFiles, keepFileNames = null) {
   return { files, names };
 }
 
+export function mergeLaytimeAttachments(keepFiles, keepFileNames, uploads = []) {
+  const kept = normalizeKeepAttachments(keepFiles, keepFileNames);
+  const added = normalizeKeepAttachments(uploads.map(({ filename, originalname }) => ({
+    file: filename, name: originalname,
+  })));
+  if (!added.files.length) return kept;
+  return {
+    files: [...(kept.files || []), ...added.files],
+    names: [...(kept.names || []), ...added.names],
+  };
+}
+
 function isEmptyDateTime(value) {
   if (value == null) return true;
   const raw = String(value).trim();
@@ -145,10 +159,10 @@ async function getCountryName(pool, countryId) {
 export async function getLatestCostSheetId(pool, comId) {
   const [[row]] = await pool.query(
     `SELECT FCAID FROM freight_cost_estimete_master
-     WHERE COMID = ? AND MODULEID = ?
+     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
      ORDER BY FCAID DESC
      LIMIT 1`,
-    [comId, MODULE_ID],
+    [comId, MODULE_ID, COMPANY_ID],
   );
   return row?.FCAID || null;
 }
@@ -159,9 +173,9 @@ export async function resolveLaytimeFcaId(pool, comId) {
   if (latest) return latest;
   const [[compare]] = await pool.query(
     `SELECT FCAID FROM freight_cost_estimate_compare
-     WHERE COMID = ? AND MODULEID = ?
+     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
      LIMIT 1`,
-    [comId, MODULE_ID],
+    [comId, MODULE_ID, COMPANY_ID],
   ).catch(() => [[null]]);
   return compare?.FCAID || null;
 }
@@ -201,21 +215,21 @@ async function loadVesselParticulars(pool, fcaId) {
 
 /** LP/DP ports from laden cost-sheet legs, with agency-letter fallbacks when no costs exist. */
 async function loadPortTabs(pool, fcaId, comId = null, isDry = false) {
-  const legSql = (withDemurrageRates) => `SELECT FROM_PORT, TO_PORT, RANDOMID, LOAD_PORT_QTY, DISC_PORT_QTY,
-            PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR,
-            PORT_COSTTP_VENDOR, LOAD_PORT_COST, DISC_PORT_COST, TRANSIT_PORT_COST, PASSAGE_TYPE${withDemurrageRates ? ', DEMMRATELP, DEMMRATEDP' : ''}${isDry ? ', LOAD_PORT_RATE, DISC_PORT_RATE' : ''}
+  const optionalColumns = ['DEMMRATELP', 'DEMMRATEDP', ...(isDry ? ['LOAD_PORT_RATE', 'DISC_PORT_RATE'] : [])];
+  const legSql = (columns) => `SELECT FROM_PORT, TO_PORT, RANDOMID, LOAD_PORT_QTY, DISC_PORT_QTY,
+            PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR, PORT_COSTTP_VENDOR,
+            LOAD_PORT_COST, DISC_PORT_COST, TRANSIT_PORT_COST, PASSAGE_TYPE${columns.map((name) => `, ${name}`).join('')}
      FROM freight_cost_estimete_slave1
      WHERE FCAID = ?
      ORDER BY FCA_SLAVEID ASC`;
   let legs;
   try {
-    [legs] = await pool.query(legSql(true), [fcaId]);
+    [legs] = await pool.query(legSql(optionalColumns), [fcaId]);
   } catch (err) {
-    if (err?.code === 'ER_BAD_FIELD_ERROR') {
-      [legs] = await pool.query(legSql(false), [fcaId]).catch(() => [[]]);
-    } else {
-      [legs] = [[]];
-    }
+    if (err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
+    const [columns] = await pool.query('SHOW COLUMNS FROM freight_cost_estimete_slave1');
+    const available = new Set(columns.map(({ Field }) => Field.toUpperCase()));
+    [legs] = await pool.query(legSql(optionalColumns.filter((name) => available.has(name))), [fcaId]);
   }
 
   const tabs = [];
@@ -297,7 +311,7 @@ async function loadPortTabs(pool, fcaId, comId = null, isDry = false) {
       pushTab({
         portType: 'TP', portId: str(transitPort),
         randomId: resolvePortRandomId(leg.RANDOMID, transitPort),
-        portName: transitName, defaults: {},
+        portName: transitName, agentVendorCode: str(leg.PORT_COSTTP_VENDOR), defaults: {},
       });
     }
   }
@@ -355,6 +369,7 @@ async function loadPortTabs(pool, fcaId, comId = null, isDry = false) {
     }
   }
 
+  for (const tab of tabs) tab.worksheetCall = true;
   // Keep tabs for ports already saved on this nomination (laytime / SOF).
   if (comId) {
     const [laytimeRows] = await pool.query(
@@ -362,7 +377,7 @@ async function loadPortTabs(pool, fcaId, comId = null, isDry = false) {
        FROM laytime_master
        WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
          AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT IN ('LP', 'DP')
+         AND PORT IN ('LP', 'DP', 'TP')
        ORDER BY LAYTIME_ID ASC`,
       [comId, MODULE_ID, COMPANY_ID],
     ).catch(() => [[]]);
@@ -382,7 +397,7 @@ async function loadPortTabs(pool, fcaId, comId = null, isDry = false) {
       `SELECT PORT, PORTID, RANDOMID
        FROM sof_master
        WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT IN ('LP', 'DP')
+         AND PORT IN ('LP', 'DP', 'TP')
        ORDER BY SOFID ASC`,
       [comId, MODULE_ID, COMPANY_ID],
     ).catch(() => [[]]);
@@ -402,41 +417,30 @@ async function loadPortTabs(pool, fcaId, comId = null, isDry = false) {
   return tabs;
 }
 
-/** Same lookup as sofDb.loadSofRecord — seed source when no laytime row exists. */
-async function loadSofRecord(pool, comId, portType, portId, randomId) {
-  const [[internal]] = await pool.query(
-    `SELECT * FROM sof_master
-     WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-       AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-     LIMIT 1`,
-    [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
-
-  if (internal) return internal;
-
-  const [[agent]] = await pool.query(
-    `SELECT * FROM sof_master
-     WHERE COMID = ? AND LOGIN = 'AGENT'
-       AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-       AND SUBMITID = '2'
-     LIMIT 1`,
-    [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
-
-  return agent || null;
+export function previousDryWorksheetCall(tabs, current) {
+  const calls = tabs.filter((tab) => tab.worksheetCall && ['LP', 'DP'].includes(tab.portType));
+  const index = calls.findIndex((tab) => tab.portType === current.portType
+    && tab.portId === current.portId && tab.randomId === current.randomId);
+  return calls[index - 1];
 }
 
-async function loadLaytimeRecord(pool, comId, portType, portId, randomId) {
+export function dryCarryFromRecord(record) {
+  if (Number(record?.REVERSIBLE ?? record?.REVERSIABLE) !== 1) return {};
+  return {
+    laytimeAllowedExtra: str(record.LAYTIME_ALLOWED),
+    actualLaytimeExtra: str(record.ACTUAL_LAYTIME),
+  };
+}
+
+async function loadLaytimeRecord(pool, comId, portType, portId, randomId, forUpdate = false) {
   const [[row]] = await pool.query(
     `SELECT * FROM laytime_master
      WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
        AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-     LIMIT 1`,
+       AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+     ORDER BY RANDOMID IS NULL, LAYTIME_ID LIMIT 1${forUpdate ? ' FOR UPDATE' : ''}`,
     [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
+  );
   return row || null;
 }
 
@@ -475,10 +479,9 @@ function loadRows(pool, sql, params, usesEditor) {
 async function loadActivities(pool, laytimeId, sofId, { usesEditor = false, tanker = false, isDry = false, hasSofRange = true } = {}) {
   const editor = Boolean(usesEditor || tanker || isDry);
   if (laytimeId) {
-    const [rows] = await loadRows(pool,
+    const [rows] = await pool.query(
       `SELECT * FROM laytime_slave WHERE LAYTIME_ID = ?${isDry ? ' ORDER BY LAYTIME_LP_SLAVEID' : ''}`,
       [laytimeId],
-      editor,
     );
     if (rows?.length) {
       return rows.map((row) => ({
@@ -498,12 +501,13 @@ async function loadActivities(pool, laytimeId, sofId, { usesEditor = false, tank
 
   if (!sofId) return [emptyActivity()];
 
+  // A saved SOF Activity list takes precedence over Key Operations ranges.
   const [legacyRows] = await pool.query(
     `SELECT ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION,
             LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES
      FROM sof_slave WHERE SOFID = ? AND GROUP_NAME = '1' ORDER BY SOF_SLAVEID ASC`,
     [sofId],
-  ).catch(() => [[]]);
+  );
   if (legacyRows?.length) return legacyRows.map((row) => ({
     activity: str(row.ACTIVITYID), start: blankDateTime(row.START_DATETIME), end: blankDateTime(row.FINISH_DATETIME),
     duration: str(row.DURATION), ltCounts: Number(row.LAY_TIME_COUNT) === 1, ltNoCounts: Number(row.PORT_TIME_COUNT) === 1,
@@ -511,7 +515,7 @@ async function loadActivities(pool, laytimeId, sofId, { usesEditor = false, tank
   }));
 
   if (!hasSofRange) return [emptyActivity()];
-  const [sofRows] = await loadRows(pool,
+  const [sofRows] = await pool.query(
     `SELECT ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO FROM sof_slave_6
      WHERE SOFID = ?
        AND ACTIVITYDATETIME IS NOT NULL
@@ -520,7 +524,6 @@ async function loadActivities(pool, laytimeId, sofId, { usesEditor = false, tank
        AND CAST(ACTIVITYDATETIMETO AS CHAR) NOT LIKE '0000-00-00%'
      ORDER BY ACTIVITYDATETIME ASC`,
     [sofId],
-    editor,
   );
 
   if (!sofRows?.length) return [emptyActivity()];
@@ -580,7 +583,7 @@ async function loadEntityRows(pool, laytimeId, sofId, { usesEditor = false, tank
   }
   if (!sofId || (!editor && savedRows.length)) return savedRows;
 
-  const [sofRows] = await loadRows(pool,
+  const [sofRows] = await pool.query(
     `SELECT ACTIVITY, ACTIVITYDATETIME FROM sof_slave_6
      WHERE SOFID = ?
        AND ACTIVITYDATETIME IS NOT NULL
@@ -819,18 +822,17 @@ async function replaceEntityRows(connection, laytimeId, entityRows, usesEditor) 
 }
 
 /**
- * Vendor NAME by CODE (Legacy getVendorListNewBasedOnID / getVendorListNewData).
- * Logs lookup failures instead of swallowing silently; returns '' so UI shows em dash.
- * Charterer path keeps unscoped lookup (historical multi-company codes).
+ * Worksheet Multiple cargo rows can store a vendor ID; legacy rows use codes.
  */
-async function vendorNameByCode(pool, code, companyId) {
+async function vendorNameByCode(pool, code, companyId = COMPANY_ID, allowVendorId = false) {
   const raw = String(code ?? '').trim();
   if (!raw) return '';
-  const companyClause = companyId == null ? '' : 'AND MCOMPANYID = ?';
+  const vendorId = allowVendorId && /^[1-9]\d{0,14}$/.test(raw) ? raw : null;
   try {
     const [[vendor]] = await pool.query(
-      `SELECT NAME FROM vendor_master WHERE CODE = ? ${companyClause} LIMIT 1`,
-      companyId == null ? [raw] : [raw, companyId],
+      `SELECT NAME FROM vendor_master WHERE MCOMPANYID = ? AND (CODE = ? OR VENDORID = ?)
+       ORDER BY (VENDORID = ?) DESC, VENDORID LIMIT 1`,
+      [companyId, raw, vendorId, vendorId],
     );
     return String(vendor?.NAME || '').trim();
   } catch (err) {
@@ -884,13 +886,13 @@ async function resolveLaytimeCharterer(pool, master, fcaId, isDry) {
   try {
     if (Number(master?.COAID)) {
       const [[coa]] = await pool.query(
-        `SELECT CHARTERER FROM coa_master WHERE COAID = ? LIMIT 1`,
-        [master.COAID],
+        `SELECT CHARTERER FROM coa_master WHERE COAID = ? AND MCOMPANYID = ? LIMIT 1`,
+        [master.COAID, COMPANY_ID],
       );
       return vendorNameByCode(pool, coa?.CHARTERER);
     }
 
-    if (isDry) return vendorNameByCode(pool, master?.FGFF_VENDORID);
+    if (isDry) return vendorNameByCode(pool, master?.LUMP_VENDOR || master?.FGFF_VENDORID);
 
     const singleDischarge = Number(master?.TANKER_RADIO_SINGLE_DIS) === 1;
     if (singleDischarge && Number(master?.CHK_LUMPSUM) === 1) {
@@ -901,8 +903,8 @@ async function resolveLaytimeCharterer(pool, master, fcaId, isDry) {
       : `SELECT DISTINCT SHIPPER_CHARTER AS code FROM freight_cost_estimete_slave10
          WHERE FCAID = ? AND STATUS IN (1, 2)`,
     [fcaId]);
-    const names = await Promise.all(rows.map(({ code }) => vendorNameByCode(pool, code)));
-    return names.filter(Boolean).join(',');
+    const names = await Promise.all(rows.map(({ code }) => vendorNameByCode(pool, code, COMPANY_ID, !singleDischarge)));
+    return [...new Set(names.filter(Boolean))].join(', ');
   } catch (err) {
     console.warn('[laytime] Charterer lookup failed', err?.message || err);
     return '';
@@ -937,9 +939,9 @@ export async function dbGetLaytimeForm(comId) {
      FROM freight_cost_estimate_compare c
      LEFT JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
-     WHERE c.COMID = ? AND c.MODULEID = ?
+     WHERE c.COMID = ? AND c.MODULEID = ? AND c.MCOMPANYID = ?
      LIMIT 1`,
-    [comId, MODULE_ID],
+    [comId, MODULE_ID, COMPANY_ID],
   );
 
   if (!compare?.COMID) {
@@ -957,7 +959,7 @@ export async function dbGetLaytimeForm(comId) {
     `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO,
             FIXTURETYPEID, SEL_BUSI_TYPE
             ${tanker ? ', LUMP_VENDOR, CHK_LUMPSUM, COAID, TANKER_RADIO_SINGLE_DIS' : ''}
-            ${isDry ? ', COAID, FGFF_VENDORID' : ''}
+            ${isDry ? ', COAID, FGFF_VENDORID, LUMP_VENDOR' : ''}
      FROM freight_cost_estimete_master
      WHERE FCAID = ?
      LIMIT 1`,
@@ -1017,11 +1019,13 @@ export async function dbGetLaytimeForm(comId) {
   const sources = { usesEditor: editor, tanker, isDry, hasSofRange: rangeColumns.length > 0 };
   const hasLpDp = editor && portTabs.length > 0 && await agencyLetterHasColumn(pool, 'LP_DP');
   const ports = [];
+  const records = new Map();
   for (const tab of portTabs) {
     const record = await loadLaytimeRecord(pool, comId, tab.portType, tab.portId, tab.randomId);
+    records.set(tab, record);
     const sof = await loadSofRecord(pool, comId, tab.portType, tab.portId, tab.randomId);
     const laytimeId = record?.LAYTIME_ID || null;
-    const sofId = resolvePortSofId(record, sof);
+    const sofId = sof?.SOFID ?? null;
     const submitId = record?.SUBMITID != null ? Number(record.SUBMITID) : 0;
     const locked = submitId === 5;
     const sofDerived = await loadSofDerivedMilestones(pool, sofId);
@@ -1029,7 +1033,7 @@ export async function dbGetLaytimeForm(comId) {
     const activities = await loadActivities(pool, laytimeId, sofId, sources);
     const deductions = await loadDeductions(pool, laytimeId, editor);
     const entityRows = await loadEntityRows(pool, laytimeId, sofId, sources);
-    const operation = tab.portType === 'LP' ? 'Loading' : 'Discharging';
+    const operation = tab.portType === 'LP' ? 'Loading' : tab.portType === 'DP' ? 'Discharging' : 'Transit';
     const agent = editor
       ? { agentName: await resolvePortAgentName(pool, hasLpDp, {
         comId,
@@ -1040,12 +1044,7 @@ export async function dbGetLaytimeForm(comId) {
       }) }
       : {};
 
-    // Dry Legacy carries the previous saved port's allowed and actual days when reversible.
-    const previous = ports.at(-1);
-    const carry = isDry && previous?.reversible === '1' ? {
-      laytimeAllowedExtra: previous.laytimeAllowed,
-      actualLaytimeExtra: previous.actualLaytime,
-    } : {};
+    const carry = isDry ? dryCarryFromRecord(records.get(previousDryWorksheetCall(portTabs, tab))) : {};
 
     ports.push({
       ...carry,
@@ -1081,8 +1080,8 @@ export async function dbGetLaytimeForm(comId) {
     const [[operator]] = await pool.query(
       `SELECT l.CONTACT_PERSON FROM freight_cost_estimate_compare c
        JOIN login l ON l.LOGINID = c.OPERATOR
-       WHERE c.COMID = ? AND c.MODULEID = ? LIMIT 1`,
-      [comId, MODULE_ID],
+       WHERE c.COMID = ? AND c.MODULEID = ? AND c.MCOMPANYID = ? LIMIT 1`,
+      [comId, MODULE_ID, COMPANY_ID],
     );
     editorDetails = {
       operatorName: str(operator?.CONTACT_PERSON).trim(),
@@ -1329,14 +1328,7 @@ export async function dbSaveLaytime(payload = {}) {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [[existing]] = await connection.query(
-        `SELECT LAYTIME_ID, SUBMITID FROM laytime_master
-         WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-           AND MODULEID = ? AND MCOMPANYID = ?
-           AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-         LIMIT 1`,
-        [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-      );
+      const existing = await loadLaytimeRecord(connection, comId, portType, portId, randomId, true);
       if (!existing?.LAYTIME_ID) {
         const error = new Error('Laytime record not found to open.');
         error.status = 404;
@@ -1402,8 +1394,8 @@ export async function dbSaveLaytime(payload = {}) {
     approvers,
   };
 
-  const activities = payload.activities || [];
-  const deductions = payload.deductions || [];
+  let activities = payload.activities || [];
+  let deductions = payload.deductions || [];
   const entityRows = payload.entityRows || [];
 
   if (usesEditor) {
@@ -1434,14 +1426,7 @@ export async function dbSaveLaytime(payload = {}) {
   try {
     await connection.beginTransaction();
 
-    const [[existing]] = await connection.query(
-      `SELECT * FROM laytime_master
-       WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-         AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-       LIMIT 1`,
-      [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-    );
+    const existing = await loadLaytimeRecord(connection, comId, portType, portId, randomId, true);
 
     if (existing && Number(existing.SUBMITID) === 5) {
       const error = new Error('This Laytime is locked (Submit & Close).');
@@ -1449,10 +1434,21 @@ export async function dbSaveLaytime(payload = {}) {
       throw error;
     }
 
-    let sofId = strOrNull(payload.sofId || payload.sof_loadportid);
-    if (!sofId) {
-      const sof = await loadSofRecord(connection, comId, portType, portId, randomId);
-      sofId = sof?.SOFID != null ? String(sof.SOFID) : null;
+    const sof = await loadSofRecord(connection, comId, portType, portId, randomId);
+    const sofId = sof?.SOFID ?? null;
+
+    if (usesEditor) {
+      let carry = {};
+      if (dryLaytime) {
+        const tabs = await loadPortTabs(connection, fcaId, comId, true);
+        const previous = previousDryWorksheetCall(tabs, { portType, portId, randomId });
+        if (previous) carry = dryCarryFromRecord(await loadLaytimeRecord(connection, comId, previous.portType, previous.portId, previous.randomId));
+      }
+      const calculated = calculateLaytimeForSave(fields, activities, deductions, dryLaytime ? 'days' : 'hours', { ...carry, dryLaytime });
+      ({ activities, deductions } = calculated);
+      for (const key of ['actualLaytime', 'timeToDemurrage', 'timeToDespatch', 'ttlDemurrage', 'ttlDespatch']) {
+        fields[key] = calculated[key];
+      }
     }
 
     const attachments = keepFiles != null
@@ -1498,12 +1494,6 @@ export async function dbSaveLaytime(payload = {}) {
   } finally {
     connection.release();
   }
-}
-
-export function resolvePortSofId(record, sof) {
-  if (sof?.SOFID != null && Number(sof.SOFID) > 0) return sof.SOFID;
-  if (record?.SOF_LOADPORTID != null && Number(record.SOF_LOADPORTID) > 0) return record.SOF_LOADPORTID;
-  return null;
 }
 
 export function resolvePortRandomId(randomId, fallbackPortId) {

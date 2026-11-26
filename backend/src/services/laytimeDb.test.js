@@ -190,12 +190,32 @@ describe('SOF derived Laytime master defaults', () => {
   });
 });
 
-describe('Laytime demurrage defaults', () => {
-  it('uses the LP or DP cost-sheet demurrage rate only when no Laytime row exists', () => {
-    const { demurrageRate: missingLaytimeRate } = mapMasterFields(null, null, { demurrageRate: '40000' });
-    const { demurrageRate: savedRate } = mapMasterFields({ DEMURRAGE_RATE: '123' }, null, { demurrageRate: '40000' });
-    assert.equal(missingLaytimeRate, '40000');
-    assert.equal(savedRate, '123');
+describe('Laytime rate defaults', () => {
+  it('uses cost-sheet demurrage and loaded rates when no Laytime row or SOF skeleton has blank rates', () => {
+    const missing = mapMasterFields(null, null, { demurrageRate: '40000', loadedRate: '12000' });
+    const sofSkeleton = mapMasterFields(
+      { DEMURRAGE_RATE: null, LOADED_RATE: null },
+      null,
+      { demurrageRate: '40000', loadedRate: '12000' },
+    );
+    const saved = mapMasterFields(
+      { DEMURRAGE_RATE: '123', LOADED_RATE: '8500' },
+      null,
+      { demurrageRate: '40000', loadedRate: '12000' },
+    );
+    const explicitZero = mapMasterFields(
+      { DEMURRAGE_RATE: '0', LOADED_RATE: '0' },
+      null,
+      { demurrageRate: '40000', loadedRate: '12000' },
+    );
+    assert.equal(missing.demurrageRate, '40000');
+    assert.equal(missing.loadedRate, '12000');
+    assert.equal(sofSkeleton.demurrageRate, '40000');
+    assert.equal(sofSkeleton.loadedRate, '12000');
+    assert.equal(saved.demurrageRate, '123');
+    assert.equal(saved.loadedRate, '8500');
+    assert.equal(explicitZero.demurrageRate, '0');
+    assert.equal(explicitZero.loadedRate, '0');
   });
 });
 

@@ -307,6 +307,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
               loadedQty: leg.LOAD_PORT_QTY != null && leg.LOAD_PORT_QTY !== ''
                 ? String(leg.LOAD_PORT_QTY)
                 : '',
+              demurrageRate: Number(leg.DEMMRATELP) > 0 ? String(leg.DEMMRATELP) : '',
             },
           });
         }
@@ -324,6 +325,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
               loadedQty: leg.DISC_PORT_QTY != null && leg.DISC_PORT_QTY !== ''
                 ? String(leg.DISC_PORT_QTY)
                 : '',
+              demurrageRate: Number(leg.DEMMRATEDP) > 0 ? String(leg.DEMMRATEDP) : '',
             },
           });
         }
@@ -629,13 +631,17 @@ export function mapMasterFields(record, sof, defaults = {}, sofDerived = {}) {
     loadedQty: hasLaytime && record.LOADED_QTY != null && record.LOADED_QTY !== ''
       ? str(record.LOADED_QTY)
       : str(defaults.loadedQty || ''),
-    loadedRate: hasLaytime ? str(record.LOADED_RATE) : '',
+    loadedRate: hasLaytime && record.LOADED_RATE != null && record.LOADED_RATE !== ''
+      ? str(record.LOADED_RATE)
+      : str(defaults.loadedRate || ''),
     laytimeAllowed: str(record?.LAYTIME_ALLOWED),
     actualLaytime: str(record?.ACTUAL_LAYTIME),
     turnTime: str(record?.TURN_TIME),
     turnTimeToAdd: str(record?.TURN_TIME_TO_ADD),
     timeToDemurrage: str(record?.TIME_TO_DEMURRAGE),
-    demurrageRate: hasLaytime ? str(record.DEMURRAGE_RATE) : str(defaults.demurrageRate || ''),
+    demurrageRate: hasLaytime && record.DEMURRAGE_RATE != null && record.DEMURRAGE_RATE !== ''
+      ? str(record.DEMURRAGE_RATE)
+      : str(defaults.demurrageRate || ''),
     ttlDemurrage: str(record?.TTL_DEMURRAGE),
     ttlDemurrageManual: str(record?.TTL_DEMURRAGE_MANUAL),
     timeToDespatch: str(record?.TIME_TO_DESPATCH),

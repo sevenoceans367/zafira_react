@@ -7,10 +7,10 @@ import styles from './OpsVcLaytimePage.module.css';
 
 const DIALOGUE_FIELDS = ['entity', 'date', 'reason', 'agreedDemm', 'statusLabel', 'notes'];
 const DIALOGUE_ENTITIES = [
-  { value: 'CHARTERER', label: 'Charterer' },
-  { value: 'OWNER', label: 'Owner' },
+  { value: 'CHARTERER', label: 'Charterer', abbreviation: 'C' },
+  { value: 'OWNER', label: 'Owner', abbreviation: 'O' },
 ];
-const ENTITY_FILTERS = [{ value: '', label: 'All entities' }, ...DIALOGUE_ENTITIES];
+const ENTITY_FILTERS = [{ value: '', label: 'All entities', abbreviation: 'ALL' }, ...DIALOGUE_ENTITIES];
 const DIALOGUE_STATUSES = [
   { value: 'ON_HOLD', label: 'On Hold' },
   { value: 'UNDER_NEGO', label: 'Under Nego' },
@@ -71,14 +71,6 @@ export default function NegoDialogues({ portKey, locked, LtDateField, negotiatio
           pagination={page}
           section="Nego dialogues"
           searchPlaceholder="Search dialogues..."
-          entityFilter={(
-            <CardSelect
-              options={ENTITY_FILTERS}
-              value={entity}
-              onChange={(value) => { setEntity(value); page.setPage(1); }}
-              ariaLabel="Filter dialogues by entity"
-            />
-          )}
         />
       </div>
       <div className={styles.tableWrap}>
@@ -86,7 +78,23 @@ export default function NegoDialogues({ portKey, locked, LtDateField, negotiatio
           <thead>
             <tr>
               <th style={{ width: 36 }}>#</th>
-              <th style={{ minWidth: 110 }}>Entity</th>
+              <th scope="col" style={{ minWidth: 110 }}>
+                Entity
+                <span className={styles.negoEntityFilter} role="group" aria-label="Filter dialogues by entity">
+                  {ENTITY_FILTERS.map(({ value, label, abbreviation }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      title={label}
+                      aria-label={label}
+                      aria-pressed={entity === value}
+                      onClick={() => { setEntity(value); page.setPage(1); }}
+                    >
+                      {abbreviation}
+                    </button>
+                  ))}
+                </span>
+              </th>
               <th style={{ minWidth: 170 }}>Date</th>
               <th style={{ minWidth: 150 }}>Reason</th>
               <th style={{ width: 84 }}>Agreed Demm</th>

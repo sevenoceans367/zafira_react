@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Button, TextInput } from '@bainbridge/shared-ui';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
-import { formatMoneyDisplay } from './laytimeTankerHelpers.js';
 import { formatNegotiationTotal } from './laytimeNegotiations.js';
 import { isBlankOrFiniteNumber } from './laytimeTankerValidation.js';
 import styles from './OpsVcLaytimePage.module.css';
@@ -49,7 +48,7 @@ const metrics = [
 function SummaryMetric({ metric, value, unit, disabled, onChange }) {
   const { key, label, icon, tone, time, editable } = metric;
   const invalid = editable && !isBlankOrFiniteNumber(value);
-  const warning = tone === 'Red' && Number(value) > 0;
+  const warning = tone === 'Red' && Number(String(value).replaceAll(',', '')) > 0;
   const field = editable ? (
     <TextInput
       id={key}
@@ -106,12 +105,15 @@ export default function LaytimeSummaryPill({
   const unavailable = draft.calcUnavailable;
   const unit = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAYS' : '—';
   const computed = (key) => unavailable ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
-  const money = unavailable ? '—' : formatMoneyDisplay(draft.ttlDemurrage);
+  const finalDemurrage = draft.negotiations
+    ? formatNegotiationTotal(draft.negotiations.rows).replace(/\.00$/, '')
+    : '—';
+  const hasFinalDemurrage = finalDemurrage !== '—' && finalDemurrage !== '0';
   const summaryValues = [
     ['Allowed', draft.laytimeAllowed || '—'],
     ['Actual', computed('actualLaytime')],
     [isDry ? 'Demm Days' : 'Demm Hrs', computed('timeToDemurrage'), !unavailable && Number(draft.timeToDemurrage) > 0],
-    [unavailable ? 'Unavailable' : 'Calc Demm', unavailable ? money : `$${money}`, !unavailable && Number(draft.ttlDemurrage) > 0],
+    ['Final Demm', finalDemurrage === '—' ? finalDemurrage : `$${finalDemurrage}`, hasFinalDemurrage],
   ];
 
   useEffect(() => {
@@ -202,19 +204,11 @@ export default function LaytimeSummaryPill({
           })}
         </div>
         <div className={styles.ltSumFinalRow}>
-          <MetricLabel label="Calculated Demurrage (USD)" icon="dollar" />
-          <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal} ${!unavailable && Number(draft.ttlDemurrage) > 0 ? styles.ltSumNegative : ''}`}>
-            {money}
+          <MetricLabel label="Final Demurrage (USD)" icon="dollar" />
+          <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal} ${hasFinalDemurrage ? styles.ltSumNegative : ''}`}>
+            {finalDemurrage}
           </div>
         </div>
-        {draft.negotiations && (
-          <div className={styles.ltSumFinalRow}>
-            <MetricLabel label="Negotiation Total (USD)" icon="dollar" />
-            <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal}`}>
-              {formatNegotiationTotal(draft.negotiations.rows)}
-            </div>
-          </div>
-        )}
         <hr className={styles.ltApprovalDivider} />
         <div className={styles.ltApprovalHead}>
           <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}><Icon name="approver" /></div>
@@ -228,7 +222,7 @@ export default function LaytimeSummaryPill({
             value={selectedApprovers}
             onChange={setApprovers}
             disabled={locked}
-            placeholder="Choose approvers"
+            placeholder="Search"
             searchPlaceholder="Search approvers"
             variant="card"
             chipTone="cargo"

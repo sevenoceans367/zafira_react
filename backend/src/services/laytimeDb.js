@@ -68,6 +68,21 @@ function hasValue(value) {
   return s !== '' && s.toLowerCase() !== 'null';
 }
 
+export function normalizeKeepAttachments(keepFiles, keepFileNames = null) {
+  if (!Array.isArray(keepFiles)) return { files: null, names: null };
+  const files = [];
+  const names = [];
+  keepFiles.forEach((entry, index) => {
+    const file = String(entry && typeof entry === 'object' ? entry.file ?? '' : entry ?? '').trim();
+    if (!file) return;
+    const explicitName = Array.isArray(keepFileNames) ? String(keepFileNames[index] ?? '').trim() : '';
+    const objectName = entry && typeof entry === 'object' ? String(entry.name ?? '').trim() : '';
+    files.push(file);
+    names.push(explicitName || objectName || file);
+  });
+  return { files, names };
+}
+
 function isEmptyDateTime(value) {
   if (value == null) return true;
   const raw = String(value).trim();
@@ -1032,12 +1047,7 @@ export async function dbSaveLaytime(payload = {}) {
     ? payload.approvers.map(str).filter(Boolean).join(',')
     : str(payload.approvers);
 
-  const keepFiles = Array.isArray(payload.keepFiles)
-    ? payload.keepFiles.map(str).filter(Boolean)
-    : null;
-  const keepFileNames = Array.isArray(payload.keepFileNames)
-    ? payload.keepFileNames.map(str)
-    : null;
+  const { files: keepFiles, names: keepFileNames } = normalizeKeepAttachments(payload.keepFiles, payload.keepFileNames);
 
   const fields = {
     terminal: str(payload.terminal),

@@ -18,6 +18,7 @@ import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js
 import pageStyles from './OpsPages.module.css';
 import sofStyles from './OpsVcSofPage.module.css';
 import styles from './OpsVcLaytimePage.module.css';
+import { extractLaytimeKeepFiles, buildLaytimeAttachmentPayload, buildExistingDropzoneItems, withClosedMsgParam } from './laytimeAttachmentHelpers.js';
 
 const BACK_PATHS = {
   1: '/internal-user/vc/ops/in-ops-glance',
@@ -139,12 +140,6 @@ function LtDateField({
       />
     </div>
   );
-}
-
-function displayStoredFileName(stored) {
-  const raw = String(stored || '').trim();
-  const match = raw.match(/^\d+_(.+)$/);
-  return match ? match[1] : raw;
 }
 
 const LAYTIME_MANDATORY_FIELDS = [
@@ -446,7 +441,7 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true } = {}) {
         notes: row.notes || '',
       })),
     approvers: normalizeApprovers(port.approvers),
-    keepFiles: [...(port.uploads || [])],
+    ...extractLaytimeKeepFiles(port.uploads),
   };
   // Unknown unit: keep stored values verbatim — never invent day/hour math or blank for save.
   if (!recompute || (rateUnit !== 'hours' && rateUnit !== 'days')) {
@@ -683,6 +678,7 @@ export default function OpsVcLaytimePage() {
     setSaving(true);
     setError('');
     try {
+      const { keepFiles: _keepFiles, keepFileNamesByFile: _keepFileNamesByFile, ...draftFields } = draft;
       const result = await saveLaytime({
         comId,
         portType: activePort.portType,
@@ -690,7 +686,8 @@ export default function OpsVcLaytimePage() {
         randomId: activePort.randomId,
         sofId: activePort.sofId,
         submitId,
-        ...draft,
+        ...draftFields,
+        ...buildLaytimeAttachmentPayload(draft.keepFiles, draft.keepFileNamesByFile),
       }, pendingFiles);
 
       setPendingFilesByKey((current) => ({
@@ -699,7 +696,7 @@ export default function OpsVcLaytimePage() {
       }));
 
       if (result.closed) {
-        navigate(`${backHref}?msg=3`);
+        navigate(withClosedMsgParam(backHref, 3));
         return;
       }
 
@@ -728,7 +725,7 @@ export default function OpsVcLaytimePage() {
     }
     const ok = await confirm({
       title: 'Confirmation',
-      message: 'Are you sure you want to open Laytime?. After submit laytime for all below ports will open.',
+      message: 'Are you sure you want to reopen Laytime for this port?',
       confirmLabel: 'Open',
     });
     if (!ok) return;
@@ -1538,12 +1535,7 @@ export default function OpsVcLaytimePage() {
                       <AttachmentDropzone
                         readOnly={locked}
                         files={pendingFiles}
-                        existing={(draft.keepFiles || []).map((file) => ({
-                          key: file,
-                          file,
-                          name: displayStoredFileName(file),
-                          url: attachmentUrl(file),
-                        }))}
+        existing={buildExistingDropzoneItems(draft.keepFiles, draft.keepFileNamesByFile, attachmentUrl)}
                         onAddFiles={addPendingFiles}
                         onRemoveFile={removePendingFile}
                         onRemoveExisting={(item) => patchDraft({

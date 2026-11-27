@@ -13,8 +13,53 @@ import {
   isStrictSofDisplayDateTime,
   validateSofActivityPartialPercentages,
   validateSofCompletedIntervals,
+  blankDate,
+  blankDateTime,
+  isSameOrUnlinkedSofId,
+  copyAgentSofChildrenIfOmitted,
+  loadPortTabs as loadSofPortTabs,
 } from './sofDb.js';
 import { __resetSofMockForTests, getSofForm, saveSof } from './sofService.js';
+
+describe('SOF display date formatting', () => {
+  it('preserves DMY date and time strings before native date parsing', () => {
+    assert.equal(blankDateTime('04-06-2026 08:00'), '04-06-2026 08:00');
+    assert.equal(blankDate('04-06-2026'), '04-06-2026');
+  });
+});
+
+describe('SOF persistence corrections', () => {
+  it('derives stowage from Cargo Discharged', () => {
+    assert.equal(deriveMasterFieldsFromKeyOperations([], [{ activity: 'Cargo Discharged', shipFigure: '28500' }]).stowageQty, '28500');
+  });
+  it('treats zero SOF links as unlinked', () => {
+    for (const value of [null, '', 0, '0', '42']) assert.equal(isSameOrUnlinkedSofId(value, 42), true);
+    assert.equal(isSameOrUnlinkedSofId('99', 42), false);
+  });
+  it('copies omitted Agent children onto the new internal SOF', async () => {
+    const calls = [];
+    await copyAgentSofChildrenIfOmitted({ async query(sql, params) { calls.push({ sql, params }); return [{ affectedRows: 1 }]; } }, {
+      agentSofId: 50, internalSofId: 51,
+      plan: { replaceEntityRows: false, replaceBlRows: false, replacePortActivities: false, replaceKeyOperations: true, replaceCargoRows: true },
+    });
+    assert.ok(calls.some(({ sql, params }) => sql.includes('INSERT INTO sof_slave_3') && params[0] === 51 && params[1] === 50));
+    assert.ok(calls.some(({ sql, params }) => sql.includes('INSERT INTO sof_slave_1') && params[0] === 51 && params[1] === 50));
+    assert.ok(calls.some(({ sql, params }) => sql.includes('INSERT INTO sof_slave ') && params[0] === 51 && params[1] === 50));
+    assert.ok(calls.every(({ sql }) => /^INSERT INTO/i.test(sql)));
+  });
+  it('does not emit ballast LP/DP tabs when a laden passage tab exists', async () => {
+    const portNames = { 10: 'ROTTERDAM', 20: 'SINGAPORE' };
+    const pool = { async query(sql, params) {
+      if (sql.includes('freight_cost_estimete_slave1')) return [[
+        { FROM_PORT: 10, TO_PORT: 20, RANDOMID: 0, PASSAGE_TYPE: 1, LOAD_PORT_QTY: 10000, DISC_PORT_QTY: 9000, LOAD_PORT_COST: 100, DISC_PORT_COST: 100 },
+        { FROM_PORT: 10, TO_PORT: 20, RANDOMID: 2, PASSAGE_TYPE: 2, LOAD_PORT_QTY: 10000, DISC_PORT_QTY: 0, LOAD_PORT_COST: 100, DISC_PORT_COST: 0 },
+      ]];
+      if (sql.includes('FROM port_master')) return [[{ PortName: portNames[params[0]], COUNTRY_KEY: '' }]];
+      return [[]];
+    } };
+    assert.deepEqual((await loadSofPortTabs(pool, 100)).map((tab) => `${tab.portType}-${tab.portId}-${tab.randomId}`), ['LP-10-2']);
+  });
+});
 
 describe('sofDb resolveSofSavePlan data-preservation contract', () => {
   it('parses properly grouped cargo figures and rejects malformed comma values', () => {
@@ -197,7 +242,7 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
     });
   });
 
-  it('applies master Pilot fallback only to the first blank Pilot on board row', () => {
+  it('applies master Pilot fallback to the first blank Pilot on board or onboard row', () => {
     const rows = applyMasterToKeyOperations([
       { activity: 'Pilot on board', activityDateTime: '10-04-2026 09:00', comments: '', tDefault: 1 },
       { activity: 'Pilot on board', activityDateTime: '', comments: '', tDefault: 1 },
@@ -211,6 +256,11 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
     ], { PBFB_1: new Date(2026, 3, 10, 8, 30) });
     assert.equal(blankFirst[0].activityDateTime, '10-04-2026 08:30');
     assert.equal(blankFirst[1].activityDateTime, '');
+
+    const onboard = applyMasterToKeyOperations([
+      { activity: 'Pilot onboard', activityDateTime: '', comments: '', tDefault: 1 },
+    ], { PBFB_1: new Date(2026, 3, 10, 8, 30) });
+    assert.equal(onboard[0].activityDateTime, '10-04-2026 08:30');
   });
 
   it('does not derive arrival Pilot master from a later departure Pilot timestamp', () => {
@@ -228,6 +278,10 @@ describe('sofDb resolveSofSavePlan data-preservation contract', () => {
       { activity: 'Pilot on board', activityDateTime: '' },
     ], []);
     assert.equal(badOrder.pilotOnBoard, '12-04-2026 19:00');
+
+    assert.equal(deriveMasterFieldsFromKeyOperations([
+      { activity: 'Pilot onboard', activityDateTime: '10-04-2026 08:00' },
+    ], []).pilotOnBoard, '10-04-2026 08:00');
   });
 
   it('rejects unparseable and malformed completed Dry intervals when rejectUnparseable is set', () => {

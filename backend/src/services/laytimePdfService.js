@@ -1,6 +1,16 @@
 import PDFDocument from 'pdfkit';
 import { getLaytimeForm } from './laytimeService.js';
 
+export function computePdfActivityTimeUsed(row, { isDays = false } = {}) {
+  const duration = Number(row?.duration) || 0;
+  if (!row?.ltCounts || row?.ltNoCounts) return 0;
+  const rawPartial = String(row?.ltPartial ?? '').trim();
+  if (rawPartial === '') return isDays ? 0 : duration;
+  const partial = Number(rawPartial);
+  if (!Number.isFinite(partial) || partial <= 0) return 0;
+  return (duration * partial) / 100;
+}
+
 const BLUE = '#1b77a6';
 const HEADER_FILL = '#31a0e1';
 const YELLOW = '#ede608';
@@ -201,10 +211,8 @@ function renderPort(doc, form, port) {
     tableRow(doc, activityCols, ['', '-', '-', '-', '-', '-', '-', 'No activity rows'], scale);
   } else {
     activities.forEach((row, idx) => {
-      const duration = Number(row.duration) || 0;
       const partial = Number(row.ltPartial);
-      const pct = Number.isFinite(partial) && partial > 0 ? partial : 100;
-      const timeUsed = (duration * pct) / 100;
+      const timeUsed = computePdfActivityTimeUsed(row, { isDays: (port.rateUnit || form.rateUnit) === 'days' });
       usedDays += timeUsed / 24;
       tableRow(doc, activityCols, [
         String(idx + 1),
@@ -223,6 +231,22 @@ function renderPort(doc, form, port) {
   doc.font('Helvetica-Bold').fontSize(8).fillColor(TEXT)
     .text(`TOTAL TIME USED: ${num(usedDays, 4)} DAYS`, { align: 'right' });
   doc.moveDown(0.6);
+
+  const deductions = (port.deductions || []).filter((row) => row.activity || row.start || row.end || row.duration || row.notes);
+  if (deductions.length) {
+    doc.moveDown(0.5);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(BLUE).text('Deductions');
+    doc.moveDown(0.2);
+    const deductionCols = [
+      { label: 'S.NO.', width: 28, align: 'center' }, { label: 'ACTIVITY', width: 150 },
+      { label: 'DATE/TIME FROM', width: 95 }, { label: 'DATE/TIME TO', width: 95 },
+      { label: 'Duration', width: 65, align: 'center' }, { label: 'Remark', width: 145 },
+    ];
+    const deductionScale = tableHeader(doc, deductionCols);
+    deductions.forEach((row, idx) => tableRow(doc, deductionCols, [
+      String(idx + 1), dash(row.activity), dash(row.start), dash(row.end), dash(row.duration), dash(row.notes),
+    ], deductionScale));
+  }
 
   if (String(port.reversible) !== '1') {
     ensureSpace(doc, 90);

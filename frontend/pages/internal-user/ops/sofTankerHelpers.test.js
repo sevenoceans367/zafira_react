@@ -68,6 +68,14 @@ describe('sofTankerHelpers', () => {
     );
   });
 
+  it('stores Tanker durations at 4dp and validates completed reversed intervals', () => {
+    const port = { portType: 'LP', portId: '10', randomId: '0', portActivities: [], deductions: [], keyOperations: [], cargoRows: [] };
+    const draft = draftFromPort({ ...port, portActivities: [{ activity: 'Loading', from: '10-05-2026 08:00', to: '10-05-2026 08:15' }] });
+    assert.equal(draft.portActivities[0].duration, '0.2500');
+    const reversed = draftFromPort({ ...port, portActivities: [{ activity: 'Loading', from: '10-05-2026 12:00', to: '10-05-2026 10:00' }] });
+    assert.throws(() => buildSofSavePayload({ comId: '42', activePort: port, draft: reversed, submitId: 1 }), /finish must be on or after start/i);
+  });
+
   it('rejects completed reversed Dry intervals while allowing incomplete drafts', () => {
     assert.equal(isReversedSofInterval('10-05-2026 12:00', '10-05-2026 10:00'), true);
     assert.equal(isReversedSofInterval('10-05-2026 08:00', '10-05-2026 10:00'), false);

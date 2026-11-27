@@ -17,6 +17,7 @@ import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import pageStyles from './OpsPages.module.css';
 import styles from './OpsVcSofPage.module.css';
+import { withClosedMsgParam } from './laytimeAttachmentHelpers.js';
 
 const BACK_PATHS = {
   1: '/internal-user/vc/ops/in-ops-glance',
@@ -534,7 +535,7 @@ export default function OpsVcSofLegacyPage({ initialForm = null }) {
       }));
 
       if (result.closed) {
-        navigate(`${backHref}?msg=3`);
+        navigate(withClosedMsgParam(backHref, 3));
         return;
       }
 

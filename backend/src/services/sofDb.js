@@ -103,10 +103,18 @@ export const DEFAULT_CARGO_ROWS = [
   'Lop received (Pls Specify)',
 ];
 
-function blankDateTime(value) {
+export function blankDateTime(value) {
   if (!value) return '';
   const str = String(value);
   if (str.startsWith('0000-00-00') || str.includes('1970-01-01')) return '';
+  if (!(value instanceof Date)) {
+    const dmy = str.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::\d{1,2})?)?$/);
+    if (dmy) {
+      const [, dd, mm, yyyy, hh = '00', min = '00'] = dmy;
+      if (Number(yyyy) <= 1970) return '';
+      return `${dd.padStart(2, '0')}-${mm.padStart(2, '0')}-${yyyy} ${hh.padStart(2, '0')}:${min.padStart(2, '0')}`;
+    }
+  }
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime()) || date.getFullYear() <= 1970) return '';
   const d = String(date.getDate()).padStart(2, '0');
@@ -117,10 +125,18 @@ function blankDateTime(value) {
   return `${d}-${m}-${y} ${hh}:${mm}`;
 }
 
-function blankDate(value) {
+export function blankDate(value) {
   if (!value) return '';
   const str = String(value);
   if (str.startsWith('0000-00-00') || str.includes('1970-01-01')) return '';
+  if (!(value instanceof Date)) {
+    const dmy = str.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (dmy) {
+      const [, dd, mm, yyyy] = dmy;
+      if (Number(yyyy) <= 1970) return '';
+      return `${dd.padStart(2, '0')}-${mm.padStart(2, '0')}-${yyyy}`;
+    }
+  }
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime()) || date.getFullYear() <= 1970) return '';
   const d = String(date.getDate()).padStart(2, '0');
@@ -285,7 +301,11 @@ async function loadVesselParticulars(pool, fcaId) {
   };
 }
 
-async function loadPortTabs(pool, fcaId) {
+function resolvePortRandomId(randomId, fallbackPortId) {
+  return randomId != null && String(randomId).trim() !== '' ? String(randomId).trim() : str(fallbackPortId);
+}
+
+async function loadPortTabs(pool, fcaId, comId = null) {
   const [legs] = await pool.query(
     `SELECT FROM_PORT, TO_PORT, RANDOMID, LOAD_PORT_QTY, DISC_PORT_QTY,
             PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR, PORT_COSTTP_VENDOR,
@@ -302,17 +322,16 @@ async function loadPortTabs(pool, fcaId) {
   const tabs = [];
   for (const leg of legs || []) {
     const fromName = await getPortName(pool, leg.FROM_PORT);
-    if (fromName === 'TBN' || String(fromName).startsWith('TBN ')) continue;
-
-    const passageType = Number(leg.PASSAGE_TYPE);
+    const fromIsTbn = fromName === 'TBN' || String(fromName).startsWith('TBN ');
     if (
-      passageType === 2
+      !fromIsTbn
+      && Number(leg.PASSAGE_TYPE) === 2
       && (hasValue(leg.PORT_COSTLP_VENDOR) || Number(leg.LOAD_PORT_COST) > 0 || Number(leg.LOAD_PORT_QTY) > 0)
     ) {
       tabs.push({
         portType: 'LP',
         portId: str(leg.FROM_PORT),
-        randomId: str(leg.RANDOMID),
+        randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
         portName: fromName,
         defaults: {
           portArrival: blankDateTime(leg.FROMARRIVAL),
@@ -326,14 +345,16 @@ async function loadPortTabs(pool, fcaId) {
     }
 
     const toName = await getPortName(pool, leg.TO_PORT);
+    const toIsTbn = toName === 'TBN' || String(toName).startsWith('TBN ');
     if (
-      passageType === 2
+      !toIsTbn
+      && Number(leg.PASSAGE_TYPE) === 2
       && (hasValue(leg.PORT_COSTDP_VENDOR) || Number(leg.DISC_PORT_COST) > 0 || Number(leg.DISC_PORT_QTY) > 0)
     ) {
       tabs.push({
         portType: 'DP',
         portId: str(leg.TO_PORT),
-        randomId: str(leg.RANDOMID),
+        randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
         portName: toName,
         defaults: {
           portArrival: blankDateTime(leg.TOARRIVAL),
@@ -347,23 +368,67 @@ async function loadPortTabs(pool, fcaId) {
     }
 
     if (hasValue(leg.PORT_COSTTP_VENDOR) || Number(leg.TRANSIT_PORT_COST) > 0) {
+      const from = hasValue(leg.FROM_PORT);
+      const transitPort = from ? leg.FROM_PORT : leg.TO_PORT;
+      const transitName = from ? fromName : toName;
       tabs.push({
         portType: 'TP',
-        portId: str(leg.TO_PORT),
-        randomId: str(leg.RANDOMID),
-        portName: toName || fromName,
+        portId: str(transitPort),
+        randomId: resolvePortRandomId(leg.RANDOMID, transitPort),
+        portName: transitName,
         defaults: {
-          portArrival: blankDateTime(leg.TOARRIVAL),
-          portDeparture: blankDateTime(leg.TODEPARTURE),
-          robFoArrival: str(leg.TOROBFOARRIVAL),
-          robDoArrival: str(leg.TOROBDOARRIVAL),
-          robFoDeparture: str(leg.TOROBFODEPARTURE),
-          robDoDeparture: str(leg.TOROBDODEPARTURE),
+          portArrival: blankDateTime(from ? leg.FROMARRIVAL : leg.TOARRIVAL),
+          portDeparture: blankDateTime(from ? leg.FROMDEPARTURE : leg.TODEPARTURE),
+          robFoArrival: str(from ? leg.FROMROBFOARRIVAL : leg.TOROBFOARRIVAL),
+          robDoArrival: str(from ? leg.FROMROBDOARRIVAL : leg.TOROBDOARRIVAL),
+          robFoDeparture: str(from ? leg.FROMROBFODEPARTURE : leg.TOROBFODEPARTURE),
+          robDoDeparture: str(from ? leg.FROMROBDODEPARTURE : leg.TOROBDODEPARTURE),
         },
       });
     }
+
   }
-  return tabs;
+  if (tabs.length === 0) {
+    for (const leg of legs || []) {
+      const fromName = await getPortName(pool, leg.FROM_PORT);
+      const toName = await getPortName(pool, leg.TO_PORT);
+      const fromIsTbn = fromName === 'TBN' || String(fromName).startsWith('TBN ');
+      const toIsTbn = toName === 'TBN' || String(toName).startsWith('TBN ');
+      const hasLp = hasValue(leg.PORT_COSTLP_VENDOR) || Number(leg.LOAD_PORT_COST) > 0 || Number(leg.LOAD_PORT_QTY) > 0;
+      const hasDp = hasValue(leg.PORT_COSTDP_VENDOR) || Number(leg.DISC_PORT_COST) > 0 || Number(leg.DISC_PORT_QTY) > 0;
+      if (!hasLp && !hasDp) {
+        if (!fromIsTbn && hasValue(leg.FROM_PORT)) tabs.push({
+          portType: 'LP', portId: str(leg.FROM_PORT), randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
+          portName: fromName || str(leg.FROM_PORT), defaults: {},
+        });
+        if (!toIsTbn && hasValue(leg.TO_PORT) && String(leg.TO_PORT) !== String(leg.FROM_PORT)) tabs.push({
+          portType: 'DP', portId: str(leg.TO_PORT), randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
+          portName: toName || str(leg.TO_PORT), defaults: {},
+        });
+      }
+    }
+  }
+  const seen = new Set();
+  const deduped = tabs.filter((tab) => {
+    const key = `${tab.portType}-${tab.portId}-${tab.randomId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (comId) {
+    const [saved] = await pool.query(
+      `SELECT PORT, PORTID, RANDOMID FROM sof_master WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ? AND PORT IN ('LP', 'DP', 'TP') ORDER BY SOFID ASC`,
+      [comId, MODULE_ID, COMPANY_ID],
+    );
+    for (const row of saved || []) {
+      const key = `${row.PORT}-${row.PORTID}-${resolvePortRandomId(row.RANDOMID, row.PORTID)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const portName = await getPortName(pool, row.PORTID);
+      deduped.push({ portType: str(row.PORT), portId: str(row.PORTID), randomId: resolvePortRandomId(row.RANDOMID, row.PORTID), portName: portName || str(row.PORTID), defaults: {} });
+    }
+  }
+  return deduped;
 }
 
 function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [], explicit = {}) {
@@ -376,14 +441,14 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
   // Do not fall through a blank arrival row to a later (departure) Pilot timestamp.
   const findArrivalPilot = () => {
     const row = (keyOperations || []).find(
-      (r) => /^pilot on board$/i.test(String(r.activity || '').trim()),
+      (r) => /^pilot\s+on\s*board$/i.test(String(r.activity || '').trim()),
     );
     if (!row) return null;
     const dt = str(row.activityDateTime);
     return dt || null;
   };
   const cargoLoaded = (cargoRows || []).find(
-    (r) => String(r.activity || '').trim().toLowerCase() === 'cargo loaded',
+    (r) => ['cargo loaded', 'cargo discharged'].includes(String(r.activity || '').trim().toLowerCase()),
   );
   const stowageFromCargo = str(cargoLoaded?.shipFigure) || str(cargoLoaded?.blFigure) || '';
   return {
@@ -398,6 +463,30 @@ function deriveMasterFieldsFromKeyOperations(keyOperations = [], cargoRows = [],
       || findFrom(/^full away on passage$/i)
       || findFrom(/^faop$/i),
   };
+}
+
+function isSameOrUnlinkedSofId(rowSofId, currentSofId, previousSofId = null) {
+  return rowSofId == null || String(rowSofId).trim() === '' || Number(rowSofId) === 0
+    || String(rowSofId) === String(currentSofId)
+    || (previousSofId != null && String(rowSofId) === String(previousSofId));
+}
+
+async function copyAgentSofChildrenIfOmitted(connection, { agentSofId, internalSofId, plan }) {
+  if (!agentSofId || !internalSofId) return;
+  const copies = [
+    ['replaceEntityRows', 'sof_slave_3', 'ENTITY_NAME, ENTITY_VALUE'],
+    ['replaceBlRows', 'sof_slave_1', 'BL_DATE, BL_QTY, CARGO'],
+    ['replacePortActivities', 'sof_slave', 'ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES, GROUP_NAME'],
+    ['replaceKeyOperations', 'sof_slave_6', 'ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO, ROBIFO, ROBMDO, COMMENTS, TDEFAULT'],
+    ['replaceCargoRows', 'sof_slave_7', 'ACTIVITY, SHIPFIGURE, BLFIGURE, WATERDENSITY, REMARKS, TDEFAULT'],
+  ];
+  for (const [planKey, table, columns] of copies) {
+    if (plan?.[planKey]) continue;
+    await connection.query(
+      `INSERT INTO ${table} (SOFID, ${columns}) SELECT ?, ${columns} FROM ${table} WHERE SOFID = ?${table === 'sof_slave' ? " AND GROUP_NAME = '1'" : ''}`,
+      [internalSofId, agentSofId],
+    );
+  }
 }
 
 function applyMasterToKeyOperations(rows, record) {
@@ -416,10 +505,10 @@ function applyMasterToKeyOperations(rows, record) {
   return rows.map((row) => {
     const activity = str(row.activity);
     if (row.activityDateTime) {
-      if (activity === 'Pilot on board') pilotApplied = true;
+      if (/^pilot\s+on\s*board$/i.test(activity)) pilotApplied = true;
       return row;
     }
-    if (activity === 'Pilot on board') {
+    if (/^pilot\s+on\s*board$/i.test(activity)) {
       if (pilotApplied || !record?.PBFB_1) return row;
       pilotApplied = true;
       return {
@@ -511,29 +600,16 @@ function emptyPreArrival() {
   };
 }
 
-async function loadSofRecord(pool, comId, portType, portId, randomId) {
-  const [[internal]] = await pool.query(
+export async function loadSofRecord(pool, comId, portType, portId, randomId) {
+  const [[record]] = await pool.query(
     `SELECT * FROM sof_master
-     WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-       AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-     LIMIT 1`,
+     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
+       AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+       AND (LOGIN = 'INTERNAL_USER' OR (LOGIN = 'AGENT' AND SUBMITID = '2'))
+     ORDER BY (LOGIN = 'INTERNAL_USER') DESC, RANDOMID IS NULL, SOFID DESC LIMIT 1`,
     [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
-
-  if (internal) return internal;
-
-  const [[agent]] = await pool.query(
-    `SELECT * FROM sof_master
-     WHERE COMID = ? AND LOGIN = 'AGENT'
-       AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-       AND SUBMITID = '2'
-     LIMIT 1`,
-    [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
-  ).catch(() => [[null]]);
-
-  return agent || null;
+  );
+  return record || null;
 }
 
 async function loadLaytimeData(pool, comId, portType, portId, randomId, estimateType) {
@@ -547,8 +623,8 @@ async function loadLaytimeData(pool, comId, portType, portId, randomId, estimate
     `SELECT LAYTIME_ID, SUBMITID, LAYTIME_ALLOWED FROM laytime_master
      WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
        AND MODULEID = ? AND MCOMPANYID = ?
-       AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-     LIMIT 1`,
+       AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+     ORDER BY RANDOMID IS NULL, LAYTIME_ID LIMIT 1`,
     [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
   );
 
@@ -637,7 +713,7 @@ async function loadKeyOperations(pool, sofId, defaults, estimateType = null) {
   const isDry = Number(estimateType) === 3;
   const orderBy = isDry
     ? 'SLAVEID ASC'
-    : `(ACTIVITYDATETIME IS NULL OR ACTIVITYDATETIME = '0000-00-00 00:00:00'),
+    : `(ACTIVITYDATETIME IS NULL OR CAST(ACTIVITYDATETIME AS CHAR) LIKE '0000-00-00%'),
        ACTIVITYDATETIME ASC,
        SLAVEID ASC`;
   // Fail closed on read errors: a silent empty result would seed defaults and a later
@@ -917,7 +993,10 @@ export async function dbGetSofForm(comId) {
     }
   }
   const vesselParticulars = await loadVesselParticulars(pool, fcaId);
-  const portTabs = await loadPortTabs(pool, fcaId);
+  let portTabs = await loadPortTabs(pool, fcaId, comId);
+  if (!portTabs.length && compare.FCAID && String(compare.FCAID) !== String(fcaId)) {
+    portTabs = await loadPortTabs(pool, compare.FCAID, comId);
+  }
 
   const ports = [];
   for (const tab of portTabs) {
@@ -1015,45 +1094,26 @@ export async function dbGetSofForm(comId) {
 async function replaceKeyOperationRows(connection, sofId, keyOperations) {
   await connection.query(`DELETE FROM sof_slave_6 WHERE SOFID = ?`, [sofId]);
 
-  const hasToColumn = await ensureSofActivityDateTimeToColumn(connection);
-
   for (const row of keyOperations || []) {
     const activity = String(row.activity || '').trim();
     if (!activity) continue;
     const activityDateTime = parseDmyDateTime(row.activityDateTime);
     const activityDateTimeTo = parseDmyDateTime(row.activityDateTimeTo);
-    if (hasToColumn) {
-      await connection.query(
-        `INSERT INTO sof_slave_6
-          (SOFID, ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          sofId,
-          activity,
-          activityDateTime,
-          activityDateTimeTo,
-          numOrNull(row.robIfo),
-          numOrNull(row.robMdo),
-          str(row.comments),
-          Number(row.tDefault) === 1 ? 1 : 0,
-        ],
-      );
-    } else {
-      await connection.query(
-        `INSERT INTO sof_slave_6
-          (SOFID, ACTIVITY, ACTIVITYDATETIME, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          sofId,
-          activity,
-          activityDateTime,
-          numOrNull(row.robIfo),
-          numOrNull(row.robMdo),
-          str(row.comments),
-          Number(row.tDefault) === 1 ? 1 : 0,
-        ],
-      );
-    }
+    await connection.query(
+      `INSERT INTO sof_slave_6
+        (SOFID, ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO, ROBIFO, ROBMDO, COMMENTS, TDEFAULT)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        sofId,
+        activity,
+        activityDateTime,
+        activityDateTimeTo,
+        numOrNull(row.robIfo),
+        numOrNull(row.robMdo),
+        str(row.comments),
+        Number(row.tDefault) === 1 ? 1 : 0,
+      ],
+    );
   }
 }
 
@@ -1142,7 +1202,8 @@ async function replaceLaytimeDeductions(connection, laytimeId, rows) {
         (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LT_PARTIAL, CUMMULATIVE_TIME, NOTES)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [laytimeId, activity, start, end, str(row.duration), strOrNull(row.ltPartial), str(row.cumulative), notes],
-    ).catch(async () => {
+    ).catch(async (err) => {
+      if (err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
       await connection.query(
         `INSERT INTO laytime_slave1
           (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES)
@@ -1290,7 +1351,7 @@ export function validateSofDeductionPartialPercentages(rows = []) {
   }
 }
 
-async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows }) {
+async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, previousSofId, rows }) {
   const [existingRows] = await connection.query(
     `SELECT LAYTIME_LP_SLAVEID, SOFLOADPORTID, ACTIVITYID, START_DATETIME, FINISH_DATETIME
      FROM laytime_slave WHERE LAYTIME_ID = ?
@@ -1301,7 +1362,7 @@ async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows }
   const usedIds = new Set();
   const byActivity = new Map();
   for (const existing of existingRows || []) {
-    if (existing.SOFLOADPORTID != null && String(existing.SOFLOADPORTID) !== String(sofId)) continue;
+    if (!isSameOrUnlinkedSofId(existing.SOFLOADPORTID, sofId, previousSofId)) continue;
     const key = laytimeActivityKey({
       activity: existing.ACTIVITYID,
       start: existing.START_DATETIME,
@@ -1321,7 +1382,7 @@ async function syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows }
     const requested = row.laytimeActivityId ? byId.get(String(row.laytimeActivityId)) : null;
     const requestedIsAvailable = requested
       && !usedIds.has(String(requested.LAYTIME_LP_SLAVEID))
-      && (requested.SOFLOADPORTID == null || String(requested.SOFLOADPORTID) === String(sofId));
+      && isSameOrUnlinkedSofId(requested.SOFLOADPORTID, sofId, previousSofId);
     const candidates = byActivity.get(key) || [];
     const matching = requestedIsAvailable
       ? requested
@@ -1557,7 +1618,7 @@ export async function dbSaveSof(payload = {}) {
   const comId = payload.comId || payload.comid;
   const portType = str(payload.portType || payload.port);
   const portId = str(payload.portId || payload.portid);
-  const randomId = str(payload.randomId || payload.randomid);
+  const randomId = str(payload.randomId ?? payload.randomid);
   const submitId = Number(payload.submitId || payload.submitid || 1);
 
   if (Array.isArray(payload.portActivities)) {
@@ -1589,7 +1650,7 @@ export async function dbSaveSof(payload = {}) {
     || Array.isArray(payload.deductions);
   if (needsDryIntervalGate) {
     const estimateType = await getEstimateTypeForComId(pool, comId);
-    if (Number(estimateType) === 3) {
+    if (Number(estimateType) === 2 || Number(estimateType) === 3) {
       if (Array.isArray(payload.portActivities)) {
         validateSofCompletedIntervals(payload.portActivities, {
           fromKey: 'from',
@@ -1609,6 +1670,9 @@ export async function dbSaveSof(payload = {}) {
     }
   }
 
+  if (!await ensureSofActivityDateTimeToColumn(pool)) {
+    throw Object.assign(new Error('SOF end date storage is unavailable.'), { status: 503 });
+  }
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -1617,8 +1681,8 @@ export async function dbSaveSof(payload = {}) {
       `SELECT * FROM sof_master
        WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
          AND MODULEID = ? AND MCOMPANYID = ?
-         AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-       LIMIT 1`,
+         AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+       ORDER BY RANDOMID IS NULL, SOFID DESC LIMIT 1 FOR UPDATE`,
       [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
     );
 
@@ -1628,7 +1692,14 @@ export async function dbSaveSof(payload = {}) {
       throw error;
     }
 
-    const plan = resolveSofSavePlan(payload, existing || null);
+    const [[agent]] = !existing || Array.isArray(payload.portActivities) ? await connection.query(
+      `SELECT * FROM sof_master
+       WHERE COMID = ? AND LOGIN = 'AGENT' AND MODULEID = ? AND MCOMPANYID = ?
+         AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+         AND SUBMITID = '2' ORDER BY RANDOMID IS NULL, SOFID DESC LIMIT 1 FOR UPDATE`,
+      [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
+    ) : [[null]];
+    const plan = resolveSofSavePlan(payload, existing || agent);
     const {
       terminal,
       stowageQty,
@@ -1673,15 +1744,8 @@ export async function dbSaveSof(payload = {}) {
         ],
       );
       sofId = result.insertId;
-      if (!sofId) {
-        const [[maxRow]] = await connection.query(
-          `SELECT MAX(SOFID) AS maxId FROM sof_master
-           WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-             AND PORT = ? AND PORTID = ? AND RANDOMID = ?`,
-          [comId, portType, portId, randomId],
-        );
-        sofId = maxRow?.maxId;
-      }
+      if (!sofId) throw new Error('The new internal SOF did not return an ID.');
+      if (agent) await copyAgentSofChildrenIfOmitted(connection, { agentSofId: agent.SOFID, internalSofId: sofId, plan });
     } else {
       await connection.query(
         `UPDATE sof_master
@@ -1725,8 +1789,8 @@ export async function dbSaveSof(payload = {}) {
         `SELECT LAYTIME_ID, SUBMITID, LAYTIME_ALLOWED FROM laytime_master
          WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
            AND MODULEID = ? AND MCOMPANYID = ?
-           AND PORT = ? AND PORTID = ? AND RANDOMID = ?
-         LIMIT 1 FOR UPDATE`,
+           AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
+         ORDER BY RANDOMID IS NULL, LAYTIME_ID LIMIT 1 FOR UPDATE`,
         [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
       );
 
@@ -1784,8 +1848,9 @@ export async function dbSaveSof(payload = {}) {
           `INSERT INTO laytime_master
             (COMID, LOGIN, LOGINID, MODULEID, MCOMPANYID, PORT, PORTID, RANDOMID,
              TERMINAL, STOWAGE_QTY, VESSEL_ARRIVED, NOR_TENDERED, PILOT_ON_BOARD,
-             LOAD_DIS_COMMENCED, LOAD_DIS_COMPLETED, VESSEL_SAILED, SOF_LOADPORTID, SUBMITID)
-           VALUES (?, 'INTERNAL_USER', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+             LOAD_DIS_COMMENCED, LOAD_DIS_COMPLETED, VESSEL_SAILED, SOF_LOADPORTID, SUBMITID,
+             APPLICABLE_STATUS, REVERSIBLE, DETENTION)
+           VALUES (?, 'INTERNAL_USER', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0, 0)`,
           [
             comId, appContext.userId || 0, MODULE_ID, COMPANY_ID, portType, portId, randomId,
             terminal, stowageQty, vesselArrived, norTendered, pilotOnBoard,
@@ -1797,7 +1862,7 @@ export async function dbSaveSof(payload = {}) {
 
       if (laytimeId) {
         if (Array.isArray(payload.portActivities)) {
-          await syncSofActivitiesToLaytime(connection, { laytimeId, sofId, rows: activityRows });
+          await syncSofActivitiesToLaytime(connection, { laytimeId, sofId, previousSofId: agent?.SOFID, rows: activityRows });
         }
         if (Array.isArray(payload.deductions)) {
           await replaceLaytimeDeductions(connection, laytimeId, deductionRows);
@@ -1826,6 +1891,9 @@ export {
   isVesselSailedActivity,
   applyMasterToKeyOperations,
   deriveMasterFieldsFromKeyOperations,
+  isSameOrUnlinkedSofId,
+  copyAgentSofChildrenIfOmitted,
   draftFiguresFromCargoRows,
   defaultKeyOperations,
+  loadPortTabs,
 };

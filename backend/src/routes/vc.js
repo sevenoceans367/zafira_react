@@ -927,16 +927,9 @@ router.post('/ops/laytime', (req, res, next) => {
   });
 }, asyncHandler(async (req, res) => {
   const body = req.body?.payload ? JSON.parse(req.body.payload) : (req.body || {});
-  const keepFiles = Array.isArray(body.keepFiles)
-    ? body.keepFiles.map(String).filter(Boolean)
-    : [];
-  const { attachment } = mapUploadedFiles(req.files || []);
-  const newFiles = attachment
-    ? attachment.split(',').map((part) => part.trim()).filter(Boolean)
-    : [];
   res.json(await saveLaytime({
     ...body,
-    keepFiles: newFiles.length ? [...keepFiles, ...newFiles] : keepFiles,
+    attachmentUploads: req.files,
   }));
 }));
 

@@ -332,6 +332,10 @@ export default function LaytimeEditorLayout({
             removeListRow={removeListRow}
             emptyActivityRow={emptyActivityRow}
             emptyDeductionRow={emptyDeductionRow}
+            saving={saving}
+            onChangeNegotiations={(edit) => patchDraft(({ negotiations }) => ({
+              negotiations: { ...edit(negotiations), dirty: true },
+            }))}
           />
 
           {/* REMARKS */}
@@ -436,8 +440,8 @@ export default function LaytimeEditorLayout({
                 </>
               ) : (
                 <>
-                  <p className={styles.lockedNote}>This Laytime is locked / closed.</p>
-                  {form?.canOpen ? (
+                  <p className={styles.lockedNote}>{activePort.locked ? 'This Laytime is locked / closed.' : 'You have view-only access to this Laytime.'}</p>
+                  {activePort.locked && form?.canOpen ? (
                     <Button
                       type="button"
                       variant="submit"

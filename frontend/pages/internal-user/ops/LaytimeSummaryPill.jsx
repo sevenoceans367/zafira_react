@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Button, TextInput } from '@bainbridge/shared-ui';
 import CountryMultiSelect from '../masters/port-cost-type/CountryMultiSelect.jsx';
-import { formatMoneyDisplay } from './laytimeTankerHelpers.js';
+import { formatNegotiationTotal } from './laytimeNegotiations.js';
 import { isBlankOrFiniteNumber } from './laytimeTankerValidation.js';
 import styles from './OpsVcLaytimePage.module.css';
 
@@ -48,7 +48,7 @@ const metrics = [
 function SummaryMetric({ metric, value, unit, disabled, onChange }) {
   const { key, label, icon, tone, time, editable } = metric;
   const invalid = editable && !isBlankOrFiniteNumber(value);
-  const warning = tone === 'Red' && Number(value) > 0;
+  const warning = tone === 'Red' && Number(String(value).replaceAll(',', '')) > 0;
   const field = editable ? (
     <TextInput
       id={key}
@@ -106,12 +106,15 @@ export default function LaytimeSummaryPill({
   const unit = unitShort === 'hrs' ? 'HR' : unitShort === 'days' ? 'DAYS' : '—';
   const computed = (key) => unavailable || (draft.financialUnknown && key !== 'actualLaytime')
     ? '—' : draft[key] || (key === 'actualLaytime' ? '—' : '0');
-  const money = unavailable || draft.financialUnknown ? '—' : formatMoneyDisplay(draft.ttlDemurrage);
+  const dialogueTotal = draft.negotiations
+    ? formatNegotiationTotal(draft.negotiations.rows).replace(/\.00$/, '')
+    : '—';
+  const hasDialogueAmount = dialogueTotal !== '—' && dialogueTotal !== '0';
   const summaryValues = [
     ['Allowed', draft.laytimeAllowed || '—'],
     ['Actual', computed('actualLaytime')],
     [isDry ? 'Demm Days' : 'Demm Hrs', computed('timeToDemurrage'), !unavailable && Number(draft.timeToDemurrage) > 0],
-    [unavailable ? 'Unavailable' : 'Calc Demm', money === '—' ? money : `$${money}`, !unavailable && Number(draft.ttlDemurrage) > 0],
+    ['Dialogue Total', dialogueTotal === '—' ? dialogueTotal : `$${dialogueTotal}`, hasDialogueAmount],
   ];
 
   useEffect(() => {
@@ -177,7 +180,7 @@ export default function LaytimeSummaryPill({
         <div>
           <div className={styles.ltSummaryHeadTitle}>Summary</div>
           <div className={styles.ltSummaryHeadSub}>
-            {unavailable ? 'Calculations unavailable. Correct the highlighted fields.' : 'Laytime calculation results'}
+            {draft.calcError || (unavailable ? 'Calculations unavailable. Correct the highlighted fields.' : 'Laytime calculation results')}
           </div>
         </div>
         <Button className={styles.fabCloseBtn} icon="chevron-down" iconOnly onClick={onClose} ariaLabel="Minimize summary" />
@@ -201,12 +204,14 @@ export default function LaytimeSummaryPill({
             );
           })}
         </div>
-        <div className={styles.ltSumFinalRow}>
-          <MetricLabel label="Calculated Demurrage (USD)" icon="dollar" />
-          <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal} ${!unavailable && Number(draft.ttlDemurrage) > 0 ? styles.ltSumNegative : ''}`}>
-            {money}
+        {draft.negotiations && (
+          <div className={styles.ltSumFinalRow}>
+            <MetricLabel label="Dialogue total (USD, all statuses)" icon="dollar" />
+            <div className={`${styles.ltSumComputed} ${styles.ltSumFinalVal} ${hasDialogueAmount ? styles.ltSumNegative : ''}`}>
+              {dialogueTotal}
+            </div>
           </div>
-        </div>
+        )}
         <hr className={styles.ltApprovalDivider} />
         <div className={styles.ltApprovalHead}>
           <div className={`${styles.sectionIco} ${styles.sectionIcoNavy}`}><Icon name="approver" /></div>
@@ -220,7 +225,7 @@ export default function LaytimeSummaryPill({
             value={selectedApprovers}
             onChange={setApprovers}
             disabled={locked}
-            placeholder="Choose approvers"
+            placeholder="Search"
             searchPlaceholder="Search approvers"
             variant="card"
             chipTone="cargo"

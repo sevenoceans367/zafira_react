@@ -9,6 +9,10 @@ import {
   getTcContractTypeMigrationState,
   runTcContractTypeMigration,
 } from './migrations/tcContractTypeMigration.js';
+import {
+  getLaytimeNegotiationMigrationState,
+  runLaytimeNegotiationMigration,
+} from './migrations/laytimeNegotiationMigration.js';
 import { getPool } from './db.js';
 
 const app = express();
@@ -21,16 +25,14 @@ app.use('/attachment', express.static(attachmentDir));
 
 app.use('/api', apiRoutes);
 
-/** Readiness: when DB is configured, CONTRACT_TYPE migration must be ready. */
 app.get('/healthz', (_req, res) => {
   if (!isDbConfigured()) {
-    return res.json({ ok: true, db: false, tcContractType: 'n/a' });
+    return res.json({ ok: true, db: false, tcContractType: 'n/a', laytimeNegotiation: 'n/a' });
   }
-  const state = getTcContractTypeMigrationState();
-  if (state !== 'ready') {
-    return res.status(503).json({ ok: false, db: true, tcContractType: state });
-  }
-  return res.json({ ok: true, db: true, tcContractType: state });
+  const tcContractType = getTcContractTypeMigrationState();
+  const laytimeNegotiation = getLaytimeNegotiationMigrationState();
+  const ok = tcContractType === 'ready' && laytimeNegotiation === 'ready';
+  return res.status(ok ? 200 : 503).json({ ok, db: true, tcContractType, laytimeNegotiation });
 });
 
 async function start() {
@@ -43,6 +45,8 @@ async function start() {
       console.error('[boot] CONTRACT_TYPE migration failed — refusing to listen.');
       process.exit(1);
     }
+    const negotiation = await runLaytimeNegotiationMigration(getPool());
+    console.log(`[migration] laytime_negotiation: ${negotiation.state}${negotiation.detail ? ` (${negotiation.detail})` : ''}`);
   } else {
     console.log('Database: not configured — using mock data (set backend/.env)');
   }

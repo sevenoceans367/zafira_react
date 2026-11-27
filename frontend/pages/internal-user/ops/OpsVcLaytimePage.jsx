@@ -12,6 +12,7 @@ import {
 } from '@bainbridge/shared-ui';
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchLaytimeForm, openLaytime, saveLaytime } from '../../../services/opsVc.js';
+import { negotiationSaveFields } from './laytimeNegotiations.js';
 import OpsVcLaytimeHeaderActions from './OpsVcLaytimeHeaderActions.jsx';
 import LaytimeEditorLayout from './LaytimeEditorLayout.jsx';
 import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
@@ -462,6 +463,7 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = fal
     totalDaysAtPort: port.totalDaysAtPort ?? '',
     loadedTerms: port.loadedTerms ?? '',
     remarks: port.remarks || '',
+    negotiations: port.negotiations && { ...port.negotiations, deletedIds: [], dirty: false },
     entityRows: (port.entityRows || []).map((row) => ({ ...row })),
     activities: (port.activities?.length ? port.activities : [emptyActivityRow()])
       .map((row) => {
@@ -592,7 +594,15 @@ export default function OpsVcLaytimePage() {
           ? draftFromPort(port, unit, { tanker, dryLaytime })
           : draftFromPort(port, null, { recompute: false });
       });
-      setDrafts(nextDrafts);
+      setDrafts((current) => {
+        if (preferredKey) {
+          for (const [key, next] of Object.entries(nextDrafts)) {
+            const pending = current[key]?.negotiations;
+            if (key !== preferredKey && next.negotiations && pending?.dirty) next.negotiations = pending;
+          }
+        }
+        return nextDrafts;
+      });
       const preferred = preferredKey
         || data.ports?.[Math.max(0, tabParam - 1)]?.key
         || data.ports?.[0]?.key
@@ -630,7 +640,8 @@ export default function OpsVcLaytimePage() {
 
   const patchDraft = (patch, { recompute = false, refreshAllowed = false } = {}) => {
     setDrafts((current) => {
-      let base = { ...current[activeKey], ...patch };
+      const previous = current[activeKey];
+      let base = { ...previous, ...(typeof patch === 'function' ? patch(previous) : patch) };
       if (unitUnknown) {
         return { ...current, [activeKey]: base };
       }
@@ -785,16 +796,23 @@ export default function OpsVcLaytimePage() {
     setSaving(true);
     setError('');
     try {
-      const { keepFiles: _keepFiles, keepFileNamesByFile: _keepFileNamesByFile, ...draftFields } = draft;
+      const {
+        negotiations,
+        keepFiles: _keepFiles,
+        keepFileNamesByFile: _keepFileNamesByFile,
+        ...laytime
+      } = draft;
       const result = await saveLaytime({
         comId,
         portType: activePort.portType,
         portId: activePort.portId,
         randomId: activePort.randomId,
         sofId: activePort.sofId,
+        expectedLaytimeVersion: activePort.saveVersion,
         submitId,
-        ...draftFields,
+        ...laytime,
         ...buildLaytimeAttachmentPayload(draft.keepFiles, draft.keepFileNamesByFile),
+        ...negotiationSaveFields(negotiations),
       }, pendingFiles);
 
       setPendingFilesByKey((current) => ({

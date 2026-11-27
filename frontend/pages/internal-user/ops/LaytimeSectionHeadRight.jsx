@@ -1,12 +1,11 @@
 import React from 'react';
 import styles from './OpsVcLaytimePage.module.css';
 
-export default function LaytimeSectionHeadRight({ pagination, section, searchPlaceholder, entityFilter }) {
+export default function LaytimeSectionHeadRight({ pagination, section, searchPlaceholder }) {
   const { filteredCount, page, pageSize, search, setSearch, setPage } = pagination;
   const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
   return (
     <div className={styles.sectionHeadRight} data-laytime-interactive>
-      {entityFilter}
       <label className={styles.sectionSearch}>
         <i className="bi bi-search" aria-hidden="true" />
         <input

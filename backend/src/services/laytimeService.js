@@ -105,8 +105,8 @@ const MOCK_FORM = {
 
 let mockForm = structuredClone(MOCK_FORM);
 
-export async function getLaytimeForm(comId) {
-  if (isDbConfigured()) return dbGetLaytimeForm(comId);
+export async function getLaytimeForm(comId, user) {
+  if (isDbConfigured()) return dbGetLaytimeForm(comId, user);
   if (String(comId) !== String(mockForm.comId)) {
     const error = new Error('VC nomination not found.');
     error.status = 404;
@@ -115,8 +115,11 @@ export async function getLaytimeForm(comId) {
   return structuredClone(mockForm);
 }
 
-export async function saveLaytime(payload = {}) {
-  if (isDbConfigured()) return dbSaveLaytime(payload);
+export async function saveLaytime(payload = {}, user) {
+  if (isDbConfigured()) return dbSaveLaytime(payload, user);
+  if (payload.negotiations !== undefined) {
+    throw Object.assign(new Error('Negotiations require a configured database.'), { status: 503 });
+  }
 
   const port = mockForm.ports.find(
     (item) => item.key === `${payload.portType}-${payload.portId}-${payload.randomId}`,
@@ -187,6 +190,6 @@ export async function saveLaytime(payload = {}) {
   };
 }
 
-export async function openLaytime(payload = {}) {
-  return saveLaytime({ ...payload, action: 'open', submitId: 0 });
+export async function openLaytime(payload = {}, user) {
+  return saveLaytime({ ...payload, action: 'open', submitId: 0 }, user);
 }

@@ -2,7 +2,10 @@ import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 import { agencyLetterHasColumn } from './agencyLetterDb.js';
 import { loadSofRecord } from './sofDb.js';
+import { lockSofLaytimeNomination } from './sofLaytimeNomination.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
+import { assertLaytimeSaveVersion, laytimeSaveVersion, loadLaytimeNegotiations, prepareLaytimeNegotiations, saveLaytimeNegotiations } from './laytimeNegotiationDb.js';
+import { getLaytimeNegotiationMigrationState } from '../migrations/laytimeNegotiationMigration.js';
 import {
   calculateLaytimeForSave,
   durationForPersist,
@@ -14,6 +17,13 @@ import {
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
+
+function negotiationActorId(user) {
+  if (!user || !['internal_user', 'mgmt_user', 'rm_user'].includes(user.userType) || String(user.companyId) !== String(COMPANY_ID)
+    || (user.moduleId != null && String(user.moduleId) !== String(MODULE_ID))) return null;
+  const id = Number(user.id);
+  return Number.isInteger(id) && id > 0 && id <= 2147483647 ? id : null;
+}
 
 function blankDateTime(value) {
   if (!value) return '';
@@ -446,14 +456,16 @@ export function dryCarryFromRecord(record) {
 
 async function loadLaytimeRecord(pool, comId, portType, portId, randomId, forUpdate = false) {
   const [[row]] = await pool.query(
-    `SELECT * FROM laytime_master
+    `SELECT *, CAST(LAYTIME_ID AS CHAR) AS resolvedLaytimeId FROM laytime_master
      WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
        AND MODULEID = ? AND MCOMPANYID = ?
        AND PORT = ? AND PORTID = ? AND COALESCE(RANDOMID, PORTID) = ?
      ORDER BY RANDOMID IS NULL, LAYTIME_ID LIMIT 1${forUpdate ? ' FOR UPDATE' : ''}`,
     [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
   );
-  return row || null;
+  if (!row) return null;
+  const { resolvedLaytimeId, ...record } = row;
+  return { ...record, LAYTIME_ID: resolvedLaytimeId };
 }
 
 function emptyActivity() {
@@ -929,11 +941,46 @@ async function loadLaytimeApprovers(pool) {
   return rows;
 }
 
+async function loadLaytimeAuthority(db, actorId) {
+  if (!actorId) return {};
+  const [[authority]] = await db.query(
+    `SELECT LAYTIME_CHK_CRETR, LAYTIME_CHK_APP_1, LAYTIME_CHK_APP_2, LAYTIME_CHK_OPEN
+     FROM approval_matrix WHERE MCOMPANYID = ? AND LOGINID = ? LIMIT 1`,
+    [COMPANY_ID, actorId],
+  );
+  return authority || {};
+}
+
+function canEditLaytime(authority, submitId) {
+  if (submitId === 0 || submitId === 2) return Number(authority.LAYTIME_CHK_CRETR) === 1;
+  if (submitId === 1 || submitId === 4) return Number(authority.LAYTIME_CHK_APP_1) === 1;
+  if (submitId === 3) return Number(authority.LAYTIME_CHK_APP_2) === 1;
+  return false;
+}
+
 /**
  * PHP laytime_calculation.php — Ops VC Laytime form.
  */
-export async function dbGetLaytimeForm(comId) {
+export async function dbGetLaytimeForm(comId, user) {
   const pool = getPool();
+  const actorId = negotiationActorId(user);
+  if (!actorId) return readLaytimeForm(pool, comId);
+  const connection = await pool.getConnection();
+  try {
+    await connection.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+    await connection.query('START TRANSACTION READ ONLY');
+    const form = await readLaytimeForm(connection, comId, actorId);
+    await connection.commit();
+    return form;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function readLaytimeForm(pool, comId, actorId) {
   if (!comId) {
     const error = new Error('COMID is required.');
     error.status = 400;
@@ -941,7 +988,7 @@ export async function dbGetLaytimeForm(comId) {
   }
 
   const [[compare]] = await pool.query(
-    `SELECT c.COMID, c.MESSAGE, c.FCAID, m.VESSEL_IMO_ID, vim.VESSEL_NAME
+    `SELECT c.COMID, c.MESSAGE, c.FCAID, c.MCOMPANYID, m.VESSEL_IMO_ID, vim.VESSEL_NAME
      FROM freight_cost_estimate_compare c
      LEFT JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
@@ -961,6 +1008,8 @@ export async function dbGetLaytimeForm(comId) {
   const tanker = Number(vesselParticulars.estimateType) === 2;
   const isDry = Number(vesselParticulars.estimateType) === 3;
   const editor = tanker || isDry;
+  const authority = editor ? await loadLaytimeAuthority(pool, actorId) : {};
+  const canReadNegotiations = Boolean(actorId) && editor && getLaytimeNegotiationMigrationState() === 'ready';
   const [[master]] = await pool.query(
     `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO,
             FIXTURETYPEID, SEL_BUSI_TYPE
@@ -1034,6 +1083,7 @@ export async function dbGetLaytimeForm(comId) {
     const sofId = sof?.SOFID ?? null;
     const submitId = record?.SUBMITID != null ? Number(record.SUBMITID) : 0;
     const locked = submitId === 5;
+    const canEdit = editor ? canEditLaytime(authority, submitId) : !locked;
     const sofDerived = await loadSofDerivedMilestones(pool, sofId);
     const fields = mapMasterFields(record, sof, tab.defaults, sofDerived);
     const activities = await loadActivities(pool, laytimeId, sofId, sources);
@@ -1065,12 +1115,14 @@ export async function dbGetLaytimeForm(comId) {
       sofId: sofId != null ? String(sofId) : '',
       submitId,
       locked,
-      canEdit: !locked,
+      canEdit,
       ...agent,
       ...fields,
       activities,
       deductions,
       entityRows,
+      ...(editor && canEdit ? { saveVersion: await laytimeSaveVersion(pool, record, { sof, carry }) } : {}),
+      ...(canReadNegotiations ? { negotiations: await loadLaytimeNegotiations(pool, laytimeId) } : {}),
     });
   }
 
@@ -1115,7 +1167,7 @@ export async function dbGetLaytimeForm(comId) {
     // Fun158 estimate type is the unit basis; historical day-mode tanker writes
     // are not auto-converted (no blanket ×24). Unknown type → rateUnit null.
     allowanceUnitBasis: rateUnit ? 'fun158-estimateType' : null,
-    canOpen: true,
+    canOpen: !editor || Number(authority.LAYTIME_CHK_OPEN) === 1,
     approverOptions,
     ports,
   };
@@ -1132,6 +1184,7 @@ async function upsertLaytimeMaster(connection, {
   fields,
   attachments,
   attachmentNames,
+  userId,
 }) {
   const paramsCore = [
     fields.terminal,
@@ -1219,7 +1272,7 @@ async function upsertLaytimeMaster(connection, {
     return laytimeId;
   }
 
-  const [result] = await connection.query(
+  await connection.query(
     `INSERT INTO laytime_master (
        COMID, LOGIN, LOGINID, MODULEID, MCOMPANYID, PORT, PORTID, RANDOMID,
        TERMINAL, STOWAGE_QTY, VESSEL_ARRIVED, NOR_TENDERED, NOR_ACCEPTED, START_COUNTING,
@@ -1242,7 +1295,7 @@ async function upsertLaytimeMaster(connection, {
        ?, ?, ?, ?, ?
      )`,
     [
-      comId, appContext.userId || 0, MODULE_ID, COMPANY_ID, portType, portId, randomId,
+      comId, userId, MODULE_ID, COMPANY_ID, portType, portId, randomId,
       ...paramsCore,
     ],
   ).catch(async (err) => {
@@ -1268,7 +1321,7 @@ async function upsertLaytimeMaster(connection, {
        ?, ?, ?, ?, ?
      )`,
     [
-      comId, appContext.userId || 0, MODULE_ID, COMPANY_ID, portType, portId, randomId,
+      comId, userId, MODULE_ID, COMPANY_ID, portType, portId, randomId,
       fields.terminal, fields.stowageQty, fields.vesselArrived, fields.norTendered,
       fields.norAccepted, fields.startCounting, fields.pilotOnBoard,
       fields.loadCommenced, fields.loadCompleted, fields.vesselSailed,
@@ -1282,23 +1335,14 @@ async function upsertLaytimeMaster(connection, {
     );
   });
 
-  let laytimeId = result?.insertId;
-  if (!laytimeId) {
-    const [[maxRow]] = await connection.query(
-      `SELECT MAX(LAYTIME_ID) AS maxId FROM laytime_master
-       WHERE COMID = ? AND LOGIN = 'INTERNAL_USER'
-         AND PORT = ? AND PORTID = ? AND RANDOMID = ?`,
-      [comId, portType, portId, randomId],
-    );
-    laytimeId = maxRow?.maxId;
-  }
-  return laytimeId;
+  const [[row]] = await connection.query('SELECT CAST(LAST_INSERT_ID() AS CHAR) AS laytimeId');
+  return row.laytimeId === '0' ? null : row.laytimeId;
 }
 
 /**
  * PHP updationLaytimeRecords / openLaytimeRecords — upsert master + replace slaves.
  */
-export async function dbSaveLaytime(payload = {}) {
+export async function dbSaveLaytime(payload = {}, user) {
   const pool = getPool();
   const comId = payload.comId || payload.comid;
   const portType = str(payload.portType || payload.port);
@@ -1312,6 +1356,18 @@ export async function dbSaveLaytime(payload = {}) {
     const error = new Error('comId, portType, portId and randomId are required.');
     error.status = 400;
     throw error;
+  }
+
+  let negotiations;
+  const userId = negotiationActorId(user);
+  const expectedVersion = payload.expectedLaytimeVersion;
+  if (expectedVersion !== undefined && (typeof expectedVersion !== 'string' || !/^[a-f0-9]{64}$/.test(expectedVersion))) {
+    throw Object.assign(new Error('Invalid Laytime version. Reload before saving.'), { status: 400 });
+  }
+  if (payload.negotiations !== undefined) {
+    if (!userId) throw Object.assign(new Error('An authorized internal user is required to save negotiations.'), { status: user ? 403 : 401 });
+    if (action === 'open') throw Object.assign(new Error('Reopen Laytime before saving negotiations.'), { status: 400 });
+    negotiations = prepareLaytimeNegotiations(payload.negotiations);
   }
 
   // Fail closed for every write path (including Open): unknown Fun158 estimate type
@@ -1328,12 +1384,24 @@ export async function dbSaveLaytime(payload = {}) {
 
   const dryLaytime = Number(particulars.estimateType) === 3;
   const usesEditor = Number(particulars.estimateType) === 2 || dryLaytime;
-
+  if (usesEditor && !userId) {
+    throw Object.assign(new Error('An authorized internal user is required to change Laytime.'), { status: user ? 403 : 401 });
+  }
+  if (negotiations && !usesEditor) {
+    throw Object.assign(new Error('Negotiations are available for Tanker and Dry Laytime.'), { status: 400 });
+  }
+  if (negotiations && getLaytimeNegotiationMigrationState() !== 'ready') {
+    throw Object.assign(new Error('Negotiation storage is unavailable.'), { status: 503 });
+  }
   // Open is status-only: clear SUBMITID lock without rewriting fields or children.
   if (action === 'open') {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
+      await lockSofLaytimeNomination(connection, comId, MODULE_ID, COMPANY_ID);
+      if (usesEditor && Number((await loadLaytimeAuthority(connection, userId)).LAYTIME_CHK_OPEN) !== 1) {
+        throw Object.assign(new Error('You do not have permission to reopen Laytime.'), { status: 403 });
+      }
       const existing = await loadLaytimeRecord(connection, comId, portType, portId, randomId, true);
       if (!existing?.LAYTIME_ID) {
         const error = new Error('Laytime record not found to open.');
@@ -1430,6 +1498,9 @@ export async function dbSaveLaytime(payload = {}) {
   try {
     await connection.beginTransaction();
 
+    const nomination = await lockSofLaytimeNomination(connection, comId, MODULE_ID, COMPANY_ID);
+    const sof = await loadSofRecord(connection, comId, portType, portId, randomId);
+    const sofId = sof?.SOFID ?? null;
     const existing = await loadLaytimeRecord(connection, comId, portType, portId, randomId, true);
 
     if (existing && Number(existing.SUBMITID) === 5) {
@@ -1437,17 +1508,33 @@ export async function dbSaveLaytime(payload = {}) {
       error.status = 400;
       throw error;
     }
+    if (usesEditor) {
+      if (!canEditLaytime(await loadLaytimeAuthority(connection, userId), Number(existing?.SUBMITID ?? 0))) {
+        throw Object.assign(new Error('You do not have permission to change Laytime at its current approval stage.'), { status: 403 });
+      }
+      if (!expectedVersion) {
+        throw Object.assign(new Error('Laytime version required. Reload before saving.'), { status: 409 });
+      }
+    }
 
-    const sof = await loadSofRecord(connection, comId, portType, portId, randomId);
-    const sofId = sof?.SOFID ?? null;
+    let tabs;
+    if (usesEditor && (!existing || dryLaytime)) {
+      tabs = await loadPortTabs(connection, fcaId, comId, dryLaytime);
+      if (!tabs.length && nomination.FCAID && String(fcaId) !== String(nomination.FCAID)) {
+        tabs = await loadPortTabs(connection, nomination.FCAID, comId, dryLaytime);
+      }
+      if (!existing && !tabs.some((tab) => tab.portType === portType && tab.portId === portId && tab.randomId === randomId)) {
+        throw Object.assign(new Error('Laytime port call not found.'), { status: 404 });
+      }
+    }
 
     if (usesEditor) {
       let carry = {};
       if (dryLaytime) {
-        const tabs = await loadPortTabs(connection, fcaId, comId, true);
         const previous = previousDryWorksheetCall(tabs, { portType, portId, randomId });
         if (previous) carry = dryCarryFromRecord(await loadLaytimeRecord(connection, comId, previous.portType, previous.portId, previous.randomId));
       }
+      await assertLaytimeSaveVersion(connection, expectedVersion, existing, { sof, carry });
       const calculated = calculateLaytimeForSave(fields, activities, deductions, dryLaytime ? 'days' : 'hours', { ...carry, dryLaytime });
       ({ activities, deductions } = calculated);
       for (const key of ['actualLaytime', 'timeToDemurrage', 'timeToDespatch', 'ttlDemurrage', 'ttlDespatch']) {
@@ -1468,6 +1555,7 @@ export async function dbSaveLaytime(payload = {}) {
       fields,
       attachments,
       attachmentNames,
+      userId: usesEditor ? userId : appContext.userId || 0,
     });
 
     if (!laytimeId) {
@@ -1479,6 +1567,7 @@ export async function dbSaveLaytime(payload = {}) {
     await replaceActivities(connection, laytimeId, activities, { failClosed: usesEditor });
     await replaceDeductions(connection, laytimeId, deductions, { failClosed: usesEditor });
     await replaceEntityRows(connection, laytimeId, entityRows, usesEditor);
+    if (negotiations) await saveLaytimeNegotiations(connection, laytimeId, userId, negotiations);
 
     await connection.commit();
     return {

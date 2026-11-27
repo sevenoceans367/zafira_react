@@ -937,7 +937,7 @@
   border-radius: 10px;
 }
 
-/* ===== NAK-166 Tanker Laytime — scoped under .ltTankerRoot (no Dry/Gas leaks) ===== */
+/* ===== Laytime editor shared by Tanker and Dry ===== */
 
 .ltTankerRoot {
   --lt-cobalt: #3b82f6;
@@ -1181,6 +1181,10 @@
   gap: 14px;
 }
 
+.ltApplicableRow {
+  margin-bottom: 12px;
+}
+
 .ltOptlabel {
   font-size: 10.5px;
   font-weight: 700;
@@ -1370,9 +1374,8 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  max-width: min(560px, 100%);
-  width: auto;
-  flex-wrap: wrap;
+  max-width: 100%;
+  width: max-content;
   background: #274670;
   color: #fff;
   border: none;
@@ -1398,19 +1401,23 @@
   outline-offset: 3px;
 }
 
-.ltSummaryFab svg { width: 18px; height: 18px; }
+.ltSummaryFab svg { width: 18px; height: 18px; flex: none; }
 
 .fabVals {
   display: flex;
+  align-items: center;
   gap: 15px;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
   font-size: 12.5px;
   font-weight: 700;
-  flex-wrap: wrap;
 }
 
 .fabValItem {
   display: flex;
   align-items: center;
+  flex: none;
   gap: 5px;
 }
 
@@ -1594,7 +1601,7 @@
 
 .ltActionBtns :global(button) { flex: 1; }
 
-@container lt-summary (max-width: 360px) {
+@container lt-summary (max-width: 260px) {
   .ltSumGrid { grid-template-columns: 1fr; }
   .ltSumFinalRow { align-items: stretch; flex-direction: column; gap: 6px; }
   .ltSummaryBody { padding: 12px; }
@@ -1621,6 +1628,14 @@
   .sofFooterBar { flex-direction: column; align-items: stretch; gap: 8px; padding: 8px; }
   .ltSummaryFloat { inset-inline: 12px; bottom: calc(100% + 10px); }
   .ltSummaryFloat > * { width: 100%; }
+  .ltSummaryFloat > .ltSummaryFabExpanded {
+    position: fixed;
+    inset-inline: 12px;
+    bottom: 12px;
+    width: auto;
+    max-width: 420px;
+    margin-inline: auto;
+  }
   .ltSummaryFab {
     width: 100%;
     padding: 8px 12px;

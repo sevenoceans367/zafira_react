@@ -1,10 +1,8 @@
 /**
- * Tanker-only (estimateType === 2) client validation + safe recompute.
- * Hidden Dry/Gas fields are not required — Legacy getSubmit skips qty/rate when selBType==2.
- * Applies the Tanker calculation after validating its inputs.
+ * Laytime editor validation and safe recompute for Tanker and Dry.
  */
 
-import { DEDUCTION_CROSSOVER_MESSAGE, hoursBetweenDmy, parseDmyDateTimeMs, recomputePortDraft, rowIsEmpty } from './laytimeCalculations.js';
+import { hoursBetweenDmy, parseDmyDateTimeMs, recomputePortDraft, rowIsEmpty } from './laytimeCalculations.js';
 import { listTankerEntityMatches } from './laytimeTankerHelpers.js';
 
 export const TANKER_MANDATORY_OPERATIONAL_FIELDS = [
@@ -91,45 +89,39 @@ export function parseStrictDisplayDateTime(value) {
 }
 
 /**
- * Incomplete blank dates OK on empty rows. Non-blank must parse strictly.
- * If either end is set, both must be set. End must be >= start.
+ * Validate any entered date and reject reversed ranges. Save requires both dates when either is set.
  */
-export function validateDateRangeOrder(start, end, { startLabel = 'Start', endLabel = 'Finish' } = {}) {
+export function validateDateRangeOrder(start, end, {
+  startLabel = 'Start', endLabel = 'Finish', allowIncomplete = false,
+} = {}) {
   const startRaw = String(start ?? '').trim();
   const endRaw = String(end ?? '').trim();
-  if (startRaw && !endRaw) {
+  if (!allowIncomplete && startRaw && !endRaw) {
     return { ok: false, field: 'end', message: `${endLabel} is required when ${startLabel} is set.` };
   }
-  if (endRaw && !startRaw) {
+  if (!allowIncomplete && endRaw && !startRaw) {
     return { ok: false, field: 'start', message: `${startLabel} is required when ${endLabel} is set.` };
   }
-  if (startRaw) {
-    const parsed = parseStrictDisplayDateTime(startRaw);
-    if (!parsed) {
-      return { ok: false, field: 'start', message: `${startLabel} must be a complete date (DD-MM-YYYY).` };
-    }
+  const from = startRaw ? parseStrictDisplayDateTime(startRaw) : null;
+  const to = endRaw ? parseStrictDisplayDateTime(endRaw) : null;
+  if (startRaw && !from) {
+    return { ok: false, field: 'start', message: `${startLabel} must be a complete date (DD-MM-YYYY).` };
   }
-  if (endRaw) {
-    const parsed = parseStrictDisplayDateTime(endRaw);
-    if (!parsed) {
-      return { ok: false, field: 'end', message: `${endLabel} must be a complete date (DD-MM-YYYY).` };
-    }
+  if (endRaw && !to) {
+    return { ok: false, field: 'end', message: `${endLabel} must be a complete date (DD-MM-YYYY).` };
   }
-  if (startRaw && endRaw) {
-    const from = parseStrictDisplayDateTime(startRaw);
-    const to = parseStrictDisplayDateTime(endRaw);
-    if (from && to && to.getTime() < from.getTime()) {
-      return { ok: false, field: 'end', message: `${endLabel} must be on or after ${startLabel}.` };
-    }
+  if (from && to && to < from) {
+    return { ok: false, field: 'end', message: `${endLabel} must be on or after ${startLabel}.` };
   }
   return { ok: true };
 }
 
-function firstInvalidRowDate(rows, kindLabel) {
+function firstInvalidRowDate(rows, kindLabel, { allowIncomplete = false } = {}) {
   for (let i = 0; i < (rows || []).length; i += 1) {
     const row = rows[i] || {};
     if (rowIsEmpty(row)) continue;
     const check = validateDateRangeOrder(row.start, row.end, {
+      allowIncomplete,
       startLabel: `${kindLabel} #${i + 1} start`,
       endLabel: `${kindLabel} #${i + 1} finish`,
     });
@@ -217,7 +209,7 @@ export function verifyRowDurations(rows, kindLabel) {
 /**
  * Calc-input gate (not save-mandatory NOR/cargo). Invalid → calculations unavailable.
  */
-export function tankerCalcInputsValid(draft) {
+export function tankerCalcInputsValid(draft, { dryLaytime = false } = {}) {
   if (!draft) return { ok: false, message: 'Laytime draft is missing.' };
 
   const actPartial = firstInvalidPartial(draft.activities, 'Activity');
@@ -225,9 +217,9 @@ export function tankerCalcInputsValid(draft) {
   const dedPartial = firstInvalidPartial(draft.deductions, 'Deduction');
   if (!dedPartial.ok) return dedPartial;
 
-  const actDates = firstInvalidRowDate(draft.activities, 'Activity');
+  const actDates = firstInvalidRowDate(draft.activities, 'Activity', { allowIncomplete: true });
   if (!actDates.ok) return actDates;
-  const dedDates = firstInvalidRowDate(draft.deductions, 'Deduction');
+  const dedDates = firstInvalidRowDate(draft.deductions, 'Deduction', { allowIncomplete: true });
   if (!dedDates.ok) return dedDates;
 
   if (!isBlankOrFiniteNumber(draft.laytimeAllowed)) {
@@ -241,6 +233,14 @@ export function tankerCalcInputsValid(draft) {
   }
   if (!isBlankOrFiniteNumber(draft.loadedQty)) {
     return { ok: false, field: 'loadedQty', message: 'QTY (MT) must be blank or a valid number.' };
+  }
+
+  if (dryLaytime) {
+    for (const [key, label] of [['loadedRate', 'Cargo Rate'], ['turnTimeToAdd', 'Turn Time to Add']]) {
+      if (!isBlankOrFiniteNumber(draft[key])) {
+        return { ok: false, field: key, message: `${label} must be blank or a valid number.` };
+      }
+    }
   }
 
   return { ok: true };
@@ -260,24 +260,31 @@ function markRowsDurationOnly(rows) {
  * Invalid stored values → do not invent zero/fake financials; mark unavailable.
  * Durations still refresh from strict dates so the Duration column stays truthful.
  */
-export function recomputeTankerPortDraft(draft, rateUnit = 'hours') {
+export function recomputeTankerPortDraft(draft, rateUnit = 'hours', { dryLaytime = false } = {}) {
   if (!draft) return draft;
-  const check = tankerCalcInputsValid(draft);
-  const next = check.ok ? recomputePortDraft(draft, rateUnit, { editor: true, deductFromActual: false }) : draft;
-  const crossover = check.ok && Number(next.timeToDemurrage) < 0;
-  if (!check.ok || crossover) {
+  const check = tankerCalcInputsValid(draft, { dryLaytime });
+  const next = check.ok ? recomputePortDraft(draft, rateUnit, { editor: true, dryLaytime, deductFromActual: false }) : draft;
+  const calcError = check.ok ? next.calcError : '';
+  if (!check.ok || calcError) {
     return {
       ...next,
       calcUnavailable: true,
-      calcError: crossover ? DEDUCTION_CROSSOVER_MESSAGE : '',
-      activities: crossover ? next.activities : markRowsDurationOnly(draft.activities),
-      deductions: crossover ? next.deductions : markRowsDurationOnly(draft.deductions),
+      calcError,
+      activities: calcError ? next.activities : markRowsDurationOnly(draft.activities),
+      deductions: calcError ? next.deductions : markRowsDurationOnly(draft.deductions),
       actualLaytime: '',
       timeToDemurrage: '',
       timeToDespatch: '',
       ttlDemurrage: '',
       ttlDespatch: '',
     };
+  }
+  if (dryLaytime) {
+    const from = parseStrictDisplayDateTime(draft.vesselArrived);
+    const to = parseStrictDisplayDateTime(draft.vesselSailed);
+    next.totalDaysAtPort = from && to && to >= from
+      ? ((to - from) / 86400000).toFixed(4)
+      : '0.00';
   }
   return {
     ...next,
@@ -290,7 +297,7 @@ export function recomputeTankerPortDraft(draft, rateUnit = 'hours') {
  * Validate Tanker draft before save/submit.
  * @returns {{ ok: true } | { ok: false, field: string, message: string, index?: number, focus?: string }}
  */
-export function validateTankerLaytimeDraft(draft, { submitId = 0 } = {}) {
+export function validateTankerLaytimeDraft(draft, { submitId = 0, dryLaytime = false } = {}) {
   if (!draft) {
     return { ok: false, field: '', message: 'Laytime draft is missing.' };
   }
@@ -319,6 +326,29 @@ export function validateTankerLaytimeDraft(draft, { submitId = 0 } = {}) {
         field: key,
         message: `${label} must be a complete date (DD-MM-YYYY).`,
       };
+    }
+  }
+
+  if (dryLaytime) {
+    if (!String(draft.stowageQty ?? '').trim()) {
+      return { ok: false, field: 'stowageQty', message: 'Please fill the STOWAGE PLAN QUANTITY.' };
+    }
+    const arrived = parseStrictDisplayDateTime(draft.vesselArrived);
+    const sailed = parseStrictDisplayDateTime(draft.vesselSailed);
+    if (arrived == null) {
+      return { ok: false, field: 'vesselArrived', message: 'Please enter a valid VESSEL ARRIVED date.' };
+    }
+    if (sailed == null || sailed < arrived) {
+      return { ok: false, field: 'vesselSailed', message: 'Please enter a valid VESSEL SAILED date on or after vessel arrival.' };
+    }
+    for (const [key, label] of [['loadedRate', 'Cargo Rate'], ['turnTimeToAdd', 'Turn Time to Add']]) {
+      if (!isBlankOrFiniteNumber(draft[key])) {
+        return { ok: false, field: key, message: `${label} must be blank or a valid number.` };
+      }
+    }
+    if (!(draft.detention) && !(Number(draft.loadedQty) > 0 && Number(draft.loadedRate) > 0)) {
+      const field = Number(draft.loadedQty) > 0 ? 'loadedRate' : 'loadedQty';
+      return { ok: false, field, message: 'Please Check Load Rate Or Quantity' };
     }
   }
 

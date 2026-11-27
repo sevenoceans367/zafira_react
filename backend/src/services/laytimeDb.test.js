@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { blankDateTime, normalizeKeepAttachments, mergeLaytimeAttachments, resolveLaytimeAttachments, resolvePortRandomId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, mapMasterFields, deriveMilestonesFromSofRows, loadSofDerivedMilestones, upsertLaytimeMaster, replaceActivities, replaceDeductions } from './laytimeDb.js';
+import { blankDateTime, normalizeKeepAttachments, mergeLaytimeAttachments, resolveLaytimeAttachments, resolvePortRandomId, loadActivities, loadEntityRows, loadPortTabs as loadLaytimePortTabs, mapMasterFields, deriveMilestonesFromSofRows, loadSofDerivedMilestones, upsertLaytimeMaster, replaceActivities, replaceDeductions, previousDryWorksheetCall, dryCarryFromRecord } from './laytimeDb.js';
 import { loadPortTabs as loadSofPortTabs, loadSofRecord } from './sofDb.js';
 
 it('appends uploads to retained attachments unless the keep list is explicit', () => {
@@ -76,6 +76,21 @@ describe('laytimeDb SOF links and strict-mode SQL', () => {
     assert.equal(rows[0].sofLoadPortId, '4');
     assert.ok(queries.some((sql) => sql.includes('FROM sof_slave_6')));
   });
+  it('falls back to SOF activities for a Dry Laytime master with no saved activities', async () => {
+    const queries = [];
+    const pool = { async query(sql) {
+      queries.push(sql);
+      if (sql.includes('FROM sof_slave ')) return [[{
+        ACTIVITYID: 'Loading cargo', START_DATETIME: new Date(2026, 3, 10, 8),
+        FINISH_DATETIME: new Date(2026, 3, 10, 14), DURATION: '6',
+        LAY_TIME_COUNT: 1, PORT_TIME_COUNT: 0,
+      }]];
+      return [[]];
+    } };
+    const rows = await loadActivities(pool, 44, 55, { isDry: true });
+    assert.equal(rows[0].activity, 'Loading cargo');
+    assert.ok(queries.some((sql) => sql.includes('FROM sof_slave ') && sql.includes("GROUP_NAME = '1'")));
+  });
   it('propagates an activity read failure instead of falling back to a different source', async () => {
     const failure = new Error('Activity query failed');
     await assert.rejects(loadActivities({ async query() { throw failure; } }, null, 55), failure);
@@ -136,6 +151,38 @@ describe('port RANDOMID normalization', () => {
 });
 
 describe('SOF port tab rules', () => {
+  it('uses the previous worksheet cargo call for Dry reversible carry', () => {
+    const first = { portType: 'LP', portId: '1', randomId: '10', worksheetCall: true };
+    const transit = { portType: 'TP', portId: '3', randomId: '11', worksheetCall: true };
+    const second = { portType: 'LP', portId: '1', randomId: '12', worksheetCall: true };
+    const third = { portType: 'DP', portId: '2', randomId: '12', worksheetCall: true };
+    const savedOnly = { portType: 'DP', portId: '4', randomId: '13' };
+    const tabs = [first, transit, second, third, savedOnly];
+    assert.equal(previousDryWorksheetCall(tabs, second), first);
+    assert.equal(previousDryWorksheetCall(tabs, third), second);
+    assert.equal(previousDryWorksheetCall(tabs, savedOnly), undefined);
+    assert.equal(previousDryWorksheetCall(tabs, transit), undefined);
+    assert.deepEqual(dryCarryFromRecord(null), {});
+    assert.deepEqual(dryCarryFromRecord({ REVERSIBLE: 1, LAYTIME_ALLOWED: 0, ACTUAL_LAYTIME: '1.25' }),
+      { laytimeAllowedExtra: '0', actualLaytimeExtra: '1.25' });
+  });
+
+  it('preserves Dry ports and available rates on an older worksheet schema', async () => {
+    const pool = { async query(sql) {
+      if (sql.startsWith('SHOW COLUMNS')) return [[{ Field: 'DEMMRATELP' }]];
+      if (sql.includes('FROM freight_cost_estimete_slave1')) {
+        if (sql.includes('LOAD_PORT_RATE')) throw Object.assign(new Error('unknown column'), { code: 'ER_BAD_FIELD_ERROR' });
+        assert.match(sql, /DEMMRATELP/);
+        return [[{ FROM_PORT: 10, TO_PORT: 20, RANDOMID: 4, PASSAGE_TYPE: 2, LOAD_PORT_QTY: 1, DEMMRATELP: 1200 }]];
+      }
+      if (sql.includes('FROM port_master')) return [[{ PortName: 'ROTTERDAM', COUNTRY_KEY: '' }]];
+      return [[]];
+    } };
+    const [tab] = await loadLaytimePortTabs(pool, 100, null, true);
+    assert.equal(tab.defaults.loadedRate, '');
+    assert.equal(tab.defaults.demurrageRate, '1200');
+    await assert.rejects(loadLaytimePortTabs({ async query() { throw new Error('offline'); } }, 100, null, true), /offline/);
+  });
   it('only emits laden LP/DP legs, retains saved tabs, and uses FROM_PORT for TP', async () => {
     const ports = { 1: 'TBN', 10: 'ROTTERDAM', 20: 'SINGAPORE', 30: 'SUEZ' };
     const legs = [
@@ -199,6 +246,7 @@ describe('SOF port tab rules', () => {
     const calls = [];
     const pool = { async query(sql) {
       calls.push(sql);
+      if (sql.startsWith('SHOW COLUMNS')) return [[]];
       if (sql.includes('DEMMRATELP')) throw Object.assign(new Error('unknown column'), { code: 'ER_BAD_FIELD_ERROR' });
       if (sql.includes('freight_cost_estimete_slave1')) return [[{
         FROM_PORT: 10, TO_PORT: 20, RANDOMID: 4, PASSAGE_TYPE: 2, LOAD_PORT_QTY: 1,
@@ -207,7 +255,7 @@ describe('SOF port tab rules', () => {
       return [[]];
     } };
     const tabs = await loadLaytimePortTabs(pool, 100);
-    assert.equal(calls.filter((sql) => sql.includes('freight_cost_estimete_slave1')).length, 2);
+    assert.equal(calls.filter((sql) => sql.includes('FROM freight_cost_estimete_slave1')).length, 3);
     assert.equal(tabs[0].defaults.demurrageRate, '');
   });
 });
@@ -320,5 +368,22 @@ describe('upsertLaytimeMaster schema fallback', () => {
       fields: {}, attachments: '', attachmentNames: '',
     }), { code: 'ER_BAD_NULL_ERROR' });
     assert.equal(calls, 1);
+  });
+});
+
+describe('Dry Laytime editor entity wiring', () => {
+  it('loads sof_slave_3 named entity dates when usesEditor is enabled for Dry ports', async () => {
+    const pool = {
+      async query(sql) {
+        if (sql.includes('laytime_slave2')) return [[]];
+        if (sql.includes('sof_slave_6')) return [[]];
+        if (sql.includes('sof_slave_3')) {
+          return [[{ ENTITY_NAME: 'All Clear', ENTITY_VALUE: '2026-06-15 14:30:00' }]];
+        }
+        return [[]];
+      },
+    };
+    const rows = await loadEntityRows(pool, 10, 55, { usesEditor: true, hasSofRange: true });
+    assert.deepEqual(rows, [{ name: 'All Clear', value: '15-06-2026 14:30' }]);
   });
 });

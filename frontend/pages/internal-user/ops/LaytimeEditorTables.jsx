@@ -12,14 +12,11 @@ import {
   isLaytimeActivityCounting,
 } from './laytimeTankerHelpers.js';
 import { isValidLtPartialPercent, validateDateRangeOrder } from './laytimeTankerValidation.js';
-import { paginateRows } from './sofTankerHelpers.js';
+import { hoursDurationToDays, paginateRows } from './sofTankerHelpers.js';
 import styles from './OpsVcLaytimePage.module.css';
 
 function rowDateInvalid(row) {
-  const start = String(row?.start ?? '').trim();
-  const end = String(row?.end ?? '').trim();
-  if (!start && !end) return false;
-  return !validateDateRangeOrder(row?.start, row?.end).ok;
+  return !validateDateRangeOrder(row.start, row.end, { allowIncomplete: true }).ok;
 }
 
 function TableRowActions({ locked, onInsert, onDelete }) {
@@ -258,7 +255,8 @@ function NegoDialogues({ portKey, locked, LtDateField }) {
   );
 }
 
-export default function LaytimeTankerTables({
+export default function LaytimeEditorTables({
+  isDry,
   portKey,
   draft,
   locked,
@@ -277,6 +275,7 @@ export default function LaytimeTankerTables({
   const dedPage = usePagedSearch(deductions, fields, portKey);
 
   const calcUnavailable = Boolean(draft?.calcUnavailable);
+  const durationUnit = isDry ? 'Days' : 'Hrs';
   const dedTotals = useMemo(() => {
     if (calcUnavailable) {
       return { dur: '—', net: '—' };
@@ -287,8 +286,10 @@ export default function LaytimeTankerTables({
       dur += Number(row.duration) || 0;
       net += Number(row.cumulative) || 0;
     });
-    return { dur: dur.toFixed(2), net: net.toFixed(2) };
-  }, [deductions, calcUnavailable]);
+    return isDry
+      ? { dur: hoursDurationToDays(dur), net: hoursDurationToDays(net) }
+      : { dur: dur.toFixed(2), net: net.toFixed(2) };
+  }, [deductions, calcUnavailable, isDry]);
 
   return (
     <div className={styles.cfSection} id="sect-act-ded">
@@ -306,7 +307,7 @@ export default function LaytimeTankerTables({
             <div className={styles.cfSectionSub}>
               {String(draft?.laytimeAllowed ?? '').trim()
                 ? 'Activity log & laytime calculation'
-                : 'Enter Laytime Allowed in the summary to calculate Cumulative.'}
+                : isDry ? 'Enter cargo quantity and rate to calculate Cumulative.' : 'Enter Laytime Allowed in the summary to calculate Cumulative.'}
             </div>
           </div>
         </div>
@@ -325,10 +326,10 @@ export default function LaytimeTankerTables({
               <th style={{ minWidth: 136 }}>Activity in Port</th>
               <th style={{ minWidth: 158 }}>Date/Time – Start</th>
               <th style={{ minWidth: 158 }}>Date/Time – Finish</th>
-              <th style={{ width: 90 }}>Duration (Hrs)</th>
+              <th style={{ width: 90 }}>Duration ({durationUnit})</th>
               <th style={{ width: 72 }}>LT</th>
               <th style={{ width: 80 }}>LT Partial %</th>
-              <th style={{ width: 100 }}>Cumulative</th>
+              <th style={{ width: 100 }}>{isDry ? 'Cumulative (Days)' : 'Cumulative'}</th>
               <th style={{ minWidth: 116 }}>Notes</th>
               <th style={{ width: 48 }} scope="col">
                 <span className={styles.ltHiddenPreserve}>Row actions</span>
@@ -337,7 +338,7 @@ export default function LaytimeTankerTables({
           </thead>
           <tbody>
             {actPage.items.length ? actPage.items.map(({ row, index }) => {
-              const counting = isLaytimeActivityCounting(row);
+              const counting = isDry ? Boolean(row.ltCounts) : isLaytimeActivityCounting(row);
               const cumNum = Number(row.cumulative);
               const cumNeg = Number.isFinite(cumNum) && cumNum < 0;
               const partialDisabled = locked || !counting;
@@ -377,7 +378,7 @@ export default function LaytimeTankerTables({
                     <TextInput
                       className={styles.tableInput}
                       type="text"
-                      value={row.duration}
+                      value={isDry ? hoursDurationToDays(row.duration) : row.duration}
                       readOnly
                       disabled
                       placeholder="Auto"
@@ -481,9 +482,9 @@ export default function LaytimeTankerTables({
               <th style={{ minWidth: 136 }}>Deduction</th>
               <th style={{ minWidth: 158 }}>Date/Time – Start</th>
               <th style={{ minWidth: 158 }}>Date/Time – Finish</th>
-              <th style={{ width: 90 }}>Duration (Hrs)</th>
+              <th style={{ width: 90 }}>Duration ({durationUnit})</th>
               <th style={{ width: 80 }}>LT Partial %</th>
-              <th style={{ width: 100 }}>Net Duration</th>
+              <th style={{ width: 100 }}>{isDry ? 'Net Duration (Days)' : 'Net Duration'}</th>
               <th style={{ minWidth: 116 }}>Notes</th>
               <th style={{ width: 48 }} scope="col">
                 <span className={styles.ltHiddenPreserve}>Row actions</span>
@@ -527,7 +528,7 @@ export default function LaytimeTankerTables({
                   <TextInput
                     className={styles.tableInput}
                     type="text"
-                    value={row.duration}
+                    value={isDry ? hoursDurationToDays(row.duration) : row.duration}
                     readOnly
                     disabled
                     placeholder="Auto"
@@ -551,7 +552,7 @@ export default function LaytimeTankerTables({
                   <TextInput
                     className={styles.tableInput}
                     type="text"
-                    value={row.cumulative ?? ''}
+                    value={isDry ? hoursDurationToDays(row.cumulative) : (row.cumulative ?? '')}
                     readOnly
                     disabled
                     aria-label={`Deduction ${index + 1} net duration`}

@@ -9,6 +9,8 @@ import InternalUserPageHeader from '../../pages/internal-user/InternalUserPageHe
 import { PageHeaderProvider } from '../../pages/internal-user/PageHeaderContext.jsx';
 import styles from './InternalUserLayout.module.css';
 
+const COMPACT_OPS_PATHS = ['/internal-user/vc/ops/sof', '/internal-user/vc/ops/laytime'];
+
 const COLLAPSE_SIDEBAR_PATHS = [
   '/internal-user/sopf/addestimate',
   '/internal-user/sopf/updateestimate',
@@ -35,7 +37,7 @@ export default function InternalUserLayout() {
   const collapseSidebar = COLLAPSE_SIDEBAR_PATHS.some((path) => (
     location.pathname === path || location.pathname.startsWith(`${path}/`)
   )) || (
-    location.pathname === '/internal-user/vc/ops/sof' && isCompactViewport
+    isCompactViewport && COMPACT_OPS_PATHS.includes(location.pathname)
   );
   const hideSidebar = location.pathname === '/';
 

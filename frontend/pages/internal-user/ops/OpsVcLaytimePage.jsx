@@ -13,11 +13,11 @@ import {
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchLaytimeForm, openLaytime, saveLaytime } from '../../../services/opsVc.js';
 import OpsVcLaytimeHeaderActions from './OpsVcLaytimeHeaderActions.jsx';
-import LaytimeTankerLayout from './LaytimeTankerLayout.jsx';
+import LaytimeEditorLayout from './LaytimeEditorLayout.jsx';
 import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
-import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
+import { calcDryLaytimeAllowed, calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
 import {
   resolveLaytimeEstimateType,
   usesTankerLaytimeLayout,
@@ -427,7 +427,7 @@ function truthyFlag(value) {
   return value === true || value === 1 || value === '1';
 }
 
-function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = false } = {}) {
+function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = false, dryLaytime = false } = {}) {
   const draft = {
     terminal: port.terminal || '',
     stowageQty: port.stowageQty || '',
@@ -449,6 +449,7 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = fal
     laytimeAllowed: port.laytimeAllowed ?? '',
     actualLaytime: port.actualLaytime ?? '',
     actualLaytimeExtra: port.actualLaytimeExtra ?? '',
+    laytimeAllowedExtra: port.laytimeAllowedExtra ?? '',
     turnTime: port.turnTime ?? '',
     timeToDemurrage: port.timeToDemurrage ?? '',
     demurrageRate: port.demurrageRate ?? '',
@@ -468,7 +469,7 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = fal
         const isSofSynced = Boolean(row.sofLoadPortId);
         // SOF-synced without C/NC flags: unset (non-counting, blank partial).
         // Manual rows without flags: counting default.
-        const ltCounts = hasCountFlag || isSofSynced ? Boolean(row.ltCounts) : true;
+        const ltCounts = dryLaytime || hasCountFlag || isSofSynced ? Boolean(row.ltCounts) : true;
         const ltNoCounts = Boolean(row.ltNoCounts);
         const storedPartial = row.ltPartial;
         const blankPartial = storedPartial == null || String(storedPartial).trim() === '';
@@ -511,8 +512,15 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = fal
     ...extractLaytimeKeepFiles(port.uploads),
   };
   // Unknown unit: keep stored values verbatim — never invent day/hour math or blank for save.
-  if (!recompute || (tanker && port.locked) || (rateUnit !== 'hours' && rateUnit !== 'days')) {
+  if (!recompute || ((tanker || dryLaytime) && port.locked) || (rateUnit !== 'hours' && rateUnit !== 'days')) {
     return draft;
+  }
+  if (dryLaytime) {
+    if (!String(draft.laytimeAllowed ?? '').trim()) {
+      const allowed = calcDryLaytimeAllowed(draft);
+      if (allowed !== '') draft.laytimeAllowed = allowed;
+    }
+    return recomputeTankerPortDraft(draft, rateUnit, { dryLaytime });
   }
   if (!String(draft.laytimeAllowed || '').trim()) {
     const allowed = calcLaytimeAllowed(
@@ -557,9 +565,10 @@ export default function OpsVcLaytimePage() {
   const unitLabel = rateUnit === 'hours' ? 'Hrs' : rateUnit === 'days' ? 'Days' : '—';
   const currency = form?.currency || 'USD';
   const unitUnknown = Boolean(form) && rateUnit == null;
-  // Gate on estimate type 2 only — never infer Tanker from hours rateUnit (Gas also uses hours).
+  // Gate the layout on vessel estimate type because Gas also uses hours.
   const estimateType = resolveLaytimeEstimateType(form);
-  const isTankerLayout = usesTankerLaytimeLayout(estimateType);
+  const isDryLayout = estimateType === 3 && rateUnit === 'days';
+  const usesEditorLayout = usesTankerLaytimeLayout(estimateType) || isDryLayout;
 
   const backHref = useMemo(() => {
     const path = BACK_PATHS[Number(page)] || BACK_PATHS[1];
@@ -573,12 +582,14 @@ export default function OpsVcLaytimePage() {
       const data = await fetchLaytimeForm(comId);
       setForm(data);
       const unit = data.rateUnit === 'hours' || data.rateUnit === 'days' ? data.rateUnit : null;
-      const tanker = usesTankerLaytimeLayout(resolveLaytimeEstimateType(data));
+      const type = resolveLaytimeEstimateType(data);
+      const tanker = usesTankerLaytimeLayout(type);
+      const dryLaytime = type === 3 && unit === 'days';
       const nextDrafts = {};
       (data.ports || []).forEach((port) => {
         // Unknown unit: snapshot stored values only (no blanking, no recompute).
         nextDrafts[port.key] = unit
-          ? draftFromPort(port, unit, { tanker })
+          ? draftFromPort(port, unit, { tanker, dryLaytime })
           : draftFromPort(port, null, { recompute: false });
       });
       setDrafts(nextDrafts);
@@ -623,7 +634,9 @@ export default function OpsVcLaytimePage() {
       if (unitUnknown) {
         return { ...current, [activeKey]: base };
       }
-      if (refreshAllowed) {
+      if (refreshAllowed && isDryLayout) {
+        base.laytimeAllowed = calcDryLaytimeAllowed(base);
+      } else if (refreshAllowed) {
         const allowed = calcLaytimeAllowed(
           base.loadedQty,
           base.loadedRate,
@@ -635,8 +648,8 @@ export default function OpsVcLaytimePage() {
       if (!(recompute || refreshAllowed)) {
         return { ...current, [activeKey]: base };
       }
-      const next = isTankerLayout
-        ? recomputeTankerPortDraft(base, rateUnit)
+      const next = usesEditorLayout
+        ? recomputeTankerPortDraft(base, rateUnit, { dryLaytime: isDryLayout })
         : recomputePortDraft(base, rateUnit);
       return { ...current, [activeKey]: next };
     });
@@ -716,14 +729,13 @@ export default function OpsVcLaytimePage() {
       return;
     }
 
-    // Tanker: Legacy getSubmit (selBType==2) skips qty/rate and hidden Dry timing fields.
-    if (isTankerLayout) {
-      const tankerCheck = validateTankerLaytimeDraft(draft, { submitId });
-      if (!tankerCheck.ok) {
+    if (usesEditorLayout) {
+      const check = validateTankerLaytimeDraft(draft, { submitId, dryLaytime: isDryLayout });
+      if (!check.ok) {
         await alertThenFocus(alert, {
           title: 'Alert',
-          message: tankerCheck.message,
-        }, tankerCheck.field, { index: tankerCheck.index, focus: tankerCheck.focus });
+          message: check.message,
+        }, check.field, { index: check.index, focus: check.focus });
         return;
       }
     } else {
@@ -903,7 +915,7 @@ export default function OpsVcLaytimePage() {
         disabled={loading || saving}
       />
 
-      <div className={`zafira-page ${pageStyles.page} ${styles.page} ${isTankerLayout ? styles.ltTankerPage : ''}`.trim()}>
+      <div className={`zafira-page ${pageStyles.page} ${styles.page} ${usesEditorLayout ? styles.ltTankerPage : ''}`.trim()}>
         {(loading || saving) ? (
           <LoadingOverlay active label={saving ? 'Saving Laytime…' : 'Loading Laytime…'} />
         ) : null}
@@ -923,8 +935,9 @@ export default function OpsVcLaytimePage() {
           </div>
         ) : null}
 
-        {form?.ports?.length && isTankerLayout ? (
-          <LaytimeTankerLayout
+        {form?.ports?.length && usesEditorLayout ? (
+          <LaytimeEditorLayout
+            isDry={isDryLayout}
             form={form}
             activeKey={activeKey}
             setActiveKey={setActiveKey}
@@ -951,7 +964,7 @@ export default function OpsVcLaytimePage() {
           />
         ) : null}
 
-        {form?.ports?.length && !isTankerLayout ? (
+        {form?.ports?.length && !usesEditorLayout ? (
           <>
             <div className={sofStyles.portTabs}>
               {form.ports.map((port) => (

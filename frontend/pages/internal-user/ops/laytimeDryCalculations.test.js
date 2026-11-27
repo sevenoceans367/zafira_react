@@ -1,0 +1,140 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { calcDryLaytimeAllowed } from './laytimeCalculations.js';
+import { recomputeTankerPortDraft } from './laytimeTankerValidation.js';
+import { hoursDurationToDays } from './sofTankerHelpers.js';
+
+const activity = {
+  activity: 'Loading',
+  start: '01-01-2026 00:00',
+  end: '03-01-2026 00:00',
+  ltCounts: true,
+  ltPartial: '75',
+};
+const deduction = {
+  activity: 'Weather',
+  start: '01-01-2026 00:00',
+  end: '01-01-2026 12:00',
+  ltPartial: '50',
+};
+
+test('Dry rounds quantity divided by rate before adding turn hours and reversible days', () => {
+  assert.equal(calcDryLaytimeAllowed({ loadedQty: '2', loadedRate: '3', turnTimeToAdd: '1' }), '0.7084');
+  assert.equal(calcDryLaytimeAllowed({
+    loadedQty: '12000', loadedRate: '12000', turnTimeToAdd: '6', laytimeAllowedExtra: '0.5',
+  }), '1.7500');
+  assert.equal(calcDryLaytimeAllowed({ loadedQty: '1000', loadedRate: '' }), '');
+});
+
+test('Dry applies the weighted deduction once to demurrage and keeps SOF row storage in hours', () => {
+  const result = recomputeTankerPortDraft({
+    laytimeAllowed: '1',
+    actualLaytimeExtra: '0.125',
+    demurrageRate: '20000',
+    vesselArrived: '01-01-2026 00:00',
+    vesselSailed: '03-01-2026 12:00',
+    activities: [activity, { ...activity, ltCounts: false }],
+    deductions: [deduction],
+  }, 'days', { dryLaytime: true });
+
+  assert.equal(result.totalDaysAtPort, '2.5000');
+  assert.equal(result.activities[0].duration, '48.0000');
+  assert.equal(hoursDurationToDays(result.activities[0].duration), '2.0000');
+  assert.equal(result.activities[0].cumulative, '-0.5000');
+  assert.equal(result.activities[1].cumulative, '0.00');
+  assert.equal(result.deductions[0].cumulative, '6.0000');
+  assert.equal(hoursDurationToDays(result.deductions[0].cumulative), '0.2500');
+  assert.equal(result.actualLaytime, '1.6250');
+  assert.equal(result.timeToDemurrage, '0.3750');
+  assert.equal(result.ttlDemurrage, '7500.00');
+});
+
+test('Dry despatch uses days and ignores deductions', () => {
+  const result = recomputeTankerPortDraft({
+    laytimeAllowed: '2',
+    despatchRate: '10000',
+    activities: [activity],
+    deductions: [deduction],
+  }, 'days', { dryLaytime: true });
+
+  assert.equal(result.actualLaytime, '1.5000');
+  assert.equal(result.timeToDespatch, '0.5000');
+  assert.equal(result.ttlDespatch, '5000.00');
+  assert.equal(result.timeToDemurrage, '00.00');
+});
+
+test('Dry distinguishes unresolved zero-time claims, an empty worksheet, and unknown allowance', () => {
+  const calculate = (laytimeAllowed, activities) => recomputeTankerPortDraft({
+    laytimeAllowed, activities, demurrageRate: '10000', despatchRate: '5000',
+  }, 'days', { dryLaytime: true });
+  const zeroAllowed = calculate('0', [activity]);
+  const zeroCounted = calculate('1', [{ ...activity, ltPartial: '0' }]);
+  for (const draft of [zeroAllowed, zeroCounted]) {
+    assert.equal(draft.calcUnavailable, true);
+    assert.match(draft.calcError, /contractual treatment/);
+    assert.equal(draft.ttlDemurrage, '');
+    assert.equal(draft.ttlDespatch, '');
+  }
+  for (const rows of [[], [{ ltCounts: true, ltPartial: '100' }]]) {
+    const empty = calculate('1', rows);
+    assert.equal(Number(empty.timeToDespatch), 1);
+    assert.equal(empty.ttlDespatch, '5000.00');
+  }
+  const unknown = calculate('', [activity]);
+  assert.equal(unknown.financialUnknown, true);
+  assert.equal(unknown.actualLaytime, '1.5000');
+  assert.equal(unknown.ttlDemurrage, null);
+});
+
+test('Dry keeps historical duration-only activity and deduction rows in hours', () => {
+  const result = recomputeTankerPortDraft({
+    laytimeAllowed: '0.5',
+    activities: [{ activity: 'Loading', duration: '24', ltCounts: true, ltPartial: '100' }],
+    deductions: [{ activity: 'Weather', duration: '6', ltPartial: '100' }],
+  }, 'days', { dryLaytime: true });
+  assert.equal(result.activities[0].duration, '24');
+  assert.equal(result.deductions[0].duration, '6');
+  assert.equal(result.actualLaytime, '1.0000');
+  assert.equal(result.timeToDemurrage, '0.2500');
+});
+
+test('Dry preserves completed balances while adding the third and later activities', () => {
+  const recalculate = (activities, deductions = []) => recomputeTankerPortDraft({
+    laytimeAllowed: '4.1667',
+    activities,
+    deductions,
+  }, 'days', { dryLaytime: true });
+  const counting = { ltCounts: true, ltPartial: '100' };
+  const rows = [
+    { ...counting, start: '01-11-2026 04:00', end: '02-11-2026 00:00' },
+    { ...counting, start: '02-11-2026 00:00', end: '05-11-2026 01:00' },
+  ];
+  const nextRows = [
+    { start: '05-11-2026 01:00', end: '05-11-2026 04:00', cumulative: '0.1667' },
+    { start: '05-11-2026 04:00', end: '05-11-2026 07:00', cumulative: '0.0417' },
+  ];
+  const balances = ['3.3334', '0.2917'];
+  for (const { start, end, cumulative } of nextRows) {
+    const pending = recalculate(
+      [...rows, { ...counting, start, end: '', duration: '99.0000', cumulative: '99.0000' }],
+      [{ ...deduction, start: '', duration: '99.0000', cumulative: '99.0000' }],
+    );
+    assert.equal(pending.calcUnavailable, false);
+    assert.deepEqual(pending.activities.map((row) => row.cumulative), [...balances, '']);
+    assert.equal(pending.activities.at(-1).duration, '');
+    assert.equal(pending.deductions[0].cumulative, '');
+    assert.equal(pending.actualLaytime, recalculate(rows).actualLaytime);
+
+    rows.push({ ...counting, start, end });
+    balances.push(cumulative);
+    assert.deepEqual(recalculate(rows).activities.map((row) => row.cumulative), balances);
+  }
+});
+
+test('a row with an invalid entered date still makes Dry calculations unavailable', () => {
+  const result = recomputeTankerPortDraft({
+    laytimeAllowed: '4.1667',
+    activities: [activity, { ...activity, start: '31-02-2026 10:00', end: '' }],
+  }, 'days', { dryLaytime: true });
+  assert.equal(result.calcUnavailable, true);
+});

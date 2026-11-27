@@ -27,6 +27,15 @@ export function hoursBetween(start, end) {
   return hours.toFixed(4);
 }
 
+/** Dry rounds the quantity/rate term before adding turn and reversible time. */
+export function calcDryLaytimeAllowed({ loadedQty, loadedRate, turnTimeToAdd, laytimeAllowedExtra }) {
+  const qty = Number(loadedQty);
+  const rate = Number(loadedRate);
+  if (!Number.isFinite(qty) || !Number.isFinite(rate) || qty <= 0 || rate <= 0) return '';
+  if (!Number.isFinite(Number(turnTimeToAdd ?? ''))) return '';
+  return (round4(qty / rate) + num(turnTimeToAdd) / 24 + num(laytimeAllowedExtra)).toFixed(4);
+}
+
 /**
  * Laytime allowed = qty/rate (+ turn time).
  * days: turnTimeToAdd is hours → add turn/24.
@@ -44,8 +53,7 @@ export function calcLaytimeAllowed(loadedQty, loadedRate, turnTimeToAdd, rateUni
 
 /**
  * Recompute durations, cumulatives, actual/demurrage/despatch fields.
- * Follows PHP laytime_calculation.php getFinalCalculation literally
- * (incl. double-subtract of deductions on demurrage).
+ * Uses the pinned Laytime rules for each editor and preserves the classic form's calculations.
  *
  * Legacy divider (getFun158):
  *   Fun158==1|2 (CBM/Hr, MT/Hr tanker) → divider=1  → Cumulative Time in Hrs
@@ -66,17 +74,22 @@ export function countingActivityPartial(row) {
   return row.ltCounts && !row.ltNoCounts && !String(row.ltPartial ?? '').trim() ? '100' : row.ltPartial;
 }
 
-export function recomputePortDraft(draft, rateUnit = 'days', { deductFromActual = true, editor = false } = {}) {
+export function recomputePortDraft(draft, rateUnit = 'days', { dryLaytime = false, deductFromActual = !dryLaytime, editor = false } = {}) {
   const divider = rateUnit === 'hours' ? 1 : 24;
   const divider1 = rateUnit === 'hours' ? 24 : 1;
   const durationForRow = (row) => {
-    const hasRange = String(row.start || '').trim() && String(row.end || '').trim();
-    if (!hasRange) return row.duration || '0.0';
-    return editor ? hoursBetweenDmy(row.start, row.end)?.toFixed(4) ?? '' : hoursBetween(row.start, row.end);
+    const hasStart = Boolean(String(row.start || '').trim());
+    const hasEnd = Boolean(String(row.end || '').trim());
+    if (hasStart && hasEnd) {
+      return editor ? hoursBetweenDmy(row.start, row.end)?.toFixed(4) ?? '' : hoursBetween(row.start, row.end);
+    }
+    if (editor && hasStart !== hasEnd) return '';
+    return row.duration || '0.0';
   };
 
   const deductions = (draft.deductions || []).map((row) => {
     const duration = durationForRow(row);
+    if (duration === '') return { ...row, duration, cumulative: '' };
     const durationNum = num(duration);
     const partialPct = row.ltPartial === '' || row.ltPartial == null ? 0 : num(row.ltPartial);
     const cumulative = round4((durationNum * partialPct) / 100);
@@ -98,8 +111,9 @@ export function recomputePortDraft(draft, rateUnit = 'days', { deductFromActual 
   let sum = 0;
   const activities = (draft.activities || []).map((row) => {
     const duration = durationForRow(row);
+    if (duration === '') return { ...row, duration, cumulative: '' };
     const durationNum = num(duration);
-    const partialPct = num(editor ? countingActivityPartial(row) : row.ltPartial);
+    const partialPct = num(editor && !dryLaytime ? countingActivityPartial(row) : row.ltPartial);
     const weighted = (durationNum * partialPct) / 100;
     let cumulative = '0.00';
     if (row.ltCounts) {
@@ -119,12 +133,18 @@ export function recomputePortDraft(draft, rateUnit = 'days', { deductFromActual 
   });
 
   const actualExtra = num(draft.actualLaytimeExtra);
-  const actualLaytime = round4((sum / divider) + actualExtra - deductionTime);
+  const counted = dryLaytime ? round4(sum / divider) : sum / divider;
+  const actualLaytime = round4(counted + actualExtra - deductionTime);
 
   let timeToDemurrage = '00.00';
   let timeToDespatch = '00.00';
 
-  const hasActivity = editor ? activities.some((row) => !rowIsEmpty(row)) : activities.length > 0;
+  const hasActivity = editor ? (draft.activities || []).some((row) => !rowIsEmpty(row)
+    && (String(row.start || '').trim() === '') === (String(row.end || '').trim() === '')) : activities.length > 0;
+  const dryZeroBoundary = dryLaytime && allowanceKnown && (
+    (laytimeAllowed === 0 && actualLaytime > 0)
+    || (hasActivity && actualLaytime === 0 && laytimeAllowed > 0)
+  );
   if (!hasActivity) {
     if (allowanceKnown && laytimeAllowed > 0) {
       timeToDemurrage = '00.00';
@@ -133,7 +153,7 @@ export function recomputePortDraft(draft, rateUnit = 'days', { deductFromActual 
       timeToDemurrage = '';
       timeToDespatch = '00.00';
     }
-  } else if (allowanceKnown && !Number.isNaN(actualLaytime) && !Number.isNaN(laytimeAllowed)) {
+  } else if (allowanceKnown && !dryZeroBoundary) {
     if (actualLaytime > laytimeAllowed) {
       // Apply the weighted deduction at the demurrage step.
       const deductions2 = sumDeductionPartial / divider;
@@ -160,15 +180,20 @@ export function recomputePortDraft(draft, rateUnit = 'days', { deductFromActual 
     ttlDespatch = ((laytimeAllowed / divider1) * despatchRate).toFixed(2);
   }
 
+  const financialUnknown = dryLaytime && !allowanceKnown;
+  const calcError = dryZeroBoundary
+    ? 'Dry Laytime has zero allowance or zero counted time. Confirm the contractual treatment before saving.'
+    : editor && Number(timeToDemurrage) < 0 ? DEDUCTION_CROSSOVER_MESSAGE : '';
   return {
     ...draft,
     activities,
     deductions,
     actualLaytime: actualLaytime.toFixed(4),
-    timeToDemurrage,
-    timeToDespatch,
-    ttlDemurrage,
-    ttlDespatch,
+    ...((editor || dryLaytime) && { calcError, financialUnknown }),
+    timeToDemurrage: financialUnknown ? null : timeToDemurrage,
+    timeToDespatch: financialUnknown ? null : timeToDespatch,
+    ttlDemurrage: financialUnknown ? null : ttlDemurrage,
+    ttlDespatch: financialUnknown ? null : ttlDespatch,
   };
 }
 

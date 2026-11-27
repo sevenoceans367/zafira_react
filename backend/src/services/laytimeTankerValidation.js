@@ -1,9 +1,9 @@
-import { DEDUCTION_CROSSOVER_MESSAGE, countingActivityPartial, hoursBetweenDmy, parseDmyDateTimeMs, recomputePortDraft, rowIsEmpty } from './laytimeCalculations.js';
+import { countingActivityPartial, hoursBetweenDmy, parseDmyDateTimeMs, recomputePortDraft, rowIsEmpty } from './laytimeCalculations.js';
 
 export { hoursBetweenDmy, parseDmyDateTimeMs };
 
 /**
- * Tanker-only (estimateType === 2) save-path validation.
+ * Laytime editor save-path validation for Tanker and Dry.
  * Mirrors frontend laytimeTankerValidation — strict decimal/date parsing.
  */
 
@@ -277,12 +277,12 @@ export function calculateLaytimeForSave(fields, activities, deductions, rateUnit
     actualLaytimeExtra: options.actualLaytimeExtra,
     activities: calculateRows(activities).map((row) => {
       const activity = { ...row, ltCounts: Number(row.ltCounts) === 1, ltNoCounts: Number(row.ltNoCounts) === 1 };
-      return { ...activity, ltPartial: countingActivityPartial(activity) };
+      return options.dryLaytime ? activity : { ...activity, ltPartial: countingActivityPartial(activity) };
     }),
     deductions: calculateRows(deductions),
-  }, rateUnit, { editor: true, deductFromActual: false });
-  if (Number(result.timeToDemurrage) < 0) {
-    throw Object.assign(new Error(DEDUCTION_CROSSOVER_MESSAGE), { status: 422 });
+  }, rateUnit, { editor: true, dryLaytime: options.dryLaytime, deductFromActual: false });
+  if (result.calcError) {
+    throw Object.assign(new Error(result.calcError), { status: 422 });
   }
   return result;
 }
@@ -290,7 +290,7 @@ export function calculateLaytimeForSave(fields, activities, deductions, rateUnit
 /**
  * @returns {{ ok: true } | { ok: false, message: string, field?: string }}
  */
-export function validateTankerLaytimePayload(payload = {}) {
+export function validateTankerLaytimePayload(payload = {}, { dryLaytime = false } = {}) {
   if (['activities', 'deductions', 'entityRows'].some((key) => payload[key] != null && !Array.isArray(payload[key]))) {
     return { ok: false, message: 'Invalid Laytime rows.' };
   }
@@ -309,6 +309,29 @@ export function validateTankerLaytimePayload(payload = {}) {
     if (!raw) continue;
     if (parseDmyDateTimeMs(raw) == null) {
       return { ok: false, field: key, message: `${label} must be a complete date (DD-MM-YYYY).` };
+    }
+  }
+
+  if (dryLaytime) {
+    if (!String(payload.stowageQty ?? '').trim()) {
+      return { ok: false, field: 'stowageQty', message: 'Please fill the STOWAGE PLAN QUANTITY.' };
+    }
+    const arrived = parseDmyDateTimeMs(payload.vesselArrived);
+    const sailed = parseDmyDateTimeMs(payload.vesselSailed);
+    if (arrived == null) {
+      return { ok: false, field: 'vesselArrived', message: 'Please enter a valid VESSEL ARRIVED date.' };
+    }
+    if (sailed == null || sailed < arrived) {
+      return { ok: false, field: 'vesselSailed', message: 'Please enter a valid VESSEL SAILED date on or after vessel arrival.' };
+    }
+    for (const [key, label] of [['loadedRate', 'Cargo Rate'], ['turnTimeToAdd', 'Turn Time to Add']]) {
+      if (!isBlankOrFiniteNumber(payload[key])) {
+        return { ok: false, field: key, message: `${label} must be blank or a valid number.` };
+      }
+    }
+    if (!(Number(payload.detention) === 1) && !(Number(payload.loadedQty) > 0 && Number(payload.loadedRate) > 0)) {
+      const field = Number(payload.loadedQty) > 0 ? 'loadedRate' : 'loadedQty';
+      return { ok: false, field, message: 'Please Check Load Rate Or Quantity' };
     }
   }
 

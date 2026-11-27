@@ -26,6 +26,9 @@ function backendProxy() {
 export default defineConfig({
   plugins: [react()],
   server: {
+    fs: {
+      allow: [__dirname, path.resolve(__dirname, '../backend/src/services/laytimeCalculations.js')],
+    },
     proxy: {
       '/api': backendProxy(),
       '/attachment': backendProxy(),

@@ -376,6 +376,12 @@
   box-shadow: 0 0 0 3px #e6eaf1;
 }
 
+.ltDateFieldInvalid .ltDateFieldInput,
+.ltDateFieldInvalid .ltDateFieldInput:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.25);
+}
+
 .ltDateFieldInput:disabled {
   background: #f1f2f4 !important;
   color: #5b6472;
@@ -929,4 +935,729 @@
   padding: 10px 12px;
   background: #f1f2f4;
   border-radius: 10px;
+}
+
+/* ===== NAK-166 Tanker Laytime — scoped under .ltTankerRoot (no Dry/Gas leaks) ===== */
+
+.ltTankerRoot {
+  --lt-cobalt: #3b82f6;
+  min-width: 0;
+}
+
+/* Breathing room between LP/DP port pills and the Details card. */
+.ltPortTabs {
+  margin-bottom: 16px;
+}
+
+.ltContent {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 20px;
+}
+
+.cfSection {
+  background: #fff;
+  border: 1px solid #eceef2;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 0;
+}
+
+.cfSectionHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #eceef2;
+  flex-wrap: wrap;
+}
+
+.ltTankerRoot .cfSectionHeadGreen { background: #e8f8ec; }
+.ltTankerRoot .cfSectionHeadOrange { background: #fdece4; }
+.ltTankerRoot .cfSectionHeadGrey { background: #eef0f3; }
+.ltTankerRoot .cfSectionHeadNavy { background: #e6eaf1; }
+
+.subRibbon {
+  border-radius: 0;
+  border-top: 2px solid #dfe2e7;
+  margin-top: 0;
+}
+
+.cfSectionTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cfSectionTitle {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.cfSectionSub {
+  font-size: 11px;
+  color: #5b6472;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.sectionIco {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex: none;
+}
+
+.sectionIco svg { width: 16px; height: 16px; }
+.sectionIcoGreen { background: #e8f8ec; color: #0fa836; }
+.sectionIcoOrange { background: #fdece4; color: #f4652c; }
+.sectionIcoNavy { background: #e6eaf1; color: #274670; }
+
+.sectionHeadRight {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-inline-start: auto;
+}
+
+.sectionSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: min(190px, 100%);
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid #cfd6de;
+  border-radius: 8px;
+  background: #fff;
+  color: #5b6472;
+}
+
+.sectionSearch:focus-within {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.sectionSearch input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 11.5px;
+  color: #1b2430;
+}
+
+.sectionSearch input::placeholder { font-style: italic; }
+
+.sectionCount {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgb(27 36 48 / 8%);
+  color: #465366;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.sectionPagination {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #5b6472;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sectionPagination button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #cfd6de;
+  border-radius: 6px;
+  background: #fff;
+  color: #465366;
+  cursor: pointer;
+}
+
+.sectionPagination button:hover:not(:disabled) { background: #edf2f7; }
+.sectionPagination button:disabled { opacity: 0.45; cursor: default; }
+
+.ltOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Port tabs: reuse OpsVcSofTanker.module.css .portTab / .portTabActive (no local LP/DP fills). */
+
+/* HTML mockup: 3×2 Details, 4×2 Timing; wrap only at breakpoints. */
+.ltDetailsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+}
+
+.ltDetailCell {
+  padding: 14px 20px;
+  border-bottom: 1px solid #eceef2;
+  border-right: 1px solid #eceef2;
+  min-width: 0;
+}
+
+.ltDetailCell:nth-child(3n) { border-right: none; }
+
+.ltDetailLabel {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #5b6472;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.ltDetailVal {
+  display: block;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  padding: 7px 9px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1b2430;
+  overflow-wrap: anywhere;
+}
+
+.ltDetailVal[data-empty='true'] { color: #5b6472; }
+
+.ltTimingGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+}
+
+.ltTimingCell {
+  padding: 14px 20px;
+  border-bottom: 1px solid #eceef2;
+  border-right: 1px solid #eceef2;
+  min-width: 0;
+}
+
+.ltTimingCell:nth-child(4n) { border-right: none; }
+
+.ltTimingCell .ltDateField,
+.ltTankerRoot .cfTable .ltDateField { width: 100%; }
+
+.ltTimingCell .ltDateFieldInput,
+.ltTankerRoot .cfTable .ltDateFieldInput {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.ltTankerRoot .ltDateFieldInput::placeholder { color: #5b6472; }
+
+.demmCell .ltDetailLabel {
+  color: #c53030;
+  font-weight: 900;
+}
+
+.ltOptrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.ltOptlabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a93a2;
+}
+
+.ltPortManual {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.ltHiddenPreserve {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tableWrap { overflow-x: auto; }
+
+.cfTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cfTable thead th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5b6472;
+  background: #fafbfc;
+  padding: 11px 9px;
+  border-bottom: 1px solid #dfe2e7;
+  white-space: nowrap;
+}
+
+.cfTable tbody td {
+  padding: 11px 9px;
+  border-bottom: 1px solid #eceef2;
+  font-size: 12.5px;
+  color: #1b2430;
+  vertical-align: middle;
+}
+
+.cfTable tbody tr:hover td { background: #fafbfc; }
+
+.ltTankerRoot .tableInput { min-width: 0; }
+
+.ltTankerRoot .cfInpInvalid,
+.ltSumInp.cfInpInvalid {
+  border-color: #b42318;
+  background: #fdecea;
+}
+
+.numSm { min-width: 60px; text-align: right; max-width: 80px; }
+/* Negative cumulative: keep red semantic hue with stronger contrast on #f1f2f4. */
+.ltTankerRoot .tableInput.cumNegative {
+  color: #b42318;
+  -webkit-text-fill-color: #b42318;
+  opacity: 1;
+  font-weight: 800;
+}
+
+.ltTankerRoot .ltNotesSm {
+  min-width: 112px;
+  min-height: 34px;
+}
+
+.cfTable .totalsRow td {
+  height: 42px;
+  padding-block: 10px;
+  background: #f1f2f4;
+  font-weight: 800;
+  color: #1b2430;
+}
+
+.ltToggleWrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+}
+
+.ltCountSwitch {
+  /* The shared switch moves right when checked; C is on the left. */
+  transform: scaleX(-1);
+}
+
+.ltCountSwitch,
+.ltOption {
+  --color-primary-hover: var(--lt-cobalt);
+}
+
+.ltToggleLbl,
+.ltToggleActiveLabel {
+  font-size: 10px;
+  font-weight: 800;
+  color: #5b6472;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.ltToggleActiveLabel {
+  color: #2563eb;
+}
+
+.ltCountSwitch input:not(:checked) + span { background: #5b6472; }
+
+.ltTankerRoot .negoAgreedInp { min-width: 60px; max-width: 80px; }
+.negoTable { min-width: 1040px; }
+.negoTable .negoTotalLabel { text-align: right; padding-right: 16px; }
+
+.ltBottomDock {
+  position: sticky;
+  bottom: 0;
+  z-index: 45;
+}
+
+.sofFooterBar {
+  background: #fff;
+  border-top: 1px solid #dfe2e7;
+  box-shadow: 0 -6px 18px rgba(20, 30, 50, 0.08);
+  padding: 12px 16px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ltSummaryFloat {
+  position: absolute;
+  bottom: calc(100% + 16px);
+  inset-inline: 16px;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.ltSummaryFloat > * {
+  pointer-events: auto;
+}
+
+/* Match shipped SOF Tanker footer chrome (gray, not yellow HTML mockup). */
+.sofFooterNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f3f5;
+  color: #5b6472;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 9px;
+  padding: 9px 13px;
+  line-height: 1.4;
+  max-width: min(100%, 42rem);
+}
+
+.sofFooterNote svg { width: 14px; height: 14px; flex: none; }
+
+.sofFooterActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sofFooterActions :global(button) {
+  white-space: nowrap;
+  min-width: 100px;
+}
+
+/* Floating summary FAB — lives in ltSummaryFloat; not part of footer flow. */
+.ltSummaryFab {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  max-width: min(560px, 100%);
+  width: auto;
+  flex-wrap: wrap;
+  background: #274670;
+  color: #fff;
+  border: none;
+  border-radius: 13px;
+  padding: 11px 20px;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(20, 30, 50, 0.18);
+  transition: background 0.25s, box-shadow 0.25s;
+  font-family: inherit;
+}
+
+.ltSummaryFabUnavailable {
+  background: #5b6472;
+}
+
+.ltSummaryFab:hover {
+  background: #16283f;
+  box-shadow: 0 12px 36px rgba(20, 30, 50, 0.24);
+}
+
+.ltSummaryFab:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+.ltSummaryFab svg { width: 18px; height: 18px; }
+
+.fabVals {
+  display: flex;
+  gap: 15px;
+  font-size: 12.5px;
+  font-weight: 700;
+  flex-wrap: wrap;
+}
+
+.fabValItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.fabNum { font-size: 14px; font-weight: 800; }
+.fabNumWarn { color: #fca5a5; }
+.fabLbl { opacity: 0.85; font-size: 11px; color: #e8eef7; }
+.fabValDivider {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.25);
+  flex: none;
+  margin: 0 2px;
+}
+
+.ltSummaryFabExpanded {
+  width: min(420px, 100%);
+  box-shadow: 0 16px 48px rgba(20, 30, 50, 0.22);
+  border-radius: 14px;
+  transform-origin: bottom right;
+  animation: fabExpand 0.2s ease-out;
+  overflow: visible;
+  border: 1px solid #eceef2;
+  background: #fff;
+  container-type: inline-size;
+  container-name: lt-summary;
+}
+
+@keyframes fabExpand {
+  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.ltSummaryHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #e6eaf1;
+  border-bottom: 1px solid #eceef2;
+  border-radius: 13px 13px 0 0;
+}
+
+.ltSummaryHeadTitle { font-size: 13px; font-weight: 800; color: #1b2430; }
+.ltSummaryHeadSub { font-size: 10.5px; color: #5b6472; font-weight: 600; }
+
+.ltSummaryHead .fabCloseBtn { margin-left: auto; }
+
+.ltSummaryBody {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ltSumGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+
+.ltSummaryFabExpanded .sectionIco {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+.ltSummaryFabExpanded .sectionIco svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ltSumItemPanel { display: flex; flex-direction: column; gap: 3px; }
+
+.ltSumLabelPanel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #5b6472;
+}
+
+.ltSumIcoBox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  flex: none;
+}
+
+.ltSumIcoBox svg { width: 9px; height: 9px; }
+.ltSumIcoNavy { background: #e6eaf1; color: #274670; }
+.ltSumIcoRed { background: #fdecea; color: #e4483b; }
+.ltSumIcoGreen { background: #e8f8ec; color: #0fa836; }
+
+.ltSumFieldWrap { display: flex; align-items: center; gap: 5px; }
+
+.ltSumFieldBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.ltSumHrTag {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  font-weight: 800;
+  color: #5b6472;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.ltSumInp { min-width: 0; }
+
+.ltSumFieldBox .ltSumInp,
+.ltSumFieldBox .ltSumComputed { padding-right: 32px; flex: 1; }
+
+.ltSumComputed {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #2b3444;
+  background: #f1f2f4;
+  border: 1px solid #eceef2;
+  border-radius: 7px;
+  padding: 4px 8px;
+  min-width: 0;
+  height: 30px;
+  line-height: 20px;
+  flex: 1;
+  box-sizing: border-box;
+}
+
+/* Darker red on gray computed fill for readable demurrage amounts. */
+.ltSumNegative { color: #b42318; }
+
+.ltSumFinalRow {
+  background: #e6eaf1;
+  border: 1px solid #d3dae7;
+  border-radius: 8px;
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* HTML .lt-sum-final-row .lt-sum-label → navy (not muted gray). */
+.ltSumFinalRow .ltSumLabelPanel { color: #274670; }
+
+.ltSumFinalVal { font-size: 12.5px; font-weight: 800; min-width: 72px; text-align: right; height: auto; line-height: 1.3; }
+
+.ltApprovalDivider {
+  border: none;
+  border-top: 1px solid #eceef2;
+  margin: 2px 0 4px;
+}
+
+.ltApprovalHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.ltApprovalTitle { font-size: 12px; font-weight: 800; color: #1b2430; }
+
+.ltActionBtns {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ltActionBtns :global(button) { flex: 1; }
+
+@container lt-summary (max-width: 360px) {
+  .ltSumGrid { grid-template-columns: 1fr; }
+  .ltSumFinalRow { align-items: stretch; flex-direction: column; gap: 6px; }
+  .ltSummaryBody { padding: 12px; }
+  .ltSumComputed { min-width: 0; overflow-wrap: anywhere; }
+  .ltActionBtns :global(button) { min-width: 0; white-space: normal; }
+}
+
+@media (max-width: 1150px) {
+  .ltDetailsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ltDetailCell:nth-child(3n) { border-right: 1px solid #eceef2; }
+  .ltDetailCell:nth-child(2n) { border-right: none; }
+  .ltTimingGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ltTimingCell:nth-child(4n) { border-right: 1px solid #eceef2; }
+  .ltTimingCell:nth-child(2n) { border-right: none; }
+}
+
+@media (max-width: 700px) {
+  .ltTankerPage { padding-inline: 8px; }
+  .ltDetailsGrid,
+  .ltTimingGrid { grid-template-columns: minmax(0, 1fr); }
+  /* Beat 1150px nth-child border rules (higher specificity). */
+  .ltDetailsGrid .ltDetailCell:nth-child(n),
+  .ltTimingGrid .ltTimingCell:nth-child(n) { border-right: none; }
+  .sofFooterBar { flex-direction: column; align-items: stretch; gap: 8px; padding: 8px; }
+  .ltSummaryFloat { inset-inline: 12px; bottom: calc(100% + 10px); }
+  .ltSummaryFloat > * { width: 100%; }
+  .ltSummaryFab {
+    width: 100%;
+    padding: 8px 12px;
+  }
+  .ltTankerRoot .fabVals {
+    gap: 8px;
+    font-size: 11px;
+  }
+  .ltTankerRoot .fabNum { font-size: 12.5px; }
+  .ltTankerRoot .ltSummaryHead { padding: 8px; gap: 6px; }
+  .ltTankerRoot .ltSummaryHead .sectionIco { display: none; }
+  .ltTankerRoot .ltSummaryHeadSub { overflow-wrap: anywhere; }
+  .ltTankerRoot .sofFooterNote {
+    max-width: 100%;
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+  .ltTankerRoot .sofFooterActions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 116px), 1fr));
+    gap: 6px;
+  }
+  .ltTankerRoot .sofFooterActions :global(button) {
+    min-width: 0;
+    padding-inline: 8px;
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ltSummaryFab,
+  .ltSummaryFabExpanded { transition: none; }
+  .ltSummaryFabExpanded { animation: none; }
+}
+
+.ltTankerPage {
+  position: relative;
+  overflow-x: clip;
+  padding-bottom: 0 !important;
 }

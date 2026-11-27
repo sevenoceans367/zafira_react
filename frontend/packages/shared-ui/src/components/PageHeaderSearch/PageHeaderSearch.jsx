@@ -2,7 +2,7 @@ import React, { forwardRef } from 'react';
 import styles from './PageHeaderSearch.module.css';
 
 const PageHeaderSearch = forwardRef(function PageHeaderSearch(
-  { value, onChange, placeholder = 'Search', 'aria-label': ariaLabel = 'Search' },
+  { value, onChange, placeholder = 'Search', 'aria-label': ariaLabel = 'Search', showShortcut = true },
   ref,
 ) {
   return (
@@ -17,9 +17,7 @@ const PageHeaderSearch = forwardRef(function PageHeaderSearch(
         className={styles.input}
         aria-label={ariaLabel}
       />
-      <kbd className={styles.shortcut} aria-hidden>
-        /
-      </kbd>
+      {showShortcut ? <kbd className={styles.shortcut} aria-hidden>/</kbd> : null}
     </label>
   );
 });

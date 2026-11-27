@@ -5,16 +5,24 @@ import {
   AttachmentDropzone,
   DmyDateInput,
   LoadingOverlay,
+  CardSelect,
+  TextInput,
   useAlert,
   useConfirm,
 } from '@bainbridge/shared-ui';
 import { appPath, attachmentUrl } from '@bainbridge/shared-routing';
 import { fetchLaytimeForm, openLaytime, saveLaytime } from '../../../services/opsVc.js';
 import OpsVcLaytimeHeaderActions from './OpsVcLaytimeHeaderActions.jsx';
+import LaytimeTankerLayout from './LaytimeTankerLayout.jsx';
 import { getFixtureTypeLabel } from '../sopf/estimateDetail.constants.js';
 import VoyageOpsHeading from './VoyageOpsHeading.jsx';
 import { PortTabLabel } from './portTabLabel.jsx';
 import { calcLaytimeAllowed, recomputePortDraft } from './laytimeCalculations.js';
+import {
+  resolveLaytimeEstimateType,
+  usesTankerLaytimeLayout,
+} from './laytimeTankerHelpers.js';
+import { recomputeTankerPortDraft, validateTankerLaytimeDraft } from './laytimeTankerValidation.js';
 import pageStyles from './OpsPages.module.css';
 import sofStyles from './OpsVcSofPage.module.css';
 import styles from './OpsVcLaytimePage.module.css';
@@ -121,11 +129,13 @@ function LtDateField({
   disabled,
   enableTime = true,
   className = '',
+  ariaLabel,
+  invalid = false,
 }) {
   const hasValue = Boolean(String(value || '').trim());
   return (
     <div
-      className={`${styles.ltDateField} ${hasValue ? styles.ltDateFieldHasValue : ''} ${className}`.trim()}
+      className={`${styles.ltDateField} ${hasValue ? styles.ltDateFieldHasValue : ''} ${invalid ? styles.ltDateFieldInvalid : ''} ${className}`.trim()}
     >
       <span className={styles.ltDateFieldIco}>
         <CalendarIco />
@@ -137,6 +147,8 @@ function LtDateField({
         onChange={onChange}
         disabled={disabled}
         className={styles.ltDateFieldInput}
+        ariaLabel={ariaLabel}
+        ariaInvalid={invalid || undefined}
       />
     </div>
   );
@@ -151,11 +163,42 @@ const LAYTIME_MANDATORY_FIELDS = [
   { key: 'vesselSailed', label: 'VESSEL SAILED' },
 ];
 
-function focusMandatoryField(fieldId) {
+function focusMandatoryField(fieldId, { index, focus } = {}) {
   if (!fieldId || typeof document === 'undefined') return false;
+
+  // Tanker activity/deduction rows: data-lt-row="activities-0" + data-lt-focus="ltPartial|start|end"
+  if (fieldId === 'activities' || fieldId === 'deductions') {
+    const rowKey = `${fieldId}-${Number(index) || 0}`;
+    const row = document.querySelector(`[data-lt-row="${CSS.escape(rowKey)}"]`);
+    const focusKey = focus || 'ltPartial';
+    const marked = row?.querySelector(`[data-lt-focus="${CSS.escape(focusKey)}"]`);
+    const focusable = (marked && typeof marked.focus === 'function' && marked.matches?.('input, textarea, select, button'))
+      ? marked
+      : (marked?.querySelector?.('input:not([disabled]), textarea:not([disabled]), button:not([disabled])')
+        || row?.querySelector('input:not([disabled]), textarea:not([disabled])'));
+    if (focusable) {
+      focusable.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      try { focusable.focus({ preventScroll: true }); } catch { focusable.focus(); }
+      if (typeof focusable.select === 'function' && focusable.tagName === 'INPUT') {
+        try { focusable.select(); } catch { /* ignore */ }
+      }
+      return true;
+    }
+  }
+
+  // Summary financial fields may live in the floating panel — open via custom event if collapsed.
+  if (fieldId === 'laytimeAllowed' || fieldId === 'demurrageRate' || fieldId === 'despatchRate') {
+    window.dispatchEvent(new CustomEvent('lt-tanker-open-summary'));
+  }
 
   const byId = document.getElementById(fieldId);
   const byData = document.querySelector(`[data-field="${CSS.escape(fieldId)}"]`);
+  const byAria = document.querySelector(`[aria-label="${CSS.escape({
+    laytimeAllowed: 'Laytime Allowed',
+    demurrageRate: 'Demurrage Rate',
+    despatchRate: 'Dispatch Rate',
+    loadedQty: 'QTY (MT)',
+  }[fieldId] || fieldId)}"]`);
   const byLabel = document.querySelector(`label[for="${CSS.escape(fieldId)}"]`);
   const container = byData
     || byId?.closest('[class*="field"]')
@@ -165,6 +208,8 @@ function focusMandatoryField(fieldId) {
   let focusable = null;
   if (byId && typeof byId.focus === 'function' && !byId.disabled) {
     focusable = byId;
+  } else if (byAria && typeof byAria.focus === 'function' && !byAria.disabled) {
+    focusable = byAria;
   } else if (byData) {
     focusable = byData.querySelector(
       'button:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])',
@@ -187,7 +232,7 @@ function focusMandatoryField(fieldId) {
   }
 
   const applyFocus = () => {
-    const el = focusable || document.getElementById(fieldId);
+    const el = focusable || document.getElementById(fieldId) || byAria;
     if (!el || typeof el.focus !== 'function') return;
     try {
       el.focus({ preventScroll: true });
@@ -209,13 +254,13 @@ function focusMandatoryField(fieldId) {
   return true;
 }
 
-async function alertThenFocus(alertFn, alertOpts, fieldId) {
-  focusMandatoryField(fieldId);
+async function alertThenFocus(alertFn, alertOpts, fieldId, focusMeta = {}) {
+  focusMandatoryField(fieldId, focusMeta);
   await alertFn(alertOpts);
   await new Promise((resolve) => {
     window.requestAnimationFrame(() => {
       window.setTimeout(() => {
-        focusMandatoryField(fieldId);
+        focusMandatoryField(fieldId, focusMeta);
         resolve();
       }, 80);
     });
@@ -327,11 +372,12 @@ function ApproverTagField({ options, value, onChange, disabled }) {
             ) : null}
           </span>
         ))}
-        <input
+        <TextInput
           id="approvers"
           className={styles.tagInput}
           value={query}
           disabled={disabled}
+          aria-label="Assign an Approver"
           placeholder={selected.length ? 'Add another…' : 'Type a name or username, then Enter'}
           onFocus={() => setOpen(true)}
           onChange={(event) => {
@@ -352,7 +398,10 @@ function ApproverTagField({ options, value, onChange, disabled }) {
         />
       </div>
       {open && !disabled && available.length ? (
-        <div className={styles.tagMenu} role="listbox">
+        <div
+          className={styles.tagMenu}
+          role="listbox"
+        >
           {available.slice(0, 8).map((opt) => {
             const id = String(opt.id ?? opt.value ?? '');
             const name = opt.name ?? opt.label ?? id;
@@ -378,7 +427,7 @@ function truthyFlag(value) {
   return value === true || value === 1 || value === '1';
 }
 
-function draftFromPort(port, rateUnit = 'days', { recompute = true } = {}) {
+function draftFromPort(port, rateUnit = 'days', { recompute = true, tanker = false } = {}) {
   const draft = {
     terminal: port.terminal || '',
     stowageQty: port.stowageQty || '',
@@ -417,14 +466,32 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true } = {}) {
       .map((row) => {
         const hasCountFlag = Boolean(row.ltCounts) || Boolean(row.ltNoCounts);
         const isSofSynced = Boolean(row.sofLoadPortId);
+        // SOF-synced without C/NC flags: unset (non-counting, blank partial).
+        // Manual rows without flags: counting default.
+        const ltCounts = hasCountFlag || isSofSynced ? Boolean(row.ltCounts) : true;
+        const ltNoCounts = Boolean(row.ltNoCounts);
+        const storedPartial = row.ltPartial;
+        const blankPartial = storedPartial == null || String(storedPartial).trim() === '';
+        let ltPartial;
+        if (tanker) {
+          // Tanker-only: explicit C + blank → 100. SOF-unset / NC stay blank.
+          ltPartial = !blankPartial
+            ? String(storedPartial)
+            : (ltCounts && !ltNoCounts ? '100' : '');
+        } else {
+          // Dry/Gas: only fill when nullish — preserve explicit blank string (calc as 0).
+          ltPartial = storedPartial != null
+            ? String(storedPartial)
+            : ((hasCountFlag && !row.ltCounts) || isSofSynced ? '' : '100');
+        }
         return {
           activity: row.activity || '',
           start: row.start || '',
           end: row.end || '',
           duration: row.duration || '',
-          ltCounts: hasCountFlag || isSofSynced ? Boolean(row.ltCounts) : true,
-          ltNoCounts: Boolean(row.ltNoCounts),
-          ltPartial: row.ltPartial ?? ((hasCountFlag && !row.ltCounts) || isSofSynced ? '' : '100'),
+          ltCounts,
+          ltNoCounts,
+          ltPartial,
           cumulative: row.cumulative ?? '',
           sofLoadPortId: row.sofLoadPortId || '',
           notes: row.notes || '',
@@ -444,7 +511,7 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true } = {}) {
     ...extractLaytimeKeepFiles(port.uploads),
   };
   // Unknown unit: keep stored values verbatim — never invent day/hour math or blank for save.
-  if (!recompute || (rateUnit !== 'hours' && rateUnit !== 'days')) {
+  if (!recompute || (tanker && port.locked) || (rateUnit !== 'hours' && rateUnit !== 'days')) {
     return draft;
   }
   if (!String(draft.laytimeAllowed || '').trim()) {
@@ -456,7 +523,10 @@ function draftFromPort(port, rateUnit = 'days', { recompute = true } = {}) {
     );
     if (allowed !== '') draft.laytimeAllowed = allowed;
   }
-  return recomputePortDraft(draft, rateUnit);
+  // Tanker load path must use the same calc gate as live edits (no ungated recomputePortDraft).
+  return tanker
+    ? recomputeTankerPortDraft(draft, rateUnit)
+    : recomputePortDraft(draft, rateUnit);
 }
 
 /**
@@ -487,6 +557,9 @@ export default function OpsVcLaytimePage() {
   const unitLabel = rateUnit === 'hours' ? 'Hrs' : rateUnit === 'days' ? 'Days' : '—';
   const currency = form?.currency || 'USD';
   const unitUnknown = Boolean(form) && rateUnit == null;
+  // Gate on estimate type 2 only — never infer Tanker from hours rateUnit (Gas also uses hours).
+  const estimateType = resolveLaytimeEstimateType(form);
+  const isTankerLayout = usesTankerLaytimeLayout(estimateType);
 
   const backHref = useMemo(() => {
     const path = BACK_PATHS[Number(page)] || BACK_PATHS[1];
@@ -500,11 +573,12 @@ export default function OpsVcLaytimePage() {
       const data = await fetchLaytimeForm(comId);
       setForm(data);
       const unit = data.rateUnit === 'hours' || data.rateUnit === 'days' ? data.rateUnit : null;
+      const tanker = usesTankerLaytimeLayout(resolveLaytimeEstimateType(data));
       const nextDrafts = {};
       (data.ports || []).forEach((port) => {
         // Unknown unit: snapshot stored values only (no blanking, no recompute).
         nextDrafts[port.key] = unit
-          ? draftFromPort(port, unit)
+          ? draftFromPort(port, unit, { tanker })
           : draftFromPort(port, null, { recompute: false });
       });
       setDrafts(nextDrafts);
@@ -558,10 +632,13 @@ export default function OpsVcLaytimePage() {
         );
         if (allowed !== '') base = { ...base, laytimeAllowed: allowed };
       }
-      return {
-        ...current,
-        [activeKey]: recompute || refreshAllowed ? recomputePortDraft(base, rateUnit) : base,
-      };
+      if (!(recompute || refreshAllowed)) {
+        return { ...current, [activeKey]: base };
+      }
+      const next = isTankerLayout
+        ? recomputeTankerPortDraft(base, rateUnit)
+        : recomputePortDraft(base, rateUnit);
+      return { ...current, [activeKey]: next };
     });
   };
 
@@ -573,6 +650,12 @@ export default function OpsVcLaytimePage() {
 
   const addListRow = (field, factory) => {
     patchDraft({ [field]: [...(draft[field] || []), factory()] });
+  };
+
+  const insertListRow = (field, index, createRow) => {
+    const rows = [...(draft[field] || [])];
+    rows.splice(index + 1, 0, createRow());
+    patchDraft({ [field]: rows }, { recompute: true });
   };
 
   const removeListRow = async (field, index, factory, keepMinOne = true) => {
@@ -633,37 +716,49 @@ export default function OpsVcLaytimePage() {
       return;
     }
 
-    const missingMandatory = LAYTIME_MANDATORY_FIELDS.filter(
-      ({ key }) => !String(draft[key] || '').trim(),
-    );
-    if (missingMandatory.length) {
-      await alertThenFocus(alert, {
-        title: 'Alert',
-        message: `Please fill the ${missingMandatory.map(({ label }) => label).join(', ')}.`,
-      }, missingMandatory[0].key);
-      return;
-    }
-
-    if (!draft.detention) {
-      const qty = Number(draft.loadedQty);
-      const rate = Number(draft.loadedRate);
-      const missingQty = !String(draft.loadedQty || '').trim() || !(qty > 0);
-      const missingRate = !String(draft.loadedRate || '').trim() || !(rate > 0);
-      if (missingQty || missingRate) {
+    // Tanker: Legacy getSubmit (selBType==2) skips qty/rate and hidden Dry timing fields.
+    if (isTankerLayout) {
+      const tankerCheck = validateTankerLaytimeDraft(draft, { submitId });
+      if (!tankerCheck.ok) {
         await alertThenFocus(alert, {
           title: 'Alert',
-          message: 'Please Check Load Rate Or Quantity',
-        }, missingQty ? 'loadedQty' : 'loadedRate');
+          message: tankerCheck.message,
+        }, tankerCheck.field, { index: tankerCheck.index, focus: tankerCheck.focus });
         return;
       }
-    }
+    } else {
+      const missingMandatory = LAYTIME_MANDATORY_FIELDS.filter(
+        ({ key }) => !String(draft[key] || '').trim(),
+      );
+      if (missingMandatory.length) {
+        await alertThenFocus(alert, {
+          title: 'Alert',
+          message: `Please fill the ${missingMandatory.map(({ label }) => label).join(', ')}.`,
+        }, missingMandatory[0].key);
+        return;
+      }
 
-    if (submitId === 1 && !(draft.approvers || []).length) {
-      await alertThenFocus(alert, {
-        title: 'Alert',
-        message: 'Please assign an approver first.',
-      }, 'approvers');
-      return;
+      if (!draft.detention) {
+        const qty = Number(draft.loadedQty);
+        const rate = Number(draft.loadedRate);
+        const missingQty = !String(draft.loadedQty || '').trim() || !(qty > 0);
+        const missingRate = !String(draft.loadedRate || '').trim() || !(rate > 0);
+        if (missingQty || missingRate) {
+          await alertThenFocus(alert, {
+            title: 'Alert',
+            message: 'Please Check Load Rate Or Quantity',
+          }, missingQty ? 'loadedQty' : 'loadedRate');
+          return;
+        }
+      }
+
+      if (submitId === 1 && !(draft.approvers || []).length) {
+        await alertThenFocus(alert, {
+          title: 'Alert',
+          message: 'Please assign an approver first.',
+        }, 'approvers');
+        return;
+      }
     }
 
     if (submitId > 0) {
@@ -808,7 +903,7 @@ export default function OpsVcLaytimePage() {
         disabled={loading || saving}
       />
 
-      <div className={`zafira-page ${pageStyles.page} ${styles.page}`}>
+      <div className={`zafira-page ${pageStyles.page} ${styles.page} ${isTankerLayout ? styles.ltTankerPage : ''}`.trim()}>
         {(loading || saving) ? (
           <LoadingOverlay active label={saving ? 'Saving Laytime…' : 'Loading Laytime…'} />
         ) : null}
@@ -828,7 +923,35 @@ export default function OpsVcLaytimePage() {
           </div>
         ) : null}
 
-        {form?.ports?.length ? (
+        {form?.ports?.length && isTankerLayout ? (
+          <LaytimeTankerLayout
+            form={form}
+            activeKey={activeKey}
+            setActiveKey={setActiveKey}
+            activePort={activePort}
+            draft={draft}
+            locked={locked}
+            saving={saving}
+            unitUnknown={unitUnknown}
+            unitShort={unitShort}
+            pendingFiles={pendingFiles}
+            approverOptions={approverOptions}
+            LtDateField={LtDateField}
+            patchDraft={patchDraft}
+            updateListRow={updateListRow}
+            insertListRow={insertListRow}
+            removeListRow={removeListRow}
+            emptyActivityRow={emptyActivityRow}
+            emptyDeductionRow={emptyDeductionRow}
+            setApprovers={setApprovers}
+            addPendingFiles={addPendingFiles}
+            removePendingFile={removePendingFile}
+            handleSubmit={handleSubmit}
+            handleOpen={handleOpen}
+          />
+        ) : null}
+
+        {form?.ports?.length && !isTankerLayout ? (
           <>
             <div className={sofStyles.portTabs}>
               {form.ports.map((port) => (
@@ -1045,16 +1168,19 @@ export default function OpsVcLaytimePage() {
                       <div className={styles.ltOptionsRow}>
                         <div className={styles.ltOptItem}>
                           <label htmlFor="laytimeApplicable">Laytime Applicable</label>
-                          <select
+                          <CardSelect
                             id="laytimeApplicable"
+                            ariaLabel="Laytime Applicable"
+                            options={[
+                              { value: '1', label: 'Yes' },
+                              { value: '0', label: 'No' },
+                              { value: '2', label: 'N.A.' },
+                            ]}
                             value={String(draft.laytimeApplicable ?? '1')}
-                            onChange={(e) => patchDraft({ laytimeApplicable: e.target.value })}
+                            onChange={(value) => patchDraft({ laytimeApplicable: value })}
                             disabled={locked}
-                          >
-                            <option value="1">Yes</option>
-                            <option value="0">No</option>
-                            <option value="2">N.A.</option>
-                          </select>
+                            align="start"
+                          />
                         </div>
                         <div className={`${styles.ltOptItem} ${styles.ltOptGrow}`}>
                           <label htmlFor="portNameManual">Port Name (Manual)</label>

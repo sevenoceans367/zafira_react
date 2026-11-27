@@ -1,7 +1,16 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
+import { agencyLetterHasColumn } from './agencyLetterDb.js';
 import { loadSofRecord } from './sofDb.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
+import {
+  calculateLaytimeForSave,
+  durationForPersist,
+  isNamedTankerEntity,
+  mergeTankerEntityRows,
+  pickOrdinaryNominationLetter,
+  validateTankerLaytimePayload,
+} from './laytimeTankerValidation.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -162,10 +171,10 @@ async function getCountryName(pool, countryId) {
 export async function getLatestCostSheetId(pool, comId) {
   const [[row]] = await pool.query(
     `SELECT FCAID FROM freight_cost_estimete_master
-     WHERE COMID = ? AND MODULEID = ?
+     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
      ORDER BY FCAID DESC
      LIMIT 1`,
-    [comId, MODULE_ID],
+    [comId, MODULE_ID, COMPANY_ID],
   );
   return row?.FCAID || null;
 }
@@ -176,9 +185,9 @@ export async function resolveLaytimeFcaId(pool, comId) {
   if (latest) return latest;
   const [[compare]] = await pool.query(
     `SELECT FCAID FROM freight_cost_estimate_compare
-     WHERE COMID = ? AND MODULEID = ?
+     WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ?
      LIMIT 1`,
-    [comId, MODULE_ID],
+    [comId, MODULE_ID, COMPANY_ID],
   ).catch(() => [[null]]);
   return compare?.FCAID || null;
 }
@@ -216,7 +225,7 @@ async function loadVesselParticulars(pool, fcaId) {
   };
 }
 
-/** LP/DP ports from cost-sheet legs — aligned with agency-letter fallbacks (no PASSAGE_TYPE gate). */
+/** LP/DP ports from laden cost-sheet legs, with agency-letter fallbacks when no costs exist. */
 async function loadPortTabs(pool, fcaId, comId = null) {
   const legSql = (withDemurrageRates) => `SELECT FROM_PORT, TO_PORT, RANDOMID, LOAD_PORT_QTY, DISC_PORT_QTY,
             PORT_COSTLP_VENDOR, PORT_COSTDP_VENDOR, PORT_COSTTP_VENDOR,
@@ -233,13 +242,21 @@ async function loadPortTabs(pool, fcaId, comId = null) {
   }
 
   const tabs = [];
-  const seen = new Set();
+  const tabIndexByKey = new Map();
 
   const pushTab = (tab) => {
     if (!tab?.portId) return;
     const key = `${tab.portType}-${tab.portId}-${tab.randomId}`;
-    if (seen.has(key)) return;
-    seen.add(key);
+    const existingIdx = tabIndexByKey.get(key);
+    if (existingIdx != null) {
+      const existing = tabs[existingIdx];
+      // Prefer a later nonblank nominated vendor over an earlier blank (do not drop it).
+      if (!String(existing.agentVendorCode || '').trim() && String(tab.agentVendorCode || '').trim()) {
+        existing.agentVendorCode = tab.agentVendorCode;
+      }
+      return;
+    }
+    tabIndexByKey.set(key, tabs.length);
     tabs.push(tab);
   };
 
@@ -268,6 +285,8 @@ async function loadPortTabs(pool, fcaId, comId = null) {
         portId: str(leg.FROM_PORT),
         randomId: resolvePortRandomId(leg.RANDOMID, leg.FROM_PORT),
         portName: fromName,
+        // Nominated agent vendor (Legacy nominate_agent.php PORT_COSTLP_VENDOR).
+        agentVendorCode: str(leg.PORT_COSTLP_VENDOR),
         defaults: {
           loadedQty: leg.LOAD_PORT_QTY != null && leg.LOAD_PORT_QTY !== ''
             ? String(leg.LOAD_PORT_QTY)
@@ -283,6 +302,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
         portId: str(leg.TO_PORT),
         randomId: resolvePortRandomId(leg.RANDOMID, leg.TO_PORT),
         portName: toName,
+        agentVendorCode: str(leg.PORT_COSTDP_VENDOR),
         defaults: {
           loadedQty: leg.DISC_PORT_QTY != null && leg.DISC_PORT_QTY !== ''
             ? String(leg.DISC_PORT_QTY)
@@ -298,7 +318,7 @@ async function loadPortTabs(pool, fcaId, comId = null) {
       pushTab({
         portType: 'TP', portId: str(transitPort),
         randomId: resolvePortRandomId(leg.RANDOMID, transitPort),
-        portName: transitName, defaults: {},
+        portName: transitName, agentVendorCode: str(leg.PORT_COSTTP_VENDOR), defaults: {},
       });
     }
   }
@@ -440,7 +460,7 @@ function emptyDeduction() {
   };
 }
 
-async function loadActivities(pool, laytimeId, sofId) {
+async function loadActivities(pool, laytimeId, sofId, { tanker = false, hasSofRange = true } = {}) {
   if (laytimeId) {
     const [rows] = await pool.query(
       `SELECT * FROM laytime_slave WHERE LAYTIME_ID = ?`,
@@ -477,10 +497,9 @@ async function loadActivities(pool, laytimeId, sofId) {
     ltPartial: '', cumulative: '', sofLoadPortId: String(sofId), notes: str(row.NOTES),
   }));
 
-  const [rangeColumns] = await pool.query("SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'");
-  if (!rangeColumns.length) return [emptyActivity()];
+  if (!hasSofRange) return [emptyActivity()];
   const [sofRows] = await pool.query(
-    `SELECT * FROM sof_slave_6
+    `SELECT ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO FROM sof_slave_6
      WHERE SOFID = ?
        AND ACTIVITYDATETIME IS NOT NULL
        AND CAST(ACTIVITYDATETIME AS CHAR) NOT LIKE '0000-00-00%'
@@ -492,15 +511,13 @@ async function loadActivities(pool, laytimeId, sofId) {
 
   if (!sofRows?.length) return [emptyActivity()];
   return sofRows.map((row) => ({
+    ...emptyActivity(),
     activity: str(row.ACTIVITY),
     start: blankDateTime(row.ACTIVITYDATETIME),
     end: blankDateTime(row.ACTIVITYDATETIMETO),
-    duration: '',
     ltCounts: false,
-    ltNoCounts: false,
     ltPartial: '',
-    cumulative: '',
-    notes: '',
+    ...(tanker ? { sofLoadPortId: String(sofId) } : {}),
   }));
 }
 
@@ -522,39 +539,58 @@ async function loadDeductions(pool, laytimeId) {
   }));
 }
 
-async function loadEntityRows(pool, laytimeId, sofId) {
+function displayTankerEntityDate(value) {
+  const raw = str(value).trim();
+  if (/^0000-00-00(?: 00:00:00)?$/.test(raw)) return '';
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}:\d{2}):\d{2})?$/.exec(raw);
+  if (!match) return raw;
+  const [, year, month, day, time = '00:00'] = match;
+  return `${day}-${month}-${year} ${time}`;
+}
+
+async function loadEntityRows(pool, laytimeId, sofId, { tanker = false, hasSofRange = true } = {}) {
+  let savedRows = [];
   if (laytimeId) {
-    const [rows] = await pool.query(
-      `SELECT * FROM laytime_slave2 WHERE LAYTIME_ID = ?`,
-      [laytimeId],
-    );
-    if (rows?.length) {
-      return rows.map((row) => ({
-        name: str(row.ENTITY_NAME),
-        value: blankDateTime(row.ENTITY_VALUE) || str(row.ENTITY_VALUE),
-      }));
-    }
+    const [rows] = await pool.query(tanker
+      ? 'SELECT ENTITY_NAME, ENTITY_VALUE FROM laytime_slave2 WHERE LAYTIME_ID = ? ORDER BY LAYTIME_SLAVEID ASC'
+      : 'SELECT * FROM laytime_slave2 WHERE LAYTIME_ID = ?',
+    [laytimeId]);
+    savedRows = rows.map(({ ENTITY_NAME: name, ENTITY_VALUE: value }) => ({
+      name: str(name),
+      value: tanker
+        ? (isNamedTankerEntity(name) ? displayTankerEntityDate(value) : value)
+        : blankDateTime(value) || str(value),
+    }));
   }
+  if (!sofId || (!tanker && savedRows.length)) return savedRows;
 
-  if (!sofId) return [];
-
-  const [rangeColumns] = await pool.query("SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'");
   const [sofRows] = await pool.query(
-    `SELECT * FROM sof_slave_6
+    `SELECT ACTIVITY, ACTIVITYDATETIME FROM sof_slave_6
      WHERE SOFID = ?
        AND ACTIVITYDATETIME IS NOT NULL
        AND CAST(ACTIVITYDATETIME AS CHAR) NOT LIKE '0000-00-00%'
-       ${rangeColumns.length ? `AND (ACTIVITYDATETIMETO IS NULL
-            OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
-            OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')` : ''}
+       ${hasSofRange ? `AND (ACTIVITYDATETIMETO IS NULL
+                           OR CAST(ACTIVITYDATETIMETO AS CHAR) = ''
+                           OR CAST(ACTIVITYDATETIMETO AS CHAR) LIKE '0000-00-00%')` : ''}
      ORDER BY ACTIVITYDATETIME ASC`,
     [sofId],
   );
+  const pointEvents = sofRows.map(({ ACTIVITY, ACTIVITYDATETIME }) => {
+    const name = str(ACTIVITY);
+    const date = blankDateTime(ACTIVITYDATETIME);
+    return { name, value: tanker && !isNamedTankerEntity(name) ? parseDmyDateTime(date) : date };
+  });
+  if (!tanker) return pointEvents;
 
-  return (sofRows || []).map((row) => ({
-    name: str(row.ACTIVITY),
-    value: blankDateTime(row.ACTIVITYDATETIME),
+  const [rows] = await pool.query(
+    `SELECT ENTITY_NAME, ENTITY_VALUE FROM sof_slave_3 WHERE SOFID = ? ORDER BY SOF_SLAVEID ASC`,
+    [sofId],
+  );
+  const slave3Rows = rows.map(({ ENTITY_NAME, ENTITY_VALUE }) => ({
+    name: str(ENTITY_NAME),
+    value: displayTankerEntityDate(ENTITY_VALUE),
   }));
+  return mergeTankerEntityRows(savedRows, pointEvents, slave3Rows);
 }
 
 export function deriveMilestonesFromSofRows(keyOpRows = [], cargoRows = []) {
@@ -670,7 +706,7 @@ function entityValueForDb(value) {
   return s === '' ? null : s;
 }
 
-async function replaceActivities(connection, laytimeId, activities) {
+export async function replaceActivities(connection, laytimeId, activities, { failClosed = false } = {}) {
   await connection.query(`DELETE FROM laytime_slave WHERE LAYTIME_ID = ?`, [laytimeId]);
   for (const row of activities || []) {
     const activity = String(row.activity || '').trim();
@@ -678,35 +714,42 @@ async function replaceActivities(connection, laytimeId, activities) {
     const end = parseDmyDateTime(row.end);
     const notes = String(row.notes || '').trim();
     if (!activity && !start && !end && !notes) continue;
-    await connection.query(
-      `INSERT INTO laytime_slave
-        (LAYTIME_ID, SOFLOADPORTID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LT_C, LT_NC, LT_PARTIAL, CUMMULATIVE_TIME, NOTES)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        laytimeId,
-        strOrNull(row.sofLoadPortId),
-        activity,
-        start,
-        end,
-        str(row.duration),
-        row.ltCounts ? 1 : 0,
-        row.ltNoCounts ? 1 : 0,
-        strOrNull(row.ltPartial),
-        str(row.cumulative),
-        notes,
-      ],
-    ).catch(async () => {
+    // Tanker: derive DURATION from dates when present (blank/stale client duration must not win).
+    const duration = failClosed ? durationForPersist(row) : str(row.duration);
+    const fullParams = [
+      laytimeId,
+      strOrNull(row.sofLoadPortId),
+      activity,
+      start,
+      end,
+      duration,
+      row.ltCounts ? 1 : 0,
+      row.ltNoCounts ? 1 : 0,
+      strOrNull(row.ltPartial),
+      str(row.cumulative),
+      notes,
+    ];
+    try {
+      await connection.query(
+        `INSERT INTO laytime_slave
+          (LAYTIME_ID, SOFLOADPORTID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LT_C, LT_NC, LT_PARTIAL, CUMMULATIVE_TIME, NOTES)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        fullParams,
+      );
+    } catch (err) {
+      // Tanker: fail closed — never drop LT_C/LT_NC/LT_PARTIAL/CUMMULATIVE_TIME/SOFLOADPORTID.
+      if (failClosed || err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
       await connection.query(
         `INSERT INTO laytime_slave
           (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [laytimeId, activity, start, end, str(row.duration), notes],
+        [laytimeId, activity, start, end, duration, notes],
       );
-    });
+    }
   }
 }
 
-async function replaceDeductions(connection, laytimeId, deductions) {
+export async function replaceDeductions(connection, laytimeId, deductions, { failClosed = false } = {}) {
   await connection.query(`DELETE FROM laytime_slave1 WHERE LAYTIME_ID = ?`, [laytimeId]);
   for (const row of deductions || []) {
     const activity = String(row.activity || '').trim();
@@ -714,42 +757,149 @@ async function replaceDeductions(connection, laytimeId, deductions) {
     const end = parseDmyDateTime(row.end);
     const notes = String(row.notes || '').trim();
     if (!activity && !start && !end && !notes) continue;
-    await connection.query(
-      `INSERT INTO laytime_slave1
-        (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LT_PARTIAL, CUMMULATIVE_TIME, NOTES)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        laytimeId,
-        activity,
-        start,
-        end,
-        str(row.duration),
-        strOrNull(row.ltPartial),
-        str(row.cumulative),
-        notes,
-      ],
-    ).catch(async () => {
+    const duration = failClosed ? durationForPersist(row) : str(row.duration);
+    try {
+      await connection.query(
+        `INSERT INTO laytime_slave1
+          (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, LT_PARTIAL, CUMMULATIVE_TIME, NOTES)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          laytimeId,
+          activity,
+          start,
+          end,
+          duration,
+          strOrNull(row.ltPartial),
+          str(row.cumulative),
+          notes,
+        ],
+      );
+    } catch (err) {
+      // Tanker: fail closed — never drop LT_PARTIAL/CUMMULATIVE_TIME.
+      if (failClosed || err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
       await connection.query(
         `INSERT INTO laytime_slave1
           (LAYTIME_ID, ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION, NOTES)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [laytimeId, activity, start, end, str(row.duration), notes],
+        [laytimeId, activity, start, end, duration, notes],
       );
-    });
+    }
   }
 }
 
-async function replaceEntityRows(connection, laytimeId, entityRows) {
+async function replaceEntityRows(connection, laytimeId, entityRows, tanker) {
   await connection.query(`DELETE FROM laytime_slave2 WHERE LAYTIME_ID = ?`, [laytimeId]);
   for (const row of entityRows || []) {
-    const name = String(row.name || '').trim();
-    const value = entityValueForDb(row.value);
+    const name = tanker ? str(row.name) : str(row.name).trim();
+    const value = tanker
+      ? (isNamedTankerEntity(name) ? parseDmyDateTime(row.value) : row.value ?? null)
+      : entityValueForDb(row.value);
     if (!name && value == null) continue;
     await connection.query(
       `INSERT INTO laytime_slave2 (LAYTIME_ID, ENTITY_NAME, ENTITY_VALUE) VALUES (?, ?, ?)`,
       [laytimeId, name, value],
     );
   }
+}
+
+/**
+ * Worksheet Multiple cargo rows can store a vendor ID; legacy rows use codes.
+ */
+async function vendorNameByCode(pool, code, companyId = COMPANY_ID, allowVendorId = false) {
+  const raw = String(code ?? '').trim();
+  if (!raw) return '';
+  const vendorId = allowVendorId && /^[1-9]\d{0,14}$/.test(raw) ? raw : null;
+  try {
+    const [[vendor]] = await pool.query(
+      `SELECT NAME FROM vendor_master WHERE MCOMPANYID = ? AND (CODE = ? OR VENDORID = ?)
+       ORDER BY (VENDORID = ?) DESC, VENDORID LIMIT 1`,
+      [companyId, raw, vendorId, vendorId],
+    );
+    return String(vendor?.NAME || '').trim();
+  } catch (err) {
+    console.warn('[laytime] vendor_master lookup failed for CODE=', raw, err?.message || err);
+    return '';
+  }
+}
+
+/**
+ * Tanker-only Agent name:
+ * 1) Ordinary Agency Nomination letter (not OPA via LP_DP='Yes', not pda/bunker/voyage)
+ * 2) Leg nominated PORT_COSTLP/DP_VENDOR, company-scoped
+ */
+async function resolveTankerPortAgentName(pool, hasLpDp, {
+  comId, portType, portId, randomId, legVendorCode,
+}) {
+  try {
+    const lpDpSelect = hasLpDp ? ', g.LP_DP' : '';
+    const [letters] = await pool.query(
+      `SELECT g.VENDORID, g.KIND_ATTN_TO, g.PORT${lpDpSelect}, vm.NAME AS vendorName
+       FROM generate_agency_letter g
+       LEFT JOIN vendor_master vm
+         ON vm.CODE = g.VENDORID AND vm.MCOMPANYID = g.MCOMPANYID
+       WHERE g.COMID = ? AND g.MODULEID = ? AND g.MCOMPANYID = ?
+         AND g.PORT = ? AND g.PORTID = ? AND g.RANDOMID = ?
+         AND NULLIF(TRIM(g.VENDORID), '') IS NOT NULL
+       ORDER BY g.GEN_AGENCY_ID DESC`,
+      [comId, MODULE_ID, COMPANY_ID, portType, portId, randomId],
+    );
+    const picked = pickOrdinaryNominationLetter(letters || [], { hasLpDp });
+    if (picked) {
+      const name = String(picked.vendorName || '').trim();
+      if (name) return name;
+      console.warn(
+        '[laytime] nomination letter VENDORID present but vendor_master join empty CODE=',
+        String(picked.VENDORID || '').trim(),
+      );
+    }
+  } catch (err) {
+    console.warn('[laytime] agency letter agent lookup failed', err?.message || err);
+  }
+
+  return vendorNameByCode(pool, legVendorCode, COMPANY_ID);
+}
+
+/**
+ * Legacy laytime_calculation.php ~94–147 charterer enrichment (read-only).
+ * Fun175=COAID, Fun158=ESTIMATE_TYPE, Fun228=TANKER_RADIO_SINGLE_DIS.
+ */
+export async function resolveTankerCharterer(pool, master, fcaId) {
+  try {
+    if (Number(master?.COAID)) {
+      const [[coa]] = await pool.query(
+        `SELECT CHARTERER FROM coa_master WHERE COAID = ? AND MCOMPANYID = ? LIMIT 1`,
+        [master.COAID, COMPANY_ID],
+      );
+      return vendorNameByCode(pool, coa?.CHARTERER);
+    }
+
+    const singleDischarge = Number(master?.TANKER_RADIO_SINGLE_DIS) === 1;
+    if (singleDischarge && Number(master?.CHK_LUMPSUM) === 1) {
+      return vendorNameByCode(pool, master.LUMP_VENDOR);
+    }
+    const [rows] = await pool.query(singleDischarge
+      ? 'SELECT CUSTOMER AS code FROM freight_cost_estimete_slave12 WHERE FCAID = ?'
+      : `SELECT DISTINCT SHIPPER_CHARTER AS code FROM freight_cost_estimete_slave10
+         WHERE FCAID = ? AND STATUS IN (1, 2)`,
+    [fcaId]);
+    const names = await Promise.all(rows.map(({ code }) => vendorNameByCode(pool, code, COMPANY_ID, !singleDischarge)));
+    return [...new Set(names.filter(Boolean))].join(', ');
+  } catch (err) {
+    console.warn('[laytime] Tanker charterer lookup failed', err?.message || err);
+    return '';
+  }
+}
+
+async function loadTankerApprovers(pool) {
+  const [rows] = await pool.query(
+    `SELECT DISTINCT l.LOGINID AS id, l.CONTACT_PERSON AS name
+     FROM approval_matrix am
+     JOIN login l ON l.LOGINID = am.LOGINID
+     WHERE am.MCOMPANYID = ? AND am.LAYTIME_CHK_APP_1 = 1 AND l.STATUS = 1
+     ORDER BY name, id`,
+    [COMPANY_ID],
+  );
+  return rows;
 }
 
 /**
@@ -768,9 +918,9 @@ export async function dbGetLaytimeForm(comId) {
      FROM freight_cost_estimate_compare c
      LEFT JOIN freight_cost_estimete_master m ON m.FCAID = c.FCAID
      LEFT JOIN vessel_imo_master vim ON vim.VESSEL_IMO_ID = m.VESSEL_IMO_ID
-     WHERE c.COMID = ? AND c.MODULEID = ?
+     WHERE c.COMID = ? AND c.MODULEID = ? AND c.MCOMPANYID = ?
      LIMIT 1`,
-    [comId, MODULE_ID],
+    [comId, MODULE_ID, COMPANY_ID],
   );
 
   if (!compare?.COMID) {
@@ -780,9 +930,12 @@ export async function dbGetLaytimeForm(comId) {
   }
 
   const fcaId = await resolveLaytimeFcaId(pool, comId) || compare.FCAID;
+  const vesselParticulars = await loadVesselParticulars(pool, fcaId);
+  const tanker = Number(vesselParticulars.estimateType) === 2;
   const [[master]] = await pool.query(
     `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO,
             FIXTURETYPEID, SEL_BUSI_TYPE
+            ${tanker ? ', LUMP_VENDOR, CHK_LUMPSUM, COAID, TANKER_RADIO_SINGLE_DIS' : ''}
      FROM freight_cost_estimete_master
      WHERE FCAID = ?
      LIMIT 1`,
@@ -830,13 +983,17 @@ export async function dbGetLaytimeForm(comId) {
       cpDate = `${d}-${m}-${y}`;
     }
   }
-  const vesselParticulars = await loadVesselParticulars(pool, fcaId);
   let portTabs = await loadPortTabs(pool, fcaId, comId);
   // If latest cost sheet has no legs, fall back to the compare FCAID sheet.
   if (!portTabs.length && compare.FCAID && String(compare.FCAID) !== String(fcaId)) {
     portTabs = await loadPortTabs(pool, compare.FCAID, comId);
   }
 
+  const [rangeColumns] = portTabs.length
+    ? await pool.query("SHOW COLUMNS FROM sof_slave_6 LIKE 'ACTIVITYDATETIMETO'")
+    : [[]];
+  const sources = { tanker, hasSofRange: rangeColumns.length > 0 };
+  const hasLpDp = tanker && portTabs.length > 0 && await agencyLetterHasColumn(pool, 'LP_DP');
   const ports = [];
   for (const tab of portTabs) {
     const record = await loadLaytimeRecord(pool, comId, tab.portType, tab.portId, tab.randomId);
@@ -847,10 +1004,19 @@ export async function dbGetLaytimeForm(comId) {
     const locked = submitId === 5;
     const sofDerived = await loadSofDerivedMilestones(pool, sofId);
     const fields = mapMasterFields(record, sof, tab.defaults, sofDerived);
-    const activities = await loadActivities(pool, laytimeId, sofId);
+    const activities = await loadActivities(pool, laytimeId, sofId, sources);
     const deductions = await loadDeductions(pool, laytimeId);
-    const entityRows = await loadEntityRows(pool, laytimeId, sofId);
+    const entityRows = await loadEntityRows(pool, laytimeId, sofId, sources);
     const operation = tab.portType === 'LP' ? 'Loading' : 'Discharging';
+    const agent = tanker
+      ? { agentName: await resolveTankerPortAgentName(pool, hasLpDp, {
+        comId,
+        portType: tab.portType,
+        portId: tab.portId,
+        randomId: tab.randomId,
+        legVendorCode: tab.agentVendorCode,
+      }) }
+      : {};
 
     ports.push({
       key: `${tab.portType}-${tab.portId}-${tab.randomId}`,
@@ -865,6 +1031,7 @@ export async function dbGetLaytimeForm(comId) {
       submitId,
       locked,
       canEdit: !locked,
+      ...agent,
       ...fields,
       activities,
       deductions,
@@ -876,6 +1043,23 @@ export async function dbGetLaytimeForm(comId) {
   // Same Fun158 contract as sofDb. Unknown estimateType fails closed (null)
   // — do not guess days vs hours for ambiguous records.
   const rateUnit = laytimeRateUnitFromEstimateType(vesselParticulars?.estimateType);
+  const estimateType = vesselParticulars?.estimateType ?? null;
+
+  let tankerDetails = {};
+  let approverOptions = [];
+  if (tanker) {
+    const [[operator]] = await pool.query(
+      `SELECT l.CONTACT_PERSON FROM freight_cost_estimate_compare c
+       JOIN login l ON l.LOGINID = c.OPERATOR
+       WHERE c.COMID = ? AND c.MODULEID = ? AND c.MCOMPANYID = ? LIMIT 1`,
+      [comId, MODULE_ID, COMPANY_ID],
+    );
+    tankerDetails = {
+      operatorName: str(operator?.CONTACT_PERSON).trim(),
+      charterer: await resolveTankerCharterer(pool, master, fcaId),
+    };
+    approverOptions = await loadTankerApprovers(pool);
+  }
 
   return {
     comId: String(comId),
@@ -884,17 +1068,20 @@ export async function dbGetLaytimeForm(comId) {
     voyageNo,
     vesselName,
     fixtureTypeId: fixtureTypeRaw ? String(fixtureTypeRaw) : '',
+    // Top-level estimate type for Tanker layout gate (also on vesselParticulars).
+    estimateType,
     cpDate,
     message: compare.MESSAGE || '',
     cargo,
     currency: 'USD',
     vesselParticulars,
+    ...tankerDetails,
     rateUnit,
     // Fun158 estimate type is the unit basis; historical day-mode tanker writes
     // are not auto-converted (no blanket ×24). Unknown type → rateUnit null.
     allowanceUnitBasis: rateUnit ? 'fun158-estimateType' : null,
     canOpen: true,
-    approverOptions: [],
+    approverOptions,
     ports,
   };
 }
@@ -1104,6 +1291,8 @@ export async function dbSaveLaytime(payload = {}) {
     throw error;
   }
 
+  const isTankerSave = Number(particulars.estimateType) === 2;
+
   // Open is status-only: clear SUBMITID lock without rewriting fields or children.
   if (action === 'open') {
     const connection = await pool.getConnection();
@@ -1173,9 +1362,39 @@ export async function dbSaveLaytime(payload = {}) {
     approvers,
   };
 
-  const activities = payload.activities || [];
-  const deductions = payload.deductions || [];
+  let activities = payload.activities || [];
+  let deductions = payload.deductions || [];
   const entityRows = payload.entityRows || [];
+
+  // Tanker-only: mirror client mandatory/financial rules before any write.
+  if (isTankerSave) {
+    const tankerCheck = validateTankerLaytimePayload({
+      ...payload,
+      ...fields,
+      activities,
+      deductions,
+      submitId,
+      approvers: payload.approvers,
+    });
+    if (!tankerCheck.ok) {
+      const error = new Error(tankerCheck.message || 'Invalid Tanker laytime payload.');
+      error.status = 400;
+      throw error;
+    }
+    const calculated = calculateLaytimeForSave(fields, activities, deductions, 'hours');
+    ({ activities, deductions } = calculated);
+    for (const key of ['actualLaytime', 'timeToDemurrage', 'timeToDespatch', 'ttlDemurrage', 'ttlDespatch']) {
+      fields[key] = calculated[key];
+    }
+    if (submitId === 1) {
+      const eligible = new Set((await loadTankerApprovers(pool)).map(({ id }) => String(id)));
+      if (parseApprovers(approvers).some((id) => !eligible.has(id))) {
+        const error = new Error('Choose an eligible Laytime approver.');
+        error.status = 400;
+        throw error;
+      }
+    }
+  }
 
   const connection = await pool.getConnection();
   try {
@@ -1213,9 +1432,9 @@ export async function dbSaveLaytime(payload = {}) {
       throw error;
     }
 
-    await replaceActivities(connection, laytimeId, activities);
-    await replaceDeductions(connection, laytimeId, deductions);
-    await replaceEntityRows(connection, laytimeId, entityRows);
+    await replaceActivities(connection, laytimeId, activities, { failClosed: isTankerSave });
+    await replaceDeductions(connection, laytimeId, deductions, { failClosed: isTankerSave });
+    await replaceEntityRows(connection, laytimeId, entityRows, isTankerSave);
 
     await connection.commit();
     return {

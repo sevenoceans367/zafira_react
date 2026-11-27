@@ -35,6 +35,7 @@ const DmyDateInput = ({
   onChange,
   id,
   ariaLabel,
+  ariaInvalid,
   className,
   placeholder,
   disabled = false,
@@ -777,6 +778,7 @@ const DmyDateInput = ({
       type="text"
       id={id}
       aria-label={ariaLabel}
+      aria-invalid={ariaInvalid ? true : undefined}
       className={resolvedClassName}
       placeholder={resolvedPlaceholder}
       disabled={disabled}

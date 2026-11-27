@@ -14,12 +14,18 @@ When weighted deductions exceed the gross time on demurrage, Save blocks the
 negative calculated amount. The commercial treatment of that crossover still
 needs confirmation.
 
+Dry also blocks a financial save when there is counted time with zero allowance,
+or a recorded activity with zero counted time and positive allowance. Legacy
+can show different time and money in these cases. Blank allowance remains
+unknown, and a worksheet with no activity keeps the existing empty-list rule.
+
 ## Nego Dialogues
 
 Tanker and Dry save dialogue rows per Laytime record in `laytime_negotiation`.
 The USD total sums all dialogue amounts across statuses and stays separate from
-calculated and manual demurrage. Settlement, invoicing, and whether completed
-dialogues require retention remain open commercial decisions.
+calculated and manual demurrage. Until retention is decided, saved completed
+dialogues cannot be deleted or moved back to a pending status. Corrections to
+their other fields remain available. Settlement and invoicing remain open.
 
 ## All Clear / Laytime Ends / DEMM Starts / Agent
 

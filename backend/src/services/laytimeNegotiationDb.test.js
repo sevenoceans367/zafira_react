@@ -11,15 +11,25 @@ test('rejects stale port saves after master, SOF or child changes', async () => 
     ['laytime_slave1', [{ NOTES: 'Original deduction' }]],
     ['laytime_slave2', [{ ENTITY_NAME: 'All Clear', ENTITY_VALUE: null }]],
   ]);
+  const sofRows = new Map(['sof_slave', 'sof_slave_3', 'sof_slave_6', 'sof_slave_7'].map((table) => [table, []]));
   const db = { async query(sql, params) {
-    assert.deepEqual(params, ['8']);
-    return [rows.get(sql.split(' ')[3])];
+    const table = /\bFROM (\w+)/.exec(sql)[1];
+    assert.deepEqual(params, sofRows.has(table) ? [1] : ['8']);
+    return [sofRows.get(table) ?? rows.get(table)];
   } };
-  const inputs = { sofId: 1, carry: {} };
+  const inputs = { sof: { SOFID: 1, TERMINAL: 'Original terminal' }, carry: {} };
   const version = await laytimeSaveVersion(db, record, inputs);
   await assertLaytimeSaveVersion(db, version, record, inputs);
   await assert.rejects(assertLaytimeSaveVersion(db, version, { ...record, TTL_DEMURRAGE: '20.00' }, inputs), { status: 409 });
-  await assert.rejects(assertLaytimeSaveVersion(db, version, record, { ...inputs, sofId: 2 }), { status: 409 });
+  await assert.rejects(assertLaytimeSaveVersion(db, version, record, {
+    ...inputs, sof: { ...inputs.sof, TERMINAL: 'Changed terminal' },
+  }), { status: 409 });
+  const freshVersion = await laytimeSaveVersion(db, null, inputs);
+  for (const table of sofRows.keys()) {
+    sofRows.set(table, [{ ACTIVITY: 'Changed milestone' }]);
+    await assert.rejects(assertLaytimeSaveVersion(db, freshVersion, null, inputs), { status: 409 });
+    sofRows.set(table, []);
+  }
   for (const [table, original] of rows) {
     rows.set(table, []);
     await assert.rejects(assertLaytimeSaveVersion(db, version, record, inputs), { status: 409 });
@@ -28,6 +38,18 @@ test('rejects stale port saves after master, SOF or child changes', async () => 
 });
 const saved = (id, sortOrder = 0) => ({ id, sortOrder, ...dialogue, date: dialogue.date,
   sqlDate: '2028-02-29 13:45:00', agreedDemm: null, currencyCode: 'USD', notes: null });
+
+test('retains a completed dialogue and allows corrections without changing its status', async () => {
+  const db = fakeDb([{ ...saved('1'), status: 'COMPLETED', agreedDemm: '5.00' }]);
+  const { version, rows: [completed] } = await loadLaytimeNegotiations(db, '8');
+  assert.equal(completed.retained, true);
+  const prepare = (rows, deletedIds = []) => prepareLaytimeNegotiations({ version, rows, deletedIds });
+  await assert.rejects(saveLaytimeNegotiations(db, '8', 7, prepare([], ['1'])), { status: 409 });
+  await assert.rejects(saveLaytimeNegotiations(db, '8', 7, prepare([{ ...completed, status: 'ON_HOLD' }])), { status: 409 });
+  assert.deepEqual(db.writes, []);
+  await saveLaytimeNegotiations(db, '8', 7, prepare([{ ...completed, notes: 'Correction' }]));
+  assert.deepEqual(db.writes.map((write) => write.op), ['UPDATE']);
+});
 
 function fakeDb(rows = []) {
   const writes = [];

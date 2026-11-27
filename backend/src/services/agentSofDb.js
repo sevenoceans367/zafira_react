@@ -1,5 +1,6 @@
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
+import { lockSofLaytimeNomination } from './sofLaytimeNomination.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -574,6 +575,7 @@ export async function dbSaveAgentSof(agentUser, payload = {}) {
   try {
     await connection.beginTransaction();
 
+    await lockSofLaytimeNomination(connection, letter.COMID, moduleId, companyId);
     const [[existing]] = await connection.query(
       `SELECT * FROM sof_master
        WHERE COMID = ? AND LOGIN = 'AGENT' AND MODULEID = ? AND MCOMPANYID = ?

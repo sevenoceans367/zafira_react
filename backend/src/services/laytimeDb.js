@@ -2,6 +2,7 @@ import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 import { agencyLetterHasColumn } from './agencyLetterDb.js';
 import { loadSofRecord } from './sofDb.js';
+import { lockSofLaytimeNomination } from './sofLaytimeNomination.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
 import { assertLaytimeSaveVersion, laytimeSaveVersion, loadLaytimeNegotiations, prepareLaytimeNegotiations, saveLaytimeNegotiations } from './laytimeNegotiationDb.js';
 import { getLaytimeNegotiationMigrationState } from '../migrations/laytimeNegotiationMigration.js';
@@ -940,18 +941,35 @@ async function loadLaytimeApprovers(pool) {
   return rows;
 }
 
+async function loadLaytimeAuthority(db, actorId) {
+  if (!actorId) return {};
+  const [[authority]] = await db.query(
+    `SELECT LAYTIME_CHK_CRETR, LAYTIME_CHK_APP_1, LAYTIME_CHK_APP_2, LAYTIME_CHK_OPEN
+     FROM approval_matrix WHERE MCOMPANYID = ? AND LOGINID = ? LIMIT 1`,
+    [COMPANY_ID, actorId],
+  );
+  return authority || {};
+}
+
+function canEditLaytime(authority, submitId) {
+  if (submitId === 0 || submitId === 2) return Number(authority.LAYTIME_CHK_CRETR) === 1;
+  if (submitId === 1 || submitId === 4) return Number(authority.LAYTIME_CHK_APP_1) === 1;
+  if (submitId === 3) return Number(authority.LAYTIME_CHK_APP_2) === 1;
+  return false;
+}
+
 /**
  * PHP laytime_calculation.php — Ops VC Laytime form.
  */
 export async function dbGetLaytimeForm(comId, user) {
   const pool = getPool();
   const actorId = negotiationActorId(user);
-  if (!actorId) return readLaytimeForm(pool, comId, false);
+  if (!actorId) return readLaytimeForm(pool, comId);
   const connection = await pool.getConnection();
   try {
     await connection.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
     await connection.query('START TRANSACTION READ ONLY');
-    const form = await readLaytimeForm(connection, comId, true);
+    const form = await readLaytimeForm(connection, comId, actorId);
     await connection.commit();
     return form;
   } catch (error) {
@@ -962,7 +980,7 @@ export async function dbGetLaytimeForm(comId, user) {
   }
 }
 
-async function readLaytimeForm(pool, comId, authorizedEditor) {
+async function readLaytimeForm(pool, comId, actorId) {
   if (!comId) {
     const error = new Error('COMID is required.');
     error.status = 400;
@@ -990,7 +1008,8 @@ async function readLaytimeForm(pool, comId, authorizedEditor) {
   const tanker = Number(vesselParticulars.estimateType) === 2;
   const isDry = Number(vesselParticulars.estimateType) === 3;
   const editor = tanker || isDry;
-  const canReadNegotiations = authorizedEditor && editor && getLaytimeNegotiationMigrationState() === 'ready';
+  const authority = editor ? await loadLaytimeAuthority(pool, actorId) : {};
+  const canReadNegotiations = Boolean(actorId) && editor && getLaytimeNegotiationMigrationState() === 'ready';
   const [[master]] = await pool.query(
     `SELECT VOYAGE_NO, CARGO_ID, FCAID, VESSEL_IMO_ID, CP_DATE, SHEET_NO,
             FIXTURETYPEID, SEL_BUSI_TYPE
@@ -1064,6 +1083,7 @@ async function readLaytimeForm(pool, comId, authorizedEditor) {
     const sofId = sof?.SOFID ?? null;
     const submitId = record?.SUBMITID != null ? Number(record.SUBMITID) : 0;
     const locked = submitId === 5;
+    const canEdit = editor ? canEditLaytime(authority, submitId) : !locked;
     const sofDerived = await loadSofDerivedMilestones(pool, sofId);
     const fields = mapMasterFields(record, sof, tab.defaults, sofDerived);
     const activities = await loadActivities(pool, laytimeId, sofId, sources);
@@ -1095,13 +1115,13 @@ async function readLaytimeForm(pool, comId, authorizedEditor) {
       sofId: sofId != null ? String(sofId) : '',
       submitId,
       locked,
-      canEdit: !locked,
+      canEdit,
       ...agent,
       ...fields,
       activities,
       deductions,
       entityRows,
-      ...(authorizedEditor && editor ? { saveVersion: await laytimeSaveVersion(pool, record, { sofId, carry }) } : {}),
+      ...(editor && canEdit ? { saveVersion: await laytimeSaveVersion(pool, record, { sof, carry }) } : {}),
       ...(canReadNegotiations ? { negotiations: await loadLaytimeNegotiations(pool, laytimeId) } : {}),
     });
   }
@@ -1147,7 +1167,7 @@ async function readLaytimeForm(pool, comId, authorizedEditor) {
     // Fun158 estimate type is the unit basis; historical day-mode tanker writes
     // are not auto-converted (no blanket ×24). Unknown type → rateUnit null.
     allowanceUnitBasis: rateUnit ? 'fun158-estimateType' : null,
-    canOpen: true,
+    canOpen: !editor || Number(authority.LAYTIME_CHK_OPEN) === 1,
     approverOptions,
     ports,
   };
@@ -1373,15 +1393,15 @@ export async function dbSaveLaytime(payload = {}, user) {
   if (negotiations && getLaytimeNegotiationMigrationState() !== 'ready') {
     throw Object.assign(new Error('Negotiation storage is unavailable.'), { status: 503 });
   }
-  if (usesEditor && action !== 'open' && !expectedVersion) {
-    throw Object.assign(new Error('Laytime version required. Reload before saving.'), { status: 409 });
-  }
-
   // Open is status-only: clear SUBMITID lock without rewriting fields or children.
   if (action === 'open') {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
+      await lockSofLaytimeNomination(connection, comId, MODULE_ID, COMPANY_ID);
+      if (usesEditor && Number((await loadLaytimeAuthority(connection, userId)).LAYTIME_CHK_OPEN) !== 1) {
+        throw Object.assign(new Error('You do not have permission to reopen Laytime.'), { status: 403 });
+      }
       const existing = await loadLaytimeRecord(connection, comId, portType, portId, randomId, true);
       if (!existing?.LAYTIME_ID) {
         const error = new Error('Laytime record not found to open.');
@@ -1478,18 +1498,23 @@ export async function dbSaveLaytime(payload = {}, user) {
   try {
     await connection.beginTransaction();
 
-    // Serialize first saves on the existing nomination row; a new port has no master row to lock yet.
-    const [[nomination]] = await connection.query(`SELECT FCAID, MCOMPANYID FROM freight_cost_estimate_compare
-      WHERE COMID = ? AND MODULEID = ? AND MCOMPANYID = ? FOR UPDATE`, [comId, MODULE_ID, COMPANY_ID]);
-    if (!nomination) {
-      throw Object.assign(new Error('Laytime nomination not found.'), { status: 404 });
-    }
+    const nomination = await lockSofLaytimeNomination(connection, comId, MODULE_ID, COMPANY_ID);
+    const sof = await loadSofRecord(connection, comId, portType, portId, randomId);
+    const sofId = sof?.SOFID ?? null;
     const existing = await loadLaytimeRecord(connection, comId, portType, portId, randomId, true);
 
     if (existing && Number(existing.SUBMITID) === 5) {
       const error = new Error('This Laytime is locked (Submit & Close).');
       error.status = 400;
       throw error;
+    }
+    if (usesEditor) {
+      if (!canEditLaytime(await loadLaytimeAuthority(connection, userId), Number(existing?.SUBMITID ?? 0))) {
+        throw Object.assign(new Error('You do not have permission to change Laytime at its current approval stage.'), { status: 403 });
+      }
+      if (!expectedVersion) {
+        throw Object.assign(new Error('Laytime version required. Reload before saving.'), { status: 409 });
+      }
     }
 
     let tabs;
@@ -1503,16 +1528,13 @@ export async function dbSaveLaytime(payload = {}, user) {
       }
     }
 
-    const sof = await loadSofRecord(connection, comId, portType, portId, randomId);
-    const sofId = sof?.SOFID ?? null;
-
     if (usesEditor) {
       let carry = {};
       if (dryLaytime) {
         const previous = previousDryWorksheetCall(tabs, { portType, portId, randomId });
         if (previous) carry = dryCarryFromRecord(await loadLaytimeRecord(connection, comId, previous.portType, previous.portId, previous.randomId));
       }
-      await assertLaytimeSaveVersion(connection, expectedVersion, existing, { sofId, carry });
+      await assertLaytimeSaveVersion(connection, expectedVersion, existing, { sof, carry });
       const calculated = calculateLaytimeForSave(fields, activities, deductions, dryLaytime ? 'days' : 'hours', { ...carry, dryLaytime });
       ({ activities, deductions } = calculated);
       for (const key of ['actualLaytime', 'timeToDemurrage', 'timeToDespatch', 'ttlDemurrage', 'ttlDespatch']) {

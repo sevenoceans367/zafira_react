@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { appContext } from '../config.js';
 import { getPool } from '../db.js';
 import { laytimeRateUnitFromEstimateType } from './laytimeRateUnit.js';
+import { lockSofLaytimeNomination } from './sofLaytimeNomination.js';
 
 const MODULE_ID = process.env.VC_MODULE_ID || process.env.MODULE_ID || appContext.moduleId;
 const COMPANY_ID = process.env.COMPANY_ID || appContext.companyId;
@@ -1676,6 +1677,7 @@ export async function dbSaveSof(payload = {}) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    await lockSofLaytimeNomination(connection, comId, MODULE_ID, COMPANY_ID);
 
     const [[existing]] = await connection.query(
       `SELECT * FROM sof_master

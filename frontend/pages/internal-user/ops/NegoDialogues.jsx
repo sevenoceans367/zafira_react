@@ -154,7 +154,7 @@ export default function NegoDialogues({ portKey, locked, LtDateField, negotiatio
                       options={DIALOGUE_STATUSES}
                       value={row.status}
                       onChange={(value) => change(rowKey(row), 'status', value)}
-                      disabled={locked}
+                      disabled={locked || row.retained}
                       ariaLabel={`${label} status`}
                       align="start"
                     />
@@ -172,7 +172,7 @@ export default function NegoDialogues({ portKey, locked, LtDateField, negotiatio
                     <TableRowActions
                       locked={locked}
                       onInsert={() => insert(index, row.entity)}
-                      onDelete={() => remove(row)}
+                      onDelete={row.retained ? undefined : () => remove(row)}
                     />
                   </td>
                 </tr>

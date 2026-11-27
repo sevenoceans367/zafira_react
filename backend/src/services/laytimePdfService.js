@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { getLaytimeForm } from './laytimeService.js';
+import { calculateLaytimeForSave, validateTankerLaytimePayload } from './laytimeTankerValidation.js';
 
 export function computePdfActivityTimeUsed(row, { isDays = false } = {}) {
   const duration = Number(row?.duration) || 0;
@@ -9,6 +10,25 @@ export function computePdfActivityTimeUsed(row, { isDays = false } = {}) {
   const partial = Number(rawPartial);
   if (!Number.isFinite(partial) || partial <= 0) return 0;
   return (duration * partial) / 100;
+}
+
+export function draftLaytimePdfPort(port, estimateType) {
+  const dryLaytime = Number(estimateType) === 3;
+  if (port.locked || (!dryLaytime && Number(estimateType) !== 2)) return port;
+
+  const draft = { ...port, draftSummary: true, actualLaytime: '', timeToDemurrage: '', timeToDespatch: '', ttlDemurrage: '', ttlDespatch: '' };
+  const validation = validateTankerLaytimePayload({ ...port, submitId: 0 }, { dryLaytime });
+  if (!validation.ok) return { ...draft, calculationNote: 'Calculated totals are unavailable. Review the Laytime draft.' };
+
+  try {
+    const calculated = calculateLaytimeForSave(draft, port.activities, port.deductions, dryLaytime ? 'days' : 'hours', {
+      dryLaytime, actualLaytimeExtra: port.actualLaytimeExtra,
+    });
+    return { ...draft, ...calculated };
+  } catch (error) {
+    if (error.status !== 422) throw error;
+    return { ...draft, calculationNote: error.message };
+  }
 }
 
 const BLUE = '#1b77a6';
@@ -254,7 +274,7 @@ function renderPort(doc, form, port) {
     const boxWidth = 220;
     doc.rect(boxLeft, doc.y, boxWidth, 16).fill(HEADER_FILL);
     doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9)
-      .text('Laytime Summary', boxLeft, doc.y + 3, { width: boxWidth, align: 'center' });
+      .text(port.draftSummary ? 'Draft Laytime Summary' : 'Laytime Summary', boxLeft, doc.y + 3, { width: boxWidth, align: 'center' });
     doc.y += 20;
 
     const summary = [
@@ -278,6 +298,7 @@ function renderPort(doc, form, port) {
       doc.text(`${value}${unit ? `  ${unit}` : ''}`, boxLeft + 95, doc.y - 10, { width: 120 });
       doc.moveDown(0.25);
     });
+    if (port.calculationNote) doc.text(port.calculationNote, boxLeft, doc.y, { width: boxWidth });
   }
 
   if (port.remarks) {
@@ -336,7 +357,7 @@ export async function generateLaytimePdf({
     doc.font('Helvetica-Bold').fontSize(14).fillColor(BLUE)
       .text(`Voyage ${dash(form.voyageNo)}`, { align: 'center' });
     doc.moveDown(0.3);
-    renderPort(doc, form, port);
+    renderPort(doc, form, draftLaytimePdfPort(port, form.vesselParticulars?.estimateType ?? form.estimateType));
   });
 
   const buffer = await finish(doc, chunks);

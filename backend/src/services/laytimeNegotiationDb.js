@@ -25,8 +25,25 @@ function revision(rows) {
   return createHash('sha256').update(JSON.stringify(rows)).digest('hex');
 }
 
-export async function laytimeSaveVersion(db, record, { sofId, carry, forUpdate = false } = {}) {
-  const snapshot = [record, sofId ?? null, carry ?? {}];
+async function sofLaytimeSnapshot(db, sof) {
+  if (!sof) return null;
+  const fields = ['SOFID', 'TERMINAL', 'VA_1', 'VAPS_1', 'NT_1', 'PBFB_1', 'LC', 'LC1', 'VS'];
+  const [[activities], [pointEvents], [keyOps], [cargo]] = await Promise.all([
+    db.query(`SELECT ACTIVITYID, START_DATETIME, FINISH_DATETIME, DURATION,
+        LAY_TIME_COUNT, PORT_TIME_COUNT, NOTES FROM sof_slave
+      WHERE SOFID = ? AND GROUP_NAME = '1' ORDER BY SOF_SLAVEID`, [sof.SOFID]),
+    db.query(`SELECT ENTITY_NAME, ENTITY_VALUE FROM sof_slave_3
+      WHERE SOFID = ? ORDER BY SOF_SLAVEID`, [sof.SOFID]),
+    // The end-time column is optional on older SOF schemas.
+    db.query('SELECT * FROM sof_slave_6 WHERE SOFID = ? ORDER BY SLAVEID', [sof.SOFID]),
+    db.query('SELECT ACTIVITY, SHIPFIGURE, BLFIGURE FROM sof_slave_7 WHERE SOFID = ? ORDER BY SLAVEID', [sof.SOFID]),
+  ]);
+  return [fields.map((field) => sof[field] ?? null), activities, pointEvents,
+    keyOps.map(({ ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO }) => [ACTIVITY, ACTIVITYDATETIME, ACTIVITYDATETIMETO ?? null]), cargo];
+}
+
+export async function laytimeSaveVersion(db, record, { sof, carry, forUpdate = false } = {}) {
+  const snapshot = [record, await sofLaytimeSnapshot(db, sof), carry ?? {}];
   if (record) {
     const children = [
       ['laytime_slave', 'LAYTIME_LP_SLAVEID'],
@@ -56,6 +73,7 @@ export async function loadLaytimeNegotiations(db, laytimeId) {
     version: revision(rows),
     rows: rows.map(({ id, entity, date, reason, agreedDemm, currencyCode, status, notes }) => ({
       id, entity, date, reason, agreedDemm: agreedDemm ?? '', currencyCode, status, notes: notes ?? '',
+      retained: status === 'COMPLETED',
     })),
   };
 }
@@ -86,7 +104,7 @@ function normalizeRow(row, index) {
 
   const dateMs = parseDmyDateTimeMs(date);
   const parsedDate = new Date(dateMs);
-  if (dateMs == null || parsedDate.getFullYear() < 1000) fail(`Enter a valid date for dialogue ${index + 1}.`);
+  if (dateMs == null || parsedDate.getUTCFullYear() < 1000) fail(`Enter a valid date for dialogue ${index + 1}.`);
   if (!reason.trim()) fail(`Enter a reason for dialogue ${index + 1}.`);
   if (rawAmount && !/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(rawAmount)) {
     fail(`Enter a valid USD amount with up to two decimal places for dialogue ${index + 1}.`);
@@ -117,6 +135,10 @@ export async function saveLaytimeNegotiations(conn, laytimeId, userId, draft) {
   const byId = new Map(stored.map((row) => [row.id, row]));
   if (draft.ids.length !== byId.size || draft.ids.some((id) => !byId.has(id))) {
     fail('Negotiation rows must belong to this Laytime record and deletions must be explicit.');
+  }
+  if (draft.deletedIds.some((id) => byId.get(id).status === 'COMPLETED')
+    || draft.rows.some(({ id, status }) => byId.get(id)?.status === 'COMPLETED' && status !== 'COMPLETED')) {
+    fail('Completed dialogues must be retained and stay completed.', 409);
   }
 
   for (const id of draft.deletedIds) {

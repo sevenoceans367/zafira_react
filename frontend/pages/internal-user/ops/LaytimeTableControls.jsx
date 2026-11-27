@@ -8,7 +8,7 @@ export function TableRowActions({ locked, onInsert, onDelete }) {
   return (
     <RowActions>
       <RowAddButton title="Insert row below" onClick={onInsert} />
-      <RowDelButton onClick={onDelete} />
+      {onDelete && <RowDelButton onClick={onDelete} />}
     </RowActions>
   );
 }
